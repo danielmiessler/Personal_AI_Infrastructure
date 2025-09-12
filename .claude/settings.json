@@ -119,7 +119,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun /Users/daniel/.claude/hooks/load-dynamic-requirements.ts"
+            "command": "bun ~/.claude/hooks/load-dynamic-requirements.ts"
           }
         ]
       }
@@ -129,7 +129,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun /Users/daniel/.claude/hooks/session-start-hook.ts"
+            "command": "bun ~/.claude/hooks/session-start-hook.ts"
           }
         ]
       }
@@ -139,7 +139,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun /Users/daniel/.claude/hooks/stop-hook.ts"
+            "command": "bun ~/.claude/hooks/stop-hook.ts"
           }
         ]
       }
@@ -149,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun /Users/daniel/.claude/hooks/subagent-stop-hook.ts"
+            "command": "bun ~/.claude/hooks/subagent-stop-hook.ts"
           }
         ]
       }
@@ -160,7 +160,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun /Users/daniel/.claude/hooks/context-compression-hook.ts"
+            "command": "bun ~/.claude/hooks/context-compression-hook.ts"
           }
         ]
       }
@@ -168,7 +168,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash /Users/daniel/.claude/statusline-command.sh"
+    "command": "bash ~/.claude/statusline-command.sh"
   },
   "feedbackSurveyState": {
     "lastShownTime": 1754071370324

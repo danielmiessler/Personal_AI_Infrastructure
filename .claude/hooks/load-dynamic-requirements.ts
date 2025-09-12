@@ -48,7 +48,7 @@ async function main() {
     const data: HookInput = JSON.parse(input);
     
     // Read the markdown file with instructions from commands directory
-    const mdPath = '/Users/daniel/.claude/commands/load-dynamic-requirements.md';
+    const mdPath = '~/.claude/commands/load-dynamic-requirements.md';
     const mdContent = readFileSync(mdPath, 'utf-8');
     
     // Output the markdown content to stdout

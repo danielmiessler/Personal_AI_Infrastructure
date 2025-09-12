@@ -121,6 +121,7 @@ ls -lah
 ### **Prerequisites**
 
 - [Claude Code](https://claude.ai/code) - The primary AI interface, which can be any similar system
+- [Bun](https://bun.com/) - Execute commands and hooks
 - Text editor (any will work - it's all Markdown/Text!)
 - Ideal: Basic command line familiarity
 

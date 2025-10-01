@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/danielmiessler-pai-badge.png)](https://mseep.ai/app/danielmiessler-pai)
+
 <div align="center">
 
 <picture>

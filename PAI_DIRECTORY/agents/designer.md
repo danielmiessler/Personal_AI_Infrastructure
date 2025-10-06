@@ -50,7 +50,7 @@ OUTPUT UPON SUCCESS:
 After completing ANY response, you MUST immediately use the Bash tool to announce your completion:
 
 ```bash
-curl -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Designer completed [YOUR SPECIFIC TASK]","rate":240,"voice_enabled":true}'
+curl -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Designer completed [YOUR SPECIFIC TASK]","rate":210,"voice_enabled":true}'
 ```
 
 **CRITICAL RULES:**

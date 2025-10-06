@@ -158,13 +158,13 @@ try {
   VOICE_CONFIG = {
     default_rate: 175,
     voices: {
-      kai: { voice_name: "Jamie (Premium)", rate_wpm: 228, rate_multiplier: 1.3, description: "UK Male", type: "Premium" },
-      researcher: { voice_name: "Ava (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Premium" },
-      engineer: { voice_name: "Tom (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Male", type: "Enhanced" },
-      architect: { voice_name: "Serena (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "UK Female", type: "Premium" },
-      designer: { voice_name: "Isha (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "Indian Female", type: "Premium" },
-      pentester: { voice_name: "Oliver (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "UK Male", type: "Enhanced" },
-      writer: { voice_name: "Samantha (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Enhanced" }
+      kai: { voice_name: "Jamie (Premium)", rate_wpm: 210, rate_multiplier: 1.2, description: "UK Male", type: "Premium" },
+      researcher: { voice_name: "Ava (Premium)", rate_wpm: 210, rate_multiplier: 1.2, description: "US Female", type: "Premium" },
+      engineer: { voice_name: "Tom (Enhanced)", rate_wpm: 210, rate_multiplier: 1.2, description: "US Male", type: "Enhanced" },
+      architect: { voice_name: "Serena (Premium)", rate_wpm: 210, rate_multiplier: 1.2, description: "UK Female", type: "Premium" },
+      designer: { voice_name: "Isha (Premium)", rate_wpm: 210, rate_multiplier: 1.2, description: "Indian Female", type: "Premium" },
+      pentester: { voice_name: "Oliver (Enhanced)", rate_wpm: 210, rate_multiplier: 1.2, description: "UK Male", type: "Enhanced" },
+      writer: { voice_name: "Samantha (Enhanced)", rate_wpm: 210, rate_multiplier: 1.2, description: "US Female", type: "Enhanced" }
     }
   };
 }

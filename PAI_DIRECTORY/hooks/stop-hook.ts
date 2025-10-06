@@ -144,18 +144,21 @@ interface VoicesConfig {
   voices: Record<string, VoiceConfig>;
 }
 
-// Load voices configuration
+// Load voices configuration from PAI_DIR
 let VOICE_CONFIG: VoicesConfig;
 try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
+  const paiDir = process.env.PAI_DIR || `${homedir()}/.claude`;
+  const voicesPath = join(paiDir, 'voice-server/voices.json');
   VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
+  console.error(`✅ Loaded voice config from: ${voicesPath}`);
 } catch (e) {
   // Fallback to hardcoded config if file doesn't exist
-  console.error('⚠️ Could not load voices.json, using fallback config');
+  console.error('⚠️ Could not load voices.json from PAI_DIR, using fallback config');
+  console.error(`⚠️ Error: ${e}`);
   VOICE_CONFIG = {
     default_rate: 175,
     voices: {
-      kai: { voice_name: "Jamie (Premium)", rate_wpm: 263, rate_multiplier: 1.5, description: "UK Male", type: "Premium" },
+      kai: { voice_name: "Jamie (Premium)", rate_wpm: 228, rate_multiplier: 1.3, description: "UK Male", type: "Premium" },
       researcher: { voice_name: "Ava (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Premium" },
       engineer: { voice_name: "Tom (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Male", type: "Enhanced" },
       architect: { voice_name: "Serena (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "UK Female", type: "Premium" },

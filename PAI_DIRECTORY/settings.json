@@ -3,8 +3,7 @@
   "env": {
     "MCP_API_KEY": "REDACTED",
     "DISABLE_INTERLEAVED_THINKING": "true",
-    "DA": "Kai",
-    "PAI_DIR": "/Users/daniel/.claude"
+    "DA": "Kai"
   },
   "permissions": {
     "allow": [

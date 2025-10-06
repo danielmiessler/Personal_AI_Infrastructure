@@ -1,18 +1,46 @@
 #!/usr/bin/env bun
 
 import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 
-// Voice mappings for different agent types
-const AGENT_VOICE_IDS: Record<string, string> = {
-  researcher: 'AXdMgz6evoL7OPd7eU12',
-  pentester: 'hmMWXCj9K7N5mCPcRkfC',
-  engineer: 'kmSVBPu7loj4ayNinwWM',
-  designer: 'ZF6FPAbjXT4488VcRRnw',
-  architect: 'muZKMsIDGYtIkjjiUS82',
-  writer: 'gfRt6Z3Z8aTbpLfexQ7N',
-  kai: 'jqcCZkN6Knx8BJ5TBdYR',
-  default: 'jqcCZkN6Knx8BJ5TBdYR'
-};
+// Voice configuration interface
+interface VoiceConfig {
+  voice_name: string;
+  rate_wpm: number;
+  rate_multiplier: number;
+  description: string;
+  type: string;
+}
+
+interface VoicesConfig {
+  default_rate: number;
+  voices: Record<string, VoiceConfig>;
+}
+
+// Load voice configuration from voices.json
+let VOICE_CONFIG: VoicesConfig;
+try {
+  const paiDir = process.env.PAI_DIR || `${homedir()}/.claude`;
+  const voicesPath = join(paiDir, 'voice-server/voices.json');
+  VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
+  console.error(`✅ Loaded voice config from: ${voicesPath}`);
+} catch (e) {
+  // Fallback to hardcoded config if file doesn't exist
+  console.error('⚠️ Could not load voices.json, using fallback config');
+  VOICE_CONFIG = {
+    default_rate: 175,
+    voices: {
+      researcher: { voice_name: 'Ava (Premium)', rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Premium" },
+      pentester: { voice_name: 'Oliver (Enhanced)', rate_wpm: 236, rate_multiplier: 1.35, description: "UK Male", type: "Enhanced" },
+      engineer: { voice_name: 'Tom (Enhanced)', rate_wpm: 236, rate_multiplier: 1.35, description: "US Male", type: "Enhanced" },
+      designer: { voice_name: 'Isha (Premium)', rate_wpm: 236, rate_multiplier: 1.35, description: "Indian Female", type: "Premium" },
+      architect: { voice_name: 'Serena (Premium)', rate_wpm: 236, rate_multiplier: 1.35, description: "UK Female", type: "Premium" },
+      writer: { voice_name: 'Samantha (Enhanced)', rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Enhanced" },
+      kai: { voice_name: 'Jamie (Premium)', rate_wpm: 228, rate_multiplier: 1.3, description: "UK Male", type: "Premium" }
+    }
+  };
+}
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -276,6 +304,8 @@ async function main() {
   
   // Send to notification server
   try {
+    const voiceConfig = VOICE_CONFIG.voices[finalAgentType] || VOICE_CONFIG.voices.kai;
+
     await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -284,11 +314,12 @@ async function main() {
         message: fullMessage,
         voice_enabled: true,
         agent_type: finalAgentType,
-        voice_id: AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default
+        voice_name: voiceConfig.voice_name,
+        rate: voiceConfig.rate_wpm
       })
     });
-    
-    console.log(`✅ Sent: [${agentName}] ${fullMessage}`);
+
+    console.log(`✅ Sent: [${agentName}] ${fullMessage} with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm`);
   } catch (e) {
     console.error('Failed to send notification:', e);
   }

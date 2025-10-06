@@ -1,9 +1,34 @@
 #!/usr/bin/env bun
 
-import { existsSync, statSync } from 'fs';
+import { existsSync, statSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+// Load voice configuration from voices.json
+function loadVoiceConfig(): { voice_name: string; rate: number } {
+  try {
+    const paiDir = process.env.PAI_DIR || `${homedir()}/.claude`;
+    const voicesPath = join(paiDir, 'voice-server/voices.json');
+    const config = JSON.parse(readFileSync(voicesPath, 'utf-8'));
+    const kaiVoice = config.voices.kai;
+    return {
+      voice_name: kaiVoice.voice_name,
+      rate: kaiVoice.rate_wpm
+    };
+  } catch (e) {
+    // Fallback if voices.json doesn't exist
+    console.error('⚠️  Could not load voices.json, using fallback voice');
+    return {
+      voice_name: 'Jamie (Premium)',
+      rate: 228
+    };
+  }
+}
 
 async function sendNotification(title: string, message: string, priority: string = 'normal') {
   try {
+    const voiceConfig = loadVoiceConfig();
+
     const response = await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: {
@@ -14,7 +39,8 @@ async function sendNotification(title: string, message: string, priority: string
         message,
         voice_enabled: true,
         priority,
-        voice_id: 'jqcCZkN6Knx8BJ5TBdYR'  // Assistant's voice ID
+        voice_name: voiceConfig.voice_name,
+        rate: voiceConfig.rate
       }),
     });
 

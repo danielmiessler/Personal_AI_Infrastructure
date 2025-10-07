@@ -36,9 +36,23 @@
 ## 🚀 **Recent Updates**
 
 > [!TIP]
-> **[🎉 v0.2.3 Released!](https://github.com/danielmiessler/PAI/releases/tag/v0.2.3)** - Complete Visibility & Portability Update
+> **[🎉 v0.2.4 Released!](https://github.com/danielmiessler/PAI/releases/tag/v0.2.4)** - README Cleanup & Organization
+
+<details>
+<summary><strong>Click to see all updates</strong></summary>
 
 <details open>
+<summary><strong>📅 October 6, 2025 - README Cleanup & Organization (v0.2.4)</strong></summary>
+
+- 📂 **Collapsed Updates**: Implemented two-level collapsing structure for updates section
+- 🎯 **Better Navigation**: Reduced visual clutter with nested `<details>` tags
+- 🧹 **Issue Management**: Closed PR #24 (voice system) after recent system changes
+- 📊 **Space Optimization**: Updates section now takes minimal vertical space
+- ✅ **Accessibility**: All information still accessible through intuitive collapse/expand
+
+</details>
+
+<details>
 <summary><strong>📅 October 2, 2025 - Voice System Update</strong></summary>
 
 - 🎙️ **Zero-Cost Voice System**: Migrated from ElevenLabs API to macOS native Premium/Enhanced voices
@@ -138,10 +152,12 @@
 - 🔧 Fixed hardcoded path issues
 - 🪝 Working on missing hooks
 
-**September 12, 2025**  
+**September 12, 2025**
 - 🧠 Dynamic resource loading system
 - ⚡ Submit-user-hook for context loading
 - 🗺️ Dynamic routing via load-dynamic-requirements
+
+</details>
 
 </details>
 

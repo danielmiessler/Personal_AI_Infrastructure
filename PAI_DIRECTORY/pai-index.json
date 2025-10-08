@@ -1,0 +1,435 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "generated": "2025-10-08T20:47:46.562Z",
+    "directories": [
+      "/Users/nbost/dev/PAI/PAI_DIRECTORY/commands",
+      "/Users/nbost/.config/ai/commands"
+    ],
+    "totalCommands": 24
+  },
+  "commands": [
+    {
+      "name": "capture-learning",
+      "path": "/Users/nbost/dev/PAI/PAI_DIRECTORY/commands/capture-learning.ts",
+      "type": "executable",
+      "extension": ".ts",
+      "purpose": "capture-learning command",
+      "description": "capture-learning command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "path",
+        "readline"
+      ],
+      "lastModified": "2025-10-05T22:43:16.064Z",
+      "size": 5227,
+      "health": "broken",
+      "executable": true
+    },
+    {
+      "name": "capture-learning",
+      "path": "/Users/nbost/dev/PAI/PAI_DIRECTORY/commands/capture-learning.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "This command captures the full narrative of problem-solving: what we thought was true, what we discovered was actually true, the troubleshooting journey, and the lessons learned. This narrative format makes it easy to harvest insights for updating documentation, commands, or pipelines.",
+      "description": "capture-learning command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-05T22:43:16.064Z",
+      "size": 3100,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "format-scripture",
+      "path": "/Users/nbost/.config/ai/commands/format-scripture.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* This command normalizes scripture references in a given file or directory to the Obsidian wiki-link format (e.g., `Romans 8:28` becomes `[[Romans 8]]:28`). It acts as a wrapper for the more comprehensive `normalize-scripture-refs.ts` script.",
+      "description": "format-scripture command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "bun"
+      ],
+      "lastModified": "2025-10-08T18:33:14.317Z",
+      "size": 1779,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "generate-dataview",
+      "path": "/Users/nbost/.config/ai/commands/generate-dataview.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "Generates Dataview queries from plain English descriptions, following best practices and avoiding common gotchas.",
+      "description": "generate-dataview command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T02:20:59.000Z",
+      "size": 9258,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "load-dynamic-requirements",
+      "path": "/Users/nbost/dev/PAI/PAI_DIRECTORY/commands/load-dynamic-requirements.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "load-dynamic-requirements command",
+      "description": "load-dynamic-requirements command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-05T22:43:16.064Z",
+      "size": 11830,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "load-dynamic-requirements",
+      "path": "/Users/nbost/.config/ai/commands/load-dynamic-requirements.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "load-dynamic-requirements command",
+      "description": "load-dynamic-requirements command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-07T22:42:38.424Z",
+      "size": 12182,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "mithrandir-status",
+      "path": "/Users/nbost/.config/ai/commands/mithrandir-status.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "Perform a comprehensive health check of the Mithrandir server and audio processing pipeline. Reports connectivity, disk space, service status, sync status, and any issues requiring attention.",
+      "description": "mithrandir-status command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T15:21:18.000Z",
+      "size": 4151,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "mithrandir-sync",
+      "path": "/Users/nbost/.config/ai/commands/mithrandir-sync.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "Manually trigger audio file sync from local Mac to Mithrandir server, with comprehensive error handling, pre-flight checks, and status reporting. Useful for urgent syncs or troubleshooting the automated sync process.",
+      "description": "mithrandir-sync command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T15:21:35.000Z",
+      "size": 8352,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "obsidian-commit",
+      "path": "/Users/nbost/.config/ai/commands/obsidian-commit.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* This command automates the process of committing changes to the Obsidian vault. It analyzes the changed files to generate an intelligent, conventional commit message, stages the files, and performs the commit.",
+      "description": "obsidian-commit command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "bun",
+        "process"
+      ],
+      "lastModified": "2025-10-08T18:33:53.534Z",
+      "size": 4411,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "obsidian-note",
+      "path": "/Users/nbost/.config/ai/commands/obsidian-note.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "Create a new note in the correct location within the LYT Ideaverse vault structure. Automatically determines proper placement based on note type, creates with appropriate frontmatter, and optionally links to related notes or MOCs.",
+      "description": "obsidian-note command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T14:27:51.000Z",
+      "size": 9954,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "pai-audit",
+      "path": "/Users/nbost/.config/ai/commands/pai-audit.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* Performs a comprehensive audit of all PAI commands across multiple directories.",
+      "description": "pai-audit command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "path",
+        "os",
+        "child_process"
+      ],
+      "lastModified": "2025-10-08T18:58:51.115Z",
+      "size": 10719,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "pai-commit",
+      "path": "/Users/nbost/.config/ai/commands/pai-commit.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* This command automates committing changes to all PAI-related infrastructure repositories.",
+      "description": "pai-commit command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "bun",
+        "process"
+      ],
+      "lastModified": "2025-10-08T18:00:01.056Z",
+      "size": 2714,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "pai-diagnostics",
+      "path": "/Users/nbost/.config/ai/commands/pai-diagnostics.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* This command analyzes a single PAI command file and reports on its structure, type, and validity.",
+      "description": "pai-diagnostics command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "process"
+      ],
+      "lastModified": "2025-10-08T18:55:20.810Z",
+      "size": 7746,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "pai-index",
+      "path": "/Users/nbost/.config/ai/commands/pai-index.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* Generates and maintains a searchable index of all PAI commands.",
+      "description": "pai-index command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "path",
+        "os"
+      ],
+      "lastModified": "2025-10-08T18:58:11.676Z",
+      "size": 11422,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "pai-inventory",
+      "path": "/Users/nbost/.config/ai/commands/pai-inventory.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "List all available PAI resources (agents, commands, context files, reference docs) to help discover what exists before creating duplicates.",
+      "description": "pai-inventory command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T02:20:32.000Z",
+      "size": 8030,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "pai-scaffold",
+      "path": "/Users/nbost/.config/ai/commands/pai-scaffold.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* Interactive tool for creating properly structured PAI commands.",
+      "description": "pai-scaffold command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "path",
+        "os",
+        "readline",
+        "fs",
+        "path",
+        "fs",
+        "path"
+      ],
+      "lastModified": "2025-10-08T18:57:13.975Z",
+      "size": 11567,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "pai-system-audit",
+      "path": "/Users/nbost/.config/ai/commands/pai-system-audit.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* Performs a comprehensive audit of the entire PAI infrastructure including commands, hooks,",
+      "description": "pai-system-audit command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "path",
+        "os"
+      ],
+      "lastModified": "2025-10-08T19:10:27.488Z",
+      "size": 12898,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "project-inventory",
+      "path": "/Users/nbost/.config/ai/commands/project-inventory.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "Automatically scan project directories and update the project inventory reference to keep it current when directory structure changes.",
+      "description": "project-inventory command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T00:18:39.000Z",
+      "size": 5588,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "readwise-cleanup",
+      "path": "/Users/nbost/.config/ai/commands/readwise-cleanup.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* A command to clean up and format Readwise highlight files located in the Obsidian vault by running an external script.",
+      "description": "readwise-cleanup command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "bun"
+      ],
+      "lastModified": "2025-10-08T18:35:54.612Z",
+      "size": 1195,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "scaffold-cli",
+      "path": "/Users/nbost/.config/ai/commands/scaffold-cli.ts",
+      "type": "executable",
+      "extension": ".ts",
+      "purpose": "scaffold-cli command",
+      "description": "scaffold-cli command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "fs/promises",
+        "path"
+      ],
+      "lastModified": "2025-10-06T18:01:00.000Z",
+      "size": 3098,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "sync-ai-configs",
+      "path": "/Users/nbost/.config/ai/commands/sync-ai-configs.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* A command to check and validate that the core AI configuration files (`base-config.md`, `CLAUDE.md`, `GEMINI.md`) are properly synchronized and structured.",
+      "description": "sync-ai-configs command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs",
+        "path"
+      ],
+      "lastModified": "2025-10-08T18:36:07.114Z",
+      "size": 3953,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "sync-mcp-to-gemini",
+      "path": "/Users/nbost/.config/ai/commands/sync-mcp-to-gemini.md",
+      "type": "hybrid",
+      "extension": ".md",
+      "purpose": "* A command to synchronize MCP server configurations from the central `.mcp.json` file to the Gemini-specific settings file.",
+      "description": "sync-mcp-to-gemini command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [
+        "fs"
+      ],
+      "lastModified": "2025-10-08T18:36:13.124Z",
+      "size": 1404,
+      "health": "healthy",
+      "executable": true
+    },
+    {
+      "name": "validate-dataview",
+      "path": "/Users/nbost/.config/ai/commands/validate-dataview.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "Validates a Dataview query for common issues and suggests improvements before you deploy it in your Obsidian vault.",
+      "description": "validate-dataview command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-06T02:14:22.000Z",
+      "size": 4639,
+      "health": "healthy",
+      "executable": false
+    },
+    {
+      "name": "web-research",
+      "path": "/Users/nbost/dev/PAI/PAI_DIRECTORY/commands/web-research.md",
+      "type": "instructional",
+      "extension": ".md",
+      "purpose": "web-research command",
+      "description": "web-research command description",
+      "usage": [],
+      "tags": [],
+      "dependencies": [],
+      "lastModified": "2025-10-05T22:43:16.064Z",
+      "size": 1111,
+      "health": "healthy",
+      "executable": false
+    }
+  ],
+  "statistics": {
+    "byType": {
+      "instructional": 11,
+      "executable": 2,
+      "hybrid": 11
+    },
+    "byHealth": {
+      "healthy": 23,
+      "broken": 1
+    },
+    "totalSize": 156328,
+    "averageSize": 6514,
+    "lastUpdated": "2025-10-08T20:47:46.562Z"
+  }
+}

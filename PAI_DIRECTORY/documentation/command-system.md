@@ -181,7 +181,37 @@ Perplexity AI integration for web research queries.
 **Usage**: Via API calls with PERPLEXITY_API_KEY
 **Function**: External research and information gathering
 
+### Meta-Commands (PAI Development Kit)
 
+#### pai-diagnostics
+Analyzes individual command files for structural integrity and compliance.
+
+**Usage**: `bun ${PAI_DIR}/commands/pai-diagnostics.md /path/to/command.md`
+**Function**: Validates command structure, detects issues, reports health status
+
+#### pai-audit
+Performs comprehensive system-wide audit of all PAI commands.
+
+**Usage**: `bun ${PAI_DIR}/commands/pai-audit.md [--verbose] [--json]`
+**Function**: Scans all command directories, detects duplicates, generates health reports
+
+#### pai-scaffold
+Interactive tool for creating properly structured PAI commands.
+
+**Usage**: `bun ${PAI_DIR}/commands/pai-scaffold.md [--name=cmd --type=hybrid]`
+**Function**: Generates boilerplate code following PAI patterns and best practices
+
+#### pai-index
+Generates and maintains a searchable index of all PAI commands.
+
+**Usage**: `bun ${PAI_DIR}/commands/pai-index.md --generate`
+**Function**: Creates pai-index.json with metadata, enables command discovery and search
+
+#### pai-system-audit
+Performs comprehensive audit of the entire PAI infrastructure ecosystem.
+
+**Usage**: `bun ${PAI_DIR}/commands/pai-system-audit.md [--health-check]`
+**Function**: Audits commands, hooks, agents, voice server, context system, configuration, and documentation
 
 ## 🎯 Best Practices
 

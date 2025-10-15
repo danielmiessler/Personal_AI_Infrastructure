@@ -533,7 +533,11 @@ export PAI_HOME="$HOME"  # Your home directory
 # export PAI_DIR="$HOME/Projects/PAI/PAI_DIRECTORY"
 # export PAI_DIR="$HOME/Documents/PAI/PAI_DIRECTORY"
 # export PAI_DIR="/Users/yourname/PAI/PAI_DIRECTORY"
+```
 
+Now you must reload your shell configuration for the changes to take effect.
+
+```bash
 # Reload your shell configuration
 source ~/.zshrc  # or source ~/.bashrc
 ```

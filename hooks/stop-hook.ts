@@ -147,7 +147,8 @@ interface VoicesConfig {
 // Load voices configuration
 let VOICE_CONFIG: VoicesConfig;
 try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
+  const paiDir = process.env.PAI_DIR || join(homedir(), 'PAI');
+  const voicesPath = join(paiDir, 'voice-server/voices.json');
   VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
 } catch (e) {
   // Fallback to hardcoded config if file doesn't exist

@@ -36,7 +36,7 @@
       "Bash(diskutil coreStorage)",
       "Bash(diskutil cs)",
       "Bash(diskutil disableJournal)",
-      "Bash(diskutil resetFusion",       
+      "Bash(diskutil resetFusion)",
       "Bash(diskutil disableOwnership)",
       "Bash(diskutil apfs deleteContainer)",
       "Bash(diskutil apfs eraseVolume)",

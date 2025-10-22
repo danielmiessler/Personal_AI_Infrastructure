@@ -1,0 +1,14 @@
+{
+"name": "PAI-marketplace",
+"description": "Marketplace for everything PAI",
+"owner": {
+"name": "evenromo"
+},
+"plugins": [
+{
+  "name": "pai-boilerplate",
+  "source": "./pai-plugin",
+  "description": "The boilerplate for PAI - The Open-source personal AI infrastructure for orchestrating your life and work"
+}
+]
+}

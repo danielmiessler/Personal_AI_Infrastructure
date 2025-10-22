@@ -48,7 +48,7 @@ if [ -d "$services_dir" ]; then
 fi
 
 # Count Fabric patterns (optimized - count subdirectories)
-fabric_patterns_dir="${HOME}/.config/fabric/patterns"
+fabric_patterns_dir="${HOME}/.claude/skills/fabric/fabric-repo/data/patterns"
 if [ -d "$fabric_patterns_dir" ]; then
     # Count immediate subdirectories only
     fabric_count=$(find "$fabric_patterns_dir" -maxdepth 1 -type d -not -path "$fabric_patterns_dir" 2>/dev/null | wc -l | tr -d ' ')

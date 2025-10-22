@@ -33,7 +33,7 @@ fi
 
 # Count MCPs from .mcp.json (single parse)
 mcp_names_raw=""
-if [ -f "$claude_dir/settings.json" ]; then
+if [ -f "$claude_dir/.mcp.json" ]; then
     mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/.mcp.json" 2>/dev/null)
     mcp_names_raw=$(echo "$mcp_data" | head -1)
     mcps_count=$(echo "$mcp_data" | tail -1)

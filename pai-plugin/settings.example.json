@@ -1,0 +1,73 @@
+{
+  "_comment": "Copy this file to ~/.claude/settings.json and customize the values. The hooks configuration is now in the plugin's hooks/hooks.json file.",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "MCP_API_KEY": "[YOUR_MCP_API_KEY_HERE]",
+    "DISABLE_INTERLEAVED_THINKING": "true",
+    "DA": "[YOUR_ASSISTANT_NAME]",
+    "PAI_DIR": "$HOME/.claude",
+    "ENABLE_VOICE": "false",
+    "VOICE_SERVER_URL": "http://localhost:8888",
+    "VOICE_ENABLED_AGENTS": "engineer,architect,designer,researcher"
+  },
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "MultiEdit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "LS(*)",
+      "WebFetch(domain:*)",
+      "WebSearch",
+      "NotebookRead(*)",
+      "NotebookEdit(*)",
+      "TodoWrite(*)",
+      "ExitPlanMode(*)",
+      "Task(*)",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(diskutil partitionDisk)",
+      "Bash(diskutil eraseDisk)",
+      "Bash(diskutil eraseVolume)",
+      "Bash(diskutil reformat)",
+      "Bash(diskutil zeroDisk)",
+      "Bash(diskutil appleRAID)",
+      "Bash(diskutil randomDisk)",
+      "Bash(diskutil coreStorage)",
+      "Bash(diskutil cs)",
+      "Bash(diskutil disableJournal)",
+      "Bash(diskutil resetFusion)",
+      "Bash(diskutil disableOwnership)",
+      "Bash(diskutil apfs deleteContainer)",
+      "Bash(diskutil apfs eraseVolume)",
+      "Bash(diskutil apfs decryptVolume)",
+      "Bash(diskutil apfs changePassphrase)",
+      "Bash(diskutil apfs deleteVolume)",
+      "Bash(diskutil apfs deleteVolumeGroup)",
+      "Bash(diskutil apfs deleteSnapshot)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf $HOME)",
+      "Bash(rm -rf $PAI_HOME)",
+      "Bash(rm -rf $PAI_DIR)",
+      "Bash(sudo rm -rf /)",
+      "Bash(sudo rm -rf /*)",
+      "Bash(fork bomb)",
+      "Bash(dd if=/dev/zero of=/dev/sda)",
+      "Bash(mkfs.ext4 /dev/sda)",
+      "Bash( /dev/sda)",
+      "Bash(> /dev/sda)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [],
+  "statusLine": {
+    "type": "command",
+    "command": "bash ${PAI_DIR}/statusline-command.sh"
+  }
+}

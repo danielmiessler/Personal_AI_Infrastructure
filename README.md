@@ -28,15 +28,26 @@
 ## 🚀 **Recent Updates**
 
 > [!IMPORTANT]
-> **🔥 v0.6.0 MAJOR UPGRADE:** Repository completely restructured with `.claude/` directory!
+> **🎉 v0.7.0 PLUGIN WRAPPER RELEASE:** PAI-Boilerplate is now a proper Claude Code plugin!
 >
-> **BREAKING CHANGE - Repository Structure Changed:**
+> **NEW - 5-Minute Installation:**
+> - ✅ Automated setup with `./install.sh`
+> - ✅ Template-based configuration (no personal data in repo)
+> - ✅ Voice notifications now optional and configurable
+> - ✅ Standards-compliant with `${CLAUDE_PLUGIN_ROOT}`
+> - ✅ Comprehensive documentation (INSTALL.md, QUICKSTART.md, CONTRIBUTING.md)
+>
+> **Quick Install:**
+> ```bash
+> cd pai-plugin && ./install.sh
+> ```
+>
+> [See full changelog →](./CHANGELOG.md)
+
+> [!NOTE]
+> **Previous v0.6.0:** Repository restructured with `.claude/` directory
 > - All PAI infrastructure now lives in `.claude/` directory
-> - Repository now properly mirrors your actual `~/.claude/` working system
-> - Fixes major compatibility issues reported by users
-> - **Action Required:** New installations should copy `.claude/` to `~/.claude/`
->
-> [See full changelog below →](#-recent-updates)
+> - Repository mirrors actual `~/.claude/` working system
 
 <details>
 <summary><strong>📅 Click to see all updates</strong></summary>

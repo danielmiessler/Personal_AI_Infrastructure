@@ -567,6 +567,9 @@ async function main() {
   }
 
   console.error(`🎬 STOP-HOOK COMPLETED SUCCESSFULLY at ${new Date().toISOString()}\n`);
+
+  // Force immediate exit to prevent hanging on open handles
+  process.exit(0);
 }
 
 main().catch(() => {});

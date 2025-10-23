@@ -323,6 +323,9 @@ async function main() {
   } else {
     console.log(`🔇 Voice notifications disabled (ENABLE_VOICE not set to true)`);
   }
+
+  // Force immediate exit to prevent hanging on open handles
+  process.exit(0);
 }
 
 main().catch(console.error);

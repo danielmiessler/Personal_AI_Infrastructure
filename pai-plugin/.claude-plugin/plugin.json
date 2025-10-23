@@ -6,10 +6,7 @@
     "name": "evenromo"
   },
   "homepage": "https://github.com/evenromo/PAI-Boilerplate",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/evenromo/PAI-Boilerplate.git"
-  },
+  "repository": "https://github.com/evenromo/PAI-Boilerplate.git",
   "license": "MIT",
   "keywords": [
     "pai",

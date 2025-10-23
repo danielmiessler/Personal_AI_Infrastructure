@@ -20,21 +20,22 @@ LOCK_FILE="/tmp/.claude_ccusage.lock"
 CACHE_AGE=30   # 30 seconds for more real-time updates
 
 # Count items from specified directories
-claude_dir="${PAI_DIR:-$HOME/.claude}"
+claude_dir="${CLAUDE_PLUGIN_ROOT}"
 commands_count=0
 mcps_count=0
 fobs_count=0
 fabric_count=0
 
 # Count commands (optimized - direct ls instead of find)
-if [ -d "$claude_dir/commands" ]; then
+if [ -n "$claude_dir" ] && [ -d "$claude_dir/commands" ]; then
     commands_count=$(ls -1 "$claude_dir/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
 fi
 
 # Count MCPs from settings.json (single parse)
 mcp_names_raw=""
-if [ -f "$claude_dir/settings.json" ]; then
-    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/settings.json" 2>/dev/null)
+settings_file="$HOME/.claude/settings.json"
+if [ -f "$settings_file" ]; then
+    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$settings_file" 2>/dev/null)
     mcp_names_raw=$(echo "$mcp_data" | head -1)
     mcps_count=$(echo "$mcp_data" | tail -1)
 else

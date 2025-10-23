@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Plugin Configuration**: Corrected hooks.json schema format with proper "hooks" wrapper object (cfec221)
+- **Path Migration**: Completed migration from `${PAI_DIR}` to `${CLAUDE_PLUGIN_ROOT}` in all hooks and scripts (9b71a38)
+  - Updated load-core-context.ts to use CLAUDE_PLUGIN_ROOT for PAI skill path
+  - Updated initialize-pai-session.ts to use CLAUDE_PLUGIN_ROOT for stop-hook path
+  - Updated load-dynamic-requirements.ts to use CLAUDE_PLUGIN_ROOT for command path
+  - Updated update-tab-titles.ts to use CLAUDE_PLUGIN_ROOT for hook script path
+- **Statusline Configuration**: Reverted statusline-command.sh to use `~/.claude/` directory as it displays user's global Claude Code setup, not plugin resources (fde9cb7)
+- **Hook Cleanup**: Added `process.exit(0)` to Stop and SubagentStop hooks to prevent hanging on open handles
+
+### Changed
+- **Documentation**: Updated INSTALL.md to remove deprecated PAI_DIR reference
+- **Documentation**: Updated CONTRIBUTING.md with correct hooks.json schema format and process.exit(0) guidance
+
+---
+
 ## [0.7.0] - 2025-01-23 - Plugin Wrapper Release 🎉
 
 ### Major Changes

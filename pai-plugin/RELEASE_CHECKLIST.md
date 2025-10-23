@@ -21,7 +21,14 @@
 ### Files
 - [ ] plugin.json has correct version (0.7.0)
 - [ ] hooks.json properly configured
-- [ ] settings.example.json has all required fields
+  - [ ] Has top-level "hooks" wrapper object
+  - [ ] All command paths use ${CLAUDE_PLUGIN_ROOT}
+  - [ ] Valid JSON structure (validate with `jq .`)
+- [ ] Stop hooks have process.exit(0) to prevent hanging
+  - [ ] stop-hook.ts contains process.exit(0)
+  - [ ] subagent-stop-hook.ts contains process.exit(0)
+- [ ] No references to deprecated ${PAI_DIR} variable
+- [ ] settings.example.json has all required fields (DA only, no PAI_DIR)
 - [ ] .mcp.example.json has all servers
 - [ ] LICENSE file present
 - [ ] .gitignore excludes personal data

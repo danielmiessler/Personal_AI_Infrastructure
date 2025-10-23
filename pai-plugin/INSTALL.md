@@ -101,11 +101,12 @@ Edit `~/.claude/settings.json`:
 ```json
 {
   "env": {
-    "DA": "Kai",
-    "PAI_DIR": "$HOME/.claude"
+    "DA": "Kai"
   }
 }
 ```
+
+> **Note:** `CLAUDE_PLUGIN_ROOT` is automatically set by Claude Code and points to the plugin installation directory. You don't need to configure it manually.
 
 #### Optional
 ```json

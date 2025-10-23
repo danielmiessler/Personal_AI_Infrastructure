@@ -172,6 +172,30 @@ pkill -f "bun server.ts"
 ✅ Context templates found
 ```
 
+#### Test 4.2: hooks.json Schema Validation
+```bash
+# Verify hooks.json structure:
+cat pai-plugin/hooks/hooks.json | jq '.'
+
+# Expected:
+✅ Top-level "hooks" wrapper object exists
+✅ All hook types (SessionStart, Stop, etc.) are inside "hooks" object
+✅ Valid JSON structure with proper nesting
+✅ All command paths use ${CLAUDE_PLUGIN_ROOT}
+```
+
+#### Test 4.3: Hook Cleanup Validation
+```bash
+# Check Stop hooks have proper exit handling:
+grep -n "process.exit(0)" pai-plugin/hooks/stop-hook.ts
+grep -n "process.exit(0)" pai-plugin/hooks/subagent-stop-hook.ts
+
+# Expected:
+✅ stop-hook.ts contains process.exit(0) at end
+✅ subagent-stop-hook.ts contains process.exit(0) at end
+✅ Hooks complete without hanging
+```
+
 ---
 
 ## Validation Checklist

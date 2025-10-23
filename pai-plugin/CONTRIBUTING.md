@@ -158,18 +158,22 @@ PAI-Boilerplate/
 2. **Register in hooks.json:**
    ```json
    {
-     "SessionStart": [
-       {
-         "hooks": [
-           {
-             "type": "command",
-             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/my-hook.ts"
-           }
-         ]
-       }
-     ]
+     "hooks": {
+       "SessionStart": [
+         {
+           "hooks": [
+             {
+               "type": "command",
+               "command": "${CLAUDE_PLUGIN_ROOT}/hooks/my-hook.ts"
+             }
+           ]
+         }
+       ]
+     }
    }
    ```
+
+   > **Note:** All hook registrations must be wrapped in a top-level `"hooks"` object. See `hooks/hooks.json` for complete schema.
 
 3. **Implement hook:**
    ```typescript
@@ -184,7 +188,12 @@ PAI-Boilerplate/
 
    // Output result (optional)
    console.log(JSON.stringify({ result: "success" }));
+
+   // Force exit to prevent hanging on open handles (recommended for Stop hooks)
+   process.exit(0);
    ```
+
+   > **Important:** For Stop and SessionEnd hooks, add `process.exit(0)` at the end to prevent the hook from hanging due to open handles (e.g., HTTP connections, timers).
 
 ---
 

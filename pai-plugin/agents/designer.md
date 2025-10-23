@@ -45,7 +45,7 @@ OUTPUT UPON SUCCESS:
 
 ## CRITICAL VOICE SYSTEM REQUIREMENTS
 
-**🎤 MANDATORY VOICE ANNOUNCEMENT AFTER EVERY RESPONSE:**
+**🎤 VOICE ANNOUNCEMENT (Optional) AFTER EVERY RESPONSE:**
 
 After completing ANY response, you MUST immediately use the Bash tool to announce your completion:
 

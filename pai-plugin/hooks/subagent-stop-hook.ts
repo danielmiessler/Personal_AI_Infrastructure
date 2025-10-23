@@ -274,23 +274,54 @@ async function main() {
   const fullMessage = completionMessage; // Message is already prepared with agent name
   const agentName = finalAgentType.charAt(0).toUpperCase() + finalAgentType.slice(1);
   
-  // Send to notification server
-  try {
-    await fetch('http://localhost:8888/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: `${agentName} Agent`,
-        message: fullMessage,
-        voice_enabled: true,
-        agent_type: finalAgentType,
-        voice_id: AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default
-      })
-    });
-    
-    console.log(`✅ Sent: [${agentName}] ${fullMessage}`);
-  } catch (e) {
-    console.error('Failed to send notification:', e);
+  // Send to notification server (if voice is enabled and agent is in filter list)
+  if (process.env.ENABLE_VOICE === 'true') {
+    // Check if this agent should have voice notifications
+    const enabledAgents = (process.env.VOICE_ENABLED_AGENTS || '').split(',').map(a => a.trim().toLowerCase());
+
+    // If VOICE_ENABLED_AGENTS is empty, all agents are enabled
+    const shouldNotify = enabledAgents.length === 0 || enabledAgents.includes(finalAgentType);
+
+    if (shouldNotify) {
+      try {
+        const voiceServerUrl = process.env.VOICE_SERVER_URL || 'http://localhost:8888';
+
+        // Send with 2-second timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        const response = await fetch(`${voiceServerUrl}/notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `${agentName} Agent`,
+            message: fullMessage,
+            voice_enabled: true,
+            agent_type: finalAgentType,
+            voice_id: AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          console.log(`✅ Sent: [${agentName}] ${fullMessage}`);
+        } else {
+          console.error(`⚠️  Agent voice notification failed: ${response.status}`);
+        }
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.error('⏱️  Agent voice notification timeout');
+        } else {
+          console.error(`⚠️  Agent voice notification unavailable: ${error.message}`);
+        }
+      }
+    } else {
+      console.log(`🔇 Agent ${agentName} voice disabled by VOICE_ENABLED_AGENTS filter`);
+    }
+  } else {
+    console.log(`🔇 Voice notifications disabled (ENABLE_VOICE not set to true)`);
   }
 }
 

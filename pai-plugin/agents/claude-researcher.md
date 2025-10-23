@@ -43,7 +43,7 @@ curl -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d
 
 **YOU MUST ALWAYS RETURN OUTPUT - NO EXCEPTIONS**
 
-**🎯 CRITICAL: THE [AGENT:claude-researcher] TAG IS MANDATORY FOR VOICE SYSTEM TO WORK**
+**🎯 OPTIONAL: Voice notifications work automatically via hooks**
 
 ### Final Output Format (MANDATORY - USE FOR EVERY SINGLE RESPONSE)
 

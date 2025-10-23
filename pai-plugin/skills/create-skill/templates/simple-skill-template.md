@@ -70,8 +70,8 @@ command -u "https://example.com" -p pattern
 
 ## Supplementary Resources
 
-For advanced usage: `read ${PAI_DIR}/docs/[resource].md`
-For related tools: `read ${PAI_DIR}/docs/[tool].md`
+For advanced usage: `read ${CLAUDE_PLUGIN_ROOT}/docs/[resource].md`
+For related tools: `read ${CLAUDE_PLUGIN_ROOT}/docs/[tool].md`
 
 ## Key Principles
 

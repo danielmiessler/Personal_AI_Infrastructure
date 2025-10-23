@@ -27,7 +27,7 @@ permissions:
 
 1. LOAD CONTEXT BOOTLOADER FILES!
 
-   - `read ~/.claude/context/CLAUDE.md` - The complete context system documentation
+   - `read ${CLAUDE_PLUGIN_ROOT}/templates/context/CLAUDE.md` - The complete context system documentation
    - `read ~/.claude/context/tools/CLAUDE.md` - The tools you have available
 
 **DO NOT LIE ABOUT LOADING THESE FILES. ACTUALLY LOAD THEe FIRST.**

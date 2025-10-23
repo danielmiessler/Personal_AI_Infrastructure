@@ -2,8 +2,8 @@
 
 ## Quick Usage
 ```bash
-# Basic research query (API key in ${PAI_DIR}/.env as PERPLEXITY_API_KEY)
-source ${PAI_DIR}/.env && curl -s -X POST https://api.perplexity.ai/chat/completions \
+# Basic research query (API key in ${CLAUDE_PLUGIN_ROOT}/.env as PERPLEXITY_API_KEY)
+source ${CLAUDE_PLUGIN_ROOT}/.env && curl -s -X POST https://api.perplexity.ai/chat/completions \
   -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"model\":\"sonar\",\"messages\":[{\"role\":\"user\",\"content\":\"YOUR_QUERY_HERE\"}]}" \
@@ -12,7 +12,7 @@ source ${PAI_DIR}/.env && curl -s -X POST https://api.perplexity.ai/chat/complet
 
 ## With Citations
 ```bash
-source ${PAI_DIR}/.env && curl -s -X POST https://api.perplexity.ai/chat/completions \
+source ${CLAUDE_PLUGIN_ROOT}/.env && curl -s -X POST https://api.perplexity.ai/chat/completions \
   -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{\"model\":\"sonar\",\"messages\":[{\"role\":\"user\",\"content\":\"YOUR_QUERY_HERE\"}],\"return_citations\":true}" \

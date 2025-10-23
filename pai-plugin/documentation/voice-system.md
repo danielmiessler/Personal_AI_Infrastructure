@@ -7,21 +7,21 @@ The PAI Voice System provides text-to-speech capabilities for Kai and all agents
 
 ### Core Components
 
-1. **Voice Server** (`${PAI_DIR}/voice-server/server.ts`)
+1. **Voice Server** (`${CLAUDE_PLUGIN_ROOT}/voice-server/server.ts`)
    - Bun-based HTTP server running on port 8888
    - Uses ElevenLabs API for high-quality TTS generation
    - Plays audio using macOS afplay command
    - Provides notification display alongside voice output
    - Requires ELEVENLABS_API_KEY in ~/.env
 
-2. **Stop Hook** (`${PAI_DIR}/hooks/stop-hook.ts`)
+2. **Stop Hook** (`${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.ts`)
    - Triggers after every Claude Code response
    - Parses completion messages from transcripts
    - Extracts text from COMPLETED lines
    - Sends appropriate voice requests with entity-specific voices
    - Handles both Kai's direct work and agent completions
 
-3. **Agent Configurations** (`${PAI_DIR}/agents/*.md`)
+3. **Agent Configurations** (`${CLAUDE_PLUGIN_ROOT}/agents/*.md`)
    - Each agent has a unique voice matching their personality
    - Voice IDs defined in hooks (ElevenLabs voice IDs)
    - Voice mappings centralized in stop-hook.ts and subagent-stop-hook.ts
@@ -77,8 +77,8 @@ All entities use ElevenLabs TTS voices for high-quality, natural speech. Voices 
 ### Voice Configuration
 
 ElevenLabs voices provide consistent, high-quality neural TTS with natural-sounding speech across all agents. Voice IDs are stored in:
-- Server default: `${PAI_DIR}/voice-server/server.ts`
-- Stop hooks: `${PAI_DIR}/hooks/stop-hook.ts` and `${PAI_DIR}/hooks/subagent-stop-hook.ts`
+- Server default: `${CLAUDE_PLUGIN_ROOT}/voice-server/server.ts`
+- Stop hooks: `${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.ts` and `${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-hook.ts`
 
 ## Server Configuration
 
@@ -86,7 +86,7 @@ ElevenLabs voices provide consistent, high-quality neural TTS with natural-sound
 
 The voice system uses a centralized JSON configuration file for voice naming and metadata (primarily for reference):
 
-**Location:** `${PAI_DIR}/voice-server/voices.json`
+**Location:** `${CLAUDE_PLUGIN_ROOT}/voice-server/voices.json`
 
 **Structure:**
 ```json
@@ -189,12 +189,12 @@ Health check endpoint.
 ### Hook Configuration
 Voice mappings are defined in the stop hook files:
 
-**Main Agent (Kai):** `${PAI_DIR}/hooks/stop-hook.ts`
+**Main Agent (Kai):** `${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.ts`
 ```typescript
 voice_id: 's3TPKV1kjDlVtZbl4Ksh'  // Kai's ElevenLabs voice ID
 ```
 
-**Subagents:** `${PAI_DIR}/hooks/subagent-stop-hook.ts`
+**Subagents:** `${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-hook.ts`
 ```typescript
 const ELEVENLABS_VOICE_IDS: Record<string, string> = {
   'kai': 's3TPKV1kjDlVtZbl4Ksh',
@@ -271,26 +271,26 @@ The CUSTOM COMPLETED line is used if:
 ### Voice Server Not Running
 Start the server:
 ```bash
-cd ${PAI_DIR}/voice-server
+cd ${CLAUDE_PLUGIN_ROOT}/voice-server
 bun server.ts &
 ```
 
 Or restart it:
 ```bash
 lsof -ti:8888 | xargs kill -9
-cd ${PAI_DIR}/voice-server
+cd ${CLAUDE_PLUGIN_ROOT}/voice-server
 bun server.ts &
 ```
 
 ### Wrong Voice Playing
 1. Check stop-hook voice mappings:
    ```bash
-   grep "ELEVENLABS_VOICE_IDS" ${PAI_DIR}/hooks/subagent-stop-hook.ts
+   grep "ELEVENLABS_VOICE_IDS" ${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-hook.ts
    ```
 
 2. Verify voice_id in hook file:
    ```bash
-   grep "voice_id.*s3TPKV1kjDlVtZbl4Ksh" ${PAI_DIR}/hooks/stop-hook.ts
+   grep "voice_id.*s3TPKV1kjDlVtZbl4Ksh" ${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.ts
    ```
 
 ### No COMPLETED Line in Output

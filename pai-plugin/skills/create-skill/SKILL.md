@@ -40,11 +40,11 @@ Ask these questions:
 
 ```bash
 # Simple skill
-${PAI_DIR}/skills/[skill-name]/
+${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/
 └── SKILL.md
 
 # Complex skill
-${PAI_DIR}/skills/[skill-name]/
+${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/
 ├── SKILL.md           # Quick reference
 ├── CLAUDE.md          # Full context
 └── [subdirectories]/  # Supporting resources
@@ -73,7 +73,7 @@ description: Clear description of what skill does and when to use it. Should mat
 - Best practices
 
 ## Supplementary Resources
-For detailed context: `read ${PAI_DIR}/skills/[skill-name]/CLAUDE.md`
+For detailed context: `read ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/CLAUDE.md`
 ```
 
 ### Step 5: Write CLAUDE.md (If Complex)
@@ -88,7 +88,7 @@ Include:
 
 ### Step 6: Add to Global Context
 
-Update `${PAI_DIR}/global/KAI.md` available_skills section to include the new skill so it shows up in the system prompt.
+Update `${CLAUDE_PLUGIN_ROOT}/global/KAI.md` available_skills section to include the new skill so it shows up in the system prompt.
 
 ### Step 7: Test the Skill
 
@@ -123,8 +123,8 @@ Your description should:
 
 ## Supplementary Resources
 
-For complete guide with examples: `read ${PAI_DIR}/skills/create-skill/CLAUDE.md`
-For templates: `ls ${PAI_DIR}/skills/create-skill/templates/`
+For complete guide with examples: `read ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/CLAUDE.md`
+For templates: `ls ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/templates/`
 
 ## Key Principles
 

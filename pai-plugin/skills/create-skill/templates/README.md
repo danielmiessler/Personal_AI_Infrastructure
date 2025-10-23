@@ -103,8 +103,8 @@ Decide if your skill is:
 
 ### Step 2: Copy Template
 ```bash
-cp ${PAI_DIR}/skills/create-skill/templates/[template-name].md \
-   ${PAI_DIR}/skills/[new-skill-name]/SKILL.md
+cp ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/templates/[template-name].md \
+   ${CLAUDE_PLUGIN_ROOT}/skills/[new-skill-name]/SKILL.md
 ```
 
 ### Step 3: Customize
@@ -118,7 +118,7 @@ Replace all placeholders:
 Follow the structure, fill in all sections with actual content.
 
 ### Step 5: Add to Global Context
-Update `${PAI_DIR}/global/KAI.md` available_skills section.
+Update `${CLAUDE_PLUGIN_ROOT}/global/KAI.md` available_skills section.
 
 ### Step 6: Test
 Test activation with natural language phrases.
@@ -164,7 +164,7 @@ After using a template, verify:
 
 ## Further Reading
 
-- Complete guide: `read ${PAI_DIR}/skills/create-skill/CLAUDE.md`
-- Quick reference: `read ${PAI_DIR}/skills/create-skill/SKILL.md`
-- Example skills: `ls ${PAI_DIR}/skills/`
+- Complete guide: `read ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/CLAUDE.md`
+- Quick reference: `read ${CLAUDE_PLUGIN_ROOT}/skills/create-skill/SKILL.md`
+- Example skills: `ls ${CLAUDE_PLUGIN_ROOT}/skills/`
 - Anthropic examples: https://github.com/anthropics/skills

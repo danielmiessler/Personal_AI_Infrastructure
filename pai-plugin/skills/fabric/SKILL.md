@@ -270,19 +270,19 @@ fabric "your text here" -p [pattern]
 
 ## 🔄 Updating Patterns
 
-The Fabric repository is included in this skill at `${PAI_DIR}/skills/fabric/fabric-repo/`.
+The Fabric repository is included in this skill at `${CLAUDE_PLUGIN_ROOT}/skills/fabric/fabric-repo/`.
 
 **To update patterns:**
 
 ```bash
-cd ${PAI_DIR}/skills/fabric/fabric-repo
+cd ${CLAUDE_PLUGIN_ROOT}/skills/fabric/fabric-repo
 git pull origin main
 ```
 
 **To see all available patterns:**
 
 ```bash
-ls ${PAI_DIR}/skills/fabric/fabric-repo/data/patterns/
+ls ${CLAUDE_PLUGIN_ROOT}/skills/fabric/fabric-repo/data/patterns/
 # OR from your local Fabric install:
 ls ~/.config/fabric/patterns/
 ```
@@ -359,10 +359,10 @@ cat wisdom.txt | fabric -p create_5_sentence_summary
 
 ## 📖 Supplementary Resources
 
-**Full Pattern List:** `ls ${PAI_DIR}/skills/fabric/fabric-repo/data/patterns/`
-**Fabric Repo:** `${PAI_DIR}/skills/fabric/fabric-repo/`
+**Full Pattern List:** `ls ${CLAUDE_PLUGIN_ROOT}/skills/fabric/fabric-repo/data/patterns/`
+**Fabric Repo:** `${CLAUDE_PLUGIN_ROOT}/skills/fabric/fabric-repo/`
 **Fabric Documentation:** https://github.com/danielmiessler/fabric
-**Pattern Templates:** See `${PAI_DIR}/skills/fabric/fabric-repo/data/patterns/official_pattern_template/`
+**Pattern Templates:** See `${CLAUDE_PLUGIN_ROOT}/skills/fabric/fabric-repo/data/patterns/official_pattern_template/`
 
 ## 🔑 Key Insight
 

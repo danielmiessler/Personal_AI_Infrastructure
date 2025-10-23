@@ -33,7 +33,7 @@ Skills are contextual packages that:
 - Executable workflows
 - Must be explicitly invoked
 - Typically orchestrate multiple tools
-- Live in `${PAI_DIR}/commands/`
+- Live in `${CLAUDE_PLUGIN_ROOT}/commands/`
 
 **Relationship**: Skills often invoke slash commands (e.g., research skill calls `/conduct-research`)
 
@@ -68,7 +68,7 @@ description: Clear description with activation triggers
 
 #### Simple Skill Structure
 ```
-${PAI_DIR}/skills/fabric-patterns/
+${CLAUDE_PLUGIN_ROOT}/skills/fabric-patterns/
 └── SKILL.md          # Everything in one file
 ```
 
@@ -79,7 +79,7 @@ ${PAI_DIR}/skills/fabric-patterns/
 
 #### Complex Skill Structure
 ```
-${PAI_DIR}/skills/development/
+${CLAUDE_PLUGIN_ROOT}/skills/development/
 ├── SKILL.md                      # Quick reference
 ├── CLAUDE.md                     # Full methodology
 ├── primary-stack/                # Reusable components
@@ -124,8 +124,8 @@ description: What it does, when to use it, key methods. USE WHEN triggers...
 [Concrete usage examples]
 
 ## Supplementary Resources
-For full context: `read ${PAI_DIR}/skills/[name]/CLAUDE.md`
-For components: `read ${PAI_DIR}/skills/[name]/[subdirectory]/`
+For full context: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/CLAUDE.md`
+For components: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/[subdirectory]/`
 ```
 
 ### Description Writing Guidelines
@@ -223,14 +223,14 @@ Choose COMPLEX if:
 
 **For Simple Skill:**
 ```bash
-mkdir -p ${PAI_DIR}/skills/[skill-name]
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]
 # Create SKILL.md only
 ```
 
 **For Complex Skill:**
 ```bash
-mkdir -p ${PAI_DIR}/skills/[skill-name]
-mkdir -p ${PAI_DIR}/skills/[skill-name]/[component-dirs]
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/[component-dirs]
 # Create SKILL.md, CLAUDE.md, and component files
 ```
 
@@ -260,7 +260,7 @@ mkdir -p ${PAI_DIR}/skills/[skill-name]/[component-dirs]
 
 **Update global context:**
 
-Edit `${PAI_DIR}/global/KAI.md`:
+Edit `${CLAUDE_PLUGIN_ROOT}/global/KAI.md`:
 ```markdown
 <available_skills>
 <skill>
@@ -344,7 +344,7 @@ command -u "url" -p pattern | process
 \`\`\`
 
 ## Supplementary Resources
-For advanced usage: `read ${PAI_DIR}/docs/[resource].md`
+For advanced usage: `read ${CLAUDE_PLUGIN_ROOT}/docs/[resource].md`
 ```
 
 ### Template 2: Complex Skill
@@ -390,8 +390,8 @@ description: Comprehensive description. USE WHEN triggers include 'phrase 1', 'p
 
 ## Supplementary Resources
 
-For full methodology: `read ${PAI_DIR}/skills/[name]/CLAUDE.md`
-For components: `read ${PAI_DIR}/skills/[name]/[component]/`
+For full methodology: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/CLAUDE.md`
+For components: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/[component]/`
 
 ## Available Commands
 
@@ -503,7 +503,7 @@ description: Capability using specialized agents. Supports parallel execution. U
 ### Agent 1 (Name)
 **Training:** [Specialization]
 **Voice:** [ElevenLabs ID]
-**Configuration:** `${PAI_DIR}/agents/[name].md`
+**Configuration:** `${CLAUDE_PLUGIN_ROOT}/agents/[name].md`
 **Use for:** [When to use this agent]
 
 ### Agent 2 (Name)
@@ -530,8 +530,8 @@ description: Capability using specialized agents. Supports parallel execution. U
 [How agents work together]
 
 ## Supplementary Resources
-For agent details: `read ${PAI_DIR}/agents/[name].md`
-For methodology: `read ${PAI_DIR}/skills/[name]/CLAUDE.md`
+For agent details: `read ${CLAUDE_PLUGIN_ROOT}/agents/[name].md`
+For methodology: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/CLAUDE.md`
 ```
 
 ## 🎯 REAL-WORLD EXAMPLES
@@ -709,10 +709,10 @@ Use progressive disclosure:
 [Minimal instructions]
 
 ## Advanced Usage
-For comprehensive methodology: `read ${PAI_DIR}/skills/[name]/CLAUDE.md`
+For comprehensive methodology: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/CLAUDE.md`
 
 ## Component Details
-For [specific component]: `read ${PAI_DIR}/skills/[name]/[component]/`
+For [specific component]: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/[component]/`
 ```
 
 ### Pattern 3: Agent Integration
@@ -813,7 +813,7 @@ Skills can specify agent usage:
 
 For this skill, use:
 - **Agent Type**: Purpose
-- **Configuration**: `${PAI_DIR}/agents/[name].md`
+- **Configuration**: `${CLAUDE_PLUGIN_ROOT}/agents/[name].md`
 - **Parallel Execution**: Up to N agents for [work type]
 ```
 
@@ -969,10 +969,10 @@ If skill becomes obsolete:
 - Document skills: Advanced examples (PDF, DOCX, etc.)
 
 ### PAI Resources
-- `${PAI_DIR}/global/KAI.md` - Global context and available_skills
-- `${PAI_DIR}/agents/` - Agent configurations
-- `${PAI_DIR}/commands/` - Slash commands
-- `${PAI_DIR}/docs/` - MCP and tool documentation
+- `${CLAUDE_PLUGIN_ROOT}/global/KAI.md` - Global context and available_skills
+- `${CLAUDE_PLUGIN_ROOT}/agents/` - Agent configurations
+- `${CLAUDE_PLUGIN_ROOT}/commands/` - Slash commands
+- `${CLAUDE_PLUGIN_ROOT}/docs/` - MCP and tool documentation
 
 ### Testing Your Skills
 - Launch new Claude session to test clean state

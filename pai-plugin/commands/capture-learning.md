@@ -10,10 +10,10 @@ This command captures the full narrative of problem-solving: what we thought was
 
 ```bash
 # Interactive mode - guides you through the narrative
-bun ${PAI_DIR}/commands/capture-learning.ts
+bun ${CLAUDE_PLUGIN_ROOT}/commands/capture-learning.ts
 
 # Direct mode with full narrative (all 6 arguments)
-bun ${PAI_DIR}/commands/capture-learning.ts "problem" "initial assumption" "actual reality" "troubleshooting steps" "solution" "key takeaway"
+bun ${CLAUDE_PLUGIN_ROOT}/commands/capture-learning.ts "problem" "initial assumption" "actual reality" "troubleshooting steps" "solution" "key takeaway"
 ```
 
 ## Trigger Phrases
@@ -48,7 +48,7 @@ This narrative approach helps us:
 
 ## Output
 
-Files are saved to: `${PAI_DIR}/context/learnings/`
+Files are saved to: `${CLAUDE_PLUGIN_ROOT}/context/learnings/`
 
 Named with format: `YYYY-MM-DD-problem-description.md`
 
@@ -96,6 +96,6 @@ The TypeScript implementation for this command is in `capture-learning.ts`.
 
 The command:
 - Prompts for all 6 narrative elements if not provided
-- Creates a structured markdown file in `${PAI_DIR}/context/learnings/`
+- Creates a structured markdown file in `${CLAUDE_PLUGIN_ROOT}/context/learnings/`
 - Names files with date and problem description
 - Generates a comprehensive learning narrative

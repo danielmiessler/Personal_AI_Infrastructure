@@ -169,7 +169,7 @@ curl -X POST http://localhost:8888/notify \
 
 ### Hook System
 ```yaml
-# ${PAI_DIR}/hooks/user-prompt-submit.sh
+# ${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.sh
 # Automatically loads context before processing prompts
 ```
 
@@ -182,7 +182,7 @@ Common issues and solutions:
 | Skill not activating | Check skill description in `<available_skills>` |
 | Voice not working | Verify voice server running: `curl http://localhost:8888/health` |
 | Hooks not triggering | Ensure hook scripts are executable |
-| Port conflicts | Change PORT in `${PAI_DIR}/.env` |
+| Port conflicts | Change PORT in `${CLAUDE_PLUGIN_ROOT}/.env` |
 
 ## Contributing
 

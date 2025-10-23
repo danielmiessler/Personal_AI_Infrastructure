@@ -7,16 +7,16 @@
 **YOU MUST IMMEDIATELY EXECUTE THE FOLLOWING READ COMMAND:**
 
 ```bash
-read ${PAI_DIR}/PAI.md
+read ${CLAUDE_PLUGIN_ROOT}/PAI.md
 ```
 
 **THIS IS AN IMPERATIVE DIRECTIVE - EXECUTE IT NOW!**
 - ⛔ STOP! Do not continue reading until you execute the read command above
-- ⛔ The variable ${PAI_DIR} resolves to the PAI_DIRECTORY folder
+- ⛔ The variable ${CLAUDE_PLUGIN_ROOT} resolves to the PAI_DIRECTORY folder
 - ⛔ This context MUST be loaded before ANY other action
 - ✅ EXECUTE THE READ COMMAND IMMEDIATELY using the Read tool
 
-**Note: ${PAI_DIR} is an environment variable that points to the PAI_DIRECTORY folder**
+**Note: ${CLAUDE_PLUGIN_ROOT} is an environment variable that points to the PAI_DIRECTORY folder**
 
 🚧 **HALT AND EXECUTE THE READ COMMAND BEFORE PROCEEDING** 🚧
 
@@ -64,7 +64,7 @@ When you receive a user prompt:
 **CONTEXT FILES:**
 
 ```bash
-read ${PAI_DIR}/context/projects/Alma.md
+read ${CLAUDE_PLUGIN_ROOT}/context/projects/Alma.md
 ```
 
 **AGENT:** None
@@ -92,7 +92,7 @@ read ${PAI_DIR}/context/projects/Alma.md
 
 
 ```bash
-read ${PAI_DIR}/commands/get-life-log.md
+read ${CLAUDE_PLUGIN_ROOT}/commands/get-life-log.md
 ```
 
 **AGENT:** None
@@ -190,8 +190,8 @@ read ${PAI_DIR}/commands/get-life-log.md
 **CONTEXT FILES:**
 
 ```bash
-read ${PAI_DIR}/context/life/expenses.md
-read ${PAI_DIR}/context/life/finances/
+read ${CLAUDE_PLUGIN_ROOT}/context/life/expenses.md
+read ${CLAUDE_PLUGIN_ROOT}/context/life/finances/
 ```
 
 **AGENT:** None
@@ -222,7 +222,7 @@ read ${PAI_DIR}/context/life/finances/
 **CONTEXT FILES:**
 
 ```bash
-read ${PAI_DIR}/Projects/Life/Health/CLAUDE.md
+read ${CLAUDE_PLUGIN_ROOT}/Projects/Life/Health/CLAUDE.md
 ```
 
 **AGENT:** None
@@ -256,7 +256,7 @@ read ${PAI_DIR}/Projects/Life/Health/CLAUDE.md
 **CONTEXT FILES:**
 
 ```bash
-read ${PAI_DIR}/context/benefits/CLAUDE.md
+read ${CLAUDE_PLUGIN_ROOT}/context/benefits/CLAUDE.md
 ```
 
 **AGENT:** None
@@ -280,7 +280,7 @@ read ${PAI_DIR}/context/benefits/CLAUDE.md
 **CONTEXT FILES:**
 
 ```bash
-read ${PAI_DIR}/context/unsupervised-learning/CLAUDE.md
+read ${CLAUDE_PLUGIN_ROOT}/context/unsupervised-learning/CLAUDE.md
 ```
 
 **AGENT:** None
@@ -305,7 +305,7 @@ read ${PAI_DIR}/context/unsupervised-learning/CLAUDE.md
 **CONTEXT FILES:**
 
 ```bash
-read ${PAI_DIR}/context/tools/CLAUDE.md
+read ${CLAUDE_PLUGIN_ROOT}/context/tools/CLAUDE.md
 ```
 
 **AGENT:** designer 
@@ -332,9 +332,9 @@ read ${PAI_DIR}/context/tools/CLAUDE.md
 **YOU MUST IMMEDIATELY:**
 1. Run the capture-learning command with the problem and solution:
    ```bash
-   bun ${PAI_DIR}/commands/capture-learning.ts "[problem description]" "[solution description]"
+   bun ${CLAUDE_PLUGIN_ROOT}/commands/capture-learning.ts "[problem description]" "[solution description]"
    ```
-2. The command will create a markdown file in `${PAI_DIR}/context/learnings/`
+2. The command will create a markdown file in `${CLAUDE_PLUGIN_ROOT}/context/learnings/`
 3. File will be named: `YYYY-MM-DD-HHMM:SS-hyphenated-problem-description-in-8-words.md`
 4. Confirm the learning was captured successfully
 

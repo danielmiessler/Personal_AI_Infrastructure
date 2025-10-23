@@ -471,19 +471,43 @@ async function main() {
     }
   }
 
-  // FIRST: Send voice notification if we have a message
-  if (message) {
-    // Send to voice server with both voice name and speech rate
-    await fetch('http://localhost:8888/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: message,
-        voice_name: voiceConfig.voice_name,
-        rate: voiceConfig.rate_wpm
-      })
-    }).catch(() => {});
-    console.error(`🔊 Voice notification sent: "${message}" with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm (${voiceConfig.rate_multiplier}x)`);
+  // FIRST: Send voice notification if we have a message AND voice is enabled
+  if (message && process.env.ENABLE_VOICE === 'true') {
+    try {
+      const voiceServerUrl = process.env.VOICE_SERVER_URL || 'http://localhost:8888';
+
+      // Send to voice server with 2-second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const response = await fetch(`${voiceServerUrl}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: message,
+          voice_name: voiceConfig.voice_name,
+          rate: voiceConfig.rate_wpm
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        console.error(`🔊 Voice notification sent: "${message}" with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm (${voiceConfig.rate_multiplier}x)`);
+      } else {
+        console.error(`⚠️  Voice notification failed: ${response.status}`);
+      }
+    } catch (error: any) {
+      // Silently fail - don't block on voice errors
+      if (error.name === 'AbortError') {
+        console.error('⏱️  Voice notification timeout (server not responding)');
+      } else {
+        console.error(`⚠️  Voice notification unavailable: ${error.message}`);
+      }
+    }
+  } else if (message && process.env.ENABLE_VOICE !== 'true') {
+    console.error('🔇 Voice notifications disabled (ENABLE_VOICE not set to true)');
   }
 
   // ALWAYS set tab title to override any previous titles (like "dynamic requirements")
@@ -543,6 +567,9 @@ async function main() {
   }
 
   console.error(`🎬 STOP-HOOK COMPLETED SUCCESSFULLY at ${new Date().toISOString()}\n`);
+
+  // Force immediate exit to prevent hanging on open handles
+  process.exit(0);
 }
 
 main().catch(() => {});

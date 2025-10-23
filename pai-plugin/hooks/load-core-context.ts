@@ -42,14 +42,21 @@ async function main() {
       process.exit(0);
     }
 
-    // Get PAI directory from environment or use default
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const paiSkillPath = join(paiDir, 'skills/PAI/SKILL.md');
+    // Get plugin directory from environment
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+
+    if (!pluginRoot) {
+      console.error(`❌ CLAUDE_PLUGIN_ROOT environment variable not set`);
+      console.error(`💡 This should be set automatically by Claude Code when the plugin is loaded`);
+      process.exit(1);
+    }
+
+    const paiSkillPath = join(pluginRoot, 'skills/PAI/SKILL.md');
 
     // Verify PAI skill file exists
     if (!existsSync(paiSkillPath)) {
       console.error(`❌ PAI skill not found at: ${paiSkillPath}`);
-      console.error(`💡 Create your PAI skill file or check PAI_DIR environment variable`);
+      console.error(`💡 Ensure the plugin is properly installed with the PAI skill`);
       process.exit(1);
     }
 

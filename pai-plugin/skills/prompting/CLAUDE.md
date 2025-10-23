@@ -332,5 +332,5 @@ https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agent
 
 ## Related PAI Documentation
 
-- Core Context: `${PAI_DIR}/context/CLAUDE.md`
-- Architecture: `${PAI_DIR}/context/architecture/CLAUDE.md`
+- Core Context: `${CLAUDE_PLUGIN_ROOT}/context/CLAUDE.md`
+- Architecture: `${CLAUDE_PLUGIN_ROOT}/context/architecture/CLAUDE.md`

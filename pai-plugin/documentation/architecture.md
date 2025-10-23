@@ -138,7 +138,7 @@ Intent Analysis → Pattern Matching → Context Selection → Dynamic Loading
 ## Directory Structure
 
 ```
-${PAI_DIR}/
+${CLAUDE_PLUGIN_ROOT}/
 ├── skills/              # Modular capability packages
 │   ├── prompting/      # Prompt engineering guide
 │   ├── create-skill/   # Skill creation framework
@@ -220,22 +220,22 @@ Hooks communicate through:
 
 ### 1. Adding Skills
 Create new skills in:
-- `${PAI_DIR}/skills/[skill-name]/` - Skill directory
+- `${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/` - Skill directory
 - `SKILL.md` - Quick reference (required)
 - `CLAUDE.md` - Comprehensive guide (optional)
 - Add to global context for discovery
 
 ### 2. Adding Hooks
 Create executable scripts in:
-- `${PAI_DIR}/hooks/` - Event hooks
+- `${CLAUDE_PLUGIN_ROOT}/hooks/` - Event hooks
 
 ### 3. Adding Agents
 Define new agents in:
-- `${PAI_DIR}/agents/[name].md` - Agent configuration
+- `${CLAUDE_PLUGIN_ROOT}/agents/[name].md` - Agent configuration
 
 ### 4. Adding Commands
 Create slash commands in:
-- `${PAI_DIR}/commands/` - Custom slash commands
+- `${CLAUDE_PLUGIN_ROOT}/commands/` - Custom slash commands
 
 ## Performance Considerations
 

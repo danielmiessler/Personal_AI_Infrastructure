@@ -46,10 +46,16 @@ async function main() {
     // Read the hook input from stdin
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
-    
+
     // Read the markdown file with instructions from commands directory
-    const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-    const mdPath = `${paiDir}/commands/load-dynamic-requirements.md`;
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+
+    if (!pluginRoot) {
+      console.error('❌ CLAUDE_PLUGIN_ROOT environment variable not set');
+      process.exit(0);
+    }
+
+    const mdPath = `${pluginRoot}/commands/load-dynamic-requirements.md`;
     const mdContent = readFileSync(mdPath, 'utf-8');
 
     // Output the markdown content to stdout

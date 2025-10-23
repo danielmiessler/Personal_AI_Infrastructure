@@ -17,7 +17,7 @@ description: Capability using specialized agents. Supports parallel execution of
 ### Agent 1 Name (Role)
 **Training:** [Specialization and methodology]
 **Voice:** [ElevenLabs Voice ID]
-**Configuration:** `${PAI_DIR}/agents/[agent-name].md`
+**Configuration:** `${CLAUDE_PLUGIN_ROOT}/agents/[agent-name].md`
 **Parallel Execution:** Can launch up to 10 agents for [work type]
 
 **Primary Responsibilities:**
@@ -33,7 +33,7 @@ description: Capability using specialized agents. Supports parallel execution of
 ### Agent 2 Name (Role)
 **Training:** [Specialization and methodology]
 **Voice:** [ElevenLabs Voice ID]
-**Configuration:** `${PAI_DIR}/agents/[agent-name].md`
+**Configuration:** `${CLAUDE_PLUGIN_ROOT}/agents/[agent-name].md`
 **Parallel Execution:** Can launch up to 10 agents for [work type]
 
 **Primary Responsibilities:**
@@ -177,9 +177,9 @@ Launch multiple agents in SINGLE message with multiple Task tool calls:
 
 ## Supplementary Resources
 
-For agent configurations: `read ${PAI_DIR}/agents/[agent-name].md`
-For full methodology: `read ${PAI_DIR}/skills/[skill-name]/CLAUDE.md`
-For workflow details: `read ${PAI_DIR}/commands/[command-name].md`
+For agent configurations: `read ${CLAUDE_PLUGIN_ROOT}/agents/[agent-name].md`
+For full methodology: `read ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/CLAUDE.md`
+For workflow details: `read ${CLAUDE_PLUGIN_ROOT}/commands/[command-name].md`
 
 ## Key Principles
 

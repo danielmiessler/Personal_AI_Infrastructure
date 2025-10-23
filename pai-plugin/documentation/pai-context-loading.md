@@ -55,11 +55,11 @@ The hooks are configured in your `settings.json` SessionStart section:
         "hooks": [
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/load-core-context.ts"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/load-core-context.ts"
           },
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/initialize-pai-session.ts"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/initialize-pai-session.ts"
           }
         ]
       }
@@ -209,7 +209,7 @@ Claude Code captures this output and injects it into the conversation context as
 
 **Check**:
 1. Hook file is executable: `chmod +x hooks/load-core-context.ts`
-2. Hook is in correct location: `${PAI_DIR}/hooks/load-core-context.ts`
+2. Hook is in correct location: `${CLAUDE_PLUGIN_ROOT}/hooks/load-core-context.ts`
 3. Bun is installed and accessible
 4. SessionStart hooks are properly configured in settings.json
 
@@ -254,7 +254,7 @@ User: [Actual task - AI already has context]
        "hooks": [
          {
            "type": "command",
-           "command": "${PAI_DIR}/hooks/session-start-hook.ts"
+           "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-hook.ts"
          }
        ]
      }
@@ -268,11 +268,11 @@ User: [Actual task - AI already has context]
        "hooks": [
          {
            "type": "command",
-           "command": "${PAI_DIR}/hooks/load-core-context.ts"
+           "command": "${CLAUDE_PLUGIN_ROOT}/hooks/load-core-context.ts"
          },
          {
            "type": "command",
-           "command": "${PAI_DIR}/hooks/initialize-pai-session.ts"
+           "command": "${CLAUDE_PLUGIN_ROOT}/hooks/initialize-pai-session.ts"
          }
        ]
      }

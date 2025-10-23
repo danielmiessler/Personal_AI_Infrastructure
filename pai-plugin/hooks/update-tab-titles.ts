@@ -80,12 +80,14 @@ async function main() {
     // Launch background process for better Haiku summary
     try {
       if (prompt && prompt.length > 3) {
-        const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-        Bun.spawn(['bun', `${paiDir}/hooks/update-tab-title.ts`, prompt], {
-          stdout: 'ignore',
-          stderr: 'ignore',
-          stdin: 'ignore'
-        });
+        const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+        if (pluginRoot) {
+          Bun.spawn(['bun', `${pluginRoot}/hooks/update-tab-title.ts`, prompt], {
+            stdout: 'ignore',
+            stderr: 'ignore',
+            stdin: 'ignore'
+          });
+        }
       }
     } catch (e) {
       // Silently fail

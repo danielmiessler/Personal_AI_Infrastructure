@@ -49,7 +49,7 @@ Skill Load:
 
 ### 2. Skills System Architecture
 
-Skills are self-contained units in `${PAI_DIR}/skills/` that include:
+Skills are self-contained units in `${CLAUDE_PLUGIN_ROOT}/skills/` that include:
 
 **Skill Structure:**
 ```
@@ -71,7 +71,7 @@ description: Manage danielmiessler.com VitePress blog and website...
 
 ### 3. Global Context Loading
 
-The system loads global context via `${PAI_DIR}/PAI.md` on every user prompt through the hook system:
+The system loads global context via `${CLAUDE_PLUGIN_ROOT}/PAI.md` on every user prompt through the hook system:
 
 **PAI.md contains:**
 - Core identity and personality
@@ -149,7 +149,7 @@ Agents are invoked by:
 
 The UFC system uses the `user-prompt-submit-hook` to:
 
-1. **Global Context Load**: Always loads `${PAI_DIR}/PAI.md`
+1. **Global Context Load**: Always loads `${CLAUDE_PLUGIN_ROOT}/PAI.md`
 2. **Intent Analysis**: Semantic understanding of user request
 3. **Skill Selection**: Matching against skill descriptions
 4. **Skill Loading**: Reading skill context files
@@ -162,7 +162,7 @@ The UFC system uses the `user-prompt-submit-hook` to:
 # user-prompt-submit-hook (simplified)
 
 # 1. Always load global context
-load_global_context "${PAI_DIR}/PAI.md"
+load_global_context "${CLAUDE_PLUGIN_ROOT}/PAI.md"
 
 # 2. Analyze user intent
 INTENT=$(analyze_intent "$USER_PROMPT")
@@ -244,7 +244,7 @@ skills/
 ### Skill Not Loading
 
 1. **Check skill description**: Verify semantic triggers match
-2. **File paths**: Ensure skill files exist in `${PAI_DIR}/skills/`
+2. **File paths**: Ensure skill files exist in `${CLAUDE_PLUGIN_ROOT}/skills/`
 3. **Permissions**: Check file read permissions
 4. **Hook execution**: Verify hooks are running
 

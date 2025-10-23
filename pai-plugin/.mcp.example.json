@@ -1,11 +1,14 @@
 {
+  "_comment": "Copy this file to ~/.claude/.mcp.json and configure your API keys",
+  "_required": ["brightdata", "playwright"],
+  "_optional": ["httpx", "content", "daemon", "naabu", "stripe", "Ref", "apify", "Foundry"],
   "mcpServers": {
     "httpx": {
       "type": "http",
       "description": "Use for getting information on web servers or site stack information, like what tech stack a given website is running, and other similar use cases.",
       "url": "https://httpx-mcp.danielmiessler.workers.dev",
       "headers": {
-        "x-api-key": "REDACTED"
+        "x-api-key": "[YOUR_HTTPX_API_KEY]"
       }
     },
     "content": {
@@ -23,7 +26,7 @@
       "description": "My personal AI infrastructure (PAI), which is where you should look for any tool where I ask you to do a task that you're not sure how to do. Start by checking here to see if there's a tool for it.",
       "url": "https://api.danielmiessler.com/mcp/",
       "headers": {
-        "Authorization": "REDACTED"
+        "Authorization": "[YOUR_FOUNDRY_API_KEY]"
       }
     },
     "naabu": {
@@ -31,7 +34,7 @@
       "description": "This is a port scanner for finding open ports or services on hosts.",
       "url": "https://naabu-mcp.danielmiessler.workers.dev",
       "headers": {
-        "x-api-key": "REDACTED"
+        "x-api-key": "[YOUR_NAABU_API_KEY]"
       }
     },
     "brightdata": {
@@ -41,7 +44,7 @@
         "@brightdata/mcp"
       ],
       "env": {
-        "API_TOKEN": "REDACTED"
+        "API_TOKEN": "[YOUR_BRIGHTDATA_TOKEN]"
       }
     },
     "stripe": {
@@ -66,7 +69,7 @@
         "@apify/actors-mcp-server"
       ],
       "env": {
-        "APIFY_TOKEN": "REDACTED"
+        "APIFY_TOKEN": "[YOUR_APIFY_TOKEN]"
       },
       "description": "Web scraping and automation tools via Apify platform"
     },

@@ -1,8 +1,21 @@
 {
-"name": "PAI-Boilerplate",
-"description": "Open-source personal AI infrastructure for orchestrating your life and work",
-"version": "0.6.0",
-"author": {
-"name": "evenromo"
-}
+  "name": "PAI-Boilerplate",
+  "description": "Open-source personal AI infrastructure for orchestrating your life and work. Includes research agents, specialized skills, hooks system, and MCP integrations.",
+  "version": "0.7.0",
+  "author": {
+    "name": "evenromo"
+  },
+  "homepage": "https://github.com/evenromo/PAI-Boilerplate",
+  "repository": "https://github.com/evenromo/PAI-Boilerplate.git",
+  "license": "MIT",
+  "keywords": [
+    "pai",
+    "personal-ai",
+    "infrastructure",
+    "research",
+    "automation",
+    "claude-code",
+    "ai-assistant"
+  ],
+  "hooks": "./hooks/hooks.json"
 }

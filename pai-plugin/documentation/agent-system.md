@@ -233,7 +233,7 @@ You can explicitly request a specific agent:
 Each agent can have specific context:
 
 ```
-${PAI_DIR}/context/agents/
+${CLAUDE_PLUGIN_ROOT}/context/agents/
 ├── researcher.md
 ├── engineer.md
 ├── designer.md
@@ -405,7 +405,7 @@ Create your own specialized agent:
 
 ```bash
 # 1. Define agent in context
-cat > ${PAI_DIR}/context/agents/custom.md << EOF
+cat > ${CLAUDE_PLUGIN_ROOT}/context/agents/custom.md << EOF
 # Custom Agent
 Specialized for specific domain...
 EOF

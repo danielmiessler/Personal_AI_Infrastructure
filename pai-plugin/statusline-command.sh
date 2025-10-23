@@ -20,7 +20,7 @@ LOCK_FILE="/tmp/.claude_ccusage.lock"
 CACHE_AGE=30   # 30 seconds for more real-time updates
 
 # Count items from specified directories
-claude_dir="${PAI_DIR:-$HOME/.claude}"
+claude_dir="$HOME/.claude"
 commands_count=0
 mcps_count=0
 fobs_count=0

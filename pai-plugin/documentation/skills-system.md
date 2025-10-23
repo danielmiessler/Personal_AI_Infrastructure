@@ -42,7 +42,7 @@ Skills are contextual packages that:
 - Executable workflows
 - Must be explicitly invoked (`/command-name`)
 - Typically orchestrate multiple tools
-- Live in `${PAI_DIR}/commands/`
+- Live in `${CLAUDE_PLUGIN_ROOT}/commands/`
 
 **Relationship**: Skills often invoke slash commands (e.g., research skill calls `/conduct-research`)
 
@@ -71,7 +71,7 @@ description: Clear description with activation triggers
 [Main instructions]
 
 ## Supplementary Resources
-For full context: `read ${PAI_DIR}/skills/[name]/CLAUDE.md`
+For full context: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/CLAUDE.md`
 ```
 
 **Layer 3: Supporting Resources (Loaded As Needed)**
@@ -111,7 +111,7 @@ User Request → Intent Match → Load SKILL.md → Execute Workflow
 ### Simple Skill (SKILL.md only)
 
 ```
-${PAI_DIR}/skills/fabric-patterns/
+${CLAUDE_PLUGIN_ROOT}/skills/fabric-patterns/
 └── SKILL.md          # Everything in one file
 ```
 
@@ -130,7 +130,7 @@ ${PAI_DIR}/skills/fabric-patterns/
 ### Complex Skill (Multi-file)
 
 ```
-${PAI_DIR}/skills/development/
+${CLAUDE_PLUGIN_ROOT}/skills/development/
 ├── SKILL.md                      # Quick reference
 ├── CLAUDE.md                     # Full methodology (500+ lines)
 ├── primary-stack/                # Reusable components
@@ -171,14 +171,14 @@ ${PAI_DIR}/skills/development/
 
 **Simple Skill:**
 ```bash
-mkdir -p ${PAI_DIR}/skills/[skill-name]
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]
 # Create SKILL.md only
 ```
 
 **Complex Skill:**
 ```bash
-mkdir -p ${PAI_DIR}/skills/[skill-name]
-mkdir -p ${PAI_DIR}/skills/[skill-name]/[components]
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]
+mkdir -p ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/[components]
 # Create SKILL.md, CLAUDE.md, and component files
 ```
 
@@ -207,7 +207,7 @@ description: What it does, when to use it, key methods. USE WHEN user says 'trig
 [Concrete usage examples]
 
 ## Supplementary Resources
-For full guide: `read ${PAI_DIR}/skills/[name]/CLAUDE.md`
+For full guide: `read ${CLAUDE_PLUGIN_ROOT}/skills/[name]/CLAUDE.md`
 ```
 
 **Description Guidelines:**
@@ -333,7 +333,7 @@ Edit your global configuration to include the skill in `<available_skills>`:
 ### Skill Directory Structure
 
 ```
-${PAI_DIR}/skills/
+${CLAUDE_PLUGIN_ROOT}/skills/
 ├── prompting/           # Simple skill
 │   └── SKILL.md
 ├── create-skill/        # Complex skill with templates
@@ -449,7 +449,7 @@ Execute in sequence or parallel as appropriate.
 **Check:**
 1. Are all referenced files present?
 2. Are commands/tools available?
-3. Are paths correct (use `${PAI_DIR}` variables)?
+3. Are paths correct (use `${CLAUDE_PLUGIN_ROOT}` variables)?
 4. Test step-by-step manually
 
 **Debug:**
@@ -504,7 +504,7 @@ If you're upgrading from the old context-based system:
 
 **Before (Context System):**
 ```
-${PAI_DIR}/context/
+${CLAUDE_PLUGIN_ROOT}/context/
 ├── CLAUDE.md
 ├── projects/
 │   └── website/
@@ -518,7 +518,7 @@ ${PAI_DIR}/context/
 
 **After (Skills System):**
 ```
-${PAI_DIR}/skills/
+${CLAUDE_PLUGIN_ROOT}/skills/
 ├── website/
 │   ├── SKILL.md
 │   └── CLAUDE.md
@@ -616,10 +616,10 @@ ${PAI_DIR}/skills/
 - template-skill: Basic structure template
 
 ### PAI Resources
-- `${PAI_DIR}/skills/prompting/` - Prompt engineering standards
-- `${PAI_DIR}/skills/create-skill/` - Comprehensive skill creation guide
-- `${PAI_DIR}/agents/` - Agent configurations
-- `${PAI_DIR}/commands/` - Slash commands
+- `${CLAUDE_PLUGIN_ROOT}/skills/prompting/` - Prompt engineering standards
+- `${CLAUDE_PLUGIN_ROOT}/skills/create-skill/` - Comprehensive skill creation guide
+- `${CLAUDE_PLUGIN_ROOT}/agents/` - Agent configurations
+- `${CLAUDE_PLUGIN_ROOT}/commands/` - Slash commands
 
 ---
 

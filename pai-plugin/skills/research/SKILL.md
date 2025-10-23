@@ -37,4 +37,4 @@ This skill activates when the user requests research or information gathering:
 
 ## Full Workflow Reference
 
-For complete step-by-step instructions: `read ${PAI_DIR}/commands/conduct-research.md`
+For complete step-by-step instructions: `read ${CLAUDE_PLUGIN_ROOT}/commands/conduct-research.md`

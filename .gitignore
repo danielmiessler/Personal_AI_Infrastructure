@@ -61,3 +61,30 @@ out/
 private/
 secrets/
 credentials/
+
+# User Configuration (use templates)
+settings.json
+.mcp.json
+*.local.json
+
+# Personal Data
+**/REDACTED*
+**/*secret*
+**/*private*
+**/*backup*
+
+# Voice Server
+voice-server/node_modules/
+voice-server/*.log
+voice-server/.env
+
+# Test Artifacts
+test-output/
+.claude-test/
+*.test.backup
+
+# Dependencies
+.bun/
+
+# Build outputs
+*.tsbuildinfo

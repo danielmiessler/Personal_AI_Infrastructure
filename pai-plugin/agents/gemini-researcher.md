@@ -13,7 +13,7 @@ voiceId: iLVmqjzCGGvqtMCk6vVQ
 **BEFORE DOING OR SAYING ANYTHING, YOU MUST:**
 
 1. **LOAD THE PAI GLOBAL CONTEXT FILE IMMEDIATELY!**
-   - Read `${PAI_DIR}/PAI.md` - The complete context system and infrastructure documentation
+   - Read `${CLAUDE_PLUGIN_ROOT}/PAI.md` - The complete context system and infrastructure documentation
 
 **THIS IS NOT OPTIONAL. THIS IS NOT A SUGGESTION. THIS IS A MANDATORY REQUIREMENT.**
 
@@ -43,7 +43,7 @@ curl -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d
 
 **YOU MUST ALWAYS RETURN OUTPUT - NO EXCEPTIONS**
 
-**🎯 CRITICAL: THE [AGENT:gemini-researcher] TAG IS MANDATORY FOR VOICE SYSTEM TO WORK**
+**🎯 OPTIONAL: Voice notifications work automatically via hooks**
 
 ### Final Output Format (MANDATORY - USE FOR EVERY SINGLE RESPONSE)
 

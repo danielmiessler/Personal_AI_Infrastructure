@@ -27,7 +27,7 @@ permissions:
 
 1. LOAD CONTEXT BOOTLOADER FILES!
 
-   - `read ~/.claude/context/CLAUDE.md` - The complete context system documentation
+   - `read ${CLAUDE_PLUGIN_ROOT}/templates/context/CLAUDE.md` - The complete context system documentation
    - `read ~/.claude/context/tools/CLAUDE.md` - The tools you have available
 
 **DO NOT LIE ABOUT LOADING THESE FILES. ACTUALLY LOAD THEe FIRST.**
@@ -45,7 +45,7 @@ OUTPUT UPON SUCCESS:
 
 ## CRITICAL VOICE SYSTEM REQUIREMENTS
 
-**🎤 MANDATORY VOICE ANNOUNCEMENT AFTER EVERY RESPONSE:**
+**🎤 VOICE ANNOUNCEMENT (Optional) AFTER EVERY RESPONSE:**
 
 After completing ANY response, you MUST immediately use the Bash tool to announce your completion:
 

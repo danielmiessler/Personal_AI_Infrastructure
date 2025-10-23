@@ -55,7 +55,7 @@ User Output
 
 # Access environment variables
 USER_PROMPT="$1"
-CONTEXT_DIR="${PAI_DIR}/context"
+CONTEXT_DIR="${CLAUDE_PLUGIN_ROOT}/context"
 
 # Perform actions
 echo "Processing prompt: $USER_PROMPT"
@@ -73,7 +73,7 @@ exit 0
 
 Hooks must be:
 1. **Executable**: `chmod +x hook-name`
-2. **Located in**: `${PAI_DIR}/hooks/`
+2. **Located in**: `${CLAUDE_PLUGIN_ROOT}/hooks/`
 3. **Named correctly**: Exact hook name without extension
 4. **Return proper exit codes**: 0 for success, non-zero to block
 
@@ -90,15 +90,15 @@ PROMPT="$1"
 PAI_DIR="${PAI_DIR:-$HOME/PAI/PAI_DIRECTORY}"
 
 # Load UFC context system
-if [[ -f "${PAI_DIR}/hooks/load-dynamic-requirements" ]]; then
-    source "${PAI_DIR}/hooks/load-dynamic-requirements"
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/hooks/load-dynamic-requirements" ]]; then
+    source "${CLAUDE_PLUGIN_ROOT}/hooks/load-dynamic-requirements"
 fi
 
 # Analyze intent and load context
 case "$PROMPT" in
     *website*|*blog*|*site*)
         echo "Loading website context..."
-        cat "${PAI_DIR}/context/projects/website/CLAUDE.md"
+        cat "${CLAUDE_PLUGIN_ROOT}/context/projects/website/CLAUDE.md"
         ;;
     *research*|*investigate*)
         echo "Launching researcher agent..."
@@ -143,7 +143,7 @@ if [[ "$TOOL_NAME" == "Edit" ]] || [[ "$TOOL_NAME" == "Write" ]]; then
     FILE_PATH=$(echo "$TOOL_PARAMS" | grep -o '"file_path":"[^"]*"' | cut -d'"' -f4)
     
     # Ensure path is within PAI_DIR
-    if [[ ! "$FILE_PATH" =~ ^${PAI_DIR} ]]; then
+    if [[ ! "$FILE_PATH" =~ ^${CLAUDE_PLUGIN_ROOT} ]]; then
         echo "WARNING: File operation outside PAI_DIR"
     fi
 fi
@@ -371,7 +371,7 @@ webhook_notify "https://api.example.com/hooks" "$EVENT_DATA"
 
 ### Hook Not Executing
 
-1. **Check permissions**: `ls -la ${PAI_DIR}/hooks/`
+1. **Check permissions**: `ls -la ${CLAUDE_PLUGIN_ROOT}/hooks/`
 2. **Verify name**: Must match exactly
 3. **Test directly**: `./hook-name test`
 4. **Check logs**: `tail -f ${HOME}/Library/Logs/hooks.log`
@@ -407,7 +407,7 @@ SAFE_INPUT=$(sanitize "$USER_INPUT")
 
 ```bash
 # Restrict file operations
-if [[ ! "$FILE_PATH" =~ ^${PAI_DIR} ]]; then
+if [[ ! "$FILE_PATH" =~ ^${CLAUDE_PLUGIN_ROOT} ]]; then
     echo "Access denied: Outside PAI_DIR"
     exit 1
 fi

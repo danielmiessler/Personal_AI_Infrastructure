@@ -13,7 +13,7 @@ The command system consists of three main components:
 ## 📁 Directory Structure
 
 ```
-${PAI_DIR}/commands/
+${CLAUDE_PLUGIN_ROOT}/commands/
 ├── *.md                    # Command documentation
 ├── *.ts                    # TypeScript implementations
 ├── *.sh                    # Shell script implementations
@@ -28,10 +28,10 @@ Independent tools that can be executed directly:
 
 ```bash
 # TypeScript commands (using Bun runtime)
-bun ${PAI_DIR}/commands/command-name.ts [args]
+bun ${CLAUDE_PLUGIN_ROOT}/commands/command-name.ts [args]
 
 # Shell commands
-bash ${PAI_DIR}/commands/command-name.sh [args]
+bash ${CLAUDE_PLUGIN_ROOT}/commands/command-name.sh [args]
 ```
 
 ### 2. Hook-Triggered Commands
@@ -99,7 +99,7 @@ main().catch(console.error);
 ## 🚀 Creating New Executable Commands
 
 ### Step 1: Create Your File
-Create a single new file: `${PAI_DIR}/commands/your-command.md`.
+Create a single new file: `${CLAUDE_PLUGIN_ROOT}/commands/your-command.md`.
 
 ### Step 2: Add Content
 1.  Add `#!/usr/bin/env bun` to the very first line.
@@ -109,13 +109,13 @@ Create a single new file: `${PAI_DIR}/commands/your-command.md`.
 ### Step 3: Make it Executable
 Open a terminal and run `chmod +x` on your new file:
 ```bash
-chmod +x ${PAI_DIR}/commands/your-command.md
+chmod +x ${CLAUDE_PLUGIN_ROOT}/commands/your-command.md
 ```
 
 ### Step 4: Test Your Command
 Execute your command directly to test it:
 ```bash
-bun ${PAI_DIR}/commands/your-command.md
+bun ${CLAUDE_PLUGIN_ROOT}/commands/your-command.md
 ```
 
 
@@ -133,14 +133,14 @@ Commands should use these PAI environment variables:
 
 Commands commonly interact with:
 
-- `${PAI_DIR}/context/`: Context files and learnings
-- `${PAI_DIR}/hooks/`: Hook scripts
+- `${CLAUDE_PLUGIN_ROOT}/context/`: Context files and learnings
+- `${CLAUDE_PLUGIN_ROOT}/hooks/`: Hook scripts
 - `${HOME}/Projects/`: Project-specific contexts
 - `${HOME}/Library/Logs/`: System logs
 
 ### Hook Integration
 
-To integrate with hooks, add command to `${PAI_DIR}/settings.json`:
+To integrate with hooks, add command to `${CLAUDE_PLUGIN_ROOT}/settings.json`:
 
 ```json
 {
@@ -150,7 +150,7 @@ To integrate with hooks, add command to `${PAI_DIR}/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bun ${PAI_DIR}/commands/your-command.ts"
+            "command": "bun ${CLAUDE_PLUGIN_ROOT}/commands/your-command.ts"
           }
         ]
       }
@@ -166,8 +166,8 @@ To integrate with hooks, add command to `${PAI_DIR}/settings.json`:
 #### capture-learning
 Captures comprehensive problem-solving narratives from work sessions.
 
-**Usage**: `bun ${PAI_DIR}/commands/capture-learning.ts`
-**Output**: `${PAI_DIR}/context/learnings/YYYY-MM-DD-problem.md`
+**Usage**: `bun ${CLAUDE_PLUGIN_ROOT}/commands/capture-learning.ts`
+**Output**: `${CLAUDE_PLUGIN_ROOT}/context/learnings/YYYY-MM-DD-problem.md`
 
 #### load-dynamic-requirements
 Dynamically loads context and agents based on user intent.
@@ -232,16 +232,16 @@ if (!fs.existsSync(outputDir)) {
 
 ```bash
 # Test command directly
-bun ${PAI_DIR}/commands/command-name.ts
+bun ${CLAUDE_PLUGIN_ROOT}/commands/command-name.ts
 
 # Check environment
 echo $PAI_DIR
 
 # Verify permissions
-ls -la ${PAI_DIR}/commands/
+ls -la ${CLAUDE_PLUGIN_ROOT}/commands/
 
 # Check hook configuration
-cat ${PAI_DIR}/settings.json | jq '.hooks'
+cat ${CLAUDE_PLUGIN_ROOT}/settings.json | jq '.hooks'
 ```
 
 ## 🚀 Advanced Features

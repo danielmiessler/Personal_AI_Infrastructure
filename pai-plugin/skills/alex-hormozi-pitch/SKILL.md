@@ -62,4 +62,4 @@ Value = (Dream Outcome × Perceived Likelihood) / (Time Delay × Effort & Sacrif
 
 ## Full Workflow Reference
 
-For complete step-by-step instructions: `read ${PAI_DIR}/commands/create-hormozi-pitch.md`
+For complete step-by-step instructions: `read ${CLAUDE_PLUGIN_ROOT}/commands/create-hormozi-pitch.md`

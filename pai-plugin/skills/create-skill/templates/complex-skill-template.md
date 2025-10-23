@@ -67,9 +67,9 @@ Standard setup for this skill:
 
 ## Supplementary Resources
 
-For full methodology: `read ${PAI_DIR}/skills/[skill-name]/CLAUDE.md`
-For component details: `read ${PAI_DIR}/skills/[skill-name]/[component-dir]/`
-For stack info: `read ${PAI_DIR}/skills/[skill-name]/primary-stack/CLAUDE.md`
+For full methodology: `read ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/CLAUDE.md`
+For component details: `read ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/[component-dir]/`
+For stack info: `read ${CLAUDE_PLUGIN_ROOT}/skills/[skill-name]/primary-stack/CLAUDE.md`
 
 ## Available Commands
 

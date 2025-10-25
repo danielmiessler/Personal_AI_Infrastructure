@@ -80,8 +80,13 @@ ask_yes_no() {
 
     while true; do
         echo -n -e "${CYAN}${THINKING} $question $prompt: ${NC}"
-        read -r response
-        response=${response:-$default}
+        if read -r -t 30 response 2>/dev/null; then
+            response=${response:-$default}
+        else
+            # Timeout or non-interactive, use default
+            response=$default
+            echo ""
+        fi
         case "$response" in
             [Yy]* ) return 0;;
             [Nn]* ) return 1;;
@@ -96,13 +101,18 @@ ask_input() {
     local response
 
     if [ -n "$default" ]; then
-        echo -n -e "${CYAN}${THINKING} $question [$default]: ${NC}"
+        printf "${CYAN}${THINKING} %s [%s]: ${NC}" "$question" "$default" >&2
     else
-        echo -n -e "${CYAN}${THINKING} $question: ${NC}"
+        printf "${CYAN}${THINKING} %s: ${NC}" "$question" >&2
     fi
 
-    read -r response
-    echo "${response:-$default}"
+    if read -r -t 30 response 2>/dev/null; then
+        echo "${response:-$default}"
+    else
+        # Timeout or non-interactive, use default
+        echo ""
+        echo "$default"
+    fi
 }
 
 command_exists() {
@@ -342,20 +352,41 @@ fi
 
 print_header "Step 5: Configuring Environment"
 
-# Detect shell
-if [ -n "$ZSH_VERSION" ]; then
-    SHELL_CONFIG="$HOME/.zshrc"
-    SHELL_NAME="zsh"
-elif [ -n "$BASH_VERSION" ]; then
-    SHELL_CONFIG="$HOME/.bashrc"
-    SHELL_NAME="bash"
+# Detect current shell
+CURRENT_SHELL=$(basename "$SHELL")
+
+echo "Which shell would you like to configure for PAI?"
+echo ""
+echo "  1) zsh (recommended for macOS)"
+echo "  2) bash"
+echo ""
+if [ "$CURRENT_SHELL" = "zsh" ]; then
+    echo "Your current shell appears to be: zsh"
+    shell_choice=$(ask_input "Enter your choice (1-2)" "1")
+elif [ "$CURRENT_SHELL" = "bash" ]; then
+    echo "Your current shell appears to be: bash"
+    shell_choice=$(ask_input "Enter your choice (1-2)" "2")
 else
-    print_warning "Couldn't detect shell type. Defaulting to .zshrc"
-    SHELL_CONFIG="$HOME/.zshrc"
-    SHELL_NAME="zsh"
+    echo "Your current shell appears to be: $CURRENT_SHELL"
+    shell_choice=$(ask_input "Enter your choice (1-2)" "1")
 fi
 
-print_info "Detected shell: $SHELL_NAME"
+case $shell_choice in
+    1)
+        SHELL_CONFIG="$HOME/.zshrc"
+        SHELL_NAME="zsh"
+        ;;
+    2)
+        SHELL_CONFIG="$HOME/.bashrc"
+        SHELL_NAME="bash"
+        ;;
+    *)
+        SHELL_CONFIG="$HOME/.zshrc"
+        SHELL_NAME="zsh"
+        ;;
+esac
+
+print_info "Using shell: $SHELL_NAME"
 print_info "Configuration file: $SHELL_CONFIG"
 
 # Check if PAI environment variables are already configured
@@ -484,7 +515,7 @@ if ask_yes_no "Would you like to add API keys now?" "n"; then
     open -e "$PAI_DIR/.env" 2>/dev/null || nano "$PAI_DIR/.env"
     echo ""
     print_info "When you're done editing, save and close the file."
-    read -p "Press Enter when you're ready to continue..."
+    read -t 30 -p "Press Enter when you're ready to continue..." || true
 else
     print_info "You can add API keys later by editing: $PAI_DIR/.env"
 fi

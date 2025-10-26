@@ -94,7 +94,7 @@ PAI (Personal AI Infrastructure) is a powerful framework that enhances AI assist
 
 PAI uses environment variables for configuration:
 
-- `PAI_DIR`: PAI configuration directory (points to PAI_DIRECTORY)
+- `PAI_DIR`: PAI repository root directory (e.g., `~/Projects/PAI`)
 - `PAI_HOME`: Your home directory
 - `PORT`: Voice server port (default: 8888)
 - `DA`: Digital Assistant name (optional)

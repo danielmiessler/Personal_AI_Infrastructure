@@ -87,7 +87,7 @@ Hooks must be:
 # Dynamically loads context based on user intent
 
 PROMPT="$1"
-PAI_DIR="${PAI_DIR:-$HOME/PAI/PAI_DIRECTORY}"
+PAI_DIR="${PAI_DIR:-$HOME/PAI}"
 
 # Load UFC context system
 if [[ -f "${PAI_DIR}/hooks/load-dynamic-requirements" ]]; then

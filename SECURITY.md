@@ -2,11 +2,11 @@
 
 ## 🔴 PUBLIC REPOSITORY WARNING
 
-**PAI is a PUBLIC version of the personal PAI_DIRECTORY infrastructure**
+**PAI is a PUBLIC version of personal ~/.claude/ infrastructure**
 
-### NEVER COPY BLINDLY FROM PAI_DIRECTORY TO PUBLIC PAI
+### NEVER COPY BLINDLY FROM YOUR PRIVATE ~/.claude/ TO PUBLIC PAI
 
-This repository is **PUBLIC** and visible to everyone on the internet. It's a sanitized, public instance of the personal PAI_DIRECTORY infrastructure. When moving functionality from PAI_DIRECTORY to PAI:
+This repository is **PUBLIC** and visible to everyone on the internet. It's a sanitized, public template of personal AI infrastructure. When moving functionality from your private `~/.claude/` to public PAI:
 
 ### ❌ NEVER INCLUDE:
 - Personal API keys or tokens
@@ -38,7 +38,7 @@ This repository is **PUBLIC** and visible to everyone on the internet. It's a sa
 
 ### 📋 TRANSFER CHECKLIST:
 
-When copying from PAI_DIRECTORY to PAI:
+When copying from your private `~/.claude/` to public PAI repo:
 
 - [ ] Remove all API keys (replace with placeholders)
 - [ ] Remove personal information
@@ -59,8 +59,8 @@ When copying from PAI_DIRECTORY to PAI:
 
 ### 💡 BEST PRACTICES:
 
-- Keep PAI_DIRECTORY private and local
-- PAI should be the generic, public template
+- Keep your private `~/.claude/` directory secure and local
+- The public PAI repo should be a generic, sanitized template
 - Use environment variables for all sensitive config
 - Document what needs to be configured by users
 - Provide example env-example files, never real .env

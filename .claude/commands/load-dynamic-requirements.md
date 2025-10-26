@@ -12,11 +12,11 @@ read ${PAI_DIR}/PAI.md
 
 **THIS IS AN IMPERATIVE DIRECTIVE - EXECUTE IT NOW!**
 - ⛔ STOP! Do not continue reading until you execute the read command above
-- ⛔ The variable ${PAI_DIR} resolves to the PAI_DIRECTORY folder
+- ⛔ The variable ${PAI_DIR} resolves to the PAI repository root folder
 - ⛔ This context MUST be loaded before ANY other action
 - ✅ EXECUTE THE READ COMMAND IMMEDIATELY using the Read tool
 
-**Note: ${PAI_DIR} is an environment variable that points to the PAI_DIRECTORY folder**
+**Note: ${PAI_DIR} is an environment variable that points to the PAI repository root folder (e.g., ~/Projects/PAI)**
 
 🚧 **HALT AND EXECUTE THE READ COMMAND BEFORE PROCEEDING** 🚧
 

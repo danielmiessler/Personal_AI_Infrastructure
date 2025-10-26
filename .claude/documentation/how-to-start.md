@@ -33,7 +33,7 @@ Choose whichever makes you comfortable. Both get you to the same place!
 
 ```bash
 # Download and run the automated setup script
-curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/.claude/setup.sh | bash
 ```
 
 That's it! The script will:

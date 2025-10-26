@@ -16,7 +16,7 @@
 
 ```bash
 # Run the automated setup script
-curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/.claude/setup.sh | bash
 
 # Or manual setup - see documentation/how-to-start.md
 ```
@@ -314,7 +314,7 @@ cp PAI.old/.env PAI/.env
 
 ```bash
 # Re-run setup script
-cd ~ && curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/setup.sh | bash
+cd ~ && curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/.claude/setup.sh | bash
 ```
 
 ---

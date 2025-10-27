@@ -31,10 +31,10 @@ if [ -d "$claude_dir/commands" ]; then
     commands_count=$(ls -1 "$claude_dir/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
 fi
 
-# Count MCPs from settings.json (single parse)
+# Count MCPs from .mcp.json (single parse)
 mcp_names_raw=""
-if [ -f "$claude_dir/settings.json" ]; then
-    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/settings.json" 2>/dev/null)
+if [ -f "$claude_dir/.mcp.json" ]; then
+    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/.mcp.json" 2>/dev/null)
     mcp_names_raw=$(echo "$mcp_data" | head -1)
     mcps_count=$(echo "$mcp_data" | tail -1)
 else
@@ -48,7 +48,11 @@ if [ -d "$services_dir" ]; then
 fi
 
 # Count Fabric patterns (optimized - count subdirectories)
-fabric_patterns_dir="${HOME}/.config/fabric/patterns"
+# Use bundled PAI fabric if available, fallback to system-wide installation
+fabric_patterns_dir="$claude_dir/skills/fabric/fabric-repo/patterns"
+if [ ! -d "$fabric_patterns_dir" ]; then
+    fabric_patterns_dir="${HOME}/.config/fabric/patterns"
+fi
 if [ -d "$fabric_patterns_dir" ]; then
     # Count immediate subdirectories only
     fabric_count=$(find "$fabric_patterns_dir" -maxdepth 1 -type d -not -path "$fabric_patterns_dir" 2>/dev/null | wc -l | tr -d ' ')

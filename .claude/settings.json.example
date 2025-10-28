@@ -1,11 +1,24 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment_1": "=================================================================",
+  "_comment_2": "PAI Settings Configuration Example",
+  "_comment_3": "=================================================================",
+  "_comment_4": "This file shows a complete PAI setup with all hooks configured.",
+  "_comment_5": "Copy this to settings.json and customize for your environment.",
+  "_comment_6": "",
+  "_comment_7": "IMPORTANT: Update these values:",
+  "_comment_8": "  - MCP_API_KEY: Your actual MCP API key",
+  "_comment_9": "  - PAI_DIR: Path to your .claude directory",
+  "_comment_10": "  - DA: Your digital assistant name",
+  "_comment_11": "=================================================================",
+
   "env": {
-    "MCP_API_KEY": "REDACTED",
-    "DISABLE_INTERLEAVED_THINKING": "true",
+    "MCP_API_KEY": "your_mcp_api_key_here",
     "DA": "Kai",
-    "PAI_DIR": "$HOME/.claude"
+    "PAI_DIR": "$HOME/.claude",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },
+
   "permissions": {
     "allow": [
       "Bash",
@@ -36,7 +49,7 @@
       "Bash(diskutil coreStorage)",
       "Bash(diskutil cs)",
       "Bash(diskutil disableJournal)",
-      "Bash(diskutil resetFusion)",       
+      "Bash(diskutil resetFusion)",
       "Bash(diskutil disableOwnership)",
       "Bash(diskutil apfs deleteContainer)",
       "Bash(diskutil apfs eraseVolume)",
@@ -60,8 +73,23 @@
       "Bash(> /dev/sda)"
     ]
   },
+
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [],
+
+  "_hooks_comment_1": "=================================================================",
+  "_hooks_comment_2": "HOOKS CONFIGURATION - Complete set of PAI lifecycle hooks",
+  "_hooks_comment_3": "=================================================================",
+  "_hooks_comment_4": "PreToolUse: Captures events BEFORE each tool execution",
+  "_hooks_comment_5": "PostToolUse: Captures events AFTER each tool completes",
+  "_hooks_comment_6": "SessionEnd: Runs when conversation ends - creates summaries",
+  "_hooks_comment_7": "UserPromptSubmit: Runs on prompt submit - updates UI",
+  "_hooks_comment_8": "SessionStart: Runs on session start - loads context",
+  "_hooks_comment_9": "Stop: Runs when user clicks Stop button",
+  "_hooks_comment_10": "SubagentStop: Runs when subagent process stops",
+  "_hooks_comment_11": "PreCompact: Runs before context compression",
+  "_hooks_comment_12": "=================================================================",
+
   "hooks": {
     "PreToolUse": [
       {
@@ -175,11 +203,17 @@
       }
     ]
   },
+
   "statusLine": {
     "type": "command",
-    "command": "bash ${PAI_DIR}/statusline-command.sh"
+    "command": "${PAI_DIR}/statusline-command.sh"
   },
+
+  "alwaysThinkingEnabled": true,
+
   "feedbackSurveyState": {
-    "lastShownTime": 1754071370324
-  }
+    "lastShownTime": 1735430400000
+  },
+
+  "max_tokens": 4096
 }

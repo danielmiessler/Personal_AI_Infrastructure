@@ -1,0 +1,5 @@
+node_modules/
+events.db
+events.db-*
+events_backup.db
+*.log

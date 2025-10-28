@@ -1,0 +1,9 @@
+/* Import theme system */
+@import './themes.css';
+
+/* Import compact layout system */
+@import './compact.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

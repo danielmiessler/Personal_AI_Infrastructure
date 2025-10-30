@@ -266,6 +266,83 @@ Public release with voice server, PAI_HOME support, comprehensive documentation,
 
 ---
 
+## 🏗️ **Architecture**
+
+**Want to understand how PAI really works?**
+
+PAI is built on four core primitives that work together: **Skills**, **Commands**, **Agents**, and **MCPs**. Understanding this architecture is essential for customizing PAI or building your own AI infrastructure.
+
+### The Four Primitives
+
+- **💡 Skills:** Meta-containers for domain expertise (e.g., Content Creation, Research, Development)
+  - Package workflows, knowledge, and procedural guidance
+  - Use progressive disclosure (metadata → instructions → resources) to prevent context bloat
+  - Auto-load based on natural language triggers
+
+- **⚡ Commands:** Discrete task workflows within Skills
+  - Self-contained, step-by-step workflows
+  - Like "exported functions" from a Skill module
+  - Auto-selected by natural language or invoked explicitly
+
+- **🤖 Agents:** Orchestration workers for parallelization
+  - Primarily invoke Skills/Commands (not standalone knowledge bases)
+  - Enable parallel execution of independent tasks
+  - Best for background work where results are logged
+
+- **🔌 MCPs vs Direct Code:** Implementation flexibility
+  - Use MCPs for standardized platform services (Chrome, Apify, etc.)
+  - Use direct API code for domain-specific integrations
+  - Choose based on your infrastructure scale and needs
+
+### How They Fit Together
+
+```
+User Intent → Natural Language Trigger
+    ↓
+SKILL (Container for Domain)
+    ↓
+COMMAND (Specific Workflow)
+    ↓
+Implementation (Direct Code or MCPs)
+    ↑
+Invoked by AGENTS (for parallelization)
+```
+
+### Real-World Example
+
+```
+User: "Do extensive research on AI agent planning"
+  ↓
+Research Skill (domain expertise) loads
+  ↓
+extensive-research Command (workflow) selected
+  ↓
+Launches 24 parallel researcher agents
+  ↓
+Each agent uses research strategies from Skill
+  ↓
+Results consolidated and saved
+```
+
+### Why This Matters
+
+PAI's architecture **perfectly aligns** with Anthropic's official Skills framework while extending it with production-tested patterns:
+- ✅ Progressive disclosure prevents context bloat
+- ✅ Natural language routing (no command memorization)
+- ✅ Parallel agent execution for speed
+- ✅ Modular and composable design
+
+📖 **[Read the full architecture documentation](./docs/ARCHITECTURE.md)** to understand:
+- When to use each primitive
+- Design patterns from production use
+- Comparison with Anthropic's framework
+- Decision trees for architectural choices
+- Best practices and anti-patterns
+
+This architecture scales from simple single-task workflows to complex multi-agent systems while maintaining clarity and efficiency.
+
+---
+
 ## 🎯 **What is PAI?**
 
 > **Core Mission:** Augment humans with AI capabilities so they can survive and thrive in a world full of AI.

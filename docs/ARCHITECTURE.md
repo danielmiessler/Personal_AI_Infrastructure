@@ -1,7 +1,7 @@
 # PAI Architecture: Skills, Commands, Agents, and MCPs
 
-**Last Updated:** 2025-10-30
-**Version:** 1.0
+**Last Updated:** 2025-10-31
+**Version:** 1.2.0
 
 ---
 
@@ -32,9 +32,10 @@ This document describes the architectural philosophy and design patterns of PAI 
 **Structure:**
 ```
 ~/.claude/skills/content-creation/
-├── SKILL.md                    # Core skill definition & workflows
-├── write-post.md              # Command: Write new post
-├── publish-post.md            # Command: Publish to production
+├── SKILL.md                    # Core skill definition
+├── workflows/                  # Specific task workflows
+│   ├── write.md               # Write new post workflow
+│   └── publish.md             # Publish to production workflow
 ├── assets/
 │   ├── frontmatter-template.md
 │   └── style-guide.md
@@ -55,11 +56,11 @@ This document describes the architectural philosophy and design patterns of PAI 
 
 ---
 
-### 2. Commands: Discrete Task Workflows Within Skills
+### 2. Commands/Workflows: Discrete Task Workflows Within Skills
 
 **What They Are:**
 - Specific task implementations within a Skill domain
-- Standalone markdown files containing step-by-step workflows
+- Standalone markdown files in the `workflows/` subdirectory
 - Callable directly OR auto-selected by natural language
 - Like "exported functions" from a Skill module
 
@@ -71,7 +72,7 @@ This document describes the architectural philosophy and design patterns of PAI 
 
 **Structure:**
 ```markdown
-# write-post.md (Command)
+# workflows/write.md (Workflow file)
 
 ## Trigger
 User says: "write a post", "create content", "draft article"
@@ -85,13 +86,13 @@ User says: "write a post", "create content", "draft article"
 ```
 
 **Anthropic Position:**
-❓ Not explicitly mentioned - Commands are a PAI extension
+❓ Not explicitly mentioned - Workflows are a PAI organizational pattern
 
 **Why It Works:**
-- Commands provide granularity between "entire Skill" and "single step"
-- Enables composition: Agents can invoke specific Commands
-- Supports natural language routing: "write a post" → Content Skill → write-post Command
-- Keeps SKILL.md clean - complex workflows live in separate files
+- Workflows provide granularity between "entire Skill" and "single step"
+- Enables composition: Agents can invoke specific workflows
+- Supports natural language routing: "write a post" → Content Skill → write workflow
+- Keeps SKILL.md clean - complex workflows live in separate files in workflows/ subdirectory
 
 ---
 
@@ -111,15 +112,15 @@ User says: "write a post", "create content", "draft article"
 
 **Pattern:**
 ```
-Agents → Skills → Commands
+Agents → Skills → Workflows
 
-general-purpose agent → research skill → quick-research command
-engineer agent → development skill → implement-feature command
-security agent → testing skill → scan-vulnerabilities command
+general-purpose agent → research skill → quick-research workflow
+engineer agent → development skill → implement-feature workflow
+security agent → testing skill → scan-vulnerabilities workflow
 ```
 
 **Key Design Principle:**
-Agents are NOT standalone workers - they're orchestrators that primarily leverage Skills/Commands for domain expertise.
+Agents are NOT standalone workers - they're orchestrators that primarily leverage Skills/Workflows for domain expertise.
 
 **Example - Parallel Agent Workflow:**
 ```
@@ -194,18 +195,17 @@ Natural Language Trigger
 ┌─────────────────────────────────────┐
 │         SKILL (Container)           │
 │  ┌─────────────────────────────┐   │
-│  │  Command 1: write-post.md   │   │
-│  │  - Step-by-step workflow    │   │
-│  │  - Uses API code directly   │   │
-│  │  - May invoke MCPs          │   │
-│  └─────────────────────────────┘   │
-│  ┌─────────────────────────────┐   │
-│  │  Command 2: publish-post.md │   │
-│  │  - Different workflow       │   │
-│  │  - Different tools          │   │
+│  │  workflows/                 │   │
+│  │  ├── write.md               │   │
+│  │  │   - Step-by-step flow    │   │
+│  │  │   - Uses API code        │   │
+│  │  │   - May invoke MCPs      │   │
+│  │  └── publish.md             │   │
+│  │      - Different workflow   │   │
+│  │      - Different tools      │   │
 │  └─────────────────────────────┘   │
 │                                     │
-│  Assets/                            │
+│  assets/                            │
 │  - Templates                        │
 │  - Reference files                  │
 │  - Helper scripts                   │
@@ -223,9 +223,9 @@ Natural Language Trigger
 1. **Level 1:** Intent → Skill
    - "I need to create content" → Content Creation Skill loads
 
-2. **Level 2:** Specific task → Command
-   - "write a post" → write-post.md workflow
-   - "publish content" → publish-post.md workflow
+2. **Level 2:** Specific task → Workflow
+   - "write a post" → workflows/write.md
+   - "publish content" → workflows/publish.md
 
 This happens automatically - user doesn't need to know the structure.
 
@@ -279,24 +279,25 @@ Individual files loaded only when accessed (~500-2000 tokens each)
 **Structure:**
 ```
 ~/.claude/skills/content-creation/
-├── SKILL.md                 # Tier 2: Core workflows
-├── write-post.md           # Command: Writing workflow
-├── publish-post.md         # Command: Publishing workflow
+├── SKILL.md                    # Tier 2: Core skill definition
+├── workflows/                  # Specific task workflows
+│   ├── write.md               # Writing workflow
+│   └── publish.md             # Publishing workflow
 └── assets/
-    ├── frontmatter.md      # Tier 3: Template
-    └── style-guide.md      # Tier 3: Style reference
+    ├── frontmatter.md         # Tier 3: Template
+    └── style-guide.md         # Tier 3: Style reference
 ```
 
 **User Experience:**
 - Says: "write a post about AI safety"
-- AI: Loads Content Skill → write-post Command → creates post
+- AI: Loads Content Skill → write workflow → creates post
 - Says: "publish it"
-- AI: Loads publish-post Command → checks quality → deploys
+- AI: Loads publish workflow → checks quality → deploys
 
 **Behind the Scenes:**
 1. Metadata always loaded: knows "post" triggers this Skill
-2. write-post.md loads only when writing
-3. publish-post.md loads only when publishing
+2. workflows/write.md loads only when writing
+3. workflows/publish.md loads only when publishing
 4. Templates load only when referenced
 
 ### Example 2: Research Skill with Agent Orchestration
@@ -304,21 +305,22 @@ Individual files loaded only when accessed (~500-2000 tokens each)
 **Structure:**
 ```
 ~/.claude/skills/research/
-├── SKILL.md                    # Tier 2: Research strategies
-├── quick-research.md          # Command: 3 parallel agents
-├── standard-research.md       # Command: 9 parallel agents
-├── extensive-research.md      # Command: 24 parallel agents
+├── SKILL.md                       # Tier 2: Research strategies
+├── workflows/                     # Research workflows
+│   ├── quick-research.md         # 3 parallel agents
+│   ├── standard-research.md      # 9 parallel agents
+│   └── extensive-research.md     # 24 parallel agents
 └── assets/
-    └── research-template.md   # Tier 3: Output format
+    └── research-template.md      # Tier 3: Output format
 ```
 
 **User Experience:**
 - Says: "do extensive research on AI agent planning"
-- AI: Loads Research Skill → extensive-research Command → launches 24 agents in parallel
+- AI: Loads Research Skill → extensive-research workflow → launches 24 agents in parallel
 
 **Agent Pattern:**
 ```
-User → Research Skill → extensive-research Command →
+User → Research Skill → extensive-research workflow →
   ├─ researcher agent × 8 (source 1)
   ├─ researcher agent × 8 (source 2)
   └─ researcher agent × 8 (source 3)
@@ -329,7 +331,7 @@ Results consolidated → saved to history/
 
 **Why This Works:**
 - Research Skill contains the STRATEGY (how to research)
-- Commands define SCALE (quick/standard/extensive)
+- Workflows define SCALE (quick/standard/extensive)
 - Agents do the WORK (parallel execution)
 - Each agent may invoke OTHER skills as needed
 
@@ -338,16 +340,17 @@ Results consolidated → saved to history/
 **Structure:**
 ```
 ~/.claude/skills/development/
-├── SKILL.md                 # Tier 2: Development methodology
-├── implement-feature.md    # Command: Feature implementation
-├── run-tests.md            # Command: Test execution
+├── SKILL.md                    # Tier 2: Development methodology
+├── workflows/                  # Development workflows
+│   ├── implement-feature.md   # Feature implementation
+│   └── run-tests.md           # Test execution
 └── scripts/
-    └── test-runner.ts      # Tier 3: Test runner
+    └── test-runner.ts         # Tier 3: Test runner
 ```
 
 **Direct API Integration:**
 ```typescript
-// Within run-tests.md Command
+// Within workflows/run-tests.md
 // Uses direct bash execution, not MCP
 const testCommand = `npm test -- ${testFiles}`;
 await bash(testCommand);
@@ -363,7 +366,7 @@ await bash(testCommand);
 
 ## Design Patterns That Emerged
 
-### Pattern 1: Skill + Commands + Agents = Powerful Composition
+### Pattern 1: Skill + Workflows + Agents = Powerful Composition
 
 **Problem:** Need to update 10 configuration files with same change
 
@@ -379,11 +382,11 @@ AI (orchestrator)
       └─ Verifies all 10 files updated correctly
 ```
 
-**Key Insight:** Agents don't need to "know" everything - they leverage Skills for domain knowledge and execute Commands with full context.
+**Key Insight:** Agents don't need to "know" everything - they leverage Skills for domain knowledge and execute workflows with full context.
 
 ### Pattern 2: Natural Language Workflow Selection
 
-**Problem:** Users shouldn't need to remember command names
+**Problem:** Users shouldn't need to remember workflow names
 
 **Solution:**
 ```
@@ -391,15 +394,15 @@ User: "create a new post"
   ↓
 Triggers: Content Skill (from "post")
   ↓
-Auto-selects: write-post Command (from "create")
+Auto-selects: write workflow (from "create")
   ↓
 Executes: Complete workflow automatically
 ```
 
 **Implementation:**
 - Skill metadata includes trigger phrases
-- Commands include specific task phrases
-- AI matches intent → Skill → Command
+- Workflows include specific task phrases
+- AI matches intent → Skill → Workflow
 - User experiences seamless workflow
 
 ### Pattern 3: Spotcheck After Parallel Work
@@ -435,10 +438,10 @@ Executes: Complete workflow automatically
 | **Skills vs Prompts** | Filesystem-based, reusable vs one-off | Same distinction | ✅ Perfect |
 | **Skills vs Tools** | Workflows/knowledge vs discrete functions | Same distinction | ✅ Perfect |
 | **Natural Language Triggers** | "Use when..." in metadata | Auto-routing via trigger phrases | ✅ Perfect |
-| **Executable Code** | Bundle scripts for deterministic operations | Direct API code in Skills/Commands | ✅ Perfect |
-| **Commands** | Not mentioned | Internal Skill organization | ➕ Extension |
+| **Executable Code** | Bundle scripts for deterministic operations | Direct API code in Skills/Workflows | ✅ Perfect |
+| **Workflows Organization** | Not mentioned | workflows/ subdirectory pattern | ➕ Extension |
 | **Agent-Skill Orchestration** | Not prescribed | Agents primarily invoke Skills | ➕ Extension |
-| **Two-Level Routing** | Not mentioned | Intent→Skill, Task→Command | ➕ Extension |
+| **Two-Level Routing** | Not mentioned | Intent→Skill, Task→Workflow | ➕ Extension |
 | **MCPs vs Direct Code** | MCPs for platform services | Both - context-dependent | ❓ Different optimization |
 
 **Verdict:**
@@ -458,17 +461,17 @@ Do you need AI capabilities?
   │         ├─ YES → Do you have multiple related tasks in this domain?
   │         │        │
   │         │        ├─ YES → CREATE A SKILL
-  │         │        │        └─ Add Commands for each task
+  │         │        │        └─ Add workflows/ for each task
   │         │        │        └─ Include assets/templates as Tier 3
   │         │        │
-  │         │        └─ NO → CREATE A COMMAND (single workflow)
+  │         │        └─ NO → CREATE A WORKFLOW (single task in skill)
   │         │
   │         └─ NO → USE A PROMPT (one-off instruction)
   │
   └─ NO → Do you need to execute this task in parallel?
            │
            ├─ YES → USE AGENTS
-           │        └─ Have them invoke Skills/Commands
+           │        └─ Have them invoke Skills/Workflows
            │
            └─ NO → Do you need standardized platform service?
                     │
@@ -483,25 +486,25 @@ Do you need AI capabilities?
 
 ### 1. Skill Organization
 - ✅ One Skill per domain/topic area
-- ✅ Multiple Commands within a Skill for different tasks
-- ✅ Assets in subdirectories (templates/, examples/, scripts/)
+- ✅ Multiple workflows within a Skill (in workflows/ subdirectory)
+- ✅ Assets in subdirectories (assets/, scripts/, examples/)
 - ✅ Clear trigger phrases in metadata
 - ❌ Don't create Skills for one-off tasks
 - ❌ Don't duplicate knowledge across Skills
 
-### 2. Command Design
+### 2. Workflow Design
 - ✅ Self-contained workflows with clear steps
 - ✅ Include trigger phrases for auto-selection
 - ✅ Reference Skill assets when needed
 - ✅ Keep focused on ONE specific task
-- ❌ Don't make Commands too granular (combine related steps)
+- ❌ Don't make workflows too granular (combine related steps)
 - ❌ Don't duplicate Skill context
 
 ### 3. Agent Orchestration
 - ✅ Launch agents in parallel for independent tasks
 - ✅ Provide FULL context to each agent
 - ✅ Always run spotcheck agent after parallel work
-- ✅ Have agents invoke Skills/Commands (not duplicate knowledge)
+- ✅ Have agents invoke Skills/Workflows (not duplicate knowledge)
 - ❌ Don't use agents for sequential work
 - ❌ Don't launch agents without full context
 
@@ -532,10 +535,10 @@ Do you need AI capabilities?
    - Dependency graphs between Skills
    - Shared asset libraries
 
-2. **Dynamic Command Generation:**
-   - AI generates Commands from natural language
-   - Commands as data structures, not just markdown
-   - Version control for Command evolution
+2. **Dynamic Workflow Generation:**
+   - AI generates workflows from natural language
+   - Workflows as data structures, not just markdown
+   - Version control for workflow evolution
 
 3. **Agent Specialization:**
    - Domain-specific agents with pre-loaded Skills
@@ -565,7 +568,7 @@ PAI's architecture evolved from a flat command structure to a hierarchical Skill
 ├── extensive-research.md
 ├── implement-feature.md
 ├── run-tests.md
-└── [75+ scattered commands]
+└── [73 scattered command files]
 ```
 
 **Problems:**
@@ -604,19 +607,19 @@ PAI's architecture evolved from a flat command structure to a hierarchical Skill
 When restructuring from flat commands to Skills-as-Containers:
 
 **1. Identify Domains:**
-Group related commands by functional domain (content, research, development, etc.)
+Group related command files by functional domain (content, research, development, etc.)
 
 **2. Create Skill Structure:**
 ```
 ~/.claude/skills/{domain}/
 ├── SKILL.md              # Domain expertise & routing
-├── workflows/            # Specific task workflows (formerly commands)
-├── scripts/              # Executable helpers
-└── context/              # Reference materials
+├── workflows/            # Specific task workflows (formerly command files)
+├── assets/               # Templates and resources
+└── scripts/              # Executable helpers
 ```
 
-**3. Move Commands to Workflows:**
-- Commands become workflows within their skill
+**3. Move Command Files to Workflows:**
+- Command files become workflows within their skill
 - Preserve functionality while improving organization
 - Update cross-references in agents and other skills
 
@@ -657,10 +660,12 @@ Group related commands by functional domain (content, research, development, etc
 **Example: Skills-as-Containers Migration (v1.2.0)**
 
 **Scope:**
-- 73 commands migrated to skill workflows
-- 21 skills enhanced with workflow subdirectories
-- 1 new skill created (content-enhancement)
-- Commands directory reduced from 75 files to 0
+- 73 command files migrated to skill workflows
+- 21 skills enhanced with workflows/ subdirectories
+- Commands organized by domain
+
+**Note for Public PAI:**
+The `.claude/commands/` directory is a Claude Code feature and remains available for simple one-off commands. However, the recommendation is to organize related workflows within skills using the workflows/ subdirectory pattern for better discoverability and maintainability.
 
 **Quality Metrics:**
 - Zero errors in QA verification

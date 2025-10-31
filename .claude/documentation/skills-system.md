@@ -640,17 +640,17 @@ ${PAI_DIR}/skills/
 
 ## Recent Changes (2025-10-19)
 
-- ✏️ `skills/PAI/SKILL.md` (modified)
+- ✏️ `skills/CORE/SKILL.md` (modified)
   - +93 / -199 lines
-- 🗑️ `skills/PAI/contacts.md` (deleted)
+- 🗑️ `skills/CORE/contacts.md` (deleted)
   - +0 / -41 lines
-- 🗑️ `skills/PAI/preferences.md` (deleted)
+- 🗑️ `skills/CORE/preferences.md` (deleted)
   - +0 / -53 lines
-- 🗑️ `skills/PAI/response-format.md` (deleted)
+- 🗑️ `skills/CORE/response-format.md` (deleted)
   - +0 / -70 lines
-- 🗑️ `skills/PAI/security-detailed.md` (deleted)
+- 🗑️ `skills/CORE/security-detailed.md` (deleted)
   - +0 / -82 lines
-- 🗑️ `skills/PAI/voice-ids.md` (deleted)
+- 🗑️ `skills/CORE/voice-ids.md` (deleted)
   - +0 / -59 lines
 
 ---

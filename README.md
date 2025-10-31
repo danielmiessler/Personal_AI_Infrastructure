@@ -215,11 +215,11 @@ The PAI system is designed to live in `~/.claude/` on your system. By organizing
 - **On-demand context** - Full context loaded only when explicitly needed
 
 **What Changed:**
-- Added YAML frontmatter to `skills/PAI/SKILL.md` with comprehensive system description
+- Added YAML frontmatter to `skills/CORE/SKILL.md` with comprehensive system description
 - Core identity + critical security now in skill description (always present)
 - Removed `MINIMAL.md` entirely (no longer needed)
 - Hook renamed to `update-tab-titles.ts` (only handles tab titles, zero context)
-- Flat file structure in `skills/PAI/` (no `/contexts` subdirectory)
+- Flat file structure in `skills/CORE/` (no `/contexts` subdirectory)
 
 **Architecture:**
 - **Tier 1 (Always On):** Skill description in system prompt (~300 tokens) - identity, critical security, architecture explanation
@@ -233,12 +233,12 @@ The PAI system is designed to live in `~/.claude/` on your system. By organizing
 - Scales efficiently - adding content doesn't multiply token costs
 
 **Files:**
-- `skills/PAI/SKILL.md` - Full context with YAML frontmatter
-- `skills/PAI/contacts.md` - Contact templates
-- `skills/PAI/preferences.md` - Stack preferences templates
-- `skills/PAI/response-format.md` - Response format templates
-- `skills/PAI/security-detailed.md` - Security procedures
-- `skills/PAI/voice-ids.md` - Voice system configuration (optional)
+- `skills/CORE/SKILL.md` - Full context with YAML frontmatter
+- `skills/CORE/contacts.md` - Contact templates
+- `skills/CORE/preferences.md` - Stack preferences templates
+- `skills/CORE/response-format.md` - Response format templates
+- `skills/CORE/security-detailed.md` - Security procedures
+- `skills/CORE/voice-ids.md` - Voice system configuration (optional)
 - `hooks/update-tab-titles.ts` - Tab title updates only
 
 </details>
@@ -345,7 +345,7 @@ PAI is built on four core primitives that work together: **Skills**, **Commands*
   - Use progressive disclosure (metadata → instructions → resources) to prevent context bloat
   - Auto-load based on natural language triggers
 
-- **⚡ Commands:** Discrete task workflows within Skills
+- **⚡ Workflows:** Discrete task workflows within Skills (in `workflows/` subdirectory)
   - Self-contained, step-by-step workflows
   - Like "exported functions" from a Skill module
   - Auto-selected by natural language or invoked explicitly
@@ -367,7 +367,7 @@ User Intent → Natural Language Trigger
     ↓
 SKILL (Container for Domain)
     ↓
-COMMAND (Specific Workflow)
+WORKFLOW (Specific Task - in workflows/ subdirectory)
     ↓
 Implementation (Direct Code or MCPs)
     ↑
@@ -381,7 +381,7 @@ User: "Do extensive research on AI agent planning"
   ↓
 Research Skill (domain expertise) loads
   ↓
-extensive-research Command (workflow) selected
+workflows/extensive-research.md (workflow file) selected
   ↓
 Launches 24 parallel researcher agents
   ↓
@@ -594,12 +594,16 @@ graph TD
 
 ```
 ~/.claude/skills/
-├── prompting/           # Prompt engineering standards
-├── create-skill/        # Skill creation framework
-├── ffuf/                # Web fuzzing for pentesting (by @rez0)
-├── alex-hormozi-pitch/  # $100M Offers pitch framework
-├── research/            # Multi-source research (requires API keys)
-├── fabric/              # Intelligent Fabric pattern selection (242+ patterns)
+├── prompting/
+│   └── workflows/       # create-prompt, optimize-prompt
+├── create-skill/
+│   └── workflows/       # create-new, update-existing
+├── ffuf/
+│   └── workflows/       # directory-scan, parameter-fuzz
+├── research/
+│   └── workflows/       # quick, standard, extensive
+├── fabric/
+│   └── workflows/       # select-pattern (242+ patterns)
 ├── web-scraping/        # Web data extraction
 ├── chrome-devtools/     # Browser automation
 ├── youtube-extraction/  # YouTube transcript extraction
@@ -613,9 +617,9 @@ graph TD
 
 **Features:**
 - ✅ Modular capability packages
-- 📄 Progressive disclosure (SKILL.md → CLAUDE.md)
+- 📄 Progressive disclosure (metadata → workflows/ → assets/)
 - ⚡ Intent-based activation
-- 📂 Self-contained with templates
+- 📂 Self-contained with workflows and templates
 - 🔌 Inherits global context
 
 </td>
@@ -637,10 +641,10 @@ graph TD
 
 **Each skill contains:**
 - 📄 Intent triggers ("USE WHEN...")
+- 📁 Workflows subdirectory (specific tasks)
 - 🤖 Specialized agents (if needed)
 - 🔌 MCP integrations (if needed)
-- ⚡ Commands and tools (if needed)
-- 📖 Documentation and examples
+- 📖 Assets and examples
 
 > [!TIP]
 > **You don't manage agents or commands directly.** Just tell PAI what you want to do, and the right skill activates with all necessary resources.
@@ -806,10 +810,10 @@ DA_COLOR="purple"                       # Display color (purple, blue, green, cy
 | 📖 Guide | 🎯 Purpose | ⏱️ Time |
 |----------|------------|---------|
 | [Quick Start](#-quick-start) | Get up and running | 5 min |
-| [Architecture](#-architecture) | Understand the system | 10 min |
+| [Architecture](./docs/ARCHITECTURE.md) | Understand the system | 15 min |
+| [Migration Guide](./docs/MIGRATION.md) | Upgrade to v1.2.0 | 10 min |
 | [SECURITY.md](./SECURITY.md) | Security guidelines | 5 min |
 | [Voice Server](./.claude/voice-server/README.md) | Enable voice interaction | 10 min |
-| [Commands Directory](./.claude/commands/) | Browse all commands | 15 min |
 
 </div>
 

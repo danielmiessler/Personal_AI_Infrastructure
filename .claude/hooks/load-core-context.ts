@@ -13,7 +13,7 @@
  * - Bypass skill activation logic by directly injecting context
  *
  * Setup:
- * 1. Customize your ~/.claude/skills/PAI/SKILL.md with your personal context
+ * 1. Customize your ~/.claude/skills/CORE/SKILL.md with your personal context
  * 2. Add this hook to settings.json SessionStart hooks
  * 3. Ensure PAI_DIR environment variable is set (defaults to $HOME/.claude)
  *
@@ -44,7 +44,7 @@ async function main() {
 
     // Get PAI directory from environment or use default
     const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const paiSkillPath = join(paiDir, 'skills/PAI/SKILL.md');
+    const paiSkillPath = join(paiDir, 'skills/CORE/SKILL.md');
 
     // Verify PAI skill file exists
     if (!existsSync(paiSkillPath)) {

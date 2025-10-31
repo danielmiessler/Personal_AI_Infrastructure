@@ -9,7 +9,7 @@ description: Multi-source comprehensive research using perplexity-researcher, cl
 
 **Before starting any task with this skill, load complete PAI context:**
 
-`read ${PAI_DIR}/.claude/skills/PAI/SKILL.md`
+`read ${PAI_DIR}/.claude/skills/CORE/SKILL.md`
 
 This provides access to:
 - Complete contact list and team members

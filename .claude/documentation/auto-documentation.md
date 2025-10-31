@@ -108,10 +108,10 @@ git status
 
 ```bash
 # Make a change to a skill
-echo "# Test" >> skills/PAI/test.md
+echo "# Test" >> skills/CORE/test.md
 
 # Stage and commit
-git add skills/PAI/test.md
+git add skills/CORE/test.md
 git commit -m "test: Verify auto-doc updates"
 
 # You should see:

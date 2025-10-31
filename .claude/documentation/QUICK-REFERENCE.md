@@ -215,10 +215,10 @@ cd $PAI_DIR && git status
 
 ```bash
 # Open main PAI skill
-open -e $PAI_DIR/skills/PAI/SKILL.md
+open -e $PAI_DIR/skills/CORE/SKILL.md
 
 # Look for [CUSTOMIZE:] markers
-grep -n "CUSTOMIZE:" $PAI_DIR/skills/PAI/SKILL.md
+grep -n "CUSTOMIZE:" $PAI_DIR/skills/CORE/SKILL.md
 ```
 
 ### Change AI Assistant Name
@@ -390,7 +390,7 @@ alias pcmds='ls $PAI_DIR/commands'
 
 # Quick edits
 alias pai-env='open -e $PAI_DIR/.env'
-alias pai-skill='open -e $PAI_DIR/skills/PAI/SKILL.md'
+alias pai-skill='open -e $PAI_DIR/skills/CORE/SKILL.md'
 alias pai-shell='open -e ~/.zshrc'
 
 # Updates

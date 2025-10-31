@@ -269,11 +269,11 @@ The PAI system is designed to live in `~/.claude/` on your system. By organizing
 - **On-demand context** - Full context loaded only when explicitly needed
 
 **What Changed:**
-- Added YAML frontmatter to `skills/PAI/SKILL.md` with comprehensive system description
+- Added YAML frontmatter to `skills/CORE/SKILL.md` with comprehensive system description
 - Core identity + critical security now in skill description (always present)
 - Removed `MINIMAL.md` entirely (no longer needed)
 - Hook renamed to `update-tab-titles.ts` (only handles tab titles, zero context)
-- Flat file structure in `skills/PAI/` (no `/contexts` subdirectory)
+- Flat file structure in `skills/CORE/` (no `/contexts` subdirectory)
 
 **Architecture:**
 - **Tier 1 (Always On):** Skill description in system prompt (~300 tokens) - identity, critical security, architecture explanation
@@ -287,12 +287,12 @@ The PAI system is designed to live in `~/.claude/` on your system. By organizing
 - Scales efficiently - adding content doesn't multiply token costs
 
 **Files:**
-- `skills/PAI/SKILL.md` - Full context with YAML frontmatter
-- `skills/PAI/contacts.md` - Contact templates
-- `skills/PAI/preferences.md` - Stack preferences templates
-- `skills/PAI/response-format.md` - Response format templates
-- `skills/PAI/security-detailed.md` - Security procedures
-- `skills/PAI/voice-ids.md` - Voice system configuration (optional)
+- `skills/CORE/SKILL.md` - Full context with YAML frontmatter
+- `skills/CORE/contacts.md` - Contact templates
+- `skills/CORE/preferences.md` - Stack preferences templates
+- `skills/CORE/response-format.md` - Response format templates
+- `skills/CORE/security-detailed.md` - Security procedures
+- `skills/CORE/voice-ids.md` - Voice system configuration (optional)
 - `hooks/update-tab-titles.ts` - Tab title updates only
 
 </details>

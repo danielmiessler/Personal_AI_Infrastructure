@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PAI context loading system automatically injects your personal AI context from the `skills/PAI/SKILL.md` file into every Claude Code session at startup. This ensures your AI has immediate access to your preferences, contacts, security guidelines, and custom instructions without requiring manual skill activation.
+The PAI context loading system automatically injects your personal AI context from the `skills/CORE/SKILL.md` file into every Claude Code session at startup. This ensures your AI has immediate access to your preferences, contacts, security guidelines, and custom instructions without requiring manual skill activation.
 
 ## How It Works
 
@@ -11,7 +11,7 @@ PAI uses a **two-hook session initialization system**:
 ### 1. Context Loading (`load-core-context.ts`)
 **Runs FIRST** - Loads your PAI skill context into the session
 
-- Reads `~/.claude/skills/PAI/SKILL.md`
+- Reads `~/.claude/skills/CORE/SKILL.md`
 - Injects content as a `<system-reminder>` into Claude's context
 - Makes your complete PAI configuration immediately available
 - Skips execution for subagent sessions (they don't need PAI context)
@@ -99,7 +99,7 @@ Set these in your `settings.json` `env` section:
 
 ## Customizing Your PAI Context
 
-### Edit skills/PAI/SKILL.md
+### Edit skills/CORE/SKILL.md
 
 This file contains your complete AI context. Customize these sections:
 
@@ -136,7 +136,7 @@ This file contains your complete AI context. Customize these sections:
 
 ### Template Files
 
-The `skills/PAI/` directory includes template files for organization:
+The `skills/CORE/` directory includes template files for organization:
 - `contacts.md` - Contact list template
 - `preferences.md` - Stack and tool preferences template
 - `response-format.md` - Response formatting template
@@ -161,7 +161,7 @@ If subagent detected, hook exits silently (subagents don't need PAI context).
 ### 3. File Reading
 ```typescript
 const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-const paiSkillPath = join(paiDir, 'skills/PAI/SKILL.md');
+const paiSkillPath = join(paiDir, 'skills/CORE/SKILL.md');
 const paiContent = readFileSync(paiSkillPath, 'utf-8');
 ```
 
@@ -198,7 +198,7 @@ Claude Code captures this output and injects it into the conversation context as
 **Problem**: AI doesn't seem to have your PAI context
 
 **Check**:
-1. Verify `skills/PAI/SKILL.md` exists
+1. Verify `skills/CORE/SKILL.md` exists
 2. Check `settings.json` has `load-core-context.ts` in SessionStart hooks
 3. Look for errors in session startup output
 4. Ensure `PAI_DIR` environment variable is set correctly
@@ -218,7 +218,7 @@ Claude Code captures this output and injects it into the conversation context as
 **Problem**: AI seems to have old or incorrect context
 
 **Check**:
-1. Edit `skills/PAI/SKILL.md` and save changes
+1. Edit `skills/CORE/SKILL.md` and save changes
 2. Restart Claude Code session
 3. Verify changes are in SKILL.md (not template files)
 4. Check for multiple PAI installations
@@ -280,7 +280,7 @@ User: [Actual task - AI already has context]
    ```
 
 3. **Customize SKILL.md**:
-   Edit `skills/PAI/SKILL.md` with your personal context
+   Edit `skills/CORE/SKILL.md` with your personal context
 
 4. **Test**:
    Start a new Claude Code session and verify PAI context loads
@@ -320,7 +320,7 @@ After editing SKILL.md, restart a session and verify:
 ### Version Control
 Keep your PAI configuration in git:
 ```bash
-git add skills/PAI/SKILL.md
+git add skills/CORE/SKILL.md
 git commit -m "Update PAI context with new preferences"
 ```
 

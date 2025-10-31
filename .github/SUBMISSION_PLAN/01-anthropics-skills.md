@@ -102,7 +102,7 @@ After installation:
 1. Verify: `/help` to see PAI commands
 2. Try research: Say "do research on [topic]"
 3. Explore agents: Access specialized agents automatically
-4. Customize: Edit `skills/PAI/SKILL.md` with your context
+4. Customize: Edit `skills/CORE/SKILL.md` with your context
 
 ## Use Cases
 

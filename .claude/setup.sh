@@ -678,7 +678,7 @@ if ask_yes_no "Are you using Claude Code?"; then
     # v0.6.0 fix: Update hook scripts to use .claude/skills path
     if [ -f "$PAI_DIR/.claude/hooks/load-core-context.ts" ]; then
         print_warning "Fixing skill paths in load-core-context.ts hook..."
-        sed -i "s|'skills/PAI/SKILL.md'|'.claude/skills/PAI/SKILL.md'|g" "$PAI_DIR/.claude/hooks/load-core-context.ts"
+        sed -i "s|'skills/CORE/SKILL.md'|'.claude/skills/CORE/SKILL.md'|g" "$PAI_DIR/.claude/hooks/load-core-context.ts"
         print_success "Hook script paths fixed"
     fi
 
@@ -819,13 +819,13 @@ IDENTITY_EOF
     fi
 
     # Update SKILL.md with the user's chosen AI assistant name
-    if [ -f "$PAI_DIR/.claude/skills/PAI/SKILL.md" ]; then
+    if [ -f "$PAI_DIR/.claude/skills/CORE/SKILL.md" ]; then
         # Check if SKILL.md still has the template placeholder
-        if grep -q "Your Name: \[CUSTOMIZE" "$PAI_DIR/.claude/skills/PAI/SKILL.md" 2>/dev/null; then
+        if grep -q "Your Name: \[CUSTOMIZE" "$PAI_DIR/.claude/skills/CORE/SKILL.md" 2>/dev/null; then
             print_warning "Updating AI name in SKILL.md..."
 
             # Replace the template placeholder with the user's chosen name
-            sed -i "s/Your Name: \[CUSTOMIZE - e.g., Kai, Nova, Atlas\]/Your Name: $AI_NAME/" "$PAI_DIR/.claude/skills/PAI/SKILL.md"
+            sed -i "s/Your Name: \[CUSTOMIZE - e.g., Kai, Nova, Atlas\]/Your Name: $AI_NAME/" "$PAI_DIR/.claude/skills/CORE/SKILL.md"
 
             print_success "SKILL.md updated with AI name: $AI_NAME"
         fi
@@ -1060,7 +1060,7 @@ echo "   • 'Research the latest AI developments'"
 echo "   • 'What skills do you have?'"
 echo ""
 echo "3. ${CYAN}Customize PAI for you:${NC}"
-echo "   • Edit: $PAI_DIR/.claude/skills/PAI/SKILL.md"
+echo "   • Edit: $PAI_DIR/.claude/skills/CORE/SKILL.md"
 echo "   • Add API keys: $PAI_DIR/.env"
 echo "   • Read the docs: $PAI_DIR/.claude/documentation/how-to-start.md"
 echo ""

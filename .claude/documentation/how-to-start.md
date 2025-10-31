@@ -345,7 +345,7 @@ echo "# My Amazing Project" > $PAI_DIR/skills/my-project/SKILL.md
 **Customize the PAI skill** (tells PAI who you are):
 ```bash
 # Open the main PAI skill
-open -e $PAI_DIR/skills/PAI/SKILL.md
+open -e $PAI_DIR/skills/CORE/SKILL.md
 
 # Look for lines that say [CUSTOMIZE:] and update them with YOUR information
 ```
@@ -527,7 +527,7 @@ Make PAI truly yours:
 
 **Edit the PAI skill:**
 ```bash
-open -e $PAI_DIR/skills/PAI/SKILL.md
+open -e $PAI_DIR/skills/CORE/SKILL.md
 ```
 
 Look for `[CUSTOMIZE:]` markers and update:

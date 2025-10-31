@@ -43,6 +43,7 @@
 
 ### Recent Manual Updates
 
+- **✨ Oct 31:** v1.2.0 - Skills-as-Containers Migration - Complete architectural upgrade
 - **✨ Oct 19:** Session-start hook now loads PAI skill - improved Skills system bootstrap
 - **✨ Oct 18:** Major repo cleanup - fixed missing files, hooks, settings
 - **✨ v0.5.0:** Skills-based architecture with 92.5% token reduction
@@ -76,6 +77,71 @@
 ---
 
 ### Version History
+
+<details>
+<summary><strong>📅 v1.2.0 - Skills-as-Containers Migration 🔥 ARCHITECTURAL UPGRADE</strong></summary>
+
+**The Problem:**
+Commands were scattered in a flat global namespace (`~/.claude/commands/`), making it hard to discover related functionality, maintain consistency, and understand domain boundaries. The architecture needed hierarchical organization that matched how capabilities are naturally grouped.
+
+**The Solution:**
+Complete migration to Skills-as-Containers pattern:
+- Moved 73 commands into skill-specific `workflows/` subdirectories
+- Enhanced 21 skills with proper workflow organization
+- Established deprecation pattern for future architectural upgrades
+- Documented the complete migration process
+
+**What Changed:**
+```
+Before (v0.6.0):
+~/.claude/
+├── commands/
+│   ├── write-blog.md
+│   ├── publish-blog.md
+│   ├── quick-research.md
+│   ├── extensive-research.md
+│   └── [75+ scattered commands]
+└── skills/
+    ├── blogging/SKILL.md
+    └── research/SKILL.md
+
+After (v1.2.0):
+~/.claude/
+├── commands/               # Empty (commands moved to skills)
+└── skills/
+    ├── blogging/
+    │   ├── SKILL.md
+    │   └── workflows/
+    │       ├── write.md
+    │       └── publish.md
+    └── research/
+        ├── SKILL.md
+        └── workflows/
+            ├── quick.md
+            └── extensive.md
+```
+
+**Architecture Benefits:**
+- ✅ Domain knowledge colocated with workflows
+- ✅ Clear ownership and responsibility
+- ✅ Natural language routing: Skills → Workflows
+- ✅ Easier discovery of related capabilities
+- ✅ Better encapsulation of domain context
+
+**Migration Stats:**
+- 73 commands migrated to skill workflows
+- 21 skills enhanced with workflows/ directories
+- 1 new skill created (content-enhancement)
+- Commands directory reduced from 75 files to 0
+- Zero errors, 100% QA pass rate
+- Complete in ~25 minutes using parallel agents
+
+**Documentation:**
+- See `docs/ARCHITECTURE.md` for Skills-as-Containers pattern
+- Deprecation pattern established in `history/upgrades/deprecated/`
+- Complete migration audit trail preserved
+
+</details>
 
 <details>
 <summary><strong>📅 v0.6.0 - Repository Restructure with .claude/ Directory 🔥 MAJOR UPDATE</strong></summary>

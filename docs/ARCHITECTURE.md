@@ -549,6 +549,164 @@ Do you need AI capabilities?
 
 ---
 
+## Skills-as-Containers: Organizational Pattern
+
+### The Evolution
+
+PAI's architecture evolved from a flat command structure to a hierarchical Skills-as-Containers pattern. This migration (v1.2.0, October 2025) demonstrated a critical insight about organizing AI capabilities.
+
+### Before: Flat Command Structure
+
+```
+~/.claude/commands/
+├── write-post.md
+├── publish-post.md
+├── quick-research.md
+├── extensive-research.md
+├── implement-feature.md
+├── run-tests.md
+└── [75+ scattered commands]
+```
+
+**Problems:**
+- No logical grouping by domain
+- Hard to discover related workflows
+- Scattered knowledge across files
+- Difficult to maintain consistency
+
+### After: Skills-as-Containers
+
+```
+~/.claude/skills/
+├── content-creation/
+│   └── workflows/
+│       ├── write.md
+│       └── publish.md
+├── research/
+│   └── workflows/
+│       ├── quick.md
+│       └── extensive.md
+└── development/
+    └── workflows/
+        ├── implement.md
+        └── test.md
+```
+
+**Benefits:**
+- ✅ Domain knowledge colocated with workflows
+- ✅ Clear ownership and responsibility
+- ✅ Easy to discover related capabilities
+- ✅ Natural language routing to skills first, then workflows
+- ✅ Encapsulation of domain-specific context
+
+### Migration Pattern
+
+When restructuring from flat commands to Skills-as-Containers:
+
+**1. Identify Domains:**
+Group related commands by functional domain (content, research, development, etc.)
+
+**2. Create Skill Structure:**
+```
+~/.claude/skills/{domain}/
+├── SKILL.md              # Domain expertise & routing
+├── workflows/            # Specific task workflows (formerly commands)
+├── scripts/              # Executable helpers
+└── context/              # Reference materials
+```
+
+**3. Move Commands to Workflows:**
+- Commands become workflows within their skill
+- Preserve functionality while improving organization
+- Update cross-references in agents and other skills
+
+**4. Archive Deprecated Files:**
+```
+~/.claude/history/upgrades/deprecated/{date}_{migration-name}/
+├── README.md             # Comprehensive migration documentation
+└── {old-files}/          # Preserved for historical reference
+```
+
+### Deprecation Pattern for Architectural Upgrades
+
+**Standard Process:**
+
+1. **Create dated deprecation directory:**
+   ```
+   history/upgrades/deprecated/YYYY-MM-DD_upgrade-name/
+   ```
+
+2. **Move deprecated files with full context:**
+   - All deprecated files in organized subdirectories
+   - Comprehensive README.md explaining what/why
+   - Migration path documentation
+   - QA results and metrics
+   - Links to related documentation
+
+3. **Document the upgrade:**
+   - Executive summary with statistics
+   - Before/after comparisons
+   - Quality metrics (pass rates, errors found)
+   - Impact assessment
+
+4. **Update architecture docs:**
+   - Reference the deprecation pattern
+   - Include in main documentation
+   - Add to upgrade history
+
+**Example: Skills-as-Containers Migration (v1.2.0)**
+
+**Scope:**
+- 73 commands migrated to skill workflows
+- 21 skills enhanced with workflow subdirectories
+- 1 new skill created (content-enhancement)
+- Commands directory reduced from 75 files to 0
+
+**Quality Metrics:**
+- Zero errors in QA verification
+- 100% functionality preserved
+- Backward compatibility maintained
+- Complete in ~25 minutes using parallel agents
+
+**Key Principle:**
+Storage is cheap, history is valuable. Never delete deprecated files - archive them with comprehensive context for learning, reference, and potential rollback.
+
+### When to Use Skills-as-Containers
+
+**Use this pattern when:**
+- You have 3+ related workflows in the same domain
+- Natural grouping by functional area exists
+- You want to improve discoverability
+- Domain context should be shared across workflows
+- Preparing for long-term maintainability
+
+**Don't use when:**
+- You have truly standalone, unrelated workflows
+- The overhead of skill structure outweighs benefits
+- Workflows are experimental and may be deleted
+
+### Integration with Natural Language Routing
+
+**How it works:**
+
+```
+User: "I need to publish my article"
+  ↓
+Level 1: Skill Selection
+  - Analyzes intent: "publish" + "article"
+  - Loads: content-creation skill
+  ↓
+Level 2: Workflow Selection
+  - Within content-creation skill
+  - Matches "publish" to publish.md workflow
+  ↓
+Execution: Runs complete workflow with domain context
+```
+
+This two-level routing happens automatically - users don't need to know the internal structure.
+
+---
+
 ## Conclusion
 
 **The Core Insight:**

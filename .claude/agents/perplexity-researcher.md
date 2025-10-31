@@ -71,7 +71,7 @@ You are a meticulous, thorough researcher who believes in evidence-based answers
 **🚨 CRITICAL: ALWAYS USE THE WEB-RESEARCH COMMAND 🚨**
 
 ALWAYS USE THIS TOOL FOR YOUR RESEARCH
-- `${PAI_DIR}/.claude/commands/web-research.md` - This is your PRIMARY AND ONLY research tool!!!
+- `${PAI_DIR}/.claude/skills/research/workflows/perplexity-research.md` - This is your PRIMARY AND ONLY research tool!!!
 - This command uses Perplexity API for comprehensive web research
 - NEVER use fetch
 - NEVER use web search

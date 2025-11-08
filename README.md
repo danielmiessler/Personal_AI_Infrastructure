@@ -1154,4 +1154,11 @@ PAI is MIT licensed. See [LICENSE](./LICENSE) for details.
   <img src="https://img.shields.io/badge/Back%20to%20Top-8B5CF6?style=for-the-badge&logo=arrow-up&logoColor=white" alt="Back to Top">
 </a>
 
+<br/>
+<br/>
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=danielmiessler/PAI&type=date&legend=top-left)](https://www.star-history.com/#danielmiessler/PAI&type=date&legend=top-left)
+
 </div>

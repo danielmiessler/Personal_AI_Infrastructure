@@ -121,6 +121,21 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Portable sed function that handles both GNU sed (Linux/Homebrew) and BSD sed (macOS)
+portable_sed() {
+    local pattern="$1"
+    local file="$2"
+
+    # Check if GNU sed is available (supports --version)
+    if sed --version >/dev/null 2>&1; then
+        # GNU sed (Linux or Homebrew on macOS)
+        sed -i "$pattern" "$file"
+    else
+        # BSD sed (macOS native) - requires empty string after -i
+        sed -i '' "$pattern" "$file"
+    fi
+}
+
 # ============================================
 # Welcome Message
 # ============================================
@@ -411,15 +426,16 @@ fi
 
 print_header "Step 5: Configuring Environment"
 
-# Detect shell
-if [ -n "$ZSH_VERSION" ]; then
+# Detect shell using $SHELL variable (user's preferred shell)
+# This correctly identifies the user's shell even when the script is run with bash
+if [[ "$SHELL" == *"zsh"* ]]; then
     SHELL_CONFIG="$HOME/.zshrc"
     SHELL_NAME="zsh"
-elif [ -n "$BASH_VERSION" ]; then
+elif [[ "$SHELL" == *"bash"* ]]; then
     SHELL_CONFIG="$HOME/.bashrc"
     SHELL_NAME="bash"
 else
-    print_warning "Couldn't detect shell type. Defaulting to .zshrc"
+    print_warning "Couldn't detect shell type from \$SHELL ($SHELL). Defaulting to .zshrc"
     SHELL_CONFIG="$HOME/.zshrc"
     SHELL_NAME="zsh"
 fi
@@ -432,8 +448,14 @@ if grep -q "PAI_DIR" "$SHELL_CONFIG" 2>/dev/null; then
     print_info "PAI environment variables already exist in $SHELL_CONFIG"
 
     if ask_yes_no "Update them?"; then
-        # Remove old PAI configuration
-        sed -i.bak '/# ========== PAI Configuration ==========/,/# =========================================/d' "$SHELL_CONFIG"
+        # Remove old PAI configuration (create backup first)
+        if sed --version >/dev/null 2>&1; then
+            # GNU sed
+            sed -i.bak '/# ========== PAI Configuration ==========/,/# =========================================/d' "$SHELL_CONFIG"
+        else
+            # BSD sed
+            sed -i .bak '/# ========== PAI Configuration ==========/,/# =========================================/d' "$SHELL_CONFIG"
+        fi
         SHOULD_ADD_CONFIG=true
     else
         SHOULD_ADD_CONFIG=false
@@ -527,11 +549,8 @@ if [ "$SHOULD_CREATE_ENV" = true ]; then
         cp "$PAI_DIR/.claude/.env.example" "$PAI_DIR/.env"
 
         # Update PAI_DIR in .env
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|PAI_DIR=\"/path/to/PAI\"|PAI_DIR=\"$PAI_DIR\"|g" "$PAI_DIR/.env"
-        else
-            sed -i "s|PAI_DIR=\"/path/to/PAI\"|PAI_DIR=\"$PAI_DIR\"|g" "$PAI_DIR/.env"
-        fi
+        # The pattern needs to match the actual content: PAI_DIR=$HOME/.claude
+        portable_sed "s|PAI_DIR=\$HOME/\.claude|PAI_DIR=\"$PAI_DIR\"|g" "$PAI_DIR/.env"
 
         print_success ".env file created"
         print_info "You can add API keys later by editing: $PAI_DIR/.env"
@@ -655,7 +674,7 @@ if ask_yes_no "Are you using Claude Code?"; then
         print_warning "Fixing hook paths in settings.json..."
 
         # Replace all instances of ${PAI_DIR} with the actual absolute path
-        sed -i "s|\${PAI_DIR}|$PAI_DIR|g" "$PAI_DIR/.claude/settings.json"
+        portable_sed "s|\${PAI_DIR}|$PAI_DIR|g" "$PAI_DIR/.claude/settings.json"
 
         print_success "Variable paths fixed in settings.json"
     fi
@@ -666,10 +685,10 @@ if ask_yes_no "Are you using Claude Code?"; then
             print_warning "Fixing v0.6.0 hook paths in settings.json..."
 
             # Update hook paths from /PAI/hooks/ to /PAI/.claude/hooks/
-            sed -i "s|$PAI_DIR/hooks/|$PAI_DIR/.claude/hooks/|g" "$PAI_DIR/.claude/settings.json"
+            portable_sed "s|$PAI_DIR/hooks/|$PAI_DIR/.claude/hooks/|g" "$PAI_DIR/.claude/settings.json"
 
             # Update statusline path from /PAI/statusline to /PAI/.claude/statusline
-            sed -i "s|$PAI_DIR/statusline-command.sh|$PAI_DIR/.claude/statusline-command.sh|g" "$PAI_DIR/.claude/settings.json"
+            portable_sed "s|$PAI_DIR/statusline-command.sh|$PAI_DIR/.claude/statusline-command.sh|g" "$PAI_DIR/.claude/settings.json"
 
             print_success "v0.6.0 paths fixed in settings.json"
         fi
@@ -678,7 +697,7 @@ if ask_yes_no "Are you using Claude Code?"; then
     # v0.6.0 fix: Update hook scripts to use .claude/skills path
     if [ -f "$PAI_DIR/.claude/hooks/load-core-context.ts" ]; then
         print_warning "Fixing skill paths in load-core-context.ts hook..."
-        sed -i "s|'skills/CORE/SKILL.md'|'.claude/skills/CORE/SKILL.md'|g" "$PAI_DIR/.claude/hooks/load-core-context.ts"
+        portable_sed "s|'skills/CORE/SKILL.md'|'.claude/skills/CORE/SKILL.md'|g" "$PAI_DIR/.claude/hooks/load-core-context.ts"
         print_success "Hook script paths fixed"
     fi
 
@@ -686,7 +705,7 @@ if ask_yes_no "Are you using Claude Code?"; then
     if [ -f "$PAI_DIR/.claude/hooks/initialize-pai-session.ts" ]; then
         if grep -q "paiDir, 'hooks/" "$PAI_DIR/.claude/hooks/initialize-pai-session.ts" 2>/dev/null; then
             print_warning "Fixing hook paths in initialize-pai-session.ts..."
-            sed -i "s|paiDir, 'hooks/|paiDir, '.claude/hooks/|g" "$PAI_DIR/.claude/hooks/initialize-pai-session.ts"
+            portable_sed "s|paiDir, 'hooks/|paiDir, '.claude/hooks/|g" "$PAI_DIR/.claude/hooks/initialize-pai-session.ts"
             print_success "initialize-pai-session.ts hook paths fixed"
         fi
     fi
@@ -696,10 +715,10 @@ if ask_yes_no "Are you using Claude Code?"; then
         print_warning "Fixing paths in load-dynamic-requirements.md..."
 
         # Replace ${PAI_DIR} with absolute path
-        sed -i "s|\${PAI_DIR}|$PAI_DIR|g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
+        portable_sed "s|\${PAI_DIR}|$PAI_DIR|g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
 
         # v0.6.0 fix: Update PAI.md path from /PAI/PAI.md to /PAI/.claude/PAI.md
-        sed -i "s|$PAI_DIR/PAI\.md|$PAI_DIR/.claude/PAI.md|g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
+        portable_sed "s|$PAI_DIR/PAI\.md|$PAI_DIR/.claude/PAI.md|g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
 
         print_success "Command paths fixed in load-dynamic-requirements.md"
     fi
@@ -798,7 +817,7 @@ IDENTITY_EOF
         elif grep -q "default: Kai" "$PAI_DIR/.claude/PAI.md" 2>/dev/null; then
             # Simple case: just update the name line
             print_warning "Updating AI assistant name in PAI.md..."
-            sed -i "s/\*\*Name:\*\* You can customize this (default: Kai)/\*\*Name:\*\* $AI_NAME/" "$PAI_DIR/.claude/PAI.md"
+            portable_sed "s/\*\*Name:\*\* You can customize this (default: Kai)/\*\*Name:\*\* $AI_NAME/" "$PAI_DIR/.claude/PAI.md"
             print_success "PAI.md updated with AI name: $AI_NAME"
         fi
     fi
@@ -811,8 +830,8 @@ IDENTITY_EOF
             print_warning "Updating AI name in load-dynamic-requirements.md..."
 
             # Replace the two Kai references in the conversational section
-            sed -i "s/respond like Kai having a chat/respond like $AI_NAME having a chat/g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
-            sed -i "s/You're Kai, their assistant/You're $AI_NAME, their assistant/g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
+            portable_sed "s/respond like Kai having a chat/respond like $AI_NAME having a chat/g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
+            portable_sed "s/You're Kai, their assistant/You're $AI_NAME, their assistant/g" "$PAI_DIR/.claude/commands/load-dynamic-requirements.md"
 
             print_success "load-dynamic-requirements.md updated with AI name: $AI_NAME"
         fi
@@ -825,7 +844,7 @@ IDENTITY_EOF
             print_warning "Updating AI name in SKILL.md..."
 
             # Replace the template placeholder with the user's chosen name
-            sed -i "s/Your Name: \[CUSTOMIZE - e.g., Kai, Nova, Atlas\]/Your Name: $AI_NAME/" "$PAI_DIR/.claude/skills/CORE/SKILL.md"
+            portable_sed "s/Your Name: \[CUSTOMIZE - e.g., Kai, Nova, Atlas\]/Your Name: $AI_NAME/" "$PAI_DIR/.claude/skills/CORE/SKILL.md"
 
             print_success "SKILL.md updated with AI name: $AI_NAME"
         fi

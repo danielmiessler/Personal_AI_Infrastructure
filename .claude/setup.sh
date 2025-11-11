@@ -411,11 +411,14 @@ fi
 
 print_header "Step 5: Configuring Environment"
 
-# Detect shell
-if [ -n "$ZSH_VERSION" ]; then
+# Detect shell from user's login shell (not from script execution environment)
+# Use $SHELL env var which contains the user's login shell path
+SHELL_BASENAME=$(basename "$SHELL")
+
+if [ "$SHELL_BASENAME" = "zsh" ]; then
     SHELL_CONFIG="$HOME/.zshrc"
     SHELL_NAME="zsh"
-elif [ -n "$BASH_VERSION" ]; then
+elif [ "$SHELL_BASENAME" = "bash" ]; then
     SHELL_CONFIG="$HOME/.bashrc"
     SHELL_NAME="bash"
 else

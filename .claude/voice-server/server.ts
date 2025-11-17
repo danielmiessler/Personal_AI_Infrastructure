@@ -29,8 +29,11 @@ if (!ELEVENLABS_API_KEY) {
   console.error('Add: ELEVENLABS_API_KEY=your_key_here');
 }
 
+// Default model (configured via env). Can be overridden via request body.
+const ELEVEN_MODEL_ID = process.env.ELEVEN_MODEL_ID || 'eleven_flash_v2_5';
+
 // Default voice ID (Kai's voice)
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "kmSVBPu7loj4ayNinwWM";
 
 // Sanitize input for shell commands
 function sanitizeForShell(input: string): string {
@@ -63,7 +66,7 @@ function validateInput(input: any): { valid: boolean; error?: string } {
 }
 
 // Generate speech using ElevenLabs API
-async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffer> {
+async function generateSpeech(text: string, voiceId: string, modelId?: string): Promise<ArrayBuffer> {
   if (!ELEVENLABS_API_KEY) {
     throw new Error('ElevenLabs API key not configured');
   }
@@ -79,7 +82,7 @@ async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffe
     },
     body: JSON.stringify({
       text: text,
-      model_id: 'eleven_monolingual_v1',
+      model_id: modelId || ELEVEN_MODEL_ID,
       voice_settings: {
         stability: 0.5,
         similarity_boost: 0.5,
@@ -148,7 +151,8 @@ async function sendNotification(
   title: string,
   message: string,
   voiceEnabled = true,
-  voiceId: string | null = null
+  voiceId: string | null = null,
+  modelId?: string
 ) {
   // Validate inputs
   const titleValidation = validateInput(title);
@@ -168,15 +172,12 @@ async function sendNotification(
 
   // Generate and play voice using ElevenLabs
   if (voiceEnabled && ELEVENLABS_API_KEY) {
-    try {
-      const voice = voiceId || DEFAULT_VOICE_ID;
-      console.log(`🎙️  Generating speech with ElevenLabs (voice: ${voice})`);
+    const voice = voiceId || DEFAULT_VOICE_ID;
+    const chosenModel = modelId || ELEVEN_MODEL_ID;
+    console.log(`🎙️  Generating speech with ElevenLabs (voice: ${voice}, model: ${chosenModel})`);
 
-      const audioBuffer = await generateSpeech(safeMessage, voice);
-      await playAudio(audioBuffer);
-    } catch (error) {
-      console.error("Failed to generate/play speech:", error);
-    }
+    const audioBuffer = await generateSpeech(safeMessage, voice, chosenModel);
+    await playAudio(audioBuffer);
   }
 
   // Display macOS notification
@@ -245,6 +246,7 @@ const server = serve({
         const message = data.message || "Task completed";
         const voiceEnabled = data.voice_enabled !== false;
         const voiceId = data.voice_id || data.voice_name || null; // Support both voice_id and voice_name
+        const modelId = (typeof data.model_id === 'string' ? data.model_id : undefined);
 
         if (voiceId && typeof voiceId !== 'string') {
           throw new Error('Invalid voice_id');
@@ -252,7 +254,7 @@ const server = serve({
 
         console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
 
-        await sendNotification(title, message, voiceEnabled, voiceId);
+        await sendNotification(title, message, voiceEnabled, voiceId, modelId);
 
         return new Response(
           JSON.stringify({ status: "success", message: "Notification sent" }),

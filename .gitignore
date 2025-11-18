@@ -61,3 +61,4 @@ out/
 private/
 secrets/
 credentials/
+.env.*

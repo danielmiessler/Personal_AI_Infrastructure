@@ -19,7 +19,7 @@ The voice server extracts the JSON block below to configure agent voices:
   "default_rate": 175,
   "voices": {
     "kai": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "s3TPKV1kjDlVtZbl4Ksh",
       "voice_name": "Jamie (Premium)",
       "name": "Jamie",
       "rate_multiplier": 1.34,
@@ -30,7 +30,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "perplexity-researcher": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "AXdMgz6evoL7OPd7eU12",
       "voice_name": "Ava (Premium)",
       "name": "Ava Chen",
       "rate_multiplier": 1.37,
@@ -41,7 +41,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "claude-researcher": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "AXdMgz6evoL7OPd7eU12",
       "voice_name": "Ava (Premium)",
       "name": "Ava Sterling",
       "rate_multiplier": 1.31,
@@ -52,7 +52,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "gemini-researcher": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "2zRM7PkgwBPiau2jvVXc",
       "voice_name": "Multi-perspective",
       "name": "Alex Rivera",
       "rate_multiplier": 1.34,
@@ -63,7 +63,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "engineer": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "fATgBRI8wg5KkDFg8vBd",
       "voice_name": "Zoe (Premium)",
       "name": "Zoe Martinez",
       "rate_multiplier": 1.26,
@@ -74,7 +74,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "principal-engineer": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "iLVmqjzCGGvqtMCk6vVQ",
       "voice_name": "Senior Leadership",
       "name": "Marcus Webb",
       "rate_multiplier": 1.21,
@@ -85,7 +85,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "architect": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "muZKMsIDGYtIkjjiUS82",
       "voice_name": "Serena (Premium)",
       "name": "Serena Blackwood",
       "rate_multiplier": 1.17,
@@ -96,7 +96,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "designer": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "ZF6FPAbjXT4488VcRRnw",
       "voice_name": "Isha (Premium)",
       "name": "Aditi Sharma",
       "rate_multiplier": 1.29,
@@ -107,7 +107,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "artist": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "ZF6FPAbjXT4488VcRRnw",
       "voice_name": "Isha (Premium)",
       "name": "Priya Desai",
       "rate_multiplier": 1.23,
@@ -118,7 +118,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "pentester": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "xvHLFjaUEpx4BOf7EiDd",
       "voice_name": "Oliver (Enhanced)",
       "name": "Rook Blackburn",
       "rate_multiplier": 1.49,
@@ -129,7 +129,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Enhanced"
     },
     "writer": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "gfRt6Z3Z8aTbpLfexQ7N",
       "voice_name": "Serena (Premium)",
       "name": "Emma Hartley",
       "rate_multiplier": 1.31,
@@ -140,7 +140,7 @@ The voice server extracts the JSON block below to configure agent voices:
       "type": "Premium"
     },
     "intern": {
-      "voice_id": "process.env.VOICE_ID_<AGENT_NAME> || your-voice-id-here",
+      "voice_id": "d3MFdIuCfbAIwiu7jC4a",
       "voice_name": "High-energy genius",
       "name": "Dev Patel",
       "rate_multiplier": 1.54,

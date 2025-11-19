@@ -150,14 +150,10 @@ Follow the guide in `.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 ### Customize Your Setup
 
-**Stack Preferences** - Edit what you prefer:
-- `.claude/skills/CORE/stack-preferences.md` - TypeScript vs Python, etc.
-
-**Agent Personalities** - Customize agent voices:
-- `.claude/skills/CORE/agent-personalities.md`
-
 **Hooks** - Add custom automation:
 - `.claude/hooks/` - Event-driven scripts
+
+See `.claude/skills/CORE/SKILL.md` for complete configuration options.
 
 ---
 
@@ -175,6 +171,21 @@ cat ~/.claude/settings.json | grep SessionStart
 ```
 read ~/.claude/skills/CORE/SKILL.md
 ```
+
+### Hooks Fail with "$HOME/.claude/..." Error
+
+If you see errors like:
+```
+/bin/sh: $HOME/.claude/hooks/capture-all-events.ts: No such file or directory
+```
+
+**Solution:** PAI_DIR environment variable isn't being expanded. The hooks default to `~/.claude` automatically, so you don't need PAI_DIR at all.
+
+If you previously set PAI_DIR and are having issues:
+1. Remove `PAI_DIR` from `~/.claude/settings.json` env section
+2. OR set it to an absolute path: `"PAI_DIR": "/Users/yourname/.claude"`
+
+The hooks will automatically use `~/.claude` if PAI_DIR isn't set.
 
 ### Voice Server Not Working
 
@@ -224,9 +235,9 @@ cd ~/.claude/skills/
 
 Skills auto-activate based on their description triggers.
 
-### Customize Agent Voices
+### Explore CORE Documentation
 
-Edit `.claude/skills/CORE/agent-personalities.md` with your preferred ElevenLabs voice IDs.
+See `.claude/skills/CORE/` for complete system documentation and configuration guides.
 
 ---
 

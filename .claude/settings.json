@@ -5,6 +5,7 @@
     "PAI_DIR": "/Users/andreas/.claude",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },
+  "_comment_PAI_DIR": "PAI_DIR is not needed - hooks default to ~/.claude automatically. Only set PAI_DIR if you need a custom location (use absolute path like /Users/yourname/.claude)",
   "permissions": {
     "allow": [
       "Bash",

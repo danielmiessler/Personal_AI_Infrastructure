@@ -163,7 +163,7 @@ Claude Code supports the following hook events (from `~/.claude/hooks/lib/observ
 **What They Do:**
 - `stop-hook.ts` - THE CRITICAL HOOK for main agent completions
   - Extracts `🎯 COMPLETED:` line from response
-  - Sends to voice server with Kai's voice ID (`s3TPKV1kjDlVtZbl4Ksh`)
+  - Sends to voice server with PAI's voice ID (`s3TPKV1kjDlVtZbl4Ksh`)
   - Captures work summaries to `~/.claude/history/sessions/YYYY-MM/` or learnings to `~/.claude/history/learnings/YYYY-MM/`
   - Updates Kitty tab with `✅` prefix
   - Sends event to observability dashboard
@@ -390,10 +390,10 @@ All hooks receive JSON data on stdin:
 const completionMessage = extractKaiCompletion(lastMessage);
 
 const payload = {
-  title: 'Kai',
+  title: 'PAI',
   message: completionMessage,
   voice_enabled: true,
-  voice_id: 's3TPKV1kjDlVtZbl4Ksh'  // Kai's ElevenLabs voice
+  voice_id: 's3TPKV1kjDlVtZbl4Ksh'  // PAI's ElevenLabs voice
 };
 
 await fetch('http://localhost:8888/notify', {
@@ -404,7 +404,7 @@ await fetch('http://localhost:8888/notify', {
 ```
 
 **Agent-Specific Voices:**
-- Main agent (Kai): `s3TPKV1kjDlVtZbl4Ksh`
+- Main agent (PAI): `s3TPKV1kjDlVtZbl4Ksh`
 - Engineer: `fATgBRI8wg5KkDFg8vBd`
 - Researcher: `AXdMgz6evoL7OPd7eU12`
 - Pentester: `xvHLFjaUEpx4BOf7EiDd`
@@ -1067,7 +1067,7 @@ capture-all-events.ts Universal event logger
 VOICE SERVER:
 URL: http://localhost:8888/notify
 Payload: {"message":"...", "voice_id":"...", "title":"..."}
-Main Voice: s3TPKV1kjDlVtZbl4Ksh (Kai)
+Main Voice: s3TPKV1kjDlVtZbl4Ksh (PAI)
 
 OBSERVABILITY:
 Server: http://localhost:4000

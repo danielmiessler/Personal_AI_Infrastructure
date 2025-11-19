@@ -92,22 +92,21 @@ claude-code
 
 ### **Essential Reading**
 
-- **[CONSTITUTION.md](/.claude/skills/CORE/CONSTITUTION.md)** - System philosophy, architecture, and operating principles
-- **[SKILL.md](/.claude/skills/CORE/SKILL.md)** - Main PAI skill with identity, preferences, and quick reference
-- **[SKILL-STRUCTURE-AND-ROUTING.md](/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md)** - How to create your own skills
+- **[CONSTITUTION.md](.claude/skills/CORE/CONSTITUTION.md)** - System philosophy, architecture, and operating principles
+- **[SKILL.md](.claude/skills/CORE/SKILL.md)** - Main PAI skill with identity, preferences, and quick reference
+- **[SKILL-STRUCTURE-AND-ROUTING.md](.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md)** - How to create your own skills
 
 ### **System Guides**
 
-- **[hook-system.md](/.claude/skills/CORE/hook-system.md)** - Event-driven automation
-- **[agent-personalities.md](/.claude/skills/CORE/agent-personalities.md)** - Specialized AI agents (12+ personalities)
-- **[history-system.md](/.claude/skills/CORE/history-system.md)** - Automatic work documentation
-- **[VOICE.md](/.claude/skills/CORE/VOICE.md)** → **[voice-server/USAGE.md](/.claude/voice-server/USAGE.md)** - Text-to-speech feedback
+- **[hook-system.md](.claude/skills/CORE/hook-system.md)** - Event-driven automation
+- **[history-system.md](.claude/skills/CORE/history-system.md)** - Automatic work documentation
+- **[VOICE.md](.claude/skills/CORE/VOICE.md)** → **[voice-server/README.md](.claude/voice-server/README.md)** - Text-to-speech feedback
 
 ### **Reference**
 
-- **[prosody-guide.md](/.claude/skills/CORE/prosody-guide.md)** - Voice emotion system
-- **[prompting.md](/.claude/skills/CORE/prompting.md)** - Prompt engineering patterns
-- **[terminal-tabs.md](/.claude/skills/CORE/terminal-tabs.md)** - Terminal management
+- **[prosody-guide.md](.claude/skills/CORE/prosody-guide.md)** - Voice emotion system
+- **[prompting.md](.claude/skills/CORE/prompting.md)** - Prompt engineering patterns
+- **[terminal-tabs.md](.claude/skills/CORE/terminal-tabs.md)** - Terminal management
 
 ---
 
@@ -153,8 +152,6 @@ Load context only when needed (3 tiers):
 - **Format:** Markdown (NOT HTML for basic content)
 - **Testing:** Vitest when needed
 - **Voice:** ElevenLabs TTS integration
-
-Stack preferences: `.claude/skills/CORE/stack-preferences.md`
 
 ---
 

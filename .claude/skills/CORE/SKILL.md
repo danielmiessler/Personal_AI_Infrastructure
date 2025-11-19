@@ -283,45 +283,6 @@ The intern agent is your high-agency genius generalist - perfect for parallel ex
 For advanced delegation strategies, spotcheck patterns, and when interns can invoke engineers:
 `~/.claude/skills/CORE/workflows/delegation-patterns.md`
 
-## 🌐 Web Scraping & MCP Systems
-
-### Route Triggers
-- Daniel says "use the MCP" or "use Bright Data" or "use Apify" → Use system-mcp SKILL
-- Daniel mentions "scrape my site" or "scrape website" → Use system-mcp SKILL
-- Daniel asks "extract data from" or "get data from website" → Use system-mcp SKILL
-- Daniel mentions "Instagram scraper" or "LinkedIn data" or social media scraping → Use system-mcp SKILL
-- Daniel asks "Google Maps businesses" or lead generation → Use system-mcp SKILL
-- Questions about "web scraping" or "data extraction" → Use system-mcp SKILL
-
-### Web Scraping: Use system-mcp Skill
-
-**The system-mcp skill is THE skill for web scraping and data extraction.**
-- Location: ~/.claude/skills/system-mcp/
-- Handles: Bright Data, Apify, and future web scraping providers
-- Implementation: TypeScript wrappers that call APIs directly (not old MCP protocol tools)
-- **When Daniel says "use the MCP" or "use Bright Data" or "use Apify"** → Use system-mcp SKILL
-- Execute with: `bun run script.ts` using TypeScript imports
-- Example: `import { scrapeAsMarkdown } from '~/.claude/skills/system-mcp/providers/brightdata/actors'`
-- 99% token savings by filtering data in TypeScript code BEFORE model context
-
-**Why TypeScript Wrappers (not old MCP protocol):**
-- Direct API calls (faster, more efficient)
-- Filter results in code before sending to model (massive token savings)
-- Full control over data processing
-- No MCP protocol overhead
-
-### MCP Profile Management (LEGACY - Different System)
-
-**Route Triggers:**
-- Daniel says "switch MCP" or "change MCP profile" → LEGACY profile swap
-- Daniel mentions "chrome MCP" or "dev MCP" or "security profile" → LEGACY profiles
-- Daniel asks "what MCP profiles exist" or "available profiles" → LEGACY system
-- Daniel says "load research profile" or "swap MCP" → LEGACY profile swap + restart
-- Questions about "MCP configuration" or "two MCP systems"
-
-**📚 Complete MCP Profile Management Guide:**
-`~/.claude/skills/CORE/workflows/mcp-profile-management.md`
-
 ---
 
 **This completes the CORE skill quick reference. All additional context is available in the documentation files listed above.**

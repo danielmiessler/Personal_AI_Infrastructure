@@ -3,24 +3,24 @@
 /**
  * load-core-context.ts
  *
- * Automatically loads your PAI skill context at session start by reading and injecting
- * the PAI SKILL.md file contents directly into Claude's context as a system-reminder.
+ * Automatically loads your CORE skill context at session start by reading and injecting
+ * the CORE SKILL.md file contents directly into Claude's context as a system-reminder.
  *
  * Purpose:
- * - Read PAI SKILL.md file content
+ * - Read CORE SKILL.md file content
  * - Output content as system-reminder for Claude to process
  * - Ensure complete context (contacts, preferences, security, identity) available at session start
  * - Bypass skill activation logic by directly injecting context
  *
  * Setup:
- * 1. Customize your ~/.claude/skills/PAI/SKILL.md with your personal context
+ * 1. Customize your ~/.claude/skills/CORE/SKILL.md with your personal context
  * 2. Add this hook to settings.json SessionStart hooks
  * 3. Ensure PAI_DIR environment variable is set (defaults to $HOME/.claude)
  *
  * How it works:
  * - Runs at the start of every Claude Code session
- * - Skips execution for subagent sessions (they don't need PAI context)
- * - Reads your PAI SKILL.md file
+ * - Skips execution for subagent sessions (they don't need CORE context)
+ * - Reads your CORE SKILL.md file
  * - Injects content as <system-reminder> which Claude processes automatically
  * - Gives your AI immediate access to your complete personal context
  */
@@ -37,38 +37,40 @@ async function main() {
                       process.env.CLAUDE_AGENT_TYPE !== undefined;
 
     if (isSubagent) {
-      // Subagent sessions don't need PAI context loading
-      console.error('🤖 Subagent session - skipping PAI context loading');
+      // Subagent sessions don't need CORE context loading
+      console.error('🤖 Subagent session - skipping CORE context loading');
       process.exit(0);
     }
 
     // Get PAI directory from environment or use default
     const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const paiSkillPath = join(paiDir, 'skills/PAI/SKILL.md');
+    const coreSkillPath = join(paiDir, 'skills/CORE/SKILL.md');
 
-    // Verify PAI skill file exists
-    if (!existsSync(paiSkillPath)) {
-      console.error(`❌ PAI skill not found at: ${paiSkillPath}`);
-      console.error(`💡 Create your PAI skill file or check PAI_DIR environment variable`);
+    // Verify CORE skill file exists
+    if (!existsSync(coreSkillPath)) {
+      console.error(`❌ CORE skill not found at: ${coreSkillPath}`);
+      console.error(`💡 Ensure CORE/SKILL.md exists or check PAI_DIR environment variable`);
       process.exit(1);
     }
 
-    console.error('📚 Reading PAI core context from skill file...');
+    console.error('📚 Reading CORE context from skill file...');
 
-    // Read the PAI SKILL.md file content
-    const paiContent = readFileSync(paiSkillPath, 'utf-8');
+    // Read the CORE SKILL.md file content
+    const coreContent = readFileSync(coreSkillPath, 'utf-8');
 
-    console.error(`✅ Read ${paiContent.length} characters from PAI SKILL.md`);
+    console.error(`✅ Read ${coreContent.length} characters from CORE SKILL.md`);
 
-    // Output the PAI content as a system-reminder
+    // Output the CORE content as a system-reminder
     // This will be injected into Claude's context at session start
     const message = `<system-reminder>
 PAI CORE CONTEXT (Auto-loaded at Session Start)
 
-The following context has been loaded from ${paiSkillPath}:
+📅 CURRENT DATE/TIME: ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} PST
+
+The following context has been loaded from ${coreSkillPath}:
 
 ---
-${paiContent}
+${coreContent}
 ---
 
 This context is now active for this session. Follow all instructions, preferences, and guidelines contained above.
@@ -77,7 +79,7 @@ This context is now active for this session. Follow all instructions, preference
     // Write to stdout (will be captured by Claude Code)
     console.log(message);
 
-    console.error('✅ PAI context injected into session');
+    console.error('✅ CORE context injected into session');
     process.exit(0);
   } catch (error) {
     console.error('❌ Error in load-core-context hook:', error);

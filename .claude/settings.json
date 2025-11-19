@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
     "DA": "PAI",
-    "PAI_DIR": "$HOME/.claude",
+    "PAI_DIR": "/Users/andreas/.claude",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },
   "permissions": {

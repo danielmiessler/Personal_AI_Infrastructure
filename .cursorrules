@@ -1,0 +1,23 @@
+## Git remote safety rules
+
+- **Never push to `upstream`**:
+  - Treat the `upstream` remote (the original `danielmiessler/Personal_AI_Infrastructure` repo) as **read-only**.
+  - Do **not** run commands that push to `upstream`, such as:
+    - `git push upstream ...`
+    - `git push --all upstream`
+    - `git push --tags upstream`
+  - All pushes must go to `origin` (the private repo `git@github.com:mellanon/pai-1.2.git`) unless the user explicitly and knowingly requests otherwise.
+
+- **Remote naming assumptions**:
+  - `origin` should point to the private fork: `git@github.com:mellanon/pai-1.2.git`.
+  - `upstream` should point to the public source: `https://github.com/danielmiessler/Personal_AI_Infrastructure.git`.
+  - When updating the local main branch from the source, prefer:
+    - `git fetch upstream`
+    - `git merge upstream/main` or `git rebase upstream/main`
+    - Then `git push origin main`
+
+- **Assistant behavior**:
+  - When suggesting or running git commands, default to **pushing only to `origin`**.
+  - If a push to `upstream` is ever suggested, it must be called out as a **special, risky operation** and only executed after the user has clearly requested it.
+
+

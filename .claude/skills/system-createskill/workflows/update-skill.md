@@ -24,7 +24,7 @@
 
 **REQUIRED:** Read the source of truth before updating:
 ```bash
-~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
 ```
 
 **What to extract:**
@@ -75,7 +75,7 @@
 
 **Read current SKILL.md:**
 ```bash
-~/.claude/skills/[skill-name]/SKILL.md
+${PAI_DIR}/skills/[skill-name]/SKILL.md
 ```
 
 **Analyze:**
@@ -105,11 +105,11 @@ Current: Standard (no state) + Adding state → Consider Complex
 **ALWAYS backup before modifying:**
 ```bash
 # Create timestamped backup
-cp -r ~/.claude/skills/[skill-name]/ \
-      ~/.claude/skills/[skill-name]/.backup-$(date +%Y%m%d-%H%M%S)/
+cp -r ${PAI_DIR}/skills/[skill-name]/ \
+      ${PAI_DIR}/skills/[skill-name]/.backup-$(date +%Y%m%d-%H%M%S)/
 
 # Verify backup
-ls -la ~/.claude/skills/[skill-name]/.backup-*/
+ls -la ${PAI_DIR}/skills/[skill-name]/.backup-*/
 ```
 
 **Output:** Backup created
@@ -122,7 +122,7 @@ ls -la ~/.claude/skills/[skill-name]/.backup-*/
 
 **Create workflow file:**
 ```bash
-touch ~/.claude/skills/[skill-name]/workflows/[new-workflow].md
+touch ${PAI_DIR}/skills/[skill-name]/workflows/[new-workflow].md
 ```
 
 **Write workflow content** (use standard template from create-skill.md)
@@ -131,7 +131,7 @@ touch ~/.claude/skills/[skill-name]/workflows/[new-workflow].md
 ```markdown
 **When user requests [new action]:**
 Examples: "phrase 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"
-→ **READ:** ~/.claude/skills/[skill-name]/workflows/[new-workflow].md
+→ **READ:** ${PAI_DIR}/skills/[skill-name]/workflows/[new-workflow].md
 → **EXECUTE:** Description of what this workflow does
 ```
 
@@ -153,23 +153,23 @@ Examples: "phrase 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"
 
 **Create category directories:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/workflows/{category1,category2,category3}
+mkdir -p ${PAI_DIR}/skills/[skill-name]/workflows/{category1,category2,category3}
 ```
 
 **Move workflows to categories:**
 ```bash
 # Move workflows by category
-mv ~/.claude/skills/[skill-name]/workflows/category1-*.md \
-   ~/.claude/skills/[skill-name]/workflows/category1/
+mv ${PAI_DIR}/skills/[skill-name]/workflows/category1-*.md \
+   ${PAI_DIR}/skills/[skill-name]/workflows/category1/
 
-mv ~/.claude/skills/[skill-name]/workflows/category2-*.md \
-   ~/.claude/skills/[skill-name]/workflows/category2/
+mv ${PAI_DIR}/skills/[skill-name]/workflows/category2-*.md \
+   ${PAI_DIR}/skills/[skill-name]/workflows/category2/
 ```
 
 **Update SKILL.md Workflow Routing paths:**
 ```markdown
-OLD: → **READ:** ~/.claude/skills/[skill-name]/workflows/workflow1.md
-NEW: → **READ:** ~/.claude/skills/[skill-name]/workflows/category1/workflow1.md
+OLD: → **READ:** ${PAI_DIR}/skills/[skill-name]/workflows/workflow1.md
+NEW: → **READ:** ${PAI_DIR}/skills/[skill-name]/workflows/category1/workflow1.md
 ```
 
 **Update Workflow Overview with nested structure:**
@@ -192,12 +192,12 @@ NEW: → **READ:** ~/.claude/skills/[skill-name]/workflows/category1/workflow1.m
 
 **Create documentation directory if needed:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/documentation
+mkdir -p ${PAI_DIR}/skills/[skill-name]/documentation
 ```
 
 **Create documentation file:**
 ```bash
-touch ~/.claude/skills/[skill-name]/documentation/[topic].md
+touch ${PAI_DIR}/skills/[skill-name]/documentation/[topic].md
 ```
 
 **Write documentation content**
@@ -209,7 +209,7 @@ touch ~/.claude/skills/[skill-name]/documentation/[topic].md
 ### [Topic Name]
 
 For detailed information about [topic], see:
-`~/.claude/skills/[skill-name]/documentation/[topic].md`
+`${PAI_DIR}/skills/[skill-name]/documentation/[topic].md`
 
 [Brief summary of what this doc contains]
 [When to use this documentation]
@@ -223,24 +223,24 @@ For detailed information about [topic], see:
 
 **Add State Management:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/state
-touch ~/.claude/skills/[skill-name]/.gitignore
+mkdir -p ${PAI_DIR}/skills/[skill-name]/state
+touch ${PAI_DIR}/skills/[skill-name]/.gitignore
 
 # Add to .gitignore
-echo "state/*.json" >> ~/.claude/skills/[skill-name]/.gitignore
-echo "state/*.cache" >> ~/.claude/skills/[skill-name]/.gitignore
+echo "state/*.json" >> ${PAI_DIR}/skills/[skill-name]/.gitignore
+echo "state/*.cache" >> ${PAI_DIR}/skills/[skill-name]/.gitignore
 ```
 
 **Add Tools:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/tools
-touch ~/.claude/skills/[skill-name]/tools/[tool-name].ts
+mkdir -p ${PAI_DIR}/skills/[skill-name]/tools
+touch ${PAI_DIR}/skills/[skill-name]/tools/[tool-name].ts
 ```
 
 **Add Testing:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/testing
-touch ~/.claude/skills/[skill-name]/testing/test-[feature].md
+mkdir -p ${PAI_DIR}/skills/[skill-name]/testing
+touch ${PAI_DIR}/skills/[skill-name]/testing/test-[feature].md
 ```
 
 **Document in SKILL.md:**
@@ -276,17 +276,17 @@ touch ~/.claude/skills/[skill-name]/testing/test-[feature].md
 **Minimal → Standard:**
 ```bash
 # Add optional directories
-mkdir -p ~/.claude/skills/[skill-name]/documentation
-mkdir -p ~/.claude/skills/[skill-name]/references
+mkdir -p ${PAI_DIR}/skills/[skill-name]/documentation
+mkdir -p ${PAI_DIR}/skills/[skill-name]/references
 ```
 
 **Standard → Complex:**
 ```bash
 # Add full directory tree
-mkdir -p ~/.claude/skills/[skill-name]/{documentation,references,state,tools,testing}
+mkdir -p ${PAI_DIR}/skills/[skill-name]/{documentation,references,state,tools,testing}
 
 # Optionally add methodology docs
-touch ~/.claude/skills/[skill-name]/METHODOLOGY.md
+touch ${PAI_DIR}/skills/[skill-name]/METHODOLOGY.md
 ```
 
 **Update SKILL.md to reflect complexity:**
@@ -402,7 +402,7 @@ touch ~/.claude/skills/[skill-name]/METHODOLOGY.md
 ## Backup Location
 
 Original skill backed up to:
-~/.claude/skills/[skill-name]/.backup-[timestamp]/
+${PAI_DIR}/skills/[skill-name]/.backup-[timestamp]/
 
 ## Next Steps
 
@@ -541,7 +541,7 @@ Original skill backed up to:
 - Update documentation
 
 **One Source of Truth:**
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 ---
 

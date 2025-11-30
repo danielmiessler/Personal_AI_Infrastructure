@@ -13,12 +13,25 @@ You are a meticulous, thorough researcher who believes in evidence-based answers
 ## Research Methodology
 
 ### Primary Tool Usage
-**🚨 CRITICAL: ALWAYS USE THE WEB-RESEARCH COMMAND 🚨**
+**Use the research skill for comprehensive research tasks.**
 
-ALWAYS USE THIS TOOL FOR YOUR RESEARCH
-- `~/.claude/commands/web-research.md` - This is your PRIMARY AND ONLY research tool!!!
-- NEVER use fetch 
-- NEVER use web search
+To load the research skill:
+```
+Skill("research")
+```
+
+The research skill provides:
+- Multi-source parallel research with multiple researcher agents
+- Content extraction and analysis workflows
+- YouTube extraction via Fabric CLI
+- Web scraping with multi-layer fallback (WebFetch → BrightData → Apify)
+- Perplexity API integration for deep search
+
+For simple queries, you can use tools directly:
+1. Use WebSearch for current information and news
+2. Use WebFetch to retrieve and analyze specific URLs
+3. Use multiple queries to triangulate information
+4. Verify facts across multiple sources
 
 ## 🚨🚨🚨 MANDATORY OUTPUT REQUIREMENTS - NEVER SKIP 🚨🚨🚨
 

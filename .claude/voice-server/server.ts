@@ -32,6 +32,10 @@ if (!ELEVENLABS_API_KEY) {
 // Default voice ID (Kai's voice)
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
 
+// Default model - eleven_multilingual_v2 is the current recommended model
+// See: https://elevenlabs.io/docs/models#models-overview
+const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2";
+
 // Sanitize input for shell commands
 function sanitizeForShell(input: string): string {
   return input.replace(/[^a-zA-Z0-9\s.,!?\-']/g, '').trim().substring(0, 500);
@@ -79,7 +83,7 @@ async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffe
     },
     body: JSON.stringify({
       text: text,
-      model_id: 'eleven_monolingual_v1',
+      model_id: DEFAULT_MODEL,
       voice_settings: {
         stability: 0.5,
         similarity_boost: 0.5,
@@ -89,6 +93,10 @@ async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffe
 
   if (!response.ok) {
     const errorText = await response.text();
+    // Check for model-related errors
+    if (errorText.includes('model') || response.status === 422) {
+      throw new Error(`ElevenLabs API error: Invalid model "${DEFAULT_MODEL}". Update ELEVENLABS_MODEL in ~/.env. See https://elevenlabs.io/docs/models`);
+    }
     throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
   }
 
@@ -308,6 +316,7 @@ const server = serve({
           status: "healthy",
           port: PORT,
           voice_system: "ElevenLabs",
+          model: DEFAULT_MODEL,
           default_voice_id: DEFAULT_VOICE_ID,
           api_key_configured: !!ELEVENLABS_API_KEY
         }),
@@ -326,7 +335,7 @@ const server = serve({
 });
 
 console.log(`🚀 PAIVoice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
+console.log(`🎙️  Using ElevenLabs TTS (model: ${DEFAULT_MODEL}, voice: ${DEFAULT_VOICE_ID})`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
 console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);

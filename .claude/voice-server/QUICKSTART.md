@@ -131,7 +131,7 @@ Expected output:
 
 **Check 3:** Look at server logs:
 ```bash
-tail -f ~/.claude/voice-server/logs/voice-server.log
+tail -f ${PAI_DIR}/voice-server/logs/voice-server.log
 ```
 
 ### "Port 8888 already in use"
@@ -214,7 +214,7 @@ curl -X POST http://localhost:8888/notify \
 ## Need Help?
 
 1. Check the [README](README.md) for detailed troubleshooting
-2. Review server logs: `tail -f ~/.claude/voice-server/logs/voice-server.log`
+2. Review server logs: `tail -f ${PAI_DIR}/voice-server/logs/voice-server.log`
 3. Test the health endpoint: `curl http://localhost:8888/health`
 
 ---

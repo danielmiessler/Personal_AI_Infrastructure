@@ -13,26 +13,26 @@ description: |
 
 **When user requests creating a new skill:**
 Examples: "create skill", "create a skill", "new skill", "build skill", "make skill", "skill for X", "Create-A-Skill"
-→ **READ:** ~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
-→ **READ:** ~/.claude/skills/system-createskill/workflows/create-skill.md
+→ **READ:** ${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+→ **READ:** ${PAI_DIR}/skills/system-createskill/workflows/create-skill.md
 → **EXECUTE:** Complete skill creation workflow with architectural validation
 
 **When user requests validating existing skill:**
 Examples: "validate skill", "check skill compliance", "audit skill", "verify skill structure"
-→ **READ:** ~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
-→ **READ:** ~/.claude/skills/system-createskill/workflows/validate-skill.md
+→ **READ:** ${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+→ **READ:** ${PAI_DIR}/skills/system-createskill/workflows/validate-skill.md
 → **EXECUTE:** Skill compliance audit workflow
 
 **When user requests updating existing skill:**
 Examples: "update skill", "refactor skill", "fix skill routing", "add workflow to skill"
-→ **READ:** ~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
-→ **READ:** ~/.claude/skills/system-createskill/workflows/update-skill.md
+→ **READ:** ${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+→ **READ:** ${PAI_DIR}/skills/system-createskill/workflows/update-skill.md
 → **EXECUTE:** Skill update workflow with compliance checking
 
 **When user requests canonicalizing a skill:**
 Examples: "canonicalize skill", "canonicalize this skill", "canonicalize [skill-name]", "rebuild skill to standards", "refactor skill to canonical structure"
-→ **READ:** ~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
-→ **READ:** ~/.claude/skills/system-createskill/workflows/canonicalize-skill.md
+→ **READ:** ${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+→ **READ:** ${PAI_DIR}/skills/system-createskill/workflows/canonicalize-skill.md
 → **EXECUTE:** Complete skill canonicalization workflow - analyze current skill structure and rebuild according to canonical architecture while preserving functionality
 
 ---
@@ -74,7 +74,7 @@ Examples: "canonicalize skill", "canonicalize this skill", "canonicalize [skill-
 ### Architectural Compliance
 
 **MANDATORY: Every skill MUST comply with the canonical architecture defined in:**
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 This document defines:
 - The 3 skill archetypes (Minimal, Standard, Complex)
@@ -180,7 +180,7 @@ skill-name/
 
 **ALWAYS read the canonical architecture before creating:**
 ```bash
-~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
 ```
 
 This ensures:
@@ -206,7 +206,7 @@ description: |
 
 **When user requests [action 1]:**
 Examples: "actual user phrases", "variations", "synonyms"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow1.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow1.md
 → **EXECUTE:** What to do with this workflow
 
 [Route EVERY workflow file]
@@ -236,7 +236,7 @@ Run through quality gates:
 
 ### Step 6: Register Skill
 
-Add to `~/.claude/mcp_settings.json`:
+Add to `${PAI_DIR}/mcp_settings.json`:
 
 ```json
 {
@@ -294,7 +294,7 @@ Verify skill activates with natural language triggers from description.
 ```markdown
 **When user requests [specific intent]:**
 Examples: "phrase 1", "phrase 2", "phrase 3"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow1.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow1.md
 → **EXECUTE:** Brief description
 ```
 
@@ -410,7 +410,7 @@ Before considering a skill complete, verify:
 
 ### Primary Reference Document
 
-**~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md**
+**${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md**
 - Canonical guide for all skill structure and routing
 - Defines the 3 archetypes (Minimal, Standard, Complex)
 - The 4-level routing hierarchy
@@ -421,20 +421,20 @@ Before considering a skill complete, verify:
 
 ### Workflow Files
 
-**~/.claude/skills/system-createskill/workflows/create-skill.md**
+**${PAI_DIR}/skills/system-createskill/workflows/create-skill.md**
 - Complete skill creation workflow
 - Step-by-step process with validation gates
 - Template generation
 - Quality assurance checks
 
-**~/.claude/skills/system-createskill/workflows/validate-skill.md**
+**${PAI_DIR}/skills/system-createskill/workflows/validate-skill.md**
 - Skill compliance audit workflow
 - Structural validation
 - Routing validation
 - Documentation validation
 - Integration validation
 
-**~/.claude/skills/system-createskill/workflows/update-skill.md**
+**${PAI_DIR}/skills/system-createskill/workflows/update-skill.md**
 - Skill update and refactoring workflow
 - Adding workflows to existing skills
 - Reorganizing skill structure
@@ -499,7 +499,7 @@ Before considering a skill complete, verify:
 
 **System-CreateSkill Response:**
 1. Read SKILL-STRUCTURE-AND-ROUTING.md
-2. Read ~/.claude/skills/research/SKILL.md
+2. Read ${PAI_DIR}/skills/research/SKILL.md
 3. Run validation:
    - ✅ Workflow Routing section present and FIRST
    - ✅ All 12 workflows explicitly routed
@@ -525,7 +525,7 @@ Before considering a skill complete, verify:
 3. **Update** - Modify skills while maintaining compliance
 
 **One source of truth:**
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 **Zero tolerance for:**
 - Orphaned workflows (not routed)
@@ -536,7 +536,7 @@ Before considering a skill complete, verify:
 ---
 
 **Related Documentation:**
-- `~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md` - Canonical architecture guide (PRIMARY)
-- `~/.claude/skills/CORE/CONSTITUTION.md` - Overall PAI philosophy
+- `${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md` - Canonical architecture guide (PRIMARY)
+- `${PAI_DIR}/skills/CORE/CONSTITUTION.md` - Overall PAI philosophy
 
 **Last Updated:** 2025-11-17

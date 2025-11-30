@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { PAI_DIR } from './lib/pai-paths';
 
 interface HookInput {
   session_id: string;
@@ -48,8 +49,7 @@ async function main() {
     const data: HookInput = JSON.parse(input);
     
     // Read the markdown file with instructions from commands directory
-    const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-    const mdPath = `${paiDir}/commands/load-dynamic-requirements.md`;
+    const mdPath = `${PAI_DIR}/commands/load-dynamic-requirements.md`;
     const mdContent = readFileSync(mdPath, 'utf-8');
 
     // Output the markdown content to stdout

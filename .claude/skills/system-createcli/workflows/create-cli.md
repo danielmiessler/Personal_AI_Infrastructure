@@ -201,7 +201,7 @@ function loadConfig(): Config {
       ?.trim();
 
     if (!apiKey) {
-      console.error('Error: {{ENV_VAR_NAME}} not found in ~/.claude/.env');
+      console.error('Error: {{ENV_VAR_NAME}} not found in ${PAI_DIR}/.env');
       process.exit(1);
     }
 
@@ -211,8 +211,8 @@ function loadConfig(): Config {
       {{ADDITIONAL_CONFIG}}
     };
   } catch (error) {
-    console.error(`Error: Cannot read ~/.claude/.env file`);
-    console.error('Make sure {{ENV_VAR_NAME}} is set in ~/.claude/.env');
+    console.error(`Error: Cannot read ${PAI_DIR}/.env file`);
+    console.error('Make sure {{ENV_VAR_NAME}} is set in ${PAI_DIR}/.env');
     process.exit(1);
   }
 }
@@ -311,7 +311,7 @@ PHILOSOPHY:
   - Documented: Full help and examples
   - Testable: Predictable behavior
 
-For more information, see ~/.claude/bin/{{CLI_NAME}}/README.md
+For more information, see ${PAI_DIR}/bin/{{CLI_NAME}}/README.md
 
 Version: 1.0.0
 Author: Daniel Miessler
@@ -479,7 +479,7 @@ main().catch((error) => {
 
 ## Full Documentation
 
-See: ~/.claude/bin/{{CLI_NAME}}/README.md
+See: ${PAI_DIR}/bin/{{CLI_NAME}}/README.md
 ```
 
 ---
@@ -545,7 +545,7 @@ See: ~/.claude/bin/{{CLI_NAME}}/README.md
 
 **Validation Commands:**
 ```bash
-cd ~/.claude/bin/{{CLI_NAME}}/
+cd ${PAI_DIR}/bin/{{CLI_NAME}}/
 chmod +x {{CLI_NAME}}.ts
 ./{{CLI_NAME}}.ts --help
 ./{{CLI_NAME}}.ts --version
@@ -553,7 +553,7 @@ chmod +x {{CLI_NAME}}.ts
 
 **Report to user:**
 ```
-✅ CLI Created: ~/.claude/bin/{{CLI_NAME}}/
+✅ CLI Created: ${PAI_DIR}/bin/{{CLI_NAME}}/
 
 Files generated:
 - {{CLI_NAME}}.ts ({{LINE_COUNT}} lines)
@@ -564,11 +564,11 @@ Files generated:
 - QUICKSTART.md
 
 Next steps:
-1. Configure: Add {{ENV_VAR_NAME}} to ~/.claude/.env
+1. Configure: Add {{ENV_VAR_NAME}} to ${PAI_DIR}/.env
 2. Test: ./{{CLI_NAME}}.ts --help
 3. Use: ./{{CLI_NAME}}.ts {{EXAMPLE_COMMAND}}
 
-Documentation: ~/.claude/bin/{{CLI_NAME}}/README.md
+Documentation: ${PAI_DIR}/bin/{{CLI_NAME}}/README.md
 ```
 
 ---
@@ -580,7 +580,7 @@ Documentation: ~/.claude/bin/{{CLI_NAME}}/README.md
 
 **Generated Output:**
 ```
-✅ CLI Created: ~/.claude/bin/notioncli/
+✅ CLI Created: ${PAI_DIR}/bin/notioncli/
 
 Files generated:
 - notioncli.ts (342 lines)
@@ -597,9 +597,9 @@ Commands available:
 - notioncli --help                       # Show full help
 
 Next steps:
-1. Add NOTION_API_KEY=your_key to ~/.claude/.env
+1. Add NOTION_API_KEY=your_key to ${PAI_DIR}/.env
 2. Test: notioncli databases
-3. Read: ~/.claude/bin/notioncli/README.md
+3. Read: ${PAI_DIR}/bin/notioncli/README.md
 
 The CLI follows llcli pattern with type safety, error handling,
 and comprehensive documentation.
@@ -693,7 +693,7 @@ Show real usage examples, not just flag descriptions.
 Run `--help` and version command before reporting success.
 
 ### 8. **Follow llcli Pattern**
-Use proven structure from ~/.claude/bin/llcli/ as reference.
+Use proven structure from ${PAI_DIR}/bin/llcli/ as reference.
 
 ---
 

@@ -44,7 +44,23 @@ nano .claude/.env  # or use your preferred editor
 # Optional: Add other API keys for specific skills
 ```
 
-### 3. Install to Your System
+### 3. Configure PAI_DIR
+
+Edit `.claude/settings.json` and set `PAI_DIR` to your actual path:
+
+```json
+"env": {
+  "PAI_DIR": "/Users/yourname/.claude",  // <- Change this!
+  ...
+}
+```
+
+**Examples:**
+- macOS: `"/Users/john/.claude"`
+- Linux: `"/home/john/.claude"`
+- Custom location: `"/opt/pai"` (if you want PAI elsewhere)
+
+### 4. Install to Your System
 
 **Option A: Copy (recommended for beginners)**
 ```bash
@@ -56,6 +72,19 @@ cp -r .claude ~/.claude
 ```bash
 # Symlink for live updates
 ln -s $(pwd)/.claude ~/.claude
+```
+
+### 5. Add PAI_DIR to Shell (Optional but Recommended)
+
+Add to your `~/.zshrc` or `~/.bashrc`:
+```bash
+export PAI_DIR="$HOME/.claude"
+```
+
+Or copy the provided aliases:
+```bash
+cat .claude/zshrc-aliases >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ---
@@ -104,7 +133,7 @@ The CORE skill loads at session start via the `SessionStart` hook.
 ### Where Everything Lives
 
 ```
-~/.claude/
+${PAI_DIR}/
 ├── skills/
 │   └── CORE/              # Main PAI documentation
 │       ├── CONSTITUTION.md    # System philosophy & architecture
@@ -124,24 +153,24 @@ The CORE skill loads at session start via the `SessionStart` hook.
 
 1. **Read CONSTITUTION.md** - Understand PAI philosophy
    ```
-   read ~/.claude/skills/CORE/CONSTITUTION.md
+   read ${PAI_DIR}/skills/CORE/CONSTITUTION.md
    ```
 
 2. **Explore Skills** - See what's available
    ```
-   ls ~/.claude/skills/
+   ls ${PAI_DIR}/skills/
    ```
 
 3. **Try Voice Feedback** - Start the voice server (optional)
    ```
-   ~/.claude/voice-server/start.sh
+   ${PAI_DIR}/voice-server/start.sh
    ```
 
 ### Create Your First Skill
 
 ```bash
 # Use the create-skill skill
-cd ~/.claude/skills/
+cd ${PAI_DIR}/skills/
 mkdir my-first-skill
 # See create-skill/ for templates
 ```
@@ -164,47 +193,42 @@ See `.claude/skills/CORE/SKILL.md` for complete configuration options.
 **Check hook configuration:**
 ```bash
 # Verify SessionStart hook exists
-cat ~/.claude/settings.json | grep SessionStart
+cat ${PAI_DIR}/settings.json | grep SessionStart
 ```
 
 **Manually load CORE skill:**
 ```
-read ~/.claude/skills/CORE/SKILL.md
+read ${PAI_DIR}/skills/CORE/SKILL.md
 ```
 
-### Hooks Fail with "$HOME/.claude/..." Error
+### Hooks Not Running
 
-If you see errors like:
+Hooks require Bun to be installed and in your PATH. Verify:
+```bash
+which bun
+# Should show path like /Users/yourname/.bun/bin/bun
 ```
-/bin/sh: $HOME/.claude/hooks/capture-all-events.ts: No such file or directory
-```
 
-**Solution:** PAI_DIR environment variable isn't being expanded. The hooks default to `~/.claude` automatically, so you don't need PAI_DIR at all.
-
-If you previously set PAI_DIR and are having issues:
-1. Remove `PAI_DIR` from `~/.claude/settings.json` env section
-2. OR set it to an absolute path: `"PAI_DIR": "/Users/yourname/.claude"`
-
-The hooks will automatically use `~/.claude` if PAI_DIR isn't set.
+If Bun isn't found, reinstall it and restart your terminal.
 
 ### Voice Server Not Working
 
 ```bash
 # Check voice server status
-~/.claude/voice-server/status.sh
+${PAI_DIR}/voice-server/status.sh
 
 # Restart if needed
-~/.claude/voice-server/restart.sh
+${PAI_DIR}/voice-server/restart.sh
 
 # Check logs
-tail ~/.claude/voice-server/logs/voice-server.log
+tail ${PAI_DIR}/voice-server/logs/voice-server.log
 ```
 
 ### API Keys Not Working
 
 ```bash
 # Verify .env file exists
-ls -la ~/.claude/.env
+ls -la ${PAI_DIR}/.env
 
 # Check format (no spaces around =)
 # Correct: ANTHROPIC_API_KEY=sk-ant-...
@@ -222,14 +246,14 @@ cd ~/Personal_AI_Infrastructure  # or wherever you cloned
 git pull origin main
 
 # Copy updates to your system
-cp -r .claude/* ~/.claude/
+cp -r .claude/* ${PAI_DIR}/
 ```
 
 ### Add New Skills
 
 ```bash
 # Clone or create in skills directory
-cd ~/.claude/skills/
+cd ${PAI_DIR}/skills/
 # Add your skill folder
 ```
 

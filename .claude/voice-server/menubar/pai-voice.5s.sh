@@ -24,22 +24,22 @@ if curl -s -f http://localhost:8888/health > /dev/null 2>&1; then
     
     echo "Port: 8888"
     echo "---"
-    echo "Stop Server | bash='~/.claude/voice-server/stop.sh' terminal=false refresh=true"
-    echo "Restart Server | bash='~/.claude/voice-server/restart.sh' terminal=false refresh=true"
+    echo "Stop Server | bash='${PAI_DIR}/voice-server/stop.sh' terminal=false refresh=true"
+    echo "Restart Server | bash='${PAI_DIR}/voice-server/restart.sh' terminal=false refresh=true"
 else
     # Server is not running - show gray indicator with size
     echo "🎙️⚫ | size=18"
     echo "---"
     echo "PAI Voice Server: ⚫ Stopped"
     echo "---"
-    echo "Start Server | bash='~/.claude/voice-server/start.sh' terminal=false refresh=true"
+    echo "Start Server | bash='${PAI_DIR}/voice-server/start.sh' terminal=false refresh=true"
 fi
 
 echo "---"
-echo "Check Status | bash='~/.claude/voice-server/status.sh' terminal=true"
+echo "Check Status | bash='${PAI_DIR}/voice-server/status.sh' terminal=true"
 echo "View Logs | bash='tail -f ~/Library/Logs/pai-voice-server.log' terminal=true"
 echo "---"
 echo "Test Voice | bash='curl -X POST http://localhost:8888/notify -H \"Content-Type: application/json\" -d \"{\\\"message\\\":\\\"Testing voice server\\\"}\"' terminal=false"
 echo "---"
-echo "Open Voice Server Folder | bash='open ~/.claude/voice-server'"
-echo "Uninstall | bash='~/.claude/voice-server/uninstall.sh' terminal=true"
+echo "Open Voice Server Folder | bash='open ${PAI_DIR}/voice-server'"
+echo "Uninstall | bash='${PAI_DIR}/voice-server/uninstall.sh' terminal=true"

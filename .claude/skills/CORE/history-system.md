@@ -1,6 +1,6 @@
 # Universal Output Capture System (UOCS) - History System Documentation
 
-**Location:** `~/.claude/history/`
+**Location:** `${PAI_DIR}/history/`
 **Purpose:** Automated documentation of ALL work performed by Kai and specialized agents
 **Status:** ✅ FULLY OPERATIONAL
 
@@ -18,7 +18,7 @@ The Universal Output Capture System (UOCS) is Kai's automatic memory - capturing
 
 ### Canonical Documentation
 
-**Primary Source:** `~/.claude/history/CLAUDE.md` (584 lines)
+**Primary Source:** `${PAI_DIR}/history/CLAUDE.md` (584 lines)
 - Complete system specification
 - Directory structure and purpose
 - File naming conventions
@@ -34,7 +34,7 @@ The Universal Output Capture System (UOCS) is Kai's automatic memory - capturing
 ## Directory Structure
 
 ```
-~/.claude/history/
+${PAI_DIR}/history/
 ├── sessions/YYYY-MM/          # Session summaries (SessionEnd hook)
 ├── learnings/YYYY-MM/         # Problem-solving narratives (Stop hook + manual)
 ├── research/YYYY-MM/          # Investigation reports (Researcher agents)
@@ -94,7 +94,7 @@ YYYY-MM-DD-HHMMSS_[PROJECT]_[TYPE]_[HIERARCHY]_[DESCRIPTION].md
 
 ### 1. PostToolUse Hook
 **Triggers:** Every tool execution (Bash, Edit, Write, Read, Task, etc.)
-**Implementation:** `~/.claude/hooks/capture-all-events.ts --event-type PostToolUse`
+**Implementation:** `${PAI_DIR}/hooks/capture-all-events.ts --event-type PostToolUse`
 **Output:** Daily JSONL logs in `raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
 **Purpose:** Raw execution data for forensics and analytics
 
@@ -104,7 +104,7 @@ YYYY-MM-DD-HHMMSS_[PROJECT]_[TYPE]_[HIERARCHY]_[DESCRIPTION].md
 
 ### 2. Stop Hook
 **Triggers:** Main agent (Kai) task completion
-**Implementation:** `~/.claude/hooks/stop-hook.ts`
+**Implementation:** `${PAI_DIR}/hooks/stop-hook.ts`
 **Output:** Auto-captured files in `learnings/` or `sessions/` based on content
 **Purpose:** Lightweight capture of work summaries and learning moments
 
@@ -116,7 +116,7 @@ YYYY-MM-DD-HHMMSS_[PROJECT]_[TYPE]_[HIERARCHY]_[DESCRIPTION].md
 
 ### 3. SubagentStop Hook
 **Triggers:** Specialized agent task completion
-**Implementation:** `~/.claude/hooks/subagent-stop-hook.ts`
+**Implementation:** `${PAI_DIR}/hooks/subagent-stop-hook.ts`
 **Output:** Categorized documents in appropriate directories
 **Purpose:** Organized work documentation by agent type
 
@@ -139,13 +139,13 @@ New fields available in SubagentStop hooks:
 
 ### 4. SessionEnd Hook
 **Triggers:** Session exit (when you quit Claude Code)
-**Implementation:** `~/.claude/hooks/capture-session-summary.ts`
+**Implementation:** `${PAI_DIR}/hooks/capture-session-summary.ts`
 **Output:** Session summary in `sessions/YYYY-MM/`
 **Purpose:** High-level session documentation
 
 ### 5. SessionStart Hook
 **Triggers:** Session initialization (when you start Claude Code)
-**Implementation:** `~/.claude/hooks/initialize-kai-session.ts`
+**Implementation:** `${PAI_DIR}/hooks/initialize-kai-session.ts`
 **Purpose:** Load core context and prepare session environment
 
 ---
@@ -270,7 +270,7 @@ keywords:
 /trace-feature T1
 
 # What decisions were made about this?
-ls ~/.claude/history/decisions/*/[project]_*
+ls ${PAI_DIR}/history/decisions/*/[project]_*
 
 # What did we learn about this domain?
 /search-history [domain-term]
@@ -297,13 +297,13 @@ ls ~/.claude/history/decisions/*/[project]_*
 
 ```bash
 # What did we accomplish this week?
-ls -lt ~/.claude/history/sessions/2025-10/ | head -7
+ls -lt ${PAI_DIR}/history/sessions/2025-10/ | head -7
 
 # All decisions made this month
-ls ~/.claude/history/decisions/2025-10/
+ls ${PAI_DIR}/history/decisions/2025-10/
 
 # Learnings from this quarter
-ls ~/.claude/history/learnings/2025-{10,11,12}/
+ls ${PAI_DIR}/history/learnings/2025-{10,11,12}/
 ```
 
 ---
@@ -312,28 +312,28 @@ ls ~/.claude/history/learnings/2025-{10,11,12}/
 
 ### Find all features for project
 ```bash
-find ~/.claude/history/execution/features -name "*_dashboard_*"
+find ${PAI_DIR}/history/execution/features -name "*_dashboard_*"
 ```
 
 ### Find bugs introduced in specific task
 ```bash
-rg "bug_introduced_by: T1.2" ~/.claude/history/execution/bugs/
+rg "bug_introduced_by: T1.2" ${PAI_DIR}/history/execution/bugs/
 ```
 
 ### Find all work from specific date
 ```bash
-find ~/.claude/history -name "2025-10-13-*"
+find ${PAI_DIR}/history -name "2025-10-13-*"
 ```
 
 ### Analyze tool usage patterns
 ```bash
-cat ~/.claude/history/raw-outputs/2025-10/*.jsonl | \
+cat ${PAI_DIR}/history/raw-outputs/2025-10/*.jsonl | \
   jq -r '.tool' | sort | uniq -c | sort -rn
 ```
 
 ### Extract all architectural decisions
 ```bash
-find ~/.claude/history/decisions -name "*.md" | \
+find ${PAI_DIR}/history/decisions -name "*.md" | \
   xargs grep -l "Alternatives considered"
 ```
 
@@ -392,8 +392,8 @@ find ~/.claude/history/decisions -name "*.md" | \
 ## Complete Documentation
 
 **This file:** High-level reference and routing guide
-**Canonical Source:** `~/.claude/history/CLAUDE.md` - Complete specification (584 lines)
-**Implementation Log:** `~/.claude/history/IMPLEMENTATION-COMPLETE.md` - Build history
+**Canonical Source:** `${PAI_DIR}/history/CLAUDE.md` - Complete specification (584 lines)
+**Implementation Log:** `${PAI_DIR}/history/IMPLEMENTATION-COMPLETE.md` - Build history
 
 ---
 
@@ -408,7 +408,7 @@ find ~/.claude/history/decisions -name "*.md" | \
 - "learning capture" or "session summaries"
 - Questions about file organization in history/
 
-**For detailed information, always refer to:** `~/.claude/history/CLAUDE.md`
+**For detailed information, always refer to:** `${PAI_DIR}/history/CLAUDE.md`
 
 ---
 

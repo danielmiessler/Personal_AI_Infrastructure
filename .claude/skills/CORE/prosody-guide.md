@@ -406,10 +406,10 @@ curl -X POST http://localhost:8888/notify \
 
 ## Related Documentation
 
-- `~/.claude/voice-server/USAGE.md` - Voice server complete usage guide
-- `~/.claude/skills/CORE/agent-personalities.md` - Agent personality definitions
-- `~/.claude/skills/CORE/workflows/voice-routing-full.md` - Voice routing table
-- `~/.claude/hooks/lib/prosody-enhancer.ts` - Prosody enhancement library
+- `${PAI_DIR}/voice-server/USAGE.md` - Voice server complete usage guide
+- `${PAI_DIR}/skills/CORE/agent-personalities.md` - Agent personality definitions
+- `${PAI_DIR}/skills/CORE/workflows/voice-routing-full.md` - Voice routing table
+- `${PAI_DIR}/hooks/lib/prosody-enhancer.ts` - Prosody enhancement library
 
 ---
 

@@ -48,6 +48,6 @@ Control pacing and emphasis within your message:
 🎯 COMPLETED: [AGENT:your-type] [optional marker] message with **emphasis**... and pauses!
 ```
 
-**Full Guide:** `~/.claude/skills/CORE/prosody-guide.md`
+**Full Guide:** `${PAI_DIR}/skills/CORE/prosody-guide.md`
 
 ---

@@ -7,6 +7,7 @@
  */
 
 import { execSync } from 'child_process';
+import { PAI_DIR } from './lib/pai-paths';
 
 interface HookInput {
   session_id: string;
@@ -80,8 +81,7 @@ async function main() {
     // Launch background process for better Haiku summary
     try {
       if (prompt && prompt.length > 3) {
-        const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-        Bun.spawn(['bun', `${paiDir}/hooks/update-tab-title.ts`, prompt], {
+        Bun.spawn(['bun', `${PAI_DIR}/hooks/update-tab-title.ts`, prompt], {
           stdout: 'ignore',
           stderr: 'ignore',
           stdin: 'ignore'

@@ -8,7 +8,7 @@
 
 import { readFileSync, appendFileSync, mkdirSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { PAI_DIR } from './lib/pai-paths';
 import { enrichEventWithAgentMetadata, isAgentSpawningCall } from './lib/metadata-extraction';
 
 interface HookEvent {
@@ -37,14 +37,13 @@ function getPSTTimestamp(): string {
 
 // Get current events file path
 function getEventsFilePath(): string {
-  const paiDir = join(homedir(), '.claude');
   const now = new Date();
   const pstDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
   const year = pstDate.getFullYear();
   const month = String(pstDate.getMonth() + 1).padStart(2, '0');
   const day = String(pstDate.getDate()).padStart(2, '0');
 
-  const monthDir = join(paiDir, 'history', 'raw-outputs', `${year}-${month}`);
+  const monthDir = join(PAI_DIR, 'history', 'raw-outputs', `${year}-${month}`);
 
   // Ensure directory exists
   if (!existsSync(monthDir)) {
@@ -56,7 +55,7 @@ function getEventsFilePath(): string {
 
 // Session-to-agent mapping functions
 function getSessionMappingFile(): string {
-  return join(homedir(), '.claude', 'agent-sessions.json');
+  return join(PAI_DIR, 'agent-sessions.json');
 }
 
 function getAgentForSession(sessionId: string): string {

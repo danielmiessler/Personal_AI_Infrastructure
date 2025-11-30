@@ -10,7 +10,7 @@
 - As part of skill maintenance
 
 **Prerequisites:**
-- Target skill exists in ~/.claude/skills/
+- Target skill exists in ${PAI_DIR}/skills/
 - Access to SKILL-STRUCTURE-AND-ROUTING.md
 - Understanding of validation criteria
 
@@ -22,7 +22,7 @@
 
 **REQUIRED FIRST STEP:** Read the source of truth:
 ```bash
-~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
 ```
 
 **What to extract:**
@@ -40,7 +40,7 @@
 
 **If user specifies skill name:**
 ```bash
-~/.claude/skills/[skill-name]/
+${PAI_DIR}/skills/[skill-name]/
 ```
 
 **If user says "validate this skill":**
@@ -50,7 +50,7 @@
 
 **Verify skill exists:**
 ```bash
-test -f ~/.claude/skills/[skill-name]/SKILL.md && echo "✅ Skill found" || echo "❌ Skill not found"
+test -f ${PAI_DIR}/skills/[skill-name]/SKILL.md && echo "✅ Skill found" || echo "❌ Skill not found"
 ```
 
 **Output:** Target skill identified
@@ -63,10 +63,10 @@ test -f ~/.claude/skills/[skill-name]/SKILL.md && echo "✅ Skill found" || echo
 
 ```bash
 # List all files
-tree ~/.claude/skills/[skill-name]/
+tree ${PAI_DIR}/skills/[skill-name]/
 
 # Or if tree not available:
-find ~/.claude/skills/[skill-name]/ -type f -o -type d
+find ${PAI_DIR}/skills/[skill-name]/ -type f -o -type d
 ```
 
 **Validate archetype compliance:**
@@ -91,7 +91,7 @@ find ~/.claude/skills/[skill-name]/ -type f -o -type d
 
 **Count workflows:**
 ```bash
-find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -type f | wc -l
+find ${PAI_DIR}/skills/[skill-name]/workflows/ -name "*.md" -type f | wc -l
 ```
 
 **Determine expected archetype:**
@@ -107,10 +107,10 @@ find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -type f | wc -l
 **Naming conventions:**
 ```bash
 # Check SKILL.md is uppercase
-test -f ~/.claude/skills/[skill-name]/SKILL.md && echo "✅ SKILL.md correct" || echo "❌ Should be SKILL.md"
+test -f ${PAI_DIR}/skills/[skill-name]/SKILL.md && echo "✅ SKILL.md correct" || echo "❌ Should be SKILL.md"
 
 # Check workflow naming (should be kebab-case)
-find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -exec basename {} \; | grep -v '^[a-z][a-z0-9-]*\.md$' && echo "❌ Non-kebab-case workflows found" || echo "✅ Workflows kebab-case"
+find ${PAI_DIR}/skills/[skill-name]/workflows/ -name "*.md" -exec basename {} \; | grep -v '^[a-z][a-z0-9-]*\.md$' && echo "❌ Non-kebab-case workflows found" || echo "✅ Workflows kebab-case"
 ```
 
 **Score: [X/10]**
@@ -123,7 +123,7 @@ find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -exec basename {} \; 
 
 **Read SKILL.md:**
 ```bash
-~/.claude/skills/[skill-name]/SKILL.md
+${PAI_DIR}/skills/[skill-name]/SKILL.md
 ```
 
 **Check YAML frontmatter:**
@@ -140,13 +140,13 @@ find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -exec basename {} \; 
 **Count routed workflows:**
 ```bash
 # Manual inspection - count "When user requests" blocks
-grep -c "When user requests" ~/.claude/skills/[skill-name]/SKILL.md
+grep -c "When user requests" ${PAI_DIR}/skills/[skill-name]/SKILL.md
 ```
 
 **Compare to actual workflows:**
 ```bash
 # Count actual workflow files
-find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -type f | wc -l
+find ${PAI_DIR}/skills/[skill-name]/workflows/ -name "*.md" -type f | wc -l
 ```
 
 **Validation:**
@@ -157,7 +157,7 @@ find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" -type f | wc -l
 **Check routing quality:**
 For each route:
 - [ ] Examples provided (3-5 user phrases)
-- [ ] File path is absolute (`~/.claude/skills/...`)
+- [ ] File path is absolute (`${PAI_DIR}/skills/...`)
 - [ ] EXECUTE description provided
 - [ ] Examples are semantic (natural language), not formulaic
 
@@ -165,7 +165,7 @@ For each route:
 ```markdown
 **When user requests person research:**
 Examples: "do OSINT on [person]", "research [person]", "background check on [person]", "who is [person]", "investigate this person"
-→ **READ:** ~/.claude/skills/security-OSINT/workflows/people/lookup.md
+→ **READ:** ${PAI_DIR}/skills/security-OSINT/workflows/people/lookup.md
 → **EXECUTE:** Complete person OSINT workflow
 ```
 
@@ -238,7 +238,7 @@ Check if skill covers these categories:
 
 **List all .md files in skill:**
 ```bash
-find ~/.claude/skills/[skill-name]/ -name "*.md" -type f
+find ${PAI_DIR}/skills/[skill-name]/ -name "*.md" -type f
 ```
 
 **For each file (excluding SKILL.md):**
@@ -274,7 +274,7 @@ find ~/.claude/skills/[skill-name]/ -name "*.md" -type f
 
 **Check mcp_settings.json registration:**
 ```bash
-grep -A 3 '"[skill-name]"' ~/.claude/mcp_settings.json
+grep -A 3 '"[skill-name]"' ${PAI_DIR}/mcp_settings.json
 ```
 
 **Validation:**
@@ -495,7 +495,7 @@ grep -A 3 '"[skill-name]"' ~/.claude/mcp_settings.json
 ## Canonical Reference
 
 All validation based on:
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 **Last Updated:** [YYYY-MM-DD]
 ```
@@ -605,7 +605,7 @@ All validation based on:
 - Skill maintenance
 
 **One Source of Truth:**
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 ---
 

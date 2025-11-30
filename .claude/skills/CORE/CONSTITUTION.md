@@ -457,7 +457,7 @@ Level 4: Workflow Invocation (Which specific procedure?)
 Execution
 ```
 
-**For complete routing guide, see:** `~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+**For complete routing guide, see:** `${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 ---
 
@@ -475,7 +475,7 @@ Execution
 
 **Example Structure:**
 ```
-~/.claude/skills/blogging/
+${PAI_DIR}/skills/blogging/
 ├── SKILL.md                    # Core skill + routing
 ├── workflows/
 │   ├── write.md               # Write blog workflow
@@ -532,7 +532,7 @@ User says: "write a blog", "create a post", "write an article"
 
 **Agent Configuration:**
 ```
-~/.claude/agents/engineer.md
+${PAI_DIR}/agents/engineer.md
 
 Frontmatter:
 - voice_id: [ElevenLabs voice ID]
@@ -687,7 +687,7 @@ evals run --use-case newsletter-summary \
 
 AI should orchestrate deterministic tools, not replace them with ad-hoc prompting.
 
-**For complete CLI-First guide, see:** `~/.claude/skills/CORE/cli-first-architecture.md`
+**For complete CLI-First guide, see:** `${PAI_DIR}/skills/CORE/cli-first-architecture.md`
 
 ### CLI-First for API Calls
 
@@ -746,13 +746,13 @@ curl -H "X-API-Key: $API_KEY" "$URL"
 
 #### Canonical Example: llcli
 
-**Location:** `~/.claude/bin/llcli/`
+**Location:** `${PAI_DIR}/bin/llcli/`
 
 The Limitless.ai CLI demonstrates perfect CLI-First API integration:
 
 **Structure:**
 ```
-~/.claude/bin/llcli/
+${PAI_DIR}/bin/llcli/
 ├── llcli.ts          # Main CLI implementation (TypeScript)
 ├── package.json      # Dependencies and metadata
 └── README.md         # Full documentation
@@ -780,7 +780,7 @@ llcli search "consulting" | grep -i "quorum"
 - ✅ Exit codes (0 success, 1 error)
 - ✅ JSON output to stdout
 - ✅ TypeScript with types
-- ✅ Environment config (~/.claude/.env)
+- ✅ Environment config (${PAI_DIR}/.env)
 - ✅ Composable (pipes to jq, grep, etc.)
 
 #### Migration Pattern
@@ -788,13 +788,13 @@ llcli search "consulting" | grep -i "quorum"
 **Before (Bash Script):**
 ```bash
 # In skill prompt:
-~/.claude/skills/skill-name/scripts/fetch-data.sh today "" 20
+${PAI_DIR}/skills/skill-name/scripts/fetch-data.sh today "" 20
 ```
 
 **After (CLI Tool):**
 ```bash
 # In skill prompt:
-~/.claude/bin/toolname/toolname.ts today --limit 20
+${PAI_DIR}/bin/toolname/toolname.ts today --limit 20
 ```
 
 **Key Differences:**
@@ -833,14 +833,14 @@ Every API CLI tool must have:
 - [ ] JSON output to stdout
 - [ ] Exit codes (0/1)
 - [ ] README.md with examples
-- [ ] Environment config (API keys in ~/.claude/.env)
-- [ ] Located in ~/.claude/bin/toolname/
+- [ ] Environment config (API keys in ${PAI_DIR}/.env)
+- [ ] Located in ${PAI_DIR}/bin/toolname/
 - [ ] Executable with shebang (#!/usr/bin/env bun)
 
 #### Examples in Kai
 
 Current CLI API tools:
-- **llcli** - Limitless.ai API (`~/.claude/bin/llcli/`)
+- **llcli** - Limitless.ai API (`${PAI_DIR}/bin/llcli/`)
 
 Future candidates:
 - **ghcli** - GitHub API wrapper (cleaner than `gh`)
@@ -877,7 +877,7 @@ Traditional MCP-only architectures have fatal flaws for production use:
 
 **Tier 1: Legacy MCPs - Discovery Phase**
 
-**Location:** `~/.claude/MCPs/`
+**Location:** `${PAI_DIR}/MCPs/`
 
 **When to Use:**
 - ✅ First time using an API/service
@@ -895,7 +895,7 @@ Traditional MCP-only architectures have fatal flaws for production use:
 
 **Tier 2: System MCPs - Execution Phase**
 
-**Location:** `~/.claude/skills/system-mcp/`
+**Location:** `${PAI_DIR}/skills/system-mcp/`
 
 **When to Use:**
 - ✅ API will be called >10 times
@@ -972,7 +972,7 @@ Kai uses mandatory structured output format that integrates with voice server fo
    🎯 COMPLETED: Blog post published and verified live on production
    ```
 
-2. **Stop hook fires** (`~/.claude/hooks/stop-hook.ts`)
+2. **Stop hook fires** (`${PAI_DIR}/hooks/stop-hook.ts`)
    - Reads transcript after response
    - Extracts COMPLETED line text
    - Determines entity (Kai vs specific agent)
@@ -988,7 +988,7 @@ Kai uses mandatory structured output format that integrates with voice server fo
      }'
    ```
 
-4. **Voice server processes** (`~/.claude/voice-server/server.ts`)
+4. **Voice server processes** (`${PAI_DIR}/voice-server/server.ts`)
    - Sanitizes message (security)
    - Calls ElevenLabs API with voice_id
    - Receives MP3 audio
@@ -1019,19 +1019,19 @@ Kai uses mandatory structured output format that integrates with voice server fo
 - Direct answer for questions, not meta-descriptions
 - Describe WHAT finished, not THAT you finished
 
-**Complete voice routing: `~/.claude/voice-server/USAGE.md`**
+**Complete voice routing: `${PAI_DIR}/voice-server/USAGE.md`**
 
 ### 2. History System
 
 **THE PERMANENT KNOWLEDGE BASE**
 
-**Location:** `~/.claude/history/`
+**Location:** `${PAI_DIR}/history/`
 
 **Purpose:** Capture ALL valuable work for future reference, learning, and analysis.
 
 **Directory Structure:**
 ```
-~/.claude/history/
+${PAI_DIR}/history/
 ├── raw-outputs/              # Raw event logs (JSONL)
 │   └── YYYY-MM/
 │       └── YYYY-MM-DD_all-events.jsonl
@@ -1081,14 +1081,14 @@ Kai uses mandatory structured output format that integrates with voice server fo
 
 **Scratchpad vs History:**
 
-**Scratchpad** (`~/.claude/scratchpad/`):
+**Scratchpad** (`${PAI_DIR}/scratchpad/`):
 - TEMPORARY working files
 - Tests and experiments
 - Draft outputs before finalization
 - Random one-off requests
 - Delete when done
 
-**History** (`~/.claude/history/`):
+**History** (`${PAI_DIR}/history/`):
 - PERMANENT valuable outputs
 - Research findings
 - Learnings and insights
@@ -1101,7 +1101,7 @@ Kai uses mandatory structured output format that integrates with voice server fo
 
 **EVENT-DRIVEN AUTOMATION**
 
-**Location:** `~/.claude/hooks/`
+**Location:** `${PAI_DIR}/hooks/`
 
 **Purpose:** Automatically capture events, trigger actions, and integrate systems without explicit calls.
 
@@ -1128,7 +1128,7 @@ Kai uses mandatory structured output format that integrates with voice server fo
    - Can inject context
    - Can modify prompts
 
-**Reference:** `~/.claude/skills/CORE/hook-system.md`
+**Reference:** `${PAI_DIR}/skills/CORE/hook-system.md`
 
 ### 4. Agent System
 
@@ -1174,14 +1174,14 @@ Kai → [10 Interns update files] → Spotcheck Intern (verifies all 10)
 ```
 
 **Reference:**
-- `~/.claude/skills/CORE/delegation-patterns.md`
-- `~/.claude/skills/CORE/agent-protocols.md`
+- `${PAI_DIR}/skills/CORE/delegation-patterns.md`
+- `${PAI_DIR}/skills/CORE/agent-protocols.md`
 
 ### 5. MCP Profile Management
 
 **CONTEXT-SPECIFIC TOOL CONFIGURATION**
 
-**Location:** `~/.claude/MCPs/`
+**Location:** `${PAI_DIR}/MCPs/`
 
 **Purpose:** Swap tool configurations based on work type without restarting Claude Code manually.
 
@@ -1200,24 +1200,24 @@ Kai → [10 Interns update files] → Spotcheck Intern (verifies all 10)
 **Profile Switching:**
 ```bash
 # Show current profile
-~/.claude/MCPs/swap-mcp
+${PAI_DIR}/MCPs/swap-mcp
 
 # Switch to profile
-~/.claude/MCPs/swap-mcp chrome-enabled
+${PAI_DIR}/MCPs/swap-mcp chrome-enabled
 
 # MUST restart Claude Code to apply!
 ```
 
-**Reference:** `~/.claude/skills/CORE/mcp-strategy.md`
+**Reference:** `${PAI_DIR}/skills/CORE/mcp-strategy.md`
 
 ---
 
 ## Directory Structure
 
-**Complete ~/.claude/ Map:**
+**Complete ${PAI_DIR}/ Map:**
 
 ```
-~/.claude/
+${PAI_DIR}/
 │
 ├── skills/                           # Domain expertise packages
 │   ├── CORE/                        # Kai identity + infrastructure
@@ -1295,7 +1295,7 @@ description: |
 
 ## 🎯 Load Full CORE Context
 
-read ~/.claude/skills/CORE/SKILL.md
+read ${PAI_DIR}/skills/CORE/SKILL.md
 
 ## When to Activate This Skill
 
@@ -1317,7 +1317,7 @@ read ~/.claude/skills/CORE/SKILL.md
 4. Reference files for deep dives
 5. Assets/examples for templates
 
-**Reference:** `~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+**Reference:** `${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 ### Adding Workflows
 
@@ -1383,7 +1383,7 @@ voice_id: [ElevenLabs voice ID]
 [Use standard COMPLETED format]
 ```
 
-**Reference:** `~/.claude/skills/CORE/agent-protocols.md`
+**Reference:** `${PAI_DIR}/skills/CORE/agent-protocols.md`
 
 ---
 
@@ -1432,7 +1432,7 @@ voice_id: [ElevenLabs voice ID]
 
 **Never skip quality gates.** If testing reveals issues, fix them before completion.
 
-**Reference:** `~/.claude/skills/CORE/TESTING.md`
+**Reference:** `${PAI_DIR}/skills/CORE/TESTING.md`
 
 ---
 
@@ -1491,7 +1491,7 @@ voice_id: [ElevenLabs voice ID]
 - MCP strategy full details: `mcp-strategy.md`
 - Testing comprehensive guide: `TESTING.md`
 - Security protocols: `security-protocols.md`
-- Voice system: `~/.claude/voice-server/USAGE.md`
+- Voice system: `${PAI_DIR}/voice-server/USAGE.md`
 - Agent protocols: `agent-protocols.md`
 - Delegation patterns: `delegation-patterns.md`
 

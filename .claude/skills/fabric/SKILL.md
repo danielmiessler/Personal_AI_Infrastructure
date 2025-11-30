@@ -270,13 +270,30 @@ fabric "your text here" -p [pattern]
 
 ## 🔄 Updating Patterns
 
-The Fabric repository is included in this skill at `${PAI_DIR}/skills/fabric/fabric-repo/`.
+The Fabric repository is included as a snapshot in `${PAI_DIR}/skills/fabric/fabric-repo/`.
 
-**To update patterns:**
+**To update to latest patterns:**
 
 ```bash
-cd ${PAI_DIR}/skills/fabric/fabric-repo
-git pull origin main
+# Clone fresh Fabric repo
+cd /tmp
+git clone --depth 1 https://github.com/danielmiessler/fabric.git
+
+# Copy new patterns to PAI
+rm -rf ${PAI_DIR}/skills/fabric/fabric-repo
+cp -r fabric ${PAI_DIR}/skills/fabric/fabric-repo
+
+# Cleanup
+rm -rf /tmp/fabric
+```
+
+**Or install Fabric separately and use local patterns:**
+
+```bash
+# If you have Fabric installed locally
+go install github.com/danielmiessler/fabric@latest
+fabric --updatepatterns
+# Patterns will be in ~/.config/fabric/patterns/
 ```
 
 **To see all available patterns:**

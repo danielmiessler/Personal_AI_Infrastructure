@@ -8,14 +8,14 @@
 
 **All voice system documentation is maintained in the voice-server directory:**
 
-`~/.claude/voice-server/`
+`${PAI_DIR}/voice-server/`
 
 ---
 
 ## 📚 Voice Server Documentation
 
 ### Complete Usage Guide
-**Location:** `~/.claude/voice-server/USAGE.md` (553 lines)
+**Location:** `${PAI_DIR}/voice-server/USAGE.md` (553 lines)
 
 **Contains:**
 - Current version and what's new
@@ -27,7 +27,7 @@
 - Testing and examples
 
 ### Overview and Setup
-**Location:** `~/.claude/voice-server/README.md` (261 lines)
+**Location:** `${PAI_DIR}/voice-server/README.md` (261 lines)
 
 **Contains:**
 - Voice server overview
@@ -36,7 +36,7 @@
 - Basic usage examples
 
 ### Version History
-**Location:** `~/.claude/voice-server/CHANGELOG.md`
+**Location:** `${PAI_DIR}/voice-server/CHANGELOG.md`
 
 **Contains:**
 - Complete version history
@@ -49,30 +49,30 @@
 
 **Start voice server:**
 ```bash
-~/.claude/voice-server/start.sh
+${PAI_DIR}/voice-server/start.sh
 ```
 
 **Check status:**
 ```bash
-~/.claude/voice-server/status.sh
+${PAI_DIR}/voice-server/status.sh
 ```
 
 **Restart server:**
 ```bash
-~/.claude/voice-server/restart.sh
+${PAI_DIR}/voice-server/restart.sh
 ```
 
 **Stop server:**
 ```bash
-~/.claude/voice-server/stop.sh
+${PAI_DIR}/voice-server/stop.sh
 ```
 
 ---
 
 ## 🔗 Related Documentation
 
-- **Agent Personalities:** `~/.claude/skills/CORE/agent-personalities.md` (centralized personality definitions)
-- **Voice Routing Workflow:** `~/.claude/skills/CORE/workflows/voice-routing-full.md` (operational workflow)
+- **Agent Personalities:** `${PAI_DIR}/skills/CORE/agent-personalities.md` (centralized personality definitions)
+- **Voice Routing Workflow:** `${PAI_DIR}/skills/CORE/workflows/voice-routing-full.md` (operational workflow)
 
 ---
 

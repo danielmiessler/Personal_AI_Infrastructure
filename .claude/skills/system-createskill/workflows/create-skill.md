@@ -20,7 +20,7 @@
 
 **REQUIRED FIRST STEP:** Read the source of truth before creating:
 ```bash
-~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
 ```
 
 **What to extract:**
@@ -110,25 +110,25 @@ Additional factors:
 
 **For Minimal Skill:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/workflows
-touch ~/.claude/skills/[skill-name]/SKILL.md
+mkdir -p ${PAI_DIR}/skills/[skill-name]/workflows
+touch ${PAI_DIR}/skills/[skill-name]/SKILL.md
 ```
 
 **For Standard Skill:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/{workflows,documentation}
-touch ~/.claude/skills/[skill-name]/SKILL.md
+mkdir -p ${PAI_DIR}/skills/[skill-name]/{workflows,documentation}
+touch ${PAI_DIR}/skills/[skill-name]/SKILL.md
 ```
 
 **For Complex Skill:**
 ```bash
-mkdir -p ~/.claude/skills/[skill-name]/{workflows,documentation,references,state,tools,testing}
-touch ~/.claude/skills/[skill-name]/{SKILL.md,CONSTITUTION.md,METHODOLOGY.md}
+mkdir -p ${PAI_DIR}/skills/[skill-name]/{workflows,documentation,references,state,tools,testing}
+touch ${PAI_DIR}/skills/[skill-name]/{SKILL.md,CONSTITUTION.md,METHODOLOGY.md}
 ```
 
 **Verify creation:**
 ```bash
-ls -la ~/.claude/skills/[skill-name]/
+ls -la ${PAI_DIR}/skills/[skill-name]/
 ```
 
 **Output:** Directory structure created
@@ -155,12 +155,12 @@ description: |
 
 **When user requests [action 1]:**
 Examples: "actual user phrase 1", "variation 1", "variation 2", "variation 3", "casual phrasing"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow1.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow1.md
 → **EXECUTE:** Brief description of what this workflow does
 
 **When user requests [action 2]:**
 Examples: "actual user phrase 1", "variation 1", "variation 2", "variation 3", "result-oriented phrasing"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow2.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow2.md
 → **EXECUTE:** Brief description of what this workflow does
 
 [Continue for EVERY workflow - NO EXCEPTIONS]
@@ -251,8 +251,8 @@ Skill Response:
 ---
 
 **Related Documentation:**
-- `~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md` - Canonical structure guide
-- `~/.claude/skills/CORE/CONSTITUTION.md` - Overall PAI philosophy
+- `${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md` - Canonical structure guide
+- `${PAI_DIR}/skills/CORE/CONSTITUTION.md` - Overall PAI philosophy
 
 **Last Updated:** [YYYY-MM-DD]
 ```
@@ -276,7 +276,7 @@ Skill Response:
 **For each workflow identified in Step 2:**
 
 ```bash
-touch ~/.claude/skills/[skill-name]/workflows/[workflow-name].md
+touch ${PAI_DIR}/skills/[skill-name]/workflows/[workflow-name].md
 ```
 
 **Use standard workflow template:**
@@ -382,13 +382,13 @@ Output: [Example output]
 
 ```bash
 # Verify SKILL.md exists
-test -f ~/.claude/skills/[skill-name]/SKILL.md && echo "✅ SKILL.md present" || echo "❌ SKILL.md missing"
+test -f ${PAI_DIR}/skills/[skill-name]/SKILL.md && echo "✅ SKILL.md present" || echo "❌ SKILL.md missing"
 
 # Verify workflows directory
-test -d ~/.claude/skills/[skill-name]/workflows && echo "✅ workflows/ present" || echo "❌ workflows/ missing"
+test -d ${PAI_DIR}/skills/[skill-name]/workflows && echo "✅ workflows/ present" || echo "❌ workflows/ missing"
 
 # Count workflow files
-echo "Workflow count: $(find ~/.claude/skills/[skill-name]/workflows/ -name "*.md" | wc -l)"
+echo "Workflow count: $(find ${PAI_DIR}/skills/[skill-name]/workflows/ -name "*.md" | wc -l)"
 
 # Verify archetype compliance
 # Check against archetype rules
@@ -412,7 +412,7 @@ echo "Workflow count: $(find ~/.claude/skills/[skill-name]/workflows/ -name "*.m
 
 ### Step 8: Register Skill
 
-**Add to `~/.claude/mcp_settings.json`:**
+**Add to `${PAI_DIR}/mcp_settings.json`:**
 
 ```json
 {
@@ -433,7 +433,7 @@ echo "Workflow count: $(find ~/.claude/skills/[skill-name]/workflows/ -name "*.m
 
 **Verify registration:**
 ```bash
-grep -A 3 '"skill-name"' ~/.claude/mcp_settings.json
+grep -A 3 '"skill-name"' ${PAI_DIR}/mcp_settings.json
 ```
 
 **Output:** Skill registered in system
@@ -625,7 +625,7 @@ security-testing/
 
 **One Source of Truth:**
 Everything must align with:
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 **Progressive Disclosure:**
 - SKILL.md is the hub (routing + overview)

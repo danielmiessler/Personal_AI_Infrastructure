@@ -1,28 +1,28 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
+    "PAI_DIR": "/Users/YOURNAME/.claude",
     "DA": "PAI",
     "PAI_DIR": "/Users/andreas/.claude",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },
-  "_comment_PAI_DIR": "PAI_DIR is not needed - hooks default to ~/.claude automatically. Only set PAI_DIR if you need a custom location (use absolute path like /Users/yourname/.claude)",
+  "_comment": "IMPORTANT: Change PAI_DIR above to your actual path (e.g., /Users/john/.claude or /home/john/.claude)",
   "permissions": {
     "allow": [
       "Bash",
-      "Read(*)",
-      "Write(*)",
-      "Edit(*)",
-      "MultiEdit(*)",
-      "Glob(*)",
-      "Grep(*)",
-      "LS(*)",
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
       "WebFetch(domain:*)",
       "WebSearch",
-      "NotebookRead(*)",
-      "NotebookEdit(*)",
-      "TodoWrite(*)",
-      "ExitPlanMode(*)",
-      "Task(*)",
+      "NotebookRead",
+      "NotebookEdit",
+      "TodoWrite",
+      "ExitPlanMode",
+      "Task",
       "mcp__*"
     ],
     "deny": [

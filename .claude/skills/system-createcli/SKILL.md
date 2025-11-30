@@ -150,7 +150,7 @@ Generated CLIs follow PAI's standards:
 ### Repository Placement
 
 Generated CLIs go to:
-- `~/.claude/bin/[cli-name]/` - Personal CLIs (like llcli)
+- `${PAI_DIR}/bin/[cli-name]/` - Personal CLIs (like llcli)
 - `~/Projects/[project-name]/` - Project-specific CLIs
 - `~/Projects/PAI/examples/clis/` - Example CLIs (PUBLIC repo)
 
@@ -207,7 +207,7 @@ Every generated CLI follows:
 
 **Generated Structure:**
 ```
-~/.claude/bin/ghcli/
+${PAI_DIR}/bin/ghcli/
 ├── ghcli.ts              # 350 lines, complete implementation
 ├── package.json          # Bun + TypeScript
 ├── tsconfig.json         # Strict mode
@@ -233,7 +233,7 @@ ghcli --help
 
 **Generated Structure:**
 ```
-~/.claude/bin/md2html/
+${PAI_DIR}/bin/md2html/
 ├── md2html.ts
 ├── package.json
 ├── README.md
@@ -256,7 +256,7 @@ md2html extract-frontmatter post.md
 
 **Generated Structure:**
 ```
-~/.claude/bin/data-cli/
+${PAI_DIR}/bin/data-cli/
 ├── data-cli.ts           # Commander.js with subcommands
 ├── package.json
 ├── README.md

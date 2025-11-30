@@ -24,16 +24,62 @@
 
 ---
 
+<div align="center">
+
+## *"This project exists so that the best AI in the world is not only used by a few, but can be used by everyone."*
+
+</div>
+
+Right now the most powerful AI setups are being built inside companies with massive engineering teams. That's backwards. These tools should be available to individuals—to you—so you can build your own AI system that actually knows how you work.
+
+That's what PAI is. It's the scaffolding for building a personal AI that gets better over time because it's *yours*. Not some generic chatbot. Your system, your skills, your workflows.
+
+---
+
 ## 🎯 **What is PAI?**
 
-PAI (Personal AI Infrastructure) is a template for building your own AI-powered operating system using Claude Code.
+PAI (Personal AI Infrastructure) is an open-source template for building your own AI-powered operating system using Claude Code.
 
 **Core Primitives:**
 - **Skills** - Self-contained AI capabilities with routing, workflows, and documentation
 - **Agents** - Specialized AI personalities for different tasks (engineer, researcher, designer, etc.)
 - **Hooks** - Event-driven automation that captures work, provides voice feedback, and manages state
 
-**Philosophy:** Start clean, small, and simple. Build the scaffolding that makes AI reliable.
+**Approach:** Start clean, small, and simple. Build the scaffolding that makes AI reliable.
+
+---
+
+## 🔄 **PAI vs Kai: What You Get**
+
+**PAI (this repository) provides:**
+- ✅ Skills/agents/hooks architecture
+- ✅ CORE documentation and routing
+- ✅ History system (UOCS) for automatic documentation
+- ✅ Example skills (research, fabric, etc.)
+- ✅ Voice server skeleton
+- ⚙️ **Requires:** API key configuration per skill
+
+**Kai (Daniel's private system) adds:**
+- 🔒 Personal data, contacts, and history
+- 🔒 Additional private skills and workflows
+- 🔒 Customized agent personalities and voices
+- 🔒 Production integrations and automations
+
+**Think of it this way:** PAI is the scaffolding. You build your own "Kai" on top of it.
+
+**After setup, PAI should:**
+- ✅ Execute hooks without errors
+- ✅ Load CORE context at session start
+- ✅ Route skills correctly
+- ✅ Capture session history
+- ✅ Launch agents successfully
+
+**Not working?** Run the health check:
+```bash
+bun ${PAI_DIR}/hooks/self-test.ts
+```
+
+See `PAI_CONTRACT.md` for complete details on what's guaranteed vs what needs configuration.
 
 ---
 
@@ -66,10 +112,16 @@ cp .claude/.env.example .claude/.env
 ### 3. Copy to Your System
 
 ```bash
-# Copy .claude directory to your home directory
-cp -r .claude ~/.claude
+# Backup existing Claude config (if any)
+[ -d ~/.claude ] && mv ~/.claude ~/.claude.backup.$(date +%Y%m%d_%H%M%S)
 
-# Or symlink if you prefer
+# Copy PAI's .claude directory to your home
+cp -r .claude ~/.claude
+```
+
+**Alternative: Symlink** (keeps PAI updatable via git pull)
+```bash
+[ -d ~/.claude ] && mv ~/.claude ~/.claude.backup.$(date +%Y%m%d_%H%M%S)
 ln -s $(pwd)/.claude ~/.claude
 ```
 
@@ -77,7 +129,7 @@ ln -s $(pwd)/.claude ~/.claude
 
 ```bash
 # PAI loads automatically via the CORE skill
-claude-code
+claude
 ```
 
 **That's it!** The CORE skill loads at session start and provides all PAI functionality.
@@ -114,6 +166,7 @@ claude-code
 
 Explore example skills in `.claude/skills/`:
 
+- **`brightdata/`** - Four-tier progressive web scraping with automatic fallback (WebFetch → cURL → Playwright → Bright Data MCP)
 - **`fabric/`** - Integration with Fabric pattern system (242+ AI patterns)
 - **`research/`** - Multi-source research workflows
 - **`create-skill/`** - Templates for creating new skills
@@ -174,6 +227,33 @@ See `SECURITY.md` for complete security protocols.
 - **GitHub Issues:** [Report bugs or request features](https://github.com/danielmiessler/Personal_AI_Infrastructure/issues)
 - **Discussions:** [Ask questions and share ideas](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions)
 - **Video:** [Watch PAI Overview](https://youtu.be/iKwRWwabkEc)
+
+---
+
+## 📝 **Changelog**
+
+### Recent Updates
+
+**2025-11-25** - Path Standardization (Issue #122)
+- Replaced all hardcoded `~/.claude/` paths with `${PAI_DIR}/` for location-agnostic installation
+- Updated 50+ files across skills, hooks, and documentation
+- Removed deprecated CLAUDE.md files (content consolidated into SKILL.md)
+
+**2025-11-20** - Major Architecture Improvements
+- Implemented PAI_DIR hook wrapper system with centralized path resolution
+- Added PAI_CONTRACT.md defining core guarantees
+- Added self-test system for validation (`bun ${PAI_DIR}/hooks/self-test.ts`)
+- Added protection mechanisms for PAI-specific content
+- See `CHANGELOG-2025-11-20.md` for full details
+
+**Earlier Updates**
+- Added comprehensive research skill with 10 workflows
+- Added BrightData four-tier progressive web scraping
+- Added art and story-explanation skills
+- Fixed ElevenLabs model deprecation
+- Added prompt injection security guidance
+
+For detailed changelogs, see the `CHANGELOG-*.md` files in the repository root.
 
 ---
 

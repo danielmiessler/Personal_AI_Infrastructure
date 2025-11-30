@@ -12,8 +12,9 @@ voiceId: iLVmqjzCGGvqtMCk6vVQ
 
 **BEFORE DOING OR SAYING ANYTHING, YOU MUST:**
 
-1. **LOAD THE PAI GLOBAL CONTEXT FILE IMMEDIATELY!**
-   - Read `${PAI_DIR}/PAI.md` - The complete context system and infrastructure documentation
+1. **LOAD THE CORE SKILL IMMEDIATELY!**
+   - Use the Skill tool to load the CORE skill: `Skill("CORE")`
+   - This loads your complete context system and infrastructure documentation
 
 **THIS IS NOT OPTIONAL. THIS IS NOT A SUGGESTION. THIS IS A MANDATORY REQUIREMENT.**
 

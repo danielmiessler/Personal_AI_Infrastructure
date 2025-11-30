@@ -36,7 +36,7 @@ echo "ELEVENLABS_VOICE_ID=s3TPKV1kjDlVtZbl4Ksh" >> ~/.env
 
 ### 3. Install Voice Server
 ```bash
-cd ~/.claude/voice-server
+cd ${PAI_DIR}/voice-server
 ./install.sh
 ```
 
@@ -129,7 +129,7 @@ brew install --cask bitbar
 
 2. **Run the menu bar installer**:
 ```bash
-cd ~/.claude/voice-server/menubar
+cd ${PAI_DIR}/voice-server/menubar
 ./install-menubar.sh
 ```
 
@@ -268,7 +268,7 @@ Response:
    ```
 2. Check server logs:
    ```bash
-   tail -f ~/.claude/voice-server/logs/voice-server.log
+   tail -f ${PAI_DIR}/voice-server/logs/voice-server.log
    ```
 3. Test the API directly:
    ```bash
@@ -325,6 +325,6 @@ Part of the Personal AI Infrastructure (PAI) system.
 ## 🙋 Support
 
 For issues or questions:
-1. Check the logs: `~/.claude/voice-server/logs/`
+1. Check the logs: `${PAI_DIR}/voice-server/logs/`
 2. Verify configuration: `curl http://localhost:8888/health`
 3. Review documentation: `documentation/voice-system.md`

@@ -21,9 +21,14 @@
  * 3. Add both hooks to SessionStart in settings.json
  */
 
-import { existsSync, statSync } from 'fs';
-import { homedir } from 'os';
+import { existsSync, statSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
+import { PAI_DIR } from './lib/pai-paths';
+
+// Debounce duration in milliseconds (prevents duplicate SessionStart events)
+const DEBOUNCE_MS = 2000;
+const LOCKFILE = join(tmpdir(), 'pai-session-start.lock');
 
 async function sendNotification(title: string, message: string, priority: string = 'normal') {
   try {
@@ -53,9 +58,37 @@ async function sendNotification(title: string, message: string, priority: string
   }
 }
 
+/**
+ * Check if we're within the debounce window to prevent duplicate notifications
+ * from the IDE firing multiple SessionStart events
+ */
+function shouldDebounce(): boolean {
+  try {
+    if (existsSync(LOCKFILE)) {
+      const lockContent = readFileSync(LOCKFILE, 'utf-8');
+      const lockTime = parseInt(lockContent, 10);
+      const now = Date.now();
+
+      if (now - lockTime < DEBOUNCE_MS) {
+        // Within debounce window, skip this notification
+        return true;
+      }
+    }
+
+    // Update lockfile with current timestamp
+    writeFileSync(LOCKFILE, Date.now().toString());
+    return false;
+  } catch (error) {
+    // If any error, just proceed (don't break session start)
+    try {
+      writeFileSync(LOCKFILE, Date.now().toString());
+    } catch {}
+    return false;
+  }
+}
+
 async function testStopHook() {
-  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-  const stopHookPath = join(paiDir, 'hooks/stop-hook.ts');
+  const stopHookPath = join(PAI_DIR, 'hooks/stop-hook.ts');
 
   console.error('\n🔍 Testing stop-hook configuration...');
 
@@ -103,6 +136,13 @@ async function main() {
     if (isSubagent) {
       // This is a subagent session - exit silently without notification
       console.error('🤖 Subagent session detected - skipping session initialization');
+      process.exit(0);
+    }
+
+    // Check debounce to prevent duplicate voice notifications
+    // (IDE extension can fire multiple SessionStart events)
+    if (shouldDebounce()) {
+      console.error('🔇 Debouncing duplicate SessionStart event');
       process.exit(0);
     }
 

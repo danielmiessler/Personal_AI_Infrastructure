@@ -9,7 +9,7 @@
 - Skill structure is inconsistent or non-compliant
 
 **Prerequisites:**
-- Target skill exists in ~/.claude/skills/
+- Target skill exists in ${PAI_DIR}/skills/
 - Access to SKILL-STRUCTURE-AND-ROUTING.md
 - Understanding of current skill functionality
 
@@ -25,7 +25,7 @@
 - Otherwise, ask user to specify skill name or navigate to skill directory
 
 **If user specifies skill name:**
-- Verify skill exists at ~/.claude/skills/[skill-name]/
+- Verify skill exists at ${PAI_DIR}/skills/[skill-name]/
 - Read SKILL.md to understand current structure
 
 **Output:** Target skill path identified
@@ -36,7 +36,7 @@
 
 **REQUIRED:** Read the source of truth before any analysis:
 ```bash
-~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
+${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md
 ```
 
 **What to extract:**
@@ -57,16 +57,16 @@
 **Read all skill files:**
 ```bash
 # Read SKILL.md
-~/.claude/skills/[skill-name]/SKILL.md
+${PAI_DIR}/skills/[skill-name]/SKILL.md
 
 # List all files in skill directory
-ls -R ~/.claude/skills/[skill-name]/
+ls -R ${PAI_DIR}/skills/[skill-name]/
 
 # Identify all workflow files
-find ~/.claude/skills/[skill-name]/workflows/ -name "*.md"
+find ${PAI_DIR}/skills/[skill-name]/workflows/ -name "*.md"
 
 # Identify all documentation files
-find ~/.claude/skills/[skill-name]/ -name "*.md" ! -path "*/workflows/*"
+find ${PAI_DIR}/skills/[skill-name]/ -name "*.md" ! -path "*/workflows/*"
 ```
 
 **Analyze structure:**
@@ -135,7 +135,7 @@ find ~/.claude/skills/[skill-name]/ -name "*.md" ! -path "*/workflows/*"
 **Create backup:**
 ```bash
 # Create backup before modifying
-cp -r ~/.claude/skills/[skill-name]/ ~/.claude/skills/[skill-name]/.backup-$(date +%Y%m%d-%H%M%S)/
+cp -r ${PAI_DIR}/skills/[skill-name]/ ${PAI_DIR}/skills/[skill-name]/.backup-$(date +%Y%m%d-%H%M%S)/
 ```
 
 **Output:** Functionality inventory and backup created
@@ -200,7 +200,7 @@ description: |
 
 **When user requests [action 1]:**
 Examples: "actual user phrases", "variations", "synonyms"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow1.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow1.md
 → **EXECUTE:** What to do with this workflow
 
 [Route EVERY workflow file - NO EXCEPTIONS]
@@ -247,14 +247,14 @@ Examples: "actual user phrases", "variations", "synonyms"
 
 ```bash
 # Example: Reorganizing workflows from flat to nested
-mkdir -p ~/.claude/skills/skill-name/workflows/category1
-mkdir -p ~/.claude/skills/skill-name/workflows/category2
+mkdir -p ${PAI_DIR}/skills/skill-name/workflows/category1
+mkdir -p ${PAI_DIR}/skills/skill-name/workflows/category2
 
-mv ~/.claude/skills/skill-name/workflows/category1-*.md \
-   ~/.claude/skills/skill-name/workflows/category1/
+mv ${PAI_DIR}/skills/skill-name/workflows/category1-*.md \
+   ${PAI_DIR}/skills/skill-name/workflows/category1/
 
-mv ~/.claude/skills/skill-name/workflows/category2-*.md \
-   ~/.claude/skills/skill-name/workflows/category2/
+mv ${PAI_DIR}/skills/skill-name/workflows/category2-*.md \
+   ${PAI_DIR}/skills/skill-name/workflows/category2/
 ```
 
 **Naming convention fixes:**
@@ -370,7 +370,7 @@ mv ~/.claude/skills/skill-name/workflows/category2-*.md \
 ## Backup Location
 
 Original skill backed up to:
-~/.claude/skills/[skill-name]/.backup-[timestamp]/
+${PAI_DIR}/skills/[skill-name]/.backup-[timestamp]/
 ```
 
 **Output:** Complete migration report
@@ -453,12 +453,12 @@ description: |
 
 **When user requests [action 1]:**
 Examples: "phrase 1", "phrase 2"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow1.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow1.md
 → **EXECUTE:** Description
 
 **When user requests [action 2]:**
 Examples: "phrase 3", "phrase 4"
-→ **READ:** ~/.claude/skills/skill-name/workflows/workflow2.md
+→ **READ:** ${PAI_DIR}/skills/skill-name/workflows/workflow2.md
 → **EXECUTE:** Description
 
 ---
@@ -536,7 +536,7 @@ skill/
 
 **One Source of Truth:**
 Everything must align with:
-`~/.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
+`${PAI_DIR}/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
 
 ---
 

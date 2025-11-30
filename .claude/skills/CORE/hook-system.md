@@ -2,8 +2,8 @@
 
 **Event-Driven Automation Infrastructure**
 
-**Location:** `~/.claude/hooks/`
-**Configuration:** `~/.claude/settings.json`
+**Location:** `${PAI_DIR}/hooks/`
+**Configuration:** `${PAI_DIR}/settings.json`
 **Status:** Active - All hooks running in production
 
 ---
@@ -15,7 +15,7 @@ The PAI hook system is an event-driven automation infrastructure built on Claude
 **Core Capabilities:**
 - **Session Management** - Auto-load context, capture summaries, manage state
 - **Voice Notifications** - Text-to-speech announcements for task completions
-- **History Capture** - Automatic work/learning documentation to `~/.claude/history/`
+- **History Capture** - Automatic work/learning documentation to `${PAI_DIR}/history/`
 - **Multi-Agent Support** - Agent-specific hooks with voice routing
 - **Observability** - Real-time event streaming to dashboard
 - **Tab Titles** - Dynamic terminal tab updates with task context
@@ -26,7 +26,7 @@ The PAI hook system is an event-driven automation infrastructure built on Claude
 
 ## Available Hook Types
 
-Claude Code supports the following hook events (from `~/.claude/hooks/lib/observability.ts`):
+Claude Code supports the following hook events (from `${PAI_DIR}/hooks/lib/observability.ts`):
 
 ### 1. **SessionStart**
 **When:** Claude Code session begins (new conversation)
@@ -62,7 +62,7 @@ Claude Code supports the following hook events (from `~/.claude/hooks/lib/observ
 **What They Do:**
 - `load-core-context.ts` - Reads `skills/CORE/SKILL.md` and injects PAI context as `<system-reminder>` at session start
 - `initialize-pai-session.ts` - Sets up session state and environment
-- `capture-all-events.ts` - Logs event to `~/.claude/history/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
+- `capture-all-events.ts` - Logs event to `${PAI_DIR}/history/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
 
 ---
 
@@ -94,7 +94,7 @@ Claude Code supports the following hook events (from `~/.claude/hooks/lib/observ
 ```
 
 **What They Do:**
-- `capture-session-summary.ts` - Analyzes session activity and creates summary document in `~/.claude/history/sessions/YYYY-MM/`
+- `capture-session-summary.ts` - Analyzes session activity and creates summary document in `${PAI_DIR}/history/sessions/YYYY-MM/`
 - Captures: files changed, commands executed, tools used, session focus, duration
 
 ---
@@ -164,7 +164,7 @@ Claude Code supports the following hook events (from `~/.claude/hooks/lib/observ
 - `stop-hook.ts` - THE CRITICAL HOOK for main agent completions
   - Extracts `🎯 COMPLETED:` line from response
   - Sends to voice server with PAI's voice ID (`s3TPKV1kjDlVtZbl4Ksh`)
-  - Captures work summaries to `~/.claude/history/sessions/YYYY-MM/` or learnings to `~/.claude/history/learnings/YYYY-MM/`
+  - Captures work summaries to `${PAI_DIR}/history/sessions/YYYY-MM/` or learnings to `${PAI_DIR}/history/learnings/YYYY-MM/`
   - Updates Kitty tab with `✅` prefix
   - Sends event to observability dashboard
 
@@ -271,7 +271,7 @@ Claude Code supports the following hook events (from `~/.claude/hooks/lib/observ
 
 **What They Do:**
 - Captures tool output, execution time, success/failure
-- Logs to `~/.claude/history/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
+- Logs to `${PAI_DIR}/history/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
 - Powers observability dashboard
 
 ---
@@ -313,11 +313,11 @@ Claude Code supports the following hook events (from `~/.claude/hooks/lib/observ
 ## Configuration
 
 ### Location
-**File:** `~/.claude/settings.json`
+**File:** `${PAI_DIR}/settings.json`
 **Section:** `"hooks": { ... }`
 
 ### Environment Variables
-Hooks have access to all environment variables from `~/.claude/settings.json` `"env"` section:
+Hooks have access to all environment variables from `${PAI_DIR}/settings.json` `"env"` section:
 
 ```json
 {
@@ -482,7 +482,7 @@ else if (hookData.cwd && hookData.cwd.includes('/agents/')) {
 }
 ```
 
-**Session Mapping:** `~/.claude/agent-sessions.json`
+**Session Mapping:** `${PAI_DIR}/agent-sessions.json`
 ```json
 {
   "session-id-abc123": "engineer",
@@ -568,7 +568,7 @@ async function main() {
 Decide which event should trigger your hook (SessionStart, Stop, PostToolUse, etc.)
 
 ### Step 2: Create Hook Script
-**Location:** `~/.claude/hooks/my-custom-hook.ts`
+**Location:** `${PAI_DIR}/hooks/my-custom-hook.ts`
 
 **Template:**
 ```typescript
@@ -609,7 +609,7 @@ main();
 
 ### Step 3: Make Executable
 ```bash
-chmod +x ~/.claude/hooks/my-custom-hook.ts
+chmod +x ${PAI_DIR}/hooks/my-custom-hook.ts
 ```
 
 ### Step 4: Add to settings.json
@@ -633,7 +633,7 @@ chmod +x ~/.claude/hooks/my-custom-hook.ts
 ### Step 5: Test
 ```bash
 # Test hook directly
-echo '{"session_id":"test","transcript_path":"/tmp/test.jsonl","hook_event_name":"Stop"}' | bun ~/.claude/hooks/my-custom-hook.ts
+echo '{"session_id":"test","transcript_path":"/tmp/test.jsonl","hook_event_name":"Stop"}' | bun ${PAI_DIR}/hooks/my-custom-hook.ts
 ```
 
 ### Step 6: Restart Claude Code
@@ -695,18 +695,18 @@ await Promise.race([readPromise, timeoutPromise]);
 ### Hook Not Running
 
 **Check:**
-1. Is hook script executable? `chmod +x ~/.claude/hooks/my-hook.ts`
+1. Is hook script executable? `chmod +x ${PAI_DIR}/hooks/my-hook.ts`
 2. Is path correct in settings.json? Use `${PAI_DIR}/hooks/...`
-3. Is settings.json valid JSON? `jq . ~/.claude/settings.json`
+3. Is settings.json valid JSON? `jq . ${PAI_DIR}/settings.json`
 4. Did you restart Claude Code after editing settings.json?
 
 **Debug:**
 ```bash
 # Test hook directly
-echo '{"session_id":"test","transcript_path":"/tmp/test.jsonl","hook_event_name":"Stop"}' | bun ~/.claude/hooks/my-hook.ts
+echo '{"session_id":"test","transcript_path":"/tmp/test.jsonl","hook_event_name":"Stop"}' | bun ${PAI_DIR}/hooks/my-hook.ts
 
 # Check hook logs (stderr output)
-tail -f ~/.claude/hooks/debug.log  # If you add logging
+tail -f ${PAI_DIR}/hooks/debug.log  # If you add logging
 ```
 
 ---
@@ -738,7 +738,7 @@ setTimeout(() => {
 1. Is voice server running? `curl http://localhost:8888/health`
 2. Is voice_id correct? See `skills/CORE/SKILL.md` for mappings
 3. Is message format correct? `{"message":"...", "voice_id":"...", "title":"..."}`
-4. Is ElevenLabs API key in `~/.claude/.env`?
+4. Is ElevenLabs API key in `${PAI_DIR}/.env`?
 
 **Debug:**
 ```bash
@@ -758,19 +758,19 @@ curl -X POST http://localhost:8888/notify \
 ### History Not Capturing
 
 **Check:**
-1. Does `~/.claude/history/` directory exist?
+1. Does `${PAI_DIR}/history/` directory exist?
 2. Are structured sections present in response? (`📋 SUMMARY:`, `🎯 COMPLETED:`, etc.)
-3. Is hook actually running? Check `~/.claude/history/raw-outputs/` for events
-4. File permissions? `ls -la ~/.claude/history/sessions/`
+3. Is hook actually running? Check `${PAI_DIR}/history/raw-outputs/` for events
+4. File permissions? `ls -la ${PAI_DIR}/history/sessions/`
 
 **Debug:**
 ```bash
 # Check recent captures
-ls -lt ~/.claude/history/sessions/$(date +%Y-%m)/ | head -10
-ls -lt ~/.claude/history/learnings/$(date +%Y-%m)/ | head -10
+ls -lt ${PAI_DIR}/history/sessions/$(date +%Y-%m)/ | head -10
+ls -lt ${PAI_DIR}/history/learnings/$(date +%Y-%m)/ | head -10
 
 # Check raw events
-tail ~/.claude/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.jsonl
+tail ${PAI_DIR}/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.jsonl
 ```
 
 **Common Issues:**
@@ -787,11 +787,11 @@ tail ~/.claude/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.j
 **Evidence:**
 ```bash
 # Check if Stop events fired today
-grep '"event_type":"Stop"' ~/.claude/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.jsonl
+grep '"event_type":"Stop"' ${PAI_DIR}/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.jsonl
 # Result: 0 matches (no Stop events)
 
 # But other hooks ARE working
-grep '"event_type":"PostToolUse"' ~/.claude/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.jsonl
+grep '"event_type":"PostToolUse"' ${PAI_DIR}/history/raw-outputs/$(date +%Y-%m)/$(date +%Y-%m-%d)_all-events.jsonl
 # Result: 80+ matches (PostToolUse working fine)
 ```
 
@@ -809,7 +809,7 @@ grep '"event_type":"PostToolUse"' ~/.claude/history/raw-outputs/$(date +%Y-%m)/$
 
 **Workaround (MANDATORY):**
 
-1. **Added CAPTURE field to response format** (see `~/.claude/skills/CORE/SKILL.md`)
+1. **Added CAPTURE field to response format** (see `${PAI_DIR}/skills/CORE/SKILL.md`)
    - MANDATORY field in every response
    - Forces verification before completing responses
    - Must document: "Auto-captured" / "Manually saved" / "N/A"
@@ -822,15 +822,15 @@ grep '"event_type":"PostToolUse"' ~/.claude/history/raw-outputs/$(date +%Y-%m)/$
 3. **Verification Commands:**
    ```bash
    # Check if auto-captured (should happen, but often doesn't due to Stop event bug)
-   ls -lt ~/.claude/history/sessions/$(date +%Y-%m)/ | head -5
-   ls -lt ~/.claude/history/learnings/$(date +%Y-%m)/ | head -5
+   ls -lt ${PAI_DIR}/history/sessions/$(date +%Y-%m)/ | head -5
+   ls -lt ${PAI_DIR}/history/learnings/$(date +%Y-%m)/ | head -5
 
    # If 0 results or doesn't match current work → Manual capture required
    ```
 
 **Status:** UNRESOLVED (Claude Code issue, not hook configuration)
 **Mitigation:** Structural enforcement via response format (cannot complete valuable work without verification)
-**Tracking:** Documented in `~/.claude/skills/CORE/SKILL.md` (History Capture System section)
+**Tracking:** Documented in `${PAI_DIR}/skills/CORE/SKILL.md` (History Capture System section)
 
 **Long-term Fix:**
 - Report to Anthropic (Claude Code team) as Stop event reliability issue
@@ -842,17 +842,17 @@ grep '"event_type":"PostToolUse"' ~/.claude/history/raw-outputs/$(date +%Y-%m)/$
 ### Agent Detection Failing
 
 **Check:**
-1. Is `~/.claude/agent-sessions.json` writable?
+1. Is `${PAI_DIR}/agent-sessions.json` writable?
 2. Is `[AGENT:type]` tag in `🎯 COMPLETED:` line?
 3. Is agent running from correct directory? (`/agents/name/`)
 
 **Debug:**
 ```bash
 # Check session mappings
-cat ~/.claude/agent-sessions.json | jq .
+cat ${PAI_DIR}/agent-sessions.json | jq .
 
 # Check subagent-stop debug log
-tail -f ~/.claude/hooks/subagent-stop-debug.log
+tail -f ${PAI_DIR}/hooks/subagent-stop-debug.log
 ```
 
 **Fix:**
@@ -872,7 +872,7 @@ tail -f ~/.claude/hooks/subagent-stop-debug.log
 **Debug:**
 ```bash
 # Start dashboard server
-cd ~/.claude/skills/system/observability/dashboard/apps/server
+cd ${PAI_DIR}/skills/system/observability/dashboard/apps/server
 bun run dev
 
 # Check server logs
@@ -886,14 +886,14 @@ bun run dev
 ### Context Loading Issues (SessionStart)
 
 **Check:**
-1. Does `~/.claude/skills/CORE/SKILL.md` exist?
+1. Does `${PAI_DIR}/skills/CORE/SKILL.md` exist?
 2. Is `load-core-context.ts` executable?
 3. Is `PAI_DIR` env variable set correctly?
 
 **Debug:**
 ```bash
 # Test context loading directly
-bun ~/.claude/hooks/load-core-context.ts
+bun ${PAI_DIR}/hooks/load-core-context.ts
 
 # Should output <system-reminder> with SKILL.md content
 ```
@@ -901,7 +901,7 @@ bun ~/.claude/hooks/load-core-context.ts
 **Common Issues:**
 - Subagent sessions loading main context → Fixed (subagent detection in hook)
 - File not found → Check `PAI_DIR` environment variable
-- Permission denied → `chmod +x ~/.claude/hooks/load-core-context.ts`
+- Permission denied → `chmod +x ${PAI_DIR}/hooks/load-core-context.ts`
 
 ---
 
@@ -1030,10 +1030,10 @@ Hooks in same event execute **sequentially** in order defined in settings.json:
 
 ## Related Documentation
 
-- **Voice System:** `~/.claude/voice-server/USAGE.md`
-- **Agent Architecture:** `~/.claude/skills/CORE/agent-protocols.md`
-- **History/UOCS:** `~/.claude/skills/CORE/history-system.md`
-- **Observability Dashboard:** `~/.claude/skills/system-observability/`
+- **Voice System:** `${PAI_DIR}/voice-server/USAGE.md`
+- **Agent Architecture:** `${PAI_DIR}/skills/CORE/agent-protocols.md`
+- **History/UOCS:** `${PAI_DIR}/skills/CORE/history-system.md`
+- **Observability Dashboard:** `${PAI_DIR}/skills/system-observability/`
 
 ---
 
@@ -1050,13 +1050,13 @@ HOOK LIFECYCLE:
 7. Claude Code continues
 
 KEY FILES:
-~/.claude/settings.json           Hook configuration
-~/.claude/hooks/                  Hook scripts
-~/.claude/hooks/lib/observability.ts   Helper library
-~/.claude/history/raw-outputs/    Event logs (JSONL)
-~/.claude/history/sessions/       Work summaries
-~/.claude/history/learnings/      Learning captures
-~/.claude/agent-sessions.json     Session→Agent mapping
+${PAI_DIR}/settings.json           Hook configuration
+${PAI_DIR}/hooks/                  Hook scripts
+${PAI_DIR}/hooks/lib/observability.ts   Helper library
+${PAI_DIR}/history/raw-outputs/    Event logs (JSONL)
+${PAI_DIR}/history/sessions/       Work summaries
+${PAI_DIR}/history/learnings/      Learning captures
+${PAI_DIR}/agent-sessions.json     Session→Agent mapping
 
 CRITICAL HOOKS:
 stop-hook.ts          Voice + history capture (main agent)

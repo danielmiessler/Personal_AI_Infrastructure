@@ -9,6 +9,7 @@
 
 import { appendFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { PAI_DIR } from './lib/pai-paths';
 
 interface ToolUseData {
   tool_name: string;
@@ -19,7 +20,7 @@ interface ToolUseData {
 }
 
 // Configuration
-const CAPTURE_DIR = join(process.env.HOME!, '.claude', 'history', 'raw-outputs');
+const CAPTURE_DIR = join(PAI_DIR, 'history', 'raw-outputs');
 const INTERESTING_TOOLS = ['Bash', 'Edit', 'Write', 'Read', 'Task', 'NotebookEdit'];
 
 async function main() {

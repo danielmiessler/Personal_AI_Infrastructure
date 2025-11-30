@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "PAI Protected Files - Files that must NOT be overwritten with Kai content",
+  "version": "1.0",
+  "protected": {
+    "core_documents": {
+      "description": "Core PAI documentation that differs from Kai",
+      "files": [
+        "README.md",
+        "PAI_CONTRACT.md",
+        "SECURITY.md"
+      ],
+      "validation": "Must contain 'PAI' or 'Personal AI Infrastructure' in content"
+    },
+    "pai_infrastructure": {
+      "description": "PAI-specific infrastructure code",
+      "files": [
+        ".claude/hooks/lib/pai-paths.ts",
+        ".claude/hooks/self-test.ts",
+        ".pai-protected.json"
+      ],
+      "validation": "Must not contain references to private Kai data"
+    },
+    "sanitized_config": {
+      "description": "Configuration files that must remain sanitized",
+      "files": [
+        ".claude/.env.example",
+        ".claude/settings.json"
+      ],
+      "validation": "Must not contain API keys, personal emails, or secrets"
+    },
+    "protected_patterns": {
+      "description": "String patterns that should never appear in PAI",
+      "patterns": [
+        "daniel@danielmiessler.com",
+        "susan@danielmiessler.com",
+        "ANTHROPIC_API_KEY=sk-",
+        "PERPLEXITY_API_KEY=[^E]",
+        "ELEVENLABS_API_KEY=[^y]",
+        "/Users/daniel/.claude/skills/personal",
+        "daemon.plist"
+      ],
+      "exception_files": [
+        "SECURITY.md",
+        ".pai-protected.json",
+        "PAI_SYNC_GUIDE.md",
+        ".claude/.env.example"
+      ]
+    }
+  },
+  "kai_to_pai_workflow": {
+    "description": "How to safely sync Kai improvements to PAI",
+    "steps": [
+      "1. Make changes in Kai (${PAI_DIR}/)",
+      "2. Test thoroughly in Kai environment",
+      "3. Identify which changes should go to public PAI",
+      "4. Copy changes to PAI repo (${PAI_REPO}/)",
+      "5. SKIP protected files (they stay PAI-specific)",
+      "6. Sanitize any personal data or API keys",
+      "7. Run: bun ${PAI_REPO}/.claude/hooks/self-test.ts",
+      "8. Run: bun ${PAI_REPO}/.claude/hooks/validate-protected.ts",
+      "9. If validation passes, commit to PAI",
+      "10. If validation fails, check which protected files changed"
+    ]
+  }
+}

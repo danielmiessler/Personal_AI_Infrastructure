@@ -29,7 +29,7 @@ Add one or more commands to an existing CLI without breaking existing functional
 
 ```bash
 # Find CLI location
-ls -la ~/.claude/bin/[cli-name]/
+ls -la ${PAI_DIR}/bin/[cli-name]/
 # or
 ls -la ~/Projects/[project]/
 ```

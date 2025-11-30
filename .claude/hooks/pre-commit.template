@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# PAI Pre-Commit Hook
+#
+# Automatically validates protected files before allowing commits.
+# This prevents accidentally committing Kai-specific content to public PAI.
+#
+# Installation:
+#   cp .claude/hooks/pre-commit.template .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+
+set -e
+
+echo ""
+echo "🛡️  Running PAI pre-commit validation..."
+echo ""
+
+# Run the protected files validator on staged files only
+bun .claude/hooks/validate-protected.ts --staged
+
+# If validation passes, proceed with commit
+exit 0

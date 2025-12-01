@@ -196,6 +196,101 @@ ingest retry <message-id>                 # Retry failed message
 
 ---
 
+## Photo Processing Options
+
+When sharing photos to Telegram, you can control how they're processed using the caption:
+
+### Processing Modes
+
+| Share Method | Processing | Output |
+|--------------|------------|--------|
+| Photo only (no caption) | Pass-through | Raw note with image link |
+| Photo + text caption | Vision AI analysis | Note with AI description using caption as prompt |
+| Photo + `/ocr` | Tesseract OCR | Note with extracted text only |
+| Photo + `/describe` | Vision AI description | Detailed image description |
+| Photo + `/mermaid` | Vision AI → Mermaid | Note with generated diagram code |
+| Photo + `/store` | No processing | Just copy image to vault |
+
+### Examples
+
+```bash
+# Just share a photo → stored as raw note with image embedded
+[photo]
+
+# Share with analysis prompt (caption becomes the prompt)
+[photo] + "What architecture pattern is shown here?"
+
+# Share whiteboard with extraction request
+[photo] + "Extract the flowchart and create a mermaid diagram"
+
+# Explicit commands
+[photo] + "/ocr"                    # Just OCR, no AI
+[photo] + "/describe"               # General description
+[photo] + "/mermaid"                # Extract diagram
+[photo] + "/store"                  # Just save, no processing
+```
+
+### Requirements
+
+- **Vision AI**: `OPENAI_API_KEY` (for GPT-4 Vision) or `GOOGLE_API_KEY` (for Gemini)
+- **OCR only**: `tesseract` installed locally (`brew install tesseract`)
+
+### Image Storage
+
+Photos are stored in `${OBSIDIAN_VAULT_PATH}/attachments/` and linked from the note:
+```markdown
+---
+tags: [incoming, source/telegram, photo]
+---
+
+![Screenshot](attachments/2024-12-01-screenshot-001.png)
+
+**Analysis:** This shows a microservices architecture with...
+```
+
+---
+
+## Share-with-Hints Workflow
+
+The pipeline supports **inline metadata hints** when sharing content to Telegram, enabling tight integration with iOS Shortcuts and macOS Share menu.
+
+### Supported Hint Formats
+
+| Format | Example | Result |
+|--------|---------|--------|
+| `#tag` | `#meeting-notes` | Adds tag: `meeting-notes` |
+| `#project/name` | `#project/pai` | Adds tag: `project/pai` |
+| `@person` | `@ed_overy` | Adds tag: `ed_overy` |
+| `/command` | `/transcript` | Routes to content type |
+
+### Example Message
+
+```
+#project/pai @ed_overy /meeting-notes
+Notes from our weekly sync about the ingest pipeline
+```
+
+**Results in:**
+- Tags: `project/pai`, `ed_overy`, `meeting-notes`, `incoming`, `source/telegram`
+- Content: "Notes from our weekly sync about the ingest pipeline"
+- Content type: Routed as meeting notes
+
+### iOS Shortcut Integration
+
+Create a Shortcut that:
+1. Takes input (text, URL, file, voice memo)
+2. Adds prefix with project/tags
+3. Sends to Telegram channel via Telegram API or share
+
+### macOS Quick Actions
+
+Create Automator/Shortcuts action that:
+1. Gets selected content from any app
+2. Prompts for project/tags (optional)
+3. Sends to Telegram channel
+
+---
+
 ## Telegram as Immutable Log
 
 Telegram serves as the ingestion queue and audit trail:
@@ -268,6 +363,188 @@ cat transcript.txt | fabric -p summarize --stream
 # - summarize: Summarize content
 # - extract_article_wisdom: Process web articles
 ```
+
+---
+
+## LLM-Based Tag Extraction
+
+The ingestion pipeline uses **non-deterministic (LLM) tag extraction** with the taxonomy as a guide:
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   LLM TAG EXTRACTION                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Content + Taxonomy Guide → LLM → Extracted Tags                │
+│                                                                  │
+│  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐   │
+│  │   Content    │    │    Taxonomy     │    │   Output     │   │
+│  │              │───▶│    (guide)      │───▶│              │   │
+│  │ "Meeting     │    │                 │    │ meeting-notes│   │
+│  │  with John   │    │ People format:  │    │ john_doe     │   │
+│  │  about data  │    │ firstname_last  │    │ project/data │   │
+│  │  platform"   │    │                 │    │ incoming     │   │
+│  └──────────────┘    │ Project format: │    └──────────────┘   │
+│                      │ project/name    │                        │
+│                      └─────────────────┘                        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Taxonomy as Prompt Guide
+
+The tag taxonomy (`skills/context/tag-taxonomy.md`) provides:
+1. **Categories** - What types of tags exist (status, people, projects, topics)
+2. **Formats** - How to format each type (`firstname_lastname`, `project/name`)
+3. **Examples** - Few-shot examples for the LLM
+4. **Processing flow** - Status tag progression
+
+### Why Non-Deterministic?
+
+- **Flexibility**: LLM can understand context ("John" in meeting → `john_doe`)
+- **Discovery**: Can identify new people/projects not in keyword list
+- **Nuance**: Understands "data platform architecture" → `project/data-platform` + `enterprise-architecture`
+
+### Available LLMs for Tagging
+
+The pipeline can use any configured LLM via fabric:
+
+| Provider | API Key | Best For |
+|----------|---------|----------|
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` | Nuanced understanding, long content |
+| OpenAI (GPT-4) | `OPENAI_API_KEY` | Fast, reliable |
+| Gemini | `GEMINI_API_KEY` | Cost-effective, good for bulk |
+
+Configure in profile or use fabric default:
+```json
+{
+  "processing": {
+    "tagExtractionModel": "anthropic",  // or "openai", "gemini"
+    "fabricDefaultModel": true  // use fabric's configured default
+  }
+}
+```
+
+---
+
+## Smart URL Handling
+
+URLs in content require intelligent handling:
+
+### Decision Matrix
+
+| Scenario | Action | Example |
+|----------|--------|---------|
+| Message is ONLY a URL | **Fetch content** | `https://article.com/ai-news` |
+| URL with "summarize", "read" | **Fetch content** | `"Summarize https://..."` |
+| URL embedded in notes | **Preserve as link** | `"Meeting notes... see https://..."` |
+| Newsletter paragraph + URL | **Fetch if main topic** | `"**AI News (3 min)** https://..."` |
+| Reference/citation URL | **Preserve as link** | `"Source: https://..."` |
+
+### URL Processing Flow
+
+```
+Message → Contains URL? → Classify Intent → Route
+                              │
+           ┌──────────────────┼──────────────────┐
+           ▼                  ▼                  ▼
+    Main Content        Embedded Link      Explicit Request
+    (fetch + process)   (preserve as-is)   (fetch based on verb)
+```
+
+### Integration with brightdata Skill
+
+For difficult URLs, the ingest pipeline can leverage the 4-tier progressive scraping:
+
+1. **Tier 1**: WebFetch (simple sites)
+2. **Tier 2**: Curl with Chrome headers (basic bot detection)
+3. **Tier 3**: Browser Automation (JavaScript-heavy)
+4. **Tier 4**: Bright Data (CAPTCHA, advanced bot detection)
+
+Configure in profile:
+```json
+{
+  "processing": {
+    "urlFetchStrategy": "progressive",  // or "simple", "always-brightdata"
+    "fetchUrls": true,
+    "preserveEmbeddedUrls": true
+  }
+}
+```
+
+---
+
+## Content Type Intelligence
+
+The pipeline is **content-aware**, handling different input types:
+
+### Supported Content Types
+
+| Type | Detection | Processing | Output |
+|------|-----------|------------|--------|
+| Voice memo | Audio file | `ts` transcription | Transcript note |
+| Photo/Screenshot | Image file | OCR (tesseract) | Image note with text |
+| Whiteboard | Image + OCR text | OCR + describe | Meeting note |
+| Document (PDF/DOCX) | File type | `marker` extraction | Document note |
+| MS Teams transcript | DOCX with format | `marker` + attendee parse | Meeting note |
+| YouTube URL | URL pattern | `yt` command | Video transcript |
+| Article URL | URL pattern | Fetch + summarize | Article note |
+| Newsletter paragraph | Text + URL pattern | Fetch if main topic | Research note |
+| Plain text | No media/URL | Direct save | Quick note |
+| Video link | Video URL pattern | Fetch metadata | Link note |
+
+### Processing Order
+
+```
+1. Detect content type (deterministic: file type, URL patterns)
+2. Extract raw content (ts, marker, fetch, OCR)
+3. Apply fabric patterns (extract_wisdom, summarize)
+4. Generate tags via LLM (using taxonomy as guide)
+5. Save to vault with frontmatter
+```
+
+---
+
+## Task Management Integration (Future: Jira)
+
+Context loading integrates with task management systems:
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CONTEXT + TASKS                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Jira (Tasks)              Obsidian (Context)                   │
+│  ┌──────────────┐          ┌──────────────────┐                 │
+│  │ PROJ-123     │◀────────▶│ project/proj     │                 │
+│  │ Task: Fix X  │  sync    │ meeting notes    │                 │
+│  │              │          │ research         │                 │
+│  │ Status: Todo │          │ decisions        │                 │
+│  └──────────────┘          └──────────────────┘                 │
+│                                                                  │
+│  Bi-directional:                                                │
+│  • Jira → Vault: Task creates/updates note                      │
+│  • Vault → Jira: Meeting action items create tasks              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Use Cases
+
+1. **Context-switch to project**: `obs context my-project` + `jira tasks my-project`
+2. **Weekly summary**: Recent notes + Jira completed tasks
+3. **Meeting to tasks**: Extract action items → Create Jira issues
+4. **Task context**: View Jira task → Load related vault notes
+
+### CLI vs MCP
+
+- **CLI preferred** for token efficiency (less overhead)
+- **MCP available** for real-time tool calling in conversations
+- Both approaches supported
 
 ---
 

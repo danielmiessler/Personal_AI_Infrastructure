@@ -1,0 +1,279 @@
+# Context Management Skills Contract
+
+> **Version:** 1.0
+> **Date:** 2025-12-01
+> **Status:** Active Development
+
+---
+
+## What This Is
+
+The **Context Management Skills** provide Claude Code with the ability to:
+- Load relevant context from your Obsidian knowledge vault
+- Ingest content via Telegram (voice, text, URLs, documents)
+- Perform semantic search across your notes
+- Maintain and organize your vault
+
+These skills are part of the PAI (Personal AI Infrastructure) ecosystem.
+
+---
+
+## ✅ Core Guarantees
+
+These features are stable and will always work:
+
+### 1. obs CLI - Core Operations
+```bash
+obs search --tag "project/x"    # Tag-based search
+obs search --text "query"       # Full-text search
+obs read "note-name"            # Read note content
+obs write "Title" --tag "tag"   # Create note
+obs tags                        # List all tags
+```
+
+### 2. Semantic Search
+```bash
+obs semantic "query"            # Vector similarity search
+obs embed                       # Build/update embeddings
+obs embed --stats               # Check index status
+```
+
+### 3. Skills Architecture
+- `skills/context/SKILL.md` - Context loading skill
+- `skills/vault/SKILL.md` - Vault maintenance skill
+- Workflow routing via triggers
+- Tag taxonomy reference
+
+### 4. Security Layer
+- Prompt injection detection
+- Command whitelist validation
+- Rate limiting
+- Audit logging
+
+---
+
+## ⚙️ Configured Functionality
+
+These features work but require configuration:
+
+### Telegram Ingestion
+**Requires:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHANNEL_ID`
+
+```bash
+ingest poll                     # Fetch new messages
+ingest process                  # Process queue
+ingest status                   # Show stats
+```
+
+### Semantic Embeddings
+**Requires:** `OPENAI_API_KEY`
+
+```bash
+obs embed --verbose             # Build with OpenAI embeddings
+obs semantic "query"            # Requires embeddings.db
+```
+
+### Share-with-Hints
+**Requires:** iOS Shortcut or macOS Share action configured
+
+```
+#project/pai @person_name /meeting-notes
+Content here...
+```
+
+---
+
+## 🏥 Health Check
+
+Run this command to verify skills are configured:
+
+```bash
+bun bin/obs/self-test.ts
+```
+
+**Expected output:**
+```
+✅ Vault Path: /Users/yourname/Documents/vault
+✅ OpenAI API Key: Set (sk-...)
+✅ Embeddings DB: .../embeddings.db (XX MB)
+✅ Telegram Config: Bot token set, Channel: -100...
+✅ obs CLI: .../bin/obs/obs.ts
+✅ ingest CLI: .../bin/ingest/ingest.ts
+✅ Skills: context/ and vault/ skills found
+✅ bun: /path/to/bun
+✅ fabric: /path/to/fabric
+
+📊 Results: 9 passed, 0 failed, 0 warnings
+```
+
+---
+
+## 🔧 System Requirements
+
+### Required
+| Component | Purpose | Installation |
+|-----------|---------|--------------|
+| Bun | Runtime | `curl -fsSL https://bun.sh/install \| bash` |
+| Claude Code | AI assistant | Anthropic CLI |
+| Obsidian Vault | Knowledge store | Any directory with .md files |
+
+### Optional (but recommended)
+| Component | Purpose | Installation |
+|-----------|---------|--------------|
+| OpenAI API Key | Embeddings | platform.openai.com |
+| Telegram Bot | Ingestion | @BotFather |
+| fabric | Patterns | `go install github.com/danielmiessler/fabric@latest` |
+| ripgrep | Fast search | `brew install ripgrep` |
+| tesseract | Image OCR | `brew install tesseract` |
+| marker | PDF extraction | `uv tool install marker-pdf` |
+
+### Audio Transcription (Pluggable)
+
+Voice memos require transcription. Choose **one** of these options:
+
+| Option | Pros | Cons | Setup |
+|--------|------|------|-------|
+| **whisper.cpp (local)** | Private, free, fast | Requires model download (~3GB) | See below |
+| **OpenAI Whisper API** | No setup, high quality | Costs money, sends audio to cloud | Set `OPENAI_API_KEY` |
+| **Custom script** | Full control | You maintain it | Modify `process.ts` |
+
+**whisper.cpp Setup (recommended):**
+```bash
+# Clone and build
+git clone https://github.com/ggerganov/whisper.cpp
+cd whisper.cpp && make
+
+# Download large-v3 model (best quality)
+cd models && bash download-ggml-model.sh large-v3
+
+# Create a wrapper script ~/bin/ts
+#!/bin/bash
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate auto_transcribe
+python ~/Documents/src/auto_transcribe/ts.py "$1"
+```
+
+The ingest pipeline calls `ts <audio_file>` for transcription. Ensure this command is available in your PATH or configure an alternative.
+
+---
+
+## 🛡️ Security Considerations
+
+### What's Protected
+- Content is sanitized for prompt injection patterns
+- Commands are validated against a whitelist
+- Rate limiting prevents abuse
+- All processing is logged to audit trail
+
+### What You Control
+- Your vault path and contents
+- API keys (never committed)
+- Telegram channel access (private channel recommended)
+- Sender allowlist (optional)
+
+### Security Patterns Blocked
+- "Ignore previous instructions"
+- System prompt injections ([INST], <<SYS>>, etc.)
+- Jailbreak attempts (DAN mode, etc.)
+- Data exfiltration patterns
+
+---
+
+## 📁 Required Configuration
+
+Add to `~/.claude/.env` or `~/.config/fabric/.env`:
+
+```bash
+# Required for vault operations
+OBSIDIAN_VAULT_PATH=~/Documents/my_vault
+
+# Required for semantic search
+OPENAI_API_KEY=sk-...
+
+# Optional: Telegram ingestion
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHANNEL_ID=-100your_channel_id
+
+# Optional: Processing profile
+INGEST_PROFILE=zettelkasten  # or "simple"
+```
+
+---
+
+## 🚫 What These Skills Are NOT
+
+- **Not a backup solution** - Vault should be backed up separately
+- **Not enterprise-ready** - Personal use only
+- **Not real-time** - Ingestion requires polling
+- **Not a replacement for Obsidian** - Supplements Obsidian, doesn't replace it
+- **Not synced** - Your vault, your machine
+
+---
+
+## 📊 Directory Structure
+
+```
+Personal_AI_Infrastructure/
+├── .claude/
+│   └── skills/
+│       ├── SKILL_CONTRACT.md    # This file
+│       ├── context/
+│       │   ├── SKILL.md         # Context skill definition
+│       │   ├── tag-taxonomy.md  # Tag reference
+│       │   └── workflows/       # Workflow definitions
+│       └── vault/
+│           ├── SKILL.md         # Vault skill definition
+│           └── workflows/       # Workflow definitions
+├── bin/
+│   ├── obs/
+│   │   ├── obs.ts              # Main CLI
+│   │   ├── self-test.ts        # Health check
+│   │   └── lib/                # Implementation
+│   └── ingest/
+│       ├── ingest.ts           # Ingestion CLI
+│       └── lib/                # Implementation
+└── docs/
+    └── architecture/
+        ├── context-system.md    # Architecture doc
+        ├── test-scripts.md      # Test cases
+        └── telegram-ingestion.md
+```
+
+---
+
+## 🤝 Contributing
+
+1. **Report issues** - Open GitHub issues for bugs
+2. **Share customizations** - PRs welcome for generic improvements
+3. **Never commit secrets** - Use .env files, check .gitignore
+4. **Sanitize before sharing** - Remove personal data from examples
+
+---
+
+## 🔄 Upgrade Path
+
+When upgrading from upstream:
+
+```bash
+git fetch upstream
+git merge upstream/main
+bun bin/obs/self-test.ts  # Verify still works
+```
+
+**Protected files (don't overwrite):**
+- `~/.claude/.env` (your config)
+- `skills/context/tag-taxonomy.md` (your taxonomy)
+- Vault contents
+
+---
+
+## 📖 Related Documentation
+
+- [Context System Architecture](../../docs/architecture/context-system.md)
+- [Telegram Ingestion](../../docs/architecture/telegram-ingestion.md)
+- [Test Scripts](../../docs/architecture/test-scripts.md)
+- [PAI Contract](../../PAI_CONTRACT.md)
+
+---
+
+**Remember:** Start simple. Build what you need. Your vault, your rules.

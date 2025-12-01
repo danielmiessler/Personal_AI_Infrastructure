@@ -17,6 +17,13 @@ import {
   extractText,
   extractUrl,
 } from "./telegram";
+import {
+  performSecurityCheck,
+  validateCommands,
+  sanitizeContent,
+  auditLog,
+  type SecurityCheckResult,
+} from "./security";
 
 const execAsync = promisify(exec);
 
@@ -30,19 +37,151 @@ export interface ProcessedContent {
 }
 
 /**
+ * Inline hint patterns for share-with-hints workflow
+ * Supports iOS Shortcuts / macOS Share menu integration
+ */
+export interface InlineHints {
+  tags: string[];           // #tag or #project/name
+  people: string[];         // @firstname_lastname or @name
+  commands: string[];       // /summarize, /transcript, /meeting
+  cleanedContent: string;   // Content with hints removed
+}
+
+/**
+ * Extract inline hints from message text
+ *
+ * Supported formats:
+ *   #tag               → tags: ["tag"]
+ *   #project/name      → tags: ["project/name"]
+ *   @john_doe          → people: ["john_doe"]
+ *   @john              → people: ["john"]
+ *   /transcript        → commands: ["transcript"]
+ *   /meeting-notes     → commands: ["meeting-notes"]
+ *
+ * Example message:
+ *   "#project/pai @ed_overy /meeting-notes
+ *    Notes from our weekly sync about the ingest pipeline"
+ *
+ * Results in:
+ *   tags: ["project/pai"]
+ *   people: ["ed_overy"]
+ *   commands: ["meeting-notes"]
+ *   cleanedContent: "Notes from our weekly sync about the ingest pipeline"
+ */
+export function extractInlineHints(text: string): InlineHints {
+  const tags: string[] = [];
+  const people: string[] = [];
+  const commands: string[] = [];
+
+  // Extract hashtags: #tag or #project/name (supports / in tags)
+  // Must be at word boundary or start of line
+  const tagPattern = /(?:^|\s)#([a-zA-Z][a-zA-Z0-9_/-]*)/gm;
+  let match;
+  while ((match = tagPattern.exec(text)) !== null) {
+    tags.push(match[1]);
+  }
+
+  // Extract mentions: @name or @firstname_lastname
+  // Must be at word boundary or start of line
+  const mentionPattern = /(?:^|\s)@([a-zA-Z][a-zA-Z0-9_]*)/gm;
+  while ((match = mentionPattern.exec(text)) !== null) {
+    people.push(match[1]);
+  }
+
+  // Extract commands: /command ONLY at start of line or after whitespace
+  // NOT in URLs (http://..., https://...)
+  const commandPattern = /(?:^|\s)\/([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|$)/gm;
+  while ((match = commandPattern.exec(text)) !== null) {
+    commands.push(match[1]);
+  }
+
+  // Remove hints from content (clean version)
+  // Be careful not to corrupt URLs
+  let cleaned = text
+    .replace(/(?:^|\s)#[a-zA-Z][a-zA-Z0-9_/-]*/gm, " ")
+    .replace(/(?:^|\s)@[a-zA-Z][a-zA-Z0-9_]*/gm, " ")
+    .replace(/(?:^|\s)\/[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/gm, " ")
+    .replace(/^\s*\n/gm, "")  // Remove empty lines
+    .replace(/\s+/g, " ")     // Normalize whitespace
+    .trim();
+
+  return {
+    tags,
+    people,
+    commands,
+    cleanedContent: cleaned,
+  };
+}
+
+export interface ProcessResult {
+  success: boolean;
+  content?: ProcessedContent[];
+  securityBlocked?: boolean;
+  securityWarnings?: string[];
+  error?: string;
+}
+
+/**
  * Process a Telegram message through the pipeline
  */
 export async function processMessage(
   message: TelegramMessage,
   contentType: ContentType,
   profile: ProcessingProfile
-): Promise<ProcessedContent[]> {
+): Promise<ProcessResult> {
   const config = getConfig();
 
   // Ensure temp directory exists
   if (!existsSync(config.tempDir)) {
     await mkdir(config.tempDir, { recursive: true });
   }
+
+  // Step 0: Extract inline hints from message text/caption
+  // Supports share-with-hints workflow from iOS Shortcuts / macOS Share menu
+  const messageText = extractText(message);
+  const hints = extractInlineHints(messageText);
+
+  // Step 0.5: SECURITY CHECK
+  const securityCheck = performSecurityCheck(
+    message.message_id,
+    message.from?.id,
+    messageText,
+    hints.commands
+  );
+
+  if (!securityCheck.allowed) {
+    console.warn(`⚠️  Security blocked message ${message.message_id}: ${securityCheck.reasons.join(", ")}`);
+    auditLog({
+      timestamp: new Date().toISOString(),
+      messageId: message.message_id,
+      senderId: message.from?.id,
+      contentType,
+      action: "blocked",
+      reason: securityCheck.reasons.join("; "),
+      hints: {
+        tags: hints.tags,
+        people: hints.people,
+        commands: hints.commands,
+        blockedCommands: securityCheck.blockedCommands || [],
+      },
+    });
+    return {
+      success: false,
+      securityBlocked: true,
+      securityWarnings: securityCheck.warnings,
+      error: securityCheck.reasons.join("; "),
+    };
+  }
+
+  // Log warnings but continue
+  if (securityCheck.warnings.length > 0) {
+    console.warn(`⚠️  Security warnings for message ${message.message_id}: ${securityCheck.warnings.join(", ")}`);
+  }
+
+  // Use sanitized content and validated commands
+  const sanitizedText = securityCheck.sanitizedContent || messageText;
+  const validCommands = securityCheck.validCommands || [];
+  hints.commands = validCommands; // Replace with validated commands only
 
   // Step 1: Extract raw content based on type
   let rawContent: string;
@@ -76,18 +215,26 @@ export async function processMessage(
 
     case "text":
     default:
-      rawContent = extractText(message);
+      // Use cleaned content (hints removed) for text messages
+      rawContent = hints.cleanedContent || messageText;
       suggestedTitle = generateTitleFromText(rawContent);
       break;
   }
 
-  // Step 2: Generate tags
-  const tags = generateTags(profile, {
+  // Step 2: Generate tags (profile defaults + inline hints)
+  const baseTags = generateTags(profile, {
     contentType,
     source: "telegram",
     isRaw: true,
     isWisdom: false,
   });
+
+  // Merge inline hints with base tags
+  const tags = [
+    ...baseTags,
+    ...hints.tags,
+    ...hints.people,  // @name becomes a tag
+  ];
 
   // Step 3: Apply fabric patterns if configured
   const patterns = profile.processing.patterns[contentType] || [];
@@ -126,7 +273,27 @@ export async function processMessage(
     }
   }
 
-  return results;
+  // Audit log successful processing
+  auditLog({
+    timestamp: new Date().toISOString(),
+    messageId: message.message_id,
+    senderId: message.from?.id,
+    contentType,
+    action: "processed",
+    tags: tags,
+    hints: {
+      tags: hints.tags,
+      people: hints.people,
+      commands: validCommands,
+      blockedCommands: securityCheck.blockedCommands || [],
+    },
+  });
+
+  return {
+    success: true,
+    content: results,
+    securityWarnings: securityCheck.warnings,
+  };
 }
 
 /**
@@ -144,8 +311,11 @@ async function processAudio(
 
   try {
     // Call ts for transcription
-    const { stdout } = await execAsync(`ts "${filePath}"`, {
+    // Use full path to ts.py with conda environment activation
+    const tsCommand = `source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate auto_transcribe && python ~/Documents/src/auto_transcribe/ts.py "${filePath}"`;
+    const { stdout } = await execAsync(tsCommand, {
       timeout: 300000, // 5 min timeout for long audio
+      shell: "/bin/zsh",
     });
 
     const content = stdout.trim();

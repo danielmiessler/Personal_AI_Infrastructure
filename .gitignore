@@ -62,3 +62,29 @@ private/
 secrets/
 credentials/
 .env.*
+
+# Claude Code runtime files (not skills)
+.claude/agent-sessions.json
+.claude/file-history/
+.claude/history.jsonl
+.claude/history/
+.claude/projects/
+.claude/shell-snapshots/
+.claude/statsig/
+.claude/todos/
+.claude/ide/
+
+# Save directory (temporary/draft content)
+save/
+
+# Embeddings database (local, large)
+**/embeddings.db
+**/_meta/
+
+# Keep .claude/skills/ and .claude/.env.example tracked
+!.claude/skills/
+!.claude/.env.example
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/settings.json

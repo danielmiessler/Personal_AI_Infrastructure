@@ -1,6 +1,6 @@
 /**
  * Configuration for ingest CLI
- * Reads from environment and ~/.config/fabric/.env
+ * Reads from environment, ~/.claude/.env, and ~/.config/fabric/.env
  */
 
 import { existsSync, readFileSync } from "fs";
@@ -19,15 +19,14 @@ export interface IngestConfig {
 let cachedConfig: IngestConfig | null = null;
 
 /**
- * Load environment variables from fabric config
+ * Load environment variables from a .env file
  */
-function loadFabricEnv(): Record<string, string> {
-  const fabricEnvPath = join(homedir(), ".config", "fabric", ".env");
+function loadEnvFile(path: string): Record<string, string> {
   const env: Record<string, string> = {};
 
-  if (existsSync(fabricEnvPath)) {
+  if (existsSync(path)) {
     try {
-      const lines = readFileSync(fabricEnvPath, "utf-8").split("\n");
+      const lines = readFileSync(path, "utf-8").split("\n");
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed && !trimmed.startsWith("#")) {
@@ -38,11 +37,26 @@ function loadFabricEnv(): Record<string, string> {
         }
       }
     } catch (error) {
-      // Ignore errors reading fabric config
+      // Ignore errors reading config
     }
   }
 
   return env;
+}
+
+/**
+ * Load environment from multiple sources (priority: env > claude > fabric)
+ */
+function loadAllEnv(): Record<string, string> {
+  const claudeEnvPath = join(homedir(), ".claude", ".env");
+  const fabricEnvPath = join(homedir(), ".config", "fabric", ".env");
+
+  // Load in reverse priority order (later overwrites earlier)
+  const fabricEnv = loadEnvFile(fabricEnvPath);
+  const claudeEnv = loadEnvFile(claudeEnvPath);
+
+  // Claude env takes precedence over fabric
+  return { ...fabricEnv, ...claudeEnv };
 }
 
 /**
@@ -53,31 +67,31 @@ export function getConfig(): IngestConfig {
     return cachedConfig;
   }
 
-  const fabricEnv = loadFabricEnv();
+  const env = loadAllEnv();
 
   const telegramBotToken =
-    process.env.TELEGRAM_BOT_TOKEN || fabricEnv.TELEGRAM_BOT_TOKEN || "";
+    process.env.TELEGRAM_BOT_TOKEN || env.TELEGRAM_BOT_TOKEN || "";
 
   const telegramChannelId =
-    process.env.TELEGRAM_CHANNEL_ID || fabricEnv.TELEGRAM_CHANNEL_ID || "";
+    process.env.TELEGRAM_CHANNEL_ID || env.TELEGRAM_CHANNEL_ID || "";
 
   const vaultPath =
     process.env.OBSIDIAN_VAULT_PATH ||
-    fabricEnv.OBSIDIAN_VAULT_PATH ||
+    env.OBSIDIAN_VAULT_PATH ||
     process.env.FABRIC_OUTPUT_PATH ||
-    fabricEnv.FABRIC_OUTPUT_PATH ||
+    env.FABRIC_OUTPUT_PATH ||
     join(homedir(), "Documents", "vault");
 
   const resolvedVaultPath = vaultPath.replace(/^~/, homedir());
 
   const stateDb =
     process.env.INGEST_STATE_DB ||
-    fabricEnv.INGEST_STATE_DB ||
+    env.INGEST_STATE_DB ||
     join(resolvedVaultPath, "_meta", "ingest.db");
 
   const tempDir =
     process.env.INGEST_TEMP_DIR ||
-    fabricEnv.INGEST_TEMP_DIR ||
+    env.INGEST_TEMP_DIR ||
     join(homedir(), ".cache", "pai-ingest");
 
   cachedConfig = {
@@ -86,7 +100,7 @@ export function getConfig(): IngestConfig {
     vaultPath: resolvedVaultPath,
     stateDb: stateDb.replace(/^~/, homedir()),
     tempDir: tempDir.replace(/^~/, homedir()),
-    openaiApiKey: process.env.OPENAI_API_KEY || fabricEnv.OPENAI_API_KEY,
+    openaiApiKey: process.env.OPENAI_API_KEY || env.OPENAI_API_KEY,
   };
 
   return cachedConfig;
@@ -100,13 +114,13 @@ export function validateConfig(): void {
 
   if (!config.telegramBotToken) {
     throw new Error(
-      "TELEGRAM_BOT_TOKEN not set. Add it to ~/.config/fabric/.env"
+      "TELEGRAM_BOT_TOKEN not set. Add it to ~/.claude/.env or ~/.config/fabric/.env"
     );
   }
 
   if (!config.telegramChannelId) {
     throw new Error(
-      "TELEGRAM_CHANNEL_ID not set. Add it to ~/.config/fabric/.env"
+      "TELEGRAM_CHANNEL_ID not set. Add it to ~/.claude/.env or ~/.config/fabric/.env"
     );
   }
 

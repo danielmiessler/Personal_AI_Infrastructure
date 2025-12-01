@@ -152,31 +152,91 @@ Tags: #type/image #source/telegram
 
 ## Telegram Setup
 
-### Create Private Bot
+### Step 1: Create a Bot via BotFather
 
-1. Message @BotFather on Telegram
-2. `/newbot` → Follow prompts
-3. Save bot token
+1. Open Telegram and message [@BotFather](https://t.me/BotFather)
+2. Send `/newbot`
+3. Choose a name (e.g., "PAI Ingest Bot")
+4. Choose a username (must end in `bot`, e.g., `pai_ingest_bot`)
+5. **Save the bot token** - looks like: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
 
-### Create Private Channel
+### Step 2: Create a Private Channel
 
-1. Create new Telegram channel (private)
+1. In Telegram, tap the pencil icon → "New Channel"
+2. Name it (e.g., "PAI Inbox")
+3. Set to **Private**
+4. Complete creation
+
+### Step 3: Add Bot to Channel as Admin
+
+1. Open your channel → tap channel name → "Administrators"
 2. Add your bot as admin
-3. Get channel ID
+3. Grant permissions: "Post Messages" (minimum needed)
 
-### Configuration
+### Step 4: Get Channel ID
+
+The channel ID is needed for the bot to read messages.
+
+**Option A: Via API (recommended)**
+```bash
+# 1. Send any message to your channel
+# 2. Run this (replace with your token):
+curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates" | jq '.result[0].channel_post.chat.id'
+```
+
+**Option B: Via @userinfobot**
+1. Forward any message from your channel to [@userinfobot](https://t.me/userinfobot)
+2. It will reply with the channel ID (negative number like `-1001234567890`)
+
+**Option C: Via web**
+1. Open [web.telegram.org](https://web.telegram.org)
+2. Go to your channel
+3. Look at URL: `web.telegram.org/z/#-1234567890` → ID is `-1234567890`
+
+### Step 5: Configure Environment
 
 Add to `~/.config/fabric/.env`:
 
 ```bash
-# Telegram Ingestion
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHANNEL_ID=your_channel_id
+# Telegram Ingestion (required)
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+TELEGRAM_CHANNEL_ID=-1001234567890
 
-# Optional: Separate channels per content type
-TELEGRAM_VOICE_CHANNEL_ID=voice_memos_channel
-TELEGRAM_RESEARCH_CHANNEL_ID=research_channel
+# Vault path (if not already set)
+OBSIDIAN_VAULT_PATH=~/Documents/my_vault
+
+# OpenAI for embeddings (optional but recommended)
+OPENAI_API_KEY=sk-...
 ```
+
+### Step 6: Test Connection
+
+```bash
+cd bin/ingest
+bun run ingest.ts config    # Verify config loaded
+bun run ingest.ts poll      # Check for messages
+```
+
+### Step 7: Send Test Message
+
+1. Send a text message to your channel
+2. Run `ingest poll` - should show your message
+3. Run `ingest process --dry-run` - shows what would happen
+4. Run `ingest process --verbose` - actually process it
+
+### Troubleshooting
+
+**"Bot token not set"**
+- Check `~/.config/fabric/.env` has `TELEGRAM_BOT_TOKEN=...`
+
+**"No messages found"**
+- Make sure bot is admin in the channel
+- Send a new message after adding bot
+- Check channel ID is correct (should be negative for channels)
+
+**"Permission denied"**
+- Bot needs admin rights in channel
+- Verify via BotFather: `/mybots` → your bot → "Bot Settings"
 
 ---
 

@@ -1,0 +1,17 @@
+{
+  "name": "ingest",
+  "version": "1.0.0",
+  "description": "Telegram ingestion pipeline for PAI context management",
+  "type": "module",
+  "main": "ingest.ts",
+  "scripts": {
+    "start": "bun run ingest.ts",
+    "poll": "bun run ingest.ts poll",
+    "process": "bun run ingest.ts process",
+    "status": "bun run ingest.ts status"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

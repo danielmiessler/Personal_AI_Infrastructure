@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pai.obs-embed</string>
+
+    <key>Comment</key>
+    <string>PAI: Auto-update Obsidian vault embeddings every 30 minutes</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/andreas/.bun/bin/bun</string>
+        <string>run</string>
+        <string>/Users/andreas/Documents/src/PAI-v1.2/Personal_AI_Infrastructure/bin/obs/obs.ts</string>
+        <string>embed</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>1800</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/andreas/.bun/bin</string>
+        <key>HOME</key>
+        <string>/Users/andreas</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/obs-embed.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/obs-embed.err</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>

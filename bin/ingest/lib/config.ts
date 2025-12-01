@@ -10,7 +10,9 @@ import { homedir } from "os";
 export interface IngestConfig {
   telegramBotToken: string;
   telegramChannelId: string;
+  telegramOutboxId?: string;  // Optional channel for notifications/results
   vaultPath: string;
+  vaultName?: string;  // For Obsidian deep links
   stateDb: string;
   tempDir: string;
   openaiApiKey?: string;
@@ -75,6 +77,9 @@ export function getConfig(): IngestConfig {
   const telegramChannelId =
     process.env.TELEGRAM_CHANNEL_ID || env.TELEGRAM_CHANNEL_ID || "";
 
+  const telegramOutboxId =
+    process.env.TELEGRAM_OUTBOX_ID || env.TELEGRAM_OUTBOX_ID || undefined;
+
   const vaultPath =
     process.env.OBSIDIAN_VAULT_PATH ||
     env.OBSIDIAN_VAULT_PATH ||
@@ -83,6 +88,13 @@ export function getConfig(): IngestConfig {
     join(homedir(), "Documents", "vault");
 
   const resolvedVaultPath = vaultPath.replace(/^~/, homedir());
+
+  // Extract vault name from path for Obsidian deep links
+  // Can be overridden with OBSIDIAN_VAULT_NAME
+  const vaultName =
+    process.env.OBSIDIAN_VAULT_NAME ||
+    env.OBSIDIAN_VAULT_NAME ||
+    resolvedVaultPath.split("/").pop();
 
   const stateDb =
     process.env.INGEST_STATE_DB ||
@@ -97,7 +109,9 @@ export function getConfig(): IngestConfig {
   cachedConfig = {
     telegramBotToken,
     telegramChannelId,
+    telegramOutboxId,
     vaultPath: resolvedVaultPath,
+    vaultName,
     stateDb: stateDb.replace(/^~/, homedir()),
     tempDir: tempDir.replace(/^~/, homedir()),
     openaiApiKey: process.env.OPENAI_API_KEY || env.OPENAI_API_KEY,

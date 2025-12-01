@@ -19,6 +19,7 @@ export interface MessageState {
   error: string | null;
   outputPaths: string | null; // JSON array of paths
   retryCount: number;
+  messageJson: string | null; // Cached Telegram message for retry
 }
 
 let db: Database | null = null;
@@ -50,9 +51,17 @@ export function initDb(): Database {
       processed_at TEXT,
       error TEXT,
       output_paths TEXT,
-      retry_count INTEGER DEFAULT 0
+      retry_count INTEGER DEFAULT 0,
+      message_json TEXT
     )
   `);
+
+  // Migration: add message_json column if it doesn't exist
+  try {
+    db.run(`ALTER TABLE messages ADD COLUMN message_json TEXT`);
+  } catch {
+    // Column already exists, ignore
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS state (
@@ -100,20 +109,56 @@ export function isProcessed(messageId: number): boolean {
 }
 
 /**
- * Mark a message as processing
+ * Mark a message as processing and cache the message JSON for retry
  */
-export function markProcessing(messageId: number, contentType: string): void {
+export function markProcessing(messageId: number, contentType: string, messageJson?: object): void {
   const db = initDb();
+  const jsonStr = messageJson ? JSON.stringify(messageJson) : null;
   db.run(
-    `INSERT OR REPLACE INTO messages (message_id, status, content_type, created_at, retry_count)
+    `INSERT OR REPLACE INTO messages (message_id, status, content_type, created_at, retry_count, message_json)
      VALUES (?, 'processing', ?, datetime('now'),
-       COALESCE((SELECT retry_count FROM messages WHERE message_id = ?), 0))`,
-    [messageId, contentType, messageId]
+       COALESCE((SELECT retry_count FROM messages WHERE message_id = ?), 0),
+       COALESCE(?, (SELECT message_json FROM messages WHERE message_id = ?)))`,
+    [messageId, contentType, messageId, jsonStr, messageId]
   );
 }
 
 /**
- * Mark a message as completed
+ * Get cached message JSON for retry
+ */
+export function getCachedMessage(messageId: number): object | null {
+  const db = initDb();
+  const row = db.query(
+    "SELECT message_json FROM messages WHERE message_id = ?"
+  ).get(messageId) as { message_json: string | null } | null;
+  if (row?.message_json) {
+    try {
+      return JSON.parse(row.message_json);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get all messages with cached JSON (for retry)
+ */
+export function getRetryableMessages(): Array<{ messageId: number; status: string; contentType: string; error: string | null }> {
+  const db = initDb();
+  const rows = db.query(
+    "SELECT message_id, status, content_type, error FROM messages WHERE message_json IS NOT NULL AND status = 'failed' ORDER BY created_at DESC"
+  ).all() as any[];
+  return rows.map(r => ({
+    messageId: r.message_id,
+    status: r.status,
+    contentType: r.content_type,
+    error: r.error
+  }));
+}
+
+/**
+ * Mark a message as completed and clear the cached message JSON
  */
 export function markCompleted(messageId: number, outputPaths: string[]): void {
   const db = initDb();
@@ -122,7 +167,8 @@ export function markCompleted(messageId: number, outputPaths: string[]): void {
        status = 'completed',
        processed_at = datetime('now'),
        output_paths = ?,
-       error = NULL
+       error = NULL,
+       message_json = NULL
      WHERE message_id = ?`,
     [JSON.stringify(outputPaths), messageId]
   );
@@ -246,6 +292,7 @@ function rowToState(row: any): MessageState {
     error: row.error,
     outputPaths: row.output_paths,
     retryCount: row.retry_count,
+    messageJson: row.message_json,
   };
 }
 

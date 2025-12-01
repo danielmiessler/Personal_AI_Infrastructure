@@ -20,6 +20,9 @@ import {
   classifyContent,
   extractText,
   extractUrl,
+  sendNotification,
+  replyWithObsidianLink,
+  isFromInbox,
   type TelegramMessage,
   type ContentType,
 } from "./lib/telegram";
@@ -39,6 +42,8 @@ import {
   resetForRetry,
   resetAllFailed,
   getMessage,
+  getCachedMessage,
+  getRetryableMessages,
 } from "./lib/state";
 
 // Telegram only supports these reaction emojis
@@ -58,6 +63,7 @@ USAGE:
 COMMANDS:
   poll       Poll Telegram for new messages
   process    Process all pending messages
+  watch      Continuously poll and process (daemon mode)
   status     Show queue status
   retry      Retry failed messages
   profiles   List available processing profiles
@@ -118,6 +124,9 @@ async function main() {
       case "process":
         await handleProcess(profileName, verbose, dryRun);
         break;
+      case "watch":
+        await handleWatch(profileName, verbose, commandArgs);
+        break;
       case "status":
         await handleStatus();
         break;
@@ -155,7 +164,8 @@ async function handlePoll(verbose: boolean) {
   const updates = await getUpdates(lastOffset);
   const messages = updates
     .map((u) => u.channel_post || u.message)
-    .filter((m): m is TelegramMessage => m !== undefined);
+    .filter((m): m is TelegramMessage => m !== undefined)
+    .filter((m) => isFromInbox(m));
 
   // Track the highest update_id for next poll
   if (updates.length > 0) {
@@ -247,7 +257,7 @@ async function handleProcess(
 
     try {
       // Mark as processing in DB and Telegram
-      markProcessing(msg.message_id, type);
+      markProcessing(msg.message_id, type, msg);  // Cache message for retry
       await setReaction(msg.message_id, REACTIONS.processing);
 
       // Process the message (returns ProcessResult with security checks)
@@ -285,6 +295,26 @@ async function handleProcess(
       markCompleted(msg.message_id, savedPaths);
       await setReaction(msg.message_id, REACTIONS.success);
       console.log(`  Status: ✅ Created ${savedPaths.length} note(s)`);
+
+      // Reply to message with Obsidian link
+      const config = getConfig();
+      await replyWithObsidianLink(msg.message_id, savedPaths, config.vaultName);
+
+      // Send notification to outbox
+      const originalFilename = msg.audio?.title ||
+        msg.audio?.file_name ||
+        msg.document?.file_name ||
+        (msg.voice ? `voice_${msg.message_id}.ogg` : undefined);
+
+      await sendNotification({
+        messageId: msg.message_id,
+        status: "success",
+        contentType: type,
+        title: contents[0]?.title || "Processed",
+        originalFilename,
+        outputPaths: savedPaths,
+        obsidianVaultName: config.vaultName,
+      });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       markFailed(msg.message_id, errorMsg);
@@ -293,10 +323,170 @@ async function handleProcess(
       if (verbose) {
         console.error(error);
       }
+
+      // Send failure notification to outbox
+      const config = getConfig();
+      await sendNotification({
+        messageId: msg.message_id,
+        status: "failed",
+        contentType: type,
+        title: extractText(msg).slice(0, 50) || "Processing failed",
+        error: errorMsg,
+        obsidianVaultName: config.vaultName,
+      });
     }
 
     console.log("");
   }
+}
+
+/**
+ * Watch mode - continuously poll and process messages
+ */
+async function handleWatch(
+  profileName: string | undefined,
+  verbose: boolean,
+  args: string[]
+) {
+  validateConfig();
+  initDb();
+  const profile = loadProfile(profileName);
+
+  // Parse interval (default 30 seconds)
+  let intervalSeconds = 30;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--interval" || args[i] === "-i") {
+      intervalSeconds = parseInt(args[++i], 10) || 30;
+    }
+  }
+
+  console.log(`🔄 Watch mode started`);
+  console.log(`   Profile: ${profile.name}`);
+  console.log(`   Interval: ${intervalSeconds}s`);
+  console.log(`   Press Ctrl+C to stop\n`);
+
+  let running = true;
+  process.on("SIGINT", () => {
+    console.log("\n\n⏹️  Stopping watch mode...");
+    running = false;
+  });
+
+  while (running) {
+    try {
+      // Poll for new messages
+      const lastOffset = getLastOffset();
+      const updates = await getUpdates(lastOffset);
+      const messages = updates
+        .map((u) => u.channel_post || u.message)
+        .filter((m): m is TelegramMessage => m !== undefined)
+        .filter((m) => isFromInbox(m));
+
+      // Update offset
+      if (updates.length > 0) {
+        const maxUpdateId = Math.max(...updates.map((u) => u.update_id));
+        setLastOffset(maxUpdateId + 1);
+      }
+
+      // Filter already processed
+      const newMessages = messages.filter((m) => !isProcessed(m.message_id));
+
+      if (newMessages.length > 0) {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] Found ${newMessages.length} new message(s)`);
+
+        // Process each message
+        for (const msg of newMessages) {
+          const type = classifyContent(msg);
+          console.log(`  [${msg.message_id}] Processing ${type}...`);
+
+          try {
+            markProcessing(msg.message_id, type, msg);  // Cache message for retry
+            await setReaction(msg.message_id, REACTIONS.processing);
+
+            const result = await processMessage(msg, type, profile);
+
+            if (!result.success) {
+              if (result.securityBlocked) {
+                console.log(`    ⚠️  Security blocked: ${result.error}`);
+                markFailed(msg.message_id, `Security: ${result.error}`);
+                await setReaction(msg.message_id, REACTIONS.blocked);
+                continue;
+              }
+              throw new Error(result.error || "Processing failed");
+            }
+
+            // Save to vault
+            const savedPaths: string[] = [];
+            const contents = result.content || [];
+            for (let i = 0; i < contents.length; i++) {
+              const isWisdom = i > 0;
+              const path = await saveToVault(contents[i], profile, isWisdom);
+              savedPaths.push(path);
+              if (verbose) {
+                console.log(`    Saved: ${path}`);
+              }
+            }
+
+            markCompleted(msg.message_id, savedPaths);
+            await setReaction(msg.message_id, REACTIONS.success);
+            console.log(`    ✅ Created ${savedPaths.length} note(s)`);
+
+            // Reply to message with Obsidian link
+            const config = getConfig();
+            await replyWithObsidianLink(msg.message_id, savedPaths, config.vaultName);
+
+            // Send notification to outbox
+            // Extract original filename from message
+            const originalFilename = msg.audio?.title ||
+              msg.audio?.file_name ||
+              msg.document?.file_name ||
+              (msg.voice ? `voice_${msg.message_id}.ogg` : undefined);
+
+            await sendNotification({
+              messageId: msg.message_id,
+              status: "success",
+              contentType: type,
+              title: contents[0]?.title || "Processed",
+              originalFilename,
+              outputPaths: savedPaths,
+              obsidianVaultName: config.vaultName,
+            });
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            markFailed(msg.message_id, errorMsg);
+            await setReaction(msg.message_id, REACTIONS.failed);
+            console.log(`    ❌ Failed: ${errorMsg}`);
+
+            // Send failure notification to outbox
+            const config = getConfig();
+            await sendNotification({
+              messageId: msg.message_id,
+              status: "failed",
+              contentType: type,
+              title: extractText(msg).slice(0, 50) || "Processing failed",
+              error: errorMsg,
+              obsidianVaultName: config.vaultName,
+            });
+          }
+        }
+        console.log("");
+      } else if (verbose) {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] No new messages`);
+      }
+
+      // Wait for next interval
+      if (running) {
+        await new Promise((resolve) => setTimeout(resolve, intervalSeconds * 1000));
+      }
+    } catch (error) {
+      console.error(`Poll error: ${error instanceof Error ? error.message : error}`);
+      // Wait before retrying on error
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+
+  console.log("Watch mode stopped.");
 }
 
 async function handleStatus() {
@@ -341,21 +531,136 @@ async function handleStatus() {
 async function handleRetry(args: string[], verbose: boolean) {
   validateConfig();
   initDb();
+  const profile = loadProfile();
 
   const retryFailed = args.includes("--failed");
+  const processNow = args.includes("--now");  // Reprocess immediately using cached message
+  const listRetryable = args.includes("--list");
   let messageId: number | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--message-id") {
+    if (args[i] === "--message-id" || args[i] === "-m") {
       messageId = parseInt(args[++i], 10);
     }
   }
 
-  if (retryFailed) {
+  // List retryable messages (those with cached JSON)
+  if (listRetryable) {
+    const retryable = getRetryableMessages();
+    if (retryable.length === 0) {
+      console.log("No failed messages with cached content available for retry.");
+      return;
+    }
+    console.log("Failed messages available for retry:\n");
+    for (const msg of retryable) {
+      console.log(`  [${msg.messageId}] ${msg.contentType}`);
+      if (msg.error) {
+        console.log(`      Error: ${msg.error.slice(0, 80)}${msg.error.length > 80 ? "..." : ""}`);
+      }
+    }
+    console.log("\nUse: ingest retry --message-id <id> --now");
+    return;
+  }
+
+  if (retryFailed && processNow) {
+    // Reprocess all failed messages using cached JSON
+    const retryable = getRetryableMessages();
+    if (retryable.length === 0) {
+      console.log("No failed messages with cached content available for retry.");
+      return;
+    }
+
+    console.log(`Reprocessing ${retryable.length} failed message(s)...\n`);
+    let success = 0;
+    let failed = 0;
+
+    for (const msgInfo of retryable) {
+      const cachedMsg = getCachedMessage(msgInfo.messageId) as TelegramMessage;
+      if (!cachedMsg) {
+        console.log(`  [${msgInfo.messageId}] No cached message, skipping`);
+        failed++;
+        continue;
+      }
+
+      console.log(`  [${msgInfo.messageId}] Processing ${msgInfo.contentType}...`);
+      try {
+        const type = msgInfo.contentType as ContentType;
+        markProcessing(msgInfo.messageId, type, cachedMsg);
+
+        const result = await processMessage(cachedMsg, type, profile);
+        if (!result.success) {
+          throw new Error(result.error || "Processing failed");
+        }
+
+        const savedPaths: string[] = [];
+        for (let i = 0; i < (result.content || []).length; i++) {
+          const content = result.content![i];
+          const isWisdom = i > 0;
+          const filePath = await saveToVault(content, profile, isWisdom);
+          savedPaths.push(filePath);
+        }
+
+        markCompleted(msgInfo.messageId, savedPaths);
+        console.log(`    ✅ Saved to: ${savedPaths.map(p => p.split("/").pop()).join(", ")}`);
+        success++;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        markFailed(msgInfo.messageId, errorMsg);
+        console.log(`    ❌ Failed: ${errorMsg}`);
+        failed++;
+      }
+    }
+
+    console.log(`\nRetry complete: ${success} succeeded, ${failed} failed`);
+  } else if (retryFailed) {
     const count = resetAllFailed();
     console.log(`Reset ${count} failed message(s) to pending.`);
-    console.log("\nRun 'ingest process' to reprocess them.");
-    console.log("Note: Messages must still be in Telegram's buffer (last 24h) to be refetched.");
+    console.log("\nRun 'ingest retry --failed --now' to reprocess using cached messages.");
+    console.log("Or run 'ingest process' to refetch from Telegram (if still available).");
+  } else if (messageId && processNow) {
+    // Reprocess specific message using cached JSON
+    const msgState = getMessage(messageId);
+    if (!msgState) {
+      console.error(`Message ${messageId} not found in state database.`);
+      process.exit(1);
+    }
+
+    const cachedMsg = getCachedMessage(messageId) as TelegramMessage;
+    if (!cachedMsg) {
+      console.error(`No cached message content for ${messageId}.`);
+      console.log("This message cannot be retried without refetching from Telegram.");
+      process.exit(1);
+    }
+
+    console.log(`Reprocessing message ${messageId} (${msgState.contentType})...`);
+    try {
+      const type = msgState.contentType as ContentType;
+      markProcessing(messageId, type, cachedMsg);
+
+      const result = await processMessage(cachedMsg, type, profile);
+      if (!result.success) {
+        throw new Error(result.error || "Processing failed");
+      }
+
+      const savedPaths: string[] = [];
+      for (let i = 0; i < (result.content || []).length; i++) {
+        const content = result.content![i];
+        const isWisdom = i > 0;
+        const filePath = await saveToVault(content, profile, isWisdom);
+        savedPaths.push(filePath);
+      }
+
+      markCompleted(messageId, savedPaths);
+      console.log(`✅ Saved to:`);
+      for (const p of savedPaths) {
+        console.log(`   ${p}`);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      markFailed(messageId, errorMsg);
+      console.error(`❌ Failed: ${errorMsg}`);
+      process.exit(1);
+    }
   } else if (messageId) {
     const msg = getMessage(messageId);
     if (!msg) {
@@ -365,10 +670,21 @@ async function handleRetry(args: string[], verbose: boolean) {
     }
     resetForRetry(messageId);
     console.log(`Reset message ${messageId} (${msg.contentType}) to pending.`);
-    console.log("\nRun 'ingest process' to reprocess it.");
-    console.log("Note: Message must still be in Telegram's buffer to be refetched.");
+
+    const cached = getCachedMessage(messageId);
+    if (cached) {
+      console.log("\nRun 'ingest retry --message-id ${messageId} --now' to reprocess using cached content.");
+    } else {
+      console.log("\nRun 'ingest process' to refetch from Telegram.");
+      console.log("Note: Message must still be in Telegram's buffer to be refetched.");
+    }
   } else {
-    console.error("Usage: ingest retry --failed OR ingest retry --message-id <id>");
+    console.error("Usage:");
+    console.error("  ingest retry --list                     # List retryable messages");
+    console.error("  ingest retry --failed                   # Reset all failed to pending");
+    console.error("  ingest retry --failed --now             # Reprocess all failed using cached content");
+    console.error("  ingest retry --message-id <id>          # Reset specific message to pending");
+    console.error("  ingest retry --message-id <id> --now    # Reprocess specific message using cached content");
     process.exit(1);
   }
 }

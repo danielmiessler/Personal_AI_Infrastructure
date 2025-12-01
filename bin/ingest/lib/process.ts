@@ -34,6 +34,7 @@ export interface ProcessedContent {
   tags: string[];
   source: "telegram";
   contentType: ContentType;
+  sourceFile?: string;  // Original source filename for traceability
 }
 
 /**
@@ -297,7 +298,7 @@ export async function processMessage(
 }
 
 /**
- * Process voice/audio message via ts (transcription)
+ * Process voice/audio message via whisper.cpp
  */
 async function processAudio(
   message: TelegramMessage,
@@ -306,25 +307,69 @@ async function processAudio(
   const fileId = message.voice?.file_id || message.audio?.file_id;
   if (!fileId) throw new Error("No audio file in message");
 
-  const filename = `audio_${message.message_id}.ogg`;
+  // Get original extension from audio metadata
+  const originalName = message.audio?.file_name || "";
+  const ext = originalName.split(".").pop()?.toLowerCase() || "ogg";
+  const filename = `audio_${message.message_id}.${ext}`;
   const filePath = await downloadFile(fileId, filename);
+  const wavPath = filePath.replace(/\.[^.]+$/, ".wav");
 
   try {
-    // Call ts for transcription
-    // Use full path to ts.py with conda environment activation
-    const tsCommand = `source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate auto_transcribe && python ~/Documents/src/auto_transcribe/ts.py "${filePath}"`;
-    const { stdout } = await execAsync(tsCommand, {
-      timeout: 300000, // 5 min timeout for long audio
-      shell: "/bin/zsh",
-    });
+    // Convert to WAV format (16kHz mono) for whisper.cpp
+    await execAsync(
+      `ffmpeg -y -i "${filePath}" -ar 16000 -ac 1 -c:a pcm_s16le "${wavPath}"`,
+      { timeout: 120000 }
+    );
 
-    const content = stdout.trim();
-    const title = generateTitleFromText(content);
+    // Use whisper.cpp for transcription
+    // Prioritize large-v3 model, fallback to medium
+    const whisperBin = "/Users/andreas/Documents/src/whisper.cpp/whisper-cpp";
+    const modelDir = "/Users/andreas/Documents/src/whisper.cpp/models";
+    const model = existsSync(`${modelDir}/ggml-large-v3.bin`)
+      ? `${modelDir}/ggml-large-v3.bin`
+      : `${modelDir}/ggml-medium.bin`;
+
+    const { stdout } = await execAsync(
+      `"${whisperBin}" -m "${model}" -f "${wavPath}" --no-timestamps -l auto`,
+      { timeout: 600000 } // 10 min timeout for long audio
+    );
+
+    // Extract transcript from whisper output (skip header lines)
+    const lines = stdout.split("\n");
+    const transcriptLines = lines.filter(
+      (line) =>
+        !line.startsWith("whisper_") &&
+        !line.startsWith("main:") &&
+        !line.startsWith("system_info:") &&
+        line.trim().length > 0
+    );
+    const content = transcriptLines.join("\n").trim();
+
+    // Generate title using AI if available, otherwise fallback to filename/defaults
+    const config = getConfig();
+    let title: string;
+
+    console.log(`    DEBUG: API key set: ${!!config.openaiApiKey}, content length: ${content.length}`);
+    if (config.openaiApiKey && content.length > 20) {
+      // Use AI to generate a descriptive title from the transcript
+      try {
+        console.log(`    Generating AI title from ${content.length} chars...`);
+        title = await generateAITitle(content, config.openaiApiKey);
+        console.log(`    AI title: "${title}"`);
+      } catch (e) {
+        console.warn(`    AI title generation failed: ${e}`);
+        title = getFallbackAudioTitle(message, originalName);
+      }
+    } else {
+      console.log(`    Using fallback title (no API key: ${!config.openaiApiKey}, content < 100: ${content.length < 100})`);
+      title = getFallbackAudioTitle(message, originalName);
+    }
 
     return { content, title };
   } finally {
-    // Cleanup temp file
+    // Cleanup temp files
     await unlink(filePath).catch(() => {});
+    await unlink(wavPath).catch(() => {});
   }
 }
 
@@ -640,6 +685,67 @@ function generateTitleFromText(text: string): string {
 }
 
 /**
+ * Generate a descriptive title using GPT-4o-mini
+ */
+async function generateAITitle(transcript: string, apiKey: string): Promise<string> {
+  // Use first ~2000 chars to keep costs low
+  const sample = transcript.slice(0, 2000);
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Generate a short, descriptive title (max 60 chars) for this transcript. Focus on the main topic or purpose. Return ONLY the title, no quotes or punctuation at the end.",
+        },
+        {
+          role: "user",
+          content: sample,
+        },
+      ],
+      max_tokens: 30,
+      temperature: 0.3,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const title = data.choices[0]?.message?.content?.trim() || "Audio Recording";
+
+  // Clean up: remove quotes, limit length
+  return title
+    .replace(/^["']|["']$/g, "")
+    .replace(/[<>:"/\\|?*]/g, "")
+    .slice(0, 60);
+}
+
+/**
+ * Fallback title for audio when AI is unavailable
+ */
+function getFallbackAudioTitle(message: TelegramMessage, originalName: string): string {
+  if (message.audio?.title) {
+    return message.audio.title;
+  } else if (originalName && originalName !== "") {
+    return originalName.replace(/\.[^.]+$/, "");
+  } else if (message.voice) {
+    const duration = message.voice.duration || 0;
+    const mins = Math.floor(duration / 60);
+    const secs = duration % 60;
+    return mins > 0 ? `Voice Note (${mins}m ${secs}s)` : `Voice Note (${secs}s)`;
+  }
+  return "Audio Recording";
+}
+
+/**
  * Escape string for shell
  */
 function escapeShell(str: string): string {
@@ -672,6 +778,7 @@ export async function saveToVault(
     "tags:",
     ...processed.tags.map((t) => `  - ${t}`),
     `source: telegram`,
+    ...(processed.sourceFile ? [`source_file: "${processed.sourceFile}"`] : []),
     "---",
   ].join("\n");
 

@@ -10,6 +10,8 @@ import { join } from "path";
 export interface TelegramMessage {
   message_id: number;
   date: number;
+  chat?: { id: number };  // Chat/channel ID
+  from?: { id: number };  // Sender ID
   text?: string;
   voice?: TelegramVoice;
   audio?: TelegramAudio;
@@ -29,6 +31,7 @@ interface TelegramAudio {
   duration: number;
   title?: string;
   performer?: string;
+  file_name?: string;
   mime_type?: string;
 }
 
@@ -75,6 +78,15 @@ export async function getUpdates(offset?: number): Promise<TelegramUpdate[]> {
   }
 
   return data.result;
+}
+
+/**
+ * Check if a message is from the inbox channel
+ */
+export function isFromInbox(message: TelegramMessage): boolean {
+  const config = getConfig();
+  if (!message.chat?.id) return false;
+  return String(message.chat.id) === String(config.telegramChannelId);
 }
 
 /**
@@ -188,4 +200,145 @@ export function extractUrl(message: TelegramMessage): string | null {
   const text = extractText(message);
   const urlMatch = text.match(/https?:\/\/[^\s]+/);
   return urlMatch ? urlMatch[0] : null;
+}
+
+/**
+ * Send a notification to the PAI Outbox Channel
+ *
+ * Used to notify about completed processing, with optional Obsidian deep link.
+ * Supports Markdown formatting for Telegram.
+ */
+export interface NotificationOptions {
+  messageId: number;
+  status: "success" | "failed";
+  contentType: ContentType;
+  title: string;
+  originalFilename?: string;  // Original source filename
+  outputPaths?: string[];     // Full paths to output files
+  error?: string;
+  obsidianVaultName?: string;  // Vault name for Obsidian URI
+}
+
+export async function sendNotification(options: NotificationOptions): Promise<void> {
+  const config = getConfig();
+
+  if (!config.telegramOutboxId) {
+    // No outbox configured, silently skip
+    return;
+  }
+
+  const emoji = options.status === "success" ? "✅" : "❌";
+  const statusText = options.status === "success" ? "Processed" : "Failed";
+
+  // Build structured event payload for downstream routing (PagerDuty, etc.)
+  const eventPayload = {
+    event_type: "pai.ingest",
+    status: options.status,
+    severity: options.status === "failed" ? "warning" : "info",
+    content_type: options.contentType,
+    title: options.title,
+    message_id: options.messageId,
+    timestamp: new Date().toISOString(),
+    source: "pai-ingest",
+    ...(options.originalFilename && { original_filename: options.originalFilename }),
+    ...(options.outputPaths && {
+      output_files: options.outputPaths.map(p => p.split("/").pop()),
+      output_paths: options.outputPaths,
+    }),
+    ...(options.error && { error: options.error.slice(0, 500) }),
+  };
+
+  // Build human-readable message parts
+  const parts: string[] = [
+    `${emoji} *${statusText}*: ${options.contentType}`,
+    `📝 ${escapeMarkdown(options.title)}`,
+  ];
+
+  if (options.status === "success" && options.outputPaths && options.outputPaths.length > 0) {
+    const filenames = options.outputPaths.map(p => p.split("/").pop()).join(", ");
+    parts.push(`📂 ${escapeMarkdown(filenames)}`);
+  }
+
+  if (options.status === "failed" && options.error) {
+    parts.push(`⚠️ ${escapeMarkdown(options.error.slice(0, 200))}`);
+  }
+
+  parts.push(`🔗 Message ID: ${options.messageId}`);
+  parts.push("");
+  parts.push("```json");
+  parts.push(JSON.stringify(eventPayload, null, 2));
+  parts.push("```");
+
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.telegramOutboxId,
+        text: parts.join("\n"),
+        parse_mode: "Markdown",
+        disable_web_page_preview: true,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.warn(`Could not send notification: ${data.description}`);
+    }
+  } catch (error) {
+    console.warn(`Notification error: ${error}`);
+  }
+}
+
+/**
+ * Escape special characters for Telegram Markdown
+ */
+function escapeMarkdown(text: string): string {
+  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
+}
+
+/**
+ * Reply to a message with an Obsidian link to the created note
+ */
+export async function replyWithObsidianLink(
+  messageId: number,
+  outputPaths: string[],
+  vaultName?: string
+): Promise<void> {
+  const config = getConfig();
+
+  if (!vaultName || outputPaths.length === 0) {
+    return;
+  }
+
+  // Build plain text with filenames only
+  const filenames = outputPaths.map(path => {
+    const filename = path.split("/").pop()?.replace(/\.md$/, "") || path;
+    return `📄 ${filename}`;
+  });
+
+  const text = `✅ Processed:\n${filenames.join("\n")}`;
+
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.telegramChannelId,
+        text: text,
+        reply_to_message_id: messageId,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.warn(`Could not reply to message: ${data.description}`);
+    }
+  } catch (error) {
+    console.warn(`Reply error: ${error}`);
+  }
 }

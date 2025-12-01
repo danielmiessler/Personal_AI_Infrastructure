@@ -401,6 +401,98 @@ ingest process --verbose
 # - Caption preserved if provided
 ```
 
+#### TEST-ING-042: Vision API - Default Description
+```bash
+# Setup: Send photo to Telegram WITHOUT any caption
+# Example: Take a photo of anything interesting
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Vision API (GPT-4o) describes the image
+# - Image saved to vault/attachments/
+# - Note contains: ![Image](attachments/...), **Prompt:** [default], **Analysis:** [description]
+# - Tags: incoming, source/telegram
+```
+
+#### TEST-ING-043: Vision API - Custom Prompt
+```bash
+# Setup: Send photo with CUSTOM CAPTION as the prompt
+# Example: Photo of a recipe card with caption:
+#   "Extract all ingredients and steps from this recipe"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Vision API uses caption as prompt
+# - Structured extraction of recipe contents
+# - Note contains prompt + analysis
+# - Tags: incoming, source/telegram
+```
+
+#### TEST-ING-044: Vision API - /describe Command
+```bash
+# Setup: Send photo with "/describe" in caption
+# Example: Architecture diagram with caption:
+#   "/describe #project/pai"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Vision API detailed description
+# - Tags extracted from hints: project/pai
+# - Note title generated from description
+```
+
+#### TEST-ING-045: Vision API - /mermaid Command
+```bash
+# Setup: Send photo of flowchart/diagram with "/mermaid"
+# Example: Whiteboard diagram with caption:
+#   "/mermaid Convert this to a sequence diagram"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Vision API returns Mermaid syntax
+# - Note contains ```mermaid code block
+# - Can be rendered in Obsidian
+```
+
+#### TEST-ING-046: Vision API - /ocr Only
+```bash
+# Setup: Send screenshot with "/ocr" to force OCR-only processing
+# Example: Screenshot with caption:
+#   "/ocr"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Tesseract OCR used (no Vision API call)
+# - Faster processing, lower cost
+# - Good for text-heavy screenshots
+```
+
+#### TEST-ING-047: Vision API - /store Only
+```bash
+# Setup: Send photo with "/store" to just save it
+# Example: Nice photo with caption:
+#   "/store #photography"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - NO Vision API call
+# - Image saved to attachments
+# - Note just has image embed + caption
+# - Tags: photography, incoming, source/telegram
+```
+
 ### 2.6 Combined Content
 
 #### TEST-ING-050: Voice Memo + Whiteboard Photo

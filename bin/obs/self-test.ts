@@ -5,10 +5,13 @@
  * Verifies that all required components are configured correctly.
  * Similar to PAI Contract health check pattern.
  *
- * Usage: bun self-test.ts
+ * Usage: bun self-test.ts [--full]
+ *
+ * Options:
+ *   --full    Run full tests including Telegram API connectivity
  */
 
-import { existsSync } from "fs";
+import { existsSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -19,6 +22,7 @@ interface TestResult {
 }
 
 const results: TestResult[] = [];
+const fullMode = process.argv.includes("--full");
 
 function pass(name: string, message: string): void {
   results.push({ name, status: "pass", message });
@@ -170,6 +174,147 @@ async function runTests(): Promise<void> {
       }
     } catch {
       warn(tool.name, "Could not check");
+    }
+  }
+
+  // ─────────────────────────────────────────────────
+  // INGEST PIPELINE TESTS
+  // ─────────────────────────────────────────────────
+  console.log("\n" + "─".repeat(50));
+  console.log("📥 Ingest Pipeline Tests\n");
+
+  // Test 9: Ingest state database
+  // The ingest state DB is in the vault's _meta folder
+  if (vaultPath) {
+    const resolvedVault = vaultPath.replace(/^~/, homedir());
+    const stateDbPath = join(resolvedVault, "_meta", "ingest.db");
+    if (existsSync(stateDbPath)) {
+      const stats = statSync(stateDbPath);
+      const sizeKB = (stats.size / 1024).toFixed(1);
+      pass("Ingest State DB", `${stateDbPath} (${sizeKB} KB)`);
+    } else {
+      warn("Ingest State DB", "Not found - will be created on first 'ingest poll'");
+    }
+  }
+
+  // Test 10: Ingest profiles command
+  try {
+    const ingestPath = join(import.meta.dir, "..", "ingest", "ingest.ts");
+    const result = Bun.spawnSync(["bun", "run", ingestPath, "profiles"], {
+      env: { ...process.env, ...env },
+    });
+    if (result.exitCode === 0) {
+      const output = result.stdout.toString();
+      const hasZettelkasten = output.includes("zettelkasten");
+      const hasSimple = output.includes("simple");
+      if (hasZettelkasten && hasSimple) {
+        pass("Ingest Profiles", "zettelkasten, simple");
+      } else {
+        warn("Ingest Profiles", "Some profiles missing from output");
+      }
+    } else {
+      fail("Ingest Profiles", "Command failed: " + result.stderr.toString().slice(0, 100));
+    }
+  } catch (e) {
+    fail("Ingest Profiles", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 11: Ingest config command
+  try {
+    const ingestPath = join(import.meta.dir, "..", "ingest", "ingest.ts");
+    const result = Bun.spawnSync(["bun", "run", ingestPath, "config"], {
+      env: { ...process.env, ...env },
+    });
+    if (result.exitCode === 0) {
+      const output = result.stdout.toString();
+      const hasVault = output.includes("Vault Path:");
+      const hasProfile = output.includes("Profile:");
+      if (hasVault && hasProfile) {
+        pass("Ingest Config", "Configuration readable");
+      } else {
+        warn("Ingest Config", "Output format unexpected");
+      }
+    } else {
+      fail("Ingest Config", "Command failed: " + result.stderr.toString().slice(0, 100));
+    }
+  } catch (e) {
+    fail("Ingest Config", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 12: Ingest status command
+  try {
+    const ingestPath = join(import.meta.dir, "..", "ingest", "ingest.ts");
+    const result = Bun.spawnSync(["bun", "run", ingestPath, "status"], {
+      env: { ...process.env, ...env },
+    });
+    if (result.exitCode === 0) {
+      const output = result.stdout.toString();
+      // Extract counts from status output
+      const pendingMatch = output.match(/Pending:\s*(\d+)/);
+      const completedMatch = output.match(/Completed:\s*(\d+)/);
+      const failedMatch = output.match(/Failed:\s*(\d+)/);
+
+      if (pendingMatch && completedMatch && failedMatch) {
+        const pending = parseInt(pendingMatch[1]);
+        const completed = parseInt(completedMatch[1]);
+        const failed = parseInt(failedMatch[1]);
+        pass("Ingest Status", `${completed} completed, ${pending} pending, ${failed} failed`);
+      } else {
+        warn("Ingest Status", "Could not parse status counts");
+      }
+    } else {
+      fail("Ingest Status", "Command failed: " + result.stderr.toString().slice(0, 100));
+    }
+  } catch (e) {
+    fail("Ingest Status", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 13: Telegram API connectivity (only in full mode)
+  if (fullMode) {
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN || env.TELEGRAM_BOT_TOKEN || "";
+    if (telegramToken) {
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${telegramToken}/getMe`);
+        const data = await response.json() as { ok: boolean; result?: { username: string } };
+        if (data.ok && data.result) {
+          pass("Telegram API", `Bot @${data.result.username} connected`);
+        } else {
+          fail("Telegram API", "API returned error - check bot token");
+        }
+      } catch (e) {
+        fail("Telegram API", `Connection failed: ${e instanceof Error ? e.message : e}`);
+      }
+    } else {
+      warn("Telegram API", "Bot token not set - skipping connectivity test");
+    }
+  }
+
+  // Test 14: Ingest poll dry-run (only in full mode)
+  if (fullMode) {
+    try {
+      const ingestPath = join(import.meta.dir, "..", "ingest", "ingest.ts");
+      const ingestDir = join(import.meta.dir, "..", "ingest");
+      const result = Bun.spawnSync(["bun", "run", ingestPath, "poll"], {
+        cwd: ingestDir,
+        env: { ...process.env, ...env },
+        timeout: 15000, // 15 second timeout for network
+      });
+      const output = result.stdout.toString();
+      const errOutput = result.stderr.toString();
+
+      // Check for success indicators in output (regardless of exit code)
+      const hasPolling = output.includes("Polling") || output.includes("No new messages") || output.includes("Found");
+
+      if (hasPolling) {
+        pass("Ingest Poll", "Telegram polling works");
+      } else if (result.exitCode !== 0) {
+        const errorMsg = errOutput.trim() || output.trim() || "Unknown error";
+        fail("Ingest Poll", "Command failed: " + errorMsg.slice(0, 100));
+      } else {
+        warn("Ingest Poll", "Unexpected output format");
+      }
+    } catch (e) {
+      fail("Ingest Poll", `Error: ${e instanceof Error ? e.message : e}`);
     }
   }
 

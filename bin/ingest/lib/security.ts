@@ -40,6 +40,7 @@ const DEFAULT_CONFIG: SecurityConfig = {
 
   // Whitelist of allowed /commands
   allowedCommands: [
+    // Content type commands
     "transcript",
     "meeting-notes",
     "meeting",
@@ -53,6 +54,11 @@ const DEFAULT_CONFIG: SecurityConfig = {
     "note",
     "1on1",
     "bibliography",
+    // Vision API commands (photo processing)
+    "describe",    // Detailed Vision AI description
+    "mermaid",     // Convert diagram to Mermaid syntax
+    "ocr",         // Tesseract OCR only (no Vision API)
+    "store",       // Save image only, no processing
   ],
 
   // Rate limiting

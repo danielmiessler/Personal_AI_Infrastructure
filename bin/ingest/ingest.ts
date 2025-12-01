@@ -21,7 +21,6 @@ import {
   extractText,
   extractUrl,
   sendNotification,
-  replyWithObsidianLink,
   isFromInbox,
   type TelegramMessage,
   type ContentType,
@@ -296,11 +295,8 @@ async function handleProcess(
       await setReaction(msg.message_id, REACTIONS.success);
       console.log(`  Status: ✅ Created ${savedPaths.length} note(s)`);
 
-      // Reply to message with Obsidian link
+      // Send notification to Events channel
       const config = getConfig();
-      await replyWithObsidianLink(msg.message_id, savedPaths, config.vaultName);
-
-      // Send notification to outbox
       const originalFilename = msg.audio?.title ||
         msg.audio?.file_name ||
         msg.document?.file_name ||
@@ -431,12 +427,8 @@ async function handleWatch(
             await setReaction(msg.message_id, REACTIONS.success);
             console.log(`    ✅ Created ${savedPaths.length} note(s)`);
 
-            // Reply to message with Obsidian link
+            // Send notification to Events channel
             const config = getConfig();
-            await replyWithObsidianLink(msg.message_id, savedPaths, config.vaultName);
-
-            // Send notification to outbox
-            // Extract original filename from message
             const originalFilename = msg.audio?.title ||
               msg.audio?.file_name ||
               msg.document?.file_name ||

@@ -55,34 +55,27 @@ export async function suggestTags(content: string): Promise<string[]> {
   const suggestions: string[] = [];
 
   // Detect people names (simple pattern matching)
+  // TODO: Make this configurable via ~/.config/pai/people.json
+  // Example format: { "patterns": [{ "pattern": "John Smith", "tag": "john_smith" }] }
+  //
+  // These are example entries - customize for your contacts:
   const peoplePatterns = [
-    /\b(Ed|Edward)\s+Overy\b/i,
-    /\b(Paige)\s+Bradley\b/i,
-    /\b(Carlos)\s+(Ulla\s+)?Canales\b/i,
-    /\b(Rob|Robert)\s+Meadows\b/i,
-    /\b(Mick)\s+Buckley\b/i,
-    /\b(Iain)\s+Urquhart\b/i,
-    /\b(Craig)\s+Grant\b/i,
-    /\b(Andrew)\s+Camuso\b/i,
-    /\b(Debbie)\s+Lister\b/i,
-    /\b(Charlotte)\s+White\b/i,
-    /\b(Chane)\s+Ballantine\b/i,
+    /\b(John|Jon)\s+Smith\b/i,
+    /\b(Jane)\s+Doe\b/i,
+    /\b(Bob|Robert)\s+Johnson\b/i,
+    /\b(Alice)\s+Williams\b/i,
+    /\b(Mike|Michael)\s+Brown\b/i,
   ];
 
   const peopleTagMap: Record<string, string> = {
-    ed: "ed_overy",
-    edward: "ed_overy",
-    paige: "paige_bradley",
-    carlos: "carlos_ulla_canales",
-    rob: "rob_meadows",
-    robert: "rob_meadows",
-    mick: "mick_buckley",
-    iain: "iain_urquhart",
-    craig: "craig_grant",
-    andrew: "andrew_camuso",
-    debbie: "debbie_lister",
-    charlotte: "charlotte_white",
-    chane: "chane_ballantine",
+    john: "john_smith",
+    jon: "john_smith",
+    jane: "jane_doe",
+    bob: "bob_johnson",
+    robert: "bob_johnson",
+    alice: "alice_williams",
+    mike: "mike_brown",
+    michael: "mike_brown",
   };
 
   for (const pattern of peoplePatterns) {

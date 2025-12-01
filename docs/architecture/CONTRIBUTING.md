@@ -102,7 +102,7 @@ docs/
 
 ```typescript
 // BAD: Hardcoded paths
-const vaultPath = '/Users/andreas/Documents/andreas_brain';
+const vaultPath = '/Users/username/Documents/vault';
 ```
 
 ### After (Configurable)

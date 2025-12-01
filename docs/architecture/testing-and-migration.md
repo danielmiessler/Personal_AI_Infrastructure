@@ -14,16 +14,16 @@ Create a test vault separate from production:
 
 ```bash
 # Test vault location
-TEST_VAULT=~/Documents/andreas_brain_test
+TEST_VAULT=~/Documents/vault_test
 
 # Create test vault structure
 mkdir -p $TEST_VAULT/_meta
 mkdir -p $TEST_VAULT/attachments
 
 # Copy sample notes for testing (not entire vault)
-cp ~/Documents/andreas_brain/2024-06-10*.md $TEST_VAULT/
-cp ~/Documents/andreas_brain/2024-06-11*.md $TEST_VAULT/
-cp ~/Documents/andreas_brain/2025-11-27.md $TEST_VAULT/
+cp ~/Documents/vault/2024-06-10*.md $TEST_VAULT/
+cp ~/Documents/vault/2024-06-11*.md $TEST_VAULT/
+cp ~/Documents/vault/2025-11-27.md $TEST_VAULT/
 ```
 
 ### Test Configuration
@@ -55,10 +55,10 @@ obs search --tag "project/eea24"
 obs embed
 
 # Test query
-obs semantic "data analytics meeting with Rob"
+obs semantic "data analytics meeting with Bob"
 
 # Expected: Returns notes related to data analytics meetings
-# Verify: Meeting notes with rob_meadows appear in top results
+# Verify: Meeting notes with bob_smith appear in top results
 ```
 
 #### TC-CTX-003: Tag Search
@@ -66,7 +66,7 @@ obs semantic "data analytics meeting with Rob"
 # Search by person tag
 obs search --tag "ed_overy"
 
-# Expected: All Ed Overy-related notes
+# Expected: All John Smith-related notes
 # Verify: Count matches grep -l "ed_overy" vault/*.md
 ```
 
@@ -75,7 +75,7 @@ obs search --tag "ed_overy"
 # Multiple tags
 obs search --tag "meeting-notes" --tag "ed_overy"
 
-# Expected: Only meeting notes with Ed Overy
+# Expected: Only meeting notes with John Smith
 ```
 
 ### Vault Skill Tests
@@ -155,7 +155,7 @@ echo "**MIT AI Study (3 min read)** https://..." | ingest process-text --dry-run
 #### TC-ING-004: People Detection
 ```bash
 # Test content with names
-echo "Meeting with Ed Overy and Paige Bradley about LV data" | ingest process-text --dry-run
+echo "Meeting with John Smith and Jane Doe about LV data" | ingest process-text --dry-run
 
 # Expected tags include: ed_overy, paige_bradley, lv-data
 ```
@@ -195,14 +195,14 @@ mkdir -p $NEW_VAULT/_meta
 
 # 2. Export existing notes for reprocessing
 # Skip daily notes (will be processed differently)
-find ~/Documents/andreas_brain -name "*.md" \
+find ~/Documents/vault -name "*.md" \
   ! -name "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md" \
   > notes_to_migrate.txt
 
 # 3. Categorize by type
-grep -l "transcript" ~/Documents/andreas_brain/*.md > transcripts.txt
-grep -l "Wisdom" ~/Documents/andreas_brain/*.md > wisdom_notes.txt
-grep -l "meeting-notes" ~/Documents/andreas_brain/*.md > meetings.txt
+grep -l "transcript" ~/Documents/vault/*.md > transcripts.txt
+grep -l "Wisdom" ~/Documents/vault/*.md > wisdom_notes.txt
+grep -l "meeting-notes" ~/Documents/vault/*.md > meetings.txt
 
 # 4. Process each category through pipeline
 # (Run in batches to verify)
@@ -233,7 +233,7 @@ obs search --untagged | head -20 > untagged_batch1.txt
 
 # 3. Normalize tags
 # Find non-standard tags
-grep -rh "^  - " ~/Documents/andreas_brain/*.md | sort | uniq -c | sort -rn
+grep -rh "^  - " ~/Documents/vault/*.md | sort | uniq -c | sort -rn
 
 # 4. Process remaining scratchpad items
 vault process-daily-notes --all --dry-run
@@ -284,7 +284,7 @@ export OBSIDIAN_VAULT_PATH=$NEW_VAULT
 ### TC-MIG-001: Meeting Note Migration
 ```bash
 # Source: Old meeting note with attendees in title
-# 2024-06-10-LV Analytics Data Flow Meeting (Mick, Rob M, Paige, Andreas) MOM.md
+# 2024-06-10-Data Analytics Data Flow Meeting (Mike, Bob, Jane, Alex) MOM.md
 
 # Migrate
 migrate-note "$OLD_VAULT/2024-06-10-LV*.md" --to $NEW_VAULT --dry-run
@@ -365,10 +365,10 @@ Summary of the article content here.
 ```
 
 ### Sample Voice Memo (for testing)
-Use existing: `~/Documents/andreas_brain/2024-06-11-Test Voice Memo Recording Options - Wisdom.md`
+Use existing: `~/Documents/vault/2024-06-11-Test Voice Memo Recording Options - Wisdom.md`
 
 ### Sample Meeting Note (for testing)
-Use existing: `~/Documents/andreas_brain/2024-06-10-LV Analytics Data Flow Meeting (Mick, Rob M, Paige, Andreas) MOM-1.md`
+Use existing: `~/Documents/vault/2024-06-10-Data Analytics Data Flow Meeting (Mike, Bob, Jane, Alex) MOM-1.md`
 
 ---
 
@@ -406,5 +406,5 @@ If migration fails:
 
 ```bash
 # Backup before any migration
-cp -r ~/Documents/andreas_brain ~/Documents/andreas_brain_backup_$(date +%Y%m%d)
+cp -r ~/Documents/vault ~/Documents/vault_backup_$(date +%Y%m%d)
 ```

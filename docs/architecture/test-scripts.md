@@ -16,16 +16,38 @@ This document provides comprehensive test scripts at two levels:
 
 ## Prerequisites
 
+### Configuration Layering
+
+This test script uses **generic examples** suitable for the public repository.
+
+For your private fork, you can:
+1. **Override via environment**: Set `PAI_CONTACTS_CONFIG` to a JSON file with your people
+2. **Local overlay file**: Create `test-scripts-local.md` (gitignored) with your specific examples
+3. **Fork-specific values**: Modify directly in your private fork (won't conflict with upstream)
+
+Example contacts config (`~/.config/pai/contacts.json`):
+```json
+{
+  "people": [
+    { "pattern": "John Smith", "tag": "john_smith" },
+    { "pattern": "Jane Doe", "tag": "jane_doe" }
+  ],
+  "projects": [
+    { "keywords": ["api", "backend"], "tag": "project/api" }
+  ]
+}
+```
+
 ### Environment Setup
 ```bash
 # Required environment variables
-export OBSIDIAN_VAULT_PATH=~/Documents/andreas_brain
+export OBSIDIAN_VAULT_PATH=~/Documents/vault
 export OPENAI_API_KEY=sk-...
 export TELEGRAM_BOT_TOKEN=...
 export TELEGRAM_CHANNEL_ID=-100...
 
 # Optional: Test vault (for isolated testing)
-export TEST_VAULT=~/Documents/andreas_brain_test
+export TEST_VAULT=~/Documents/vault_test
 ```
 
 ### Tool Availability
@@ -117,7 +139,7 @@ obs write "Test Note from CLI" \
   --tag "john_doe" \
   --content "This is a test note content."
 
-# Expected: Creates ~/Documents/andreas_brain/YYYY-MM-DD-Test Note from CLI.md
+# Expected: Creates $OBSIDIAN_VAULT_PATH/YYYY-MM-DD-Test Note from CLI.md
 # Verify: Frontmatter contains all tags
 ```
 
@@ -438,10 +460,10 @@ Expected PAI Behavior:
 
 #### TEST-PAI-CTX-004: Person Context
 ```
-User: "What's my history with Ed Overy?"
+User: "What's my history with John Smith?"
 
 Expected PAI Behavior:
-1. Searches: obs search --tag "ed_overy"
+1. Searches: obs search --tag "john_smith"
 2. Summarizes: 1on1s, meetings, topics discussed
 3. Shows recent interactions
 ```
@@ -870,9 +892,293 @@ ingest retry --failed
 - [ ] TEST-E2E-002 (Newsletter to Research)
 - [ ] TEST-E2E-003 (Teams to Meeting Notes)
 
-### Phase 5: Future (Jira Integration)
+### Phase 5: iOS/macOS Integration
+- [ ] TEST-IOS-001 through TEST-IOS-004 (iOS Shortcuts)
+- [ ] TEST-MAC-001 through TEST-MAC-003 (macOS Share Menu)
+
+### Phase 6: PAI Context Integration
+- [ ] TEST-PAI-PROJ-001 through TEST-PAI-PROJ-004 (Project Context Loading)
+- [ ] TEST-PAI-SKILL-001 through TEST-PAI-SKILL-003 (Skill Invocation)
+
+### Phase 7: Future (Jira Integration)
 - [ ] TEST-JIRA-001 through TEST-JIRA-003 (Jira Context)
 - [ ] TEST-JIRA-010 (Jira Sync)
+
+---
+
+## Part 7: iOS/macOS Integration Tests
+
+### 7.1 iOS Shortcuts Integration
+
+#### TEST-IOS-001: Share Text with Tags (iOS)
+```
+Scenario: Share text from any iOS app with inline hints
+
+1. In Safari/Notes/any app, select text
+2. Tap Share → "Send to PAI" shortcut
+3. Shortcut prompts for optional hints: "#project/foo @jane"
+4. Shortcut sends: "{hints}\n{selected text}" to Telegram bot
+
+iOS Shortcut Configuration:
+- Name: "Send to PAI"
+- Actions:
+  1. Receive [Text, URLs, Images] from Share Sheet
+  2. Ask for Input (optional): "Add tags? #tag @person /command"
+  3. Get Contents of URL:
+     POST https://api.telegram.org/bot{TOKEN}/sendMessage
+     Body: {"chat_id": "{CHANNEL_ID}", "text": "{Ask Result}\n{Input}"}
+
+Expected:
+- Message appears in Telegram channel
+- `ingest process` extracts hints and content
+- Note created with appropriate tags
+```
+
+#### TEST-IOS-002: Voice Memo Share (iOS)
+```
+Scenario: Share voice recording from Voice Memos app
+
+1. Record in Voice Memos or any audio app
+2. Tap Share → "Send Audio to PAI"
+3. Shortcut uploads audio to Telegram
+
+iOS Shortcut Configuration:
+- Name: "Send Audio to PAI"
+- Actions:
+  1. Receive [Audio] from Share Sheet
+  2. Ask for Input (optional): "Add context? #meeting @person"
+  3. Encode [Audio] to Base64
+  4. Send File to Telegram via API (or use bot document upload)
+
+Expected:
+- Audio uploaded to Telegram
+- `ingest process` transcribes with whisper
+- Note created with transcript
+```
+
+#### TEST-IOS-003: Screenshot Share with Vision (iOS)
+```
+Scenario: Share screenshot for Vision AI analysis
+
+1. Take screenshot
+2. Tap Share → "Analyze Screenshot"
+3. Shortcut prompts: "What should I look for?"
+4. Sends photo + prompt to Telegram
+
+iOS Shortcut Configuration:
+- Name: "Analyze Screenshot"
+- Actions:
+  1. Receive [Images] from Share Sheet
+  2. Ask for Input: "Analysis prompt (e.g., 'extract text', 'describe')"
+  3. Upload image to Telegram with caption = prompt
+
+Expected:
+- Photo with caption in Telegram
+- `ingest process` uses Vision API with caption as prompt
+- Note created with analysis result
+```
+
+#### TEST-IOS-004: Quick Capture Widget (iOS)
+```
+Scenario: One-tap capture from home screen widget
+
+1. Tap widget on home screen
+2. Speak or type thought
+3. Widget sends to PAI
+
+iOS Shortcut Configuration:
+- Name: "Quick Capture"
+- Actions:
+  1. Dictate Text (or Ask for Input)
+  2. Send to Telegram with "#incoming /capture"
+
+Expected:
+- Fast capture workflow
+- Voice transcription via iOS
+- Note tagged as incoming
+```
+
+### 7.2 macOS Share Menu Integration
+
+#### TEST-MAC-001: Share from Safari (macOS)
+```
+Scenario: Share webpage from Safari
+
+1. In Safari, click Share → "Save to PAI"
+2. Share sheet shows URL and page title
+3. Automator action sends to Telegram
+
+Automator Configuration (Quick Action):
+- Workflow receives: [URLs, text] in Safari
+- Shell Script:
+  curl -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
+    -d "chat_id=$CHANNEL_ID" \
+    -d "text=$URL"
+
+Expected:
+- URL sent to Telegram
+- `ingest process` fetches and extracts content
+- Note created with article content
+```
+
+#### TEST-MAC-002: Share from Finder (macOS)
+```
+Scenario: Share document from Finder
+
+1. Right-click PDF/doc in Finder
+2. Quick Actions → "Send to PAI"
+3. Document uploaded to Telegram
+
+Automator Configuration (Quick Action):
+- Workflow receives: files in Finder
+- Shell Script to upload document via Telegram API
+
+Expected:
+- Document uploaded
+- `ingest process` extracts with marker
+- Note created with document content
+```
+
+#### TEST-MAC-003: Global Hotkey Capture (macOS)
+```
+Scenario: Capture selection from anywhere via hotkey
+
+1. Select text in any app
+2. Press global hotkey (e.g., ⌃⌥⇧C)
+3. Selection sent to PAI with optional tags
+
+Automator Configuration (Quick Action with Keyboard Shortcut):
+- Workflow receives: selected text
+- AppleScript:
+  - Get selected text from frontmost app
+  - Prompt for tags (optional)
+  - Send via Telegram API
+
+Expected:
+- Any selected text capturable
+- Tags dialog optional
+- Note created with content
+```
+
+---
+
+## Part 8: PAI Context Integration Tests
+
+### 8.1 Project Context Loading
+
+#### TEST-PAI-PROJ-001: Load Project via Skill
+```
+User: "Load context for the PAI project"
+
+Expected PAI Behavior:
+1. PAI recognizes this as context/obs skill invocation
+2. Reads skill workflow: skills/context/workflows/load-project.md
+3. Executes: obs search --tag "project/pai"
+4. Returns formatted list of relevant notes
+5. Offers semantic search for deeper context
+
+Verify:
+- Skill loaded correctly
+- Notes returned include PAI-related content
+- Follow-up questions work (e.g., "show me the architecture notes")
+```
+
+#### TEST-PAI-PROJ-002: Cross-Project Context
+```
+User: "Show me notes that mention both data-platform and analytics"
+
+Expected PAI Behavior:
+1. Uses combined tag search: obs search --tag "project/data-platform" | filter for analytics
+2. Or uses semantic search: obs semantic "data platform analytics"
+3. Returns cross-referenced notes
+4. Highlights common themes
+
+Verify:
+- Multiple project tags handled
+- Notes correctly filtered
+- Context spans projects
+```
+
+#### TEST-PAI-PROJ-003: Meeting Context with People
+```
+User: "What have I discussed with John about the ingest pipeline?"
+
+Expected PAI Behavior:
+1. Combined search: tag=john_smith + semantic="ingest pipeline"
+2. Returns meeting notes, 1on1s, project discussions
+3. Summarizes key topics and decisions
+4. Shows timeline of discussions
+
+Verify:
+- Person tag correctly identified
+- Topic search works
+- Historical context provided
+```
+
+#### TEST-PAI-PROJ-004: Recent Activity Context
+```
+User: "What did I work on yesterday?"
+
+Expected PAI Behavior:
+1. Searches: obs search --recent 1d (or date filter)
+2. Groups by: project tags, content types
+3. Summarizes: meetings, captures, notes created
+4. Highlights: unfinished items, follow-ups
+
+Verify:
+- Date filtering works
+- Activity summary accurate
+- Grouped by meaningful categories
+```
+
+### 8.2 Skill Invocation in PAI Context
+
+#### TEST-PAI-SKILL-001: Direct Skill Reference
+```
+User: "Use the context skill to find all architecture discussions"
+
+Expected PAI Behavior:
+1. PAI recognizes explicit skill reference
+2. Loads: skills/context/SKILL.md
+3. Uses skill's search capabilities
+4. Returns formatted results per skill's output format
+
+Verify:
+- Skill explicitly invoked
+- Correct skill loaded
+- Output matches skill format
+```
+
+#### TEST-PAI-SKILL-002: Implicit Skill Selection
+```
+User: "Save this conversation to my vault"
+
+Expected PAI Behavior:
+1. PAI infers vault skill needed
+2. Loads: skills/vault/workflows/capture-session.md
+3. Formats conversation as note
+4. Creates note with tags: session, source/claude-code
+
+Verify:
+- Correct skill selected without explicit mention
+- Conversation captured correctly
+- Proper tags applied
+```
+
+#### TEST-PAI-SKILL-003: Skill Chaining
+```
+User: "Transcribe my latest voice memo and find related project notes"
+
+Expected PAI Behavior:
+1. First: Ingest skill - process voice memo
+2. Then: Context skill - semantic search for similar content
+3. Returns: Transcript + related notes
+
+Verify:
+- Multiple skills invoked in sequence
+- Handoff between skills works
+- Combined results returned
+```
 
 ---
 

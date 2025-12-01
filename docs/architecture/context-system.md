@@ -185,7 +185,7 @@ ingest retry <message-id>                 # Retry failed message
 
 ### 3. Semantic Search
 
-**Storage:** `~/Documents/andreas_brain/_meta/embeddings.db` (sqlite-vec)
+**Storage:** `$OBSIDIAN_VAULT_PATH/_meta/embeddings.db` (SQLite)
 
 **Embeddings:** Local sentence-transformers (e.g., all-MiniLM-L6-v2)
 

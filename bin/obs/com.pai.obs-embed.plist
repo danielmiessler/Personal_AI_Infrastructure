@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PAI Obsidian Embeddings Auto-Update LaunchAgent
+
+  To install:
+  1. Copy this file to ~/Library/LaunchAgents/
+  2. Replace YOUR_USERNAME with your actual username
+  3. Replace /path/to/PAI with the actual path to your PAI installation
+  4. Run: launchctl load ~/Library/LaunchAgents/com.pai.obs-embed.plist
+-->
 <plist version="1.0">
 <dict>
     <key>Label</key>
@@ -10,9 +19,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/andreas/.bun/bin/bun</string>
+        <string>/Users/YOUR_USERNAME/.bun/bin/bun</string>
         <string>run</string>
-        <string>/Users/andreas/Documents/src/PAI-v1.2/Personal_AI_Infrastructure/bin/obs/obs.ts</string>
+        <string>/path/to/PAI/bin/obs/obs.ts</string>
         <string>embed</string>
     </array>
 
@@ -22,9 +31,9 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/Users/andreas/.bun/bin</string>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/YOUR_USERNAME/.bun/bin</string>
         <key>HOME</key>
-        <string>/Users/andreas</string>
+        <string>/Users/YOUR_USERNAME</string>
     </dict>
 
     <key>StandardOutPath</key>

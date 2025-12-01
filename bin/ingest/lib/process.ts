@@ -208,7 +208,7 @@ export async function processMessage(
       break;
 
     case "photo":
-      const photoResult = await processPhoto(message, config.tempDir);
+      const photoResult = await processPhoto(message, config.tempDir, hints);
       rawContent = photoResult.content;
       suggestedTitle = photoResult.title;
       break;
@@ -415,11 +415,20 @@ async function processUrl(
 }
 
 /**
- * Process photo via OCR/description
+ * Process photo via Vision AI or OCR
+ *
+ * Processing modes (based on caption):
+ *   - No caption: Pass-through with basic OCR
+ *   - /ocr: Tesseract OCR only
+ *   - /store: Just save image link, no processing
+ *   - /describe: Vision AI description
+ *   - /mermaid: Vision AI → Mermaid diagram
+ *   - Other caption: Use caption as Vision AI prompt
  */
 async function processPhoto(
   message: TelegramMessage,
-  tempDir: string
+  tempDir: string,
+  hints?: InlineHints
 ): Promise<{ content: string; title: string }> {
   const photo = message.photo;
   if (!photo || photo.length === 0) throw new Error("No photo in message");
@@ -428,9 +437,72 @@ async function processPhoto(
   const largest = photo[photo.length - 1];
   const filename = `photo_${message.message_id}.jpg`;
   const filePath = await downloadFile(largest.file_id, filename);
+  const config = getConfig();
+
+  const caption = message.caption || "";
+  const commands = hints?.commands || [];
 
   try {
-    // Try tesseract for OCR
+    // /store - Just save image reference, no processing
+    if (commands.includes("store")) {
+      const imagePath = await saveImageToVault(filePath, config.vaultPath, message.message_id);
+      return {
+        content: `![Image](${imagePath})\n\n${caption}`,
+        title: "Image",
+      };
+    }
+
+    // /ocr - Tesseract OCR only
+    if (commands.includes("ocr") || (!caption && !config.openaiApiKey)) {
+      return await processPhotoWithOCR(filePath, caption);
+    }
+
+    // Vision AI processing (if API key available)
+    if (config.openaiApiKey) {
+      // Determine the prompt
+      let prompt: string;
+
+      if (commands.includes("describe")) {
+        prompt = "Describe this image in detail. What do you see?";
+      } else if (commands.includes("mermaid")) {
+        prompt = "Extract the diagram, flowchart, or structure from this image and convert it to Mermaid diagram syntax. Return only the Mermaid code block.";
+      } else if (caption && hints?.cleanedContent) {
+        // Use cleaned caption (without commands/tags) as the prompt
+        prompt = hints.cleanedContent;
+      } else if (caption) {
+        prompt = caption;
+      } else {
+        // Default: describe the image
+        prompt = "Describe this image briefly. If it contains text, extract it. If it's a diagram, describe its structure.";
+      }
+
+      const visionResult = await processPhotoWithVision(filePath, prompt, config.openaiApiKey);
+
+      // Save image to vault for reference
+      const imagePath = await saveImageToVault(filePath, config.vaultPath, message.message_id);
+
+      return {
+        content: `![Image](${imagePath})\n\n**Prompt:** ${prompt}\n\n**Analysis:**\n${visionResult}`,
+        title: generateTitleFromText(visionResult),
+      };
+    }
+
+    // Fallback to OCR if no API key
+    return await processPhotoWithOCR(filePath, caption);
+
+  } finally {
+    await unlink(filePath).catch(() => {});
+  }
+}
+
+/**
+ * Process photo with tesseract OCR
+ */
+async function processPhotoWithOCR(
+  filePath: string,
+  caption: string
+): Promise<{ content: string; title: string }> {
+  try {
     const { stdout } = await execAsync(`tesseract "${filePath}" stdout`, {
       timeout: 30000,
     });
@@ -443,19 +515,98 @@ async function processPhoto(
       };
     }
 
-    // If no text found, just note it's an image
     return {
-      content: `[Image: ${message.caption || "No caption"}]`,
+      content: `[Image: ${caption || "No caption"}]`,
       title: "Image",
     };
   } catch {
     return {
-      content: `[Image: ${message.caption || "No caption"}]`,
+      content: `[Image: ${caption || "No caption"}]`,
       title: "Image",
     };
-  } finally {
-    await unlink(filePath).catch(() => {});
   }
+}
+
+/**
+ * Process photo with OpenAI Vision API (GPT-4o)
+ */
+async function processPhotoWithVision(
+  filePath: string,
+  prompt: string,
+  apiKey: string
+): Promise<string> {
+  // Read image and convert to base64
+  const imageData = await Bun.file(filePath).arrayBuffer();
+  const base64Image = Buffer.from(imageData).toString("base64");
+
+  // Detect mime type from extension
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Vision API error: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0]?.message?.content || "No response from Vision API";
+}
+
+/**
+ * Save image to vault attachments folder
+ */
+async function saveImageToVault(
+  sourcePath: string,
+  vaultPath: string,
+  messageId: number
+): Promise<string> {
+  const attachmentsDir = join(vaultPath, "attachments");
+
+  // Ensure attachments directory exists
+  if (!existsSync(attachmentsDir)) {
+    await mkdir(attachmentsDir, { recursive: true });
+  }
+
+  const ext = sourcePath.split(".").pop() || "jpg";
+  const date = new Date().toISOString().split("T")[0];
+  const destFilename = `${date}-telegram-${messageId}.${ext}`;
+  const destPath = join(attachmentsDir, destFilename);
+
+  // Copy file
+  const data = await Bun.file(sourcePath).arrayBuffer();
+  await Bun.write(destPath, data);
+
+  // Return relative path for markdown
+  return `attachments/${destFilename}`;
 }
 
 /**

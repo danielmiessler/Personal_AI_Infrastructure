@@ -10,8 +10,11 @@ import { existsSync } from "fs";
 import { getConfig, validateVault } from "./config";
 import { parseNote } from "./parse";
 
-// Embedding dimensions (OpenAI text-embedding-3-small = 1536)
-const EMBEDDING_DIM = 1536;
+// Embedding model configuration
+// text-embedding-3-small = 1536 dimensions
+// text-embedding-3-large = 3072 dimensions (better semantic understanding)
+const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-large";
+const EMBEDDING_DIM = EMBEDDING_MODEL.includes("large") ? 3072 : 1536;
 const CHUNK_SIZE = 1000; // characters per chunk
 const CHUNK_OVERLAP = 200;
 
@@ -96,7 +99,7 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "text-embedding-3-small",
+      model: EMBEDDING_MODEL,
       input: texts,
     }),
   });

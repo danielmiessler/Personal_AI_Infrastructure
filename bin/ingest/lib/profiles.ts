@@ -69,7 +69,7 @@ export interface ProcessingProfile {
     // Person name detection enabled?
     detectPeople: boolean;
     // Known people for detection
-    knownPeople: string[];   // e.g., ["Ed Overy", "Daniel Miessler"]
+    knownPeople: string[];   // e.g., ["John Smith", "Jane Doe"]
   };
 }
 

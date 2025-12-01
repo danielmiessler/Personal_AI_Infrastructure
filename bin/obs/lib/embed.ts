@@ -138,10 +138,12 @@ function embeddingToBlob(embedding: number[]): Buffer {
 /**
  * Convert blob back to embedding array
  */
-function blobToEmbedding(blob: Buffer): number[] {
+function blobToEmbedding(blob: Buffer | Uint8Array): number[] {
+  // Convert Uint8Array to Buffer if needed (SQLite returns Uint8Array in Bun)
+  const buffer = Buffer.isBuffer(blob) ? blob : Buffer.from(blob);
   const embedding: number[] = [];
-  for (let i = 0; i < blob.length; i += 4) {
-    embedding.push(blob.readFloatLE(i));
+  for (let i = 0; i < buffer.length; i += 4) {
+    embedding.push(buffer.readFloatLE(i));
   }
   return embedding;
 }

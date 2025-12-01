@@ -23,6 +23,7 @@ import {
   type TelegramMessage,
   type ContentType,
 } from "./lib/telegram";
+import { processMessage, saveToVault } from "./lib/process";
 
 const HELP = `
 ingest - Telegram Ingestion Pipeline for PAI Context Management
@@ -185,7 +186,9 @@ async function handleProcess(
 
     if (dryRun) {
       console.log(`  Would process as: ${type}`);
-      console.log(`  Patterns: ${profile.processing.patterns[type as keyof typeof profile.processing.patterns]?.join(", ") || "(none)"}`);
+      const patterns = profile.processing.patterns[type as keyof typeof profile.processing.patterns];
+      console.log(`  Patterns: ${patterns?.join(", ") || "(none)"}`);
+      console.log(`  Paired output: ${profile.processing.pairedOutput}`);
       continue;
     }
 
@@ -193,22 +196,29 @@ async function handleProcess(
       // Mark as processing
       await setReaction(msg.message_id, "⏳");
 
-      // TODO: Implement actual processing pipeline
-      // For now, just show what would happen
-      console.log(`  Type: ${type}`);
-      console.log(`  Text: ${extractText(msg).slice(0, 100)}...`);
+      // Process the message
+      const results = await processMessage(msg, type, profile);
 
-      if (type === "url") {
-        const url = extractUrl(msg);
-        console.log(`  URL: ${url}`);
+      // Save to vault
+      const savedPaths: string[] = [];
+      for (let i = 0; i < results.length; i++) {
+        const isWisdom = i > 0; // First is raw, second is wisdom
+        const path = await saveToVault(results[i], profile, isWisdom);
+        savedPaths.push(path);
+        if (verbose) {
+          console.log(`  Saved: ${path}`);
+        }
       }
 
-      // Mark as success (placeholder)
+      // Mark as success
       await setReaction(msg.message_id, "✅");
-      console.log("  Status: ✅ Success");
+      console.log(`  Status: ✅ Created ${savedPaths.length} note(s)`);
     } catch (error) {
       await setReaction(msg.message_id, "❌");
-      console.log(`  Status: ❌ Failed - ${error}`);
+      console.log(`  Status: ❌ Failed - ${error instanceof Error ? error.message : error}`);
+      if (verbose) {
+        console.error(error);
+      }
     }
 
     console.log("");

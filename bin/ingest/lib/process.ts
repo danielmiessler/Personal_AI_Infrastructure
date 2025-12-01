@@ -510,7 +510,7 @@ async function processPhoto(
       if (commands.includes("describe")) {
         prompt = "Describe this image in detail. What do you see?";
       } else if (commands.includes("mermaid")) {
-        prompt = "Extract the diagram, flowchart, or structure from this image and convert it to Mermaid diagram syntax. Return only the Mermaid code block.";
+        prompt = "Extract the diagram, flowchart, or structure from this image and convert it to Mermaid diagram syntax. IMPORTANT: Escape special characters in node labels - use quotes around text containing parentheses, brackets, or special chars (e.g., use A[\"Maximo (EAM)\"] not A[Maximo (EAM)]). Return only the Mermaid code block.";
       } else if (caption && hints?.cleanedContent) {
         // Use cleaned caption (without commands/tags) as the prompt
         prompt = hints.cleanedContent;
@@ -521,14 +521,34 @@ async function processPhoto(
         prompt = "Describe this image briefly. If it contains text, extract it. If it's a diagram, describe its structure.";
       }
 
-      const visionResult = await processPhotoWithVision(filePath, prompt, config.openaiApiKey);
+      let visionResult = await processPhotoWithVision(filePath, prompt, config.openaiApiKey);
+
+      // Post-process mermaid output to escape parentheses in node labels
+      // Apply fix if /mermaid command used OR if output contains mermaid code blocks
+      const hasMermaidContent = visionResult.includes("```mermaid");
+      if (commands.includes("mermaid") || hasMermaidContent) {
+        console.log("    Applying Mermaid syntax fix...");
+        const beforeFix = visionResult;
+        visionResult = fixMermaidSyntax(visionResult);
+        if (beforeFix !== visionResult) {
+          console.log("    Mermaid fix applied - escaped parentheses in node labels");
+        }
+      }
 
       // Save image to vault for reference
       const imagePath = await saveImageToVault(filePath, config.vaultPath, message.message_id);
 
+      // Generate AI title from vision result
+      let title: string;
+      try {
+        title = await generateAITitle(visionResult, config.openaiApiKey);
+      } catch {
+        title = "Image Analysis";
+      }
+
       return {
         content: `![Image](${imagePath})\n\n**Prompt:** ${prompt}\n\n**Analysis:**\n${visionResult}`,
-        title: generateTitleFromText(visionResult),
+        title,
       };
     }
 
@@ -721,10 +741,12 @@ async function generateAITitle(transcript: string, apiKey: string): Promise<stri
   const data = await response.json();
   const title = data.choices[0]?.message?.content?.trim() || "Audio Recording";
 
-  // Clean up: remove quotes, limit length
+  // Clean up: remove quotes and filesystem-unsafe characters, limit length
   return title
     .replace(/^["']|["']$/g, "")
-    .replace(/[<>:"/\\|?*]/g, "")
+    .replace(/[<>:"/\\|?*!@#$%^&()[\]{}]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
     .slice(0, 60);
 }
 
@@ -750,6 +772,29 @@ function getFallbackAudioTitle(message: TelegramMessage, originalName: string): 
  */
 function escapeShell(str: string): string {
   return str.replace(/'/g, "'\\''").replace(/"/g, '\\"');
+}
+
+/**
+ * Fix Mermaid syntax by escaping parentheses in node labels
+ * Converts A[Maximo (EAM)] to A["Maximo (EAM)"]
+ * Also handles A(Text (with parens)) -> A["Text (with parens)"]
+ */
+function fixMermaidSyntax(content: string): string {
+  // First, fix square bracket nodes with parentheses in labels
+  let result = content.replace(
+    /(\s*)(\w+)\[([^\]"]*\([^)]*\)[^\]"]*)\]/g,
+    (match, space, nodeId, label) => `${space}${nodeId}["${label}"]`
+  );
+
+  // Also fix round bracket nodes that have nested parentheses
+  // Pattern: A(Text (inner)) - the outer () is node shape, inner () breaks it
+  // Convert to A["Text (inner)"] using square brackets with quotes
+  result = result.replace(
+    /(\s*)(\w+)\(([^)"]*\([^)]*\)[^)"]*)\)/g,
+    (match, space, nodeId, label) => `${space}${nodeId}["${label}"]`
+  );
+
+  return result;
 }
 
 /**

@@ -2461,9 +2461,23 @@ console.log('date 2024-06-15:', parseDictatedDate('date 2024-06-15'));
 ```
 **Status:** 🔄 PENDING
 
-### 13.3 Archive Naming with Document Date
+### 13.3 Note Filename with Document Date
 
-#### TEST-DATE-020: Archive Uses Document Date
+#### TEST-DATE-020: Note Filename Uses Document Date
+```bash
+# Send to Telegram:
+# [date:2023-03-15] Meeting notes from March
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Using document date for filename: 2023-03-15" in output
+# - Note filename: 2023-03-15-Meeting notes from March-Telegram-Raw.md (not today's date)
+# - Frontmatter contains: document_date: 2023-03-15
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-021: Archive Uses Document Date
 ```bash
 # Send document to Telegram:
 # [date:2023-03-15] /archive Historic contract
@@ -2471,21 +2485,23 @@ console.log('date 2024-06-15:', parseDictatedDate('date 2024-06-15'));
 # Run: ingest process --verbose
 
 # Expected:
-# - "using document date: 2023-03-15" in output
+# - "Using document date for filename: 2023-03-15" in output
 # - Archive name: ... - 20230315 - ... (March 2023, not today)
+# - Note filename: 2023-03-15-... (March date)
 ```
 **Status:** 🔄 PENDING
 
-#### TEST-DATE-021: Archive Without Date Uses Today
+#### TEST-DATE-022: Note Without Date Uses Today
 ```bash
-# Send document to Telegram:
-# /archive New contract
+# Send to Telegram:
+# Regular meeting notes
 
 # Run: ingest process --verbose
 
 # Expected:
-# - Archive name uses today's date (YYYYMMDD)
-# - No "using document date" in output
+# - Note filename uses today's date (YYYY-MM-DD-...)
+# - No "Using document date" in output
+# - No document_date in frontmatter
 ```
 **Status:** 🔄 PENDING
 

@@ -573,7 +573,73 @@ async function runTests(): Promise<void> {
     fail("Dictated Intent", `Error: ${e instanceof Error ? e.message : e}`);
   }
 
-  // Test 25: Real-time embedding check
+  // Test 25: Scope sigil patterns (~private, ~work)
+  try {
+    const scopeTests = [
+      { input: "~private Personal health note", expected: "private" },
+      { input: "~work Meeting notes from team", expected: "work" },
+      { input: "No scope sigil here", expected: null },
+    ];
+
+    let scopePassed = true;
+    const scopePattern = /^~(private|work)\b/i;
+
+    for (const test of scopeTests) {
+      const match = test.input.match(scopePattern);
+      const detected = match ? match[1].toLowerCase() : null;
+      if (detected !== test.expected) {
+        scopePassed = false;
+        break;
+      }
+    }
+
+    if (scopePassed) {
+      pass("Scope Sigils", "~private and ~work patterns valid");
+    } else {
+      fail("Scope Sigils", "Scope sigil detection failed");
+    }
+  } catch (e) {
+    fail("Scope Sigils", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 26: Document date patterns (dictated and structured)
+  try {
+    const dateTests = [
+      { input: "dated 15th June", shouldMatch: true },
+      { input: "dated June 15", shouldMatch: true },
+      { input: "from last month", shouldMatch: true },
+      { input: "from yesterday", shouldMatch: true },
+      { input: "date 2024-06-15", shouldMatch: true },
+      { input: "random text without date", shouldMatch: false },
+    ];
+
+    let datePassed = true;
+    const datePatterns = [
+      /\b(?:dated?|from)\s+(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)/i,
+      /\b(?:dated?|from)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})/i,
+      /\b(?:from\s+)?last\s+(month|week)\b/i,
+      /\b(?:from\s+)?yesterday\b/i,
+      /\bdate\s+(\d{4}-\d{2}-\d{2})\b/i,
+    ];
+
+    for (const test of dateTests) {
+      const matches = datePatterns.some(p => p.test(test.input));
+      if (matches !== test.shouldMatch) {
+        datePassed = false;
+        break;
+      }
+    }
+
+    if (datePassed) {
+      pass("Document Date", "Dictated date patterns valid");
+    } else {
+      fail("Document Date", "Date pattern detection failed");
+    }
+  } catch (e) {
+    fail("Document Date", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 27: Real-time embedding check
   if (vaultPath) {
     const resolvedPath = vaultPath.replace(/^~/, homedir());
     const embeddingsDb = join(resolvedPath, "_meta", "embeddings.db");

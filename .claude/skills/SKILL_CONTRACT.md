@@ -117,13 +117,14 @@ Content here...
 | `category` | Category | `HOME`, `WORK`, `CAR` |
 | `date` | Document date | `2024-06-15`, `15/06/2024` |
 
-#### Document Date (for Historic Archives)
-Override the processing date with the actual document date:
+#### Document Date (for Historic Content)
+Override the processing date with the actual document date. Works for ALL content types.
 
 **Structured syntax:**
 ```
 [date:2024-06-15] /archive Old contract
 [date:15/06/2024] /receipt Last month's receipt
+[date:2023-03-15] Meeting notes from March
 ```
 
 **Dictated (voice memos):**
@@ -132,8 +133,10 @@ Override the processing date with the actual document date:
 - "from yesterday" → yesterday's date
 - "date 2024-06-15" → explicit ISO format
 
-Archive naming uses document date instead of today:
-`CONTRACT - 20240615 - Old contract - WORK.pdf`
+**What uses the document date:**
+1. **Note filename**: `2024-06-15 - Meeting notes.md` (not today's date)
+2. **Archive naming**: `CONTRACT - 20240615 - Old contract - WORK.pdf`
+3. **Frontmatter**: `document_date: 2024-06-15`
 
 #### Spoken Hints (Voice Memos)
 For voice memos shared directly (without shortcut), spoken hints are extracted:

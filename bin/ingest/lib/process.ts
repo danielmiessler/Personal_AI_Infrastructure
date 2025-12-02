@@ -54,6 +54,7 @@ export interface SourceMetadata {
   type?: string;            // e.g., "RECEIPT", "CONTRACT", "DOCUMENT"
   category?: string;        // e.g., "HOME", "WORK", "CAR"
   processor?: string;       // e.g., "pandoc", "marker", "llamaparse"
+  date?: string;            // Document date: YYYY-MM-DD (for historic documents)
 }
 
 /**
@@ -129,6 +130,107 @@ function sanitizeArchiveFilename(text: string): string {
     .replace(/\s+/g, " ")           // Normalize whitespace
     .trim()
     .slice(0, 80);                  // Limit length
+}
+
+/**
+ * Parse natural language date from dictated text
+ * Returns YYYY-MM-DD string or undefined if not detected
+ *
+ * Supported patterns:
+ * - "dated 15th June" / "dated June 15th" / "dated 15 June 2024"
+ * - "from June 15th" / "from 15th June"
+ * - "date 2024-06-15" / "date 15/06/2024"
+ * - "this is from last month" / "from last week"
+ * - Month names: January, February, etc. (full and abbreviated)
+ */
+export function parseDictatedDate(text: string): string | undefined {
+  const lowerText = text.toLowerCase();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  // Month name mappings
+  const monthNames: Record<string, number> = {
+    january: 0, jan: 0,
+    february: 1, feb: 1,
+    march: 2, mar: 2,
+    april: 3, apr: 3,
+    may: 4,
+    june: 5, jun: 5,
+    july: 6, jul: 6,
+    august: 7, aug: 7,
+    september: 8, sep: 8, sept: 8,
+    october: 9, oct: 9,
+    november: 10, nov: 10,
+    december: 11, dec: 11,
+  };
+
+  // Pattern: "dated 15th June 2024" or "from June 15 2024" or "date 15 June"
+  const dateWithMonthPattern = /(?:dated?|from)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*(\d{4})?/i;
+  const monthFirstPattern = /(?:dated?|from)\s+(?:the\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})?/i;
+
+  let match = dateWithMonthPattern.exec(lowerText);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const monthStr = match[2].toLowerCase();
+    const month = monthNames[monthStr.slice(0, 3)] ?? monthNames[monthStr];
+    const year = match[3] ? parseInt(match[3], 10) : currentYear;
+    if (month !== undefined && day >= 1 && day <= 31) {
+      const date = new Date(year, month, day);
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  match = monthFirstPattern.exec(lowerText);
+  if (match) {
+    const monthStr = match[1].toLowerCase();
+    const day = parseInt(match[2], 10);
+    const month = monthNames[monthStr.slice(0, 3)] ?? monthNames[monthStr];
+    const year = match[3] ? parseInt(match[3], 10) : currentYear;
+    if (month !== undefined && day >= 1 && day <= 31) {
+      const date = new Date(year, month, day);
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  // Pattern: "date 2024-06-15" or "dated 2024-06-15"
+  const isoPattern = /(?:dated?|from)\s+(\d{4})-(\d{2})-(\d{2})/i;
+  match = isoPattern.exec(lowerText);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+
+  // Pattern: "date 15/06/2024" or "dated 15/6/24"
+  const slashPattern = /(?:dated?|from)\s+(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i;
+  match = slashPattern.exec(lowerText);
+  if (match) {
+    const day = match[1].padStart(2, "0");
+    const month = match[2].padStart(2, "0");
+    let year = match[3];
+    if (year.length === 2) {
+      year = (parseInt(year, 10) > 50 ? "19" : "20") + year;
+    }
+    return `${year}-${month}-${day}`;
+  }
+
+  // Pattern: "from last month" / "last month's"
+  if (/(?:from\s+)?last\s+month/i.test(lowerText)) {
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return lastMonth.toISOString().slice(0, 10);
+  }
+
+  // Pattern: "from last week"
+  if (/(?:from\s+)?last\s+week/i.test(lowerText)) {
+    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return lastWeek.toISOString().slice(0, 10);
+  }
+
+  // Pattern: "from yesterday"
+  if (/(?:from\s+)?yesterday/i.test(lowerText)) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return yesterday.toISOString().slice(0, 10);
+  }
+
+  return undefined;
 }
 
 /**
@@ -634,6 +736,14 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
         console.log(`  Detected dictated scope intent: "work" from natural language`);
       }
     }
+
+    // Natural language date detection:
+    // "dated 15th June", "from last month", "from yesterday"
+    const dictatedDate = parseDictatedDate(workingText);
+    if (dictatedDate) {
+      metadata.date = dictatedDate;
+      console.log(`  Detected dictated document date: ${dictatedDate}`);
+    }
   }
 
   // Extract metadata: [key:value] pairs
@@ -663,6 +773,24 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
         break;
       case "processor":
         metadata.processor = value.toLowerCase();
+        break;
+      case "date":
+        // Validate date format (YYYY-MM-DD or DD/MM/YYYY)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          metadata.date = value;
+          console.log(`  Extracted document date: ${value}`);
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(value)) {
+          // Convert DD/MM/YYYY to YYYY-MM-DD
+          const parts = value.split("/");
+          const day = parts[0].padStart(2, "0");
+          const month = parts[1].padStart(2, "0");
+          let year = parts[2];
+          if (year.length === 2) {
+            year = (parseInt(year, 10) > 50 ? "19" : "20") + year;
+          }
+          metadata.date = `${year}-${month}-${day}`;
+          console.log(`  Extracted document date: ${metadata.date}`);
+        }
         break;
     }
   }
@@ -975,14 +1103,19 @@ export async function processMessage(
         ext = contentType === "photo" ? "jpg" : "pdf";
       }
 
+      // Use document date from metadata if provided, otherwise use today
+      const archiveDate = hints.metadata.date
+        ? new Date(hints.metadata.date + "T00:00:00")  // Parse YYYY-MM-DD
+        : new Date();
+
       archiveName = generateArchiveName({
         type: docType,
-        date: new Date(),
+        date: archiveDate,
         description: suggestedTitle,
         category,
         extension: ext,
       });
-      console.log(`  Generated archive name: ${archiveName}`);
+      console.log(`  Generated archive name: ${archiveName}${hints.metadata.date ? ` (using document date: ${hints.metadata.date})` : ""}`);
     }
 
     // Add archive-specific tags
@@ -2022,6 +2155,7 @@ export async function saveToVault(
     ...(meta?.user ? [`source_user: ${meta.user}`] : []),
     ...(meta?.type ? [`document_type: ${meta.type}`] : []),
     ...(meta?.category ? [`document_category: ${meta.category}`] : []),
+    ...(meta?.date ? [`document_date: ${meta.date}`] : []),
     "---",
   ].join("\n");
 

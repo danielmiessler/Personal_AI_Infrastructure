@@ -547,6 +547,8 @@ _Note: Use #1on1 as a TAG, not /1on1 command_
 \`[user:name]\` - Track user
 \`[type:CONTRACT]\` - Document type
 \`[category:WORK]\` - Category (HOME/WORK)
+\`[date:2024-06-15]\` - Document date (historic)
+_Or dictate: "dated June 15th", "from last month"_
 
 *Scope (context separation):*
 \`~private\` - Mark as personal/private

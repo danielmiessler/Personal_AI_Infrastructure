@@ -115,6 +115,25 @@ Content here...
 | `user` | Source user | `andreas`, `magdalena` |
 | `type` | Document type | `RECEIPT`, `CONTRACT` |
 | `category` | Category | `HOME`, `WORK`, `CAR` |
+| `date` | Document date | `2024-06-15`, `15/06/2024` |
+
+#### Document Date (for Historic Archives)
+Override the processing date with the actual document date:
+
+**Structured syntax:**
+```
+[date:2024-06-15] /archive Old contract
+[date:15/06/2024] /receipt Last month's receipt
+```
+
+**Dictated (voice memos):**
+- "dated 15th June" / "dated June 15" → `2024-06-15`
+- "from last month" → first of previous month
+- "from yesterday" → yesterday's date
+- "date 2024-06-15" → explicit ISO format
+
+Archive naming uses document date instead of today:
+`CONTRACT - 20240615 - Old contract - WORK.pdf`
 
 #### Spoken Hints (Voice Memos)
 For voice memos shared directly (without shortcut), spoken hints are extracted:

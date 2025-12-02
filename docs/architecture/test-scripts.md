@@ -1032,6 +1032,12 @@ ingest retry --failed
 - [ ] TEST-SCOPE-010 through TEST-SCOPE-014 (Scope Filtering - Retrieval)
 - [ ] TEST-SCOPE-020 through TEST-SCOPE-024 (Scope Unit Tests)
 
+### Phase 10: Document Date Hints
+- [ ] TEST-DATE-001 through TEST-DATE-003 (Structured Date Metadata)
+- [ ] TEST-DATE-010 through TEST-DATE-013 (Dictated Date Detection)
+- [ ] TEST-DATE-020 through TEST-DATE-021 (Archive Naming with Date)
+- [ ] TEST-DATE-030 (Unit Tests)
+
 ---
 
 ## Part 7: iOS/macOS Integration Tests
@@ -2361,5 +2367,164 @@ searchNotes({ tags: [], text: 'test' }).then(results => {
 
 ---
 
-**Document Version:** 1.2.0
+## Part 13: Document Date Hint Tests
+
+### 13.1 Structured Date Metadata
+
+#### TEST-DATE-001: ISO Date Format [date:YYYY-MM-DD]
+```bash
+# Send to Telegram:
+# [date:2024-06-15] /archive Old contract from June
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Extracted document date: 2024-06-15" in output
+# - Archive name: CONTRACT - 20240615 - ... (not today's date)
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-002: Slash Date Format [date:DD/MM/YYYY]
+```bash
+# Send to Telegram:
+# [date:15/06/2024] /receipt June receipt
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Extracted document date: 2024-06-15" in output
+# - Converted from DD/MM/YYYY to YYYY-MM-DD
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-003: Short Year [date:DD/MM/YY]
+```bash
+# Send to Telegram:
+# [date:15/06/24] /archive Document from June
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Date converted to 2024-06-15 (20xx for years < 50)
+```
+**Status:** 🔄 PENDING
+
+### 13.2 Dictated Date Detection
+
+#### TEST-DATE-010: Dictated "dated 15th June"
+```bash
+bun -e "
+const { parseDictatedDate } = require('./bin/ingest/lib/process');
+console.log('dated 15th June:', parseDictatedDate('dated 15th June'));
+console.log('dated June 15:', parseDictatedDate('dated June 15'));
+console.log('dated 15 June 2023:', parseDictatedDate('dated 15 June 2023'));
+"
+
+# Expected:
+# dated 15th June: 2025-06-15 (current year)
+# dated June 15: 2025-06-15
+# dated 15 June 2023: 2023-06-15
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-011: Dictated "from last month"
+```bash
+bun -e "
+const { parseDictatedDate } = require('./bin/ingest/lib/process');
+console.log('from last month:', parseDictatedDate('from last month'));
+console.log('last month:', parseDictatedDate('this is last month receipt'));
+"
+
+# Expected: First day of previous month (e.g., 2025-11-01 in December)
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-012: Dictated "from yesterday"
+```bash
+bun -e "
+const { parseDictatedDate } = require('./bin/ingest/lib/process');
+console.log('from yesterday:', parseDictatedDate('from yesterday'));
+"
+
+# Expected: Yesterday's date
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-013: Dictated ISO Format "date 2024-06-15"
+```bash
+bun -e "
+const { parseDictatedDate } = require('./bin/ingest/lib/process');
+console.log('date 2024-06-15:', parseDictatedDate('date 2024-06-15'));
+"
+
+# Expected: 2024-06-15
+```
+**Status:** 🔄 PENDING
+
+### 13.3 Archive Naming with Document Date
+
+#### TEST-DATE-020: Archive Uses Document Date
+```bash
+# Send document to Telegram:
+# [date:2023-03-15] /archive Historic contract
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "using document date: 2023-03-15" in output
+# - Archive name: ... - 20230315 - ... (March 2023, not today)
+```
+**Status:** 🔄 PENDING
+
+#### TEST-DATE-021: Archive Without Date Uses Today
+```bash
+# Send document to Telegram:
+# /archive New contract
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Archive name uses today's date (YYYYMMDD)
+# - No "using document date" in output
+```
+**Status:** 🔄 PENDING
+
+### 13.4 Unit Tests
+
+#### TEST-DATE-030: parseDictatedDate - All Patterns
+```bash
+bun -e "
+const { parseDictatedDate } = require('./bin/ingest/lib/process');
+
+const tests = [
+  ['dated 15th June', true],
+  ['dated June 15', true],
+  ['from 15 June 2023', true],
+  ['date 2024-06-15', true],
+  ['dated 15/06/2024', true],
+  ['from last month', true],
+  ['from last week', true],
+  ['from yesterday', true],
+  ['random text', false],
+  ['June 15 without keyword', false],
+];
+
+let passed = 0;
+for (const [input, shouldMatch] of tests) {
+  const result = parseDictatedDate(input);
+  const matches = result !== undefined;
+  const ok = matches === shouldMatch;
+  console.log(\`\${ok ? '✅' : '❌'} \"\${input}\" => \${result ?? 'undefined'}\`);
+  if (ok) passed++;
+}
+console.log(\`\\n\${passed}/\${tests.length} passed\`);
+"
+
+# Expected: All tests pass
+```
+**Status:** 🔄 PENDING
+
+---
+
+**Document Version:** 1.3.0
 **Last Updated:** 2025-12-02

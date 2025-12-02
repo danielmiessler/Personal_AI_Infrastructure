@@ -174,6 +174,36 @@ When no explicit `/command` is detected, AI analyzes captions to:
 
 Only applied when confidence > 80%. Lower confidence uses default pipeline.
 
+### Dictated Pipeline Intent (v2)
+**Requires:** No additional configuration
+
+Natural language detection for archive and receipt pipelines. Say your intent and it will be detected:
+
+| Intent | Example Phrases | Result |
+|--------|-----------------|--------|
+| Archive | "archive this", "file this", "save this document" | `/archive` pipeline |
+| Receipt | "save this receipt", "expense", "invoice", "purchase" | `/receipt` pipeline |
+
+**Auto-detected document types:**
+- CONTRACT, LEASE, CERTIFICATE, DEED, WARRANTY, POLICY, LICENSE
+
+**Auto-detected categories:**
+- HOME, HOUSE, PROPERTY → HOME
+- WORK, OFFICE, BUSINESS → WORK
+- CAR, VEHICLE, AUTO → CAR
+- HEALTH, MEDICAL, DOCTOR → HEALTH
+
+Example: "Archive this lease for the house" → `/archive` + `[type:LEASE]` + `[category:HOME]`
+
+### Real-time Embedding (v2)
+**Requires:** `OPENAI_API_KEY`
+
+Notes are automatically embedded immediately after creation, making them searchable via `/query` right away. No need to run `obs embed` manually after ingesting content.
+
+- Uses fire-and-forget pattern (non-blocking)
+- Failures are logged but don't block note creation
+- Check status with `obs embed --stats`
+
 ---
 
 ## 🏥 Health Check

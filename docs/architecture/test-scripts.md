@@ -1752,6 +1752,78 @@ These tests were validated during the v2 implementation (2025-12-02).
 ```
 **Status:** 🔄 PENDING
 
+#### TEST-REG-010a: DOCX Plain Extraction (No Wisdom)
+```bash
+# Setup: Send DOCX to Telegram WITHOUT any caption/command
+
+# Run: ingest process --verbose
+
+# Expected:
+# - DOCX extracted via pandoc/marker
+# - ONLY Raw note created (no Wisdom)
+# - No fabric pattern runs (documents skip auto-patterns)
+# - Tags: incoming, raw, source/telegram
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-010b: DOCX with /summarize Command
+```bash
+# Setup: Send DOCX to Telegram with caption:
+# /summarize
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Running requested pattern(s): summarize" in output
+# - Raw note + Wisdom note created
+# - Wisdom note contains fabric summarize output
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-010c: DOCX with Dictated Intent - Summarize
+```bash
+# Setup: Send DOCX to Telegram with dictated caption (no /command):
+# "summarize this document" or "give me a tldr"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated intent: summarize from caption" in output
+# - Treats as explicit pattern request
+# - Raw note + Wisdom note created
+# - Wisdom note contains fabric summarize output
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-010d: DOCX with Dictated Intent - Extract Wisdom
+```bash
+# Setup: Send DOCX to Telegram with dictated caption (no /command):
+# "extract the key points from this" or "what are the main ideas"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated intent: extract_wisdom from caption" in output
+# - Treats as explicit pattern request
+# - Raw note + Wisdom note created
+# - Wisdom note contains IDEAS, QUOTES, FACTS, etc.
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-010e: DOCX with Dictated Intent - Analyze
+```bash
+# Setup: Send DOCX to Telegram with dictated caption (no /command):
+# "analyze this document" or "break down this paper"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated intent: analyze_paper from caption" in output
+# - Treats as explicit pattern request
+# - Raw note + Wisdom note created
+```
+**Status:** 🔄 PENDING
+
 ### 11.5 Commands
 
 #### TEST-REG-011: /help Command
@@ -1893,6 +1965,97 @@ These tests were validated during the v2 implementation (2025-12-02).
 # - Spoken "forward slash summarize" converted to /summarize
 # - Pattern runs on transcript
 # - Creates both Raw and Wisdom notes
+```
+**Status:** 🔄 PENDING
+
+### 11.8 Dictated Pipeline Intent (Archive/Receipt)
+
+#### TEST-ARC-001: Dictated Archive Intent
+```bash
+# Send document to Telegram with dictated caption (no /command):
+# "archive this lease agreement for the house"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated pipeline intent: archive from caption" in output
+# - Pipeline: archive
+# - Metadata: type=LEASE, category=HOME
+# - Document synced to Dropbox archive
+# - Note created in vault/archive/
+```
+**Status:** 🔄 PENDING
+
+#### TEST-ARC-002: Dictated Receipt Intent
+```bash
+# Send photo to Telegram with dictated caption:
+# "save this receipt from Bunnings"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated pipeline intent: receipt from caption" in output
+# - Pipeline: receipt
+# - Receipt naming format applied
+# - Document synced to Dropbox archive
+```
+**Status:** 🔄 PENDING
+
+#### TEST-ARC-003: Dictated Archive with Contract Detection
+```bash
+# Send document to Telegram with dictated caption:
+# "this is my work contract"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Pipeline: archive
+# - Metadata: type=CONTRACT, category=WORK
+# - Auto-detected from keywords
+```
+**Status:** 🔄 PENDING
+
+#### TEST-ARC-004: Dictated Archive with Certificate Detection
+```bash
+# Send document to Telegram with dictated caption:
+# "my medical certificate from the doctor"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Pipeline: archive
+# - Metadata: type=CERTIFICATE, category=HEALTH
+```
+**Status:** 🔄 PENDING
+
+### 11.9 Real-Time Embedding
+
+#### TEST-EMB-001: New Note is Searchable via /query
+```bash
+# Step 1: Send unique text to Telegram:
+# "Blood pressure reading from digital monitor showing 121/81"
+
+# Step 2: Process:
+# ingest process --verbose
+
+# Step 3: Immediately search:
+# ingest query "blood pressure digital monitor"
+
+# Expected:
+# - Newly created note appears in semantic search results
+# - No need to run "obs embed" manually
+# - Real-time embedding happens after save
+```
+**Status:** 🔄 PENDING
+
+#### TEST-EMB-002: Embedding Stats Updated
+```bash
+# After processing a new note, check stats:
+# bun run bin/obs/self-test.ts
+
+# Expected:
+# - Embedding database shows new note count
+# - Last embedded timestamp is recent
 ```
 **Status:** 🔄 PENDING
 

@@ -177,6 +177,172 @@ export function determineRequestedPatterns(commands: string[]): string[] {
 }
 
 /**
+ * Detect dictated pipeline intent from caption
+ * Maps natural language phrases to pipeline types (archive, receipt)
+ * Returns pipeline type if detected, null otherwise
+ */
+export function detectDictatedPipelineIntent(caption: string | undefined): { pipeline: PipelineType; metadata?: { type?: string; category?: string } } | null {
+  if (!caption) return null;
+
+  const lowerCaption = caption.toLowerCase();
+
+  // Receipt patterns
+  const receiptPatterns = [
+    /\b(receipt|invoice|bill|purchase|expense)\b/,
+    /\b(save\s*(this\s*)?(receipt|invoice|bill))\b/,
+    /\b(store\s*(this\s*)?(receipt|invoice|bill))\b/,
+    /\b(bought|purchased|paid)\b/,
+  ];
+
+  for (const pattern of receiptPatterns) {
+    if (pattern.test(lowerCaption)) {
+      console.log(`  Detected dictated pipeline intent: "receipt" from caption`);
+
+      // Detect document type for receipt pipeline
+      let type: string | undefined;
+      if (/\b(invoice|tax\s*invoice)\b/.test(lowerCaption)) type = "INVOICE";
+      else if (/\b(receipt)\b/.test(lowerCaption)) type = "RECEIPT";
+      else if (/\b(bill)\b/.test(lowerCaption)) type = "BILL";
+      else if (/\b(expense)\b/.test(lowerCaption)) type = "EXPENSE";
+
+      // Detect category
+      let category: string | undefined;
+      if (/\b(home|house|property)\b/.test(lowerCaption)) category = "HOME";
+      else if (/\b(work|job|office|business)\b/.test(lowerCaption)) category = "WORK";
+      else if (/\b(car|vehicle|auto|fuel|gas)\b/.test(lowerCaption)) category = "CAR";
+      else if (/\b(health|medical|doctor|hospital)\b/.test(lowerCaption)) category = "HEALTH";
+
+      return { pipeline: "receipt", metadata: { type, category } };
+    }
+  }
+
+  // Archive patterns with optional category detection
+  const archivePatterns = [
+    /\b(archive|file|store|save)\s*(this\s*)?(document|contract|agreement|paper|file)?\b/,
+    /\b(important\s*document)\b/,
+    /\b(contract|agreement|lease|deed|certificate|license|permit)\b/,
+    /\b(keep\s*(this|for)\s*(records?|files?))\b/,
+  ];
+
+  for (const pattern of archivePatterns) {
+    if (pattern.test(lowerCaption)) {
+      console.log(`  Detected dictated pipeline intent: "archive" from caption`);
+
+      // Try to detect document type
+      let type: string | undefined;
+      if (/\b(contract|agreement)\b/.test(lowerCaption)) type = "CONTRACT";
+      else if (/\b(lease)\b/.test(lowerCaption)) type = "LEASE";
+      else if (/\b(certificate|license|permit)\b/.test(lowerCaption)) type = "CERTIFICATE";
+      else if (/\b(deed|title)\b/.test(lowerCaption)) type = "DEED";
+
+      // Try to detect category
+      let category: string | undefined;
+      if (/\b(home|house|property|real\s*estate)\b/.test(lowerCaption)) category = "HOME";
+      else if (/\b(work|job|employment|office)\b/.test(lowerCaption)) category = "WORK";
+      else if (/\b(car|vehicle|auto)\b/.test(lowerCaption)) category = "CAR";
+      else if (/\b(health|medical|doctor|hospital)\b/.test(lowerCaption)) category = "HEALTH";
+
+      return { pipeline: "archive", metadata: { type, category } };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Detect document type from Vision AI or extracted content
+ * Scans content for keywords that indicate document type
+ * Returns type string (INVOICE, RECEIPT, CONTRACT, etc.) or undefined
+ */
+export function detectDocumentTypeFromContent(content: string): string | undefined {
+  const lowerContent = content.toLowerCase();
+
+  // Check for specific document types in order of specificity
+  // Invoice/Tax Invoice
+  if (/\b(tax\s*invoice|invoice\s*(number|no|#|date)?)\b/.test(lowerContent)) {
+    return "INVOICE";
+  }
+  // Receipt
+  if (/\b(receipt|payment\s*received|thank\s*you\s*for\s*your\s*(purchase|payment))\b/.test(lowerContent)) {
+    return "RECEIPT";
+  }
+  // Contract/Agreement
+  if (/\b(contract|agreement|terms\s*and\s*conditions|hereby\s*agree)\b/.test(lowerContent)) {
+    return "CONTRACT";
+  }
+  // Certificate
+  if (/\b(certificate|certification|certified|this\s*is\s*to\s*certify)\b/.test(lowerContent)) {
+    return "CERTIFICATE";
+  }
+  // Correspondence/Letter
+  if (/\b(dear\s+(sir|madam|mr|mrs|ms)|regards|sincerely|to\s*whom\s*it\s*may\s*concern)\b/.test(lowerContent)) {
+    return "CORRESPONDANCE";
+  }
+  // Bill (utility bills, etc.)
+  if (/\b(bill|amount\s*due|due\s*date|account\s*number)\b/.test(lowerContent)) {
+    return "BILL";
+  }
+
+  return undefined;
+}
+
+/**
+ * Detect dictated intent from caption for document processing
+ * Maps natural language phrases to fabric patterns
+ * Returns pattern name if intent detected, null otherwise
+ */
+export function detectDictatedDocumentIntent(caption: string | undefined): string | null {
+  if (!caption) return null;
+
+  const lowerCaption = caption.toLowerCase();
+
+  // Intent patterns mapped to fabric patterns
+  const intentPatterns: Array<{ patterns: RegExp[]; fabricPattern: string }> = [
+    {
+      patterns: [
+        /\b(summarize|summarise|summary|sum up|give me a summary)\b/,
+        /\b(tldr|tl;dr|too long)\b/,
+      ],
+      fabricPattern: "summarize",
+    },
+    {
+      patterns: [
+        /\b(extract\s*(the\s*)?(wisdom|insights|learnings|takeaways))\b/,
+        /\b(key\s*(points|ideas|insights|takeaways|learnings))\b/,
+        /\b(main\s*(points|ideas|insights|takeaways))\b/,
+        /\b(what.*(learn|take away|important))\b/,
+      ],
+      fabricPattern: "extract_wisdom",
+    },
+    {
+      patterns: [
+        /\b(extract\s*(the\s*)?(article|content))\b/,
+        /\b(article\s*wisdom)\b/,
+      ],
+      fabricPattern: "extract_article_wisdom",
+    },
+    {
+      patterns: [
+        /\b(analyze|analyse|analysis)\b/,
+        /\b(break\s*down)\b/,
+      ],
+      fabricPattern: "analyze_paper",
+    },
+  ];
+
+  for (const { patterns, fabricPattern } of intentPatterns) {
+    for (const pattern of patterns) {
+      if (pattern.test(lowerCaption)) {
+        console.log(`  Detected dictated intent: "${fabricPattern}" from caption`);
+        return fabricPattern;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * AI Intent Extraction Result
  */
 export interface IntentResult {
@@ -243,18 +409,19 @@ Return ONLY valid JSON, no markdown code blocks.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",  // Fast, low-cost model for intent extraction
+        model: "gpt-5-mini",  // Fast, low-cost model for intent extraction
         messages: [
           { role: "system", content: "You extract document processing intent from natural language. Return only valid JSON." },
           { role: "user", content: prompt },
         ],
-        max_tokens: 300,
-        temperature: 0.3,
+        max_completion_tokens: 300,
+        // Note: temperature not supported by gpt-5-mini, uses default (1)
       }),
     });
 
     if (!response.ok) {
-      console.warn(`Intent extraction API error: ${response.status}`);
+      const errorBody = await response.text();
+      console.warn(`Intent extraction API error: ${response.status} - ${errorBody}`);
       return null;
     }
 
@@ -631,9 +798,23 @@ export async function processMessage(
       break;
 
     case "photo":
-      const photoResult = await processPhoto(message, config.tempDir, hints);
+      // Check if archive pipeline to preserve original file for Dropbox sync
+      // Check both explicit commands AND dictated intent from caption
+      let photoPipeline = determinePipeline(validCommands);
+      if (photoPipeline === "default") {
+        const dictatedPhotoIntent = detectDictatedPipelineIntent(messageText);
+        if (dictatedPhotoIntent) {
+          photoPipeline = dictatedPhotoIntent.pipeline;
+        }
+      }
+      const keepPhotoForArchive = photoPipeline === "archive" || photoPipeline === "receipt";
+      const photoResult = await processPhoto(message, config.tempDir, hints, keepPhotoForArchive);
       rawContent = photoResult.content;
       suggestedTitle = photoResult.title;
+      // Store original path for Dropbox sync (will be used later if archive pipeline)
+      if (photoResult.filePath && keepPhotoForArchive) {
+        (message as any)._originalFilePath = photoResult.filePath;
+      }
       break;
 
     case "text":
@@ -663,7 +844,22 @@ export async function processMessage(
   let pipeline = determinePipeline(validCommands);
   let intentResult: IntentResult | null = null;
 
-  // Step 2b.1: If no explicit command, try AI intent parsing
+  // Step 2b.0: If no explicit command, try dictated pipeline intent (archive/receipt)
+  if (pipeline === "default") {
+    const dictatedPipeline = detectDictatedPipelineIntent(messageText);
+    if (dictatedPipeline) {
+      pipeline = dictatedPipeline.pipeline;
+      // Apply detected metadata
+      if (dictatedPipeline.metadata?.type && !hints.metadata.type) {
+        hints.metadata.type = dictatedPipeline.metadata.type;
+      }
+      if (dictatedPipeline.metadata?.category && !hints.metadata.category) {
+        hints.metadata.category = dictatedPipeline.metadata.category;
+      }
+    }
+  }
+
+  // Step 2b.1: If still no pipeline, try AI intent parsing
   if (pipeline === "default" && config.openaiApiKey) {
     const filename = message.document?.file_name || message.audio?.file_name;
     intentResult = await extractIntent(
@@ -711,9 +907,25 @@ export async function processMessage(
       console.log(`  Preserving archive name: ${archiveName}`);
     } else {
       // Generate new archive name from metadata
-      const docType = hints.metadata.type || "DOCUMENT";
+      // Try to detect document type from: 1) caption intent, 2) Vision AI content analysis, 3) default
+      let docType = hints.metadata.type;
+      if (!docType && rawContent) {
+        const detectedType = detectDocumentTypeFromContent(rawContent);
+        if (detectedType) {
+          console.log(`  Detected document type from content: ${detectedType}`);
+          docType = detectedType;
+        }
+      }
+      docType = docType || "DOCUMENT";
       const category = hints.metadata.category || "MISC";
-      const ext = sourceFilename.split(".").pop() || "pdf";
+      // Get extension from: 1) document filename, 2) original file path (for photos), 3) content type
+      let ext = sourceFilename.split(".").pop();
+      if (!ext && originalFilePath) {
+        ext = originalFilePath.split(".").pop();
+      }
+      if (!ext) {
+        ext = contentType === "photo" ? "jpg" : "pdf";
+      }
 
       archiveName = generateArchiveName({
         type: docType,
@@ -733,12 +945,30 @@ export async function processMessage(
   }
 
   // Step 3: Determine fabric patterns to apply
-  // Priority: 1) Explicit commands (/summarize, /wisdom), 2) Profile defaults
+  // Priority: 1) Explicit commands (/summarize, /wisdom), 2) Dictated intent from caption, 3) Profile defaults
   const requestedPatterns = determineRequestedPatterns(validCommands);
-  const patterns = requestedPatterns.length > 0
-    ? requestedPatterns
-    : (profile.processing.patterns[contentType] || []);
-  const hasExplicitPatternRequest = requestedPatterns.length > 0;
+
+  // For documents, also check for dictated intent in caption (e.g., "summarize this")
+  const dictatedIntent = contentType === "document"
+    ? detectDictatedDocumentIntent(hints.cleanedContent || message.caption)
+    : null;
+
+  let patterns: string[];
+  let hasExplicitPatternRequest: boolean;
+
+  if (requestedPatterns.length > 0) {
+    // User used explicit commands like /summarize, /wisdom
+    patterns = requestedPatterns;
+    hasExplicitPatternRequest = true;
+  } else if (dictatedIntent) {
+    // User dictated intent like "summarize this document"
+    patterns = [dictatedIntent];
+    hasExplicitPatternRequest = true;
+  } else {
+    // Fall back to profile defaults (but documents skip this due to skipAutoPatterns)
+    patterns = profile.processing.patterns[contentType] || [];
+    hasExplicitPatternRequest = false;
+  }
   const results: ProcessedContent[] = [];
 
   // Always create raw note
@@ -759,9 +989,13 @@ export async function processMessage(
   });
 
   // If paired output, also create processed version
-  // Skip auto-patterns for clip pipeline (clips are already summaries/snippets)
-  // BUT: Always run if user explicitly requested patterns via command
-  const skipAutoPatterns = pipeline === "clip" && !hasExplicitPatternRequest;
+  // Skip auto-patterns for:
+  // - clip pipeline (clips are already summaries/snippets)
+  // - archive/receipt pipeline (straight-through archiving, no processing)
+  // - document content (PDFs/DOCX should just be extracted, not auto-summarized)
+  // BUT: Always run if user explicitly requested patterns via command (/wisdom, /summarize)
+  const isArchivePipeline = pipeline === "archive" || pipeline === "receipt";
+  const skipAutoPatterns = (pipeline === "clip" || isArchivePipeline || contentType === "document") && !hasExplicitPatternRequest;
   if (profile.processing.pairedOutput && patterns.length > 0 && !skipAutoPatterns) {
     if (hasExplicitPatternRequest) {
       console.log(`  Running requested pattern(s): ${patterns.join(", ")}`);
@@ -936,13 +1170,22 @@ async function processDocument(
 
     // Route based on file type
     if (ext === "pdf") {
-      // PDF: Use marker_single (outputs to same directory as input)
-      const outputPath = filePath.replace(/\.pdf$/i, ".md");
-      await execAsync(`marker_single "${filePath}"`, {
-        timeout: 120000, // 2 min timeout
+      // PDF: Use marker_single with explicit output directory
+      // marker creates a subdirectory named after the file, then puts .md inside
+      const outputDir = filePath.replace(/\.pdf$/i, "_marker_output");
+      const baseName = filePath.split("/").pop()?.replace(/\.pdf$/i, "") || "output";
+
+      await execAsync(`marker_single "${filePath}" --output_dir "${outputDir}"`, {
+        timeout: 300000, // 5 min timeout (first run may download models)
       });
-      content = await Bun.file(outputPath).text();
-      await unlink(outputPath).catch(() => {});
+
+      // Find the .md file in marker's output structure
+      const markerOutputDir = `${outputDir}/${baseName}`;
+      const mdPath = `${markerOutputDir}/${baseName}.md`;
+      content = await Bun.file(mdPath).text();
+
+      // Cleanup marker output directory
+      await execAsync(`rm -rf "${outputDir}"`).catch(() => {});
     } else if (ext === "rtf") {
       // RTF: May contain HTML - try multiple extraction strategies
       // First, read raw content to detect HTML
@@ -1261,8 +1504,9 @@ async function fetchWithBasicMethod(url: string): Promise<{ content: string; tit
 async function processPhoto(
   message: TelegramMessage,
   tempDir: string,
-  hints?: InlineHints
-): Promise<{ content: string; title: string }> {
+  hints?: InlineHints,
+  keepForArchive: boolean = false
+): Promise<{ content: string; title: string; filePath?: string }> {
   const photo = message.photo;
   if (!photo || photo.length === 0) throw new Error("No photo in message");
 
@@ -1271,6 +1515,9 @@ async function processPhoto(
   const filename = `photo_${message.message_id}.jpg`;
   const filePath = await downloadFile(largest.file_id, filename);
   const config = getConfig();
+
+  // Track if we should return the file path for archive sync
+  let returnFilePath = keepForArchive;
 
   const caption = message.caption || "";
   const commands = hints?.commands || [];
@@ -1282,12 +1529,17 @@ async function processPhoto(
       return {
         content: `![Image](${imagePath})\n\n${caption}`,
         title: "Image",
+        ...(returnFilePath && { filePath }),
       };
     }
 
     // /ocr - Tesseract OCR only
     if (commands.includes("ocr") || (!caption && !config.openaiApiKey)) {
-      return await processPhotoWithOCR(filePath, caption);
+      const ocrResult = await processPhotoWithOCR(filePath, caption);
+      return {
+        ...ocrResult,
+        ...(returnFilePath && { filePath }),
+      };
     }
 
     // Vision AI processing (if API key available)
@@ -1329,22 +1581,32 @@ async function processPhoto(
       // Generate AI title from vision result
       let title: string;
       try {
-        title = await generateAITitle(visionResult, config.openaiApiKey);
-      } catch {
+        title = await generateAITitle(visionResult, config.openaiApiKey, "image");
+        console.log(`    AI title generated: "${title}"`);
+      } catch (err) {
+        console.warn(`    AI title generation failed: ${err}`);
         title = "Image Analysis";
       }
 
       return {
         content: `![Image](${imagePath})\n\n**Prompt:** ${prompt}\n\n**Analysis:**\n${visionResult}`,
         title,
+        ...(returnFilePath && { filePath }),
       };
     }
 
     // Fallback to OCR if no API key
-    return await processPhotoWithOCR(filePath, caption);
+    const ocrResult = await processPhotoWithOCR(filePath, caption);
+    return {
+      ...ocrResult,
+      ...(returnFilePath && { filePath }),
+    };
 
   } finally {
-    await unlink(filePath).catch(() => {});
+    // Only delete file if not keeping for archive
+    if (!returnFilePath) {
+      await unlink(filePath).catch(() => {});
+    }
   }
 }
 
@@ -1403,7 +1665,7 @@ async function processPhotoWithVision(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o",
+      model: "gpt-5.1",  // Vision API for image analysis
       messages: [
         {
           role: "user",
@@ -1421,7 +1683,7 @@ async function processPhotoWithVision(
           ],
         },
       ],
-      max_tokens: 2000,
+      max_completion_tokens: 2000,
     }),
   });
 
@@ -1493,11 +1755,32 @@ function generateTitleFromText(text: string): string {
 }
 
 /**
- * Generate a descriptive title using GPT-4o-mini
+ * Generate a descriptive title using GPT-5-mini
  */
-async function generateAITitle(transcript: string, apiKey: string): Promise<string> {
+async function generateAITitle(
+  content: string,
+  apiKey: string,
+  contentType: "transcript" | "image" | "document" = "transcript"
+): Promise<string> {
   // Use first ~2000 chars to keep costs low
-  const sample = transcript.slice(0, 2000);
+  const sample = content.slice(0, 2000);
+
+  const prompts: Record<string, { system: string; fallback: string }> = {
+    transcript: {
+      system: "Generate a short, descriptive title (max 60 chars) for this transcript. Focus on the main topic or purpose. Return ONLY the title, no quotes or punctuation at the end.",
+      fallback: "Audio Recording",
+    },
+    image: {
+      system: "Generate a short, descriptive title (max 60 chars) for this image analysis. Focus on the main subject or content. Return ONLY the title, no quotes or punctuation at the end.",
+      fallback: "Image",
+    },
+    document: {
+      system: "Generate a short, descriptive title (max 60 chars) for this document. Focus on the main topic. Return ONLY the title, no quotes or punctuation at the end.",
+      fallback: "Document",
+    },
+  };
+
+  const { system, fallback } = prompts[contentType];
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -1506,28 +1789,26 @@ async function generateAITitle(transcript: string, apiKey: string): Promise<stri
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5.1",  // Title generation - needs quality model (5-mini returns empty)
       messages: [
-        {
-          role: "system",
-          content: "Generate a short, descriptive title (max 60 chars) for this transcript. Focus on the main topic or purpose. Return ONLY the title, no quotes or punctuation at the end.",
-        },
-        {
-          role: "user",
-          content: sample,
-        },
+        { role: "system", content: system },
+        { role: "user", content: sample },
       ],
-      max_tokens: 30,
-      temperature: 0.3,
+      max_completion_tokens: 30,
+      // Note: temperature not supported by gpt-5-mini, uses default (1)
     }),
   });
 
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.warn(`Title generation API error: ${response.status} - ${errorBody}`);
     throw new Error(`OpenAI API error: ${response.status}`);
   }
 
   const data = await response.json();
-  const title = data.choices[0]?.message?.content?.trim() || "Audio Recording";
+  const rawTitle = data.choices[0]?.message?.content?.trim();
+  console.log(`    Raw title from API: "${rawTitle}"`);
+  const title = rawTitle || fallback;
 
   // Clean up: remove quotes and filesystem-unsafe characters, limit length
   return title
@@ -1594,6 +1875,19 @@ export interface SaveResult {
 }
 
 /**
+ * Embed a newly created note for semantic search
+ * Uses dynamic import to avoid circular dependencies
+ */
+async function embedNewNote(notePath: string): Promise<void> {
+  try {
+    const { embedNote } = await import("../../obs/lib/embed");
+    await embedNote(notePath, { verbose: false });
+  } catch {
+    // Embedding is optional - silently fail
+  }
+}
+
+/**
  * Save processed content to vault
  */
 export async function saveToVault(
@@ -1623,6 +1917,15 @@ export async function saveToVault(
     await mkdir(outputDir, { recursive: true });
   }
 
+  // For archive pipeline: sync original file to Dropbox FIRST (so we can include link in markdown)
+  let dropboxPath: string | undefined;
+  if (isArchivePipeline && processed.originalFilePath && processed.archiveName) {
+    const syncResult = await syncToDropbox(processed.originalFilePath, processed.archiveName);
+    if (syncResult) {
+      dropboxPath = syncResult;
+    }
+  }
+
   // Generate frontmatter with source metadata
   const meta = processed.sourceMetadata;
   const receivedDate = processed.messageDate
@@ -1638,6 +1941,7 @@ export async function saveToVault(
     ...(processed.pipeline ? [`pipeline: ${processed.pipeline}`] : []),
     ...(processed.sourceFile ? [`source_file: "${processed.sourceFile}"`] : []),
     ...(processed.archiveName ? [`archive_name: "${processed.archiveName}"`] : []),
+    ...(dropboxPath ? [`archive_path: "${dropboxPath}"`] : []),
     // Source metadata fields (only include if present)
     ...(meta?.source ? [`source_shortcut: ${meta.source}`] : []),
     ...(meta?.device ? [`source_device: ${meta.device}`] : []),
@@ -1647,20 +1951,23 @@ export async function saveToVault(
     "---",
   ].join("\n");
 
-  const content = isWisdom && processed.processedContent
+  // Build content with Dropbox link for archive pipeline
+  let content = isWisdom && processed.processedContent
     ? processed.processedContent
     : processed.rawContent;
 
+  // Add Dropbox link at top of content for archive items
+  if (dropboxPath) {
+    const dropboxLink = `📎 **Original:** [${processed.archiveName}](file://${dropboxPath.replace(/ /g, "%20")})\n\n`;
+    content = dropboxLink + content;
+  }
+
   await Bun.write(filePath, `${frontmatter}\n\n${content}`);
 
-  // For archive pipeline: sync original file to Dropbox
-  let dropboxPath: string | undefined;
-  if (isArchivePipeline && processed.originalFilePath && processed.archiveName) {
-    const syncResult = await syncToDropbox(processed.originalFilePath, processed.archiveName);
-    if (syncResult) {
-      dropboxPath = syncResult;
-    }
-  }
+  // Embed the new note for semantic search (fire-and-forget, non-blocking)
+  embedNewNote(filePath).catch(() => {
+    // Silently ignore embedding errors - search will work when batch rebuild runs
+  });
 
   return { vaultPath: filePath, dropboxPath };
 }

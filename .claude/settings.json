@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
-    "PAI_DIR": "/Users/YOUR_USERNAME/.claude",
+    "PAI_DIR": "/Users/andreas/.claude",
     "DA": "PAI",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },

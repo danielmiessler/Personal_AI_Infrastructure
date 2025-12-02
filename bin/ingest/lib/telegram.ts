@@ -302,6 +302,7 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
     const filenames = options.outputPaths
       .map(p => p.split("/").pop()?.replace(/\.md$/, ""))  // Remove .md extension for notes
       .filter(Boolean)
+      .map(f => escapeMarkdown(f || ""))
       .join(", ");
     parts.push(`📂 ${filenames}`);
   }
@@ -349,7 +350,8 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
  * Escape special characters for Telegram Markdown
  */
 function escapeMarkdown(text: string): string {
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
+  // Escape markdown special chars and & to prevent HTML entity parsing issues
+  return text.replace(/[_*[\]()~`>#+\-=|{}.!&]/g, "\\$&");
 }
 
 /**
@@ -554,6 +556,20 @@ _Note: Use #1on1 as a TAG, not /1on1 command_
 _Or use any caption as Vision AI prompt_
 _e.g., "Extract text" or "What is this?"_
 
+*Document Commands (PDF/DOCX):*
+_Documents are extracted to markdown by default_
+_Add caption for processing intent:_
+• "summarize" or "tldr" → summarize
+• "key points" or "extract wisdom" → extract\\_wisdom
+• "analyze" or "break down" → analyze\\_paper
+
+*Dictated Intent (voice captions):*
+_Say your intent naturally and it will be detected:_
+• "archive this", "file this", "save this contract"
+• "save this receipt", "expense report", "invoice"
+_Auto-detects type (CONTRACT, LEASE, CERTIFICATE)_
+_Auto-detects category (HOME, WORK, CAR, HEALTH)_
+
 *Spoken Hints (voice memos):*
 Say "hashtag project name" → #project-name
 Say "at person name" → @person\\_name
@@ -563,7 +579,9 @@ Say "forward slash summarize" → /summarize
 • \`/wisdom #project/pai Voice memo to extract insights\`
 • \`/summarize This long article needs condensing\`
 • \`/archive [type:CONTRACT] Lease agreement\`
-• \`/query What did I discuss with Ed?\``;
+• \`/query What did I discuss with Ed?\`
+• "Archive this lease for the house" → archive + LEASE + HOME
+• "Save this receipt from Amazon" → receipt pipeline`;
 
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
 

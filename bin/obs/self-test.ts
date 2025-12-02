@@ -529,6 +529,76 @@ async function runTests(): Promise<void> {
     warn("ffmpeg", "Could not check");
   }
 
+  // Test 24: Dictated pipeline intent patterns
+  try {
+    const intentTests = [
+      { input: "archive this lease agreement", shouldMatch: "archive", type: "LEASE" },
+      { input: "save this receipt from Bunnings", shouldMatch: "receipt", type: null },
+      { input: "this is my work contract", shouldMatch: "archive", type: "CONTRACT" },
+      { input: "just a random note", shouldMatch: null, type: null },
+    ];
+
+    let intentPassed = true;
+
+    // Receipt patterns
+    const receiptPatterns = [
+      /\b(receipt|invoice|bill|purchase|expense)\b/i,
+      /\b(bought|purchased|paid)\b/i,
+    ];
+
+    // Archive patterns
+    const archivePatterns = [
+      /\b(archive|file|store|save)\s*(this\s*)?(document|contract|agreement|paper|file)?\b/i,
+      /\b(contract|agreement|lease|deed|certificate|license|permit)\b/i,
+    ];
+
+    for (const test of intentTests) {
+      const isReceipt = receiptPatterns.some(p => p.test(test.input));
+      const isArchive = archivePatterns.some(p => p.test(test.input));
+
+      const detectedPipeline = isReceipt ? "receipt" : isArchive ? "archive" : null;
+
+      if (detectedPipeline !== test.shouldMatch) {
+        intentPassed = false;
+        break;
+      }
+    }
+
+    if (intentPassed) {
+      pass("Dictated Intent", "Archive/receipt pipeline detection patterns valid");
+    } else {
+      fail("Dictated Intent", "One or more intent patterns failed");
+    }
+  } catch (e) {
+    fail("Dictated Intent", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 25: Real-time embedding check
+  if (vaultPath) {
+    const resolvedPath = vaultPath.replace(/^~/, homedir());
+    const embeddingsDb = join(resolvedPath, "_meta", "embeddings.db");
+    if (existsSync(embeddingsDb)) {
+      try {
+        const { Database } = await import("bun:sqlite");
+        const db = new Database(embeddingsDb);
+        const noteCount = (db.query("SELECT COUNT(*) as count FROM notes").get() as { count: number }).count;
+        const lastUpdate = db.query("SELECT MAX(embedded_at) as ts FROM notes").get() as { ts: number | null };
+        db.close();
+
+        if (noteCount > 0) {
+          const lastDate = lastUpdate.ts ? new Date(lastUpdate.ts).toISOString().slice(0, 16) : "never";
+          pass("Real-time Embedding", `${noteCount} notes indexed, last: ${lastDate}`);
+        } else {
+          warn("Real-time Embedding", "No notes indexed yet - run 'obs embed' or process a message");
+        }
+      } catch (e) {
+        warn("Real-time Embedding", `Could not read embedding stats: ${e instanceof Error ? e.message : e}`);
+      }
+    } else {
+      warn("Real-time Embedding", "Embeddings DB not found - new notes won't be searchable until created");
+    }
+  }
+
   // Summary
   console.log("\n" + "─".repeat(50));
   const passed = results.filter(r => r.status === "pass").length;

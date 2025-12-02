@@ -11,9 +11,9 @@ import { getConfig, validateVault } from "./config";
 import { parseNote } from "./parse";
 
 // Embedding model configuration
-// text-embedding-3-small = 1536 dimensions
+// text-embedding-3-small = 1536 dimensions (default - matches existing DB)
 // text-embedding-3-large = 3072 dimensions (better semantic understanding)
-const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-large";
+const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
 const EMBEDDING_DIM = EMBEDDING_MODEL.includes("large") ? 3072 : 1536;
 const CHUNK_SIZE = 1000; // characters per chunk
 const CHUNK_OVERLAP = 200;
@@ -398,6 +398,69 @@ export async function semanticSearch(
   db.close();
 
   return results.slice(0, limit);
+}
+
+/**
+ * Embed a single note immediately after creation
+ * Used by ingest pipeline for real-time indexing
+ */
+export async function embedNote(notePath: string, options?: { verbose?: boolean }): Promise<boolean> {
+  try {
+    const db = await initDatabase();
+    const fileStat = await stat(notePath);
+    const name = basename(notePath, ".md");
+
+    // Parse and chunk the note
+    const parsed = await parseNote(notePath);
+    const chunks = chunkText(parsed.content);
+
+    if (chunks.length === 0) {
+      if (options?.verbose) {
+        console.log(`  No content to embed: ${name}`);
+      }
+      db.close();
+      return false;
+    }
+
+    // Generate embeddings
+    const embeddings = await generateEmbeddings(chunks);
+
+    // Upsert note
+    db.run(
+      `INSERT INTO notes (path, name, mtime, embedded_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(path) DO UPDATE SET mtime = ?, embedded_at = ?`,
+      [notePath, name, fileStat.mtime.getTime(), Date.now(), fileStat.mtime.getTime(), Date.now()]
+    );
+
+    const noteId = (
+      db.query("SELECT id FROM notes WHERE path = ?").get(notePath) as { id: number }
+    ).id;
+
+    // Delete old chunks
+    db.run("DELETE FROM chunks WHERE note_id = ?", [noteId]);
+
+    // Insert new chunks with embeddings
+    for (let j = 0; j < chunks.length; j++) {
+      const embedding = embeddings[j];
+      db.run(
+        "INSERT INTO chunks (note_id, chunk_index, content, embedding) VALUES (?, ?, ?, ?)",
+        [noteId, j, chunks[j], embeddingToBlob(embedding)]
+      );
+    }
+
+    if (options?.verbose) {
+      console.log(`  Embedded: ${name} (${chunks.length} chunks)`);
+    }
+
+    db.close();
+    return true;
+  } catch (error) {
+    if (options?.verbose) {
+      console.error(`  Embedding error: ${error}`);
+    }
+    return false;
+  }
 }
 
 /**

@@ -551,6 +551,8 @@ _Note: Use #1on1 as a TAG, not /1on1 command_
 \`/mermaid\` - Convert to diagram
 \`/ocr\` - Text extraction only
 \`/store\` - Save without processing
+_Or use any caption as Vision AI prompt_
+_e.g., "Extract text" or "What is this?"_
 
 *Spoken Hints (voice memos):*
 Say "hashtag project name" → #project-name

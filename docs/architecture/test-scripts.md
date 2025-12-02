@@ -451,15 +451,36 @@ ingest process --verbose
 ```bash
 # Setup: Send photo of flowchart/diagram with "/mermaid"
 # Example: Whiteboard diagram with caption:
-#   "/mermaid Convert this to a sequence diagram"
+#   "/mermaid"
 
 # Test: Process
 ingest process --verbose
 
 # Expected:
-# - Vision API returns Mermaid syntax
+# - Vision API uses optimized mermaid extraction prompt
+# - Mermaid syntax fix applied (escapes special chars)
 # - Note contains ```mermaid code block
 # - Can be rendered in Obsidian
+```
+
+#### TEST-ING-045b: Vision API - Dictated Mermaid Intent
+```bash
+# Setup: Send photo of diagram with DICTATED caption (no /command)
+# Caption (via Wispr Flow or dictation):
+#   "convert this to a mermaid diagram"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Caption passed as Vision API prompt
+# - Vision API attempts mermaid conversion
+# - If output contains ```mermaid, syntax fix is applied
+# - Works but may be less reliable than explicit /mermaid
+#
+# Note: This tests non-deterministic intent detection.
+# The /mermaid command uses an optimized prompt; dictation
+# relies on the Vision API interpreting the request.
 ```
 
 #### TEST-ING-046: Vision API - /ocr Only

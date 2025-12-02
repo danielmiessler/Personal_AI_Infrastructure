@@ -29,39 +29,78 @@ Add metadata to your shortcut's caption in this format:
 | `type` | Document type | `RECEIPT`, `CONTRACT`, `DOCUMENT` |
 | `category` | Category | `HOME`, `WORK`, `CAR`, `TRAVEL` |
 
-## Basic Clipboard Share Shortcut
+## Clipboard → Telegram Inbox (Rich Text)
 
-### Steps:
+This shortcut captures clipboard content (including rich text/HTML from web pages, newsletters, etc.) and sends it to your PAI Inbox.
 
-1. **Get Clipboard** - Retrieves clipboard content
-2. **Get Device Details** - Gets device model
-3. **Text** - Build caption:
-   ```
-   [source:clipboard-share][device:iphone]
-   ```
-4. **Send Message via Telegram** - Send to your PAI Inbox channel
-
-### Shortcut Actions:
+### Shortcut Configuration:
 
 ```
-1. Receive input from: Share Sheet, Quick Actions
-   If there's no input: Get Clipboard
-
-2. Set variable: content = Shortcut Input
-
-3. Get Device Details
-   Set variable: device = Device Model
-
-4. Text:
-   [source:clipboard-share][device:📱device]
-
-5. Set variable: caption = Text
-
-6. If content has any value:
-   - Send Message (Telegram Bot)
-     - To: Your PAI Inbox Channel ID
-     - Text: caption + newline + content
+┌─────────────────────────────────────────────────────────┐
+│ 1. Get Clipboard                                        │
+│    (Retrieves current clipboard content)                │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 2. Make HTML from                                       │
+│    Input: Clipboard                                     │
+│    (Converts rich text to HTML format)                  │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 3. Save File                                            │
+│    Input: HTML from Rich Text                           │
+│    Destination: Shortcuts                               │
+│    Subpath: clipboard.html                              │
+│    Ask Where To Save: OFF                               │
+│    Overwrite if File Exists: ON                         │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 4. Text                                                 │
+│    [source:clipboard][device:iphone][user:YOUR_NAME]    │
+│    {Clipboard}                                          │
+│                                                         │
+│    (Metadata line + original clipboard as plain text)   │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 5. Get Contents of URL                                  │
+│    URL: https://api.telegram.org/bot{TOKEN}/sendDocument│
+│    Method: POST                                         │
+│    Headers: (none needed)                               │
+│    Request Body: Form                                   │
+│      • chat_id: YOUR_CHANNEL_ID                         │
+│      • document: (File from step 3)                     │
+│      • caption: (Text from step 4)                      │
+└─────────────────────────────────────────────────────────┘
 ```
+
+### Setup Variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{TOKEN}` | Your Telegram Bot token | `123456:ABC-DEF...` |
+| `YOUR_CHANNEL_ID` | Your PAI Inbox channel ID | `-1001234567890` |
+| `YOUR_NAME` | Your username for tracking | `andreas` |
+
+### How It Works:
+
+1. **Get Clipboard** - Captures whatever is on your clipboard
+2. **Make HTML** - Converts rich text (formatting, links) to HTML
+3. **Save File** - Creates temporary `clipboard.html` file
+4. **Text** - Builds caption with metadata + plain text preview
+5. **Send Document** - Uploads HTML file with caption to Telegram
+
+The PAI ingest pipeline will:
+- Extract HTML content and convert to markdown
+- Parse metadata from caption (`source`, `device`, `user`)
+- Apply AI intent detection for routing
+- Save to your Obsidian vault
 
 ## Voice Memo Shortcut
 

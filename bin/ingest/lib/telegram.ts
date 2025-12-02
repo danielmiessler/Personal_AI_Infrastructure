@@ -567,7 +567,8 @@ _Add caption for processing intent:_
 _Say your intent naturally and it will be detected:_
 • "archive this", "file this", "save this contract"
 • "save this receipt", "expense report", "invoice"
-_Auto-detects type (CONTRACT, LEASE, CERTIFICATE)_
+_Auto-detects type from caption + Vision AI content:_
+_INVOICE, RECEIPT, BILL, CONTRACT, LEASE, CERTIFICATE_
 _Auto-detects category (HOME, WORK, CAR, HEALTH)_
 
 *Spoken Hints (voice memos):*

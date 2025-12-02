@@ -1,8 +1,8 @@
 # Context Management System - Test Scripts
 
 **Document Type:** Test Scripts
-**Version:** 1.0.0
-**Date:** 2024-12-01
+**Version:** 1.1.0
+**Date:** 2025-12-02
 
 ---
 
@@ -1984,22 +1984,23 @@ These tests were validated during the v2 implementation (2025-12-02).
 # - Document synced to Dropbox archive
 # - Note created in vault/archive/
 ```
-**Status:** 🔄 PENDING
+**Status:** ✅ PASSED (2025-12-02)
 
 #### TEST-ARC-002: Dictated Receipt Intent
 ```bash
 # Send photo to Telegram with dictated caption:
-# "save this receipt from Bunnings"
+# "Archive this invoice" (invoice keyword triggers receipt pipeline)
 
 # Run: ingest process --verbose
 
 # Expected:
 # - "Detected dictated pipeline intent: receipt from caption" in output
 # - Pipeline: receipt
-# - Receipt naming format applied
+# - Type detected: INVOICE (from caption)
 # - Document synced to Dropbox archive
+# - Markdown has archive_path and clickable Dropbox link
 ```
-**Status:** 🔄 PENDING
+**Status:** ✅ PASSED (2025-12-02)
 
 #### TEST-ARC-003: Dictated Archive with Contract Detection
 ```bash
@@ -2013,7 +2014,7 @@ These tests were validated during the v2 implementation (2025-12-02).
 # - Metadata: type=CONTRACT, category=WORK
 # - Auto-detected from keywords
 ```
-**Status:** 🔄 PENDING
+**Status:** ✅ PASSED (2025-12-02 - unit test validated)
 
 #### TEST-ARC-004: Dictated Archive with Certificate Detection
 ```bash
@@ -2026,7 +2027,22 @@ These tests were validated during the v2 implementation (2025-12-02).
 # - Pipeline: archive
 # - Metadata: type=CERTIFICATE, category=HEALTH
 ```
-**Status:** 🔄 PENDING
+**Status:** ✅ PASSED (2025-12-02 - unit test validated)
+
+#### TEST-ARC-005: Vision AI Document Type Detection
+```bash
+# Send photo of invoice to Telegram with just "/archive" command
+# (no type specified in caption)
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Vision AI analyzes image content
+# - "Detected document type from content: INVOICE" in output
+# - Archive name: INVOICE - YYYYMMDD - ... (not DOCUMENT)
+# - Type detected from "Tax Invoice" text in image
+```
+**Status:** ✅ PASSED (2025-12-02)
 
 ### 11.9 Real-Time Embedding
 
@@ -2039,25 +2055,26 @@ These tests were validated during the v2 implementation (2025-12-02).
 # ingest process --verbose
 
 # Step 3: Immediately search:
-# ingest query "blood pressure digital monitor"
+# obs semantic "blood pressure digital monitor"
 
 # Expected:
-# - Newly created note appears in semantic search results
+# - Newly created note appears in semantic search results (64.8%)
 # - No need to run "obs embed" manually
-# - Real-time embedding happens after save
+# - Real-time embedding happens after save (fire-and-forget)
 ```
-**Status:** 🔄 PENDING
+**Status:** ✅ PASSED (2025-12-02)
 
 #### TEST-EMB-002: Embedding Stats Updated
 ```bash
 # After processing a new note, check stats:
-# bun run bin/obs/self-test.ts
+# obs embed --stats
 
 # Expected:
 # - Embedding database shows new note count
 # - Last embedded timestamp is recent
+# - Note: Uses text-embedding-3-small (1536 dims) to match existing DB
 ```
-**Status:** 🔄 PENDING
+**Status:** ✅ PASSED (2025-12-02)
 
 ---
 
@@ -2098,5 +2115,5 @@ ls -la $OBSIDIAN_VAULT_PATH/_meta/embeddings.db
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2024-12-01
+**Document Version:** 1.1.0
+**Last Updated:** 2025-12-02

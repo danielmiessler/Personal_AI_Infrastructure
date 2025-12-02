@@ -131,6 +131,7 @@ Archive naming convention:
 ```
 
 Examples:
+- `INVOICE - 20251202 - Sime Darby Transport - MISC.jpg`
 - `RECEIPT - 20241201 - Amazon Order - HOME.pdf`
 - `CONTRACT - 20241115 - Employment Agreement (Acme Corp) - WORK.pdf`
 
@@ -184,8 +185,9 @@ Natural language detection for archive and receipt pipelines. Say your intent an
 | Archive | "archive this", "file this", "save this document" | `/archive` pipeline |
 | Receipt | "save this receipt", "expense", "invoice", "purchase" | `/receipt` pipeline |
 
-**Auto-detected document types:**
-- CONTRACT, LEASE, CERTIFICATE, DEED, WARRANTY, POLICY, LICENSE
+**Auto-detected document types (from caption):**
+- INVOICE, RECEIPT, BILL, EXPENSE (receipt pipeline)
+- CONTRACT, LEASE, CERTIFICATE, DEED (archive pipeline)
 
 **Auto-detected categories:**
 - HOME, HOUSE, PROPERTY → HOME
@@ -194,6 +196,19 @@ Natural language detection for archive and receipt pipelines. Say your intent an
 - HEALTH, MEDICAL, DOCTOR → HEALTH
 
 Example: "Archive this lease for the house" → `/archive` + `[type:LEASE]` + `[category:HOME]`
+
+### Document Type Detection from Content (v2)
+**Requires:** `OPENAI_API_KEY` (for Vision AI)
+
+When document type isn't specified in caption, Vision AI content analysis detects it:
+- Invoice/Tax Invoice → INVOICE
+- Receipt, Payment Received → RECEIPT
+- Contract, Agreement → CONTRACT
+- Certificate, Certification → CERTIFICATE
+- Letter headers (Dear Sir/Madam) → CORRESPONDANCE
+- Bill, Amount Due → BILL
+
+Example: Photo of invoice with caption "/archive" → Vision AI sees "Tax Invoice" → `INVOICE - 20251202 - ...`
 
 ### Real-time Embedding (v2)
 **Requires:** `OPENAI_API_KEY`

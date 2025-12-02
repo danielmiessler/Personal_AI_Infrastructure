@@ -1790,6 +1790,91 @@ These tests were validated during the v2 implementation (2025-12-02).
 ```
 **Status:** ✅ PASSED
 
+### 11.7 Fabric Pattern Commands
+
+#### TEST-REG-015: /summarize Command
+```bash
+# Send to Telegram:
+# /summarize This is a long article about AI that needs to be condensed...
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Running requested pattern(s): summarize" in output
+# - Creates Raw note + Wisdom note with summary
+# - Works on any content type (text, voice, document)
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-016: /wisdom Command
+```bash
+# Send to Telegram:
+# /wisdom #project/pai Voice memo transcript that should be analyzed
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Running requested pattern(s): extract_wisdom" in output
+# - Creates Wisdom note with: SUMMARY, IDEAS, QUOTES, FACTS, etc.
+# - Tags from caption preserved
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-017: /article Command
+```bash
+# Send URL to Telegram:
+# /article https://example.com/long-article
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Running requested pattern(s): extract_article_wisdom" in output
+# - Article-specific wisdom extraction
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-018: Clip Pipeline Skips Auto-Patterns
+```bash
+# Send to Telegram:
+# /clip This is a newsletter snippet I'm saving for later
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Pipeline: clip
+# - NO Wisdom note created (clips skip auto-patterns)
+# - Only Raw note created
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-019: Clip + Explicit Pattern Request
+```bash
+# Send to Telegram:
+# /clip /summarize This newsletter snippet needs summarizing
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Pipeline: clip
+# - "Running requested pattern(s): summarize" in output
+# - Wisdom note IS created because pattern was explicitly requested
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-020: Spoken Pattern Command
+```bash
+# Record voice memo, say:
+# "Forward slash summarize. Here are my notes from today's meeting..."
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Spoken "forward slash summarize" converted to /summarize
+# - Pattern runs on transcript
+# - Creates both Raw and Wisdom notes
+```
+**Status:** 🔄 PENDING
+
 ---
 
 ## Troubleshooting

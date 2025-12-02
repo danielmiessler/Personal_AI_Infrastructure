@@ -40,20 +40,36 @@ const DEFAULT_CONFIG: SecurityConfig = {
 
   // Whitelist of allowed /commands
   allowedCommands: [
-    // Content type commands
+    // Pipeline routing commands
+    "note",        // Save as note (default)
+    "clip",        // Save article/link for later
+    "archive",     // Archive document with naming
+    "receipt",     // Archive as receipt
+    "query",       // Search vault
+    "help",        // Show help
+
+    // Fabric pattern commands (explicitly trigger patterns)
+    "summarize",   // Run summarize pattern
+    "summary",     // Alias for summarize
+    "wisdom",      // Run extract_wisdom pattern
+    "extract-wisdom", // Explicit pattern name
+    "article",     // Run extract_article_wisdom
+    "article-wisdom", // Explicit pattern name
+    "meeting-notes", // Run meeting_notes pattern
+
+    // Routing/tagging commands (do NOT trigger patterns)
+    // Use #1on1 or #meeting as TAGS instead
+    "meeting",     // Route as meeting (use #meeting for tag)
+    "1on1",        // Route as 1on1 (use #1on1 for tag)
+
+    // Legacy/misc commands
     "transcript",
-    "meeting-notes",
-    "meeting",
-    "summary",
-    "summarize",
-    "wisdom",
     "raw",
     "link",
     "idea",
     "todo",
-    "note",
-    "1on1",
     "bibliography",
+
     // Vision API commands (photo processing)
     "describe",    // Detailed Vision AI description
     "mermaid",     // Convert diagram to Mermaid syntax

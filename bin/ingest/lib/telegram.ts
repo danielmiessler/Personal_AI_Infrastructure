@@ -518,13 +518,21 @@ export async function sendHelpResponse(messageId: number): Promise<void> {
 
   const helpText = `🤖 *PAI Ingest Bot - Help*
 
-*Commands (use as caption or text):*
+*Pipeline Commands:*
 \`/note\` - Save as a note (default)
 \`/clip\` - Save article/link for later
 \`/archive\` - Archive document with naming
 \`/receipt\` - Archive as receipt
 \`/query <text>\` - Search your vault
 \`/help\` - Show this help
+
+*Fabric Pattern Commands:*
+\`/summarize\` - Run summarize pattern
+\`/wisdom\` - Run extract\\_wisdom pattern
+\`/article\` - Run extract\\_article\\_wisdom
+\`/meeting-notes\` - Run meeting\\_notes pattern
+
+_Note: Use #1on1 as a TAG, not /1on1 command_
 
 *Tags & Mentions:*
 \`#project/name\` - Add project tag
@@ -546,11 +554,12 @@ export async function sendHelpResponse(messageId: number): Promise<void> {
 
 *Spoken Hints (voice memos):*
 Say "hashtag project name" → #project-name
-Say "at person name" → @person_name
-Say "forward slash archive" → /archive
+Say "at person name" → @person\\_name
+Say "forward slash summarize" → /summarize
 
 *Examples:*
-• \`#project/pai @ed Meeting notes\`
+• \`/wisdom #project/pai Voice memo to extract insights\`
+• \`/summarize This long article needs condensing\`
 • \`/archive [type:CONTRACT] Lease agreement\`
 • \`/query What did I discuss with Ed?\``;
 

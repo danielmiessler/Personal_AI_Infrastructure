@@ -134,6 +134,49 @@ export function determinePipeline(commands: string[]): PipelineType {
 }
 
 /**
+ * Map of command names to fabric pattern names
+ * Commands can be typed as /summarize or spoken as "forward slash summarize"
+ *
+ * NOTE: Only EXPLICIT pattern names trigger processing.
+ * Commands like /1on1 are for TAGGING (use #1on1), not pattern execution.
+ * Use /meeting-notes or /meeting to explicitly request the pattern.
+ */
+const FABRIC_PATTERN_COMMANDS: Record<string, string> = {
+  // Summarization patterns
+  "summarize": "summarize",
+  "summary": "summarize",
+
+  // Wisdom extraction patterns
+  "wisdom": "extract_wisdom",
+  "extract-wisdom": "extract_wisdom",
+
+  // Article-specific patterns
+  "article": "extract_article_wisdom",
+  "article-wisdom": "extract_article_wisdom",
+
+  // Meeting patterns - explicit names only
+  // NOTE: /1on1 is NOT here - use #1on1 as a tag instead
+  "meeting-notes": "meeting_notes",
+};
+
+/**
+ * Determine which fabric patterns to run based on explicit commands
+ * Returns array of pattern names to run, or empty if no pattern commands found
+ */
+export function determineRequestedPatterns(commands: string[]): string[] {
+  const patterns: string[] = [];
+
+  for (const cmd of commands) {
+    const pattern = FABRIC_PATTERN_COMMANDS[cmd.toLowerCase()];
+    if (pattern && !patterns.includes(pattern)) {
+      patterns.push(pattern);
+    }
+  }
+
+  return patterns;
+}
+
+/**
  * AI Intent Extraction Result
  */
 export interface IntentResult {
@@ -689,8 +732,13 @@ export async function processMessage(
     }
   }
 
-  // Step 3: Apply fabric patterns if configured
-  const patterns = profile.processing.patterns[contentType] || [];
+  // Step 3: Determine fabric patterns to apply
+  // Priority: 1) Explicit commands (/summarize, /wisdom), 2) Profile defaults
+  const requestedPatterns = determineRequestedPatterns(validCommands);
+  const patterns = requestedPatterns.length > 0
+    ? requestedPatterns
+    : (profile.processing.patterns[contentType] || []);
+  const hasExplicitPatternRequest = requestedPatterns.length > 0;
   const results: ProcessedContent[] = [];
 
   // Always create raw note
@@ -711,7 +759,13 @@ export async function processMessage(
   });
 
   // If paired output, also create processed version
-  if (profile.processing.pairedOutput && patterns.length > 0) {
+  // Skip auto-patterns for clip pipeline (clips are already summaries/snippets)
+  // BUT: Always run if user explicitly requested patterns via command
+  const skipAutoPatterns = pipeline === "clip" && !hasExplicitPatternRequest;
+  if (profile.processing.pairedOutput && patterns.length > 0 && !skipAutoPatterns) {
+    if (hasExplicitPatternRequest) {
+      console.log(`  Running requested pattern(s): ${patterns.join(", ")}`);
+    }
     try {
       const processedContent = await applyFabricPatterns(rawContent, patterns);
       const wisdomTags = generateTags(profile, {
@@ -875,15 +929,105 @@ async function processDocument(
 
   const filename = doc.file_name || `doc_${message.message_id}`;
   const filePath = await downloadFile(doc.file_id, filename);
-  const outputPath = join(tempDir, `${basename(filename, ".*")}.md`);
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
 
   try {
-    // Call marker for document extraction
-    await execAsync(`marker_single "${filePath}" "${outputPath}"`, {
-      timeout: 120000, // 2 min timeout
-    });
+    let content: string;
 
-    const content = await Bun.file(outputPath).text();
+    // Route based on file type
+    if (ext === "pdf") {
+      // PDF: Use marker_single (outputs to same directory as input)
+      const outputPath = filePath.replace(/\.pdf$/i, ".md");
+      await execAsync(`marker_single "${filePath}"`, {
+        timeout: 120000, // 2 min timeout
+      });
+      content = await Bun.file(outputPath).text();
+      await unlink(outputPath).catch(() => {});
+    } else if (ext === "rtf") {
+      // RTF: May contain HTML - try multiple extraction strategies
+      // First, read raw content to detect HTML
+      const rawContent = await Bun.file(filePath).text();
+      console.log(`    RTF size: ${rawContent.length} bytes`);
+      console.log(`    RTF preview: ${rawContent.slice(0, 200).replace(/\n/g, "\\n")}`);
+
+      // Check for HTML embedded in RTF (iOS shortcuts often embed HTML in \htmlrtf blocks)
+      const hasHtml = rawContent.includes("<html") || rawContent.includes("<body") ||
+                      rawContent.includes("<p>") || rawContent.includes("\\htmlrtf");
+      console.log(`    Has HTML: ${hasHtml}`);
+
+      if (hasHtml) {
+        // RTF contains HTML - extract HTML and convert to markdown
+        // Try multiple patterns for extracting HTML from RTF
+        let htmlContent: string | null = null;
+
+        // Pattern 1: Full HTML document
+        const fullHtmlMatch = rawContent.match(/<html[^>]*>[\s\S]*<\/html>/i);
+        if (fullHtmlMatch) {
+          htmlContent = fullHtmlMatch[0];
+          console.log(`    Found full HTML document (${htmlContent.length} bytes)`);
+        }
+
+        // Pattern 2: Body content only
+        if (!htmlContent) {
+          const bodyMatch = rawContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+          if (bodyMatch) {
+            htmlContent = `<html><body>${bodyMatch[1]}</body></html>`;
+            console.log(`    Found body content (${htmlContent.length} bytes)`);
+          }
+        }
+
+        // Pattern 3: Any HTML-like content (paragraphs, divs, etc.)
+        if (!htmlContent) {
+          const htmlFragments = rawContent.match(/<(?:p|div|span|a|h[1-6]|ul|ol|li)[^>]*>[\s\S]*?<\/(?:p|div|span|a|h[1-6]|ul|ol|li)>/gi);
+          if (htmlFragments && htmlFragments.length > 0) {
+            htmlContent = `<html><body>${htmlFragments.join("\n")}</body></html>`;
+            console.log(`    Found ${htmlFragments.length} HTML fragments`);
+          }
+        }
+
+        if (htmlContent) {
+          // Write temp HTML file and convert with pandoc
+          const htmlPath = filePath.replace(/\.rtf$/i, ".html");
+          await Bun.write(htmlPath, htmlContent);
+          const { stdout } = await execAsync(`pandoc -f html -t markdown "${htmlPath}"`);
+          content = stdout.trim();
+          console.log(`    Converted HTML to markdown (${content.length} chars)`);
+          await unlink(htmlPath).catch(() => {});
+        } else {
+          // Fallback: use pandoc on RTF directly with HTML reader
+          console.log(`    No HTML extracted, trying pandoc -f html`);
+          try {
+            const { stdout } = await execAsync(`pandoc -f html -t markdown "${filePath}"`);
+            content = stdout.trim();
+          } catch {
+            // Last resort: pandoc on RTF
+            const { stdout } = await execAsync(`pandoc -t markdown "${filePath}"`);
+            content = stdout.trim();
+          }
+        }
+      } else {
+        // Standard RTF - convert to markdown
+        console.log(`    Standard RTF, using pandoc -f rtf`);
+        const { stdout } = await execAsync(`pandoc -f rtf -t markdown "${filePath}"`);
+        content = stdout.trim();
+      }
+    } else if (ext === "html" || ext === "htm") {
+      // HTML: Convert to markdown
+      const { stdout } = await execAsync(`pandoc -f html -t markdown "${filePath}"`);
+      content = stdout.trim();
+    } else if (ext === "docx" || ext === "doc") {
+      // Word docs: Use pandoc
+      const { stdout } = await execAsync(`pandoc -t markdown "${filePath}"`);
+      content = stdout.trim();
+    } else if (ext === "txt" || ext === "md") {
+      // Plain text or markdown: Read directly
+      content = await Bun.file(filePath).text();
+    } else {
+      // Unknown format: Try pandoc plain text extraction
+      const { stdout } = await execAsync(`pandoc -t plain "${filePath}"`);
+      content = stdout.trim();
+    }
+
     const title = doc.file_name?.replace(/\.[^.]+$/, "") || generateTitleFromText(content);
 
     return {
@@ -892,20 +1036,28 @@ async function processDocument(
       ...(keepOriginal && { originalPath: filePath }),
     };
   } catch (error) {
-    // Fallback to simple text extraction if marker fails
-    console.warn(`Marker failed, trying pandoc: ${error}`);
-    const { stdout } = await execAsync(`pandoc -t plain "${filePath}"`);
-    return {
-      content: stdout.trim(),
-      title: doc.file_name?.replace(/\.[^.]+$/, "") || "Document",
-      ...(keepOriginal && { originalPath: filePath }),
-    };
+    // Fallback to simple text extraction if all else fails
+    console.warn(`Document processing failed, trying raw read: ${error}`);
+    try {
+      const rawContent = await Bun.file(filePath).text();
+      // Strip any obvious HTML tags for plain text
+      const plainContent = rawContent
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      return {
+        content: plainContent,
+        title: doc.file_name?.replace(/\.[^.]+$/, "") || "Document",
+        ...(keepOriginal && { originalPath: filePath }),
+      };
+    } catch {
+      throw error; // Re-throw original error
+    }
   } finally {
     // Only delete original if not keeping for archive sync
     if (!keepOriginal) {
       await unlink(filePath).catch(() => {});
     }
-    await unlink(outputPath).catch(() => {});
   }
 }
 

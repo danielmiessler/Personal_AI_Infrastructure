@@ -235,6 +235,14 @@ export interface NotificationOptions {
   pipeline?: string;          // Which pipeline processed this
   error?: string;
   obsidianVaultName?: string;  // Vault name for Obsidian URI
+  // Source metadata from iOS/macOS shortcuts
+  sourceMetadata?: {
+    source?: string;      // shortcut name (clipboard-share, voice-memo)
+    device?: string;      // iphone, ipad, mac
+    user?: string;        // user identifier
+    type?: string;        // document type (CONTRACT, RECEIPT)
+    category?: string;    // category (HOME, WORK)
+  };
 }
 
 export async function sendNotification(options: NotificationOptions): Promise<void> {
@@ -246,8 +254,9 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
   }
 
   // Determine severity: use explicit override, or derive from status
+  // Successful processing = info (routine), failed = error (needs attention)
   const severity: NotificationSeverity = options.severity ||
-    (options.status === "failed" ? "error" : "success");
+    (options.status === "failed" ? "error" : "info");
   const emoji = SEVERITY_ICONS[severity];
   const statusText = options.status === "success" ? "Processed" : "Failed";
 
@@ -269,6 +278,16 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
     }),
     ...(options.dropboxPath && { dropbox_path: options.dropboxPath }),
     ...(options.error && { error: options.error.slice(0, 500) }),
+    // Source metadata from iOS/macOS shortcuts
+    ...(options.sourceMetadata && Object.keys(options.sourceMetadata).length > 0 && {
+      source_metadata: {
+        ...(options.sourceMetadata.source && { shortcut: options.sourceMetadata.source }),
+        ...(options.sourceMetadata.device && { device: options.sourceMetadata.device }),
+        ...(options.sourceMetadata.user && { user: options.sourceMetadata.user }),
+        ...(options.sourceMetadata.type && { document_type: options.sourceMetadata.type }),
+        ...(options.sourceMetadata.category && { document_category: options.sourceMetadata.category }),
+      },
+    }),
   };
 
   // Build human-readable message parts
@@ -480,5 +499,80 @@ export async function sendQueryResponse(
     }
   } catch (error) {
     console.warn(`Query response error: ${error}`);
+  }
+}
+
+/**
+ * Check if message is a help command
+ */
+export function isHelpCommand(message: TelegramMessage): boolean {
+  const text = message.text || message.caption || "";
+  return text.trim() === "/help" || text.trim().startsWith("/help ");
+}
+
+/**
+ * Send help message explaining available commands and syntax
+ */
+export async function sendHelpResponse(messageId: number): Promise<void> {
+  const config = getConfig();
+
+  const helpText = `🤖 *PAI Ingest Bot - Help*
+
+*Commands (use as caption or text):*
+\`/note\` - Save as a note (default)
+\`/clip\` - Save article/link for later
+\`/archive\` - Archive document with naming
+\`/receipt\` - Archive as receipt
+\`/query <text>\` - Search your vault
+\`/help\` - Show this help
+
+*Tags & Mentions:*
+\`#project/name\` - Add project tag
+\`#meeting-notes\` - Add any tag
+\`@person\` or \`@First Last\` - Tag a person
+
+*Metadata (for shortcuts):*
+\`[source:shortcut-name]\` - Track source
+\`[device:iphone]\` - Track device
+\`[user:name]\` - Track user
+\`[type:CONTRACT]\` - Document type
+\`[category:WORK]\` - Category (HOME/WORK)
+
+*Photo Commands:*
+\`/describe\` - Vision AI description
+\`/mermaid\` - Convert to diagram
+\`/ocr\` - Text extraction only
+\`/store\` - Save without processing
+
+*Spoken Hints (voice memos):*
+Say "hashtag project name" → #project-name
+Say "at person name" → @person_name
+Say "forward slash archive" → /archive
+
+*Examples:*
+• \`#project/pai @ed Meeting notes\`
+• \`/archive [type:CONTRACT] Lease agreement\`
+• \`/query What did I discuss with Ed?\``;
+
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.telegramChannelId,
+        text: helpText,
+        reply_to_message_id: messageId,
+        parse_mode: "Markdown",
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.warn(`Could not send help response: ${data.description}`);
+    }
+  } catch (error) {
+    console.warn(`Help response error: ${error}`);
   }
 }

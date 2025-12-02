@@ -39,6 +39,7 @@ export interface ProcessedContent {
   pipeline?: PipelineType;   // Which pipeline processed this
   archiveName?: string;      // Generated archive filename (if archive pipeline)
   originalFilePath?: string; // Path to original file (for Dropbox sync)
+  messageDate?: number;      // Original Telegram message timestamp (Unix)
 }
 
 /**
@@ -199,7 +200,7 @@ Return ONLY valid JSON, no markdown code blocks.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4.1-mini",  // Fast, low-cost model for intent extraction
         messages: [
           { role: "system", content: "You extract document processing intent from natural language. Return only valid JSON." },
           { role: "user", content: prompt },
@@ -427,11 +428,14 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
     tags.push(match[1]);
   }
 
-  // Extract mentions: @name or @firstname_lastname
+  // Extract mentions: @name, @firstname_lastname, or @First Last
   // Must be at word boundary or start of line
-  const mentionPattern = /(?:^|\s)@([a-zA-Z][a-zA-Z0-9_]*)/gm;
+  // Supports: @ed_overy, @Ed, @Ed Overy (normalized to ed_overy)
+  const mentionPattern = /(?:^|\s)@([a-zA-Z][a-zA-Z0-9_]*(?:\s+[a-zA-Z][a-zA-Z0-9_]*)?)/gm;
   while ((match = mentionPattern.exec(workingText)) !== null) {
-    people.push(match[1]);
+    // Normalize: "Ed Overy" → "ed_overy", "Ed" → "ed"
+    const normalized = match[1].replace(/\s+/g, "_").toLowerCase();
+    people.push(normalized);
   }
 
   // Extract commands: /command ONLY at start of line or after whitespace
@@ -446,7 +450,7 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
   let cleaned = workingText
     .replace(/\[[a-zA-Z_]+:[^\]]+\]/g, " ")  // Remove [key:value] metadata
     .replace(/(?:^|\s)#[a-zA-Z][a-zA-Z0-9_/-]*/gm, " ")
-    .replace(/(?:^|\s)@[a-zA-Z][a-zA-Z0-9_]*/gm, " ")
+    .replace(/(?:^|\s)@[a-zA-Z][a-zA-Z0-9_]*(?:\s+[a-zA-Z][a-zA-Z0-9_]*)?,?/gm, " ")  // @First Last or @name
     .replace(/(?:^|\s)\/[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/gm, " ")
     .replace(/^\s*\n/gm, "")  // Remove empty lines
     .replace(/\s+/g, " ")     // Normalize whitespace
@@ -700,6 +704,7 @@ export async function processMessage(
     source: "telegram",
     contentType,
     pipeline,
+    messageDate: message.date,
     ...(archiveName && { archiveName }),
     ...(originalFilePath && { originalFilePath }),
     ...(hasMetadata && { sourceMetadata: hints.metadata }),
@@ -724,6 +729,7 @@ export async function processMessage(
         source: "telegram",
         contentType,
         pipeline,
+        messageDate: message.date,
         ...(archiveName && { archiveName }),
         ...(originalFilePath && { originalFilePath }),
         ...(hasMetadata && { sourceMetadata: hints.metadata }),
@@ -1398,9 +1404,13 @@ export async function saveToVault(
 
   // Generate frontmatter with source metadata
   const meta = processed.sourceMetadata;
+  const receivedDate = processed.messageDate
+    ? new Date(processed.messageDate * 1000).toISOString().slice(0, 16).replace("T", " ")
+    : undefined;
   const frontmatter = [
     "---",
     `generation_date: ${new Date().toISOString().slice(0, 16).replace("T", " ")}`,
+    ...(receivedDate ? [`received_date: ${receivedDate}`] : []),
     "tags:",
     ...processed.tags.map((t) => `  - ${t}`),
     `source: telegram`,

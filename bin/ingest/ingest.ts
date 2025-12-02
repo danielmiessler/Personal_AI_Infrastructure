@@ -25,6 +25,8 @@ import {
   isQueryCommand,
   extractQueryText,
   sendQueryResponse,
+  isHelpCommand,
+  sendHelpResponse,
   type TelegramMessage,
   type ContentType,
   type TelegramQueryResult,
@@ -170,19 +172,15 @@ async function handlePoll(verbose: boolean) {
   }
   console.log("");
 
+  // Note: poll is read-only - it previews but doesn't advance the offset
+  // Only the 'process' command should advance the offset after processing
   const updates = await getUpdates(lastOffset);
   const messages = updates
     .map((u) => u.channel_post || u.message)
     .filter((m): m is TelegramMessage => m !== undefined)
     .filter((m) => isFromInbox(m));
 
-  // Track the highest update_id for next poll
-  if (updates.length > 0) {
-    const maxUpdateId = Math.max(...updates.map((u) => u.update_id));
-    setLastOffset(maxUpdateId + 1); // Telegram expects offset = last_id + 1
-  }
-
-  // Filter out already processed messages
+  // Filter out already processed messages (but don't advance offset)
   const newMessages = messages.filter((m) => !isProcessed(m.message_id));
 
   if (newMessages.length === 0) {
@@ -253,6 +251,17 @@ async function handleProcess(
   console.log(`Processing ${messages.length} message(s)...\n`);
 
   for (const msg of messages) {
+    // Check if this is a /help command
+    if (isHelpCommand(msg)) {
+      console.log(`[${msg.message_id}] Help request`);
+      if (!dryRun) {
+        await sendHelpResponse(msg.message_id);
+        markCompleted(msg.message_id, ["help"]);
+        console.log(`  ✅ Sent help response`);
+      }
+      continue;
+    }
+
     // Check if this is a /query command (context retrieval request)
     if (isQueryCommand(msg)) {
       const queryText = extractQueryText(msg);
@@ -363,6 +372,7 @@ async function handleProcess(
         dropboxPath,
         pipeline,
         obsidianVaultName: config.vaultName,
+        sourceMetadata: contents[0]?.sourceMetadata,
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -503,6 +513,7 @@ async function handleWatch(
               dropboxPath,
               pipeline,
               obsidianVaultName: config.vaultName,
+              sourceMetadata: contents[0]?.sourceMetadata,
             });
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);

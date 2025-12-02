@@ -1556,6 +1556,242 @@ bun run bin/obs/self-test.ts --full
 
 ---
 
+## Part 11: Regression Test Suite (v2 Validated)
+
+These tests were validated during the v2 implementation (2025-12-02).
+
+### 11.1 Core Functionality
+
+#### TEST-REG-001: Simple Text Message
+```bash
+# Send to Telegram: "Regression test: Simple text message without any metadata or hints"
+
+# Run: ingest process --verbose
+
+# Verified:
+# - Note created with tags: incoming, raw, source/telegram
+# - Pipeline: note
+# - Content preserved exactly
+# - Events notification sent with ℹ️ (info severity)
+```
+**Status:** ✅ PASSED
+
+#### TEST-REG-002: Text with Metadata Parsing
+```bash
+# Send to Telegram:
+# [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction from iOS shortcut
+
+# Run: ingest process --verbose
+
+# Verified:
+# - Frontmatter contains: source_shortcut: clipboard-share
+# - Frontmatter contains: source_device: iphone
+# - Frontmatter contains: source_user: andreas
+# - Content cleaned (metadata stripped)
+# - AI intent parsing: note (90% confidence)
+```
+**Status:** ✅ PASSED
+
+#### TEST-REG-003: Mixed Hints and Metadata
+```bash
+# Send to Telegram:
+# #project/pai @ed_overy [source:voice-memo][device:mac] Discussion about context retrieval feature
+
+# Run: ingest process --verbose
+
+# Verified:
+# - Tags include: project/pai, ed_overy
+# - Metadata: source_shortcut: voice-memo, source_device: mac
+# - AI inferred: document_category: WORK
+# - Content cleaned properly
+```
+**Status:** ✅ PASSED
+
+#### TEST-REG-004: URL Extraction via Jina AI
+```bash
+# Send to Telegram:
+# https://www.anthropic.com/news/claude-4
+
+# Run: ingest process --verbose
+
+# Verified:
+# - Jina AI Reader fetched full article content
+# - Title extracted: "Introducing Claude 4"
+# - Tags: AI, Claude-4, Anthropic, news, article
+# - Pipeline: clip (AI detected article intent - 90%)
+# - Created both Raw and Wisdom notes (zettelkasten profile)
+# - Wisdom note has SUMMARY, IDEAS, QUOTES, FACTS, REFERENCES, RECOMMENDATIONS
+```
+**Status:** ✅ PASSED
+
+### 11.2 Voice/Audio Processing
+
+#### TEST-REG-005a: Voice Memo with Caption Hints (Wispr Flow)
+```bash
+# Setup: Record voice memo, add caption via Wispr Flow dictation
+# Caption: "#Project-pai @Ed Overy, testing the spoken hints feature"
+# Audio: Any content
+
+# Run: ingest process --verbose
+
+# Verified:
+# - Audio transcribed via whisper.cpp
+# - Caption hints extracted: Project-pai tag, ed_overy tag
+# - @Ed Overy normalized to ed_overy (spaces → underscore, lowercase)
+# - AI generates title from transcript
+```
+**Status:** ✅ PASSED
+
+#### TEST-REG-005b: Voice Memo with Spoken Hints (No Caption)
+```bash
+# Setup: Record voice memo, NO caption
+# Say in audio: "Hashtag project pai. At ed overy. Here are my meeting notes..."
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Whisper transcribes audio including spoken hints
+# - Detects "hashtag project pai" → #project-pai
+# - Detects "at ed overy" → @ed_overy
+# - Spoken hints removed from final transcript
+# - Tags applied to note frontmatter
+```
+**Status:** 🔄 PENDING (requires voice memo without iOS dictation)
+
+#### TEST-REG-006: MP3 Audio File Transcription
+```bash
+# Setup: Send MP3 file to Telegram
+
+# Run: ingest process --verbose
+
+# Expected:
+# - MP3 converted to WAV via ffmpeg
+# - Transcribed via whisper.cpp
+# - Note created with transcript
+# - AI generates title
+```
+**Status:** 🔄 PENDING
+
+### 11.3 Photo Processing
+
+#### TEST-REG-007: Photo with Vision AI (Default)
+```bash
+# Setup: Send photo to Telegram WITHOUT caption
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Vision API (GPT-4o) describes the image
+# - Image saved to vault/attachments/
+# - Note contains: ![Image](attachments/...), **Prompt:** [default], **Analysis:** [description]
+# - AI generates title from description
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-008: Photo with Custom Prompt
+```bash
+# Setup: Send photo with caption as prompt
+# Caption: "Extract all text from this screenshot"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Vision API uses caption as prompt
+# - Structured extraction based on prompt
+# - Note contains prompt + analysis
+```
+**Status:** 🔄 PENDING
+
+### 11.4 Document Processing
+
+#### TEST-REG-009: PDF Document Extraction
+```bash
+# Setup: Send PDF to Telegram
+
+# Run: ingest process --verbose
+
+# Expected:
+# - PDF downloaded to temp dir
+# - marker_single extracts content to markdown
+# - Note created with extracted content
+# - Title from filename or document title
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-010: DOCX Document (Teams Transcript)
+```bash
+# Setup: Send DOCX meeting transcript to Telegram
+
+# Run: ingest process --verbose
+
+# Expected:
+# - DOCX extracted via marker
+# - Meeting content parsed
+# - Tags: meeting-notes, transcript, source/telegram
+```
+**Status:** 🔄 PENDING
+
+### 11.5 Commands
+
+#### TEST-REG-011: /help Command
+```bash
+# Send to Telegram: /help
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Bot replies with formatted help message
+# - Lists all commands, tags, metadata syntax
+# - Includes examples
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-012: /query Command
+```bash
+# Send to Telegram: /query What did I discuss with Ed?
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Semantic search runs against vault
+# - Results sent back to Telegram
+# - Grouped by source (semantic, tag, archive)
+```
+**Status:** 🔄 PENDING
+
+#### TEST-REG-013: /archive Command with Type/Category
+```bash
+# Send document to Telegram with caption:
+# /archive [type:CONTRACT][category:WORK] Employment agreement
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Archive pipeline triggered
+# - Filename: CONTRACT - YYYYMMDD - Employment agreement - WORK.pdf
+# - Synced to Dropbox archive
+# - Note created in vault/archive/
+```
+**Status:** 🔄 PENDING
+
+### 11.6 Events Channel
+
+#### TEST-REG-014: Events Notification Format
+```bash
+# After any successful processing, check PAI Events channel
+
+# Verified:
+# - ℹ️ severity icon for routine processing (not ✅)
+# - JSON payload includes:
+#   - event_type: "pai.ingest"
+#   - severity: "info" (for success) or "error" (for failure)
+#   - source_metadata: { shortcut, device, user, document_type, document_category }
+#   - output_files, output_paths
+```
+**Status:** ✅ PASSED
+
+---
+
 ## Troubleshooting
 
 ### Common Issues

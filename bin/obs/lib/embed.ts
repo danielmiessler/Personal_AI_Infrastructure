@@ -74,16 +74,52 @@ export async function initDatabase(): Promise<Database> {
 }
 
 /**
- * Get OpenAI API key from environment
+ * Get OpenAI API key from environment or config files
  */
 function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    throw new Error(
-      "OPENAI_API_KEY not set. Add it to ~/.config/fabric/.env or export it."
-    );
+  // First check environment variable
+  if (process.env.OPENAI_API_KEY) {
+    return process.env.OPENAI_API_KEY;
   }
-  return key;
+
+  // Load from config files (same as config.ts)
+  const { existsSync, readFileSync } = require("fs");
+  const { join } = require("path");
+  const { homedir } = require("os");
+
+  const loadEnvFile = (path: string): Record<string, string> => {
+    const env: Record<string, string> = {};
+    if (existsSync(path)) {
+      try {
+        const lines = readFileSync(path, "utf-8").split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith("#")) {
+            const [key, ...valueParts] = trimmed.split("=");
+            if (key && valueParts.length > 0) {
+              env[key.trim()] = valueParts.join("=").trim();
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return env;
+  };
+
+  // Check claude config first, then fabric
+  const claudeEnv = loadEnvFile(join(homedir(), ".claude", ".env"));
+  if (claudeEnv.OPENAI_API_KEY) {
+    return claudeEnv.OPENAI_API_KEY;
+  }
+
+  const fabricEnv = loadEnvFile(join(homedir(), ".config", "fabric", ".env"));
+  if (fabricEnv.OPENAI_API_KEY) {
+    return fabricEnv.OPENAI_API_KEY;
+  }
+
+  throw new Error(
+    "OPENAI_API_KEY not set. Add it to ~/.claude/.env or ~/.config/fabric/.env"
+  );
 }
 
 /**

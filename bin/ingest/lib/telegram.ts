@@ -376,3 +376,109 @@ export async function replyWithObsidianLink(
     console.warn(`Reply error: ${error}`);
   }
 }
+
+/**
+ * Check if message is a query command
+ */
+export function isQueryCommand(message: TelegramMessage): boolean {
+  const text = message.text || message.caption || "";
+  return text.trim().startsWith("/query ");
+}
+
+/**
+ * Extract query text from a /query command
+ */
+export function extractQueryText(message: TelegramMessage): string {
+  const text = message.text || message.caption || "";
+  return text.replace(/^\/query\s+/, "").trim();
+}
+
+/**
+ * Query result for Telegram response
+ */
+export interface TelegramQueryResult {
+  title: string;
+  source: string;
+  preview?: string;
+  relevance?: number;
+}
+
+/**
+ * Send query results as a reply to a Telegram message
+ */
+export async function sendQueryResponse(
+  messageId: number,
+  query: string,
+  results: TelegramQueryResult[]
+): Promise<void> {
+  const config = getConfig();
+
+  if (!config.telegramChannelId) {
+    return;
+  }
+
+  let text: string;
+
+  if (results.length === 0) {
+    text = `🔍 No results found for: "${query}"`;
+  } else {
+    const lines: string[] = [
+      `🔍 Results for: "${query}"`,
+      "",
+    ];
+
+    // Group by source
+    const bySource = new Map<string, TelegramQueryResult[]>();
+    for (const r of results) {
+      const existing = bySource.get(r.source) || [];
+      existing.push(r);
+      bySource.set(r.source, existing);
+    }
+
+    const sourceIcons: Record<string, string> = {
+      "semantic": "🧠",
+      "tag": "🏷️",
+      "dropbox": "☁️",
+      "vault-archive": "📂",
+    };
+
+    for (const [source, sourceResults] of bySource) {
+      const icon = sourceIcons[source] || "📄";
+      lines.push(`${icon} *${source.toUpperCase()}*`);
+
+      for (const r of sourceResults.slice(0, 5)) {
+        const relevance = r.relevance ? ` (${Math.round(r.relevance * 100)}%)` : "";
+        lines.push(`  • ${r.title}${relevance}`);
+      }
+
+      if (sourceResults.length > 5) {
+        lines.push(`  ... and ${sourceResults.length - 5} more`);
+      }
+      lines.push("");
+    }
+
+    text = lines.join("\n");
+  }
+
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.telegramChannelId,
+        text,
+        reply_to_message_id: messageId,
+        parse_mode: "Markdown",
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.warn(`Could not send query response: ${data.description}`);
+    }
+  } catch (error) {
+    console.warn(`Query response error: ${error}`);
+  }
+}

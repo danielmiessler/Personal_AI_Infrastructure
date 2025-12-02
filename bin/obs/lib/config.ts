@@ -18,17 +18,15 @@ export interface Config {
 let cachedConfig: Config | null = null;
 
 /**
- * Load environment variables from fabric config
+ * Load environment variables from a .env file
  */
-function loadFabricEnv(): Record<string, string> {
-  const fabricEnvPath = join(homedir(), ".config", "fabric", ".env");
+function loadEnvFile(path: string): Record<string, string> {
   const env: Record<string, string> = {};
 
-  if (existsSync(fabricEnvPath)) {
+  if (existsSync(path)) {
     try {
-      const content = Bun.file(fabricEnvPath).text();
       // Parse .env file synchronously for startup
-      const lines = require("fs").readFileSync(fabricEnvPath, "utf-8").split("\n");
+      const lines = require("fs").readFileSync(path, "utf-8").split("\n");
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed && !trimmed.startsWith("#")) {
@@ -39,7 +37,7 @@ function loadFabricEnv(): Record<string, string> {
         }
       }
     } catch (error) {
-      // Ignore errors reading fabric config
+      // Ignore errors reading config
     }
   }
 
@@ -47,21 +45,36 @@ function loadFabricEnv(): Record<string, string> {
 }
 
 /**
- * Get configuration, loading from environment and fabric config
+ * Load environment variables from all config sources (priority: env > claude > fabric)
+ */
+function loadAllEnv(): Record<string, string> {
+  const fabricEnvPath = join(homedir(), ".config", "fabric", ".env");
+  const claudeEnvPath = join(homedir(), ".claude", ".env");
+
+  // Load in reverse priority order (later overwrites earlier)
+  const fabricEnv = loadEnvFile(fabricEnvPath);
+  const claudeEnv = loadEnvFile(claudeEnvPath);
+
+  // Claude env takes precedence over fabric
+  return { ...fabricEnv, ...claudeEnv };
+}
+
+/**
+ * Get configuration, loading from environment and config files
  */
 export function getConfig(): Config {
   if (cachedConfig) {
     return cachedConfig;
   }
 
-  const fabricEnv = loadFabricEnv();
+  const env = loadAllEnv();
 
   // Resolve vault path with fallbacks
   const vaultPath =
     process.env.OBSIDIAN_VAULT_PATH ||
-    fabricEnv.OBSIDIAN_VAULT_PATH ||
+    env.OBSIDIAN_VAULT_PATH ||
     process.env.FABRIC_OUTPUT_PATH ||
-    fabricEnv.FABRIC_OUTPUT_PATH ||
+    env.FABRIC_OUTPUT_PATH ||
     join(homedir(), "Documents", "vault");
 
   // Expand ~ in path
@@ -69,20 +82,20 @@ export function getConfig(): Config {
 
   const metaPath =
     process.env.OBSIDIAN_META_PATH ||
-    fabricEnv.OBSIDIAN_META_PATH ||
+    env.OBSIDIAN_META_PATH ||
     join(resolvedVaultPath, "_meta");
 
   const embeddingsDb =
     process.env.CONTEXT_EMBEDDINGS_DB ||
-    fabricEnv.CONTEXT_EMBEDDINGS_DB ||
+    env.CONTEXT_EMBEDDINGS_DB ||
     join(metaPath, "embeddings.db");
 
   cachedConfig = {
     vaultPath: resolvedVaultPath,
     metaPath: metaPath.replace(/^~/, homedir()),
     embeddingsDb: embeddingsDb.replace(/^~/, homedir()),
-    dailyNoteFormat: process.env.DAILY_NOTE_FORMAT || fabricEnv.DAILY_NOTE_FORMAT || "%Y-%m-%d",
-    scratchPadHeader: process.env.SCRATCH_PAD_HEADER || fabricEnv.SCRATCH_PAD_HEADER || "# Scratchpad",
+    dailyNoteFormat: process.env.DAILY_NOTE_FORMAT || env.DAILY_NOTE_FORMAT || "%Y-%m-%d",
+    scratchPadHeader: process.env.SCRATCH_PAD_HEADER || env.SCRATCH_PAD_HEADER || "# Scratchpad",
   };
 
   return cachedConfig;

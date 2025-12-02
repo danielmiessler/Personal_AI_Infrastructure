@@ -22,8 +22,12 @@ import {
   extractUrl,
   sendNotification,
   isFromInbox,
+  isQueryCommand,
+  extractQueryText,
+  sendQueryResponse,
   type TelegramMessage,
   type ContentType,
+  type TelegramQueryResult,
 } from "./lib/telegram";
 import { processMessage, saveToVault, type SaveResult } from "./lib/process";
 import {
@@ -249,6 +253,38 @@ async function handleProcess(
   console.log(`Processing ${messages.length} message(s)...\n`);
 
   for (const msg of messages) {
+    // Check if this is a /query command (context retrieval request)
+    if (isQueryCommand(msg)) {
+      const queryText = extractQueryText(msg);
+      console.log(`[${msg.message_id}] Query: "${queryText}"`);
+
+      if (dryRun) {
+        console.log(`  Would search for: ${queryText}`);
+        continue;
+      }
+
+      try {
+        await setReaction(msg.message_id, REACTIONS.processing);
+
+        // Run semantic search
+        const results = await executeQuery(queryText, 10);
+
+        // Send response to Telegram
+        await sendQueryResponse(msg.message_id, queryText, results);
+
+        // Mark as completed (query, not content)
+        markCompleted(msg.message_id, ["query"]);
+        await setReaction(msg.message_id, REACTIONS.success);
+        console.log(`  ✅ Sent ${results.length} results`);
+      } catch (e) {
+        const error = e instanceof Error ? e.message : String(e);
+        console.log(`  ❌ Query failed: ${error}`);
+        markFailed(msg.message_id, error);
+        await setReaction(msg.message_id, REACTIONS.failed);
+      }
+      continue;
+    }
+
     const type = classifyContent(msg);
     console.log(`[${msg.message_id}] Processing ${type}...`);
 
@@ -744,14 +780,16 @@ function handleConfig() {
 }
 
 /**
- * Handle query command - search vault and archive
+ * Handle query command - full context retrieval from vault and archive
  *
  * Usage:
- *   ingest query "search terms"                    # Search vault notes
+ *   ingest query "what did I discuss with Ed?"     # Semantic search
+ *   ingest query "project PAI status"              # Natural language
  *   ingest query --type CONTRACT                   # Filter by document type
  *   ingest query --category HOME                   # Filter by category
  *   ingest query --archive                         # Search Dropbox archive only
- *   ingest query --year 2024                       # Filter by year
+ *   ingest query --tag project/pai                 # Filter by tag
+ *   ingest query --person ed_overy                 # Filter by person
  */
 async function handleQuery(args: string[], verbose: boolean) {
   const config = getConfig();
@@ -761,7 +799,11 @@ async function handleQuery(args: string[], verbose: boolean) {
   let docType: string | undefined;
   let category: string | undefined;
   let archiveOnly = false;
+  let semanticOnly = false;
   let year: number | undefined;
+  let tag: string | undefined;
+  let person: string | undefined;
+  let limit = 10;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -771,85 +813,255 @@ async function handleQuery(args: string[], verbose: boolean) {
       category = args[++i]?.toUpperCase();
     } else if (arg === "--archive" || arg === "-a") {
       archiveOnly = true;
+    } else if (arg === "--semantic" || arg === "-s") {
+      semanticOnly = true;
     } else if (arg === "--year" || arg === "-y") {
       year = parseInt(args[++i], 10);
+    } else if (arg === "--tag") {
+      tag = args[++i];
+    } else if (arg === "--person" || arg === "-p") {
+      person = args[++i];
+    } else if (arg === "--limit" || arg === "-l") {
+      limit = parseInt(args[++i], 10) || 10;
     } else if (!arg.startsWith("-") && !arg.startsWith("--")) {
       searchText = arg;
     }
   }
 
-  if (!searchText && !docType && !category && !year) {
-    console.log("Query - Search vault and archive\n");
+  if (!searchText && !docType && !category && !year && !tag && !person) {
+    console.log("Query - Context retrieval from vault and archive\n");
     console.log("Usage:");
-    console.log('  ingest query "search terms"         # Full-text search');
-    console.log("  ingest query --type CONTRACT        # Filter by type");
-    console.log("  ingest query --category HOME        # Filter by category");
-    console.log("  ingest query --year 2024            # Filter by year");
-    console.log("  ingest query --archive              # Dropbox archive only");
+    console.log('  ingest query "what did I discuss with Ed?"    # Semantic search');
+    console.log('  ingest query "project PAI status"             # Natural language');
+    console.log("  ingest query --tag project/pai                # Filter by tag");
+    console.log("  ingest query --person ed_overy                # Filter by person");
+    console.log("  ingest query --type CONTRACT                  # Archive by type");
+    console.log("  ingest query --category HOME                  # Archive by category");
+    console.log("  ingest query --archive                        # Dropbox archive only");
+    console.log("  ingest query --semantic                       # Semantic search only");
+    console.log("  ingest query --limit 20                       # Limit results");
     console.log("");
-    console.log("Types: CONTRACT, RECEIPT, DOCUMENT, CORRESPONDANCE, REPORT");
+    console.log("Archive Types: CONTRACT, RECEIPT, DOCUMENT, CORRESPONDANCE, REPORT");
     console.log("Categories: HOME, WORK, CAR, HEALTH, MISC");
     return;
   }
 
   console.log("🔍 Searching...\n");
 
-  const results: QueryResult[] = [];
+  // Track all results
+  const allResults: ContextResult[] = [];
 
-  // Search Dropbox archive
-  const dropboxPath = config.dropboxArchivePath;
-  if (dropboxPath && existsSync(dropboxPath)) {
-    const archiveResults = await searchArchive(dropboxPath, {
-      type: docType,
-      category,
-      year,
-      textSearch: searchText,
-    });
-    results.push(...archiveResults.map(r => ({ ...r, source: "dropbox" as const })));
+  // 1. Semantic search across vault (primary for natural language queries)
+  if (searchText && !archiveOnly) {
+    try {
+      const semanticResults = await runSemanticSearch(searchText, limit, verbose);
+      allResults.push(...semanticResults);
+      if (verbose && semanticResults.length > 0) {
+        console.log(`  Found ${semanticResults.length} semantic matches`);
+      }
+    } catch (e) {
+      if (verbose) {
+        console.log(`  Semantic search unavailable: ${e}`);
+      }
+    }
   }
 
-  // Search vault archive folder (unless archive-only)
-  if (!archiveOnly) {
-    const vaultArchivePath = join(config.vaultPath, "archive");
-    if (existsSync(vaultArchivePath)) {
-      const vaultResults = await searchVaultArchive(vaultArchivePath, {
+  // 2. Tag-based search
+  if ((tag || person) && !archiveOnly && !semanticOnly) {
+    const tagResults = await searchByTag(config.vaultPath, { tag, person, limit });
+    allResults.push(...tagResults);
+    if (verbose && tagResults.length > 0) {
+      console.log(`  Found ${tagResults.length} tag matches`);
+    }
+  }
+
+  // 3. Archive search (Dropbox + vault archive folder)
+  if ((docType || category || year || archiveOnly) && !semanticOnly) {
+    // Dropbox archive
+    const dropboxPath = config.dropboxArchivePath;
+    if (dropboxPath && existsSync(dropboxPath)) {
+      const archiveResults = await searchArchive(dropboxPath, {
         type: docType,
         category,
         year,
         textSearch: searchText,
       });
-      results.push(...vaultResults.map(r => ({ ...r, source: "vault" as const })));
+      for (const r of archiveResults) {
+        allResults.push({
+          title: r.filename,
+          path: r.path,
+          source: "dropbox",
+          type: "archive",
+          preview: `${r.type} - ${r.date} - ${r.category}`,
+          relevance: 0.8,
+        });
+      }
+    }
+
+    // Vault archive folder
+    const vaultArchivePath = join(config.vaultPath, "archive");
+    if (existsSync(vaultArchivePath)) {
+      const vaultArchiveResults = await searchVaultArchive(vaultArchivePath, {
+        type: docType,
+        category,
+        year,
+        textSearch: searchText,
+      });
+      for (const r of vaultArchiveResults) {
+        allResults.push({
+          title: r.filename,
+          path: r.path,
+          source: "vault-archive",
+          type: "archive",
+          preview: `${r.type} - ${r.date} - ${r.category}`,
+          relevance: 0.8,
+        });
+      }
     }
   }
 
-  if (results.length === 0) {
+  // Deduplicate by path
+  const seen = new Set<string>();
+  const uniqueResults = allResults.filter(r => {
+    if (seen.has(r.path)) return false;
+    seen.add(r.path);
+    return true;
+  });
+
+  // Sort by relevance
+  uniqueResults.sort((a, b) => b.relevance - a.relevance);
+  const finalResults = uniqueResults.slice(0, limit);
+
+  if (finalResults.length === 0) {
     console.log("No results found.");
     return;
   }
 
-  console.log(`📋 Found ${results.length} result(s):\n`);
+  console.log(`📋 Found ${finalResults.length} result(s):\n`);
 
-  // Group by type
-  const byType = new Map<string, QueryResult[]>();
-  for (const r of results) {
-    const existing = byType.get(r.type) || [];
+  // Group by source
+  const bySource = new Map<string, ContextResult[]>();
+  for (const r of finalResults) {
+    const existing = bySource.get(r.source) || [];
     existing.push(r);
-    byType.set(r.type, existing);
+    bySource.set(r.source, existing);
   }
 
-  for (const [type, typeResults] of byType) {
-    console.log(`\n${type}:`);
-    for (const r of typeResults) {
-      const icon = r.source === "dropbox" ? "☁️" : "📂";
-      console.log(`  ${icon} ${r.filename}`);
+  const sourceIcons: Record<string, string> = {
+    "semantic": "🧠",
+    "tag": "🏷️",
+    "dropbox": "☁️",
+    "vault-archive": "📂",
+  };
+
+  for (const [source, sourceResults] of bySource) {
+    const icon = sourceIcons[source] || "📄";
+    console.log(`\n${icon} ${source.toUpperCase()} (${sourceResults.length}):`);
+    for (const r of sourceResults) {
+      console.log(`  • ${r.title}`);
+      if (r.preview && verbose) {
+        console.log(`    ${r.preview.slice(0, 100)}${r.preview.length > 100 ? "..." : ""}`);
+      }
       if (verbose) {
-        console.log(`     Date: ${r.date}, Category: ${r.category}`);
-        console.log(`     Path: ${r.path}`);
+        console.log(`    Path: ${r.path}`);
+        console.log(`    Relevance: ${(r.relevance * 100).toFixed(0)}%`);
       }
     }
   }
 
   console.log("");
+}
+
+interface ContextResult {
+  title: string;
+  path: string;
+  source: "semantic" | "tag" | "dropbox" | "vault-archive";
+  type: string;
+  preview: string;
+  relevance: number;
+}
+
+/**
+ * Run semantic search using the obs embed module
+ */
+async function runSemanticSearch(
+  query: string,
+  limit: number,
+  verbose: boolean
+): Promise<ContextResult[]> {
+  // Import dynamically to avoid circular deps
+  const { semanticSearch } = await import("../obs/lib/embed");
+
+  const results = await semanticSearch(query, limit);
+
+  return results.map(r => ({
+    title: r.noteName,
+    path: r.notePath,
+    source: "semantic" as const,
+    type: "note",
+    preview: r.content.slice(0, 200),
+    relevance: r.similarity,
+  }));
+}
+
+/**
+ * Search by tag or person mention
+ */
+async function searchByTag(
+  vaultPath: string,
+  options: { tag?: string; person?: string; limit: number }
+): Promise<ContextResult[]> {
+  const results: ContextResult[] = [];
+
+  // Use glob to find all markdown files
+  const glob = new Bun.Glob("**/*.md");
+  const files = await Array.fromAsync(glob.scan({ cwd: vaultPath, absolute: true }));
+
+  for (const filePath of files.slice(0, 500)) { // Limit scan
+    try {
+      const content = readFileSync(filePath, "utf-8");
+
+      // Parse frontmatter for tags
+      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (!frontmatterMatch) continue;
+
+      const frontmatter = frontmatterMatch[1];
+      const tagsMatch = frontmatter.match(/tags:\s*\n((?:\s+-\s+.+\n?)+)/);
+      const tags = tagsMatch
+        ? tagsMatch[1].match(/-\s+(\S+)/g)?.map(t => t.replace(/^-\s+/, "")) || []
+        : [];
+
+      // Check tag filter
+      if (options.tag && !tags.some(t => t.includes(options.tag!))) {
+        continue;
+      }
+
+      // Check person filter (person tags or @mentions in content)
+      if (options.person) {
+        const hasPerson = tags.some(t => t === options.person) ||
+          content.toLowerCase().includes(`@${options.person!.toLowerCase()}`);
+        if (!hasPerson) continue;
+      }
+
+      const filename = filePath.split("/").pop()?.replace(/\.md$/, "") || "";
+      const preview = content.slice(frontmatterMatch[0].length, frontmatterMatch[0].length + 200);
+
+      results.push({
+        title: filename,
+        path: filePath,
+        source: "tag",
+        type: "note",
+        preview,
+        relevance: 0.7,
+      });
+
+      if (results.length >= options.limit) break;
+    } catch {
+      // Skip unreadable files
+    }
+  }
+
+  return results;
 }
 
 interface QueryResult {
@@ -975,6 +1187,101 @@ async function searchVaultArchive(
   }
 
   return results.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * Execute a query for Telegram context retrieval
+ *
+ * This function is the bridge between Telegram /query commands and the search system.
+ * Used when user sends queries via Wispr Flow or direct text to the PAI inbox channel.
+ * Results are formatted for Telegram and sent back via the Events channel.
+ */
+async function executeQuery(
+  query: string,
+  limit: number
+): Promise<TelegramQueryResult[]> {
+  const config = getConfig();
+  const results: TelegramQueryResult[] = [];
+
+  // 1. Run semantic search (primary for natural language queries)
+  try {
+    const semanticResults = await runSemanticSearch(query, limit, false);
+    for (const r of semanticResults) {
+      results.push({
+        title: r.title,
+        source: "semantic",
+        preview: r.preview.slice(0, 100),
+        relevance: r.relevance,
+      });
+    }
+  } catch {
+    // Semantic search might fail if embeddings aren't available
+  }
+
+  // 2. Check if query mentions a person (e.g., "what did I discuss with Ed")
+  const personMatch = query.match(/\bwith\s+(\w+)\b/i) ||
+    query.match(/\babout\s+(\w+)\s+(?:meeting|discussion|conversation)/i) ||
+    query.match(/@(\w+)/i);
+  if (personMatch) {
+    const person = personMatch[1].toLowerCase();
+    const tagResults = await searchByTag(config.vaultPath, {
+      person,
+      limit: Math.min(5, limit),
+    });
+    for (const r of tagResults) {
+      // Avoid duplicates
+      if (!results.some(existing => existing.title === r.title)) {
+        results.push({
+          title: r.title,
+          source: "tag",
+          preview: r.preview.slice(0, 100),
+          relevance: r.relevance,
+        });
+      }
+    }
+  }
+
+  // 3. Check for tag mentions in query (e.g., "project PAI", "#project/pai")
+  const tagMatch = query.match(/#?(project[-/]\w+)/i) ||
+    query.match(/\b(project\s+\w+)\b/i);
+  if (tagMatch) {
+    const tag = tagMatch[1].replace(/\s+/, "-").toLowerCase();
+    const tagResults = await searchByTag(config.vaultPath, {
+      tag,
+      limit: Math.min(5, limit),
+    });
+    for (const r of tagResults) {
+      if (!results.some(existing => existing.title === r.title)) {
+        results.push({
+          title: r.title,
+          source: "tag",
+          preview: r.preview.slice(0, 100),
+          relevance: r.relevance,
+        });
+      }
+    }
+  }
+
+  // 4. Archive search for document-type queries
+  const docTypeMatch = query.match(/\b(contract|receipt|document|report)\b/i);
+  if (docTypeMatch && config.dropboxArchivePath && existsSync(config.dropboxArchivePath)) {
+    const archiveResults = await searchArchive(config.dropboxArchivePath, {
+      type: docTypeMatch[1].toUpperCase(),
+      textSearch: query,
+    });
+    for (const r of archiveResults.slice(0, 5)) {
+      results.push({
+        title: r.filename,
+        source: "dropbox",
+        preview: `${r.type} - ${r.date} - ${r.category}`,
+        relevance: 0.7,
+      });
+    }
+  }
+
+  // Sort by relevance and limit
+  results.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
+  return results.slice(0, limit);
 }
 
 main();

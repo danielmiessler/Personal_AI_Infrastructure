@@ -1027,6 +1027,11 @@ ingest retry --failed
 - [ ] TEST-INGv2-120 (AI Intent Parsing - Phase 4)
 - [ ] TEST-INGv2-130 through TEST-INGv2-134 (Spoken Hints - Voice Memos)
 
+### Phase 9: Scope / Context Separation
+- [ ] TEST-SCOPE-001 through TEST-SCOPE-007 (Scope Hint Detection - Ingestion)
+- [ ] TEST-SCOPE-010 through TEST-SCOPE-014 (Scope Filtering - Retrieval)
+- [ ] TEST-SCOPE-020 through TEST-SCOPE-024 (Scope Unit Tests)
+
 ---
 
 ## Part 7: iOS/macOS Integration Tests
@@ -2115,5 +2120,246 @@ ls -la $OBSIDIAN_VAULT_PATH/_meta/embeddings.db
 
 ---
 
-**Document Version:** 1.1.0
+## Part 12: Scope / Context Separation Tests
+
+### 12.1 Scope Hint Detection (Ingestion)
+
+#### TEST-SCOPE-001: Explicit ~private Sigil
+```bash
+# Send to Telegram:
+# ~private This is a personal health note
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Extracted scope hint: private" in output
+# - Tags include: scope/private
+# - Note excludes from default (work) queries
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-002: Explicit ~work Sigil
+```bash
+# Send to Telegram:
+# ~work Meeting notes from the product team
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Extracted scope hint: work" in output
+# - Tags include: scope/work
+# - Note appears in default queries
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-003: Dictated Scope - "scope private"
+```bash
+# Record voice memo with spoken:
+# "Scope private. Doctor's appointment notes from today"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - Spoken "scope private" converted to ~private
+# - "Extracted scope hint: private" in output
+# - Tags include: scope/private
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-004: Dictated Scope - "this is personal"
+```bash
+# Send to Telegram (or voice):
+# "This is personal. Blood pressure reading 120/80"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated scope intent: private from natural language" in output
+# - Tags include: scope/private
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-005: Dictated Scope - "for work"
+```bash
+# Send to Telegram (or voice):
+# "For work. Architecture decision on data pipeline"
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Detected dictated scope intent: work from natural language" in output
+# - Tags include: scope/work
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-006: Archive Pipeline Auto-Private
+```bash
+# Send photo to Telegram with:
+# /archive Personal receipt from pharmacy
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Auto-set scope to private for archive pipeline" in output
+# - Tags include: scope/private
+# - No explicit scope hint needed for archive
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-007: Receipt Pipeline Auto-Private
+```bash
+# Send photo to Telegram with:
+# /receipt Home insurance invoice
+
+# Run: ingest process --verbose
+
+# Expected:
+# - "Auto-set scope to private for receipt pipeline" in output
+# - Tags include: scope/private
+```
+**Status:** 🔄 PENDING
+
+### 12.2 Scope Filtering (Retrieval)
+
+#### TEST-SCOPE-010: Default Query Excludes Private
+```bash
+# Prerequisites:
+# - Create a private note: echo "Private test" | obs write "Private Test" --tag "scope/private" --tag "test"
+# - Create a work note: echo "Work test" | obs write "Work Test" --tag "test"
+
+# Test: Default search
+obs search --tag "test"
+
+# Expected:
+# - Only shows "Work Test"
+# - "Private Test" excluded (scope/private)
+# - Implicit --scope work behavior
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-011: Explicit --scope all
+```bash
+# Test: Search with all scopes
+obs search --tag "test" --scope all
+
+# Expected:
+# - Shows BOTH "Private Test" and "Work Test"
+# - No scope filtering applied
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-012: Explicit --scope private
+```bash
+# Test: Search only private
+obs search --tag "test" --scope private
+
+# Expected:
+# - Only shows "Private Test"
+# - "Work Test" excluded
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-013: Semantic Search Respects Scope
+```bash
+# Test: Semantic search with scope
+obs semantic "test content" --scope private
+
+# Expected:
+# - Only returns notes with scope/private tag
+# - Work notes excluded
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-014: Context Command Respects Scope
+```bash
+# Prerequisites: Notes for project/test with different scopes
+
+# Test: Context with scope all
+obs context test --scope all
+
+# Expected:
+# - Shows all project notes regardless of scope
+# - Default context still excludes private
+```
+**Status:** 🔄 PENDING
+
+### 12.3 Unit Tests (Code-Level)
+
+#### TEST-SCOPE-020: extractInlineHints - ~private
+```bash
+bun -e "
+const { extractInlineHints } = require('./bin/ingest/lib/process');
+const result = extractInlineHints('~private Personal note content');
+console.log('Scope:', result.scope);
+console.log('Cleaned:', result.cleanedContent);
+"
+
+# Expected:
+# Scope: private
+# Cleaned: Personal note content
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-021: extractSpokenHints - "scope private"
+```bash
+bun -e "
+const { extractSpokenHints } = require('./bin/ingest/lib/process');
+const result = extractSpokenHints('Scope private meeting notes from today');
+console.log('Scope:', result.scope);
+console.log('Cleaned:', result.cleanedContent);
+"
+
+# Expected:
+# Scope: private
+# Cleaned: meeting notes from today
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-022: extractSpokenHints - "this is personal"
+```bash
+bun -e "
+const { extractSpokenHints } = require('./bin/ingest/lib/process');
+const result = extractSpokenHints('This is personal doctors appointment notes');
+console.log('Scope:', result.scope);
+"
+
+# Expected:
+# Scope: private
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-023: mergeHints - Scope Preserved
+```bash
+bun -e "
+const { extractInlineHints, extractSpokenHints, mergeHints } = require('./bin/ingest/lib/process');
+const caption = extractInlineHints('#project/health');
+const spoken = extractSpokenHints('Scope private blood pressure reading');
+const merged = mergeHints(caption, spoken);
+console.log('Scope:', merged.scope);
+console.log('Tags:', merged.tags);
+"
+
+# Expected:
+# Scope: private
+# Tags: [ 'project/health' ]
+```
+**Status:** 🔄 PENDING
+
+#### TEST-SCOPE-024: searchNotes - Default Scope Work
+```bash
+bun -e "
+const { searchNotes } = require('./bin/obs/lib/search');
+// This should internally default to scope: 'work'
+searchNotes({ tags: [], text: 'test' }).then(results => {
+  console.log('Results filtered (no scope/private)');
+});
+"
+
+# Expected: Results exclude scope/private notes
+```
+**Status:** 🔄 PENDING
+
+---
+
+**Document Version:** 1.2.0
 **Last Updated:** 2025-12-02

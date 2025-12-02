@@ -34,6 +34,7 @@ export interface ProcessedContent {
   tags: string[];
   source: "telegram";
   contentType: ContentType;
+  scope?: ScopeType;         // private or work (for context separation)
   sourceFile?: string;       // Original source filename for traceability
   sourceMetadata?: SourceMetadata;  // Device/user/source tracking
   pipeline?: PipelineType;   // Which pipeline processed this
@@ -56,6 +57,13 @@ export interface SourceMetadata {
 }
 
 /**
+ * Scope types for context separation
+ * - private: Personal documents, home, health, car (excluded from default queries)
+ * - work: Professional documents (default query scope)
+ */
+export type ScopeType = "private" | "work";
+
+/**
  * Inline hint patterns for share-with-hints workflow
  * Supports iOS Shortcuts / macOS Share menu integration
  */
@@ -63,6 +71,7 @@ export interface InlineHints {
   tags: string[];           // #tag or #project/name
   people: string[];         // @firstname_lastname or @name
   commands: string[];       // /summarize, /transcript, /meeting
+  scope?: ScopeType;        // ~private or ~work
   metadata: SourceMetadata; // [key:value] pairs for source tracking
   cleanedContent: string;   // Content with hints removed
 }
@@ -541,6 +550,7 @@ export function mergeHints(base: InlineHints, additional: InlineHints): InlineHi
     tags: [...new Set([...base.tags, ...additional.tags])],
     people: [...new Set([...base.people, ...additional.people])],
     commands: [...new Set([...base.commands, ...additional.commands])],
+    scope: additional.scope || base.scope,  // Additional takes precedence
     metadata: { ...base.metadata, ...additional.metadata },
     cleanedContent: additional.cleanedContent || base.cleanedContent,
   };
@@ -554,6 +564,7 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
   const people: string[] = [];
   const commands: string[] = [];
   const metadata: SourceMetadata = {};
+  let scope: ScopeType | undefined;
   let workingText = text;
 
   // In spoken mode, first convert spoken patterns to symbol form
@@ -598,6 +609,31 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
         return ` /${normalized}`;
       }
     );
+
+    // Spoken scope: "scope private", "scope work", "tilde private", "tilde work"
+    workingText = workingText.replace(
+      /\b(?:scope|tilde)\s+(private|work|personal)\b/gi,
+      (match, captured) => {
+        const normalized = captured.toLowerCase() === "personal" ? "private" : captured.toLowerCase();
+        return ` ~${normalized}`;
+      }
+    );
+
+    // Natural language scope detection:
+    // "this is personal" / "this is private" → ~private
+    // "for work" / "work related" → ~work
+    if (/\b(this\s+is\s+(personal|private)|personal\s+(matter|stuff|thing)|private\s+(matter|stuff|thing)|my\s+personal)\b/i.test(workingText)) {
+      if (!scope) {
+        scope = "private";
+        console.log(`  Detected dictated scope intent: "private" from natural language`);
+      }
+    }
+    if (/\b(for\s+work|work\s+(related|stuff|thing)|business\s+(related|matter)|professional)\b/i.test(workingText)) {
+      if (!scope) {
+        scope = "work";
+        console.log(`  Detected dictated scope intent: "work" from natural language`);
+      }
+    }
   }
 
   // Extract metadata: [key:value] pairs
@@ -655,6 +691,16 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
     commands.push(match[1]);
   }
 
+  // Extract scope: ~private or ~work
+  const scopePattern = /(?:^|\s)~(private|work)\b/gi;
+  while ((match = scopePattern.exec(workingText)) !== null) {
+    const detectedScope = match[1].toLowerCase() as ScopeType;
+    if (!scope) {
+      scope = detectedScope;
+      console.log(`  Extracted scope hint: "${scope}"`);
+    }
+  }
+
   // Remove hints from content (clean version)
   // Be careful not to corrupt URLs
   let cleaned = workingText
@@ -662,6 +708,7 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
     .replace(/(?:^|\s)#[a-zA-Z][a-zA-Z0-9_/-]*/gm, " ")
     .replace(/(?:^|\s)@[a-zA-Z][a-zA-Z0-9_]*(?:\s+[a-zA-Z][a-zA-Z0-9_]*)?,?/gm, " ")  // @First Last or @name
     .replace(/(?:^|\s)\/[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/gm, " ")
+    .replace(/(?:^|\s)~(private|work)\b/gi, " ")  // Remove ~scope hints
     .replace(/^\s*\n/gm, "")  // Remove empty lines
     .replace(/\s+/g, " ")     // Normalize whitespace
     .trim();
@@ -670,6 +717,7 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
     tags,
     people,
     commands,
+    scope,
     metadata,
     cleanedContent: cleaned,
   };
@@ -971,6 +1019,26 @@ export async function processMessage(
   }
   const results: ProcessedContent[] = [];
 
+  // Determine scope:
+  // 1. Explicit hint from user (~private, ~work)
+  // 2. Auto-detect from pipeline (archive/receipt → private)
+  // 3. Default to work for all other pipelines
+  //
+  // Security model: No tag = private (excluded from context)
+  // Must explicitly have scope/work to be included in default queries
+  let scope: ScopeType = hints.scope || "work";  // Default to work
+  const isArchivePipeline = pipeline === "archive" || pipeline === "receipt";
+
+  if (isArchivePipeline && !hints.scope) {
+    scope = "private";
+    console.log(`  Auto-set scope to "private" for ${pipeline} pipeline`);
+  } else if (!hints.scope) {
+    console.log(`  Default scope: "work"`);
+  }
+
+  // Always add scope tag (explicit is better)
+  tags.push(`scope/${scope}`);
+
   // Always create raw note
   // Include source metadata if present
   const hasMetadata = Object.keys(hints.metadata).length > 0;
@@ -981,6 +1049,7 @@ export async function processMessage(
     tags,
     source: "telegram",
     contentType,
+    scope,
     pipeline,
     messageDate: message.date,
     ...(archiveName && { archiveName }),
@@ -994,7 +1063,6 @@ export async function processMessage(
   // - archive/receipt pipeline (straight-through archiving, no processing)
   // - document content (PDFs/DOCX should just be extracted, not auto-summarized)
   // BUT: Always run if user explicitly requested patterns via command (/wisdom, /summarize)
-  const isArchivePipeline = pipeline === "archive" || pipeline === "receipt";
   const skipAutoPatterns = (pipeline === "clip" || isArchivePipeline || contentType === "document") && !hasExplicitPatternRequest;
   if (profile.processing.pairedOutput && patterns.length > 0 && !skipAutoPatterns) {
     if (hasExplicitPatternRequest) {
@@ -1009,6 +1077,11 @@ export async function processMessage(
         isWisdom: true,
       });
 
+      // Add scope tag to wisdom output too
+      if (scope) {
+        wisdomTags.push(`scope/${scope}`);
+      }
+
       results.push({
         title: suggestedTitle,
         rawContent,
@@ -1016,6 +1089,7 @@ export async function processMessage(
         tags: wisdomTags,
         source: "telegram",
         contentType,
+        scope,
         pipeline,
         messageDate: message.date,
         ...(archiveName && { archiveName }),

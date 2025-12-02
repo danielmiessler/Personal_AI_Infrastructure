@@ -345,11 +345,17 @@ export async function buildEmbeddings(options: {
 }
 
 /**
+ * Scope filter type for semantic search
+ */
+export type ScopeFilter = "work" | "private" | "all";
+
+/**
  * Perform semantic search using embeddings
  */
 export async function semanticSearch(
   query: string,
-  limit: number = 10
+  limit: number = 10,
+  scope: ScopeFilter = "work"
 ): Promise<EmbeddingResult[]> {
   validateVault();
   const config = getConfig();
@@ -393,9 +399,56 @@ export async function semanticSearch(
     });
   }
 
-  // Sort by similarity and return top results
+  // Sort by similarity
   results.sort((a, b) => b.similarity - a.similarity);
   db.close();
+
+  // Apply scope filtering (post-hoc by parsing notes)
+  // Security model: No tag = private (excluded from default queries)
+  // Must explicitly have scope/work to be included
+  if (scope !== "all") {
+    const filteredResults: EmbeddingResult[] = [];
+    const seenPaths = new Set<string>();
+
+    for (const result of results) {
+      // Skip if we already processed this note
+      if (seenPaths.has(result.notePath)) {
+        // Include result if the note passed filter
+        const prevResult = filteredResults.find(r => r.notePath === result.notePath);
+        if (prevResult) {
+          filteredResults.push(result);
+        }
+        continue;
+      }
+      seenPaths.add(result.notePath);
+
+      try {
+        const parsed = await parseNote(result.notePath);
+        const hasWorkTag = parsed.tags.includes("scope/work");
+        const hasPrivateTag = parsed.tags.includes("scope/private");
+        const hasAnyScope = parsed.tags.some(t => t.startsWith("scope/"));
+
+        if (scope === "work" && !hasWorkTag) {
+          continue; // Only include notes WITH scope/work tag
+        }
+        if (scope === "private" && !hasPrivateTag && hasAnyScope) {
+          continue; // Include scope/private OR no scope tag
+        }
+
+        filteredResults.push(result);
+      } catch {
+        // If we can't parse the note, exclude it (fail closed for security)
+        continue;
+      }
+
+      // Early exit if we have enough results
+      if (filteredResults.length >= limit * 2) {
+        break;
+      }
+    }
+
+    return filteredResults.slice(0, limit);
+  }
 
   return results.slice(0, limit);
 }

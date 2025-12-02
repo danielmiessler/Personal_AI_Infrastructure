@@ -121,6 +121,38 @@ For voice memos shared directly (without shortcut), spoken hints are extracted:
 - "hashtag project pai" → `#project-pai`
 - "at ed overy" → `@ed_overy`
 - "forward slash archive" → `/archive`
+- "scope private" → `~private`
+
+### Scope / Context Separation (v2)
+**Purpose:** Separate private/personal content from work content
+
+#### Scope Sigil
+| Sigil | Meaning | Example |
+|-------|---------|---------|
+| `~private` | Personal/private content | `~private Save this health record` |
+| `~work` | Professional content | `~work Meeting notes` |
+
+#### Auto-detection
+- Archive/receipt pipelines → auto-tagged `scope/private`
+- Dictated "this is personal", "private matter" → `scope/private`
+- Dictated "for work", "business related" → `scope/work`
+
+#### Query Behavior
+By default, queries **only include** notes with `scope/work` tag:
+```bash
+obs search --text "meeting"              # Only scope/work tagged (default)
+obs search --text "invoice" --scope all  # Include everything
+obs search --text "health" --scope private  # Only private + untagged
+obs semantic "project" --scope work      # Semantic search work only
+```
+
+**Security Model:**
+- No scope tag = treated as private (excluded from default queries)
+- Must explicitly have `scope/work` to appear in context
+- New ingested notes get `scope/work` by default (except archive/receipt)
+- Use `--scope all` to consciously include everything
+
+**Rationale:** Opt-in to work context is safer. Your existing vault stays private until you explicitly tag notes for work context.
 
 ### Archive Pipeline (v2)
 **Requires:** `DROPBOX_ARCHIVE_PATH` (optional)

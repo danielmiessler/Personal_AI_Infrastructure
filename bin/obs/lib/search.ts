@@ -8,12 +8,21 @@ import { join, basename } from "path";
 import { getConfig, validateVault } from "./config";
 import { parseNote } from "./parse";
 
+/**
+ * Scope filter types for context separation
+ * - work: Exclude private content (default for queries)
+ * - private: Only show private content
+ * - all: Show everything
+ */
+export type ScopeFilter = "work" | "private" | "all";
+
 export interface SearchOptions {
   tags: string[];
   text?: string;
   recent?: number;
   untagged?: boolean;
   notTags?: string[];
+  scope?: ScopeFilter;  // Default: "work" (exclude private)
 }
 
 export interface SearchResult {
@@ -62,6 +71,22 @@ export async function searchNotes(options: SearchOptions): Promise<SearchResult[
       (note) => note.tags.length === 0 || (note.tags.length === 1 && note.tags[0] === "incoming")
     );
   }
+
+  // Filter by scope (default: work = only include scope/work tagged notes)
+  // Security model: No tag = private (excluded from default queries)
+  // Must explicitly have scope/work to be included
+  const scope = options.scope ?? "work";
+  if (scope === "work") {
+    // Only include notes WITH scope/work tag (no tag = excluded)
+    results = results.filter((note) => note.tags.some((t) => t === "scope/work"));
+  } else if (scope === "private") {
+    // Only include notes with scope/private tag OR no scope tag
+    results = results.filter((note) =>
+      note.tags.some((t) => t === "scope/private") ||
+      !note.tags.some((t) => t.startsWith("scope/"))
+    );
+  }
+  // scope === "all" → no filtering
 
   // Sort by modification time (most recent first)
   results.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());

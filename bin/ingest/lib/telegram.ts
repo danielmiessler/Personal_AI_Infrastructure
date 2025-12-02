@@ -548,6 +548,14 @@ _Note: Use #1on1 as a TAG, not /1on1 command_
 \`[type:CONTRACT]\` - Document type
 \`[category:WORK]\` - Category (HOME/WORK)
 
+*Scope (context separation):*
+\`~private\` - Mark as personal/private
+\`~work\` - Mark as professional (default)
+_Say "scope private" or "this is personal"_
+_Archive/receipt → auto ~private_
+_All other pipelines → auto ~work_
+_Only ~work notes in default context queries_
+
 *Photo Commands:*
 \`/describe\` - Vision AI description
 \`/mermaid\` - Convert to diagram

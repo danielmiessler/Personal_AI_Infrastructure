@@ -13,12 +13,12 @@
  */
 
 import { parseArgs } from "util";
-import { searchNotes, SearchOptions } from "./lib/search";
+import { searchNotes, SearchOptions, ScopeFilter } from "./lib/search";
 import { readNote } from "./lib/read";
 import { writeNote, WriteOptions } from "./lib/write";
 import { listTags } from "./lib/tags";
 import { getConfig } from "./lib/config";
-import { buildEmbeddings, semanticSearch, getEmbeddingStats } from "./lib/embed";
+import { buildEmbeddings, semanticSearch, getEmbeddingStats, ScopeFilter as EmbedScopeFilter } from "./lib/embed";
 
 const HELP = `
 obs - Obsidian Vault CLI for PAI Context Management
@@ -43,6 +43,10 @@ SEARCH OPTIONS:
   --text, -x <query>     Full-text search
   --recent, -r <n>       Limit to N most recent notes
   --untagged             Find notes without tags
+  --scope <scope>        Scope filter: work (default), private, all
+                         - work: Exclude private content (default)
+                         - private: Only private content
+                         - all: Include everything
 
 CONTEXT OPTIONS:
   <project>              Project name (searches project/<name> tag)
@@ -127,6 +131,7 @@ async function handleSearch(args: string[]) {
     text: undefined,
     recent: undefined,
     untagged: false,
+    scope: "work",  // Default: exclude private content
   };
 
   let i = 0;
@@ -147,6 +152,16 @@ async function handleSearch(args: string[]) {
         break;
       case "--untagged":
         options.untagged = true;
+        break;
+      case "--scope":
+      case "-s":
+        const scopeArg = args[++i]?.toLowerCase();
+        if (scopeArg === "work" || scopeArg === "private" || scopeArg === "all") {
+          options.scope = scopeArg as ScopeFilter;
+        } else {
+          console.error(`Invalid scope: ${scopeArg}. Use: work, private, or all`);
+          process.exit(1);
+        }
         break;
       default:
         // Treat as text search if no flag
@@ -292,20 +307,26 @@ async function handleEmbed(args: string[]) {
 
 async function handleSemantic(args: string[]) {
   if (args.length === 0 || args[0].startsWith("-")) {
-    console.error("Usage: obs semantic <query> [--limit <n>]");
+    console.error("Usage: obs semantic <query> [--limit <n>] [--scope <scope>]");
     process.exit(1);
   }
 
   const query = args[0];
   let limit = 10;
+  let scope: EmbedScopeFilter = "work"; // Default: exclude private
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--limit" || args[i] === "-l") {
       limit = parseInt(args[++i], 10);
+    } else if (args[i] === "--scope" || args[i] === "-s") {
+      const scopeArg = args[++i]?.toLowerCase();
+      if (scopeArg === "work" || scopeArg === "private" || scopeArg === "all") {
+        scope = scopeArg as EmbedScopeFilter;
+      }
     }
   }
 
-  const results = await semanticSearch(query, limit);
+  const results = await semanticSearch(query, limit, scope);
 
   if (results.length === 0) {
     console.log("No results found. Have you run 'obs embed' first?");
@@ -324,19 +345,26 @@ async function handleSemantic(args: string[]) {
 
 async function handleContext(args: string[]) {
   if (args.length === 0 || args[0].startsWith("-")) {
-    console.error("Usage: obs context <project-name> [--recent <n>]");
+    console.error("Usage: obs context <project-name> [--recent <n>] [--scope <scope>]");
     console.error("\nExamples:");
     console.error("  obs context pai");
     console.error("  obs context eea24 --recent 10");
+    console.error("  obs context pai --scope all   # Include private notes");
     process.exit(1);
   }
 
   const projectName = args[0];
   let recent = 20; // Default to 20 recent notes
+  let scope: ScopeFilter = "work"; // Default: exclude private
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--recent" || args[i] === "-r") {
       recent = parseInt(args[++i], 10);
+    } else if (args[i] === "--scope" || args[i] === "-s") {
+      const scopeArg = args[++i]?.toLowerCase();
+      if (scopeArg === "work" || scopeArg === "private" || scopeArg === "all") {
+        scope = scopeArg as ScopeFilter;
+      }
     }
   }
 
@@ -345,6 +373,7 @@ async function handleContext(args: string[]) {
   const results = await searchNotes({
     tags: [projectTag],
     recent,
+    scope,
   });
 
   if (results.length === 0) {
@@ -370,10 +399,16 @@ async function handleContext(args: string[]) {
 
 async function handleIncoming(args: string[]) {
   let recent: number | undefined;
+  let scope: ScopeFilter = "work"; // Default: exclude private
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--recent" || args[i] === "-r") {
       recent = parseInt(args[++i], 10);
+    } else if (args[i] === "--scope" || args[i] === "-s") {
+      const scopeArg = args[++i]?.toLowerCase();
+      if (scopeArg === "work" || scopeArg === "private" || scopeArg === "all") {
+        scope = scopeArg as ScopeFilter;
+      }
     }
   }
 
@@ -381,6 +416,7 @@ async function handleIncoming(args: string[]) {
   const results = await searchNotes({
     tags: ["incoming"],
     recent,
+    scope,
   });
 
   if (results.length === 0) {

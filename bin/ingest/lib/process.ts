@@ -950,6 +950,11 @@ async function processDocument(
       console.log(`    RTF size: ${rawContent.length} bytes`);
       console.log(`    RTF preview: ${rawContent.slice(0, 200).replace(/\n/g, "\\n")}`);
 
+      // DEBUG: Keep a copy of the RTF for inspection
+      const debugPath = filePath.replace(/\.rtf$/i, ".debug.rtf");
+      await Bun.write(debugPath, rawContent);
+      console.log(`    DEBUG: RTF saved to ${debugPath}`);
+
       // Check for HTML embedded in RTF (iOS shortcuts often embed HTML in \htmlrtf blocks)
       const hasHtml = rawContent.includes("<html") || rawContent.includes("<body") ||
                       rawContent.includes("<p>") || rawContent.includes("\\htmlrtf");
@@ -1021,7 +1026,71 @@ async function processDocument(
       content = stdout.trim();
     } else if (ext === "txt" || ext === "md") {
       // Plain text or markdown: Read directly
-      content = await Bun.file(filePath).text();
+      const rawText = await Bun.file(filePath).text();
+
+      // Check if txt file contains HTML (common from iOS clipboard)
+      // Detect both full HTML documents AND HTML fragments with styled tags
+      const isHtmlDocument = rawText.includes("<!DOCTYPE html") || rawText.includes("<html") ||
+          (rawText.includes("<body") && rawText.includes("</body>"));
+      const isHtmlFragment = rawText.includes('style="') &&
+          (rawText.includes("<a ") || rawText.includes("<span") || rawText.includes("<div"));
+
+      if (isHtmlDocument || isHtmlFragment) {
+        console.log(`    Detected HTML in .${ext} file, converting to markdown`);
+        const htmlPath = filePath.replace(/\.(txt|md)$/i, ".html");
+
+        // Wrap fragments in proper HTML document for pandoc
+        const htmlContent = isHtmlFragment && !isHtmlDocument
+          ? `<!DOCTYPE html><html><body>${rawText}</body></html>`
+          : rawText;
+        await Bun.write(htmlPath, htmlContent);
+
+        // Use pandoc to convert to markdown (preserves links, adds {style} attrs we strip later)
+        const { stdout } = await execAsync(`pandoc -f html -t markdown --wrap=none "${htmlPath}"`);
+
+        // Clean up pandoc output - remove style attributes and fix bracket issues
+        let cleanContent = stdout
+          .replace(/\{[^}]*style="[^"]*"[^}]*\}/g, '')  // Remove {style="..."} attributes
+          .replace(/\{[^}]*\}/g, '')                     // Remove any remaining {...} attributes
+          .replace(/\[\[([^\]]+)\]\]/g, '[$1]')          // Fix double brackets [[text]] -> [text]
+          .replace(/\[\]\s*/g, '')                       // Remove empty brackets []
+          .replace(/\\\n/g, '\n')                        // Remove escaped newlines
+          .replace(/\\'/g, "'")                          // Unescape apostrophes
+          .replace(/\n{3,}/g, '\n\n')                    // Collapse multiple newlines
+          .trim();
+
+        // Remove standalone [text] that aren't part of links (no following ](url))
+        cleanContent = cleanContent.replace(/\[([^\]]+)\](?!\()/g, '$1');
+
+        // Clean tracking URLs in markdown links - extract actual destination
+        cleanContent = cleanContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+          // Check if it's a tracking URL with encoded destination (e.g., tldrnewsletter, bit.ly wrappers)
+          // Pattern: https://tracker.com/.../https:%2F%2Factual-url.com%2Fpath
+          const encodedDestMatch = url.match(/https?:%2F%2F[^/]+/);
+          if (encodedDestMatch) {
+            // Extract everything from the encoded URL start to the end or next path segment
+            const startIdx = url.indexOf(encodedDestMatch[0]);
+            // Find where the encoded URL ends (at /1/ or similar tracking suffix)
+            const remainder = url.slice(startIdx);
+            const endMatch = remainder.match(/\/\d+\//);
+            const encodedUrl = endMatch ? remainder.slice(0, endMatch.index) : remainder;
+            try {
+              let cleanUrl = decodeURIComponent(encodedUrl);
+              // Remove UTM parameters for cleaner links
+              cleanUrl = cleanUrl.replace(/[?&]utm_[^&]*/g, '').replace(/\?$/, '');
+              return `[${text}](${cleanUrl})`;
+            } catch {
+              // If decode fails, keep original
+            }
+          }
+          return match;
+        });
+
+        content = cleanContent;
+        await unlink(htmlPath).catch(() => {});
+      } else {
+        content = rawText;
+      }
     } else {
       // Unknown format: Try pandoc plain text extraction
       const { stdout } = await execAsync(`pandoc -t plain "${filePath}"`);

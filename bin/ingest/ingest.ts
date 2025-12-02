@@ -44,6 +44,8 @@ import {
   getCachedMessage,
   getRetryableMessages,
 } from "./lib/state";
+import { existsSync, readdirSync, readFileSync } from "fs";
+import { join } from "path";
 
 // Telegram only supports these reaction emojis
 const REACTIONS = {
@@ -65,6 +67,7 @@ COMMANDS:
   watch      Continuously poll and process (daemon mode)
   status     Show queue status
   retry      Retry failed messages
+  query      Search vault and archive (context retrieval)
   profiles   List available processing profiles
   config     Show current configuration
 
@@ -131,6 +134,9 @@ async function main() {
         break;
       case "retry":
         await handleRetry(commandArgs, verbose);
+        break;
+      case "query":
+        await handleQuery(commandArgs, verbose);
         break;
       case "profiles":
         handleProfiles();
@@ -735,6 +741,240 @@ function handleConfig() {
   } catch (error) {
     console.error(`Configuration error: ${error instanceof Error ? error.message : error}`);
   }
+}
+
+/**
+ * Handle query command - search vault and archive
+ *
+ * Usage:
+ *   ingest query "search terms"                    # Search vault notes
+ *   ingest query --type CONTRACT                   # Filter by document type
+ *   ingest query --category HOME                   # Filter by category
+ *   ingest query --archive                         # Search Dropbox archive only
+ *   ingest query --year 2024                       # Filter by year
+ */
+async function handleQuery(args: string[], verbose: boolean) {
+  const config = getConfig();
+
+  // Parse query arguments
+  let searchText = "";
+  let docType: string | undefined;
+  let category: string | undefined;
+  let archiveOnly = false;
+  let year: number | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--type" || arg === "-t") {
+      docType = args[++i]?.toUpperCase();
+    } else if (arg === "--category" || arg === "-c") {
+      category = args[++i]?.toUpperCase();
+    } else if (arg === "--archive" || arg === "-a") {
+      archiveOnly = true;
+    } else if (arg === "--year" || arg === "-y") {
+      year = parseInt(args[++i], 10);
+    } else if (!arg.startsWith("-") && !arg.startsWith("--")) {
+      searchText = arg;
+    }
+  }
+
+  if (!searchText && !docType && !category && !year) {
+    console.log("Query - Search vault and archive\n");
+    console.log("Usage:");
+    console.log('  ingest query "search terms"         # Full-text search');
+    console.log("  ingest query --type CONTRACT        # Filter by type");
+    console.log("  ingest query --category HOME        # Filter by category");
+    console.log("  ingest query --year 2024            # Filter by year");
+    console.log("  ingest query --archive              # Dropbox archive only");
+    console.log("");
+    console.log("Types: CONTRACT, RECEIPT, DOCUMENT, CORRESPONDANCE, REPORT");
+    console.log("Categories: HOME, WORK, CAR, HEALTH, MISC");
+    return;
+  }
+
+  console.log("🔍 Searching...\n");
+
+  const results: QueryResult[] = [];
+
+  // Search Dropbox archive
+  const dropboxPath = config.dropboxArchivePath;
+  if (dropboxPath && existsSync(dropboxPath)) {
+    const archiveResults = await searchArchive(dropboxPath, {
+      type: docType,
+      category,
+      year,
+      textSearch: searchText,
+    });
+    results.push(...archiveResults.map(r => ({ ...r, source: "dropbox" as const })));
+  }
+
+  // Search vault archive folder (unless archive-only)
+  if (!archiveOnly) {
+    const vaultArchivePath = join(config.vaultPath, "archive");
+    if (existsSync(vaultArchivePath)) {
+      const vaultResults = await searchVaultArchive(vaultArchivePath, {
+        type: docType,
+        category,
+        year,
+        textSearch: searchText,
+      });
+      results.push(...vaultResults.map(r => ({ ...r, source: "vault" as const })));
+    }
+  }
+
+  if (results.length === 0) {
+    console.log("No results found.");
+    return;
+  }
+
+  console.log(`📋 Found ${results.length} result(s):\n`);
+
+  // Group by type
+  const byType = new Map<string, QueryResult[]>();
+  for (const r of results) {
+    const existing = byType.get(r.type) || [];
+    existing.push(r);
+    byType.set(r.type, existing);
+  }
+
+  for (const [type, typeResults] of byType) {
+    console.log(`\n${type}:`);
+    for (const r of typeResults) {
+      const icon = r.source === "dropbox" ? "☁️" : "📂";
+      console.log(`  ${icon} ${r.filename}`);
+      if (verbose) {
+        console.log(`     Date: ${r.date}, Category: ${r.category}`);
+        console.log(`     Path: ${r.path}`);
+      }
+    }
+  }
+
+  console.log("");
+}
+
+interface QueryResult {
+  filename: string;
+  path: string;
+  type: string;
+  date: string;
+  category: string;
+  description: string;
+  source: "vault" | "dropbox";
+}
+
+interface SearchOptions {
+  type?: string;
+  category?: string;
+  year?: number;
+  textSearch?: string;
+}
+
+/**
+ * Search Dropbox archive by parsing filenames
+ */
+async function searchArchive(
+  archivePath: string,
+  options: SearchOptions
+): Promise<Omit<QueryResult, "source">[]> {
+  const results: Omit<QueryResult, "source">[] = [];
+  const archivePattern = /^(CONTRACT|RECEIPT|CORRESPONDANCE|DOCUMENT|REPORT)\s*-\s*(\d{8})\s*-\s*(.+?)\s*-\s*([A-Z]+)\.[a-zA-Z]+$/i;
+
+  try {
+    const files = readdirSync(archivePath);
+
+    for (const file of files) {
+      const match = file.match(archivePattern);
+      if (!match) continue;
+
+      const [, type, dateStr, description, category] = match;
+      const fileYear = parseInt(dateStr.slice(0, 4), 10);
+
+      // Apply filters
+      if (options.type && type.toUpperCase() !== options.type) continue;
+      if (options.category && category.toUpperCase() !== options.category) continue;
+      if (options.year && fileYear !== options.year) continue;
+      if (options.textSearch) {
+        const searchLower = options.textSearch.toLowerCase();
+        if (!description.toLowerCase().includes(searchLower) &&
+            !file.toLowerCase().includes(searchLower)) {
+          continue;
+        }
+      }
+
+      results.push({
+        filename: file,
+        path: join(archivePath, file),
+        type: type.toUpperCase(),
+        date: `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`,
+        category: category.toUpperCase(),
+        description,
+      });
+    }
+  } catch (e) {
+    // Directory might not exist
+  }
+
+  return results.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * Search vault archive folder by parsing note frontmatter
+ */
+async function searchVaultArchive(
+  vaultArchivePath: string,
+  options: SearchOptions
+): Promise<Omit<QueryResult, "source">[]> {
+  const results: Omit<QueryResult, "source">[] = [];
+
+  try {
+    const files = readdirSync(vaultArchivePath).filter(f => f.endsWith(".md"));
+
+    for (const file of files) {
+      const filePath = join(vaultArchivePath, file);
+      const content = readFileSync(filePath, "utf-8");
+
+      // Parse frontmatter
+      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (!frontmatterMatch) continue;
+
+      const frontmatter = frontmatterMatch[1];
+      const typeMatch = frontmatter.match(/document_type:\s*(\w+)/);
+      const categoryMatch = frontmatter.match(/document_category:\s*(\w+)/);
+      const dateMatch = frontmatter.match(/generation_date:\s*(\d{4}-\d{2}-\d{2})/);
+      const archiveNameMatch = frontmatter.match(/archive_name:\s*"?([^"\n]+)"?/);
+
+      const type = typeMatch?.[1]?.toUpperCase() || "DOCUMENT";
+      const category = categoryMatch?.[1]?.toUpperCase() || "MISC";
+      const date = dateMatch?.[1] || "";
+      const archiveName = archiveNameMatch?.[1] || file;
+      const fileYear = date ? parseInt(date.slice(0, 4), 10) : 0;
+
+      // Apply filters
+      if (options.type && type !== options.type) continue;
+      if (options.category && category !== options.category) continue;
+      if (options.year && fileYear !== options.year) continue;
+      if (options.textSearch) {
+        const searchLower = options.textSearch.toLowerCase();
+        if (!file.toLowerCase().includes(searchLower) &&
+            !content.toLowerCase().includes(searchLower)) {
+          continue;
+        }
+      }
+
+      results.push({
+        filename: archiveName,
+        path: filePath,
+        type,
+        date,
+        category,
+        description: file.replace(/\.md$/, ""),
+      });
+    }
+  } catch (e) {
+    // Directory might not exist
+  }
+
+  return results.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 main();

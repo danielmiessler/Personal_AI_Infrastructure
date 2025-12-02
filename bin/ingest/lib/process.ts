@@ -133,6 +133,114 @@ export function determinePipeline(commands: string[]): PipelineType {
 }
 
 /**
+ * AI Intent Extraction Result
+ */
+export interface IntentResult {
+  pipeline: PipelineType;
+  confidence: number;
+  metadata: {
+    type?: string;      // RECEIPT, CONTRACT, DOCUMENT
+    category?: string;  // HOME, WORK, CAR
+    vendor?: string;    // For receipts
+    amount?: number;    // For receipts
+  };
+  suggestedTags: string[];
+  reasoning: string;
+}
+
+/**
+ * Extract intent from natural language caption using LLM
+ *
+ * Used when no explicit /command is detected.
+ * Returns pipeline routing and extracted metadata.
+ */
+export async function extractIntent(
+  caption: string,
+  contentType: string,
+  filename?: string,
+  apiKey?: string
+): Promise<IntentResult | null> {
+  if (!apiKey) return null;
+  if (!caption || caption.trim().length < 10) return null;
+
+  const prompt = `Analyze this message and extract the user's intent for document processing.
+
+Message: "${caption}"
+Content type: ${contentType}
+Filename: ${filename || "unknown"}
+
+Return JSON with:
+{
+  "pipeline": "note" | "clip" | "archive" | "receipt",
+  "confidence": 0.0-1.0,
+  "metadata": {
+    "type": "RECEIPT" | "CONTRACT" | "DOCUMENT" | null,
+    "category": "HOME" | "WORK" | "CAR" | "HEALTH" | null,
+    "vendor": "string or null",
+    "amount": "number or null"
+  },
+  "suggestedTags": ["tag1", "tag2"],
+  "reasoning": "brief explanation"
+}
+
+Guidelines:
+- "archive" pipeline: contracts, important documents, legal papers
+- "receipt" pipeline: purchase receipts, invoices, expense-related
+- "clip" pipeline: articles, links, content to read later
+- "note" pipeline: ideas, meeting notes, general text
+
+Return ONLY valid JSON, no markdown code blocks.`;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You extract document processing intent from natural language. Return only valid JSON." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`Intent extraction API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content?.trim();
+
+    if (!content) return null;
+
+    // Parse JSON response
+    const result = JSON.parse(content) as IntentResult;
+
+    // Validate pipeline
+    const validPipelines = ["note", "clip", "archive", "receipt"];
+    if (!validPipelines.includes(result.pipeline)) {
+      result.pipeline = "default";
+    }
+
+    return result;
+  } catch (e) {
+    console.warn(`Intent extraction failed: ${e}`);
+    return null;
+  }
+}
+
+/**
+ * Confidence threshold for automatic intent-based routing
+ */
+const INTENT_CONFIDENCE_THRESHOLD = 0.8;
+
+/**
  * Sync file to Dropbox archive folder
  */
 export async function syncToDropbox(
@@ -505,7 +613,42 @@ export async function processMessage(
   ];
 
   // Step 2b: Determine pipeline from commands
-  const pipeline = determinePipeline(validCommands);
+  let pipeline = determinePipeline(validCommands);
+  let intentResult: IntentResult | null = null;
+
+  // Step 2b.1: If no explicit command, try AI intent parsing
+  if (pipeline === "default" && config.openaiApiKey) {
+    const filename = message.document?.file_name || message.audio?.file_name;
+    intentResult = await extractIntent(
+      messageText,
+      contentType,
+      filename,
+      config.openaiApiKey
+    );
+
+    if (intentResult && intentResult.confidence >= INTENT_CONFIDENCE_THRESHOLD) {
+      pipeline = intentResult.pipeline;
+      console.log(`  AI intent: ${pipeline} (confidence: ${(intentResult.confidence * 100).toFixed(0)}%)`);
+      console.log(`    Reasoning: ${intentResult.reasoning}`);
+
+      // Apply AI-extracted metadata if not already set
+      if (intentResult.metadata.type && !hints.metadata.type) {
+        hints.metadata.type = intentResult.metadata.type;
+      }
+      if (intentResult.metadata.category && !hints.metadata.category) {
+        hints.metadata.category = intentResult.metadata.category;
+      }
+
+      // Add AI-suggested tags
+      for (const tag of intentResult.suggestedTags || []) {
+        if (!tags.includes(tag) && !hints.tags.includes(tag)) {
+          tags.push(tag);
+        }
+      }
+    } else if (intentResult) {
+      console.log(`  AI intent: ${intentResult.pipeline} (low confidence: ${(intentResult.confidence * 100).toFixed(0)}%, using default)`);
+    }
+  }
 
   // Step 2c: For archive pipeline, generate archive name and track original file
   let archiveName: string | undefined;

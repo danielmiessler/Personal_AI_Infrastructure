@@ -415,6 +415,120 @@ async function runTests(): Promise<void> {
     fail("Metadata Parsing", `Error: ${e instanceof Error ? e.message : e}`);
   }
 
+  // Test 19: Events channel (Telegram outbox)
+  const telegramOutbox = process.env.TELEGRAM_OUTBOX_ID || env.TELEGRAM_OUTBOX_ID || "";
+  if (telegramOutbox) {
+    pass("Events Channel", `Configured: ${telegramOutbox}`);
+  } else {
+    warn("Events Channel", "TELEGRAM_OUTBOX_ID not set (notifications disabled)");
+  }
+
+  // Test 20: Spoken hints regex patterns
+  try {
+    const spokenTests = [
+      { input: "hashtag project pai", expected: "project-pai" },
+      { input: "at ed overy", expected: "ed_overy" },
+      { input: "forward slash archive", expected: "archive" },
+    ];
+
+    let spokenPassed = true;
+
+    // Test hashtag pattern
+    const hashtagResult = "hashtag project pai".replace(
+      /\b(?:hash\s*tag|hashtag)\s+([a-zA-Z][a-zA-Z0-9]*(?:\s+(?:slash\s+)?[a-zA-Z][a-zA-Z0-9]*)?)\b/gi,
+      (match, captured) => {
+        return ` #${captured.replace(/\s+slash\s+/gi, "/").replace(/\s+/g, "-").toLowerCase()}`;
+      }
+    );
+    if (!hashtagResult.includes("#project-pai")) spokenPassed = false;
+
+    // Test at pattern (with skip word check)
+    const atResult = "at ed overy".replace(
+      /\bat\s+([a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9]*)?)\b/gi,
+      (match, captured) => {
+        const words = captured.toLowerCase().split(/\s+/);
+        const skipWords = ["the", "a", "an", "this", "that"];
+        if (skipWords.includes(words[0])) return match;
+        return ` @${captured.replace(/\s+/g, "_").toLowerCase()}`;
+      }
+    );
+    if (!atResult.includes("@ed_overy")) spokenPassed = false;
+
+    // Test forward slash pattern
+    const slashResult = "forward slash archive".replace(
+      /\b(?:forward\s+)?slash\s+([a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9]*)?)\b/gi,
+      (match, captured) => {
+        return ` /${captured.replace(/\s+/g, "-").toLowerCase()}`;
+      }
+    );
+    if (!slashResult.includes("/archive")) spokenPassed = false;
+
+    if (spokenPassed) {
+      pass("Spoken Hints", "Regex patterns valid (hashtag, at, slash)");
+    } else {
+      fail("Spoken Hints", "One or more spoken hint patterns failed");
+    }
+  } catch (e) {
+    fail("Spoken Hints", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 21: Archive naming pattern
+  try {
+    const archivePattern = /^(CONTRACT|RECEIPT|CORRESPONDANCE|DOCUMENT|REPORT)\s*-\s*\d{8}\s*-/i;
+    const testNames = [
+      { name: "CONTRACT - 20240208 - Lease Agreement.pdf", shouldMatch: true },
+      { name: "RECEIPT - 20241201 - Amazon Order - HOME.pdf", shouldMatch: true },
+      { name: "random-document.pdf", shouldMatch: false },
+      { name: "Document about contracts.pdf", shouldMatch: false },
+    ];
+
+    let archivePassed = true;
+    for (const test of testNames) {
+      const matches = archivePattern.test(test.name);
+      if (matches !== test.shouldMatch) {
+        archivePassed = false;
+        break;
+      }
+    }
+
+    if (archivePassed) {
+      pass("Archive Naming", "Pattern correctly identifies archive-named files");
+    } else {
+      fail("Archive Naming", "Pattern failed to match expected filenames");
+    }
+  } catch (e) {
+    fail("Archive Naming", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 22: whisper-cpp availability (for voice transcription)
+  const whisperBin = "/Users/andreas/Documents/src/whisper.cpp/whisper-cpp";
+  const whisperModelDir = "/Users/andreas/Documents/src/whisper.cpp/models";
+  if (existsSync(whisperBin)) {
+    const hasLargeV3 = existsSync(join(whisperModelDir, "ggml-large-v3.bin"));
+    const hasMedium = existsSync(join(whisperModelDir, "ggml-medium.bin"));
+    if (hasLargeV3) {
+      pass("whisper-cpp", "Installed with large-v3 model");
+    } else if (hasMedium) {
+      pass("whisper-cpp", "Installed with medium model");
+    } else {
+      warn("whisper-cpp", "Binary found but no model files");
+    }
+  } else {
+    warn("whisper-cpp", "Not found at expected path");
+  }
+
+  // Test 23: ffmpeg (for audio conversion)
+  try {
+    const result = Bun.spawnSync(["which", "ffmpeg"]);
+    if (result.exitCode === 0) {
+      pass("ffmpeg", result.stdout.toString().trim());
+    } else {
+      warn("ffmpeg", "Not found (required for voice memo processing)");
+    }
+  } catch {
+    warn("ffmpeg", "Could not check");
+  }
+
   // Summary
   console.log("\n" + "─".repeat(50));
   const passed = results.filter(r => r.status === "pass").length;

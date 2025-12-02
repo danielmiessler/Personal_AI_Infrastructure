@@ -64,6 +64,10 @@ ingest poll                     # Fetch new messages
 ingest process                  # Process queue
 ingest status                   # Show stats
 ingest watch                    # Daemon mode (poll + process loop)
+ingest query "search"           # Search vault and archive
+ingest query --type CONTRACT    # Filter by document type
+ingest query --category HOME    # Filter by category
+ingest query --year 2024        # Filter by year
 ```
 
 #### Content Types (Layer 1)
@@ -159,6 +163,16 @@ Notifications with severity:
 | ✅ | success | Successful completion |
 | ⚠️ | warning | Partial success |
 | ❌ | error | Failure |
+
+### AI Intent Parsing (v2)
+**Requires:** `OPENAI_API_KEY`
+
+When no explicit `/command` is detected, AI analyzes captions to:
+- Route to appropriate pipeline (archive, receipt, clip, note)
+- Extract document type and category
+- Suggest tags based on content
+
+Only applied when confidence > 80%. Lower confidence uses default pipeline.
 
 ---
 

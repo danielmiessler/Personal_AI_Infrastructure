@@ -949,8 +949,9 @@ async function searchArchive(query: {
 | 0.1.0 | 2025-12-02 | Initial draft |
 | 0.1.1 | 2025-12-02 | Added Jina AI Reader for URL extraction |
 | 0.2.0 | 2025-12-02 | Phase 1+2 implemented, added iOS shortcuts and acceptance tests |
+| 0.3.0 | 2025-12-02 | Phase 3 complete: AI intent parsing, query command, spoken hints |
 
 ---
 
-**Document Status:** In Progress - Phase 2 Complete
-**Next Step:** Implement Phase 3 (AI Intent Parsing) + Create iOS Shortcuts for Testing
+**Document Status:** Implementation Complete - Ready for Testing
+**Next Step:** Run acceptance tests (ACC-001 to ACC-006) + Create iOS Shortcuts for Testing

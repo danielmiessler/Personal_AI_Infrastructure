@@ -16,6 +16,8 @@ export interface IngestConfig {
   stateDb: string;
   tempDir: string;
   openaiApiKey?: string;
+  jinaApiKey?: string;  // Optional: for higher Jina AI rate limits
+  dropboxArchivePath?: string;  // Path for archive sync
 }
 
 let cachedConfig: IngestConfig | null = null;
@@ -106,6 +108,16 @@ export function getConfig(): IngestConfig {
     env.INGEST_TEMP_DIR ||
     join(homedir(), ".cache", "pai-ingest");
 
+  // Optional API keys
+  const openaiApiKey = process.env.OPENAI_API_KEY || env.OPENAI_API_KEY;
+  const jinaApiKey = process.env.JINA_API_KEY || env.JINA_API_KEY;
+
+  // Dropbox archive path (for archive/receipt sync)
+  const dropboxArchivePath =
+    process.env.DROPBOX_ARCHIVE_PATH ||
+    env.DROPBOX_ARCHIVE_PATH ||
+    join(homedir(), "Dropbox", "document", "_archive");
+
   cachedConfig = {
     telegramBotToken,
     telegramChannelId,
@@ -114,7 +126,9 @@ export function getConfig(): IngestConfig {
     vaultName,
     stateDb: stateDb.replace(/^~/, homedir()),
     tempDir: tempDir.replace(/^~/, homedir()),
-    openaiApiKey: process.env.OPENAI_API_KEY || env.OPENAI_API_KEY,
+    openaiApiKey,
+    jinaApiKey,
+    dropboxArchivePath: dropboxArchivePath.replace(/^~/, homedir()),
   };
 
   return cachedConfig;

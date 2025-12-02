@@ -34,7 +34,21 @@ export interface ProcessedContent {
   tags: string[];
   source: "telegram";
   contentType: ContentType;
-  sourceFile?: string;  // Original source filename for traceability
+  sourceFile?: string;       // Original source filename for traceability
+  sourceMetadata?: SourceMetadata;  // Device/user/source tracking
+}
+
+/**
+ * Source metadata for multi-device/multi-user tracking
+ * Parsed from [key:value] syntax in message captions
+ */
+export interface SourceMetadata {
+  source?: string;          // e.g., "clipboard-share", "photo-capture", "voice-memo"
+  device?: string;          // e.g., "iphone", "ipad", "mac"
+  user?: string;            // e.g., "andreas", "magdalena"
+  type?: string;            // e.g., "RECEIPT", "CONTRACT", "DOCUMENT"
+  category?: string;        // e.g., "HOME", "WORK", "CAR"
+  processor?: string;       // e.g., "pandoc", "marker", "llamaparse"
 }
 
 /**
@@ -45,6 +59,7 @@ export interface InlineHints {
   tags: string[];           // #tag or #project/name
   people: string[];         // @firstname_lastname or @name
   commands: string[];       // /summarize, /transcript, /meeting
+  metadata: SourceMetadata; // [key:value] pairs for source tracking
   cleanedContent: string;   // Content with hints removed
 }
 
@@ -73,11 +88,42 @@ export function extractInlineHints(text: string): InlineHints {
   const tags: string[] = [];
   const people: string[] = [];
   const commands: string[] = [];
+  const metadata: SourceMetadata = {};
+
+  // Extract metadata: [key:value] pairs
+  // Supports: [source:clipboard-share][device:iphone][user:andreas]
+  const metadataPattern = /\[([a-zA-Z_]+):([^\]]+)\]/g;
+  let match;
+  while ((match = metadataPattern.exec(text)) !== null) {
+    const key = match[1].toLowerCase();
+    const value = match[2].trim();
+
+    // Map to known metadata fields
+    switch (key) {
+      case "source":
+        metadata.source = value;
+        break;
+      case "device":
+        metadata.device = value;
+        break;
+      case "user":
+        metadata.user = value;
+        break;
+      case "type":
+        metadata.type = value.toUpperCase();  // Normalize to uppercase
+        break;
+      case "category":
+        metadata.category = value.toUpperCase();  // Normalize to uppercase
+        break;
+      case "processor":
+        metadata.processor = value.toLowerCase();
+        break;
+    }
+  }
 
   // Extract hashtags: #tag or #project/name (supports / in tags)
   // Must be at word boundary or start of line
   const tagPattern = /(?:^|\s)#([a-zA-Z][a-zA-Z0-9_/-]*)/gm;
-  let match;
   while ((match = tagPattern.exec(text)) !== null) {
     tags.push(match[1]);
   }
@@ -99,6 +145,7 @@ export function extractInlineHints(text: string): InlineHints {
   // Remove hints from content (clean version)
   // Be careful not to corrupt URLs
   let cleaned = text
+    .replace(/\[[a-zA-Z_]+:[^\]]+\]/g, " ")  // Remove [key:value] metadata
     .replace(/(?:^|\s)#[a-zA-Z][a-zA-Z0-9_/-]*/gm, " ")
     .replace(/(?:^|\s)@[a-zA-Z][a-zA-Z0-9_]*/gm, " ")
     .replace(/(?:^|\s)\/[a-zA-Z][a-zA-Z0-9_-]*(?=\s|$)/gm, " ")
@@ -110,6 +157,7 @@ export function extractInlineHints(text: string): InlineHints {
     tags,
     people,
     commands,
+    metadata,
     cleanedContent: cleaned,
   };
 }
@@ -242,12 +290,16 @@ export async function processMessage(
   const results: ProcessedContent[] = [];
 
   // Always create raw note
+  // Include source metadata if present
+  const hasMetadata = Object.keys(hints.metadata).length > 0;
+
   results.push({
     title: suggestedTitle,
     rawContent,
     tags,
     source: "telegram",
     contentType,
+    ...(hasMetadata && { sourceMetadata: hints.metadata }),
   });
 
   // If paired output, also create processed version
@@ -268,6 +320,7 @@ export async function processMessage(
         tags: wisdomTags,
         source: "telegram",
         contentType,
+        ...(hasMetadata && { sourceMetadata: hints.metadata }),
       });
     } catch (error) {
       console.warn(`Warning: Fabric processing failed: ${error}`);
@@ -412,16 +465,21 @@ async function processDocument(
 }
 
 /**
- * Process URL by fetching content
+ * Process URL by fetching content via Jina AI Reader
+ *
+ * Uses Jina AI (r.jina.ai) for clean markdown extraction.
+ * Falls back to basic fetch if Jina fails.
+ * YouTube URLs use fabric's yt command for transcript.
  */
 async function processUrl(
   message: TelegramMessage
 ): Promise<{ content: string; title: string }> {
+  const config = getConfig();
   const url = extractUrl(message);
   if (!url) throw new Error("No URL in message");
 
   try {
-    // Try using fabric's yt command for YouTube
+    // YouTube: Use fabric's yt command for transcript
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
       const { stdout } = await execAsync(`yt "${url}"`, { timeout: 60000 });
       return {
@@ -430,33 +488,97 @@ async function processUrl(
       };
     }
 
-    // For other URLs, use curl + readability or just fetch
-    const response = await fetch(url);
-    const html = await response.text();
+    // All other URLs: Use Jina AI Reader for clean markdown
+    const jinaContent = await fetchWithJina(url, config.jinaApiKey);
 
-    // Simple extraction - strip HTML tags
-    const text = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    if (jinaContent) {
+      // Extract title from Jina's markdown (usually first # heading)
+      const titleMatch = jinaContent.match(/^#\s+(.+)$/m);
+      const title = titleMatch?.[1]?.trim() || generateTitleFromText(jinaContent);
 
-    // Try to extract title from HTML
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch?.[1]?.trim() || new URL(url).hostname;
+      return {
+        content: `Source: ${url}\n\n${jinaContent}`,
+        title,
+      };
+    }
 
-    return {
-      content: `Source: ${url}\n\n${text.slice(0, 10000)}`,
-      title,
-    };
+    // Fallback: Basic fetch if Jina fails
+    console.warn("Jina fetch failed, falling back to basic fetch");
+    return await fetchWithBasicMethod(url);
+
   } catch (error) {
-    // Return URL as content if fetch fails
+    console.warn(`URL processing error: ${error}`);
+    // Return URL as content if all methods fail
     return {
       content: `URL: ${url}\n\n(Content could not be fetched)`,
       title: "Link",
     };
   }
+}
+
+/**
+ * Fetch URL content using Jina AI Reader
+ * Returns clean markdown or null if failed
+ */
+async function fetchWithJina(url: string, apiKey?: string): Promise<string | null> {
+  try {
+    const jinaUrl = `https://r.jina.ai/${encodeURIComponent(url)}`;
+    const headers: Record<string, string> = {
+      "Accept": "text/markdown",
+    };
+
+    // Add API key if available (for higher rate limits)
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(jinaUrl, {
+      headers,
+      signal: AbortSignal.timeout(30000),  // 30 second timeout
+    });
+
+    if (!response.ok) {
+      console.warn(`Jina returned ${response.status}: ${response.statusText}`);
+      return null;
+    }
+
+    const content = await response.text();
+
+    // Jina returns an error message if it can't process the URL
+    if (content.includes("Failed to fetch") || content.length < 100) {
+      return null;
+    }
+
+    return content;
+  } catch (error) {
+    console.warn(`Jina fetch error: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Fallback: Basic fetch with HTML stripping
+ */
+async function fetchWithBasicMethod(url: string): Promise<{ content: string; title: string }> {
+  const response = await fetch(url);
+  const html = await response.text();
+
+  // Simple extraction - strip HTML tags
+  const text = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Try to extract title from HTML
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const title = titleMatch?.[1]?.trim() || new URL(url).hostname;
+
+  return {
+    content: `Source: ${url}\n\n${text.slice(0, 10000)}`,
+    title,
+  };
 }
 
 /**
@@ -816,7 +938,8 @@ export async function saveToVault(
 
   const filePath = join(config.vaultPath, filename);
 
-  // Generate frontmatter
+  // Generate frontmatter with source metadata
+  const meta = processed.sourceMetadata;
   const frontmatter = [
     "---",
     `generation_date: ${new Date().toISOString().slice(0, 16).replace("T", " ")}`,
@@ -824,6 +947,12 @@ export async function saveToVault(
     ...processed.tags.map((t) => `  - ${t}`),
     `source: telegram`,
     ...(processed.sourceFile ? [`source_file: "${processed.sourceFile}"`] : []),
+    // Source metadata fields (only include if present)
+    ...(meta?.source ? [`source_shortcut: ${meta.source}`] : []),
+    ...(meta?.device ? [`source_device: ${meta.device}`] : []),
+    ...(meta?.user ? [`source_user: ${meta.user}`] : []),
+    ...(meta?.type ? [`document_type: ${meta.type}`] : []),
+    ...(meta?.category ? [`document_category: ${meta.category}`] : []),
     "---",
   ].join("\n");
 

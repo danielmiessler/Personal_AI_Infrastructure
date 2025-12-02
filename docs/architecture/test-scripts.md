@@ -996,6 +996,15 @@ ingest retry --failed
 - [ ] TEST-JIRA-001 through TEST-JIRA-003 (Jira Context)
 - [ ] TEST-JIRA-010 (Jira Sync)
 
+### Phase 8: Ingest Pipeline v2
+- [ ] TEST-INGv2-001 through TEST-INGv2-003 (Metadata Parsing)
+- [ ] TEST-INGv2-010 through TEST-INGv2-013 (Jina URL Extraction)
+- [ ] TEST-INGv2-020 through TEST-INGv2-021 (Self-Test v2)
+- [ ] TEST-INGv2-030 (Events Payload with Metadata)
+- [ ] TEST-INGv2-100 through TEST-INGv2-101 (Archive Naming - Phase 2)
+- [ ] TEST-INGv2-110 (Receipt Processing - Phase 3)
+- [ ] TEST-INGv2-120 (AI Intent Parsing - Phase 4)
+
 ---
 
 ## Part 7: iOS/macOS Integration Tests
@@ -1270,6 +1279,214 @@ Verify:
 - Multiple skills invoked in sequence
 - Handoff between skills works
 - Combined results returned
+```
+
+---
+
+## Part 9: Ingest Pipeline v2 Tests
+
+### 9.1 Metadata Parsing
+
+#### TEST-INGv2-001: Parse [key:value] Metadata
+```bash
+# Setup: Send message to Telegram with metadata syntax
+# "[source:clipboard-share][device:iphone][user:andreas] Test message"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Frontmatter contains: source_shortcut: clipboard-share
+# - Frontmatter contains: source_device: iphone
+# - Frontmatter contains: source_user: andreas
+# - Content has metadata stripped: "Test message"
+```
+
+#### TEST-INGv2-002: Mixed Hints + Metadata
+```bash
+# Setup: Send message with all hint types
+# "/note [source:voice-memo][device:mac] #project/pai @john_doe Meeting notes"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Command parsed: note
+# - Tags: project/pai, john_doe
+# - Metadata: source=voice-memo, device=mac
+# - Cleaned content: "Meeting notes"
+```
+
+#### TEST-INGv2-003: Document Type Metadata
+```bash
+# Setup: Send document with type/category
+# "/archive [type:CONTRACT][category:WORK] Employment agreement"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Frontmatter: document_type: CONTRACT
+# - Frontmatter: document_category: WORK
+# - Ready for Phase 2 archive pipeline
+```
+
+### 9.2 Jina AI URL Extraction
+
+#### TEST-INGv2-010: URL via Jina
+```bash
+# Setup: Send URL to Telegram
+# "https://example.com/some-article"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Jina AI Reader called (https://r.jina.ai/...)
+# - Clean markdown extracted (no HTML noise)
+# - Title extracted from first # heading
+# - Note created with Source: URL header
+```
+
+#### TEST-INGv2-011: Jina Fallback
+```bash
+# Setup: Send URL that Jina can't process (e.g., blocked site)
+# "https://some-blocked-site.com/page"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Jina returns error/empty
+# - Falls back to basic fetch
+# - Note still created with available content
+# - Warning logged about fallback
+```
+
+#### TEST-INGv2-012: YouTube URL (Not Jina)
+```bash
+# Setup: Send YouTube URL
+# "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Does NOT call Jina
+# - Uses yt command for transcript
+# - Video transcript in note
+```
+
+#### TEST-INGv2-013: URL with Metadata
+```bash
+# Setup: URL with source tracking
+# "[source:newsletter][device:iphone] Check this out: https://example.com/ai-news"
+
+# Test: Process
+ingest process --verbose
+
+# Expected:
+# - Metadata parsed from caption
+# - URL extracted and fetched via Jina
+# - Frontmatter includes both URL source and capture source
+```
+
+### 9.3 Self-Test Verification
+
+#### TEST-INGv2-020: Run Self-Test
+```bash
+# Test: Run self-test with v2 checks
+bun run bin/obs/self-test.ts
+
+# Expected:
+# - "Ingest Pipeline v2 Tests" section appears
+# - Jina API Key: shows status (set or free tier)
+# - Dropbox Archive: shows path and writable status
+# - Vision API: shows available/not set
+# - Metadata Parsing: regex valid
+```
+
+#### TEST-INGv2-021: Full Self-Test with Jina Check
+```bash
+# Test: Full mode tests Jina connectivity
+bun run bin/obs/self-test.ts --full
+
+# Expected:
+# - Jina AI: Accessible (tests r.jina.ai endpoint)
+# - Shows "API key set" or "using free tier"
+```
+
+### 9.4 Events Channel Payload
+
+#### TEST-INGv2-030: Notification with Metadata
+```bash
+# Setup: Process message with metadata
+# "[source:photo-capture][device:iphone][user:andreas] Receipt photo"
+
+# Test: Check Events channel after processing
+
+# Expected JSON in notification:
+# {
+#   "event_type": "pai.ingest",
+#   "source_metadata": {
+#     "shortcut": "photo-capture",
+#     "device": "iphone",
+#     "user": "andreas"
+#   }
+# }
+```
+
+---
+
+## Part 10: Future v2 Tests (Archive Pipeline)
+
+### 10.1 Archive Naming (Phase 2)
+
+#### TEST-INGv2-100: Archive with Auto-Naming
+```bash
+# Setup: Send document with /archive command
+# /archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45
+
+# Expected (when Phase 2 implemented):
+# - Filename: RECEIPT - 20251202 - Bunnings (Plumbing supplies, $45) - HOME.pdf
+# - Synced to Dropbox: ~/Dropbox/document/_archive/
+# - Note created in vault: archive/
+```
+
+#### TEST-INGv2-101: Archive with Pre-Named File
+```bash
+# Setup: Send pre-named document
+# File: "CONTRACT - 20240208 - Employment Agreement.pdf"
+
+# Expected:
+# - Original filename PRESERVED (not regenerated)
+# - Synced to Dropbox with same name
+```
+
+### 10.2 Receipt Processing (Phase 3)
+
+#### TEST-INGv2-110: Receipt with Vision AI
+```bash
+# Setup: Send receipt photo with /receipt
+# /receipt [category:HOME]
+
+# Expected (when Phase 3 implemented):
+# - Vision AI extracts: vendor, date, amount
+# - Archive naming auto-generated
+# - Frontmatter: vendor, amount, date fields
+```
+
+### 10.3 AI Intent Parsing (Phase 4)
+
+#### TEST-INGv2-120: Natural Language Routing
+```bash
+# Setup: Send with natural language (no /command)
+# "Archive this receipt from Bunnings for home expenses"
+
+# Expected (when Phase 4 implemented):
+# - AI detects intent: receipt pipeline
+# - Extracts: vendor=Bunnings, category=HOME
+# - Routes to receipt processing
 ```
 
 ---

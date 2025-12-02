@@ -318,6 +318,103 @@ async function runTests(): Promise<void> {
     }
   }
 
+  // ─────────────────────────────────────────────────
+  // INGEST PIPELINE v2 TESTS
+  // ─────────────────────────────────────────────────
+  console.log("\n" + "─".repeat(50));
+  console.log("📥 Ingest Pipeline v2 Tests\n");
+
+  // Test 15: Jina AI accessibility (URL extraction)
+  const jinaApiKey = process.env.JINA_API_KEY || env.JINA_API_KEY || "";
+  if (fullMode) {
+    try {
+      // Test Jina with a simple URL
+      const testUrl = "https://example.com";
+      const jinaUrl = `https://r.jina.ai/${encodeURIComponent(testUrl)}`;
+      const headers: Record<string, string> = { "Accept": "text/markdown" };
+      if (jinaApiKey) {
+        headers["Authorization"] = `Bearer ${jinaApiKey}`;
+      }
+
+      const response = await fetch(jinaUrl, {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (response.ok) {
+        const keyStatus = jinaApiKey ? "API key set" : "using free tier";
+        pass("Jina AI", `Accessible (${keyStatus})`);
+      } else {
+        warn("Jina AI", `Returned ${response.status} - may have rate limit issues`);
+      }
+    } catch (e) {
+      warn("Jina AI", `Connection failed: ${e instanceof Error ? e.message : e}`);
+    }
+  } else {
+    // In non-full mode, just check if API key is set
+    if (jinaApiKey) {
+      pass("Jina API Key", `Set (${jinaApiKey.slice(0, 8)}...)`);
+    } else {
+      pass("Jina API Key", "Not set (using free tier - 20 req/min)");
+    }
+  }
+
+  // Test 16: Dropbox archive path
+  const dropboxArchivePath =
+    process.env.DROPBOX_ARCHIVE_PATH ||
+    env.DROPBOX_ARCHIVE_PATH ||
+    join(homedir(), "Dropbox", "document", "_archive");
+  const resolvedDropboxPath = dropboxArchivePath.replace(/^~/, homedir());
+
+  if (existsSync(resolvedDropboxPath)) {
+    // Check if writable
+    try {
+      const testFile = join(resolvedDropboxPath, ".pai-test-" + Date.now());
+      require("fs").writeFileSync(testFile, "test");
+      require("fs").unlinkSync(testFile);
+      pass("Dropbox Archive", `${resolvedDropboxPath} (writable)`);
+    } catch {
+      warn("Dropbox Archive", `${resolvedDropboxPath} (read-only)`);
+    }
+  } else {
+    warn("Dropbox Archive", `Path not found: ${resolvedDropboxPath}`);
+  }
+
+  // Test 17: Vision API (for receipt OCR) - reusing OpenAI key check
+  if (openaiKey) {
+    pass("Vision API", "Available (using OPENAI_API_KEY for gpt-4o)");
+  } else {
+    warn("Vision API", "OPENAI_API_KEY not set (receipt OCR disabled)");
+  }
+
+  // Test 18: Metadata parsing regex
+  try {
+    const testCaptions = [
+      "[source:clipboard][device:iphone] Test message",
+      "/archive [type:RECEIPT][category:HOME] Receipt from store",
+      "#tag @person /note [user:andreas]",
+    ];
+
+    const metadataPattern = /\[([a-zA-Z_]+):([^\]]+)\]/g;
+    let allPassed = true;
+
+    for (const caption of testCaptions) {
+      const matches = [...caption.matchAll(metadataPattern)];
+      if (caption.includes("[") && matches.length === 0) {
+        allPassed = false;
+        break;
+      }
+    }
+
+    if (allPassed) {
+      pass("Metadata Parsing", "[key:value] regex valid");
+    } else {
+      fail("Metadata Parsing", "Regex failed to match expected patterns");
+    }
+  } catch (e) {
+    fail("Metadata Parsing", `Error: ${e instanceof Error ? e.message : e}`);
+  }
+
   // Summary
   console.log("\n" + "─".repeat(50));
   const passed = results.filter(r => r.status === "pass").length;

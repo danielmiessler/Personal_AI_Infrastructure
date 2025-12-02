@@ -2108,9 +2108,18 @@ export async function saveToVault(
   const isArchivePipeline = processed.pipeline === "archive" || processed.pipeline === "receipt";
   const subfolder = isArchivePipeline ? "archive" : "";
 
+  // Use document date from metadata if provided, otherwise use current date
+  const noteDate = processed.sourceMetadata?.date
+    ? new Date(processed.sourceMetadata.date + "T00:00:00")
+    : new Date();
+
+  if (processed.sourceMetadata?.date) {
+    console.log(`  Using document date for filename: ${processed.sourceMetadata.date}`);
+  }
+
   const filename = generateFilename(profile, {
     title: processed.title,
-    date: new Date(),
+    date: noteDate,
     source: "telegram",
     suffix: isWisdom ? "wisdom" : "raw",
   });

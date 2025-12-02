@@ -208,13 +208,31 @@ export function extractUrl(message: TelegramMessage): string | null {
  * Used to notify about completed processing, with optional Obsidian deep link.
  * Supports Markdown formatting for Telegram.
  */
+/**
+ * Notification severity levels with visual indicators
+ */
+export type NotificationSeverity = "info" | "success" | "warning" | "error";
+
+/**
+ * Severity icons for visual indication in Events channel
+ */
+const SEVERITY_ICONS: Record<NotificationSeverity, string> = {
+  info: "ℹ️",      // Informational
+  success: "✅",   // Successful completion
+  warning: "⚠️",   // Warning/partial success
+  error: "❌",     // Error/failure
+};
+
 export interface NotificationOptions {
   messageId: number;
   status: "success" | "failed";
+  severity?: NotificationSeverity;  // Override default severity
   contentType: ContentType;
   title: string;
   originalFilename?: string;  // Original source filename
   outputPaths?: string[];     // Full paths to output files
+  dropboxPath?: string;       // Dropbox sync path (for archive pipeline)
+  pipeline?: string;          // Which pipeline processed this
   error?: string;
   obsidianVaultName?: string;  // Vault name for Obsidian URI
 }
@@ -227,15 +245,19 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
     return;
   }
 
-  const emoji = options.status === "success" ? "✅" : "❌";
+  // Determine severity: use explicit override, or derive from status
+  const severity: NotificationSeverity = options.severity ||
+    (options.status === "failed" ? "error" : "success");
+  const emoji = SEVERITY_ICONS[severity];
   const statusText = options.status === "success" ? "Processed" : "Failed";
 
   // Build structured event payload for downstream routing (PagerDuty, etc.)
   const eventPayload = {
     event_type: "pai.ingest",
     status: options.status,
-    severity: options.status === "failed" ? "warning" : "info",
+    severity,
     content_type: options.contentType,
+    pipeline: options.pipeline || "default",
     title: options.title,
     message_id: options.messageId,
     timestamp: new Date().toISOString(),
@@ -245,18 +267,30 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
       output_files: options.outputPaths.map(p => p.split("/").pop()),
       output_paths: options.outputPaths,
     }),
+    ...(options.dropboxPath && { dropbox_path: options.dropboxPath }),
     ...(options.error && { error: options.error.slice(0, 500) }),
   };
 
   // Build human-readable message parts
+  const pipelineLabel = options.pipeline ? ` (${options.pipeline})` : "";
   const parts: string[] = [
-    `${emoji} *${statusText}*: ${options.contentType}`,
+    `${emoji} *${statusText}*: ${options.contentType}${pipelineLabel}`,
     `📝 ${escapeMarkdown(options.title)}`,
   ];
 
   if (options.status === "success" && options.outputPaths && options.outputPaths.length > 0) {
-    const filenames = options.outputPaths.map(p => p.split("/").pop()).join(", ");
-    parts.push(`📂 ${escapeMarkdown(filenames)}`);
+    // Just show filenames without paths - cleaner display
+    const filenames = options.outputPaths
+      .map(p => p.split("/").pop()?.replace(/\.md$/, ""))  // Remove .md extension for notes
+      .filter(Boolean)
+      .join(", ");
+    parts.push(`📂 ${filenames}`);
+  }
+
+  // Show Dropbox sync for archive pipeline
+  if (options.dropboxPath) {
+    const dropboxFilename = options.dropboxPath.split("/").pop() || "synced";
+    parts.push(`☁️ Dropbox: ${dropboxFilename}`);
   }
 
   if (options.status === "failed" && options.error) {

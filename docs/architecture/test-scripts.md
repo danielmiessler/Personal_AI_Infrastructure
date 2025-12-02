@@ -1004,6 +1004,7 @@ ingest retry --failed
 - [ ] TEST-INGv2-100 through TEST-INGv2-101 (Archive Naming - Phase 2)
 - [ ] TEST-INGv2-110 (Receipt Processing - Phase 3)
 - [ ] TEST-INGv2-120 (AI Intent Parsing - Phase 4)
+- [ ] TEST-INGv2-130 through TEST-INGv2-134 (Spoken Hints - Voice Memos)
 
 ---
 
@@ -1487,6 +1488,70 @@ bun run bin/obs/self-test.ts --full
 # - AI detects intent: receipt pipeline
 # - Extracts: vendor=Bunnings, category=HOME
 # - Routes to receipt processing
+```
+
+### 10.4 Spoken Hints (Voice Memos)
+
+#### TEST-INGv2-130: Spoken Hashtag Detection
+```bash
+# Setup: Voice memo with spoken "hashtag project pai"
+# (No caption, direct from Voice Memos app)
+
+# Expected:
+# - Whisper transcribes audio
+# - Detects "hashtag project pai" in transcript
+# - Converts to #project-pai tag
+# - Removes spoken hint from final transcript
+# - Note created with tag in frontmatter
+```
+
+#### TEST-INGv2-131: Spoken Person Mention
+```bash
+# Setup: Voice memo with spoken "at ed overy"
+# "hashtag meeting notes at ed overy Discussion about the new project"
+
+# Expected:
+# - Detects "at ed overy" → @ed_overy
+# - Detects "hashtag meeting notes" → #meeting-notes
+# - Cleaned transcript: "Discussion about the new project"
+# - Note has tags: meeting-notes, ed_overy
+```
+
+#### TEST-INGv2-132: Spoken Command
+```bash
+# Setup: Voice memo with spoken "forward slash archive"
+# "forward slash archive This is the contract for the new house"
+
+# Expected:
+# - Detects "forward slash archive" → /archive
+# - Routes to archive pipeline
+# - Generates archive name
+# - Syncs to Dropbox
+```
+
+#### TEST-INGv2-133: Mixed Caption + Spoken Hints
+```bash
+# Setup: Voice memo via Shortcut
+# Caption: "[source:voice-memo][device:iphone] #project/pai"
+# Audio contains: "hashtag meeting at john the weekly sync"
+
+# Expected:
+# - Caption hints: source=voice-memo, device=iphone, tags=[project/pai]
+# - Spoken hints: tags=[meeting], people=[john]
+# - Merged result: tags=[project/pai, meeting], people=[john]
+# - Metadata preserved from caption
+# - Note has all merged hints
+```
+
+#### TEST-INGv2-134: Common Words Not Detected as Mentions
+```bash
+# Setup: Voice memo with "at the meeting" (not a person)
+# "We talked at the meeting about at least three options"
+
+# Expected:
+# - "at the" → NOT converted (the is a skip word)
+# - "at least" → NOT converted (least is a skip word)
+# - Content preserved as-is
 ```
 
 ---

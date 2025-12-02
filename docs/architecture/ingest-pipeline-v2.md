@@ -694,14 +694,263 @@ fixtures/
 
 ---
 
+## iOS Shortcut Configuration
+
+### Required Shortcuts
+
+Create these iOS Shortcuts for full pipeline integration:
+
+#### 1. PAI Clipboard Share
+**Purpose:** Share text/URLs from any app to PAI inbox
+**Trigger:** Share Sheet
+
+```
+Shortcut Actions:
+1. Receive [Text, URLs] from Share Sheet
+2. Ask for Input (optional): "Add hints? #tag @person /command [source:X]"
+3. Set Variable "caption" = (input from step 2) + "\n" + (input from step 1)
+4. Get Contents of URL:
+   - URL: https://api.telegram.org/bot{BOT_TOKEN}/sendMessage
+   - Method: POST
+   - Headers: Content-Type: application/json
+   - Body: {"chat_id": "{CHANNEL_ID}", "text": "${caption}"}
+5. Show Notification: "Sent to PAI"
+```
+
+#### 2. PAI Document Archive
+**Purpose:** Archive documents to Dropbox via PAI
+**Trigger:** Share Sheet (Files)
+
+```
+Shortcut Actions:
+1. Receive [Files] from Share Sheet
+2. Get Name of (file)
+3. Ask for Input: "Document type? CONTRACT/RECEIPT/DOCUMENT"
+4. Ask for Input: "Category? HOME/WORK/CAR/MISC"
+5. Set Variable "caption" = "/archive [type:" + (step 3) + "][category:" + (step 4) + "][device:iphone][source:document-share]"
+6. Get Contents of URL:
+   - URL: https://api.telegram.org/bot{BOT_TOKEN}/sendDocument
+   - Method: POST
+   - Body (form):
+     - chat_id: {CHANNEL_ID}
+     - document: (file from step 1)
+     - caption: ${caption}
+7. Show Notification: "Document sent to PAI Archive"
+```
+
+#### 3. PAI Voice Capture
+**Purpose:** Quick voice memo capture
+**Trigger:** Home Screen Widget
+
+```
+Shortcut Actions:
+1. Record Audio
+2. Ask for Input (optional): "Add hints? #tag @person"
+3. Set Variable "caption" = "[source:voice-capture][device:iphone]" + (step 2)
+4. Get Contents of URL:
+   - URL: https://api.telegram.org/bot{BOT_TOKEN}/sendVoice
+   - Method: POST
+   - Body (form):
+     - chat_id: {CHANNEL_ID}
+     - voice: (audio from step 1)
+     - caption: ${caption}
+5. Show Notification: "Voice memo sent to PAI"
+```
+
+#### 4. PAI Photo/Receipt Capture
+**Purpose:** Capture receipts and photos with analysis
+**Trigger:** Share Sheet (Photos) or Widget
+
+```
+Shortcut Actions:
+1. If (from Share Sheet): Receive [Images]
+   Else: Take Photo
+2. Ask for Input: "What is this? (or leave blank for auto-describe)"
+3. If (input contains "receipt"):
+   Set Variable "command" = "/receipt [device:iphone][source:photo-capture]"
+   Else: Set Variable "command" = "[device:iphone][source:photo-capture]"
+4. Set Variable "caption" = (command) + " " + (step 2)
+5. Get Contents of URL:
+   - URL: https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto
+   - Method: POST
+   - Body (form):
+     - chat_id: {CHANNEL_ID}
+     - photo: (image)
+     - caption: ${caption}
+6. Show Notification: "Photo sent to PAI"
+```
+
+### Configuration Variables
+
+Store these in Shortcut Settings or as Text files in iCloud:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `BOT_TOKEN` | Telegram Bot API token | `123456:ABC-DEF...` |
+| `CHANNEL_ID` | Telegram Channel ID | `-1001234567890` |
+| `USER` | Your identifier | `andreas` |
+
+### Testing the Shortcuts
+
+After setup, test each shortcut:
+
+1. **Clipboard Share**: Select text in Safari → Share → "PAI Clipboard Share"
+2. **Document Archive**: Files app → Share PDF → "PAI Document Archive"
+3. **Voice Capture**: Widget tap → Speak → Auto-send
+4. **Photo/Receipt**: Take photo → Share → "PAI Photo/Receipt Capture"
+
+Verify in Telegram channel that messages appear with correct metadata.
+
+---
+
+## High-Level Acceptance Tests
+
+### The Full Loop: Ingest → Store → Retrieve
+
+The system has two directions:
+1. **Ingest**: Telegram → Processing → Vault/Dropbox (what we've built)
+2. **Retrieve**: Query → Context Skill → Vault/Dropbox → Response (enables the AI assistant)
+
+### Acceptance Test Matrix
+
+| Test ID | Description | Ingest | Store | Retrieve | Status |
+|---------|-------------|--------|-------|----------|--------|
+| ACC-001 | Voice memo → Vault → Context search | ✓ | ✓ | ✓ | Pending |
+| ACC-002 | PDF document → Archive → Search by type | ✓ | ✓ | ✓ | Pending |
+| ACC-003 | Receipt photo → Dropbox → Query expenses | ✓ | ✓ | ✓ | Pending |
+| ACC-004 | URL clip → Vault → Semantic search | ✓ | ✓ | ✓ | Pending |
+| ACC-005 | Newsletter → Note → Project context | ✓ | ✓ | ✓ | Pending |
+| ACC-006 | Contract → Archive → Find by category | ✓ | ✓ | ✓ | Pending |
+
+### ACC-001: Voice Memo End-to-End
+
+```
+SCENARIO: Voice memo about project meeting
+GIVEN: User records voice memo "Meeting with John about the data platform migration"
+WHEN: Processed through ingest pipeline
+THEN:
+  - Transcript in vault with tags: meeting-notes, john_doe, project/data-platform
+  - Wisdom note created with key points extracted
+
+AND WHEN: User asks PAI "What did I discuss with John recently?"
+THEN:
+  - Context skill finds note via person tag search
+  - Returns summary of meeting content
+```
+
+### ACC-002: Document Archive Search
+
+```
+SCENARIO: Find archived contracts
+GIVEN: User has archived several contracts via /archive pipeline
+WHEN: User asks "Find my employment contract"
+THEN:
+  - Context skill searches vault/archive/ for document_type: CONTRACT
+  - Also checks Dropbox archive for matching files
+  - Returns contract title, date, and location
+```
+
+### ACC-003: Receipt Expense Query
+
+```
+SCENARIO: Query expenses by category
+GIVEN: User has archived receipts via /receipt pipeline
+WHEN: User asks "How much did I spend at Bunnings this year?"
+THEN:
+  - Context skill searches for receipts with vendor: Bunnings
+  - Aggregates amounts from frontmatter
+  - Returns total and list of receipts
+```
+
+### ACC-004: Project Context Loading
+
+```
+SCENARIO: Load context for a project
+GIVEN: User has ingested various content tagged with project/pai
+WHEN: User says "Load context for the PAI project"
+THEN:
+  - Context skill finds all notes with project/pai tag
+  - Groups by content type (meetings, clips, voice memos)
+  - Provides summary of recent activity
+  - Offers to dive deeper into specific notes
+```
+
+### Telegram Query Interface (Future)
+
+Enable querying PAI via Telegram (not just ingesting):
+
+```
+User sends: "/query What contracts do I have from 2024?"
+
+PAI responds:
+📋 Found 3 contracts from 2024:
+
+1. CONTRACT - 20240208 - Employment Agreement (Andreas Astrom) - WORK.pdf
+   📍 Dropbox: document/_archive/
+
+2. CONTRACT - 20240315 - Lease Agreement - HOME.pdf
+   📍 Dropbox: document/_archive/
+
+3. CONTRACT - 20240901 - Consulting Agreement - WORK.pdf
+   📍 Vault: archive/
+
+Would you like me to summarize any of these?
+```
+
+### Archive Search Capability
+
+To enable searching archived documents in Dropbox:
+
+```typescript
+interface ArchiveSearchResult {
+  filename: string;
+  path: string;
+  type: string;        // CONTRACT, RECEIPT, DOCUMENT
+  date: string;        // Extracted from filename
+  category: string;    // HOME, WORK, etc.
+  description: string; // Extracted from filename
+}
+
+async function searchArchive(query: {
+  type?: string;
+  category?: string;
+  dateRange?: { from: Date; to: Date };
+  textSearch?: string;
+}): Promise<ArchiveSearchResult[]> {
+  // 1. List files in Dropbox archive path
+  // 2. Parse filenames using ARCHIVE_NAME_PATTERN
+  // 3. Filter by query parameters
+  // 4. Return matching results
+}
+```
+
+### Content Type Validation Checklist
+
+| Content Type | Ingest | Parse | Frontmatter | Fabric | Archive | Search |
+|--------------|--------|-------|-------------|--------|---------|--------|
+| Voice memo (.ogg) | ✓ | whisper | ✓ | extract_wisdom | N/A | ✓ |
+| Audio file (.m4a, .mp3) | ✓ | whisper | ✓ | extract_wisdom | N/A | ✓ |
+| Photo (no caption) | ✓ | Vision AI | ✓ | N/A | N/A | ✓ |
+| Photo (with prompt) | ✓ | Vision AI | ✓ | N/A | N/A | ✓ |
+| Receipt photo | ✓ | Vision AI | ✓ | N/A | ✓ Dropbox | ✓ |
+| PDF document | ✓ | marker | ✓ | summarize | Optional | ✓ |
+| DOCX document | ✓ | marker/pandoc | ✓ | summarize | Optional | ✓ |
+| URL (article) | ✓ | Jina AI | ✓ | extract_article | N/A | ✓ |
+| URL (YouTube) | ✓ | yt tool | ✓ | extract_wisdom | N/A | ✓ |
+| Text message | ✓ | pass-through | ✓ | Optional | N/A | ✓ |
+| Newsletter clip | ✓ | cleanup | ✓ | N/A | N/A | ✓ |
+
+---
+
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1.0 | 2025-12-02 | Initial draft |
 | 0.1.1 | 2025-12-02 | Added Jina AI Reader for URL extraction |
+| 0.2.0 | 2025-12-02 | Phase 1+2 implemented, added iOS shortcuts and acceptance tests |
 
 ---
 
-**Document Status:** Draft - Awaiting Review
-**Next Step:** Implement Phase 1 (Metadata Parsing + URL Enhancement)
+**Document Status:** In Progress - Phase 2 Complete
+**Next Step:** Implement Phase 3 (AI Intent Parsing) + Create iOS Shortcuts for Testing

@@ -1,8 +1,8 @@
 # Context Management Skills Contract
 
-> **Version:** 1.0
-> **Date:** 2025-12-01
-> **Status:** Active Development
+> **Version:** 2.0
+> **Date:** 2025-12-02
+> **Status:** Active Development (v2 Pipeline)
 
 ---
 
@@ -56,14 +56,34 @@ obs embed --stats               # Check index status
 
 These features work but require configuration:
 
-### Telegram Ingestion
+### Telegram Ingestion (v2 Pipeline)
 **Requires:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHANNEL_ID`
 
 ```bash
 ingest poll                     # Fetch new messages
 ingest process                  # Process queue
 ingest status                   # Show stats
+ingest watch                    # Daemon mode (poll + process loop)
 ```
+
+#### Content Types (Layer 1)
+| Type | Description | Processing |
+|------|-------------|------------|
+| `voice` | Voice memos | Whisper → AI title → Note |
+| `audio` | Audio files (mp3, m4a) | Whisper → AI title → Note |
+| `document` | PDF, DOCX | Marker extraction → Note |
+| `photo` | Images | Vision AI / OCR → Note |
+| `url` | Web links, YouTube | Jina AI / yt tool → Note |
+| `text` | Plain text | Direct → Note |
+
+#### Pipelines (Layer 2)
+| Pipeline | Trigger | Behavior |
+|----------|---------|----------|
+| `default` | No command | Standard note processing |
+| `archive` | `/archive` | Archive naming + Dropbox sync |
+| `receipt` | `/receipt` | Receipt archive + Dropbox sync |
+| `clip` | `/clip` | Quick capture |
+| `note` | `/note` | Standard note |
 
 ### Semantic Embeddings
 **Requires:** `OPENAI_API_KEY`
@@ -73,13 +93,72 @@ obs embed --verbose             # Build with OpenAI embeddings
 obs semantic "query"            # Requires embeddings.db
 ```
 
-### Share-with-Hints
+### Share-with-Hints (v2)
 **Requires:** iOS Shortcut or macOS Share action configured
 
+#### Inline Syntax
 ```
 #project/pai @person_name /meeting-notes
+[source:voice-memo][device:iphone][user:andreas]
 Content here...
 ```
+
+#### Metadata Fields
+| Key | Description | Example |
+|-----|-------------|---------|
+| `source` | Origin shortcut | `clipboard-share`, `voice-memo` |
+| `device` | Source device | `iphone`, `ipad`, `mac` |
+| `user` | Source user | `andreas`, `magdalena` |
+| `type` | Document type | `RECEIPT`, `CONTRACT` |
+| `category` | Category | `HOME`, `WORK`, `CAR` |
+
+#### Spoken Hints (Voice Memos)
+For voice memos shared directly (without shortcut), spoken hints are extracted:
+- "hashtag project pai" → `#project-pai`
+- "at ed overy" → `@ed_overy`
+- "forward slash archive" → `/archive`
+
+### Archive Pipeline (v2)
+**Requires:** `DROPBOX_ARCHIVE_PATH` (optional)
+
+Archive naming convention:
+```
+{TYPE} - {YYYYMMDD} - {Description} ({Details}) - {CATEGORY}.{ext}
+```
+
+Examples:
+- `RECEIPT - 20241201 - Amazon Order - HOME.pdf`
+- `CONTRACT - 20241115 - Employment Agreement (Acme Corp) - WORK.pdf`
+
+If file already matches pattern, original name is preserved.
+
+### URL Extraction (v2)
+**Optional:** `JINA_API_KEY` for higher rate limits
+
+URLs are fetched via Jina AI Reader (`r.jina.ai`) for clean markdown extraction.
+YouTube URLs use fabric's `yt` tool for transcripts.
+
+### Photo Processing (v2)
+**Requires:** `OPENAI_API_KEY` for Vision AI
+
+| Command | Behavior |
+|---------|----------|
+| `/ocr` | Tesseract OCR only |
+| `/store` | Save image, no processing |
+| `/describe` | Vision AI description |
+| `/mermaid` | Vision AI → Mermaid diagram |
+| Caption | Use caption as Vision prompt |
+
+### Events Channel (v2)
+**Optional:** `TELEGRAM_OUTBOX_ID`
+
+Notifications with severity:
+| Icon | Severity | Description |
+|------|----------|-------------|
+| ℹ️ | info | Informational |
+| ✅ | success | Successful completion |
+| ⚠️ | warning | Partial success |
+| ❌ | error | Failure |
 
 ---
 
@@ -187,12 +266,21 @@ Add to `~/.claude/.env` or `~/.config/fabric/.env`:
 # Required for vault operations
 OBSIDIAN_VAULT_PATH=~/Documents/my_vault
 
-# Required for semantic search
+# Required for semantic search and AI features
 OPENAI_API_KEY=sk-...
 
 # Optional: Telegram ingestion
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHANNEL_ID=-100your_channel_id
+
+# Optional: Events channel for notifications
+TELEGRAM_OUTBOX_ID=-100your_outbox_id
+
+# Optional: Jina AI for URL extraction (higher rate limits)
+JINA_API_KEY=jina_...
+
+# Optional: Archive pipeline with Dropbox sync
+DROPBOX_ARCHIVE_PATH=~/Dropbox/document/_archive
 
 # Optional: Processing profile
 INGEST_PROFILE=zettelkasten  # or "simple"
@@ -270,7 +358,8 @@ bun bin/obs/self-test.ts  # Verify still works
 ## 📖 Related Documentation
 
 - [Context System Architecture](../../docs/architecture/context-system.md)
-- [Telegram Ingestion](../../docs/architecture/telegram-ingestion.md)
+- [Telegram Ingestion v1](../../docs/architecture/telegram-ingestion.md)
+- [Ingest Pipeline v2 ADR](../../docs/architecture/ingest-pipeline-v2.md)
 - [Test Scripts](../../docs/architecture/test-scripts.md)
 - [PAI Contract](../../PAI_CONTRACT.md)
 

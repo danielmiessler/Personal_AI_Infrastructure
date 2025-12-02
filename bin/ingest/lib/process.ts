@@ -36,6 +36,9 @@ export interface ProcessedContent {
   contentType: ContentType;
   sourceFile?: string;       // Original source filename for traceability
   sourceMetadata?: SourceMetadata;  // Device/user/source tracking
+  pipeline?: PipelineType;   // Which pipeline processed this
+  archiveName?: string;      // Generated archive filename (if archive pipeline)
+  originalFilePath?: string; // Path to original file (for Dropbox sync)
 }
 
 /**
@@ -64,6 +67,110 @@ export interface InlineHints {
 }
 
 /**
+ * Pipeline types for Layer 2 routing
+ */
+export type PipelineType = "note" | "clip" | "archive" | "receipt" | "default";
+
+/**
+ * Archive naming pattern for detecting pre-named files
+ * Matches: CONTRACT - 20240208 - Description...
+ */
+const ARCHIVE_NAME_PATTERN = /^(CONTRACT|RECEIPT|CORRESPONDANCE|DOCUMENT|REPORT)\s*-\s*\d{8}\s*-/i;
+
+/**
+ * Check if filename already follows archive naming convention
+ */
+export function shouldPreserveArchiveName(filename: string): boolean {
+  return ARCHIVE_NAME_PATTERN.test(filename);
+}
+
+/**
+ * Generate archive filename following convention:
+ * {TYPE} - {YYYYMMDD} - {Description} ({Details}) - {CATEGORY}.{ext}
+ */
+export function generateArchiveName(options: {
+  type: string;           // RECEIPT, CONTRACT, DOCUMENT, etc.
+  date: Date;
+  description: string;
+  details?: string;
+  category: string;       // HOME, WORK, CAR, etc.
+  extension: string;
+}): string {
+  const dateStr = options.date.toISOString().slice(0, 10).replace(/-/g, "");
+  const desc = sanitizeArchiveFilename(options.description);
+  const cat = options.category.toUpperCase();
+  const type = options.type.toUpperCase();
+  const ext = options.extension.replace(/^\./, "");
+
+  if (options.details) {
+    const details = sanitizeArchiveFilename(options.details);
+    return `${type} - ${dateStr} - ${desc} (${details}) - ${cat}.${ext}`;
+  }
+
+  return `${type} - ${dateStr} - ${desc} - ${cat}.${ext}`;
+}
+
+/**
+ * Sanitize text for use in archive filename
+ */
+function sanitizeArchiveFilename(text: string): string {
+  return text
+    .replace(/[<>:"/\\|?*]/g, "")  // Remove invalid chars
+    .replace(/\s+/g, " ")           // Normalize whitespace
+    .trim()
+    .slice(0, 80);                  // Limit length
+}
+
+/**
+ * Determine pipeline from commands
+ */
+export function determinePipeline(commands: string[]): PipelineType {
+  if (commands.includes("archive")) return "archive";
+  if (commands.includes("receipt")) return "receipt";
+  if (commands.includes("clip")) return "clip";
+  if (commands.includes("note")) return "note";
+  return "default";
+}
+
+/**
+ * Sync file to Dropbox archive folder
+ */
+export async function syncToDropbox(
+  sourcePath: string,
+  archiveName: string
+): Promise<string | null> {
+  const config = getConfig();
+
+  if (!config.dropboxArchivePath) {
+    console.warn("Dropbox archive path not configured, skipping sync");
+    return null;
+  }
+
+  // Ensure directory exists
+  if (!existsSync(config.dropboxArchivePath)) {
+    try {
+      await mkdir(config.dropboxArchivePath, { recursive: true });
+    } catch (error) {
+      console.warn(`Could not create Dropbox directory: ${error}`);
+      return null;
+    }
+  }
+
+  const destPath = join(config.dropboxArchivePath, archiveName);
+
+  try {
+    // Copy file to Dropbox
+    const data = await Bun.file(sourcePath).arrayBuffer();
+    await Bun.write(destPath, data);
+    console.log(`  Synced to Dropbox: ${destPath}`);
+    return destPath;
+  } catch (error) {
+    console.warn(`Dropbox sync failed: ${error}`);
+    return null;
+  }
+}
+
+/**
  * Extract inline hints from message text
  *
  * Supported formats:
@@ -85,16 +192,100 @@ export interface InlineHints {
  *   cleanedContent: "Notes from our weekly sync about the ingest pipeline"
  */
 export function extractInlineHints(text: string): InlineHints {
+  return extractHints(text, false);
+}
+
+/**
+ * Extract spoken hints from transcribed audio
+ *
+ * Supports Wispr Flow / dictation style spoken hints:
+ *   "hashtag project pai" → #project/pai (if slash follows)
+ *   "hashtag meeting notes" → #meeting-notes
+ *   "at john" → @john
+ *   "at ed overy" → @ed_overy
+ *   "forward slash archive" → /archive
+ *   "slash summary" → /summary
+ *
+ * Also supports natural prefix hints at start of recording:
+ *   "This is about the data platform project with Ed Overy..."
+ *   → No extraction, but passed to AI for intent parsing
+ */
+export function extractSpokenHints(transcript: string): InlineHints {
+  return extractHints(transcript, true);
+}
+
+/**
+ * Merge two InlineHints objects, deduplicating arrays
+ */
+export function mergeHints(base: InlineHints, additional: InlineHints): InlineHints {
+  return {
+    tags: [...new Set([...base.tags, ...additional.tags])],
+    people: [...new Set([...base.people, ...additional.people])],
+    commands: [...new Set([...base.commands, ...additional.commands])],
+    metadata: { ...base.metadata, ...additional.metadata },
+    cleanedContent: additional.cleanedContent || base.cleanedContent,
+  };
+}
+
+/**
+ * Core hint extraction with optional spoken mode
+ */
+function extractHints(text: string, spokenMode: boolean): InlineHints {
   const tags: string[] = [];
   const people: string[] = [];
   const commands: string[] = [];
   const metadata: SourceMetadata = {};
+  let workingText = text;
+
+  // In spoken mode, first convert spoken patterns to symbol form
+  // This allows the standard extraction to work on both modes
+  if (spokenMode) {
+    // "hashtag <word>" or "hashtag <word> <word>" → #word or #word-word
+    // Matches: "hashtag project", "hashtag meeting notes", "hashtag project slash pai"
+    workingText = workingText.replace(
+      /\b(?:hash\s*tag|hashtag)\s+([a-zA-Z][a-zA-Z0-9]*(?:\s+(?:slash\s+)?[a-zA-Z][a-zA-Z0-9]*)?)\b/gi,
+      (match, captured) => {
+        // Convert "project slash pai" → "project/pai", "meeting notes" → "meeting-notes"
+        const normalized = captured
+          .replace(/\s+slash\s+/gi, "/")
+          .replace(/\s+/g, "-")
+          .toLowerCase();
+        return ` #${normalized}`;
+      }
+    );
+
+    // "at <name>" or "at <first> <last>" → @name or @first_last
+    // Matches: "at john", "at ed overy", "at john doe"
+    workingText = workingText.replace(
+      /\bat\s+([a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9]*)?)\b/gi,
+      (match, captured) => {
+        // Check it's not "at the", "at a", "at this", etc.
+        const words = captured.toLowerCase().split(/\s+/);
+        const skipWords = ["the", "a", "an", "this", "that", "my", "your", "our", "their", "some", "any", "all", "no", "first", "last", "least", "most"];
+        if (skipWords.includes(words[0])) {
+          return match; // Keep original, not a mention
+        }
+        const normalized = captured.replace(/\s+/g, "_").toLowerCase();
+        return ` @${normalized}`;
+      }
+    );
+
+    // "forward slash <command>" or "slash <command>" → /command
+    // Matches: "forward slash archive", "slash summary", "forward slash meeting notes"
+    workingText = workingText.replace(
+      /\b(?:forward\s+)?slash\s+([a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9]*)?)\b/gi,
+      (match, captured) => {
+        const normalized = captured.replace(/\s+/g, "-").toLowerCase();
+        return ` /${normalized}`;
+      }
+    );
+  }
 
   // Extract metadata: [key:value] pairs
   // Supports: [source:clipboard-share][device:iphone][user:andreas]
   const metadataPattern = /\[([a-zA-Z_]+):([^\]]+)\]/g;
   let match;
-  while ((match = metadataPattern.exec(text)) !== null) {
+  while ((match = metadataPattern.exec(workingText)) !== null) {
     const key = match[1].toLowerCase();
     const value = match[2].trim();
 
@@ -124,27 +315,27 @@ export function extractInlineHints(text: string): InlineHints {
   // Extract hashtags: #tag or #project/name (supports / in tags)
   // Must be at word boundary or start of line
   const tagPattern = /(?:^|\s)#([a-zA-Z][a-zA-Z0-9_/-]*)/gm;
-  while ((match = tagPattern.exec(text)) !== null) {
+  while ((match = tagPattern.exec(workingText)) !== null) {
     tags.push(match[1]);
   }
 
   // Extract mentions: @name or @firstname_lastname
   // Must be at word boundary or start of line
   const mentionPattern = /(?:^|\s)@([a-zA-Z][a-zA-Z0-9_]*)/gm;
-  while ((match = mentionPattern.exec(text)) !== null) {
+  while ((match = mentionPattern.exec(workingText)) !== null) {
     people.push(match[1]);
   }
 
   // Extract commands: /command ONLY at start of line or after whitespace
   // NOT in URLs (http://..., https://...)
   const commandPattern = /(?:^|\s)\/([a-zA-Z][a-zA-Z0-9_-]*)(?=\s|$)/gm;
-  while ((match = commandPattern.exec(text)) !== null) {
+  while ((match = commandPattern.exec(workingText)) !== null) {
     commands.push(match[1]);
   }
 
   // Remove hints from content (clean version)
   // Be careful not to corrupt URLs
-  let cleaned = text
+  let cleaned = workingText
     .replace(/\[[a-zA-Z_]+:[^\]]+\]/g, " ")  // Remove [key:value] metadata
     .replace(/(?:^|\s)#[a-zA-Z][a-zA-Z0-9_/-]*/gm, " ")
     .replace(/(?:^|\s)@[a-zA-Z][a-zA-Z0-9_]*/gm, " ")
@@ -242,12 +433,40 @@ export async function processMessage(
       const audioResult = await processAudio(message, config.tempDir);
       rawContent = audioResult.content;
       suggestedTitle = audioResult.title;
+      // Merge spoken hints (from transcript) with caption hints
+      // This supports both: Shortcut with metadata AND direct Voice Memos with spoken hints
+      if (audioResult.spokenHints) {
+        const merged = mergeHints(hints, audioResult.spokenHints);
+        hints.tags = merged.tags;
+        hints.people = merged.people;
+        hints.metadata = merged.metadata;
+        // Note: We keep hints.cleanedContent from caption, not transcript
+        // The transcript content is already in rawContent
+
+        // Validate any new commands from spoken hints
+        const newSpokenCommands = audioResult.spokenHints.commands.filter(
+          cmd => !validCommands.includes(cmd)
+        );
+        if (newSpokenCommands.length > 0) {
+          const spokenCmdValidation = validateCommands(newSpokenCommands);
+          // Add valid spoken commands to the list
+          validCommands.push(...spokenCmdValidation.filter(c => !validCommands.includes(c)));
+          hints.commands = validCommands;
+        }
+      }
       break;
 
     case "document":
-      const docResult = await processDocument(message, config.tempDir);
+      // Check if archive pipeline to preserve original file for Dropbox sync
+      const docPipeline = determinePipeline(validCommands);
+      const keepForArchive = docPipeline === "archive" || docPipeline === "receipt";
+      const docResult = await processDocument(message, config.tempDir, keepForArchive);
       rawContent = docResult.content;
       suggestedTitle = docResult.title;
+      // Store original path for Dropbox sync (will be used later if archive pipeline)
+      if (docResult.originalPath) {
+        (message as any)._originalFilePath = docResult.originalPath;
+      }
       break;
 
     case "url":
@@ -285,6 +504,44 @@ export async function processMessage(
     ...hints.people,  // @name becomes a tag
   ];
 
+  // Step 2b: Determine pipeline from commands
+  const pipeline = determinePipeline(validCommands);
+
+  // Step 2c: For archive pipeline, generate archive name and track original file
+  let archiveName: string | undefined;
+  let originalFilePath: string | undefined = (message as any)._originalFilePath;
+
+  if (pipeline === "archive" || pipeline === "receipt") {
+    // Check if source file already has proper archive naming
+    const sourceFilename = message.document?.file_name || "";
+
+    if (shouldPreserveArchiveName(sourceFilename)) {
+      // Preserve the existing archive name
+      archiveName = sourceFilename;
+      console.log(`  Preserving archive name: ${archiveName}`);
+    } else {
+      // Generate new archive name from metadata
+      const docType = hints.metadata.type || "DOCUMENT";
+      const category = hints.metadata.category || "MISC";
+      const ext = sourceFilename.split(".").pop() || "pdf";
+
+      archiveName = generateArchiveName({
+        type: docType,
+        date: new Date(),
+        description: suggestedTitle,
+        category,
+        extension: ext,
+      });
+      console.log(`  Generated archive name: ${archiveName}`);
+    }
+
+    // Add archive-specific tags
+    tags.push("archive");
+    if (pipeline === "receipt") {
+      tags.push("receipt");
+    }
+  }
+
   // Step 3: Apply fabric patterns if configured
   const patterns = profile.processing.patterns[contentType] || [];
   const results: ProcessedContent[] = [];
@@ -299,6 +556,9 @@ export async function processMessage(
     tags,
     source: "telegram",
     contentType,
+    pipeline,
+    ...(archiveName && { archiveName }),
+    ...(originalFilePath && { originalFilePath }),
     ...(hasMetadata && { sourceMetadata: hints.metadata }),
   });
 
@@ -320,6 +580,9 @@ export async function processMessage(
         tags: wisdomTags,
         source: "telegram",
         contentType,
+        pipeline,
+        ...(archiveName && { archiveName }),
+        ...(originalFilePath && { originalFilePath }),
         ...(hasMetadata && { sourceMetadata: hints.metadata }),
       });
     } catch (error) {
@@ -352,11 +615,17 @@ export async function processMessage(
 
 /**
  * Process voice/audio message via whisper.cpp
+ *
+ * Supports two input modes:
+ * 1. Via iOS Shortcut: Metadata in caption, hints from caption
+ * 2. Direct from Voice Memos: Spoken hints in audio (Wispr Flow style)
+ *
+ * Returns transcript with spoken hints extracted and cleaned.
  */
 async function processAudio(
   message: TelegramMessage,
   tempDir: string
-): Promise<{ content: string; title: string }> {
+): Promise<{ content: string; title: string; spokenHints?: InlineHints }> {
   const fileId = message.voice?.file_id || message.audio?.file_id;
   if (!fileId) throw new Error("No audio file in message");
 
@@ -396,7 +665,21 @@ async function processAudio(
         !line.startsWith("system_info:") &&
         line.trim().length > 0
     );
-    const content = transcriptLines.join("\n").trim();
+    const rawTranscript = transcriptLines.join("\n").trim();
+
+    // Extract spoken hints from transcript (Wispr Flow style)
+    // This detects patterns like "hashtag project", "at john", "forward slash archive"
+    const spokenHints = extractSpokenHints(rawTranscript);
+    const hasSpokenHints = spokenHints.tags.length > 0 ||
+      spokenHints.people.length > 0 ||
+      spokenHints.commands.length > 0;
+
+    // Use cleaned content (with spoken hints removed) as the final transcript
+    const content = hasSpokenHints ? spokenHints.cleanedContent : rawTranscript;
+
+    if (hasSpokenHints) {
+      console.log(`    Extracted spoken hints: ${spokenHints.tags.length} tags, ${spokenHints.people.length} people, ${spokenHints.commands.length} commands`);
+    }
 
     // Generate title using AI if available, otherwise fallback to filename/defaults
     const config = getConfig();
@@ -418,7 +701,11 @@ async function processAudio(
       title = getFallbackAudioTitle(message, originalName);
     }
 
-    return { content, title };
+    return {
+      content,
+      title,
+      ...(hasSpokenHints && { spokenHints }),
+    };
   } finally {
     // Cleanup temp files
     await unlink(filePath).catch(() => {});
@@ -431,8 +718,9 @@ async function processAudio(
  */
 async function processDocument(
   message: TelegramMessage,
-  tempDir: string
-): Promise<{ content: string; title: string }> {
+  tempDir: string,
+  keepOriginal: boolean = false  // For archive pipeline: keep file for Dropbox sync
+): Promise<{ content: string; title: string; originalPath?: string }> {
   const doc = message.document;
   if (!doc) throw new Error("No document in message");
 
@@ -449,7 +737,11 @@ async function processDocument(
     const content = await Bun.file(outputPath).text();
     const title = doc.file_name?.replace(/\.[^.]+$/, "") || generateTitleFromText(content);
 
-    return { content, title };
+    return {
+      content,
+      title,
+      ...(keepOriginal && { originalPath: filePath }),
+    };
   } catch (error) {
     // Fallback to simple text extraction if marker fails
     console.warn(`Marker failed, trying pandoc: ${error}`);
@@ -457,9 +749,13 @@ async function processDocument(
     return {
       content: stdout.trim(),
       title: doc.file_name?.replace(/\.[^.]+$/, "") || "Document",
+      ...(keepOriginal && { originalPath: filePath }),
     };
   } finally {
-    await unlink(filePath).catch(() => {});
+    // Only delete original if not keeping for archive sync
+    if (!keepOriginal) {
+      await unlink(filePath).catch(() => {});
+    }
     await unlink(outputPath).catch(() => {});
   }
 }
@@ -920,14 +1216,26 @@ function fixMermaidSyntax(content: string): string {
 }
 
 /**
+ * Result of saving to vault (includes Dropbox path for archive pipeline)
+ */
+export interface SaveResult {
+  vaultPath: string;
+  dropboxPath?: string;
+}
+
+/**
  * Save processed content to vault
  */
 export async function saveToVault(
   processed: ProcessedContent,
   profile: ProcessingProfile,
   isWisdom: boolean = false
-): Promise<string> {
+): Promise<SaveResult> {
   const config = getConfig();
+
+  // Determine output subfolder based on pipeline
+  const isArchivePipeline = processed.pipeline === "archive" || processed.pipeline === "receipt";
+  const subfolder = isArchivePipeline ? "archive" : "";
 
   const filename = generateFilename(profile, {
     title: processed.title,
@@ -936,7 +1244,14 @@ export async function saveToVault(
     suffix: isWisdom ? "wisdom" : "raw",
   });
 
-  const filePath = join(config.vaultPath, filename);
+  // Build path with optional subfolder
+  const outputDir = subfolder ? join(config.vaultPath, subfolder) : config.vaultPath;
+  const filePath = join(outputDir, filename);
+
+  // Ensure subfolder exists
+  if (subfolder && !existsSync(outputDir)) {
+    await mkdir(outputDir, { recursive: true });
+  }
 
   // Generate frontmatter with source metadata
   const meta = processed.sourceMetadata;
@@ -946,7 +1261,9 @@ export async function saveToVault(
     "tags:",
     ...processed.tags.map((t) => `  - ${t}`),
     `source: telegram`,
+    ...(processed.pipeline ? [`pipeline: ${processed.pipeline}`] : []),
     ...(processed.sourceFile ? [`source_file: "${processed.sourceFile}"`] : []),
+    ...(processed.archiveName ? [`archive_name: "${processed.archiveName}"`] : []),
     // Source metadata fields (only include if present)
     ...(meta?.source ? [`source_shortcut: ${meta.source}`] : []),
     ...(meta?.device ? [`source_device: ${meta.device}`] : []),
@@ -962,5 +1279,14 @@ export async function saveToVault(
 
   await Bun.write(filePath, `${frontmatter}\n\n${content}`);
 
-  return filePath;
+  // For archive pipeline: sync original file to Dropbox
+  let dropboxPath: string | undefined;
+  if (isArchivePipeline && processed.originalFilePath && processed.archiveName) {
+    const syncResult = await syncToDropbox(processed.originalFilePath, processed.archiveName);
+    if (syncResult) {
+      dropboxPath = syncResult;
+    }
+  }
+
+  return { vaultPath: filePath, dropboxPath };
 }

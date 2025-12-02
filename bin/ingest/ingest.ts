@@ -25,7 +25,7 @@ import {
   type TelegramMessage,
   type ContentType,
 } from "./lib/telegram";
-import { processMessage, saveToVault } from "./lib/process";
+import { processMessage, saveToVault, type SaveResult } from "./lib/process";
 import {
   initDb,
   getLastOffset,
@@ -281,12 +281,20 @@ async function handleProcess(
       // Save to vault
       const savedPaths: string[] = [];
       const contents = result.content || [];
+      let dropboxPath: string | undefined;
+
       for (let i = 0; i < contents.length; i++) {
         const isWisdom = i > 0; // First is raw, second is wisdom
-        const path = await saveToVault(contents[i], profile, isWisdom);
-        savedPaths.push(path);
+        const saveResult = await saveToVault(contents[i], profile, isWisdom);
+        savedPaths.push(saveResult.vaultPath);
+        if (saveResult.dropboxPath) {
+          dropboxPath = saveResult.dropboxPath;
+        }
         if (verbose) {
-          console.log(`  Saved: ${path}`);
+          console.log(`  Saved: ${saveResult.vaultPath}`);
+          if (saveResult.dropboxPath) {
+            console.log(`  Synced to Dropbox: ${saveResult.dropboxPath}`);
+          }
         }
       }
 
@@ -301,6 +309,7 @@ async function handleProcess(
         msg.audio?.file_name ||
         msg.document?.file_name ||
         (msg.voice ? `voice_${msg.message_id}.ogg` : undefined);
+      const pipeline = contents[0]?.pipeline;
 
       await sendNotification({
         messageId: msg.message_id,
@@ -309,6 +318,8 @@ async function handleProcess(
         title: contents[0]?.title || "Processed",
         originalFilename,
         outputPaths: savedPaths,
+        dropboxPath,
+        pipeline,
         obsidianVaultName: config.vaultName,
       });
     } catch (error) {
@@ -414,12 +425,17 @@ async function handleWatch(
             // Save to vault
             const savedPaths: string[] = [];
             const contents = result.content || [];
+            let dropboxPath: string | undefined;
+
             for (let i = 0; i < contents.length; i++) {
               const isWisdom = i > 0;
-              const path = await saveToVault(contents[i], profile, isWisdom);
-              savedPaths.push(path);
+              const saveResult = await saveToVault(contents[i], profile, isWisdom);
+              savedPaths.push(saveResult.vaultPath);
+              if (saveResult.dropboxPath) {
+                dropboxPath = saveResult.dropboxPath;
+              }
               if (verbose) {
-                console.log(`    Saved: ${path}`);
+                console.log(`    Saved: ${saveResult.vaultPath}`);
               }
             }
 
@@ -433,6 +449,7 @@ async function handleWatch(
               msg.audio?.file_name ||
               msg.document?.file_name ||
               (msg.voice ? `voice_${msg.message_id}.ogg` : undefined);
+            const pipeline = contents[0]?.pipeline;
 
             await sendNotification({
               messageId: msg.message_id,
@@ -441,6 +458,8 @@ async function handleWatch(
               title: contents[0]?.title || "Processed",
               originalFilename,
               outputPaths: savedPaths,
+              dropboxPath,
+              pipeline,
               obsidianVaultName: config.vaultName,
             });
           } catch (error) {
@@ -588,8 +607,8 @@ async function handleRetry(args: string[], verbose: boolean) {
         for (let i = 0; i < (result.content || []).length; i++) {
           const content = result.content![i];
           const isWisdom = i > 0;
-          const filePath = await saveToVault(content, profile, isWisdom);
-          savedPaths.push(filePath);
+          const saveResult = await saveToVault(content, profile, isWisdom);
+          savedPaths.push(saveResult.vaultPath);
         }
 
         markCompleted(msgInfo.messageId, savedPaths);
@@ -638,8 +657,8 @@ async function handleRetry(args: string[], verbose: boolean) {
       for (let i = 0; i < (result.content || []).length; i++) {
         const content = result.content![i];
         const isWisdom = i > 0;
-        const filePath = await saveToVault(content, profile, isWisdom);
-        savedPaths.push(filePath);
+        const saveResult = await saveToVault(content, profile, isWisdom);
+        savedPaths.push(saveResult.vaultPath);
       }
 
       markCompleted(messageId, savedPaths);

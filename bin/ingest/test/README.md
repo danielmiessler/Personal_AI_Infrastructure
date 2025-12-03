@@ -43,16 +43,17 @@ Telegram's Bot API does NOT generate updates when a bot sends messages via the A
 
 We use a three-channel approach:
 
-1. **PAI Test Cases** (-1003383520667): Library of test messages, populated via bot API
-2. **PAI Test Inbox** (-1003492308192): Test inbox, where you forward messages to trigger processing
-3. **PAI Test Events** (-1003438850052): Test notifications channel
+1. **PAI Test Cases**: Library of test messages, populated via bot API (configured via `TEST_TELEGRAM_CASES_ID`)
+2. **PAI Test Inbox**: Test inbox, where you forward messages to trigger processing (configured via `TEST_TELEGRAM_CHANNEL_ID`)
+3. **PAI Test Events**: Test notifications channel (configured via `TEST_TELEGRAM_OUTBOX_ID`)
 
 ### Integration Test Workflow
 
 1. **Populate Test Cases** (one-time setup):
    ```bash
-   TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send --all
+   ingest test send --all
    ```
+   (Requires `TEST_TELEGRAM_CASES_ID` in `~/.claude/.env`)
    This sends all test cases to PAI Test Cases, each prefixed with `[TEST-ID]`.
 
 2. **Run an Integration Test**:
@@ -72,9 +73,10 @@ Add to `~/.claude/.env`:
 
 ```bash
 # Test channels (required for integration testing)
-TEST_TELEGRAM_CHANNEL_ID=-1003492308192   # PAI Test Inbox
-TEST_TELEGRAM_OUTBOX_ID=-1003438850052    # PAI Test Events
-TEST_TELEGRAM_CASES_ID=-1003383520667     # PAI Test Cases
+# Add these to ~/.claude/.env (do not commit to git)
+TEST_TELEGRAM_CHANNEL_ID=<your-test-inbox-channel-id>   # PAI Test Inbox
+TEST_TELEGRAM_OUTBOX_ID=<your-test-events-channel-id>    # PAI Test Events
+TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>      # PAI Test Cases
 ```
 
 ## Quick Start
@@ -144,11 +146,12 @@ ingest test capture --missing
 
 ```bash
 # Send single test to PAI Test Cases
-TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send TEST-REG-001
+ingest test send TEST-REG-001
 
 # Send all tests to PAI Test Cases
-TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send --all
+ingest test send --all
 ```
+(Requires `TEST_TELEGRAM_CASES_ID` in `~/.claude/.env`)
 
 **Note:** Voice tests (`TEST-REG-005a/b`) require manual recording and sending.
 
@@ -218,7 +221,7 @@ test/
 ## Adding New Tests
 
 1. Create spec in appropriate `test/specs/*.spec.ts`
-2. Send to PAI Test Cases: `TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send TEST-NEW-001`
+2. Send to PAI Test Cases: `ingest test send TEST-NEW-001` (requires `TEST_TELEGRAM_CASES_ID` in `~/.claude/.env`)
 3. Capture fixture (if needed): `ingest test capture TEST-NEW-001`
 4. Run unit test: `ingest test run TEST-NEW-001`
 5. Commit fixture and spec

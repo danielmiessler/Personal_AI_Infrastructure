@@ -5,7 +5,7 @@
  * Used to build test data from actual user inputs.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { getConfig } from "../../lib/config";
 import { getUpdates, downloadFile, sendToInbox, sendPhotoToInbox, sendDocumentToInbox } from "../../lib/telegram";
@@ -433,9 +433,19 @@ export function loadFixture(testId: string): Fixture | null {
   const fixturePath = join(FIXTURES_DIR, spec.fixture);
   if (!existsSync(fixturePath)) return null;
 
-  const content = Bun.file(fixturePath).text();
-  const fixture = JSON.parse(content as unknown as string) as Fixture;
-  return hydrateFixture(fixture);
+  try {
+    let content = readFileSync(fixturePath, "utf-8");
+    
+    // Fix unquoted placeholder (should be quoted string in JSON)
+    // Replace unquoted $TEST_CASES_CHANNEL_ID with quoted version
+    content = content.replace(/:(\s*)\$TEST_CASES_CHANNEL_ID(\s*)/g, ':$1"$TEST_CASES_CHANNEL_ID"$2');
+    
+    const fixture = JSON.parse(content) as Fixture;
+    return hydrateFixture(fixture);
+  } catch (error) {
+    console.error(`Error loading fixture ${testId}: ${error}`);
+    return null;
+  }
 }
 
 /**
@@ -443,9 +453,19 @@ export function loadFixture(testId: string): Fixture | null {
  */
 export function loadFixtureFromPath(filePath: string): Fixture | null {
   if (!existsSync(filePath)) return null;
-  const content = Bun.file(filePath).text();
-  const fixture = JSON.parse(content as unknown as string) as Fixture;
-  return hydrateFixture(fixture);
+  try {
+    let content = readFileSync(filePath, "utf-8");
+    
+    // Fix unquoted placeholder (should be quoted string in JSON)
+    // Replace unquoted $TEST_CASES_CHANNEL_ID with quoted version
+    content = content.replace(/:(\s*)\$TEST_CASES_CHANNEL_ID(\s*)/g, ':$1"$TEST_CASES_CHANNEL_ID"$2');
+    
+    const fixture = JSON.parse(content) as Fixture;
+    return hydrateFixture(fixture);
+  } catch (error) {
+    console.error(`Error loading fixture from ${filePath}: ${error}`);
+    return null;
+  }
 }
 
 /**

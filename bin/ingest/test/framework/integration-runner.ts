@@ -72,7 +72,7 @@ interface IntegrationRunSummary {
 const FIXTURES_DIR = join(import.meta.dir, "..", "fixtures");
 const DEFAULT_TIMEOUT = 90000;  // 90 seconds
 const VOICE_TIMEOUT = 120000;   // 2 minutes for voice tests
-const POLL_INTERVAL = 2000;     // Poll every 2 seconds
+const POLL_INTERVAL = 5000;     // Poll every 5 seconds (longer to reduce conflicts with watcher)
 
 // =============================================================================
 // Telegram API Helpers
@@ -104,6 +104,10 @@ async function forwardMessage(
 
 /**
  * Get recent messages from a channel
+ * Uses getUpdates with short timeout to minimize conflicts with watcher's long-polling
+ * Note: Telegram only allows ONE getUpdates call at a time per bot token.
+ * The watcher uses long-polling (timeout: 30s), so this uses short polling (timeout: 1s)
+ * which will cause brief conflicts but should recover quickly.
  */
 async function getChannelMessages(
   chatId: string,
@@ -112,30 +116,44 @@ async function getChannelMessages(
 ): Promise<any[]> {
   const config = getConfig();
 
-  // Use getUpdates for bot's own channel or getChatHistory isn't available
-  // We need to poll the outbox channel for new messages
-  // Since we can't easily get channel history, we'll use getUpdates
+  // Use getUpdates with very short timeout to minimize conflict with watcher
+  // The watcher uses timeout: 30s (long-polling), this uses timeout: 1s (short-polling)
+  // This will cause a brief conflict but Telegram will reject this call and the watcher continues
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/getUpdates`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      limit: 100,
-      timeout: 0,
-    }),
-  });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        limit: 100,
+        timeout: 1, // Short timeout - will conflict with watcher but recover quickly
+      }),
+    });
 
-  const data = await response.json();
-  if (!data.ok) return [];
+    const data = await response.json();
+    
+    // If we get a conflict error, that's expected - the watcher is using getUpdates
+    // Return empty array and let the caller retry later
+    if (!data.ok) {
+      if (data.description?.includes("Conflict") || data.description?.includes("terminated")) {
+        // Expected conflict - watcher is polling, return empty and retry later
+        return [];
+      }
+      return [];
+    }
 
-  // Filter for channel_post from our outbox
-  const messages = data.result
-    .filter((u: any) => u.channel_post?.chat?.id?.toString() === chatId)
-    .map((u: any) => u.channel_post)
-    .filter((m: any) => !afterTimestamp || m.date >= afterTimestamp);
+    // Filter for channel_post from our outbox
+    const messages = data.result
+      .filter((u: any) => u.channel_post?.chat?.id?.toString() === chatId)
+      .map((u: any) => u.channel_post)
+      .filter((m: any) => !afterTimestamp || m.date >= afterTimestamp);
 
-  return messages;
+    return messages;
+  } catch (error) {
+    // If API call fails, return empty array
+    return [];
+  }
 }
 
 /**
@@ -308,9 +326,10 @@ export async function runIntegrationTest(
   const config = getConfig();
 
   // Get channel IDs
+  // Use test channel IDs if available, otherwise fall back to production channels
   const testCasesChannelId = config.testTelegramCasesId;
-  const testInboxChannelId = config.telegramChannelId;
-  const eventsChannelId = config.telegramOutboxId;
+  const testInboxChannelId = config.testTelegramChannelId || config.telegramChannelId;
+  const eventsChannelId = config.testTelegramOutboxId || config.telegramOutboxId;
 
   if (!testCasesChannelId || !testInboxChannelId || !eventsChannelId) {
     return {
@@ -319,7 +338,7 @@ export async function runIntegrationTest(
       duration: Date.now() - startTime,
       processingTime: 0,
       checks: [],
-      error: "Missing channel IDs in config. Need: TEST_TELEGRAM_CASES_ID, TELEGRAM_CHANNEL_ID, TELEGRAM_OUTBOX_ID",
+      error: "Missing channel IDs in config. Need: TEST_TELEGRAM_CASES_ID, and either (TEST_TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_ID), and either (TEST_TELEGRAM_OUTBOX_ID or TELEGRAM_OUTBOX_ID)",
     };
   }
 

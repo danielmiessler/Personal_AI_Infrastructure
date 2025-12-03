@@ -6,7 +6,7 @@
     "description": "Explicit ~work sigil"
   },
   "message": {
-    "message_id": 137,
+    "message_id": 220,
     "sender_chat": {
       "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",

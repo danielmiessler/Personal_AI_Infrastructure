@@ -1311,7 +1311,8 @@ USAGE:
 
 SUBCOMMANDS:
   run [TEST_ID]         Run tests (all with fixtures, or specific test)
-  integration [TEST_ID] Run full Telegram integration tests
+  send [TEST_ID]        Send test message(s) to PAI Test Cases channel
+  validate              Validate recent integration test results
   capture TEST_ID       Capture fixture for a specific test
   status                Show test status (fixtures, last run)
 
@@ -1322,6 +1323,7 @@ OPTIONS:
   --missing          Capture all missing fixtures interactively
   --include-media    Run media tests (voice, photo, document)
   --cleanup          Delete test notes from vault after validation
+  --recent <min>     How far back to look for test results (default: 10 min)
 
 EXAMPLES:
   ingest test status                    # Show which tests have fixtures
@@ -1331,15 +1333,22 @@ EXAMPLES:
   ingest test run --include-media       # Include media tests (requires Telegram download)
   ingest test capture TEST-SCOPE-001    # Capture fixture for test
   ingest test capture --missing         # Capture all missing fixtures
-  ingest test send TEST-SCOPE-001       # Auto-send fixture via API
-  ingest test send --all                # Auto-send all supported fixtures (text, photo, doc)
-  ingest test integration TEST-REG-001  # Run single test through full Telegram pipeline
-  ingest test integration --cleanup     # Run integration tests, cleanup vault after
+  ingest test send TEST-SCOPE-001       # Send test to PAI Test Cases channel
+  ingest test send --all                # Send all tests to PAI Test Cases
+  ingest test validate                  # Validate recent integration test results
+  ingest test validate --recent 5       # Validate tests from last 5 minutes
+  ingest test validate --cleanup        # Validate and cleanup test notes
 
-INTEGRATION TESTING:
-  For isolated integration tests, configure test channels in ~/.claude/.env:
-    TEST_TELEGRAM_CHANNEL_ID=<test inbox channel ID>
-    TEST_TELEGRAM_OUTBOX_ID=<test events channel ID>
+INTEGRATION TESTING WORKFLOW:
+  1. Send test cases: ingest test send --all
+  2. Forward messages from PAI Test Cases → PAI Test Inbox in Telegram
+  3. Watch daemon processes the messages
+  4. Validate results: ingest test validate
+
+Configure test channels in ~/.claude/.env:
+  TEST_TELEGRAM_CHANNEL_ID=<PAI Test Inbox>
+  TEST_TELEGRAM_OUTBOX_ID=<PAI Test Events>
+  TEST_TELEGRAM_CASES_ID=<PAI Test Cases>
 
 See test/README.md for full documentation.
 `;
@@ -1410,21 +1419,39 @@ async function handleTest(args: string[], verbose: boolean) {
     }
 
     case "send": {
+      // Use sendTestMessageToChannel which adds [TEST-ID] prefix
+      const { sendTestMessageToChannel, checkIntegrationTestConfig } = await import("./test/framework/integration");
+      const { getConfig } = await import("./lib/config");
+
+      const config = getConfig();
+      // Use TEST_TELEGRAM_CASES_ID or fall back to TELEGRAM_CHANNEL_ID
+      const targetChannel = config.testTelegramCasesId || config.telegramChannelId;
+
+      if (!targetChannel) {
+        console.error("No target channel configured. Set TEST_TELEGRAM_CASES_ID or TELEGRAM_CHANNEL_ID");
+        process.exit(1);
+      }
+
+      console.log(`Sending to channel: ${targetChannel}\n`);
+
       if (subArgs.includes("--all")) {
-        // Auto-send all supported fixtures
-        console.log("Auto-sending all supported fixtures...\n");
+        // Send all test messages to PAI Test Cases
+        console.log("Sending all test messages with [TEST-ID] prefix...\n");
         let sent = 0, skipped = 0, failed = 0;
         for (const spec of allIngestSpecs) {
-          const result = await autoSendFixture(spec.id, { user: process.env.USER });
+          const result = await sendTestMessageToChannel(spec.id, targetChannel);
           if (result.success) {
+            console.log(`✓ ${spec.id} (msg_id: ${result.messageId})`);
             sent++;
-          } else if (result.error?.includes("requires manual") || result.error?.includes("not found")) {
+          } else if (result.error?.includes("requires manual") || result.error?.includes("Voice tests")) {
             skipped++;
             console.log(`  Skipped ${spec.id}: ${result.error}`);
           } else {
             console.error(`  Failed ${spec.id}: ${result.error}`);
             failed++;
           }
+          // Rate limiting - pause between sends
+          await new Promise(r => setTimeout(r, 1500));
         }
         console.log(`\nDone: ${sent} sent, ${skipped} skipped, ${failed} failed`);
       } else {
@@ -1435,11 +1462,12 @@ async function handleTest(args: string[], verbose: boolean) {
           process.exit(1);
         }
 
-        const result = await autoSendFixture(testId, { user: process.env.USER });
+        const result = await sendTestMessageToChannel(testId, targetChannel);
         if (!result.success) {
           console.error(`Failed: ${result.error}`);
           process.exit(1);
         }
+        console.log(`✓ ${testId} sent (msg_id: ${result.messageId})`);
       }
       break;
     }
@@ -1456,75 +1484,48 @@ async function handleTest(args: string[], verbose: boolean) {
       break;
     }
 
-    case "integration": {
-      // Full Telegram integration test
-      const { runIntegrationTest, checkIntegrationTestConfig, processPendingTestMessages } = await import("./test/framework/integration");
-
-      // Check config
-      const configCheck = checkIntegrationTestConfig();
-      if (!configCheck.available) {
-        console.error("Integration testing not available:");
-        configCheck.warnings.forEach(w => console.error(`  - ${w}`));
-        process.exit(1);
-      }
-
-      if (configCheck.warnings.length > 0) {
-        console.log("⚠️  Integration test warnings:");
-        configCheck.warnings.forEach(w => console.log(`  - ${w}`));
-        console.log("");
-      }
+    case "validate": {
+      // Validate recent integration test results
+      const { validateRecentIntegrationTests } = await import("./test/framework/integration");
 
       const cleanup = subArgs.includes("--cleanup");
-      const processPending = subArgs.includes("--process-pending");
-      const testId = subArgs.find(a => a.startsWith("TEST-"));
+      let minutesAgo = 10;
 
-      if (processPending) {
-        // Process all pending messages from test channel
-        console.log("\nProcessing pending messages from test channel...");
-        const result = await processPendingTestMessages({ verbose, cleanupVault: cleanup });
-
-        console.log(`\nProcessed: ${result.processed} message(s)`);
-        console.log(`Vault files: ${result.vaultFiles.length}`);
-
-        if (result.vaultFiles.length > 0 && verbose) {
-          console.log("\nCreated files:");
-          for (const f of result.vaultFiles) {
-            console.log(`  ${f}`);
-          }
+      // Parse --recent option
+      for (let i = 0; i < subArgs.length; i++) {
+        if (subArgs[i] === "--recent" || subArgs[i] === "-r") {
+          minutesAgo = parseInt(subArgs[++i], 10) || 10;
         }
+      }
 
-        if (result.errors.length > 0) {
-          console.error("\nErrors:");
-          result.errors.forEach(e => console.error(`  - ${e}`));
-          process.exit(1);
-        }
-      } else if (testId) {
-        // Run single integration test
-        console.log(`\nRunning integration test: ${testId}`);
-        const result = await runIntegrationTest(testId, { verbose, cleanupVault: cleanup });
+      console.log(`\n🔍 Validating integration test results from last ${minutesAgo} minutes...\n`);
 
-        const status = result.passed ? "✓" : "✗";
-        const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-        console.log(`\n${color}${status}\x1b[0m ${testId}`);
+      const { results, summary } = await validateRecentIntegrationTests({
+        minutesAgo,
+        verbose,
+        cleanup,
+      });
 
-        if (!result.passed && result.error) {
-          console.log(`  Error: ${result.error}`);
-        }
-        if (!result.passed && result.checks.length > 0) {
-          const failed = result.checks.filter(c => !c.passed);
-          for (const check of failed.slice(0, 5)) {
-            console.log(`  - ${check.name}: ${check.error || "failed"}`);
-          }
-        }
+      if (results.length === 0) {
+        console.log("No test results found in recent vault files.");
+        console.log("\nMake sure you:");
+        console.log("  1. Forwarded test messages from PAI Test Cases → PAI Test Inbox");
+        console.log("  2. Watch daemon processed them (check PAI Test Events)");
+        console.log("  3. Test IDs are included: [TEST-SCOPE-001] etc.");
+        process.exit(0);
+      }
 
-        console.log(`\nDuration: ${result.duration}ms`);
-        process.exit(result.passed ? 0 : 1);
-      } else {
-        console.error("Error: Specify TEST_ID or --process-pending");
-        console.log("\nExamples:");
-        console.log("  ingest test integration --process-pending   # Process pending test messages");
-        console.log("  ingest test integration TEST-REG-001        # Run specific test");
+      // Print summary
+      console.log("\n" + "=".repeat(50));
+      console.log(`📊 Test Results: ${summary.passed} passed, ${summary.failed} failed`);
+      console.log("=".repeat(50));
+
+      if (summary.failed > 0) {
+        console.log("\n❌ Some tests failed. Run with --verbose for details.");
         process.exit(1);
+      } else {
+        console.log("\n✅ All tests passed!");
+        process.exit(0);
       }
       break;
     }

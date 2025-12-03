@@ -1,13 +1,13 @@
 {
   "_meta": {
     "testId": "TEST-REG-002",
-    "capturedAt": "2025-12-02T22:53:35.186Z",
+    "capturedAt": "2025-12-03T04:29:33.159Z",
     "capturedBy": "andreas",
     "description": "Text with [key:value] metadata",
     "autoSent": true
   },
   "message": {
-    "message_id": 174,
+    "message_id": 246,
     "sender_chat": {
       "id": -1003163091886,
       "title": "PAI Inbox",
@@ -18,7 +18,7 @@
       "title": "PAI Inbox",
       "type": "channel"
     },
-    "date": 1764716015,
+    "date": 1764736172,
     "text": "[source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction from iOS shortcut"
   }
 }

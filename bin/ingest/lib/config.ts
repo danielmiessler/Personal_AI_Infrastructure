@@ -14,6 +14,7 @@ export interface IngestConfig {
   // Test channel overrides (for test isolation)
   testTelegramChannelId?: string;  // Test inbox channel
   testTelegramOutboxId?: string;   // Test events channel
+  testTelegramCasesId?: string;    // Test cases library channel
   vaultPath: string;
   vaultName?: string;  // For Obsidian deep links
   stateDb: string;
@@ -133,6 +134,8 @@ export function getConfig(): IngestConfig {
     process.env.TEST_TELEGRAM_CHANNEL_ID || env.TEST_TELEGRAM_CHANNEL_ID;
   const testTelegramOutboxId =
     process.env.TEST_TELEGRAM_OUTBOX_ID || env.TEST_TELEGRAM_OUTBOX_ID;
+  const testTelegramCasesId =
+    process.env.TEST_TELEGRAM_CASES_ID || env.TEST_TELEGRAM_CASES_ID;
 
   cachedConfig = {
     telegramBotToken,
@@ -140,6 +143,7 @@ export function getConfig(): IngestConfig {
     telegramOutboxId,
     testTelegramChannelId,
     testTelegramOutboxId,
+    testTelegramCasesId,
     vaultPath: resolvedVaultPath,
     vaultName,
     stateDb: stateDb.replace(/^~/, homedir()),

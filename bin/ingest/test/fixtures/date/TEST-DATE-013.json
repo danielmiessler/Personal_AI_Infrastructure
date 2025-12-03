@@ -1,24 +1,24 @@
 {
   "_meta": {
     "testId": "TEST-DATE-013",
-    "capturedAt": "2025-12-02T22:58:59.873Z",
+    "capturedAt": "2025-12-03T04:56:13.291Z",
     "capturedBy": "andreas",
     "description": "Spoken ISO date format",
     "autoSent": true
   },
   "message": {
-    "message_id": 191,
+    "message_id": 56,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716339,
+    "date": 1764737773,
     "text": "date 2024-06-15 Contract document"
   }
 }

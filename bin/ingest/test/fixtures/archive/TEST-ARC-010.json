@@ -1,13 +1,13 @@
 {
   "_meta": {
     "testId": "TEST-ARC-010",
-    "capturedAt": "2025-12-02T23:00:45.715Z",
+    "capturedAt": "2025-12-03T05:43:00.000Z",
     "capturedBy": "andreas",
     "description": "Archived document should have markdown with clickable Dropbox path",
-    "autoSent": true
+    "sourceFile": "~/Dropbox/document/_archive/RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf"
   },
   "message": {
-    "message_id": 203,
+    "message_id": 255,
     "sender_chat": {
       "id": -1003163091886,
       "title": "PAI Inbox",
@@ -18,13 +18,20 @@
       "title": "PAI Inbox",
       "type": "channel"
     },
-    "date": 1764716445,
+    "date": 1764739948,
     "document": {
-      "file_name": "report.pdf",
+      "file_name": "RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf",
       "mime_type": "application/pdf",
-      "file_id": "BQACAgEAAyEGAAS8iPOuAAPLaS9vnS-fEzu4JASN7OFPun3exkQAAjgIAALr5oBFehEgoNdQpW02BA",
-      "file_unique_id": "AgADOAgAAuvmgEU",
-      "file_size": 460
+      "thumbnail": {
+        "file_id": "AAMCAQADIQUABLyI864AA_5pL8tEAzwV3GsosGIl4HuuEBZ59AACbAYAAqNzgEWCj9inUvwnmAEAB20AAzYE",
+        "file_unique_id": "AQADbAYAAqNzgEVy",
+        "file_size": 18565,
+        "width": 232,
+        "height": 320
+      },
+      "file_id": "BQACAgEAAyEFAAS8iPOuAAP-aS_LRAM8FdxrKLBiJeB7rhAWefQAAmwGAAKjc4BFgo_Yp1L8J5g2BA",
+      "file_unique_id": "AgADbAYAAqNzgEU",
+      "file_size": 358433
     },
     "caption": "/archive Work document",
     "caption_entities": [

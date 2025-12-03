@@ -1,24 +1,24 @@
 {
   "_meta": {
     "testId": "TEST-DATE-012",
-    "capturedAt": "2025-12-02T22:58:59.425Z",
+    "capturedAt": "2025-12-03T04:56:12.828Z",
     "capturedBy": "andreas",
     "description": "Text with yesterday reference",
     "autoSent": true
   },
   "message": {
-    "message_id": 190,
+    "message_id": 55,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716339,
+    "date": 1764737772,
     "text": "from yesterday Meeting notes"
   }
 }

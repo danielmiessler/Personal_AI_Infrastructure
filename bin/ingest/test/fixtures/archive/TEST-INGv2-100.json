@@ -1,13 +1,13 @@
 {
   "_meta": {
     "testId": "TEST-INGv2-100",
-    "capturedAt": "2025-12-02T23:00:35.567Z",
+    "capturedAt": "2025-12-03T05:39:00.000Z",
     "capturedBy": "andreas",
     "description": "Document with /archive command - should generate structured name",
-    "autoSent": true
+    "sourceFile": "~/Dropbox/document/_archive/RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf"
   },
   "message": {
-    "message_id": 200,
+    "message_id": 255,
     "sender_chat": {
       "id": -1003163091886,
       "title": "PAI Inbox",
@@ -18,13 +18,20 @@
       "title": "PAI Inbox",
       "type": "channel"
     },
-    "date": 1764716435,
+    "date": 1764739948,
     "document": {
-      "file_name": "receipt.pdf",
+      "file_name": "RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf",
       "mime_type": "application/pdf",
-      "file_id": "BQACAgEAAyEGAAS8iPOuAAPIaS9vk-RaF9gTgfK0Alr3N2FGDngAAjQIAALr5oBFtFWZvcArukM2BA",
-      "file_unique_id": "AgADNAgAAuvmgEU",
-      "file_size": 460
+      "thumbnail": {
+        "file_id": "AAMCAQADIQUABLyI864AA_5pL8tEAzwV3GsosGIl4HuuEBZ59AACbAYAAqNzgEWCj9inUvwnmAEAB20AAzYE",
+        "file_unique_id": "AQADbAYAAqNzgEVy",
+        "file_size": 18565,
+        "width": 232,
+        "height": 320
+      },
+      "file_id": "BQACAgEAAyEFAAS8iPOuAAP-aS_LRAM8FdxrKLBiJeB7rhAWefQAAmwGAAKjc4BFgo_Yp1L8J5g2BA",
+      "file_unique_id": "AgADbAYAAqNzgEU",
+      "file_size": 358433
     },
     "caption": "/archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45",
     "caption_entities": [

@@ -1,0 +1,47 @@
+test_id,category,name,input_type,file_required,caption,source_file,fixture_status,notes
+TEST-SCOPE-001,scope,Explicit ~private sigil,text,no,[TEST-SCOPE-001] ~private This is a personal health note,,ready,Text-only message
+TEST-SCOPE-002,scope,Explicit ~work sigil,text,no,[TEST-SCOPE-002] ~work Meeting notes from the product team,,ready,Text-only message
+TEST-SCOPE-003,scope,Dictated scope - spoken scope private,voice,yes,,[EXISTING] 248 Franklin Rd 6.m4a,ready,No caption - scope is spoken in audio
+TEST-SCOPE-004,scope,This is personal natural language,text,no,"[TEST-SCOPE-004] This is personal. Blood pressure reading 120/80",,ready,Text-only message
+TEST-SCOPE-005,scope,For work natural language,text,no,[TEST-SCOPE-005] For work. Architecture decision on data pipeline,,ready,Text-only message
+TEST-SCOPE-006,scope,Archive pipeline auto-private,photo,yes,[TEST-SCOPE-006] /archive Personal receipt from pharmacy,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-SCOPE-007,scope,Receipt pipeline auto-private,photo,yes,[TEST-SCOPE-007] /receipt Home insurance invoice,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-DATE-001,date,ISO date format,text,no,"[TEST-DATE-001] [date:2024-06-15] /archive Old contract from June",,ready,Text-only message
+TEST-DATE-002,date,Slash date format DD/MM/YYYY,text,no,"[TEST-DATE-002] [date:15/06/2024] /receipt June receipt",,ready,Text-only message
+TEST-DATE-003,date,Short year format DD/MM/YY,text,no,"[TEST-DATE-003] [date:15/06/24] /archive Document from June",,ready,Text-only message
+TEST-DATE-010,date,Dictated dated 15th June,text,no,[TEST-DATE-010] dated 15th June This is an old document,,ready,Text-only message
+TEST-DATE-011,date,Dictated from last month,text,no,[TEST-DATE-011] from last month Receipt for home supplies,,ready,Text-only message
+TEST-DATE-012,date,Dictated from yesterday,text,no,[TEST-DATE-012] from yesterday Meeting notes,,ready,Text-only message
+TEST-DATE-013,date,Spoken ISO date,text,no,[TEST-DATE-013] date 2024-06-15 Contract document,,ready,Text-only message
+TEST-DATE-020,date,Note filename uses document date,text,no,"[TEST-DATE-020] [date:2023-03-15] Meeting notes from March",,ready,Text-only message
+TEST-DATE-021,date,Archive uses document date,document,yes,"[TEST-DATE-021] [date:2023-03-15] /archive Historic contract",[REUSES TEST-INGv2-101] Contract PDF,ready,361KB contract PDF
+TEST-DATE-022,date,Note without date uses today,text,no,[TEST-DATE-022] Regular meeting notes without any date hint,,ready,Text-only message
+TEST-INGv2-100,archive,Archive with auto-naming,document,yes,"[TEST-INGv2-100] /archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45",~/Dropbox/document/_archive/RECEIPT - 20211108 - Regent Lawnmowers.pdf,ready,358KB receipt PDF - captured
+TEST-INGv2-101,archive,Pre-named file preserved,document,yes,[TEST-INGv2-101],"~/Dropbox/document/_archive/CONTRACT - 20220601 - Southern Cross.pdf",ready,361KB contract PDF - no caption tests filename preservation
+TEST-ARC-001,archive,Dictated archive intent,document,yes,[TEST-ARC-001] archive this lease agreement for the house,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB contract PDF
+TEST-ARC-002,archive,Dictated receipt intent,photo,yes,[TEST-ARC-002] Archive this invoice,Invoice photo captured from Telegram (133KB),ready,Real photo - source of reused invoice photos
+TEST-ARC-003,archive,Contract detection,document,yes,[TEST-ARC-003] this is my work contract,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB contract PDF
+TEST-ARC-004,archive,Certificate detection,document,yes,[TEST-ARC-004] my medical certificate from the doctor,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB - contract as medical cert placeholder
+TEST-ARC-005,archive,Vision AI document type detection,photo,yes,[TEST-ARC-005] /archive,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo for Vision AI
+TEST-ARC-010,archive,Markdown with Dropbox link,document,yes,[TEST-ARC-010] /archive Work document,[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB receipt PDF
+TEST-REG-001,regression,Simple text message,text,no,[TEST-REG-001] Regression test: Simple text message without any metadata or hints,,ready,Text-only message
+TEST-REG-002,regression,Text with metadata parsing,text,no,"[TEST-REG-002] [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction",,ready,Text-only message
+TEST-REG-003,regression,Mixed hints and metadata,text,no,"[TEST-REG-003] #project/pai @ed_overy [source:voice-memo][device:mac] Discussion about context",,ready,Text-only message
+TEST-REG-004,regression,URL extraction via Jina AI,url,no,[TEST-REG-004] https://www.anthropic.com/news/claude-4,,ready,URL as text message
+TEST-REG-005a,regression,Voice memo with caption hints,voice,yes,"[TEST-REG-005a] #project/test extract wisdom",[EXISTING] 248 Franklin Rd 7.m4a,ready,359KB voice with hashtag caption
+TEST-REG-005b,regression,Voice with spoken hints no caption,voice,yes,,[EXISTING] 248 Franklin Rd 8.m4a,ready,121KB voice - no caption hints spoken in audio
+TEST-REG-007,regression,Photo with Vision AI default,photo,yes,[TEST-REG-007],[REUSES TEST-ARC-002] Invoice photo,ready,133KB - no caption tests default Vision AI
+TEST-REG-008,regression,Photo with custom prompt,photo,yes,[TEST-REG-008] Extract all text from this screenshot,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-REG-009,regression,PDF document extraction,document,yes,[TEST-REG-009],[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB - no caption tests default extraction
+TEST-REG-010a,regression,DOCX plain extraction,document,yes,[TEST-REG-010a],[EXISTING] meeting-notes.docx,ready,1.2MB DOCX - no caption tests extraction
+TEST-REG-011,regression,Mermaid extraction /mermaid,photo,yes,[TEST-REG-011] /mermaid,[EXISTING] Diagram screenshot,ready,307KB diagram - source of reused diagrams
+TEST-REG-012,regression,Mermaid dictated intent,photo,yes,[TEST-REG-012] Extract the mermaid diagram from this flowchart,[REUSES TEST-REG-011] Diagram screenshot,ready,307KB diagram screenshot
+TEST-REG-014,regression,Events notification format,text,no,[TEST-REG-014] Test message for events channel verification,,skip,Integration test only
+TEST-PAT-001,regression,/meeting-notes pattern,text,no,"[TEST-PAT-001] #project/pai @ed_overy /meeting-notes Testing meeting notes extraction",,ready,Text-only message
+TEST-PAT-002,regression,/summarize pattern,text,no,[TEST-PAT-002] /summarize This is a long article about machine learning,,ready,Text-only message
+TEST-PAT-003,regression,/wisdom pattern,text,no,[TEST-PAT-003] /wisdom The key to success is consistent effort,,ready,Text-only message
+TEST-PHOTO-001,regression,/describe photo command,photo,yes,[TEST-PHOTO-001] /describe #project/pai,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-PHOTO-002,regression,/ocr photo command,photo,yes,[TEST-PHOTO-002] /ocr,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-PHOTO-003,regression,/store photo command,photo,yes,[TEST-PHOTO-003] /store Reference image,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-DOC-001,regression,PDF with Marker extraction,document,yes,[TEST-DOC-001],[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB - no caption tests Marker
+TEST-EMB-001,regression,Semantic search embedding,text,no,"[TEST-EMB-001] Blood pressure reading from digital monitor showing 121/81",,skip,Integration test only

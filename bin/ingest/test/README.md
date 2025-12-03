@@ -1,6 +1,6 @@
 # Ingest Test Framework
 
-Automated testing for the ingest pipeline, supporting both unit tests (fixture-based) and integration tests (full Telegram pipeline).
+Automated testing for the ingest pipeline, supporting unit tests (fixture-based) and integration tests (manual Telegram workflow).
 
 ## Quick Reference
 
@@ -10,10 +10,7 @@ ingest test run
 
 # Pre-release validation (~5-10 min)
 ingest test run --include-media
-
-# Integration tests (requires user to send message first)
-# 1. Send message to PAI Test Inbox manually
-# 2. Run: ingest test integration --process-pending --cleanup
+# Then run manual integration tests (see below)
 ```
 
 ## Testing Strategy
@@ -22,7 +19,7 @@ ingest test run --include-media
 |-----------|---------|----------|-------------|
 | **Unit tests** | `ingest test run` | ~3 min | Daily development, CI/CD |
 | **Unit + media** | `ingest test run --include-media` | ~5 min | When testing media processing |
-| **Integration** | `ingest test integration --process-pending` | ~1 min | Pre-release, validating full pipeline |
+| **Integration** | Manual workflow | ~2 min/test | Pre-release, validating full pipeline |
 
 ### Daily Development / CI
 
@@ -34,21 +31,51 @@ ingest test run
 
 This runs all 45 unit tests using pre-captured fixtures. Output is isolated to `test/output/` - no production vault pollution.
 
-### Pre-Release Validation
+## Integration Testing
 
-Full pipeline tests through Telegram (uses test channels):
+Integration tests validate the full Telegram pipeline using a manual workflow.
+
+### Why Manual?
+
+Telegram's Bot API does NOT generate updates when a bot sends messages via the API. Only when a **user** sends messages (including via iOS shortcuts) does the bot receive updates. This means automated send-and-receive testing doesn't work.
+
+### The Solution: PAI Test Cases Channel
+
+We use a three-channel approach:
+
+1. **PAI Test Cases** (-1003383520667): Library of test messages, populated via bot API
+2. **PAI Test Inbox** (-1003492308192): Test inbox, where you forward messages to trigger processing
+3. **PAI Test Events** (-1003438850052): Test notifications channel
+
+### Integration Test Workflow
+
+1. **Populate Test Cases** (one-time setup):
+   ```bash
+   TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send --all
+   ```
+   This sends all test cases to PAI Test Cases, each prefixed with `[TEST-ID]`.
+
+2. **Run an Integration Test**:
+   - Open Telegram
+   - Go to PAI Test Cases channel
+   - Forward a test message to PAI Test Inbox
+   - The watch daemon processes it (check PAI Test Events for notification)
+   - Validate the vault output
+
+3. **Identify Results by Test ID**:
+   Each message is prefixed with `[TEST-SCOPE-001]`, `[TEST-REG-002]`, etc.
+   This lets you validate results against the correct test spec.
+
+### Configuration
+
+Add to `~/.claude/.env`:
 
 ```bash
-# 1. Run all unit tests including media
-ingest test run --include-media
-
-# 2. Manual integration test
-# Send test messages to PAI Test Inbox (via Telegram app or iOS shortcut)
-# Then process them:
-ingest test integration --process-pending --cleanup --verbose
+# Test channels (required for integration testing)
+TEST_TELEGRAM_CHANNEL_ID=-1003492308192   # PAI Test Inbox
+TEST_TELEGRAM_OUTBOX_ID=-1003438850052    # PAI Test Events
+TEST_TELEGRAM_CASES_ID=-1003383520667     # PAI Test Cases
 ```
-
-The `--cleanup` flag deletes test notes from vault after validation.
 
 ## Quick Start
 
@@ -83,44 +110,14 @@ Fast, fixture-based tests that replay captured Telegram messages:
 - Does NOT send events to Telegram
 - Best for CI/CD and rapid iteration
 
-### Integration Tests (`ingest test integration`)
+### Integration Tests (Manual Workflow)
 
-Full end-to-end Telegram pipeline tests using isolated test channels.
+Full end-to-end Telegram pipeline tests:
 
-**Important:** Telegram's Bot API does NOT generate updates when the bot sends messages via the API - only when a USER sends messages (including via iOS shortcuts that share as your user account). For true integration testing:
-
-1. **User sends test message** to PAI Test Inbox (via Telegram app, iOS shortcut, etc.)
-2. **Run** `ingest test integration --process-pending --cleanup`
-3. **Validate** output in vault and PAI Test Events
-
-```bash
-# Process all pending messages from test channel
-ingest test integration --process-pending --verbose --cleanup
-```
-
-**Workflow Example:**
-1. Open Telegram and send "Hello world #project/test" to PAI Test Inbox channel
-2. Run: `ingest test integration --process-pending --cleanup --verbose`
-3. Check vault for new note and PAI Test Events for notification
-
-**Why separate test channels?**
-- Isolates test messages from production PI Inbox/Events
-- Allows cleanup without affecting real data
-- Test channel IDs configured in `~/.claude/.env`
-
-## Test Configuration
-
-### Test Channels (for Integration Tests)
-
-To avoid polluting production channels, configure test channels in `~/.claude/.env`:
-
-```bash
-# Test channels (optional but recommended)
-TEST_TELEGRAM_CHANNEL_ID=-1003492308192   # PAI Test Inbox
-TEST_TELEGRAM_OUTBOX_ID=-1003438850052    # PAI Test Events
-```
-
-If not configured, integration tests will use production channels with a warning.
+1. Forward message from PAI Test Cases → PAI Test Inbox
+2. Watch daemon processes it
+3. Check vault for output, PAI Test Events for notification
+4. Validate against test spec
 
 ## Test Categories
 
@@ -143,19 +140,17 @@ ingest test capture TEST-SCOPE-001
 ingest test capture --missing
 ```
 
-### Auto-Send Fixtures
-
-For text, URL, photo, and document tests, auto-send via API:
+### Populate Test Cases Channel
 
 ```bash
-# Send single test message and create fixture
-ingest test send TEST-REG-001
+# Send single test to PAI Test Cases
+TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send TEST-REG-001
 
-# Send all supported fixtures
-ingest test send --all
+# Send all tests to PAI Test Cases
+TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send --all
 ```
 
-**Note:** Voice tests (`TEST-REG-005a/b`) require manual Telegram messages.
+**Note:** Voice tests (`TEST-REG-005a/b`) require manual recording and sending.
 
 ## Test Spec Structure
 
@@ -214,7 +209,7 @@ test/
 │   └── regression.spec.ts
 └── framework/          # Test framework code
     ├── runner.ts       # Unit test runner
-    ├── integration.ts  # Integration test runner
+    ├── integration.ts  # Integration test support
     ├── capture.ts      # Fixture capture
     ├── validate.ts     # Validation logic
     └── types.ts        # TypeScript types
@@ -223,9 +218,10 @@ test/
 ## Adding New Tests
 
 1. Create spec in appropriate `test/specs/*.spec.ts`
-2. Run `ingest test send TEST-NEW-001` (for text/photo/doc) or capture manually (voice)
-3. Run `ingest test run TEST-NEW-001` to verify
-4. Commit fixture and spec
+2. Send to PAI Test Cases: `TEST_TELEGRAM_CASES_ID=-1003383520667 ingest test send TEST-NEW-001`
+3. Capture fixture (if needed): `ingest test capture TEST-NEW-001`
+4. Run unit test: `ingest test run TEST-NEW-001`
+5. Commit fixture and spec
 
 ## CI/CD Integration
 
@@ -244,18 +240,24 @@ ingest test run --suite regression
 
 ### Test Skipped (No Fixture)
 
-Run `ingest test capture TEST-ID` or `ingest test send TEST-ID`
+Run `ingest test capture TEST-ID` or send and capture from PAI Test Cases.
 
 ### Media Tests Skipped
 
-Add `--include-media` flag (requires active Telegram connection)
+Add `--include-media` flag (requires active Telegram connection).
 
 ### Test Timeout
 
-Increase timeout in `test/framework/runner.ts` (default: 60s)
+Increase timeout in `test/framework/runner.ts` (default: 60s).
 
 ### Content Validation Failing
 
 - Content is checked against ALL vault files (Raw + Wisdom)
 - Case-insensitive substring matching
 - Check actual output in `test/output/run-*/TEST-ID/`
+
+### Integration Test Not Processing
+
+- Ensure watch daemon is running
+- Check PAI Test Events for notifications
+- Messages must be forwarded by a user (not sent by bot API)

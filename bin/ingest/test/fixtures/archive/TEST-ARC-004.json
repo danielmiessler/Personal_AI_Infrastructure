@@ -1,13 +1,13 @@
 {
   "_meta": {
     "testId": "TEST-ARC-004",
-    "capturedAt": "2025-12-02T23:00:42.375Z",
+    "capturedAt": "2025-12-03T05:42:00.000Z",
     "capturedBy": "andreas",
     "description": "Document with medical certificate keywords",
-    "autoSent": true
+    "sourceFile": "~/Dropbox/document/_archive/CONTRACT - 20220601 - Southern Cross (Certificate of Insurance).pdf"
   },
   "message": {
-    "message_id": 202,
+    "message_id": 257,
     "sender_chat": {
       "id": -1003163091886,
       "title": "PAI Inbox",
@@ -18,13 +18,20 @@
       "title": "PAI Inbox",
       "type": "channel"
     },
-    "date": 1764716442,
+    "date": 1764740065,
     "document": {
-      "file_name": "cert.pdf",
+      "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",
-      "file_id": "BQACAgEAAyEGAAS8iPOuAAPKaS9vmgqAU4f3VA9txSimsrVkmwADNwgAAuvmgEWEuUo0XdCe-zYE",
-      "file_unique_id": "AgADNwgAAuvmgEU",
-      "file_size": 460
+      "thumbnail": {
+        "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
+        "file_unique_id": "AQADbgYAAqNzgEVy",
+        "file_size": 14541,
+        "width": 226,
+        "height": 320
+      },
+      "file_id": "BQACAgEAAyEFAAS8iPOuAAIBAWkvy-EE15XmjsDzEHRrr-u9_eXGAAJuBgACo3OARVd4noh7gWZGNgQ",
+      "file_unique_id": "AgADbgYAAqNzgEU",
+      "file_size": 361636
     },
     "caption": "my medical certificate from the doctor"
   }

@@ -1,24 +1,24 @@
 {
   "_meta": {
     "testId": "TEST-DATE-011",
-    "capturedAt": "2025-12-02T22:58:58.978Z",
+    "capturedAt": "2025-12-03T04:56:09.242Z",
     "capturedBy": "andreas",
     "description": "Text with relative date reference",
     "autoSent": true
   },
   "message": {
-    "message_id": 189,
+    "message_id": 54,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716338,
+    "date": 1764737769,
     "text": "from last month Receipt for home supplies"
   }
 }

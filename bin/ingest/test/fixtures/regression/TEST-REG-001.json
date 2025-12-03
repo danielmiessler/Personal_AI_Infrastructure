@@ -1,24 +1,24 @@
 {
   "_meta": {
     "testId": "TEST-REG-001",
-    "capturedAt": "2025-12-02T22:59:06.540Z",
+    "capturedAt": "2025-12-03T04:41:20.804Z",
     "capturedBy": "andreas",
     "description": "Plain text without hints or metadata",
     "autoSent": true
   },
   "message": {
-    "message_id": 198,
+    "message_id": 14,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003492308192,
+      "title": "PAI Test Inbox",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003492308192,
+      "title": "PAI Test Inbox",
       "type": "channel"
     },
-    "date": 1764716346,
+    "date": 1764736880,
     "text": "Regression test: Simple text message without any metadata or hints"
   }
 }

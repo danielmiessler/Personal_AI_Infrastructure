@@ -1310,7 +1310,9 @@ USAGE:
   ingest test <subcommand> [options]
 
 SUBCOMMANDS:
-  run [TEST_ID]         Run tests (all with fixtures, or specific test)
+  run [TEST_ID]         Run unit tests (call processMessage directly)
+  integration [TEST_ID] Run integration tests (forward via Telegram)
+  forward <MSG_ID>      Forward a message by ID from Test Cases → Test Inbox
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
   capture TEST_ID       Capture fixture for a specific test
@@ -1324,33 +1326,45 @@ OPTIONS:
   --include-media    Run media tests (voice, photo, document)
   --cleanup          Delete test notes from vault after validation
   --recent <min>     How far back to look for test results (default: 10 min)
+  --timeout <ms>     Integration test timeout (default: 90000, voice: 120000)
+  --dry-run          Show what would happen without executing
 
 EXAMPLES:
-  ingest test status                    # Show which tests have fixtures
-  ingest test run                       # Run tests that have fixtures
-  ingest test run TEST-SCOPE-001        # Run specific test
-  ingest test run --suite scope         # Run scope tests
-  ingest test run --include-media       # Include media tests (requires Telegram download)
-  ingest test capture TEST-SCOPE-001    # Capture fixture for test
-  ingest test capture --missing         # Capture all missing fixtures
-  ingest test send TEST-SCOPE-001       # Send test to PAI Test Cases channel
-  ingest test send --all                # Send all tests to PAI Test Cases
-  ingest test validate                  # Validate recent integration test results
-  ingest test validate --recent 5       # Validate tests from last 5 minutes
-  ingest test validate --cleanup        # Validate and cleanup test notes
+  ingest test status                      # Show which tests have fixtures
+  ingest test run                         # Run unit tests (no Telegram)
+  ingest test run TEST-SCOPE-001          # Run specific unit test
+  ingest test run --suite scope           # Run scope unit tests
+  ingest test integration TEST-SCOPE-001  # Run integration test (needs watcher)
+  ingest test integration --suite scope   # Run scope integration tests
+  ingest test integration --dry-run       # Preview without forwarding
+  ingest test forward 123                 # Forward message 123 to Test Inbox
+  ingest test capture TEST-SCOPE-001      # Capture fixture for test
+  ingest test send TEST-SCOPE-001         # Send test to PAI Test Cases channel
+  ingest test validate                    # Validate recent integration results
 
-INTEGRATION TESTING WORKFLOW:
-  1. Send test cases: ingest test send --all
-  2. Forward messages from PAI Test Cases → PAI Test Inbox in Telegram
-  3. Watch daemon processes the messages
-  4. Validate results: ingest test validate
+INTEGRATION TESTING (requires two terminals):
+
+  Terminal 1 - Start watcher:
+    export TELEGRAM_CHANNEL_ID=$TEST_INBOX_ID
+    export TELEGRAM_OUTBOX_ID=$TEST_EVENTS_ID
+    bun run ingest.ts watch --verbose
+
+  Terminal 2 - Run integration tests:
+    bun run ingest.ts test integration TEST-SCOPE-001
+    bun run ingest.ts test integration --suite scope
+
+  The integration command:
+    1. Forwards fixture from Test Cases → Test Inbox
+    2. Waits for Events notification (polls outbox)
+    3. Validates vault file, tags, frontmatter
+    4. Reports pass/fail
 
 Configure test channels in ~/.claude/.env:
   TEST_TELEGRAM_CHANNEL_ID=<PAI Test Inbox>
   TEST_TELEGRAM_OUTBOX_ID=<PAI Test Events>
   TEST_TELEGRAM_CASES_ID=<PAI Test Cases>
 
-See test/README.md for full documentation.
+See test/INTEGRATION-TESTS.md for full documentation.
 `;
 
 async function handleTest(args: string[], verbose: boolean) {
@@ -1389,6 +1403,117 @@ async function handleTest(args: string[], verbose: boolean) {
 
       printSummary(summary);
       process.exit(summary.counts.failed > 0 ? 1 : 0);
+      break;
+    }
+
+    case "integration": {
+      // Integration tests - forward via Telegram, validate end-to-end
+      const { runIntegrationTest, runIntegrationTests, printIntegrationSummary } = await import("./test/framework/integration-runner");
+
+      // Parse options
+      const suiteIndex = subArgs.findIndex(a => a === "--suite");
+      const suite = suiteIndex >= 0 ? subArgs[suiteIndex + 1] as "scope" | "date" | "archive" | "regression" : undefined;
+      const all = subArgs.includes("--all");
+      const dryRun = subArgs.includes("--dry-run");
+      const testId = subArgs.find(a => a.startsWith("TEST-"));
+
+      // Parse timeout
+      let timeout: number | undefined;
+      const timeoutIndex = subArgs.findIndex(a => a === "--timeout");
+      if (timeoutIndex >= 0) {
+        timeout = parseInt(subArgs[timeoutIndex + 1], 10);
+      }
+
+      console.log("\n🧪 Integration Test Runner");
+      console.log("━".repeat(50));
+      console.log("⚠️  Requires watcher running in separate terminal:");
+      console.log("    export TELEGRAM_CHANNEL_ID=$TEST_INBOX_ID");
+      console.log("    export TELEGRAM_OUTBOX_ID=$TEST_EVENTS_ID");
+      console.log("    bun run ingest.ts watch --verbose");
+      console.log("━".repeat(50));
+
+      if (dryRun) {
+        console.log("\n[DRY RUN MODE - no messages will be forwarded]\n");
+      }
+
+      if (testId) {
+        // Run single test
+        const result = await runIntegrationTest(testId, { verbose, timeout, dryRun });
+        const status = result.passed ? "✅ PASSED" : "❌ FAILED";
+        console.log(`\n${status}: ${testId}`);
+        if (!result.passed && result.error) {
+          console.log(`  Error: ${result.error}`);
+        }
+        if (!result.passed && result.checks.length > 0) {
+          const failed = result.checks.filter(c => !c.passed);
+          for (const check of failed) {
+            console.log(`  - ${check.name}: ${check.error || "failed"}`);
+          }
+        }
+        process.exit(result.passed ? 0 : 1);
+      } else {
+        // Run multiple tests
+        const summary = await runIntegrationTests({
+          suite,
+          all,
+          verbose,
+          timeout,
+          dryRun,
+        });
+
+        printIntegrationSummary(summary);
+        process.exit(summary.counts.failed > 0 ? 1 : 0);
+      }
+      break;
+    }
+
+    case "forward": {
+      // Forward a message by ID from Test Cases to Test Inbox (manual testing)
+      const { getConfig } = await import("./lib/config");
+
+      const messageId = parseInt(subArgs[0], 10);
+      if (!messageId || isNaN(messageId)) {
+        console.error("Error: Specify a message ID (number)");
+        console.log("Example: ingest test forward 123");
+        process.exit(1);
+      }
+
+      const config = getConfig();
+      const fromChannel = config.testTelegramCasesId;
+      const toChannel = config.telegramChannelId;
+
+      if (!fromChannel || !toChannel) {
+        console.error("Missing channel config:");
+        console.error("  TEST_TELEGRAM_CASES_ID (source): " + (fromChannel || "NOT SET"));
+        console.error("  TELEGRAM_CHANNEL_ID (target):    " + (toChannel || "NOT SET"));
+        process.exit(1);
+      }
+
+      console.log(`\n📤 Forwarding message ${messageId}`);
+      console.log(`   From: ${fromChannel} (Test Cases)`);
+      console.log(`   To:   ${toChannel} (Test Inbox)\n`);
+
+      const url = `https://api.telegram.org/bot${config.telegramBotToken}/forwardMessage`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from_chat_id: fromChannel,
+          chat_id: toChannel,
+          message_id: messageId,
+        }),
+      });
+
+      const result = await response.json() as { ok: boolean; result?: { message_id: number }; description?: string };
+
+      if (result.ok) {
+        console.log(`✅ Forwarded successfully!`);
+        console.log(`   New message ID in inbox: ${result.result?.message_id}`);
+        console.log(`\n   Watcher should pick this up. Check Events channel for notification.`);
+      } else {
+        console.error(`❌ Forward failed: ${result.description}`);
+        process.exit(1);
+      }
       break;
     }
 

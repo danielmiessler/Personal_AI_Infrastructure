@@ -187,12 +187,38 @@ async function sendTestMessageDirect(
 
       case "document": {
         const fileId = fixtureMsg?.document?.file_id;
-        if (!fileId) {
-          return { ok: false, description: `No document file_id in fixture for ${spec.id}` };
-        }
-        const originalCaption = fixtureMsg?.caption || spec.input.caption || "";
+        const isValidFileId = fileId && !fileId.includes("REDACTED") && fileId.length > 20;
+
+        const originalCaption = spec.input.caption || fixtureMsg?.caption || "";
         const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
         const caption = testIdPrefix + cleanCaption;
+
+        // If file_id is invalid but we have a local asset, upload it
+        if (!isValidFileId && fixture._meta?.mediaFile) {
+          const assetPath = join(__dirname, "../fixtures", fixture._meta.mediaFile);
+          if (existsSync(assetPath)) {
+            const fileName = basename(assetPath);
+            const fileContent = readFileSync(assetPath);
+
+            // Upload using multipart form data
+            const formData = new FormData();
+            formData.append("chat_id", channelId);
+            formData.append("document", new Blob([fileContent]), fileName);
+            if (caption) formData.append("caption", caption);
+
+            const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
+            const response = await fetch(url, {
+              method: "POST",
+              body: formData,
+            });
+            return response.json();
+          }
+          return { ok: false, description: `Local asset not found: ${assetPath}` };
+        }
+
+        if (!isValidFileId) {
+          return { ok: false, description: `No valid document file_id in fixture for ${spec.id}` };
+        }
 
         const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
         const response = await fetch(url, {

@@ -308,7 +308,6 @@ export const regressionDocSpecs: TestSpec[] = [
     meta: {
       docRef: "test-scripts.md#TEST-REG-020",
       notes: "iOS Shortcut sends clipboard as text file with metadata caption - captured from real iPhone",
-      skip: "Fixture has redacted file_id - needs recapture via Telegram upload",
     },
   },
 ];

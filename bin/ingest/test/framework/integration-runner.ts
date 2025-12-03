@@ -1,13 +1,13 @@
 /**
  * Integration Test Runner
  *
- * Executes tests through real Telegram channels, validating end-to-end flow.
+ * Executes tests by forwarding real Telegram messages and processing them directly.
+ * No external watcher needed - the test handles everything in a single process.
  *
  * Flow:
  * 1. Forward fixture message from Test Cases → Test Inbox
- * 2. Wait for Events notification (poll outbox channel)
- * 3. Find vault file by test ID
- * 4. Validate outputs against spec.expected
+ * 2. Call processMessage() directly on the forwarded message
+ * 3. Validate vault output against spec.expected
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
@@ -17,6 +17,9 @@ import type { TestSpec, ValidationResult, ValidationCheck, TestCategory, Fixture
 import { getSpecById, getSpecsByCategory, allIngestSpecs } from "../specs";
 import { loadFixtureFromPath, fixtureExists } from "./capture";
 import { getConfig } from "../../lib/config";
+import { processMessage, type ProcessResult } from "../../lib/process";
+import { loadProfile } from "../../lib/profiles";
+import type { ContentType, TelegramMessage } from "../../lib/telegram";
 
 // =============================================================================
 // Types
@@ -32,25 +35,14 @@ export interface IntegrationOptions {
 }
 
 export interface IntegrationResult extends ValidationResult {
-  processingTime: number;  // Time from forward to Events notification
-  eventsPayload?: EventsPayload;
+  processingTime: number;  // Time for direct processing
+  processResult?: ProcessResult;
   vaultFilePath?: string;
   dropboxFilePath?: string;
 }
 
-export interface EventsPayload {
-  event_type: string;
-  status: "success" | "failed";
-  severity: string;
-  content_type: string;
-  pipeline: string;
-  title: string;
-  message_id: number;
-  timestamp: string;
-  output_paths?: string[];
-  dropbox_path?: string;
-  error?: string;
-}
+// EventsPayload kept for reference but not used in direct processing approach
+// (Integration tests now call processMessage directly instead of polling Events)
 
 interface IntegrationRunSummary {
   startedAt: string;
@@ -72,20 +64,36 @@ interface IntegrationRunSummary {
 const FIXTURES_DIR = join(import.meta.dir, "..", "fixtures");
 const DEFAULT_TIMEOUT = 90000;  // 90 seconds
 const VOICE_TIMEOUT = 120000;   // 2 minutes for voice tests
-const POLL_INTERVAL = 5000;     // Poll every 5 seconds (longer to reduce conflicts with watcher)
 
 // =============================================================================
 // Telegram API Helpers
 // =============================================================================
 
 /**
+ * Determine content type from a Telegram message
+ */
+function getContentTypeFromMessage(msg: TelegramMessage): ContentType {
+  if (msg.voice) return "voice";
+  if (msg.audio) return "voice"; // Audio files use voice pipeline
+  if (msg.photo) return "photo";
+  if (msg.document) return "document";
+  // Check if text contains a URL
+  if (msg.text) {
+    const urlPattern = /https?:\/\/[^\s]+/;
+    if (urlPattern.test(msg.text)) return "url";
+  }
+  return "text";
+}
+
+/**
  * Forward a message from one channel to another
+ * Returns the full forwarded message object
  */
 async function forwardMessage(
   fromChatId: string,
   toChatId: string,
   messageId: number
-): Promise<{ ok: boolean; result?: { message_id: number }; description?: string }> {
+): Promise<{ ok: boolean; result?: TelegramMessage; description?: string }> {
   const config = getConfig();
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/forwardMessage`;
 
@@ -100,75 +108,6 @@ async function forwardMessage(
   });
 
   return response.json();
-}
-
-/**
- * Get recent messages from a channel
- * Uses getUpdates with short timeout to minimize conflicts with watcher's long-polling
- * Note: Telegram only allows ONE getUpdates call at a time per bot token.
- * The watcher uses long-polling (timeout: 30s), so this uses short polling (timeout: 1s)
- * which will cause brief conflicts but should recover quickly.
- */
-async function getChannelMessages(
-  chatId: string,
-  limit: number = 10,
-  afterTimestamp?: number
-): Promise<any[]> {
-  const config = getConfig();
-
-  // Use getUpdates with very short timeout to minimize conflict with watcher
-  // The watcher uses timeout: 30s (long-polling), this uses timeout: 1s (short-polling)
-  // This will cause a brief conflict but Telegram will reject this call and the watcher continues
-  const url = `https://api.telegram.org/bot${config.telegramBotToken}/getUpdates`;
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        limit: 100,
-        timeout: 1, // Short timeout - will conflict with watcher but recover quickly
-      }),
-    });
-
-    const data = await response.json();
-    
-    // If we get a conflict error, that's expected - the watcher is using getUpdates
-    // Return empty array and let the caller retry later
-    if (!data.ok) {
-      if (data.description?.includes("Conflict") || data.description?.includes("terminated")) {
-        // Expected conflict - watcher is polling, return empty and retry later
-        return [];
-      }
-      return [];
-    }
-
-    // Filter for channel_post from our outbox
-    const messages = data.result
-      .filter((u: any) => u.channel_post?.chat?.id?.toString() === chatId)
-      .map((u: any) => u.channel_post)
-      .filter((m: any) => !afterTimestamp || m.date >= afterTimestamp);
-
-    return messages;
-  } catch (error) {
-    // If API call fails, return empty array
-    return [];
-  }
-}
-
-/**
- * Parse Events payload from notification message
- */
-function parseEventsPayload(messageText: string): EventsPayload | null {
-  // Events notifications include JSON in code block
-  const jsonMatch = messageText.match(/```json\n([\s\S]*?)\n```/);
-  if (!jsonMatch) return null;
-
-  try {
-    return JSON.parse(jsonMatch[1]) as EventsPayload;
-  } catch {
-    return null;
-  }
 }
 
 // =============================================================================
@@ -377,84 +316,55 @@ export async function runIntegrationTest(
     };
   }
 
+  const forwardedMessage = forwardResult.result!;
+
   checks.push({
     name: "message_forwarded",
     passed: true,
-    actual: forwardResult.result?.message_id,
+    actual: forwardedMessage.message_id,
   });
 
   if (options.verbose) {
-    console.log(`Forwarded as message ${forwardResult.result?.message_id}`);
-    console.log(`Waiting for Events notification...`);
+    console.log(`Forwarded as message ${forwardedMessage.message_id}`);
+    console.log(`Processing message directly...`);
   }
+
+  // Determine content type from message
+  const contentType = getContentTypeFromMessage(forwardedMessage);
+
+  // Get test profile (uses test vault path if configured)
+  const profile = loadProfile();
 
   // Determine timeout - voice tests need more time
   const isVoiceTest = spec.input.type === "voice" || spec.input.type === "audio";
   const timeout = options.timeout || (isVoiceTest ? VOICE_TIMEOUT : DEFAULT_TIMEOUT);
 
-  // Poll Events channel for notification
-  const pollStart = Date.now();
-  const pollDeadline = pollStart + timeout;
-  let eventsPayload: EventsPayload | null = null;
+  // Call processMessage directly - no watcher needed, no Events polling!
+  // Note: processMessage will send Events notifications; consider adding skipNotify support
+  const processStart = Date.now();
+  let processResult: ProcessResult;
 
-  while (Date.now() < pollDeadline) {
-    const messages = await getChannelMessages(eventsChannelId, 20, Math.floor(startDate.getTime() / 1000));
-
-    // Look for notification matching our test
-    for (const msg of messages) {
-      const payload = parseEventsPayload(msg.text || "");
-      if (!payload) continue;
-
-      // Match by test ID in title or output paths
-      const matchesTestId =
-        payload.title?.includes(testId) ||
-        payload.output_paths?.some(p => p.includes(testId));
-
-      if (matchesTestId) {
-        eventsPayload = payload;
-        break;
-      }
-    }
-
-    if (eventsPayload) break;
-
-    await Bun.sleep(POLL_INTERVAL);
+  try {
+    processResult = await processMessage(forwardedMessage, contentType, profile);
+  } catch (error) {
+    return {
+      testId,
+      passed: false,
+      duration: Date.now() - startTime,
+      processingTime: Date.now() - processStart,
+      checks,
+      error: `Process failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 
-  const processingTime = Date.now() - pollStart;
+  const processingTime = Date.now() - processStart;
 
-  if (!eventsPayload) {
-    // For voice tests, try searching vault directly
-    if (isVoiceTest && config.obsidianVaultPath) {
-      if (options.verbose) {
-        console.log(`No Events notification found, searching vault for ${testId}...`);
-      }
-
-      const vaultFile = findVaultFileByTestId(
-        config.obsidianVaultPath,
-        testId,
-        startDate
-      );
-
-      if (vaultFile) {
-        checks.push({
-          name: "vault_file_found",
-          passed: true,
-          actual: vaultFile,
-        });
-
-        // Continue with vault validation even without Events notification
-        return validateWithVaultFile(
-          spec,
-          testId,
-          vaultFile,
-          checks,
-          processingTime,
-          startTime,
-          options
-        );
-      }
-    }
+  if (!processResult.success) {
+    checks.push({
+      name: "process_success",
+      passed: false,
+      error: processResult.error || "Processing failed",
+    });
 
     return {
       testId,
@@ -462,45 +372,37 @@ export async function runIntegrationTest(
       duration: Date.now() - startTime,
       processingTime,
       checks,
-      error: `Timeout waiting for Events notification (${timeout / 1000}s)`,
+      error: processResult.error || "Processing failed",
     };
   }
 
   checks.push({
-    name: "events_received",
+    name: "process_success",
     passed: true,
-    actual: eventsPayload.status,
+    actual: processResult.pipeline,
   });
 
   if (options.verbose) {
-    console.log(`Events received: ${eventsPayload.status} (${processingTime}ms)`);
-  }
-
-  // Validate Events payload
-  if (spec.expected.events?.severity) {
-    const severityMatch = eventsPayload.severity === spec.expected.events.severity;
-    checks.push({
-      name: `events_severity:${spec.expected.events.severity}`,
-      passed: severityMatch,
-      expected: spec.expected.events.severity,
-      actual: eventsPayload.severity,
-    });
+    console.log(`Processing complete: ${processResult.pipeline} pipeline (${processingTime}ms)`);
+    if (processResult.outputPath) {
+      console.log(`Output: ${processResult.outputPath}`);
+    }
   }
 
   // Validate pipeline
   if (spec.expected.pipeline) {
-    const pipelineMatch = eventsPayload.pipeline?.toLowerCase() === spec.expected.pipeline.toLowerCase();
+    const pipelineMatch = processResult.pipeline?.toLowerCase() === spec.expected.pipeline.toLowerCase();
     checks.push({
       name: `pipeline:${spec.expected.pipeline}`,
       passed: pipelineMatch,
       expected: spec.expected.pipeline,
-      actual: eventsPayload.pipeline,
+      actual: processResult.pipeline,
     });
   }
 
   // Validate Dropbox sync
   if (spec.expected.dropboxSync) {
-    const hasDropbox = !!eventsPayload.dropbox_path;
+    const hasDropbox = !!processResult.dropboxPath;
     checks.push({
       name: "dropbox_sync",
       passed: hasDropbox,
@@ -514,24 +416,17 @@ export async function runIntegrationTest(
   let vaultFrontmatter: Record<string, unknown> = {};
   let vaultContent = "";
 
-  if (eventsPayload.output_paths && eventsPayload.output_paths.length > 0 && config.obsidianVaultPath) {
-    // Try to find file by output path
-    for (const outputPath of eventsPayload.output_paths) {
-      const filename = basename(outputPath);
-      const fullPath = join(config.obsidianVaultPath, outputPath);
-
-      if (existsSync(fullPath)) {
-        vaultFilePath = fullPath;
-        break;
-      }
-
-      // Also search for the file
-      const found = findVaultFileByTestId(config.obsidianVaultPath, testId, startDate);
-      if (found) {
-        vaultFilePath = found;
-        break;
-      }
+  // Use output path from processResult if available
+  if (processResult.outputPath && config.obsidianVaultPath) {
+    const fullPath = join(config.obsidianVaultPath, processResult.outputPath);
+    if (existsSync(fullPath)) {
+      vaultFilePath = fullPath;
     }
+  }
+
+  // Fallback: search by test ID
+  if (!vaultFilePath && config.obsidianVaultPath) {
+    vaultFilePath = findVaultFileByTestId(config.obsidianVaultPath, testId, startDate) || undefined;
   }
 
   if (vaultFilePath) {
@@ -544,7 +439,7 @@ export async function runIntegrationTest(
       passed: true,
       actual: basename(vaultFilePath),
     });
-  } else if (eventsPayload.status === "success") {
+  } else if (processResult.success) {
     checks.push({
       name: "vault_file_created",
       passed: false,
@@ -621,9 +516,9 @@ export async function runIntegrationTest(
   }
 
   // Validate archive filename
-  if (spec.expected.archiveFilenamePattern && eventsPayload.dropbox_path) {
+  if (spec.expected.archiveFilenamePattern && processResult.dropboxPath) {
     const pattern = new RegExp(spec.expected.archiveFilenamePattern, "i");
-    const filename = basename(eventsPayload.dropbox_path);
+    const filename = basename(processResult.dropboxPath);
     const matched = pattern.test(filename);
     checks.push({
       name: "archive_filename_pattern",
@@ -644,9 +539,9 @@ export async function runIntegrationTest(
     duration,
     processingTime,
     checks,
-    eventsPayload,
+    processResult,
     vaultFilePath,
-    dropboxFilePath: eventsPayload.dropbox_path,
+    dropboxFilePath: processResult.dropboxPath,
   };
 }
 

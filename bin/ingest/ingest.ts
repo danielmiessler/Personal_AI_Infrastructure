@@ -1312,7 +1312,7 @@ USAGE:
 SUBCOMMANDS:
   run [TEST_ID]         Run unit tests (call processMessage directly)
   integration [TEST_ID] Run integration tests (forward via Telegram)
-  forward <MSG_ID>      Forward a message by ID from Test Cases → Test Inbox
+  forward <ID>         Forward a message by ID or test ID from Test Cases → Test Inbox
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
   capture TEST_ID       Capture fixture for a specific test
@@ -1338,6 +1338,7 @@ EXAMPLES:
   ingest test integration --suite scope   # Run scope integration tests
   ingest test integration --dry-run       # Preview without forwarding
   ingest test forward 123                 # Forward message 123 to Test Inbox
+  ingest test forward TEST-SCOPE-002     # Forward test by ID (uses fixture message_id)
   ingest test capture TEST-SCOPE-001      # Capture fixture for test
   ingest test send TEST-SCOPE-001         # Send test to PAI Test Cases channel
   ingest test validate                    # Validate recent integration results
@@ -1468,28 +1469,76 @@ async function handleTest(args: string[], verbose: boolean) {
     }
 
     case "forward": {
-      // Forward a message by ID from Test Cases to Test Inbox (manual testing)
+      // Forward a message by ID or test ID from Test Cases to Test Inbox (manual testing)
       const { getConfig } = await import("./lib/config");
+      const { loadFixtureFromPath, fixtureExists } = await import("./test/framework/capture");
+      const { getSpecById } = await import("./test/specs");
+      const { join } = await import("path");
 
-      const messageId = parseInt(subArgs[0], 10);
-      if (!messageId || isNaN(messageId)) {
-        console.error("Error: Specify a message ID (number)");
-        console.log("Example: ingest test forward 123");
+      const input = subArgs[0];
+      if (!input) {
+        console.error("Error: Specify a message ID (number) or test ID (TEST-XXX-XXX)");
+        console.log("Examples:");
+        console.log("  ingest test forward 123              # Forward by message ID");
+        console.log("  ingest test forward TEST-SCOPE-002  # Forward by test ID");
         process.exit(1);
+      }
+
+      let messageId: number;
+      let testId: string | undefined;
+
+      // Check if input is a test ID (starts with TEST-)
+      if (input.startsWith("TEST-")) {
+        testId = input;
+        const spec = getSpecById(testId);
+        if (!spec) {
+          console.error(`Error: Test spec not found: ${testId}`);
+          process.exit(1);
+        }
+
+        if (!fixtureExists(testId)) {
+          console.error(`Error: Fixture not found for test: ${testId}`);
+          console.log(`Run 'ingest test send ${testId}' to populate the test case first.`);
+          process.exit(1);
+        }
+
+        const fixturesDir = join(import.meta.dir, "test", "fixtures");
+        const fixturePath = join(fixturesDir, spec.fixture);
+        const fixture = loadFixtureFromPath(fixturePath);
+
+        if (!fixture?.message?.message_id) {
+          console.error(`Error: Fixture for ${testId} missing message_id`);
+          process.exit(1);
+        }
+
+        messageId = fixture.message.message_id;
+        console.log(`\n📋 Test: ${testId} - ${spec.name}`);
+        console.log(`   Found message ID: ${messageId}`);
+      } else {
+        // Try to parse as message ID
+        messageId = parseInt(input, 10);
+        if (!messageId || isNaN(messageId)) {
+          console.error("Error: Invalid input. Specify a message ID (number) or test ID (TEST-XXX-XXX)");
+          console.log("Examples:");
+          console.log("  ingest test forward 123              # Forward by message ID");
+          console.log("  ingest test forward TEST-SCOPE-002  # Forward by test ID");
+          process.exit(1);
+        }
       }
 
       const config = getConfig();
       const fromChannel = config.testTelegramCasesId;
-      const toChannel = config.telegramChannelId;
+      // Use test inbox if configured, otherwise fall back to TELEGRAM_CHANNEL_ID
+      const toChannel = config.testTelegramChannelId || config.telegramChannelId;
 
       if (!fromChannel || !toChannel) {
         console.error("Missing channel config:");
         console.error("  TEST_TELEGRAM_CASES_ID (source): " + (fromChannel || "NOT SET"));
-        console.error("  TELEGRAM_CHANNEL_ID (target):    " + (toChannel || "NOT SET"));
+        console.error("  TEST_TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_ID (target): " + (toChannel || "NOT SET"));
         process.exit(1);
       }
 
-      console.log(`\n📤 Forwarding message ${messageId}`);
+      console.log(`\n📤 Forwarding message ${messageId}${testId ? ` (${testId})` : ""}`);
       console.log(`   From: ${fromChannel} (Test Cases)`);
       console.log(`   To:   ${toChannel} (Test Inbox)\n`);
 
@@ -1512,6 +1561,10 @@ async function handleTest(args: string[], verbose: boolean) {
         console.log(`\n   Watcher should pick this up. Check Events channel for notification.`);
       } else {
         console.error(`❌ Forward failed: ${result.description}`);
+        if (testId) {
+          console.error(`\n   Tip: The message ID in the fixture may be outdated.`);
+          console.error(`   Try running 'ingest test send ${testId}' to refresh the test case.`);
+        }
         process.exit(1);
       }
       break;

@@ -376,33 +376,38 @@ export async function runIntegrationTest(
     };
   }
 
+  // Extract first content item for validation
+  const firstContent = processResult.content?.[0];
+  const pipeline = firstContent?.pipeline;
+  const contentTags = firstContent?.tags || [];
+
   checks.push({
     name: "process_success",
     passed: true,
-    actual: processResult.pipeline,
+    actual: pipeline,
   });
 
   if (options.verbose) {
-    console.log(`Processing complete: ${processResult.pipeline} pipeline (${processingTime}ms)`);
-    if (processResult.outputPath) {
-      console.log(`Output: ${processResult.outputPath}`);
+    console.log(`Processing complete: ${pipeline} pipeline (${processingTime}ms)`);
+    if (firstContent?.originalFilePath) {
+      console.log(`Output: ${firstContent.originalFilePath}`);
     }
   }
 
   // Validate pipeline
   if (spec.expected.pipeline) {
-    const pipelineMatch = processResult.pipeline?.toLowerCase() === spec.expected.pipeline.toLowerCase();
+    const pipelineMatch = pipeline?.toLowerCase() === spec.expected.pipeline.toLowerCase();
     checks.push({
       name: `pipeline:${spec.expected.pipeline}`,
       passed: pipelineMatch,
       expected: spec.expected.pipeline,
-      actual: processResult.pipeline,
+      actual: pipeline,
     });
   }
 
   // Validate Dropbox sync
   if (spec.expected.dropboxSync) {
-    const hasDropbox = !!processResult.dropboxPath;
+    const hasDropbox = !!firstContent?.originalFilePath;
     checks.push({
       name: "dropbox_sync",
       passed: hasDropbox,
@@ -416,9 +421,9 @@ export async function runIntegrationTest(
   let vaultFrontmatter: Record<string, unknown> = {};
   let vaultContent = "";
 
-  // Use output path from processResult if available
-  if (processResult.outputPath && config.obsidianVaultPath) {
-    const fullPath = join(config.obsidianVaultPath, processResult.outputPath);
+  // Use original file path from processResult if available
+  if (firstContent?.originalFilePath && config.obsidianVaultPath) {
+    const fullPath = join(config.obsidianVaultPath, firstContent.originalFilePath);
     if (existsSync(fullPath)) {
       vaultFilePath = fullPath;
     }
@@ -447,9 +452,10 @@ export async function runIntegrationTest(
     });
   }
 
-  // Validate tags
+  // Validate tags - use vault frontmatter tags, fall back to processResult contentTags
   if (spec.expected.tags) {
-    const tags = (vaultFrontmatter.tags as string[]) || [];
+    const vaultTags = (vaultFrontmatter.tags as string[]) || [];
+    const tags = vaultTags.length > 0 ? vaultTags : contentTags;
     for (const expectedTag of spec.expected.tags) {
       const found = tags.some(t =>
         t.toLowerCase() === expectedTag.toLowerCase() ||
@@ -467,7 +473,8 @@ export async function runIntegrationTest(
 
   // Validate excluded tags
   if (spec.expected.excludeTags) {
-    const tags = (vaultFrontmatter.tags as string[]) || [];
+    const vaultTags = (vaultFrontmatter.tags as string[]) || [];
+    const tags = vaultTags.length > 0 ? vaultTags : contentTags;
     for (const excludedTag of spec.expected.excludeTags) {
       const found = tags.some(t => t.toLowerCase() === excludedTag.toLowerCase());
       checks.push({

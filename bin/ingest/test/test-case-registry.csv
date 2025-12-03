@@ -30,13 +30,23 @@ TEST-REG-003,regression,Mixed hints and metadata,text,no,"[TEST-REG-003] #projec
 TEST-REG-004,regression,URL extraction via Jina AI,url,no,[TEST-REG-004] https://www.anthropic.com/news/claude-4,,ready,URL as text message
 TEST-REG-005a,regression,Voice memo with caption hints,voice,yes,"[TEST-REG-005a] #project/test extract wisdom",[EXISTING] 248 Franklin Rd 7.m4a,ready,359KB voice with hashtag caption
 TEST-REG-005b,regression,Voice with spoken hints no caption,voice,yes,,[EXISTING] 248 Franklin Rd 8.m4a,ready,121KB voice - no caption hints spoken in audio
+TEST-REG-006,regression,MP3 audio file transcription,audio,yes,[TEST-REG-006],,ready,MP3 file (not voice) for transcription test
 TEST-REG-007,regression,Photo with Vision AI default,photo,yes,[TEST-REG-007],[REUSES TEST-ARC-002] Invoice photo,ready,133KB - no caption tests default Vision AI
 TEST-REG-008,regression,Photo with custom prompt,photo,yes,[TEST-REG-008] Extract all text from this screenshot,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
 TEST-REG-009,regression,PDF document extraction,document,yes,[TEST-REG-009],[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB - no caption tests default extraction
 TEST-REG-010a,regression,DOCX plain extraction,document,yes,[TEST-REG-010a],[EXISTING] meeting-notes.docx,ready,1.2MB DOCX - no caption tests extraction
+TEST-REG-010b,regression,DOCX with /summarize command,document,yes,[TEST-REG-010b] /summarize,[REUSES TEST-REG-010a] meeting-notes.docx,ready,DOCX with explicit summarize command
+TEST-REG-010c,regression,DOCX with dictated summarize,document,yes,[TEST-REG-010c] summarize this document,[REUSES TEST-REG-010a] meeting-notes.docx,ready,DOCX with dictated intent
+TEST-REG-010d,regression,DOCX with dictated wisdom,document,yes,[TEST-REG-010d] extract the key points from this,[REUSES TEST-REG-010a] meeting-notes.docx,ready,DOCX with dictated wisdom intent
 TEST-REG-011,regression,Mermaid extraction /mermaid,photo,yes,[TEST-REG-011] /mermaid,[EXISTING] Diagram screenshot,ready,307KB diagram - source of reused diagrams
 TEST-REG-012,regression,Mermaid dictated intent,photo,yes,[TEST-REG-012] Extract the mermaid diagram from this flowchart,[REUSES TEST-REG-011] Diagram screenshot,ready,307KB diagram screenshot
+TEST-REG-013,regression,Archive with type and category,document,yes,"[TEST-REG-013] /archive [type:CONTRACT][category:WORK] Employment agreement",[REUSES TEST-INGv2-101] Contract PDF,ready,Archive with explicit type/category
 TEST-REG-014,regression,Events notification format,text,no,[TEST-REG-014] Test message for events channel verification,,skip,Integration test only
+TEST-REG-015,regression,/summarize command on text,text,no,[TEST-REG-015] /summarize This is a long article that needs to be condensed into a summary,,ready,Text-only fabric pattern
+TEST-REG-016,regression,/wisdom command on text,text,no,[TEST-REG-016] /wisdom Insights about productivity and deep work habits,,ready,Text-only fabric pattern
+TEST-REG-017,regression,/article command on URL,url,no,[TEST-REG-017] /article https://example.com/long-article,,ready,URL with explicit article pattern
+TEST-REG-018,regression,Clip pipeline skips auto-patterns,text,no,[TEST-REG-018] /clip Newsletter snippet to save for later,,ready,Clip should not create wisdom note
+TEST-REG-019,regression,Clip with explicit pattern,text,no,[TEST-REG-019] /clip /summarize Newsletter with summary request,,ready,Clip with explicit pattern should run pattern
 TEST-PAT-001,regression,/meeting-notes pattern,text,no,"[TEST-PAT-001] #project/pai @ed_overy /meeting-notes Testing meeting notes extraction",,ready,Text-only message
 TEST-PAT-002,regression,/summarize pattern,text,no,[TEST-PAT-002] /summarize This is a long article about machine learning,,ready,Text-only message
 TEST-PAT-003,regression,/wisdom pattern,text,no,[TEST-PAT-003] /wisdom The key to success is consistent effort,,ready,Text-only message
@@ -45,3 +55,13 @@ TEST-PHOTO-002,regression,/ocr photo command,photo,yes,[TEST-PHOTO-002] /ocr,[RE
 TEST-PHOTO-003,regression,/store photo command,photo,yes,[TEST-PHOTO-003] /store Reference image,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
 TEST-DOC-001,regression,PDF with Marker extraction,document,yes,[TEST-DOC-001],[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB - no caption tests Marker
 TEST-EMB-001,regression,Semantic search embedding,text,no,"[TEST-EMB-001] Blood pressure reading from digital monitor showing 121/81",,skip,Integration test only
+TEST-VOICE-001,voice,Native Telegram voice memo,voice,yes,[TEST-VOICE-001],,ready,Native voice (not forwarded audio file)
+TEST-VOICE-002,voice,Voice with dictated archive,voice,yes,,[TEST-VOICE-002],ready,Say forward slash archive in audio
+TEST-VOICE-003,voice,Voice with dictated @mention,voice,yes,,[TEST-VOICE-003],ready,Say at person name in audio
+TEST-VOICE-004,voice,Voice with dictated date,voice,yes,,[TEST-VOICE-004],ready,Say dated 15th June in audio
+TEST-VOICE-005,voice,Voice with multiple spoken hints,voice,yes,,[TEST-VOICE-005],ready,Hashtag project and at person combined
+TEST-INGv2-130,voice,Spoken hashtag detection,voice,yes,,[TEST-INGv2-130],ready,hashtag project pai spoken in audio
+TEST-INGv2-131,voice,Spoken person mention,voice,yes,,[TEST-INGv2-131],ready,at ed overy spoken in audio
+TEST-INGv2-132,voice,Spoken archive command,voice,yes,,[TEST-INGv2-132],ready,forward slash archive spoken in audio
+TEST-INGv2-133,voice,Caption + spoken hints merged,voice,yes,"[TEST-INGv2-133] #project/pai",[TEST-INGv2-133],ready,Caption has tags + audio has more hints
+TEST-INGv2-134,voice,Common words not detected,voice,yes,,[TEST-INGv2-134],ready,at the meeting at least - should NOT detect mentions

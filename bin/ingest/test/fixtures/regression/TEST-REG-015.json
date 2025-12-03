@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-015",
+    "capturedAt": "2025-12-03T06:00:00.000Z",
+    "capturedBy": "andreas",
+    "description": "/summarize command on text content",
+    "synthetic": true
+  },
+  "message": {
+    "message_id": 300,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764750000,
+    "text": "[TEST-REG-015] /summarize This is a long article that needs to be condensed into a summary. The article discusses the importance of deep work and focused attention in an age of constant distraction. Key points include: scheduling uninterrupted blocks of time, eliminating shallow work, embracing boredom, and quitting social media.",
+    "entities": [
+      {
+        "offset": 16,
+        "length": 10,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

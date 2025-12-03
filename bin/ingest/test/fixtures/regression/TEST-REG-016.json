@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-016",
+    "capturedAt": "2025-12-03T06:00:00.000Z",
+    "capturedBy": "andreas",
+    "description": "/wisdom command on text content",
+    "synthetic": true
+  },
+  "message": {
+    "message_id": 301,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764750001,
+    "text": "[TEST-REG-016] /wisdom Insights about productivity and deep work habits: The best workers are those who can eliminate distractions and focus on cognitively demanding tasks. Shallow work is seductive but ultimately less valuable. Train your ability to concentrate by embracing boredom.",
+    "entities": [
+      {
+        "offset": 16,
+        "length": 7,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

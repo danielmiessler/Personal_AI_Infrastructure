@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "testId": "TEST-INGv2-132",
+    "capturedAt": "2025-12-03T06:13:04.760Z",
+    "capturedBy": "andreas",
+    "description": "Spoken archive command",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 110,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764742256,
+    "audio": {
+      "duration": 8,
+      "file_name": "248 Franklin Rd 16.m4a",
+      "mime_type": "audio/mpeg",
+      "file_id": "CQACAgEAAyEFAATJrG2bAANuaS_UcCIrO-C2wr9aSfB_MKWqNMsAAigGAAKVYoBF5QZ4c8woHvM2BA",
+      "file_unique_id": "AgADKAYAApVigEU",
+      "file_size": 148672
+    }
+  }
+}

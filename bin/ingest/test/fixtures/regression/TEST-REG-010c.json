@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-010c",
+    "capturedAt": "2025-12-03T06:00:00.000Z",
+    "capturedBy": "andreas",
+    "description": "DOCX with dictated summarize intent",
+    "synthetic": true,
+    "reuses": "TEST-REG-010a"
+  },
+  "message": {
+    "message_id": 311,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764750011,
+    "document": {
+      "file_name": "meeting-notes.docx",
+      "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPQaS9vu6Es8ET8K1DYRA8ubW9w-XgAAjwIAALr5oBFSa6ON5JsOME2BA",
+      "file_unique_id": "AgADPAgAAuvmgEU",
+      "file_size": 1279200
+    },
+    "caption": "[TEST-REG-010c] summarize this document"
+  }
+}

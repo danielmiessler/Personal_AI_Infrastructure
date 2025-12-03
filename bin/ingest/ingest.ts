@@ -71,6 +71,7 @@ COMMANDS:
   poll       Poll Telegram for new messages
   process    Process all pending messages
   watch      Continuously poll and process (daemon mode)
+  direct     Ingest content directly (file, stdin, text) without Telegram
   status     Show queue status
   retry      Retry failed messages
   query      Search vault and archive (context retrieval)
@@ -83,12 +84,24 @@ OPTIONS:
   --verbose, -v          Show detailed output
   --dry-run              Show what would be processed without doing it
 
+DIRECT INGEST OPTIONS:
+  --file, -f <path>      Ingest a file (PDF, image, audio, document)
+  --text, -t <content>   Ingest text content directly
+  --caption, -c <text>   Add caption with hints (#tags @people ~scope)
+  --stdin                Read content from stdin (supports piping)
+
 EXAMPLES:
   ingest poll                        # Check for new messages
   ingest process --verbose           # Process with detailed output
   ingest status                      # Show pending/processed counts
   ingest profiles                    # List available profiles
   ingest process --profile simple    # Use simple profile
+
+  # Direct ingest (without Telegram)
+  ingest direct --text "My note content" --caption "#project/pai"
+  ingest direct --file ~/Documents/receipt.pdf --caption "receipt for car ~private"
+  pbpaste | ingest direct --stdin --caption "#meeting-notes"
+  cat document.md | ingest direct --stdin
 
 CONFIGURATION:
   Add to ~/.config/fabric/.env:
@@ -135,6 +148,9 @@ async function main() {
         break;
       case "watch":
         await handleWatch(profileName, verbose, commandArgs);
+        break;
+      case "direct":
+        await handleDirect(profileName, verbose, commandArgs);
         break;
       case "status":
         await handleStatus();
@@ -555,6 +571,207 @@ async function handleWatch(
   }
 
   console.log("Watch mode stopped.");
+}
+
+/**
+ * Handle direct ingest without Telegram
+ * Supports: file, text, stdin (piped input)
+ */
+async function handleDirect(
+  profileName: string | undefined,
+  verbose: boolean,
+  args: string[]
+): Promise<void> {
+  const { processMessage, saveToVault } = await import("./lib/process");
+  const { loadProfile } = await import("./lib/profiles");
+  const { classifyContent } = await import("./lib/telegram");
+  type ProcessResult = Awaited<ReturnType<typeof processMessage>>;
+  type ContentType = Parameters<typeof processMessage>[1];
+  type TelegramMessage = Parameters<typeof processMessage>[0];
+  const { basename, extname, resolve } = await import("path");
+  const { existsSync, statSync } = await import("fs");
+
+  // Parse arguments
+  let filePath: string | undefined;
+  let textContent: string | undefined;
+  let caption: string | undefined;
+  let useStdin = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--file" || arg === "-f") {
+      filePath = args[++i];
+    } else if (arg === "--text" || arg === "-t") {
+      textContent = args[++i];
+    } else if (arg === "--caption" || arg === "-c") {
+      caption = args[++i];
+    } else if (arg === "--stdin") {
+      useStdin = true;
+    }
+  }
+
+  // Read from stdin if specified or if nothing else provided
+  if (useStdin || (!filePath && !textContent)) {
+    // Check if stdin has data (is piped)
+    const stdin = Bun.stdin;
+    const reader = stdin.stream().getReader();
+    const chunks: Uint8Array[] = [];
+
+    // Set a short timeout to check if there's stdin data
+    const readPromise = (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    })();
+
+    // Wait for stdin to complete (with timeout if not piped)
+    await readPromise;
+
+    if (chunks.length > 0) {
+      const decoder = new TextDecoder();
+      textContent = chunks.map(chunk => decoder.decode(chunk)).join("");
+    }
+  }
+
+  // Validate we have something to process
+  if (!filePath && !textContent) {
+    console.error("Error: No content provided. Use --file, --text, or pipe via --stdin");
+    console.log("\nExamples:");
+    console.log('  ingest direct --text "My note content"');
+    console.log("  ingest direct --file ~/Documents/receipt.pdf");
+    console.log("  pbpaste | ingest direct --stdin");
+    process.exit(1);
+  }
+
+  // Expand ~ in file path
+  if (filePath) {
+    filePath = filePath.replace(/^~/, process.env.HOME || "");
+    filePath = resolve(filePath);
+    if (!existsSync(filePath)) {
+      console.error(`Error: File not found: ${filePath}`);
+      process.exit(1);
+    }
+  }
+
+  // Generate a unique message ID (negative to distinguish from Telegram IDs)
+  const messageId = -Date.now();
+
+  // Create synthetic TelegramMessage
+  let syntheticMessage: TelegramMessage;
+  let contentType: ContentType;
+
+  if (filePath) {
+    const filename = basename(filePath);
+    const ext = extname(filename).toLowerCase();
+
+    // Determine content type from extension
+    if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+      contentType = "photo";
+      syntheticMessage = {
+        message_id: messageId,
+        date: Math.floor(Date.now() / 1000),
+        photo: [{
+          file_id: `local:${filePath}`,
+          width: 1920,
+          height: 1080,
+        }],
+        caption: caption,
+      };
+    } else if ([".mp3", ".ogg", ".m4a", ".wav", ".opus"].includes(ext)) {
+      contentType = "voice";
+      syntheticMessage = {
+        message_id: messageId,
+        date: Math.floor(Date.now() / 1000),
+        audio: {
+          file_id: `local:${filePath}`,
+          duration: 0,
+          file_name: filename,
+          mime_type: ext === ".mp3" ? "audio/mpeg" : ext === ".m4a" ? "audio/mp4" : "audio/ogg",
+        },
+        caption: caption,
+      };
+    } else {
+      // Default to document (PDF, DOCX, etc.)
+      contentType = "document";
+      syntheticMessage = {
+        message_id: messageId,
+        date: Math.floor(Date.now() / 1000),
+        document: {
+          file_id: `local:${filePath}`,
+          file_name: filename,
+          mime_type: getMimeType(ext),
+        },
+        caption: caption,
+      };
+    }
+  } else {
+    // Text content
+    contentType = "text";
+    syntheticMessage = {
+      message_id: messageId,
+      date: Math.floor(Date.now() / 1000),
+      text: caption ? `${caption}\n\n${textContent}` : textContent,
+    };
+  }
+
+  // Load profile
+  const profile = loadProfile(profileName);
+
+  console.log(`\n📥 Direct Ingest`);
+  console.log(`${"─".repeat(50)}`);
+  console.log(`  Type: ${contentType}`);
+  if (filePath) console.log(`  File: ${filePath}`);
+  if (caption) console.log(`  Caption: ${caption}`);
+  console.log(`  Profile: ${profile.name}`);
+  console.log(`${"─".repeat(50)}\n`);
+
+  try {
+    const result: ProcessResult = await processMessage(syntheticMessage, contentType, profile, verbose);
+
+    if (result.success) {
+      console.log(`\n✅ Ingested successfully`);
+      if (result.vaultPath) {
+        console.log(`   Vault: ${result.vaultPath}`);
+      }
+      if (result.dropboxPath) {
+        console.log(`   Dropbox: ${result.dropboxPath}`);
+      }
+      if (result.pipeline) {
+        console.log(`   Pipeline: ${result.pipeline}`);
+      }
+    } else {
+      console.error(`\n❌ Ingest failed: ${result.error}`);
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error(`\n❌ Error: ${error instanceof Error ? error.message : error}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Get MIME type from file extension
+ */
+function getMimeType(ext: string): string {
+  const mimeTypes: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".rtf": "application/rtf",
+    ".html": "text/html",
+    ".json": "application/json",
+    ".xml": "application/xml",
+    ".csv": "text/csv",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
 }
 
 async function handleStatus() {

@@ -194,7 +194,8 @@ async function getFile(fileId: string): Promise<TelegramFile> {
 }
 
 /**
- * Download a file from Telegram
+ * Download a file from Telegram or copy a local file
+ * Supports "local:" prefix for direct file paths (used by `ingest direct` command)
  */
 export async function downloadFile(
   fileId: string,
@@ -205,6 +206,19 @@ export async function downloadFile(
   // Ensure temp directory exists
   if (!existsSync(config.tempDir)) {
     await mkdir(config.tempDir, { recursive: true });
+  }
+
+  // Handle local files (for direct ingest without Telegram)
+  if (fileId.startsWith("local:")) {
+    const localPath = fileId.slice(6); // Remove "local:" prefix
+    if (!existsSync(localPath)) {
+      throw new Error(`Local file not found: ${localPath}`);
+    }
+    // Copy to temp directory
+    const destPath = join(config.tempDir, filename);
+    const content = await Bun.file(localPath).arrayBuffer();
+    await Bun.write(destPath, content);
+    return destPath;
   }
 
   // Get file path from Telegram

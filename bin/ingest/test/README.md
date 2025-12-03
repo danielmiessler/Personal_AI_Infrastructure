@@ -1,71 +1,83 @@
 # Ingest Test Framework
 
-Automated testing for the ingest pipeline, supporting unit tests (fixture-based) and integration tests (manual Telegram workflow).
+Automated testing for the ingest pipeline, supporting unit tests (fixture-based) and integration tests (automated Telegram workflow).
 
 ## Quick Reference
 
 ```bash
-# Daily CI/development tests (~3 min)
-ingest test run
+# Unit tests - fast, fixture-based (~3 min)
+bun run ingest.ts test run
 
-# Pre-release validation (~5-10 min)
-ingest test run --include-media
-# Then run manual integration tests (see below)
+# Integration tests - full Telegram pipeline (single process, no watcher)
+bun run ingest.ts test integration --ids TEST-REG-020 --verbose
+
+# View latest test report
+cat test/output/latest-report.md
 ```
 
 ## Testing Strategy
 
 | Test Type | Command | Duration | When to Use |
 |-----------|---------|----------|-------------|
-| **Unit tests** | `ingest test run` | ~3 min | Daily development, CI/CD |
-| **Unit + media** | `ingest test run --include-media` | ~5 min | When testing media processing |
-| **Integration** | Manual workflow | ~2 min/test | Pre-release, validating full pipeline |
+| **Unit tests** | `bun run ingest.ts test run` | ~3 min | Daily development, CI/CD |
+| **Integration** | `bun run ingest.ts test integration --ids TEST-XX` | ~30s/test | Full Telegram pipeline |
 
 ### Daily Development / CI
 
 Fast fixture-based tests that validate core processing logic:
 
 ```bash
-ingest test run
+bun run ingest.ts test run
 ```
 
-This runs all 45 unit tests using pre-captured fixtures. Output is isolated to `test/output/` - no production vault pollution.
+This runs all unit tests using pre-captured fixtures. Output is isolated to `test/output/` - no production vault pollution.
 
 ## Integration Testing
 
-Integration tests validate the full Telegram pipeline using a manual workflow.
+Integration tests validate the full Telegram pipeline using **automated single-process execution**.
 
-### Why Manual?
+### How It Works
 
-Telegram's Bot API does NOT generate updates when a bot sends messages via the API. Only when a **user** sends messages (including via iOS shortcuts) does the bot receive updates. This means automated send-and-receive testing doesn't work.
+The integration runner handles everything in one process:
+1. **Forward** fixture message from Test Cases → Test Inbox
+2. **Process** via `processMessage()` directly (no watcher needed)
+3. **Validate** vault output against test spec
 
-### The Solution: PAI Test Cases Channel
+### Why Single-Process?
 
-We use a three-channel approach:
+Telegram's limitation: one bot can't poll multiple channels simultaneously. The old approach required a separate watcher process. The new approach calls `processMessage()` directly after forwarding, avoiding the polling limitation.
+
+### The Three-Channel Architecture
 
 1. **PAI Test Cases**: Library of test messages, populated via bot API (configured via `TEST_TELEGRAM_CASES_ID`)
-2. **PAI Test Inbox**: Test inbox, where you forward messages to trigger processing (configured via `TEST_TELEGRAM_CHANNEL_ID`)
+2. **PAI Test Inbox**: Test inbox, where messages are forwarded for processing (configured via `TEST_TELEGRAM_CHANNEL_ID`)
 3. **PAI Test Events**: Test notifications channel (configured via `TEST_TELEGRAM_OUTBOX_ID`)
 
-### Integration Test Workflow
+### Integration Test Commands
 
-1. **Populate Test Cases** (one-time setup):
-   ```bash
-   ingest test send --all
-   ```
-   (Requires `TEST_TELEGRAM_CASES_ID` in `~/.claude/.env`)
-   This sends all test cases to PAI Test Cases, each prefixed with `[TEST-ID]`.
+```bash
+# Run specific test
+bun run ingest.ts test integration --ids TEST-REG-020 --verbose
 
-2. **Run an Integration Test**:
-   - Open Telegram
-   - Go to PAI Test Cases channel
-   - Forward a test message to PAI Test Inbox
-   - The watch daemon processes it (check PAI Test Events for notification)
-   - Validate the vault output
+# Run multiple tests
+bun run ingest.ts test integration --ids TEST-REG-001,TEST-REG-002 --verbose
 
-3. **Identify Results by Test ID**:
-   Each message is prefixed with `[TEST-SCOPE-001]`, `[TEST-REG-002]`, etc.
-   This lets you validate results against the correct test spec.
+# Run all tests with fixtures
+bun run ingest.ts test integration --verbose
+
+# Dry run (show what would happen without forwarding)
+bun run ingest.ts test integration --ids TEST-REG-020 --dry-run
+```
+
+### Setup Test Cases (one-time)
+
+```bash
+# Send specific test to Test Cases channel
+bun run ingest.ts test send TEST-REG-020
+
+# Send all tests
+bun run ingest.ts test send --all
+```
 
 ### Configuration
 

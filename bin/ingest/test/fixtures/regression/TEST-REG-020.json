@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-020",
+    "capturedAt": "2025-12-03T09:43:31.270Z",
+    "capturedBy": "andreas",
+    "description": "iPhone clipboard via iOS Shortcut",
+    "mediaFile": "assets/Clipboard 3 Dec 2025 at 22.40.txt"
+  },
+  "message": {
+    "message_id": 229,
+    "sender_chat": {
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764754845,
+    "document": {
+      "file_name": "Clipboard 3 Dec 2025 at 22.40.txt",
+      "mime_type": "text/plain",
+      "file_id": "REDACTED_FILE_ID",
+      "file_unique_id": "REDACTED_UNIQUE_ID",
+      "file_size": 4168
+    },
+    "caption": "[source:clipboard][device:iphone][user:andreas]\nDeepSeek-V3.2 (5 minute read)\n\nDeepSeek's V3.2 matches GPT-5, and its higher-compute V3.2-Speciale variant rivals Gemini-3.0-Pro and earned gold medals at IMO, IOI, and ICPC 2025."
+  }
+}

@@ -65,3 +65,4 @@ TEST-INGv2-131,voice,Spoken person mention,voice,yes,,[TEST-INGv2-131],ready,at 
 TEST-INGv2-132,voice,Spoken archive command,voice,yes,,[TEST-INGv2-132],ready,forward slash archive spoken in audio
 TEST-INGv2-133,voice,Caption + spoken hints merged,voice,yes,"[TEST-INGv2-133] #project/pai",[TEST-INGv2-133],ready,Caption has tags + audio has more hints
 TEST-INGv2-134,voice,Common words not detected,voice,yes,,[TEST-INGv2-134],ready,at the meeting at least - should NOT detect mentions
+TEST-REG-020,regression,iPhone clipboard via iOS shortcut,document,yes,"[source:clipboard][device:iphone][user:andreas] DeepSeek-V3.2",assets/Clipboard 3 Dec 2025 at 22.40.txt,ready,Real HTML clipboard from iPhone via iOS Shortcut - 4KB

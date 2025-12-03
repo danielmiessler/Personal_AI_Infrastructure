@@ -20,6 +20,13 @@ import { allIngestSpecs, getSpecById, getSpecsByCategory } from "../specs";
 import { processMessage, saveToVault } from "../../lib/process";
 import { getConfig } from "../../lib/config";
 import { loadProfile } from "../../lib/profiles";
+import {
+  generateReport,
+  saveJsonReport,
+  generateMarkdownReport,
+  saveMarkdownReport,
+  appendHistory,
+} from "./report";
 
 // =============================================================================
 // Constants
@@ -279,7 +286,7 @@ export async function runTests(
     r.checks.some(c => c.name === "skipped")
   ).length;
 
-  return {
+  const summary: TestRunSummary = {
     startedAt,
     completedAt,
     duration: results.reduce((sum, r) => sum + r.duration, 0),
@@ -291,6 +298,23 @@ export async function runTests(
     },
     results,
   };
+
+  // Generate and save reports
+  const specMap = new Map(specs.map(s => [s.id, { name: s.name, category: s.category }]));
+  const report = generateReport(runId, summary, specMap);
+
+  const jsonPath = saveJsonReport(runId, report);
+  const markdown = generateMarkdownReport(report);
+  const mdPath = saveMarkdownReport(runId, markdown);
+
+  // Add to history for tracking across runs
+  appendHistory(report);
+
+  console.log(`\nReports saved:`);
+  console.log(`  JSON: ${jsonPath}`);
+  console.log(`  Markdown: ${mdPath}`);
+
+  return summary;
 }
 
 /**

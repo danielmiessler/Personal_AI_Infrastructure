@@ -281,6 +281,31 @@ export const regressionDocSpecs: TestSpec[] = [
       docRef: "test-scripts.md#TEST-REG-010a",
     },
   },
+
+  {
+    id: "TEST-REG-020",
+    name: "iPhone clipboard via iOS shortcut",
+    category: "regression",
+    fixture: "regression/TEST-REG-020.json",
+    input: {
+      type: "document",
+      description: "Text file with HTML content shared from iPhone via iOS Shortcuts",
+      filename: "Clipboard 3 Dec 2025 at 22.40.txt",
+      caption: "[source:clipboard][device:iphone][user:andreas]\nDeepSeek-V3.2 (5 minute read)",
+    },
+    expected: {
+      frontmatter: {
+        source_shortcut: "clipboard",
+        source_device: "iphone",
+        source_user: "andreas",
+      },
+      tags: ["incoming", "raw", "source/telegram"],
+    },
+    meta: {
+      docRef: "test-scripts.md#TEST-REG-020",
+      notes: "iOS Shortcut sends clipboard as text file with metadata caption - captured from real iPhone",
+    },
+  },
 ];
 
 // =============================================================================

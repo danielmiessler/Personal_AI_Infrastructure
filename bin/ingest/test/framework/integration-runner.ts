@@ -16,6 +16,7 @@ import { parse as parseYaml } from "yaml";
 import type { TestSpec, ValidationResult, ValidationCheck, TestCategory, Fixture } from "./types";
 import { getSpecById, getSpecsByCategory, allIngestSpecs } from "../specs";
 import { loadFixtureFromPath, fixtureExists } from "./capture";
+import { appendHistory, type TestReport } from "./report";
 import { getConfig } from "../../lib/config";
 import { processMessage, saveToVault, type ProcessResult } from "../../lib/process";
 import { loadProfile } from "../../lib/profiles";
@@ -1174,6 +1175,7 @@ export function saveDetailedReport(summary: IntegrationRunSummary): string {
   const OUTPUT_DIR = join(import.meta.dir, "..", "output");
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
+  const runId = `integration-${new Date(summary.startedAt).toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
   const markdown = generateDetailedReport(summary);
   const reportPath = join(OUTPUT_DIR, "integration-report.md");
   writeFileSync(reportPath, markdown);
@@ -1181,6 +1183,28 @@ export function saveDetailedReport(summary: IntegrationRunSummary): string {
   // Also update latest
   const latestPath = join(OUTPUT_DIR, "latest-integration-report.md");
   writeFileSync(latestPath, markdown);
+
+  // Record to test history for tracking across runs
+  const report: TestReport = {
+    runId,
+    startedAt: summary.startedAt,
+    completedAt: summary.completedAt,
+    duration: summary.duration,
+    counts: summary.counts,
+    passRate: summary.counts.total > 0
+      ? Math.round((summary.counts.passed / summary.counts.total) * 100)
+      : 0,
+    tests: summary.results.map(r => ({
+      id: r.testId,
+      name: r.spec?.name || r.testId,
+      category: r.spec?.category || "unknown",
+      passed: r.passed,
+      duration: r.duration,
+      error: r.error,
+      failedChecks: r.checks.filter(c => !c.passed).map(c => c.name),
+    })),
+  };
+  appendHistory(report);
 
   return reportPath;
 }

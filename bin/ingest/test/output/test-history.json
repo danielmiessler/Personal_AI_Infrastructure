@@ -159,5 +159,31 @@
     },
     "passRate": 100,
     "failedTests": []
+  },
+  {
+    "runId": "integration-2025-12-03-23-07-58",
+    "startedAt": "2025-12-03T23:07:58.675Z",
+    "duration": 38426,
+    "counts": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "integration-2025-12-03-23-08-22",
+    "startedAt": "2025-12-03T23:08:22.444Z",
+    "duration": 135534,
+    "counts": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
   }
 ]

@@ -76,6 +76,7 @@ COMMANDS:
   query      Search vault and archive (context retrieval)
   profiles   List available processing profiles
   config     Show current configuration
+  test       Run automated tests (capture/replay fixtures)
 
 OPTIONS:
   --profile, -p <name>   Use specific processing profile
@@ -149,6 +150,9 @@ async function main() {
         break;
       case "config":
         handleConfig();
+        break;
+      case "test":
+        await handleTest(commandArgs, verbose);
         break;
       default:
         console.error(`Unknown command: ${command}`);
@@ -1293,6 +1297,243 @@ async function executeQuery(
   // Sort by relevance and limit
   results.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
   return results.slice(0, limit);
+}
+
+// =============================================================================
+// Test Command Handler
+// =============================================================================
+
+const TEST_HELP = `
+ingest test - Automated Test Framework
+
+USAGE:
+  ingest test <subcommand> [options]
+
+SUBCOMMANDS:
+  run [TEST_ID]         Run tests (all with fixtures, or specific test)
+  integration [TEST_ID] Run full Telegram integration tests
+  capture TEST_ID       Capture fixture for a specific test
+  status                Show test status (fixtures, last run)
+
+OPTIONS:
+  --suite <name>     Run tests in category: scope, date, archive, regression
+  --all              Run all tests (including those without fixtures)
+  --verbose, -v      Show detailed output
+  --missing          Capture all missing fixtures interactively
+  --include-media    Run media tests (voice, photo, document)
+  --cleanup          Delete test notes from vault after validation
+
+EXAMPLES:
+  ingest test status                    # Show which tests have fixtures
+  ingest test run                       # Run tests that have fixtures
+  ingest test run TEST-SCOPE-001        # Run specific test
+  ingest test run --suite scope         # Run scope tests
+  ingest test run --include-media       # Include media tests (requires Telegram download)
+  ingest test capture TEST-SCOPE-001    # Capture fixture for test
+  ingest test capture --missing         # Capture all missing fixtures
+  ingest test send TEST-SCOPE-001       # Auto-send fixture via API
+  ingest test send --all                # Auto-send all supported fixtures (text, photo, doc)
+  ingest test integration TEST-REG-001  # Run single test through full Telegram pipeline
+  ingest test integration --cleanup     # Run integration tests, cleanup vault after
+
+INTEGRATION TESTING:
+  For isolated integration tests, configure test channels in ~/.claude/.env:
+    TEST_TELEGRAM_CHANNEL_ID=<test inbox channel ID>
+    TEST_TELEGRAM_OUTBOX_ID=<test events channel ID>
+
+See test/README.md for full documentation.
+`;
+
+async function handleTest(args: string[], verbose: boolean) {
+  // Lazy import to avoid loading test framework in production
+  const { captureFixture, captureMissingFixtures, getMissingFixtures, autoSendFixture } = await import("./test/framework/capture");
+  const { runTests, runTest, printSummary, printTestStatus } = await import("./test/framework/runner");
+  const { getSpecsByCategory, getSpecById, allIngestSpecs } = await import("./test/specs");
+  const { TestCategory } = await import("./test/framework/types");
+
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+    console.log(TEST_HELP);
+    return;
+  }
+
+  const subcommand = args[0];
+  const subArgs = args.slice(1);
+
+  switch (subcommand) {
+    case "run": {
+      // Check for options
+      const suiteIndex = subArgs.findIndex(a => a === "--suite");
+      const suite = suiteIndex >= 0 ? subArgs[suiteIndex + 1] as "scope" | "date" | "archive" | "regression" : undefined;
+      const all = subArgs.includes("--all");
+      const keepOutput = subArgs.includes("--keep-output");
+      const includeMedia = subArgs.includes("--include-media");
+      const testId = subArgs.find(a => a.startsWith("TEST-"));
+
+      const summary = await runTests({
+        testId,
+        suite,
+        all,
+        verbose,
+        keepOutput,
+        includeMedia,
+      });
+
+      printSummary(summary);
+      process.exit(summary.counts.failed > 0 ? 1 : 0);
+      break;
+    }
+
+    case "capture": {
+      const missing = subArgs.includes("--missing");
+
+      if (missing) {
+        const result = await captureMissingFixtures({ user: process.env.USER });
+        console.log(`\nCapture complete:`);
+        console.log(`  Captured: ${result.captured.length}`);
+        console.log(`  Skipped: ${result.skipped.length}`);
+        console.log(`  Failed: ${result.failed.length}`);
+      } else {
+        const testId = subArgs.find(a => a.startsWith("TEST-"));
+        if (!testId) {
+          console.error("Error: Specify TEST_ID or use --missing");
+          console.log("Example: ingest test capture TEST-SCOPE-001");
+          process.exit(1);
+        }
+
+        const result = await captureFixture(testId, { user: process.env.USER });
+        if (!result.success) {
+          console.error(`Failed: ${result.error}`);
+          process.exit(1);
+        }
+      }
+      break;
+    }
+
+    case "send": {
+      if (subArgs.includes("--all")) {
+        // Auto-send all supported fixtures
+        console.log("Auto-sending all supported fixtures...\n");
+        let sent = 0, skipped = 0, failed = 0;
+        for (const spec of allIngestSpecs) {
+          const result = await autoSendFixture(spec.id, { user: process.env.USER });
+          if (result.success) {
+            sent++;
+          } else if (result.error?.includes("requires manual") || result.error?.includes("not found")) {
+            skipped++;
+            console.log(`  Skipped ${spec.id}: ${result.error}`);
+          } else {
+            console.error(`  Failed ${spec.id}: ${result.error}`);
+            failed++;
+          }
+        }
+        console.log(`\nDone: ${sent} sent, ${skipped} skipped, ${failed} failed`);
+      } else {
+        const testId = subArgs.find(a => a.startsWith("TEST-"));
+        if (!testId) {
+          console.error("Error: Specify TEST_ID or use --all");
+          console.log("Example: ingest test send TEST-SCOPE-001");
+          process.exit(1);
+        }
+
+        const result = await autoSendFixture(testId, { user: process.env.USER });
+        if (!result.success) {
+          console.error(`Failed: ${result.error}`);
+          process.exit(1);
+        }
+      }
+      break;
+    }
+
+    case "status": {
+      printTestStatus();
+
+      // Show missing count
+      const missing = getMissingFixtures();
+      if (missing.length > 0) {
+        console.log(`\nMissing fixtures: ${missing.length}`);
+        console.log("Run 'ingest test capture --missing' to capture them.");
+      }
+      break;
+    }
+
+    case "integration": {
+      // Full Telegram integration test
+      const { runIntegrationTest, checkIntegrationTestConfig, processPendingTestMessages } = await import("./test/framework/integration");
+
+      // Check config
+      const configCheck = checkIntegrationTestConfig();
+      if (!configCheck.available) {
+        console.error("Integration testing not available:");
+        configCheck.warnings.forEach(w => console.error(`  - ${w}`));
+        process.exit(1);
+      }
+
+      if (configCheck.warnings.length > 0) {
+        console.log("⚠️  Integration test warnings:");
+        configCheck.warnings.forEach(w => console.log(`  - ${w}`));
+        console.log("");
+      }
+
+      const cleanup = subArgs.includes("--cleanup");
+      const processPending = subArgs.includes("--process-pending");
+      const testId = subArgs.find(a => a.startsWith("TEST-"));
+
+      if (processPending) {
+        // Process all pending messages from test channel
+        console.log("\nProcessing pending messages from test channel...");
+        const result = await processPendingTestMessages({ verbose, cleanupVault: cleanup });
+
+        console.log(`\nProcessed: ${result.processed} message(s)`);
+        console.log(`Vault files: ${result.vaultFiles.length}`);
+
+        if (result.vaultFiles.length > 0 && verbose) {
+          console.log("\nCreated files:");
+          for (const f of result.vaultFiles) {
+            console.log(`  ${f}`);
+          }
+        }
+
+        if (result.errors.length > 0) {
+          console.error("\nErrors:");
+          result.errors.forEach(e => console.error(`  - ${e}`));
+          process.exit(1);
+        }
+      } else if (testId) {
+        // Run single integration test
+        console.log(`\nRunning integration test: ${testId}`);
+        const result = await runIntegrationTest(testId, { verbose, cleanupVault: cleanup });
+
+        const status = result.passed ? "✓" : "✗";
+        const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+        console.log(`\n${color}${status}\x1b[0m ${testId}`);
+
+        if (!result.passed && result.error) {
+          console.log(`  Error: ${result.error}`);
+        }
+        if (!result.passed && result.checks.length > 0) {
+          const failed = result.checks.filter(c => !c.passed);
+          for (const check of failed.slice(0, 5)) {
+            console.log(`  - ${check.name}: ${check.error || "failed"}`);
+          }
+        }
+
+        console.log(`\nDuration: ${result.duration}ms`);
+        process.exit(result.passed ? 0 : 1);
+      } else {
+        console.error("Error: Specify TEST_ID or --process-pending");
+        console.log("\nExamples:");
+        console.log("  ingest test integration --process-pending   # Process pending test messages");
+        console.log("  ingest test integration TEST-REG-001        # Run specific test");
+        process.exit(1);
+      }
+      break;
+    }
+
+    default:
+      console.error(`Unknown test subcommand: ${subcommand}`);
+      console.log(TEST_HELP);
+      process.exit(1);
+  }
 }
 
 main();

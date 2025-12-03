@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-009",
+    "capturedAt": "2025-12-02T23:00:55.267Z",
+    "capturedBy": "andreas",
+    "description": "PDF document - should extract via marker",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 206,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716455,
+    "document": {
+      "file_name": "test-document.pdf",
+      "mime_type": "application/pdf",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPOaS9vp_hLDiPwxyWCqlACHotjL1oAAjoIAALr5oBFg0pikmTX3aM2BA",
+      "file_unique_id": "AgADOggAAuvmgEU",
+      "file_size": 460
+    }
+  }
+}

@@ -10,7 +10,9 @@
     "process": "bun run ingest.ts process",
     "status": "bun run ingest.ts status"
   },
-  "dependencies": {},
+  "dependencies": {
+    "yaml": "^2.8.2"
+  },
   "devDependencies": {
     "bun-types": "latest"
   }

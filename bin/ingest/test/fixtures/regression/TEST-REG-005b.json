@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-005b",
+    "capturedAt": "2025-12-02T23:10:11.032Z",
+    "capturedBy": "andreas",
+    "description": "Voice memo with hints spoken in audio, no caption"
+  },
+  "message": {
+    "message_id": 212,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716991,
+    "audio": {
+      "duration": 13,
+      "file_name": "248 Franklin Rd 8.m4a",
+      "mime_type": "audio/mpeg",
+      "file_id": "CQACAgEAAyEFAAS8iPOuAAPUaS9xvxD7lS4G1lk1KXxj-ESwjpoAAkUIAALr5oBFNKsFIy7DToA2BA",
+      "file_unique_id": "AgADRQgAAuvmgEU",
+      "file_size": 121570
+    }
+  }
+}

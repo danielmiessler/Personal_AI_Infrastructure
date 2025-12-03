@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-INGv2-101",
+    "capturedAt": "2025-12-02T22:59:04.578Z",
+    "capturedBy": "andreas",
+    "description": "Document already following naming convention - should NOT be renamed",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 194,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716344,
+    "document": {
+      "file_name": "CONTRACT - 20240208 - Employment Agreement.pdf",
+      "mime_type": "application/pdf",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPCaS9vOCpi0r6lGEb4ovqiUjtbNgMAAjEIAALr5oBFnosJJdaVIw02BA",
+      "file_unique_id": "AgADMQgAAuvmgEU",
+      "file_size": 460
+    }
+  }
+}

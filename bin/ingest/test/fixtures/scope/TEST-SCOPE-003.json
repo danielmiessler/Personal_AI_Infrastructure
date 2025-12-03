@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-SCOPE-003",
+    "capturedAt": "2025-12-02T23:05:48.876Z",
+    "capturedBy": "andreas",
+    "description": "Voice memo with spoken 'Scope private' at the beginning"
+  },
+  "message": {
+    "message_id": 210,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716726,
+    "audio": {
+      "duration": 22,
+      "file_name": "248 Franklin Rd 6.m4a",
+      "mime_type": "audio/mpeg",
+      "file_id": "CQACAgEAAyEFAAS8iPOuAAPRaS9whXDCXuiRM-CInjaAkg5gYBUAAkIIAALr5oBFdcGTG7QpAAFKNgQ",
+      "file_unique_id": "AgADQggAAuvmgEU",
+      "file_size": 372637
+    }
+  }
+}

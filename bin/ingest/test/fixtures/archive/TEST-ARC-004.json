@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "testId": "TEST-ARC-004",
+    "capturedAt": "2025-12-02T23:00:42.375Z",
+    "capturedBy": "andreas",
+    "description": "Document with medical certificate keywords",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 202,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716442,
+    "document": {
+      "file_name": "cert.pdf",
+      "mime_type": "application/pdf",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPKaS9vmgqAU4f3VA9txSimsrVkmwADNwgAAuvmgEWEuUo0XdCe-zYE",
+      "file_unique_id": "AgADNwgAAuvmgEU",
+      "file_size": 460
+    },
+    "caption": "my medical certificate from the doctor"
+  }
+}

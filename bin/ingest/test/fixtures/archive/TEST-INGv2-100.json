@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "testId": "TEST-INGv2-100",
+    "capturedAt": "2025-12-02T23:00:35.567Z",
+    "capturedBy": "andreas",
+    "description": "Document with /archive command - should generate structured name",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 200,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716435,
+    "document": {
+      "file_name": "receipt.pdf",
+      "mime_type": "application/pdf",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPIaS9vk-RaF9gTgfK0Alr3N2FGDngAAjQIAALr5oBFtFWZvcArukM2BA",
+      "file_unique_id": "AgADNAgAAuvmgEU",
+      "file_size": 460
+    },
+    "caption": "/archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45",
+    "caption_entities": [
+      {
+        "offset": 0,
+        "length": 8,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

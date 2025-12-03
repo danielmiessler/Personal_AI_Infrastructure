@@ -168,6 +168,11 @@ export function parseDictatedDate(text: string): string | undefined {
   const dateWithMonthPattern = /(?:dated?|from)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*(\d{4})?/i;
   const monthFirstPattern = /(?:dated?|from)\s+(?:the\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})?/i;
 
+  // Helper to format date as YYYY-MM-DD without timezone conversion
+  const formatDate = (year: number, month: number, day: number): string => {
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
+
   let match = dateWithMonthPattern.exec(lowerText);
   if (match) {
     const day = parseInt(match[1], 10);
@@ -175,8 +180,7 @@ export function parseDictatedDate(text: string): string | undefined {
     const month = monthNames[monthStr.slice(0, 3)] ?? monthNames[monthStr];
     const year = match[3] ? parseInt(match[3], 10) : currentYear;
     if (month !== undefined && day >= 1 && day <= 31) {
-      const date = new Date(year, month, day);
-      return date.toISOString().slice(0, 10);
+      return formatDate(year, month, day);
     }
   }
 
@@ -187,8 +191,7 @@ export function parseDictatedDate(text: string): string | undefined {
     const month = monthNames[monthStr.slice(0, 3)] ?? monthNames[monthStr];
     const year = match[3] ? parseInt(match[3], 10) : currentYear;
     if (month !== undefined && day >= 1 && day <= 31) {
-      const date = new Date(year, month, day);
-      return date.toISOString().slice(0, 10);
+      return formatDate(year, month, day);
     }
   }
 
@@ -212,22 +215,27 @@ export function parseDictatedDate(text: string): string | undefined {
     return `${year}-${month}-${day}`;
   }
 
+  // Helper to format a Date object as YYYY-MM-DD in local time
+  const formatLocalDate = (date: Date): string => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+
   // Pattern: "from last month" / "last month's"
   if (/(?:from\s+)?last\s+month/i.test(lowerText)) {
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return lastMonth.toISOString().slice(0, 10);
+    return formatLocalDate(lastMonth);
   }
 
   // Pattern: "from last week"
   if (/(?:from\s+)?last\s+week/i.test(lowerText)) {
     const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return lastWeek.toISOString().slice(0, 10);
+    return formatLocalDate(lastWeek);
   }
 
   // Pattern: "from yesterday"
   if (/(?:from\s+)?yesterday/i.test(lowerText)) {
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    return yesterday.toISOString().slice(0, 10);
+    return formatLocalDate(yesterday);
   }
 
   return undefined;
@@ -267,7 +275,8 @@ const FABRIC_PATTERN_COMMANDS: Record<string, string> = {
 
   // Meeting patterns - explicit names only
   // NOTE: /1on1 is NOT here - use #1on1 as a tag instead
-  "meeting-notes": "meeting_notes",
+  "meeting-notes": "meeting_minutes",
+  "meeting": "meeting_minutes",
 };
 
 /**
@@ -721,29 +730,30 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
       }
     );
 
-    // Natural language scope detection:
-    // "this is personal" / "this is private" → ~private
-    // "for work" / "work related" → ~work
-    if (/\b(this\s+is\s+(personal|private)|personal\s+(matter|stuff|thing)|private\s+(matter|stuff|thing)|my\s+personal)\b/i.test(workingText)) {
-      if (!scope) {
-        scope = "private";
-        console.log(`  Detected dictated scope intent: "private" from natural language`);
-      }
-    }
-    if (/\b(for\s+work|work\s+(related|stuff|thing)|business\s+(related|matter)|professional)\b/i.test(workingText)) {
-      if (!scope) {
-        scope = "work";
-        console.log(`  Detected dictated scope intent: "work" from natural language`);
-      }
-    }
+  }
 
-    // Natural language date detection:
-    // "dated 15th June", "from last month", "from yesterday"
-    const dictatedDate = parseDictatedDate(workingText);
-    if (dictatedDate) {
-      metadata.date = dictatedDate;
-      console.log(`  Detected dictated document date: ${dictatedDate}`);
+  // Natural language scope detection (works for both typed and spoken text):
+  // "this is personal" / "this is private" → ~private
+  // "for work" / "work related" → ~work
+  if (/\b(this\s+is\s+(personal|private)|personal\s+(matter|stuff|thing)|private\s+(matter|stuff|thing)|my\s+personal)\b/i.test(workingText)) {
+    if (!scope) {
+      scope = "private";
+      console.log(`  Detected dictated scope intent: "private" from natural language`);
     }
+  }
+  if (/\b(for\s+work|work\s+(related|stuff|thing)|business\s+(related|matter)|professional)\b/i.test(workingText)) {
+    if (!scope) {
+      scope = "work";
+      console.log(`  Detected dictated scope intent: "work" from natural language`);
+    }
+  }
+
+  // Natural language date detection (works for both typed and spoken text):
+  // "dated 15th June", "from last month", "from yesterday"
+  const dictatedDate = parseDictatedDate(workingText);
+  if (dictatedDate) {
+    metadata.date = dictatedDate;
+    console.log(`  Detected dictated document date: ${dictatedDate}`);
   }
 
   // Extract metadata: [key:value] pairs
@@ -1605,12 +1615,14 @@ async function processUrl(
     }
 
     // All other URLs: Use Jina AI Reader for clean markdown
+    console.log(`  Jina AI Reader: Fetching ${url}`);
     const jinaContent = await fetchWithJina(url, config.jinaApiKey);
 
     if (jinaContent) {
       // Extract title from Jina's markdown (usually first # heading)
       const titleMatch = jinaContent.match(/^#\s+(.+)$/m);
       const title = titleMatch?.[1]?.trim() || generateTitleFromText(jinaContent);
+      console.log(`  Jina AI Reader: Successfully fetched "${title}" (${jinaContent.length} chars)`);
 
       return {
         content: `Source: ${url}\n\n${jinaContent}`,
@@ -1941,11 +1953,13 @@ async function applyFabricPatterns(
   let result = content;
 
   for (const pattern of patterns) {
+    console.log(`  Fabric: Running pattern "${pattern}"`);
     const { stdout } = await execAsync(
       `echo "${escapeShell(result)}" | fabric -p ${pattern}`,
       { timeout: 60000 }
     );
     result = stdout.trim();
+    console.log(`  Fabric: Pattern "${pattern}" completed (${result.length} chars)`);
   }
 
   return result;

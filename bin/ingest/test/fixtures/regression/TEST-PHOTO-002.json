@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "testId": "TEST-PHOTO-002",
+    "capturedAt": "2025-12-02T23:16:24.126Z",
+    "capturedBy": "andreas",
+    "description": "Photo with /ocr command for text extraction",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 233,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764717383,
+    "photo": [
+      {
+        "file_id": "AgACAgEAAyEGAAS8iPOuAAOyaS9unV3hwSLJeo7i0TQnzNX6EsQAAjsLaxvr5oBFfaG54nKh6lkBAAMCAANtAAM2BA",
+        "file_unique_id": "AQADOwtrG-vmgEVy",
+        "file_size": 288,
+        "width": 1,
+        "height": 1
+      }
+    ],
+    "caption": "/ocr",
+    "caption_entities": [
+      {
+        "offset": 0,
+        "length": 4,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

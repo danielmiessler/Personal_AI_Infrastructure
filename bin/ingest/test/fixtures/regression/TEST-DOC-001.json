@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "testId": "TEST-DOC-001",
+    "capturedAt": "2025-12-02T23:18:00.779Z",
+    "capturedBy": "andreas",
+    "description": "DOCX with hashtag/mentions and summarize intent"
+  },
+  "message": {
+    "message_id": 236,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764717395,
+    "forward_origin": {
+      "type": "channel",
+      "chat": {
+        "id": -1003163091886,
+        "title": "PAI Inbox",
+        "type": "channel"
+      },
+      "message_id": 127,
+      "date": 1764662097
+    },
+    "forward_from_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "forward_from_message_id": 127,
+    "forward_date": 1764662097,
+    "document": {
+      "file_name": "2025_10_21_Implementation_Plan_&_Recommendations_Transcript.docx",
+      "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "file_id": "BQACAgEAAyEFAAS8iPOuAAN_aS6bUSeuQleH6i9rba-IWK3FuEQAAiIKAALr5nhF0xQup2Ehx7s2BA",
+      "file_unique_id": "AgADIgoAAuvmeEU",
+      "file_size": 1279200
+    },
+    "caption": "# Project GenAIRapidAssessment at Andreas Åström at Ed Alvery summarise document using Fabric"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "testId": "TEST-PAT-003",
+    "capturedAt": "2025-12-02T23:16:17.878Z",
+    "capturedBy": "andreas",
+    "description": "Text with /wisdom pattern command",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 230,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764717377,
+    "text": "/wisdom The key to success is consistent effort and learning from failures",
+    "entities": [
+      {
+        "offset": 0,
+        "length": 7,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

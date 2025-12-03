@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-014",
+    "capturedAt": "2025-12-02T22:53:39.646Z",
+    "capturedBy": "andreas",
+    "description": "Any processed message should send proper events notification",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 177,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716019,
+    "text": "Test message for events channel verification"
+  }
+}

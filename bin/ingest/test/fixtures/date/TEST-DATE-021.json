@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "testId": "TEST-DATE-021",
+    "capturedAt": "2025-12-02T23:00:32.182Z",
+    "capturedBy": "andreas",
+    "description": "Document with date hint - archive name should use that date",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 199,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716432,
+    "document": {
+      "file_name": "contract.pdf",
+      "mime_type": "application/pdf",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPHaS9vjxIT_eNqYtXOAAGkHJYc7E0jAAIzCAAC6-aARUai3EbJkBhfNgQ",
+      "file_unique_id": "AgADMwgAAuvmgEU",
+      "file_size": 460
+    },
+    "caption": "[date:2023-03-15] /archive Historic contract",
+    "caption_entities": [
+      {
+        "offset": 18,
+        "length": 8,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

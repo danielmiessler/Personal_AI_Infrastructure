@@ -90,6 +90,90 @@ export function isFromInbox(message: TelegramMessage): boolean {
 }
 
 /**
+ * Send a text message to the inbox channel (for testing)
+ */
+export async function sendToInbox(text: string): Promise<TelegramMessage> {
+  const config = getConfig();
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: config.telegramChannelId,
+      text,
+    }),
+  });
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error(`Failed to send message: ${data.description}`);
+  }
+
+  return data.result;
+}
+
+/**
+ * Send a photo to the inbox channel (for testing)
+ */
+export async function sendPhotoToInbox(
+  photoPath: string,
+  caption?: string
+): Promise<TelegramMessage> {
+  const config = getConfig();
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendPhoto`;
+
+  const formData = new FormData();
+  formData.append("chat_id", config.telegramChannelId);
+  formData.append("photo", Bun.file(photoPath));
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error(`Failed to send photo: ${data.description}`);
+  }
+
+  return data.result;
+}
+
+/**
+ * Send a document to the inbox channel (for testing)
+ */
+export async function sendDocumentToInbox(
+  documentPath: string,
+  caption?: string
+): Promise<TelegramMessage> {
+  const config = getConfig();
+  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
+
+  const formData = new FormData();
+  formData.append("chat_id", config.telegramChannelId);
+  formData.append("document", Bun.file(documentPath));
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error(`Failed to send document: ${data.description}`);
+  }
+
+  return data.result;
+}
+
+/**
  * Get file info from Telegram
  */
 async function getFile(fileId: string): Promise<TelegramFile> {

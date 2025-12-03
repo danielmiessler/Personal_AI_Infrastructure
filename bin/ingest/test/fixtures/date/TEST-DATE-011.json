@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "testId": "TEST-DATE-011",
+    "capturedAt": "2025-12-02T22:58:58.978Z",
+    "capturedBy": "andreas",
+    "description": "Text with relative date reference",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 189,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716338,
+    "text": "from last month Receipt for home supplies"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "testId": "TEST-ARC-010",
+    "capturedAt": "2025-12-02T23:00:45.715Z",
+    "capturedBy": "andreas",
+    "description": "Archived document should have markdown with clickable Dropbox path",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 203,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764716445,
+    "document": {
+      "file_name": "report.pdf",
+      "mime_type": "application/pdf",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPLaS9vnS-fEzu4JASN7OFPun3exkQAAjgIAALr5oBFehEgoNdQpW02BA",
+      "file_unique_id": "AgADOAgAAuvmgEU",
+      "file_size": 460
+    },
+    "caption": "/archive Work document",
+    "caption_entities": [
+      {
+        "offset": 0,
+        "length": 8,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

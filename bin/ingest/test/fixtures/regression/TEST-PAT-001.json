@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "testId": "TEST-PAT-001",
+    "capturedAt": "2025-12-02T23:16:11.491Z",
+    "capturedBy": "andreas",
+    "description": "Text with /meeting-notes pattern command",
+    "autoSent": true
+  },
+  "message": {
+    "message_id": 228,
+    "sender_chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003163091886,
+      "title": "PAI Inbox",
+      "type": "channel"
+    },
+    "date": 1764717371,
+    "text": "#project/pai @ed_overy /meeting-notes Testing meeting notes extraction",
+    "entities": [
+      {
+        "offset": 0,
+        "length": 8,
+        "type": "hashtag"
+      },
+      {
+        "offset": 13,
+        "length": 9,
+        "type": "mention"
+      },
+      {
+        "offset": 23,
+        "length": 8,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

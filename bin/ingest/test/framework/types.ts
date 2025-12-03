@@ -8,11 +8,25 @@
 // Test Categories & Content Types
 // =============================================================================
 
-export type TestCategory = "scope" | "date" | "archive" | "regression";
+export type TestCategory = "scope" | "date" | "archive" | "regression" | "tag-matching";
 
 export type ContentType = "text" | "voice" | "photo" | "document" | "url";
 
 export type TestStatus = "no_fixture" | "has_fixture" | "passed" | "failed" | "skipped";
+
+/** Logical groupings for focused test execution */
+export type TestGroup =
+  | "text-processing"
+  | "url-processing"
+  | "voice-hints"
+  | "voice-transcription"
+  | "photo-vision"
+  | "photo-commands"
+  | "document-archive"
+  | "document-extraction"
+  | "pattern-commands"
+  | "metadata-extraction"
+  | "ios-shortcuts";
 
 // =============================================================================
 // Test Specification
@@ -27,6 +41,12 @@ export interface TestSpec {
 
   /** Test category for grouping */
   category: TestCategory;
+
+  /** Logical group for focused execution (e.g., "voice-hints", "pattern-commands") */
+  group?: TestGroup;
+
+  /** Human-readable description of what this test validates */
+  description?: string;
 
   /** Path to fixture file relative to fixtures/ */
   fixture: string;
@@ -97,6 +117,24 @@ export interface TestExpectations {
     severity?: "info" | "success" | "warning" | "error";
     containsFields?: string[];
   };
+
+  /** LLM-as-judge semantic validation */
+  semantic?: SemanticValidation;
+}
+
+/** Configuration for LLM-based semantic validation */
+export interface SemanticValidation {
+  /** Description of what the output should achieve */
+  description: string;
+
+  /** Specific aspects to verify (passed as checkpoints to LLM) */
+  checkpoints?: string[];
+
+  /** Confidence threshold (0-100, default 80) */
+  threshold?: number;
+
+  /** Which file to validate: "raw", "wisdom", "any" (default: "wisdom") */
+  target?: "raw" | "wisdom" | "any";
 }
 
 export interface TestMeta {
@@ -213,6 +251,9 @@ export interface ValidationCheck {
 
   /** Error message if failed */
   error?: string;
+
+  /** Human-readable explanation of how validation was performed and why it passed/failed */
+  reasoning?: string;
 }
 
 export interface ValidationResult {

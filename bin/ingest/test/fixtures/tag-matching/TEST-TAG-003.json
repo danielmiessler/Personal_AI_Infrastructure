@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-TAG-003",
+    "capturedAt": "2025-12-04T00:00:00.000Z",
+    "capturedBy": "manual",
+    "description": "Caption tags are deterministic - no fuzzy matching applied"
+  },
+  "message": {
+    "message_id": 500,
+    "sender_chat": {
+      "id": -1001234567890,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1001234567890,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764800000,
+    "text": "[TEST-TAG-003] #nonexistent_tag_xyz Testing caption tag"
+  }
+}

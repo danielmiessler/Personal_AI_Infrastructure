@@ -18,6 +18,8 @@ export const regressionTextSpecs: TestSpec[] = [
     id: "TEST-REG-001",
     name: "Simple text message",
     category: "regression",
+    group: "text-processing",
+    description: "Validates basic text message processing without any metadata or hints",
     fixture: "regression/TEST-REG-001.json",
     input: {
       type: "text",
@@ -37,6 +39,8 @@ export const regressionTextSpecs: TestSpec[] = [
     id: "TEST-REG-002",
     name: "Text with metadata parsing",
     category: "regression",
+    group: "metadata-extraction",
+    description: "Validates [key:value] metadata extraction from iOS Shortcuts format",
     fixture: "regression/TEST-REG-002.json",
     input: {
       type: "text",
@@ -60,6 +64,8 @@ export const regressionTextSpecs: TestSpec[] = [
     id: "TEST-REG-003",
     name: "Mixed hints and metadata",
     category: "regression",
+    group: "metadata-extraction",
+    description: "Validates combined extraction of #tags, @people, and [metadata]",
     fixture: "regression/TEST-REG-003.json",
     input: {
       type: "text",
@@ -88,6 +94,8 @@ export const regressionUrlSpecs: TestSpec[] = [
     id: "TEST-REG-004",
     name: "URL extraction via Jina AI",
     category: "regression",
+    group: "url-processing",
+    description: "Validates URL content extraction using Jina AI Reader service",
     fixture: "regression/TEST-REG-004.json",
     input: {
       type: "url",
@@ -116,6 +124,8 @@ export const regressionVoiceSpecs: TestSpec[] = [
     id: "TEST-REG-005a",
     name: "Voice memo with caption hints (Wispr Flow)",
     category: "regression",
+    group: "voice-hints",
+    description: "Validates tag extraction from voice memo captions (Wispr Flow dictation)",
     fixture: "regression/TEST-REG-005a.json",
     input: {
       type: "voice",
@@ -135,6 +145,8 @@ export const regressionVoiceSpecs: TestSpec[] = [
     id: "TEST-REG-005b",
     name: "Voice memo with spoken hints (no caption)",
     category: "regression",
+    group: "voice-hints",
+    description: "Validates hint extraction from spoken audio transcript",
     fixture: "regression/TEST-REG-005b.json",
     input: {
       type: "voice",
@@ -161,6 +173,8 @@ export const regressionPhotoSpecs: TestSpec[] = [
     id: "TEST-REG-007",
     name: "Photo with Vision AI (default)",
     category: "regression",
+    group: "photo-vision",
+    description: "Validates default Vision AI description when no caption provided",
     fixture: "regression/TEST-REG-007.json",
     input: {
       type: "photo",
@@ -181,6 +195,8 @@ export const regressionPhotoSpecs: TestSpec[] = [
     id: "TEST-REG-008",
     name: "Photo with custom prompt",
     category: "regression",
+    group: "photo-vision",
+    description: "Validates custom Vision AI prompt from caption",
     fixture: "regression/TEST-REG-008.json",
     input: {
       type: "photo",
@@ -202,6 +218,8 @@ export const regressionPhotoSpecs: TestSpec[] = [
     id: "TEST-REG-011",
     name: "Mermaid extraction with /mermaid command",
     category: "regression",
+    group: "photo-vision",
+    description: "Validates /mermaid command triggers diagram extraction with syntax fix",
     fixture: "regression/TEST-REG-011.json",
     input: {
       type: "photo",
@@ -223,6 +241,8 @@ export const regressionPhotoSpecs: TestSpec[] = [
     id: "TEST-REG-012",
     name: "Mermaid extraction with dictated intent",
     category: "regression",
+    group: "photo-vision",
+    description: "Validates natural language mermaid extraction request",
     fixture: "regression/TEST-REG-012.json",
     input: {
       type: "photo",
@@ -250,6 +270,8 @@ export const regressionDocSpecs: TestSpec[] = [
     id: "TEST-REG-009",
     name: "PDF archive (default, no OCR)",
     category: "regression",
+    group: "document-archive",
+    description: "Validates PDF default to archive mode without OCR extraction",
     fixture: "regression/TEST-REG-009.json",
     input: {
       type: "document",
@@ -271,6 +293,8 @@ export const regressionDocSpecs: TestSpec[] = [
     id: "TEST-REG-010a",
     name: "DOCX plain extraction (no wisdom)",
     category: "regression",
+    group: "document-extraction",
+    description: "Validates DOCX text extraction without Fabric pattern processing",
     fixture: "regression/TEST-REG-010a.json",
     input: {
       type: "document",
@@ -290,6 +314,8 @@ export const regressionDocSpecs: TestSpec[] = [
     id: "TEST-REG-020",
     name: "iPhone clipboard via iOS shortcut",
     category: "regression",
+    group: "ios-shortcuts",
+    description: "Validates iOS Shortcut clipboard sharing with metadata extraction",
     fixture: "regression/TEST-REG-020.json",
     input: {
       type: "document",
@@ -373,6 +399,8 @@ export const regressionPatternSpecs: TestSpec[] = [
     id: "TEST-PAT-001",
     name: "/meeting-notes pattern command",
     category: "regression",
+    group: "pattern-commands",
+    description: "Validates Fabric meeting_minutes pattern creates structured meeting summary",
     fixture: "regression/TEST-PAT-001.json",
     input: {
       type: "text",
@@ -400,6 +428,8 @@ Next meeting scheduled for Monday 10am.`,
     id: "TEST-PAT-002",
     name: "/summarize pattern command",
     category: "regression",
+    group: "pattern-commands",
+    description: "Validates Fabric summarize pattern extracts key points from content",
     fixture: "regression/TEST-PAT-002.json",
     input: {
       type: "text",
@@ -425,6 +455,8 @@ However, challenges remain around data privacy, algorithmic bias, and the need f
     id: "TEST-PAT-003",
     name: "/wisdom pattern command",
     category: "regression",
+    group: "pattern-commands",
+    description: "Validates Fabric extract_wisdom pattern extracts insights and ideas",
     fixture: "regression/TEST-PAT-003.json",
     input: {
       type: "text",
@@ -456,6 +488,8 @@ export const regressionPhotoCmdSpecs: TestSpec[] = [
     id: "TEST-PHOTO-001",
     name: "/describe photo command",
     category: "regression",
+    group: "photo-commands",
+    description: "Validates /describe command triggers Vision AI description",
     fixture: "regression/TEST-PHOTO-001.json",
     input: {
       type: "photo",
@@ -478,6 +512,8 @@ export const regressionPhotoCmdSpecs: TestSpec[] = [
     id: "TEST-PHOTO-002",
     name: "/ocr photo command (Tesseract)",
     category: "regression",
+    group: "photo-commands",
+    description: "Validates /ocr command triggers Tesseract OCR text extraction",
     fixture: "regression/TEST-PHOTO-002.json",
     input: {
       type: "photo",
@@ -501,6 +537,8 @@ export const regressionPhotoCmdSpecs: TestSpec[] = [
     id: "TEST-PHOTO-003",
     name: "/store photo command (no processing)",
     category: "regression",
+    group: "photo-commands",
+    description: "Validates /store command saves photo without Vision AI processing",
     fixture: "regression/TEST-PHOTO-003.json",
     input: {
       type: "photo",

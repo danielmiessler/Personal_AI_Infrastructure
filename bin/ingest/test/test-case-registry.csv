@@ -66,3 +66,6 @@ TEST-INGv2-132,voice,Spoken archive command,voice,yes,,[TEST-INGv2-132],ready,fo
 TEST-INGv2-133,voice,Caption + spoken hints merged,voice,yes,"[TEST-INGv2-133] #project/pai",[TEST-INGv2-133],ready,Caption has tags + audio has more hints
 TEST-INGv2-134,voice,Common words not detected,voice,yes,,[TEST-INGv2-134],ready,at the meeting at least - should NOT detect mentions
 TEST-REG-020,regression,iPhone clipboard via iOS shortcut,document,yes,"[source:clipboard][device:iphone][user:andreas] DeepSeek-V3.2",assets/Clipboard 3 Dec 2025 at 22.40.txt,ready,Real HTML clipboard from iPhone via iOS Shortcut - 4KB
+TEST-TAG-001,tag-matching,Fuzzy matching to vault tags,voice,yes,,[REUSES TEST-REG-005b] Voice with spoken hints,ready,Spoken project pai matches project/pai in vault
+TEST-TAG-002,tag-matching,Unmatched tags get pending-review,voice,yes,,[NEW] Voice with unknown tags,pending,Spoken tags not in vault get pending-review
+TEST-TAG-003,tag-matching,Caption tags are deterministic,text,no,"[TEST-TAG-003] #nonexistent_tag_xyz Testing caption tag",,ready,Caption hashtag kept as-is no fuzzy matching

@@ -567,6 +567,9 @@ export async function runIntegrationTest(
       passed: pipelineMatch,
       expected: spec.expected.pipeline,
       actual: pipeline,
+      reasoning: pipelineMatch
+        ? `Checked processResult.pipeline: "${pipeline}" matches expected "${spec.expected.pipeline}"`
+        : `Checked processResult.pipeline: "${pipeline}" does not match expected "${spec.expected.pipeline}"`,
     });
   }
 
@@ -613,12 +616,14 @@ export async function runIntegrationTest(
       name: "vault_file_created",
       passed: true,
       actual: basename(vaultFilePath),
+      reasoning: `Verified vault file created: ${basename(vaultFilePath)} (${vaultContent.length} chars)`,
     });
   } else if (processResult.success) {
     checks.push({
       name: "vault_file_created",
       passed: false,
       error: "Vault file not found",
+      reasoning: "No vault markdown file was found in the expected location after processing",
     });
   }
 
@@ -637,6 +642,9 @@ export async function runIntegrationTest(
         expected: expectedTag,
         actual: tags,
         error: found ? undefined : `Tag "${expectedTag}" not found`,
+        reasoning: found
+          ? `Examined frontmatter tags [${tags.join(", ")}] - found expected tag "${expectedTag}"`
+          : `Examined frontmatter tags [${tags.join(", ")}] - expected tag "${expectedTag}" was not present`,
       });
     }
   }
@@ -653,6 +661,9 @@ export async function runIntegrationTest(
         expected: `NOT ${excludedTag}`,
         actual: tags,
         error: found ? `Tag "${excludedTag}" should not be present` : undefined,
+        reasoning: !found
+          ? `Verified frontmatter tags [${tags.join(", ")}] do not include excluded tag "${excludedTag}"`
+          : `Found unwanted tag "${excludedTag}" in frontmatter tags [${tags.join(", ")}]`,
       });
     }
   }
@@ -662,11 +673,18 @@ export async function runIntegrationTest(
     for (const [key, expectedValue] of Object.entries(spec.expected.frontmatter)) {
       const actualValue = vaultFrontmatter[key];
       let passed: boolean;
+      let reasonDetail: string;
 
       if (expectedValue === "string") {
         passed = typeof actualValue === "string";
+        reasonDetail = passed
+          ? `field "${key}" exists with string value "${actualValue}"`
+          : `field "${key}" is ${actualValue === undefined ? "missing" : "not a string"}`;
       } else {
         passed = actualValue === expectedValue;
+        reasonDetail = passed
+          ? `field "${key}" = "${actualValue}" matches expected "${expectedValue}"`
+          : `field "${key}" = "${actualValue}" does not match expected "${expectedValue}"`;
       }
 
       checks.push({
@@ -675,6 +693,7 @@ export async function runIntegrationTest(
         expected: expectedValue,
         actual: actualValue,
         error: passed ? undefined : `Frontmatter "${key}" mismatch`,
+        reasoning: `Examined vault file frontmatter: ${reasonDetail}`,
       });
     }
   }
@@ -697,6 +716,9 @@ export async function runIntegrationTest(
         passed: found,
         expected: expectedText,
         error: found ? undefined : `Content missing: "${expectedText}"`,
+        reasoning: found
+          ? `Searched vault file content (${allContent.length} chars) - found expected text "${expectedText}"`
+          : `Searched vault file content (${allContent.length} chars) - expected text "${expectedText}" not found`,
       });
     }
   }
@@ -712,6 +734,9 @@ export async function runIntegrationTest(
       expected: spec.expected.archiveFilenamePattern,
       actual: filename,
       error: matched ? undefined : "Archive filename doesn't match pattern",
+      reasoning: matched
+        ? `Verified archive filename "${filename}" matches pattern /${spec.expected.archiveFilenamePattern}/i`
+        : `Archive filename "${filename}" does not match expected pattern /${spec.expected.archiveFilenamePattern}/i`,
     });
   }
 
@@ -1077,6 +1102,21 @@ export function generateDetailedReport(summary: IntegrationRunSummary): string {
           if (check.actual !== undefined) {
             lines.push(`  - Actual: ${JSON.stringify(check.actual)}`);
           }
+          if (check.reasoning) {
+            lines.push(`  - Reasoning: ${check.reasoning}`);
+          }
+        }
+      }
+
+      // Passed checks reasoning (for context on how validation was done)
+      const passedChecks = result.checks.filter(c => c.passed);
+      if (passedChecks.length > 0) {
+        lines.push("");
+        lines.push("**Passed Checks:**");
+        for (const check of passedChecks) {
+          if (check.reasoning) {
+            lines.push(`- ${check.name}: ${check.reasoning}`);
+          }
         }
       }
 
@@ -1097,6 +1137,28 @@ export function generateDetailedReport(summary: IntegrationRunSummary): string {
     const name = result.spec?.name || "Unknown";
     const type = result.spec?.inputType || "?";
     lines.push(`| ${result.testId} | ${name.slice(0, 30)} | ${type} | ${status} | ${duration} | ${pipeline} |`);
+  }
+
+  // Passed tests with validation reasoning (collapsible details)
+  const passedTests = summary.results.filter(r => r.passed && r.checks.some(c => c.reasoning));
+  if (passedTests.length > 0) {
+    lines.push("");
+    lines.push("## Validation Details (Passed Tests)");
+    lines.push("");
+    lines.push("Evidence examined for each passing test:");
+    lines.push("");
+
+    for (const result of passedTests) {
+      const checksWithReasoning = result.checks.filter(c => c.reasoning);
+      if (checksWithReasoning.length > 0) {
+        lines.push(`### ${result.testId}: ${result.spec?.name || "Unknown"}`);
+        lines.push("");
+        for (const check of checksWithReasoning) {
+          lines.push(`- **${check.name}**: ${check.reasoning}`);
+        }
+        lines.push("");
+      }
+    }
   }
 
   return lines.join("\n");

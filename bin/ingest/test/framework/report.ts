@@ -353,3 +353,319 @@ export function getHistorySummary(limit = 10): string {
 export function printHistory(limit = 10): void {
   console.log(getHistorySummary(limit));
 }
+
+// =============================================================================
+// CLI Status Display (New Run Tracker Integration)
+// =============================================================================
+
+import { runTracker, type TestRun as TrackerRun, type TestHistory as TrackerHistory } from "./run-tracker";
+import type { TestSpec, TestGroup } from "./types";
+
+// ANSI Colors
+const colors = {
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+  dim: "\x1b[2m",
+  green: "\x1b[32m",
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  cyan: "\x1b[36m",
+  gray: "\x1b[90m",
+};
+
+function c(color: keyof typeof colors, text: string): string {
+  return `${colors[color]}${text}${colors.reset}`;
+}
+
+function statusIcon(status: string): string {
+  switch (status) {
+    case "passed":
+    case "clean":
+      return c("green", "✅");
+    case "failed":
+    case "error":
+    case "timeout":
+    case "failing":
+      return c("red", "❌");
+    case "skipped":
+      return c("yellow", "⏭️");
+    case "pending":
+      return c("gray", "⏳");
+    case "partial":
+      return c("yellow", "🔄");
+    default:
+      return "❓";
+  }
+}
+
+function trendIcon(trend: string): string {
+  switch (trend) {
+    case "stable":
+      return c("green", "→");
+    case "improving":
+      return c("green", "↑");
+    case "degrading":
+      return c("red", "↓");
+    case "flaky":
+      return c("yellow", "⚡");
+    default:
+      return "?";
+  }
+}
+
+function padRight(str: string, len: number): string {
+  const stripped = str.replace(/\x1b\[[0-9;]*m/g, "");
+  const padding = Math.max(0, len - stripped.length);
+  return str + " ".repeat(padding);
+}
+
+function padLeft(str: string, len: number): string {
+  const stripped = str.replace(/\x1b\[[0-9;]*m/g, "");
+  const padding = Math.max(0, len - stripped.length);
+  return " ".repeat(padding) + str;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Generate a run status report grouped by test group
+ */
+export function generateRunStatusReport(run: TrackerRun, specs: TestSpec[]): string {
+  const lines: string[] = [];
+
+  // Header
+  lines.push("");
+  lines.push(c("bold", `Run: ${run.runId}`) + ` (${run.status})`);
+  lines.push(`Started: ${formatDate(run.createdAt)}`);
+  if (run.completedAt) {
+    lines.push(`Completed: ${formatDate(run.completedAt)}`);
+  } else {
+    lines.push(`Updated: ${formatDate(run.updatedAt)}`);
+  }
+  lines.push("═".repeat(70));
+
+  // Group stats
+  const groupStats = runTracker.getRunStatusByGroup(specs);
+  const groupOrder: TestGroup[] = [
+    "text-processing",
+    "url-processing",
+    "voice-hints",
+    "voice-transcription",
+    "photo-vision",
+    "photo-commands",
+    "document-archive",
+    "document-extraction",
+    "pattern-commands",
+    "metadata-extraction",
+    "ios-shortcuts",
+  ];
+
+  // Table header
+  lines.push(
+    padRight(c("bold", "Group"), 24) +
+    padLeft("Total", 7) +
+    padLeft("Pass", 7) +
+    padLeft("Fail", 7) +
+    padLeft("Skip", 7) +
+    padLeft("Pend", 7) +
+    "  Status"
+  );
+  lines.push("─".repeat(70));
+
+  // Group rows
+  for (const group of groupOrder) {
+    const stats = groupStats[group];
+    if (!stats) continue;
+
+    lines.push(
+      padRight(group, 24) +
+      padLeft(String(stats.total), 7) +
+      padLeft(stats.passed > 0 ? c("green", String(stats.passed)) : "0", 7) +
+      padLeft(stats.failed > 0 ? c("red", String(stats.failed)) : "0", 7) +
+      padLeft(stats.skipped > 0 ? c("yellow", String(stats.skipped)) : "0", 7) +
+      padLeft(stats.pending > 0 ? c("gray", String(stats.pending)) : "0", 7) +
+      "  " + statusIcon(stats.status)
+    );
+  }
+
+  // Check for ungrouped tests
+  if (groupStats["ungrouped"]) {
+    const stats = groupStats["ungrouped"];
+    lines.push(
+      padRight(c("dim", "(ungrouped)"), 24) +
+      padLeft(String(stats.total), 7) +
+      padLeft(stats.passed > 0 ? c("green", String(stats.passed)) : "0", 7) +
+      padLeft(stats.failed > 0 ? c("red", String(stats.failed)) : "0", 7) +
+      padLeft(stats.skipped > 0 ? c("yellow", String(stats.skipped)) : "0", 7) +
+      padLeft(stats.pending > 0 ? c("gray", String(stats.pending)) : "0", 7) +
+      "  " + statusIcon(stats.status)
+    );
+  }
+
+  // Totals
+  lines.push("─".repeat(70));
+  const s = run.summary;
+  lines.push(
+    padRight(c("bold", "TOTAL"), 24) +
+    padLeft(String(s.total), 7) +
+    padLeft(c("green", String(s.passed)), 7) +
+    padLeft(s.failed > 0 ? c("red", String(s.failed)) : "0", 7) +
+    padLeft(s.skipped > 0 ? c("yellow", String(s.skipped)) : "0", 7) +
+    padLeft(s.pending > 0 ? c("gray", String(s.pending)) : "0", 7)
+  );
+  lines.push("═".repeat(70));
+
+  // Progress
+  const progress = Math.round((s.executed / s.total) * 100);
+  lines.push(`Progress: ${progress}% (${s.executed}/${s.total} executed)`);
+
+  // Failed tests details
+  const failedTests = Object.entries(run.results)
+    .filter(([, r]) => r.status === "failed" || r.status === "error" || r.status === "timeout");
+
+  if (failedTests.length > 0) {
+    lines.push("");
+    lines.push(c("red", c("bold", "Failed Tests:")));
+    for (const [testId, result] of failedTests) {
+      const spec = specs.find((s) => s.id === testId);
+      lines.push(`  ${c("red", "✗")} ${testId}: ${spec?.name || "Unknown"}`);
+      if (result.error) {
+        lines.push(`    ${c("dim", result.error)}`);
+      }
+    }
+  }
+
+  // Semantic validation results
+  const semanticResults = Object.entries(run.results)
+    .filter(([, r]) => r.semantic);
+
+  if (semanticResults.length > 0) {
+    lines.push("");
+    lines.push(c("blue", c("bold", "LLM-as-Judge Results:")));
+    for (const [testId, result] of semanticResults) {
+      const sem = result.semantic!;
+      const icon = sem.passed ? c("green", "✓") : c("red", "✗");
+      lines.push(`  ${icon} ${testId}: ${sem.confidence}% confidence`);
+      if (sem.checkpoints?.length) {
+        for (const cp of sem.checkpoints) {
+          const cpIcon = cp.passed ? c("green", "✓") : c("red", "✗");
+          lines.push(`    ${cpIcon} ${cp.checkpoint}`);
+        }
+      }
+      if (!sem.passed) {
+        lines.push(`    ${c("dim", sem.reasoning)}`);
+      }
+    }
+  }
+
+  // Next steps
+  if (run.status === "in_progress" && s.pending > 0) {
+    lines.push("");
+    lines.push(c("cyan", `Next: Run \`test run --continue\` to execute ${s.pending} pending tests`));
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
+/**
+ * Generate a test history report for a specific test
+ */
+export function generateTestHistoryReport(testId: string, history: TrackerHistory, spec?: TestSpec): string {
+  const lines: string[] = [];
+
+  lines.push("");
+  lines.push(c("bold", `${testId}: ${spec?.name || "Unknown"}`));
+  if (spec?.group) {
+    lines.push(`Group: ${spec.group}`);
+  }
+  if (spec?.description) {
+    lines.push(`Description: ${spec.description}`);
+  }
+  lines.push("═".repeat(75));
+
+  // Run history table
+  lines.push(
+    padRight("Run", 24) +
+    padRight("Date", 20) +
+    padRight("Status", 10) +
+    padRight("Duration", 12)
+  );
+  lines.push("─".repeat(75));
+
+  for (const run of history.runs.slice(-10)) {
+    const statusStr = run.status === "passed" ? c("green", "PASS") :
+      run.status === "failed" || run.status === "error" ? c("red", "FAIL") :
+        c("yellow", run.status.toUpperCase());
+
+    lines.push(
+      padRight(run.runId, 24) +
+      padRight(run.executedAt ? formatDate(run.executedAt) : "-", 20) +
+      padRight(statusStr, 10) +
+      padRight(run.duration ? formatDuration(run.duration) : "-", 12)
+    );
+  }
+
+  lines.push("═".repeat(75));
+  lines.push(`Trend: ${trendIcon(history.trend)} ${history.trend}`);
+  lines.push(`Pass Rate: ${history.passRate}%`);
+  lines.push(`Avg Duration: ${formatDuration(history.avgDuration)}`);
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+/**
+ * Generate a list of all runs
+ */
+export function generateRunsListReport(): string {
+  const lines: string[] = [];
+  const runs = runTracker.listRuns();
+
+  lines.push("");
+  lines.push(c("bold", "Test Runs"));
+  lines.push("═".repeat(80));
+
+  lines.push(
+    padRight("Run ID", 26) +
+    padRight("Date", 22) +
+    padRight("Status", 14) +
+    padLeft("Pass", 6) +
+    padLeft("Fail", 6) +
+    padLeft("Skip", 6) +
+    padLeft("Pend", 6)
+  );
+  lines.push("─".repeat(80));
+
+  for (const run of runs.slice(0, 20)) {
+    const statusStr = run.status === "completed" ? c("green", run.status) :
+      run.status === "in_progress" ? c("cyan", run.status) :
+        c("gray", run.status);
+
+    lines.push(
+      padRight(run.runId, 26) +
+      padRight(formatDate(run.createdAt), 22) +
+      padRight(statusStr, 14) +
+      padLeft(c("green", String(run.summary.passed)), 6) +
+      padLeft(run.summary.failed > 0 ? c("red", String(run.summary.failed)) : "0", 6) +
+      padLeft(run.summary.skipped > 0 ? c("yellow", String(run.summary.skipped)) : "0", 6) +
+      padLeft(run.summary.pending > 0 ? c("gray", String(run.summary.pending)) : "0", 6)
+    );
+  }
+
+  lines.push("═".repeat(80));
+  lines.push(`Total runs: ${runs.length}`);
+  lines.push("");
+
+  return lines.join("\n");
+}

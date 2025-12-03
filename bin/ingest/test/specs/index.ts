@@ -8,11 +8,13 @@ export { scopeSpecs, scopeIngestSpecs, scopeIngestionSpecs, scopeRetrievalSpecs 
 export { dateSpecs, dateIngestSpecs } from "./date.spec";
 export { archiveSpecs, archiveIngestSpecs } from "./archive.spec";
 export { regressionSpecs, regressionIngestSpecs } from "./regression.spec";
+export { tagMatchingSpecs } from "./tag-matching.spec";
 
 import { scopeIngestSpecs } from "./scope.spec";
 import { dateIngestSpecs } from "./date.spec";
 import { archiveIngestSpecs } from "./archive.spec";
 import { regressionIngestSpecs } from "./regression.spec";
+import { tagMatchingSpecs } from "./tag-matching.spec";
 import type { TestSpec, TestCategory } from "../framework/types";
 
 // =============================================================================
@@ -25,6 +27,7 @@ export const allIngestSpecs: TestSpec[] = [
   ...dateIngestSpecs,
   ...archiveIngestSpecs,
   ...regressionIngestSpecs,
+  ...tagMatchingSpecs,
 ];
 
 /** Get specs by category */

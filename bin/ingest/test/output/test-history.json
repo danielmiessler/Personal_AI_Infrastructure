@@ -1,0 +1,163 @@
+[
+  {
+    "runId": "run-2025-12-03-09-32-29",
+    "startedAt": "2025-12-03T09:32:29.295Z",
+    "duration": 6099,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-09-45-26",
+    "startedAt": "2025-12-03T09:45:26.970Z",
+    "duration": 0,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-09-47-51",
+    "startedAt": "2025-12-03T09:47:51.206Z",
+    "duration": 0,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-09-51-18",
+    "startedAt": "2025-12-03T09:51:18.712Z",
+    "duration": 0,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-09-55-24",
+    "startedAt": "2025-12-03T09:55:24.264Z",
+    "duration": 0,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-10-03-26",
+    "startedAt": "2025-12-03T10:03:26.386Z",
+    "duration": 0,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-10-04-09",
+    "startedAt": "2025-12-03T10:04:09.585Z",
+    "duration": 0,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-10-06-55",
+    "startedAt": "2025-12-03T10:06:55.080Z",
+    "duration": 195908,
+    "counts": {
+      "total": 46,
+      "passed": 44,
+      "failed": 2,
+      "skipped": 26
+    },
+    "passRate": 96,
+    "failedTests": [
+      "TEST-REG-004",
+      "TEST-PAT-001"
+    ]
+  },
+  {
+    "runId": "run-2025-12-03-10-18-16",
+    "startedAt": "2025-12-03T10:18:16.925Z",
+    "duration": 15440,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-10-18-47",
+    "startedAt": "2025-12-03T10:18:47.639Z",
+    "duration": 59673,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-03-10-19-58",
+    "startedAt": "2025-12-03T10:19:58.951Z",
+    "duration": 243090,
+    "counts": {
+      "total": 46,
+      "passed": 45,
+      "failed": 1,
+      "skipped": 26
+    },
+    "passRate": 98,
+    "failedTests": [
+      "TEST-PAT-003"
+    ]
+  },
+  {
+    "runId": "run-2025-12-03-10-24-27",
+    "startedAt": "2025-12-03T10:24:27.399Z",
+    "duration": 56422,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  }
+]

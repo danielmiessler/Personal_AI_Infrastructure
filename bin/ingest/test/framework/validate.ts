@@ -29,12 +29,14 @@ export function validateTestOutput(
       name: "vault_file_created",
       passed: true,
       actual: output.vaultFiles,
+      reasoning: `Verified vault file(s) created: ${output.vaultFiles.map(f => basename(f)).join(", ")}`,
     });
   } else {
     checks.push({
       name: "vault_file_created",
       passed: false,
       error: "No vault file created",
+      reasoning: "No vault markdown file was generated in the output directory",
     });
   }
 
@@ -64,6 +66,9 @@ export function validateTestOutput(
         expected: expectedTag,
         actual: tags,
         error: found ? undefined : `Tag "${expectedTag}" not found`,
+        reasoning: found
+          ? `Examined frontmatter tags array [${tags.join(", ")}] - found expected tag "${expectedTag}"`
+          : `Examined frontmatter tags array [${tags.join(", ")}] - expected tag "${expectedTag}" was not present`,
       });
     }
   }
@@ -79,6 +84,9 @@ export function validateTestOutput(
         expected: `NOT ${excludedTag}`,
         actual: tags,
         error: found ? `Tag "${excludedTag}" should not be present` : undefined,
+        reasoning: !found
+          ? `Verified frontmatter tags [${tags.join(", ")}] do not include excluded tag "${excludedTag}"`
+          : `Found unwanted tag "${excludedTag}" in frontmatter tags [${tags.join(", ")}]`,
       });
     }
   }
@@ -88,12 +96,19 @@ export function validateTestOutput(
     for (const [key, expectedValue] of Object.entries(spec.expected.frontmatter)) {
       const actualValue = frontmatter[key];
       let passed: boolean;
+      let reasonDetail: string;
 
       if (expectedValue === "string") {
         // Just check that field exists and is a string
         passed = typeof actualValue === "string";
+        reasonDetail = passed
+          ? `field "${key}" exists with string value "${actualValue}"`
+          : `field "${key}" is ${actualValue === undefined ? "missing" : "not a string"}`;
       } else {
         passed = actualValue === expectedValue;
+        reasonDetail = passed
+          ? `field "${key}" = "${actualValue}" matches expected "${expectedValue}"`
+          : `field "${key}" = "${actualValue}" does not match expected "${expectedValue}"`;
       }
 
       checks.push({
@@ -102,6 +117,7 @@ export function validateTestOutput(
         expected: expectedValue,
         actual: actualValue,
         error: passed ? undefined : `Frontmatter "${key}" mismatch`,
+        reasoning: `Examined vault file frontmatter: ${reasonDetail}`,
       });
     }
   }
@@ -124,6 +140,9 @@ export function validateTestOutput(
         passed: found,
         expected: expectedText,
         error: found ? undefined : `Verbose output missing: "${expectedText}"`,
+        reasoning: found
+          ? `Searched console output and found expected text "${expectedText}"`
+          : `Searched console output but "${expectedText}" was not present`,
       });
     }
   }
@@ -137,6 +156,9 @@ export function validateTestOutput(
         passed: found,
         expected: expectedText,
         error: found ? undefined : `Content missing: "${expectedText}"`,
+        reasoning: found
+          ? `Searched vault file content (${content.length} chars) - found expected text "${expectedText}"`
+          : `Searched vault file content (${content.length} chars) - expected text "${expectedText}" not found`,
       });
     }
   }
@@ -149,6 +171,9 @@ export function validateTestOutput(
         passed: !found,
         expected: `NOT "${excludedText}"`,
         error: found ? `Content should not contain: "${excludedText}"` : undefined,
+        reasoning: !found
+          ? `Verified vault file content does not contain excluded text "${excludedText}"`
+          : `Found unwanted text "${excludedText}" in vault file content`,
       });
     }
   }
@@ -163,6 +188,9 @@ export function validateTestOutput(
       expected: spec.expected.pipeline,
       actual: actualPipeline,
       error: passed ? undefined : `Expected pipeline: ${spec.expected.pipeline}, got: ${actualPipeline}`,
+      reasoning: passed
+        ? `Checked frontmatter 'pipeline' field: "${actualPipeline}" matches expected "${spec.expected.pipeline}"`
+        : `Checked frontmatter 'pipeline' field: "${actualPipeline}" does not match expected "${spec.expected.pipeline}"`,
     });
   }
 
@@ -178,6 +206,9 @@ export function validateTestOutput(
       expected: spec.expected.archiveFilenamePattern,
       actual: filename,
       error: matched ? undefined : `Archive filename doesn't match pattern`,
+      reasoning: matched
+        ? `Checked archive filename "${filename}" matches pattern /${spec.expected.archiveFilenamePattern}/i`
+        : `Archive filename "${filename}" does not match expected pattern /${spec.expected.archiveFilenamePattern}/i`,
     });
   }
 
@@ -190,6 +221,9 @@ export function validateTestOutput(
       expected: true,
       actual: synced,
       error: synced ? undefined : "Expected Dropbox sync",
+      reasoning: synced
+        ? `Verified file synced to Dropbox at: ${output.dropboxPath}`
+        : "No Dropbox sync path was returned - file was not synced",
     });
   }
 
@@ -205,6 +239,9 @@ export function validateTestOutput(
       expected: expectedDate,
       actual: filename.slice(0, 10),
       error: hasDate ? undefined : `Note filename should start with ${expectedDate}`,
+      reasoning: hasDate
+        ? `Verified vault filename "${filename}" starts with expected date "${expectedDate}" (document date preserved)`
+        : `Vault filename "${filename}" starts with "${filename.slice(0, 10)}" instead of expected "${expectedDate}"`,
     });
   }
 
@@ -216,6 +253,9 @@ export function validateTestOutput(
         name: `events_severity:${spec.expected.events.severity}`,
         passed: found,
         expected: spec.expected.events.severity,
+        reasoning: found
+          ? `Found events notification with severity "${spec.expected.events.severity}" in console output`
+          : `Events notification with severity "${spec.expected.events.severity}" not found in console output`,
       });
     }
   }

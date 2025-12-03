@@ -24,6 +24,7 @@ import {
   auditLog,
   type SecurityCheckResult,
 } from "./security";
+import { matchTranscribedHints } from "./tag-matcher";
 
 const execAsync = promisify(exec);
 
@@ -348,10 +349,10 @@ export function detectDictatedPipelineIntent(caption: string | undefined): { pip
     if (pattern.test(lowerCaption)) {
       console.log(`  Detected dictated pipeline intent: "archive" from caption`);
 
-      // Try to detect document type
+      // Try to detect document type (order matters: more specific first)
       let type: string | undefined;
-      if (/\b(contract|agreement)\b/.test(lowerCaption)) type = "CONTRACT";
-      else if (/\b(lease)\b/.test(lowerCaption)) type = "LEASE";
+      if (/\b(lease)\b/.test(lowerCaption)) type = "LEASE"; // Check lease before contract (lease agreement = LEASE)
+      else if (/\b(contract|agreement)\b/.test(lowerCaption)) type = "CONTRACT";
       else if (/\b(certificate|license|permit)\b/.test(lowerCaption)) type = "CERTIFICATE";
       else if (/\b(deed|title)\b/.test(lowerCaption)) type = "DEED";
 
@@ -944,10 +945,30 @@ export async function processMessage(
       // Merge spoken hints (from transcript) with caption hints
       // This supports both: Shortcut with metadata AND direct Voice Memos with spoken hints
       if (audioResult.spokenHints) {
+        // Apply fuzzy tag matching to transcribed (non-deterministic) hints
+        // This helps correct Whisper transcription errors like "ProjectPie" → "project/pai"
+        if (audioResult.spokenHints.tags.length > 0 || audioResult.spokenHints.people.length > 0) {
+          const matchResult = matchTranscribedHints(
+            audioResult.spokenHints.tags,
+            audioResult.spokenHints.people,
+            config.vaultPath
+          );
+          audioResult.spokenHints.tags = matchResult.tags;
+          audioResult.spokenHints.people = matchResult.people;
+          // Add pending-review tag if any tags couldn't be matched
+          if (matchResult.needsReview) {
+            audioResult.spokenHints.tags.push("pending-review");
+            console.log(`    Note flagged for review: ${matchResult.unmatched} unmatched tag(s)`);
+          }
+        }
         const merged = mergeHints(hints, audioResult.spokenHints);
         hints.tags = merged.tags;
         hints.people = merged.people;
         hints.metadata = merged.metadata;
+        // Merge scope from spoken hints (e.g., "scope private" in transcript)
+        if (merged.scope && !hints.scope) {
+          hints.scope = merged.scope;
+        }
         // Note: We keep hints.cleanedContent from caption, not transcript
         // The transcript content is already in rawContent
 
@@ -1054,18 +1075,20 @@ export async function processMessage(
   let pipeline = determinePipeline(validCommands);
   let intentResult: IntentResult | null = null;
 
-  // Step 2b.0: If no explicit command, try dictated pipeline intent (archive/receipt)
-  if (pipeline === "default") {
-    const dictatedPipeline = detectDictatedPipelineIntent(messageText);
-    if (dictatedPipeline) {
+  // Step 2b.0: Try dictated pipeline intent (archive/receipt) and extract metadata
+  // Always try to extract metadata from caption, even if pipeline already set (e.g., PDF auto-archive)
+  const dictatedPipeline = detectDictatedPipelineIntent(messageText);
+  if (dictatedPipeline) {
+    // Only override pipeline if not already determined
+    if (pipeline === "default") {
       pipeline = dictatedPipeline.pipeline;
-      // Apply detected metadata
-      if (dictatedPipeline.metadata?.type && !hints.metadata.type) {
-        hints.metadata.type = dictatedPipeline.metadata.type;
-      }
-      if (dictatedPipeline.metadata?.category && !hints.metadata.category) {
-        hints.metadata.category = dictatedPipeline.metadata.category;
-      }
+    }
+    // Apply detected metadata (type/category from caption)
+    if (dictatedPipeline.metadata?.type && !hints.metadata.type) {
+      hints.metadata.type = dictatedPipeline.metadata.type;
+    }
+    if (dictatedPipeline.metadata?.category && !hints.metadata.category) {
+      hints.metadata.category = dictatedPipeline.metadata.category;
     }
   }
 
@@ -1128,6 +1151,10 @@ export async function processMessage(
       }
       docType = docType || "DOCUMENT";
       const category = hints.metadata.category || "MISC";
+
+      // Store detected type/category in hints.metadata for frontmatter
+      hints.metadata.type = docType;
+      hints.metadata.category = category;
       // Get extension from: 1) document filename, 2) original file path (for photos), 3) content type
       let ext = sourceFilename.split(".").pop();
       if (!ext && originalFilePath) {

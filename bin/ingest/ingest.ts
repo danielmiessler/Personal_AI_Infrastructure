@@ -1316,7 +1316,9 @@ SUBCOMMANDS:
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
   capture TEST_ID       Capture fixture for a specific test
-  status                Show test status (fixtures, last run)
+  status [runId]        Show test run status by group (current or specific run)
+  runs                  List all test runs with summary
+  history <TEST_ID>     Show test history for a specific test
 
 OPTIONS:
   --suite <name>     Run tests in category: scope, date, archive, regression
@@ -1330,7 +1332,10 @@ OPTIONS:
   --dry-run          Show what would happen without executing
 
 EXAMPLES:
-  ingest test status                      # Show which tests have fixtures
+  ingest test status                      # Show current run status by group
+  ingest test status run-2025-12-04-001   # Show specific run status
+  ingest test runs                        # List all test runs
+  ingest test history TEST-PAT-001        # Show history for a specific test
   ingest test run                         # Run unit tests (no Telegram)
   ingest test run TEST-SCOPE-001          # Run specific unit test
   ingest test run --suite scope           # Run scope unit tests
@@ -1668,14 +1673,86 @@ async function handleTest(args: string[], verbose: boolean) {
     }
 
     case "status": {
-      printTestStatus();
+      // If no arg, show fixture status. If arg is a run ID, show run status.
+      const runId = subArgs.find(a => a.startsWith("run-"));
 
-      // Show missing count
-      const missing = getMissingFixtures();
-      if (missing.length > 0) {
-        console.log(`\nMissing fixtures: ${missing.length}`);
-        console.log("Run 'ingest test capture --missing' to capture them.");
+      if (runId) {
+        // Show run status using run-tracker
+        const { runTracker } = await import("./test/framework/run-tracker");
+        const { generateRunStatusReport } = await import("./test/framework/report");
+        const { allIngestSpecs } = await import("./test/specs");
+
+        const run = runTracker.loadRun(runId);
+        if (!run) {
+          console.error(`Run not found: ${runId}`);
+          process.exit(1);
+        }
+
+        const report = generateRunStatusReport(run, allIngestSpecs);
+        console.log(report);
+      } else {
+        // Check for latest in-progress run
+        const { runTracker } = await import("./test/framework/run-tracker");
+        const { generateRunStatusReport } = await import("./test/framework/report");
+        const { allIngestSpecs } = await import("./test/specs");
+
+        const latestRun = runTracker.getLatestInProgressRun();
+        if (latestRun) {
+          const report = generateRunStatusReport(latestRun, allIngestSpecs);
+          console.log(report);
+        } else {
+          // Fall back to fixture status
+          printTestStatus();
+
+          // Show missing count
+          const missing = getMissingFixtures();
+          if (missing.length > 0) {
+            console.log(`\nMissing fixtures: ${missing.length}`);
+            console.log("Run 'ingest test capture --missing' to capture them.");
+          }
+
+          // Show recent runs
+          const runs = runTracker.listRuns();
+          if (runs.length > 0) {
+            console.log(`\nRecent runs: ${runs.length}`);
+            console.log("Run 'ingest test runs' to list them.");
+          }
+        }
       }
+      break;
+    }
+
+    case "runs": {
+      // List all test runs
+      const { generateRunsListReport } = await import("./test/framework/report");
+      const report = generateRunsListReport();
+      console.log(report);
+      break;
+    }
+
+    case "history": {
+      // Show history for a specific test
+      const testId = subArgs.find(a => a.startsWith("TEST-"));
+      if (!testId) {
+        console.error("Error: Specify a test ID (e.g., TEST-PAT-001)");
+        console.log("Usage: ingest test history TEST-PAT-001");
+        process.exit(1);
+      }
+
+      const { runTracker } = await import("./test/framework/run-tracker");
+      const { generateTestHistoryReport } = await import("./test/framework/report");
+      const { getSpecById } = await import("./test/specs");
+
+      const history = runTracker.getTestHistory(testId);
+      if (!history) {
+        console.log(`No history found for ${testId}`);
+        console.log("This test hasn't been recorded in any runs yet.");
+        process.exit(0);
+      }
+
+      const spec = getSpecById(testId);
+      const report = generateTestHistoryReport(testId, history, spec);
+      console.log(report);
       break;
     }
 

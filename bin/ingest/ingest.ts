@@ -1319,6 +1319,7 @@ SUBCOMMANDS:
   status [runId]        Show test run status by group (current or specific run)
   runs                  List all test runs with summary
   history <TEST_ID>     Show test history for a specific test
+  cleanup               Clean up test-generated files from vault/Dropbox
 
 OPTIONS:
   --suite <name>     Run tests in category: scope, date, archive, regression
@@ -1347,6 +1348,10 @@ EXAMPLES:
   ingest test capture TEST-SCOPE-001      # Capture fixture for test
   ingest test send TEST-SCOPE-001         # Send test to PAI Test Cases channel
   ingest test validate                    # Validate recent integration results
+  ingest test cleanup --list              # List registered test runs
+  ingest test cleanup --all --dry-run     # Preview cleanup (don't delete)
+  ingest test cleanup --all               # Clean up all test files
+  ingest test cleanup --scan              # Find orphaned test files in vault
 
 INTEGRATION TESTING (requires two terminals):
 
@@ -1798,6 +1803,61 @@ async function handleTest(args: string[], verbose: boolean) {
       } else {
         console.log("\n✅ All tests passed!");
         process.exit(0);
+      }
+      break;
+    }
+
+    case "cleanup": {
+      // Clean up test-generated files
+      const { cleanupTestFiles, listTestRuns, scanForUnregisteredTestFiles, printCleanupHelp } = await import("./test/framework/cleanup");
+
+      const list = subArgs.includes("--list");
+      const scan = subArgs.includes("--scan");
+      const dryRun = subArgs.includes("--dry-run");
+      const all = subArgs.includes("--all");
+
+      // Parse --run option
+      const runIndex = subArgs.findIndex(a => a === "--run");
+      const runId = runIndex >= 0 ? subArgs[runIndex + 1] : undefined;
+
+      if (list) {
+        listTestRuns();
+        break;
+      }
+
+      if (scan) {
+        console.log("\nScanning vault for unregistered test files...");
+        const files = await scanForUnregisteredTestFiles();
+        if (files.length === 0) {
+          console.log("No unregistered test files found");
+        } else {
+          console.log(`\nFound ${files.length} unregistered test files:`);
+          for (const f of files.slice(0, 20)) {
+            console.log(`  - ${f}`);
+          }
+          if (files.length > 20) {
+            console.log(`  ... and ${files.length - 20} more`);
+          }
+          console.log("\nThese files contain test IDs but aren't in the registry.");
+          console.log("They may be from older test runs before registry was added.");
+        }
+        break;
+      }
+
+      if (!runId && !all) {
+        printCleanupHelp();
+        break;
+      }
+
+      const result = await cleanupTestFiles({
+        runId,
+        all,
+        dryRun,
+        verbose,
+      });
+
+      if (!dryRun && result.deleted.length > 0) {
+        console.log("\n✅ Cleanup complete");
       }
       break;
     }

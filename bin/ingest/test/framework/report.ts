@@ -669,3 +669,110 @@ export function generateRunsListReport(): string {
 
   return lines.join("\n");
 }
+
+// =============================================================================
+// Test Files Registry (for cleanup)
+// =============================================================================
+
+export interface TestFileEntry {
+  testId: string;
+  vaultPath?: string;
+  dropboxPath?: string;
+  createdAt: string;
+}
+
+export interface TestRunFiles {
+  runId: string;
+  startedAt: string;
+  completedAt: string;
+  files: TestFileEntry[];
+}
+
+export interface TestFilesRegistry {
+  runs: Record<string, TestRunFiles>;
+}
+
+const REGISTRY_FILE = join(OUTPUT_BASE_DIR, "test-files-registry.json");
+
+/**
+ * Load test files registry
+ */
+export function loadTestFilesRegistry(): TestFilesRegistry {
+  if (!existsSync(REGISTRY_FILE)) {
+    return { runs: {} };
+  }
+
+  try {
+    const content = readFileSync(REGISTRY_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return { runs: {} };
+  }
+}
+
+/**
+ * Save test files registry
+ */
+export function saveTestFilesRegistry(registry: TestFilesRegistry): void {
+  mkdirSync(OUTPUT_BASE_DIR, { recursive: true });
+  writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2));
+}
+
+/**
+ * Append files from a test run to the registry
+ */
+export function appendTestFilesRegistry(
+  runId: string,
+  startedAt: string,
+  completedAt: string,
+  files: TestFileEntry[]
+): void {
+  const registry = loadTestFilesRegistry();
+
+  registry.runs[runId] = {
+    runId,
+    startedAt,
+    completedAt,
+    files,
+  };
+
+  // Keep last 50 runs to prevent unbounded growth
+  const runIds = Object.keys(registry.runs).sort();
+  if (runIds.length > 50) {
+    const toRemove = runIds.slice(0, runIds.length - 50);
+    for (const id of toRemove) {
+      delete registry.runs[id];
+    }
+  }
+
+  saveTestFilesRegistry(registry);
+}
+
+/**
+ * Get files for a specific run
+ */
+export function getTestFilesForRun(runId: string): TestFileEntry[] {
+  const registry = loadTestFilesRegistry();
+  return registry.runs[runId]?.files || [];
+}
+
+/**
+ * Get all registered test files
+ */
+export function getAllTestFiles(): TestFileEntry[] {
+  const registry = loadTestFilesRegistry();
+  const allFiles: TestFileEntry[] = [];
+  for (const run of Object.values(registry.runs)) {
+    allFiles.push(...run.files);
+  }
+  return allFiles;
+}
+
+/**
+ * Remove a run from the registry (after cleanup)
+ */
+export function removeRunFromRegistry(runId: string): void {
+  const registry = loadTestFilesRegistry();
+  delete registry.runs[runId];
+  saveTestFilesRegistry(registry);
+}

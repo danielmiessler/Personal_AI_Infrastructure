@@ -185,5 +185,18 @@
     },
     "passRate": 100,
     "failedTests": []
+  },
+  {
+    "runId": "integration-2025-12-03-23-18-07",
+    "startedAt": "2025-12-03T23:18:07.630Z",
+    "duration": 105129,
+    "counts": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
   }
 ]

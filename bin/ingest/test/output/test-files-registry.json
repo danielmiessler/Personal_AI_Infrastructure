@@ -1,0 +1,46 @@
+{
+  "runs": {
+    "integration-2025-12-03-23-18-07": {
+      "runId": "integration-2025-12-03-23-18-07",
+      "startedAt": "2025-12-03T23:18:07.630Z",
+      "completedAt": "2025-12-03T23:19:18.044Z",
+      "files": [
+        {
+          "testId": "TEST-SCOPE-001",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-001] This is a personal health note-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        },
+        {
+          "testId": "TEST-SCOPE-002",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-002] Meeting notes from the product team-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        },
+        {
+          "testId": "TEST-SCOPE-003",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-Doctor visit for chest pain and blood test results-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        },
+        {
+          "testId": "TEST-SCOPE-004",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-004] This is personal. Blood pressure reading...-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        },
+        {
+          "testId": "TEST-SCOPE-005",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-005] For work. Architecture decision on data ...-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        },
+        {
+          "testId": "TEST-SCOPE-006",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/archive/2025-12-04-Tax invoice from Sime Darby Transport for fuel filter-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        },
+        {
+          "testId": "TEST-SCOPE-007",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/archive/2025-12-04-Vehicle parts tax invoice from Sime Darby Transport-Telegram-Raw.md",
+          "createdAt": "2025-12-03T23:19:18.057Z"
+        }
+      ]
+    }
+  }
+}

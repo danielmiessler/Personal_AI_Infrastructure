@@ -16,7 +16,7 @@ import { parse as parseYaml } from "yaml";
 import type { TestSpec, ValidationResult, ValidationCheck, TestCategory, Fixture } from "./types";
 import { getSpecById, getSpecsByCategory, allIngestSpecs } from "../specs";
 import { loadFixtureFromPath, fixtureExists } from "./capture";
-import { appendHistory, type TestReport } from "./report";
+import { appendHistory, appendTestFilesRegistry, type TestReport, type TestFileEntry } from "./report";
 import { getConfig } from "../../lib/config";
 import { processMessage, saveToVault, type ProcessResult } from "../../lib/process";
 import { loadProfile } from "../../lib/profiles";
@@ -1205,6 +1205,20 @@ export function saveDetailedReport(summary: IntegrationRunSummary): string {
     })),
   };
   appendHistory(report);
+
+  // Record test files to registry for cleanup
+  const testFiles: TestFileEntry[] = summary.results
+    .filter(r => r.vaultFilePath || r.dropboxFilePath)
+    .map(r => ({
+      testId: r.testId,
+      vaultPath: r.vaultFilePath,
+      dropboxPath: r.dropboxFilePath,
+      createdAt: new Date().toISOString(),
+    }));
+
+  if (testFiles.length > 0) {
+    appendTestFilesRegistry(runId, summary.startedAt, summary.completedAt, testFiles);
+  }
 
   return reportPath;
 }

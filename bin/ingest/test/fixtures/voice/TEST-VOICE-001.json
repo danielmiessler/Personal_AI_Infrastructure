@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-VOICE-001",
-    "capturedAt": "2025-12-03T06:12:41.485Z",
-    "capturedBy": "andreas",
-    "description": "Audio file",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:33:33.781Z",
+    "capturedBy": "populate-channel",
+    "description": "Native Telegram voice memo"
   },
   "message": {
-    "message_id": 103,
+    "message_id": 185,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764742096,
+    "date": 1764743613,
     "audio": {
       "duration": 4,
       "file_name": "248 Franklin Rd 9.m4a",

@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-REG-018",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "Clip pipeline should skip auto-patterns like wisdom",
-    "synthetic": true
+    "capturedAt": "2025-12-03T06:33:11.566Z",
+    "capturedBy": "populate-channel",
+    "description": "Clip pipeline skips auto-patterns"
   },
   "message": {
-    "message_id": 303,
+    "message_id": 176,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750003,
-    "text": "[TEST-REG-018] /clip Newsletter snippet to save for later without running wisdom extraction",
+    "date": 1764743591,
+    "text": "[TEST-REG-018] /clip Newsletter snippet to save for later",
     "entities": [
       {
-        "offset": 16,
+        "offset": 15,
         "length": 5,
         "type": "bot_command"
       }

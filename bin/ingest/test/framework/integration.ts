@@ -4,7 +4,7 @@
  * Integration testing uses a manual workflow with the PAI Test Cases channel:
  *
  * 1. **Populate Test Cases Channel** (`ingest test send --all`):
- *    - Sends all test messages to PAI Test Cases channel (-1003383520667)
+ *    - Sends all test messages to PAI Test Cases channel
  *    - Creates a library of test inputs that can be forwarded
  *
  * 2. **Run Integration Test**:
@@ -18,9 +18,9 @@
  * - This tests the real production pipeline
  *
  * Required configuration in ~/.claude/.env:
- * - TEST_TELEGRAM_CHANNEL_ID: PAI Test Inbox (-1003492308192)
- * - TEST_TELEGRAM_OUTBOX_ID: PAI Test Events (-1003438850052)
- * - TEST_TELEGRAM_CASES_ID: PAI Test Cases (-1003383520667)
+ * - TEST_TELEGRAM_CHANNEL_ID: PAI Test Inbox
+ * - TEST_TELEGRAM_OUTBOX_ID: PAI Test Events
+ * - TEST_TELEGRAM_CASES_ID: PAI Test Cases
  */
 
 import { existsSync, rmSync, readdirSync, readFileSync, statSync } from "fs";

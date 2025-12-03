@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-ARC-005",
-    "capturedAt": "2025-12-02T22:59:06.082Z",
-    "capturedBy": "andreas",
-    "description": "Photo of invoice with /archive but no type specified",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:09.619Z",
+    "capturedBy": "populate-channel",
+    "description": "Vision AI document type detection"
   },
   "message": {
-    "message_id": 197,
+    "message_id": 141,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716345,
+    "date": 1764743469,
     "photo": [
       {
         "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",
@@ -49,10 +48,10 @@
         "height": 1280
       }
     ],
-    "caption": "/archive",
+    "caption": "[TEST-ARC-005] /archive",
     "caption_entities": [
       {
-        "offset": 0,
+        "offset": 15,
         "length": 8,
         "type": "bot_command"
       }

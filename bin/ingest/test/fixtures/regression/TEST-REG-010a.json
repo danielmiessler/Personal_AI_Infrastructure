@@ -1,30 +1,30 @@
 {
   "_meta": {
     "testId": "TEST-REG-010a",
-    "capturedAt": "2025-12-02T23:01:15.329Z",
-    "capturedBy": "andreas",
-    "description": "DOCX without caption - should only create raw note",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:39.259Z",
+    "capturedBy": "populate-channel",
+    "description": "DOCX plain extraction"
   },
   "message": {
-    "message_id": 208,
+    "message_id": 153,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716475,
+    "date": 1764743499,
     "document": {
       "file_name": "meeting-notes.docx",
       "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "file_id": "BQACAgEAAyEGAAS8iPOuAAPQaS9vu6Es8ET8K1DYRA8ubW9w-XgAAjwIAALr5oBFSa6ON5JsOME2BA",
       "file_unique_id": "AgADPAgAAuvmgEU",
       "file_size": 1279200
-    }
+    },
+    "caption": "[TEST-REG-010a]"
   }
 }

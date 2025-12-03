@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-DATE-001",
-    "capturedAt": "2025-12-03T04:56:07.360Z",
-    "capturedBy": "andreas",
-    "description": "Text with ISO date metadata for archive",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:34:44.847Z",
+    "capturedBy": "populate-channel",
+    "description": "ISO date format"
   },
   "message": {
-    "message_id": 50,
+    "message_id": 200,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737767,
-    "text": "[date:2024-06-15] /archive Old contract from June",
+    "date": 1764743684,
+    "text": "[TEST-DATE-001] [date:2024-06-15] /archive Old contract from June",
     "entities": [
       {
-        "offset": 18,
+        "offset": 34,
         "length": 8,
         "type": "bot_command"
       }

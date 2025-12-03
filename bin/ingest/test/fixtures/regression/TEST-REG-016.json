@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-REG-016",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "/wisdom command on text content",
-    "synthetic": true
+    "capturedAt": "2025-12-03T06:36:51.442Z",
+    "capturedBy": "populate-channel",
+    "description": "/wisdom command on text"
   },
   "message": {
-    "message_id": 301,
+    "message_id": 205,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750001,
-    "text": "[TEST-REG-016] /wisdom Insights about productivity and deep work habits: The best workers are those who can eliminate distractions and focus on cognitively demanding tasks. Shallow work is seductive but ultimately less valuable. Train your ability to concentrate by embracing boredom.",
+    "date": 1764743811,
+    "text": "[TEST-REG-016] /wisdom Cal Newport argues that deep work is the ability to focus without distraction on a cognitively demanding task. This skill is increasingly rare and valuable in our economy. The shallow work that fills most knowledge workers days - email, meetings, administrative tasks - produces little new value. To cultivate deep work, schedule blocks of uninterrupted time, embrace boredom instead of reaching for your phone, quit social media or use it minimally, and drain the shallows by ruthlessly reducing low-value obligations. The craftsman approach to tool selection asks whether a tool substantially helps your goals.",
     "entities": [
       {
-        "offset": 16,
+        "offset": 15,
         "length": 7,
         "type": "bot_command"
       }

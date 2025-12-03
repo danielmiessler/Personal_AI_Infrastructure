@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-006",
-    "capturedAt": "2025-12-03T06:12:41.485Z",
-    "capturedBy": "andreas",
-    "description": "Audio file",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:29.422Z",
+    "capturedBy": "populate-channel",
+    "description": "MP3 audio file transcription"
   },
   "message": {
-    "message_id": 102,
+    "message_id": 149,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764742094,
+    "date": 1764743489,
     "audio": {
       "duration": 774,
       "file_name": "2024_07_29_AI_Elearning_Modules_Northpower_Policies_Data_Security.mp3",

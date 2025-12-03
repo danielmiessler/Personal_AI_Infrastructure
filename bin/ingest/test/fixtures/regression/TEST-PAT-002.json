@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-PAT-002",
-    "capturedAt": "2025-12-02T23:16:14.666Z",
-    "capturedBy": "andreas",
-    "description": "Text with /summarize pattern command",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:33:18.961Z",
+    "capturedBy": "populate-channel",
+    "description": "/summarize pattern"
   },
   "message": {
-    "message_id": 229,
+    "message_id": 179,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764717374,
-    "text": "/summarize This is a long article about machine learning and its applications in healthcare",
+    "date": 1764743598,
+    "text": "[TEST-PAT-002] /summarize This is a long article about machine learning",
     "entities": [
       {
-        "offset": 0,
+        "offset": 15,
         "length": 10,
         "type": "bot_command"
       }

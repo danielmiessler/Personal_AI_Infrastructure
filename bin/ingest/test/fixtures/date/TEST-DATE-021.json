@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-021",
-    "capturedAt": "2025-12-03T05:42:00.000Z",
-    "capturedBy": "andreas",
-    "description": "Document with date hint - archive name should use that date",
-    "sourceFile": "~/Dropbox/document/_archive/CONTRACT - 20220601 - Southern Cross (Certificate of Insurance).pdf"
+    "capturedAt": "2025-12-03T06:37:14.525Z",
+    "capturedBy": "populate-channel",
+    "description": "Archive uses document date"
   },
   "message": {
-    "message_id": 257,
+    "message_id": 210,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764740065,
+    "date": 1764743834,
     "document": {
       "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",
@@ -29,14 +28,21 @@
         "width": 226,
         "height": 320
       },
+      "thumb": {
+        "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
+        "file_unique_id": "AQADbgYAAqNzgEVy",
+        "file_size": 14541,
+        "width": 226,
+        "height": 320
+      },
       "file_id": "BQACAgEAAyEFAAS8iPOuAAIBAWkvy-EE15XmjsDzEHRrr-u9_eXGAAJuBgACo3OARVd4noh7gWZGNgQ",
       "file_unique_id": "AgADbgYAAqNzgEU",
       "file_size": 361636
     },
-    "caption": "[date:2023-03-15] /archive Historic contract",
+    "caption": "[TEST-DATE-021] [date:2023-03-15] /archive Historic contract",
     "caption_entities": [
       {
-        "offset": 18,
+        "offset": 34,
         "length": 8,
         "type": "bot_command"
       }

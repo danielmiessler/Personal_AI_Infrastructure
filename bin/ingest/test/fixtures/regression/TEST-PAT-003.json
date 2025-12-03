@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-PAT-003",
-    "capturedAt": "2025-12-02T23:16:17.878Z",
-    "capturedBy": "andreas",
-    "description": "Text with /wisdom pattern command",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:33:21.441Z",
+    "capturedBy": "populate-channel",
+    "description": "/wisdom pattern"
   },
   "message": {
-    "message_id": 230,
+    "message_id": 180,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764717377,
-    "text": "/wisdom The key to success is consistent effort and learning from failures",
+    "date": 1764743601,
+    "text": "[TEST-PAT-003] /wisdom The key to success is consistent effort",
     "entities": [
       {
-        "offset": 0,
+        "offset": 15,
         "length": 7,
         "type": "bot_command"
       }

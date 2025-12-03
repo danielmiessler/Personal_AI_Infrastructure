@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-DATE-003",
-    "capturedAt": "2025-12-03T04:56:08.288Z",
-    "capturedBy": "andreas",
-    "description": "Text with short year date format",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:34:49.758Z",
+    "capturedBy": "populate-channel",
+    "description": "Short year format DD/MM/YY"
   },
   "message": {
-    "message_id": 52,
+    "message_id": 202,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737768,
-    "text": "[date:15/06/24] /archive Document from June",
+    "date": 1764743689,
+    "text": "[TEST-DATE-003] [date:15/06/24] /archive Document from June",
     "entities": [
       {
-        "offset": 16,
+        "offset": 32,
         "length": 8,
         "type": "bot_command"
       }

@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-VOICE-005",
-    "capturedAt": "2025-12-03T06:13:04.759Z",
-    "capturedBy": "andreas",
-    "description": "Voice with multiple spoken hints",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:33:43.681Z",
+    "capturedBy": "populate-channel",
+    "description": "Voice with multiple spoken hints"
   },
   "message": {
-    "message_id": 107,
+    "message_id": 189,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764742189,
+    "date": 1764743623,
     "audio": {
       "duration": 8,
       "file_name": "248 Franklin Rd 13.m4a",

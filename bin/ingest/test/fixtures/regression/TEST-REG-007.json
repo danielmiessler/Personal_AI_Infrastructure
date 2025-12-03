@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-007",
-    "capturedAt": "2025-12-02T23:00:48.844Z",
-    "capturedBy": "andreas",
-    "description": "Photo without caption - should use Vision AI default description",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:31.874Z",
+    "capturedBy": "populate-channel",
+    "description": "Photo with Vision AI default"
   },
   "message": {
-    "message_id": 204,
+    "message_id": 150,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716448,
+    "date": 1764743491,
     "photo": [
       {
         "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",
@@ -48,6 +47,7 @@
         "width": 960,
         "height": 1280
       }
-    ]
+    ],
+    "caption": "[TEST-REG-007]"
   }
 }

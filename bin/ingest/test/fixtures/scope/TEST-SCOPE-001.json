@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-001",
-    "capturedAt": "2025-12-03T04:55:55.955Z",
-    "capturedBy": "andreas",
-    "description": "Text message with ~private prefix",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:30:13.229Z",
+    "capturedBy": "populate-channel",
+    "description": "Explicit ~private sigil"
   },
   "message": {
-    "message_id": 44,
+    "message_id": 136,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737755,
-    "text": "~private This is a personal health note"
+    "date": 1764743412,
+    "text": "[TEST-SCOPE-001] ~private This is a personal health note"
   }
 }

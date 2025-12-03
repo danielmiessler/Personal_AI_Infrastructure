@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-002",
-    "capturedAt": "2025-12-03T04:29:33.159Z",
-    "capturedBy": "andreas",
-    "description": "Text with [key:value] metadata",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:17.015Z",
+    "capturedBy": "populate-channel",
+    "description": "Text with metadata parsing"
   },
   "message": {
-    "message_id": 246,
+    "message_id": 144,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764736172,
-    "text": "[source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction from iOS shortcut"
+    "date": 1764743476,
+    "text": "[TEST-REG-002] [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction"
   }
 }

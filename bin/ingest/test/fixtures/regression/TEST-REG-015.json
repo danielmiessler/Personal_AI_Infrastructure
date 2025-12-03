@@ -1,28 +1,27 @@
 {
   "_meta": {
     "testId": "TEST-REG-015",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "/summarize command on text content",
-    "synthetic": true
+    "capturedAt": "2025-12-03T06:36:45.314Z",
+    "capturedBy": "populate-channel",
+    "description": "/summarize command on text"
   },
   "message": {
-    "message_id": 300,
+    "message_id": 204,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750000,
-    "text": "[TEST-REG-015] /summarize This is a long article that needs to be condensed into a summary. The article discusses the importance of deep work and focused attention in an age of constant distraction. Key points include: scheduling uninterrupted blocks of time, eliminating shallow work, embracing boredom, and quitting social media.",
+    "date": 1764743805,
+    "text": "[TEST-REG-015] /summarize The history of artificial intelligence spans over seven decades. In 1950, Alan Turing proposed the Turing Test as a measure of machine intelligence. The field was officially founded at the Dartmouth Conference in 1956. Early AI focused on symbolic reasoning and expert systems. The AI winters of the 1970s and 1980s saw reduced funding due to unmet expectations. Machine learning emerged as a dominant paradigm in the 1990s. Deep learning revolutionized the field after 2012 with breakthroughs in image recognition. Large language models like GPT have transformed natural language processing since 2020.",
     "entities": [
       {
-        "offset": 16,
+        "offset": 15,
         "length": 10,
         "type": "bot_command"
       }

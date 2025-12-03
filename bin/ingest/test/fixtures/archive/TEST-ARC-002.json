@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-ARC-002",
-    "capturedAt": "2025-12-03T04:56:22.768Z",
-    "capturedBy": "andreas",
-    "description": "Photo with dictated receipt intent",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:02.220Z",
+    "capturedBy": "populate-channel",
+    "description": "Dictated receipt intent"
   },
   "message": {
-    "message_id": 63,
+    "message_id": 138,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737782,
+    "date": 1764743461,
     "photo": [
       {
         "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",
@@ -49,6 +48,6 @@
         "height": 1280
       }
     ],
-    "caption": "Archive this invoice"
+    "caption": "[TEST-ARC-002] Archive this invoice"
   }
 }

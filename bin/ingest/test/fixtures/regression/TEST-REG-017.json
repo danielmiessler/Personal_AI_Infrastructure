@@ -1,36 +1,38 @@
 {
   "_meta": {
     "testId": "TEST-REG-017",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "/article command on URL",
-    "synthetic": true
+    "capturedAt": "2025-12-03T06:32:01.416Z",
+    "capturedBy": "populate-channel",
+    "description": "/article command on URL"
   },
   "message": {
-    "message_id": 302,
+    "message_id": 162,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750002,
+    "date": 1764743521,
     "text": "[TEST-REG-017] /article https://example.com/long-article",
     "entities": [
       {
-        "offset": 16,
+        "offset": 15,
         "length": 8,
         "type": "bot_command"
       },
       {
-        "offset": 25,
-        "length": 31,
+        "offset": 24,
+        "length": 32,
         "type": "url"
       }
-    ]
+    ],
+    "link_preview_options": {
+      "is_disabled": true
+    }
   }
 }

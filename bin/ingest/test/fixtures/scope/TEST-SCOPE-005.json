@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-005",
-    "capturedAt": "2025-12-03T04:55:58.224Z",
-    "capturedBy": "andreas",
-    "description": "Text with natural language work indicator",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:34:30.256Z",
+    "capturedBy": "populate-channel",
+    "description": "For work natural language"
   },
   "message": {
-    "message_id": 47,
+    "message_id": 197,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737758,
-    "text": "For work. Architecture decision on data pipeline"
+    "date": 1764743670,
+    "text": "[TEST-SCOPE-005] For work. Architecture decision on data pipeline"
   }
 }

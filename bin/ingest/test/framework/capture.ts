@@ -22,6 +22,9 @@ const ASSETS_DIR = join(FIXTURES_DIR, "assets");
 const DEFAULT_TIMEOUT = 120000; // 2 minutes
 const POLL_INTERVAL = 2000; // 2 seconds
 
+// Placeholder for channel ID in fixtures (replaced at runtime)
+const CHANNEL_ID_PLACEHOLDER = "$TEST_CASES_CHANNEL_ID";
+
 // Test assets for auto-send
 const TEST_PHOTO = join(ASSETS_DIR, "test-image.png");
 const TEST_DOCUMENT = join(ASSETS_DIR, "test-document.pdf");
@@ -421,7 +424,7 @@ export function fixtureExists(testId: string): boolean {
 }
 
 /**
- * Load fixture for test
+ * Load fixture for test (with channel ID hydration)
  */
 export function loadFixture(testId: string): Fixture | null {
   const spec = getSpecById(testId);
@@ -431,7 +434,55 @@ export function loadFixture(testId: string): Fixture | null {
   if (!existsSync(fixturePath)) return null;
 
   const content = Bun.file(fixturePath).text();
-  return JSON.parse(content as unknown as string) as Fixture;
+  const fixture = JSON.parse(content as unknown as string) as Fixture;
+  return hydrateFixture(fixture);
+}
+
+/**
+ * Load fixture from path with hydration
+ */
+export function loadFixtureFromPath(filePath: string): Fixture | null {
+  if (!existsSync(filePath)) return null;
+  const content = Bun.file(filePath).text();
+  const fixture = JSON.parse(content as unknown as string) as Fixture;
+  return hydrateFixture(fixture);
+}
+
+/**
+ * Sanitize fixture before saving - replaces real channel IDs with placeholder
+ */
+export function sanitizeFixture(fixture: Fixture): Fixture {
+  const config = getConfig();
+  const channelId = config.testTelegramCasesId;
+
+  if (!channelId) return fixture;
+
+  // Deep clone and replace
+  const json = JSON.stringify(fixture);
+  const sanitized = json.replace(new RegExp(channelId, 'g'), CHANNEL_ID_PLACEHOLDER);
+  return JSON.parse(sanitized);
+}
+
+/**
+ * Hydrate fixture after loading - replaces placeholder with real channel ID
+ */
+export function hydrateFixture(fixture: Fixture): Fixture {
+  const config = getConfig();
+  const channelId = config.testTelegramCasesId;
+
+  if (!channelId) return fixture;
+
+  // Deep clone and replace
+  const json = JSON.stringify(fixture);
+  const hydrated = json.replace(new RegExp('\\' + CHANNEL_ID_PLACEHOLDER, 'g'), channelId);
+  return JSON.parse(hydrated);
+}
+
+/**
+ * Get the channel ID placeholder constant
+ */
+export function getChannelIdPlaceholder(): string {
+  return CHANNEL_ID_PLACEHOLDER;
 }
 
 // =============================================================================

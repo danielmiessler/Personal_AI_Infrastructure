@@ -1,25 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-010b",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "DOCX with /summarize command",
-    "synthetic": true,
-    "reuses": "TEST-REG-010a"
+    "capturedAt": "2025-12-03T06:31:41.711Z",
+    "capturedBy": "populate-channel",
+    "description": "DOCX with /summarize command"
   },
   "message": {
-    "message_id": 310,
+    "message_id": 154,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750010,
+    "date": 1764743501,
     "document": {
       "file_name": "meeting-notes.docx",
       "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -30,7 +28,7 @@
     "caption": "[TEST-REG-010b] /summarize",
     "caption_entities": [
       {
-        "offset": 17,
+        "offset": 16,
         "length": 10,
         "type": "bot_command"
       }

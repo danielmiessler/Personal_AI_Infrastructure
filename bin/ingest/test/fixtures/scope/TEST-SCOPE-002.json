@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-002",
-    "capturedAt": "2025-12-03T04:55:56.474Z",
-    "capturedBy": "andreas",
-    "description": "Text message with ~work prefix",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:30:15.707Z",
+    "capturedBy": "populate-channel",
+    "description": "Explicit ~work sigil"
   },
   "message": {
-    "message_id": 45,
+    "message_id": 137,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737756,
-    "text": "~work Meeting notes from the product team"
+    "date": 1764743415,
+    "text": "[TEST-SCOPE-002] ~work Meeting notes from the product team"
   }
 }

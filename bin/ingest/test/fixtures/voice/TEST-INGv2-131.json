@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-INGv2-131",
-    "capturedAt": "2025-12-03T06:13:04.759Z",
-    "capturedBy": "andreas",
-    "description": "Spoken person mention (at ed overy)",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:33:48.637Z",
+    "capturedBy": "populate-channel",
+    "description": "Spoken person mention"
   },
   "message": {
-    "message_id": 109,
+    "message_id": 191,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764742235,
+    "date": 1764743628,
     "audio": {
       "duration": 9,
       "file_name": "248 Franklin Rd 15.m4a",

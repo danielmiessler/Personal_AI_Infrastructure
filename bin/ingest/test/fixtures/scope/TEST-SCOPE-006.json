@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-006",
-    "capturedAt": "2025-12-03T04:56:02.042Z",
-    "capturedBy": "andreas",
-    "description": "Photo with /archive command (no explicit scope)",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:34:32.709Z",
+    "capturedBy": "populate-channel",
+    "description": "Archive pipeline auto-private"
   },
   "message": {
-    "message_id": 48,
+    "message_id": 198,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737761,
+    "date": 1764743672,
     "photo": [
       {
         "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",
@@ -49,10 +48,10 @@
         "height": 1280
       }
     ],
-    "caption": "/archive Personal receipt from pharmacy",
+    "caption": "[TEST-SCOPE-006] /archive Personal receipt from pharmacy",
     "caption_entities": [
       {
-        "offset": 0,
+        "offset": 17,
         "length": 8,
         "type": "bot_command"
       }

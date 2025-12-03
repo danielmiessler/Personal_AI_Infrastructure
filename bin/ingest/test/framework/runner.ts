@@ -15,7 +15,7 @@ import type {
   TestCategory,
 } from "./types";
 import { validateTestOutput, type TestOutput } from "./validate";
-import { fixtureExists, loadFixture } from "./capture";
+import { fixtureExists, loadFixture, loadFixtureFromPath } from "./capture";
 import { allIngestSpecs, getSpecById, getSpecsByCategory } from "../specs";
 import { processMessage, saveToVault } from "../../lib/process";
 import { getConfig } from "../../lib/config";
@@ -106,10 +106,18 @@ async function runTestWithSpec(
   const startTime = Date.now();
   const TEST_TIMEOUT = 60000; // 60 second timeout per test (external services can be slow)
 
-  // Load fixture
+  // Load fixture (with channel ID hydration)
   const fixturePath = join(FIXTURES_DIR, spec.fixture);
-  const fixtureContent = readFileSync(fixturePath, "utf-8");
-  const fixture: Fixture = JSON.parse(fixtureContent);
+  const fixture = loadFixtureFromPath(fixturePath);
+  if (!fixture) {
+    return {
+      testId: spec.id,
+      passed: false,
+      duration: Date.now() - startTime,
+      checks: [],
+      error: `Failed to load fixture: ${fixturePath}`,
+    };
+  }
 
   // Create isolated output directory
   // Use current run directory if set, otherwise create one for single test

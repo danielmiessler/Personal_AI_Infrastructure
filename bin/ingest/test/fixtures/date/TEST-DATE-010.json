@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-010",
-    "capturedAt": "2025-12-03T04:56:08.752Z",
-    "capturedBy": "andreas",
-    "description": "Text with natural language date (ordinal + month)",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:34:52.214Z",
+    "capturedBy": "populate-channel",
+    "description": "Dictated dated 15th June"
   },
   "message": {
-    "message_id": 53,
+    "message_id": 203,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764737768,
-    "text": "dated 15th June This is an old document"
+    "date": 1764743692,
+    "text": "[TEST-DATE-010] dated 15th June This is an old document"
   }
 }

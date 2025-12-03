@@ -1,54 +1,53 @@
 {
   "_meta": {
     "testId": "TEST-REG-012",
-    "capturedAt": "2025-12-02T23:11:41.238Z",
-    "capturedBy": "andreas",
-    "description": "Screenshot with dictated request to extract mermaid diagram",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:42:36.000Z",
+    "capturedBy": "manual-capture",
+    "description": "Mermaid dictated intent"
   },
   "message": {
-    "message_id": 214,
+    "message_id": 218,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764717101,
+    "date": 1764743957,
     "photo": [
       {
-        "file_id": "AgACAgEAAyEFAAS8iPOuAAMKaS0LmqHWPdrrX3BkVP0Co8gijOYAAiQLaxtm9GhFSRSo5tet18IBAAMCAANzAAM2BA",
-        "file_unique_id": "AQADJAtrG2b0aEV4",
-        "file_size": 1950,
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAANzAAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEV4",
+        "file_size": 971,
         "width": 90,
         "height": 67
       },
       {
-        "file_id": "AgACAgEAAyEFAAS8iPOuAAMKaS0LmqHWPdrrX3BkVP0Co8gijOYAAiQLaxtm9GhFSRSo5tet18IBAAMCAANtAAM2BA",
-        "file_unique_id": "AQADJAtrG2b0aEVy",
-        "file_size": 33986,
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAANtAAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEVy",
+        "file_size": 22443,
         "width": 320,
         "height": 240
       },
       {
-        "file_id": "AgACAgEAAyEFAAS8iPOuAAMKaS0LmqHWPdrrX3BkVP0Co8gijOYAAiQLaxtm9GhFSRSo5tet18IBAAMCAAN4AAM2BA",
-        "file_unique_id": "AQADJAtrG2b0aEV9",
-        "file_size": 154379,
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAAN4AAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEV9",
+        "file_size": 146668,
         "width": 800,
         "height": 600
       },
       {
-        "file_id": "AgACAgEAAyEFAAS8iPOuAAMKaS0LmqHWPdrrX3BkVP0Co8gijOYAAiQLaxtm9GhFSRSo5tet18IBAAMCAAN5AAM2BA",
-        "file_unique_id": "AQADJAtrG2b0aEV-",
-        "file_size": 307101,
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAAN5AAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEV-",
+        "file_size": 402611,
         "width": 1280,
         "height": 960
       }
     ],
-    "caption": "Extract the mermaid diagram from this flowchart"
+    "caption": "[TEST-REG-012] Extract the mermaid diagram from this flowchart"
   }
 }

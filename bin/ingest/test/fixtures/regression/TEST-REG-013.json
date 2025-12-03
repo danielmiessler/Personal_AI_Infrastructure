@@ -1,29 +1,34 @@
 {
   "_meta": {
     "testId": "TEST-REG-013",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "Archive with explicit type and category metadata",
-    "synthetic": true,
-    "reuses": "TEST-INGv2-101"
+    "capturedAt": "2025-12-03T06:31:54.006Z",
+    "capturedBy": "populate-channel",
+    "description": "Archive with type and category"
   },
   "message": {
-    "message_id": 313,
+    "message_id": 159,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750013,
+    "date": 1764743513,
     "document": {
       "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",
       "thumbnail": {
+        "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
+        "file_unique_id": "AQADbgYAAqNzgEVy",
+        "file_size": 14541,
+        "width": 226,
+        "height": 320
+      },
+      "thumb": {
         "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
         "file_unique_id": "AQADbgYAAqNzgEVy",
         "file_size": 14541,
@@ -37,7 +42,7 @@
     "caption": "[TEST-REG-013] /archive [type:CONTRACT][category:WORK] Employment agreement",
     "caption_entities": [
       {
-        "offset": 16,
+        "offset": 15,
         "length": 8,
         "type": "bot_command"
       }

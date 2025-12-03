@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-001",
-    "capturedAt": "2025-12-03T04:41:20.804Z",
-    "capturedBy": "andreas",
-    "description": "Plain text without hints or metadata",
-    "autoSent": true
+    "capturedAt": "2025-12-03T06:31:14.557Z",
+    "capturedBy": "populate-channel",
+    "description": "Simple text message"
   },
   "message": {
-    "message_id": 14,
+    "message_id": 143,
     "sender_chat": {
-      "id": -1003492308192,
-      "title": "PAI Test Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003492308192,
-      "title": "PAI Test Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764736880,
-    "text": "Regression test: Simple text message without any metadata or hints"
+    "date": 1764743474,
+    "text": "[TEST-REG-001] Regression test: Simple text message without any metadata or hints"
   }
 }

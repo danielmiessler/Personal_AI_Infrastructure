@@ -11,6 +11,7 @@
     "status": "bun run ingest.ts status"
   },
   "dependencies": {
+    "csv-parse": "^6.1.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {

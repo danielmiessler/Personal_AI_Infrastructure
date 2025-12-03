@@ -1,24 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-INGv2-101",
-    "capturedAt": "2025-12-03T05:41:00.000Z",
-    "capturedBy": "andreas",
-    "description": "Document already following naming convention - should NOT be renamed",
-    "sourceFile": "~/Dropbox/document/_archive/CONTRACT - 20220601 - Southern Cross (Certificate of Insurance, Travel Insurance, Sweden 2022) - A.pdf"
+    "capturedAt": "2025-12-03T06:37:35.580Z",
+    "capturedBy": "populate-channel",
+    "description": "Pre-named file preserved"
   },
   "message": {
-    "message_id": 257,
+    "message_id": 213,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": $TEST_CASES_CHANNEL_ID,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764740065,
+    "date": 1764743855,
     "document": {
       "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",
@@ -29,9 +28,17 @@
         "width": 226,
         "height": 320
       },
+      "thumb": {
+        "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
+        "file_unique_id": "AQADbgYAAqNzgEVy",
+        "file_size": 14541,
+        "width": 226,
+        "height": 320
+      },
       "file_id": "BQACAgEAAyEFAAS8iPOuAAIBAWkvy-EE15XmjsDzEHRrr-u9_eXGAAJuBgACo3OARVd4noh7gWZGNgQ",
       "file_unique_id": "AgADbgYAAqNzgEU",
       "file_size": 361636
-    }
+    },
+    "caption": "[TEST-INGv2-101]"
   }
 }

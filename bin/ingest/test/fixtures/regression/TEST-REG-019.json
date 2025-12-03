@@ -1,33 +1,32 @@
 {
   "_meta": {
     "testId": "TEST-REG-019",
-    "capturedAt": "2025-12-03T06:00:00.000Z",
-    "capturedBy": "andreas",
-    "description": "Clip with explicit pattern should run that pattern",
-    "synthetic": true
+    "capturedAt": "2025-12-03T06:33:14.029Z",
+    "capturedBy": "populate-channel",
+    "description": "Clip with explicit pattern"
   },
   "message": {
-    "message_id": 304,
+    "message_id": 177,
     "sender_chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003383520667,
+      "id": $TEST_CASES_CHANNEL_ID,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764750004,
-    "text": "[TEST-REG-019] /clip /summarize Newsletter with summary request - this should save to clip and also run summarize pattern",
+    "date": 1764743593,
+    "text": "[TEST-REG-019] /clip /summarize Newsletter with summary request",
     "entities": [
       {
-        "offset": 16,
+        "offset": 15,
         "length": 5,
         "type": "bot_command"
       },
       {
-        "offset": 22,
+        "offset": 21,
         "length": 10,
         "type": "bot_command"
       }

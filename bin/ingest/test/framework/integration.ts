@@ -232,14 +232,13 @@ async function sendTestMessage(
 /**
  * Process messages through the actual ingest pipeline via subprocess
  *
- * This runs `ingest process` which will poll Telegram for new messages
- * and process them through the full pipeline.
+ * Uses two-thread approach to handle Telegram's long-polling:
+ * 1. Start `ingest watch` in background (continuously polling)
+ * 2. Message is sent to test channel
+ * 3. Watch process picks it up and processes it
+ * 4. We wait for processing to complete
  *
- * The flow mirrors production:
- * 1. Message sent to test inbox channel (like iOS shortcut does)
- * 2. `ingest process` polls channel via getUpdates
- * 3. Messages processed through pipeline
- * 4. Output saved to vault + notification to test events channel
+ * This mirrors production where the watch daemon is always running.
  */
 async function processViaIngest(
   timeout: number
@@ -257,8 +256,7 @@ async function processViaIngest(
   const filesBefore = new Set<string>();
   scanVaultDir(vaultPath, filesBefore);
 
-  // Run ingest process as subprocess
-  // This will poll Telegram for new messages and process them
+  // Run ingest watch as subprocess (background polling)
   const ingestPath = join(import.meta.dir, "..", "..", "ingest.ts");
 
   // Set environment to use test channels (inbox + events)
@@ -270,44 +268,44 @@ async function processViaIngest(
     env.TELEGRAM_OUTBOX_ID = config.testTelegramOutboxId;
   }
 
-  try {
-    // Small delay to ensure Telegram API has the message available
-    await Bun.sleep(1000);
+  let verboseOutput = "";
+  let watchProc: ReturnType<typeof Bun.spawn> | null = null;
 
-    const proc = Bun.spawn(["bun", "run", ingestPath, "process", "--verbose"], {
+  try {
+    // Start watch process in background
+    watchProc = Bun.spawn(["bun", "run", ingestPath, "watch", "--verbose", "--interval", "5"], {
       cwd: join(import.meta.dir, "..", ".."),
       env,
       stdout: "pipe",
       stderr: "pipe",
     });
 
-    // Set up timeout
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Process timeout")), timeout);
-    });
+    // Give watch process time to start polling
+    await Bun.sleep(2000);
 
-    // Wait for process to complete or timeout
-    const exitCode = await Promise.race([proc.exited, timeoutPromise]);
+    // Now wait for processing (watch will pick up the message we already sent)
+    // Poll for new vault files with timeout
+    const startTime = Date.now();
+    let newFiles: string[] = [];
 
-    // Capture output
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
-    const verboseOutput = stdout + "\n" + stderr;
+    while (Date.now() - startTime < timeout) {
+      const filesAfter = new Set<string>();
+      scanVaultDir(vaultPath, filesAfter);
+      newFiles = [...filesAfter].filter(f => !filesBefore.has(f));
 
-    if (exitCode !== 0) {
-      return {
-        success: false,
-        vaultFiles: [],
-        verboseOutput,
-        error: `Process exited with code ${exitCode}`,
-      };
+      if (newFiles.length > 0) {
+        // Files created! Processing complete
+        break;
+      }
+
+      await Bun.sleep(2000);
     }
 
-    // Track files after processing
-    const filesAfter = new Set<string>();
-    scanVaultDir(vaultPath, filesAfter);
-
-    const newFiles = [...filesAfter].filter(f => !filesBefore.has(f));
+    // Capture output from watch process
+    watchProc.kill();
+    const stdout = await new Response(watchProc.stdout).text();
+    const stderr = await new Response(watchProc.stderr).text();
+    verboseOutput = stdout + "\n" + stderr;
 
     // Extract dropbox path from verbose output if present
     let dropboxPath: string | undefined;
@@ -317,16 +315,20 @@ async function processViaIngest(
     }
 
     return {
-      success: true,
+      success: newFiles.length > 0,
       vaultFiles: newFiles,
       verboseOutput,
       dropboxPath,
+      error: newFiles.length === 0 ? "No vault files created within timeout" : undefined,
     };
   } catch (err) {
+    if (watchProc) {
+      watchProc.kill();
+    }
     return {
       success: false,
       vaultFiles: [],
-      verboseOutput: "",
+      verboseOutput,
       error: String(err),
     };
   }

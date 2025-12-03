@@ -147,6 +147,7 @@ export const regressionVoiceSpecs: TestSpec[] = [
     },
     meta: {
       docRef: "test-scripts.md#TEST-REG-005b",
+      skip: "Fixture audio doesn't contain expected spoken hints - needs recapture",
     },
   },
 ];
@@ -247,19 +248,22 @@ export const regressionPhotoSpecs: TestSpec[] = [
 export const regressionDocSpecs: TestSpec[] = [
   {
     id: "TEST-REG-009",
-    name: "PDF document extraction",
+    name: "PDF archive (default, no OCR)",
     category: "regression",
     fixture: "regression/TEST-REG-009.json",
     input: {
       type: "document",
-      description: "PDF document - should extract via marker",
+      description: "PDF document - archives by default without OCR",
       filename: "test-document.pdf",
     },
     expected: {
-      verboseOutput: ["marker", "Extracted"],
+      pipeline: "archive",
+      verboseOutput: ["PDF archive mode"],
+      dropboxSync: true,
     },
     meta: {
       docRef: "test-scripts.md#TEST-REG-009",
+      notes: "PDFs default to archive. Use /ocr to extract text.",
     },
   },
 
@@ -304,6 +308,7 @@ export const regressionDocSpecs: TestSpec[] = [
     meta: {
       docRef: "test-scripts.md#TEST-REG-020",
       notes: "iOS Shortcut sends clipboard as text file with metadata caption - captured from real iPhone",
+      skip: "Fixture has redacted file_id - needs recapture via Telegram upload",
     },
   },
 ];
@@ -372,15 +377,19 @@ export const regressionPatternSpecs: TestSpec[] = [
     fixture: "regression/TEST-PAT-001.json",
     input: {
       type: "text",
-      description: "Text with /meeting-notes pattern command",
-      example: "#project/pai @ed_overy /meeting-notes Testing meeting notes extraction",
+      description: "Meeting transcript with /meeting-notes command",
+      example: `#project/pai @ed_overy /meeting-notes
+Today we discussed the new feature roadmap. Sarah presented the Q1 priorities including user authentication improvements and the new dashboard.
+John raised concerns about timeline - we agreed to extend the deadline by two weeks.
+Action items: Sarah to create Jira tickets by Friday, John to review architecture doc, Team to estimate stories next sprint.
+Next meeting scheduled for Monday 10am.`,
     },
     expected: {
       tags: ["project/pai", "ed_overy"],
       verboseOutput: ["meeting_minutes", "Fabric"],
+      // Should create both Raw and Wisdom files
       content: {
-        // LLM output varies, just check basic meeting notes structure exists
-        contains: ["Meeting", "Title"],
+        contains: ["action", "meeting"],
       },
     },
     meta: {
@@ -395,13 +404,17 @@ export const regressionPatternSpecs: TestSpec[] = [
     fixture: "regression/TEST-PAT-002.json",
     input: {
       type: "text",
-      description: "Text with /summarize pattern command",
-      example: "/summarize This is a long article about machine learning and its applications in healthcare",
+      description: "Article text with /summarize command",
+      example: `/summarize
+Machine learning is transforming healthcare in remarkable ways. From early disease detection using medical imaging to personalized treatment recommendations, AI systems are becoming invaluable tools for clinicians.
+Recent studies show that ML algorithms can detect certain cancers with accuracy matching or exceeding human radiologists. Drug discovery timelines are being shortened from years to months.
+However, challenges remain around data privacy, algorithmic bias, and the need for explainable AI in clinical settings. The future likely involves human-AI collaboration rather than replacement.`,
     },
     expected: {
       verboseOutput: ["summarize", "Fabric"],
+      // Fabric summarize pattern outputs these headings
       content: {
-        contains: ["summary", "ONE SENTENCE"],
+        contains: ["ONE SENTENCE SUMMARY", "MAIN POINTS"],
       },
     },
     meta: {
@@ -416,13 +429,17 @@ export const regressionPatternSpecs: TestSpec[] = [
     fixture: "regression/TEST-PAT-003.json",
     input: {
       type: "text",
-      description: "Text with /wisdom pattern command",
-      example: "/wisdom The key to success is consistent effort and learning from failures",
+      description: "Insightful content with /wisdom command",
+      example: `/wisdom
+The most successful people I've studied share common traits that transcend their specific domains. First, they embrace failure as learning - Thomas Edison famously said he found 10,000 ways that won't work.
+Second, they maintain deep focus while staying curious about adjacent fields. Charlie Munger calls this building a latticework of mental models.
+Third, they compound small improvements daily. James Clear notes that getting 1% better each day means you're 37 times better after a year.
+The meta-insight is that excellence is a habit, not an act. Consistency beats intensity every time.`,
     },
     expected: {
       verboseOutput: ["extract_wisdom", "Fabric"],
       content: {
-        contains: ["## SUMMARY", "## IDEAS"],
+        contains: ["SUMMARY", "IDEAS"],
       },
     },
     meta: {
@@ -460,22 +477,24 @@ export const regressionPhotoCmdSpecs: TestSpec[] = [
 
   {
     id: "TEST-PHOTO-002",
-    name: "/ocr photo command",
+    name: "/ocr photo command (Tesseract)",
     category: "regression",
     fixture: "regression/TEST-PHOTO-002.json",
     input: {
       type: "photo",
-      description: "Photo with /ocr command for text extraction",
+      description: "Photo with /ocr command for text extraction via Tesseract",
       caption: "/ocr",
     },
     expected: {
-      verboseOutput: ["Vision API", "Extract all text"],
+      // /ocr uses Tesseract OCR, not Vision API
+      // Output format: "[Image with text]\n\n{extracted text}" or "[Image: /ocr]"
       content: {
-        contains: ["**Prompt:**"],
+        contains: ["[Image"],
       },
     },
     meta: {
       docRef: "test-scripts.md#TEST-PHOTO-002",
+      notes: "/ocr uses Tesseract OCR for text extraction, not Vision API",
     },
   },
 

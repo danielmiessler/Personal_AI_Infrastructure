@@ -1408,33 +1408,43 @@ async function handleTest(args: string[], verbose: boolean) {
     }
 
     case "integration": {
-      // Integration tests - forward via Telegram, validate end-to-end
-      const { runIntegrationTest, runIntegrationTests, printIntegrationSummary } = await import("./test/framework/integration-runner");
+      // Integration tests - send to Telegram, process directly, validate
+      const { runIntegrationTest, runIntegrationTests, printIntegrationSummary, saveDetailedReport } = await import("./test/framework/integration-runner");
 
       // Parse options
       const suiteIndex = subArgs.findIndex(a => a === "--suite");
       const suite = suiteIndex >= 0 ? subArgs[suiteIndex + 1] as "scope" | "date" | "archive" | "regression" : undefined;
       const all = subArgs.includes("--all");
       const dryRun = subArgs.includes("--dry-run");
+      const parallel = subArgs.includes("--parallel");
       const testId = subArgs.find(a => a.startsWith("TEST-"));
 
-      // Parse timeout
+      // Parse timeout (per-test timeout in ms)
       let timeout: number | undefined;
       const timeoutIndex = subArgs.findIndex(a => a === "--timeout");
       if (timeoutIndex >= 0) {
         timeout = parseInt(subArgs[timeoutIndex + 1], 10);
       }
 
+      // Parse concurrency
+      let concurrency: number | undefined;
+      const concurrencyIndex = subArgs.findIndex(a => a === "--concurrency");
+      if (concurrencyIndex >= 0) {
+        concurrency = parseInt(subArgs[concurrencyIndex + 1], 10);
+      }
+
       console.log("\n🧪 Integration Test Runner");
       console.log("━".repeat(50));
-      console.log("⚠️  Requires watcher running in separate terminal:");
-      console.log("    export TELEGRAM_CHANNEL_ID=$TEST_INBOX_ID");
-      console.log("    export TELEGRAM_OUTBOX_ID=$TEST_EVENTS_ID");
-      console.log("    bun run ingest.ts watch --verbose");
+      console.log("Sends test messages to Test Inbox and processes directly.");
+      if (parallel) {
+        console.log(`Mode: Parallel (concurrency: ${concurrency || 5})`);
+      } else {
+        console.log("Mode: Sequential");
+      }
       console.log("━".repeat(50));
 
       if (dryRun) {
-        console.log("\n[DRY RUN MODE - no messages will be forwarded]\n");
+        console.log("\n[DRY RUN MODE - no messages will be sent]\n");
       }
 
       if (testId) {
@@ -1460,9 +1470,16 @@ async function handleTest(args: string[], verbose: boolean) {
           verbose,
           timeout,
           dryRun,
+          parallel,
+          concurrency,
         });
 
         printIntegrationSummary(summary);
+
+        // Save detailed report
+        const reportPath = saveDetailedReport(summary);
+        console.log(`\nDetailed report saved: ${reportPath}`);
+
         process.exit(summary.counts.failed > 0 ? 1 : 0);
       }
       break;

@@ -968,12 +968,36 @@ export async function processMessage(
       // Check if archive pipeline to preserve original file for Dropbox sync
       const docPipeline = determinePipeline(validCommands);
       const keepForArchive = docPipeline === "archive" || docPipeline === "receipt";
-      const docResult = await processDocument(message, config.tempDir, keepForArchive);
-      rawContent = docResult.content;
-      suggestedTitle = docResult.title;
-      // Store original path for Dropbox sync (will be used later if archive pipeline)
-      if (docResult.originalPath) {
-        (message as any)._originalFilePath = docResult.originalPath;
+
+      // PDF handling: archive by default, OCR only if /ocr command specified
+      const docFilename = message.document?.file_name || "";
+      const isPdf = docFilename.toLowerCase().endsWith(".pdf");
+      const hasOcrCommand = validCommands.includes("ocr");
+
+      if (isPdf && !hasOcrCommand) {
+        // PDF without /ocr: archive with caption as metadata (no OCR)
+        console.log(`  PDF archive mode (no OCR) - use /ocr to extract text`);
+        const filePath = await downloadFile(message.document!.file_id, docFilename);
+        rawContent = messageText || `PDF document: ${docFilename}`;
+        suggestedTitle = docFilename.replace(/\.pdf$/i, "");
+        (message as any)._originalFilePath = filePath;
+        // Force archive pipeline for PDFs without explicit command
+        if (docPipeline === "default") {
+          validCommands.push("archive");
+          hints.commands = validCommands;
+        }
+      } else {
+        // Non-PDF or PDF with /ocr: run full extraction
+        if (isPdf && hasOcrCommand) {
+          console.log(`  PDF OCR mode - extracting text with marker`);
+        }
+        const docResult = await processDocument(message, config.tempDir, keepForArchive);
+        rawContent = docResult.content;
+        suggestedTitle = docResult.title;
+        // Store original path for Dropbox sync (will be used later if archive pipeline)
+        if (docResult.originalPath) {
+          (message as any)._originalFilePath = docResult.originalPath;
+        }
       }
       break;
 

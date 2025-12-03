@@ -111,7 +111,7 @@ async function runTestWithSpec(
   options: { verbose?: boolean; keepOutput?: boolean } = {}
 ): Promise<ValidationResult> {
   const startTime = Date.now();
-  const TEST_TIMEOUT = 60000; // 60 second timeout per test (external services can be slow)
+  const TEST_TIMEOUT = 300000; // 5 minute timeout per test (audio transcription, document analysis can be slow)
 
   // Load fixture (with channel ID hydration)
   const fixturePath = join(FIXTURES_DIR, spec.fixture);

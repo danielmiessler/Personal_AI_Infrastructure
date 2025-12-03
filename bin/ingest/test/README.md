@@ -1,83 +1,108 @@
 # Ingest Test Framework
 
-Automated testing for the ingest pipeline, supporting unit tests (fixture-based) and integration tests (automated Telegram workflow).
+Automated testing for the ingest pipeline, supporting unit tests (fixture-based) and integration tests (live Telegram pipeline).
 
 ## Quick Reference
 
 ```bash
-# Unit tests - fast, fixture-based (~3 min)
+# Unit tests - fast, fixture-based (~4 min)
 bun run ingest.ts test run
 
-# Integration tests - full Telegram pipeline (single process, no watcher)
-bun run ingest.ts test integration --ids TEST-REG-020 --verbose
+# Integration tests - parallel execution (~2 min for full suite)
+bun run ingest.ts test integration --parallel
 
-# View latest test report
-cat test/output/latest-report.md
+# Run single integration test
+bun run ingest.ts test integration --ids TEST-REG-001 --verbose
+
+# View latest reports
+cat test/output/latest-report.md              # Unit test report
+cat test/output/latest-integration-report.md  # Integration test report
 ```
 
 ## Testing Strategy
 
 | Test Type | Command | Duration | When to Use |
 |-----------|---------|----------|-------------|
-| **Unit tests** | `bun run ingest.ts test run` | ~3 min | Daily development, CI/CD |
-| **Integration** | `bun run ingest.ts test integration --ids TEST-XX` | ~30s/test | Full Telegram pipeline |
+| **Unit tests** | `test run` | ~4 min | Daily development, CI/CD |
+| **Integration** | `test integration --parallel` | ~2 min | Full Telegram pipeline validation |
 
-### Daily Development / CI
+## Unit Tests
 
-Fast fixture-based tests that validate core processing logic:
+Fast fixture-based tests that replay captured Telegram messages without network calls.
 
 ```bash
+# Run all unit tests
 bun run ingest.ts test run
+
+# Run specific test
+bun run ingest.ts test run TEST-SCOPE-001
+
+# Run by category
+bun run ingest.ts test run --suite scope
+bun run ingest.ts test run --suite regression
+
+# Include media tests (requires Telegram download)
+bun run ingest.ts test run --include-media
+
+# Keep output files for debugging
+bun run ingest.ts test run --keep-output
 ```
 
-This runs all unit tests using pre-captured fixtures. Output is isolated to `test/output/` - no production vault pollution.
+**Features:**
+- Uses pre-captured fixtures from `test/fixtures/`
+- Writes output to isolated `test/output/` directory (not production vault)
+- Does NOT send events to Telegram
+- 5 minute per-test timeout (for slow AI/Jina operations)
+- Generates markdown report with pass/fail details
 
-## Integration Testing
+## Integration Tests
 
-Integration tests validate the full Telegram pipeline using **automated single-process execution**.
+Full end-to-end Telegram pipeline tests. Messages are sent directly to Test Inbox and processed immediately.
 
 ### How It Works
 
 The integration runner handles everything in one process:
-1. **Forward** fixture message from Test Cases → Test Inbox
-2. **Process** via `processMessage()` directly (no watcher needed)
-3. **Validate** vault output against test spec
+1. **Send** test message directly to Test Inbox (no forwarding needed)
+2. **Process** via `processMessage()` directly (no watcher required)
+3. **Save** to vault via `saveToVault()`
+4. **Validate** output against test spec expectations
 
-### Why Single-Process?
-
-Telegram's limitation: one bot can't poll multiple channels simultaneously. The old approach required a separate watcher process. The new approach calls `processMessage()` directly after forwarding, avoiding the polling limitation.
-
-### The Three-Channel Architecture
-
-1. **PAI Test Cases**: Library of test messages, populated via bot API (configured via `TEST_TELEGRAM_CASES_ID`)
-2. **PAI Test Inbox**: Test inbox, where messages are forwarded for processing (configured via `TEST_TELEGRAM_CHANNEL_ID`)
-3. **PAI Test Events**: Test notifications channel (configured via `TEST_TELEGRAM_OUTBOX_ID`)
-
-### Integration Test Commands
+### Commands
 
 ```bash
+# Run all integration tests (parallel - fastest)
+bun run ingest.ts test integration --parallel
+
+# Run with custom concurrency
+bun run ingest.ts test integration --parallel --concurrency 3
+
 # Run specific test
-bun run ingest.ts test integration --ids TEST-REG-020 --verbose
+bun run ingest.ts test integration --ids TEST-SCOPE-001 --verbose
 
-# Run multiple tests
-bun run ingest.ts test integration --ids TEST-REG-001,TEST-REG-002 --verbose
+# Run by category
+bun run ingest.ts test integration --suite scope --parallel
 
-# Run all tests with fixtures
+# Run sequentially (slower but easier to debug)
 bun run ingest.ts test integration --verbose
 
-# Dry run (show what would happen without forwarding)
-bun run ingest.ts test integration --ids TEST-REG-020 --dry-run
+# Dry run (show what would happen)
+bun run ingest.ts test integration --ids TEST-REG-001 --dry-run
+
+# Custom per-test timeout (ms)
+bun run ingest.ts test integration --parallel --timeout 180000
 ```
 
-### Setup Test Cases (one-time)
+### Options
 
-```bash
-# Send specific test to Test Cases channel
-bun run ingest.ts test send TEST-REG-020
-
-# Send all tests
-bun run ingest.ts test send --all
-```
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--parallel` | Run tests concurrently | Off (sequential) |
+| `--concurrency N` | Max concurrent tests | 5 |
+| `--timeout N` | Per-test timeout (ms) | 120000 (2 min) |
+| `--verbose` | Show detailed processing output | Off |
+| `--dry-run` | Show plan without sending messages | Off |
+| `--suite NAME` | Run specific category (scope/date/archive/regression) | All |
+| `--ids TEST-XX` | Run specific test ID | All with fixtures |
 
 ### Configuration
 
@@ -85,53 +110,44 @@ Add to `~/.claude/.env`:
 
 ```bash
 # Test channels (required for integration testing)
-# Add these to ~/.claude/.env (do not commit to git)
 TEST_TELEGRAM_CHANNEL_ID=<your-test-inbox-channel-id>   # PAI Test Inbox
-TEST_TELEGRAM_OUTBOX_ID=<your-test-events-channel-id>    # PAI Test Events
-TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>      # PAI Test Cases
+TEST_TELEGRAM_OUTBOX_ID=<your-test-events-channel-id>   # PAI Test Events
+TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>     # PAI Test Cases (optional, for manual testing)
 ```
 
-## Quick Start
+## Test Reports
+
+Both unit and integration tests generate detailed markdown reports.
+
+### Unit Test Reports
 
 ```bash
-# Run all unit tests (with fixtures)
-ingest test run
+# Location after test run
+test/output/run-YYYY-MM-DD-HH-MM-SS/REPORT.md
+test/output/latest-report.md  # Symlink to latest
 
-# Run specific test
-ingest test run TEST-SCOPE-001
-
-# Run tests by category
-ingest test run --suite scope
-ingest test run --suite date
-ingest test run --suite archive
-ingest test run --suite regression
-
-# Include media tests (requires Telegram download)
-ingest test run --include-media
-
-# Show test status
-ingest test status
+# Report includes:
+# - Summary (total/passed/failed/skipped)
+# - Failed test details with expected vs actual
+# - All tests table with duration
 ```
 
-## Test Types
+### Integration Test Reports
 
-### Unit Tests (`ingest test run`)
+```bash
+# Location after integration run
+test/output/integration-report.md
+test/output/latest-integration-report.md
 
-Fast, fixture-based tests that replay captured Telegram messages:
+# Report includes:
+# - Summary with pass rate
+# - Failed tests with input/expected/actual details
+# - All tests table with pipeline and duration
+```
 
-- Uses pre-captured fixtures from `test/fixtures/`
-- Writes output to isolated `test/output/` directory (not production vault)
-- Does NOT send events to Telegram
-- Best for CI/CD and rapid iteration
+### Test History
 
-### Integration Tests (Manual Workflow)
-
-Full end-to-end Telegram pipeline tests:
-
-1. Forward message from PAI Test Cases → PAI Test Inbox
-2. Watch daemon processes it
-3. Check vault for output, PAI Test Events for notification
-4. Validate against test spec
+Test results are tracked over time in `test/output/test-history.json` for quality trending.
 
 ## Test Categories
 
@@ -148,24 +164,25 @@ Full end-to-end Telegram pipeline tests:
 
 ```bash
 # Capture from most recent matching Telegram message
-ingest test capture TEST-SCOPE-001
+bun run ingest.ts test capture TEST-SCOPE-001
 
 # Capture all missing fixtures
-ingest test capture --missing
+bun run ingest.ts test capture --missing
 ```
 
-### Populate Test Cases Channel
+### Populate Test Cases Channel (Optional)
+
+For manual testing, you can populate the Test Cases channel:
 
 ```bash
 # Send single test to PAI Test Cases
-ingest test send TEST-REG-001
+bun run ingest.ts test send TEST-REG-001
 
 # Send all tests to PAI Test Cases
-ingest test send --all
+bun run ingest.ts test send --all
 ```
-(Requires `TEST_TELEGRAM_CASES_ID` in `~/.claude/.env`)
 
-**Note:** Voice tests (`TEST-REG-005a/b`) require manual recording and sending.
+**Note:** Integration tests no longer require pre-populated Test Cases. They send messages directly.
 
 ## Test Spec Structure
 
@@ -183,6 +200,7 @@ Test specs are defined in `test/specs/`:
     example: "~private My personal journal entry",
   },
   expected: {
+    pipeline: "default",
     tags: ["scope/private"],
     excludeTags: ["scope/work"],
     frontmatter: {
@@ -196,9 +214,9 @@ Test specs are defined in `test/specs/`:
 
 Tests can validate:
 
+- **Pipeline**: `expected.pipeline` (default, archive, receipt, note)
 - **Tags**: `expected.tags`, `expected.excludeTags`
 - **Frontmatter**: `expected.frontmatter` (key-value pairs)
-- **Pipeline**: `expected.pipeline` (default, archive, receipt, clip)
 - **Content**: `expected.content.contains`, `expected.content.notContains`
 - **Verbose Output**: `expected.verboseOutput` (console log strings)
 - **Dropbox Sync**: `expected.dropboxSync`
@@ -214,56 +232,64 @@ test/
 │   ├── regression/     # Regression test fixtures
 │   ├── assets/         # Test files (PDFs, images, etc.)
 │   └── media/          # Downloaded Telegram media
-├── output/             # Test run output (isolated vault)
-│   └── run-YYYY-MM-DD-HH-MM-SS/
+├── output/             # Test run output
+│   ├── run-YYYY-MM-DD-HH-MM-SS/  # Unit test runs
+│   ├── latest-report.md          # Latest unit test report
+│   ├── integration-report.md     # Latest integration report
+│   └── test-history.json         # Quality tracking over time
 ├── specs/              # Test specifications
-│   ├── index.ts        # All specs export
+│   ├── index.ts
 │   ├── scope.spec.ts
 │   ├── date.spec.ts
 │   ├── archive.spec.ts
 │   └── regression.spec.ts
 └── framework/          # Test framework code
-    ├── runner.ts       # Unit test runner
-    ├── integration.ts  # Integration test support
-    ├── capture.ts      # Fixture capture
-    ├── validate.ts     # Validation logic
-    └── types.ts        # TypeScript types
+    ├── runner.ts           # Unit test runner
+    ├── integration-runner.ts  # Integration test runner
+    ├── capture.ts          # Fixture capture
+    ├── validate.ts         # Validation logic
+    ├── report.ts           # Report generation
+    └── types.ts            # TypeScript types
 ```
 
 ## Adding New Tests
 
 1. Create spec in appropriate `test/specs/*.spec.ts`
-2. Send to PAI Test Cases: `ingest test send TEST-NEW-001` (requires `TEST_TELEGRAM_CASES_ID` in `~/.claude/.env`)
-3. Capture fixture (if needed): `ingest test capture TEST-NEW-001`
-4. Run unit test: `ingest test run TEST-NEW-001`
-5. Commit fixture and spec
+2. Add entry to `test/test-case-registry.csv`
+3. Send to capture: `bun run ingest.ts test send TEST-NEW-001`
+4. Capture fixture: `bun run ingest.ts test capture TEST-NEW-001`
+5. Run unit test: `bun run ingest.ts test run TEST-NEW-001`
+6. Run integration: `bun run ingest.ts test integration --ids TEST-NEW-001 --verbose`
+7. Commit fixture and spec
 
 ## CI/CD Integration
 
 ```bash
-# Run all tests, exit with error code on failure
-ingest test run
+# Run all unit tests, exit with error code on failure
+bun run ingest.ts test run
 
-# Run without media (faster, no Telegram downloads)
-ingest test run  # Default behavior
+# Run integration tests in parallel
+bun run ingest.ts test integration --parallel
 
-# Run specific suite
-ingest test run --suite regression
+# Run specific suite for faster CI
+bun run ingest.ts test run --suite regression
 ```
 
 ## Troubleshooting
 
 ### Test Skipped (No Fixture)
 
-Run `ingest test capture TEST-ID` or send and capture from PAI Test Cases.
+Run `bun run ingest.ts test capture TEST-ID` to capture from Telegram.
 
 ### Media Tests Skipped
 
-Add `--include-media` flag (requires active Telegram connection).
+Add `--include-media` flag (requires active Telegram connection for downloads).
 
 ### Test Timeout
 
-Increase timeout in `test/framework/runner.ts` (default: 60s).
+- Unit tests: 5 minute timeout per test (configurable in `runner.ts`)
+- Integration tests: Use `--timeout N` flag (default 2 minutes)
+- Slow tests (voice transcription, long documents) may need longer timeouts
 
 ### Content Validation Failing
 
@@ -271,8 +297,12 @@ Increase timeout in `test/framework/runner.ts` (default: 60s).
 - Case-insensitive substring matching
 - Check actual output in `test/output/run-*/TEST-ID/`
 
-### Integration Test Not Processing
+### Integration Test Failing
 
-- Ensure watch daemon is running
-- Check PAI Test Events for notifications
-- Messages must be forwarded by a user (not sent by bot API)
+- Check `test/output/integration-report.md` for detailed failure info
+- Run with `--verbose` to see processing output
+- Verify test channel IDs in `~/.claude/.env`
+
+### One Test Blocking Suite
+
+Use `--parallel` mode - each test has independent timeout protection.

@@ -17,7 +17,7 @@ import type { TestSpec, ValidationResult, ValidationCheck, TestCategory, Fixture
 import { getSpecById, getSpecsByCategory, allIngestSpecs } from "../specs";
 import { loadFixtureFromPath, fixtureExists } from "./capture";
 import { getConfig } from "../../lib/config";
-import { processMessage, type ProcessResult } from "../../lib/process";
+import { processMessage, saveToVault, type ProcessResult } from "../../lib/process";
 import { loadProfile } from "../../lib/profiles";
 import type { ContentType, TelegramMessage } from "../../lib/telegram";
 
@@ -32,6 +32,8 @@ export interface IntegrationOptions {
   verbose?: boolean;
   timeout?: number;  // Default 90s, voice tests may need more
   dryRun?: boolean;  // Just show what would be done
+  parallel?: boolean;  // Run tests in parallel
+  concurrency?: number;  // Max concurrent tests (default: 5)
 }
 
 export interface IntegrationResult extends ValidationResult {
@@ -39,6 +41,27 @@ export interface IntegrationResult extends ValidationResult {
   processResult?: ProcessResult;
   vaultFilePath?: string;
   dropboxFilePath?: string;
+  // Detailed info for reporting
+  spec?: {
+    id: string;
+    name: string;
+    category: string;
+    inputType: string;
+    inputExample?: string;
+    inputCaption?: string;
+  };
+  actualOutput?: {
+    pipeline?: string;
+    tags?: string[];
+    scope?: string;
+    vaultPath?: string;
+    content?: string;  // First 500 chars of vault content
+  };
+  expectedOutput?: {
+    pipeline?: string;
+    tags?: string[];
+    frontmatter?: Record<string, unknown>;
+  };
 }
 
 // EventsPayload kept for reference but not used in direct processing approach
@@ -108,6 +131,108 @@ async function forwardMessage(
   });
 
   return response.json();
+}
+
+/**
+ * Send a test message directly to a channel
+ * Returns the full sent message object
+ */
+async function sendTestMessageDirect(
+  spec: TestSpec,
+  channelId: string,
+  fixture: { message: any; _meta?: any }
+): Promise<{ ok: boolean; result?: TelegramMessage; description?: string }> {
+  const config = getConfig();
+  const testIdPrefix = `[${spec.id}] `;
+  const fixtureMsg = fixture.message;
+
+  try {
+    switch (spec.input.type) {
+      case "text":
+      case "url": {
+        const originalText = fixtureMsg?.text || spec.input.example;
+        if (!originalText) {
+          return { ok: false, description: `No text content for ${spec.id}` };
+        }
+        // Strip any existing test ID prefix to avoid duplication
+        const cleanText = originalText.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const text = testIdPrefix + cleanText;
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: channelId, text }),
+        });
+        return response.json();
+      }
+
+      case "photo": {
+        const fileId = fixtureMsg?.photo?.[fixtureMsg.photo.length - 1]?.file_id;
+        if (!fileId) {
+          return { ok: false, description: `No photo file_id in fixture for ${spec.id}` };
+        }
+        const originalCaption = fixtureMsg?.caption || spec.input.caption || "";
+        const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const caption = testIdPrefix + cleanCaption;
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendPhoto`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: channelId, photo: fileId, caption }),
+        });
+        return response.json();
+      }
+
+      case "document": {
+        const fileId = fixtureMsg?.document?.file_id;
+        if (!fileId) {
+          return { ok: false, description: `No document file_id in fixture for ${spec.id}` };
+        }
+        const originalCaption = fixtureMsg?.caption || spec.input.caption || "";
+        const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const caption = testIdPrefix + cleanCaption;
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: channelId, document: fileId, caption }),
+        });
+        return response.json();
+      }
+
+      case "voice":
+      case "audio": {
+        const fileId = fixtureMsg?.voice?.file_id || fixtureMsg?.audio?.file_id;
+        if (!fileId) {
+          return { ok: false, description: `No voice/audio file_id in fixture for ${spec.id}` };
+        }
+        // Voice messages can have captions with hints (e.g., #project @person)
+        // Prefer spec.input.caption (what we're testing) over fixture caption
+        const originalCaption = spec.input.caption || fixtureMsg?.caption || "";
+        const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const caption = cleanCaption ? testIdPrefix + cleanCaption : "";
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendVoice`;
+        const body: Record<string, unknown> = { chat_id: channelId, voice: fileId };
+        if (caption) body.caption = caption;
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return response.json();
+      }
+
+      default:
+        return { ok: false, description: `Unsupported test type: ${spec.input.type}` };
+    }
+  } catch (error) {
+    return { ok: false, description: String(error) };
+  }
 }
 
 // =============================================================================
@@ -264,31 +389,28 @@ export async function runIntegrationTest(
 
   const config = getConfig();
 
-  // Get channel IDs
-  // Use test channel IDs if available, otherwise fall back to production channels
-  const testCasesChannelId = config.testTelegramCasesId;
+  // Get channel IDs - only need Test Inbox for direct send approach
   const testInboxChannelId = config.testTelegramChannelId || config.telegramChannelId;
-  const eventsChannelId = config.testTelegramOutboxId || config.telegramOutboxId;
 
-  if (!testCasesChannelId || !testInboxChannelId || !eventsChannelId) {
+  if (!testInboxChannelId) {
     return {
       testId,
       passed: false,
       duration: Date.now() - startTime,
       processingTime: 0,
       checks: [],
-      error: "Missing channel IDs in config. Need: TEST_TELEGRAM_CASES_ID, and either (TEST_TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_ID), and either (TEST_TELEGRAM_OUTBOX_ID or TELEGRAM_OUTBOX_ID)",
+      error: "Missing channel ID. Need TEST_TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_ID",
     };
   }
 
   if (options.verbose) {
     console.log(`\n--- ${testId}: ${spec.name} ---`);
-    console.log(`Forwarding message ${fixture.message.message_id} to inbox...`);
+    console.log(`Sending test message to inbox...`);
   }
 
   // Dry run mode - just show what would happen
   if (options.dryRun) {
-    console.log(`[DRY RUN] Would forward message ${fixture.message.message_id} from ${testCasesChannelId} to ${testInboxChannelId}`);
+    console.log(`[DRY RUN] Would send ${spec.input.type} message to ${testInboxChannelId}`);
     return {
       testId,
       passed: true,
@@ -298,39 +420,35 @@ export async function runIntegrationTest(
     };
   }
 
-  // Forward message to test inbox
-  const forwardResult = await forwardMessage(
-    testCasesChannelId,
-    testInboxChannelId,
-    fixture.message.message_id
-  );
+  // Send test message directly to test inbox (no forwarding needed)
+  const sendResult = await sendTestMessageDirect(spec, testInboxChannelId, fixture);
 
-  if (!forwardResult.ok) {
+  if (!sendResult.ok) {
     return {
       testId,
       passed: false,
       duration: Date.now() - startTime,
       processingTime: 0,
       checks: [],
-      error: `Forward failed: ${forwardResult.description}`,
+      error: `Send failed: ${sendResult.description}`,
     };
   }
 
-  const forwardedMessage = forwardResult.result!;
+  const sentMessage = sendResult.result!;
 
   checks.push({
-    name: "message_forwarded",
+    name: "message_sent",
     passed: true,
-    actual: forwardedMessage.message_id,
+    actual: sentMessage.message_id,
   });
 
   if (options.verbose) {
-    console.log(`Forwarded as message ${forwardedMessage.message_id}`);
+    console.log(`Sent as message ${sentMessage.message_id}`);
     console.log(`Processing message directly...`);
   }
 
   // Determine content type from message
-  const contentType = getContentTypeFromMessage(forwardedMessage);
+  const contentType = getContentTypeFromMessage(sentMessage);
 
   // Get test profile (uses test vault path if configured)
   const profile = loadProfile();
@@ -345,7 +463,7 @@ export async function runIntegrationTest(
   let processResult: ProcessResult;
 
   try {
-    processResult = await processMessage(forwardedMessage, contentType, profile);
+    processResult = await processMessage(sentMessage, contentType, profile);
   } catch (error) {
     return {
       testId,
@@ -374,6 +492,27 @@ export async function runIntegrationTest(
       checks,
       error: processResult.error || "Processing failed",
     };
+  }
+
+  // Save processed content to vault (processMessage only processes, doesn't save)
+  const savedPaths: string[] = [];
+  if (processResult.content) {
+    for (const processed of processResult.content) {
+      const isWisdom = !!processed.processedContent;
+      try {
+        const saveResult = await saveToVault(processed, profile, isWisdom);
+        if (saveResult.vaultPath) {
+          savedPaths.push(saveResult.vaultPath);
+          if (options.verbose) {
+            console.log(`  Saved: ${saveResult.vaultPath}`);
+          }
+        }
+      } catch (saveError) {
+        if (options.verbose) {
+          console.log(`  Save error: ${saveError}`);
+        }
+      }
+    }
   }
 
   // Extract first content item for validation
@@ -421,8 +560,13 @@ export async function runIntegrationTest(
   let vaultFrontmatter: Record<string, unknown> = {};
   let vaultContent = "";
 
-  // Use original file path from processResult if available
-  if (firstContent?.originalFilePath && config.obsidianVaultPath) {
+  // Use saved paths from our saveToVault calls first (most reliable)
+  if (savedPaths.length > 0) {
+    vaultFilePath = savedPaths[0];
+  }
+
+  // Fallback: Use original file path from processResult if available
+  if (!vaultFilePath && firstContent?.originalFilePath && config.obsidianVaultPath) {
     const fullPath = join(config.obsidianVaultPath, firstContent.originalFilePath);
     if (existsSync(fullPath)) {
       vaultFilePath = fullPath;
@@ -509,10 +653,19 @@ export async function runIntegrationTest(
     }
   }
 
-  // Validate content
+  // Validate content - check across ALL saved files (Raw, Wisdom, etc.)
   if (spec.expected.content?.contains) {
+    // Combine content from all saved files for pattern tests
+    let allContent = vaultContent;
+    if (savedPaths.length > 1) {
+      for (let i = 1; i < savedPaths.length; i++) {
+        const parsed = parseVaultFile(savedPaths[i]);
+        allContent += "\n" + parsed.content;
+      }
+    }
+
     for (const expectedText of spec.expected.content.contains) {
-      const found = vaultContent.toLowerCase().includes(expectedText.toLowerCase());
+      const found = allContent.toLowerCase().includes(expectedText.toLowerCase());
       checks.push({
         name: `content_contains:${expectedText.slice(0, 20)}`,
         passed: found,
@@ -540,6 +693,7 @@ export async function runIntegrationTest(
   const passed = checks.every(c => c.passed);
   const duration = Date.now() - startTime;
 
+  // Build detailed result for reporting
   return {
     testId,
     passed,
@@ -549,6 +703,29 @@ export async function runIntegrationTest(
     processResult,
     vaultFilePath,
     dropboxFilePath: processResult.dropboxPath,
+    // Detailed spec info
+    spec: {
+      id: spec.id,
+      name: spec.name,
+      category: spec.category,
+      inputType: spec.input.type,
+      inputExample: spec.input.example,
+      inputCaption: spec.input.caption,
+    },
+    // Actual output
+    actualOutput: {
+      pipeline,
+      tags: contentTags,
+      scope: vaultFrontmatter.scope as string | undefined,
+      vaultPath: vaultFilePath,
+      content: vaultContent.slice(0, 500),
+    },
+    // Expected output
+    expectedOutput: {
+      pipeline: spec.expected.pipeline,
+      tags: spec.expected.tags,
+      frontmatter: spec.expected.frontmatter,
+    },
   };
 }
 
@@ -624,7 +801,38 @@ async function validateWithVaultFile(
 }
 
 /**
- * Run multiple integration tests
+ * Run a single test with timeout protection
+ */
+async function runTestWithTimeout(
+  testId: string,
+  options: IntegrationOptions,
+  timeout: number
+): Promise<IntegrationResult> {
+  const timeoutPromise = new Promise<IntegrationResult>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Test ${testId} timed out after ${timeout / 1000}s`));
+    }, timeout);
+  });
+
+  try {
+    return await Promise.race([
+      runIntegrationTest(testId, options),
+      timeoutPromise,
+    ]);
+  } catch (error) {
+    return {
+      testId,
+      passed: false,
+      duration: timeout,
+      processingTime: timeout,
+      checks: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Run multiple integration tests (supports parallel execution)
  */
 export async function runIntegrationTests(
   options: IntegrationOptions = {}
@@ -649,29 +857,58 @@ export async function runIntegrationTests(
   // Filter out skipped tests
   specs = specs.filter(s => !s.meta?.skip);
 
-  console.log(`\nRunning ${specs.length} integration tests...\n`);
+  const concurrency = options.concurrency || 5;
+  const perTestTimeout = options.timeout || 120000; // 2 min per test default
 
-  for (const spec of specs) {
-    const result = await runIntegrationTest(spec.id, options);
-    results.push(result);
+  if (options.parallel) {
+    console.log(`\nRunning ${specs.length} integration tests (parallel, concurrency: ${concurrency})...\n`);
 
-    // Print progress
-    const status = result.passed ? "✓" : "✗";
-    const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-    console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name} (${result.processingTime}ms)`);
+    // Process in batches for controlled concurrency
+    for (let i = 0; i < specs.length; i += concurrency) {
+      const batch = specs.slice(i, i + concurrency);
+      const batchPromises = batch.map(spec =>
+        runTestWithTimeout(spec.id, { ...options, verbose: false }, perTestTimeout)
+      );
 
-    if (!result.passed && result.error) {
-      console.log(`  Error: ${result.error}`);
-    }
-    if (!result.passed && result.checks.length > 0) {
-      const failed = result.checks.filter(c => !c.passed);
-      for (const check of failed.slice(0, 3)) {
-        console.log(`  - ${check.name}: ${check.error || "failed"}`);
+      const batchResults = await Promise.all(batchPromises);
+
+      for (const result of batchResults) {
+        results.push(result);
+        const spec = batch.find(s => s.id === result.testId);
+        const status = result.passed ? "✓" : "✗";
+        const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+        console.log(`${color}${status}\x1b[0m ${result.testId}: ${spec?.name || ""} (${result.processingTime}ms)`);
+
+        if (!result.passed && result.error) {
+          console.log(`  Error: ${result.error}`);
+        }
       }
     }
+  } else {
+    console.log(`\nRunning ${specs.length} integration tests (sequential)...\n`);
 
-    // Small delay between tests to avoid rate limiting
-    await Bun.sleep(1000);
+    for (const spec of specs) {
+      const result = await runTestWithTimeout(spec.id, options, perTestTimeout);
+      results.push(result);
+
+      // Print progress
+      const status = result.passed ? "✓" : "✗";
+      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+      console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name} (${result.processingTime}ms)`);
+
+      if (!result.passed && result.error) {
+        console.log(`  Error: ${result.error}`);
+      }
+      if (!result.passed && result.checks.length > 0) {
+        const failed = result.checks.filter(c => !c.passed);
+        for (const check of failed.slice(0, 3)) {
+          console.log(`  - ${check.name}: ${check.error || "failed"}`);
+        }
+      }
+
+      // Small delay between tests to avoid rate limiting
+      await Bun.sleep(500);
+    }
   }
 
   const completedAt = new Date().toISOString();
@@ -719,4 +956,143 @@ export function printIntegrationSummary(summary: IntegrationRunSummary): void {
       console.log(`  - ${result.testId}: ${result.error || "validation failed"}`);
     }
   }
+}
+
+/**
+ * Generate detailed markdown report for integration tests
+ */
+export function generateDetailedReport(summary: IntegrationRunSummary): string {
+  const lines: string[] = [];
+  const runId = `integration-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+
+  // Header
+  lines.push(`# Integration Test Report: ${runId}`);
+  lines.push("");
+  lines.push(`**Date:** ${new Date(summary.startedAt).toLocaleString()}`);
+  lines.push(`**Duration:** ${(summary.duration / 1000).toFixed(1)}s`);
+  lines.push(`**Mode:** ${summary.counts.total > 1 ? "batch" : "single"}`);
+  lines.push("");
+
+  // Summary table
+  lines.push("## Summary");
+  lines.push("");
+  lines.push("| Metric | Value |");
+  lines.push("|--------|-------|");
+  lines.push(`| Total | ${summary.counts.total} |`);
+  lines.push(`| Passed | ${summary.counts.passed} |`);
+  lines.push(`| Failed | ${summary.counts.failed} |`);
+  lines.push(`| Skipped | ${summary.counts.skipped} |`);
+  lines.push(`| Pass Rate | ${Math.round((summary.counts.passed / summary.counts.total) * 100)}% |`);
+  lines.push("");
+
+  // Failed tests section
+  const failedTests = summary.results.filter(r => !r.passed);
+  if (failedTests.length > 0) {
+    lines.push("## Failed Tests");
+    lines.push("");
+
+    for (const result of failedTests) {
+      lines.push(`### ${result.testId}: ${result.spec?.name || "Unknown"}`);
+      lines.push("");
+      lines.push(`- **Category:** ${result.spec?.category || "unknown"}`);
+      lines.push(`- **Input Type:** ${result.spec?.inputType || "unknown"}`);
+      lines.push(`- **Duration:** ${result.duration}ms`);
+
+      if (result.error) {
+        lines.push(`- **Error:** ${result.error}`);
+      }
+
+      // Input details
+      if (result.spec?.inputExample || result.spec?.inputCaption) {
+        lines.push("");
+        lines.push("**Input:**");
+        if (result.spec.inputExample) {
+          lines.push("```");
+          lines.push(result.spec.inputExample.slice(0, 200));
+          lines.push("```");
+        }
+        if (result.spec.inputCaption) {
+          lines.push(`Caption: \`${result.spec.inputCaption}\``);
+        }
+      }
+
+      // Expected vs Actual
+      lines.push("");
+      lines.push("**Expected:**");
+      if (result.expectedOutput?.pipeline) {
+        lines.push(`- Pipeline: ${result.expectedOutput.pipeline}`);
+      }
+      if (result.expectedOutput?.tags && result.expectedOutput.tags.length > 0) {
+        lines.push(`- Tags: ${result.expectedOutput.tags.join(", ")}`);
+      }
+
+      lines.push("");
+      lines.push("**Actual:**");
+      if (result.actualOutput?.pipeline) {
+        lines.push(`- Pipeline: ${result.actualOutput.pipeline}`);
+      }
+      if (result.actualOutput?.tags && result.actualOutput.tags.length > 0) {
+        lines.push(`- Tags: ${result.actualOutput.tags.join(", ")}`);
+      }
+      if (result.actualOutput?.vaultPath) {
+        lines.push(`- Vault Path: ${result.actualOutput.vaultPath}`);
+      }
+
+      // Failed checks
+      const failedChecks = result.checks.filter(c => !c.passed);
+      if (failedChecks.length > 0) {
+        lines.push("");
+        lines.push("**Failed Checks:**");
+        for (const check of failedChecks) {
+          lines.push(`- ${check.name}: ${check.error || "failed"}`);
+          if (check.expected !== undefined) {
+            lines.push(`  - Expected: ${JSON.stringify(check.expected)}`);
+          }
+          if (check.actual !== undefined) {
+            lines.push(`  - Actual: ${JSON.stringify(check.actual)}`);
+          }
+        }
+      }
+
+      lines.push("");
+    }
+  }
+
+  // All tests table
+  lines.push("## All Tests");
+  lines.push("");
+  lines.push("| ID | Name | Type | Status | Duration | Pipeline |");
+  lines.push("|---|---|---|---|---|---|");
+
+  for (const result of summary.results) {
+    const status = result.passed ? "✅" : "❌";
+    const duration = result.duration > 0 ? `${result.duration}ms` : "-";
+    const pipeline = result.actualOutput?.pipeline || "-";
+    const name = result.spec?.name || "Unknown";
+    const type = result.spec?.inputType || "?";
+    lines.push(`| ${result.testId} | ${name.slice(0, 30)} | ${type} | ${status} | ${duration} | ${pipeline} |`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Save detailed integration report to file
+ */
+export function saveDetailedReport(summary: IntegrationRunSummary): string {
+  const { writeFileSync, mkdirSync } = require("fs");
+  const { join } = require("path");
+
+  const OUTPUT_DIR = join(import.meta.dir, "..", "output");
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  const markdown = generateDetailedReport(summary);
+  const reportPath = join(OUTPUT_DIR, "integration-report.md");
+  writeFileSync(reportPath, markdown);
+
+  // Also update latest
+  const latestPath = join(OUTPUT_DIR, "latest-integration-report.md");
+  writeFileSync(latestPath, markdown);
+
+  return reportPath;
 }

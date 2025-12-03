@@ -1,22 +1,16 @@
 /**
  * Integration Test Runner
  *
- * Two modes of operation:
+ * IMPORTANT: Telegram bots CANNOT receive their own messages via getUpdates.
+ * Bot-sent messages never appear in updates, so automated send+process won't work.
  *
- * 1. Process Pending Mode (`ingest test integration --process-pending`):
- *    - Processes ALL pending messages from the test channel
- *    - Use after manually sending test messages to the test inbox
- *    - True end-to-end Telegram integration testing
- *
- * 2. Send Mode (`ingest test integration --send TEST-ID`):
- *    - Sends a test message to the test channel
- *    - Useful for setting up test data
- *    - NOTE: Bot cannot receive its own messages as updates
- *
- * Workflow for integration testing:
- * 1. User sends test message to PAI Test Inbox channel
+ * Primary workflow for integration testing:
+ * 1. User sends test message to PAI Test Inbox (via Telegram app or iOS shortcut)
  * 2. Run `ingest test integration --process-pending --cleanup`
- * 3. Validates output in vault
+ * 3. Validates output in vault and PAI Test Events
+ *
+ * The `--send` mode is only for putting test content in the channel for reference,
+ * NOT for automated testing (those messages won't be picked up by getUpdates).
  *
  * Requires test channels to be configured:
  * - TEST_TELEGRAM_CHANNEL_ID: Test inbox channel
@@ -33,7 +27,6 @@ import {
   sendToInbox,
   sendPhotoToInbox,
   sendDocumentToInbox,
-  getUpdates,
 } from "../../lib/telegram";
 
 // =============================================================================
@@ -56,6 +49,11 @@ interface IntegrationTestOptions {
 
 /**
  * Run a single test through the full Telegram pipeline
+ *
+ * NOTE: This function cannot work automatically because Telegram bots cannot
+ * receive their own messages via getUpdates. Use the workflow:
+ * 1. User sends message to PAI Test Inbox manually
+ * 2. Run `ingest test integration --process-pending`
  */
 export async function runIntegrationTest(
   testId: string,
@@ -72,100 +70,22 @@ export async function runIntegrationTest(
     };
   }
 
-  const config = getConfig();
-  const timeout = options.timeout || 120000; // 2 minute default
+  // Automated integration tests cannot work because Telegram bots cannot
+  // receive their own messages via getUpdates API.
+  return {
+    testId,
+    passed: false,
+    duration: 0,
+    checks: [],
+    error: `Automated integration tests not supported. Telegram bots cannot receive their own messages.
 
-  // Check for test channels
-  const inboxChannel = config.testTelegramChannelId || config.telegramChannelId;
-  const eventsChannel = config.testTelegramOutboxId || config.telegramOutboxId;
+To run integration tests:
+1. Send test message to PAI Test Inbox manually (or via iOS shortcut)
+2. Run: ingest test integration --process-pending --cleanup
 
-  if (!config.testTelegramChannelId) {
-    console.log("⚠️  Warning: TEST_TELEGRAM_CHANNEL_ID not set, using production inbox");
-  }
-  if (!config.testTelegramOutboxId && eventsChannel) {
-    console.log("⚠️  Warning: TEST_TELEGRAM_OUTBOX_ID not set, using production events");
-  }
-
-  const startTime = Date.now();
-
-  try {
-    // 1. Send test message to inbox
-    if (options.verbose) {
-      console.log(`\n--- Integration Test: ${spec.id} ---`);
-      console.log(`Sending to channel: ${inboxChannel}`);
-    }
-
-    const sentMessage = await sendTestMessage(spec, inboxChannel);
-    if (!sentMessage) {
-      return {
-        testId,
-        passed: false,
-        duration: Date.now() - startTime,
-        checks: [],
-        error: "Failed to send test message",
-      };
-    }
-
-    if (options.verbose) {
-      console.log(`✓ Message sent: ${sentMessage.message_id}`);
-    }
-
-    // 2. Process the message through ingest pipeline
-    // This runs `ingest process` which polls the test channel and processes new messages
-    if (options.verbose) {
-      console.log("Processing message through ingest pipeline...");
-    }
-
-    const processResult = await processViaIngest(timeout);
-    if (!processResult.success) {
-      return {
-        testId,
-        passed: false,
-        duration: Date.now() - startTime,
-        checks: [],
-        error: processResult.error || "Processing failed",
-      };
-    }
-
-    if (options.verbose) {
-      console.log(`✓ Processing complete`);
-      console.log(`  Vault files: ${processResult.vaultFiles.length}`);
-    }
-
-    // 3. Validate output
-    const testOutput: TestOutput = {
-      vaultFiles: processResult.vaultFiles,
-      verboseOutput: processResult.verboseOutput,
-      dropboxPath: processResult.dropboxPath,
-    };
-
-    const result = validateTestOutput(spec, testOutput);
-    result.duration = Date.now() - startTime;
-
-    // 4. Cleanup if requested
-    if (options.cleanupVault && processResult.vaultFiles.length > 0) {
-      for (const file of processResult.vaultFiles) {
-        try {
-          rmSync(file);
-          if (options.verbose) {
-            console.log(`  Cleaned up: ${file}`);
-          }
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-      }
-    }
-
-    return result;
-  } catch (err) {
-    return {
-      testId,
-      passed: false,
-      duration: Date.now() - startTime,
-      checks: [],
-      error: String(err),
-    };
-  }
+To see what this test would send:
+  ingest test send ${testId}`,
+  };
 }
 
 /**
@@ -226,111 +146,6 @@ async function sendTestMessage(
       delete process.env.TELEGRAM_CHANNEL_ID;
     }
     resetConfig();
-  }
-}
-
-/**
- * Process messages through the actual ingest pipeline via subprocess
- *
- * Uses two-thread approach to handle Telegram's long-polling:
- * 1. Start `ingest watch` in background (continuously polling)
- * 2. Message is sent to test channel
- * 3. Watch process picks it up and processes it
- * 4. We wait for processing to complete
- *
- * This mirrors production where the watch daemon is always running.
- */
-async function processViaIngest(
-  timeout: number
-): Promise<{
-  success: boolean;
-  vaultFiles: string[];
-  verboseOutput: string;
-  dropboxPath?: string;
-  error?: string;
-}> {
-  const config = getConfig();
-  const vaultPath = config.vaultPath;
-
-  // Track files before processing
-  const filesBefore = new Set<string>();
-  scanVaultDir(vaultPath, filesBefore);
-
-  // Run ingest watch as subprocess (background polling)
-  const ingestPath = join(import.meta.dir, "..", "..", "ingest.ts");
-
-  // Set environment to use test channels (inbox + events)
-  const env: Record<string, string> = { ...process.env as Record<string, string> };
-  if (config.testTelegramChannelId) {
-    env.TELEGRAM_CHANNEL_ID = config.testTelegramChannelId;
-  }
-  if (config.testTelegramOutboxId) {
-    env.TELEGRAM_OUTBOX_ID = config.testTelegramOutboxId;
-  }
-
-  let verboseOutput = "";
-  let watchProc: ReturnType<typeof Bun.spawn> | null = null;
-
-  try {
-    // Start watch process in background
-    watchProc = Bun.spawn(["bun", "run", ingestPath, "watch", "--verbose", "--interval", "5"], {
-      cwd: join(import.meta.dir, "..", ".."),
-      env,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    // Give watch process time to start polling
-    await Bun.sleep(2000);
-
-    // Now wait for processing (watch will pick up the message we already sent)
-    // Poll for new vault files with timeout
-    const startTime = Date.now();
-    let newFiles: string[] = [];
-
-    while (Date.now() - startTime < timeout) {
-      const filesAfter = new Set<string>();
-      scanVaultDir(vaultPath, filesAfter);
-      newFiles = [...filesAfter].filter(f => !filesBefore.has(f));
-
-      if (newFiles.length > 0) {
-        // Files created! Processing complete
-        break;
-      }
-
-      await Bun.sleep(2000);
-    }
-
-    // Capture output from watch process
-    watchProc.kill();
-    const stdout = await new Response(watchProc.stdout).text();
-    const stderr = await new Response(watchProc.stderr).text();
-    verboseOutput = stdout + "\n" + stderr;
-
-    // Extract dropbox path from verbose output if present
-    let dropboxPath: string | undefined;
-    const dropboxMatch = verboseOutput.match(/dropboxPath[=:]\s*["']?([^\s"']+)/);
-    if (dropboxMatch) {
-      dropboxPath = dropboxMatch[1];
-    }
-
-    return {
-      success: newFiles.length > 0,
-      vaultFiles: newFiles,
-      verboseOutput,
-      dropboxPath,
-      error: newFiles.length === 0 ? "No vault files created within timeout" : undefined,
-    };
-  } catch (err) {
-    if (watchProc) {
-      watchProc.kill();
-    }
-    return {
-      success: false,
-      vaultFiles: [],
-      verboseOutput,
-      error: String(err),
-    };
   }
 }
 

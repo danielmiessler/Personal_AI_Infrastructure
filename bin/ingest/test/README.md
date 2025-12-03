@@ -9,9 +9,11 @@ Automated testing for the ingest pipeline, supporting both unit tests (fixture-b
 ingest test run
 
 # Pre-release validation (~5-10 min)
-ingest test run --include-media && \
-ingest test integration TEST-REG-001 --cleanup && \
-ingest test integration TEST-PAT-001 --cleanup
+ingest test run --include-media
+
+# Integration tests (requires user to send message first)
+# 1. Send message to PAI Test Inbox manually
+# 2. Run: ingest test integration --process-pending --cleanup
 ```
 
 ## Testing Strategy
@@ -20,7 +22,7 @@ ingest test integration TEST-PAT-001 --cleanup
 |-----------|---------|----------|-------------|
 | **Unit tests** | `ingest test run` | ~3 min | Daily development, CI/CD |
 | **Unit + media** | `ingest test run --include-media` | ~5 min | When testing media processing |
-| **Integration** | `ingest test integration TEST-ID` | ~2 min/test | Pre-release, validating full pipeline |
+| **Integration** | `ingest test integration --process-pending` | ~1 min | Pre-release, validating full pipeline |
 
 ### Daily Development / CI
 
@@ -40,10 +42,10 @@ Full pipeline tests through Telegram (uses test channels):
 # 1. Run all unit tests including media
 ingest test run --include-media
 
-# 2. Run key integration tests
-ingest test integration TEST-REG-001 --cleanup   # Basic text processing
-ingest test integration TEST-PAT-001 --cleanup   # Fabric patterns
-ingest test integration TEST-REG-004 --cleanup   # URL/Jina processing
+# 2. Manual integration test
+# Send test messages to PAI Test Inbox (via Telegram app or iOS shortcut)
+# Then process them:
+ingest test integration --process-pending --cleanup --verbose
 ```
 
 The `--cleanup` flag deletes test notes from vault after validation.

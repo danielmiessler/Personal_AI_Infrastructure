@@ -559,6 +559,18 @@ if ask_yes_no "Are you using Claude Code?"; then
     # Create Claude directory if it doesn't exist
     mkdir -p "$HOME/.claude"
 
+    # Ask for user's name
+    USER_NAME=$(ask_input "What's your name?" "User")
+
+    # Customize settings.json with user values
+    print_step "Personalizing settings.json..."
+    sed -i.bak \
+        -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
+        -e "s|\"ASSISTANT_NAME\": \"FORGE\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
+        -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
+        "$PAI_DIR/.claude/settings.json"
+    print_success "Settings personalized"
+
     # Check if settings.json already exists
     if [ -L "$HOME/.claude/settings.json" ]; then
         print_info "Claude Code settings already linked to PAI"
@@ -569,11 +581,11 @@ if ask_yes_no "Are you using Claude Code?"; then
             mv "$HOME/.claude/settings.json" "$HOME/.claude/settings.json.backup"
             print_info "Backed up existing settings to settings.json.backup"
 
-            ln -sf "$PAI_DIR/settings.json" "$HOME/.claude/settings.json"
+            ln -sf "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
             print_success "Claude Code configured to use PAI!"
         fi
     else
-        ln -sf "$PAI_DIR/settings.json" "$HOME/.claude/settings.json"
+        ln -sf "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
         print_success "Claude Code configured to use PAI!"
     fi
 

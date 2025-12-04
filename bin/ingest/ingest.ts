@@ -734,17 +734,39 @@ async function handleDirect(
   try {
     const result: ProcessResult = await processMessage(syntheticMessage, contentType, profile, verbose);
 
-    if (result.success) {
+    if (result.success && result.content && result.content.length > 0) {
+      // Save to vault (processMessage only processes, doesn't save)
+      const savedPaths: string[] = [];
+      let dropboxPath: string | undefined;
+
+      for (let i = 0; i < result.content.length; i++) {
+        const content = result.content[i];
+        const isWisdom = i > 0; // First is raw, second is wisdom
+        const saveResult = await saveToVault(content, profile, isWisdom);
+        savedPaths.push(saveResult.vaultPath);
+        if (saveResult.dropboxPath) {
+          dropboxPath = saveResult.dropboxPath;
+        }
+      }
+
       console.log(`\n✅ Ingested successfully`);
-      if (result.vaultPath) {
-        console.log(`   Vault: ${result.vaultPath}`);
+      if (savedPaths.length > 0) {
+        console.log(`   Vault: ${savedPaths[0]}`);
+        if (savedPaths.length > 1) {
+          for (let i = 1; i < savedPaths.length; i++) {
+            console.log(`          ${savedPaths[i]}`);
+          }
+        }
       }
-      if (result.dropboxPath) {
-        console.log(`   Dropbox: ${result.dropboxPath}`);
+      if (dropboxPath) {
+        console.log(`   Dropbox: ${dropboxPath}`);
       }
-      if (result.pipeline) {
-        console.log(`   Pipeline: ${result.pipeline}`);
+      const firstContent = result.content[0];
+      if (firstContent.pipeline) {
+        console.log(`   Pipeline: ${firstContent.pipeline}`);
       }
+    } else if (result.success) {
+      console.log(`\n✅ Ingested successfully (no content saved)`);
     } else {
       console.error(`\n❌ Ingest failed: ${result.error}`);
       process.exit(1);
@@ -1527,29 +1549,39 @@ USAGE:
   ingest test <subcommand> [options]
 
 SUBCOMMANDS:
+  all                   Run all test layers (unit → integration → cli)
   run [TEST_ID]         Run unit tests (call processMessage directly)
   integration [TEST_ID] Run integration tests (forward via Telegram)
+  cli [TEST_ID]         Run CLI integration tests (obs search/semantic)
   forward <ID>         Forward a message by ID or test ID from Test Cases → Test Inbox
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
   capture TEST_ID       Capture fixture for a specific test
   status [runId]        Show test run status by group (current or specific run)
   runs                  List all test runs with summary
-  history <TEST_ID>     Show test history for a specific test
+  history [TEST_ID]     Show run history (or test history with TEST_ID)
   cleanup               Clean up test-generated files from vault/Dropbox
 
 OPTIONS:
-  --suite <name>     Run tests in category: scope, date, archive, regression
-  --all              Run all tests (including those without fixtures)
-  --verbose, -v      Show detailed output
-  --missing          Capture all missing fixtures interactively
-  --include-media    Run media tests (voice, photo, document)
-  --cleanup          Delete test notes from vault after validation
-  --recent <min>     How far back to look for test results (default: 10 min)
-  --timeout <ms>     Integration test timeout (default: 90000, voice: 120000)
-  --dry-run          Show what would happen without executing
+  --suite <name>       Run tests in category: scope, date, archive, regression
+  --all                Run all tests (including those without fixtures)
+  --verbose, -v        Show detailed output
+  --parallel           Run integration tests in parallel
+  --skip-unit          Skip unit tests (for 'test all')
+  --skip-integration   Skip integration tests (for 'test all')
+  --skip-cli           Skip CLI tests (for 'test all')
+  --layer <name>       Filter history by layer (unit, integration, cli)
+  --missing            Capture all missing fixtures interactively
+  --include-media      Run media tests (voice, photo, document)
+  --cleanup            Delete test notes from vault after validation
+  --recent <min>       How far back to look for test results (default: 10 min)
+  --timeout <ms>       Integration test timeout (default: 90000, voice: 120000)
+  --dry-run            Show what would happen without executing
 
 EXAMPLES:
+  ingest test all                         # Run all test layers
+  ingest test all --parallel              # Run with parallel integration tests
+  ingest test all --skip-unit             # Skip unit tests
   ingest test status                      # Show current run status by group
   ingest test status run-2025-12-04-001   # Show specific run status
   ingest test runs                        # List all test runs
@@ -1953,28 +1985,47 @@ async function handleTest(args: string[], verbose: boolean) {
     }
 
     case "history": {
-      // Show history for a specific test
-      const testId = subArgs.find(a => a.startsWith("TEST-"));
-      if (!testId) {
-        console.error("Error: Specify a test ID (e.g., TEST-PAT-001)");
-        console.log("Usage: ingest test history TEST-PAT-001");
+      // Show history for a specific test OR run history summary
+      const testId = subArgs.find(a => a.startsWith("TEST-") || a.startsWith("CLI-"));
+
+      // Parse --layer option for run history
+      const layerIndex = subArgs.findIndex(a => a === "--layer");
+      const layerArg = layerIndex >= 0 ? subArgs[layerIndex + 1] : undefined;
+      const layer = layerArg as "unit" | "integration" | "cli" | "acceptance" | undefined;
+
+      // Parse --limit option
+      const limitIndex = subArgs.findIndex(a => a === "--limit");
+      const limit = limitIndex >= 0 ? parseInt(subArgs[limitIndex + 1], 10) : 15;
+
+      if (layerArg && !["unit", "integration", "cli", "acceptance"].includes(layerArg)) {
+        console.error(`Invalid layer: ${layerArg}`);
+        console.log("Valid layers: unit, integration, cli, acceptance");
         process.exit(1);
       }
 
-      const { runTracker } = await import("./test/framework/run-tracker");
-      const { generateTestHistoryReport } = await import("./test/framework/report");
-      const { getSpecById } = await import("./test/specs");
+      if (testId) {
+        // Show history for specific test
+        const { runTracker } = await import("./test/framework/run-tracker");
+        const { generateTestHistoryReport } = await import("./test/framework/report");
+        const { getSpecById } = await import("./test/specs");
 
-      const history = runTracker.getTestHistory(testId);
-      if (!history) {
-        console.log(`No history found for ${testId}`);
-        console.log("This test hasn't been recorded in any runs yet.");
-        process.exit(0);
+        const history = runTracker.getTestHistory(testId);
+        if (!history) {
+          console.log(`No history found for ${testId}`);
+          console.log("This test hasn't been recorded in any runs yet.");
+          process.exit(0);
+        }
+
+        const spec = getSpecById(testId);
+        const report = generateTestHistoryReport(testId, history, spec);
+        console.log(report);
+      } else {
+        // Show run history summary
+        const { printHistory } = await import("./test/framework/report");
+        console.log("\n📊 Test Run History");
+        console.log("═".repeat(80));
+        printHistory(limit, layer);
       }
-
-      const spec = getSpecById(testId);
-      const report = generateTestHistoryReport(testId, history, spec);
-      console.log(report);
       break;
     }
 
@@ -2021,6 +2072,28 @@ async function handleTest(args: string[], verbose: boolean) {
         console.log("\n✅ All tests passed!");
         process.exit(0);
       }
+      break;
+    }
+
+    case "cli": {
+      // CLI integration tests - ingest → embed → obs search/semantic
+      const { runCLITests, printCLITestHelp } = await import("./test/framework/cli-runner");
+
+      if (subArgs.includes("--help") || subArgs.includes("-h")) {
+        printCLITestHelp();
+        break;
+      }
+
+      const skipEmbeddings = subArgs.includes("--skip-embeddings");
+      const testIds = subArgs.filter(a => a.startsWith("CLI-"));
+
+      const summary = await runCLITests({
+        testIds: testIds.length > 0 ? testIds : undefined,
+        verbose,
+        skipEmbeddings,
+      });
+
+      process.exit(summary.counts.failed > 0 ? 1 : 0);
       break;
     }
 
@@ -2077,6 +2150,120 @@ async function handleTest(args: string[], verbose: boolean) {
         console.log("\n✅ Cleanup complete");
       }
       break;
+    }
+
+    case "all": {
+      // Run all test layers: unit → integration → cli
+      const { runTests, printSummary } = await import("./test/framework/runner");
+      const { runIntegrationTests, printIntegrationSummary, saveDetailedReport } = await import("./test/framework/integration-runner");
+      const { runCLITests } = await import("./test/framework/cli-runner");
+
+      // Parse options
+      const parallel = subArgs.includes("--parallel");
+      const skipUnit = subArgs.includes("--skip-unit");
+      const skipIntegration = subArgs.includes("--skip-integration");
+      const skipCli = subArgs.includes("--skip-cli");
+
+      // Parse timeout (per-test timeout in ms)
+      let timeout: number | undefined;
+      const timeoutIndex = subArgs.findIndex(a => a === "--timeout");
+      if (timeoutIndex >= 0) {
+        timeout = parseInt(subArgs[timeoutIndex + 1], 10);
+      }
+
+      console.log("\n🧪 Running All Test Layers");
+      console.log("═".repeat(60));
+      console.log("Layers: unit → integration → cli");
+      console.log("═".repeat(60));
+
+      const results: Array<{ layer: string; passed: number; failed: number; total: number; duration: number }> = [];
+      let hasFailures = false;
+
+      // Layer 1: Unit Tests
+      if (!skipUnit) {
+        console.log("\n📦 Layer 1: Unit Tests");
+        console.log("─".repeat(60));
+        const unitSummary = await runTests({
+          all: true,
+          verbose,
+          keepOutput: false,
+          includeMedia: false,
+        });
+        results.push({
+          layer: "unit",
+          passed: unitSummary.counts.passed,
+          failed: unitSummary.counts.failed,
+          total: unitSummary.counts.total,
+          duration: unitSummary.duration,
+        });
+        if (unitSummary.counts.failed > 0) hasFailures = true;
+      }
+
+      // Layer 2: Integration Tests
+      if (!skipIntegration) {
+        console.log("\n📡 Layer 2: Integration Tests");
+        console.log("─".repeat(60));
+        const integrationSummary = await runIntegrationTests({
+          all: true,
+          verbose,
+          timeout,
+          parallel,
+        });
+        results.push({
+          layer: "integration",
+          passed: integrationSummary.counts.passed,
+          failed: integrationSummary.counts.failed,
+          total: integrationSummary.counts.total,
+          duration: integrationSummary.duration,
+        });
+        saveDetailedReport(integrationSummary);
+        if (integrationSummary.counts.failed > 0) hasFailures = true;
+      }
+
+      // Layer 3: CLI Tests
+      if (!skipCli) {
+        console.log("\n🔧 Layer 3: CLI Tests");
+        console.log("─".repeat(60));
+        const cliSummary = await runCLITests({
+          verbose,
+          skipEmbeddings: false,
+        });
+        results.push({
+          layer: "cli",
+          passed: cliSummary.counts.passed,
+          failed: cliSummary.counts.failed,
+          total: cliSummary.counts.total,
+          duration: cliSummary.duration,
+        });
+        if (cliSummary.counts.failed > 0) hasFailures = true;
+      }
+
+      // Print combined summary
+      console.log("\n" + "═".repeat(60));
+      console.log("COMBINED TEST SUMMARY");
+      console.log("═".repeat(60));
+      console.log(` Layer         Passed  Failed   Total   Time`);
+      console.log("─".repeat(60));
+
+      let totalPassed = 0, totalFailed = 0, totalTests = 0, totalDuration = 0;
+      for (const r of results) {
+        const status = r.failed === 0 ? "✓" : "✗";
+        console.log(` ${status} ${r.layer.padEnd(12)} ${String(r.passed).padStart(6)}  ${String(r.failed).padStart(6)}  ${String(r.total).padStart(6)}  ${(r.duration / 1000).toFixed(1)}s`);
+        totalPassed += r.passed;
+        totalFailed += r.failed;
+        totalTests += r.total;
+        totalDuration += r.duration;
+      }
+
+      console.log("─".repeat(60));
+      const overallStatus = hasFailures ? "✗" : "✓";
+      console.log(` ${overallStatus} TOTAL        ${String(totalPassed).padStart(6)}  ${String(totalFailed).padStart(6)}  ${String(totalTests).padStart(6)}  ${(totalDuration / 1000).toFixed(1)}s`);
+      console.log("═".repeat(60));
+
+      const passRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0;
+      console.log(`\nOverall pass rate: ${passRate}%`);
+
+      process.exit(hasFailures ? 1 : 0);
     }
 
     default:

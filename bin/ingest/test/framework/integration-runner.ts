@@ -1187,6 +1187,7 @@ export function saveDetailedReport(summary: IntegrationRunSummary): string {
   // Record to test history for tracking across runs
   const report: TestReport = {
     runId,
+    layer: "integration",
     startedAt: summary.startedAt,
     completedAt: summary.completedAt,
     duration: summary.duration,

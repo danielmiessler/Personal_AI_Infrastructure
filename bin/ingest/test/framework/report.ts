@@ -12,8 +12,11 @@ import type { TestRunSummary, ValidationResult } from "./types";
 // Types
 // =============================================================================
 
+export type TestLayer = "unit" | "integration" | "cli" | "acceptance";
+
 export interface TestReport {
   runId: string;
+  layer: TestLayer;
   startedAt: string;
   completedAt: string;
   duration: number;
@@ -48,6 +51,7 @@ export interface TestResult {
 
 export interface HistoryEntry {
   runId: string;
+  layer: TestLayer;
   startedAt: string;
   duration: number;
   counts: {
@@ -77,7 +81,8 @@ const HISTORY_FILE = join(OUTPUT_BASE_DIR, "test-history.json");
 export function generateReport(
   runId: string,
   summary: TestRunSummary,
-  specs: Map<string, { name: string; category: string }>
+  specs: Map<string, { name: string; category: string }>,
+  layer: TestLayer = "unit"
 ): TestReport {
   const passRate = summary.counts.total > 0
     ? Math.round((summary.counts.passed / summary.counts.total) * 100)
@@ -102,6 +107,7 @@ export function generateReport(
 
   const report: TestReport = {
     runId,
+    layer,
     startedAt: summary.startedAt,
     completedAt: summary.completedAt,
     duration: summary.duration,
@@ -283,6 +289,7 @@ export function appendHistory(report: TestReport): void {
 
   const entry: HistoryEntry = {
     runId: report.runId,
+    layer: report.layer,
     startedAt: report.startedAt,
     duration: report.duration,
     counts: report.counts,
@@ -302,34 +309,46 @@ export function appendHistory(report: TestReport): void {
 /**
  * Generate history summary (for console output)
  */
-export function getHistorySummary(limit = 10): string {
-  const history = loadHistory();
+export function getHistorySummary(limit = 10, layer?: TestLayer): string {
+  let history = loadHistory();
+
+  // Filter by layer if specified
+  if (layer) {
+    history = history.filter(h => h.layer === layer);
+  }
+
   if (history.length === 0) {
-    return "No test history available.";
+    return layer
+      ? `No test history available for layer: ${layer}`
+      : "No test history available.";
   }
 
   const recent = history.slice(-limit);
   const lines: string[] = [];
 
-  lines.push("Recent Test Runs:");
-  lines.push("-".repeat(70));
+  const title = layer ? `Recent ${layer} Test Runs:` : "Recent Test Runs:";
+  lines.push(title);
+  lines.push("-".repeat(80));
   lines.push(
-    "Run ID".padEnd(30) +
-    "Passed".padEnd(10) +
-    "Failed".padEnd(10) +
-    "Rate".padEnd(10) +
+    "Run ID".padEnd(32) +
+    "Layer".padEnd(14) +
+    "Passed".padEnd(8) +
+    "Failed".padEnd(8) +
+    "Rate".padEnd(8) +
     "Duration"
   );
-  lines.push("-".repeat(70));
+  lines.push("-".repeat(80));
 
   for (const entry of recent) {
     const rate = `${entry.passRate}%`;
     const duration = `${(entry.duration / 1000).toFixed(1)}s`;
+    const layerStr = entry.layer || "unit";
     lines.push(
-      entry.runId.padEnd(30) +
-      entry.counts.passed.toString().padEnd(10) +
-      entry.counts.failed.toString().padEnd(10) +
-      rate.padEnd(10) +
+      entry.runId.padEnd(32) +
+      layerStr.padEnd(14) +
+      entry.counts.passed.toString().padEnd(8) +
+      entry.counts.failed.toString().padEnd(8) +
+      rate.padEnd(8) +
       duration
     );
   }
@@ -344,14 +363,35 @@ export function getHistorySummary(limit = 10): string {
     lines.push(`Trend (last ${recent.length} runs): ${trendStr}`);
   }
 
+  // Summary by layer (if not filtered)
+  if (!layer) {
+    const fullHistory = loadHistory();
+    const layerCounts: Record<string, { passed: number; failed: number; total: number }> = {};
+    for (const entry of fullHistory) {
+      const l = entry.layer || "unit";
+      if (!layerCounts[l]) {
+        layerCounts[l] = { passed: 0, failed: 0, total: 0 };
+      }
+      layerCounts[l].passed += entry.counts.passed;
+      layerCounts[l].failed += entry.counts.failed;
+      layerCounts[l].total += entry.counts.total;
+    }
+    lines.push("");
+    lines.push("Totals by Layer:");
+    for (const [l, counts] of Object.entries(layerCounts)) {
+      const rate = counts.total > 0 ? Math.round((counts.passed / counts.total) * 100) : 0;
+      lines.push(`  ${l.padEnd(12)} ${counts.passed} passed, ${counts.failed} failed (${rate}%)`);
+    }
+  }
+
   return lines.join("\n");
 }
 
 /**
  * Print history summary to console
  */
-export function printHistory(limit = 10): void {
-  console.log(getHistorySummary(limit));
+export function printHistory(limit = 10, layer?: TestLayer): void {
+  console.log(getHistorySummary(limit, layer));
 }
 
 // =============================================================================

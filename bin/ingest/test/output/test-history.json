@@ -10,7 +10,8 @@
       "skipped": 0
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-09-45-26",
@@ -23,7 +24,8 @@
       "skipped": 1
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-09-47-51",
@@ -36,7 +38,8 @@
       "skipped": 1
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-09-51-18",
@@ -49,7 +52,8 @@
       "skipped": 1
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-09-55-24",
@@ -62,7 +66,8 @@
       "skipped": 1
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-03-26",
@@ -75,7 +80,8 @@
       "skipped": 1
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-04-09",
@@ -88,7 +94,8 @@
       "skipped": 1
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-06-55",
@@ -104,7 +111,8 @@
     "failedTests": [
       "TEST-REG-004",
       "TEST-PAT-001"
-    ]
+    ],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-18-16",
@@ -117,7 +125,8 @@
       "skipped": 0
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-18-47",
@@ -130,7 +139,8 @@
       "skipped": 0
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-19-58",
@@ -145,7 +155,8 @@
     "passRate": 98,
     "failedTests": [
       "TEST-PAT-003"
-    ]
+    ],
+    "layer": "unit"
   },
   {
     "runId": "run-2025-12-03-10-24-27",
@@ -158,7 +169,8 @@
       "skipped": 0
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "unit"
   },
   {
     "runId": "integration-2025-12-03-23-07-58",
@@ -171,7 +183,8 @@
       "skipped": 0
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "integration"
   },
   {
     "runId": "integration-2025-12-03-23-08-22",
@@ -184,12 +197,182 @@
       "skipped": 0
     },
     "passRate": 100,
-    "failedTests": []
+    "failedTests": [],
+    "layer": "integration"
   },
   {
     "runId": "integration-2025-12-03-23-18-07",
     "startedAt": "2025-12-03T23:18:07.630Z",
     "duration": 105129,
+    "counts": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": [],
+    "layer": "integration"
+  },
+  {
+    "runId": "cli-2025-12-03-23-48-57",
+    "startedAt": "2025-12-03T23:48:57.906Z",
+    "duration": 21653,
+    "counts": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 0,
+    "failedTests": [
+      "CLI-001"
+    ],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-50-28",
+    "startedAt": "2025-12-03T23:50:28.277Z",
+    "duration": 3275,
+    "counts": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 0,
+    "failedTests": [
+      "CLI-001"
+    ],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-53-36",
+    "startedAt": "2025-12-03T23:53:36.989Z",
+    "duration": 5095,
+    "counts": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 0,
+    "failedTests": [
+      "CLI-001"
+    ],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-54-42",
+    "startedAt": "2025-12-03T23:54:42.690Z",
+    "duration": 4065,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": [],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-54-54",
+    "startedAt": "2025-12-03T23:54:54.445Z",
+    "duration": 25975,
+    "counts": {
+      "total": 7,
+      "passed": 4,
+      "failed": 3,
+      "skipped": 0
+    },
+    "passRate": 57,
+    "failedTests": [
+      "CLI-002",
+      "CLI-005",
+      "CLI-007"
+    ],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-57-12",
+    "startedAt": "2025-12-03T23:57:12.648Z",
+    "duration": 35987,
+    "counts": {
+      "total": 7,
+      "passed": 6,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 86,
+    "failedTests": [
+      "CLI-003"
+    ],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-58-27",
+    "startedAt": "2025-12-03T23:58:27.831Z",
+    "duration": 9566,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": [],
+    "layer": "cli"
+  },
+  {
+    "runId": "cli-2025-12-03-23-58-43",
+    "startedAt": "2025-12-03T23:58:43.871Z",
+    "duration": 44693,
+    "counts": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": [],
+    "layer": "cli"
+  },
+  {
+    "runId": "run-2025-12-04-00-09-37",
+    "layer": "unit",
+    "startedAt": "2025-12-04T00:09:37.177Z",
+    "duration": 289972,
+    "counts": {
+      "total": 49,
+      "passed": 48,
+      "failed": 1,
+      "skipped": 28
+    },
+    "passRate": 98,
+    "failedTests": [
+      "TEST-PAT-003"
+    ]
+  },
+  {
+    "runId": "run-2025-12-04-01-39-50",
+    "layer": "unit",
+    "startedAt": "2025-12-04T01:39:50.231Z",
+    "duration": 56662,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "cli-2025-12-04-01-40-55",
+    "layer": "cli",
+    "startedAt": "2025-12-04T01:40:55.421Z",
+    "duration": 49374,
     "counts": {
       "total": 7,
       "passed": 7,

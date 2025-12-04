@@ -82,13 +82,16 @@ export async function getUpdates(offset?: number): Promise<TelegramUpdate[]> {
 
 /**
  * Check if a message is from the inbox channel
- * Uses test channel ID if available, otherwise falls back to production channel ID
+ * @param message - The Telegram message to check
+ * @param useTestChannel - If true, use test channel ID (for integration testing). Defaults to false.
  */
-export function isFromInbox(message: TelegramMessage): boolean {
+export function isFromInbox(message: TelegramMessage, useTestChannel = false): boolean {
   const config = getConfig();
   if (!message.chat?.id) return false;
-  // Prefer test channel ID if set (for integration testing)
-  const targetChannelId = config.testTelegramChannelId || config.telegramChannelId;
+  // Only use test channel ID when explicitly requested (for test isolation)
+  const targetChannelId = useTestChannel && config.testTelegramChannelId
+    ? config.testTelegramChannelId
+    : config.telegramChannelId;
   return String(message.chat.id) === String(targetChannelId);
 }
 

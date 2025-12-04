@@ -8,7 +8,11 @@
 
 # **Personal AI Infrastructure** (PAI)
 
+### **FORGE-Enhanced Fork** • Multi-Agent Collaboration & Enterprise Skills
+
 ### **Open-source personal AI infrastructure for orchestrating your life and work**
+
+> **Note**: This is a FORGE-enhanced fork of [danielmiessler/Personal_AI_Infrastructure](https://github.com/danielmiessler/Personal_AI_Infrastructure) with additional features for multi-agent collaboration, enterprise security (CMMC Level 2), agile product management, and test engineering. See [FORGE Features](#forge-enhancements) below.
 
 <br/>
 
@@ -85,54 +89,35 @@ See `PAI_CONTRACT.md` for complete details on what's guaranteed vs what needs co
 
 ## 🚀 **Quick Start**
 
-### 1. Install Prerequisites
+### Prerequisites
+
+- [Claude Code](https://claude.com/claude-code) installed
+- Git installed (`git --version` to verify)
+
+### One-Line Install (Recommended)
 
 ```bash
-# Install Bun (PAI's package manager)
-curl -fsSL https://bun.sh/install | bash
-
-# Install Claude Code
-# Follow instructions at: https://code.claude.com
+curl -fsSL https://raw.githubusercontent.com/banjoey/Personal_AI_Infrastructure/forge-all/.claude/setup.sh | bash
 ```
 
-### 2. Clone and Configure
+This will:
+- ✅ Clone the FORGE-enhanced PAI fork
+- ✅ Run the personalization wizard (name your assistant)
+- ✅ Configure Claude Code to use PAI + FORGE features
+- ✅ Set up all skills, agents, and hooks
+
+### Manual Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure
+# Clone FORGE-enhanced PAI fork (forge-all branch has all features)
+git clone -b forge-all https://github.com/banjoey/Personal_AI_Infrastructure.git PAI
+cd PAI
 
-# Copy environment template
-cp .claude/.env.example .claude/.env
-
-# Edit .env and add your API keys
-# At minimum: ANTHROPIC_API_KEY=your_key_here
+# Run setup script with personalization wizard
+./.claude/setup.sh
 ```
 
-### 3. Copy to Your System
-
-```bash
-# Backup existing Claude config (if any)
-[ -d ~/.claude ] && mv ~/.claude ~/.claude.backup.$(date +%Y%m%d_%H%M%S)
-
-# Copy PAI's .claude directory to your home
-cp -r .claude ~/.claude
-```
-
-**Alternative: Symlink** (keeps PAI updatable via git pull)
-```bash
-[ -d ~/.claude ] && mv ~/.claude ~/.claude.backup.$(date +%Y%m%d_%H%M%S)
-ln -s $(pwd)/.claude ~/.claude
-```
-
-### 4. Start Claude Code
-
-```bash
-# PAI loads automatically via the CORE skill
-claude
-```
-
-**That's it!** The CORE skill loads at session start and provides all PAI functionality.
+**That's it!** All FORGE skills, agents, and PAI features are now available in Claude Code.
 
 📚 **For detailed setup:** See `docs/QUICKSTART.md`
 
@@ -175,6 +160,38 @@ Explore example skills in `.claude/skills/`:
 - **`ffuf/`** - Web fuzzing and security testing
 
 Each skill demonstrates the skills-as-containers pattern with routing, workflows, and self-contained documentation.
+
+---
+
+## 🔥 **FORGE Enhancements**
+
+This fork adds enterprise-grade features for multi-agent collaboration and software development:
+
+### **Multi-Agent Standup System**
+- **5 Agent Personalities**: Daniel (Security), Mary (Business Analyst), Clay (Tech Lead), Hefley (Product Manager), Amy (QA Lead)
+- **Intelligent Selection**: Auto-selects 2-3 relevant agents based on question domain (40% token savings)
+- **Conflict Protocols**: Forces genuine disagreement for better synthesis
+- **3-Round Structure**: Initial → Reactive → Final positions with user controls
+- **Validated**: Finds 3.67x more issues than solo mode (50% better output quality)
+
+### **Enterprise Skills**
+- **AgilePm**: PRD creation, epic decomposition, user stories, sprint planning (scored 10/10 on dogfooding)
+- **Daniel (Security)**: CMMC Level 2 compliance (17 domains), 50+ vulnerability patterns, STRIDE threat modeling
+- **TestArchitect**: ATDD workflows, risk-based testing, CI/CD quality gates, 89.65% coverage achieved
+- **Security**: Threat modeling, security reviews, infrastructure security, compliance baselines
+
+### **Personalization**
+- **Custom Assistant Names**: Name your AI assistant (e.g., "FORGE", "Atlas", "Kai")
+- **User Names**: Personalized responses with your name
+- **Automated Setup**: One-line install with personalization wizard
+
+### **Success Metrics (Release 0.1.1)**
+- ✅ Issue detection: 3.67x improvement (target: 2-3x)
+- ✅ Function coverage: 89.65% (target: 80%)
+- ✅ Test pass rate: 100% (107/107 tests)
+- ✅ PRD quality: 10/10 (target: 8/10)
+
+**Full feature documentation**: See [FORGE Development Repo](https://github.com/banjoey/FORGE)
 
 ---
 

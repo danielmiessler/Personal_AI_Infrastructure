@@ -1,6 +1,6 @@
 # Standup Methodology
 
-This document explains the principles, approach, and workflow sequence for FORGE's Standup skill.
+This document explains the principles, approach, and workflow sequence for PAI's Standup skill.
 
 ## Core Principles
 

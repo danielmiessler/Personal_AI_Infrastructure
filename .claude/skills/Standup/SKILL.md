@@ -112,7 +112,7 @@ Output: project-context.md updated with decision, rationale, and action items
 ## Agent Rosters
 
 ### Smart Roster Selection (Auto-Suggest)
-FORGE automatically suggests the right experts based on your feature context:
+PAI automatically suggests the right experts based on your feature context:
 
 | Feature Type | Suggested Roster | Why |
 |--------------|------------------|-----|

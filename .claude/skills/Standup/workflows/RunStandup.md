@@ -10,7 +10,7 @@
 
 ## What is Standup?
 
-**Standup** is FORGE's multi-agent conversation system where specialist agents collaborate on complex decisions.
+**Standup** is PAI's multi-agent conversation system where specialist agents collaborate on complex decisions.
 
 **Not** Daily Standup (that's a scrum ceremony)
 **Is** Multi-Agent Standup (collaborative decision-making session)
@@ -24,7 +24,7 @@
 ## Agent Rosters (Customizable)
 
 ### Smart Roster Selection ✅ **IMPLEMENTED**
-FORGE automatically suggests the right experts based on your feature context:
+PAI automatically suggests the right experts based on your feature context:
 
 | Feature Type | Auto-Suggested Roster | Why |
 |--------------|----------------------|-----|
@@ -77,7 +77,7 @@ Create a `.claude/agents/[AgentName]/agent.md` file with:
 - Integration with other agents
 
 **How Roster Selection Works**:
-1. **Auto-suggest** (default): FORGE analyzes feature context and suggests appropriate roster
+1. **Auto-suggest** (default): PAI analyzes feature context and suggests appropriate roster
 2. **Question override**: Questions like "How long?" override feature patterns
 3. **Manual override**: Explicitly specify roster to override auto-suggestion
 4. **Fallback**: If no match, suggests full team (Daniel, Mary, Clay, Hefley, Amy)

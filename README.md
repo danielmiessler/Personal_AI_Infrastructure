@@ -8,11 +8,11 @@
 
 # **Personal AI Infrastructure** (PAI)
 
-### **FORGE-Enhanced Fork** • Multi-Agent Collaboration & Enterprise Skills
+### **Enhanced Fork** • Multi-Agent Collaboration & Enterprise Skills
 
 ### **Open-source personal AI infrastructure for orchestrating your life and work**
 
-> **Note**: This is a FORGE-enhanced fork of [danielmiessler/Personal_AI_Infrastructure](https://github.com/danielmiessler/Personal_AI_Infrastructure) with additional features for multi-agent collaboration, enterprise security (CMMC Level 2), agile product management, and test engineering. See [FORGE Features](#forge-enhancements) below.
+> **Note**: This is an enhanced fork of [danielmiessler/Personal_AI_Infrastructure](https://github.com/danielmiessler/Personal_AI_Infrastructure) with additional features for multi-agent collaboration, enterprise security (CMMC Level 2), agile product management, and test engineering. See [Additional Features](#additional-features) below.
 
 <br/>
 
@@ -101,15 +101,15 @@ curl -fsSL https://raw.githubusercontent.com/banjoey/Personal_AI_Infrastructure/
 ```
 
 This will:
-- ✅ Clone the FORGE-enhanced PAI fork
+- ✅ Clone the enhanced PAI fork
 - ✅ Run the personalization wizard (name your assistant)
-- ✅ Configure Claude Code to use PAI + FORGE features
+- ✅ Configure Claude Code to use PAI with all features
 - ✅ Set up all skills, agents, and hooks
 
 ### Manual Install
 
 ```bash
-# Clone FORGE-enhanced PAI fork (forge-all branch has all features)
+# Clone enhanced PAI fork (forge-all branch has all features)
 git clone -b forge-all https://github.com/banjoey/Personal_AI_Infrastructure.git PAI
 cd PAI
 
@@ -117,7 +117,7 @@ cd PAI
 ./.claude/setup.sh
 ```
 
-**That's it!** All FORGE skills, agents, and PAI features are now available in Claude Code.
+**That's it!** All skills, agents, and PAI features are now available in Claude Code.
 
 📚 **For detailed setup:** See `docs/QUICKSTART.md`
 
@@ -163,7 +163,7 @@ Each skill demonstrates the skills-as-containers pattern with routing, workflows
 
 ---
 
-## 🔥 **FORGE Enhancements**
+## 🔥 **Additional Features**
 
 This fork adds enterprise-grade features for multi-agent collaboration and software development:
 
@@ -181,7 +181,7 @@ This fork adds enterprise-grade features for multi-agent collaboration and softw
 - **Security**: Threat modeling, security reviews, infrastructure security, compliance baselines
 
 ### **Personalization**
-- **Custom Assistant Names**: Name your AI assistant (e.g., "FORGE", "Atlas", "Kai")
+- **Custom Assistant Names**: Name your AI assistant (e.g., "Atlas", "Kai", "Nova")
 - **User Names**: Personalized responses with your name
 - **Automated Setup**: One-line install with personalization wizard
 
@@ -191,7 +191,7 @@ This fork adds enterprise-grade features for multi-agent collaboration and softw
 - ✅ Test pass rate: 100% (107/107 tests)
 - ✅ PRD quality: 10/10 (target: 8/10)
 
-**Full feature documentation**: See [FORGE Development Repo](https://github.com/banjoey/FORGE)
+**Full technical documentation**: See [development repository](https://github.com/banjoey/FORGE) for implementation details
 
 ---
 

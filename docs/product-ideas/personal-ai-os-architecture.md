@@ -83,11 +83,12 @@ These layers sit on **foundational pillars** that ensure you can access your sys
 │                                 PILLARS                                         │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌────────────────┐ │
 │  │  📱 ACCESS      │ │  👁️ OBSERVABLE  │ │  🔐 SECURE      │ │  🌐 OPEN       │ │
-│  │                 │ │                 │ │                 │ │                │ │
 │  │  Anywhere       │ │  See it         │ │  Trust it       │ │  Own it        │ │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘ └────────────────┘ │
 │                                                                                 │
-│                                                                                 │
+│  ════════════════════════════════════════════════════════════════════════════   │
+│                              🤖 AI LAYER                                    │
+│              Claude Code today • Interoperable tomorrow • Scaffolding > Model   │
 │  ════════════════════════════════════════════════════════════════════════════   │
 │                                                                                 │
 │                              📢 THE NOISE                                       │
@@ -106,6 +107,61 @@ These layers sit on **foundational pillars** that ensure you can access your sys
 | **👁️ Observable** | See it | Full visibility into what the system is doing |
 | **🔐 Secure** | Trust it | Your data, your rules, privacy by design |
 | **🌐 Open** | Own it | Open source, open standards, open formats — no lock-in |
+
+---
+
+## The AI Layer
+
+Life OS is AI-native. The intelligence layer orchestrates everything.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              🤖 AI LAYER                                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   Current: Claude Code (Anthropic)                                               │
+│   Why: Most advanced agentic capabilities for this vision today                  │
+│                                                                                  │
+│   Design for Interoperability:                                                   │
+│   • Scaffolding > Model (architecture matters more than AI)                      │
+│   • CLI-First (deterministic tools work with any LLM)                            │
+│   • Standard interfaces (MCP, OpenAI-compatible APIs)                            │
+│   • Model-agnostic prompts where possible                                        │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Current State: Claude Code
+
+**Why Claude Code today:**
+- Best-in-class agentic capabilities
+- Native MCP (Model Context Protocol) support
+- Long context window for full project understanding
+- Strong reasoning for complex multi-step tasks
+- Active development and rapid improvement
+
+**Tight coupling (for now):**
+- PAI is built around Claude Code's hook system
+- Agent orchestration uses Claude's Task tool
+- Voice integration tied to Claude's response format
+- Session management via Claude Code
+
+### Future State: Interoperability
+
+**The goal:** Swap the AI layer without rewriting the system.
+
+**Migration path:**
+1. Abstract AI interactions behind interfaces
+2. Support multiple model backends
+3. Allow per-task model selection (fast vs smart)
+4. Local model option for sensitive operations
+
+**Why this matters:**
+- AI landscape changes fast
+- No vendor lock-in for the brain
+- Run sensitive tasks on local models
+- Cost optimization (use cheaper models for simple tasks)
+- Resilience (fallback if one provider is down)
 
 ---
 

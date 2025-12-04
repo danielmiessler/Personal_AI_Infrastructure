@@ -36,6 +36,21 @@ PARTY="🎉"
 THINKING="🤔"
 WRENCH="🔧"
 
+# Detect input source for interactive prompts
+# When run via curl | bash, stdin is consumed by curl, so we need /dev/tty
+if [ -t 0 ]; then
+    # stdin is connected to terminal - use it
+    TTY_INPUT=""
+else
+    # stdin is piped (curl | bash) - try /dev/tty
+    if [ -c /dev/tty ]; then
+        TTY_INPUT="</dev/tty"
+    else
+        # No TTY available - will use defaults
+        TTY_INPUT=""
+    fi
+fi
+
 # ============================================
 # Helper Functions
 # ============================================

@@ -348,6 +348,12 @@ export interface RunnerOptions {
 
   /** Include media tests (voice, photo, document) - slower, requires downloads */
   includeMedia?: boolean;
+
+  /** Use a specific runId (for unified runs across layers) */
+  runId?: string;
+
+  /** Skip recording to history (caller will record unified entry) */
+  skipHistory?: boolean;
 }
 
 export interface CaptureOptions {

@@ -52,6 +52,7 @@ import {
 } from "./lib/state";
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
+import type { LayerResult } from "./test/framework/report";
 
 // Telegram only supports these reaction emojis
 const REACTIONS = {
@@ -1549,10 +1550,11 @@ USAGE:
   ingest test <subcommand> [options]
 
 SUBCOMMANDS:
-  all                   Run all test layers (unit → integration → cli)
+  all                   Run all test layers (unit → integration → cli → acceptance)
   run [TEST_ID]         Run unit tests (call processMessage directly)
   integration [TEST_ID] Run integration tests (forward via Telegram)
   cli [TEST_ID]         Run CLI integration tests (obs search/semantic)
+  acceptance [TEST_ID]  Run acceptance tests (claude -p end-to-end workflows)
   forward <ID>         Forward a message by ID or test ID from Test Cases → Test Inbox
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
@@ -1570,6 +1572,7 @@ OPTIONS:
   --skip-unit          Skip unit tests (for 'test all')
   --skip-integration   Skip integration tests (for 'test all')
   --skip-cli           Skip CLI tests (for 'test all')
+  --skip-acceptance    Skip acceptance tests (for 'test all')
   --layer <name>       Filter history by layer (unit, integration, cli)
   --missing            Capture all missing fixtures interactively
   --include-media      Run media tests (voice, photo, document)
@@ -2075,6 +2078,26 @@ async function handleTest(args: string[], verbose: boolean) {
       break;
     }
 
+    case "acceptance": {
+      // Acceptance tests - use claude -p to test end-to-end workflows
+      const { runAcceptanceTests, printAcceptanceTestHelp } = await import("./test/framework/acceptance-runner");
+
+      if (subArgs.includes("--help") || subArgs.includes("-h")) {
+        printAcceptanceTestHelp();
+        break;
+      }
+
+      const testIds = subArgs.filter(a => a.startsWith("ACC-"));
+
+      const summary = await runAcceptanceTests({
+        testIds: testIds.length > 0 ? testIds : undefined,
+        verbose,
+      });
+
+      process.exit(summary.counts.failed > 0 ? 1 : 0);
+      break;
+    }
+
     case "cli": {
       // CLI integration tests - ingest → embed → obs search/semantic
       const { runCLITests, printCLITestHelp } = await import("./test/framework/cli-runner");
@@ -2153,16 +2176,18 @@ async function handleTest(args: string[], verbose: boolean) {
     }
 
     case "all": {
-      // Run all test layers: unit → integration → cli
+      // Run all test layers: unit → integration → cli → acceptance
       const { runTests, printSummary } = await import("./test/framework/runner");
       const { runIntegrationTests, printIntegrationSummary, saveDetailedReport } = await import("./test/framework/integration-runner");
       const { runCLITests } = await import("./test/framework/cli-runner");
+      const { runAcceptanceTests } = await import("./test/framework/acceptance-runner");
 
       // Parse options
       const parallel = subArgs.includes("--parallel");
       const skipUnit = subArgs.includes("--skip-unit");
       const skipIntegration = subArgs.includes("--skip-integration");
       const skipCli = subArgs.includes("--skip-cli");
+      const skipAcceptance = subArgs.includes("--skip-acceptance");
 
       // Parse timeout (per-test timeout in ms)
       let timeout: number | undefined;
@@ -2171,12 +2196,18 @@ async function handleTest(args: string[], verbose: boolean) {
         timeout = parseInt(subArgs[timeoutIndex + 1], 10);
       }
 
+      // Generate unified run ID for all layers
+      const startedAt = new Date().toISOString();
+      const unifiedRunId = `all-${startedAt.slice(0, 19).replace(/[T:]/g, "-")}`;
+
       console.log("\n🧪 Running All Test Layers");
       console.log("═".repeat(60));
-      console.log("Layers: unit → integration → cli");
+      console.log(`Run ID: ${unifiedRunId}`);
+      console.log("Layers: unit → integration → cli → acceptance");
       console.log("═".repeat(60));
 
-      const results: Array<{ layer: string; passed: number; failed: number; total: number; duration: number }> = [];
+      const { appendUnifiedHistory } = await import("./test/framework/report");
+      const layerResults: LayerResult[] = [];
       let hasFailures = false;
 
       // Layer 1: Unit Tests
@@ -2188,15 +2219,21 @@ async function handleTest(args: string[], verbose: boolean) {
           verbose,
           keepOutput: false,
           includeMedia: false,
+          runId: unifiedRunId,
+          skipHistory: true,
         });
-        results.push({
+        layerResults.push({
           layer: "unit",
+          status: "executed",
           passed: unitSummary.counts.passed,
           failed: unitSummary.counts.failed,
           total: unitSummary.counts.total,
           duration: unitSummary.duration,
+          failedTests: unitSummary.results.filter(r => !r.passed).map(r => r.testId),
         });
         if (unitSummary.counts.failed > 0) hasFailures = true;
+      } else {
+        layerResults.push({ layer: "unit", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
       }
 
       // Layer 2: Integration Tests
@@ -2208,16 +2245,22 @@ async function handleTest(args: string[], verbose: boolean) {
           verbose,
           timeout,
           parallel,
+          runId: unifiedRunId,
+          skipHistory: true,
         });
-        results.push({
+        layerResults.push({
           layer: "integration",
+          status: "executed",
           passed: integrationSummary.counts.passed,
           failed: integrationSummary.counts.failed,
           total: integrationSummary.counts.total,
           duration: integrationSummary.duration,
+          failedTests: integrationSummary.results.filter(r => !r.passed).map(r => r.testId),
         });
-        saveDetailedReport(integrationSummary);
+        saveDetailedReport(integrationSummary, { runId: unifiedRunId, skipHistory: true });
         if (integrationSummary.counts.failed > 0) hasFailures = true;
+      } else {
+        layerResults.push({ layer: "integration", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
       }
 
       // Layer 3: CLI Tests
@@ -2227,41 +2270,80 @@ async function handleTest(args: string[], verbose: boolean) {
         const cliSummary = await runCLITests({
           verbose,
           skipEmbeddings: false,
+          runId: unifiedRunId,
+          skipHistory: true,
         });
-        results.push({
+        layerResults.push({
           layer: "cli",
+          status: "executed",
           passed: cliSummary.counts.passed,
           failed: cliSummary.counts.failed,
           total: cliSummary.counts.total,
           duration: cliSummary.duration,
+          failedTests: cliSummary.results.filter(r => !r.passed).map(r => r.testId),
         });
         if (cliSummary.counts.failed > 0) hasFailures = true;
+      } else {
+        layerResults.push({ layer: "cli", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
       }
+
+      // Layer 4: Acceptance Tests
+      if (!skipAcceptance) {
+        console.log("\n🎯 Layer 4: Acceptance Tests");
+        console.log("─".repeat(60));
+        const acceptanceSummary = await runAcceptanceTests({
+          verbose,
+          runId: unifiedRunId,
+          skipHistory: true,
+        });
+        layerResults.push({
+          layer: "acceptance",
+          status: "executed",
+          passed: acceptanceSummary.counts.passed,
+          failed: acceptanceSummary.counts.failed,
+          total: acceptanceSummary.counts.total,
+          duration: acceptanceSummary.duration,
+          failedTests: acceptanceSummary.results.filter(r => !r.passed).map(r => r.testId),
+        });
+        if (acceptanceSummary.counts.failed > 0) hasFailures = true;
+      } else {
+        layerResults.push({ layer: "acceptance", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
+      }
+
+      // Calculate total duration
+      const totalDurationMs = layerResults.reduce((sum, lr) => sum + lr.duration, 0);
 
       // Print combined summary
       console.log("\n" + "═".repeat(60));
       console.log("COMBINED TEST SUMMARY");
       console.log("═".repeat(60));
-      console.log(` Layer         Passed  Failed   Total   Time`);
+      console.log(` Layer         Status   Passed  Failed   Total   Time`);
       console.log("─".repeat(60));
 
-      let totalPassed = 0, totalFailed = 0, totalTests = 0, totalDuration = 0;
-      for (const r of results) {
-        const status = r.failed === 0 ? "✓" : "✗";
-        console.log(` ${status} ${r.layer.padEnd(12)} ${String(r.passed).padStart(6)}  ${String(r.failed).padStart(6)}  ${String(r.total).padStart(6)}  ${(r.duration / 1000).toFixed(1)}s`);
-        totalPassed += r.passed;
-        totalFailed += r.failed;
-        totalTests += r.total;
-        totalDuration += r.duration;
+      let totalPassed = 0, totalFailed = 0, totalTests = 0;
+      for (const lr of layerResults) {
+        if (lr.status === "skipped") {
+          console.log(` - ${lr.layer.padEnd(12)} skipped`);
+        } else {
+          const icon = lr.failed === 0 ? "✓" : "✗";
+          console.log(` ${icon} ${lr.layer.padEnd(12)} run     ${String(lr.passed).padStart(6)}  ${String(lr.failed).padStart(6)}  ${String(lr.total).padStart(6)}  ${(lr.duration / 1000).toFixed(1)}s`);
+          totalPassed += lr.passed;
+          totalFailed += lr.failed;
+          totalTests += lr.total;
+        }
       }
 
       console.log("─".repeat(60));
       const overallStatus = hasFailures ? "✗" : "✓";
-      console.log(` ${overallStatus} TOTAL        ${String(totalPassed).padStart(6)}  ${String(totalFailed).padStart(6)}  ${String(totalTests).padStart(6)}  ${(totalDuration / 1000).toFixed(1)}s`);
+      console.log(` ${overallStatus} TOTAL                 ${String(totalPassed).padStart(6)}  ${String(totalFailed).padStart(6)}  ${String(totalTests).padStart(6)}  ${(totalDurationMs / 1000).toFixed(1)}s`);
       console.log("═".repeat(60));
 
       const passRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0;
       console.log(`\nOverall pass rate: ${passRate}%`);
+
+      // Record unified history entry
+      appendUnifiedHistory(unifiedRunId, startedAt, totalDurationMs, layerResults);
+      console.log(`\nRun ID: ${unifiedRunId}`);
 
       process.exit(hasFailures ? 1 : 0);
     }

@@ -369,6 +369,8 @@ export async function runCLITests(options: {
   testIds?: string[];
   verbose?: boolean;
   skipEmbeddings?: boolean;
+  runId?: string;
+  skipHistory?: boolean;
 }): Promise<CLITestSummary> {
   const startedAt = new Date().toISOString();
   const startTime = Date.now();
@@ -443,8 +445,8 @@ export async function runCLITests(options: {
     }
   }
 
-  // Record to test history
-  const runId = `cli-${new Date(startedAt).toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+  // Record to test history (unless caller will record unified entry)
+  const runId = options.runId || `cli-${new Date(startedAt).toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
   const report: TestReport = {
     runId,
     layer: "cli",
@@ -465,7 +467,10 @@ export async function runCLITests(options: {
       failedChecks: r.checks.filter((c) => !c.passed).map((c) => c.name),
     })),
   };
-  appendHistory(report);
+
+  if (!options.skipHistory) {
+    appendHistory(report);
+  }
 
   // Record files for cleanup
   if (allCreatedFiles.length > 0) {

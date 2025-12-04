@@ -233,8 +233,8 @@ export async function runTests(
   const startedAt = new Date().toISOString();
   const results: ValidationResult[] = [];
 
-  // Create timestamped run directory
-  const runId = getRunId();
+  // Create timestamped run directory (use provided runId or generate new one)
+  const runId = options.runId || getRunId();
   currentRunDir = join(OUTPUT_BASE_DIR, runId);
   mkdirSync(currentRunDir, { recursive: true });
   console.log(`Test run: ${runId}`);
@@ -307,8 +307,10 @@ export async function runTests(
   const markdown = generateMarkdownReport(report);
   const mdPath = saveMarkdownReport(runId, markdown);
 
-  // Add to history for tracking across runs
-  appendHistory(report);
+  // Add to history for tracking across runs (unless caller will record unified entry)
+  if (!options.skipHistory) {
+    appendHistory(report);
+  }
 
   console.log(`\nReports saved:`);
   console.log(`  JSON: ${jsonPath}`);

@@ -1,30 +1,78 @@
 # Ingest Test Framework
 
-Automated testing for the ingest pipeline, supporting unit tests (fixture-based) and integration tests (live Telegram pipeline).
+A 4-layer automated testing pyramid for the ingest pipeline, from fast unit tests to full end-to-end acceptance workflows.
 
 ## Quick Reference
 
 ```bash
-# Unit tests - fast, fixture-based (~4 min)
-bun run ingest.ts test run
+# Run ALL test layers (recommended for pre-release validation)
+bun run ingest.ts test all
 
-# Integration tests - parallel execution (~2 min for full suite)
-bun run ingest.ts test integration --parallel
+# Individual layers
+bun run ingest.ts test run                    # Layer 1: Unit tests (~4 min)
+bun run ingest.ts test integration --parallel  # Layer 2: Integration tests (~2 min)
+bun run ingest.ts test cli                     # Layer 3: CLI tests (~3 min)
+bun run ingest.ts test acceptance              # Layer 4: Acceptance tests (~8 min)
 
-# Run single integration test
-bun run ingest.ts test integration --ids TEST-REG-001 --verbose
+# Skip specific layers
+bun run ingest.ts test all --skip-cli --skip-acceptance
 
-# View latest reports
-cat test/output/latest-report.md              # Unit test report
-cat test/output/latest-integration-report.md  # Integration test report
+# View test history
+bun run ingest.ts test history
+bun run ingest.ts test history --layer unit
 ```
 
-## Testing Strategy
+## 4-Layer Test Pyramid
 
-| Test Type | Command | Duration | When to Use |
-|-----------|---------|----------|-------------|
-| **Unit tests** | `test run` | ~4 min | Daily development, CI/CD |
-| **Integration** | `test integration --parallel` | ~2 min | Full Telegram pipeline validation |
+| Layer | Command | Duration | What It Tests |
+|-------|---------|----------|---------------|
+| **1. Unit** | `test run` | ~4 min | processMessage() with fixtures |
+| **2. Integration** | `test integration` | ~2 min | Full Telegram → vault pipeline |
+| **3. CLI** | `test cli` | ~3 min | obs search/semantic commands |
+| **4. Acceptance** | `test acceptance` | ~8 min | End-to-end workflows via `claude -p` |
+
+### Unified Test Runs
+
+The `test all` command runs all layers in sequence and creates a **single unified history entry**:
+
+```bash
+bun run ingest.ts test all
+
+# Output shows all layers with status:
+# ════════════════════════════════════════════════════════════
+# COMBINED TEST SUMMARY
+# ════════════════════════════════════════════════════════════
+#  Layer         Status   Passed  Failed   Total   Time
+# ────────────────────────────────────────────────────────────
+#  ✓ unit         run        30       0      30    45.2s
+#  ✓ integration  run        15       0      15    62.1s
+#  - cli          skipped
+#  ✓ acceptance   run         5       0       5    48.3s
+# ────────────────────────────────────────────────────────────
+#  ✓ TOTAL                   50       0      50   155.6s
+# ════════════════════════════════════════════════════════════
+# Run ID: all-2025-12-04-18-45-30
+```
+
+Each layer can be:
+- **executed** - ran with pass/fail results
+- **skipped** - excluded via `--skip-*` flag
+
+### Test History
+
+Test results are tracked in `test/output/test-history.json`:
+
+```bash
+# View recent runs across all layers
+bun run ingest.ts test history
+
+# Filter by layer
+bun run ingest.ts test history --layer unit
+bun run ingest.ts test history --layer integration
+bun run ingest.ts test history --layer all  # Unified runs only
+```
+
+Unified runs (layer="all") include a breakdown of each layer's results for detailed tracking.
 
 ## Unit Tests
 
@@ -113,6 +161,93 @@ Add to `~/.claude/.env`:
 TEST_TELEGRAM_CHANNEL_ID=<your-test-inbox-channel-id>   # PAI Test Inbox
 TEST_TELEGRAM_OUTBOX_ID=<your-test-events-channel-id>   # PAI Test Events
 TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>     # PAI Test Cases (optional, for manual testing)
+```
+
+## CLI Tests (Layer 3)
+
+Tests the `obs` CLI commands for vault retrieval after ingestion.
+
+### How It Works
+
+1. **Ingest** test content via `ingest direct`
+2. **Build** embeddings via `obs embed --incremental`
+3. **Execute** obs commands (search, semantic, read, tags)
+4. **Validate** output contains expected results
+
+### Commands
+
+```bash
+# Run all CLI tests
+bun run ingest.ts test cli
+
+# Run specific test
+bun run ingest.ts test cli CLI-001
+
+# Skip embedding rebuild (if recently updated)
+bun run ingest.ts test cli --skip-embeddings
+```
+
+### Available Tests
+
+| Test ID | Description |
+|---------|-------------|
+| CLI-001 | Tag search finds ingested note |
+| CLI-002 | Text search finds content |
+| CLI-003 | Semantic search finds related content |
+| CLI-004 | Scope filter excludes private from work |
+| CLI-005 | Scope filter includes private with --scope |
+| CLI-006 | obs tags lists vault tags |
+| CLI-007 | obs read retrieves note content |
+
+## Acceptance Tests (Layer 4)
+
+End-to-end workflow tests using `claude -p` (Claude Code non-interactive mode).
+
+### How It Works
+
+1. **Send** natural language prompt to Claude via `claude -p`
+2. **Claude** executes commands (ingest, obs, etc.)
+3. **Validate** output and side effects
+4. **Report** pass/fail based on Claude's response
+
+### Commands
+
+```bash
+# Run all acceptance tests
+bun run ingest.ts test acceptance
+
+# Run specific test
+bun run ingest.ts test acceptance ACC-001
+```
+
+### Available Tests
+
+| Test ID | Description |
+|---------|-------------|
+| ACC-001 | Ingest text note via direct command |
+| ACC-002 | Search for ingested content |
+| ACC-003 | Check test history command |
+| ACC-004 | Multi-step workflow: ingest and retrieve |
+| ACC-005 | Tag search after ingest |
+
+### Writing Acceptance Tests
+
+Acceptance tests use natural language prompts that ask Claude to:
+1. Execute commands
+2. Report SUCCESS or FAILURE based on results
+
+```typescript
+{
+  id: "ACC-001",
+  name: "Ingest text note via direct command",
+  prompt: `Run this exact command and report if it succeeded:
+    bun run ingest.ts direct --text "Test note" --caption "#test"
+    Report SUCCESS if completed, or FAILURE if error.`,
+  expected: {
+    outputContains: ["SUCCESS"],
+    outputNotContains: ["FAILURE"],
+  },
+}
 ```
 
 ## Test Reports
@@ -244,12 +379,14 @@ test/
 │   ├── archive.spec.ts
 │   └── regression.spec.ts
 └── framework/          # Test framework code
-    ├── runner.ts           # Unit test runner
-    ├── integration-runner.ts  # Integration test runner
-    ├── capture.ts          # Fixture capture
-    ├── validate.ts         # Validation logic
-    ├── report.ts           # Report generation
-    └── types.ts            # TypeScript types
+    ├── runner.ts              # Layer 1: Unit test runner
+    ├── integration-runner.ts  # Layer 2: Integration test runner
+    ├── cli-runner.ts          # Layer 3: CLI test runner
+    ├── acceptance-runner.ts   # Layer 4: Acceptance test runner
+    ├── capture.ts             # Fixture capture
+    ├── validate.ts            # Validation logic
+    ├── report.ts              # Report generation & history tracking
+    └── types.ts               # TypeScript types
 ```
 
 ## Adding New Tests

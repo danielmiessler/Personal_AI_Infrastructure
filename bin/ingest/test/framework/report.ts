@@ -12,7 +12,17 @@ import type { TestRunSummary, ValidationResult } from "./types";
 // Types
 // =============================================================================
 
-export type TestLayer = "unit" | "integration" | "cli" | "acceptance";
+export type TestLayer = "unit" | "integration" | "cli" | "acceptance" | "all";
+
+export interface LayerResult {
+  layer: TestLayer;
+  status: "executed" | "skipped";
+  passed: number;
+  failed: number;
+  total: number;
+  duration: number;
+  failedTests: string[];
+}
 
 export interface TestReport {
   runId: string;
@@ -62,6 +72,46 @@ export interface HistoryEntry {
   };
   passRate: number;
   failedTests: string[];
+  /** For unified runs (layer="all"), breakdown by layer */
+  layers?: LayerResult[];
+}
+
+/**
+ * Append a unified run (all layers) to history
+ */
+export function appendUnifiedHistory(
+  runId: string,
+  startedAt: string,
+  duration: number,
+  layerResults: LayerResult[]
+): void {
+  const history = loadHistory();
+
+  // Calculate totals
+  const totals = layerResults.reduce(
+    (acc, lr) => ({
+      total: acc.total + lr.total,
+      passed: acc.passed + lr.passed,
+      failed: acc.failed + lr.failed,
+    }),
+    { total: 0, passed: 0, failed: 0 }
+  );
+
+  const allFailed = layerResults.flatMap(lr => lr.failedTests);
+
+  const entry: HistoryEntry = {
+    runId,
+    layer: "all",
+    startedAt,
+    duration,
+    counts: { ...totals, skipped: 0 },
+    passRate: totals.total > 0 ? Math.round((totals.passed / totals.total) * 100) : 0,
+    failedTests: allFailed,
+    layers: layerResults,
+  };
+
+  history.push(entry);
+  saveHistory(history);
 }
 
 // =============================================================================
@@ -282,6 +332,15 @@ export function loadHistory(): HistoryEntry[] {
 }
 
 /**
+ * Save test history (keeps last 100 entries)
+ */
+function saveHistory(history: HistoryEntry[]): void {
+  const trimmed = history.slice(-100);
+  mkdirSync(OUTPUT_BASE_DIR, { recursive: true });
+  writeFileSync(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
+}
+
+/**
  * Add run to history
  */
 export function appendHistory(report: TestReport): void {
@@ -298,12 +357,7 @@ export function appendHistory(report: TestReport): void {
   };
 
   history.push(entry);
-
-  // Keep last 100 runs
-  const trimmed = history.slice(-100);
-
-  mkdirSync(OUTPUT_BASE_DIR, { recursive: true });
-  writeFileSync(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
+  saveHistory(history);
 }
 
 /**

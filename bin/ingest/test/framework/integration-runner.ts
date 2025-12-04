@@ -35,6 +35,8 @@ export interface IntegrationOptions {
   dryRun?: boolean;  // Just show what would be done
   parallel?: boolean;  // Run tests in parallel
   concurrency?: number;  // Max concurrent tests (default: 5)
+  runId?: string;  // Use specific runId (for unified runs across layers)
+  skipHistory?: boolean;  // Skip recording to history (caller will record unified entry)
 }
 
 export interface IntegrationResult extends ValidationResult {
@@ -1168,14 +1170,14 @@ export function generateDetailedReport(summary: IntegrationRunSummary): string {
 /**
  * Save detailed integration report to file
  */
-export function saveDetailedReport(summary: IntegrationRunSummary): string {
+export function saveDetailedReport(summary: IntegrationRunSummary, options?: { runId?: string; skipHistory?: boolean }): string {
   const { writeFileSync, mkdirSync } = require("fs");
   const { join } = require("path");
 
   const OUTPUT_DIR = join(import.meta.dir, "..", "output");
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const runId = `integration-${new Date(summary.startedAt).toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+  const runId = options?.runId || `integration-${new Date(summary.startedAt).toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
   const markdown = generateDetailedReport(summary);
   const reportPath = join(OUTPUT_DIR, "integration-report.md");
   writeFileSync(reportPath, markdown);
@@ -1205,7 +1207,11 @@ export function saveDetailedReport(summary: IntegrationRunSummary): string {
       failedChecks: r.checks.filter(c => !c.passed).map(c => c.name),
     })),
   };
-  appendHistory(report);
+
+  // Add to history unless caller will record unified entry
+  if (!options?.skipHistory) {
+    appendHistory(report);
+  }
 
   // Record test files to registry for cleanup
   const testFiles: TestFileEntry[] = summary.results

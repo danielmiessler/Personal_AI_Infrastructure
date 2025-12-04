@@ -1,0 +1,21 @@
+agents:
+  Daniel:
+    total_standups: 0
+    last_participated: ""
+    participation_rate: 0
+  Mary:
+    total_standups: 0
+    last_participated: ""
+    participation_rate: 0
+  Clay:
+    total_standups: 0
+    last_participated: ""
+    participation_rate: 0
+  Hefley:
+    total_standups: 0
+    last_participated: ""
+    participation_rate: 0
+  Amy:
+    total_standups: 0
+    last_participated: ""
+    participation_rate: 0

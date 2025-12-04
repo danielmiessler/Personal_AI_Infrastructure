@@ -1,0 +1,309 @@
+# Domain Keyword Mapping for Intelligent Agent Selection
+# Used by agent-selection.ts to match question context to agent expertise
+
+version: "1.0"
+last_updated: "2025-12-04"
+
+# Domain definitions with keywords and agent scoring
+domains:
+  # Security Domain
+  security:
+    keywords:
+      - auth
+      - authentication
+      - authorization
+      - security
+      - vuln
+      - vulnerability
+      - exploit
+      - attack
+      - threat
+      - STRIDE
+      - CMMC
+      - compliance
+      - encryption
+      - crypto
+      - SSL
+      - TLS
+      - XSS
+      - CSRF
+      - injection
+      - SQL injection
+      - credential
+      - password
+      - session
+      - token
+      - JWT
+      - OAuth
+      - SAML
+      - MFA
+      - 2FA
+    primary_agents:
+      - Daniel  # Security Engineer
+      - Amy     # QA Lead (security testing)
+    secondary_agents:
+      - Clay    # Tech Lead (implementation)
+    weight: 1.0
+
+  # User Experience Domain
+  ux:
+    keywords:
+      - UX
+      - user experience
+      - user interface
+      - UI
+      - design
+      - usability
+      - accessibility
+      - a11y
+      - user research
+      - persona
+      - user flow
+      - wireframe
+      - prototype
+      - feedback
+      - stakeholder
+    primary_agents:
+      - Mary    # Business Analyst
+      - Amy     # QA Lead (user acceptance testing)
+    secondary_agents:
+      - Daniel  # Security (secure UX)
+      - Clay    # Tech Lead (implementation)
+    weight: 1.0
+
+  # Planning/Timeline Domain
+  planning:
+    keywords:
+      - timeline
+      - estimate
+      - capacity
+      - velocity
+      - sprint
+      - schedule
+      - deadline
+      - how long
+      - duration
+      - effort
+      - story points
+      - roadmap
+    primary_agents:
+      - Clay    # Tech Lead (technical estimates)
+      - Hefley  # Product Manager (priority)
+    secondary_agents:
+      - Amy     # QA Lead (testing time)
+    weight: 1.0
+
+  # Prioritization Domain
+  prioritization:
+    keywords:
+      - priority
+      - prioritize
+      - MVP
+      - must have
+      - should have
+      - could have
+      - won't have
+      - MoSCoW
+      - scope
+      - backlog
+      - defer
+      - should we build
+    primary_agents:
+      - Hefley  # Product Manager
+      - Mary    # Business Analyst
+    secondary_agents:
+      - Clay    # Tech Lead (feasibility)
+    weight: 1.0
+
+  # Testing/QA Domain
+  testing:
+    keywords:
+      - test
+      - testing
+      - QA
+      - quality
+      - coverage
+      - unit test
+      - integration test
+      - E2E
+      - end-to-end
+      - acceptance
+      - ATDD
+      - testability
+      - mock
+      - fixture
+      - assertion
+      - how many tests
+    primary_agents:
+      - Amy     # QA Lead
+      - Clay    # Tech Lead (test implementation)
+    secondary_agents:
+      - Daniel  # Security (security tests)
+    weight: 1.0
+
+  # Architecture/Design Domain
+  architecture:
+    keywords:
+      - architecture
+      - design
+      - system design
+      - component
+      - service
+      - microservice
+      - API
+      - endpoint
+      - database
+      - schema
+      - data model
+      - pattern
+      - SOLID
+      - DRY
+      - infrastructure
+      - deployment
+      - scalability
+      - performance
+    primary_agents:
+      - Clay    # Tech Lead
+      - Hefley  # Product Manager (business alignment)
+    secondary_agents:
+      - Daniel  # Security (secure architecture)
+      - Amy     # QA Lead (testable architecture)
+    weight: 1.0
+
+  # Database/Data Domain
+  database:
+    keywords:
+      - database
+      - DB
+      - SQL
+      - query
+      - schema
+      - migration
+      - ORM
+      - PostgreSQL
+      - MySQL
+      - MongoDB
+      - data model
+      - index
+      - transaction
+      - ACID
+    primary_agents:
+      - Daniel  # Security (SQL injection, data protection)
+      - Clay    # Tech Lead (implementation)
+    secondary_agents:
+      - Amy     # QA Lead (data testing)
+    weight: 1.0
+
+  # Compliance/Regulatory Domain
+  compliance:
+    keywords:
+      - compliance
+      - regulatory
+      - CMMC
+      - GDPR
+      - HIPAA
+      - SOX
+      - audit
+      - audit trail
+      - regulation
+      - policy
+      - governance
+    primary_agents:
+      - Daniel  # Security (compliance expert)
+      - Amy     # QA Lead (compliance testing)
+    secondary_agents:
+      - Clay    # Tech Lead (implementation)
+    weight: 1.0
+
+# Agent expertise profiles
+# Used for fallback when no clear domain match
+agents:
+  Daniel:
+    role: "Security Engineer"
+    expertise:
+      - security
+      - compliance
+      - database  # SQL injection
+    veto_power: true
+    veto_criteria: "CRITICAL vulnerabilities (CVSS >=9.0) or CMMC blockers"
+
+  Mary:
+    role: "Business Analyst"
+    expertise:
+      - ux
+      - prioritization
+    veto_power: false
+
+  Clay:
+    role: "Tech Lead"
+    expertise:
+      - architecture
+      - planning
+      - testing
+      - database
+    veto_power: false
+
+  Hefley:
+    role: "Product Manager"
+    expertise:
+      - prioritization
+      - planning
+      - architecture  # Business architecture
+    veto_power: false
+
+  Amy:
+    role: "QA Lead"
+    expertise:
+      - testing
+      - security  # Security testing
+      - ux        # User acceptance testing
+      - compliance
+    veto_power: true
+    veto_criteria: "Untestable designs or missing quality gates"
+
+# Selection rules
+selection:
+  min_agents: 2
+  max_agents: 3
+  default_agents: 3
+
+  # If no clear domain match, use full team
+  fallback_roster:
+    - Daniel
+    - Mary
+    - Clay
+    - Hefley
+    - Amy
+
+  # Override behavior
+  allow_manual_override: true
+
+  # Scoring thresholds
+  high_relevance_threshold: 0.7  # Agent must score >=0.7 to be selected
+  medium_relevance_threshold: 0.4  # Agent can be selected if slots available
+
+  # Tie-breaking (when multiple agents have same score)
+  tie_breaker: "participation_rate"  # Options: "participation_rate", "alphabetical", "random"
+
+# Question context overrides
+# Questions take precedence over feature keywords
+question_patterns:
+  - pattern: "(how long|how much time|duration|estimate|when)"
+    domain: planning
+    description: "Timeline/estimation questions"
+
+  - pattern: "(how many tests|test count|coverage|testing)"
+    domain: testing
+    description: "Testing-focused questions"
+
+  - pattern: "(should we|priority|MVP|defer)"
+    domain: prioritization
+    description: "Prioritization questions"
+
+  - pattern: "(security|secure|attack|threat|vuln)"
+    domain: security
+    description: "Security-focused questions"
+
+  - pattern: "(user|UX|experience|usability)"
+    domain: ux
+    description: "User experience questions"

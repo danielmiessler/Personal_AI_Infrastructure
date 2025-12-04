@@ -1,0 +1,21 @@
+{
+  "name": "@forge/standup-tools",
+  "version": "2.0.0",
+  "description": "Standup V2 agent selection and orchestration tools",
+  "type": "module",
+  "main": "agent-selection.ts",
+  "scripts": {
+    "test": "jest",
+    "select": "tsx agent-selection.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

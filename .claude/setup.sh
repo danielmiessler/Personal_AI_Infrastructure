@@ -197,21 +197,21 @@ fi
 
 NEEDS_INSTALL=false
 
-if [ "$HAS_GIT" = false ] || [ "$HAS_BREW" = false ] || [ "$HAS_BUN" = false ]; then
+if [ "$HAS_GIT" = false ] || [ "$HAS_BUN" = false ]; then
     NEEDS_INSTALL=true
 fi
 
 if [ "$NEEDS_INSTALL" = true ]; then
     print_header "Step 2: Installing Missing Software"
 
-    # Install Homebrew if needed
+    # Install Homebrew if needed (optional)
     if [ "$HAS_BREW" = false ]; then
         echo ""
-        print_warning "Homebrew is not installed. Homebrew is a package manager for macOS."
-        print_info "We need it to install other tools like Bun."
+        print_info "Homebrew is not installed. Homebrew is a package manager for macOS."
+        print_info "It can be used to install tools, but it's not required."
         echo ""
 
-        if ask_yes_no "Install Homebrew?"; then
+        if ask_yes_no "Install Homebrew? (optional)" "n"; then
             print_step "Installing Homebrew..."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
@@ -223,8 +223,7 @@ if [ "$NEEDS_INSTALL" = true ]; then
             print_success "Homebrew installed successfully!"
             HAS_BREW=true
         else
-            print_error "Homebrew is required to continue. Exiting."
-            exit 1
+            print_info "Continuing without Homebrew. We'll use alternative installation methods."
         fi
     fi
 
@@ -258,9 +257,28 @@ if [ "$NEEDS_INSTALL" = true ]; then
 
         if ask_yes_no "Install Bun?"; then
             print_step "Installing Bun..."
-            brew install oven-sh/bun/bun
-            print_success "Bun installed successfully!"
-            HAS_BUN=true
+
+            # Use Homebrew if available, otherwise use curl
+            if [ "$HAS_BREW" = true ]; then
+                print_info "Installing Bun via Homebrew..."
+                brew install oven-sh/bun/bun
+            else
+                print_info "Installing Bun via curl (Homebrew not available)..."
+                curl -fsSL https://bun.sh/install | bash
+
+                # Add Bun to PATH for this session
+                export BUN_INSTALL="$HOME/.bun"
+                export PATH="$BUN_INSTALL/bin:$PATH"
+            fi
+
+            # Verify installation
+            if command_exists bun; then
+                print_success "Bun installed successfully!"
+                HAS_BUN=true
+            else
+                print_warning "Bun installation may have failed. You may need to restart your terminal."
+                print_info "After restarting, verify with: bun --version"
+            fi
         else
             print_warning "Bun is optional, but recommended. Continuing without it."
         fi

@@ -1,10 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
-    "PAI_DIR": "/Users/YOURNAME/.claude",
+    "PAI_DIR": "/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude",
     "DA": "PAI",
     "ASSISTANT_NAME": "FORGE",
-    "USER_NAME": "User",
+    "USER_NAME": "Joey",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },
   "_comment": "IMPORTANT: Change PAI_DIR, ASSISTANT_NAME, and USER_NAME above to your actual values. PAI_DIR should be your PAI installation path (e.g., /Users/john/PAI/.claude)",

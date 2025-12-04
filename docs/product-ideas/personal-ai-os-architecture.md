@@ -44,7 +44,9 @@ Modern life bombards you with noise from every direction:
 
 ## The Solution: Four Layers Between You and the Noise
 
-Life OS puts **four intelligent layers** between you and the chaos. Each manages a different aspect of your life — both work and private:
+Life OS puts **four intelligent layers** between you and the chaos. Each manages a different aspect of your life — both work and private.
+
+These layers sit on **foundational pillars** that ensure you can access your system anywhere, see what it's doing, trust it with your data, and own it completely.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -78,6 +80,15 @@ Life OS puts **four intelligent layers** between you and the chaos. Each manages
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘ └────────────────┘ │
 │                                                                                 │
 │  ════════════════════════════════════════════════════════════════════════════   │
+│                                 PILLARS                                         │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌────────────────┐ │
+│  │  📱 ACCESS      │ │  👁️ OBSERVABLE  │ │  🔐 SECURE      │ │  🌐 OPEN       │ │
+│  │                 │ │                 │ │                 │ │                │ │
+│  │  Anywhere       │ │  See it         │ │  Trust it       │ │  Own it        │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘ └────────────────┘ │
+│                                                                                 │
+│                                                                                 │
+│  ════════════════════════════════════════════════════════════════════════════   │
 │                                                                                 │
 │                              📢 THE NOISE                                       │
 │                                                                                 │
@@ -86,6 +97,15 @@ Life OS puts **four intelligent layers** between you and the chaos. Each manages
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### The Four Pillars
+
+| Pillar | Promise | What It Means |
+|--------|---------|---------------|
+| **📱 Access** | Anywhere | Get to your Life OS from any device, any interface |
+| **👁️ Observable** | See it | Full visibility into what the system is doing |
+| **🔐 Secure** | Trust it | Your data, your rules, privacy by design |
+| **🌐 Open** | Own it | Open source, open standards, open formats — no lock-in |
 
 ---
 
@@ -270,9 +290,193 @@ You answer confidently. No scrambling. No "let me check and get back to you."
 
 ---
 
+## The Four Pillars (Deep Dive)
+
+The four layers sit on foundational pillars that ensure Life OS is accessible, transparent, trustworthy, and yours.
+
+### 📱 Access Layer (Omni-channel)
+
+*"Get to your Life OS from anywhere."*
+
+Your Life OS shouldn't be locked to one device or interface:
+
+| Channel | Use Case |
+|---------|----------|
+| **Mobile App** | Quick capture, notifications, on-the-go queries |
+| **Web Dashboard** | Full view, weekly briefing, deep work |
+| **Desktop CLI** | Power users, scripting, automation |
+| **Voice Assistant** | Hands-free queries, "What's my day look like?" |
+| **Telegram Bot** | Quick capture, conversational interface |
+| **Browser Extension** | Web clipping, context from any page |
+| **API** | Integrations, custom workflows |
+
+**Principle:** Same data, same intelligence, any surface.
+
+### 👁️ Observability Layer
+
+*"See what the system is doing."*
+
+You need visibility into how Life OS processes your information:
+
+**Activity Feed:**
+- What was captured today
+- What was processed, tagged, filed
+- What notifications were sent vs batched
+- What queries were answered
+
+**System Health:**
+- Processing queue status
+- Integration status (calendar sync, email, etc.)
+- Errors and retries
+- Storage usage
+
+**Analytics:**
+- Capture volume over time
+- Most active projects/contexts
+- Response times
+- Knowledge growth
+
+**Audit Trail:**
+- Who/what accessed data
+- When and why
+- Full history of actions
+
+### 🔐 Security & Privacy Pillar
+
+*"Your data, your rules."*
+
+Life OS handles sensitive information. Privacy is non-negotiable.
+
+**Two Dimensions of Data Classification:**
+
+Data has two independent dimensions — **Context** and **Sensitivity**:
+
+```
+                        SENSITIVITY
+                        
+              Public    Internal    Sensitive    Highly Sensitive
+            ┌──────────┬───────────┬────────────┬─────────────────┐
+     Work   │ Company  │ Internal  │ Client     │ M&A docs        │
+            │ blog     │ wiki      │ contracts  │ Board materials │
+            ├──────────┼───────────┼────────────┼─────────────────┤
+  CONTEXT   │          │           │            │                 │
+            ├──────────┼───────────┼────────────┼─────────────────┤
+   Private  │ Social   │ Personal  │ Financial  │ Medical records │
+            │ posts    │ notes     │ statements │ Passwords       │
+            └──────────┴───────────┴────────────┴─────────────────┘
+```
+
+**Context** (Work vs Private):
+- Determines which "space" data lives in
+- Can be separated or blended based on preference
+- Controls visibility in briefings and searches
+
+**Sensitivity Levels:**
+
+| Level | Description | Access Rules |
+|-------|-------------|--------------|
+| **Public** | Safe to share anywhere | No restrictions |
+| **Internal** | Default for most data | Standard access, logged |
+| **Sensitive** | Requires care | Prompt before surfacing |
+| **Highly Sensitive** | Maximum protection | MFA required, no AI training |
+
+**Examples:**
+
+| Data | Context | Sensitivity | Why |
+|------|---------|-------------|-----|
+| Company blog draft | Work | Public | Will be published anyway |
+| Meeting notes | Work | Internal | Normal work data |
+| Client contract | Work | Sensitive | Confidential business |
+| M&A plans | Work | Highly Sensitive | Career-ending if leaked |
+| Instagram post | Private | Public | Already public |
+| Journal entry | Private | Internal | Personal but not secret |
+| Bank statements | Private | Sensitive | Financial privacy |
+| Medical records | Private | Highly Sensitive | Maximum protection |
+
+**Access Controls by Sensitivity:**
+
+| Sensitivity | View | Search | AI Access | Export |
+|-------------|------|--------|-----------|--------|
+| Public | ✅ | ✅ | ✅ | ✅ |
+| Internal | ✅ | ✅ | ✅ | ✅ |
+| Sensitive | Prompt | Opt-in | Prompt | Logged |
+| Highly Sensitive | MFA | MFA | ❌ Never | MFA + Logged |
+
+**Example:**
+```
+You ask: "What's in my medical folder?"
+
+Medical folder is tagged [Private, Highly Sensitive]:
+  → System prompts: "This folder is highly sensitive. Authenticate to access."
+  → You confirm via biometric/MFA
+  → Content displayed
+  → Access logged to audit trail
+  → Content NOT sent to AI for processing
+```
+
+### 🌐 Open Pillar
+
+*"Own it. No lock-in. Ever."*
+
+Life OS is built on open foundations:
+
+**Open Source:**
+- Core system is open source
+- Community contributions welcome
+- Inspect the code that handles your life
+- Fork and customize
+
+**Open Standards:**
+- Standard protocols (CalDAV, IMAP, OAuth)
+- Interoperability with existing tools
+- No proprietary lock-in
+
+**Open Formats:**
+- Markdown for notes (not proprietary formats)
+- JSON for data exchange
+- Standard file formats (PDF, images)
+- Your vault is just files — readable anywhere
+
+**Open APIs:**
+- Full API access to your data
+- Build your own integrations
+- Webhook support for automation
+- MCP (Model Context Protocol) for AI tools
+
+**Data Portability:**
+- Export everything, anytime
+- Standard formats for migration
+- No hostage data
+- Your data is yours — period
+
+**Why Open Matters:**
+| Closed System | Open System (Life OS) |
+|---------------|----------------------|
+| Vendor decides features | You decide features |
+| Data trapped in silos | Data flows freely |
+| Proprietary formats | Standard formats |
+| Subscription ransom | Self-host option |
+| Black box AI | Inspectable AI |
+
+---
+
 ## How PAI Supports This Vision
 
 Life OS is built on the **Personal AI Infrastructure (PAI)** — Daniel Miessler's open-source foundation that provides the scaffolding for personal AI systems.
+
+### Foundation: Unix Philosophy + AI
+
+PAI follows Unix philosophy with AI orchestration on top:
+
+| Unix Principle | PAI Application |
+|----------------|-----------------|
+| Do one thing well | `ingest` captures, `obs` retrieves, `fabric` transforms |
+| Programs work together | Pipelines: Research → Fabric → Knowledge |
+| Text as universal interface | JSON, Markdown, CLI output |
+| Small, sharp tools | Each skill/agent has focused purpose |
+| Build on what works | AI orchestrates deterministic tools |
+
+**The insight:** Unix got it right 50 years ago. AI doesn't replace this — it orchestrates it. Code is cheaper, faster, and more reliable than prompts.
 
 ### PAI Core Philosophy
 

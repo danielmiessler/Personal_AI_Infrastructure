@@ -4,6 +4,39 @@
 
 ---
 
+## About This Document
+
+This is a **vision document** exploring how PAI's architecture naturally extends to create a comprehensive "Personal AI Operating System" — what could be referred to as **Life OS**.
+
+It builds directly on Daniel Miessler's [Personal AI Infrastructure](https://github.com/danielmiessler/PAI) and demonstrates how PAI's core principles (*Scaffolding > Model*, *CLI-First*, *Unix Philosophy*) can scale to manage not just knowledge, but all aspects of modern life: awareness, attention, commitments, and information.
+
+**This isn't a finished product** — it's a conceptual framework in an attempt to add to the vision of where PAI can go.
+
+---
+
+## TL;DR
+
+**The Problem:** Modern life drowns us in noise. Emails, messages, notifications, context switching between projects and customers, life admin, knowledge we've learned but can't recall. Our brains weren't built for this volume.
+
+**The Solution:** Four intelligent layers between you and the chaos:
+
+| Layer | Question | What It Does |
+|-------|----------|--------------|
+| 🚨 **Awareness** | "What's happening?" | Monitors your world — systems, home, vehicles |
+| 📥 **Attention** | "Who needs me?" | AI gatekeeper screens all inbound |
+| 📋 **Commitment** | "What do I owe?" | Tracks promises — work and personal |
+| 🧠 **Knowledge** | "What do I know?" | Your second brain — everything searchable |
+
+**Why PAI?** This isn't starting from scratch. PAI already provides:
+- **Knowledge Layer** → Context Management Skill (ingestion, Obsidian, semantic search) // I have built this as a skill extension...
+- **Multi-agent orchestration** → Research agents, Fabric patterns, voice feedback
+- **Unix-style architecture** → Small, sharp tools composed into pipelines
+- **Scaffolding > Model** → Architecture that outlasts any AI model
+
+**The vision:** Extend PAI's proven patterns to cover the four domains of life management. Like having a chief of staff for your life.
+
+---
+
 ## The Problem: Information Overload
 
 Modern life bombards you with noise from every direction:
@@ -46,8 +79,6 @@ Modern life bombards you with noise from every direction:
 
 Life OS puts **four intelligent layers** between you and the chaos. Each manages a different aspect of your life — both work and private.
 
-These layers sit on **foundational pillars** that ensure you can access your system anywhere, see what it's doing, trust it with your data, and own it completely.
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                                 LIFE OS                                         │
@@ -80,17 +111,6 @@ These layers sit on **foundational pillars** that ensure you can access your sys
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘ └────────────────┘ │
 │                                                                                 │
 │  ════════════════════════════════════════════════════════════════════════════   │
-│                                 PILLARS                                         │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌────────────────┐ │
-│  │  📱 ACCESS      │ │  👁️ OBSERVABLE  │ │  🔐 SECURE      │ │  🌐 OPEN       │ │
-│  │  Anywhere       │ │  See it         │ │  Trust it       │ │  Own it        │ │
-│  └─────────────────┘ └─────────────────┘ └─────────────────┘ └────────────────┘ │
-│                                                                                 │
-│  ════════════════════════════════════════════════════════════════════════════   │
-│                              🤖 AI LAYER                                    │
-│              Claude Code today • Interoperable tomorrow • Scaffolding > Model   │
-│  ════════════════════════════════════════════════════════════════════════════   │
-│                                                                                 │
 │                              📢 THE NOISE                                       │
 │                                                                                 │
 │          Emails • Messages • Calls • Notifications • Documents                  │
@@ -99,84 +119,11 @@ These layers sit on **foundational pillars** that ensure you can access your sys
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### The Four Pillars
-
-| Pillar | Promise | What It Means |
-|--------|---------|---------------|
-| **📱 Access** | Anywhere | Get to your Life OS from any device, any interface |
-| **👁️ Observable** | See it | Full visibility into what the system is doing |
-| **🔐 Secure** | Trust it | Your data, your rules, privacy by design |
-| **🌐 Open** | Own it | Open source, open standards, open formats — no lock-in |
-
----
-
-## The AI Layer
-
-Life OS is AI-native. The intelligence layer orchestrates everything.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              🤖 AI LAYER                                         │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│   Current: Claude Code (Anthropic)                                               │
-│   Why: Most advanced agentic capabilities for this vision today                  │
-│                                                                                  │
-│   Design for Interoperability:                                                   │
-│   • Scaffolding > Model (architecture matters more than AI)                      │
-│   • CLI-First (deterministic tools work with any LLM)                            │
-│   • Standard interfaces (MCP, OpenAI-compatible APIs)                            │
-│   • Model-agnostic prompts where possible                                        │
-│                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Current State: Claude Code
-
-**Why Claude Code today:**
-- Best-in-class agentic capabilities
-- Native MCP (Model Context Protocol) support
-- Long context window for full project understanding
-- Strong reasoning for complex multi-step tasks
-- Active development and rapid improvement
-
-**Tight coupling (for now):**
-- PAI is built around Claude Code's hook system
-- Agent orchestration uses Claude's Task tool
-- Voice integration tied to Claude's response format
-- Session management via Claude Code
-
-### Future State: Interoperability
-
-**The goal:** Swap the AI layer without rewriting the system.
-
-**Migration path:**
-1. Abstract AI interactions behind interfaces
-2. Support multiple model backends
-3. Allow per-task model selection (fast vs smart)
-4. Local model option for sensitive operations
-
-**Why this matters:**
-- AI landscape changes fast
-- No vendor lock-in for the brain
-- Run sensitive tasks on local models
-- Cost optimization (use cheaper models for simple tasks)
-- Resilience (fallback if one provider is down)
-
 ---
 
 ## The Four Layers
 
-| Layer | Question It Answers | What It Does |
-|-------|---------------------|--------------|
-| **🚨 Awareness** | "What's happening?" | Monitors your world — work systems, home, vehicles, resources. Predicts issues before they become problems. |
-| **📥 Attention** | "Who needs me?" | Acts as your gatekeeper. Screens all inbound. VIPs get through. Rest is batched into digests. |
-| **📋 Commitment** | "What do I owe?" | Tracks what you've promised — work deliverables, personal promises. Ensures nothing falls through. |
-| **🧠 Knowledge** | "What do I know?" | Your second brain. Everything captured, searchable, connected — across all projects and contexts. |
-
----
-
-## 🚨 Awareness Layer
+### 🚨 Awareness Layer
 
 *"What's happening around me?"*
 
@@ -207,7 +154,7 @@ Monitors signals from your physical world and work environment:
 
 ---
 
-## 📥 Attention Layer
+### 📥 Attention Layer
 
 *"Who needs me?"*
 
@@ -237,7 +184,7 @@ All channels merged into one intelligent inbox:
 
 ---
 
-## 📋 Commitment Layer
+### 📋 Commitment Layer
 
 *"What do I owe the world?"*
 
@@ -267,7 +214,7 @@ Tracks everything you've committed to — work and personal:
 
 ---
 
-## 🧠 Knowledge Layer
+### 🧠 Knowledge Layer
 
 *"What do I know?"*
 
@@ -293,7 +240,9 @@ Your second brain. Everything captured, processed, searchable — no more contex
 
 ---
 
-## The Weekly Presidential Briefing
+## Life OS In Action
+
+### The Weekly Presidential Briefing
 
 Instead of checking 10 apps every morning, you get one briefing:
 
@@ -328,9 +277,7 @@ Instead of checking 10 apps every morning, you get one briefing:
 
 Work + Personal + Home + Life Admin — all in one view.
 
----
-
-## Real-Time Augmentation
+### Real-Time Augmentation
 
 The layers don't just batch — they assist in real-time:
 
@@ -346,66 +293,41 @@ You answer confidently. No scrambling. No "let me check and get back to you."
 
 ---
 
-## The Four Pillars (Deep Dive)
+## The Foundation
 
-The four layers sit on foundational pillars that ensure Life OS is accessible, transparent, trustworthy, and yours.
+The four layers sit on foundational pillars and an AI layer that makes it all work.
 
-### 📱 Access Layer (Omni-channel)
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              FOUNDATION                                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  PILLARS                                                                        │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌────────────────┐ │
+│  │  📱 ACCESS      │ │  👁️ OBSERVABLE  │ │  🔐 SECURE      │ │  🌐 OPEN       │ │
+│  │  Anywhere       │ │  See it         │ │  Trust it       │ │  Own it        │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘ └────────────────┘ │
+│                                                                                 │
+│  AI LAYER                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  🤖 Claude Code today • Interoperable tomorrow • Scaffolding > Model    │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
-*"Get to your Life OS from anywhere."*
+### The Four Pillars
 
-Your Life OS shouldn't be locked to one device or interface:
+| Pillar | Promise | What It Means |
+|--------|---------|---------------|
+| **📱 Access** | Anywhere | Mobile, web, CLI, voice, Telegram, API — same data, any surface |
+| **👁️ Observable** | See it | Activity feed, system health, analytics, audit trail |
+| **🔐 Secure** | Trust it | Work/private separation, sensitivity levels, MFA for sensitive data |
+| **🌐 Open** | Own it | Open source, open standards, open formats, data portability |
 
-| Channel | Use Case |
-|---------|----------|
-| **Mobile App** | Quick capture, notifications, on-the-go queries |
-| **Web Dashboard** | Full view, weekly briefing, deep work |
-| **Desktop CLI** | Power users, scripting, automation |
-| **Voice Assistant** | Hands-free queries, "What's my day look like?" |
-| **Telegram Bot** | Quick capture, conversational interface |
-| **Browser Extension** | Web clipping, context from any page |
-| **API** | Integrations, custom workflows |
+### Security: Context × Sensitivity
 
-**Principle:** Same data, same intelligence, any surface.
-
-### 👁️ Observability Layer
-
-*"See what the system is doing."*
-
-You need visibility into how Life OS processes your information:
-
-**Activity Feed:**
-- What was captured today
-- What was processed, tagged, filed
-- What notifications were sent vs batched
-- What queries were answered
-
-**System Health:**
-- Processing queue status
-- Integration status (calendar sync, email, etc.)
-- Errors and retries
-- Storage usage
-
-**Analytics:**
-- Capture volume over time
-- Most active projects/contexts
-- Response times
-- Knowledge growth
-
-**Audit Trail:**
-- Who/what accessed data
-- When and why
-- Full history of actions
-
-### 🔐 Security & Privacy Pillar
-
-*"Your data, your rules."*
-
-Life OS handles sensitive information. Privacy is non-negotiable.
-
-**Two Dimensions of Data Classification:**
-
-Data has two independent dimensions — **Context** and **Sensitivity**:
+Data has two independent dimensions:
 
 ```
                         SENSITIVITY
@@ -422,35 +344,6 @@ Data has two independent dimensions — **Context** and **Sensitivity**:
             └──────────┴───────────┴────────────┴─────────────────┘
 ```
 
-**Context** (Work vs Private):
-- Determines which "space" data lives in
-- Can be separated or blended based on preference
-- Controls visibility in briefings and searches
-
-**Sensitivity Levels:**
-
-| Level | Description | Access Rules |
-|-------|-------------|--------------|
-| **Public** | Safe to share anywhere | No restrictions |
-| **Internal** | Default for most data | Standard access, logged |
-| **Sensitive** | Requires care | Prompt before surfacing |
-| **Highly Sensitive** | Maximum protection | MFA required, no AI training |
-
-**Examples:**
-
-| Data | Context | Sensitivity | Why |
-|------|---------|-------------|-----|
-| Company blog draft | Work | Public | Will be published anyway |
-| Meeting notes | Work | Internal | Normal work data |
-| Client contract | Work | Sensitive | Confidential business |
-| M&A plans | Work | Highly Sensitive | Career-ending if leaked |
-| Instagram post | Private | Public | Already public |
-| Journal entry | Private | Internal | Personal but not secret |
-| Bank statements | Private | Sensitive | Financial privacy |
-| Medical records | Private | Highly Sensitive | Maximum protection |
-
-**Access Controls by Sensitivity:**
-
 | Sensitivity | View | Search | AI Access | Export |
 |-------------|------|--------|-----------|--------|
 | Public | ✅ | ✅ | ✅ | ✅ |
@@ -458,214 +351,81 @@ Data has two independent dimensions — **Context** and **Sensitivity**:
 | Sensitive | Prompt | Opt-in | Prompt | Logged |
 | Highly Sensitive | MFA | MFA | ❌ Never | MFA + Logged |
 
-**Example:**
-```
-You ask: "What's in my medical folder?"
+### The AI Layer
 
-Medical folder is tagged [Private, Highly Sensitive]:
-  → System prompts: "This folder is highly sensitive. Authenticate to access."
-  → You confirm via biometric/MFA
-  → Content displayed
-  → Access logged to audit trail
-  → Content NOT sent to AI for processing
-```
+Life OS is AI-native. The intelligence layer orchestrates everything.
 
-### 🌐 Open Pillar
+**Current state: Claude Code**
+- Best-in-class agentic capabilities and scaffolding
+- Native MCP (Model Context Protocol) support
+- Long context window for full project understanding
+- Strong reasoning for complex multi-step tasks
 
-*"Own it. No lock-in. Ever."*
+**Design for interoperability:**
+- **Scaffolding > Model** — Architecture matters more than the AI
+- **Unix Philosophy** — Small, sharp tools that compose (works with any orchestrator)
+- **CLI-First** — Deterministic tools work with any LLM
+- **Standard interfaces** — MCP, OpenAI-compatible APIs
+- **Model-agnostic prompts** where possible
 
-Life OS is built on open foundations:
-
-**Open Source:**
-- Core system is open source
-- Community contributions welcome
-- Inspect the code that handles your life
-- Fork and customize
-
-**Open Standards:**
-- Standard protocols (CalDAV, IMAP, OAuth)
-- Interoperability with existing tools
-- No proprietary lock-in
-
-**Open Formats:**
-- Markdown for notes (not proprietary formats)
-- JSON for data exchange
-- Standard file formats (PDF, images)
-- Your vault is just files — readable anywhere
-
-**Open APIs:**
-- Full API access to your data
-- Build your own integrations
-- Webhook support for automation
-- MCP (Model Context Protocol) for AI tools
-
-**Data Portability:**
-- Export everything, anytime
-- Standard formats for migration
-- No hostage data
-- Your data is yours — period
-
-**Why Open Matters:**
-| Closed System | Open System (Life OS) |
-|---------------|----------------------|
-| Vendor decides features | You decide features |
-| Data trapped in silos | Data flows freely |
-| Proprietary formats | Standard formats |
-| Subscription ransom | Self-host option |
-| Black box AI | Inspectable AI |
+**The goal:** Swap the AI layer without rewriting the system. Support multiple models, per-task selection, local models for sensitive operations.
 
 ---
 
-## How PAI Supports This Vision
+## Built on PAI
 
-Life OS is built on the **Personal AI Infrastructure (PAI)** — Daniel Miessler's open-source foundation that provides the scaffolding for personal AI systems.
+Life OS extends **Personal AI Infrastructure (PAI)** — the open-source foundation from Daniel Miessler.
 
-### Foundation: Unix Philosophy + AI
+### Why PAI?
 
-PAI follows Unix philosophy with AI orchestration on top:
+PAI embodies the principles that make Life OS possible:
 
-| Unix Principle | PAI Application |
-|----------------|-----------------|
-| Do one thing well | `ingest` captures, `obs` retrieves, `fabric` transforms |
-| Programs work together | Pipelines: Research → Fabric → Knowledge |
-| Text as universal interface | JSON, Markdown, CLI output |
-| Small, sharp tools | Each skill/agent has focused purpose |
-| Build on what works | AI orchestrates deterministic tools |
-
-**The insight:** Unix got it right 50 years ago. AI doesn't replace this — it orchestrates it. Code is cheaper, faster, and more reliable than prompts.
-
-### PAI Core Philosophy
-
-**"Scaffolding > Model"** — The architecture matters more than the AI model.
-
-PAI is built on eight founding principles:
-
-| Principle | Description | Life OS Application |
-|-----------|-------------|---------------------|
+| PAI Principle | What It Means | Life OS Application |
+|---------------|---------------|---------------------|
 | **Scaffolding > Model** | Architecture matters more than AI | The four layers ARE the scaffolding |
 | **CLI-First** | Build deterministic tools, wrap with AI | Each layer has CLI tools |
+| **Unix Philosophy** | Small, sharp tools that compose | `ingest` → `fabric` → `obs` pipelines |
 | **Code Before Prompts** | Code is cheaper, faster, more reliable | Processing pipelines are testable code |
-| **Skills as Containers** | Self-contained, self-routing expertise | Each layer is a skill |
-| **Progressive Disclosure** | 3-tier context loading | Load context only when needed |
-| **Goal → Code → CLI → Prompts** | Development pipeline | Deterministic first, AI orchestration second |
-| **Spec/Test/Evals First** | Define behavior before implementation | Quality gates throughout |
-| **Meta/Self Updates** | System improves itself | Continuous evolution |
+| **Skills as Containers** | Self-contained, self-routing expertise | Each layer becomes a skill |
 
-### PAI Core Components
+### What PAI Already Provides
 
-**1. CORE Skill** — The Main Orchestrator
-- Identity, preferences, and operating principles
-- Auto-loads at session start
-- Routes to appropriate skills based on natural language
-- Defines response format and voice integration
+**Knowledge Layer Foundation** (Context Management Skill // v0.1 in private repo):
+- `bin/ingest/` — Telegram bot, voice transcription, document extraction, AI tagging
+- `bin/obs/` — Semantic search, vault operations, tag-based context loading
+- Obsidian integration — Your vault as the knowledge store
 
-**2. Skills System** — Domain Expertise Packages
-- Self-contained modules with routing, workflows, documentation
-- Natural language triggers automatic skill activation
-- 30+ skills covering research, security, development, content
+**Research & Processing:**
+- Research agents (Claude, Perplexity, Gemini) — parallel multi-source research
+- Fabric patterns (242+) — summarize, extract, analyze, transform
+- Content flows: Web → Research → Fabric → Knowledge Layer
 
-**3. Agents** — Specialized Task Executors
-- Autonomous entities with full tool access
-- Parallel execution for speed
-- Each agent has a unique voice (ElevenLabs TTS)
-- Examples: researcher, engineer, architect, designer, pentester
+**Agent Orchestration:**
+- CORE skill — Main orchestrator, session management
+- Hooks system — Event-driven automation
+- Voice server — ElevenLabs TTS, "AI in your ear"
+- History system (UOCS) — Permanent knowledge capture
 
-**4. Hooks** — Event-Driven Automation
-- Session start/stop logging
-- Voice notifications on task completion
-- Automatic history capture
-- Tool usage tracking
-
-**5. History System (UOCS)** — Permanent Knowledge Base
-- Raw event logs (JSONL)
-- Session summaries
-- Learnings and insights
-- Research findings
-
-**6. Voice Server** — Audio Feedback Loop
-- ElevenLabs TTS integration
-- Agent-specific voices
-- Task completion announcements
-- "AI in your ear" experience
-
-### What's Already Built
-
-**Context Management Skill** — The Knowledge Layer (fork extension):
-- Ingestion Pipeline (`bin/ingest/`):
-  - Telegram bot capture
-  - Voice memo transcription (Whisper)
-  - Document extraction (PDFs, images)
-  - AI-powered classification and tagging
-  - Two-layer processing: immediate capture → background enrichment
-- Obsidian CLI (`bin/obs/`):
-  - Semantic search via embeddings
-  - Full vault operations
-  - Tag-based project context loading
-- This is YOUR private knowledge — notes, ideas, conversations, documents
-
-**Research Skill** — Multi-source parallel research:
-- Claude researcher (free, uses WebSearch)
-- Perplexity researcher (API-based)
-- Gemini researcher (API-based)
-- Content retrieval with escalation (WebFetch → BrightData → Apify)
-- Research spans wider context (the world's knowledge)
-- Findings can flow back into your Knowledge Layer when relevant
-
-**Fabric Skill** — 242+ processing patterns:
-- Threat modeling (`create_threat_model`)
-- Summarization (`summarize`, `extract_wisdom`)
-- Analysis (`analyze_code`, `analyze_claims`)
-- Content creation (`create_prd`, `create_mermaid_visualization`)
-- Transforms content before it enters the Knowledge Layer
-
-### Mapping PAI to Life OS Layers
+### Mapping PAI to Life OS
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                        PAI TO LIFE OS MAPPING                                │
+│                        PAI → LIFE OS                                         │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   LIFE OS LAYER       PAI COMPONENT                 STATUS                   │
-│   ──────────────────────────────────────────────────────────────────────     │
+│   LAYER              PAI COMPONENT                    STATUS                 │
+│   ─────────────────────────────────────────────────────────────────────      │
 │                                                                              │
-│   Knowledge           Context Management Skill      [BUILT - fork]           │
-│   (your private       bin/ingest/ (capture)                                  │
-│    knowledge)         bin/obs/ (retrieve, search)                            │
-│                       Obsidian vault integration                             │
+│   🧠 Knowledge       Context Skill, bin/ingest/, bin/obs/   ✅ BUILT         │
+│   📥 Attention       skills/attention/ (gatekeeper, inbox)  🔲 TO BUILD      │
+│   📋 Commitment      skills/commitment/ (calendar, tasks)   🔲 TO BUILD      │
+│   🚨 Awareness       skills/awareness/ (sensors, alerts)    🔲 TO BUILD      │
 │                                                                              │
-│   Attention           skills/attention/             [TO BUILD]               │
-│                       - unified inbox                                        │
-│                       - gatekeeper logic                                     │
-│                       - notification routing                                 │
-│                       (hooks system provides foundation)                     │
+│   ─────────────────────────────────────────────────────────────────────      │
 │                                                                              │
-│   Commitment          skills/commitment/            [TO BUILD]               │
-│                       - calendar sync                                        │
-│                       - task aggregation                                     │
-│                       - promise tracking                                     │
-│                       (history system captures commitments)                  │
-│                                                                              │
-│   Awareness           skills/awareness/             [TO BUILD]               │
-│                       - sensor integrations                                  │
-│                       - vehicle tracking                                     │
-│                       - predictions                                          │
-│                                                                              │
-│   ──────────────────────────────────────────────────────────────────────     │
-│                                                                              │
-│   Research            skills/research/              [BUILT]                  │
-│   (world's            agents/researcher.md                                   │
-│    knowledge)         agents/perplexity-researcher.md                        │
-│                       agents/claude-researcher.md                            │
-│                       → Feeds into Knowledge Layer when relevant             │
-│                                                                              │
-│   Processing          skills/fabric/                [BUILT]                  │
-│   (transformation)    242+ patterns (summarize, extract, analyze)            │
-│                       → Transforms content before Knowledge Layer            │
-│                                                                              │
-│   Agent               CORE skill                    [BUILT]                  │
-│   Orchestration       hooks/ (event system)                                  │
-│                       voice-server/ (audio feedback)                         │
-│                       history/ (UOCS capture)                                │
+│   Research           skills/research/, agents/*-researcher   ✅ BUILT        │
+│   Processing         skills/fabric/ (242+ patterns)          ✅ BUILT        │
+│   Orchestration      CORE skill, hooks/, voice-server/       ✅ BUILT        │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -676,12 +436,12 @@ Every PAI skill follows this pattern. Life OS extends it to all four layers:
 
 | Layer | Capture | Process | Store | Retrieve |
 |-------|---------|---------|-------|----------|
-| **Knowledge** | Notes, voice, docs | Transcribe, tag, embed | Vault | "What do I know about X?" |
-| **Attention** | All messages | AI triage, priority | Inbox | "What needs me?" |
-| **Commitment** | Calendars, tasks | Promise detection | Obligations | "What do I owe?" |
-| **Awareness** | Sensors, APIs | Predictions | State | "What's happening?" |
+| **🧠 Knowledge** | Notes, voice, docs | Transcribe, tag, embed | Vault | "What do I know about X?" |
+| **📥 Attention** | All messages | AI triage, priority | Inbox | "What needs me?" |
+| **📋 Commitment** | Calendars, tasks | Promise detection | Obligations | "What do I owe?" |
+| **🚨 Awareness** | Sensors, APIs | Predictions | State | "What's happening?" |
 
-### How Knowledge Flows
+### Knowledge Flow
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -689,7 +449,7 @@ Every PAI skill follows this pattern. Life OS extends it to all four layers:
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │   WORLD'S KNOWLEDGE              PROCESSING               YOUR KNOWLEDGE     │
-│   (Research Layer)               (Fabric Layer)           (Knowledge Layer)  │
+│   (Research Agents)              (Fabric Patterns)        (Knowledge Layer)  │
 │                                                                              │
 │   ┌─────────────────┐           ┌─────────────────┐      ┌────────────────┐  │
 │   │ Research Agents │           │ Fabric Patterns │      │ Your Vault     │  │
@@ -718,7 +478,7 @@ PAI provides:
 - **Knowledge capture** — Ingestion pipeline and vault management
 - **Content processing** — 242+ Fabric patterns for any transformation
 
-Life OS extends this scaffolding to cover the four domains of life management: Awareness, Attention, Commitment, and Knowledge.
+Life OS extends this scaffolding to cover the four domains of life management.
 
 ---
 
@@ -735,6 +495,19 @@ Life OS extends this scaffolding to cover the four domains of life management: A
 **Like having a chief of staff for your life.**
 
 You stay focused. The layers handle the noise.
+
+---
+
+## Discussion
+
+This is a vision for where PAI can go. I'd love to hear thoughts from the community:
+
+- **Does this resonate?** Is information overload a problem you're solving with PAI?
+- **What's most valuable?** Which layer would you build first?
+- **What's missing?** Are there life domains not covered by the four layers?
+- **How are you extending PAI?** What custom skills have you built?
+
+The Knowledge Layer is already working in my fork. Interested in collaborating on the others.
 
 ---
 

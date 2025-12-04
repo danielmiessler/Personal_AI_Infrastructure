@@ -1,0 +1,149 @@
+project:
+  name: "Project Name"
+  start_date: "YYYY-MM-DD"
+  team_velocity: 20 # story points per sprint (adjust based on team size)
+  sprint_duration: 2 # weeks
+  team_size: 1 # number of developers
+
+sprints:
+  - sprint_number: 1
+    start_date: "YYYY-MM-DD"
+    end_date: "YYYY-MM-DD"
+    goal: "Sprint goal: one sentence describing value delivered"
+
+    success_criteria:
+      - criterion: "Measurable outcome 1"
+        status: "pending" # pending | in_progress | done
+      - criterion: "Measurable outcome 2"
+        status: "pending"
+      - criterion: "Measurable outcome 3"
+        status: "pending"
+
+    stories:
+      - story_id: "1.1"
+        title: "Story title"
+        points: 5
+        status: "pending" # pending | in_progress | done | blocked
+        assignee: "Developer Name"
+        dependencies: [] # List of story IDs that must complete first
+        started_date: null
+        completed_date: null
+        blocker: null # Description of blocker if status is "blocked"
+
+      - story_id: "1.2"
+        title: "Story title"
+        points: 3
+        status: "pending"
+        assignee: "Developer Name"
+        dependencies: ["1.1"] # Blocked by story 1.1
+        started_date: null
+        completed_date: null
+        blocker: null
+
+      - story_id: "1.3"
+        title: "Story title"
+        points: 8
+        status: "pending"
+        assignee: "Developer Name"
+        dependencies: []
+        started_date: null
+        completed_date: null
+        blocker: null
+
+    metrics:
+      planned_points: 16 # Sum of story points planned for sprint
+      completed_points: 0 # Updated as stories complete
+      in_progress_points: 0 # Points currently being worked
+      blocked_points: 0 # Points blocked
+      velocity: 0 # Completed points at end of sprint
+      completion_rate: 0 # Percentage: (completed / planned) × 100
+
+    burndown: # Optional: track remaining points daily
+      - day: 1
+        date: "YYYY-MM-DD"
+        remaining_points: 16
+      - day: 2
+        date: "YYYY-MM-DD"
+        remaining_points: 16
+      # Update daily
+
+  - sprint_number: 2
+    start_date: "YYYY-MM-DD"
+    end_date: "YYYY-MM-DD"
+    goal: "Sprint goal for sprint 2"
+
+    success_criteria:
+      - criterion: "Measurable outcome 1"
+        status: "pending"
+      - criterion: "Measurable outcome 2"
+        status: "pending"
+
+    stories:
+      - story_id: "2.1"
+        title: "Story title"
+        points: 5
+        status: "pending"
+        assignee: "Developer Name"
+        dependencies: []
+        started_date: null
+        completed_date: null
+        blocker: null
+
+      - story_id: "2.2"
+        title: "Story title"
+        points: 5
+        status: "pending"
+        assignee: "Developer Name"
+        dependencies: []
+        started_date: null
+        completed_date: null
+        blocker: null
+
+    metrics:
+      planned_points: 10
+      completed_points: 0
+      in_progress_points: 0
+      blocked_points: 0
+      velocity: 0
+      completion_rate: 0
+
+summary:
+  total_sprints: 2
+  total_story_points: 26 # Sum across all sprints
+  completed_story_points: 0 # Updated as sprints complete
+  overall_velocity: 0 # Average velocity across all completed sprints
+  estimated_completion: "YYYY-MM-DD" # Estimated project completion date
+  sprints_completed: 0
+  sprints_remaining: 2
+
+ceremonies:
+  sprint_planning:
+    day: "Monday (Week 1 of each sprint)"
+    time: "9:00 AM"
+    duration: "2 hours"
+    attendees: "Full team"
+
+  daily_standup:
+    day: "Every weekday"
+    time: "9:00 AM"
+    duration: "15 minutes"
+    attendees: "Full team"
+
+  sprint_review:
+    day: "Friday (Last week of sprint)"
+    time: "2:00 PM"
+    duration: "1 hour"
+    attendees: "Full team + stakeholders"
+
+  sprint_retrospective:
+    day: "Friday (Last week of sprint)"
+    time: "3:30 PM"
+    duration: "1 hour"
+    attendees: "Full team (no stakeholders)"
+
+notes:
+  - "Update story status daily (pending → in_progress → done)"
+  - "Update metrics at end of each sprint"
+  - "Carry over incomplete stories to next sprint (re-prioritize)"
+  - "Use Standup skill for daily team conversations"
+  - "Hold retrospectives to continuously improve"

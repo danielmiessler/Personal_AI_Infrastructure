@@ -165,6 +165,58 @@ Report SUCCESS if the tag search found ACC-005, or FAILURE if not found.`,
     },
     timeout: 120000,
   },
+  {
+    id: "ACC-006",
+    name: "Context loading workflow: search → read",
+    description: "Claude searches by tag, then loads note content using obs read",
+    prompt: `Test context loading workflow (search → select → load):
+
+Step 1 - Ingest a note with product tag:
+bun run ingest.ts direct --text "[ACC-006] Product roadmap: Q1 priorities include user authentication, API v2, and dashboard redesign" --caption "#product #roadmap ~work"
+
+Step 2 - Search by product tag:
+cd ../obs && bun run obs.ts search --tag product --recent 5
+
+Step 3 - Load note content:
+cd ../obs && bun run obs.ts read "ACC-006"
+
+Report SUCCESS if:
+- Step 2 search found notes with #product tag
+- Step 3 loaded content containing "Q1 priorities" or "roadmap"
+Report FAILURE if any step failed or content wasn't loaded.`,
+    expected: {
+      outputContains: ["SUCCESS"],
+      outputNotContains: ["FAILURE"],
+      exitCode: 0,
+    },
+    timeout: 120000,
+  },
+  {
+    id: "ACC-007",
+    name: "Semantic search context loading",
+    description: "Claude uses semantic search to find related notes and loads them",
+    prompt: `Test semantic context retrieval:
+
+Step 1 - Ingest a note about machine learning:
+bun run ingest.ts direct --text "[ACC-007] Deep learning architecture notes: transformers use attention mechanisms for sequence modeling" --caption "#ml #architecture ~work"
+
+Step 2 - Semantic search for related content:
+cd ../obs && bun run obs.ts semantic "neural network architectures" --limit 5
+
+Step 3 - Verify semantic match:
+cd ../obs && bun run obs.ts read "ACC-007"
+
+Report SUCCESS if:
+- Semantic search returned results related to ML/transformers
+- obs read loaded the ACC-007 note content
+Report FAILURE if semantic search found nothing or read failed.`,
+    expected: {
+      outputContains: ["SUCCESS"],
+      outputNotContains: ["FAILURE"],
+      exitCode: 0,
+    },
+    timeout: 180000,
+  },
 ];
 
 // =============================================================================

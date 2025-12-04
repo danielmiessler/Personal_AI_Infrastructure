@@ -448,6 +448,91 @@ export function printHistory(limit = 10, layer?: TestLayer): void {
   console.log(getHistorySummary(limit, layer));
 }
 
+/**
+ * Get cumulative view - latest status per layer
+ * Shows the most recent run result for each test layer
+ */
+export function getCumulativeView(): string {
+  const history = loadHistory();
+  if (history.length === 0) {
+    return "No test history available.";
+  }
+
+  const lines: string[] = [];
+  lines.push("Current Test Status (Latest Per Layer):");
+  lines.push("═".repeat(70));
+  lines.push(
+    "Layer".padEnd(14) +
+    "Last Run".padEnd(24) +
+    "Passed".padEnd(8) +
+    "Failed".padEnd(8) +
+    "Rate".padEnd(8) +
+    "Status"
+  );
+  lines.push("─".repeat(70));
+
+  // Find latest run for each layer
+  const layers: TestLayer[] = ["unit", "integration", "cli", "acceptance", "all"];
+  const latestByLayer: Map<TestLayer, HistoryEntry> = new Map();
+
+  for (const entry of history) {
+    const layer = entry.layer || "unit";
+    latestByLayer.set(layer as TestLayer, entry);
+  }
+
+  let totalPassed = 0, totalFailed = 0, totalTests = 0;
+
+  for (const layer of layers) {
+    const entry = latestByLayer.get(layer);
+    if (!entry) {
+      lines.push(`${layer.padEnd(14)}${"(no runs)".padEnd(24)}${"—".padEnd(8)}${"—".padEnd(8)}${"—".padEnd(8)}⏳`);
+      continue;
+    }
+
+    const runDate = new Date(entry.startedAt).toLocaleDateString();
+    const rate = `${entry.passRate}%`;
+    const status = entry.counts.failed === 0 ? "✓" : "✗";
+
+    lines.push(
+      layer.padEnd(14) +
+      runDate.padEnd(24) +
+      entry.counts.passed.toString().padEnd(8) +
+      entry.counts.failed.toString().padEnd(8) +
+      rate.padEnd(8) +
+      status
+    );
+
+    // Don't double-count unified runs (layer="all" already aggregates)
+    if (layer !== "all") {
+      totalPassed += entry.counts.passed;
+      totalFailed += entry.counts.failed;
+      totalTests += entry.counts.total;
+    }
+  }
+
+  lines.push("─".repeat(70));
+  const overallRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0;
+  const overallStatus = totalFailed === 0 ? "✓" : "✗";
+  lines.push(
+    "CUMULATIVE".padEnd(14) +
+    "(per-layer)".padEnd(24) +
+    totalPassed.toString().padEnd(8) +
+    totalFailed.toString().padEnd(8) +
+    `${overallRate}%`.padEnd(8) +
+    overallStatus
+  );
+  lines.push("═".repeat(70));
+
+  return lines.join("\n");
+}
+
+/**
+ * Print cumulative view to console
+ */
+export function printCumulativeView(): void {
+  console.log(getCumulativeView());
+}
+
 // =============================================================================
 // CLI Status Display (New Run Tracker Integration)
 // =============================================================================

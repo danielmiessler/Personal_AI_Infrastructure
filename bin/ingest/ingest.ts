@@ -1573,7 +1573,13 @@ OPTIONS:
   --skip-integration   Skip integration tests (for 'test all')
   --skip-cli           Skip CLI tests (for 'test all')
   --skip-acceptance    Skip acceptance tests (for 'test all')
-  --layer <name>       Filter history by layer (unit, integration, cli)
+
+HISTORY OPTIONS:
+  --cumulative, -c     Show cumulative view (latest status per layer)
+  --layer <name>       Filter by layer: unit, integration, cli, acceptance, all
+  --limit <n>          Limit number of runs shown (default: 15)
+
+OTHER OPTIONS:
   --missing            Capture all missing fixtures interactively
   --include-media      Run media tests (voice, photo, document)
   --cleanup            Delete test notes from vault after validation
@@ -1989,20 +1995,23 @@ async function handleTest(args: string[], verbose: boolean) {
 
     case "history": {
       // Show history for a specific test OR run history summary
-      const testId = subArgs.find(a => a.startsWith("TEST-") || a.startsWith("CLI-"));
+      const testId = subArgs.find(a => a.startsWith("TEST-") || a.startsWith("CLI-") || a.startsWith("ACC-"));
 
       // Parse --layer option for run history
       const layerIndex = subArgs.findIndex(a => a === "--layer");
       const layerArg = layerIndex >= 0 ? subArgs[layerIndex + 1] : undefined;
-      const layer = layerArg as "unit" | "integration" | "cli" | "acceptance" | undefined;
+      const layer = layerArg as "unit" | "integration" | "cli" | "acceptance" | "all" | undefined;
 
       // Parse --limit option
       const limitIndex = subArgs.findIndex(a => a === "--limit");
       const limit = limitIndex >= 0 ? parseInt(subArgs[limitIndex + 1], 10) : 15;
 
-      if (layerArg && !["unit", "integration", "cli", "acceptance"].includes(layerArg)) {
+      // Parse --cumulative flag
+      const cumulative = subArgs.includes("--cumulative") || subArgs.includes("-c");
+
+      if (layerArg && !["unit", "integration", "cli", "acceptance", "all"].includes(layerArg)) {
         console.error(`Invalid layer: ${layerArg}`);
-        console.log("Valid layers: unit, integration, cli, acceptance");
+        console.log("Valid layers: unit, integration, cli, acceptance, all");
         process.exit(1);
       }
 
@@ -2022,8 +2031,14 @@ async function handleTest(args: string[], verbose: boolean) {
         const spec = getSpecById(testId);
         const report = generateTestHistoryReport(testId, history, spec);
         console.log(report);
+      } else if (cumulative) {
+        // Show cumulative view (latest status per layer)
+        const { printCumulativeView } = await import("./test/framework/report");
+        console.log("\n📊 Test Status Summary");
+        console.log("═".repeat(70));
+        printCumulativeView();
       } else {
-        // Show run history summary
+        // Show run history summary (per-run view)
         const { printHistory } = await import("./test/framework/report");
         console.log("\n📊 Test Run History");
         console.log("═".repeat(80));

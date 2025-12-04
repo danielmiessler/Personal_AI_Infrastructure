@@ -229,6 +229,8 @@ bun run ingest.ts test acceptance ACC-001
 | ACC-003 | Check test history command |
 | ACC-004 | Multi-step workflow: ingest and retrieve |
 | ACC-005 | Tag search after ingest |
+| ACC-006 | Context loading workflow: search → read |
+| ACC-007 | Semantic search context loading |
 
 ### Writing Acceptance Tests
 

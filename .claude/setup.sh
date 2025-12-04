@@ -615,7 +615,7 @@ if ask_yes_no "Are you using Claude Code?"; then
     echo ""
 else
     print_info "For other AI assistants, refer to the documentation:"
-    echo "  $PAI_DIR/documentation/how-to-start.md"
+    echo "  $PAI_DIR/docs/QUICKSTART.md"
 fi
 
 # ============================================
@@ -714,7 +714,7 @@ echo ""
 echo "3. ${CYAN}Customize PAI for you:${NC}"
 echo "   • Edit: $PAI_DIR/skills/PAI/SKILL.md"
 echo "   • Add API keys: $PAI_DIR/.env"
-echo "   • Read the docs: $PAI_DIR/documentation/how-to-start.md"
+echo "   • Read the docs: $PAI_DIR/docs/QUICKSTART.md"
 echo ""
 
 print_header "Quick Reference"
@@ -750,7 +750,7 @@ echo ""
 
 # Optional: Open documentation
 if ask_yes_no "Would you like to open the getting started guide?" "y"; then
-    open "$PAI_DIR/documentation/how-to-start.md" 2>/dev/null || cat "$PAI_DIR/documentation/how-to-start.md"
+    open "$PAI_DIR/docs/QUICKSTART.md" 2>/dev/null || cat "$PAI_DIR/docs/QUICKSTART.md"
 fi
 
 echo ""

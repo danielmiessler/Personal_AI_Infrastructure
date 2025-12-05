@@ -603,6 +603,7 @@ if ask_yes_no "Are you using Claude Code?"; then
     print_step "Personalizing settings.json..."
     sed -i.bak \
         -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
+        -e "s|\"DA\": \"PAI\"|\"DA\": \"$AI_NAME\"|g" \
         -e "s|\"ASSISTANT_NAME\": \"FORGE\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
         -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
         "$PAI_DIR/.claude/settings.json"

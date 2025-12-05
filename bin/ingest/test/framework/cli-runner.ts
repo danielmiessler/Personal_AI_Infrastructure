@@ -1,20 +1,19 @@
 /**
  * CLI Integration Test Runner (Layer 3)
  *
- * Tests the obs CLI commands for vault retrieval:
- * 1. Ingest test content via `ingest direct`
- * 2. Build embeddings via `obs embed`
- * 3. Test search commands (tag search, text search, semantic search)
- * 4. Validate results
- * 5. Clean up test content
+ * Tests CLI commands:
+ * 1. `ingest direct` command with stdin, files, and flags (TEST-CLI-010+)
+ * 2. `obs` CLI commands for vault retrieval (CLI-001+)
  *
- * This tests the full ingest → embed → retrieve cycle.
+ * Reference: docs/adr/001-cli-ingestion.md
  */
 
 import { execSync, spawn } from "child_process";
 import { join } from "path";
 import { existsSync, unlinkSync, readFileSync } from "fs";
 import { appendTestFilesRegistry, appendHistory, type TestFileEntry, type TestReport } from "./report";
+import { directCLITestSpecs } from "../specs/cli-direct.spec";
+import { contextCLITestSpecs } from "../specs/cli-context.spec";
 
 // =============================================================================
 // Types
@@ -172,6 +171,13 @@ export const cliTestSpecs: CLITestSpec[] = [
   },
 ];
 
+/** All CLI test specs (obs tests + ingest direct + context retrieval tests) */
+export const allCLITestSpecs: CLITestSpec[] = [
+  ...cliTestSpecs,
+  ...directCLITestSpecs,
+  ...contextCLITestSpecs,
+];
+
 // =============================================================================
 // Test Runner
 // =============================================================================
@@ -279,13 +285,22 @@ async function executeTest(spec: CLITestSpec, createdFiles: string[]): Promise<C
   console.log(`\n  Testing ${spec.id}: ${spec.name}`);
 
   try {
-    // Run the test command
-    const command = spec.command.startsWith("obs ")
-      ? `bun run obs.ts ${spec.command.slice(4)}`
-      : spec.command;
+    // Determine command and working directory
+    let command = spec.command;
+    let cwd = INGEST_DIR;
+
+    if (spec.command.startsWith("obs ")) {
+      // obs CLI command - run from obs directory
+      command = `bun run obs.ts ${spec.command.slice(4)}`;
+      cwd = OBS_DIR;
+    } else if (spec.command.includes("ingest.ts") || spec.command.includes("|")) {
+      // ingest direct or piped command - run from ingest directory via shell
+      command = spec.command;
+      cwd = INGEST_DIR;
+    }
 
     console.log(`  Command: ${spec.command}`);
-    const result = runCommand(command, OBS_DIR, 60000);
+    const result = runCommand(command, cwd, 60000);
     output = result.stdout + result.stderr;
 
     // Check exit code
@@ -383,9 +398,10 @@ export async function runCLITests(options: {
   console.log("═".repeat(50));
 
   // Filter tests if specific IDs provided
-  let specs = cliTestSpecs;
+  // Use allCLITestSpecs to include both obs tests (CLI-001+) and direct tests (TEST-CLI-010+)
+  let specs = allCLITestSpecs;
   if (options.testIds?.length) {
-    specs = cliTestSpecs.filter((s) => options.testIds!.includes(s.id));
+    specs = allCLITestSpecs.filter((s) => options.testIds!.includes(s.id));
   }
 
   console.log(`\nRunning ${specs.length} CLI tests...`);

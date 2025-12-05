@@ -75,7 +75,9 @@ COMMANDS:
   direct     Ingest content directly (file, stdin, text) without Telegram
   status     Show queue status
   retry      Retry failed messages
-  query      Search vault and archive (context retrieval)
+  search     Search vault (discovery phase - returns index)
+  load       Load vault content (injection phase - outputs markdown)
+  query      Search vault and archive (legacy, combines search+load)
   profiles   List available processing profiles
   config     Show current configuration
   test       Run automated tests (capture/replay fixtures)
@@ -85,24 +87,55 @@ OPTIONS:
   --verbose, -v          Show detailed output
   --dry-run              Show what would be processed without doing it
 
-DIRECT INGEST OPTIONS:
-  --file, -f <path>      Ingest a file (PDF, image, audio, document)
-  --text, -t <content>   Ingest text content directly
+DIRECT INGEST OPTIONS (ADR-001):
+  --tags, -t <tags>      Add tags (comma-separated)
+  --pipeline <name>      Force specific pipeline
+  --scope, -s <scope>    Set scope (private/work/public)
+  --name, -n <name>      Override filename
+  --date, -d <date>      Set document date (ISO or DD/MM/YYYY)
+  --dry-run              Show plan without saving
   --caption, -c <text>   Add caption with hints (#tags @people ~scope)
-  --stdin                Read content from stdin (supports piping)
+  --text <content>       Ingest text content directly (use --tags for tagging)
+
+SEARCH OPTIONS (discovery phase):
+  <query>                  Semantic search text
+  --tag, -t <tag>          Filter by tag
+  --person, -p <person>    Filter by person mention
+  --limit, -l <n>          Limit results (default: 10)
+  --scope <scope>          Scope filter: work (default), private, all
+
+LOAD OPTIONS (injection phase):
+  <name>                   Note name or path to load
+  --tag, -t <tag>          Load all notes matching tag
+  --limit, -l <n>          Limit results (default: 10)
+  --json                   Output as JSON (for programmatic use)
 
 EXAMPLES:
+  # Two-phase context retrieval workflow
+  ingest search "project planning"        # Discovery: see what matches
+  ingest load "2025-01-15-Planning"       # Injection: get full content
+
+  ingest search --tag project/pai         # Find notes by tag
+  ingest load --tag project/pai           # Load all matching content
+
+  ingest search --person ed_overy         # Find mentions of Ed
+  ingest load --tag meeting-notes --limit 5
+
+  # Legacy commands
   ingest poll                        # Check for new messages
   ingest process --verbose           # Process with detailed output
   ingest status                      # Show pending/processed counts
   ingest profiles                    # List available profiles
   ingest process --profile simple    # Use simple profile
 
-  # Direct ingest (without Telegram)
-  ingest direct --text "My note content" --caption "#project/pai"
-  ingest direct --file ~/Documents/receipt.pdf --caption "receipt for car ~private"
-  pbpaste | ingest direct --stdin --caption "#meeting-notes"
-  cat document.md | ingest direct --stdin
+  # Direct ingest (Unix-style, without Telegram)
+  pbpaste | ingest direct                                    # From clipboard
+  echo "Quick note" | ingest direct                          # From stdin
+  ingest direct document.pdf                                 # From file
+  ingest direct receipt.pdf --tags "finance,2024" --scope private
+  pbpaste | ingest direct --tags "project/pai,meeting" --pipeline wisdom
+  ingest direct voice.m4a --pipeline meeting-notes
+  ingest direct --dry-run document.pdf                       # Preview only
 
 CONFIGURATION:
   Add to ~/.config/fabric/.env:
@@ -158,6 +191,12 @@ async function main() {
         break;
       case "retry":
         await handleRetry(commandArgs, verbose);
+        break;
+      case "search":
+        await handleSearch(commandArgs, verbose);
+        break;
+      case "load":
+        await handleLoad(commandArgs, verbose);
         break;
       case "query":
         await handleQuery(commandArgs, verbose);
@@ -576,7 +615,13 @@ async function handleWatch(
 
 /**
  * Handle direct ingest without Telegram
- * Supports: file, text, stdin (piped input)
+ * Supports: file (positional or --file), text (--text), stdin (piped input)
+ *
+ * ADR-001 Design:
+ *   pbpaste | ingest direct                          # Stdin (most common)
+ *   ingest direct document.pdf                       # Positional file
+ *   pbpaste | ingest direct --tags "project/pai"     # With tags
+ *   ingest direct receipt.pdf --scope private        # With scope
  */
 async function handleDirect(
   profileName: string | undefined,
@@ -592,33 +637,57 @@ async function handleDirect(
   const { basename, extname, resolve } = await import("path");
   const { existsSync, statSync } = await import("fs");
 
-  // Parse arguments
+  // Parse arguments (ADR-001 flags)
   let filePath: string | undefined;
   let textContent: string | undefined;
   let caption: string | undefined;
   let useStdin = false;
+  let tags: string | undefined;           // --tags, -t (comma-separated)
+  let forcePipeline: string | undefined;  // --pipeline, -p
+  let scope: string | undefined;          // --scope, -s (private/work/public)
+  let overrideName: string | undefined;   // --name, -n
+  let documentDate: string | undefined;   // --date, -d
+  let dryRun = false;                     // --dry-run
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--file" || arg === "-f") {
       filePath = args[++i];
-    } else if (arg === "--text" || arg === "-t") {
+    } else if (arg === "--text") {
+      // Note: -t is now for --tags (ADR-001), so --text is long-form only
       textContent = args[++i];
     } else if (arg === "--caption" || arg === "-c") {
       caption = args[++i];
     } else if (arg === "--stdin") {
       useStdin = true;
+    } else if (arg === "--tags" || arg === "-t") {
+      tags = args[++i];
+    } else if (arg === "--pipeline") {
+      // Note: -p is reserved for --profile at global level
+      forcePipeline = args[++i];
+    } else if (arg === "--scope" || arg === "-s") {
+      scope = args[++i];
+    } else if (arg === "--name" || arg === "-n") {
+      overrideName = args[++i];
+    } else if (arg === "--date" || arg === "-d") {
+      documentDate = args[++i];
+    } else if (arg === "--dry-run") {
+      dryRun = true;
+    } else if (!arg.startsWith("-") && !arg.startsWith("--") && !filePath) {
+      // Positional file argument (ADR-001: `ingest direct document.pdf`)
+      filePath = arg;
     }
   }
 
-  // Read from stdin if specified or if nothing else provided
-  if (useStdin || (!filePath && !textContent)) {
-    // Check if stdin has data (is piped)
+  // Check if stdin is piped (auto-detect without --stdin flag)
+  const stdinIsPiped = !process.stdin.isTTY;
+
+  // Read from stdin if explicitly specified OR if stdin is piped and no file/text provided
+  if (useStdin || (stdinIsPiped && !filePath && !textContent)) {
     const stdin = Bun.stdin;
     const reader = stdin.stream().getReader();
     const chunks: Uint8Array[] = [];
 
-    // Set a short timeout to check if there's stdin data
     const readPromise = (async () => {
       try {
         while (true) {
@@ -631,7 +700,6 @@ async function handleDirect(
       }
     })();
 
-    // Wait for stdin to complete (with timeout if not piped)
     await readPromise;
 
     if (chunks.length > 0) {
@@ -642,12 +710,40 @@ async function handleDirect(
 
   // Validate we have something to process
   if (!filePath && !textContent) {
-    console.error("Error: No content provided. Use --file, --text, or pipe via --stdin");
-    console.log("\nExamples:");
-    console.log('  ingest direct --text "My note content"');
-    console.log("  ingest direct --file ~/Documents/receipt.pdf");
-    console.log("  pbpaste | ingest direct --stdin");
+    console.error("Error: No content provided.");
+    console.log("\nUsage:");
+    console.log("  pbpaste | ingest direct                    # From clipboard");
+    console.log("  ingest direct document.pdf                 # From file");
+    console.log('  ingest direct --text "My note content"     # Inline text');
+    console.log("");
+    console.log("Options:");
+    console.log("  --tags, -t       Add tags (comma-separated)");
+    console.log("  --pipeline       Force specific pipeline");
+    console.log("  --scope, -s      Set scope (private/work/public)");
+    console.log("  --name, -n       Override filename");
+    console.log("  --date, -d       Set document date");
+    console.log("  --dry-run        Show plan without saving");
     process.exit(1);
+  }
+
+  // Build caption from ADR-001 flags if not explicitly provided
+  if (!caption && (tags || scope)) {
+    const parts: string[] = [];
+    if (tags) {
+      // Convert comma-separated tags to #hashtags
+      const tagList = tags.split(",").map(t => t.trim());
+      for (const tag of tagList) {
+        if (!tag.startsWith("#")) {
+          parts.push(`#${tag}`);
+        } else {
+          parts.push(tag);
+        }
+      }
+    }
+    if (scope) {
+      parts.push(`~${scope}`);
+    }
+    caption = parts.join(" ");
   }
 
   // Expand ~ in file path
@@ -721,16 +817,38 @@ async function handleDirect(
     };
   }
 
-  // Load profile
-  const profile = loadProfile(profileName);
+  // Load profile (use forcePipeline profile if specified)
+  const profile = loadProfile(forcePipeline || profileName);
 
   console.log(`\n📥 Direct Ingest`);
   console.log(`${"─".repeat(50)}`);
   console.log(`  Type: ${contentType}`);
   if (filePath) console.log(`  File: ${filePath}`);
-  if (caption) console.log(`  Caption: ${caption}`);
+  if (textContent && !filePath) {
+    const preview = textContent.slice(0, 60).replace(/\n/g, " ");
+    console.log(`  Content: ${preview}${textContent.length > 60 ? "..." : ""}`);
+  }
+  if (tags) console.log(`  Tags: ${tags}`);
+  if (scope) console.log(`  Scope: ${scope}`);
+  if (documentDate) console.log(`  Date: ${documentDate}`);
+  if (overrideName) console.log(`  Name: ${overrideName}`);
+  if (forcePipeline) console.log(`  Pipeline: ${forcePipeline}`);
   console.log(`  Profile: ${profile.name}`);
+  if (dryRun) console.log(`  Mode: DRY RUN`);
   console.log(`${"─".repeat(50)}\n`);
+
+  // Dry-run: show plan and exit
+  if (dryRun) {
+    console.log("Would process:");
+    console.log(`  • Content type: ${contentType}`);
+    console.log(`  • Pipeline: ${forcePipeline || "auto-detected"}`);
+    console.log(`  • Tags: ${tags || "(none)"}`);
+    console.log(`  • Scope: ${scope || "public"}`);
+    console.log(`  • Date: ${documentDate || "today"}`);
+    console.log(`  • Filename: ${overrideName || "(auto-generated)"}`);
+    console.log("\n[DRY RUN - no changes made]");
+    return;
+  }
 
   try {
     const result: ProcessResult = await processMessage(syntheticMessage, contentType, profile, verbose);
@@ -1031,6 +1149,251 @@ function handleConfig() {
     console.log(`  Paired Output: ${profile.processing.pairedOutput}`);
   } catch (error) {
     console.error(`Configuration error: ${error instanceof Error ? error.message : error}`);
+  }
+}
+
+/**
+ * Handle search command - Discovery phase of context retrieval
+ *
+ * Returns an index of matching notes with metadata, not full content.
+ * Use 'ingest load' to get full content for context injection.
+ *
+ * Usage:
+ *   ingest search "project planning"    # Semantic search
+ *   ingest search --tag project/pai     # Tag filter
+ *   ingest search --person ed_overy     # Person filter
+ *   ingest search --limit 20            # Limit results
+ */
+async function handleSearch(args: string[], verbose: boolean) {
+  const config = getConfig();
+
+  // Parse arguments
+  let searchText = "";
+  let tag: string | undefined;
+  let person: string | undefined;
+  let limit = 10;
+  let scope: "work" | "private" | "all" = "work";
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--tag" || arg === "-t") {
+      tag = args[++i];
+    } else if (arg === "--person" || arg === "-p") {
+      person = args[++i];
+    } else if (arg === "--limit" || arg === "-l") {
+      limit = parseInt(args[++i], 10) || 10;
+    } else if (arg === "--scope" || arg === "-s") {
+      const s = args[++i]?.toLowerCase();
+      if (s === "work" || s === "private" || s === "all") scope = s;
+    } else if (!arg.startsWith("-")) {
+      searchText = arg;
+    }
+  }
+
+  if (!searchText && !tag && !person) {
+    console.log("Search - Discovery phase of context retrieval\n");
+    console.log("Returns an index of matching notes. Use 'ingest load' to get full content.\n");
+    console.log("Usage:");
+    console.log('  ingest search "project planning"    # Semantic search');
+    console.log("  ingest search --tag project/pai     # Tag filter");
+    console.log("  ingest search --person ed_overy     # Person filter");
+    console.log("  ingest search --limit 20            # Limit results");
+    console.log("  ingest search --scope private       # Include private notes");
+    return;
+  }
+
+  const allResults: SearchResult[] = [];
+
+  // 1. Semantic search if text provided
+  if (searchText) {
+    try {
+      const { semanticSearch } = await import("../obs/lib/embed");
+      const results = await semanticSearch(searchText, limit);
+      for (const r of results) {
+        allResults.push({
+          name: r.noteName,
+          path: r.notePath,
+          tags: [], // Will be populated from frontmatter
+          preview: r.content.slice(0, 150),
+          source: "semantic",
+          relevance: r.similarity,
+        });
+      }
+    } catch (e) {
+      if (verbose) console.log(`Semantic search unavailable: ${e}`);
+    }
+  }
+
+  // 2. Tag/person search
+  if (tag || person) {
+    const tagResults = await searchByTag(config.vaultPath, { tag, person, limit });
+    for (const r of tagResults) {
+      allResults.push({
+        name: r.title,
+        path: r.path,
+        tags: [],
+        preview: r.preview,
+        source: "tag",
+        relevance: r.relevance,
+      });
+    }
+  }
+
+  // Deduplicate
+  const seen = new Set<string>();
+  const uniqueResults = allResults.filter(r => {
+    if (seen.has(r.path)) return false;
+    seen.add(r.path);
+    return true;
+  });
+
+  // Sort by relevance
+  uniqueResults.sort((a, b) => b.relevance - a.relevance);
+  const finalResults = uniqueResults.slice(0, limit);
+
+  if (finalResults.length === 0) {
+    console.log("No results found.");
+    return;
+  }
+
+  // Extract tags from frontmatter for each result
+  for (const r of finalResults) {
+    try {
+      const content = readFileSync(r.path, "utf-8");
+      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (fmMatch) {
+        const tagsMatch = fmMatch[1].match(/tags:\n([\s\S]*?)(?:\n\w|$)/);
+        if (tagsMatch) {
+          r.tags = tagsMatch[1].match(/- (.+)/g)?.map(t => t.replace("- ", "")) || [];
+        }
+      }
+    } catch {}
+  }
+
+  // Output index format
+  console.log(`Found ${finalResults.length} result(s):\n`);
+  for (const r of finalResults) {
+    const tagsStr = r.tags.length > 0 ? ` [${r.tags.slice(0, 3).join(", ")}${r.tags.length > 3 ? "..." : ""}]` : "";
+    const rel = Math.round(r.relevance * 100);
+    console.log(`  ${r.name}${tagsStr}`);
+    if (verbose) {
+      console.log(`    ${r.preview.slice(0, 80).replace(/\n/g, " ")}...`);
+      console.log(`    Path: ${r.path}`);
+      console.log(`    Relevance: ${rel}%`);
+    }
+  }
+
+  console.log("\nTo load content: ingest load <name> or ingest load --tag <tag>");
+}
+
+interface SearchResult {
+  name: string;
+  path: string;
+  tags: string[];
+  preview: string;
+  source: "semantic" | "tag";
+  relevance: number;
+}
+
+/**
+ * Handle load command - Injection phase of context retrieval
+ *
+ * Outputs full markdown content for loading into AI context window.
+ *
+ * Usage:
+ *   ingest load "2025-01-15-Planning"   # Load by name
+ *   ingest load --tag project/pai       # Load all matching tag
+ *   ingest load --limit 5               # Limit results
+ *   ingest load --json                  # Output as JSON
+ */
+async function handleLoad(args: string[], verbose: boolean) {
+  const config = getConfig();
+
+  // Parse arguments
+  let noteName = "";
+  let tag: string | undefined;
+  let limit = 10;
+  let jsonOutput = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--tag" || arg === "-t") {
+      tag = args[++i];
+    } else if (arg === "--limit" || arg === "-l") {
+      limit = parseInt(args[++i], 10) || 10;
+    } else if (arg === "--json") {
+      jsonOutput = true;
+    } else if (!arg.startsWith("-")) {
+      noteName = arg;
+    }
+  }
+
+  if (!noteName && !tag) {
+    console.log("Load - Injection phase of context retrieval\n");
+    console.log("Outputs full markdown content for AI context window.\n");
+    console.log("Usage:");
+    console.log('  ingest load "2025-01-15-Planning"   # Load by name');
+    console.log("  ingest load --tag project/pai       # Load all matching tag");
+    console.log("  ingest load --limit 5               # Limit results");
+    console.log("  ingest load --json                  # Output as JSON");
+    return;
+  }
+
+  const loadedNotes: { name: string; path: string; content: string }[] = [];
+
+  // Load by name
+  if (noteName) {
+    const glob = new Bun.Glob("**/*.md");
+    const files = await Array.fromAsync(glob.scan({ cwd: config.vaultPath, absolute: true }));
+
+    for (const filePath of files) {
+      const basename = filePath.split("/").pop()?.replace(".md", "") || "";
+      if (basename.toLowerCase().includes(noteName.toLowerCase())) {
+        const content = readFileSync(filePath, "utf-8");
+        loadedNotes.push({ name: basename, path: filePath, content });
+        if (loadedNotes.length >= limit) break;
+      }
+    }
+  }
+
+  // Load by tag
+  if (tag) {
+    const glob = new Bun.Glob("**/*.md");
+    const files = await Array.fromAsync(glob.scan({ cwd: config.vaultPath, absolute: true }));
+
+    for (const filePath of files.slice(0, 500)) {
+      try {
+        const content = readFileSync(filePath, "utf-8");
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (fmMatch) {
+          const hasTag = fmMatch[1].includes(`- ${tag}`) || fmMatch[1].includes(`/${tag}`);
+          if (hasTag) {
+            const basename = filePath.split("/").pop()?.replace(".md", "") || "";
+            loadedNotes.push({ name: basename, path: filePath, content });
+            if (loadedNotes.length >= limit) break;
+          }
+        }
+      } catch {}
+    }
+  }
+
+  if (loadedNotes.length === 0) {
+    console.log("No matching notes found.");
+    return;
+  }
+
+  // Output
+  if (jsonOutput) {
+    console.log(JSON.stringify(loadedNotes, null, 2));
+  } else {
+    for (const note of loadedNotes) {
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(`FILE: ${note.name}`);
+      console.log(`PATH: ${note.path}`);
+      console.log("=".repeat(60));
+      console.log(note.content);
+    }
+    console.log(`\n--- Loaded ${loadedNotes.length} note(s) ---`);
   }
 }
 
@@ -1610,6 +1973,9 @@ EXAMPLES:
   ingest test cleanup --all --dry-run     # Preview cleanup (don't delete)
   ingest test cleanup --all               # Clean up all test files
   ingest test cleanup --scan              # Find orphaned test files in vault
+  ingest test daemon                      # Test watch daemon before deploying
+  ingest test daemon --test               # Use test channels
+  ingest test daemon --timeout 120        # Custom timeout (seconds)
 
 INTEGRATION TESTING (requires two terminals):
 
@@ -2132,6 +2498,32 @@ async function handleTest(args: string[], verbose: boolean) {
       });
 
       process.exit(summary.counts.failed > 0 ? 1 : 0);
+      break;
+    }
+
+    case "daemon": {
+      // Daemon deployment test - verifies watch daemon is working
+      const { runDaemonTest, printDaemonTestResult, printDaemonTestHelp } = await import("./test/framework/daemon-runner");
+
+      if (subArgs.includes("--help") || subArgs.includes("-h")) {
+        printDaemonTestHelp();
+        break;
+      }
+
+      const useTestChannels = subArgs.includes("--test");
+      const skipCleanup = subArgs.includes("--no-cleanup");
+      const timeoutIndex = subArgs.findIndex(a => a === "--timeout");
+      const timeout = timeoutIndex >= 0 ? parseInt(subArgs[timeoutIndex + 1], 10) : undefined;
+
+      const result = await runDaemonTest({
+        useTestChannels,
+        timeout,
+        verbose,
+        skipCleanup,
+      });
+
+      printDaemonTestResult(result);
+      process.exit(result.passed ? 0 : 1);
       break;
     }
 

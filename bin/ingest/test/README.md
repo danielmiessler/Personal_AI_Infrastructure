@@ -165,29 +165,32 @@ TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>     # PAI Test Cases (option
 
 ## CLI Tests (Layer 3)
 
-Tests the `obs` CLI commands for vault retrieval after ingestion.
+Tests two areas: `obs` CLI commands for vault retrieval, and `ingest direct` for Unix-style stdin ingestion.
 
 ### How It Works
 
 1. **Ingest** test content via `ingest direct`
 2. **Build** embeddings via `obs embed --incremental`
-3. **Execute** obs commands (search, semantic, read, tags)
+3. **Execute** obs/direct commands
 4. **Validate** output contains expected results
 
 ### Commands
 
 ```bash
-# Run all CLI tests
+# Run all CLI tests (obs + direct)
 bun run ingest.ts test cli
 
 # Run specific test
 bun run ingest.ts test cli CLI-001
+bun run ingest.ts test cli TEST-CLI-010
 
 # Skip embedding rebuild (if recently updated)
 bun run ingest.ts test cli --skip-embeddings
 ```
 
 ### Available Tests
+
+**obs CLI Tests:**
 
 | Test ID | Description |
 |---------|-------------|
@@ -198,6 +201,22 @@ bun run ingest.ts test cli --skip-embeddings
 | CLI-005 | Scope filter includes private with --scope |
 | CLI-006 | obs tags lists vault tags |
 | CLI-007 | obs read retrieves note content |
+
+**ingest direct Tests (ADR-001):**
+
+| Test ID | Description |
+|---------|-------------|
+| TEST-CLI-010 | Direct stdin text ingestion |
+| TEST-CLI-011 | Direct with --tags flag |
+| TEST-CLI-012 | Direct with --scope flag |
+| TEST-CLI-013 | Direct file argument (markdown) |
+| TEST-CLI-017 | Direct --dry-run shows plan |
+| TEST-CLI-017a | Direct --dry-run with file |
+| TEST-CLI-018 | Direct with multiple flags |
+| TEST-CLI-020 | Direct command exists in help |
+| TEST-CLI-021 | Direct shows usage without input |
+
+See `docs/adr/001-cli-ingestion.md` for design details.
 
 ## Acceptance Tests (Layer 4)
 
@@ -251,6 +270,53 @@ Acceptance tests use natural language prompts that ask Claude to:
   },
 }
 ```
+
+## Daemon Deployment Test
+
+Self-contained test that verifies the watch daemon is working correctly. Run this before deploying to production or to diagnose daemon issues.
+
+**Note:** This test runs separately from `test all` since it requires starting an actual daemon process.
+
+### How It Works
+
+1. **Start** watch daemon in background
+2. **Send** a test message via Telegram API
+3. **Wait** for Events notification (polls outbox)
+4. **Validate** vault file was created
+5. **Report** pass/fail
+6. **Cleanup** daemon process and test file
+
+### Commands
+
+```bash
+# Test with production channels
+bun run ingest.ts test daemon
+
+# Test with test channels (safer)
+bun run ingest.ts test daemon --test
+
+# Custom timeout (default 90s)
+bun run ingest.ts test daemon --timeout 60
+
+# Keep test file in vault for debugging
+bun run ingest.ts test daemon --no-cleanup
+```
+
+### Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--test` | Use test channels instead of production | Off (production) |
+| `--timeout N` | Timeout in seconds | 90 |
+| `--verbose` | Show detailed output | On |
+| `--no-cleanup` | Keep test file in vault | Off |
+
+### When to Use
+
+- Pre-deployment verification
+- Diagnosing daemon issues
+- Verifying Telegram connectivity
+- Testing after configuration changes
 
 ## Test Reports
 

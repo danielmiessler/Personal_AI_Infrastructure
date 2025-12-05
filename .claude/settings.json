@@ -1,9 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-opus-4-5-20251101",
   "env": {
     "PAI_DIR": "/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude",
-    "DA": "PAI",
-    "ASSISTANT_NAME": "Kai",
+    "DA": "Charles",
+    "ASSISTANT_NAME": "Charles",
     "USER_NAME": "Joey",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },

@@ -128,7 +128,7 @@
           },
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/initialize-pai-session.ts"
+            "command": "${PAI_DIR}/hooks/initialize-session.ts"
           },
           {
             "type": "command",

@@ -1,16 +1,16 @@
 #!/usr/bin/env bun
 
 /**
- * initialize-pai-session.ts
+ * initialize-session.ts
  *
- * Main PAI session initialization hook that runs at the start of every Claude Code session.
+ * Main session initialization hook that runs at the start of every Claude Code session.
  *
  * What it does:
  * - Checks if this is a subagent session (skips for subagents)
  * - Tests that stop-hook is properly configured
  * - Sets initial terminal tab title
  * - Sends voice notification that system is ready (if voice server is running)
- * - Calls load-core-context.ts to inject PAI context into the session
+ * - Calls load-core-context.ts to inject core context into the session
  *
  * Setup:
  * 1. Set environment variables in settings.json:

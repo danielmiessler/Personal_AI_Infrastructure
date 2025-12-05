@@ -1,44 +1,76 @@
 {
   "runs": {
-    "integration-2025-12-03-23-18-07": {
-      "runId": "integration-2025-12-03-23-18-07",
-      "startedAt": "2025-12-03T23:18:07.630Z",
-      "completedAt": "2025-12-03T23:19:18.044Z",
+    "cli-2025-12-04-21-25-51": {
+      "runId": "cli-2025-12-04-21-25-51",
+      "startedAt": "2025-12-04T21:25:51.548Z",
+      "completedAt": "2025-12-04T21:28:20.626Z",
       "files": [
         {
-          "testId": "TEST-SCOPE-001",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-001] This is a personal health note-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-001] Test note for tag search validation-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:28:20.628Z"
         },
         {
-          "testId": "TEST-SCOPE-002",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-002] Meeting notes from the product team-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-002] Unique content about quantum flux capacitors fo...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:28:20.628Z"
         },
         {
-          "testId": "TEST-SCOPE-003",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-Doctor visit for chest pain and blood test results-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-003] Notes from the quarterly planning meeting about...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:28:20.628Z"
         },
         {
-          "testId": "TEST-SCOPE-004",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-004] This is personal. Blood pressure reading...-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-004] Private health information - blood pressure rea...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:28:20.628Z"
         },
         {
-          "testId": "TEST-SCOPE-005",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-04-[TEST-SCOPE-005] For work. Architecture decision on data ...-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-005] Private financial data for tax purposes-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:28:20.628Z"
         },
         {
-          "testId": "TEST-SCOPE-006",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/archive/2025-12-04-Tax invoice from Sime Darby Transport for fuel filter-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-007] Specific content that should be readable via ob...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:28:20.628Z"
+        }
+      ]
+    },
+    "cli-2025-12-04-21-29-33": {
+      "runId": "cli-2025-12-04-21-29-33",
+      "startedAt": "2025-12-04T21:29:33.049Z",
+      "completedAt": "2025-12-04T21:30:19.668Z",
+      "files": [
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-001] Test note for tag search validation-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:30:19.670Z"
         },
         {
-          "testId": "TEST-SCOPE-007",
-          "vaultPath": "/Users/andreas/Documents/andreas_brain/archive/2025-12-04-Vehicle parts tax invoice from Sime Darby Transport-Telegram-Raw.md",
-          "createdAt": "2025-12-03T23:19:18.057Z"
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-002] Unique content about quantum flux capacitors fo...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:30:19.670Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-003] Notes from the quarterly planning meeting about...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:30:19.670Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-004] Private health information - blood pressure rea...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:30:19.670Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-005] Private financial data for tax purposes-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:30:19.670Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-007] Specific content that should be readable via ob...-Telegram-Raw.md",
+          "createdAt": "2025-12-04T21:30:19.670Z"
         }
       ]
     }

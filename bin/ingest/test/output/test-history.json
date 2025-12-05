@@ -381,5 +381,229 @@
     },
     "passRate": 100,
     "failedTests": []
+  },
+  {
+    "runId": "acceptance-2025-12-04-02-39-30",
+    "layer": "acceptance",
+    "startedAt": "2025-12-04T02:39:30.639Z",
+    "duration": 30020,
+    "counts": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 0,
+    "failedTests": [
+      "ACC-003"
+    ]
+  },
+  {
+    "runId": "acceptance-2025-12-04-02-40-54",
+    "layer": "acceptance",
+    "startedAt": "2025-12-04T02:40:54.054Z",
+    "duration": 20858,
+    "counts": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 0,
+    "failedTests": [
+      "ACC-003"
+    ]
+  },
+  {
+    "runId": "acceptance-2025-12-04-02-41-58",
+    "layer": "acceptance",
+    "startedAt": "2025-12-04T02:41:58.088Z",
+    "duration": 18894,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "acceptance-2025-12-04-02-42-23",
+    "layer": "acceptance",
+    "startedAt": "2025-12-04T02:42:23.766Z",
+    "duration": 119121,
+    "counts": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "acceptance-2025-12-04-03-07-48",
+    "layer": "acceptance",
+    "startedAt": "2025-12-04T03:07:48.753Z",
+    "duration": 31099,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "acceptance-2025-12-04-03-08-26",
+    "layer": "acceptance",
+    "startedAt": "2025-12-04T03:08:26.272Z",
+    "duration": 35791,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-04-20-22-14",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:22:14.601Z",
+    "duration": 56894,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-04-20-24-33",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:24:33.352Z",
+    "duration": 224820,
+    "counts": {
+      "total": 49,
+      "passed": 48,
+      "failed": 1,
+      "skipped": 28
+    },
+    "passRate": 98,
+    "failedTests": [
+      "TEST-PAT-001"
+    ]
+  },
+  {
+    "runId": "run-2025-12-04-20-32-24",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:32:24.487Z",
+    "duration": 17854,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-04-20-32-51",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:32:51.774Z",
+    "duration": 179147,
+    "counts": {
+      "total": 49,
+      "passed": 48,
+      "failed": 1,
+      "skipped": 28
+    },
+    "passRate": 98,
+    "failedTests": [
+      "TEST-REG-001"
+    ]
+  },
+  {
+    "runId": "run-2025-12-04-20-36-26",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:36:26.600Z",
+    "duration": 5277,
+    "counts": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "passRate": 0,
+    "failedTests": [
+      "TEST-REG-001"
+    ]
+  },
+  {
+    "runId": "run-2025-12-04-20-37-31",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:37:31.915Z",
+    "duration": 3766,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "run-2025-12-04-20-38-38",
+    "layer": "unit",
+    "startedAt": "2025-12-04T20:38:38.856Z",
+    "duration": 180059,
+    "counts": {
+      "total": 49,
+      "passed": 49,
+      "failed": 0,
+      "skipped": 28
+    },
+    "passRate": 100,
+    "failedTests": []
+  },
+  {
+    "runId": "cli-2025-12-04-21-25-51",
+    "layer": "cli",
+    "startedAt": "2025-12-04T21:25:51.548Z",
+    "duration": 149077,
+    "counts": {
+      "total": 16,
+      "passed": 13,
+      "failed": 3,
+      "skipped": 0
+    },
+    "passRate": 81,
+    "failedTests": [
+      "CLI-001",
+      "TEST-CLI-011",
+      "TEST-CLI-012"
+    ]
+  },
+  {
+    "runId": "cli-2025-12-04-21-29-33",
+    "layer": "cli",
+    "startedAt": "2025-12-04T21:29:33.049Z",
+    "duration": 46619,
+    "counts": {
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0
+    },
+    "passRate": 100,
+    "failedTests": []
   }
 ]

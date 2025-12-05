@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-003",
-    "capturedAt": "2025-12-02T23:05:48.876Z",
-    "capturedBy": "andreas",
-    "description": "Voice memo with spoken 'Scope private' at the beginning"
+    "capturedAt": "2025-12-05T05:01:29.492Z",
+    "capturedBy": "integration-setup",
+    "description": "Dictated scope - spoken scope private"
   },
   "message": {
-    "message_id": 210,
+    "message_id": 254,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716726,
+    "date": 1764910889,
     "audio": {
       "duration": 22,
       "file_name": "248 Franklin Rd 6.m4a",

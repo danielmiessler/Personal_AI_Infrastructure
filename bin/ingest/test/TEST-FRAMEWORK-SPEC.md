@@ -513,7 +513,79 @@ bun run ingest.ts test run --skip-media --skip-llm-judge --suite regression
 
 ---
 
-## 7. Capturing Test Fixtures
+## 7. Integration Test Channel Setup
+
+Integration tests require test messages to exist in the PAI Test Cases channel. The framework provides automatic setup and cleanup of this channel.
+
+### 7.1 Automatic Setup (Default)
+
+The integration test runner **automatically** sets up the test channel by default:
+
+```bash
+# Run integration tests (auto-setup is default)
+bun run ingest.ts test integration
+
+# Skip auto-setup if fixtures are already valid
+bun run ingest.ts test integration --no-setup
+```
+
+**The auto-setup process:**
+1. **Clear channel** - Deletes existing test messages from PAI Test Cases
+2. **Populate channel** - Sends all test cases from `test-case-registry.csv`
+3. **Update fixtures** - Saves new message IDs to fixture files
+4. **Run tests** - Executes integration tests with fresh fixtures
+5. **Cleanup** - Clears channel after tests (unless `--no-cleanup`)
+
+### 7.2 Manual Setup
+
+For debugging or when you want more control:
+
+```bash
+# Dry run to see what would be sent
+bun run ingest.ts test setup --dry-run
+
+# Set up without running tests
+bun run ingest.ts test setup --skip-tests
+
+# Set up without clearing first (add to existing)
+bun run ingest.ts test setup --no-clear
+
+# Keep messages after tests (for debugging)
+bun run ingest.ts test integration --no-cleanup
+```
+
+### 7.3 Test Case Registry
+
+All test cases are defined in `test/test-case-registry.csv`:
+
+```csv
+test_id,category,name,input_type,file_required,caption,source_file,fixture_status,notes
+TEST-REG-001,regression,Simple text message,text,no,[TEST-REG-001] Simple text...,,ready,Text-only
+TEST-PHOTO-001,regression,Photo with Vision,photo,yes,[TEST-PHOTO-001] /describe,[REUSES TEST-ARC-002],ready,133KB
+```
+
+**Columns:**
+- `test_id`: Unique test identifier (TEST-XXX-NNN format)
+- `category`: Test category (scope, date, archive, regression, voice)
+- `input_type`: text, url, photo, document, voice, audio
+- `file_required`: Whether a media file is needed
+- `caption`: Message text/caption to send
+- `source_file`: Asset file or [REUSES TEST-XXX] for shared media
+- `fixture_status`: ready, pending, skip
+- `notes`: Description
+
+### 7.4 Why Auto-Setup is Needed
+
+Telegram message IDs are channel-specific and can change when:
+- Messages are deleted and re-sent
+- Channel history is cleared
+- Messages expire (auto-delete settings)
+
+The auto-setup ensures fixtures have valid message IDs that match actual messages in the channel.
+
+---
+
+## 8. Capturing Test Fixtures
 
 Fixtures are captured Telegram messages used as test inputs. Each test case has a corresponding fixture file containing the raw Telegram message payload.
 
@@ -687,7 +759,7 @@ bun run ingest.ts test forward --missing
 
 ---
 
-## 8. Adding New Test Cases
+## 9. Adding New Test Cases
 
 ### 8.1 Step 1: Create Test Specification
 
@@ -757,7 +829,7 @@ export const allIngestSpecs: TestSpec[] = [
 
 ---
 
-## 9. CLI Commands Reference
+## 10. CLI Commands Reference
 
 ### 9.1 Running Tests
 
@@ -803,7 +875,7 @@ bun run ingest.ts test status
 
 ---
 
-## 10. Directory Structure
+## 11. Directory Structure
 
 ```
 test/

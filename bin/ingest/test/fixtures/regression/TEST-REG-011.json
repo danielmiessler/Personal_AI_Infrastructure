@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-011",
-    "capturedAt": "2025-12-03T06:42:36.000Z",
-    "capturedBy": "manual-capture",
+    "capturedAt": "2025-12-05T05:03:13.348Z",
+    "capturedBy": "integration-setup",
     "description": "Mermaid extraction /mermaid"
   },
   "message": {
-    "message_id": 217,
+    "message_id": 291,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743956,
+    "date": 1764910993,
     "photo": [
       {
         "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAANzAAM2BA",

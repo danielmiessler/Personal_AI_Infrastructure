@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-012",
-    "capturedAt": "2025-12-03T06:37:06.775Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:54.361Z",
+    "capturedBy": "integration-setup",
     "description": "Dictated from yesterday"
   },
   "message": {
-    "message_id": 207,
+    "message_id": 264,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743826,
+    "date": 1764910914,
     "text": "[TEST-DATE-012] from yesterday Meeting notes"
   }
 }

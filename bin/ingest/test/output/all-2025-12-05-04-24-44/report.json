@@ -1,0 +1,459 @@
+{
+  "runId": "all-2025-12-05-04-24-44",
+  "layer": "unit",
+  "startedAt": "2025-12-05T04:24:44.719Z",
+  "completedAt": "2025-12-05T04:31:16.597Z",
+  "duration": 391826,
+  "counts": {
+    "total": 49,
+    "passed": 37,
+    "failed": 9,
+    "skipped": 3
+  },
+  "passRate": 76,
+  "tests": [
+    {
+      "id": "TEST-SCOPE-001",
+      "name": "Explicit ~private sigil",
+      "category": "scope",
+      "passed": true,
+      "duration": 3983,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-SCOPE-002",
+      "name": "Explicit ~work sigil",
+      "category": "scope",
+      "passed": true,
+      "duration": 5823,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-SCOPE-003",
+      "name": "Dictated scope - spoken 'scope private'",
+      "category": "scope",
+      "passed": true,
+      "duration": 11460,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-SCOPE-004",
+      "name": "Dictated scope - 'this is personal'",
+      "category": "scope",
+      "passed": true,
+      "duration": 4311,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-SCOPE-005",
+      "name": "Dictated scope - 'for work'",
+      "category": "scope",
+      "passed": true,
+      "duration": 4582,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-SCOPE-006",
+      "name": "Archive pipeline auto-private",
+      "category": "scope",
+      "passed": true,
+      "duration": 4661,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-SCOPE-007",
+      "name": "Receipt pipeline auto-private",
+      "category": "scope",
+      "passed": true,
+      "duration": 6353,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-001",
+      "name": "ISO date format [date:YYYY-MM-DD]",
+      "category": "date",
+      "passed": true,
+      "duration": 4,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-002",
+      "name": "Slash date format [date:DD/MM/YYYY]",
+      "category": "date",
+      "passed": true,
+      "duration": 5,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-003",
+      "name": "Short year format [date:DD/MM/YY]",
+      "category": "date",
+      "passed": true,
+      "duration": 6,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-010",
+      "name": "Dictated 'dated 15th June'",
+      "category": "date",
+      "passed": true,
+      "duration": 4852,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-011",
+      "name": "Dictated 'from last month'",
+      "category": "date",
+      "passed": true,
+      "duration": 3,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-012",
+      "name": "Dictated 'from yesterday'",
+      "category": "date",
+      "passed": true,
+      "duration": 4330,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-013",
+      "name": "Dictated ISO format 'date 2024-06-15'",
+      "category": "date",
+      "passed": true,
+      "duration": 6,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-020",
+      "name": "Note filename uses document date",
+      "category": "date",
+      "passed": true,
+      "duration": 5122,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-021",
+      "name": "Archive uses document date",
+      "category": "date",
+      "passed": false,
+      "duration": 1859,
+      "failedChecks": [
+        "archive_filename_pattern"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-DATE-022",
+      "name": "Note without date uses today",
+      "category": "date",
+      "passed": true,
+      "duration": 4420,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-INGv2-100",
+      "name": "Archive with auto-naming",
+      "category": "archive",
+      "passed": false,
+      "duration": 1976,
+      "failedChecks": [
+        "verbose:Generated archive name",
+        "archive_filename_pattern"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-INGv2-101",
+      "name": "Pre-named file preserved",
+      "category": "archive",
+      "passed": false,
+      "duration": 635,
+      "failedChecks": [
+        "verbose:Preserving archive name",
+        "archive_filename_pattern"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-ARC-001",
+      "name": "Dictated archive intent",
+      "category": "archive",
+      "passed": true,
+      "duration": 657,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-ARC-002",
+      "name": "Dictated receipt intent",
+      "category": "archive",
+      "passed": true,
+      "duration": 9117,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-ARC-003",
+      "name": "Dictated archive with contract detection",
+      "category": "archive",
+      "passed": true,
+      "duration": 1894,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-ARC-004",
+      "name": "Dictated archive with certificate detection",
+      "category": "archive",
+      "passed": true,
+      "duration": 630,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-ARC-005",
+      "name": "Vision AI document type detection",
+      "category": "archive",
+      "passed": true,
+      "duration": 6973,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-ARC-010",
+      "name": "Archive creates markdown with Dropbox link",
+      "category": "archive",
+      "passed": true,
+      "duration": 1927,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-001",
+      "name": "Simple text message",
+      "category": "regression",
+      "passed": true,
+      "duration": 4055,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-002",
+      "name": "Text with metadata parsing",
+      "category": "regression",
+      "passed": true,
+      "duration": 4948,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-003",
+      "name": "Mixed hints and metadata",
+      "category": "regression",
+      "passed": true,
+      "duration": 4752,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-004",
+      "name": "URL extraction via Jina AI",
+      "category": "regression",
+      "passed": true,
+      "duration": 64894,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-005a",
+      "name": "Voice memo with caption hints (Wispr Flow)",
+      "category": "regression",
+      "passed": false,
+      "duration": 16512,
+      "failedChecks": [
+        "tag_present:project-pai",
+        "tag_present:ed_overy",
+        "verbose:Transcribed"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-005b",
+      "name": "Voice memo with spoken hints (no caption)",
+      "category": "regression",
+      "passed": false,
+      "duration": 0,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-007",
+      "name": "Photo with Vision AI (default)",
+      "category": "regression",
+      "passed": true,
+      "duration": 10447,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-008",
+      "name": "Photo with custom prompt",
+      "category": "regression",
+      "passed": false,
+      "duration": 16042,
+      "failedChecks": [
+        "verbose:Extract all text"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-011",
+      "name": "Mermaid extraction with /mermaid command",
+      "category": "regression",
+      "passed": true,
+      "duration": 12629,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-012",
+      "name": "Mermaid extraction with dictated intent",
+      "category": "regression",
+      "passed": true,
+      "duration": 13579,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-009",
+      "name": "PDF archive (default, no OCR)",
+      "category": "regression",
+      "passed": true,
+      "duration": 2197,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-010a",
+      "name": "DOCX plain extraction (no wisdom)",
+      "category": "regression",
+      "passed": true,
+      "duration": 7501,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-020",
+      "name": "iPhone clipboard via iOS shortcut",
+      "category": "regression",
+      "passed": false,
+      "duration": 323,
+      "error": "Error: Failed to get file info: Bad Request: invalid file_id",
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-EMB-001",
+      "name": "New note is searchable via semantic",
+      "category": "regression",
+      "passed": false,
+      "duration": 0,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-REG-014",
+      "name": "Events notification format",
+      "category": "regression",
+      "passed": false,
+      "duration": 0,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-PAT-001",
+      "name": "/meeting-notes pattern command",
+      "category": "regression",
+      "passed": true,
+      "duration": 35077,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-PAT-002",
+      "name": "/summarize pattern command",
+      "category": "regression",
+      "passed": true,
+      "duration": 11322,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-PAT-003",
+      "name": "/wisdom pattern command",
+      "category": "regression",
+      "passed": false,
+      "duration": 65083,
+      "failedChecks": [
+        "content_contains:SUMMARY",
+        "content_contains:IDEAS"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-PHOTO-001",
+      "name": "/describe photo command",
+      "category": "regression",
+      "passed": false,
+      "duration": 10664,
+      "error": "Error: Vision API error: upstream connect error or disconnect/reset before headers. reset reason: connection timeout",
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-PHOTO-002",
+      "name": "/ocr photo command (Tesseract)",
+      "category": "regression",
+      "passed": true,
+      "duration": 5885,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-PHOTO-003",
+      "name": "/store photo command (no processing)",
+      "category": "regression",
+      "passed": true,
+      "duration": 1550,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-TAG-001",
+      "name": "Fuzzy matching spoken hashtag to existing vault tag",
+      "category": "tag-matching",
+      "passed": false,
+      "duration": 6681,
+      "failedChecks": [
+        "tag_present:projectpie",
+        "verbose:Fuzzy matched tag:"
+      ],
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-TAG-002",
+      "name": "Fuzzy matching spoken person to existing vault tag",
+      "category": "tag-matching",
+      "passed": true,
+      "duration": 7295,
+      "hasSemantic": false
+    },
+    {
+      "id": "TEST-TAG-003",
+      "name": "Caption tags are deterministic (no fuzzy matching)",
+      "category": "tag-matching",
+      "passed": true,
+      "duration": 4801,
+      "hasSemantic": false
+    }
+  ],
+  "comparison": {
+    "previousRunId": "unit-2025-12-05-04-23-44",
+    "delta": {
+      "passed": 36,
+      "failed": 9
+    },
+    "newFailures": [
+      "TEST-DATE-021",
+      "TEST-INGv2-100",
+      "TEST-INGv2-101",
+      "TEST-REG-005a",
+      "TEST-REG-005b",
+      "TEST-REG-008",
+      "TEST-REG-020",
+      "TEST-EMB-001",
+      "TEST-REG-014",
+      "TEST-PAT-003",
+      "TEST-PHOTO-001",
+      "TEST-TAG-001"
+    ],
+    "fixed": []
+  }
+}

@@ -1,12 +1,12 @@
 {
   "_meta": {
-    "testId": "TEST-PAT-003",
-    "capturedAt": "2025-12-05T05:03:50.630Z",
+    "testId": "TEST-TAG-003",
+    "capturedAt": "2025-12-05T05:04:43.190Z",
     "capturedBy": "integration-setup",
-    "description": "/wisdom pattern"
+    "description": "Caption tags are deterministic"
   },
   "message": {
-    "message_id": 301,
+    "message_id": 317,
     "sender_chat": {
       "id": -1003383520667,
       "title": "PAI Test Cases",
@@ -17,13 +17,13 @@
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764911030,
-    "text": "[TEST-PAT-003] /wisdom The key to success is consistent effort",
+    "date": 1764911083,
+    "text": "[TEST-TAG-003] #nonexistent_tag_xyz Testing caption tag",
     "entities": [
       {
         "offset": 15,
-        "length": 7,
-        "type": "bot_command"
+        "length": 20,
+        "type": "hashtag"
       }
     ]
   }

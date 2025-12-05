@@ -1,0 +1,52 @@
+{
+  "runId": "unit-2025-12-05-04-23-44",
+  "layer": "unit",
+  "startedAt": "2025-12-05T04:23:44.986Z",
+  "completedAt": "2025-12-05T04:23:49.401Z",
+  "duration": 4415,
+  "counts": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "passRate": 100,
+  "tests": [
+    {
+      "id": "TEST-REG-001",
+      "name": "Simple text message",
+      "category": "regression",
+      "passed": true,
+      "duration": 4415,
+      "hasSemantic": false
+    }
+  ],
+  "comparison": {
+    "previousRunId": "all-2025-12-05-03-48-43",
+    "delta": {
+      "passed": -108,
+      "failed": -16
+    },
+    "newFailures": [],
+    "fixed": [
+      "TEST-DATE-021",
+      "TEST-INGv2-100",
+      "TEST-INGv2-101",
+      "TEST-REG-005a",
+      "TEST-REG-005b",
+      "TEST-REG-007",
+      "TEST-REG-008",
+      "TEST-REG-011",
+      "TEST-REG-012",
+      "TEST-REG-020",
+      "TEST-EMB-001",
+      "TEST-REG-014",
+      "TEST-PHOTO-001",
+      "TEST-PHOTO-003",
+      "TEST-TAG-001",
+      "TEST-CLI-031",
+      "TEST-CLI-032",
+      "ACC-001"
+    ]
+  }
+}

@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-022",
-    "capturedAt": "2025-12-03T06:37:17.016Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:02:04.387Z",
+    "capturedBy": "integration-setup",
     "description": "Note without date uses today"
   },
   "message": {
-    "message_id": 211,
+    "message_id": 268,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743836,
+    "date": 1764910924,
     "text": "[TEST-DATE-022] Regular meeting notes without any date hint"
   }
 }

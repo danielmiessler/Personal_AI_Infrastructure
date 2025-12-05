@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-010b",
-    "capturedAt": "2025-12-03T06:31:41.711Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:03:05.912Z",
+    "capturedBy": "integration-setup",
     "description": "DOCX with /summarize command"
   },
   "message": {
-    "message_id": 154,
+    "message_id": 288,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743501,
+    "date": 1764910985,
     "document": {
       "file_name": "meeting-notes.docx",
       "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

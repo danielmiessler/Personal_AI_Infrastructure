@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-007",
-    "capturedAt": "2025-12-03T06:34:35.162Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:39.399Z",
+    "capturedBy": "integration-setup",
     "description": "Receipt pipeline auto-private"
   },
   "message": {
-    "message_id": 199,
+    "message_id": 258,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743675,
+    "date": 1764910899,
     "photo": [
       {
         "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",

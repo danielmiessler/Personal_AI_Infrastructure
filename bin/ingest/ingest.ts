@@ -1919,6 +1919,7 @@ SUBCOMMANDS:
   cli [TEST_ID]         Run CLI integration tests (obs search/semantic)
   acceptance [TEST_ID]  Run acceptance tests (claude -p end-to-end workflows)
   semantic --run RUN_ID Run LLM-as-judge semantic validation (claude -p)
+  setup                 Set up integration tests (clear channel, populate, run tests)
   forward <ID>         Forward a message by ID or test ID from Test Cases → Test Inbox
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
@@ -2132,6 +2133,9 @@ async function handleTest(args: string[], verbose: boolean) {
       const all = subArgs.includes("--all");
       const dryRun = subArgs.includes("--dry-run");
       const parallel = subArgs.includes("--parallel");
+      const noSetup = subArgs.includes("--no-setup");  // Skip auto-setup (default is to setup)
+      const noCleanup = subArgs.includes("--no-cleanup");
+      const autoSetup = !noSetup;  // Auto-setup is default
       const testId = subArgs.find(a => a.startsWith("TEST-"));
 
       // Parse timeout (per-test timeout in ms)
@@ -2155,6 +2159,11 @@ async function handleTest(args: string[], verbose: boolean) {
       console.log("\n🧪 Integration Test Runner");
       console.log("━".repeat(50));
       console.log("Sends test messages to Test Inbox and processes directly.");
+      if (autoSetup) {
+        console.log("Setup: Auto (clear → populate → test → cleanup)");
+      } else {
+        console.log("Setup: Skipped (--no-setup)");
+      }
       if (parallel) {
         console.log(`Mode: Parallel (concurrency: ${concurrency || 5})`);
       } else {
@@ -2193,6 +2202,8 @@ async function handleTest(args: string[], verbose: boolean) {
           parallel,
           concurrency,
           runId,
+          autoSetup,
+          noCleanup,
         });
 
         printIntegrationSummary(summary);
@@ -2685,6 +2696,34 @@ Tests with semantic validation specs:
 
       printDaemonTestResult(result);
       process.exit(result.passed ? 0 : 1);
+      break;
+    }
+
+    case "setup": {
+      // Integration test setup - clear channel, populate, run tests, cleanup
+      // Run the setup script (it prints its own header)
+      const { spawn } = await import("child_process");
+      const { dirname: pathDirname } = await import("path");
+      
+      const dryRun = subArgs.includes("--dry-run");
+      const skipTests = subArgs.includes("--skip-tests");
+      const force = subArgs.includes("--force");
+      
+      const setupArgs = ["run", "test/integration-setup.ts"];
+      if (dryRun) setupArgs.push("--dry-run");
+      if (skipTests) setupArgs.push("--skip-tests");
+      if (force) setupArgs.push("--force");
+      if (verbose) setupArgs.push("--verbose");
+      
+      const scriptDir = pathDirname(new URL(import.meta.url).pathname);
+      const setupProcess = spawn("bun", setupArgs, { 
+        stdio: "inherit",
+        cwd: scriptDir,
+      });
+      
+      setupProcess.on("close", (code) => {
+        process.exit(code || 0);
+      });
       break;
     }
 

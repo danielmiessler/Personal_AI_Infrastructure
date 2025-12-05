@@ -105,20 +105,48 @@ bun run ingest.ts test run --keep-output
 
 ## Integration Tests
 
-Full end-to-end Telegram pipeline tests. Messages are sent directly to Test Inbox and processed immediately.
+Full end-to-end Telegram pipeline tests. Messages are forwarded from PAI Test Cases to Test Inbox and processed.
 
 ### How It Works
 
 The integration runner handles everything in one process:
-1. **Send** test message directly to Test Inbox (no forwarding needed)
-2. **Process** via `processMessage()` directly (no watcher required)
-3. **Save** to vault via `saveToVault()`
-4. **Validate** output against test spec expectations
+1. **Setup** (auto): Clear and populate PAI Test Cases channel
+2. **Forward** test message from Test Cases → Test Inbox
+3. **Process** via `processMessage()` directly (no watcher required)
+4. **Save** to vault via `saveToVault()`
+5. **Validate** output against test spec expectations
+6. **Cleanup** (auto): Clear test messages from channel
+
+### Channel Setup (Automatic by Default)
+
+Integration tests require test messages in the PAI Test Cases channel. The framework handles this **automatically by default**:
+
+1. **Clear** existing messages from PAI Test Cases
+2. **Populate** channel with test data from registry
+3. **Update** fixtures with new message IDs
+4. **Run** integration tests
+5. **Cleanup** test messages (unless `--no-cleanup`)
+
+```bash
+# Run integration tests (auto-setup is default)
+bun run ingest.ts test integration
+
+# Skip auto-setup (use existing fixtures)
+bun run ingest.ts test integration --no-setup
+
+# Keep messages after tests (for debugging)
+bun run ingest.ts test integration --no-cleanup
+
+# Manual setup only (don't run tests)
+bun run ingest.ts test setup --skip-tests
+```
+
+**Why is setup needed?** Telegram message IDs in fixtures must match actual messages in the channel. When messages are deleted or the channel is cleared, the IDs become invalid.
 
 ### Commands
 
 ```bash
-# Run all integration tests (parallel - fastest)
+# Run all integration tests (auto-setup is default)
 bun run ingest.ts test integration --parallel
 
 # Run with custom concurrency
@@ -144,6 +172,8 @@ bun run ingest.ts test integration --parallel --timeout 180000
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--no-setup` | Skip auto channel setup | Off (setup runs) |
+| `--no-cleanup` | Don't clear channel after tests | Off (cleanup runs) |
 | `--parallel` | Run tests concurrently | Off (sequential) |
 | `--concurrency N` | Max concurrent tests | 5 |
 | `--timeout N` | Per-test timeout (ms) | 120000 (2 min) |
@@ -160,7 +190,7 @@ Add to `~/.claude/.env`:
 # Test channels (required for integration testing)
 TEST_TELEGRAM_CHANNEL_ID=<your-test-inbox-channel-id>   # PAI Test Inbox
 TEST_TELEGRAM_OUTBOX_ID=<your-test-events-channel-id>   # PAI Test Events
-TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>     # PAI Test Cases (optional, for manual testing)
+TEST_TELEGRAM_CASES_ID=<your-test-cases-channel-id>     # PAI Test Cases (for test messages)
 ```
 
 ## CLI Tests (Layer 3)

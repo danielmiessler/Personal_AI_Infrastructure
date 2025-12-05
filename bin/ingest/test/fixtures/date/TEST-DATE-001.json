@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-001",
-    "capturedAt": "2025-12-03T06:34:44.847Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:41.892Z",
+    "capturedBy": "integration-setup",
     "description": "ISO date format"
   },
   "message": {
-    "message_id": 200,
+    "message_id": 259,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743684,
+    "date": 1764910901,
     "text": "[TEST-DATE-001] [date:2024-06-15] /archive Old contract from June",
     "entities": [
       {

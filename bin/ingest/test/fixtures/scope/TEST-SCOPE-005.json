@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-005",
-    "capturedAt": "2025-12-03T06:34:30.256Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:34.436Z",
+    "capturedBy": "integration-setup",
     "description": "For work natural language"
   },
   "message": {
-    "message_id": 197,
+    "message_id": 256,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743670,
+    "date": 1764910894,
     "text": "[TEST-SCOPE-005] For work. Architecture decision on data pipeline"
   }
 }

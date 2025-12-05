@@ -73,6 +73,43 @@
           "createdAt": "2025-12-04T21:30:19.670Z"
         }
       ]
+    },
+    "all-2025-12-05-03-48-43": {
+      "runId": "all-2025-12-05-03-48-43",
+      "startedAt": "2025-12-05T04:05:50.183Z",
+      "completedAt": "2025-12-05T04:06:58.527Z",
+      "files": [
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-001] Test note for tag search validation-Telegram-Raw.md",
+          "createdAt": "2025-12-05T04:06:58.527Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-002] Unique content about quantum flux capacitors fo...-Telegram-Raw.md",
+          "createdAt": "2025-12-05T04:06:58.527Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-003] Notes from the quarterly planning meeting about...-Telegram-Raw.md",
+          "createdAt": "2025-12-05T04:06:58.527Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-004] Private health information - blood pressure rea...-Telegram-Raw.md",
+          "createdAt": "2025-12-05T04:06:58.527Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-005] Private financial data for tax purposes-Telegram-Raw.md",
+          "createdAt": "2025-12-05T04:06:58.527Z"
+        },
+        {
+          "testId": "cli-tests",
+          "vaultPath": "/Users/andreas/Documents/andreas_brain/2025-12-05-[CLI-007] Specific content that should be readable via ob...-Telegram-Raw.md",
+          "createdAt": "2025-12-05T04:06:58.527Z"
+        }
+      ]
     }
   }
 }

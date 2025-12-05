@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-016",
-    "capturedAt": "2025-12-03T06:36:51.442Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:03:35.687Z",
+    "capturedBy": "integration-setup",
     "description": "/wisdom command on text"
   },
   "message": {
-    "message_id": 205,
+    "message_id": 295,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743811,
+    "date": 1764911015,
     "text": "[TEST-REG-016] /wisdom Cal Newport argues that deep work is the ability to focus without distraction on a cognitively demanding task. This skill is increasingly rare and valuable in our economy. The shallow work that fills most knowledge workers days - email, meetings, administrative tasks - produces little new value. To cultivate deep work, schedule blocks of uninterrupted time, embrace boredom instead of reaching for your phone, quit social media or use it minimally, and drain the shallows by ruthlessly reducing low-value obligations. The craftsman approach to tool selection asks whether a tool substantially helps your goals.",
     "entities": [
       {

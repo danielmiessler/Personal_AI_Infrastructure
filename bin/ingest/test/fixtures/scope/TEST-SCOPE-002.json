@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-002",
-    "capturedAt": "2025-12-03T06:30:15.707Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:27.020Z",
+    "capturedBy": "integration-setup",
     "description": "Explicit ~work sigil"
   },
   "message": {
-    "message_id": 220,
+    "message_id": 253,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743415,
+    "date": 1764910886,
     "text": "[TEST-SCOPE-002] ~work Meeting notes from the product team"
   }
 }

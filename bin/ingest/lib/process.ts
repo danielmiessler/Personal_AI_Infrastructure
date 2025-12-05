@@ -1371,6 +1371,7 @@ async function processAudio(
         line.trim().length > 0
     );
     const rawTranscript = transcriptLines.join("\n").trim();
+    console.log(`    Transcribed audio: ${rawTranscript.length} chars`);
 
     // Extract spoken hints from transcript (Wispr Flow style)
     // This detects patterns like "hashtag project", "at john", "forward slash archive"

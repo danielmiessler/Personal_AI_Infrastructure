@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-003",
-    "capturedAt": "2025-12-03T06:34:49.758Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:46.889Z",
+    "capturedBy": "integration-setup",
     "description": "Short year format DD/MM/YY"
   },
   "message": {
-    "message_id": 202,
+    "message_id": 261,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743689,
+    "date": 1764910906,
     "text": "[TEST-DATE-003] [date:15/06/24] /archive Document from June",
     "entities": [
       {

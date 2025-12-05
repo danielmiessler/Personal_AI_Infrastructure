@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-015",
-    "capturedAt": "2025-12-03T06:36:45.314Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:03:33.212Z",
+    "capturedBy": "integration-setup",
     "description": "/summarize command on text"
   },
   "message": {
-    "message_id": 204,
+    "message_id": 294,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743805,
+    "date": 1764911013,
     "text": "[TEST-REG-015] /summarize The history of artificial intelligence spans over seven decades. In 1950, Alan Turing proposed the Turing Test as a measure of machine intelligence. The field was officially founded at the Dartmouth Conference in 1956. Early AI focused on symbolic reasoning and expert systems. The AI winters of the 1970s and 1980s saw reduced funding due to unmet expectations. Machine learning emerged as a dominant paradigm in the 1990s. Deep learning revolutionized the field after 2012 with breakthroughs in image recognition. Large language models like GPT have transformed natural language processing since 2020.",
     "entities": [
       {

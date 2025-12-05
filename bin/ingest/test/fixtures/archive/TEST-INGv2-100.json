@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-INGv2-100",
-    "capturedAt": "2025-12-03T06:37:29.405Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:02:06.867Z",
+    "capturedBy": "integration-setup",
     "description": "Archive with auto-naming"
   },
   "message": {
-    "message_id": 212,
+    "message_id": 269,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743848,
+    "date": 1764910926,
     "document": {
       "file_name": "RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf",
       "mime_type": "application/pdf",

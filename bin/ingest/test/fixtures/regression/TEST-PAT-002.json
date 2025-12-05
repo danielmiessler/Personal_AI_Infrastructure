@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-PAT-002",
-    "capturedAt": "2025-12-03T06:33:18.961Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:03:48.155Z",
+    "capturedBy": "integration-setup",
     "description": "/summarize pattern"
   },
   "message": {
-    "message_id": 179,
+    "message_id": 300,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743598,
+    "date": 1764911028,
     "text": "[TEST-PAT-002] /summarize This is a long article about machine learning",
     "entities": [
       {

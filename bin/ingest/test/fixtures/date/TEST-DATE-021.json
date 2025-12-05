@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-DATE-021",
-    "capturedAt": "2025-12-03T06:37:14.525Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:02:01.905Z",
+    "capturedBy": "integration-setup",
     "description": "Archive uses document date"
   },
   "message": {
-    "message_id": 210,
+    "message_id": 267,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743834,
+    "date": 1764910921,
     "document": {
       "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",

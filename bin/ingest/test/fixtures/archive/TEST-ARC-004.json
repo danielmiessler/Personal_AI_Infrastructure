@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-ARC-004",
-    "capturedAt": "2025-12-03T06:31:07.159Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:02:31.212Z",
+    "capturedBy": "integration-setup",
     "description": "Certificate detection"
   },
   "message": {
-    "message_id": 140,
+    "message_id": 274,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743467,
+    "date": 1764910951,
     "document": {
       "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",

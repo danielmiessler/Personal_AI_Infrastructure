@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-SCOPE-006",
-    "capturedAt": "2025-12-03T06:34:32.709Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:01:36.919Z",
+    "capturedBy": "integration-setup",
     "description": "Archive pipeline auto-private"
   },
   "message": {
-    "message_id": 198,
+    "message_id": 257,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743672,
+    "date": 1764910896,
     "photo": [
       {
         "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",

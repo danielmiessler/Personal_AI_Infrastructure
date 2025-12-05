@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-018",
-    "capturedAt": "2025-12-03T06:33:11.566Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:03:40.672Z",
+    "capturedBy": "integration-setup",
     "description": "Clip pipeline skips auto-patterns"
   },
   "message": {
-    "message_id": 176,
+    "message_id": 297,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743591,
+    "date": 1764911020,
     "text": "[TEST-REG-018] /clip Newsletter snippet to save for later",
     "entities": [
       {

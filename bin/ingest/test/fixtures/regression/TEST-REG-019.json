@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-019",
-    "capturedAt": "2025-12-03T06:33:14.029Z",
-    "capturedBy": "populate-channel",
+    "capturedAt": "2025-12-05T05:03:43.150Z",
+    "capturedBy": "integration-setup",
     "description": "Clip with explicit pattern"
   },
   "message": {
-    "message_id": 177,
+    "message_id": 298,
     "sender_chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": $TEST_CASES_CHANNEL_ID,
+      "id": -1003383520667,
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764743593,
+    "date": 1764911023,
     "text": "[TEST-REG-019] /clip /summarize Newsletter with summary request",
     "entities": [
       {

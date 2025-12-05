@@ -1,23 +1,23 @@
 {
   "_meta": {
     "testId": "TEST-REG-005a",
-    "capturedAt": "2025-12-02T23:09:14.497Z",
-    "capturedBy": "andreas",
-    "description": "Voice memo with dictated caption containing hints"
+    "capturedAt": "2025-12-05T05:02:48.594Z",
+    "capturedBy": "integration-setup",
+    "description": "Voice memo with caption hints"
   },
   "message": {
-    "message_id": 211,
+    "message_id": 281,
     "sender_chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
     "chat": {
-      "id": -1003163091886,
-      "title": "PAI Inbox",
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764716940,
+    "date": 1764910968,
     "audio": {
       "duration": 21,
       "file_name": "248 Franklin Rd 7.m4a",
@@ -26,10 +26,10 @@
       "file_unique_id": "AgADRAgAAuvmgEU",
       "file_size": 359031
     },
-    "caption": "#project/test extract wisdom",
+    "caption": "[TEST-REG-005a] #project/test extract wisdom",
     "caption_entities": [
       {
-        "offset": 0,
+        "offset": 16,
         "length": 8,
         "type": "hashtag"
       }

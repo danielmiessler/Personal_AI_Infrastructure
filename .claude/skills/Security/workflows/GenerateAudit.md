@@ -88,18 +88,17 @@
 **Action**: Run security scans to gather findings
 
 **Analysis Options**:
-- **ScanCode**: Scan code for vulnerabilities
-- **PerformSTRIDE**: Comprehensive threat modeling
-- **RunStandup**: Multi-agent security review
+- **SecurityReview**: Scan code for vulnerabilities (OWASP Top 10)
+- **ThreatModel**: STRIDE threat modeling
+- **Standup**: Multi-agent security review (with Daniel agent)
 - **Manual Review**: Document existing findings
 
 **Example**:
-```bash
-# Scan codebase for vulnerabilities
-emma-scan src/
-
-# Perform STRIDE analysis
-emma-scan --stride src/auth/
+```
+# Use Security skill workflows to gather findings:
+- Run SecurityReview on high-risk code
+- Run ThreatModel on architecture
+- Use Standup for multi-perspective analysis
 ```
 
 **Collect**:
@@ -110,16 +109,16 @@ emma-scan --stride src/auth/
 
 ---
 
-### Step 2: Daniel Generates Audit Trail
+### Step 2: Generate Audit Trail
 
-**Daniel's Audit Trail Generation**:
+**Audit Trail Structure**:
 
 **Section 1: Executive Summary**
 ```markdown
 # CMMC Level 2 Security Review Audit Trail
 **Date**: 2025-12-03
 **Scope**: User authentication system
-**Reviewer**: Daniel Security Engineer
+**Reviewer**: Security Skill
 
 ## Summary
 - Files Scanned: 24
@@ -273,10 +272,9 @@ emma-scan --stride src/auth/
 - `cmmc-audit-trail-<feature>-YYYY-MM-DD.md`
 
 **Example**:
-```bash
-# Generate and save audit trail
-emma-scan src/ > findings.json
-# Daniel generates audit trail
+```
+# After gathering findings from SecurityReview/ThreatModel workflows:
+# Generate audit trail document
 # Save to: cmmc-audit-trail-2025-12-03.md
 ```
 
@@ -293,7 +291,7 @@ emma-scan src/ > findings.json
 4. Remediation timeline (progress tracking)
 5. Evidence of controls (proof of implementation)
 
-**Assessor Questions Daniel Can Answer**:
+**Common Assessor Questions**:
 - "What CMMC practices are covered?"
 - "How many vulnerabilities were found?"
 - "What's the remediation status?"
@@ -324,21 +322,9 @@ await result.recordAuditTrail('cmmc-audit-trail-checkout.md')
 
 ---
 
-## CLI Usage
-
-```bash
-# Scan and generate audit trail
-emma-scan src/ --json > findings.json
-
-# Daniel automatically generates audit trail
-# Output: cmmc-audit-trail-YYYY-MM-DD.md
-```
-
----
-
 ## CMMC Practice Reference
 
-Daniel maps vulnerabilities to these CMMC Level 2 practices:
+The Security skill maps vulnerabilities to these CMMC Level 2 practices:
 
 **Access Control (AC) - 3.1.x**
 - AC.L2-3.1.1: Limit system access to authorized users
@@ -407,26 +393,27 @@ See `docs/CMMC-MAPPING.md` for complete practice-to-pattern reference.
 
 ## Related Workflows
 
-- **ScanCode**: Scan code for vulnerabilities (input for audit trail)
-- **PerformSTRIDE**: STRIDE threat modeling (input for audit trail)
-- **RunStandup**: Multi-agent security review (comprehensive analysis)
-- **CmmcBaseline** (Security skill): CMMC Level 2 compliance baseline
+- **SecurityReview**: Scan code for vulnerabilities (input for audit trail)
+- **ThreatModel**: STRIDE threat modeling (input for audit trail)
+- **CmmcBaseline**: CMMC Level 2 compliance baseline
+- **InfrastructureSecurity**: Cloud/infrastructure security audit
+- **Standup skill**: Multi-agent security review (with Daniel agent)
 
 ---
 
 ## Assessor FAQs
 
-**Q: What CMMC level does Daniel cover?**
+**Q: What CMMC level does this cover?**
 A: CMMC Level 2 (110 practices across 17 domains)
 
-**Q: How many vulnerability patterns does Daniel detect?**
+**Q: What vulnerability patterns are detected?**
 A: 50+ patterns covering OWASP Top 10 and CMMC requirements
 
-**Q: Is Daniel's analysis automated or manual?**
-A: Hybrid - automated pattern detection + manual security review
+**Q: Is the analysis automated or manual?**
+A: Hybrid - AI-assisted pattern detection + manual security review
 
-**Q: Can Daniel generate evidence for all CMMC practices?**
-A: Daniel covers 25+ practices with code-level evidence. Infrastructure practices (PE, PS, AT) require additional documentation.
+**Q: Can this generate evidence for all CMMC practices?**
+A: Security skill covers 25+ practices with code-level evidence. Infrastructure practices (PE, PS, AT) require additional documentation.
 
 **Q: How often should audit trails be generated?**
 A: Quarterly at minimum, or before each CMMC assessment

@@ -266,6 +266,36 @@ User
 | DoS | Rate limiting | SC.L2-3.13.6 (Deny by default) |
 | Elevation | RBAC enforcement | AC.L2-3.1.2 (Limit access) |
 
+**Comprehensive STRIDE-to-CMMC Mapping**:
+
+**Spoofing** → Identification & Authentication (IA):
+- IA.L2-3.5.1: MFA for privileged accounts
+- IA.L2-3.5.2: Authenticate users and processes
+- IA.L2-3.5.7: Enforce password complexity
+- IA.L2-3.5.10: Store/transmit cryptographically-protected passwords
+
+**Tampering** → System & Information Integrity (SI):
+- SI.L2-3.14.6: Protect system inputs (SQL injection, XSS)
+- SI.L2-3.14.7: Identify and correct system flaws
+
+**Repudiation** → Audit & Accountability (AU):
+- AU.L2-3.3.1: Create and retain audit logs
+- AU.L2-3.3.2: Ensure audit log records support investigations
+
+**Information Disclosure** → System & Communications Protection (SC):
+- SC.L2-3.13.6: Deny network traffic by default
+- SC.L2-3.13.8: Implement cryptographic mechanisms
+- SC.L2-3.13.11: Employ FIPS-validated cryptography
+
+**Denial of Service** → Access Control (AC):
+- AC.L2-3.1.17: Limit unsuccessful login attempts
+- AC.L2-3.1.7: Prevent non-privileged users from executing privileged functions
+
+**Elevation of Privilege** → Access Control (AC):
+- AC.L2-3.1.1: Limit system access to authorized users
+- AC.L2-3.1.2: Limit system access to authorized transactions
+- AC.L2-3.1.5: Employ least privilege principle
+
 ---
 
 ### Step 7: Generate Threat Model Document

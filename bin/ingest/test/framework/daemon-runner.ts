@@ -23,6 +23,7 @@ import { existsSync, readFileSync, readdirSync, statSync, unlinkSync } from "fs"
 import { join, basename } from "path";
 import { getConfig } from "../../lib/config";
 import { getUpdates, sendMessage, type TelegramMessage } from "../../lib/telegram";
+import { printTestHeader, printLayerSummary, colors } from "./format";
 
 // =============================================================================
 // Types
@@ -79,7 +80,7 @@ export async function runDaemonTest(options: DaemonTestOptions = {}): Promise<Da
 
   if (verbose) {
     console.log("\n🔧 Daemon Deployment Test");
-    console.log("═".repeat(50));
+    console.log("═".repeat(60));
     console.log(`Test ID: ${testId}`);
     console.log(`Timeout: ${timeout / 1000}s`);
   }
@@ -414,19 +415,24 @@ function findVaultFile(vaultPath: string, testId: string, afterDate: Date): stri
  * Print daemon test result
  */
 export function printDaemonTestResult(result: DaemonTestResult): void {
-  console.log("\n" + "═".repeat(50));
-  console.log("DAEMON TEST RESULT");
-  console.log("═".repeat(50));
+  const passedChecks = result.checks.filter(c => c.passed).length;
+  const failedChecks = result.checks.filter(c => !c.passed).length;
 
-  const status = result.passed ? "✅ PASSED" : "❌ FAILED";
-  console.log(`Status: ${status}`);
+  // Use consistent summary format
+  console.log("\n" + "═".repeat(60));
+  console.log("SUMMARY");
+  console.log("═".repeat(60));
+  console.log(`Passed:   ${passedChecks}`);
+  console.log(`Failed:   ${failedChecks}`);
+  console.log(`Skipped:  0`);
   console.log(`Duration: ${(result.duration / 1000).toFixed(1)}s`);
+  console.log("═".repeat(60));
 
   console.log("\nChecks:");
   for (const check of result.checks) {
     const icon = check.passed ? "✓" : "✗";
-    const color = check.passed ? "\x1b[32m" : "\x1b[31m";
-    console.log(`  ${color}${icon}\x1b[0m ${check.name}`);
+    const color = check.passed ? colors.green : colors.red;
+    console.log(`  ${color}${icon}${colors.reset} ${check.name}`);
     if (check.detail) {
       console.log(`    ${check.detail}`);
     }
@@ -438,8 +444,6 @@ export function printDaemonTestResult(result: DaemonTestResult): void {
   if (result.error) {
     console.log(`\nError: ${result.error}`);
   }
-
-  console.log("═".repeat(50));
 
   if (result.passed) {
     console.log("\n✅ Daemon is working correctly. Safe to deploy.");

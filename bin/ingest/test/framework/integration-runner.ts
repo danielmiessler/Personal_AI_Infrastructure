@@ -28,6 +28,7 @@ import {
   printTestError,
   printFailedCheck,
   printLayerHeader,
+  printLayerSummary,
 } from "./format";
 
 // =============================================================================
@@ -440,9 +441,11 @@ export async function runIntegrationTest(
     };
   }
 
+  // Always print test header for consistent output
+  printTestHeader(testId, spec.name);
+  
   if (options.verbose) {
-    console.log(`\n--- ${testId}: ${spec.name} ---`);
-    console.log(`Sending test message to inbox...`);
+    console.log(`  Sending test message to inbox...`);
   }
 
   // Dry run mode - just show what would happen
@@ -480,8 +483,8 @@ export async function runIntegrationTest(
   });
 
   if (options.verbose) {
-    console.log(`Sent as message ${sentMessage.message_id}`);
-    console.log(`Processing message directly...`);
+    console.log(`  Sent as message ${sentMessage.message_id}`);
+    console.log(`  Processing message directly...`);
   }
 
   // Determine content type from message
@@ -568,9 +571,9 @@ export async function runIntegrationTest(
   });
 
   if (options.verbose) {
-    console.log(`Processing complete: ${pipeline} pipeline (${processingTime}ms)`);
+    console.log(`  Processing complete: ${pipeline} pipeline (${processingTime}ms)`);
     if (firstContent?.originalFilePath) {
-      console.log(`Output: ${firstContent.originalFilePath}`);
+      console.log(`  Output: ${firstContent.originalFilePath}`);
     }
   }
 
@@ -941,12 +944,15 @@ export async function runIntegrationTests(
       for (const result of batchResults) {
         results.push(result);
         const spec = batch.find(s => s.id === result.testId);
-        const status = result.passed ? "✓" : "✗";
-        const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-        console.log(`${color}${status}\x1b[0m ${result.testId}: ${spec?.name || ""} (${result.processingTime}ms)`);
+        
+        // Print test status using shared formatting
+        printTestStatus(result.testId, spec?.name || "", result.passed, result.processingTime, {
+          hasSemanticValidation: !!spec?.expected.semantic,
+          verbose: options.verbose,
+        });
 
         if (!result.passed && result.error) {
-          console.log(`  Error: ${result.error}`);
+          printTestError(result.error);
         }
       }
     }
@@ -957,18 +963,19 @@ export async function runIntegrationTests(
       const result = await runTestWithTimeout(spec.id, options, perTestTimeout);
       results.push(result);
 
-      // Print progress
-      const status = result.passed ? "✓" : "✗";
-      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-      console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name} (${result.processingTime}ms)`);
+      // Print test status using shared formatting
+      printTestStatus(spec.id, spec.name, result.passed, result.processingTime, {
+        hasSemanticValidation: !!spec.expected.semantic,
+        verbose: options.verbose,
+      });
 
       if (!result.passed && result.error) {
-        console.log(`  Error: ${result.error}`);
+        printTestError(result.error);
       }
       if (!result.passed && result.checks.length > 0) {
         const failed = result.checks.filter(c => !c.passed);
         for (const check of failed.slice(0, 3)) {
-          console.log(`  - ${check.name}: ${check.error || "failed"}`);
+          printFailedCheck(check.name, check.error);
         }
       }
 
@@ -1002,19 +1009,13 @@ export async function runIntegrationTests(
  * Print integration test summary
  */
 export function printIntegrationSummary(summary: IntegrationRunSummary): void {
-  console.log("\n" + "=".repeat(50));
-  console.log("INTEGRATION TEST SUMMARY");
-  console.log("=".repeat(50));
-  console.log(`Total:   ${summary.counts.total}`);
-  console.log(`\x1b[32mPassed:  ${summary.counts.passed}\x1b[0m`);
-  if (summary.counts.failed > 0) {
-    console.log(`\x1b[31mFailed:  ${summary.counts.failed}\x1b[0m`);
-  }
-  if (summary.counts.skipped > 0) {
-    console.log(`Skipped: ${summary.counts.skipped}`);
-  }
-  console.log(`Duration: ${summary.duration}ms`);
-  console.log("=".repeat(50));
+  // Use shared summary format for consistency
+  printLayerSummary(
+    summary.counts.passed,
+    summary.counts.failed,
+    summary.counts.skipped,
+    summary.duration
+  );
 
   if (summary.counts.failed > 0) {
     console.log("\nFailed tests:");

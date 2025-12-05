@@ -7,7 +7,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { join, basename } from "path";
 import { unlink, mkdir } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readdirSync, readFileSync } from "fs";
 import { getConfig } from "./config";
 import { loadProfile, generateTags, generateFilename, type ProcessingProfile } from "./profiles";
 import {
@@ -24,7 +24,7 @@ import {
   auditLog,
   type SecurityCheckResult,
 } from "./security";
-import { matchTranscribedHints } from "./tag-matcher";
+import { matchTranscribedHints, loadVaultTags, matchTag } from "./tag-matcher";
 
 const execAsync = promisify(exec);
 
@@ -1056,7 +1056,7 @@ export async function processMessage(
       break;
   }
 
-  // Step 2: Generate tags (profile defaults + inline hints)
+  // Step 2: Generate tags (profile defaults + inline hints + AI semantic tags)
   const baseTags = generateTags(profile, {
     contentType,
     source: "telegram",
@@ -1064,9 +1064,27 @@ export async function processMessage(
     isWisdom: false,
   });
 
-  // Merge inline hints with base tags
+  // Step 2a: Generate AI semantic tags if content is substantial
+  let aiTags: string[] = [];
+  let references: string[] = [];
+  if (config.openaiApiKey && rawContent && rawContent.length > 50) {
+    try {
+      const vaultPath = config.obsidianVaultPath;
+      const tagIndex = vaultPath ? loadVaultTags(vaultPath) : null;
+      const existingTags = tagIndex ? [...tagIndex.tags] : [];
+
+      const aiResult = await generateAITags(rawContent, config.openaiApiKey, existingTags);
+      aiTags = aiResult.tags;
+      references = aiResult.references;
+    } catch (err) {
+      console.warn(`  AI tag generation failed: ${err}`);
+    }
+  }
+
+  // Merge: base procedural tags + AI semantic tags + inline hints
   const tags = [
     ...baseTags,
+    ...aiTags,
     ...hints.tags,
     ...hints.people,  // @name becomes a tag
   ];
@@ -1609,7 +1627,19 @@ async function processDocument(
       content = stdout.trim();
     }
 
-    const title = doc.file_name?.replace(/\.[^.]+$/, "") || generateTitleFromText(content);
+    // Use AI to generate meaningful title from content (like voice memos)
+    // Falls back to filename or first line if no OpenAI key
+    const config = getConfig();
+    let title: string;
+    if (config.openaiApiKey) {
+      try {
+        title = await generateAITitle(content, config.openaiApiKey, "document");
+      } catch {
+        title = doc.file_name?.replace(/\.[^.]+$/, "") || generateTitleFromText(content);
+      }
+    } else {
+      title = doc.file_name?.replace(/\.[^.]+$/, "") || generateTitleFromText(content);
+    }
 
     return {
       content,
@@ -2094,6 +2124,90 @@ async function generateAITitle(
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 60);
+}
+
+/**
+ * Generate semantic tags using AI with fuzzy matching against existing vault tags
+ * Returns tags that describe the content's topics, concepts, and themes
+ */
+async function generateAITags(
+  content: string,
+  apiKey: string,
+  existingTags: string[] = []
+): Promise<{ tags: string[]; references: string[] }> {
+  // Use first ~2000 chars to keep costs low
+  const sample = content.slice(0, 2000);
+
+  // Format existing tags for the prompt (sample of most common)
+  const tagSample = existingTags.slice(0, 100).join(", ");
+
+  const systemPrompt = `You are a Zettelkasten librarian. Analyze content and suggest:
+1. TAGS: 3-7 semantic tags describing topics, concepts, themes (lowercase, hyphenated)
+2. REFERENCES: 0-3 related concepts for bibliography/backlinks (proper nouns ok)
+
+IMPORTANT: Prefer existing tags when they match. Existing vault tags: ${tagSample || "(none yet)"}
+
+Return JSON only: {"tags": ["tag1", "tag2"], "references": ["Concept A", "Related Idea"]}`;
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",  // Tag generation - mini is fast and good enough
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: sample },
+      ],
+      max_completion_tokens: 150,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.warn(`Tag generation API error: ${response.status} - ${errorBody}`);
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const rawJson = data.choices[0]?.message?.content?.trim();
+
+  try {
+    const parsed = JSON.parse(rawJson);
+    const rawTags = (parsed.tags || []) as string[];
+    const references = (parsed.references || []) as string[];
+
+    // Normalize tags and prefer exact matches from vault
+    // AI is already prompted to prefer existing tags, this just ensures format
+    const normalizedTags = rawTags.map((tag: string) => {
+      const normalized = tag.toLowerCase().replace(/\s+/g, "-");
+      // Check for exact or close match in existing tags
+      const exact = existingTags.find((existing) => existing.toLowerCase() === normalized);
+      if (exact) return exact;
+      // Check for substring match
+      const partial = existingTags.find((existing) => {
+        const existingNorm = existing.toLowerCase();
+        return existingNorm.includes(normalized) || normalized.includes(existingNorm);
+      });
+      return partial || normalized;
+    });
+
+    // Deduplicate
+    const uniqueTags = [...new Set(normalizedTags)];
+
+    console.log(`    AI tags: ${uniqueTags.join(", ")}`);
+    if (references.length > 0) {
+      console.log(`    References: ${references.join(", ")}`);
+    }
+
+    return { tags: uniqueTags, references };
+  } catch {
+    console.warn(`Failed to parse tag JSON: ${rawJson}`);
+    return { tags: [], references: [] };
+  }
 }
 
 /**

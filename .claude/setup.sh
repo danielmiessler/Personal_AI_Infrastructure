@@ -709,7 +709,8 @@ if ask_yes_no "Are you using Claude Code?"; then
     cp "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
 
     # Now personalize the COPY with user values (never touch PAI repo)
-    # IMPORTANT: PAI_DIR must point to ~/.claude (not repo) so hooks write to local history
+    # PAI_DIR must point to ~/.claude (runtime location) not the repo (source location)
+    # This way hooks write history to ~/.claude/history/ (local) not into the repo
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' \
             -e "s|/Users/YOURNAME/.claude|$HOME/.claude|g" \

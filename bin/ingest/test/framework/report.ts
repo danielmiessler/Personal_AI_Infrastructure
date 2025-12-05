@@ -57,6 +57,14 @@ export interface TestResult {
   duration: number;
   error?: string;
   failedChecks?: string[];
+  /** Whether this test has semantic (LLM-as-judge) validation configured */
+  hasSemantic?: boolean;
+  /** LLM-as-judge results (populated after semantic evaluation) */
+  semantic?: {
+    passed: boolean;
+    confidence: number;
+    reasoning: string;
+  };
 }
 
 export interface HistoryEntry {
@@ -131,7 +139,7 @@ const HISTORY_FILE = join(OUTPUT_BASE_DIR, "test-history.json");
 export function generateReport(
   runId: string,
   summary: TestRunSummary,
-  specs: Map<string, { name: string; category: string }>,
+  specs: Map<string, { name: string; category: string; hasSemantic?: boolean }>,
   layer: TestLayer = "unit"
 ): TestReport {
   const passRate = summary.counts.total > 0
@@ -152,6 +160,7 @@ export function generateReport(
       duration: result.duration,
       error: result.error,
       failedChecks: failedChecks.length > 0 ? failedChecks : undefined,
+      hasSemantic: spec?.hasSemantic || false,
     };
   });
 

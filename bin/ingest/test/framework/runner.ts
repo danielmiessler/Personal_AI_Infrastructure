@@ -4,7 +4,7 @@
  * Orchestrates test execution: loads fixtures, runs processor, validates results.
  */
 
-import { existsSync, mkdirSync, rmSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import type {
   TestSpec,
@@ -45,6 +45,103 @@ function getRunId(): string {
 // Current run directory (set at start of test suite)
 let currentRunDir: string = "";
 
+// Full run log buffer (accumulated across all tests)
+let runLogBuffer: string[] = [];
+
+// =============================================================================
+// Test Trace Storage
+// =============================================================================
+
+/**
+ * Save test trace (verbose output) to disk
+ * Creates a per-test trace file and appends to the run log
+ */
+function saveTestTrace(
+  testId: string,
+  testName: string,
+  verboseOutput: string,
+  result: ValidationResult,
+  testOutputDir: string
+): void {
+  if (!currentRunDir) return;
+
+  const status = result.passed ? "PASSED" : "FAILED";
+  const durationStr = `${(result.duration / 1000).toFixed(1)}s`;
+  const timestamp = new Date().toISOString();
+
+  // Build formatted trace content
+  const traceHeader = [
+    "─".repeat(60),
+    `▶ ${testId}: ${testName}`,
+    "─".repeat(60),
+  ].join("\n");
+
+  const traceFooter = result.passed
+    ? `✓ ${testId}: ${status} (${durationStr})`
+    : `✗ ${testId}: ${status} (${durationStr})${result.error ? `\n  Error: ${result.error}` : ""}`;
+
+  // Include failed checks in footer
+  const failedChecks = result.checks.filter(c => !c.passed);
+  const checksStr = failedChecks.length > 0
+    ? "\n" + failedChecks.slice(0, 5).map(c => `  - ${c.name}: ${c.error || "failed"}`).join("\n")
+    : "";
+
+  const fullTrace = [
+    traceHeader,
+    verboseOutput.split("\n").map(line => `  ${line}`).join("\n"),
+    traceFooter + checksStr,
+    "", // blank line between tests
+  ].join("\n");
+
+  // Append to run log buffer
+  runLogBuffer.push(fullTrace);
+
+  // Save individual test trace file
+  const testTraceDir = join(currentRunDir, "traces");
+  if (!existsSync(testTraceDir)) {
+    mkdirSync(testTraceDir, { recursive: true });
+  }
+  const traceFile = join(testTraceDir, `${testId}.log`);
+  
+  const traceContent = [
+    `# Test Trace: ${testId}`,
+    `# Name: ${testName}`,
+    `# Status: ${status}`,
+    `# Duration: ${durationStr}`,
+    `# Timestamp: ${timestamp}`,
+    "",
+    traceHeader,
+    verboseOutput,
+    traceFooter + checksStr,
+  ].join("\n");
+  
+  writeFileSync(traceFile, traceContent);
+}
+
+/**
+ * Save the complete run log to disk
+ */
+function saveRunLog(runId: string): string {
+  if (!currentRunDir) return "";
+
+  const runLogFile = join(currentRunDir, "run.log");
+  const header = [
+    "═".repeat(60),
+    `TEST RUN: ${runId}`,
+    `Started: ${new Date().toISOString()}`,
+    "═".repeat(60),
+    "",
+  ].join("\n");
+
+  const content = header + runLogBuffer.join("\n");
+  writeFileSync(runLogFile, content);
+  
+  // Reset buffer for next run
+  runLogBuffer = [];
+  
+  return runLogFile;
+}
+
 // =============================================================================
 // Main Runner Functions
 // =============================================================================
@@ -54,7 +151,7 @@ let currentRunDir: string = "";
  */
 export async function runTest(
   testId: string,
-  options: { verbose?: boolean; keepOutput?: boolean; includeMedia?: boolean } = {}
+  options: { verbose?: boolean; keepOutput?: boolean; skipMedia?: boolean } = {}
 ): Promise<ValidationResult> {
   const spec = getSpecById(testId);
   if (!spec) {
@@ -78,25 +175,25 @@ export async function runTest(
     };
   }
 
-  // Check if test should be skipped
+  // Check if test should be skipped (explicit skip in spec)
   if (spec.meta?.skip) {
     return {
       testId,
-      passed: true, // Skipped tests count as passed
+      passed: false, // Skipped is a distinct status, not passed
       duration: 0,
       checks: [{ name: "skipped", passed: true, expected: spec.meta.skip }],
     };
   }
 
-  // Skip media tests (voice, photo, document) unless --include-media flag
-  // These require downloading from Telegram which can hang or fail
+  // Skip media tests (voice, photo, document) only if --skip-media flag is set
+  // Media tests require downloading from Telegram but are important for full coverage
   const mediaTypes = ["voice", "audio", "photo", "document"];
-  if (mediaTypes.includes(spec.input.type) && !options.includeMedia) {
+  if (mediaTypes.includes(spec.input.type) && options.skipMedia) {
     return {
       testId,
-      passed: true, // Skipped tests count as passed
+      passed: false, // Skipped is a distinct status, not passed
       duration: 0,
-      checks: [{ name: "skipped", passed: true, expected: `Media test (${spec.input.type}) - use --include-media to run` }],
+      checks: [{ name: "skipped", passed: true, expected: `Media test (${spec.input.type}) - skipped via --skip-media` }],
     };
   }
 
@@ -143,23 +240,27 @@ async function runTestWithSpec(
   const originalLog = console.log;
   const originalError = console.error;
 
+  // Always print test header BEFORE processing starts (not after like status line)
   if (options.verbose) {
-    console.log(`\n--- Running ${spec.id}: ${spec.name} ---`);
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`▶ ${spec.id}: ${spec.name}`);
+    console.log(`${"─".repeat(60)}`);
   }
 
-  // Redirect console to capture
+  // Redirect console to capture (and optionally display with prefix)
   console.log = (...args) => {
     const line = args.map(a => String(a)).join(" ");
     verboseOutput += line + "\n";
     if (options.verbose) {
-      originalLog(...args);
+      // Indent verbose output to clearly scope it under the test header
+      originalLog(`  ${line}`);
     }
   };
   console.error = (...args) => {
     const line = args.map(a => String(a)).join(" ");
     verboseOutput += "[ERROR] " + line + "\n";
     if (options.verbose) {
-      originalError(...args);
+      originalError(`  [ERROR] ${line}`);
     }
   };
 
@@ -201,8 +302,12 @@ async function runTestWithSpec(
     // Validate
     const validationResult = validateTestOutput(spec, testOutput);
     validationResult.duration = Date.now() - startTime;
+    validationResult.verboseOutput = verboseOutput;
 
-    // Cleanup if not keeping output
+    // Save verbose output to disk (always, for debugging/audit)
+    saveTestTrace(spec.id, spec.name, verboseOutput, validationResult, testOutputDir);
+
+    // Cleanup test output dir if not keeping output (but trace is already saved to run dir)
     if (!options.keepOutput && existsSync(testOutputDir)) {
       rmSync(testOutputDir, { recursive: true });
     }
@@ -213,7 +318,7 @@ async function runTestWithSpec(
     console.log = originalLog;
     console.error = originalError;
 
-    return {
+    const errorResult: ValidationResult = {
       testId: spec.id,
       passed: false,
       duration: Date.now() - startTime,
@@ -221,6 +326,11 @@ async function runTestWithSpec(
       verboseOutput,
       error: String(err),
     };
+
+    // Save trace even for errors
+    saveTestTrace(spec.id, spec.name, verboseOutput, errorResult, testOutputDir);
+
+    return errorResult;
   }
 }
 
@@ -259,19 +369,38 @@ export async function runTests(
     const result = await runTest(spec.id, {
       verbose: options.verbose,
       keepOutput: options.keepOutput,
-      includeMedia: options.includeMedia,
+      skipMedia: options.skipMedia,
     });
     results.push(result);
 
-    // Print progress
-    const status = result.passed ? "✓" : "✗";
-    const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-    console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name}`);
+    // Check if this was a skipped test
+    const isSkipped = result.checks.some(c => c.name === "skipped");
+    const skipReason = result.checks.find(c => c.name === "skipped")?.expected;
 
-    if (!result.passed && result.error) {
+    // Print progress
+    const durationStr = result.duration > 0 ? `(${(result.duration / 1000).toFixed(1)}s)` : "";
+    // Show indicator if test has semantic validation (will be evaluated by LLM judge)
+    const semanticIndicator = spec.expected.semantic ? " 🔍" : "";
+    
+    if (isSkipped) {
+      // Skipped tests - show in yellow/dim with reason
+      console.log(`\x1b[33m⊘\x1b[0m ${spec.id}: ${spec.name}${semanticIndicator} \x1b[2m[SKIPPED: ${skipReason}]\x1b[0m`);
+    } else if (options.verbose) {
+      // When verbose, print completion line at end of test block
+      const status = result.passed ? "✓" : "✗";
+      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+      console.log(`${color}${status} ${spec.id}: ${result.passed ? "PASSED" : "FAILED"} ${durationStr}${semanticIndicator}\x1b[0m`);
+    } else {
+      // When not verbose, just show compact status
+      const status = result.passed ? "✓" : "✗";
+      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+      console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name} ${durationStr}${semanticIndicator}`);
+    }
+
+    if (!result.passed && !isSkipped && result.error) {
       console.log(`  Error: ${result.error}`);
     }
-    if (!result.passed && result.checks.length > 0) {
+    if (!result.passed && !isSkipped && result.checks.length > 0) {
       const failed = result.checks.filter(c => !c.passed);
       for (const check of failed.slice(0, 3)) {
         console.log(`  - ${check.name}: ${check.error || "failed"}`);
@@ -280,13 +409,17 @@ export async function runTests(
   }
 
   const completedAt = new Date().toISOString();
-  const passed = results.filter(r => r.passed).length;
-  const failed = results.filter(r => !r.passed).length;
   const skipped = results.filter(r =>
     r.checks.some(c => c.name === "skipped")
   ).length;
+  const passed = results.filter(r => r.passed).length;
+  // Failed = not passed AND not skipped
+  const failed = results.filter(r => 
+    !r.passed && !r.checks.some(c => c.name === "skipped")
+  ).length;
 
   const summary: TestRunSummary = {
+    runId,
     startedAt,
     completedAt,
     duration: results.reduce((sum, r) => sum + r.duration, 0),
@@ -307,6 +440,9 @@ export async function runTests(
   const markdown = generateMarkdownReport(report);
   const mdPath = saveMarkdownReport(runId, markdown);
 
+  // Save the complete run log with all test traces
+  const runLogPath = saveRunLog(runId);
+
   // Add to history for tracking across runs (unless caller will record unified entry)
   if (!options.skipHistory) {
     appendHistory(report);
@@ -315,6 +451,7 @@ export async function runTests(
   console.log(`\nReports saved:`);
   console.log(`  JSON: ${jsonPath}`);
   console.log(`  Markdown: ${mdPath}`);
+  console.log(`  Run Log: ${runLogPath}`);
 
   return summary;
 }
@@ -327,19 +464,23 @@ export function printSummary(summary: TestRunSummary): void {
   console.log("TEST SUMMARY");
   console.log("=".repeat(50));
   console.log(`Total:   ${summary.counts.total}`);
-  console.log(`\x1b[32mPassed:  ${summary.counts.passed}\x1b[0m`);
-  if (summary.counts.failed > 0) {
-    console.log(`\x1b[31mFailed:  ${summary.counts.failed}\x1b[0m`);
-  }
-  if (summary.counts.skipped > 0) {
-    console.log(`Skipped: ${summary.counts.skipped}`);
-  }
+  
+  // Always show all three statuses for consistency
+  const passedColor = summary.counts.passed > 0 ? "\x1b[32m" : "";
+  const failedColor = summary.counts.failed > 0 ? "\x1b[31m" : "";
+  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "";
+  
+  console.log(`${passedColor}Passed:  ${summary.counts.passed}\x1b[0m`);
+  console.log(`${failedColor}Failed:  ${summary.counts.failed}\x1b[0m`);
+  console.log(`${skippedColor}Skipped: ${summary.counts.skipped}\x1b[0m`);
   console.log(`Duration: ${summary.duration}ms`);
   console.log("=".repeat(50));
 
   if (summary.counts.failed > 0) {
     console.log("\nFailed tests:");
-    for (const result of summary.results.filter(r => !r.passed)) {
+    for (const result of summary.results.filter(r => 
+      !r.passed && !r.checks.some(c => c.name === "skipped")
+    )) {
       console.log(`  - ${result.testId}: ${result.error || "validation failed"}`);
     }
   }

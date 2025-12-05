@@ -149,6 +149,9 @@ export interface TestMeta {
 
   /** Dependencies on other tests */
   dependsOn?: string[];
+
+  /** Additional notes about the test */
+  notes?: string;
 }
 
 // =============================================================================
@@ -284,6 +287,9 @@ export interface ValidationResult {
 // =============================================================================
 
 export interface TestRunSummary {
+  /** Unique run identifier */
+  runId: string;
+
   /** When test run started */
   startedAt: string;
 
@@ -346,8 +352,8 @@ export interface RunnerOptions {
   /** Don't clean up test output files */
   keepOutput?: boolean;
 
-  /** Include media tests (voice, photo, document) - slower, requires downloads */
-  includeMedia?: boolean;
+  /** Skip media tests (voice, photo, document) for faster runs */
+  skipMedia?: boolean;
 
   /** Use a specific runId (for unified runs across layers) */
   runId?: string;

@@ -1918,6 +1918,7 @@ SUBCOMMANDS:
   integration [TEST_ID] Run integration tests (forward via Telegram)
   cli [TEST_ID]         Run CLI integration tests (obs search/semantic)
   acceptance [TEST_ID]  Run acceptance tests (claude -p end-to-end workflows)
+  semantic --run RUN_ID Run LLM-as-judge semantic validation (claude -p)
   forward <ID>         Forward a message by ID or test ID from Test Cases → Test Inbox
   send [TEST_ID]        Send test message(s) to PAI Test Cases channel
   validate              Validate recent integration test results
@@ -1944,7 +1945,8 @@ HISTORY OPTIONS:
 
 OTHER OPTIONS:
   --missing            Capture all missing fixtures interactively
-  --include-media      Run media tests (voice, photo, document)
+  --skip-media         Skip media tests (voice, photo, document) for faster runs
+  --skip-llm-judge     Skip LLM-as-judge semantic validation for faster runs
   --cleanup            Delete test notes from vault after validation
   --recent <min>       How far back to look for test results (default: 10 min)
   --timeout <ms>       Integration test timeout (default: 90000, voice: 120000)
@@ -1976,6 +1978,11 @@ EXAMPLES:
   ingest test daemon                      # Test watch daemon before deploying
   ingest test daemon --test               # Use test channels
   ingest test daemon --timeout 120        # Custom timeout (seconds)
+
+LLM-AS-JUDGE SEMANTIC VALIDATION:
+  ingest test semantic --run run-2025-12-05-001    # Evaluate all semantic tests
+  ingest test semantic --run run-2025-12-05-001 TEST-PAT-001  # Specific test
+  ingest test semantic --run run-2025-12-05-001 --dry-run     # Preview prompts
 
 INTEGRATION TESTING (requires two terminals):
 
@@ -2024,7 +2031,8 @@ async function handleTest(args: string[], verbose: boolean) {
       const suite = suiteIndex >= 0 ? subArgs[suiteIndex + 1] as "scope" | "date" | "archive" | "regression" : undefined;
       const all = subArgs.includes("--all");
       const keepOutput = subArgs.includes("--keep-output");
-      const includeMedia = subArgs.includes("--include-media");
+      const skipMedia = subArgs.includes("--skip-media");
+      const skipLlmJudge = subArgs.includes("--skip-llm-judge");
       const testId = subArgs.find(a => a.startsWith("TEST-"));
 
       const summary = await runTests({
@@ -2032,11 +2040,31 @@ async function handleTest(args: string[], verbose: boolean) {
         suite,
         all,
         verbose,
-        keepOutput,
-        includeMedia,
+        keepOutput: keepOutput || !skipLlmJudge, // Keep output for LLM judge (runs by default)
+        skipMedia,
       });
 
       printSummary(summary);
+
+      // Run LLM-as-judge semantic validation (default, skip with --skip-llm-judge)
+      // Only evaluate tests that were actually executed (passed) in this run
+      const executedTestIds = summary.results
+        .filter(r => r.passed && !r.checks.some(c => c.name === "skipped"))
+        .map(r => r.testId);
+      
+      if (!skipLlmJudge && executedTestIds.length > 0) {
+        const { runLLMJudge } = await import("./test/framework/llm-judge");
+        const { allIngestSpecs } = await import("./test/specs");
+        
+        console.log("\n");
+        await runLLMJudge(allIngestSpecs, {
+          runId: summary.runId,
+          testIds: executedTestIds,  // Only evaluate tests that ran
+          verbose,
+          timeout: 180000, // 3 min per evaluation
+        });
+      }
+
       process.exit(summary.counts.failed > 0 ? 1 : 0);
       break;
     }
@@ -2501,6 +2529,67 @@ async function handleTest(args: string[], verbose: boolean) {
       break;
     }
 
+    case "semantic":
+    case "judge": {
+      // LLM-as-judge semantic validation using claude -p
+      const { runLLMJudge } = await import("./test/framework/llm-judge");
+      const { allIngestSpecs } = await import("./test/specs");
+
+      if (subArgs.includes("--help") || subArgs.includes("-h")) {
+        console.log(`
+LLM-as-Judge Semantic Validation
+
+Uses Claude Code (claude -p) to evaluate test outputs that require
+qualitative assessment beyond deterministic checks.
+
+Usage:
+  ingest test semantic --run RUN_ID              # Evaluate tests from a run
+  ingest test semantic --run RUN_ID TEST-PAT-001 # Evaluate specific test
+  ingest test semantic --run RUN_ID --dry-run    # Show prompts without running
+
+Options:
+  --run RUN_ID    Run ID to load results from (e.g., run-2025-12-05-10-30-00)
+  --dry-run       Show evaluation prompts without executing
+  --timeout MS    Timeout per evaluation (default: 120000ms)
+  --verbose       Show detailed output
+
+Tests with semantic validation specs:
+  - TEST-PAT-001: Meeting notes pattern (/meeting-notes)
+  - TEST-PAT-002: Summarize pattern (/summarize)
+  - TEST-PAT-003: Wisdom pattern (/wisdom)
+  - TEST-REG-003: Metadata extraction (tags, mentions, [key:value])
+  - TEST-REG-020: iOS Shortcut clipboard sharing
+`);
+        break;
+      }
+
+      // Parse --run option (required)
+      const runIndex = subArgs.findIndex(a => a === "--run");
+      if (runIndex < 0 || !subArgs[runIndex + 1]) {
+        console.error("Error: --run RUN_ID is required");
+        console.log("Example: ingest test semantic --run run-2025-12-05-10-30-00");
+        console.log("\nList recent runs with: ls test/output/ | grep run-");
+        process.exit(1);
+      }
+      const runId = subArgs[runIndex + 1];
+
+      const dryRun = subArgs.includes("--dry-run");
+      const timeoutIndex = subArgs.findIndex(a => a === "--timeout");
+      const timeout = timeoutIndex >= 0 ? parseInt(subArgs[timeoutIndex + 1], 10) : undefined;
+      const testIds = subArgs.filter(a => a.startsWith("TEST-"));
+
+      const { results, summary } = await runLLMJudge(allIngestSpecs, {
+        runId,
+        testIds: testIds.length > 0 ? testIds : undefined,
+        timeout,
+        verbose,
+        dryRun,
+      });
+
+      process.exit(summary.failed > 0 ? 1 : 0);
+      break;
+    }
+
     case "daemon": {
       // Daemon deployment test - verifies watch daemon is working
       const { runDaemonTest, printDaemonTestResult, printDaemonTestHelp } = await import("./test/framework/daemon-runner");
@@ -2625,7 +2714,7 @@ async function handleTest(args: string[], verbose: boolean) {
           all: true,
           verbose,
           keepOutput: false,
-          includeMedia: false,
+          skipMedia: false,  // Include media tests by default
           runId: unifiedRunId,
           skipHistory: true,
         });

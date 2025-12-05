@@ -78,6 +78,17 @@ export const regressionTextSpecs: TestSpec[] = [
         source_shortcut: "voice-memo",
         source_device: "mac",
       },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Correct extraction of all hint types from combined input",
+        checkpoints: [
+          "Tags extracted from hashtags (project/pai and ed_overy)",
+          "Metadata extracted from [key:value] format (source_shortcut, source_device)",
+          "Content is properly cleaned with hints removed",
+        ],
+        target: "raw",
+        threshold: 85,
+      },
     },
     meta: {
       docRef: "test-scripts.md#TEST-REG-003",
@@ -108,6 +119,18 @@ export const regressionUrlSpecs: TestSpec[] = [
         contains: ["Claude", "Anthropic"],
       },
       verboseOutput: ["Jina AI Reader"],
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "URL content extracted and processed through extract_article_wisdom pattern",
+        checkpoints: [
+          "Article content successfully fetched (not error message)",
+          "Content relates to Claude/Anthropic (source URL topic)",
+          "Wisdom extraction produced meaningful IDEAS and INSIGHTS sections",
+          "Source URL is preserved in the output",
+        ],
+        target: "wisdom",
+        threshold: 80,
+      },
     },
     meta: {
       docRef: "test-scripts.md#TEST-REG-004",
@@ -185,6 +208,16 @@ export const regressionPhotoSpecs: TestSpec[] = [
       content: {
         contains: ["**Analysis:**"],
       },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Vision AI produced a meaningful description of the image",
+        checkpoints: [
+          "Analysis section contains actual descriptive content (not error/placeholder)",
+          "Description is coherent and relates to visual content",
+        ],
+        target: "raw",
+        threshold: 75,
+      },
     },
     meta: {
       docRef: "test-scripts.md#TEST-REG-007",
@@ -230,6 +263,17 @@ export const regressionPhotoSpecs: TestSpec[] = [
       verboseOutput: ["Vision API", "Mermaid syntax fix"],
       content: {
         contains: ["```mermaid"],
+      },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Mermaid diagram extracted from screenshot with valid syntax",
+        checkpoints: [
+          "Contains valid mermaid code block (```mermaid ... ```)",
+          "Mermaid syntax is parseable (flowchart, graph, or other valid type)",
+          "Diagram content reflects the visual structure from the screenshot",
+        ],
+        target: "raw",
+        threshold: 80,
       },
     },
     meta: {
@@ -330,10 +374,20 @@ export const regressionDocSpecs: TestSpec[] = [
         source_user: "andreas",
       },
       tags: ["incoming", "raw", "source/telegram"],
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "iOS Shortcut clipboard sharing correctly processed with metadata extraction",
+        checkpoints: [
+          "Metadata extracted from caption ([source:clipboard], [device:iphone], [user:andreas])",
+          "HTML content converted to readable markdown or plain text",
+          "Original content preserved (DeepSeek article reference intact)",
+        ],
+        target: "raw",
+        threshold: 85,
+      },
     },
     meta: {
       docRef: "test-scripts.md#TEST-REG-020",
-      notes: "iOS Shortcut sends clipboard as text file with metadata caption - captured from real iPhone",
     },
   },
 ];
@@ -419,6 +473,17 @@ Next meeting scheduled for Monday 10am.`,
       content: {
         contains: ["action", "meeting"],
       },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Well-structured meeting summary with key sections",
+        checkpoints: [
+          "Contains meeting structure sections (agenda, decisions, action items)",
+          "Action items are identified with owners or placeholders",
+          "Handles incomplete input gracefully (marks missing data as 'Not specified')",
+        ],
+        target: "wisdom",
+        threshold: 80,
+      },
     },
     meta: {
       docRef: "test-scripts.md#TEST-PAT-001",
@@ -446,6 +511,18 @@ However, challenges remain around data privacy, algorithmic bias, and the need f
       content: {
         contains: ["ONE SENTENCE SUMMARY", "MAIN POINTS"],
       },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Accurate summary with key points extracted from the source content",
+        checkpoints: [
+          "Has a ONE SENTENCE SUMMARY that captures the essence",
+          "Has MAIN POINTS section with relevant bullet points",
+          "Has TAKEAWAYS section with actionable insights",
+          "Content accurately reflects the original (ML in healthcare)",
+        ],
+        target: "wisdom",
+        threshold: 80,
+      },
     },
     meta: {
       docRef: "test-scripts.md#TEST-PAT-002",
@@ -472,6 +549,18 @@ The meta-insight is that excellence is a habit, not an act. Consistency beats in
       verboseOutput: ["extract_wisdom", "Fabric"],
       content: {
         contains: ["SUMMARY", "IDEAS"],
+      },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Comprehensive wisdom extraction with ideas, insights, and actionable takeaways",
+        checkpoints: [
+          "Has required wisdom sections (SUMMARY, IDEAS, INSIGHTS)",
+          "Content is semantically relevant to success and learning themes",
+          "Sufficient depth of extraction (multiple ideas and insights)",
+          "Quotes or references from source are preserved if applicable",
+        ],
+        target: "wisdom",
+        threshold: 80,
       },
     },
     meta: {
@@ -502,6 +591,17 @@ export const regressionPhotoCmdSpecs: TestSpec[] = [
       verboseOutput: ["Vision API", "Describe this image"],
       content: {
         contains: ["**Prompt:**", "**Analysis:**"],
+      },
+      // LLM-as-judge semantic validation
+      semantic: {
+        description: "Vision AI description is detailed and accurate",
+        checkpoints: [
+          "Contains both Prompt and Analysis sections",
+          "Analysis provides meaningful description of image content",
+          "Tags from caption (#project/pai) are preserved in frontmatter",
+        ],
+        target: "raw",
+        threshold: 80,
       },
     },
     meta: {

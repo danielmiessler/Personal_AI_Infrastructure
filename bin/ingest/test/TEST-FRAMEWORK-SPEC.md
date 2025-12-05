@@ -289,50 +289,122 @@ Evidence examined for each passing test:
 
 For complex outputs (pattern commands, vision AI), deterministic checks aren't sufficient. Claude acts as an LLM judge to verify semantic quality.
 
-**Two-Phase Approach:**
-1. **Phase 1 (Automated):** Run deterministic tests, flag tests needing semantic review
-2. **Phase 2 (Claude Review):** Claude reads outputs and records confidence scores
+**Automated Approach:**
+LLM-as-judge runs **by default** after tests complete. Claude (`claude -p`) automatically evaluates outputs for tests with semantic validation specs:
+
+```bash
+# Full run with LLM-as-judge (default)
+bun run ingest.ts test run --verbose
+
+# Skip LLM-as-judge for faster development iteration
+bun run ingest.ts test run --skip-llm-judge
+```
 
 ### 5.2 Workflow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  PHASE 1: Run Deterministic Tests                               │
+│  Run Tests with --llm-judge Flag                                │
 │                                                                 │
-│  bun run ingest.ts test integration --suite regression          │
+│  bun run ingest.ts test run --llm-judge --verbose               │
 │                                                                 │
-│  → Automated checks (tags, pipeline, content)                   │
-│  → Marks semanticRequired: true for complex tests               │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  PHASE 2: Claude Reviews Outputs                                │
-│                                                                 │
-│  Claude reads:                                                  │
-│  - Vault output files (Raw, Wisdom)                             │
-│  - Test spec expectations                                       │
-│                                                                 │
-│  Claude records semantic validation:                            │
-│  bun run test/add-semantic-result.ts <runId> <testId> ...       │
+│  1. Execute all tests (deterministic validation)                │
+│  2. For tests with `semantic` spec:                             │
+│     → Build evaluation prompt from checkpoints                  │
+│     → Run `claude -p` to evaluate vault output                  │
+│     → Record confidence scores and reasoning                    │
+│  3. Save results to semantic-validation.json                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 Semantic Result Structure
+### 5.3 Output Display
+
+Tests with semantic validation are marked with 🔍 in the output:
+
+```
+✓ TEST-REG-003: PASSED (5.3s) 🔍    # Has semantic validation
+✓ TEST-PAT-001: PASSED (12.4s) 🔍   # Has semantic validation  
+✓ TEST-SCOPE-001: PASSED (4.1s)      # No semantic (deterministic only)
+```
+
+After tests complete, LLM-as-judge results appear:
+
+```
+🤖 LLM-as-Judge Semantic Validation
+══════════════════════════════════════════════════
+Evaluating 9 tests from run: run-2025-12-05-001
+
+  Evaluating TEST-PAT-001: /meeting-notes pattern command
+    Running Claude evaluation...
+    ✓ TEST-PAT-001: 85% confidence
+      Meeting notes are well-structured with clear action items...
+
+══════════════════════════════════════════════════
+LLM-AS-JUDGE SUMMARY
+══════════════════════════════════════════════════
+Total:      9
+Passed:     8
+Failed:     1
+Avg Conf:   82%
+══════════════════════════════════════════════════
+Results saved: test/output/run-2025-12-05-001/semantic-validation.json
+```
+
+### 5.3 Which Tests Have Semantic Validation?
+
+Only tests where **deterministic checks can't fully validate quality** have semantic validation:
+
+| Test ID | Type | Target | Why Semantic Validation? |
+|---------|------|--------|-------------------------|
+| TEST-PAT-001 | text | wisdom | Fabric `meeting_minutes` - structure & quality matters |
+| TEST-PAT-002 | text | wisdom | Fabric `summarize` - summary accuracy matters |
+| TEST-PAT-003 | text | wisdom | Fabric `extract_wisdom` - insight extraction quality |
+| TEST-REG-003 | text | raw | Mixed metadata - verify all hints extracted correctly |
+| TEST-REG-004 | url | wisdom | Jina AI + wisdom - verify relevant content extracted |
+| TEST-REG-007 | photo | raw | Vision AI default - verify description is meaningful |
+| TEST-REG-011 | photo | raw | Mermaid extraction - verify valid diagram syntax |
+| TEST-REG-020 | document | raw | iOS clipboard - verify HTML→markdown conversion |
+| TEST-PHOTO-001 | photo | raw | Vision `/describe` - verify description quality |
+
+**Tests WITHOUT semantic validation (~40 tests):**
+
+| Category | Why No Semantic? | Example |
+|----------|------------------|---------|
+| Scope detection | Deterministic: tag in frontmatter | TEST-SCOPE-001 |
+| Date parsing | Deterministic: date in filename | TEST-DATE-001 |
+| Pipeline routing | Deterministic: pipeline field | TEST-ARC-001 |
+| Tag extraction | Deterministic: exact tag match | TEST-REG-002 |
+
+### 5.4 Semantic Spec Structure
 
 ```typescript
-interface SemanticResult {
-  passed: boolean;           // Claude's judgment
-  confidence: number;        // 0-100 confidence score
-  reasoning: string;         // Explanation of judgment
-  checkpoints?: Array<{      // Specific validation points
-    checkpoint: string;
-    passed: boolean;
-    reason: string;
-  }>;
+interface SemanticValidation {
+  description: string;       // What the output should achieve
+  checkpoints?: string[];    // Specific things to verify
+  target: "raw" | "wisdom";  // Which vault file to evaluate
+  threshold?: number;        // Min confidence % for pass (default: 80)
+}
+
+// Example in test spec:
+{
+  id: "TEST-PAT-001",
+  expected: {
+    verboseOutput: ["meeting_minutes", "Fabric"],
+    semantic: {
+      description: "Well-structured meeting summary with key sections",
+      checkpoints: [
+        "Contains meeting structure sections (agenda, decisions, action items)",
+        "Action items are identified with owners or placeholders",
+        "Handles incomplete input gracefully (marks missing data as 'Not specified')",
+      ],
+      target: "wisdom",
+      threshold: 80,
+    },
+  },
 }
 ```
 
-### 5.4 Confidence Thresholds
+### 5.5 Confidence Thresholds
 
 | Confidence | Interpretation |
 |------------|----------------|
@@ -341,29 +413,111 @@ interface SemanticResult {
 | 70-79% | Marginal - may need review or spec adjustment |
 | <70% | Fail - output does not meet expectations |
 
-### 5.5 Example Review
+### 5.6 Adding Semantic Validation to a Test
 
-For TEST-PAT-001 (/meeting-notes pattern):
+**When to add:**
+- ✅ Output is **generated by AI** (Fabric patterns, Vision AI, Jina)
+- ✅ Output **quality matters** beyond keyword presence
+- ✅ Deterministic checks **can't fully validate** correctness
 
+**When NOT to add:**
+- ❌ Output is **deterministic** (tag extraction, date parsing, pipeline routing)
+- ❌ Simple **keyword/structure checks** are sufficient
+- ❌ Test validates **routing logic** not content quality
+
+**How to add:**
+
+1. Add `semantic` field to test spec in `test/specs/*.spec.ts`:
+
+```typescript
+{
+  id: "TEST-NEW-001",
+  expected: {
+    // Keep deterministic checks for basic validation
+    tags: ["expected-tag"],
+    verboseOutput: ["expected-log"],
+    
+    // Add semantic for quality evaluation
+    semantic: {
+      description: "What the AI output should achieve",
+      checkpoints: [
+        "Checkpoint 1: specific thing to verify",
+        "Checkpoint 2: another thing to verify",
+      ],
+      target: "wisdom",  // or "raw"
+      threshold: 80,
+    },
+  },
+}
 ```
-Claude examines: /Users/andreas/Documents/andreas_brain/2025-12-04-meeting-notes-*.md
 
-Checkpoints:
-✓ Contains meeting structure sections (10 sections present)
-✓ Action items identified with owner placeholders
-✓ Handles incomplete input gracefully (marked "Not specified")
+2. Run with `--llm-judge` to verify:
 
-Confidence: 90%
-Reasoning: Well-structured meeting notes with all required sections
+```bash
+bun run ingest.ts test run TEST-NEW-001 --llm-judge --verbose
 ```
 
 ---
 
-## 6. Capturing Test Fixtures
+## 6. Media Test Configuration
+
+### 6.1 Default Behavior
+
+Media tests (voice, photo, document) **run by default** because they test core pipeline functionality:
+
+```bash
+# Full run including media (default)
+bun run ingest.ts test run
+
+# Skip media for faster development iteration
+bun run ingest.ts test run --skip-media
+```
+
+### 6.2 Media Test Types
+
+| Type | What It Tests | Typical Duration |
+|------|---------------|------------------|
+| `voice` | Deepgram transcription, spoken hint extraction | 10-30s |
+| `photo` | Vision AI, mermaid extraction, OCR | 5-15s |
+| `document` | PDF/DOCX processing, archive pipeline | 3-10s |
+
+### 6.3 Why Media Tests Run by Default
+
+**Rationale:** Media processing is critical functionality that should be validated on every test run:
+
+1. **Voice transcription** - Deepgram API integration, spoken hint extraction
+2. **Vision AI** - Image description, custom prompts, mermaid diagrams
+3. **Document processing** - Archive naming, PDF handling, DOCX extraction
+
+**The `--skip-media` flag exists for:**
+- Fast development iteration (text-only changes)
+- CI environments where media tests are run separately
+- Debugging specific non-media test failures
+
+### 6.4 Test Performance
+
+| Run Type | Duration | Flags |
+|----------|----------|-------|
+| **Full validation** (default) | ~20-30 min | (none) |
+| Skip LLM-as-judge | ~15-25 min | `--skip-llm-judge` |
+| Skip media | ~8-15 min | `--skip-media` |
+| **Quick smoke test** | ~5-8 min | `--skip-media --skip-llm-judge` |
+
+```bash
+# Full validation before release (default - includes media + LLM-as-judge)
+bun run ingest.ts test run --verbose
+
+# Quick smoke test during development
+bun run ingest.ts test run --skip-media --skip-llm-judge --suite regression
+```
+
+---
+
+## 7. Capturing Test Fixtures
 
 Fixtures are captured Telegram messages used as test inputs. Each test case has a corresponding fixture file containing the raw Telegram message payload.
 
-### 6.1 Fixture Types
+### 7.1 Fixture Types
 
 | Content Type | Fixture Contains | Asset File |
 |--------------|------------------|------------|
@@ -373,7 +527,7 @@ Fixtures are captured Telegram messages used as test inputs. Each test case has 
 | `voice` | Voice message JSON | `media/TEST-XXX-voice.oga` |
 | `document` | Document message JSON | `assets/filename.pdf` |
 
-### 6.2 Fixture Data Sources
+### 7.2 Fixture Data Sources
 
 Fixtures contain two parts:
 
@@ -393,7 +547,7 @@ Fixtures contain two parts:
 
 **Telegram downloads:** For voice messages (you must record them), the capture command downloads the audio from Telegram and saves to `fixtures/media/`.
 
-### 6.3 Auto-Send Fixtures (Recommended for text/url/photo/document)
+### 7.3 Auto-Send Fixtures (Recommended for text/url/photo/document)
 
 For text, URL, photo, and document tests, use the forward command to auto-create fixtures:
 
@@ -418,7 +572,7 @@ bun run ingest.ts test forward TEST-ARC-001
 - Photos: Place test image at `test/fixtures/assets/test-image.png`
 - Documents: Place specific files in `test/fixtures/assets/` and reference in spec
 
-### 6.4 Manual Capture (Required for voice/audio)
+### 7.4 Manual Capture (Required for voice/audio)
 
 Voice tests require manual recording - send via Telegram, then capture:
 
@@ -442,7 +596,7 @@ bun run ingest.ts test capture TEST-REG-005a
 # ✓ Fixture saved: regression/TEST-REG-005a.json
 ```
 
-### 6.5 Fixture File Structure
+### 7.5 Fixture File Structure
 
 **Example: `test/fixtures/regression/TEST-REG-001.json`**
 ```json
@@ -486,7 +640,7 @@ bun run ingest.ts test capture TEST-REG-005a
 }
 ```
 
-### 6.6 Adding New Document Assets
+### 7.6 Adding New Document Assets
 
 For document tests, place files in the assets directory:
 
@@ -505,7 +659,7 @@ cp ~/Downloads/sample-contract.pdf test/fixtures/assets/test-contract.pdf
 }
 ```
 
-### 6.7 Capturing Clipboard Content (iOS Shortcuts)
+### 7.7 Capturing Clipboard Content (iOS Shortcuts)
 
 For iOS Shortcut clipboard tests:
 
@@ -516,7 +670,7 @@ For iOS Shortcut clipboard tests:
 bun run ingest.ts test capture TEST-REG-020
 ```
 
-### 6.8 Bulk Fixture Generation
+### 7.8 Bulk Fixture Generation
 
 Generate fixtures for all missing tests:
 
@@ -533,9 +687,9 @@ bun run ingest.ts test forward --missing
 
 ---
 
-## 7. Adding New Test Cases
+## 8. Adding New Test Cases
 
-### 7.1 Step 1: Create Test Specification
+### 8.1 Step 1: Create Test Specification
 
 Add to `test/specs/regression.spec.ts` (or appropriate category):
 
@@ -564,7 +718,7 @@ export const myNewSpecs: TestSpec[] = [
 ];
 ```
 
-### 7.2 Step 2: Capture Fixture
+### 8.2 Step 2: Capture Fixture
 
 Use auto-send for text/photo/document tests, or manual capture for voice:
 
@@ -578,7 +732,7 @@ bun run ingest.ts test capture TEST-REG-030
 
 This creates `test/fixtures/regression/TEST-REG-030.json` with the Telegram message payload.
 
-### 7.3 Step 3: Run and Verify
+### 8.3 Step 3: Run and Verify
 
 ```bash
 # Run the new test
@@ -588,7 +742,7 @@ bun run ingest.ts test integration --id TEST-REG-030
 cat test/output/integration-report.md
 ```
 
-### 7.4 Step 4: Register in Spec Index
+### 8.4 Step 4: Register in Spec Index
 
 Add to `test/specs/index.ts`:
 
@@ -603,9 +757,9 @@ export const allIngestSpecs: TestSpec[] = [
 
 ---
 
-## 8. CLI Commands Reference
+## 9. CLI Commands Reference
 
-### 8.1 Running Tests
+### 9.1 Running Tests
 
 ```bash
 # Run single test
@@ -621,7 +775,7 @@ bun run ingest.ts test integration --suite regression --parallel
 bun run ingest.ts test integration --suite regression --timeout 180000
 ```
 
-### 8.2 Viewing Results
+### 9.2 Viewing Results
 
 ```bash
 # Show run status by group
@@ -637,7 +791,7 @@ bun run ingest.ts test runs
 bun run ingest.ts test history TEST-REG-005a
 ```
 
-### 8.3 Fixture Management
+### 9.3 Fixture Management
 
 ```bash
 # Capture fixture for test
@@ -649,7 +803,7 @@ bun run ingest.ts test status
 
 ---
 
-## 9. Directory Structure
+## 10. Directory Structure
 
 ```
 test/
@@ -683,9 +837,9 @@ test/
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
-### 10.1 Common Issues
+### 11.1 Common Issues
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
@@ -695,7 +849,7 @@ test/
 | "Pipeline mismatch" | AI intent detection changed | Update spec or investigate |
 | Vault files accumulating | Integration tests don't auto-cleanup | Manually delete test files |
 
-### 10.2 Vault File Cleanup
+### 11.2 Vault File Cleanup
 
 **⚠️ Known Limitation:** Integration tests write files to the actual vault and do **NOT** clean them up automatically.
 
@@ -717,7 +871,7 @@ rm ~/Documents/andreas_brain/2025-12-04-*\[TEST-*
 
 **Unit tests:** Do have automatic cleanup via `keepOutput` flag - they write to a temporary `testOutputDir` which is deleted after each test.
 
-### 10.3 Test Categories Explained
+### 11.3 Test Categories Explained
 
 - **Passed:** Test completed and all checks passed
 - **Failed:** Test completed but validation failed
@@ -725,7 +879,7 @@ rm ~/Documents/andreas_brain/2025-12-04-*\[TEST-*
 - **Timeout:** Test exceeded time limit
 - **Error:** Test crashed during execution
 
-### 10.4 Debugging Failed Tests
+### 11.4 Debugging Failed Tests
 
 1. **Read the report:** `test/output/integration-report.md`
 2. **Check the reasoning:** Each check includes explanation of what was validated
@@ -735,21 +889,21 @@ rm ~/Documents/andreas_brain/2025-12-04-*\[TEST-*
 
 ---
 
-## 11. Quality Metrics
+## 12. Quality Metrics
 
-### 11.1 Per-Test Metrics
+### 12.1 Per-Test Metrics
 
 - **Pass Rate:** % of runs where test passed
 - **Trend:** `stable`, `improving`, `degrading`, `flaky`
 - **Average Duration:** Mean execution time
 
-### 11.2 Per-Suite Metrics
+### 12.2 Per-Suite Metrics
 
 - **Suite Pass Rate:** % of tests passing
 - **Coverage:** % of tests with fixtures
 - **Semantic Completion:** % of semantic tests reviewed
 
-### 11.3 Pre-Release Health Indicators
+### 12.3 Pre-Release Health Indicators
 
 | Indicator | Target |
 |-----------|--------|

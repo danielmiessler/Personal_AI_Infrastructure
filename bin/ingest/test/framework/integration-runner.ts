@@ -945,13 +945,22 @@ export async function runIntegrationTests(
         results.push(result);
         const spec = batch.find(s => s.id === result.testId);
         
-        // Print test status using shared formatting
-        printTestStatus(result.testId, spec?.name || "", result.passed, result.processingTime, {
-          hasSemanticValidation: !!spec?.expected.semantic,
-          verbose: options.verbose,
-        });
+        // Check if skipped
+        const isSkipped = result.checks.some(c => c.name === "skipped");
+        const skipReasonRaw = result.checks.find(c => c.name === "skipped")?.expected;
+        const skipReason = typeof skipReasonRaw === "string" ? skipReasonRaw : "";
 
-        if (!result.passed && result.error) {
+        // Print progress using shared format
+        if (isSkipped) {
+          printSkippedTest(result.testId, spec?.name || "", skipReason);
+        } else {
+          printTestStatus(result.testId, spec?.name || "", result.passed, result.processingTime, {
+            hasSemanticValidation: !!spec?.expected.semantic,
+            verbose: options.verbose,
+          });
+        }
+
+        if (!result.passed && !isSkipped && result.error) {
           printTestError(result.error);
         }
       }
@@ -963,16 +972,25 @@ export async function runIntegrationTests(
       const result = await runTestWithTimeout(spec.id, options, perTestTimeout);
       results.push(result);
 
-      // Print test status using shared formatting
-      printTestStatus(spec.id, spec.name, result.passed, result.processingTime, {
-        hasSemanticValidation: !!spec.expected.semantic,
-        verbose: options.verbose,
-      });
+      // Check if skipped
+      const isSkipped = result.checks.some(c => c.name === "skipped");
+      const skipReasonRaw = result.checks.find(c => c.name === "skipped")?.expected;
+      const skipReason = typeof skipReasonRaw === "string" ? skipReasonRaw : "";
 
-      if (!result.passed && result.error) {
+      // Print progress using shared format
+      if (isSkipped) {
+        printSkippedTest(spec.id, spec.name, skipReason);
+      } else {
+        printTestStatus(spec.id, spec.name, result.passed, result.processingTime, {
+          hasSemanticValidation: !!spec.expected.semantic,
+          verbose: options.verbose,
+        });
+      }
+
+      if (!result.passed && !isSkipped && result.error) {
         printTestError(result.error);
       }
-      if (!result.passed && result.checks.length > 0) {
+      if (!result.passed && !isSkipped && result.checks.length > 0) {
         const failed = result.checks.filter(c => !c.passed);
         for (const check of failed.slice(0, 3)) {
           printFailedCheck(check.name, check.error);

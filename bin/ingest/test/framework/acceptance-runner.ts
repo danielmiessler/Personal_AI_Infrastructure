@@ -21,6 +21,7 @@ import {
   printTestError,
   printFailedCheck,
   printLayerHeader,
+  printLayerSummary,
 } from "./format";
 
 // =============================================================================
@@ -490,21 +491,13 @@ export async function runAcceptanceTests(options: {
   };
 
   // Print summary
-  console.log("\n" + "═".repeat(60));
-  console.log("ACCEPTANCE TEST SUMMARY");
-  console.log("═".repeat(60));
-  console.log(`Total:    ${summary.counts.total}`);
-  
-  // Always show all statuses with color coding
-  const passedColor = summary.counts.passed > 0 ? "\x1b[32m" : "";
-  const failedColor = summary.counts.failed > 0 ? "\x1b[31m" : "";
-  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "\x1b[2m";
-  
-  console.log(`${passedColor}Passed:   ${summary.counts.passed}\x1b[0m`);
-  console.log(`${failedColor}Failed:   ${summary.counts.failed}\x1b[0m`);
-  console.log(`${skippedColor}Skipped:  ${summary.counts.skipped}\x1b[0m`);
-  console.log(`Duration: ${(duration / 1000).toFixed(1)}s`);
-  console.log("═".repeat(60));
+  // Print summary using shared format
+  printLayerSummary(
+    summary.counts.passed,
+    summary.counts.failed,
+    summary.counts.skipped,
+    duration
+  );
 
   if (summary.counts.failed > 0) {
     console.log("\nFailed tests:");

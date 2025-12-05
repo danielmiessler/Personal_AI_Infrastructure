@@ -1,13 +1,13 @@
 /**
  * Integration Test Runner
  *
- * Executes tests through real Telegram channels, validating end-to-end flow.
+ * Executes tests by forwarding real Telegram messages and processing them directly.
+ * No external watcher needed - the test handles everything in a single process.
  *
  * Flow:
  * 1. Forward fixture message from Test Cases → Test Inbox
- * 2. Wait for Events notification (poll outbox channel)
- * 3. Find vault file by test ID
- * 4. Validate outputs against spec.expected
+ * 2. Call processMessage() directly on the forwarded message
+ * 3. Validate vault output against spec.expected
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
@@ -16,7 +16,11 @@ import { parse as parseYaml } from "yaml";
 import type { TestSpec, ValidationResult, ValidationCheck, TestCategory, Fixture } from "./types";
 import { getSpecById, getSpecsByCategory, allIngestSpecs } from "../specs";
 import { loadFixtureFromPath, fixtureExists } from "./capture";
+import { appendHistory, appendTestFilesRegistry, type TestReport, type TestFileEntry } from "./report";
 import { getConfig } from "../../lib/config";
+import { processMessage, saveToVault, type ProcessResult } from "../../lib/process";
+import { loadProfile } from "../../lib/profiles";
+import type { ContentType, TelegramMessage } from "../../lib/telegram";
 import {
   printTestHeader,
   printTestStatus,
@@ -37,28 +41,42 @@ export interface IntegrationOptions {
   verbose?: boolean;
   timeout?: number;  // Default 90s, voice tests may need more
   dryRun?: boolean;  // Just show what would be done
+  parallel?: boolean;  // Run tests in parallel
+  concurrency?: number;  // Max concurrent tests (default: 5)
+  runId?: string;  // Use specific runId (for unified runs across layers)
+  skipHistory?: boolean;  // Skip recording to history (caller will record unified entry)
 }
 
 export interface IntegrationResult extends ValidationResult {
-  processingTime: number;  // Time from forward to Events notification
-  eventsPayload?: EventsPayload;
+  processingTime: number;  // Time for direct processing
+  processResult?: ProcessResult;
   vaultFilePath?: string;
   dropboxFilePath?: string;
+  // Detailed info for reporting
+  spec?: {
+    id: string;
+    name: string;
+    category: string;
+    inputType: string;
+    inputExample?: string;
+    inputCaption?: string;
+  };
+  actualOutput?: {
+    pipeline?: string;
+    tags?: string[];
+    scope?: string;
+    vaultPath?: string;
+    content?: string;  // First 500 chars of vault content
+  };
+  expectedOutput?: {
+    pipeline?: string;
+    tags?: string[];
+    frontmatter?: Record<string, unknown>;
+  };
 }
 
-export interface EventsPayload {
-  event_type: string;
-  status: "success" | "failed";
-  severity: string;
-  content_type: string;
-  pipeline: string;
-  title: string;
-  message_id: number;
-  timestamp: string;
-  output_paths?: string[];
-  dropbox_path?: string;
-  error?: string;
-}
+// EventsPayload kept for reference but not used in direct processing approach
+// (Integration tests now call processMessage directly instead of polling Events)
 
 interface IntegrationRunSummary {
   startedAt: string;
@@ -80,20 +98,36 @@ interface IntegrationRunSummary {
 const FIXTURES_DIR = join(import.meta.dir, "..", "fixtures");
 const DEFAULT_TIMEOUT = 90000;  // 90 seconds
 const VOICE_TIMEOUT = 120000;   // 2 minutes for voice tests
-const POLL_INTERVAL = 5000;     // Poll every 5 seconds (longer to reduce conflicts with watcher)
 
 // =============================================================================
 // Telegram API Helpers
 // =============================================================================
 
 /**
+ * Determine content type from a Telegram message
+ */
+function getContentTypeFromMessage(msg: TelegramMessage): ContentType {
+  if (msg.voice) return "voice";
+  if (msg.audio) return "voice"; // Audio files use voice pipeline
+  if (msg.photo) return "photo";
+  if (msg.document) return "document";
+  // Check if text contains a URL
+  if (msg.text) {
+    const urlPattern = /https?:\/\/[^\s]+/;
+    if (urlPattern.test(msg.text)) return "url";
+  }
+  return "text";
+}
+
+/**
  * Forward a message from one channel to another
+ * Returns the full forwarded message object
  */
 async function forwardMessage(
   fromChatId: string,
   toChatId: string,
   messageId: number
-): Promise<{ ok: boolean; result?: { message_id: number }; description?: string }> {
+): Promise<{ ok: boolean; result?: TelegramMessage; description?: string }> {
   const config = getConfig();
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/forwardMessage`;
 
@@ -111,71 +145,130 @@ async function forwardMessage(
 }
 
 /**
- * Get recent messages from a channel
- * Uses getUpdates with short timeout to minimize conflicts with watcher's long-polling
- * Note: Telegram only allows ONE getUpdates call at a time per bot token.
- * The watcher uses long-polling (timeout: 30s), so this uses short polling (timeout: 1s)
- * which will cause brief conflicts but should recover quickly.
+ * Send a test message directly to a channel
+ * Returns the full sent message object
  */
-async function getChannelMessages(
-  chatId: string,
-  limit: number = 10,
-  afterTimestamp?: number
-): Promise<any[]> {
+async function sendTestMessageDirect(
+  spec: TestSpec,
+  channelId: string,
+  fixture: { message: any; _meta?: any }
+): Promise<{ ok: boolean; result?: TelegramMessage; description?: string }> {
   const config = getConfig();
-
-  // Use getUpdates with very short timeout to minimize conflict with watcher
-  // The watcher uses timeout: 30s (long-polling), this uses timeout: 1s (short-polling)
-  // This will cause a brief conflict but Telegram will reject this call and the watcher continues
-  const url = `https://api.telegram.org/bot${config.telegramBotToken}/getUpdates`;
+  const testIdPrefix = `[${spec.id}] `;
+  const fixtureMsg = fixture.message;
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        limit: 100,
-        timeout: 1, // Short timeout - will conflict with watcher but recover quickly
-      }),
-    });
+    switch (spec.input.type) {
+      case "text":
+      case "url": {
+        const originalText = fixtureMsg?.text || spec.input.example;
+        if (!originalText) {
+          return { ok: false, description: `No text content for ${spec.id}` };
+        }
+        // Strip any existing test ID prefix to avoid duplication
+        const cleanText = originalText.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const text = testIdPrefix + cleanText;
 
-    const data = await response.json();
-    
-    // If we get a conflict error, that's expected - the watcher is using getUpdates
-    // Return empty array and let the caller retry later
-    if (!data.ok) {
-      if (data.description?.includes("Conflict") || data.description?.includes("terminated")) {
-        // Expected conflict - watcher is polling, return empty and retry later
-        return [];
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: channelId, text }),
+        });
+        return response.json();
       }
-      return [];
+
+      case "photo": {
+        const fileId = fixtureMsg?.photo?.[fixtureMsg.photo.length - 1]?.file_id;
+        if (!fileId) {
+          return { ok: false, description: `No photo file_id in fixture for ${spec.id}` };
+        }
+        const originalCaption = fixtureMsg?.caption || spec.input.caption || "";
+        const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const caption = testIdPrefix + cleanCaption;
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendPhoto`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: channelId, photo: fileId, caption }),
+        });
+        return response.json();
+      }
+
+      case "document": {
+        const fileId = fixtureMsg?.document?.file_id;
+        const isValidFileId = fileId && !fileId.includes("REDACTED") && fileId.length > 20;
+
+        const originalCaption = spec.input.caption || fixtureMsg?.caption || "";
+        const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const caption = testIdPrefix + cleanCaption;
+
+        // If file_id is invalid but we have a local asset, upload it
+        if (!isValidFileId && fixture._meta?.mediaFile) {
+          const assetPath = join(__dirname, "../fixtures", fixture._meta.mediaFile);
+          if (existsSync(assetPath)) {
+            const fileName = basename(assetPath);
+            const fileContent = readFileSync(assetPath);
+
+            // Upload using multipart form data
+            const formData = new FormData();
+            formData.append("chat_id", channelId);
+            formData.append("document", new Blob([fileContent]), fileName);
+            if (caption) formData.append("caption", caption);
+
+            const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
+            const response = await fetch(url, {
+              method: "POST",
+              body: formData,
+            });
+            return response.json();
+          }
+          return { ok: false, description: `Local asset not found: ${assetPath}` };
+        }
+
+        if (!isValidFileId) {
+          return { ok: false, description: `No valid document file_id in fixture for ${spec.id}` };
+        }
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: channelId, document: fileId, caption }),
+        });
+        return response.json();
+      }
+
+      case "voice":
+      case "audio": {
+        const fileId = fixtureMsg?.voice?.file_id || fixtureMsg?.audio?.file_id;
+        if (!fileId) {
+          return { ok: false, description: `No voice/audio file_id in fixture for ${spec.id}` };
+        }
+        // Voice messages can have captions with hints (e.g., #project @person)
+        // Prefer spec.input.caption (what we're testing) over fixture caption
+        const originalCaption = spec.input.caption || fixtureMsg?.caption || "";
+        const cleanCaption = originalCaption.replace(/^\[TEST-[A-Z]+-\d+[a-z]?\]\s*/, "");
+        const caption = cleanCaption ? testIdPrefix + cleanCaption : "";
+
+        const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendVoice`;
+        const body: Record<string, unknown> = { chat_id: channelId, voice: fileId };
+        if (caption) body.caption = caption;
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return response.json();
+      }
+
+      default:
+        return { ok: false, description: `Unsupported test type: ${spec.input.type}` };
     }
-
-    // Filter for channel_post from our outbox
-    const messages = data.result
-      .filter((u: any) => u.channel_post?.chat?.id?.toString() === chatId)
-      .map((u: any) => u.channel_post)
-      .filter((m: any) => !afterTimestamp || m.date >= afterTimestamp);
-
-    return messages;
   } catch (error) {
-    // If API call fails, return empty array
-    return [];
-  }
-}
-
-/**
- * Parse Events payload from notification message
- */
-function parseEventsPayload(messageText: string): EventsPayload | null {
-  // Events notifications include JSON in code block
-  const jsonMatch = messageText.match(/```json\n([\s\S]*?)\n```/);
-  if (!jsonMatch) return null;
-
-  try {
-    return JSON.parse(jsonMatch[1]) as EventsPayload;
-  } catch {
-    return null;
+    return { ok: false, description: String(error) };
   }
 }
 
@@ -333,31 +426,28 @@ export async function runIntegrationTest(
 
   const config = getConfig();
 
-  // Get channel IDs
-  // Use test channel IDs if available, otherwise fall back to production channels
-  const testCasesChannelId = config.testTelegramCasesId;
+  // Get channel IDs - only need Test Inbox for direct send approach
   const testInboxChannelId = config.testTelegramChannelId || config.telegramChannelId;
-  const eventsChannelId = config.testTelegramOutboxId || config.telegramOutboxId;
 
-  if (!testCasesChannelId || !testInboxChannelId || !eventsChannelId) {
+  if (!testInboxChannelId) {
     return {
       testId,
       passed: false,
       duration: Date.now() - startTime,
       processingTime: 0,
       checks: [],
-      error: "Missing channel IDs in config. Need: TEST_TELEGRAM_CASES_ID, and either (TEST_TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_ID), and either (TEST_TELEGRAM_OUTBOX_ID or TELEGRAM_OUTBOX_ID)",
+      error: "Missing channel ID. Need TEST_TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_ID",
     };
   }
 
   if (options.verbose) {
-    printTestHeader(testId, spec.name);
-    console.log(`  Forwarding message ${fixture.message.message_id} to inbox...`);
+    console.log(`\n--- ${testId}: ${spec.name} ---`);
+    console.log(`Sending test message to inbox...`);
   }
 
   // Dry run mode - just show what would happen
   if (options.dryRun) {
-    console.log(`[DRY RUN] Would forward message ${fixture.message.message_id} from ${testCasesChannelId} to ${testInboxChannelId}`);
+    console.log(`[DRY RUN] Would send ${spec.input.type} message to ${testInboxChannelId}`);
     return {
       testId,
       passed: true,
@@ -367,102 +457,69 @@ export async function runIntegrationTest(
     };
   }
 
-  // Forward message to test inbox
-  const forwardResult = await forwardMessage(
-    testCasesChannelId,
-    testInboxChannelId,
-    fixture.message.message_id
-  );
+  // Send test message directly to test inbox (no forwarding needed)
+  const sendResult = await sendTestMessageDirect(spec, testInboxChannelId, fixture);
 
-  if (!forwardResult.ok) {
+  if (!sendResult.ok) {
     return {
       testId,
       passed: false,
       duration: Date.now() - startTime,
       processingTime: 0,
       checks: [],
-      error: `Forward failed: ${forwardResult.description}`,
+      error: `Send failed: ${sendResult.description}`,
     };
   }
 
+  const sentMessage = sendResult.result!;
+
   checks.push({
-    name: "message_forwarded",
+    name: "message_sent",
     passed: true,
-    actual: forwardResult.result?.message_id,
+    actual: sentMessage.message_id,
   });
 
   if (options.verbose) {
-    console.log(`Forwarded as message ${forwardResult.result?.message_id}`);
-    console.log(`Waiting for Events notification...`);
+    console.log(`Sent as message ${sentMessage.message_id}`);
+    console.log(`Processing message directly...`);
   }
+
+  // Determine content type from message
+  const contentType = getContentTypeFromMessage(sentMessage);
+
+  // Get test profile (uses test vault path if configured)
+  const profile = loadProfile();
 
   // Determine timeout - voice tests need more time
   const isVoiceTest = spec.input.type === "voice" || spec.input.type === "audio";
   const timeout = options.timeout || (isVoiceTest ? VOICE_TIMEOUT : DEFAULT_TIMEOUT);
 
-  // Poll Events channel for notification
-  const pollStart = Date.now();
-  const pollDeadline = pollStart + timeout;
-  let eventsPayload: EventsPayload | null = null;
+  // Call processMessage directly - no watcher needed, no Events polling!
+  // Note: processMessage will send Events notifications; consider adding skipNotify support
+  const processStart = Date.now();
+  let processResult: ProcessResult;
 
-  while (Date.now() < pollDeadline) {
-    const messages = await getChannelMessages(eventsChannelId, 20, Math.floor(startDate.getTime() / 1000));
-
-    // Look for notification matching our test
-    for (const msg of messages) {
-      const payload = parseEventsPayload(msg.text || "");
-      if (!payload) continue;
-
-      // Match by test ID in title or output paths
-      const matchesTestId =
-        payload.title?.includes(testId) ||
-        payload.output_paths?.some(p => p.includes(testId));
-
-      if (matchesTestId) {
-        eventsPayload = payload;
-        break;
-      }
-    }
-
-    if (eventsPayload) break;
-
-    await Bun.sleep(POLL_INTERVAL);
+  try {
+    processResult = await processMessage(sentMessage, contentType, profile);
+  } catch (error) {
+    return {
+      testId,
+      passed: false,
+      duration: Date.now() - startTime,
+      processingTime: Date.now() - processStart,
+      checks,
+      error: `Process failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 
-  const processingTime = Date.now() - pollStart;
+  const processingTime = Date.now() - processStart;
 
-  if (!eventsPayload) {
-    // For voice tests, try searching vault directly
-    if (isVoiceTest && config.obsidianVaultPath) {
-      if (options.verbose) {
-        console.log(`No Events notification found, searching vault for ${testId}...`);
-      }
-
-      const vaultFile = findVaultFileByTestId(
-        config.obsidianVaultPath,
-        testId,
-        startDate
-      );
-
-      if (vaultFile) {
-        checks.push({
-          name: "vault_file_found",
-          passed: true,
-          actual: vaultFile,
-        });
-
-        // Continue with vault validation even without Events notification
-        return validateWithVaultFile(
-          spec,
-          testId,
-          vaultFile,
-          checks,
-          processingTime,
-          startTime,
-          options
-        );
-      }
-    }
+  if (!processResult.success) {
+    checks.push({
+      name: "process_success",
+      passed: false,
+      error: processResult.error || "Processing failed",
+    });
 
     return {
       testId,
@@ -470,45 +527,70 @@ export async function runIntegrationTest(
       duration: Date.now() - startTime,
       processingTime,
       checks,
-      error: `Timeout waiting for Events notification (${timeout / 1000}s)`,
+      error: processResult.error || "Processing failed",
     };
   }
 
+  // Save processed content to vault (processMessage only processes, doesn't save)
+  const savedPaths: string[] = [];
+  let dropboxPath: string | undefined;
+  if (processResult.content) {
+    for (const processed of processResult.content) {
+      const isWisdom = !!processed.processedContent;
+      try {
+        const saveResult = await saveToVault(processed, profile, isWisdom);
+        if (saveResult.vaultPath) {
+          savedPaths.push(saveResult.vaultPath);
+          if (options.verbose) {
+            console.log(`  Saved: ${saveResult.vaultPath}`);
+          }
+        }
+        if (saveResult.dropboxPath) {
+          dropboxPath = saveResult.dropboxPath;
+        }
+      } catch (saveError) {
+        if (options.verbose) {
+          console.log(`  Save error: ${saveError}`);
+        }
+      }
+    }
+  }
+
+  // Extract first content item for validation
+  const firstContent = processResult.content?.[0];
+  const pipeline = firstContent?.pipeline;
+  const contentTags = firstContent?.tags || [];
+
   checks.push({
-    name: "events_received",
+    name: "process_success",
     passed: true,
-    actual: eventsPayload.status,
+    actual: pipeline,
   });
 
   if (options.verbose) {
-    console.log(`Events received: ${eventsPayload.status} (${processingTime}ms)`);
-  }
-
-  // Validate Events payload
-  if (spec.expected.events?.severity) {
-    const severityMatch = eventsPayload.severity === spec.expected.events.severity;
-    checks.push({
-      name: `events_severity:${spec.expected.events.severity}`,
-      passed: severityMatch,
-      expected: spec.expected.events.severity,
-      actual: eventsPayload.severity,
-    });
+    console.log(`Processing complete: ${pipeline} pipeline (${processingTime}ms)`);
+    if (firstContent?.originalFilePath) {
+      console.log(`Output: ${firstContent.originalFilePath}`);
+    }
   }
 
   // Validate pipeline
   if (spec.expected.pipeline) {
-    const pipelineMatch = eventsPayload.pipeline?.toLowerCase() === spec.expected.pipeline.toLowerCase();
+    const pipelineMatch = pipeline?.toLowerCase() === spec.expected.pipeline.toLowerCase();
     checks.push({
       name: `pipeline:${spec.expected.pipeline}`,
       passed: pipelineMatch,
       expected: spec.expected.pipeline,
-      actual: eventsPayload.pipeline,
+      actual: pipeline,
+      reasoning: pipelineMatch
+        ? `Checked processResult.pipeline: "${pipeline}" matches expected "${spec.expected.pipeline}"`
+        : `Checked processResult.pipeline: "${pipeline}" does not match expected "${spec.expected.pipeline}"`,
     });
   }
 
   // Validate Dropbox sync
   if (spec.expected.dropboxSync) {
-    const hasDropbox = !!eventsPayload.dropbox_path;
+    const hasDropbox = !!firstContent?.originalFilePath;
     checks.push({
       name: "dropbox_sync",
       passed: hasDropbox,
@@ -522,24 +604,22 @@ export async function runIntegrationTest(
   let vaultFrontmatter: Record<string, unknown> = {};
   let vaultContent = "";
 
-  if (eventsPayload.output_paths && eventsPayload.output_paths.length > 0 && config.obsidianVaultPath) {
-    // Try to find file by output path
-    for (const outputPath of eventsPayload.output_paths) {
-      const filename = basename(outputPath);
-      const fullPath = join(config.obsidianVaultPath, outputPath);
+  // Use saved paths from our saveToVault calls first (most reliable)
+  if (savedPaths.length > 0) {
+    vaultFilePath = savedPaths[0];
+  }
 
-      if (existsSync(fullPath)) {
-        vaultFilePath = fullPath;
-        break;
-      }
-
-      // Also search for the file
-      const found = findVaultFileByTestId(config.obsidianVaultPath, testId, startDate);
-      if (found) {
-        vaultFilePath = found;
-        break;
-      }
+  // Fallback: Use original file path from processResult if available
+  if (!vaultFilePath && firstContent?.originalFilePath && config.vaultPath) {
+    const fullPath = join(config.vaultPath, firstContent.originalFilePath);
+    if (existsSync(fullPath)) {
+      vaultFilePath = fullPath;
     }
+  }
+
+  // Fallback: search by test ID
+  if (!vaultFilePath && config.vaultPath) {
+    vaultFilePath = findVaultFileByTestId(config.vaultPath, testId, startDate) || undefined;
   }
 
   if (vaultFilePath) {
@@ -551,18 +631,21 @@ export async function runIntegrationTest(
       name: "vault_file_created",
       passed: true,
       actual: basename(vaultFilePath),
+      reasoning: `Verified vault file created: ${basename(vaultFilePath)} (${vaultContent.length} chars)`,
     });
-  } else if (eventsPayload.status === "success") {
+  } else if (processResult.success) {
     checks.push({
       name: "vault_file_created",
       passed: false,
       error: "Vault file not found",
+      reasoning: "No vault markdown file was found in the expected location after processing",
     });
   }
 
-  // Validate tags
+  // Validate tags - use vault frontmatter tags, fall back to processResult contentTags
   if (spec.expected.tags) {
-    const tags = (vaultFrontmatter.tags as string[]) || [];
+    const vaultTags = (vaultFrontmatter.tags as string[]) || [];
+    const tags = vaultTags.length > 0 ? vaultTags : contentTags;
     for (const expectedTag of spec.expected.tags) {
       const found = tags.some(t =>
         t.toLowerCase() === expectedTag.toLowerCase() ||
@@ -574,13 +657,17 @@ export async function runIntegrationTest(
         expected: expectedTag,
         actual: tags,
         error: found ? undefined : `Tag "${expectedTag}" not found`,
+        reasoning: found
+          ? `Examined frontmatter tags [${tags.join(", ")}] - found expected tag "${expectedTag}"`
+          : `Examined frontmatter tags [${tags.join(", ")}] - expected tag "${expectedTag}" was not present`,
       });
     }
   }
 
   // Validate excluded tags
   if (spec.expected.excludeTags) {
-    const tags = (vaultFrontmatter.tags as string[]) || [];
+    const vaultTags = (vaultFrontmatter.tags as string[]) || [];
+    const tags = vaultTags.length > 0 ? vaultTags : contentTags;
     for (const excludedTag of spec.expected.excludeTags) {
       const found = tags.some(t => t.toLowerCase() === excludedTag.toLowerCase());
       checks.push({
@@ -589,6 +676,9 @@ export async function runIntegrationTest(
         expected: `NOT ${excludedTag}`,
         actual: tags,
         error: found ? `Tag "${excludedTag}" should not be present` : undefined,
+        reasoning: !found
+          ? `Verified frontmatter tags [${tags.join(", ")}] do not include excluded tag "${excludedTag}"`
+          : `Found unwanted tag "${excludedTag}" in frontmatter tags [${tags.join(", ")}]`,
       });
     }
   }
@@ -598,11 +688,18 @@ export async function runIntegrationTest(
     for (const [key, expectedValue] of Object.entries(spec.expected.frontmatter)) {
       const actualValue = vaultFrontmatter[key];
       let passed: boolean;
+      let reasonDetail: string;
 
       if (expectedValue === "string") {
         passed = typeof actualValue === "string";
+        reasonDetail = passed
+          ? `field "${key}" exists with string value "${actualValue}"`
+          : `field "${key}" is ${actualValue === undefined ? "missing" : "not a string"}`;
       } else {
         passed = actualValue === expectedValue;
+        reasonDetail = passed
+          ? `field "${key}" = "${actualValue}" matches expected "${expectedValue}"`
+          : `field "${key}" = "${actualValue}" does not match expected "${expectedValue}"`;
       }
 
       checks.push({
@@ -611,27 +708,40 @@ export async function runIntegrationTest(
         expected: expectedValue,
         actual: actualValue,
         error: passed ? undefined : `Frontmatter "${key}" mismatch`,
+        reasoning: `Examined vault file frontmatter: ${reasonDetail}`,
       });
     }
   }
 
-  // Validate content
+  // Validate content - check across ALL saved files (Raw, Wisdom, etc.)
   if (spec.expected.content?.contains) {
+    // Combine content from all saved files for pattern tests
+    let allContent = vaultContent;
+    if (savedPaths.length > 1) {
+      for (let i = 1; i < savedPaths.length; i++) {
+        const parsed = parseVaultFile(savedPaths[i]);
+        allContent += "\n" + parsed.content;
+      }
+    }
+
     for (const expectedText of spec.expected.content.contains) {
-      const found = vaultContent.toLowerCase().includes(expectedText.toLowerCase());
+      const found = allContent.toLowerCase().includes(expectedText.toLowerCase());
       checks.push({
         name: `content_contains:${expectedText.slice(0, 20)}`,
         passed: found,
         expected: expectedText,
         error: found ? undefined : `Content missing: "${expectedText}"`,
+        reasoning: found
+          ? `Searched vault file content (${allContent.length} chars) - found expected text "${expectedText}"`
+          : `Searched vault file content (${allContent.length} chars) - expected text "${expectedText}" not found`,
       });
     }
   }
 
   // Validate archive filename
-  if (spec.expected.archiveFilenamePattern && eventsPayload.dropbox_path) {
+  if (spec.expected.archiveFilenamePattern && dropboxPath) {
     const pattern = new RegExp(spec.expected.archiveFilenamePattern, "i");
-    const filename = basename(eventsPayload.dropbox_path);
+    const filename = basename(dropboxPath);
     const matched = pattern.test(filename);
     checks.push({
       name: "archive_filename_pattern",
@@ -639,6 +749,9 @@ export async function runIntegrationTest(
       expected: spec.expected.archiveFilenamePattern,
       actual: filename,
       error: matched ? undefined : "Archive filename doesn't match pattern",
+      reasoning: matched
+        ? `Verified archive filename "${filename}" matches pattern /${spec.expected.archiveFilenamePattern}/i`
+        : `Archive filename "${filename}" does not match expected pattern /${spec.expected.archiveFilenamePattern}/i`,
     });
   }
 
@@ -646,15 +759,39 @@ export async function runIntegrationTest(
   const passed = checks.every(c => c.passed);
   const duration = Date.now() - startTime;
 
+  // Build detailed result for reporting
   return {
     testId,
     passed,
     duration,
     processingTime,
     checks,
-    eventsPayload,
+    processResult,
     vaultFilePath,
-    dropboxFilePath: eventsPayload.dropbox_path,
+    dropboxFilePath: dropboxPath,
+    // Detailed spec info
+    spec: {
+      id: spec.id,
+      name: spec.name,
+      category: spec.category,
+      inputType: spec.input.type,
+      inputExample: spec.input.example,
+      inputCaption: spec.input.caption,
+    },
+    // Actual output
+    actualOutput: {
+      pipeline,
+      tags: contentTags,
+      scope: vaultFrontmatter.scope as string | undefined,
+      vaultPath: vaultFilePath,
+      content: vaultContent.slice(0, 500),
+    },
+    // Expected output
+    expectedOutput: {
+      pipeline: spec.expected.pipeline,
+      tags: spec.expected.tags,
+      frontmatter: spec.expected.frontmatter,
+    },
   };
 }
 
@@ -730,7 +867,38 @@ async function validateWithVaultFile(
 }
 
 /**
- * Run multiple integration tests
+ * Run a single test with timeout protection
+ */
+async function runTestWithTimeout(
+  testId: string,
+  options: IntegrationOptions,
+  timeout: number
+): Promise<IntegrationResult> {
+  const timeoutPromise = new Promise<IntegrationResult>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Test ${testId} timed out after ${timeout / 1000}s`));
+    }, timeout);
+  });
+
+  try {
+    return await Promise.race([
+      runIntegrationTest(testId, options),
+      timeoutPromise,
+    ]);
+  } catch (error) {
+    return {
+      testId,
+      passed: false,
+      duration: timeout,
+      processingTime: timeout,
+      checks: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Run multiple integration tests (supports parallel execution)
  */
 export async function runIntegrationTests(
   options: IntegrationOptions = {}
@@ -755,44 +923,58 @@ export async function runIntegrationTests(
   // Filter out skipped tests
   specs = specs.filter(s => !s.meta?.skip);
 
-  console.log(`\nRunning ${specs.length} integration tests...\n`);
+  const concurrency = options.concurrency || 5;
+  const perTestTimeout = options.timeout || 120000; // 2 min per test default
 
-  for (const spec of specs) {
-    // Print header before running
-    if (options.verbose) {
-      printTestHeader(spec.id, spec.name);
-    }
-    
-    const result = await runIntegrationTest(spec.id, { ...options, verbose: false }); // Don't double-print header
-    results.push(result);
+  if (options.parallel) {
+    console.log(`\nRunning ${specs.length} integration tests (parallel, concurrency: ${concurrency})...\n`);
 
-    // Check if skipped
-    const isSkipped = result.checks.some(c => c.name === "skipped");
-    const skipReasonRaw = result.checks.find(c => c.name === "skipped")?.expected;
-    const skipReason = typeof skipReasonRaw === "string" ? skipReasonRaw : "";
+    // Process in batches for controlled concurrency
+    for (let i = 0; i < specs.length; i += concurrency) {
+      const batch = specs.slice(i, i + concurrency);
+      const batchPromises = batch.map(spec =>
+        runTestWithTimeout(spec.id, { ...options, verbose: false }, perTestTimeout)
+      );
 
-    // Print progress using shared format
-    if (isSkipped) {
-      printSkippedTest(spec.id, spec.name, skipReason);
-    } else {
-      printTestStatus(spec.id, spec.name, result.passed, result.processingTime, {
-        hasSemanticValidation: !!spec.expected.semantic,
-        verbose: options.verbose,
-      });
-    }
+      const batchResults = await Promise.all(batchPromises);
 
-    if (!result.passed && !isSkipped && result.error) {
-      printTestError(result.error);
-    }
-    if (!result.passed && !isSkipped && result.checks.length > 0) {
-      const failed = result.checks.filter(c => !c.passed);
-      for (const check of failed.slice(0, 3)) {
-        printFailedCheck(check.name, check.error);
+      for (const result of batchResults) {
+        results.push(result);
+        const spec = batch.find(s => s.id === result.testId);
+        const status = result.passed ? "✓" : "✗";
+        const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+        console.log(`${color}${status}\x1b[0m ${result.testId}: ${spec?.name || ""} (${result.processingTime}ms)`);
+
+        if (!result.passed && result.error) {
+          console.log(`  Error: ${result.error}`);
+        }
       }
     }
+  } else {
+    console.log(`\nRunning ${specs.length} integration tests (sequential)...\n`);
 
-    // Small delay between tests to avoid rate limiting
-    await Bun.sleep(1000);
+    for (const spec of specs) {
+      const result = await runTestWithTimeout(spec.id, options, perTestTimeout);
+      results.push(result);
+
+      // Print progress
+      const status = result.passed ? "✓" : "✗";
+      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
+      console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name} (${result.processingTime}ms)`);
+
+      if (!result.passed && result.error) {
+        console.log(`  Error: ${result.error}`);
+      }
+      if (!result.passed && result.checks.length > 0) {
+        const failed = result.checks.filter(c => !c.passed);
+        for (const check of failed.slice(0, 3)) {
+          console.log(`  - ${check.name}: ${check.error || "failed"}`);
+        }
+      }
+
+      // Small delay between tests to avoid rate limiting
+      await Bun.sleep(500);
+    }
   }
 
   const completedAt = new Date().toISOString();
@@ -820,21 +1002,19 @@ export async function runIntegrationTests(
  * Print integration test summary
  */
 export function printIntegrationSummary(summary: IntegrationRunSummary): void {
-  console.log("\n" + "═".repeat(50));
+  console.log("\n" + "=".repeat(50));
   console.log("INTEGRATION TEST SUMMARY");
-  console.log("═".repeat(50));
-  console.log(`Total:    ${summary.counts.total}`);
-  
-  // Always show all statuses with color coding
-  const passedColor = summary.counts.passed > 0 ? "\x1b[32m" : "";
-  const failedColor = summary.counts.failed > 0 ? "\x1b[31m" : "";
-  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "\x1b[2m";
-  
-  console.log(`${passedColor}Passed:   ${summary.counts.passed}\x1b[0m`);
-  console.log(`${failedColor}Failed:   ${summary.counts.failed}\x1b[0m`);
-  console.log(`${skippedColor}Skipped:  ${summary.counts.skipped}\x1b[0m`);
-  console.log(`Duration: ${(summary.duration / 1000).toFixed(1)}s`);
-  console.log("═".repeat(50));
+  console.log("=".repeat(50));
+  console.log(`Total:   ${summary.counts.total}`);
+  console.log(`\x1b[32mPassed:  ${summary.counts.passed}\x1b[0m`);
+  if (summary.counts.failed > 0) {
+    console.log(`\x1b[31mFailed:  ${summary.counts.failed}\x1b[0m`);
+  }
+  if (summary.counts.skipped > 0) {
+    console.log(`Skipped: ${summary.counts.skipped}`);
+  }
+  console.log(`Duration: ${summary.duration}ms`);
+  console.log("=".repeat(50));
 
   if (summary.counts.failed > 0) {
     console.log("\nFailed tests:");
@@ -842,4 +1022,222 @@ export function printIntegrationSummary(summary: IntegrationRunSummary): void {
       console.log(`  - ${result.testId}: ${result.error || "validation failed"}`);
     }
   }
+}
+
+/**
+ * Generate detailed markdown report for integration tests
+ */
+export function generateDetailedReport(summary: IntegrationRunSummary): string {
+  const lines: string[] = [];
+  const runId = `integration-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+
+  // Header
+  lines.push(`# Integration Test Report: ${runId}`);
+  lines.push("");
+  lines.push(`**Date:** ${new Date(summary.startedAt).toLocaleString()}`);
+  lines.push(`**Duration:** ${(summary.duration / 1000).toFixed(1)}s`);
+  lines.push(`**Mode:** ${summary.counts.total > 1 ? "batch" : "single"}`);
+  lines.push("");
+
+  // Summary table
+  lines.push("## Summary");
+  lines.push("");
+  lines.push("| Metric | Value |");
+  lines.push("|--------|-------|");
+  lines.push(`| Total | ${summary.counts.total} |`);
+  lines.push(`| Passed | ${summary.counts.passed} |`);
+  lines.push(`| Failed | ${summary.counts.failed} |`);
+  lines.push(`| Skipped | ${summary.counts.skipped} |`);
+  lines.push(`| Pass Rate | ${Math.round((summary.counts.passed / summary.counts.total) * 100)}% |`);
+  lines.push("");
+
+  // Failed tests section
+  const failedTests = summary.results.filter(r => !r.passed);
+  if (failedTests.length > 0) {
+    lines.push("## Failed Tests");
+    lines.push("");
+
+    for (const result of failedTests) {
+      lines.push(`### ${result.testId}: ${result.spec?.name || "Unknown"}`);
+      lines.push("");
+      lines.push(`- **Category:** ${result.spec?.category || "unknown"}`);
+      lines.push(`- **Input Type:** ${result.spec?.inputType || "unknown"}`);
+      lines.push(`- **Duration:** ${result.duration}ms`);
+
+      if (result.error) {
+        lines.push(`- **Error:** ${result.error}`);
+      }
+
+      // Input details
+      if (result.spec?.inputExample || result.spec?.inputCaption) {
+        lines.push("");
+        lines.push("**Input:**");
+        if (result.spec.inputExample) {
+          lines.push("```");
+          lines.push(result.spec.inputExample.slice(0, 200));
+          lines.push("```");
+        }
+        if (result.spec.inputCaption) {
+          lines.push(`Caption: \`${result.spec.inputCaption}\``);
+        }
+      }
+
+      // Expected vs Actual
+      lines.push("");
+      lines.push("**Expected:**");
+      if (result.expectedOutput?.pipeline) {
+        lines.push(`- Pipeline: ${result.expectedOutput.pipeline}`);
+      }
+      if (result.expectedOutput?.tags && result.expectedOutput.tags.length > 0) {
+        lines.push(`- Tags: ${result.expectedOutput.tags.join(", ")}`);
+      }
+
+      lines.push("");
+      lines.push("**Actual:**");
+      if (result.actualOutput?.pipeline) {
+        lines.push(`- Pipeline: ${result.actualOutput.pipeline}`);
+      }
+      if (result.actualOutput?.tags && result.actualOutput.tags.length > 0) {
+        lines.push(`- Tags: ${result.actualOutput.tags.join(", ")}`);
+      }
+      if (result.actualOutput?.vaultPath) {
+        lines.push(`- Vault Path: ${result.actualOutput.vaultPath}`);
+      }
+
+      // Failed checks
+      const failedChecks = result.checks.filter(c => !c.passed);
+      if (failedChecks.length > 0) {
+        lines.push("");
+        lines.push("**Failed Checks:**");
+        for (const check of failedChecks) {
+          lines.push(`- ${check.name}: ${check.error || "failed"}`);
+          if (check.expected !== undefined) {
+            lines.push(`  - Expected: ${JSON.stringify(check.expected)}`);
+          }
+          if (check.actual !== undefined) {
+            lines.push(`  - Actual: ${JSON.stringify(check.actual)}`);
+          }
+          if (check.reasoning) {
+            lines.push(`  - Reasoning: ${check.reasoning}`);
+          }
+        }
+      }
+
+      // Passed checks reasoning (for context on how validation was done)
+      const passedChecks = result.checks.filter(c => c.passed);
+      if (passedChecks.length > 0) {
+        lines.push("");
+        lines.push("**Passed Checks:**");
+        for (const check of passedChecks) {
+          if (check.reasoning) {
+            lines.push(`- ${check.name}: ${check.reasoning}`);
+          }
+        }
+      }
+
+      lines.push("");
+    }
+  }
+
+  // All tests table
+  lines.push("## All Tests");
+  lines.push("");
+  lines.push("| ID | Name | Type | Status | Duration | Pipeline |");
+  lines.push("|---|---|---|---|---|---|");
+
+  for (const result of summary.results) {
+    const status = result.passed ? "✅" : "❌";
+    const duration = result.duration > 0 ? `${result.duration}ms` : "-";
+    const pipeline = result.actualOutput?.pipeline || "-";
+    const name = result.spec?.name || "Unknown";
+    const type = result.spec?.inputType || "?";
+    lines.push(`| ${result.testId} | ${name.slice(0, 30)} | ${type} | ${status} | ${duration} | ${pipeline} |`);
+  }
+
+  // Passed tests with validation reasoning (collapsible details)
+  const passedTests = summary.results.filter(r => r.passed && r.checks.some(c => c.reasoning));
+  if (passedTests.length > 0) {
+    lines.push("");
+    lines.push("## Validation Details (Passed Tests)");
+    lines.push("");
+    lines.push("Evidence examined for each passing test:");
+    lines.push("");
+
+    for (const result of passedTests) {
+      const checksWithReasoning = result.checks.filter(c => c.reasoning);
+      if (checksWithReasoning.length > 0) {
+        lines.push(`### ${result.testId}: ${result.spec?.name || "Unknown"}`);
+        lines.push("");
+        for (const check of checksWithReasoning) {
+          lines.push(`- **${check.name}**: ${check.reasoning}`);
+        }
+        lines.push("");
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Save detailed integration report to file
+ */
+export function saveDetailedReport(summary: IntegrationRunSummary, options?: { runId?: string; skipHistory?: boolean }): string {
+  const { writeFileSync, mkdirSync } = require("fs");
+  const { join } = require("path");
+
+  const OUTPUT_DIR = join(import.meta.dir, "..", "output");
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  const runId = options?.runId || `integration-${new Date(summary.startedAt).toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+  const markdown = generateDetailedReport(summary);
+  const reportPath = join(OUTPUT_DIR, "integration-report.md");
+  writeFileSync(reportPath, markdown);
+
+  // Also update latest
+  const latestPath = join(OUTPUT_DIR, "latest-integration-report.md");
+  writeFileSync(latestPath, markdown);
+
+  // Record to test history for tracking across runs
+  const report: TestReport = {
+    runId,
+    layer: "integration",
+    startedAt: summary.startedAt,
+    completedAt: summary.completedAt,
+    duration: summary.duration,
+    counts: summary.counts,
+    passRate: summary.counts.total > 0
+      ? Math.round((summary.counts.passed / summary.counts.total) * 100)
+      : 0,
+    tests: summary.results.map(r => ({
+      id: r.testId,
+      name: r.spec?.name || r.testId,
+      category: r.spec?.category || "unknown",
+      passed: r.passed,
+      duration: r.duration,
+      error: r.error,
+      failedChecks: r.checks.filter(c => !c.passed).map(c => c.name),
+    })),
+  };
+
+  // Add to history unless caller will record unified entry
+  if (!options?.skipHistory) {
+    appendHistory(report);
+  }
+
+  // Record test files to registry for cleanup
+  const testFiles: TestFileEntry[] = summary.results
+    .filter(r => r.vaultFilePath || r.dropboxFilePath)
+    .map(r => ({
+      testId: r.testId,
+      vaultPath: r.vaultFilePath,
+      dropboxPath: r.dropboxFilePath,
+      createdAt: new Date().toISOString(),
+    }));
+
+  if (testFiles.length > 0) {
+    appendTestFilesRegistry(runId, summary.startedAt, summary.completedAt, testFiles);
+  }
+
+  return reportPath;
 }

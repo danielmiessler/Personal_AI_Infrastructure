@@ -94,22 +94,36 @@ See `PAI_CONTRACT.md` for complete details on what's guaranteed vs what needs co
 - [Claude Code](https://claude.com/claude-code) installed
 - Git installed (`git --version` to verify)
 
-### One-Line Install (Recommended)
+### TL;DR - One-Line Install
 
 ```bash
+# Enhanced PAI fork with multi-agent collaboration & enterprise skills
 curl -fsSL https://raw.githubusercontent.com/banjoey/Personal_AI_Infrastructure/forge-all/.claude/setup.sh | bash
 ```
 
 This will:
-- ✅ Clone the enhanced PAI fork
+- ✅ Clone PAI from the `forge-all` branch
+- ✅ Back up any existing `~/.claude` configuration
+- ✅ Set up symlinks for skills, hooks, commands (auto-update with git pull)
+- ✅ Copy settings.json with your personalization (preserves model workarounds)
 - ✅ Run the personalization wizard (name your assistant)
-- ✅ Configure Claude Code to use PAI with all features
-- ✅ Set up all skills, agents, and hooks
+
+### How Updates Work
+
+```bash
+# Update PAI - just re-run setup.sh
+curl -fsSL https://raw.githubusercontent.com/banjoey/Personal_AI_Infrastructure/forge-all/.claude/setup.sh | bash
+
+# Or if you already have PAI installed:
+cd ~/PAI && git pull && ./.claude/setup.sh
+```
+
+Your customizations in `~/.claude/settings.json` are preserved. Symlinked directories (skills, hooks) update automatically.
 
 ### Manual Install
 
 ```bash
-# Clone enhanced PAI fork (forge-all branch has all features)
+# Clone PAI (forge-all branch)
 git clone -b forge-all https://github.com/banjoey/Personal_AI_Infrastructure.git PAI
 cd PAI
 

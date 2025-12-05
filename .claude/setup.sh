@@ -8,11 +8,19 @@
 # It's designed to be friendly, informative, and safe.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/danielmiessler/Personal_AI_Infrastructure/main/setup.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/banjoey/Personal_AI_Infrastructure/forge-all/.claude/setup.sh | bash
 #
 # Or download and run manually:
 #   ./setup.sh
 #
+# ============================================
+
+# ============================================
+# Branch Configuration
+# ============================================
+# Each branch should set these to match its identity
+PAI_REPO="https://github.com/banjoey/Personal_AI_Infrastructure.git"
+PAI_BRANCH="forge-all"
 # ============================================
 
 set -e  # Exit on error
@@ -346,13 +354,25 @@ print_info "PAI will be installed to: $PAI_DIR"
 
 print_header "Step 4: Getting PAI"
 
+print_info "Repository: $PAI_REPO"
+print_info "Branch: $PAI_BRANCH"
+
 if [ -d "$PAI_DIR/.git" ]; then
     print_info "PAI is already installed at $PAI_DIR"
 
     if ask_yes_no "Update to the latest version?"; then
         print_step "Updating PAI..."
         cd "$PAI_DIR"
-        git pull
+
+        # Ensure we're on the correct branch
+        current_branch=$(git branch --show-current)
+        if [ "$current_branch" != "$PAI_BRANCH" ]; then
+            print_warning "Currently on branch '$current_branch', switching to '$PAI_BRANCH'..."
+            git fetch origin
+            git checkout "$PAI_BRANCH"
+        fi
+
+        git pull origin "$PAI_BRANCH"
         print_success "PAI updated successfully!"
     else
         print_info "Using existing installation"
@@ -363,8 +383,8 @@ else
     # Create parent directory if it doesn't exist
     mkdir -p "$(dirname "$PAI_DIR")"
 
-    # Clone the repository
-    git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git "$PAI_DIR"
+    # Clone the repository with specific branch
+    git clone -b "$PAI_BRANCH" "$PAI_REPO" "$PAI_DIR"
 
     print_success "PAI downloaded successfully!"
 fi
@@ -585,7 +605,7 @@ else
 fi
 
 # ============================================
-# Step 8: Claude Code Integration
+# Step 8: Claude Code Integration (Hybrid Approach)
 # ============================================
 
 print_header "Step 8: AI Assistant Integration"
@@ -596,38 +616,145 @@ echo ""
 if ask_yes_no "Are you using Claude Code?"; then
     print_step "Configuring Claude Code integration..."
 
+    # ----------------------------------------
+    # Backup existing ~/.claude if it exists
+    # ----------------------------------------
+    if [ -d "$HOME/.claude" ] && [ ! -L "$HOME/.claude" ]; then
+        BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        BACKUP_DIR="$HOME/.claude/bak.$BACKUP_TIMESTAMP"
+
+        print_step "Backing up existing ~/.claude configuration..."
+        mkdir -p "$BACKUP_DIR"
+
+        # Copy existing content to backup (excluding previous backups)
+        for item in "$HOME/.claude"/*; do
+            if [ -e "$item" ]; then
+                item_name=$(basename "$item")
+                # Skip backup directories
+                if [[ "$item_name" != bak.* ]]; then
+                    cp -r "$item" "$BACKUP_DIR/"
+                fi
+            fi
+        done
+
+        print_success "Backed up existing config to: $BACKUP_DIR"
+        print_info "Your previous settings are safe and can be restored if needed."
+    fi
+
     # Create Claude directory if it doesn't exist
     mkdir -p "$HOME/.claude"
 
-    # Customize settings.json with user values (AI_NAME and USER_NAME already set earlier)
-    print_step "Personalizing settings.json..."
-    sed -i.bak \
-        -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
-        -e "s|\"DA\": \"PAI\"|\"DA\": \"$AI_NAME\"|g" \
-        -e "s|\"ASSISTANT_NAME\": \"Kai\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
-        -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
-        "$PAI_DIR/.claude/settings.json"
-    print_success "Settings personalized"
+    # ----------------------------------------
+    # Symlink directories (skills, hooks, commands, etc.)
+    # ----------------------------------------
+    print_step "Setting up symlinks to PAI..."
 
-    # Check if settings.json already exists
-    if [ -L "$HOME/.claude/settings.json" ]; then
-        print_info "Claude Code settings already linked to PAI"
-    elif [ -f "$HOME/.claude/settings.json" ]; then
-        print_warning "Claude Code settings file already exists"
+    # List of directories to symlink
+    SYMLINK_DIRS="skills hooks commands Tools agents"
 
-        if ask_yes_no "Replace it with PAI's settings?"; then
-            mv "$HOME/.claude/settings.json" "$HOME/.claude/settings.json.backup"
-            print_info "Backed up existing settings to settings.json.backup"
+    for dir in $SYMLINK_DIRS; do
+        if [ -d "$PAI_DIR/.claude/$dir" ]; then
+            # Remove existing directory or symlink
+            if [ -L "$HOME/.claude/$dir" ]; then
+                rm "$HOME/.claude/$dir"
+            elif [ -d "$HOME/.claude/$dir" ]; then
+                # Already backed up above, safe to remove
+                rm -rf "$HOME/.claude/$dir"
+            fi
 
-            ln -sf "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
-            print_success "Claude Code configured to use PAI!"
+            # Create symlink
+            ln -sf "$PAI_DIR/.claude/$dir" "$HOME/.claude/$dir"
+            print_success "Linked $dir/ → PAI"
         fi
-    else
-        ln -sf "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
-        print_success "Claude Code configured to use PAI!"
+    done
+
+    # Symlink statusline-command.sh if it exists
+    if [ -f "$PAI_DIR/.claude/statusline-command.sh" ]; then
+        if [ -L "$HOME/.claude/statusline-command.sh" ]; then
+            rm "$HOME/.claude/statusline-command.sh"
+        elif [ -f "$HOME/.claude/statusline-command.sh" ]; then
+            rm "$HOME/.claude/statusline-command.sh"
+        fi
+        ln -sf "$PAI_DIR/.claude/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
+        print_success "Linked statusline-command.sh → PAI"
     fi
 
+    # ----------------------------------------
+    # Settings.json: Copy + Merge (preserve user customizations)
+    # ----------------------------------------
+    print_step "Configuring settings.json..."
+
+    # First, personalize the PAI template with user values
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' \
+            -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
+            -e "s|/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude|$PAI_DIR/.claude|g" \
+            -e "s|\"DA\": \"PAI\"|\"DA\": \"$AI_NAME\"|g" \
+            -e "s|\"DA\": \"Charles\"|\"DA\": \"$AI_NAME\"|g" \
+            -e "s|\"DA\": \"Kai\"|\"DA\": \"$AI_NAME\"|g" \
+            -e "s|\"ASSISTANT_NAME\": \"Kai\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
+            -e "s|\"ASSISTANT_NAME\": \"Charles\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
+            -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
+            -e "s|\"USER_NAME\": \"Joey\"|\"USER_NAME\": \"$USER_NAME\"|g" \
+            "$PAI_DIR/.claude/settings.json"
+    else
+        sed -i \
+            -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
+            -e "s|/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude|$PAI_DIR/.claude|g" \
+            -e "s|\"DA\": \"PAI\"|\"DA\": \"$AI_NAME\"|g" \
+            -e "s|\"DA\": \"Charles\"|\"DA\": \"$AI_NAME\"|g" \
+            -e "s|\"DA\": \"Kai\"|\"DA\": \"$AI_NAME\"|g" \
+            -e "s|\"ASSISTANT_NAME\": \"Kai\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
+            -e "s|\"ASSISTANT_NAME\": \"Charles\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
+            -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
+            -e "s|\"USER_NAME\": \"Joey\"|\"USER_NAME\": \"$USER_NAME\"|g" \
+            "$PAI_DIR/.claude/settings.json"
+    fi
+
+    # Check if user has existing settings with customizations to preserve
+    if [ -f "$BACKUP_DIR/settings.json" ] 2>/dev/null; then
+        print_info "Found existing settings.json - checking for user customizations..."
+
+        # Check for model override (e.g., Opus 4.5 workaround)
+        if command_exists jq; then
+            # Use jq for proper JSON handling
+            USER_MODEL=$(jq -r '.model // empty' "$BACKUP_DIR/settings.json" 2>/dev/null)
+            if [ -n "$USER_MODEL" ] && [ "$USER_MODEL" != "null" ]; then
+                print_info "Preserving your model setting: $USER_MODEL"
+                # Create a temp file with the preserved model
+                jq --arg model "$USER_MODEL" '.model = $model' "$PAI_DIR/.claude/settings.json" > "$PAI_DIR/.claude/settings.json.tmp"
+                mv "$PAI_DIR/.claude/settings.json.tmp" "$PAI_DIR/.claude/settings.json"
+            fi
+        else
+            # Fallback: check if model line exists and preserve it
+            USER_MODEL=$(grep -o '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "$BACKUP_DIR/settings.json" 2>/dev/null | head -1)
+            if [ -n "$USER_MODEL" ]; then
+                print_info "Preserving your model setting (install jq for better JSON handling)"
+                print_warning "Model preservation without jq may be imprecise"
+            fi
+        fi
+    fi
+
+    # Now copy settings.json to ~/.claude (NOT symlink - user can customize this copy)
+    cp "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
+    print_success "Settings configured with your personalization"
+
+    # ----------------------------------------
+    # Summary of what was set up
+    # ----------------------------------------
     echo ""
+    print_info "Claude Code Integration Summary:"
+    echo "  • Symlinked: skills/, hooks/, commands/, Tools/, agents/"
+    echo "  • Copied: settings.json (with your name: $AI_NAME)"
+    if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
+        echo "  • Backup: $BACKUP_DIR"
+    fi
+    echo ""
+    echo "  ${CYAN}To update PAI:${NC} Re-run this setup script"
+    echo "  ${CYAN}Your customizations:${NC} Edit ~/.claude/settings.json directly"
+    echo "  ${CYAN}PAI updates:${NC} Symlinked dirs update automatically with git pull"
+    echo ""
+
     print_info "Next steps for Claude Code:"
     echo "  1. Download Claude Code from: https://claude.ai/code"
     echo "  2. Sign in with your Anthropic account"
@@ -653,20 +780,35 @@ else
     print_error "PAI directory not found: $PAI_DIR"
 fi
 
-# Test 2: Skills directory exists
-if [ -d "$PAI_DIR/skills" ]; then
-    skill_count=$(find "$PAI_DIR/skills" -maxdepth 1 -type d | wc -l | tr -d ' ')
-    print_success "Found $skill_count skills"
+# Test 2: Skills directory exists and is properly linked
+if [ -L "$HOME/.claude/skills" ]; then
+    skill_count=$(find "$HOME/.claude/skills" -maxdepth 1 -type d | wc -l | tr -d ' ')
+    print_success "Skills symlinked: $skill_count skills available"
+elif [ -d "$PAI_DIR/.claude/skills" ]; then
+    skill_count=$(find "$PAI_DIR/.claude/skills" -maxdepth 1 -type d | wc -l | tr -d ' ')
+    print_warning "Skills exist in PAI but not symlinked to ~/.claude"
 else
     print_warning "Skills directory not found"
 fi
 
 # Test 3: Commands directory exists
-if [ -d "$PAI_DIR/commands" ]; then
-    command_count=$(find "$PAI_DIR/commands" -type f -name "*.md" | wc -l | tr -d ' ')
-    print_success "Found $command_count commands"
+if [ -L "$HOME/.claude/commands" ]; then
+    command_count=$(find "$HOME/.claude/commands" -type f -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+    print_success "Commands symlinked: $command_count commands available"
+elif [ -d "$PAI_DIR/.claude/commands" ]; then
+    print_warning "Commands exist in PAI but not symlinked to ~/.claude"
 else
-    print_warning "Commands directory not found"
+    print_info "Commands directory not found (optional)"
+fi
+
+# Test 3b: Hooks directory
+if [ -L "$HOME/.claude/hooks" ]; then
+    hook_count=$(find "$HOME/.claude/hooks" -type f -name "*.ts" 2>/dev/null | wc -l | tr -d ' ')
+    print_success "Hooks symlinked: $hook_count hooks available"
+elif [ -d "$PAI_DIR/.claude/hooks" ]; then
+    print_warning "Hooks exist in PAI but not symlinked to ~/.claude"
+else
+    print_warning "Hooks directory not found"
 fi
 
 # Test 4: Environment variables
@@ -684,11 +826,13 @@ else
     print_warning ".env file not found"
 fi
 
-# Test 6: Claude Code integration
-if [ -L "$HOME/.claude/settings.json" ]; then
-    print_success "Claude Code integration configured"
+# Test 6: Claude Code integration (hybrid approach)
+if [ -L "$HOME/.claude/skills" ] && [ -f "$HOME/.claude/settings.json" ]; then
+    print_success "Claude Code integration configured (hybrid: symlinks + settings)"
+elif [ -L "$HOME/.claude/settings.json" ]; then
+    print_info "Claude Code settings symlinked (legacy setup)"
 elif [ -f "$HOME/.claude/settings.json" ]; then
-    print_info "Claude Code settings exist (not linked to PAI)"
+    print_info "Claude Code settings exist (may need re-run of setup.sh)"
 else
     print_info "Claude Code settings not configured"
 fi

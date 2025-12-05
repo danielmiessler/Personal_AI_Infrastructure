@@ -680,11 +680,15 @@ if ask_yes_no "Are you using Claude Code?"; then
     fi
 
     # ----------------------------------------
-    # Settings.json: Copy + Merge (preserve user customizations)
+    # Settings.json: Copy first, then personalize the COPY
+    # (Never modify PAI repo files - keeps git clean for updates)
     # ----------------------------------------
     print_step "Configuring settings.json..."
 
-    # First, personalize the PAI template with user values
+    # First, copy settings.json to ~/.claude (we'll modify the COPY, not the source)
+    cp "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
+
+    # Now personalize the COPY with user values (never touch PAI repo)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' \
             -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
@@ -696,7 +700,7 @@ if ask_yes_no "Are you using Claude Code?"; then
             -e "s|\"ASSISTANT_NAME\": \"Charles\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
             -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
             -e "s|\"USER_NAME\": \"Joey\"|\"USER_NAME\": \"$USER_NAME\"|g" \
-            "$PAI_DIR/.claude/settings.json"
+            "$HOME/.claude/settings.json"
     else
         sed -i \
             -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
@@ -708,7 +712,7 @@ if ask_yes_no "Are you using Claude Code?"; then
             -e "s|\"ASSISTANT_NAME\": \"Charles\"|\"ASSISTANT_NAME\": \"$AI_NAME\"|g" \
             -e "s|\"USER_NAME\": \"User\"|\"USER_NAME\": \"$USER_NAME\"|g" \
             -e "s|\"USER_NAME\": \"Joey\"|\"USER_NAME\": \"$USER_NAME\"|g" \
-            "$PAI_DIR/.claude/settings.json"
+            "$HOME/.claude/settings.json"
     fi
 
     # Check if user has existing settings with customizations to preserve
@@ -721,9 +725,9 @@ if ask_yes_no "Are you using Claude Code?"; then
             USER_MODEL=$(jq -r '.model // empty' "$BACKUP_DIR/settings.json" 2>/dev/null)
             if [ -n "$USER_MODEL" ] && [ "$USER_MODEL" != "null" ]; then
                 print_info "Preserving your model setting: $USER_MODEL"
-                # Create a temp file with the preserved model
-                jq --arg model "$USER_MODEL" '.model = $model' "$PAI_DIR/.claude/settings.json" > "$PAI_DIR/.claude/settings.json.tmp"
-                mv "$PAI_DIR/.claude/settings.json.tmp" "$PAI_DIR/.claude/settings.json"
+                # Modify the COPY in ~/.claude, not the PAI repo
+                jq --arg model "$USER_MODEL" '.model = $model' "$HOME/.claude/settings.json" > "$HOME/.claude/settings.json.tmp"
+                mv "$HOME/.claude/settings.json.tmp" "$HOME/.claude/settings.json"
             fi
         else
             # Fallback: check if model line exists and preserve it
@@ -735,8 +739,6 @@ if ask_yes_no "Are you using Claude Code?"; then
         fi
     fi
 
-    # Now copy settings.json to ~/.claude (NOT symlink - user can customize this copy)
-    cp "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
     print_success "Settings configured with your personalization"
 
     # ----------------------------------------

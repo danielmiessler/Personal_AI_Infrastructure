@@ -2015,6 +2015,53 @@ async function handleTest(args: string[], verbose: boolean) {
   const { runTests, runTest, printSummary, printTestStatus } = await import("./test/framework/runner");
   const { getSpecsByCategory, getSpecById, allIngestSpecs } = await import("./test/specs");
   const { TestCategory } = await import("./test/framework/types");
+  const { existsSync, mkdirSync, appendFileSync } = await import("fs");
+  const { join } = await import("path");
+
+  // Helper to set up console logging to run.log
+  type LogCleanup = { runLogPath: string; cleanup: () => void };
+  function setupRunLog(runId: string, layerName: string): LogCleanup {
+    const outputDir = join(import.meta.dir, "test", "output", runId);
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
+    }
+    const runLogPath = join(outputDir, "run.log");
+    
+    const originalLog = console.log;
+    const originalError = console.error;
+    const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
+    
+    console.log = (...args: unknown[]) => {
+      const line = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ");
+      originalLog(...args);
+      try {
+        appendFileSync(runLogPath, stripAnsi(line) + "\n");
+      } catch {}
+    };
+    console.error = (...args: unknown[]) => {
+      const line = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ");
+      originalError(...args);
+      try {
+        appendFileSync(runLogPath, "[ERROR] " + stripAnsi(line) + "\n");
+      } catch {}
+    };
+
+    // Write header
+    console.log("═".repeat(60));
+    console.log(`TEST RUN: ${runId}`);
+    console.log(`Layer: ${layerName}`);
+    console.log(`Started: ${new Date().toISOString()}`);
+    console.log("═".repeat(60));
+    
+    return {
+      runLogPath,
+      cleanup: () => {
+        console.log(`\n📄 Full log saved: ${runLogPath}`);
+        console.log = originalLog;
+        console.error = originalError;
+      }
+    };
+  }
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     console.log(TEST_HELP);
@@ -2035,6 +2082,10 @@ async function handleTest(args: string[], verbose: boolean) {
       const skipLlmJudge = subArgs.includes("--skip-llm-judge");
       const testId = subArgs.find(a => a.startsWith("TEST-"));
 
+      // Generate run ID and set up logging
+      const runId = `unit-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+      const logSetup = setupRunLog(runId, "Unit Tests");
+
       const summary = await runTests({
         testId,
         suite,
@@ -2042,6 +2093,7 @@ async function handleTest(args: string[], verbose: boolean) {
         verbose,
         keepOutput: keepOutput || !skipLlmJudge, // Keep output for LLM judge (runs by default)
         skipMedia,
+        runId,
       });
 
       printSummary(summary);
@@ -2065,6 +2117,7 @@ async function handleTest(args: string[], verbose: boolean) {
         });
       }
 
+      logSetup.cleanup();
       process.exit(summary.counts.failed > 0 ? 1 : 0);
       break;
     }
@@ -2095,6 +2148,10 @@ async function handleTest(args: string[], verbose: boolean) {
         concurrency = parseInt(subArgs[concurrencyIndex + 1], 10);
       }
 
+      // Generate run ID and set up logging
+      const runId = `integration-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+      const logSetup = setupRunLog(runId, "Integration Tests");
+
       console.log("\n🧪 Integration Test Runner");
       console.log("━".repeat(50));
       console.log("Sends test messages to Test Inbox and processes directly.");
@@ -2123,6 +2180,7 @@ async function handleTest(args: string[], verbose: boolean) {
             console.log(`  - ${check.name}: ${check.error || "failed"}`);
           }
         }
+        logSetup.cleanup();
         process.exit(result.passed ? 0 : 1);
       } else {
         // Run multiple tests
@@ -2134,14 +2192,16 @@ async function handleTest(args: string[], verbose: boolean) {
           dryRun,
           parallel,
           concurrency,
+          runId,
         });
 
         printIntegrationSummary(summary);
 
         // Save detailed report
-        const reportPath = saveDetailedReport(summary);
+        const reportPath = saveDetailedReport(summary, { runId });
         console.log(`\nDetailed report saved: ${reportPath}`);
 
+        logSetup.cleanup();
         process.exit(summary.counts.failed > 0 ? 1 : 0);
       }
       break;
@@ -2496,13 +2556,19 @@ async function handleTest(args: string[], verbose: boolean) {
         break;
       }
 
+      // Generate run ID and set up logging
+      const runId = `acceptance-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+      const logSetup = setupRunLog(runId, "Acceptance Tests");
+
       const testIds = subArgs.filter(a => a.startsWith("ACC-"));
 
       const summary = await runAcceptanceTests({
         testIds: testIds.length > 0 ? testIds : undefined,
         verbose,
+        runId,
       });
 
+      logSetup.cleanup();
       process.exit(summary.counts.failed > 0 ? 1 : 0);
       break;
     }
@@ -2516,15 +2582,21 @@ async function handleTest(args: string[], verbose: boolean) {
         break;
       }
 
+      // Generate run ID and set up logging
+      const runId = `cli-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+      const logSetup = setupRunLog(runId, "CLI Tests");
+
       const skipEmbeddings = subArgs.includes("--skip-embeddings");
-      const testIds = subArgs.filter(a => a.startsWith("CLI-"));
+      const testIds = subArgs.filter(a => a.startsWith("CLI-") || a.startsWith("TEST-CLI-"));
 
       const summary = await runCLITests({
         testIds: testIds.length > 0 ? testIds : undefined,
         verbose,
         skipEmbeddings,
+        runId,
       });
 
+      logSetup.cleanup();
       process.exit(summary.counts.failed > 0 ? 1 : 0);
       break;
     }
@@ -2696,6 +2768,41 @@ Tests with semantic validation specs:
       const startedAt = new Date().toISOString();
       const unifiedRunId = `all-${startedAt.slice(0, 19).replace(/[T:]/g, "-")}`;
 
+      // Create output directory and set up logging
+      const { existsSync, mkdirSync, appendFileSync } = await import("fs");
+      const { join } = await import("path");
+      const outputDir = join(import.meta.dir, "test", "output", unifiedRunId);
+      if (!existsSync(outputDir)) {
+        mkdirSync(outputDir, { recursive: true });
+      }
+      const runLogPath = join(outputDir, "run.log");
+      
+      // Intercept console.log to also write to run.log
+      const originalLog = console.log;
+      const originalError = console.error;
+      const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
+      
+      console.log = (...args: unknown[]) => {
+        const line = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ");
+        originalLog(...args);
+        try {
+          appendFileSync(runLogPath, stripAnsi(line) + "\n");
+        } catch {}
+      };
+      console.error = (...args: unknown[]) => {
+        const line = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ");
+        originalError(...args);
+        try {
+          appendFileSync(runLogPath, "[ERROR] " + stripAnsi(line) + "\n");
+        } catch {}
+      };
+
+      // Write header to log
+      console.log("═".repeat(60));
+      console.log(`TEST RUN: ${unifiedRunId}`);
+      console.log(`Started: ${startedAt}`);
+      console.log("═".repeat(60));
+
       console.log("\n🧪 Running All Test Layers");
       console.log("═".repeat(60));
       console.log(`Run ID: ${unifiedRunId}`);
@@ -2723,13 +2830,14 @@ Tests with semantic validation specs:
           status: "executed",
           passed: unitSummary.counts.passed,
           failed: unitSummary.counts.failed,
+          skipped: unitSummary.counts.skipped,
           total: unitSummary.counts.total,
           duration: unitSummary.duration,
           failedTests: unitSummary.results.filter(r => !r.passed).map(r => r.testId),
         });
         if (unitSummary.counts.failed > 0) hasFailures = true;
       } else {
-        layerResults.push({ layer: "unit", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
+        layerResults.push({ layer: "unit", status: "skipped", passed: 0, failed: 0, skipped: 0, total: 0, duration: 0, failedTests: [] });
       }
 
       // Layer 2: Integration Tests
@@ -2749,6 +2857,7 @@ Tests with semantic validation specs:
           status: "executed",
           passed: integrationSummary.counts.passed,
           failed: integrationSummary.counts.failed,
+          skipped: integrationSummary.counts.skipped,
           total: integrationSummary.counts.total,
           duration: integrationSummary.duration,
           failedTests: integrationSummary.results.filter(r => !r.passed).map(r => r.testId),
@@ -2756,7 +2865,7 @@ Tests with semantic validation specs:
         saveDetailedReport(integrationSummary, { runId: unifiedRunId, skipHistory: true });
         if (integrationSummary.counts.failed > 0) hasFailures = true;
       } else {
-        layerResults.push({ layer: "integration", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
+        layerResults.push({ layer: "integration", status: "skipped", passed: 0, failed: 0, skipped: 0, total: 0, duration: 0, failedTests: [] });
       }
 
       // Layer 3: CLI Tests
@@ -2774,13 +2883,14 @@ Tests with semantic validation specs:
           status: "executed",
           passed: cliSummary.counts.passed,
           failed: cliSummary.counts.failed,
+          skipped: cliSummary.counts.skipped,
           total: cliSummary.counts.total,
           duration: cliSummary.duration,
           failedTests: cliSummary.results.filter(r => !r.passed).map(r => r.testId),
         });
         if (cliSummary.counts.failed > 0) hasFailures = true;
       } else {
-        layerResults.push({ layer: "cli", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
+        layerResults.push({ layer: "cli", status: "skipped", passed: 0, failed: 0, skipped: 0, total: 0, duration: 0, failedTests: [] });
       }
 
       // Layer 4: Acceptance Tests
@@ -2797,49 +2907,57 @@ Tests with semantic validation specs:
           status: "executed",
           passed: acceptanceSummary.counts.passed,
           failed: acceptanceSummary.counts.failed,
+          skipped: acceptanceSummary.counts.skipped,
           total: acceptanceSummary.counts.total,
           duration: acceptanceSummary.duration,
           failedTests: acceptanceSummary.results.filter(r => !r.passed).map(r => r.testId),
         });
         if (acceptanceSummary.counts.failed > 0) hasFailures = true;
       } else {
-        layerResults.push({ layer: "acceptance", status: "skipped", passed: 0, failed: 0, total: 0, duration: 0, failedTests: [] });
+        layerResults.push({ layer: "acceptance", status: "skipped", passed: 0, failed: 0, skipped: 0, total: 0, duration: 0, failedTests: [] });
       }
 
       // Calculate total duration
       const totalDurationMs = layerResults.reduce((sum, lr) => sum + lr.duration, 0);
 
       // Print combined summary
-      console.log("\n" + "═".repeat(60));
+      console.log("\n" + "═".repeat(70));
       console.log("COMBINED TEST SUMMARY");
-      console.log("═".repeat(60));
-      console.log(` Layer         Status   Passed  Failed   Total   Time`);
-      console.log("─".repeat(60));
+      console.log("═".repeat(70));
+      console.log(` Layer         Status   Passed  Failed  Skipped   Total   Time`);
+      console.log("─".repeat(70));
 
-      let totalPassed = 0, totalFailed = 0, totalTests = 0;
+      let totalPassed = 0, totalFailed = 0, totalSkipped = 0, totalTests = 0;
       for (const lr of layerResults) {
         if (lr.status === "skipped") {
           console.log(` - ${lr.layer.padEnd(12)} skipped`);
         } else {
           const icon = lr.failed === 0 ? "✓" : "✗";
-          console.log(` ${icon} ${lr.layer.padEnd(12)} run     ${String(lr.passed).padStart(6)}  ${String(lr.failed).padStart(6)}  ${String(lr.total).padStart(6)}  ${(lr.duration / 1000).toFixed(1)}s`);
+          console.log(` ${icon} ${lr.layer.padEnd(12)} run     ${String(lr.passed).padStart(6)}  ${String(lr.failed).padStart(6)}  ${String(lr.skipped).padStart(7)}  ${String(lr.total).padStart(6)}  ${(lr.duration / 1000).toFixed(1)}s`);
           totalPassed += lr.passed;
           totalFailed += lr.failed;
+          totalSkipped += lr.skipped;
           totalTests += lr.total;
         }
       }
 
-      console.log("─".repeat(60));
+      console.log("─".repeat(70));
       const overallStatus = hasFailures ? "✗" : "✓";
-      console.log(` ${overallStatus} TOTAL                 ${String(totalPassed).padStart(6)}  ${String(totalFailed).padStart(6)}  ${String(totalTests).padStart(6)}  ${(totalDurationMs / 1000).toFixed(1)}s`);
-      console.log("═".repeat(60));
+      console.log(` ${overallStatus} TOTAL                 ${String(totalPassed).padStart(6)}  ${String(totalFailed).padStart(6)}  ${String(totalSkipped).padStart(7)}  ${String(totalTests).padStart(6)}  ${(totalDurationMs / 1000).toFixed(1)}s`);
+      console.log("═".repeat(70));
 
       const passRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0;
       console.log(`\nOverall pass rate: ${passRate}%`);
 
       // Record unified history entry
       appendUnifiedHistory(unifiedRunId, startedAt, totalDurationMs, layerResults);
+      
       console.log(`\nRun ID: ${unifiedRunId}`);
+      console.log(`\n📄 Full log saved: ${runLogPath}`);
+      
+      // Restore console
+      console.log = originalLog;
+      console.error = originalError;
 
       process.exit(hasFailures ? 1 : 0);
     }

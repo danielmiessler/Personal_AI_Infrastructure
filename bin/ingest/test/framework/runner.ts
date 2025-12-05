@@ -27,6 +27,16 @@ import {
   saveMarkdownReport,
   appendHistory,
 } from "./report";
+import {
+  printTestHeader,
+  printTestStatus as printTestResult,
+  printSkippedTest,
+  printTestError,
+  printFailedCheck,
+  printLayerHeader,
+  printTestCount,
+  colors,
+} from "./format";
 
 // =============================================================================
 // Constants
@@ -242,9 +252,7 @@ async function runTestWithSpec(
 
   // Always print test header BEFORE processing starts (not after like status line)
   if (options.verbose) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`▶ ${spec.id}: ${spec.name}`);
-    console.log(`${"─".repeat(60)}`);
+    printTestHeader(spec.id, spec.name);
   }
 
   // Redirect console to capture (and optionally display with prefix)
@@ -375,35 +383,26 @@ export async function runTests(
 
     // Check if this was a skipped test
     const isSkipped = result.checks.some(c => c.name === "skipped");
-    const skipReason = result.checks.find(c => c.name === "skipped")?.expected;
+    const skipReasonRaw = result.checks.find(c => c.name === "skipped")?.expected;
+    const skipReason = typeof skipReasonRaw === "string" ? skipReasonRaw : "";
 
-    // Print progress
-    const durationStr = result.duration > 0 ? `(${(result.duration / 1000).toFixed(1)}s)` : "";
-    // Show indicator if test has semantic validation (will be evaluated by LLM judge)
-    const semanticIndicator = spec.expected.semantic ? " 🔍" : "";
-    
+    // Print progress using shared format
     if (isSkipped) {
-      // Skipped tests - show in yellow/dim with reason
-      console.log(`\x1b[33m⊘\x1b[0m ${spec.id}: ${spec.name}${semanticIndicator} \x1b[2m[SKIPPED: ${skipReason}]\x1b[0m`);
-    } else if (options.verbose) {
-      // When verbose, print completion line at end of test block
-      const status = result.passed ? "✓" : "✗";
-      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-      console.log(`${color}${status} ${spec.id}: ${result.passed ? "PASSED" : "FAILED"} ${durationStr}${semanticIndicator}\x1b[0m`);
+      printSkippedTest(spec.id, spec.name, skipReason);
     } else {
-      // When not verbose, just show compact status
-      const status = result.passed ? "✓" : "✗";
-      const color = result.passed ? "\x1b[32m" : "\x1b[31m";
-      console.log(`${color}${status}\x1b[0m ${spec.id}: ${spec.name} ${durationStr}${semanticIndicator}`);
+      printTestResult(spec.id, spec.name, result.passed, result.duration, {
+        hasSemanticValidation: !!spec.expected.semantic,
+        verbose: options.verbose,
+      });
     }
 
     if (!result.passed && !isSkipped && result.error) {
-      console.log(`  Error: ${result.error}`);
+      printTestError(result.error);
     }
     if (!result.passed && !isSkipped && result.checks.length > 0) {
       const failed = result.checks.filter(c => !c.passed);
       for (const check of failed.slice(0, 3)) {
-        console.log(`  - ${check.name}: ${check.error || "failed"}`);
+        printFailedCheck(check.name, check.error);
       }
     }
   }
@@ -460,21 +459,21 @@ export async function runTests(
  * Print test summary
  */
 export function printSummary(summary: TestRunSummary): void {
-  console.log("\n" + "=".repeat(50));
-  console.log("TEST SUMMARY");
-  console.log("=".repeat(50));
-  console.log(`Total:   ${summary.counts.total}`);
+  console.log("\n" + "═".repeat(50));
+  console.log("UNIT TEST SUMMARY");
+  console.log("═".repeat(50));
+  console.log(`Total:    ${summary.counts.total}`);
   
   // Always show all three statuses for consistency
   const passedColor = summary.counts.passed > 0 ? "\x1b[32m" : "";
   const failedColor = summary.counts.failed > 0 ? "\x1b[31m" : "";
-  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "";
+  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "\x1b[2m";
   
-  console.log(`${passedColor}Passed:  ${summary.counts.passed}\x1b[0m`);
-  console.log(`${failedColor}Failed:  ${summary.counts.failed}\x1b[0m`);
-  console.log(`${skippedColor}Skipped: ${summary.counts.skipped}\x1b[0m`);
-  console.log(`Duration: ${summary.duration}ms`);
-  console.log("=".repeat(50));
+  console.log(`${passedColor}Passed:   ${summary.counts.passed}\x1b[0m`);
+  console.log(`${failedColor}Failed:   ${summary.counts.failed}\x1b[0m`);
+  console.log(`${skippedColor}Skipped:  ${summary.counts.skipped}\x1b[0m`);
+  console.log(`Duration: ${(summary.duration / 1000).toFixed(1)}s`);
+  console.log("═".repeat(50));
 
   if (summary.counts.failed > 0) {
     console.log("\nFailed tests:");

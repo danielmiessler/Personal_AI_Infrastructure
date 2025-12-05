@@ -647,7 +647,7 @@ export const regressionPhotoCmdSpecs: TestSpec[] = [
       caption: "/store Reference image",
     },
     expected: {
-      verboseOutput: ["Storing image"],
+      verboseOutput: ["Storing image without processing"],
       content: {
         notContains: ["**Analysis:**"],
       },

@@ -1795,6 +1795,7 @@ async function processPhoto(
   try {
     // /store - Just save image reference, no processing
     if (commands.includes("store")) {
+      console.log("    Storing image without processing (/store command)");
       const imagePath = await saveImageToVault(filePath, config.vaultPath, message.message_id);
       return {
         content: `![Image](${imagePath})\n\n${caption}`,
@@ -1814,10 +1815,13 @@ async function processPhoto(
 
     // Vision AI processing (if API key available)
     if (config.openaiApiKey) {
+      console.log("    Vision API: Processing image...");
+      
       // Determine the prompt
       let prompt: string;
 
       if (commands.includes("describe")) {
+        console.log("    Describe this image prompt");
         prompt = "Describe this image in detail. What do you see?";
       } else if (commands.includes("mermaid")) {
         prompt = "Extract the diagram, flowchart, or structure from this image and convert it to Mermaid diagram syntax. IMPORTANT: Escape special characters in node labels - use quotes around text containing parentheses, brackets, or special chars (e.g., use A[\"Maximo (EAM)\"] not A[Maximo (EAM)]). Return only the Mermaid code block.";

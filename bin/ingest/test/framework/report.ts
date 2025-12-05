@@ -19,6 +19,7 @@ export interface LayerResult {
   status: "executed" | "skipped";
   passed: number;
   failed: number;
+  skipped: number;
   total: number;
   duration: number;
   failedTests: string[];

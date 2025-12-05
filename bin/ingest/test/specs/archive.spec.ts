@@ -34,7 +34,7 @@ export const archiveNamingSpecs: TestSpec[] = [
       },
       pipeline: "archive",
       dropboxSync: true,
-      verboseOutput: ["Archive filename generated"],
+      verboseOutput: ["Generated archive name"],
     },
     meta: {
       docRef: "test-scripts.md#TEST-INGv2-100",
@@ -56,7 +56,7 @@ export const archiveNamingSpecs: TestSpec[] = [
       archiveFilenamePattern: "^CONTRACT - 20240208 - Employment Agreement\\.pdf$",
       pipeline: "archive",
       dropboxSync: true,
-      verboseOutput: ["Preserving original filename"],
+      verboseOutput: ["Preserving archive name"],
     },
     meta: {
       docRef: "test-scripts.md#TEST-INGv2-101",

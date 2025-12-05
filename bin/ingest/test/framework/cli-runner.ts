@@ -14,6 +14,13 @@ import { existsSync, unlinkSync, readFileSync } from "fs";
 import { appendTestFilesRegistry, appendHistory, type TestFileEntry, type TestReport } from "./report";
 import { directCLITestSpecs } from "../specs/cli-direct.spec";
 import { contextCLITestSpecs } from "../specs/cli-context.spec";
+import {
+  printTestHeader,
+  printTestStatus,
+  printTestError,
+  printFailedCheck,
+  printLayerHeader,
+} from "./format";
 
 // =============================================================================
 // Types
@@ -351,20 +358,30 @@ async function executeTest(spec: CLITestSpec, createdFiles: string[]): Promise<C
     }
 
     const passed = checks.every((c) => c.passed);
-    const status = passed ? "✓" : "✗";
-    console.log(`  ${status} ${spec.id}: ${passed ? "passed" : "failed"} (${Date.now() - startTime}ms)`);
+    const duration = Date.now() - startTime;
+    
+    // Print status using shared format
+    printTestStatus(spec.id, spec.name, passed, duration, { verbose: false });
+    
+    if (!passed) {
+      const failed = checks.filter(c => !c.passed);
+      for (const check of failed.slice(0, 3)) {
+        printFailedCheck(check.name, check.error);
+      }
+    }
 
     return {
       testId: spec.id,
       name: spec.name,
       passed,
-      duration: Date.now() - startTime,
+      duration,
       output: output.slice(0, 2000),
       checks,
       createdFiles: [...createdFiles],
     };
   } catch (error) {
-    console.log(`  ✗ ${spec.id}: error - ${error}`);
+    printTestStatus(spec.id, spec.name, false, Date.now() - startTime, { verbose: false });
+    printTestError(error instanceof Error ? error.message : String(error));
     return {
       testId: spec.id,
       name: spec.name,
@@ -392,10 +409,7 @@ export async function runCLITests(options: {
   const results: CLITestResult[] = [];
   const allCreatedFiles: string[] = [];
 
-  console.log("\n🔧 CLI Integration Test Runner (Layer 3)");
-  console.log("═".repeat(50));
-  console.log("Tests obs CLI commands: search, semantic, read, tags");
-  console.log("═".repeat(50));
+  printLayerHeader(3, "CLI Tests", "🔧", "Tests obs CLI commands: search, semantic, read, tags");
 
   // Filter tests if specific IDs provided
   // Use allCLITestSpecs to include both obs tests (CLI-001+) and direct tests (TEST-CLI-010+)
@@ -422,8 +436,11 @@ export async function runCLITests(options: {
   }
 
   // Phase 3: Execute all test commands
-  console.log("\n🧪 Phase 3: Executing tests...");
+  console.log("\n🧪 Phase 3: Executing tests...\n");
   for (const spec of specs) {
+    if (options.verbose) {
+      printTestHeader(spec.id, spec.name);
+    }
     const result = await executeTest(spec, allCreatedFiles);
     results.push(result);
   }
@@ -448,9 +465,16 @@ export async function runCLITests(options: {
   console.log("\n" + "═".repeat(50));
   console.log("CLI TEST SUMMARY");
   console.log("═".repeat(50));
-  console.log(`Total:   ${summary.counts.total}`);
-  console.log(`Passed:  ${summary.counts.passed}`);
-  console.log(`Failed:  ${summary.counts.failed}`);
+  console.log(`Total:    ${summary.counts.total}`);
+  
+  // Always show all statuses with color coding
+  const passedColor = summary.counts.passed > 0 ? "\x1b[32m" : "";
+  const failedColor = summary.counts.failed > 0 ? "\x1b[31m" : "";
+  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "\x1b[2m";
+  
+  console.log(`${passedColor}Passed:   ${summary.counts.passed}\x1b[0m`);
+  console.log(`${failedColor}Failed:   ${summary.counts.failed}\x1b[0m`);
+  console.log(`${skippedColor}Skipped:  ${summary.counts.skipped}\x1b[0m`);
   console.log(`Duration: ${(duration / 1000).toFixed(1)}s`);
   console.log("═".repeat(50));
 

@@ -15,6 +15,13 @@ import { execSync, spawn } from "child_process";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { appendHistory, type TestReport, type TestLayer } from "./report";
+import {
+  printTestHeader,
+  printTestStatus,
+  printTestError,
+  printFailedCheck,
+  printLayerHeader,
+} from "./format";
 
 // =============================================================================
 // Types
@@ -401,19 +408,29 @@ async function executeAcceptanceTest(spec: AcceptanceTestSpec): Promise<Acceptan
     }
 
     const passed = checks.every((c) => c.passed);
-    const status = passed ? "✓" : "✗";
-    console.log(`  ${status} ${spec.id}: ${passed ? "passed" : "failed"} (${Date.now() - startTime}ms)`);
+    const duration = Date.now() - startTime;
+    
+    // Print status using shared format
+    printTestStatus(spec.id, spec.name, passed, duration, { verbose: false });
+    
+    if (!passed) {
+      const failed = checks.filter(c => !c.passed);
+      for (const check of failed.slice(0, 3)) {
+        printFailedCheck(check.name, check.error);
+      }
+    }
 
     return {
       testId: spec.id,
       name: spec.name,
       passed,
-      duration: Date.now() - startTime,
+      duration,
       output: output.slice(0, 2000),
       checks,
     };
   } catch (error) {
-    console.log(`  ✗ ${spec.id}: error - ${error}`);
+    printTestStatus(spec.id, spec.name, false, Date.now() - startTime, { verbose: false });
+    printTestError(error instanceof Error ? error.message : String(error));
     return {
       testId: spec.id,
       name: spec.name,
@@ -438,10 +455,7 @@ export async function runAcceptanceTests(options: {
   const startTime = Date.now();
   const results: AcceptanceTestResult[] = [];
 
-  console.log("\n🎯 Acceptance Test Runner (Layer 4)");
-  console.log("═".repeat(60));
-  console.log("Uses claude -p to test end-to-end user workflows");
-  console.log("═".repeat(60));
+  printLayerHeader(4, "Acceptance Tests", "🎯", "Uses claude -p to test end-to-end user workflows");
 
   // Filter tests if specific IDs provided
   let specs = acceptanceTestSpecs;
@@ -449,9 +463,12 @@ export async function runAcceptanceTests(options: {
     specs = acceptanceTestSpecs.filter((s) => options.testIds!.includes(s.id));
   }
 
-  console.log(`\nRunning ${specs.length} acceptance tests...`);
+  console.log(`\nRunning ${specs.length} acceptance tests...\n`);
 
   for (const spec of specs) {
+    if (options.verbose) {
+      printTestHeader(spec.id, spec.name);
+    }
     const result = await executeAcceptanceTest(spec);
     results.push(result);
   }
@@ -476,9 +493,16 @@ export async function runAcceptanceTests(options: {
   console.log("\n" + "═".repeat(60));
   console.log("ACCEPTANCE TEST SUMMARY");
   console.log("═".repeat(60));
-  console.log(`Total:   ${summary.counts.total}`);
-  console.log(`Passed:  ${summary.counts.passed}`);
-  console.log(`Failed:  ${summary.counts.failed}`);
+  console.log(`Total:    ${summary.counts.total}`);
+  
+  // Always show all statuses with color coding
+  const passedColor = summary.counts.passed > 0 ? "\x1b[32m" : "";
+  const failedColor = summary.counts.failed > 0 ? "\x1b[31m" : "";
+  const skippedColor = summary.counts.skipped > 0 ? "\x1b[33m" : "\x1b[2m";
+  
+  console.log(`${passedColor}Passed:   ${summary.counts.passed}\x1b[0m`);
+  console.log(`${failedColor}Failed:   ${summary.counts.failed}\x1b[0m`);
+  console.log(`${skippedColor}Skipped:  ${summary.counts.skipped}\x1b[0m`);
   console.log(`Duration: ${(duration / 1000).toFixed(1)}s`);
   console.log("═".repeat(60));
 

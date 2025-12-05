@@ -384,10 +384,15 @@ export async function runLLMJudge(
   console.log("\n" + "═".repeat(50));
   console.log("LLM-AS-JUDGE SUMMARY");
   console.log("═".repeat(50));
-  console.log(`Total:      ${summary.total}`);
-  console.log(`Passed:     ${summary.passed}`);
-  console.log(`Failed:     ${summary.failed}`);
-  console.log(`Avg Conf:   ${summary.avgConfidence}%`);
+  console.log(`Total:    ${summary.total}`);
+  
+  // Color coding for pass/fail
+  const passedColor = summary.passed > 0 ? "\x1b[32m" : "";
+  const failedColor = summary.failed > 0 ? "\x1b[31m" : "";
+  
+  console.log(`${passedColor}Passed:   ${summary.passed}\x1b[0m`);
+  console.log(`${failedColor}Failed:   ${summary.failed}\x1b[0m`);
+  console.log(`Avg Conf: ${summary.avgConfidence}%`);
   console.log("═".repeat(50));
   console.log(`Results saved: ${resultsPath}`);
 

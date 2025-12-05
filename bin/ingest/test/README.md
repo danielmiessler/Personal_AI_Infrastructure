@@ -338,12 +338,12 @@ bun run ingest.ts test run --skip-llm-judge
 
 ### Which Tests Have Semantic Validation?
 
-Tests marked with 🔍 in the output have semantic validation configured:
+Tests marked with `[LLM-JUDGE]` in the output have semantic validation configured:
 
 ```
-✓ TEST-REG-003: PASSED (5.3s) 🔍
-✓ TEST-PAT-001: PASSED (12.4s) 🔍
-✓ TEST-SCOPE-001: PASSED (4.1s)     # No semantic (deterministic check is sufficient)
+✓ TEST-REG-003: PASSED (5.3s) [LLM-JUDGE]
+✓ TEST-PAT-001: PASSED (12.4s) [LLM-JUDGE]
+✓ TEST-SCOPE-001: PASSED (4.1s)              # No semantic (deterministic check is sufficient)
 ```
 
 **Currently enabled for (9 tests):**

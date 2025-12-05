@@ -319,12 +319,12 @@ bun run ingest.ts test run --skip-llm-judge
 
 ### 5.3 Output Display
 
-Tests with semantic validation are marked with 🔍 in the output:
+Tests with semantic validation are marked with `[LLM-JUDGE]` in the output:
 
 ```
-✓ TEST-REG-003: PASSED (5.3s) 🔍    # Has semantic validation
-✓ TEST-PAT-001: PASSED (12.4s) 🔍   # Has semantic validation  
-✓ TEST-SCOPE-001: PASSED (4.1s)      # No semantic (deterministic only)
+✓ TEST-REG-003: PASSED (5.3s) [LLM-JUDGE]    # Has semantic validation
+✓ TEST-PAT-001: PASSED (12.4s) [LLM-JUDGE]   # Has semantic validation  
+✓ TEST-SCOPE-001: PASSED (4.1s)               # No semantic (deterministic only)
 ```
 
 After tests complete, LLM-as-judge results appear:

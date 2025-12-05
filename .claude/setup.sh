@@ -364,6 +364,15 @@ if [ -d "$PAI_DIR/.git" ]; then
         print_step "Updating PAI..."
         cd "$PAI_DIR"
 
+        # Reset files that setup.sh modifies (keeps repo clean for pull)
+        # These are PAI-managed files that get copied to ~/.claude anyway
+        if git diff --quiet .claude/settings.json 2>/dev/null; then
+            : # File is clean, nothing to do
+        else
+            print_info "Resetting PAI-managed files for clean update..."
+            git checkout -- .claude/settings.json 2>/dev/null || true
+        fi
+
         # Ensure we're on the correct branch
         current_branch=$(git branch --show-current)
         if [ "$current_branch" != "$PAI_BRANCH" ]; then

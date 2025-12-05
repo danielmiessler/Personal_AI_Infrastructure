@@ -364,13 +364,14 @@ if [ -d "$PAI_DIR/.git" ]; then
         print_step "Updating PAI..."
         cd "$PAI_DIR"
 
-        # Reset files that setup.sh modifies (keeps repo clean for pull)
-        # These are PAI-managed files that get copied to ~/.claude anyway
-        if git diff --quiet .claude/settings.json 2>/dev/null; then
-            : # File is clean, nothing to do
-        else
-            print_info "Resetting PAI-managed files for clean update..."
-            git checkout -- .claude/settings.json 2>/dev/null || true
+        # Reset any dirty files in the repo (keeps repo clean for pull)
+        # User data (history, sessions) should be in ~/.claude, not here
+        if ! git diff --quiet 2>/dev/null; then
+            print_info "Resetting local changes for clean update..."
+            print_info "(Your data is safe in ~/.claude, not in the repo)"
+            git checkout -- . 2>/dev/null || true
+            # Also clean untracked files in .claude that shouldn't be there
+            git clean -fd .claude/history .claude/scratchpad 2>/dev/null || true
         fi
 
         # Ensure we're on the correct branch
@@ -654,11 +655,21 @@ if ask_yes_no "Are you using Claude Code?"; then
     mkdir -p "$HOME/.claude"
 
     # ----------------------------------------
+    # Create LOCAL directories (NOT symlinked - user-specific runtime data)
+    # ----------------------------------------
+    mkdir -p "$HOME/.claude/history/sessions"
+    mkdir -p "$HOME/.claude/history/raw-outputs"
+    mkdir -p "$HOME/.claude/history/learnings"
+    mkdir -p "$HOME/.claude/history/research"
+    mkdir -p "$HOME/.claude/scratchpad"
+
+    # ----------------------------------------
     # Symlink directories (skills, hooks, commands, etc.)
+    # These are PAI-managed and update with git pull
     # ----------------------------------------
     print_step "Setting up symlinks to PAI..."
 
-    # List of directories to symlink
+    # List of directories to symlink (NOT history/scratchpad - those are local)
     SYMLINK_DIRS="skills hooks commands Tools agents"
 
     for dir in $SYMLINK_DIRS; do
@@ -698,10 +709,11 @@ if ask_yes_no "Are you using Claude Code?"; then
     cp "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
 
     # Now personalize the COPY with user values (never touch PAI repo)
+    # IMPORTANT: PAI_DIR must point to ~/.claude (not repo) so hooks write to local history
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' \
-            -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
-            -e "s|/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude|$PAI_DIR/.claude|g" \
+            -e "s|/Users/YOURNAME/.claude|$HOME/.claude|g" \
+            -e "s|/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude|$HOME/.claude|g" \
             -e "s|\"DA\": \"PAI\"|\"DA\": \"$AI_NAME\"|g" \
             -e "s|\"DA\": \"Charles\"|\"DA\": \"$AI_NAME\"|g" \
             -e "s|\"DA\": \"Kai\"|\"DA\": \"$AI_NAME\"|g" \
@@ -712,8 +724,8 @@ if ask_yes_no "Are you using Claude Code?"; then
             "$HOME/.claude/settings.json"
     else
         sed -i \
-            -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \
-            -e "s|/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude|$PAI_DIR/.claude|g" \
+            -e "s|/Users/YOURNAME/.claude|$HOME/.claude|g" \
+            -e "s|/Users/jbarkley/src/pai/Personal_AI_Infrastructure/.claude|$HOME/.claude|g" \
             -e "s|\"DA\": \"PAI\"|\"DA\": \"$AI_NAME\"|g" \
             -e "s|\"DA\": \"Charles\"|\"DA\": \"$AI_NAME\"|g" \
             -e "s|\"DA\": \"Kai\"|\"DA\": \"$AI_NAME\"|g" \

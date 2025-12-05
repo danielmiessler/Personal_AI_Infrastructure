@@ -61,3 +61,10 @@ out/
 private/
 secrets/
 credentials/
+
+# Claude Code runtime data (user-specific, changes constantly)
+.claude/history/
+.claude/agent-sessions.json
+.claude/scratchpad/
+.claude/*.bak
+.claude/settings.json.bak

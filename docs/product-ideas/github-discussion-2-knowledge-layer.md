@@ -371,32 +371,69 @@ A comprehensive **4-layer test pyramid** ensures quality and enables safe iterat
 
 ### Test Pyramid
 
-| Layer | Duration | What It Tests | Command |
-|-------|----------|---------------|---------|
-| **1. Unit** | ~4 min | `processMessage()` with fixtures | `ingest test run` |
-| **2. Integration** | ~2 min | Full Telegram → vault pipeline | `ingest test integration` |
-| **3. CLI** | ~3 min | `obs` search/semantic, `ingest direct` | `ingest test cli` |
-| **4. Acceptance** | ~8 min | End-to-end via `claude -p` | `ingest test acceptance` |
+| Layer | Tests | Duration | What It Tests | Command |
+|-------|-------|----------|---------------|---------|
+| **1. Unit** | 49 | ~6 min | `processMessage()` with fixtures | `ingest test run` |
+| **2. Integration** | 46 | ~10 min | Full Telegram → vault pipeline | `ingest test integration` |
+| **3. CLI** | 26 | ~1 min | `obs` search/semantic, `ingest direct` | `ingest test cli` |
+| **4. Acceptance** | 7 | ~3 min | End-to-end via `claude -p` | `ingest test acceptance` |
+| **Total** | **128** | **~20 min** | Full regression suite | `ingest test all` |
 
 ### Unified Test Runs
 
 ```bash
 # Run ALL layers (recommended for pre-release)
-bun run ingest.ts test all
+bun run ingest.ts test all --skip-daemon
 
 # Output:
-# ════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 # COMBINED TEST SUMMARY
-# ════════════════════════════════════════════════════════════
-#  Layer         Status   Passed  Failed   Total   Time
-# ────────────────────────────────────────────────────────────
-#  ✓ unit         run        30       0      30    45.2s
-#  ✓ integration  run        15       0      15    62.1s
-#  ✓ cli          run        12       0      12    38.1s
-#  ✓ acceptance   run         8       0       8    48.3s
-# ────────────────────────────────────────────────────────────
-#  ✓ TOTAL                   65       0      65   193.7s
-# ════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
+#  Layer         Status   Passed  Failed  Skipped   Total   Time
+# ──────────────────────────────────────────────────────────────────────
+#  ✗ unit         run         40       6        3      49  364.3s
+#  ✗ integration  run         41       5        0      46  570.4s
+#  ✗ cli          run         24       2        0      26   77.3s
+#  ✓ acceptance   run          7       0        0       7  170.7s
+# ──────────────────────────────────────────────────────────────────────
+#  ✗ TOTAL                   112      13        3     128 1182.7s
+# ══════════════════════════════════════════════════════════════════════
+# 
+# Overall pass rate: 88%
+```
+
+### Test Output Format
+
+Each test displays with consistent formatting across all layers:
+
+```
+────────────────────────────────────────────────────────────
+▶ TEST-SCOPE-001: Explicit ~private sigil
+────────────────────────────────────────────────────────────
+  [TEST] Processing text message_id=252
+    Extracted scope hint: "private"
+  [TEST] Saved: .../TEST-SCOPE-001/2025-12-05-[TEST-SCOPE-001] This is a personal health note-Telegram-Raw.md
+  [TEST] Created 1 files
+  
+✓ TEST-SCOPE-001: PASSED (4.8s)
+```
+
+**Status indicators:**
+- `✓` Green checkmark for passed tests
+- `✗` Red X for failed tests  
+- `⊘` Yellow circle for skipped tests with reason: `[SKIPPED: reason]`
+- `[LLM-JUDGE]` tag on tests with semantic validation
+
+**Example with LLM-as-judge semantic validation:**
+```
+✓ TEST-REG-003: PASSED (4.6s) [LLM-JUDGE]
+✓ TEST-PAT-001: PASSED (13.7s) [LLM-JUDGE]
+```
+
+**Example skipped test:**
+```
+⊘ TEST-REG-005b: Voice memo with spoken hints [SKIPPED: Fixture audio doesn't contain expected spoken hints]
+⊘ TEST-EMB-001: New note is searchable via semantic [SKIPPED: Embedding happens post-ingest]
 ```
 
 ### Test Categories
@@ -442,7 +479,31 @@ Tests can validate:
 - **Content**: `expected.content.contains`, `expected.content.notContains`
 - **Verbose Output**: `expected.verboseOutput` (console log strings)
 - **Dropbox Sync**: `expected.dropboxSync`
-- **Semantic**: LLM-as-judge validation for complex outputs
+- **Semantic**: LLM-as-judge validation for complex AI outputs
+
+### LLM-as-Judge Semantic Validation
+
+For tests with non-deterministic AI outputs (summaries, wisdom extraction), an automated LLM-as-judge validates quality:
+
+```typescript
+expected: {
+  semantic: {
+    description: "Well-structured meeting summary",
+    checkpoints: [
+      "Contains meeting sections (agenda, decisions, action items)",
+      "Action items are identified with owners",
+      "Handles incomplete input gracefully",
+    ],
+    threshold: 80,  // Minimum confidence score
+  },
+}
+```
+
+After unit tests complete, `claude -p` evaluates each semantic test:
+- Reads the generated vault file
+- Compares against checkpoints
+- Returns confidence score and reasoning
+- Results included in test report with `[LLM-JUDGE]` indicator
 
 ### Test History & Quality Tracking
 
@@ -486,9 +547,16 @@ bin/
     │   ├── security.ts  # Prompt injection detection
     │   └── tag-matcher.ts # Transcribed hint matching
     └── test/
-        ├── fixtures/    # 70+ test fixtures
-        ├── specs/       # Test specifications
-        └── framework/   # 4-layer test infrastructure (~6,400 lines)
+        ├── fixtures/    # 70+ captured Telegram message fixtures
+        ├── specs/       # Test specifications (128 tests across 5 categories)
+        ├── output/      # Test run history, reports, logs
+        └── framework/   # 4-layer test infrastructure
+            ├── runner.ts           # Unit test runner
+            ├── integration-runner.ts  # Integration tests (processMessage direct)
+            ├── cli-runner.ts       # CLI command tests
+            ├── acceptance-runner.ts   # claude -p acceptance tests
+            ├── llm-judge.ts        # Semantic validation via Claude
+            └── format.ts           # Shared output formatting
 ```
 
 ### Dependencies

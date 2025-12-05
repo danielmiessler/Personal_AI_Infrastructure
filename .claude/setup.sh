@@ -406,31 +406,37 @@ else
     SHOULD_ADD_CONFIG=true
 fi
 
+# Ask for personalization (ALWAYS, regardless of shell config update)
+print_step "Personalizing your PAI installation..."
+
+# Ask for AI assistant name
+AI_NAME=$(ask_input "What would you like to call your AI assistant?" "Kai")
+
+# Ask for user's name
+USER_NAME=$(ask_input "What's your name?" "User")
+
+# Ask for color
+echo ""
+echo "Choose a display color:"
+echo "  1) purple (default)"
+echo "  2) blue"
+echo "  3) green"
+echo "  4) cyan"
+echo "  5) red"
+echo ""
+color_choice=$(ask_input "Enter your choice (1-5)" "1")
+
+case $color_choice in
+    1) AI_COLOR="purple" ;;
+    2) AI_COLOR="blue" ;;
+    3) AI_COLOR="green" ;;
+    4) AI_COLOR="cyan" ;;
+    5) AI_COLOR="red" ;;
+    *) AI_COLOR="purple" ;;
+esac
+
 if [ "$SHOULD_ADD_CONFIG" = true ]; then
     print_step "Adding PAI environment variables to $SHELL_CONFIG..."
-
-    # Ask for AI assistant name
-    AI_NAME=$(ask_input "What would you like to call your AI assistant?" "Kai")
-
-    # Ask for color
-    echo ""
-    echo "Choose a display color:"
-    echo "  1) purple (default)"
-    echo "  2) blue"
-    echo "  3) green"
-    echo "  4) cyan"
-    echo "  5) red"
-    echo ""
-    color_choice=$(ask_input "Enter your choice (1-5)" "1")
-
-    case $color_choice in
-        1) AI_COLOR="purple" ;;
-        2) AI_COLOR="blue" ;;
-        3) AI_COLOR="green" ;;
-        4) AI_COLOR="cyan" ;;
-        5) AI_COLOR="red" ;;
-        *) AI_COLOR="purple" ;;
-    esac
 
     # Add configuration to shell config
     cat >> "$SHELL_CONFIG" << EOF
@@ -592,10 +598,7 @@ if ask_yes_no "Are you using Claude Code?"; then
     # Create Claude directory if it doesn't exist
     mkdir -p "$HOME/.claude"
 
-    # Ask for user's name
-    USER_NAME=$(ask_input "What's your name?" "User")
-
-    # Customize settings.json with user values
+    # Customize settings.json with user values (AI_NAME and USER_NAME already set earlier)
     print_step "Personalizing settings.json..."
     sed -i.bak \
         -e "s|/Users/YOURNAME/.claude|$PAI_DIR/.claude|g" \

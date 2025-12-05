@@ -94,13 +94,13 @@ ask_yes_no() {
     fi
 
     while true; do
-        echo -n -e "${CYAN}${THINKING} $question $prompt: ${NC}"
+        echo -n -e "${CYAN}${THINKING} $question $prompt: ${NC}" >/dev/tty
         read -r response </dev/tty
         response=${response:-$default}
         case "$response" in
             [Yy]* ) return 0;;
             [Nn]* ) return 1;;
-            * ) echo "Please answer yes or no.";;
+            * ) echo "Please answer yes or no." >/dev/tty;;
         esac
     done
 }
@@ -111,9 +111,9 @@ ask_input() {
     local response
 
     if [ -n "$default" ]; then
-        echo -n -e "${CYAN}${THINKING} $question [$default]: ${NC}"
+        echo -n -e "${CYAN}${THINKING} $question [$default]: ${NC}" >/dev/tty
     else
-        echo -n -e "${CYAN}${THINKING} $question: ${NC}"
+        echo -n -e "${CYAN}${THINKING} $question: ${NC}" >/dev/tty
     fi
 
     read -r response </dev/tty
@@ -523,7 +523,8 @@ if ask_yes_no "Would you like to add API keys now?" "n"; then
     open -e "$PAI_DIR/.env" 2>/dev/null || nano "$PAI_DIR/.env"
     echo ""
     print_info "When you're done editing, save and close the file."
-    read -p "Press Enter when you're ready to continue..." </dev/tty
+    echo -n "Press Enter when you're ready to continue..." >/dev/tty
+    read </dev/tty
 else
     print_info "You can add API keys later by editing: $PAI_DIR/.env"
 fi

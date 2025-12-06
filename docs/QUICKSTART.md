@@ -20,7 +20,7 @@ git clone https://github.com/danielmiessler/PAI.git ~/.claude
 ### 2. Run the Setup Wizard
 
 ```bash
-~/.claude/.claude/tools/setup/bootstrap.sh
+~/.claude/tools/setup/bootstrap.sh
 ```
 
 The bootstrap script handles everything:
@@ -62,7 +62,7 @@ git clone https://github.com/danielmiessler/PAI.git ~/.claude
 ### 2. Run the Setup Wizard
 
 ```bash
-~/.claude/.claude/tools/setup/bootstrap.sh
+~/.claude/tools/setup/bootstrap.sh
 ```
 
 The bootstrap script handles everything:
@@ -157,7 +157,7 @@ For automation or scripting:
 
 **macOS/Linux:**
 ```bash
-cd ~/.claude/.claude/tools/setup
+cd ~/.claude/tools/setup
 bun run setup.ts \
   --pai-dir ~/.claude \
   --name "Your Name" \
@@ -289,7 +289,7 @@ If you see errors like `No such file or directory: __HOME__/.claude/...`, the `P
 
 **Fix: Re-run the setup script**
 ```bash
-bash ~/.claude/.claude/setup.sh
+bash ~/.claude/setup.sh
 ```
 
 This automatically configures `PAI_DIR` with your actual home directory path.

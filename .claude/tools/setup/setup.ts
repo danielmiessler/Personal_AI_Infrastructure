@@ -14,6 +14,7 @@ import {
   writeProfile,
   writePlist,
   updateShellProfile,
+  updateSettingsJson,
   type SetupConfig,
 } from './configurators';
 import { expandPath, validatePath, validateEmail, validateName, validateAssistantName } from './validators';
@@ -141,14 +142,21 @@ async function applyConfiguration(config: SetupConfig, dryRun: boolean): Promise
     }
     p.log.success('Directory structure created');
 
-    // Step 2: Write profile config
+    // Step 2: Update settings.json with actual PAI_DIR path
+    p.log.step('Configuring settings.json...');
+    if (!dryRun) {
+      await updateSettingsJson(config, transaction);
+    }
+    p.log.success('Settings configured with actual home directory path');
+
+    // Step 3: Write profile config
     p.log.step('Writing profile configuration...');
     if (!dryRun) {
       await writeProfile(config, transaction);
     }
     p.log.success(`Profile saved to ${config.paiDir}/config/profile.json`);
 
-    // Step 3: Configure voice server (macOS only)
+    // Step 4: Configure voice server (macOS only)
     if (config.voiceEnabled) {
       p.log.step('Configuring voice server...');
       if (!dryRun) {
@@ -159,7 +167,7 @@ async function applyConfiguration(config: SetupConfig, dryRun: boolean): Promise
       p.log.info('Voice server: skipped');
     }
 
-    // Step 4: Update shell profile
+    // Step 5: Update shell profile
     if (config.updateShellProfile) {
       p.log.step('Updating shell profile...');
       if (!dryRun) {

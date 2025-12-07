@@ -30,6 +30,12 @@ import {
   printLayerHeader,
   printLayerSummary,
 } from "./format";
+import {
+  initTestVault,
+  cleanupTestVault,
+  isUsingTestVault,
+  getTestVault,
+} from "./test-vault";
 
 // =============================================================================
 // Types
@@ -46,6 +52,7 @@ export interface IntegrationOptions {
   concurrency?: number;  // Max concurrent tests (default: 5)
   runId?: string;  // Use specific runId (for unified runs across layers)
   skipHistory?: boolean;  // Skip recording to history (caller will record unified entry)
+  ephemeralVault?: boolean;  // Use ephemeral test vault (default: true for portability)
 }
 
 export interface IntegrationResult extends ValidationResult {
@@ -909,6 +916,16 @@ export async function runIntegrationTests(
   const startedAt = new Date().toISOString();
   const results: IntegrationResult[] = [];
 
+  // Initialize ephemeral test vault (default: true for portability)
+  const useEphemeralVault = options.ephemeralVault !== false;
+  if (useEphemeralVault) {
+    const vaultPath = initTestVault({ prefix: "ingest-integration", withMeta: true });
+    if (options.verbose) {
+      console.log(`Using ephemeral test vault: ${vaultPath}`);
+    }
+  }
+
+  try {
   // Determine which tests to run
   let specs: TestSpec[];
   if (options.testId) {
@@ -1021,6 +1038,15 @@ export async function runIntegrationTests(
     },
     results,
   };
+  } finally {
+    // Always clean up ephemeral vault, even on error
+    if (useEphemeralVault) {
+      cleanupTestVault();
+      if (options.verbose) {
+        console.log("Cleaned up ephemeral test vault");
+      }
+    }
+  }
 }
 
 /**

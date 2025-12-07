@@ -74,13 +74,30 @@ Examples: "use fabric to X", "create threat model", "summarize with fabric"
 
 **When user requests content enhancement:**
 Examples: "enhance this content", "improve this draft"
-→ **READ:** `${PAI_DIR}/skills/research/workflows/enhance.md`
+→ **READ:** `${PAI_DIR}/skills/Research/workflows/Enhance.md`
 → **EXECUTE:** Content improvement and refinement
 
 **When user requests knowledge extraction:**
 Examples: "extract knowledge from X", "get insights from this"
-→ **READ:** `${PAI_DIR}/skills/research/workflows/extract-knowledge.md`
+→ **READ:** `${PAI_DIR}/skills/Research/workflows/ExtractKnowledge.md`
 → **EXECUTE:** Knowledge extraction and synthesis
+
+### Research Quality & Validation
+
+**When user requests research validation:**
+Examples: "validate this research", "check sources", "verify findings"
+→ **READ:** `${PAI_DIR}/skills/Research/ValidationGates.md`
+→ **EXECUTE:** Run 3-gate validation (sources, confidence, contradictions)
+
+**When calculating confidence scores:**
+Examples: "how confident", "confidence level", "reliability score"
+→ **READ:** `${PAI_DIR}/skills/Research/ConfidenceScoring.md`
+→ **EXECUTE:** Apply 4-factor confidence algorithm
+
+**When debugging research execution:**
+Examples: "research logs", "what went wrong", "agent performance"
+→ **READ:** `${PAI_DIR}/skills/Research/ResearchLogging.md`
+→ **EXECUTE:** Analyze structured execution logs
 
 ---
 
@@ -220,13 +237,21 @@ ${PAI_DIR}/history/research/YYYY-MM/YYYY-MM-DD_[topic]/
 
 | Workflow | File | API Keys Needed |
 |----------|------|-----------------|
-| Multi-Source Research | `workflows/conduct.md` | Varies by agent |
-| Claude Research | `workflows/claude-research.md` | None (FREE) |
-| Perplexity Research | `workflows/perplexity-research.md` | PERPLEXITY_API_KEY |
-| Interview Prep | `workflows/interview-research.md` | None |
-| Content Retrieval | `workflows/retrieve.md` | Optional: BRIGHTDATA_API_KEY |
-| YouTube Extraction | `workflows/youtube-extraction.md` | None (uses Fabric) |
-| Web Scraping | `workflows/web-scraping.md` | Optional: BRIGHTDATA_API_KEY |
-| Fabric Patterns | `workflows/fabric.md` | None |
-| Content Enhancement | `workflows/enhance.md` | None |
-| Knowledge Extraction | `workflows/extract-knowledge.md` | None |
+| Multi-Source Research | `workflows/Conduct.md` | Varies by agent |
+| Claude Research | `workflows/ClaudeResearch.md` | None (FREE) |
+| Perplexity Research | `workflows/PerplexityResearch.md` | PERPLEXITY_API_KEY |
+| Interview Prep | `workflows/InterviewResearch.md` | None |
+| Content Retrieval | `workflows/Retrieve.md` | Optional: BRIGHTDATA_API_KEY |
+| YouTube Extraction | `workflows/YoutubeExtraction.md` | None (uses Fabric) |
+| Web Scraping | `workflows/WebScraping.md` | Optional: BRIGHTDATA_API_KEY |
+| Fabric Patterns | `workflows/Fabric.md` | None |
+| Content Enhancement | `workflows/Enhance.md` | None |
+| Knowledge Extraction | `workflows/ExtractKnowledge.md` | None |
+
+## Reference Files
+
+| Reference | File | Purpose |
+|-----------|------|---------|
+| Validation Gates | `ValidationGates.md` | 3-gate quality validation system |
+| Confidence Scoring | `ConfidenceScoring.md` | 4-factor confidence algorithm |
+| Research Logging | `ResearchLogging.md` | Structured execution logging |

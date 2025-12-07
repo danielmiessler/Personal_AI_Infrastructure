@@ -23,14 +23,45 @@ export interface SearchOptions {
   untagged?: boolean;
   notTags?: string[];
   scope?: ScopeFilter;  // Default: "work" (exclude private)
+  since?: Date;         // Filter by capture date (frontmatter generation_date)
+  modified?: Date;      // Filter by modification time (mtime >= modified)
+  created?: Date;       // Filter by file creation time (birthtime >= created)
 }
 
 export interface SearchResult {
   name: string;
   path: string;
   tags: string[];
-  date?: string;
-  mtime: Date;
+  date?: string;           // Raw frontmatter date string (for display)
+  captureDate?: Date;      // Parsed capture date from frontmatter
+  mtime: Date;             // File modification time
+  birthtime: Date;         // File creation time
+}
+
+/**
+ * Parse frontmatter date string to Date object
+ * Supports: "YYYY-MM-DD HH:MM" or "YYYY-MM-DD"
+ */
+function parseDateString(dateStr?: string): Date | undefined {
+  if (!dateStr) return undefined;
+
+  // Try "YYYY-MM-DD HH:MM" format
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?$/);
+  if (match) {
+    const [, year, month, day, hour = "0", minute = "0"] = match;
+    const date = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hour),
+      parseInt(minute)
+    );
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -88,8 +119,31 @@ export async function searchNotes(options: SearchOptions): Promise<SearchResult[
   }
   // scope === "all" → no filtering
 
-  // Sort by modification time (most recent first)
-  results.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+  // Filter by since date (capture date from frontmatter)
+  if (options.since) {
+    results = results.filter((note) => {
+      // Use captureDate if available, fall back to mtime
+      const noteDate = note.captureDate || note.mtime;
+      return noteDate >= options.since!;
+    });
+  }
+
+  // Filter by modified date (file modification time)
+  if (options.modified) {
+    results = results.filter((note) => note.mtime >= options.modified!);
+  }
+
+  // Filter by created date (file creation time / birthtime)
+  if (options.created) {
+    results = results.filter((note) => note.birthtime >= options.created!);
+  }
+
+  // Sort by capture date (most recent first), fall back to mtime
+  results.sort((a, b) => {
+    const dateA = a.captureDate || a.mtime;
+    const dateB = b.captureDate || b.mtime;
+    return dateB.getTime() - dateA.getTime();
+  });
 
   // Limit results if specified
   if (options.recent && options.recent > 0) {
@@ -126,7 +180,9 @@ async function searchByText(vaultPath: string, query: string): Promise<SearchRes
           path: filePath,
           tags: note.tags,
           date: note.date,
+          captureDate: parseDateString(note.date),
           mtime: stats.mtime,
+          birthtime: stats.birthtime,
         });
       } catch (error) {
         // Skip files that can't be parsed
@@ -167,7 +223,9 @@ async function listAllNotes(vaultPath: string): Promise<SearchResult[]> {
             path: fullPath,
             tags: note.tags,
             date: note.date,
+            captureDate: parseDateString(note.date),
             mtime: stats.mtime,
+            birthtime: stats.birthtime,
           });
         } catch (error) {
           // Skip files that can't be parsed
@@ -178,4 +236,74 @@ async function listAllNotes(vaultPath: string): Promise<SearchResult[]> {
 
   await walkDir(vaultPath);
   return results;
+}
+
+/**
+ * Parse a "since" string into a Date
+ * Supports:
+ *   - "7d" / "7D" - N days ago
+ *   - "2w" / "2W" - N weeks ago
+ *   - "1m" / "1M" - N months ago (30 days each)
+ *   - "2025-12-01" - ISO date
+ *   - "today" - start of today
+ *   - "yesterday" - start of yesterday
+ *   - "this week" - start of current week (Monday)
+ *   - "this month" - start of current month
+ */
+export function parseSince(value: string): Date | null {
+  const now = new Date();
+  const lower = value.toLowerCase().trim();
+
+  // Relative: "7d", "2w", "1m"
+  const relMatch = lower.match(/^(\d+)([dwm])$/);
+  if (relMatch) {
+    const num = parseInt(relMatch[1], 10);
+    const unit = relMatch[2];
+    const result = new Date(now);
+    if (unit === "d") {
+      result.setDate(result.getDate() - num);
+    } else if (unit === "w") {
+      result.setDate(result.getDate() - num * 7);
+    } else if (unit === "m") {
+      result.setDate(result.getDate() - num * 30);
+    }
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  // Named: "today", "yesterday", "this week", "this month"
+  if (lower === "today") {
+    const result = new Date(now);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+  if (lower === "yesterday") {
+    const result = new Date(now);
+    result.setDate(result.getDate() - 1);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+  if (lower === "this week") {
+    const result = new Date(now);
+    const day = result.getDay();
+    const diff = day === 0 ? 6 : day - 1; // Monday = 0
+    result.setDate(result.getDate() - diff);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+  if (lower === "this month") {
+    const result = new Date(now.getFullYear(), now.getMonth(), 1);
+    return result;
+  }
+
+  // ISO date: "2025-12-01"
+  const isoMatch = value.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoMatch) {
+    const result = new Date(value + "T00:00:00");
+    if (!isNaN(result.getTime())) {
+      return result;
+    }
+  }
+
+  return null;
 }

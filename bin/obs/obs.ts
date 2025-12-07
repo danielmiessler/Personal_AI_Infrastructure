@@ -13,7 +13,7 @@
  */
 
 import { parseArgs } from "util";
-import { searchNotes, SearchOptions, ScopeFilter } from "./lib/search";
+import { searchNotes, SearchOptions, ScopeFilter, parseSince } from "./lib/search";
 import { readNote } from "./lib/read";
 import { writeNote, WriteOptions } from "./lib/write";
 import { listTags } from "./lib/tags";
@@ -38,10 +38,16 @@ COMMANDS:
   config     Show current configuration
 
 SEARCH OPTIONS:
-  --tag, -t <tag>        Filter by tag (can use multiple)
+  --tag, -t <tag>        Filter by tag (can use multiple, AND logic)
   --not-tag <tag>        Exclude notes with this tag
   --text, -x <query>     Full-text search
   --recent, -r <n>       Limit to N most recent notes
+  --since <when>         Filter by capture date (frontmatter generation_date)
+                         - "7d", "2w", "1m" - relative (days/weeks/months)
+                         - "today", "yesterday", "this week", "this month"
+                         - "2025-12-01" - ISO date
+  --modified <when>      Filter by file modification time (same formats as --since)
+  --created <when>       Filter by file creation time (same formats as --since)
   --untagged             Find notes without tags
   --scope <scope>        Scope filter: work (default), private, all
                          - work: Exclude private content (default)
@@ -131,6 +137,7 @@ async function handleSearch(args: string[]) {
     text: undefined,
     recent: undefined,
     untagged: false,
+    notTags: [],
     scope: "work",  // Default: exclude private content
   };
 
@@ -141,6 +148,9 @@ async function handleSearch(args: string[]) {
       case "--tag":
       case "-t":
         options.tags.push(args[++i]);
+        break;
+      case "--not-tag":
+        options.notTags!.push(args[++i]);
         break;
       case "--text":
       case "-x":
@@ -160,6 +170,39 @@ async function handleSearch(args: string[]) {
           options.scope = scopeArg as ScopeFilter;
         } else {
           console.error(`Invalid scope: ${scopeArg}. Use: work, private, or all`);
+          process.exit(1);
+        }
+        break;
+      case "--since":
+        const sinceValue = args[++i];
+        const sinceDate = parseSince(sinceValue);
+        if (sinceDate) {
+          options.since = sinceDate;
+        } else {
+          console.error(`Invalid --since value: ${sinceValue}`);
+          console.error(`Use: 7d, 2w, 1m, today, yesterday, "this week", "this month", or YYYY-MM-DD`);
+          process.exit(1);
+        }
+        break;
+      case "--modified":
+        const modifiedValue = args[++i];
+        const modifiedDate = parseSince(modifiedValue);
+        if (modifiedDate) {
+          options.modified = modifiedDate;
+        } else {
+          console.error(`Invalid --modified value: ${modifiedValue}`);
+          console.error(`Use: 7d, 2w, 1m, today, yesterday, "this week", "this month", or YYYY-MM-DD`);
+          process.exit(1);
+        }
+        break;
+      case "--created":
+        const createdValue = args[++i];
+        const createdDate = parseSince(createdValue);
+        if (createdDate) {
+          options.created = createdDate;
+        } else {
+          console.error(`Invalid --created value: ${createdValue}`);
+          console.error(`Use: 7d, 2w, 1m, today, yesterday, "this week", "this month", or YYYY-MM-DD`);
           process.exit(1);
         }
         break;

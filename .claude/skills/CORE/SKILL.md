@@ -143,6 +143,11 @@ description: |
   → **READ:** ${PAI_DIR}/skills/CORE/workflows/merge-conflict-resolution.md
   → **EXECUTE:** Use /plan mode with UltraThink for analysis and recommendation
 
+  **When user asks about knowledge or vault content:**
+  Examples: "what do I know about X", "find notes about", "save this to vault", "capture this", "notes tagged Y"
+  → **READ:** ${PAI_DIR}/skills/context/SKILL.md
+  → **EXECUTE:** Use `obs` CLI for queries, `ingest` CLI for captures
+
   **For voice routing workflow reference:**
   → **READ:** ${PAI_DIR}/skills/CORE/workflows/voice-routing-full.md
   → Complete voice routing table and commands

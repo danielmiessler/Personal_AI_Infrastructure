@@ -14,61 +14,176 @@ description: |
 
 **Purpose:** Capture, store, and retrieve knowledge from Obsidian vault.
 
-## Core Operations
+## Quick Reference
 
-### 1. INGEST — Capture to Vault
+**CLI Paths** (run from PAI_DIR):
+- `obs`: `cd ${PAI_DIR}/bin/obs && bun run obs.ts`
+- `ingest`: `cd ${PAI_DIR}/bin/ingest && bun run ingest.ts`
+
+| User Says | Command | Tool |
+|-----------|---------|------|
+| "Save this to vault" | `echo "content" \| ingest direct --tags "tag"` | ingest |
+| "Capture this note" | `ingest direct --text "..." --tags "..."` | ingest |
+| "What do I know about X?" | `obs search "X"` or `obs semantic "X"` | obs |
+| "Find notes tagged Y" | `obs search --tag Y` | obs |
+| "Load context for project Z" | `obs context Z` | obs |
+| "What's incoming?" | `obs incoming` | obs |
+| "Read that note" | `obs read "note-name"` | obs |
+| "Notes from last week" | `obs search --since 1w` | obs |
+
+## CLI Overview
+
+Two complementary tools:
+
+| Tool | Purpose | Key Commands |
+|------|---------|--------------|
+| `ingest` | **Capture** content into vault | `direct`, `poll`, `watch` |
+| `obs` | **Query** content from vault | `search`, `semantic`, `read`, `context` |
+
+---
+
+## 1. INGEST — Capture to Vault
+
+### Telegram Ingestion (Automated)
+
+The Telegram bot automatically captures voice memos, photos, documents, and text messages.
+
+```bash
+# Check Telegram ingestion status
+ingest status
+
+# Process pending Telegram items
+ingest poll
+ingest process
+
+# Watch for new items continuously
+ingest watch
+```
+
+**Auto-Tagging:** Transcribed content uses fuzzy matching (70% Levenshtein threshold + phonetic boost) to match spoken tags against existing vault tags.
+- `"ProjectPie"` → `project/pai`
+- `"edovry"` → `ed_overy`
+
+Unmatched tags are kept and flagged for review.
+
+### CLI Direct Ingestion
+
 ```bash
 # Pipe content directly
 pbpaste | ingest direct --tags "project/pai,meeting"
 cat document.md | ingest direct --name "My Document"
 
-# Ingest files
+# Inline text
+ingest direct --text "Quick note about API design" --tags "ideas"
+
+# Files (PDF, images, etc.)
 ingest direct document.pdf --scope private
-ingest direct --text "Quick note" --tags "ideas"
 ```
 
-**Supports:** Text, voice memos, photos, documents, URLs, YouTube links.
+**Inline Hints:** Use markers in content for automatic tagging:
+- `#tag` → adds tag
+- `@person` → adds person tag
+- `~scope` → sets scope (work/private)
 
-**Inline hints:** Use `#tag @person /command ~scope` in content for automatic tagging.
+---
 
-### 2. SEARCH — Discovery Phase
+## 2. SEARCH — Discovery Phase
+
+Find notes matching criteria. Returns index of matches.
+
+### Basic Search
+
 ```bash
-# Semantic search - returns index of matching notes
-ingest search "project planning"
+# Semantic search (AI-powered)
+obs semantic "deployment strategies"
 
-# Tag filter
-ingest search --tag project/pai
+# Text search (grep-based)
+obs search "kubernetes config"
 
-# Person filter
-ingest search --person ed_overy
-
-# Combined
-ingest search "architecture" --tag project/pai --limit 20
-
-# Scope: work (default), private, all
-ingest search "meeting notes" --scope all
+# Tag filter (multiple = AND logic)
+obs search --tag project/pai
+obs search --tag ai --tag nvidia   # Must have BOTH
 ```
 
-### 3. LOAD — Injection Phase
+### Temporal Filters
+
+Three date filters for different use cases:
+
+| Flag | Meaning | Source |
+|------|---------|--------|
+| `--since` | Captured since | Frontmatter `generation_date` |
+| `--modified` | Changed since | File modification time |
+| `--created` | File created since | File creation time (birthtime) |
+
 ```bash
-# Load by name - outputs full markdown content
-ingest load "2025-01-15-Planning"
+# Captured since (frontmatter date - when content was originally captured)
+obs search --since 7d              # Last 7 days
+obs search --since 2w              # Last 2 weeks
+obs search --since 1m              # Last month (30 days)
+obs search --since today           # Today only
+obs search --since yesterday       # Since yesterday
+obs search --since "this week"     # Current week (Mon-Sun)
+obs search --since "this month"    # Current month
+obs search --since 2025-12-01      # Since specific date
 
-# Load by tag
-ingest load --tag project/pai --limit 5
+# Modified since (file system mtime - when file was last changed)
+obs search --modified 7d           # Modified in last 7 days
+obs search --modified today        # Modified today
 
-# JSON output
-ingest load --tag incoming --json
+# Created since (file system birthtime - when file appeared)
+obs search --created 7d            # Created in last 7 days
 ```
 
-## Typical Workflow
+### Scope Filters
+
 ```bash
-# 1. Discover relevant notes
-ingest search "authentication" --tag project/api --limit 10
-
-# 2. Load the ones you need
-ingest load --tag project/api --limit 3
+obs search --scope work            # Default: only scope/work tagged
+obs search --scope private         # Only private/untagged
+obs search --scope all             # Everything
 ```
+
+### Combined Examples
+
+```bash
+obs search "authentication" --tag project/api --since 1w
+obs semantic "database optimization" --limit 5 --scope all
+obs search --tag meeting --tag ed_overy --since "this month"
+```
+
+---
+
+## 3. LOAD — Injection Phase
+
+Read full content from discovered notes.
+
+```bash
+# Read single note by name
+obs read "2025-01-15-Planning"
+
+# Project context (shortcut for tag search + display)
+obs context pai                    # All #project/pai notes
+obs context pai --recent 10        # Limited to 10 most recent
+```
+
+---
+
+## 4. Convenience Commands
+
+```bash
+# Incoming notes (need processing)
+obs incoming
+obs incoming --recent 20
+
+# List all tags
+obs tags
+obs tags --counts
+
+# Build/update embeddings for semantic search
+obs embed --verbose
+obs embed --stats
+```
+
+---
 
 ## Configuration
 
@@ -77,30 +192,37 @@ ingest load --tag project/api --limit 3
 | `OBSIDIAN_VAULT_PATH` | Yes | Path to your Obsidian vault |
 | `OPENAI_API_KEY` | Yes | For semantic embeddings |
 
-## Examples
+---
 
-**Capture a note:**
-```
-User: "Save this meeting summary to the vault"
-→ echo "Meeting summary content" | ingest direct --tags "meeting-notes"
-```
+## Examples by Intent
 
-**Load project context:**
-```
-User: "Load context for the data-platform project"
-→ ingest search --tag "project/data-platform" --limit 10
-→ ingest load --tag "project/data-platform" --limit 5
+**"I just had a meeting, save these notes"**
+```bash
+pbpaste | ingest direct --tags "meeting,project/pai"
 ```
 
-**Semantic search:**
-```
-User: "What do I know about data pipeline architecture?"
-→ ingest search "data pipeline architecture patterns"
-→ Load relevant results
+**"What have I captured about Kubernetes recently?"**
+```bash
+obs semantic "kubernetes" --since 2w
+obs search --tag kubernetes --since 1m
 ```
 
-**Person context:**
+**"Load everything about the API project"**
+```bash
+obs context api --recent 20
 ```
-User: "What meetings have I had with John?"
-→ ingest search --tag "john_doe" --tag "meeting-notes"
+
+**"What's waiting for me to process?"**
+```bash
+obs incoming
+```
+
+**"Find all notes mentioning Ed from this week"**
+```bash
+obs search --tag ed_overy --since "this week"
+```
+
+**"Quick capture an idea"**
+```bash
+ingest direct --text "Consider using Redis for caching layer #ideas #project/api" --scope work
 ```

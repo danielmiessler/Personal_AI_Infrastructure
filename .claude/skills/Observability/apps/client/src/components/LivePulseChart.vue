@@ -105,6 +105,26 @@
           <DollarSign :size="14" class="text-[#9ece6a]" />
           <span class="font-medium text-[#9ece6a]">${{ estimatedCost.toFixed(2) }}</span>
         </div>
+
+        <!-- Energy - orange lightning bolt and consumption -->
+        <div
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm flex-shrink-0"
+          style="background-color: rgba(224, 175, 104, 0.15)"
+          :title="`Energy consumption: ${formatEnergy(estimatedEnergy)}`"
+        >
+          <Zap :size="14" class="text-[#e0af68]" />
+          <span class="font-medium text-[#e0af68]">{{ formatEnergy(estimatedEnergy) }}</span>
+        </div>
+
+        <!-- Carbon - green leaf and footprint -->
+        <div
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm flex-shrink-0"
+          style="background-color: rgba(158, 206, 106, 0.15)"
+          :title="`Carbon footprint: ${formatCarbon(estimatedCarbon)}`"
+        >
+          <Leaf :size="14" class="text-[#9ece6a]" />
+          <span class="font-medium text-[#9ece6a]">{{ formatCarbon(estimatedCarbon) }}</span>
+        </div>
       </div>
 
       <!-- Activities row - separate line below Tools -->
@@ -212,7 +232,7 @@ import { createChartRenderer, type ChartDimensions } from '../utils/chartRendere
 import { useEventEmojis } from '../composables/useEventEmojis';
 import { useEventColors } from '../composables/useEventColors';
 import {
-  Trash2, BarChart3, Users, Zap, Wrench, Clock, Loader2, Activity, Cpu, TrendingUp, Brain, Sparkles, Timer, FolderOpen, Terminal, Layers, DollarSign, Moon,
+  Trash2, BarChart3, Users, Zap, Wrench, Clock, Loader2, Activity, Cpu, TrendingUp, Brain, Sparkles, Timer, FolderOpen, Terminal, Layers, DollarSign, Moon, Leaf,
   // Tool icons
   FileText, FileEdit, FilePlus, Search, FolderSearch, Globe, Send, GitBranch, Package, Code, Database, Eye, MessageSquare, Cog, Play, type LucideIcon,
   // Skill/Workflow icons
@@ -490,6 +510,35 @@ const estimatedCost = computed(() => {
   const outputCost = (totalTokens.value.output / 1_000_000) * outputCostPerMillion;
   return inputCost + outputCost;
 });
+
+// Calculate energy consumption in Wh
+// Based on arxiv.org/abs/2310.03003: LLaMA 65B uses 3-4 Joules per token
+const estimatedEnergy = computed(() => {
+  const totalTokenCount = totalTokens.value.input + totalTokens.value.output;
+  const energyPerToken = 0.0007; // Wh per token (Sonnet estimate)
+  const PUE = 1.2; // Power Usage Effectiveness
+  return totalTokenCount * energyPerToken * PUE; // in Wh
+});
+
+// Calculate carbon footprint in grams CO2
+const estimatedCarbon = computed(() => {
+  const carbonIntensity = 240; // gCO2/kWh (EU average)
+  const energyKwh = estimatedEnergy.value / 1000;
+  return energyKwh * carbonIntensity; // in grams CO2
+});
+
+// Format energy with appropriate unit
+const formatEnergy = (wh: number): string => {
+  if (wh < 1000) return `${wh.toFixed(2)}Wh`;
+  return `${(wh / 1000).toFixed(3)}kWh`;
+};
+
+// Format carbon with appropriate unit
+const formatCarbon = (grams: number): string => {
+  if (grams < 1000) return `${grams.toFixed(2)}g`;
+  if (grams < 1000000) return `${(grams / 1000).toFixed(3)}kg`;
+  return `${(grams / 1000000).toFixed(3)}t`;
+};
 
 // Tool icon mapping - returns icon component based on tool name
 const getToolIcon = (toolName: string): LucideIcon => {

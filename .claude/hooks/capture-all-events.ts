@@ -17,31 +17,33 @@ interface HookEvent {
   hook_event_type: string;
   payload: Record<string, any>;
   timestamp: number;
-  timestamp_pst: string;
+  timestamp_local: string;
 }
 
-// Get PST timestamp
-function getPSTTimestamp(): string {
+// Get local timezone timestamp
+function getLocalTimestamp(): string {
   const date = new Date();
-  const pstDate = new Date(date.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
+  // Use system timezone - no hardcoded fallback
+  const localDate = new Date(date.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
 
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
-  const hours = String(pstDate.getHours()).padStart(2, '0');
-  const minutes = String(pstDate.getMinutes()).padStart(2, '0');
-  const seconds = String(pstDate.getSeconds()).padStart(2, '0');
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
+  const hours = String(localDate.getHours()).padStart(2, '0');
+  const minutes = String(localDate.getMinutes()).padStart(2, '0');
+  const seconds = String(localDate.getSeconds()).padStart(2, '0');
 
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} PST`;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} ${timezone}`;
 }
 
 // Get current events file path
 function getEventsFilePath(): string {
   const now = new Date();
-  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
+  const localDate = new Date(now.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
 
   const monthDir = join(PAI_DIR, 'history', 'raw-outputs', `${year}-${month}`);
 
@@ -145,7 +147,7 @@ async function main() {
       hook_event_type: eventType,
       payload: hookData,
       timestamp: Date.now(),
-      timestamp_pst: getPSTTimestamp()
+      timestamp_local: getLocalTimestamp()
     };
 
     // Enrich with agent instance metadata if this is a Task tool call

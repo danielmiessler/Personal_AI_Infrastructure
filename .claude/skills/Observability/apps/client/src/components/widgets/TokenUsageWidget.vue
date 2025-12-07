@@ -36,7 +36,7 @@
       <!-- Stats Display -->
       <div v-else class="stats-container">
         <!-- Summary Cards -->
-        <div class="summary-cards">
+        <div class="summary-cards-grid">
           <div class="summary-card">
             <div class="summary-label">Total Tokens</div>
             <div class="summary-value">{{ formatNumber(stats.totalTokens) }}</div>
@@ -53,11 +53,31 @@
           </div>
 
           <div class="summary-card cost-card">
-            <div class="summary-label">Total Cost</div>
+            <div class="summary-label">💰 Cost</div>
             <div class="summary-value cost-value">${{ formatCost(stats.totalCost) }}</div>
             <div class="summary-breakdown">
               <span class="breakdown-item">
                 {{ stats.entryCount }} request{{ stats.entryCount !== 1 ? 's' : '' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="summary-card energy-card">
+            <div class="summary-label">⚡ Energy</div>
+            <div class="summary-value energy-value">{{ formatEnergy(stats.totalEnergy) }}</div>
+            <div class="summary-breakdown">
+              <span class="breakdown-item">
+                {{ formatEnergyLong(stats.totalEnergy) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="summary-card carbon-card">
+            <div class="summary-label">🌍 Carbon</div>
+            <div class="summary-value carbon-value">{{ formatCarbon(stats.totalCarbon) }}</div>
+            <div class="summary-breakdown">
+              <span class="breakdown-item">
+                CO₂ footprint
               </span>
             </div>
           </div>
@@ -167,6 +187,8 @@ interface Stats {
   totalInputTokens: number;
   totalOutputTokens: number;
   totalCost: number;
+  totalEnergy: number;  // in Wh
+  totalCarbon: number;  // in grams CO2
   byService: Record<string, { tokens: number; cost: number; count: number }>;
   byModel: Record<string, { tokens: number; cost: number; count: number }>;
   byAgent: Record<string, { tokens: number; cost: number; count: number }>;
@@ -178,6 +200,8 @@ const stats = ref<Stats>({
   totalInputTokens: 0,
   totalOutputTokens: 0,
   totalCost: 0,
+  totalEnergy: 0,
+  totalCarbon: 0,
   byService: {},
   byModel: {},
   byAgent: {},
@@ -238,6 +262,71 @@ function formatCost(cost: number): string {
   return cost.toFixed(2);
 }
 
+// Format energy (short)
+function formatEnergy(wh: number): string {
+  if (wh === 0) return '0 Wh';
+  if (wh < 1000) return wh.toFixed(2) + ' Wh';
+  return (wh / 1000).toFixed(3) + ' kWh';
+}
+
+// Format energy (long)
+function formatEnergyLong(wh: number): string {
+  if (wh === 0) return '0 Watt-hours';
+  if (wh < 1000) return wh.toFixed(2) + ' Watt-hours';
+  return (wh / 1000).toFixed(3) + ' kWh';
+}
+
+// Format carbon
+function formatCarbon(grams: number): string {
+  if (grams === 0) return '0g';
+  if (grams < 1000) return grams.toFixed(2) + 'g';
+  if (grams < 1000000) return (grams / 1000).toFixed(3) + 'kg';
+  return (grams / 1000000).toFixed(3) + 't';
+}
+
+// Calculate energy and carbon emissions
+// Based on arxiv.org/abs/2310.03003: LLaMA 65B uses 3-4 Joules per token
+// Converted: 3.5J / 3600 = 0.00097 Wh per token for 65B model
+function calculateEnergyAndCarbon(
+  totalTokens: number,
+  byModel: Record<string, { tokens: number; cost: number; count: number }>
+): { energy: number; carbon: number } {
+  // Model energy consumption per token (in Wh)
+  const MODEL_ENERGY: Record<string, number> = {
+    'haiku': 0.0003,
+    'sonnet': 0.0007,
+    'opus': 0.001,
+  };
+
+  const PUE = 1.2; // Power Usage Effectiveness (data center efficiency)
+  const CARBON_INTENSITY = 240; // gCO2/kWh (EU average, configurable)
+
+  let totalEnergy = 0; // in Wh
+
+  // If we have model breakdown, calculate per model
+  if (Object.keys(byModel).length > 0) {
+    for (const [model, data] of Object.entries(byModel)) {
+      const modelKey = model.toLowerCase();
+      let energyPerToken = 0.0007; // default to Sonnet
+
+      if (modelKey.includes('haiku')) energyPerToken = MODEL_ENERGY.haiku;
+      else if (modelKey.includes('sonnet')) energyPerToken = MODEL_ENERGY.sonnet;
+      else if (modelKey.includes('opus')) energyPerToken = MODEL_ENERGY.opus;
+
+      totalEnergy += data.tokens * energyPerToken * PUE;
+    }
+  } else {
+    // Fallback: assume Sonnet for all tokens
+    totalEnergy = totalTokens * MODEL_ENERGY.sonnet * PUE;
+  }
+
+  // Calculate carbon: energy (kWh) × carbon intensity (gCO2/kWh)
+  const energyKwh = totalEnergy / 1000;
+  const carbon = energyKwh * CARBON_INTENSITY;
+
+  return { energy: totalEnergy, carbon };
+}
+
 // Fetch stats from API
 async function fetchStats() {
   loading.value = true;
@@ -258,6 +347,16 @@ async function fetchStats() {
 
     if (result.success) {
       stats.value = result.data;
+
+      // Calculate energy and carbon if not provided by API
+      if (!stats.value.totalEnergy || !stats.value.totalCarbon) {
+        const { energy, carbon } = calculateEnergyAndCarbon(
+          stats.value.totalTokens,
+          stats.value.byModel
+        );
+        stats.value.totalEnergy = energy;
+        stats.value.totalCarbon = carbon;
+      }
     } else {
       error.value = result.error || 'Failed to fetch stats';
     }
@@ -350,7 +449,7 @@ onMounted(() => {
   gap: 8px;
 }
 
-.summary-cards {
+.summary-cards-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
@@ -369,6 +468,16 @@ onMounted(() => {
 .summary-card.cost-card {
   background: linear-gradient(135deg, rgba(122, 162, 247, 0.05) 0%, rgba(158, 206, 106, 0.05) 100%);
   border-color: rgba(122, 162, 247, 0.3);
+}
+
+.summary-card.energy-card {
+  background: linear-gradient(135deg, rgba(224, 175, 104, 0.05) 0%, rgba(255, 158, 100, 0.05) 100%);
+  border-color: rgba(224, 175, 104, 0.3);
+}
+
+.summary-card.carbon-card {
+  background: linear-gradient(135deg, rgba(158, 206, 106, 0.05) 0%, rgba(115, 218, 202, 0.05) 100%);
+  border-color: rgba(158, 206, 106, 0.3);
 }
 
 .summary-label {
@@ -390,6 +499,14 @@ onMounted(() => {
 
 .summary-value.cost-value {
   color: var(--theme-primary);
+}
+
+.summary-value.energy-value {
+  color: rgba(224, 175, 104, 1);
+}
+
+.summary-value.carbon-value {
+  color: rgba(158, 206, 106, 1);
 }
 
 .summary-breakdown {

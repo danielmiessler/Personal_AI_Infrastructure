@@ -24,6 +24,10 @@
 claude_env="${PAI_DIR:-$HOME/.claude}/.env"
 [ -f "$claude_env" ] && source "$claude_env"
 
+# Source energy calculations library
+energy_lib="${PAI_DIR:-$HOME/.claude}/lib/energy-calculations.sh"
+[ -f "$energy_lib" ] && source "$energy_lib"
+
 # Read JSON input from stdin
 input=$(cat)
 
@@ -268,11 +272,47 @@ printf "👋 ${DA_DISPLAY_COLOR}\"${DA_NAME} here, ready to go...\"${RESET} ${MO
 # LINE 2 - BLUE theme with MCP names
 printf "${LINE2_PRIMARY}🔌 MCPs${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${mcp_names_formatted}${RESET}\n"
 
-# LINE 3 - GREEN theme with tokens and cost (show cached or N/A)
+# LINE 3 - GREEN theme with Cost/Energy/Carbon
 # If we have cached data but it's empty, still show N/A
 tokens_display="${daily_tokens:-N/A}"
 cost_display="${daily_cost:-N/A}"
 if [ -z "$daily_tokens" ]; then tokens_display="N/A"; fi
 if [ -z "$daily_cost" ]; then cost_display="N/A"; fi
 
-printf "${LINE3_PRIMARY}💎 Total Tokens${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE3_ACCENT}${tokens_display}${RESET}${LINE3_PRIMARY}  Total Cost${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${COST_COLOR}${cost_display}${RESET}\n"
+# Calculate energy and carbon if environmental metrics are enabled
+energy_display="N/A"
+carbon_display="N/A"
+
+if [ "${PAI_ENV_METRICS:-0}" = "1" ] && [ -n "$daily_tokens" ] && [ "$daily_tokens" != "N/A" ]; then
+    # Extract numeric value from daily_tokens (remove commas)
+    daily_tokens_numeric=$(echo "$daily_tokens" | sed 's/,//g')
+
+    # Determine model type from model_name
+    model_type="sonnet"  # default
+    if echo "$model_name" | grep -qi "haiku"; then
+        model_type="haiku"
+    elif echo "$model_name" | grep -qi "opus"; then
+        model_type="opus"
+    elif echo "$model_name" | grep -qi "sonnet"; then
+        model_type="sonnet"
+    fi
+
+    # Get carbon intensity from env or use default
+    carbon_intensity="${PAI_CARBON_INTENSITY:-400}"
+
+    # Calculate energy and carbon
+    if command -v bc >/dev/null 2>&1 && type calculate_energy >/dev/null 2>&1; then
+        read -r energy_kwh carbon_grams <<< $(calculate_energy "$model_type" "$daily_tokens_numeric" "$carbon_intensity")
+
+        # Format the values
+        energy_display=$(format_energy "$energy_kwh")
+        carbon_display=$(format_carbon "$carbon_grams")
+    fi
+fi
+
+# Display with environmental metrics if enabled, otherwise just cost
+if [ "${PAI_ENV_METRICS:-0}" = "1" ]; then
+    printf "${LINE3_PRIMARY}💎 Tokens${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE3_ACCENT}${tokens_display}${RESET}${LINE3_PRIMARY}  💰 Cost${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${COST_COLOR}${cost_display}${RESET}${LINE3_PRIMARY}  ⚡ Energy${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE3_ACCENT}${energy_display}${RESET}${LINE3_PRIMARY}  🌍 Carbon${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${COST_COLOR}${carbon_display}${RESET}\n"
+else
+    printf "${LINE3_PRIMARY}💎 Total Tokens${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE3_ACCENT}${tokens_display}${RESET}${LINE3_PRIMARY}  Total Cost${RESET}${LINE3_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${COST_COLOR}${cost_display}${RESET}\n"
+fi

@@ -1,0 +1,34 @@
+[Unit]
+Description=PAI Voice Server - Cross-platform AI Voice Notification System
+Documentation=https://github.com/danielmiessler/Personal_AI_Infrastructure
+After=network.target sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.claude/voice-server
+Environment=HOME=%h
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+ExecStart=%h/.bun/bin/bun run server.ts
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.claude
+ReadWritePaths=/tmp
+
+# Resource limits
+LimitNOFILE=65536
+MemoryHigh=256M
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target

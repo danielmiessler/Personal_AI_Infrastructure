@@ -1,11 +1,14 @@
 #!/bin/bash
 
-# Check status of PAI Voice Server
+# Check PAI Voice Server status (Platform-aware)
 
-SERVICE_NAME="com.pai.voice-server"
-PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
-LOG_PATH="$HOME/Library/Logs/pai-voice-server.log"
-ENV_FILE="$HOME/.env"
+# Detect platform
+OS_TYPE="$(uname -s)"
+case "${OS_TYPE}" in
+    Linux*)     PLATFORM=Linux;;
+    Darwin*)    PLATFORM=macOS;;
+    *)          echo "Unsupported platform"; exit 1;;
+esac
 
 # Colors
 RED='\033[0;31m'
@@ -15,83 +18,46 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}     PAI Voice Server Status${NC}"
+echo -e "${BLUE}     PAI Voice Server Status (${PLATFORM})${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo
 
-# Check LaunchAgent
-echo -e "${BLUE}Service Status:${NC}"
-if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
-    PID=$(launchctl list | grep "$SERVICE_NAME" | awk '{print $1}')
-    if [ "$PID" != "-" ]; then
-        echo -e "  ${GREEN}✓ Service is loaded (PID: $PID)${NC}"
+if [ "$PLATFORM" = "Linux" ]; then
+    # Linux systemd
+    SERVICE_NAME="pai-voice-server"
+
+    if systemctl --user is-active --quiet "$SERVICE_NAME"; then
+        echo -e "${GREEN}✓ Service is running${NC}"
+        echo
+        echo -e "${BLUE}Service Status:${NC}"
+        systemctl --user status "$SERVICE_NAME" --no-pager
     else
-        echo -e "  ${YELLOW}⚠ Service is loaded but not running${NC}"
+        echo -e "${RED}✗ Service is not running${NC}"
+        echo
+        echo "Start with: ./start.sh"
     fi
+
 else
-    echo -e "  ${RED}✗ Service is not loaded${NC}"
+    # macOS LaunchAgent
+    SERVICE_NAME="com.pai.voice-server"
+
+    if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
+        echo -e "${GREEN}✓ Service is running${NC}"
+        echo
+        launchctl list | grep "$SERVICE_NAME"
+    else
+        echo -e "${RED}✗ Service is not running${NC}"
+        echo
+        echo "Start with: ./start.sh"
+    fi
 fi
 
-# Check if server is responding
 echo
-echo -e "${BLUE}Server Status:${NC}"
+echo -e "${BLUE}Server Health Check:${NC}"
 if curl -s -f -X GET http://localhost:8888/health > /dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ Server is responding on port 8888${NC}"
-    
-    # Get health info
-    HEALTH=$(curl -s http://localhost:8888/health)
-    echo "  Response: $HEALTH"
+    HEALTH=$(curl -s -X GET http://localhost:8888/health)
+    echo -e "${GREEN}✓ Server is responding${NC}"
+    echo "$HEALTH" | jq . 2>/dev/null || echo "$HEALTH"
 else
-    echo -e "  ${RED}✗ Server is not responding${NC}"
+    echo -e "${RED}✗ Server is not responding on port 8888${NC}"
 fi
-
-# Check port binding
-echo
-echo -e "${BLUE}Port Status:${NC}"
-if lsof -i :8888 > /dev/null 2>&1; then
-    PROCESS=$(lsof -i :8888 | grep LISTEN | head -1)
-    echo -e "  ${GREEN}✓ Port 8888 is in use${NC}"
-    echo "  $PROCESS" | awk '{print "  Process: " $1 " (PID: " $2 ")"}'
-else
-    echo -e "  ${YELLOW}⚠ Port 8888 is not in use${NC}"
-fi
-
-# Check ElevenLabs configuration
-echo
-echo -e "${BLUE}Voice Configuration:${NC}"
-if [ -f "$ENV_FILE" ] && grep -q "ELEVENLABS_API_KEY=" "$ENV_FILE"; then
-    API_KEY=$(grep "ELEVENLABS_API_KEY=" "$ENV_FILE" | cut -d'=' -f2)
-    if [ "$API_KEY" != "your_api_key_here" ] && [ -n "$API_KEY" ]; then
-        echo -e "  ${GREEN}✓ ElevenLabs API configured${NC}"
-        if grep -q "ELEVENLABS_VOICE_ID=" "$ENV_FILE"; then
-            VOICE_ID=$(grep "ELEVENLABS_VOICE_ID=" "$ENV_FILE" | cut -d'=' -f2)
-            echo "  Voice ID: $VOICE_ID"
-        fi
-    else
-        echo -e "  ${YELLOW}⚠ Using macOS 'say' (no API key)${NC}"
-    fi
-else
-    echo -e "  ${YELLOW}⚠ Using macOS 'say' (no configuration)${NC}"
-fi
-
-# Check logs
-echo
-echo -e "${BLUE}Recent Logs:${NC}"
-if [ -f "$LOG_PATH" ]; then
-    echo "  Log file: $LOG_PATH"
-    echo "  Last 5 lines:"
-    tail -5 "$LOG_PATH" | while IFS= read -r line; do
-        echo "    $line"
-    done
-else
-    echo -e "  ${YELLOW}⚠ No log file found${NC}"
-fi
-
-# Show commands
-echo
-echo -e "${BLUE}Available Commands:${NC}"
-echo "  • Start:     ./start.sh"
-echo "  • Stop:      ./stop.sh"
-echo "  • Restart:   ./restart.sh"
-echo "  • Logs:      tail -f $LOG_PATH"
-echo "  • Test:      curl -X POST http://localhost:8888/notify -H 'Content-Type: application/json' -d '{\"message\":\"Test\"}'"

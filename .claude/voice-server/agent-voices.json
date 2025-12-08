@@ -1,0 +1,57 @@
+{
+  "agent_voices": {
+    "main": {
+      "name": "PAI Main Assistant",
+      "elevenlabs_voice_id": "jqcCZkN6Knx8BJ5TBdYR",
+      "speechnote_voice": "en_piper_us_lessac_medium",
+      "personality": "Helpful AI assistant",
+      "voice_enabled": true
+    },
+    "researcher": {
+      "name": "Research Specialist",
+      "elevenlabs_voice_id": "AXdMgz6evoL7OPd7eU12",
+      "speechnote_voice": "en_piper_gb_alan_medium",
+      "personality": "Analytical, thorough academic researcher",
+      "voice_enabled": true
+    },
+    "engineer": {
+      "name": "Software Engineering Specialist",
+      "elevenlabs_voice_id": "kmSVBPu7loj4ayNinwWM",
+      "speechnote_voice": "en_piper_us_joe_medium",
+      "personality": "Technical precision and systematic problem-solving",
+      "voice_enabled": true
+    },
+    "architect": {
+      "name": "System Architecture Specialist",
+      "elevenlabs_voice_id": "muZKMsIDGYtIkjjiUS82",
+      "speechnote_voice": "en_piper_us_ryan_high",
+      "personality": "Visionary strategic system design",
+      "voice_enabled": true
+    },
+    "designer": {
+      "name": "UI/UX Design Specialist",
+      "elevenlabs_voice_id": "ZF6FPAbjXT4488VcRRnw",
+      "speechnote_voice": "en_piper_us_amy_medium",
+      "personality": "Creative, user-focused design thinking",
+      "voice_enabled": true
+    },
+    "pentester": {
+      "name": "Security Assessment Specialist",
+      "elevenlabs_voice_id": "hmMWXCj9K7N5mCPcRkfC",
+      "speechnote_voice": "en_piper_gb_northern_medium",
+      "personality": "Sharp, alert security-focused analysis",
+      "voice_enabled": true
+    }
+  },
+  "default_config": {
+    "fallback_enabled": true,
+    "elevenlabs_model": "eleven_turbo_v2_5",
+    "voice_settings": {
+      "stability": 0.75,
+      "similarity_boost": 0.75,
+      "style": 0.5,
+      "use_speaker_boost": true
+    },
+    "speechnote_fallback_voice": "en_piper_us_lessac_medium"
+  }
+}

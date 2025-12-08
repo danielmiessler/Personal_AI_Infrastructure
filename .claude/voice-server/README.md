@@ -6,17 +6,34 @@ A voice notification server for the Personal AI Infrastructure (PAI) system that
 
 ## 🎯 Features
 
+- **Cross-Platform**: Works on both **macOS** and **Linux**
 - **ElevenLabs Integration**: High-quality AI voices for notifications
 - **Multiple Voice Support**: Different voices for different AI agents
-- **macOS Service**: Runs automatically in the background
-- **Menu Bar Indicator**: Visual status indicator in macOS menu bar
+- **Smart Fallback System**:
+  - macOS: ElevenLabs → macOS `say` command
+  - Linux: ElevenLabs → SpeechNote TTS → paplay audio
+- **Auto-Start Service**:
+  - macOS: LaunchAgent
+  - Linux: systemd user service
+- **Menu Bar Indicator**: Visual status (macOS only)
 - **Simple HTTP API**: Easy integration with any tool or script
 
 ## 📋 Prerequisites
 
-- macOS (tested on macOS 11+)
+### All Platforms
 - [Bun](https://bun.sh) runtime installed
-- ElevenLabs API key (required for voice functionality)
+- ElevenLabs API key (optional, for premium voices)
+
+### macOS
+- macOS 11+ (tested)
+
+### Linux
+- Flatpak (for SpeechNote TTS fallback)
+- SpeechNote (`flatpak install flathub net.mkiol.SpeechNote`)
+- PulseAudio utils (optional, for audio playback)
+- libnotify (optional, for desktop notifications)
+
+**See [LINUX_INTEGRATION.md](LINUX_INTEGRATION.md) for detailed Linux setup.**
 
 ## 🚀 Quick Start
 

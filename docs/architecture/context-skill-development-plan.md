@@ -2,7 +2,7 @@
 
 > **Created:** 2025-12-08
 > **Updated:** 2025-12-08
-> **Status:** Phase 1 Complete - Docker Clean Room Implemented
+> **Status:** Phase 3 In Progress - Release branch sanitized, need public repo
 > **Goal:** Contribute vanilla context skill to upstream PAI repo
 
 ## Executive Summary
@@ -16,20 +16,20 @@ You have a sophisticated knowledge management system (`ingest` + `obs` CLIs) in 
 ### 🚀 Next Steps (Current Session)
 
 ```bash
-# 1. Create public repo on GitHub: YOUR_USERNAME/pai-contrib
+# 1. Create public repo on GitHub: YOUR_USERNAME/pai-context-skill
 #    - Go to github.com → New Repository
-#    - Name: pai-contrib
+#    - Name: pai-context-skill
 #    - Visibility: PUBLIC
 #    - Initialize: EMPTY (no README, no .gitignore)
 
 # 2. Add public repo as remote and push
 cd /path/to/Personal_AI_Infrastructure
-git remote add public git@github.com:YOUR_USERNAME/pai-contrib.git
+git remote add public git@github.com:YOUR_USERNAME/pai-context-skill.git
 git push public release/context-skill:main
 
 # 3. Test clean room build
 cd bin/ingest/deployment
-make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-contrib SKILL_BRANCH=main
+make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-context-skill SKILL_BRANCH=main
 make cleanroom-test
 ```
 
@@ -416,8 +416,8 @@ make release-tag VERSION=1.0.0
 - [x] Remove personal identifiers (andreas, mellanon, andreas_brain)
 - [x] Create example tag taxonomy
 - [x] Add Telegram setup documentation
-- [ ] **NEXT:** Create public contrib repo (`pai-contrib`) on GitHub
-- [ ] Push `release/context-skill` to `pai-contrib:main`
+- [ ] **NEXT:** Create public release repo (`pai-context-skill`) on GitHub
+- [ ] Push `release/context-skill` to public repo as `main`
 - [ ] Run `make cleanroom-full` to validate
 
 ### Phase 4: Documentation

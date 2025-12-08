@@ -20,20 +20,46 @@ description: |
 **When user asks about context on a topic or project:**
 Examples: "what context do we have on X", "what do I know about Y", "background on project Z", "find notes about X", "search for X"
 → **READ:** `${PAI_DIR}/.claude/skills/context/workflows/semantic-search.md`
-→ **EXECUTE:** Two-phase retrieval: Show numbered index first, then load selected items
+→ **EXECUTE:** **TWO-TURN WORKFLOW:**
+   1. Run search with `--format json`, present results as table
+   2. **STOP and ASK** user which items to load
+   3. **WAIT** for user response before loading
 
 **When user wants to load project context:**
 Examples: "load context for project X", "get context for PAI", "load project context", "background on project"
 → **READ:** `${PAI_DIR}/.claude/skills/context/workflows/load-project.md`
-→ **EXECUTE:** Two-phase retrieval: Show project notes with index, then load selected
+→ **EXECUTE:** **TWO-TURN WORKFLOW:** Show index first, wait for selection
 
 **When user wants to save/capture content:**
 Examples: "save this to vault", "capture this", "ingest this", "save note"
 → **EXECUTE:** Use `ingest direct` command (no workflow file needed)
 
 **When user selects items to load (after a search):**
-Examples: "load 1,2,5", "load all", "load transcripts", "load all meeting notes"
-→ **EXECUTE:** `obs load <selection>` command
+Examples: "load 1,2,5", "load all", "load transcripts", "1,2,5", "all"
+→ **EXECUTE:** `obs load <selection>` command - this is Turn 2 of the workflow
+
+**When user asks follow-up questions about already-loaded context:**
+Examples: "what did X say about Y", "summarize the meeting", "any follow-up tasks", "who mentioned Z"
+→ **DO NOT** re-query vault with `obs` commands
+→ **EXECUTE:** Answer directly from conversation context - notes are already loaded
+→ **RULE:** Once `obs load` has injected content, that content lives in the conversation window. Use it directly for all follow-up questions about that content.
+→ **CITATIONS:** Use IEEE notation to reference sources. Every claim must cite the specific note(s) it came from.
+
+**IEEE Citation Format for Loaded Context:**
+- Number sources in order of first reference: [1], [2], [3]
+- Include source list at end of response
+- Format: `[N] "Note Title", date, tags`
+- Example response:
+  ```
+  Andreas preferred a hybrid agile/waterfall approach [1] and emphasized
+  cost control as priority [1][2]. The team discussed Teams integration
+  as an alternative to custom app development [2].
+
+  **Sources:**
+  [1] "Project Methodology Preferences", 2025-10-21, #project/ai-tailgating
+  [2] "Architecture Review Session", 2025-10-22, #project/ai-tailgating
+  ```
+→ **WHY:** Eliminates hallucinations by forcing grounding in actual loaded content. If you can't cite it, don't claim it.
 
 ---
 
@@ -48,7 +74,7 @@ Activate this skill when user:
 - Mentions vault, notes, knowledge base, or Obsidian
 - Asks about tags, projects, or incoming notes
 
-**NOT for:** General conversation, code editing, file operations outside vault
+**NOT for:** General conversation, code editing, file operations outside vault, **follow-up questions about already-loaded context** (answer those directly from conversation)
 
 ---
 

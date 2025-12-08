@@ -1,4 +1,28 @@
 #!/bin/bash
+#
+# PAI Statusline - Customizable status display for Claude Code
+#
+# CUSTOMIZATION:
+#   - This script sources ${PAI_DIR}/.env for API keys and configuration
+#   - Set PAI_SIMPLE_COLORS=1 in settings.json env for basic ANSI colors
+#     (fixes display issues on some terminals)
+#   - To add features requiring API keys (e.g., quotes), add keys to .env
+#   - Comment out any printf lines you don't want displayed
+#
+# LINES DISPLAYED:
+#   1. Greeting: DA name, model, directory, capabilities count
+#   2. MCPs: Active MCP servers with names
+#   3. Tokens: Daily usage and cost (requires ccusage)
+#
+# ENVIRONMENT VARIABLES (set in settings.json env section):
+#   DA            - Your assistant's name (default: "Assistant")
+#   DA_COLOR      - Name color: purple|blue|green|cyan|yellow|red|orange
+#   PAI_SIMPLE_COLORS - Set to "1" to use basic terminal colors
+#
+
+# Source .env for API keys and custom configuration
+claude_env="${PAI_DIR:-$HOME/.claude}/.env"
+[ -f "$claude_env" ] && source "$claude_env"
 
 # Read JSON input from stdin
 input=$(cat)
@@ -10,6 +34,7 @@ DA_COLOR="${DA_COLOR:-purple}"  # Color for the assistant name
 # Extract data from JSON input
 current_dir=$(echo "$input" | jq -r '.workspace.current_dir')
 model_name=$(echo "$input" | jq -r '.model.display_name')
+cc_version=$(echo "$input" | jq -r '.version // "unknown"')
 
 # Get directory name
 dir_name=$(basename "$current_dir")
@@ -178,7 +203,39 @@ MCP_DAEMON="$BRIGHT_BLUE"
 MCP_STRIPE="$LINE2_ACCENT"
 MCP_DEFAULT="$LINE2_PRIMARY"
 
-RESET='\033[0m'
+# Reset includes explicit background clear for terminal compatibility
+RESET='\033[0m\033[49m'
+
+# Simple colors mode - set PAI_SIMPLE_COLORS=1 if you have terminal display issues
+if [ "${PAI_SIMPLE_COLORS:-0}" = "1" ]; then
+    # Use basic ANSI colors instead of 24-bit RGB for terminal compatibility
+    BRIGHT_PURPLE='\033[35m'
+    BRIGHT_BLUE='\033[34m'
+    DARK_BLUE='\033[34m'
+    BRIGHT_GREEN='\033[32m'
+    DARK_GREEN='\033[32m'
+    BRIGHT_ORANGE='\033[33m'
+    BRIGHT_RED='\033[31m'
+    BRIGHT_CYAN='\033[36m'
+    BRIGHT_MAGENTA='\033[35m'
+    BRIGHT_YELLOW='\033[33m'
+    # Override derived colors
+    DA_DISPLAY_COLOR='\033[35m'
+    LINE1_PRIMARY='\033[35m'
+    LINE1_ACCENT='\033[35m'
+    MODEL_PURPLE='\033[35m'
+    LINE2_PRIMARY='\033[34m'
+    LINE2_ACCENT='\033[34m'
+    LINE3_PRIMARY='\033[32m'
+    LINE3_ACCENT='\033[32m'
+    COST_COLOR='\033[32m'
+    TOKENS_COLOR='\033[37m'
+    SEPARATOR_COLOR='\033[37m'
+    DIR_COLOR='\033[36m'
+    MCP_DAEMON='\033[34m'
+    MCP_STRIPE='\033[34m'
+    MCP_DEFAULT='\033[34m'
+fi
 
 # Format MCP names efficiently
 mcp_names_formatted=""
@@ -205,8 +262,8 @@ for mcp in $mcp_names_raw; do
 done
 
 # Output the full 3-line statusline
-# LINE 1 - PURPLE theme with all counts
-printf "${DA_DISPLAY_COLOR}${DA_NAME}${RESET}${LINE1_PRIMARY} here, running on ${MODEL_PURPLE}🧠 ${model_name}${RESET}${LINE1_PRIMARY} in ${DIR_COLOR}📁 ${dir_name}${RESET}${LINE1_PRIMARY}, wielding: ${RESET}${LINE1_PRIMARY}🔧 ${fobs_count} Services${RESET}${LINE1_PRIMARY}, ${RESET}${LINE1_PRIMARY}⚙️ ${commands_count} Commands${RESET}${LINE1_PRIMARY}, ${RESET}${LINE1_PRIMARY}🔌 ${mcps_count} MCPs${RESET}${LINE1_PRIMARY}, and ${RESET}${LINE1_PRIMARY}📚 ${fabric_count} Patterns${RESET}\n"
+# LINE 1 - Greeting with CC version
+printf "👋 ${DA_DISPLAY_COLOR}\"${DA_NAME} here, ready to go...\"${RESET} ${MODEL_PURPLE}Running CC ${cc_version}${RESET}${LINE1_PRIMARY} with ${MODEL_PURPLE}🧠 ${model_name}${RESET}${LINE1_PRIMARY} in ${DIR_COLOR}📁 ${dir_name}${RESET}\n"
 
 # LINE 2 - BLUE theme with MCP names
 printf "${LINE2_PRIMARY}🔌 MCPs${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${mcp_names_formatted}${RESET}\n"

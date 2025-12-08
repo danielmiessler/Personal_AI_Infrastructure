@@ -1,11 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_envDocs": {
+    "description": "Platform-agnostic environment variables used throughout the Personal AI system",
+    "DA": "Digital Assistant name - your AI's identity (e.g., 'Kai', 'PAI', 'Nova'). Used in statusline, hooks, and agent identification.",
+    "PAI_DIR": "Root directory for all PAI configuration. The setup.sh script updates this automatically. If hooks fail with 'No such file or directory', update this to your actual path (e.g., /Users/john/.claude).",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "Maximum tokens for Claude responses. Higher values allow longer outputs but cost more."
+  },
+  "_setupNote": "IMPORTANT: Run 'bash .claude/setup.sh' to automatically configure PAI_DIR. If you see hook errors mentioning '__HOME__', the setup script was not run or you need to manually change PAI_DIR below to your actual home directory path (e.g., /Users/john/.claude on macOS or /home/john/.claude on Linux).",
   "env": {
     "PAI_DIR": "/Users/andreas/.claude",
     "DA": "PAI",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },
-  "_comment": "IMPORTANT: Change PAI_DIR above to your actual path (e.g., /Users/john/.claude or /home/john/.claude)",
   "permissions": {
     "allow": [
       "Bash",
@@ -125,7 +131,7 @@
           },
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/initialize-pai-session.ts"
+            "command": "${PAI_DIR}/hooks/initialize-session.ts"
           },
           {
             "type": "command",

@@ -1,0 +1,247 @@
+# CanonicalizeSkill Workflow
+
+**Purpose:** Restructure an existing skill to match the canonical format with proper naming conventions.
+
+---
+
+## Step 1: Read the Authoritative Source
+
+**REQUIRED FIRST:** Read the canonical structure:
+
+```
+${PAI_DIR}/skills/CORE/SkillSystem.md
+```
+
+This defines exactly what "canonicalize" means.
+
+---
+
+## Step 2: Read the Current Skill
+
+```bash
+${PAI_DIR}/skills/[skill-name]/SKILL.md
+```
+
+Identify what's wrong:
+- Multi-line description using `|`?
+- Separate `triggers:` array in YAML? (OLD FORMAT)
+- Separate `workflows:` array in YAML? (OLD FORMAT)
+- Missing `USE WHEN` in description?
+- Workflow routing missing from markdown body?
+- **Workflow files not using TitleCase?**
+- **Skill directory not using TitleCase?**
+
+---
+
+## Step 3: Backup
+
+```bash
+cp -r ${PAI_DIR}/skills/[skill-name]/ ${PAI_DIR}/history/backups/[skill-name]-backup-$(date +%Y%m%d)/
+```
+
+**Note:** Backups go to `${PAI_DIR}/history/backups/`, NEVER inside skill directories.
+
+---
+
+## Step 4: Enforce TitleCase Naming
+
+**CRITICAL: All naming must use TitleCase (PascalCase).**
+
+### Skill Directory Name
+```
+✗ WRONG: createskill, create-skill, create_skill, CREATESKILL
+✓ CORRECT: Createskill (or CreateSkill for multi-word)
+```
+
+### Workflow File Names
+```
+✗ WRONG: create.md, CREATE.md, create-skill.md, create_skill.md
+✓ CORRECT: Create.md, UpdateDaemonInfo.md, SyncRepo.md
+```
+
+### Reference Doc Names
+```
+✗ WRONG: prosody-guide.md, PROSODY_GUIDE.md
+✓ CORRECT: ProsodyGuide.md, SchemaSpec.md, ApiReference.md
+```
+
+### Tool Names
+```
+✗ WRONG: manage-server.ts, MANAGE_SERVER.ts
+✓ CORRECT: ManageServer.ts (with ManageServer.help.md)
+```
+
+**Rename files if needed:**
+```bash
+# Example: rename workflow files
+cd ${PAI_DIR}/skills/[SkillName]/workflows/
+mv create.md Create.md
+mv update-info.md UpdateInfo.md
+mv sync_repo.md SyncRepo.md
+```
+
+---
+
+## Step 5: Convert YAML Frontmatter
+
+**From old format (WRONG):**
+```yaml
+---
+name: skill-name
+description: |
+  What the skill does.
+
+triggers:
+  - USE WHEN user mentions X
+  - USE WHEN user wants to Y
+
+workflows:
+  - USE WHEN user wants to A: workflows/a.md
+  - USE WHEN user wants to B: workflows/b.md
+---
+```
+
+**To new format (CORRECT):**
+```yaml
+---
+name: SkillName
+description: What the skill does. USE WHEN user mentions X OR user wants to Y. Additional capabilities.
+---
+```
+
+**Key changes:**
+- Skill name in TitleCase
+- Combine description + triggers into single-line `description` with `USE WHEN`
+- Remove `triggers:` array entirely
+- Remove `workflows:` array from YAML (moves to body)
+
+---
+
+## Step 6: Add Workflow Routing to Body
+
+Add `## Workflow Routing` section in markdown body:
+
+```markdown
+# SkillName
+
+[Description]
+
+## Workflow Routing
+
+**When executing a workflow, output this notification:**
+
+```
+Running the **WorkflowName** workflow from the **SkillName** skill...
+```
+
+| Workflow | Trigger | File |
+|----------|---------|------|
+| **WorkflowOne** | "trigger phrase one" | `workflows/WorkflowOne.md` |
+| **WorkflowTwo** | "trigger phrase two" | `workflows/WorkflowTwo.md` |
+
+## Examples
+
+[Required examples section]
+
+## [Rest of documentation]
+```
+
+**Note:** Workflow names in routing table must match file names exactly (TitleCase).
+
+---
+
+## Step 7: Remove Redundant Routing
+
+If the markdown body already had routing information in a different format, consolidate it into the standard `## Workflow Routing` section. Delete any duplicate routing tables or sections.
+
+---
+
+## Step 8: Ensure All Workflows Are Routed
+
+List workflow files:
+```bash
+ls ${PAI_DIR}/skills/[SkillName]/workflows/
+```
+
+For EACH file:
+1. Verify TitleCase naming (rename if needed)
+2. Ensure there's a routing entry in `## Workflow Routing`
+3. Verify routing entry matches exact file name
+
+---
+
+## Step 9: Add Examples Section
+
+**REQUIRED:** Every skill needs an `## Examples` section with 2-3 concrete usage patterns.
+
+```markdown
+## Examples
+
+**Example 1: [Common use case]**
+```
+User: "[Typical user request]"
+→ Invokes WorkflowName workflow
+→ [What skill does]
+→ [What user gets back]
+```
+
+**Example 2: [Another use case]**
+```
+User: "[Different request]"
+→ [Process]
+→ [Output]
+```
+```
+
+Place the Examples section after Workflow Routing.
+
+---
+
+## Step 10: Verify
+
+Run checklist:
+
+### Naming (TitleCase)
+- [ ] Skill directory uses TitleCase (e.g., `Blogging`, `Createskill`)
+- [ ] All workflow files use TitleCase (e.g., `Create.md`, `UpdateInfo.md`)
+- [ ] All reference docs use TitleCase (e.g., `ProsodyGuide.md`)
+- [ ] All tool files use TitleCase (e.g., `ManageServer.ts`)
+- [ ] Routing table workflow names match file names exactly
+
+### YAML Frontmatter
+- [ ] `name:` uses TitleCase
+- [ ] `description:` is single-line with embedded `USE WHEN` clause
+- [ ] No separate `triggers:` or `workflows:` arrays in YAML
+- [ ] Description uses intent-based language
+- [ ] Description is under 1024 characters
+
+### Markdown Body
+- [ ] `## Workflow Routing` section present
+- [ ] Routing uses table format with Workflow, Trigger, File columns
+- [ ] All workflow files have routing entries
+- [ ] `## Examples` section with 2-3 concrete usage patterns
+
+### Structure
+- [ ] `tools/` directory exists (even if empty)
+- [ ] Workflows contain ONLY work execution procedures
+- [ ] Reference docs live at skill root (not in workflows/)
+- [ ] No `backups/` directory inside skill
+
+---
+
+## TitleCase Reference
+
+| Type | Wrong | Correct |
+|------|-------|---------|
+| Skill directory | `createskill`, `create-skill` | `Createskill` |
+| Multi-word skill | `create_skill`, `CREATE_SKILL` | `CreateSkill` |
+| Workflow file | `create.md`, `CREATE.md` | `Create.md` |
+| Multi-word workflow | `update-info.md`, `UPDATE_INFO.md` | `UpdateInfo.md` |
+| Reference doc | `api-reference.md` | `ApiReference.md` |
+| Tool file | `manage-server.ts` | `ManageServer.ts` |
+
+---
+
+## Done
+
+Skill now matches the canonical structure from SkillSystem.md with proper TitleCase naming throughout.

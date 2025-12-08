@@ -4,30 +4,32 @@
 <dict>
     <key>Label</key>
     <string>com.paivoice.server</string>
-    
+
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/bun</string>
+        <string>__BUN_PATH__</string>
         <string>run</string>
         <string>__PAI_DIR__/voice-server/server.ts</string>
     </array>
-    
+
     <key>EnvironmentVariables</key>
     <dict>
         <key>PORT</key>
         <string>8888</string>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>__HOME__/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
         <string>__HOME__</string>
+        <key>PAI_DIR</key>
+        <string>__PAI_DIR__</string>
     </dict>
-    
+
     <key>WorkingDirectory</key>
     <string>__PAI_DIR__/voice-server</string>
-    
+
     <key>RunAtLoad</key>
     <true/>
-    
+
     <key>KeepAlive</key>
     <dict>
         <key>SuccessfulExit</key>
@@ -35,13 +37,13 @@
         <key>Crashed</key>
         <true/>
     </dict>
-    
+
     <key>StandardOutPath</key>
     <string>__PAI_DIR__/voice-server/logs/voice-server.log</string>
-    
+
     <key>StandardErrorPath</key>
     <string>__PAI_DIR__/voice-server/logs/voice-server-error.log</string>
-    
+
     <key>ThrottleInterval</key>
     <integer>10</integer>
 </dict>

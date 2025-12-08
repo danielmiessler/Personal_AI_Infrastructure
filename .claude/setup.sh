@@ -559,22 +559,32 @@ if ask_yes_no "Are you using Claude Code?"; then
     # Create Claude directory if it doesn't exist
     mkdir -p "$HOME/.claude"
 
-    # Check if settings.json already exists
-    if [ -L "$HOME/.claude/settings.json" ]; then
-        print_info "Claude Code settings already linked to PAI"
-    elif [ -f "$HOME/.claude/settings.json" ]; then
-        print_warning "Claude Code settings file already exists"
+    # Copy the .claude directory contents to ~/.claude
+    print_step "Copying PAI configuration to ~/.claude..."
 
-        if ask_yes_no "Replace it with PAI's settings?"; then
-            mv "$HOME/.claude/settings.json" "$HOME/.claude/settings.json.backup"
-            print_info "Backed up existing settings to settings.json.backup"
-
-            ln -sf "$PAI_DIR/settings.json" "$HOME/.claude/settings.json"
-            print_success "Claude Code configured to use PAI!"
+    # Copy hooks, skills, and other directories (but not settings.json yet)
+    for dir in hooks skills commands Tools; do
+        if [ -d "$PAI_DIR/.claude/$dir" ]; then
+            cp -r "$PAI_DIR/.claude/$dir" "$HOME/.claude/"
+            print_success "Copied $dir/"
         fi
-    else
-        ln -sf "$PAI_DIR/settings.json" "$HOME/.claude/settings.json"
-        print_success "Claude Code configured to use PAI!"
+    done
+
+    # Copy settings.json and update PAI_DIR with actual path
+    if [ -f "$PAI_DIR/.claude/settings.json" ]; then
+        cp "$PAI_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
+
+        # Get home directory robustly (fallback if $HOME is unset)
+        USER_HOME="${HOME:-$(eval echo ~)}"
+
+        # Update PAI_DIR to the actual home directory path (platform-agnostic)
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|__HOME__|${USER_HOME}|g" "$HOME/.claude/settings.json"
+        else
+            sed -i "s|__HOME__|${USER_HOME}|g" "$HOME/.claude/settings.json"
+        fi
+
+        print_success "Updated settings.json with your path: ${USER_HOME}/.claude"
     fi
 
     echo ""

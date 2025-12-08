@@ -2,6 +2,8 @@
 
 Multi-modal capture and retrieval system for PAI's Knowledge Layer.
 
+**Key Concept:** All content flows through Telegram as a single front door, creating an immutable log of everything you capture. The daemon processes this into your Obsidian vault with AI-powered tagging, transcription, and semantic search.
+
 ## Quick Start
 
 ```bash
@@ -9,22 +11,40 @@ Multi-modal capture and retrieval system for PAI's Knowledge Layer.
 cd bin/ingest && ./install.sh
 cd ../obs && ./install.sh
 
-# 2. Configure environment (see docs below)
-# 3. Test
-ingest config
-obs --help
+# 2. Configure environment (see Telegram Setup below)
+# 3. Start the daemon
+ingest watch --verbose
+
+# 4. Send something to your Telegram channel
+# 5. Watch it appear in your vault!
 ```
 
 ## Documentation
+
+### Getting Started
 
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | [Telegram Setup](../../../bin/ingest/docs/telegram-setup.md) | Create bot, channel, get tokens | First setup |
 | [Daemon Setup](../../../bin/ingest/docs/daemon-setup.md) | Run as background service | After install |
-| [SKILL.md](./SKILL.md) | Skill definition for Claude | Reference |
-| [Semantic Search](./workflows/semantic-search.md) | How to search your vault | Using the skill |
-| [Load Project](./workflows/load-project.md) | How to load context | Using the skill |
-| [Tag Taxonomy](./tag-taxonomy.md) | Tag conventions | Customizing |
+
+### Concepts & Reference
+
+| Doc | Purpose | When to Read |
+|-----|---------|--------------|
+| [Concepts](./docs/CONCEPTS.md) | Immutable log, tags, embeddings, pipelines | Understanding the system |
+| [Capture Tips](./docs/CAPTURE-TIPS.md) | Caption syntax, voice hints, WisprFlow, smart features | Power user tips |
+| [CLI Reference](./docs/CLI-REFERENCE.md) | Full `ingest` and `obs` command reference | Using the CLIs |
+| [Shortcuts](./docs/SHORTCUTS.md) | macOS/iOS capture shortcuts | Quick capture setup |
+| [Tag Taxonomy](./tag-taxonomy.md) | Tag conventions and examples | Customizing |
+
+### For Claude
+
+| Doc | Purpose |
+|-----|---------|
+| [SKILL.md](./SKILL.md) | Skill definition (loaded by Claude) |
+| [Semantic Search](./workflows/semantic-search.md) | Search workflow |
+| [Load Project](./workflows/load-project.md) | Context loading workflow |
 
 ## Components
 

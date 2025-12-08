@@ -86,6 +86,7 @@
     {
       "WFWorkflowActionIdentifier": "is.workflow.actions.getdevicedetails",
       "WFWorkflowActionParameters": {
+        "WFDeviceDetail": "Device Model",
         "UUID": "D2CE169E-5160-4A90-A7E9-A911AF3AEF20"
       }
     },
@@ -118,7 +119,7 @@
           "Value": {
             "OutputUUID": "D2CE169E-5160-4A90-A7E9-A911AF3AEF20",
             "Type": "ActionOutput",
-            "OutputName": "Device Name"
+            "OutputName": "Device Model"
           },
           "WFSerializationType": "WFTextTokenAttachment"
         },

@@ -59,7 +59,7 @@ Examples: "what did X say about Y", "summarize the meeting", "any follow-up task
     "path": "/Users/andreas/Documents/andreas_brain/2025-10-21-Project-Methodology-Preferences.md"
   }
   ```
-- **Convert path to vault link:** Extract filename from path, format as `[[filename]]`
+- **Build vault path from env:** Use `${OBSIDIAN_VAULT_PATH}` + filename for portable, clickable links
 - Example response with citations:
   ```
   Andreas preferred a hybrid agile/waterfall approach [1] and emphasized
@@ -67,8 +67,8 @@ Examples: "what did X say about Y", "summarize the meeting", "any follow-up task
   as an alternative to custom app development [2].
 
   **Sources:**
-  [1] "Project Methodology Preferences", 2025-10-21, [[2025-10-21-Project-Methodology-Preferences.md]]
-  [2] "Architecture Review Session", 2025-10-22, [[2025-10-22-Architecture-Review-Session.md]]
+  [1] "Project Methodology Preferences", 2025-10-21, ${OBSIDIAN_VAULT_PATH}/2025-10-21-Project-Methodology-Preferences.md
+  [2] "Architecture Review Session", 2025-10-22, ${OBSIDIAN_VAULT_PATH}/2025-10-22-Architecture-Review-Session.md
   ```
 → **WHY:** Eliminates hallucinations by forcing grounding in actual loaded content. If you can't cite it, don't claim it.
 

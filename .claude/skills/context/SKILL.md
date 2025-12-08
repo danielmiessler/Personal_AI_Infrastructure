@@ -48,7 +48,8 @@ Examples: "what did X say about Y", "summarize the meeting", "any follow-up task
 **IEEE Citation Format for Loaded Context:**
 - Number sources in order of first reference: [1], [2], [3]
 - Include source list at end of response
-- Format: `[N] "Note Title", date, tags`
+- Format: `[N] "Note Title", date, vault_path`
+- Extract vault path from loaded content headers (e.g., `# 2025-12-08-Note-Title-Telegram-Raw`)
 - Example response:
   ```
   Andreas preferred a hybrid agile/waterfall approach [1] and emphasized
@@ -56,8 +57,8 @@ Examples: "what did X say about Y", "summarize the meeting", "any follow-up task
   as an alternative to custom app development [2].
 
   **Sources:**
-  [1] "Project Methodology Preferences", 2025-10-21, #project/ai-tailgating
-  [2] "Architecture Review Session", 2025-10-22, #project/ai-tailgating
+  [1] "Project Methodology Preferences", 2025-10-21, vault://2025-10-21-Project-Methodology-Preferences-Telegram-Raw.md
+  [2] "Architecture Review Session", 2025-10-22, vault://2025-10-22-Architecture-Review-Session-Telegram-Raw.md
   ```
 → **WHY:** Eliminates hallucinations by forcing grounding in actual loaded content. If you can't cite it, don't claim it.
 

@@ -13,18 +13,52 @@ You have a sophisticated knowledge management system (`ingest` + `obs` CLIs) in 
 2. **Validating fresh deployments** to ensure the skill works out-of-the-box
 3. **Managing the three-repo workflow** (upstream → fork → contribution)
 
+### 🚀 Next Steps (Current Session)
+
+```bash
+# 1. Create public repo on GitHub: YOUR_USERNAME/pai-contrib
+#    - Go to github.com → New Repository
+#    - Name: pai-contrib
+#    - Visibility: PUBLIC
+#    - Initialize: EMPTY (no README, no .gitignore)
+
+# 2. Add public repo as remote and push
+cd /path/to/Personal_AI_Infrastructure
+git remote add public git@github.com:YOUR_USERNAME/pai-contrib.git
+git push public release/context-skill:main
+
+# 3. Test clean room build
+cd bin/ingest/deployment
+make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-contrib SKILL_BRANCH=main
+make cleanroom-test
+```
+
 ---
 
 ## Current State
 
 | Aspect | Status |
 |--------|--------|
-| **Private Fork** | `git@github.com:mellanon/pai-1.2.git` (origin) |
+| **Private Fork** | `git@github.com:YOUR_USERNAME/pai-1.2.git` (origin) - **PRIVATE** |
+| **Public Contrib Repo** | `git@github.com:YOUR_USERNAME/pai-contrib.git` - **PUBLIC** |
 | **Upstream** | `https://github.com/danielmiessler/Personal_AI_Infrastructure.git` (read-only) |
-| **Current Branch** | `feature/context-system` |
+| **Dev Branch** | `feature/context-system` (in private fork) |
+| **Release Branch** | `release/context-skill` → pushed to `pai-contrib:main` |
 | **Test Coverage** | 128 tests across 4 layers (unit, integration, CLI, acceptance) |
 | **CLIs** | `ingest` (capture) + `obs` (query), both TypeScript/Bun |
 | **Personal Entanglement** | Vault paths, API keys, Telegram configs, tag taxonomy |
+
+### Why Two Repos?
+
+The private fork contains sensitive data in various branches (personal configs, API keys, vault paths). Rather than risk exposing this by making the fork public, we use a **separate public repo** (`pai-contrib`) exclusively for sanitized contributions.
+
+### Why `pai-contrib` (not `pai-context-skill`)?
+
+The `pai-contrib` repo mirrors the upstream PAI structure, allowing:
+- **Multiple skills** in one repo (context, future skills)
+- **Easy merging** - structure matches upstream
+- **Single remote** - no repo explosion per skill
+- **Clean room testing** - same process for all skills
 
 ---
 
@@ -37,46 +71,76 @@ You have a sophisticated knowledge management system (`ingest` + `obs` CLIs) in 
 │                                                                             │
 │   danielmiessler/Personal_AI_Infrastructure                                 │
 │          │                                                                  │
-│          │  (upstream - vanilla PAI, read-only)                            │
-│          │                                                                  │
-│          └──► mellanon/pai-1.2 (your fork)                                 │
-│                     │                                                       │
-│                     ├── main (synced with upstream)                        │
-│                     │     │                                                 │
-│                     │     └── feature/context-system                       │
-│                     │           │                                           │
-│                     │           │  (your dev work - has personal stuff)    │
-│                     │           │                                           │
-│                     │           └── feature/vanilla-context-skill          │
-│                     │                 │                                     │
-│                     │                 │  (CLEAN - no personal data)        │
-│                     │                 │                                     │
-│                     │                 ▼                                     │
-│                     │        ┌─────────────────────────┐                   │
-│                     │        │     CLEAN ROOM TEST     │                   │
-│                     │        │                         │                   │
-│                     │        │  Clone: upstream/main   │                   │
-│                     │        │  Merge: vanilla-skill   │                   │
-│                     │        │  Run:   install.sh      │                   │
-│                     │        │  Test:  validation      │                   │
-│                     │        │                         │                   │
-│                     │        │  ✓ Works for new user!  │                   │
-│                     │        └─────────────────────────┘                   │
-│                     │                 │                                     │
-│                     │                 ▼                                     │
-│                     │        Submit PR to upstream                         │
+│          │  PR ◄────────────────────────────────────────┐                  │
+│          │                                               │                  │
+│          ▼                                               │                  │
+│   YOUR_USERNAME/pai-1.2 (PRIVATE fork)                   │                  │
+│          │                                               │                  │
+│          ├── main (synced with upstream)                 │                  │
+│          │                                               │                  │
+│          ├── feature/context-system (dev - personal)     │                  │
+│          │                                               │                  │
+│          └── release/context-skill (sanitized)           │                  │
+│                │                                         │                  │
+│                │  git push public release/...:main ─────►│                  │
+│                │                                         │                  │
+│                ▼                                         │                  │
+│   YOUR_USERNAME/pai-contrib (PUBLIC)                     │                  │
+│          │                                               │                  │
+│          ├── main (context skill - CLEAN)                │                  │
+│          │                                               │                  │
+│          └── (future: more skills)                       │                  │
+│                │                                         │                  │
+│                ▼                                         │                  │
+│        ┌─────────────────────────┐                       │                  │
+│        │     CLEAN ROOM TEST     │                       │                  │
+│        │                         │                       │                  │
+│        │  Clone: upstream/main   │                       │                  │
+│        │  Merge: pai-contrib     │                       │                  │
+│        │  Run:   install.sh      │                       │                  │
+│        │  Test:  validation      │                       │                  │
+│        │                         │                       │                  │
+│        │  ✓ Works for new user!  │                       │                  │
+│        └─────────────────────────┘                       │                  │
+│                │                                         │                  │
+│                └─────────────────────────────────────────┘                  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Repository Purposes
+
+| Repository | Visibility | Purpose |
+|------------|------------|---------|
+| `danielmiessler/Personal_AI_Infrastructure` | Public | Upstream PAI source |
+| `YOUR_USERNAME/pai-1.2` | **Private** | Your working fork with personal configs |
+| `YOUR_USERNAME/pai-contrib` | **Public** | All sanitized contributions (mirrors PAI structure) |
+
 ### Branch Purposes
 
-| Branch | Purpose | Contains Personal Data? |
-|--------|---------|------------------------|
-| `upstream/main` | Daniel Miessler's source PAI | No |
-| `origin/main` | Your fork's main (synced) | No |
-| `feature/context-system` | Your active development | **Yes** (vault paths, configs) |
-| `feature/vanilla-context-skill` | **CLEAN** contribution | **No** (sanitized) |
+| Repo | Branch | Contains Personal Data? |
+|------|--------|------------------------|
+| `pai-1.2` | `main` | No (synced with upstream) |
+| `pai-1.2` | `feature/context-system` | **Yes** (vault paths, configs) |
+| `pai-1.2` | `feature/future-skill` | **Yes** (future dev work) |
+| `pai-1.2` | `release/context-skill` | No (sanitized, ready to push) |
+| `pai-contrib` | `main` | **No** (public, all sanitized skills) |
+
+### `pai-contrib` Structure (Mirrors PAI)
+
+```
+pai-contrib/
+├── README.md                      # Overview of all contributions
+├── bin/
+│   ├── ingest/                    # Context skill: capture CLI
+│   └── obs/                       # Context skill: query CLI
+├── .claude/skills/
+│   └── context/                   # Context skill definition
+├── docs/
+│   └── skills/context/            # Context skill docs
+├── shortcuts/                     # iOS Shortcuts (optional)
+└── .github/workflows/             # CI/CD for all skills
+```
 
 ### Clean Room Testing
 
@@ -346,11 +410,14 @@ make release-tag VERSION=1.0.0
 - [x] Create version tagging workflow
 - [x] Create deploy-to-release script
 
-### Phase 3: Skill Extraction (Next)
-- [ ] Create `release/context-skill` branch
-- [ ] Audit code for hardcoded paths
-- [ ] Create example tag taxonomy
-- [ ] Sanitize test fixtures
+### Phase 3: Skill Extraction 🔄 IN PROGRESS
+- [x] Create `release/context-skill` branch (in private fork)
+- [x] Audit code for hardcoded paths (sanitized)
+- [x] Remove personal identifiers (andreas, mellanon, andreas_brain)
+- [x] Create example tag taxonomy
+- [x] Add Telegram setup documentation
+- [ ] **NEXT:** Create public contrib repo (`pai-contrib`) on GitHub
+- [ ] Push `release/context-skill` to `pai-contrib:main`
 - [ ] Run `make cleanroom-full` to validate
 
 ### Phase 4: Documentation
@@ -386,16 +453,49 @@ git push origin feature/context-system
 # 1. Check for personal data
 make release-check
 
-# 2. Deploy to release branch
-make release-deploy
+# 2. Push to public contrib repo
+git remote add public git@github.com:YOUR_USERNAME/pai-contrib.git  # First time only
+git push public release/context-skill:main --force
 
-# 3. Test in clean room
-make cleanroom-full
+# 3. Test in clean room (uses public repo)
+cd bin/ingest/deployment
+make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-contrib SKILL_BRANCH=main
+make cleanroom-test
 
-# 4. If passes, tag and push
-make release-tag VERSION=1.0.0
-git push origin release/context-skill
-git push origin context-skill-v1.0.0
+# 4. If passes, tag the release
+git tag context-skill-v1.0.0
+git push public context-skill-v1.0.0
+```
+
+### First-Time Setup: Create Public Contrib Repo
+
+```bash
+# 1. Create new repo on GitHub: YOUR_USERNAME/pai-contrib (PUBLIC)
+#    - No README, no .gitignore, empty repo
+#    - This will hold ALL your PAI contributions (mirrors PAI structure)
+
+# 2. Add as remote in your private fork
+cd /path/to/pai-1.2
+git remote add public git@github.com:YOUR_USERNAME/pai-contrib.git
+
+# 3. Push sanitized release branch
+git push public release/context-skill:main
+```
+
+### Adding Future Skills
+
+```bash
+# 1. Develop in private fork
+git checkout -b feature/new-skill
+
+# 2. When ready, create sanitized release branch
+git checkout -b release/new-skill
+# ... sanitize personal data ...
+
+# 3. Merge into pai-contrib main (which already has context skill)
+git checkout main
+git merge release/new-skill
+git push public main
 ```
 
 ### Syncing with Upstream
@@ -423,6 +523,8 @@ git rebase main
 | Clean room | Docker / VM / User profile | Docker | Reproducible, CI-ready |
 | Release branch | Single / Per-version | Single + tags | Simpler, tags for versions |
 | CI platform | GitHub Actions | GitHub Actions | Already using GitHub |
+| Release repo | Same fork / Separate repo | **Separate public repo** | Private fork has sensitive data in branches |
+| Public repo name | `pai-context-skill` / `pai-contrib` | **`pai-contrib`** | Mirrors PAI structure, supports multiple skills |
 
 ---
 

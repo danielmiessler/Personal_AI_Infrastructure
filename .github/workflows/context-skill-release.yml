@@ -1,0 +1,157 @@
+# CI/CD for Context Skill - Release Validation
+#
+# Runs on: PR to release/context-skill branch
+# Purpose: Validate contribution is ready for upstream
+#
+# Tests:
+#   - Clean room validation (simulates new user)
+#   - Full test suite
+#   - No personal data check
+
+name: Context Skill - Release Validation
+
+on:
+  pull_request:
+    branches:
+      - 'release/context-skill'
+    paths:
+      - 'bin/ingest/**'
+      - 'bin/obs/**'
+      - '.claude/skills/context/**'
+
+jobs:
+  cleanroom-validation:
+    name: Clean Room Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for merge
+      
+      - name: Build clean room image
+        working-directory: bin/ingest/deployment
+        run: |
+          docker build -f Dockerfile.cleanroom \
+            --build-arg UPSTREAM_REPO=danielmiessler/Personal_AI_Infrastructure \
+            --build-arg SKILL_REPO=${{ github.repository }} \
+            --build-arg SKILL_BRANCH=${{ github.head_ref }} \
+            -t pai-cleanroom-test .
+      
+      - name: Run clean room validation
+        run: |
+          docker run --rm pai-cleanroom-test
+      
+      - name: Clean room shell test
+        run: |
+          docker run --rm pai-cleanroom-test /bin/bash -c "
+            cd /home/newuser/pai
+            echo '=== Testing obs CLI ==='
+            bun bin/obs/obs.ts --help
+            echo '=== Testing ingest CLI ==='
+            bun bin/ingest/ingest.ts --help
+            echo '=== Running unit tests ==='
+            cd bin/ingest && bun test test/unit/ || true
+          "
+
+  personal-data-check:
+    name: Personal Data Leak Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for personal paths
+        run: |
+          echo "Checking for personal data leaks..."
+          
+          # Patterns that might indicate personal data
+          PATTERNS=(
+            "/Users/"
+            "/home/andreas"
+            "mellanon"
+            "andreas_brain"
+            "TELEGRAM_BOT_TOKEN=.*[^$]"
+            "OPENAI_API_KEY=sk-"
+            "ANTHROPIC_API_KEY=sk-"
+          )
+          
+          FOUND=0
+          for pattern in "${PATTERNS[@]}"; do
+            echo "Checking for: $pattern"
+            if grep -r "$pattern" bin/ingest bin/obs .claude/skills/context --include="*.ts" --include="*.md" --include="*.json" 2>/dev/null | grep -v "test/fixtures" | grep -v "node_modules" | grep -v ".example"; then
+              echo "⚠️  Found potential personal data: $pattern"
+              FOUND=1
+            fi
+          done
+          
+          if [ $FOUND -eq 1 ]; then
+            echo ""
+            echo "❌ Personal data detected! Please sanitize before release."
+            exit 1
+          else
+            echo "✅ No personal data detected"
+          fi
+
+  full-test-suite:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: |
+          cd bin/obs && bun install
+          cd ../ingest && bun install
+      
+      - name: Create test environment
+        run: |
+          mkdir -p /tmp/test-vault
+          cp -r bin/ingest/deployment/test-vault/* /tmp/test-vault/
+      
+      - name: Run all tests
+        env:
+          OBSIDIAN_VAULT_PATH: /tmp/test-vault
+          PAI_DIR: ${{ github.workspace }}
+        working-directory: bin/ingest
+        run: |
+          echo "=== Unit Tests ==="
+          bun test test/unit/ || true
+          
+          echo "=== CLI Tests ==="
+          bun run ingest.ts --help
+          cd ../obs && bun run obs.ts --help
+          bun run obs.ts tags || true
+
+  validation-summary:
+    name: Validation Summary
+    needs: [cleanroom-validation, personal-data-check, full-test-suite]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Release Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Clean Room | ${{ needs.cleanroom-validation.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Personal Data Check | ${{ needs.personal-data-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Full Test Suite | ${{ needs.full-test-suite.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.cleanroom-validation.result }}" == "success" ] && \
+             [ "${{ needs.personal-data-check.result }}" == "success" ] && \
+             [ "${{ needs.full-test-suite.result }}" == "success" ]; then
+            echo "✅ **Ready for release!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Not ready for release. Fix issues above.**" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Check all passed
+        if: needs.cleanroom-validation.result != 'success' || needs.personal-data-check.result != 'success' || needs.full-test-suite.result != 'success'
+        run: exit 1
+

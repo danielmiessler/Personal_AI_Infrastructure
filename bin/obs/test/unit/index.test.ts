@@ -144,12 +144,17 @@ describe("toIndexedResults", () => {
     expect(indexed[1].type).toBe("transcript");  // has transcript tag
   });
 
-  it("filters out scope and incoming tags", () => {
+  it("filters out metadata and system tags for display", () => {
     const indexed = toIndexedResults(mockResults);
 
+    // Should filter out scope/, source/, incoming, raw, transcript, meeting-notes
     expect(indexed[0].tags).not.toContain("scope/work");
     expect(indexed[1].tags).not.toContain("incoming");
     expect(indexed[1].tags).not.toContain("raw");
+    expect(indexed[1].tags).not.toContain("transcript");  // Already in Type column
+    
+    // Should keep project and content tags
+    expect(indexed[0].tags).toContain("project/pai");
   });
 
   it("supports custom start index", () => {

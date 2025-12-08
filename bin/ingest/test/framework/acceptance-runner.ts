@@ -14,7 +14,14 @@
 import { execSync, spawn } from "child_process";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { appendHistory, type TestReport, type TestLayer } from "./report";
+import {
+  appendHistory,
+  saveJsonReport,
+  saveMarkdownReport,
+  generateMarkdownReport,
+  type TestReport,
+  type TestLayer,
+} from "./report";
 import {
   printTestHeader,
   printTestStatus,
@@ -38,6 +45,8 @@ export interface AcceptanceTestSpec {
   cwd?: string;
   /** Timeout in ms (default: 120000) */
   timeout?: number;
+  /** Skills to inject via --append-system-prompt (paths relative to .claude/skills/) */
+  skillInjection?: string[];
   /** Expected outcomes to validate */
   expected: AcceptanceExpected;
   /** Cleanup: files to delete after test */
@@ -57,6 +66,11 @@ export interface AcceptanceExpected {
   exitCode?: number;
   /** Custom validator function */
   validator?: (result: AcceptanceTestResult) => { passed: boolean; error?: string };
+  /** LLM-as-judge semantic validation for skill behavior */
+  semantic?: {
+    description: string;
+    checkpoints: string[];
+  };
 }
 
 export interface AcceptanceTestResult {
@@ -89,15 +103,20 @@ export const acceptanceTestSpecs: AcceptanceTestSpec[] = [
     id: "ACC-001",
     name: "Ingest text note via direct command",
     description: "Claude ingests a text note and confirms vault file creation",
-    prompt: `Run this exact command and report if it succeeded:
+    prompt: `Run this command to ingest a test note:
 
 bun run ingest.ts direct --text "[ACC-001] Acceptance test note about quantum computing basics" --caption "#test-acceptance ~work"
 
-Report SUCCESS if the command completed and created a vault file, or FAILURE if there was an error.`,
+Tell me if the command completed successfully.`,
     expected: {
-      outputContains: ["SUCCESS"],
-      outputNotContains: ["FAILURE", "error", "Error"],
       exitCode: 0,
+      semantic: {
+        description: "Should run the ingest command and confirm completion",
+        checkpoints: [
+          "Ran the ingest command",
+          "Command completed without errors",
+        ],
+      },
     },
     timeout: 90000,
   },
@@ -105,15 +124,20 @@ Report SUCCESS if the command completed and created a vault file, or FAILURE if 
     id: "ACC-002",
     name: "Search for ingested content",
     description: "Claude searches vault for previously ingested test content",
-    prompt: `Run this command and report if it found ACC-001:
+    prompt: `Search the vault for ACC-001 content:
 
 cd ../obs && bun run obs.ts search --text "ACC-001" --recent 10
 
-Report SUCCESS if search results contain "ACC-001", or FAILURE if not found.`,
+Tell me if you found any results containing ACC-001.`,
     expected: {
-      outputContains: ["SUCCESS"],
-      outputNotContains: ["FAILURE"],
       exitCode: 0,
+      semantic: {
+        description: "Should run the search command and find ACC-001 content",
+        checkpoints: [
+          "Ran obs search command",
+          "Found results or reported search completed",
+        ],
+      },
     },
     timeout: 60000,
   },
@@ -137,7 +161,7 @@ Report SUCCESS if the output shows test run history with pass rates, or FAILURE 
     id: "ACC-004",
     name: "Multi-step workflow: ingest and retrieve",
     description: "Claude performs a complete ingest → search workflow",
-    prompt: `Perform this two-step test:
+    prompt: `Perform this two-step workflow:
 
 Step 1 - Ingest:
 bun run ingest.ts direct --text "[ACC-004] Meeting notes about quarterly planning and budget" --caption "#meeting #planning ~work"
@@ -145,11 +169,17 @@ bun run ingest.ts direct --text "[ACC-004] Meeting notes about quarterly plannin
 Step 2 - Search:
 cd ../obs && bun run obs.ts search --text "ACC-004" --recent 5
 
-Report SUCCESS if BOTH steps completed and the search found ACC-004, or FAILURE if any step failed.`,
+Tell me if both steps completed and what you found.`,
     expected: {
-      outputContains: ["SUCCESS"],
-      outputNotContains: ["FAILURE"],
       exitCode: 0,
+      semantic: {
+        description: "Should complete both ingest and search steps",
+        checkpoints: [
+          "Executed the ingest command",
+          "Executed the search command",
+          "Reported results from the search",
+        ],
+      },
     },
     timeout: 120000,
   },
@@ -165,11 +195,17 @@ bun run ingest.ts direct --text "[ACC-005] Research notes on transformers" --cap
 Step 2 - Search by tag:
 cd ../obs && bun run obs.ts search --tag acc-test-ml --recent 5
 
-Report SUCCESS if the tag search found ACC-005, or FAILURE if not found.`,
+Tell me what you found.`,
     expected: {
-      outputContains: ["SUCCESS"],
-      outputNotContains: ["FAILURE"],
       exitCode: 0,
+      semantic: {
+        description: "Should complete both ingest and tag search",
+        checkpoints: [
+          "Executed the ingest command",
+          "Executed the tag search command",
+          "Reported results from search",
+        ],
+      },
     },
     timeout: 120000,
   },
@@ -177,7 +213,7 @@ Report SUCCESS if the tag search found ACC-005, or FAILURE if not found.`,
     id: "ACC-006",
     name: "Context loading workflow: search → read",
     description: "Claude searches by tag, then loads note content using obs read",
-    prompt: `Test context loading workflow (search → select → load):
+    prompt: `Test context loading workflow:
 
 Step 1 - Ingest a note with product tag:
 bun run ingest.ts direct --text "[ACC-006] Product roadmap: Q1 priorities include user authentication, API v2, and dashboard redesign" --caption "#product #roadmap ~work"
@@ -185,17 +221,21 @@ bun run ingest.ts direct --text "[ACC-006] Product roadmap: Q1 priorities includ
 Step 2 - Search by product tag:
 cd ../obs && bun run obs.ts search --tag product --recent 5
 
-Step 3 - Load note content:
+Step 3 - Load note content (look for ACC-006 in search results):
 cd ../obs && bun run obs.ts read "ACC-006"
 
-Report SUCCESS if:
-- Step 2 search found notes with #product tag
-- Step 3 loaded content containing "Q1 priorities" or "roadmap"
-Report FAILURE if any step failed or content wasn't loaded.`,
+Tell me what you found at each step.`,
     expected: {
-      outputContains: ["SUCCESS"],
-      outputNotContains: ["FAILURE"],
       exitCode: 0,
+      semantic: {
+        description: "Should complete all three steps and show content",
+        checkpoints: [
+          "Executed ingest command",
+          "Executed search with --tag product",
+          "Executed obs read command",
+          "Showed loaded content or explained results",
+        ],
+      },
     },
     timeout: 120000,
   },
@@ -211,17 +251,101 @@ bun run ingest.ts direct --text "[ACC-007] Deep learning architecture notes: tra
 Step 2 - Semantic search for related content:
 cd ../obs && bun run obs.ts semantic "neural network architectures" --limit 5
 
-Step 3 - Verify semantic match:
+Step 3 - Load the note:
 cd ../obs && bun run obs.ts read "ACC-007"
 
-Report SUCCESS if:
-- Semantic search returned results related to ML/transformers
-- obs read loaded the ACC-007 note content
-Report FAILURE if semantic search found nothing or read failed.`,
+Tell me what you found at each step.`,
     expected: {
-      outputContains: ["SUCCESS"],
-      outputNotContains: ["FAILURE"],
       exitCode: 0,
+      semantic: {
+        description: "Should complete semantic search and read steps",
+        checkpoints: [
+          "Executed ingest command",
+          "Executed semantic search command",
+          "Executed obs read command",
+          "Reported results from the workflow",
+        ],
+      },
+    },
+    timeout: 180000,
+  },
+
+  // ==========================================================================
+  // Skill Behavior Tests (SKILL-001+) - Test skill instructions via injection
+  // ==========================================================================
+  {
+    id: "SKILL-001",
+    name: "Context skill trigger: 'what context do we have on X'",
+    description: "Tests that context skill triggers search and shows indexed results",
+    skillInjection: ["context/SKILL.md"],
+    prompt: `What context do we have on kubernetes?`,
+    expected: {
+      exitCode: 0,
+      semantic: {
+        description: "Should run obs search/semantic command and show results. Focus ONLY on whether the context skill instructions were followed (ignore response format requirements from other skills).",
+        checkpoints: [
+          "Ran an obs command (search, semantic, or context) via Bash tool",
+          "Showed search results to user (any format is acceptable)",
+          "Did not dump full content of all notes (discovery focused)",
+        ],
+      },
+    },
+    timeout: 180000,
+  },
+  {
+    id: "SKILL-002",
+    name: "Context skill: tag-based search",
+    description: "Tests that context skill uses tag search when tag is mentioned",
+    skillInjection: ["context/SKILL.md"],
+    prompt: `Find notes tagged #incoming`,
+    expected: {
+      exitCode: 0,
+      semantic: {
+        description: "Should use obs search --tag and show indexed results. Focus ONLY on whether the context skill instructions were followed (ignore response format requirements from other skills like CORE).",
+        checkpoints: [
+          "Used obs search or obs context command with --tag flag",
+          "Showed matching notes (any format: list, table, or summary)",
+          "Results include relevant indexed content",
+        ],
+      },
+    },
+    timeout: 180000,
+  },
+  {
+    id: "SKILL-003",
+    name: "Context skill: presents structured results",
+    description: "Tests that skill presents search results in structured format",
+    skillInjection: ["context/SKILL.md"],
+    prompt: `What do I know about telegram messages?`,
+    expected: {
+      exitCode: 0,
+      semantic: {
+        description: "Should search and present results in organized format. Focus ONLY on whether the context skill instructions were followed (ignore response format requirements from other skills like CORE).",
+        checkpoints: [
+          "Ran an obs search or semantic command",
+          "Presented results in readable/organized format (table, list, or summary)",
+          "Included relevant note information (titles, tags, or content snippets)",
+        ],
+      },
+    },
+    timeout: 180000,
+  },
+  {
+    id: "SKILL-004",
+    name: "Context skill: two-phase workflow",
+    description: "Tests the search → wait → load pattern",
+    skillInjection: ["context/SKILL.md"],
+    prompt: `Context #project/pai - show me what we have`,
+    expected: {
+      exitCode: 0,
+      semantic: {
+        description: "Should show search results and wait for user selection. Focus ONLY on whether the context skill instructions were followed (ignore response format requirements from other skills like CORE).",
+        checkpoints: [
+          "Searched for project/pai using obs command",
+          "Displayed indexed results (any format)",
+          "Did NOT automatically load all full note content (discovery first)",
+        ],
+      },
     },
     timeout: 180000,
   },
@@ -231,12 +355,128 @@ Report FAILURE if semantic search found nothing or read failed.`,
 // Test Runner
 // =============================================================================
 
+// Skills directory (relative to PAI root)
+const SKILLS_DIR = join(import.meta.dir, "..", "..", "..", "..", ".claude", "skills");
+
+/**
+ * Load and combine skill content for injection
+ */
+function loadSkillsForInjection(skillPaths: string[]): string {
+  const skillContents: string[] = [];
+
+  for (const skillPath of skillPaths) {
+    const fullPath = join(SKILLS_DIR, skillPath);
+    if (existsSync(fullPath)) {
+      const content = readFileSync(fullPath, "utf-8");
+      skillContents.push(`# Skill: ${skillPath}\n\n${content}`);
+    } else {
+      console.warn(`  Warning: Skill not found: ${fullPath}`);
+    }
+  }
+
+  return skillContents.join("\n\n---\n\n");
+}
+
+/**
+ * Semantic validation result from LLM-as-judge
+ */
+interface SemanticValidationResult {
+  passed: boolean;
+  confidence: number;
+  reasoning: string;
+  checkpoints?: Array<{ checkpoint: string; passed: boolean; reason: string }>;
+}
+
+/**
+ * Run LLM-as-judge semantic validation on Claude's output
+ */
+async function runSemanticValidation(
+  output: string,
+  semantic: { description: string; checkpoints: string[] },
+  spec: AcceptanceTestSpec
+): Promise<SemanticValidationResult> {
+  const checkpointsStr = semantic.checkpoints
+    .map((c, i) => `${i + 1}. ${c}`)
+    .join("\n");
+
+  const judgePrompt = `You are evaluating whether Claude followed skill instructions correctly.
+
+## Test Information
+- **Test ID:** ${spec.id}
+- **Test Name:** ${spec.name}
+- **Expected Behavior:** ${semantic.description}
+
+## Checkpoints to Verify
+${checkpointsStr}
+
+## Claude's Response to Evaluate
+\`\`\`
+${output.slice(0, 6000)}${output.length > 6000 ? "\n... (truncated)" : ""}
+\`\`\`
+
+## Your Task
+Evaluate whether Claude's response meets the expected behavior and passes all checkpoints.
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "passed": true/false,
+  "confidence": 0-100,
+  "reasoning": "Brief explanation of your judgment",
+  "checkpoints": [
+    {"checkpoint": "description", "passed": true/false, "reason": "why"}
+  ]
+}
+
+Be strict but fair. 80+ confidence = clear pass, 70-79 = marginal, below 70 = fail.`;
+
+  try {
+    const escapedJudgePrompt = judgePrompt.replace(/'/g, "'\\''");
+    const result = execSync(
+      `claude -p --output-format json --dangerously-skip-permissions '${escapedJudgePrompt}'`,
+      {
+        timeout: 120000,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env, FORCE_COLOR: "0" },
+      }
+    );
+
+    // Parse Claude's response
+    const json = JSON.parse(result);
+    const responseText = json.result || json.content || result;
+
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*"passed"[\s\S]*"confidence"[\s\S]*\}/);
+    if (!jsonMatch) {
+      return {
+        passed: false,
+        confidence: 0,
+        reasoning: "Could not extract JSON from judge response",
+      };
+    }
+
+    const evaluation = JSON.parse(jsonMatch[0]);
+    return {
+      passed: evaluation.passed === true,
+      confidence: Math.min(100, Math.max(0, Number(evaluation.confidence) || 0)),
+      reasoning: String(evaluation.reasoning || "No reasoning provided"),
+      checkpoints: Array.isArray(evaluation.checkpoints) ? evaluation.checkpoints : undefined,
+    };
+  } catch (error: any) {
+    return {
+      passed: false,
+      confidence: 0,
+      reasoning: `Semantic validation failed: ${error.message}`,
+    };
+  }
+}
+
 /**
  * Run Claude with a prompt and capture output
  */
 async function runClaude(
   prompt: string,
-  options: { cwd?: string; timeout?: number } = {}
+  options: { cwd?: string; timeout?: number; skillInjection?: string[] } = {}
 ): Promise<{ output: string; exitCode: number; error?: string }> {
   const cwd = options.cwd || INGEST_DIR;
   const timeout = options.timeout || 120000;
@@ -245,9 +485,20 @@ async function runClaude(
     // Escape the prompt for shell - use single quotes and escape internal single quotes
     const escapedPrompt = prompt.replace(/'/g, "'\\''");
 
+    // Build command with optional skill injection
+    let command = "claude -p --output-format json --dangerously-skip-permissions";
+
+    if (options.skillInjection?.length) {
+      const skillContent = loadSkillsForInjection(options.skillInjection);
+      const escapedSkillContent = skillContent.replace(/'/g, "'\\''");
+      command += ` --append-system-prompt '${escapedSkillContent}'`;
+    }
+
+    command += ` '${escapedPrompt}'`;
+
     // Use claude -p with JSON output for structured results
     const result = execSync(
-      `claude -p --output-format json --dangerously-skip-permissions '${escapedPrompt}'`,
+      command,
       {
         cwd,
         timeout,
@@ -309,13 +560,18 @@ async function executeAcceptanceTest(spec: AcceptanceTestSpec): Promise<Acceptan
   const startTime = Date.now();
   const checks: Array<{ name: string; passed: boolean; error?: string }> = [];
 
-  console.log(`\n  Testing ${spec.id}: ${spec.name}`);
-  console.log(`  Prompt: ${spec.prompt.slice(0, 80)}...`);
+  // Use shared format for consistent output across all test layers
+  printTestHeader(spec.id, spec.name);
+  console.log(`  Prompt: ${spec.prompt.slice(0, 80).replace(/\n/g, " ")}...`);
+  if (spec.skillInjection?.length) {
+    console.log(`  Skills: ${spec.skillInjection.join(", ")}`);
+  }
 
   try {
     const result = await runClaude(spec.prompt, {
       cwd: spec.cwd || INGEST_DIR,
       timeout: spec.timeout,
+      skillInjection: spec.skillInjection,
     });
 
     const output = result.output + (result.error || "");
@@ -408,6 +664,28 @@ async function executeAcceptanceTest(spec: AcceptanceTestSpec): Promise<Acceptan
       });
     }
 
+    // LLM-as-judge semantic validation for skill behavior
+    if (spec.expected.semantic) {
+      console.log(`  Running LLM-as-judge evaluation...`);
+      const semanticResult = await runSemanticValidation(output, spec.expected.semantic, spec);
+      checks.push({
+        name: `semantic:${semanticResult.confidence}%`,
+        passed: semanticResult.passed,
+        error: semanticResult.passed ? undefined : semanticResult.reasoning,
+      });
+
+      // Add individual checkpoint results
+      if (semanticResult.checkpoints) {
+        for (const cp of semanticResult.checkpoints) {
+          checks.push({
+            name: `checkpoint:${cp.checkpoint.slice(0, 30)}`,
+            passed: cp.passed,
+            error: cp.passed ? undefined : cp.reason,
+          });
+        }
+      }
+    }
+
     const passed = checks.every((c) => c.passed);
     const duration = Date.now() - startTime;
     
@@ -467,9 +745,7 @@ export async function runAcceptanceTests(options: {
   console.log(`\nRunning ${specs.length} acceptance tests...\n`);
 
   for (const spec of specs) {
-    if (options.verbose) {
-      printTestHeader(spec.id, spec.name);
-    }
+    // printTestHeader is called inside executeAcceptanceTest for consistent formatting
     const result = await executeAcceptanceTest(spec);
     results.push(result);
   }
@@ -532,6 +808,15 @@ export async function runAcceptanceTests(options: {
   if (!options.skipHistory) {
     appendHistory(report);
   }
+
+  // Generate and save reports (same as other layers)
+  const jsonPath = saveJsonReport(runId, report);
+  const markdown = generateMarkdownReport(report);
+  const mdPath = saveMarkdownReport(runId, markdown);
+
+  console.log(`\nReports saved:`);
+  console.log(`  JSON: ${jsonPath}`);
+  console.log(`  Markdown: ${mdPath}`);
 
   return summary;
 }

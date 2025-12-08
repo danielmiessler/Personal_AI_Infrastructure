@@ -9,21 +9,61 @@
 - "background on [project]"
 - "what do we have on [project]"
 
-## Two-Phase Retrieval: Discovery → Load
+## CRITICAL: Iterative Search → Load Loop
 
-### Phase 1: Discovery
-Show numbered index of project notes:
+**This is an ITERATIVE workflow. User may search and load multiple times.**
+
+---
+
+### Step 1: SEARCH (then STOP and WAIT)
+
+Run project context search with `--format json`:
 ```bash
-obs context ${PROJECT} --format index
+obs context ${PROJECT} --format json --scope all
 ```
 
-### Phase 2: Selection & Load
-User chooses what to load:
+**Parse the JSON** and present as markdown table:
+
+| # | Date | Type | Title | Tags |
+|---|------|------|-------|------|
+| 1 | Dec 7 | transcript | Meeting about X | compliance, data |
+| 2 | Dec 7 | note | Planning notes | architecture |
+...
+
+**STOP.** Ask user:
+> "Found N documents for #project/${PROJECT}. Which to load?"
+> (e.g., `1,2,5` or `all` or `all transcripts`)
+
+**WAIT for user response.**
+
+---
+
+### Step 2: LOAD (then check if more needed)
+
+When user selects:
 ```bash
-obs load 1,2,5        # Specific items
-obs load 1-10         # Range
-obs load all          # Everything
-obs load --type transcript  # Filter by type
+obs load 1,2,5
+```
+
+Summarize loaded content, then offer:
+> "Loaded N documents. Need more context?
+> - Load more from this search
+> - Search for related topic
+> - Ask questions about loaded context"
+
+---
+
+## Iteration Example
+
+```
+User: "Load context for ai-tailgating"
+Claude: [shows 18 project notes] "Which to load?"
+User: "all transcripts"
+Claude: [loads 14 transcripts] "Need more?"
+User: "Also search for safety compliance"
+Claude: [new search, shows 5 results] "Which to load?"
+User: "3,4"
+Claude: [loads 2 more] "Now have 16 docs loaded. Questions?"
 ```
 
 ## Workflow Steps

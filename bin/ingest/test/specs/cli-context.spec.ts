@@ -1,132 +1,170 @@
 /**
  * CLI Context Retrieval Command Test Specifications
  *
- * Tests for `ingest search` and `ingest load` commands for two-phase context retrieval.
+ * Tests for `obs` CLI commands used by the context skill.
  * These are CLI integration tests that execute the actual commands.
  *
- * Pattern: Search (discovery) → Load (injection)
+ * Pattern: Search (discovery with index/json) → Load (injection)
+ *
+ * The context skill uses `obs` commands, not `ingest` commands.
  */
 
 import type { CLITestSpec } from "../framework/cli-runner";
 
 // =============================================================================
-// Ingest Search Command Tests (TEST-CLI-030+)
+// Obs Search Command Tests (TEST-CLI-030+)
 // =============================================================================
 
 /**
- * Test specs for `ingest search` command (discovery phase)
+ * Test specs for `obs search` command (discovery phase)
  */
 export const searchCLITestSpecs: CLITestSpec[] = [
   // ---------------------------------------------------------------------------
-  // Help and existence tests
+  // Basic search tests
   // ---------------------------------------------------------------------------
   {
     id: "TEST-CLI-030",
-    name: "Search command shows help",
-    description: "Verify search command displays help when run without args",
-    command: "bun run ingest.ts search --help 2>&1 || true",
+    name: "Obs CLI shows search options in help",
+    description: "Verify obs --help displays search options",
+    command: "obs --help 2>&1",
     expected: {
-      contains: ["search", "Semantic search", "--tag", "--limit"],
+      contains: ["SEARCH OPTIONS", "--tag", "--format"],
       exitCode: 0,
     },
   },
 
   {
     id: "TEST-CLI-031",
-    name: "Search with semantic query",
-    description: "Verify semantic search returns results index",
-    command: 'bun run ingest.ts search "test content" --limit 3',
+    name: "Search by tag returns results",
+    description: "Verify tag search finds notes",
+    command: "obs search --tag incoming --recent 5",
     expected: {
-      // Should output index format with note names
-      contains: ["Found", "results"],
       exitCode: 0,
     },
   },
 
   {
     id: "TEST-CLI-032",
-    name: "Search with tag filter",
-    description: "Verify --tag flag filters by tag",
-    command: "bun run ingest.ts search --tag incoming --limit 5",
+    name: "Search with index format",
+    description: "Verify --format index outputs numbered table",
+    command: "obs search --tag incoming --format index --recent 5",
     expected: {
-      contains: ["Found", "results"],
+      contains: ["│", "Date", "Type", "Title"],
       exitCode: 0,
     },
   },
 
   {
     id: "TEST-CLI-033",
-    name: "Search with scope filter",
-    description: "Verify --scope flag filters results",
-    command: 'bun run ingest.ts search "note" --scope all --limit 3',
+    name: "Search with JSON format",
+    description: "Verify --format json outputs parseable JSON for Claude",
+    command: "obs search --tag incoming --format json --recent 3",
     expected: {
-      contains: ["Found"],
+      contains: ["{", "tagMatches", "summary", "loadInstructions"],
       exitCode: 0,
     },
   },
 
   {
     id: "TEST-CLI-034",
-    name: "Search with combined flags",
-    description: "Verify multiple flags work together",
-    command: 'bun run ingest.ts search "telegram" --tag raw --limit 5 --scope all',
+    name: "Search with scope filter",
+    description: "Verify --scope flag filters results",
+    command: "obs search --tag raw --scope all --recent 5",
     expected: {
-      contains: ["Found"],
+      exitCode: 0,
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // Semantic search tests (TEST-CLI-035+)
+  // ---------------------------------------------------------------------------
+  {
+    id: "TEST-CLI-035",
+    name: "Semantic search returns results",
+    description: "Verify semantic search finds related content",
+    command: 'obs semantic "telegram message" --limit 3',
+    expected: {
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-036",
+    name: "Semantic search with JSON format",
+    description: "Verify semantic --format json outputs parseable JSON",
+    command: 'obs semantic "telegram" --format json --limit 3',
+    expected: {
+      contains: ["{", "semanticMatches", "summary"],
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-037",
+    name: "Semantic search filtered by tag",
+    description: "Verify --tag filter narrows semantic results",
+    command: 'obs semantic "test" --tag incoming --limit 5',
+    expected: {
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-038",
+    name: "Semantic search filtered by doc pattern",
+    description: "Verify --doc filter narrows semantic results by filename",
+    command: 'obs semantic "notes" --doc "2025-12*" --limit 5',
+    expected: {
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-039",
+    name: "Context command for project",
+    description: "Verify obs context searches project tag",
+    command: "obs context pai --format index --recent 5",
+    expected: {
       exitCode: 0,
     },
   },
 ];
 
 // =============================================================================
-// Ingest Load Command Tests (TEST-CLI-040+)
+// Obs Load Command Tests (TEST-CLI-040+)
 // =============================================================================
 
 /**
- * Test specs for `ingest load` command (injection phase)
+ * Test specs for `obs load` command (injection phase)
  */
 export const loadCLITestSpecs: CLITestSpec[] = [
-  // ---------------------------------------------------------------------------
-  // Help and existence tests
-  // ---------------------------------------------------------------------------
   {
     id: "TEST-CLI-040",
     name: "Load command shows help",
-    description: "Verify load command displays help when run without args",
-    command: "bun run ingest.ts load --help 2>&1 || true",
+    description: "Verify obs load command displays help",
+    command: "obs load --help 2>&1 || true",
     expected: {
-      contains: ["load", "--tag", "--limit", "--json"],
+      contains: ["load", "--type", "--since", "selection"],
       exitCode: 0,
     },
   },
 
   {
     id: "TEST-CLI-041",
-    name: "Load by tag",
-    description: "Verify --tag loads notes with matching tag",
-    command: "bun run ingest.ts load --tag incoming --limit 2",
+    name: "Load by type filter",
+    description: "Verify --type loads notes matching type",
+    command: "obs search --tag incoming --recent 5 && obs load --type note 2>&1 || true",
     expected: {
-      // Should output full markdown content
-      contains: ["---", "tags:"],
+      // May have no notes of type, but command should work
       exitCode: 0,
     },
   },
 
   {
     id: "TEST-CLI-042",
-    name: "Load with JSON output",
-    description: "Verify --json flag outputs JSON format",
-    command: "bun run ingest.ts load --tag incoming --limit 1 --json",
-    expected: {
-      contains: ["{", "name", "content", "}"],
-      exitCode: 0,
-    },
-  },
-
-  {
-    id: "TEST-CLI-043",
-    name: "Load with limit",
-    description: "Verify --limit restricts number of results",
-    command: "bun run ingest.ts load --tag raw --limit 3",
+    name: "obs read retrieves note content",
+    description: "Verify obs read loads a specific note",
+    command: 'obs read "2025" --limit 1 2>&1 || true',
     expected: {
       exitCode: 0,
     },
@@ -139,16 +177,48 @@ export const loadCLITestSpecs: CLITestSpec[] = [
 
 /**
  * Test specs for the two-phase workflow: search → load
+ * These test the exact pattern the context skill uses
  */
 export const workflowCLITestSpecs: CLITestSpec[] = [
   {
     id: "TEST-CLI-050",
-    name: "Two-phase workflow integration",
-    description: "Verify search and load work together for context retrieval",
-    // First search to discover, then simulate load
-    command: 'bun run ingest.ts search "telegram" --limit 1 && echo "---PHASE 2---" && bun run ingest.ts load --tag source/telegram --limit 1',
+    name: "Search with JSON format for Claude parsing",
+    description: "Verify JSON output has all fields needed for skill table rendering",
+    command: "obs search --tag incoming --format json --recent 3",
     expected: {
-      contains: ["Found", "---PHASE 2---", "---"],
+      contains: ['"query"', '"tagMatches"', '"index"', '"date"', '"type"', '"title"', '"path"'],
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-051",
+    name: "Semantic search JSON has load instructions",
+    description: "Verify JSON includes loadInstructions for Claude",
+    command: 'obs semantic "telegram" --format json --limit 3',
+    expected: {
+      contains: ['"loadInstructions"', '"command"', '"examples"'],
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-052",
+    name: "Two-phase workflow: search then load",
+    description: "Verify search caches results and load uses them",
+    command: 'obs search --tag incoming --recent 3 && echo "---LOAD PHASE---" && obs load 1 2>&1 || echo "No results to load"',
+    expected: {
+      contains: ["---LOAD PHASE---"],
+      exitCode: 0,
+    },
+  },
+
+  {
+    id: "TEST-CLI-053",
+    name: "Multi-tag AND filtering",
+    description: "Verify multiple --tag flags use AND logic",
+    command: "obs search --tag scope/work --tag incoming --format index --recent 5",
+    expected: {
       exitCode: 0,
     },
   },

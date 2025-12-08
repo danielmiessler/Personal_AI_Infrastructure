@@ -51,6 +51,44 @@ function detectType(tags: string[]): string {
 }
 
 /**
+ * Filter tags for display - remove metadata/system tags, keep meaningful content tags
+ * Priority: project tags, topic tags, person tags
+ */
+function filterDisplayTags(tags: string[]): string[] {
+  // Tags to always exclude (metadata, system, redundant)
+  const excludePatterns = [
+    /^scope\//,           // scope/work, scope/private
+    /^source\//,          // source/telegram, source/voice
+    /^incoming$/,
+    /^raw$/,
+    /^fabric-extraction$/,
+    /^transcript$/,       // Already shown in Type column
+    /^meeting-notes$/,    // Already shown in Type column
+    /^wisdom$/,           // Already shown in Type column
+  ];
+  
+  // Filter and prioritize
+  const filtered = tags.filter(tag => 
+    !excludePatterns.some(pattern => pattern.test(tag))
+  );
+  
+  // Sort: project/ first, then person tags (has underscore), then topics
+  return filtered.sort((a, b) => {
+    const aIsProject = a.startsWith("project/");
+    const bIsProject = b.startsWith("project/");
+    if (aIsProject && !bIsProject) return -1;
+    if (!aIsProject && bIsProject) return 1;
+    
+    const aIsPerson = a.includes("_") && !a.includes("/");
+    const bIsPerson = b.includes("_") && !b.includes("/");
+    if (aIsPerson && !bIsPerson) return -1;
+    if (!aIsPerson && bIsPerson) return 1;
+    
+    return a.localeCompare(b);
+  });
+}
+
+/**
  * Extract date from note name or captureDate
  * Note names are typically: YYYY-MM-DD-Title
  */
@@ -95,7 +133,7 @@ export function toIndexedResults(
     path: result.path,
     date: extractDate(result),
     type: detectType(result.tags),
-    tags: result.tags.filter(t => !t.startsWith("scope/") && t !== "incoming" && t !== "raw"),
+    tags: filterDisplayTags(result.tags),
   }));
 }
 
@@ -112,7 +150,7 @@ export function toSemanticIndexedResults(
     path: result.notePath,
     date: extractDateFromName(result.noteName),
     type: result.tags ? detectType(result.tags) : "note",
-    tags: result.tags?.filter(t => !t.startsWith("scope/") && t !== "incoming" && t !== "raw") || [],
+    tags: result.tags ? filterDisplayTags(result.tags) : [],
     similarity: result.similarity,
     excerpt: result.content.slice(0, 80).replace(/\n/g, " ").trim(),
   }));
@@ -177,6 +215,54 @@ export function formatIndexTable(
   return lines.join("\n");
 }
 
+/**
+ * Format results as JSON for Claude to parse and present
+ */
+export function formatIndexJson(
+  tagMatches: IndexedResult[],
+  semanticMatches: IndexedResult[],
+  query: string
+): string {
+  const output = {
+    query,
+    timestamp: new Date().toISOString(),
+    summary: {
+      tagMatchCount: tagMatches.length,
+      semanticMatchCount: semanticMatches.length,
+      totalCount: tagMatches.length + semanticMatches.length,
+    },
+    tagMatches: tagMatches.map(r => ({
+      index: r.index,
+      date: r.date,
+      type: r.type,
+      title: r.name.replace(/^[\d-]+/, "").trim() || r.name,
+      tags: r.tags.slice(0, 3),  // Top 3 meaningful tags
+      path: r.path,
+    })),
+    semanticMatches: semanticMatches.map(r => ({
+      index: r.index,
+      date: r.date,
+      type: r.type,
+      title: r.name.replace(/^[\d-]+/, "").trim() || r.name,
+      score: r.similarity ? Math.round(r.similarity * 100) : null,
+      excerpt: r.excerpt,
+      tags: r.tags.slice(0, 3),
+      path: r.path,
+    })),
+    loadInstructions: {
+      command: "obs load <selection>",
+      examples: [
+        { selection: "all", description: "Load all results" },
+        { selection: "1,2,5", description: "Load specific items" },
+        { selection: "1-5", description: "Load range" },
+        { selection: "--type transcript", description: "Filter by type" },
+      ],
+    },
+  };
+  
+  return JSON.stringify(output, null, 2);
+}
+
 function formatHeader(): string {
   return " #  │ Date       │ Type       │ Title                                    │ Tags";
 }
@@ -190,7 +276,13 @@ function formatResultRow(result: IndexedResult): string {
   const date = result.date;
   const type = result.type.padEnd(10);
   const title = truncate(result.name.replace(/^[\d-]+/, "").trim() || result.name, 40).padEnd(40);
-  const tags = truncate(result.tags.slice(0, 3).join(", "), 25);
+  // Show first 2 tags more completely (30 chars)
+  const displayTags = result.tags.slice(0, 2).map(t => {
+    // Shorten project/ prefix for display
+    if (t.startsWith("project/")) return t.replace("project/", "p/");
+    return t;
+  });
+  const tags = truncate(displayTags.join(", "), 30);
   
   return `${num}  │ ${date} │ ${type} │ ${title} │ ${tags}`;
 }

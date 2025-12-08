@@ -2546,7 +2546,7 @@ async function handleTest(args: string[], verbose: boolean) {
       const runId = `acceptance-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
       const logSetup = setupRunLog(runId, "Acceptance Tests");
 
-      const testIds = subArgs.filter(a => a.startsWith("ACC-"));
+      const testIds = subArgs.filter(a => a.startsWith("ACC-") || a.startsWith("SKILL-"));
 
       const summary = await runAcceptanceTests({
         testIds: testIds.length > 0 ? testIds : undefined,

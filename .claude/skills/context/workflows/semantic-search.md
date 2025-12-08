@@ -17,23 +17,107 @@ obs embed  # Full rebuild
 obs embed --incremental  # Update changed only
 ```
 
-## Two-Phase Retrieval: Discovery → Load
+## CRITICAL: Iterative Search → Load Loop
 
-### Phase 1: Discovery (Search)
-Run search with `--format index` to get numbered results:
-```bash
-obs semantic "${QUERY}" --format index --limit 10
-obs search --tag "project/${PROJECT}" --format index
+**This is an ITERATIVE workflow. Each cycle has two steps: Search → Load.**
+**User may run multiple cycles until they have enough context.**
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  SEARCH → LOAD LOOP                 │
+│                                                     │
+│   ┌─────────┐     ┌──────┐     ┌───────────────┐   │
+│   │ SEARCH  │ ──► │ WAIT │ ──► │ LOAD selected │   │
+│   └─────────┘     └──────┘     └───────────────┘   │
+│        ▲                              │            │
+│        │                              ▼            │
+│        │         ┌──────────────────────────┐      │
+│        └──────── │ Need more context? ──────┼──► Done
+│                  └──────────────────────────┘      │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Phase 2: Injection (Load)
-User selects which notes to load:
+---
+
+### Step 1: SEARCH (then STOP and WAIT)
+
+Run search with `--format json`:
 ```bash
-obs load 1,2,5        # Specific items
-obs load 1-10         # Range
-obs load all          # Everything
-obs load --type transcript  # Filter by type
+obs search --tag "project/${PROJECT}" --format json --scope all
+# OR for semantic search:
+obs semantic "${QUERY}" --format json --limit 15 --scope all
 ```
+
+**Parse the JSON** and present as markdown table:
+
+| # | Date | Type | Title | Tags |
+|---|------|------|-------|------|
+| 1 | Dec 7 | transcript | Meeting about X | p/foo, compliance |
+| 2 | Dec 7 | note | Notes on Y | p/foo, architecture |
+...
+
+**STOP.** Ask user:
+> "Found N documents. Which to load? (e.g., `1,2,5` or `all` or `all transcripts`)"
+
+**WAIT for user response.**
+
+---
+
+### Step 2: LOAD (then check if more needed)
+
+When user selects (e.g., "1,2,5"):
+```bash
+obs load 1,2,5
+```
+
+Summarize what was loaded, then ask:
+> "Loaded 3 documents (X KB). Need more context? You can:
+> - Search again with different terms
+> - Load more from the previous search
+> - Ask questions about what's loaded"
+
+---
+
+## Iteration Examples
+
+**Example 1: Single search, partial load**
+```
+User: "What context on ai-tailgating?"
+Claude: [shows 18 results] "Which to load?"
+User: "1-5"
+Claude: [loads 5] "Need more?"
+User: "Also 8 and 12"
+Claude: [loads 2 more] "Now have 7 documents loaded."
+```
+
+**Example 2: Multiple searches**
+```
+User: "What context on ai-tailgating?"
+Claude: [shows 18 results] "Which to load?"
+User: "all transcripts"
+Claude: [loads 18] "Need more context?"
+User: "Also search for safety compliance"
+Claude: [new search, shows 5 results] "Which to load?"
+User: "all"
+Claude: [loads 5 more] "Now have 23 documents total."
+```
+
+**Example 3: Refine search**
+```
+User: "What do we have on kubernetes?"
+Claude: [shows 3 results] "Which to load?"
+User: "None of these are relevant. Search for container orchestration instead"
+Claude: [new search, shows 8 results] "Which to load?"
+```
+
+---
+
+## Key Principles
+
+1. **Always STOP after showing results** - Never auto-load
+2. **User controls what gets loaded** - They manage their context window
+3. **Support iteration** - Multiple searches, cumulative loading
+4. **Summarize loaded context** - Help user track what's in context
 
 ## Workflow Steps
 

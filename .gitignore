@@ -81,6 +81,10 @@ save/
 **/embeddings.db
 **/_meta/
 
+# Test output (auto-generated)
+bin/ingest/test/output/
+bin/obs/test/
+
 # Keep .claude/skills/ and .claude/.env.example tracked
 !.claude/skills/
 !.claude/.env.example

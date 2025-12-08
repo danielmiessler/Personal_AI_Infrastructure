@@ -464,7 +464,7 @@ Test results are tracked over time in `test/output/test-history.json` for qualit
 |----------|-------|-------------|
 | `scope` | TEST-SCOPE-* | Context separation (~private, ~work sigils) |
 | `date` | TEST-DATE-* | Document date hints and filename dating |
-| `archive` | TEST-ARC-*, TEST-INGv2-* | Archive/receipt pipeline |
+| `archive` | TEST-ARC-*, TEST-INGv2-* | Archive pipeline (documents, receipts, contracts) |
 | `regression` | TEST-REG-*, TEST-PAT-*, TEST-PHOTO-*, TEST-EMB-* | Core functionality |
 
 ## Working with Fixtures
@@ -523,7 +523,7 @@ Test specs are defined in `test/specs/`:
 
 Tests can validate:
 
-- **Pipeline**: `expected.pipeline` (default, archive, receipt, note)
+- **Pipeline**: `expected.pipeline` (default, archive, attach, note, clip)
 - **Tags**: `expected.tags`, `expected.excludeTags`
 - **Frontmatter**: `expected.frontmatter` (key-value pairs)
 - **Content**: `expected.content.contains`, `expected.content.notContains`

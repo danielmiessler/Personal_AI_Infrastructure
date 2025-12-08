@@ -123,15 +123,25 @@ Tags: #type/idea #projects/pai #status/raw
 ### Documents
 ```
 Input: PDF/DOCX sent to Telegram
-Pipeline:
+Default Pipeline (/attach):
   1. Download document
-  2. Extract text (pandoc)
-  3. Summarize (fabric)
+  2. Extract text (marker/pandoc)
+  3. Store original file in attachments/
   4. Generate tags
-  5. Save with summary + link to original
+  5. Save markdown with link to original file
 Output:
   - 2025-11-27-Quarterly-Report-Summary.md
+  - attachments/original-document.pdf
 Tags: #type/document #source/telegram
+
+Archive Pipeline (/archive):
+  1. Download document
+  2. Rename to TYPE-DATE-TITLE format
+  3. Sync to Dropbox
+  4. Save markdown with Dropbox link
+Output:
+  - archive/2025-11-27-Quarterly-Report.md
+  - Dropbox: DOCUMENT - 20251127 - Quarterly Report - WORK.pdf
 ```
 
 ### Screenshots/Images
@@ -534,6 +544,6 @@ All errors logged to:
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2024-12-01
+**Document Version:** 1.1.0
+**Last Updated:** 2025-12-08
 **Status:** ✅ Design Approved

@@ -43,8 +43,7 @@ const DEFAULT_CONFIG: SecurityConfig = {
     // Pipeline routing commands
     "note",        // Save as note (default)
     "clip",        // Save article/link for later
-    "archive",     // Archive document with naming
-    "receipt",     // Archive as receipt
+    "archive",     // Archive document with naming + Dropbox sync
     "query",       // Search vault
     "help",        // Show help
 
@@ -75,6 +74,9 @@ const DEFAULT_CONFIG: SecurityConfig = {
     "mermaid",     // Convert diagram to Mermaid syntax
     "ocr",         // Tesseract OCR only (no Vision API)
     "store",       // Save image only, no processing
+
+    // Document storage commands
+    "attach",      // Store document with original filename, create linked note
   ],
 
   // Rate limiting

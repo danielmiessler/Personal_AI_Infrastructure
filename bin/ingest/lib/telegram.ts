@@ -150,7 +150,7 @@ export async function sendPhotoToInbox(
 }
 
 /**
- * Send a document to the inbox channel (for testing)
+ * Send a document to the inbox channel
  */
 export async function sendDocumentToInbox(
   documentPath: string,
@@ -178,6 +178,7 @@ export async function sendDocumentToInbox(
 
   return data.result;
 }
+
 
 /**
  * Get file info from Telegram
@@ -625,10 +626,10 @@ export async function sendHelpResponse(messageId: number): Promise<void> {
   const helpText = `🤖 *PAI Ingest Bot - Help*
 
 *Pipeline Commands:*
-\`/note\` - Save as a note (default)
+\`/note\` - Save as a note (default for text)
+\`/attach\` - Store document, keep original filename (default for docs)
+\`/archive\` - Rename document with metadata, sync to Dropbox
 \`/clip\` - Save article/link for later
-\`/archive\` - Archive document with naming
-\`/receipt\` - Archive as receipt
 \`/query <text>\` - Search your vault
 \`/help\` - Show this help
 
@@ -658,7 +659,7 @@ _Or dictate: "dated June 15th", "from last month"_
 \`~private\` - Mark as personal/private
 \`~work\` - Mark as professional (default)
 _Say "scope private" or "this is personal"_
-_Archive/receipt → auto ~private_
+_Archive → auto ~private_
 _All other pipelines → auto ~work_
 _Only ~work notes in default context queries_
 
@@ -671,7 +672,8 @@ _Or use any caption as Vision AI prompt_
 _e.g., "Extract text" or "What is this?"_
 
 *Document Commands (PDF/DOCX):*
-_Documents are extracted to markdown by default_
+_Default: /attach (keeps original filename)_
+_Use /archive to rename with TYPE-DATE-TITLE format_
 _Add caption for processing intent:_
 • "summarize" or "tldr" → summarize
 • "key points" or "extract wisdom" → extract\\_wisdom
@@ -696,7 +698,7 @@ Say "forward slash summarize" → /summarize
 • \`/archive [type:CONTRACT] Lease agreement\`
 • \`/query What did I discuss with Ed?\`
 • "Archive this lease for the house" → archive + LEASE + HOME
-• "Save this receipt from Amazon" → receipt pipeline`;
+• "Save this receipt from Amazon" → archive + RECEIPT`;
 
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
 

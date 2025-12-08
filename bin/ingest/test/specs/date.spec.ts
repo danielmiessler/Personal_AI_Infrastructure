@@ -45,14 +45,14 @@ export const dateStructuredSpecs: TestSpec[] = [
     input: {
       type: "text",
       description: "Text with DD/MM/YYYY date format",
-      example: "[date:15/06/2024] /receipt June receipt",
+      example: "[date:15/06/2024] /archive June receipt",
     },
     expected: {
       frontmatter: {
         document_date: "2024-06-15",
       },
       verboseOutput: ["Extracted document date: 2024-06-15"],
-      pipeline: "receipt",
+      pipeline: "archive",
     },
     meta: {
       docRef: "test-scripts.md#TEST-DATE-002",

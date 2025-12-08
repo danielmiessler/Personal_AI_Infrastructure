@@ -72,7 +72,7 @@ COMMANDS:
   poll       Poll Telegram for new messages
   process    Process all pending messages
   watch      Continuously poll and process (daemon mode)
-  direct     Ingest content directly (file, stdin, text) without Telegram
+  direct     Send content to Telegram inbox (same flow as iOS shortcuts)
   status     Show queue status
   retry      Retry failed messages
   search     Search vault (discovery phase - returns index)
@@ -87,15 +87,19 @@ OPTIONS:
   --verbose, -v          Show detailed output
   --dry-run              Show what would be processed without doing it
 
-DIRECT INGEST OPTIONS (ADR-001):
+DIRECT INGEST OPTIONS (via Telegram - same as iOS shortcuts):
   --tags, -t <tags>      Add tags (comma-separated)
-  --pipeline <name>      Force specific pipeline
+  --pipeline <name>      Force pipeline:
+                           /attach  - keep original filename (default for docs)
+                           /archive - rename with TYPE-DATE-TITLE + Dropbox sync
+                           /note    - save as note (default for text)
+                           /wisdom, /summarize - apply fabric patterns
   --scope, -s <scope>    Set scope (private/work/public)
-  --name, -n <name>      Override filename
+  --name, -n <name>      Override filename (for archive)
   --date, -d <date>      Set document date (ISO or DD/MM/YYYY)
-  --dry-run              Show plan without saving
+  --dry-run              Show what would be sent (no network call)
   --caption, -c <text>   Add caption with hints (#tags @people ~scope)
-  --text <content>       Ingest text content directly (use --tags for tagging)
+  --text <content>       Send text content (saved as .txt document)
 
 SEARCH OPTIONS (discovery phase):
   <query>                  Semantic search text
@@ -128,14 +132,15 @@ EXAMPLES:
   ingest profiles                    # List available profiles
   ingest process --profile simple    # Use simple profile
 
-  # Direct ingest (Unix-style, without Telegram)
+  # Direct ingest (via Telegram - unified with iOS shortcuts)
   pbpaste | ingest direct                                    # From clipboard
   echo "Quick note" | ingest direct                          # From stdin
   ingest direct document.pdf                                 # From file
   ingest direct receipt.pdf --tags "finance,2024" --scope private
-  pbpaste | ingest direct --tags "project/pai,meeting" --pipeline wisdom
+  pbpaste | ingest direct --tags "project/pai" --pipeline wisdom
   ingest direct voice.m4a --pipeline meeting-notes
-  ingest direct --dry-run document.pdf                       # Preview only
+  ingest direct --dry-run document.pdf                       # Preview (no send)
+  # Note: Run 'ingest watch' or 'ingest process' to process queued items
 
 CONFIGURATION:
   Add to ~/.config/fabric/.env:
@@ -614,8 +619,9 @@ async function handleWatch(
 }
 
 /**
- * Handle direct ingest without Telegram
- * Supports: file (positional or --file), text (--text), stdin (piped input)
+ * Handle direct ingest via Telegram
+ * Sends content to Telegram inbox channel (same flow as iOS shortcuts)
+ * The watch daemon picks it up for processing.
  *
  * ADR-001 Design:
  *   pbpaste | ingest direct                          # Stdin (most common)
@@ -624,18 +630,15 @@ async function handleWatch(
  *   ingest direct receipt.pdf --scope private        # With scope
  */
 async function handleDirect(
-  profileName: string | undefined,
+  _profileName: string | undefined,
   verbose: boolean,
   args: string[]
 ): Promise<void> {
-  const { processMessage, saveToVault } = await import("./lib/process");
-  const { loadProfile } = await import("./lib/profiles");
-  const { classifyContent } = await import("./lib/telegram");
-  type ProcessResult = Awaited<ReturnType<typeof processMessage>>;
-  type ContentType = Parameters<typeof processMessage>[1];
-  type TelegramMessage = Parameters<typeof processMessage>[0];
+  const { sendDocumentToInbox } = await import("./lib/telegram");
   const { basename, extname, resolve } = await import("path");
-  const { existsSync, statSync } = await import("fs");
+  const { existsSync, writeFileSync } = await import("fs");
+  const { tmpdir } = await import("os");
+  const { join } = await import("path");
 
   // Parse arguments (ADR-001 flags)
   let filePath: string | undefined;
@@ -643,7 +646,7 @@ async function handleDirect(
   let caption: string | undefined;
   let useStdin = false;
   let tags: string | undefined;           // --tags, -t (comma-separated)
-  let forcePipeline: string | undefined;  // --pipeline, -p
+  let forcePipeline: string | undefined;  // --pipeline (e.g., /archive, /wisdom)
   let scope: string | undefined;          // --scope, -s (private/work/public)
   let overrideName: string | undefined;   // --name, -n
   let documentDate: string | undefined;   // --date, -d
@@ -718,32 +721,12 @@ async function handleDirect(
     console.log("");
     console.log("Options:");
     console.log("  --tags, -t       Add tags (comma-separated)");
-    console.log("  --pipeline       Force specific pipeline");
+    console.log("  --pipeline       Force specific pipeline (/archive, /wisdom, etc.)");
     console.log("  --scope, -s      Set scope (private/work/public)");
     console.log("  --name, -n       Override filename");
     console.log("  --date, -d       Set document date");
-    console.log("  --dry-run        Show plan without saving");
+    console.log("  --dry-run        Show what would be sent to Telegram");
     process.exit(1);
-  }
-
-  // Build caption from ADR-001 flags if not explicitly provided
-  if (!caption && (tags || scope)) {
-    const parts: string[] = [];
-    if (tags) {
-      // Convert comma-separated tags to #hashtags
-      const tagList = tags.split(",").map(t => t.trim());
-      for (const tag of tagList) {
-        if (!tag.startsWith("#")) {
-          parts.push(`#${tag}`);
-        } else {
-          parts.push(tag);
-        }
-      }
-    }
-    if (scope) {
-      parts.push(`~${scope}`);
-    }
-    caption = parts.join(" ");
   }
 
   // Expand ~ in file path
@@ -756,139 +739,131 @@ async function handleDirect(
     }
   }
 
-  // Generate a unique message ID (negative to distinguish from Telegram IDs)
-  const messageId = -Date.now();
+  // Build caption with metadata tags (like iOS shortcuts)
+  // Format: [source:cli][device:mac][user:andreas] /pipeline #tags ~scope [date:...] content
+  const captionParts: string[] = [];
 
-  // Create synthetic TelegramMessage
-  let syntheticMessage: TelegramMessage;
-  let contentType: ContentType;
+  // Source metadata (same format as iOS shortcuts)
+  captionParts.push("[source:cli]");
+  captionParts.push("[device:mac]");
+  // Get username from environment
+  const user = process.env.USER || process.env.USERNAME || "unknown";
+  captionParts.push(`[user:${user}]`);
 
-  if (filePath) {
-    const filename = basename(filePath);
-    const ext = extname(filename).toLowerCase();
-
-    // Determine content type from extension
-    if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
-      contentType = "photo";
-      syntheticMessage = {
-        message_id: messageId,
-        date: Math.floor(Date.now() / 1000),
-        photo: [{
-          file_id: `local:${filePath}`,
-          width: 1920,
-          height: 1080,
-        }],
-        caption: caption,
-      };
-    } else if ([".mp3", ".ogg", ".m4a", ".wav", ".opus"].includes(ext)) {
-      contentType = "voice";
-      syntheticMessage = {
-        message_id: messageId,
-        date: Math.floor(Date.now() / 1000),
-        audio: {
-          file_id: `local:${filePath}`,
-          duration: 0,
-          file_name: filename,
-          mime_type: ext === ".mp3" ? "audio/mpeg" : ext === ".m4a" ? "audio/mp4" : "audio/ogg",
-        },
-        caption: caption,
-      };
-    } else {
-      // Default to document (PDF, DOCX, etc.)
-      contentType = "document";
-      syntheticMessage = {
-        message_id: messageId,
-        date: Math.floor(Date.now() / 1000),
-        document: {
-          file_id: `local:${filePath}`,
-          file_name: filename,
-          mime_type: getMimeType(ext),
-        },
-        caption: caption,
-      };
-    }
-  } else {
-    // Text content
-    contentType = "text";
-    syntheticMessage = {
-      message_id: messageId,
-      date: Math.floor(Date.now() / 1000),
-      text: caption ? `${caption}\n\n${textContent}` : textContent,
-    };
+  // Pipeline command (e.g., /archive, /wisdom)
+  if (forcePipeline) {
+    const pipelineCmd = forcePipeline.startsWith("/") ? forcePipeline : `/${forcePipeline}`;
+    captionParts.push(pipelineCmd);
   }
 
-  // Load profile (use forcePipeline profile if specified)
-  const profile = loadProfile(forcePipeline || profileName);
+  // Tags as #hashtags
+  if (tags) {
+    const tagList = tags.split(",").map(t => t.trim());
+    for (const tag of tagList) {
+      if (!tag.startsWith("#")) {
+        captionParts.push(`#${tag}`);
+      } else {
+        captionParts.push(tag);
+      }
+    }
+  }
 
-  console.log(`\n📥 Direct Ingest`);
+  // Scope
+  if (scope) {
+    captionParts.push(`~${scope}`);
+  }
+
+  // Document date
+  if (documentDate) {
+    captionParts.push(`[date:${documentDate}]`);
+  }
+
+  // Override name (for archive pipeline)
+  if (overrideName) {
+    captionParts.push(`[name:${overrideName}]`);
+  }
+
+  // User-provided caption
+  if (caption) {
+    captionParts.push(caption);
+  }
+
+  const finalCaption = captionParts.join(" ");
+
+  // Determine content type for display
+  let contentType: "text" | "photo" | "audio" | "document" = "text";
+  if (filePath) {
+    const ext = extname(filePath).toLowerCase();
+    if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+      contentType = "photo";
+    } else if ([".mp3", ".ogg", ".m4a", ".wav", ".opus"].includes(ext)) {
+      contentType = "audio";
+    } else {
+      contentType = "document";
+    }
+  }
+
+  console.log(`\n📤 Sending to Telegram Inbox`);
   console.log(`${"─".repeat(50)}`);
   console.log(`  Type: ${contentType}`);
-  if (filePath) console.log(`  File: ${filePath}`);
+  if (filePath) console.log(`  File: ${basename(filePath)}`);
   if (textContent && !filePath) {
     const preview = textContent.slice(0, 60).replace(/\n/g, " ");
     console.log(`  Content: ${preview}${textContent.length > 60 ? "..." : ""}`);
   }
-  if (tags) console.log(`  Tags: ${tags}`);
-  if (scope) console.log(`  Scope: ${scope}`);
-  if (documentDate) console.log(`  Date: ${documentDate}`);
-  if (overrideName) console.log(`  Name: ${overrideName}`);
-  if (forcePipeline) console.log(`  Pipeline: ${forcePipeline}`);
-  console.log(`  Profile: ${profile.name}`);
+  console.log(`  Caption: ${finalCaption || "(none)"}`);
+  if (verbose) {
+    console.log(`  Full caption: ${finalCaption}`);
+  }
   if (dryRun) console.log(`  Mode: DRY RUN`);
   console.log(`${"─".repeat(50)}\n`);
 
-  // Dry-run: show plan and exit
+  // Dry-run: show what would be sent
   if (dryRun) {
-    console.log("Would process:");
+    console.log("Would send to Telegram:");
     console.log(`  • Content type: ${contentType}`);
-    console.log(`  • Pipeline: ${forcePipeline || "auto-detected"}`);
-    console.log(`  • Tags: ${tags || "(none)"}`);
-    console.log(`  • Scope: ${scope || "public"}`);
-    console.log(`  • Date: ${documentDate || "today"}`);
-    console.log(`  • Filename: ${overrideName || "(auto-generated)"}`);
-    console.log("\n[DRY RUN - no changes made]");
+    if (filePath) console.log(`  • File: ${filePath}`);
+    if (textContent) {
+      const preview = textContent.slice(0, 100).replace(/\n/g, "\\n");
+      console.log(`  • Text: ${preview}${textContent.length > 100 ? "..." : ""}`);
+    }
+    console.log(`  • Caption: ${finalCaption}`);
+    console.log("\n[DRY RUN - nothing sent]");
+    console.log("\nNote: Content will be processed by `ingest watch` daemon or next `ingest process` run.");
     return;
   }
 
   try {
-    const result: ProcessResult = await processMessage(syntheticMessage, contentType, profile, verbose);
+    validateConfig();
+    let result;
+    let tempPath: string | undefined;
 
-    if (result.success && result.content && result.content.length > 0) {
-      // Save to vault (processMessage only processes, doesn't save)
-      const savedPaths: string[] = [];
-      let dropboxPath: string | undefined;
+    if (filePath) {
+      // Send any file via sendDocument API (handles all types)
+      result = await sendDocumentToInbox(filePath, finalCaption || undefined);
+    } else if (textContent) {
+      // For text content, save to temp file and send as document
+      // (Telegram can't handle RTF/HTML well in plain messages)
+      tempPath = join(tmpdir(), `pai-ingest-${Date.now()}.txt`);
+      writeFileSync(tempPath, textContent, "utf-8");
+      result = await sendDocumentToInbox(tempPath, finalCaption || undefined);
+    }
 
-      for (let i = 0; i < result.content.length; i++) {
-        const content = result.content[i];
-        const isWisdom = i > 0; // First is raw, second is wisdom
-        const saveResult = await saveToVault(content, profile, isWisdom);
-        savedPaths.push(saveResult.vaultPath);
-        if (saveResult.dropboxPath) {
-          dropboxPath = saveResult.dropboxPath;
-        }
+    // Clean up temp file if created
+    if (tempPath) {
+      try {
+        const { unlinkSync } = await import("fs");
+        unlinkSync(tempPath);
+      } catch {
+        // Ignore cleanup errors
       }
+    }
 
-      console.log(`\n✅ Ingested successfully`);
-      if (savedPaths.length > 0) {
-        console.log(`   Vault: ${savedPaths[0]}`);
-        if (savedPaths.length > 1) {
-          for (let i = 1; i < savedPaths.length; i++) {
-            console.log(`          ${savedPaths[i]}`);
-          }
-        }
-      }
-      if (dropboxPath) {
-        console.log(`   Dropbox: ${dropboxPath}`);
-      }
-      const firstContent = result.content[0];
-      if (firstContent.pipeline) {
-        console.log(`   Pipeline: ${firstContent.pipeline}`);
-      }
-    } else if (result.success) {
-      console.log(`\n✅ Ingested successfully (no content saved)`);
-    } else {
-      console.error(`\n❌ Ingest failed: ${result.error}`);
-      process.exit(1);
+    if (result) {
+      console.log(`\n✅ Sent to Telegram inbox`);
+      console.log(`   Message ID: ${result.message_id}`);
+      console.log(`   Chat ID: ${result.chat?.id || "N/A"}`);
+      console.log(`\n💡 Run \`ingest process\` or ensure \`ingest watch\` is running to process.`);
     }
   } catch (error) {
     console.error(`\n❌ Error: ${error instanceof Error ? error.message : error}`);

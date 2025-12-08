@@ -81,7 +81,7 @@ export interface InlineHints {
 /**
  * Pipeline types for Layer 2 routing
  */
-export type PipelineType = "note" | "clip" | "archive" | "receipt" | "default";
+export type PipelineType = "note" | "clip" | "archive" | "attach" | "default";
 
 /**
  * Archive naming pattern for detecting pre-named files
@@ -247,7 +247,8 @@ export function parseDictatedDate(text: string): string | undefined {
  */
 export function determinePipeline(commands: string[]): PipelineType {
   if (commands.includes("archive")) return "archive";
-  if (commands.includes("receipt")) return "receipt";
+  if (commands.includes("receipt")) return "archive";  // Legacy: /receipt → /archive
+  if (commands.includes("attach")) return "attach";    // Store with original filename
   if (commands.includes("clip")) return "clip";
   if (commands.includes("note")) return "note";
   return "default";
@@ -299,13 +300,21 @@ export function determineRequestedPatterns(commands: string[]): string[] {
 
 /**
  * Detect dictated pipeline intent from caption
- * Maps natural language phrases to pipeline types (archive, receipt)
+ * Maps natural language phrases to archive pipeline
  * Returns pipeline type if detected, null otherwise
+ *
+ * NOTE: Strips metadata tags [key:value] before detection to avoid
+ * false positives from tags like [source:file]
  */
 export function detectDictatedPipelineIntent(caption: string | undefined): { pipeline: PipelineType; metadata?: { type?: string; category?: string } } | null {
   if (!caption) return null;
 
-  const lowerCaption = caption.toLowerCase();
+  // Strip metadata tags like [source:file], [device:mac] before detection
+  // These should NOT trigger pipeline routing
+  const cleanedCaption = caption.replace(/\[[\w-]+:[^\]]+\]/g, "").trim();
+  if (!cleanedCaption) return null;
+
+  const lowerCaption = cleanedCaption.toLowerCase();
 
   // Receipt patterns
   const receiptPatterns = [
@@ -317,9 +326,9 @@ export function detectDictatedPipelineIntent(caption: string | undefined): { pip
 
   for (const pattern of receiptPatterns) {
     if (pattern.test(lowerCaption)) {
-      console.log(`  Detected dictated pipeline intent: "receipt" from caption`);
+      console.log(`  Detected dictated pipeline intent: "archive" (receipt/invoice) from caption`);
 
-      // Detect document type for receipt pipeline
+      // Detect document type for archive pipeline
       let type: string | undefined;
       if (/\b(invoice|tax\s*invoice)\b/.test(lowerCaption)) type = "INVOICE";
       else if (/\b(receipt)\b/.test(lowerCaption)) type = "RECEIPT";
@@ -333,7 +342,7 @@ export function detectDictatedPipelineIntent(caption: string | undefined): { pip
       else if (/\b(car|vehicle|auto|fuel|gas)\b/.test(lowerCaption)) category = "CAR";
       else if (/\b(health|medical|doctor|hospital)\b/.test(lowerCaption)) category = "HEALTH";
 
-      return { pipeline: "receipt", metadata: { type, category } };
+      return { pipeline: "archive", metadata: { type, category } };
     }
   }
 
@@ -502,7 +511,7 @@ Filename: ${filename || "unknown"}
 
 Return JSON with:
 {
-  "pipeline": "note" | "clip" | "archive" | "receipt",
+  "pipeline": "note" | "clip" | "archive",
   "confidence": 0.0-1.0,
   "metadata": {
     "type": "RECEIPT" | "CONTRACT" | "DOCUMENT" | null,
@@ -515,8 +524,7 @@ Return JSON with:
 }
 
 Guidelines:
-- "archive" pipeline: contracts, important documents, legal papers
-- "receipt" pipeline: purchase receipts, invoices, expense-related
+- "archive" pipeline: contracts, important documents, legal papers, receipts, invoices
 - "clip" pipeline: articles, links, content to read later
 - "note" pipeline: ideas, meeting notes, general text
 
@@ -555,7 +563,7 @@ Return ONLY valid JSON, no markdown code blocks.`;
     const result = JSON.parse(content) as IntentResult;
 
     // Validate pipeline
-    const validPipelines = ["note", "clip", "archive", "receipt"];
+    const validPipelines = ["note", "clip", "archive"];
     if (!validPipelines.includes(result.pipeline)) {
       result.pipeline = "default";
     }
@@ -986,25 +994,25 @@ export async function processMessage(
       break;
 
     case "document":
-      // Check if archive pipeline to preserve original file for Dropbox sync
+      // Check pipeline: /archive for rename+Dropbox, /attach (default) for original filename
       const docPipeline = determinePipeline(validCommands);
-      const keepForArchive = docPipeline === "archive" || docPipeline === "receipt";
+      const isExplicitArchive = docPipeline === "archive";
+      const keepOriginalFile = isExplicitArchive || docPipeline === "attach" || docPipeline === "default";
 
-      // PDF handling: archive by default, OCR only if /ocr command specified
       const docFilename = message.document?.file_name || "";
       const isPdf = docFilename.toLowerCase().endsWith(".pdf");
       const hasOcrCommand = validCommands.includes("ocr");
 
       if (isPdf && !hasOcrCommand) {
-        // PDF without /ocr: archive with caption as metadata (no OCR)
-        console.log(`  PDF archive mode (no OCR) - use /ocr to extract text`);
+        // PDF without /ocr: store with link (no OCR extraction)
+        console.log(`  PDF attach mode (no OCR) - use /ocr to extract text`);
         const filePath = await downloadFile(message.document!.file_id, docFilename);
         rawContent = messageText || `PDF document: ${docFilename}`;
         suggestedTitle = docFilename.replace(/\.pdf$/i, "");
         (message as any)._originalFilePath = filePath;
-        // Force archive pipeline for PDFs without explicit command
+        // Default to attach pipeline (keeps original filename)
         if (docPipeline === "default") {
-          validCommands.push("archive");
+          validCommands.push("attach");
           hints.commands = validCommands;
         }
       } else {
@@ -1012,12 +1020,17 @@ export async function processMessage(
         if (isPdf && hasOcrCommand) {
           console.log(`  PDF OCR mode - extracting text with marker`);
         }
-        const docResult = await processDocument(message, config.tempDir, keepForArchive);
+        const docResult = await processDocument(message, config.tempDir, keepOriginalFile);
         rawContent = docResult.content;
         suggestedTitle = docResult.title;
-        // Store original path for Dropbox sync (will be used later if archive pipeline)
+        // Store original path for vault attachment
         if (docResult.originalPath) {
           (message as any)._originalFilePath = docResult.originalPath;
+        }
+        // Default to attach pipeline for documents (keeps original filename)
+        if (docPipeline === "default") {
+          validCommands.push("attach");
+          hints.commands = validCommands;
         }
       }
       break;
@@ -1038,7 +1051,7 @@ export async function processMessage(
           photoPipeline = dictatedPhotoIntent.pipeline;
         }
       }
-      const keepPhotoForArchive = photoPipeline === "archive" || photoPipeline === "receipt";
+      const keepPhotoForArchive = photoPipeline === "archive";
       const photoResult = await processPhoto(message, config.tempDir, hints, keepPhotoForArchive);
       rawContent = photoResult.content;
       suggestedTitle = photoResult.title;
@@ -1093,7 +1106,7 @@ export async function processMessage(
   let pipeline = determinePipeline(validCommands);
   let intentResult: IntentResult | null = null;
 
-  // Step 2b.0: Try dictated pipeline intent (archive/receipt) and extract metadata
+  // Step 2b.0: Try dictated pipeline intent (archive) and extract metadata
   // Always try to extract metadata from caption, even if pipeline already set (e.g., PDF auto-archive)
   const dictatedPipeline = detectDictatedPipelineIntent(messageText);
   if (dictatedPipeline) {
@@ -1144,11 +1157,12 @@ export async function processMessage(
     }
   }
 
-  // Step 2c: For archive pipeline, generate archive name and track original file
+  // Step 2c: Track original filename and file path for all document pipelines
   let archiveName: string | undefined;
   let originalFilePath: string | undefined = (message as any)._originalFilePath;
+  const sourceFile = message.document?.file_name || message.audio?.file_name || undefined;
 
-  if (pipeline === "archive" || pipeline === "receipt") {
+  if (pipeline === "archive") {
     // Check if source file already has proper archive naming
     const sourceFilename = message.document?.file_name || "";
 
@@ -1199,9 +1213,6 @@ export async function processMessage(
 
     // Add archive-specific tags
     tags.push("archive");
-    if (pipeline === "receipt") {
-      tags.push("receipt");
-    }
   }
 
   // Step 3: Determine fabric patterns to apply
@@ -1233,13 +1244,13 @@ export async function processMessage(
 
   // Determine scope:
   // 1. Explicit hint from user (~private, ~work)
-  // 2. Auto-detect from pipeline (archive/receipt → private)
+  // 2. Auto-detect from pipeline (archive → private)
   // 3. Default to work for all other pipelines
   //
   // Security model: No tag = private (excluded from context)
   // Must explicitly have scope/work to be included in default queries
   let scope: ScopeType = hints.scope || "work";  // Default to work
-  const isArchivePipeline = pipeline === "archive" || pipeline === "receipt";
+  const isArchivePipeline = pipeline === "archive";
 
   if (isArchivePipeline && !hints.scope) {
     scope = "private";
@@ -1264,6 +1275,7 @@ export async function processMessage(
     scope,
     pipeline,
     messageDate: message.date,
+    ...(sourceFile && { sourceFile }),
     ...(archiveName && { archiveName }),
     ...(originalFilePath && { originalFilePath }),
     ...(hasMetadata && { sourceMetadata: hints.metadata }),
@@ -1272,7 +1284,7 @@ export async function processMessage(
   // If paired output, also create processed version
   // Skip auto-patterns for:
   // - clip pipeline (clips are already summaries/snippets)
-  // - archive/receipt pipeline (straight-through archiving, no processing)
+  // - archive pipeline (straight-through archiving, no processing)
   // - document content (PDFs/DOCX should just be extracted, not auto-summarized)
   // BUT: Always run if user explicitly requested patterns via command (/wisdom, /summarize)
   const skipAutoPatterns = (pipeline === "clip" || isArchivePipeline || contentType === "document") && !hasExplicitPatternRequest;
@@ -1304,6 +1316,7 @@ export async function processMessage(
         scope,
         pipeline,
         messageDate: message.date,
+        ...(sourceFile && { sourceFile }),
         ...(archiveName && { archiveName }),
         ...(originalFilePath && { originalFilePath }),
         ...(hasMetadata && { sourceMetadata: hints.metadata }),
@@ -2288,8 +2301,9 @@ export async function saveToVault(
 ): Promise<SaveResult> {
   const config = getConfig();
 
-  // Determine output subfolder based on pipeline
-  const isArchivePipeline = processed.pipeline === "archive" || processed.pipeline === "receipt";
+  // Determine output subfolder and behavior based on pipeline
+  const isArchivePipeline = processed.pipeline === "archive";
+  const isAttachPipeline = processed.pipeline === "attach";
   const subfolder = isArchivePipeline ? "archive" : "";
 
   // Use document date from metadata if provided, otherwise use current date
@@ -2317,6 +2331,24 @@ export async function saveToVault(
     await mkdir(outputDir, { recursive: true });
   }
 
+  // Capture original filename for traceability (all document pipelines)
+  const originalFilename = processed.sourceFile || 
+    (processed.originalFilePath ? basename(processed.originalFilePath) : undefined);
+
+  // For attach pipeline: copy original file to vault/attachments/ with ORIGINAL filename
+  let attachmentPath: string | undefined;
+  if (isAttachPipeline && processed.originalFilePath && originalFilename) {
+    const attachmentsDir = join(config.vaultPath, "attachments");
+    if (!existsSync(attachmentsDir)) {
+      await mkdir(attachmentsDir, { recursive: true });
+    }
+    attachmentPath = join(attachmentsDir, originalFilename);
+    // Copy file to attachments folder
+    const fileContent = await Bun.file(processed.originalFilePath).arrayBuffer();
+    await Bun.write(attachmentPath, fileContent);
+    console.log(`  Attached: ${originalFilename} → attachments/`);
+  }
+
   // For archive pipeline: sync original file to Dropbox FIRST (so we can include link in markdown)
   let dropboxPath: string | undefined;
   if (isArchivePipeline && processed.originalFilePath && processed.archiveName) {
@@ -2339,7 +2371,11 @@ export async function saveToVault(
     ...processed.tags.map((t) => `  - ${t}`),
     `source: telegram`,
     ...(processed.pipeline ? [`pipeline: ${processed.pipeline}`] : []),
-    ...(processed.sourceFile ? [`source_file: "${processed.sourceFile}"`] : []),
+    // Original filename for traceability (all document pipelines)
+    ...(originalFilename ? [`original_filename: "${originalFilename}"`] : []),
+    // Attachment path (attach pipeline only)
+    ...(attachmentPath ? [`attachment: "attachments/${originalFilename}"`] : []),
+    // Archive-specific fields
     ...(processed.archiveName ? [`archive_name: "${processed.archiveName}"`] : []),
     ...(dropboxPath ? [`archive_path: "${dropboxPath}"`] : []),
     // Source metadata fields (only include if present)
@@ -2352,10 +2388,16 @@ export async function saveToVault(
     "---",
   ].join("\n");
 
-  // Build content with Dropbox link for archive pipeline
+  // Build content with appropriate link
   let content = isWisdom && processed.processedContent
     ? processed.processedContent
     : processed.rawContent;
+
+  // Add attachment link at top for attach pipeline
+  if (attachmentPath && originalFilename) {
+    const attachLink = `📎 **Attachment:** [[attachments/${originalFilename}]]\n\n`;
+    content = attachLink + content;
+  }
 
   // Add Dropbox link at top of content for archive items
   if (dropboxPath) {

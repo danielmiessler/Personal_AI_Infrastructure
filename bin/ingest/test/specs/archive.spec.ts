@@ -105,11 +105,11 @@ export const archiveIntentSpecs: TestSpec[] = [
       caption: "Archive this invoice",
     },
     expected: {
-      pipeline: "receipt",
+      pipeline: "archive",
       frontmatter: {
         document_type: "INVOICE",
       },
-      verboseOutput: ["Detected dictated pipeline intent: receipt"],
+      verboseOutput: ["Detected dictated pipeline intent: archive"],
       dropboxSync: true,
     },
     meta: {
@@ -219,6 +219,62 @@ export const archiveMetadataSpecs: TestSpec[] = [
 ];
 
 // =============================================================================
+// Attach Pipeline Tests (default for documents)
+// =============================================================================
+
+export const attachPipelineSpecs: TestSpec[] = [
+  {
+    id: "TEST-ATTACH-001",
+    name: "Default document pipeline is /attach",
+    category: "archive",
+    fixture: "archive/TEST-ATTACH-001.json",
+    input: {
+      type: "document",
+      description: "Document without explicit command - should default to attach",
+      caption: "#project/pai Meeting transcript",
+      filename: "Meeting-Transcript-Dec-2025.docx",
+    },
+    expected: {
+      pipeline: "attach",
+      frontmatter: {
+        original_filename: "Meeting-Transcript-Dec-2025.docx",
+        attachment: "string",  // Should have attachments/ path
+      },
+      content: {
+        contains: ["Attachment", "attachments/"],
+      },
+    },
+    meta: {
+      docRef: "ingest-pipeline-v2.md",
+    },
+  },
+
+  {
+    id: "TEST-ATTACH-002",
+    name: "Metadata tags don't trigger archive pipeline",
+    category: "archive",
+    fixture: "archive/TEST-ATTACH-002.json",
+    input: {
+      type: "document",
+      description: "Document with [source:file] metadata - should NOT trigger archive",
+      caption: "[source:file][device:mac][user:andreas] #project/test",
+      filename: "test-document.pdf",
+    },
+    expected: {
+      pipeline: "attach",  // NOT archive (source:file shouldn't match)
+      frontmatter: {
+        source_shortcut: "file",
+        source_device: "mac",
+        original_filename: "test-document.pdf",
+      },
+    },
+    meta: {
+      docRef: "Bug fix: metadata tags like [source:file] shouldn't trigger archive intent",
+    },
+  },
+];
+
+// =============================================================================
 // Export all archive specs
 // =============================================================================
 
@@ -226,6 +282,7 @@ export const archiveSpecs: TestSpec[] = [
   ...archiveNamingSpecs,
   ...archiveIntentSpecs,
   ...archiveMetadataSpecs,
+  ...attachPipelineSpecs,
 ];
 
 // Convenience: All archive specs that can be tested via ingest

@@ -3,7 +3,7 @@
     "testId": "TEST-SCOPE-007",
     "capturedAt": "2025-12-05T05:01:39.399Z",
     "capturedBy": "integration-setup",
-    "description": "Receipt pipeline auto-private"
+    "description": "Archive pipeline auto-private (invoice)"
   },
   "message": {
     "message_id": 258,
@@ -48,7 +48,7 @@
         "height": 1280
       }
     ],
-    "caption": "[TEST-SCOPE-007] /receipt Home insurance invoice",
+    "caption": "[TEST-SCOPE-007] /archive Home insurance invoice",
     "caption_entities": [
       {
         "offset": 17,

@@ -135,7 +135,7 @@ When recording, say the hints at the start:
 
 ## Document Archive Shortcut
 
-For archiving contracts, receipts, etc:
+For archiving contracts, receipts, etc. Use `/archive` to rename files with TYPE-DATE-TITLE format and sync to Dropbox:
 
 ```
 1. Receive: PDF, Documents
@@ -145,6 +145,8 @@ For archiving contracts, receipts, etc:
    /archive [type:📝type][category:📝category]
 5. Send Document to Telegram with caption
 ```
+
+For documents you want to keep with their original filename, use `/attach` instead (or send without any command - it's the default for documents).
 
 ## Rich Text / Newsletter Clips
 
@@ -160,9 +162,22 @@ When sharing from Safari or email:
 
 **Note:** Rich text is sent as RTF file. The ingest pipeline extracts HTML content and converts to markdown.
 
-## Adding Fabric Pattern Commands
+## Adding Pipeline Commands
 
-You can add commands to trigger specific processing:
+You can add commands to control how content is processed:
+
+### Document Pipelines
+
+| Command | Effect |
+|---------|--------|
+| `/attach` | Store document with original filename (default for docs) |
+| `/archive` | Rename with TYPE-DATE-TITLE format + Dropbox sync |
+| `/note` | Save as note (default for text) |
+| `/clip` | Saves for later (no auto-patterns) |
+
+Use `[type:RECEIPT]`, `[type:CONTRACT]`, etc. to categorize archived documents.
+
+### Fabric Pattern Commands
 
 | Command | Effect |
 |---------|--------|
@@ -170,7 +185,6 @@ You can add commands to trigger specific processing:
 | `/wisdom` | Runs extract_wisdom pattern |
 | `/article` | Runs extract_article_wisdom |
 | `/meeting-notes` | Runs meeting_notes pattern |
-| `/clip` | Saves for later (no auto-patterns) |
 
 **Important:** Use TAGS for metadata like meeting type:
 - `#1on1` = Tag indicating a 1:1 meeting
@@ -231,5 +245,5 @@ Use Shortcuts' "Get Device Details" action to dynamically get:
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2025-12-02
+**Document Version:** 1.1.0
+**Last Updated:** 2025-12-08

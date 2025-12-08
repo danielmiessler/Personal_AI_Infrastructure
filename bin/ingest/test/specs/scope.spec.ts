@@ -141,13 +141,13 @@ export const scopeIngestionSpecs: TestSpec[] = [
     fixture: "scope/TEST-SCOPE-007.json",
     input: {
       type: "photo",
-      description: "Photo with /receipt command (no explicit scope)",
-      caption: "/receipt Home insurance invoice",
+      description: "Photo with /archive command for invoice (no explicit scope)",
+      caption: "/archive Home insurance invoice",
     },
     expected: {
       tags: ["scope/private"],
-      verboseOutput: ["Auto-set scope to private for receipt pipeline"],
-      pipeline: "receipt",
+      verboseOutput: ["Auto-set scope to private for archive pipeline"],
+      pipeline: "archive",
       dropboxSync: true,
     },
     meta: {

@@ -5,9 +5,9 @@ TEST-SCOPE-003,scope,Dictated scope - spoken scope private,voice,yes,,[EXISTING]
 TEST-SCOPE-004,scope,This is personal natural language,text,no,"[TEST-SCOPE-004] This is personal. Blood pressure reading 120/80",,ready,Text-only message
 TEST-SCOPE-005,scope,For work natural language,text,no,[TEST-SCOPE-005] For work. Architecture decision on data pipeline,,ready,Text-only message
 TEST-SCOPE-006,scope,Archive pipeline auto-private,photo,yes,[TEST-SCOPE-006] /archive Personal receipt from pharmacy,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
-TEST-SCOPE-007,scope,Receipt pipeline auto-private,photo,yes,[TEST-SCOPE-007] /receipt Home insurance invoice,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
+TEST-SCOPE-007,scope,Archive pipeline auto-private (invoice),photo,yes,[TEST-SCOPE-007] /archive Home insurance invoice,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo
 TEST-DATE-001,date,ISO date format,text,no,"[TEST-DATE-001] [date:2024-06-15] /archive Old contract from June",,ready,Text-only message
-TEST-DATE-002,date,Slash date format DD/MM/YYYY,text,no,"[TEST-DATE-002] [date:15/06/2024] /receipt June receipt",,ready,Text-only message
+TEST-DATE-002,date,Slash date format DD/MM/YYYY,text,no,"[TEST-DATE-002] [date:15/06/2024] /archive June receipt",,ready,Text-only message
 TEST-DATE-003,date,Short year format DD/MM/YY,text,no,"[TEST-DATE-003] [date:15/06/24] /archive Document from June",,ready,Text-only message
 TEST-DATE-010,date,Dictated dated 15th June,text,no,[TEST-DATE-010] dated 15th June This is an old document,,ready,Text-only message
 TEST-DATE-011,date,Dictated from last month,text,no,[TEST-DATE-011] from last month Receipt for home supplies,,ready,Text-only message
@@ -24,6 +24,8 @@ TEST-ARC-003,archive,Contract detection,document,yes,[TEST-ARC-003] this is my w
 TEST-ARC-004,archive,Certificate detection,document,yes,[TEST-ARC-004] my medical certificate from the doctor,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB - contract as medical cert placeholder
 TEST-ARC-005,archive,Vision AI document type detection,photo,yes,[TEST-ARC-005] /archive,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo for Vision AI
 TEST-ARC-010,archive,Markdown with Dropbox link,document,yes,[TEST-ARC-010] /archive Work document,[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB receipt PDF
+TEST-ATTACH-001,archive,Default document pipeline is attach,document,yes,"[TEST-ATTACH-001] #project/pai Meeting transcript",Meeting-Transcript-Dec-2025.docx,pending,DOCX file - tests default attach pipeline
+TEST-ATTACH-002,archive,Metadata tags don't trigger archive,document,yes,"[TEST-ATTACH-002] [source:file][device:mac][user:andreas] #project/test",test-document.pdf,pending,Tests bug fix - metadata tags shouldn't trigger archive
 TEST-REG-001,regression,Simple text message,text,no,[TEST-REG-001] Regression test: Simple text message without any metadata or hints,,ready,Text-only message
 TEST-REG-002,regression,Text with metadata parsing,text,no,"[TEST-REG-002] [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction",,ready,Text-only message
 TEST-REG-003,regression,Mixed hints and metadata,text,no,"[TEST-REG-003] #project/pai @ed_overy [source:voice-memo][device:mac] Discussion about context",,ready,Text-only message

@@ -4,101 +4,198 @@
 
 ---
 
-## Prerequisites (1 minute)
+## Installation
 
-### Install Bun
+Choose your platform:
 
-```bash
-# Install Bun (PAI's package manager)
-curl -fsSL https://bun.sh/install | bash
-
-# Restart your terminal or source your profile
-source ~/.bashrc  # or ~/.zshrc
-```
-
-### Install Claude Code
-
-Follow the installation instructions at [code.claude.com](https://code.claude.com)
-
----
-
-## Installation (2 minutes)
+<details>
+<summary><strong>macOS</strong></summary>
 
 ### 1. Clone PAI
 
 ```bash
-git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure
+git clone https://github.com/danielmiessler/PAI.git ~/.claude
 ```
 
-### 2. Configure Environment
+### 2. Run the Setup Wizard
+
+```bash
+~/.claude/.claude/tools/setup/bootstrap.sh
+```
+
+The bootstrap script handles everything:
+- **Shell check** — Recommends zsh or bash if you're using something else
+- **Bun install** — Offers to install Bun if not found (PAI's package manager)
+- **Claude Code check** — Reminds you to install Claude Code if missing
+- **Setup wizard** — Launches the interactive configuration
+
+### 3. Add Your API Keys
 
 ```bash
 # Copy environment template
-cp .claude/.env.example .claude/.env
+cp ~/.claude/.env.example ~/.claude/.env
 
 # Edit with your API keys
-nano .claude/.env  # or use your preferred editor
+nano ~/.claude/.env
 
 # Required: ANTHROPIC_API_KEY
-# Optional: Add other API keys for specific skills
+# Optional: ELEVENLABS_API_KEY for voice
 ```
 
-### 3. Configure PAI_DIR
+### 4. Reload Your Shell
 
-Edit `.claude/settings.json` and set `PAI_DIR` to your actual path:
-
-```json
-"env": {
-  "PAI_DIR": "/Users/yourname/.claude",  // <- Change this!
-  ...
-}
-```
-
-**Examples:**
-- macOS: `"/Users/john/.claude"`
-- Linux: `"/home/john/.claude"`
-- Custom location: `"/opt/pai"` (if you want PAI elsewhere)
-
-### 4. Install to Your System
-
-**Option A: Copy (recommended for beginners)**
 ```bash
-# Copy .claude directory to home
-cp -r .claude ~/.claude
-```
-
-**Option B: Symlink (for development)**
-```bash
-# Symlink for live updates
-ln -s $(pwd)/.claude ~/.claude
-```
-
-### 5. Add PAI_DIR to Shell (Optional but Recommended)
-
-Add to your `~/.zshrc` or `~/.bashrc`:
-```bash
-export PAI_DIR="$HOME/.claude"
-```
-
-Or copy the provided aliases:
-```bash
-cat .claude/zshrc-aliases >> ~/.zshrc
 source ~/.zshrc
+```
+
+</details>
+
+<details>
+<summary><strong>Linux</strong></summary>
+
+### 1. Clone PAI
+
+```bash
+git clone https://github.com/danielmiessler/PAI.git ~/.claude
+```
+
+### 2. Run the Setup Wizard
+
+```bash
+~/.claude/.claude/tools/setup/bootstrap.sh
+```
+
+The bootstrap script handles everything:
+- **Shell check** — Recommends zsh or bash if you're using something else
+- **Bun install** — Offers to install Bun if not found (PAI's package manager)
+- **Claude Code check** — Reminds you to install Claude Code if missing
+- **Setup wizard** — Launches the interactive configuration
+
+### 3. Add Your API Keys
+
+```bash
+# Copy environment template
+cp ~/.claude/.env.example ~/.claude/.env
+
+# Edit with your API keys
+nano ~/.claude/.env
+
+# Required: ANTHROPIC_API_KEY
+# Optional: ELEVENLABS_API_KEY for voice
+```
+
+### 4. Reload Your Shell
+
+```bash
+source ~/.bashrc  # or ~/.zshrc if using zsh
+```
+
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+### 1. Clone PAI
+
+```powershell
+git clone https://github.com/danielmiessler/PAI.git $env:USERPROFILE\.claude
+```
+
+### 2. Run the Setup Wizard
+
+```powershell
+& "$env:USERPROFILE\.claude\.claude\tools\setup\bootstrap.ps1"
+```
+
+The bootstrap script handles everything:
+- **Bun install** — Offers to install Bun if not found (PAI's package manager)
+- **Claude Code check** — Reminds you to install Claude Code if missing
+- **Setup wizard** — Launches the interactive configuration
+
+### 3. Add Your API Keys
+
+```powershell
+# Copy environment template
+Copy-Item "$env:USERPROFILE\.claude\.env.example" "$env:USERPROFILE\.claude\.env"
+
+# Edit with your API keys (use your preferred editor)
+notepad "$env:USERPROFILE\.claude\.env"
+
+# Required: ANTHROPIC_API_KEY
+# Optional: ELEVENLABS_API_KEY for voice
+```
+
+### 4. Reload Your Shell
+
+Close and reopen PowerShell, or run:
+
+```powershell
+. $PROFILE
+```
+
+</details>
+
+---
+
+## Setup Wizard Options
+
+The interactive wizard configures:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| **PAI Directory** | Where to install | `~/.claude` |
+| **Your Name** | Auto-detected from git config | — |
+| **Your Email** | Auto-detected from git config | — |
+| **Assistant Name** | Name your AI | `Kai` |
+| **Color Theme** | blue, purple, green, cyan, red | `blue` |
+| **Voice Server** | Text-to-speech (macOS only) | Enabled |
+| **Shell Profile** | Add environment variables | Yes |
+
+### Non-Interactive Mode
+
+For automation or scripting:
+
+**macOS/Linux:**
+```bash
+cd ~/.claude/.claude/tools/setup
+bun run setup.ts \
+  --pai-dir ~/.claude \
+  --name "Your Name" \
+  --email you@example.com \
+  --assistant-name "Kai" \
+  --force
+```
+
+**Windows:**
+```powershell
+cd "$env:USERPROFILE\.claude\.claude\tools\setup"
+bun run setup.ts `
+  --pai-dir "$env:USERPROFILE\.claude" `
+  --name "Your Name" `
+  --email you@example.com `
+  --assistant-name "Kai" `
+  --force
+```
+
+### Dry Run
+
+Preview changes without applying them:
+
+```bash
+bun run setup.ts --dry-run
 ```
 
 ---
 
-## First Run (1 minute)
+## First Run
 
 ### Start Claude Code
 
 ```bash
-# PAI loads automatically
-claude-code
+claude
 ```
 
-The CORE skill loads at session start via the `SessionStart` hook.
+PAI loads automatically via the `SessionStart` hook.
 
 ### Try These Commands
 
@@ -111,7 +208,7 @@ The CORE skill loads at session start via the `SessionStart` hook.
 
 ---
 
-## Understanding PAI (1 minute)
+## Understanding PAI
 
 ### The Three Primitives
 
@@ -133,144 +230,132 @@ The CORE skill loads at session start via the `SessionStart` hook.
 ### Where Everything Lives
 
 ```
-${PAI_DIR}/
+~/.claude/
 ├── skills/
-│   └── CORE/              # Main PAI documentation
-│       ├── CONSTITUTION.md    # System philosophy & architecture
-│       ├── SKILL.md           # Main skill file (loaded at startup)
-│       └── *.md               # Reference documentation
-├── agents/                # Agent configurations
-├── hooks/                 # Event automation scripts
-├── voice-server/          # Text-to-speech system
-└── .env                   # Your API keys (never commit!)
+│   └── CORE/                 # Main PAI documentation
+│       ├── CONSTITUTION.md   # System philosophy & architecture
+│       ├── SKILL.md          # Main skill file (loaded at startup)
+│       └── *.md              # Reference documentation
+├── agents/                   # Agent configurations
+├── hooks/                    # Event automation scripts
+├── voice-server/             # Text-to-speech system (macOS)
+└── .env                      # Your API keys (never commit!)
 ```
-
----
-
-## Next Steps
-
-### Learn the System
-
-1. **Read CONSTITUTION.md** - Understand PAI philosophy
-   ```
-   read ${PAI_DIR}/skills/CORE/CONSTITUTION.md
-   ```
-
-2. **Explore Skills** - See what's available
-   ```
-   ls ${PAI_DIR}/skills/
-   ```
-
-3. **Try Voice Feedback** - Start the voice server (optional)
-   ```
-   ${PAI_DIR}/voice-server/start.sh
-   ```
-
-### Create Your First Skill
-
-```bash
-# Use the create-skill skill
-cd ${PAI_DIR}/skills/
-mkdir my-first-skill
-# See create-skill/ for templates
-```
-
-Follow the guide in `.claude/skills/CORE/SKILL-STRUCTURE-AND-ROUTING.md`
-
-### Customize Your Setup
-
-**Hooks** - Add custom automation:
-- `.claude/hooks/` - Event-driven scripts
-
-See `.claude/skills/CORE/SKILL.md` for complete configuration options.
 
 ---
 
 ## Troubleshooting
 
-### PAI Not Loading
+<details>
+<summary><strong>PAI Not Loading</strong></summary>
 
 **Check hook configuration:**
 ```bash
-# Verify SessionStart hook exists
-cat ${PAI_DIR}/settings.json | grep SessionStart
+cat ~/.claude/settings.json | grep SessionStart
 ```
 
 **Manually load CORE skill:**
 ```
-read ${PAI_DIR}/skills/CORE/SKILL.md
+read ~/.claude/skills/CORE/SKILL.md
 ```
 
-### Hooks Not Running
+</details>
 
-Hooks require Bun to be installed and in your PATH. Verify:
+<details>
+<summary><strong>Hooks Not Running</strong></summary>
+
+Hooks require Bun to be installed and in your PATH.
+
+**macOS/Linux:**
 ```bash
 which bun
-# Should show path like /Users/yourname/.bun/bin/bun
+# Should show: ~/.bun/bin/bun or /opt/homebrew/bin/bun
+```
+
+**Windows:**
+```powershell
+Get-Command bun
+# Should show the bun executable path
 ```
 
 If Bun isn't found, reinstall it and restart your terminal.
 
-### Voice Server Not Working
+</details>
+
+<details>
+<summary><strong>Hook Errors Mentioning "__HOME__"</strong></summary>
+
+If you see errors like `No such file or directory: __HOME__/.claude/...`, the `PAI_DIR` variable wasn't configured correctly.
+
+**Fix: Re-run the setup script**
+```bash
+bash ~/.claude/.claude/setup.sh
+```
+
+This automatically configures `PAI_DIR` with your actual home directory path.
+
+**Manual fix (if setup script doesn't work):**
+```bash
+# Edit settings.json
+nano ~/.claude/settings.json
+
+# Find this line:
+"PAI_DIR": "__HOME__/.claude"
+
+# Replace with your actual path (examples):
+# macOS: "PAI_DIR": "/Users/yourusername/.claude"
+# Linux: "PAI_DIR": "/home/yourusername/.claude"
+```
+
+</details>
+
+<details>
+<summary><strong>Voice Server Not Working (macOS only)</strong></summary>
 
 ```bash
 # Check voice server status
-${PAI_DIR}/voice-server/status.sh
+~/.claude/voice-server/status.sh
 
 # Restart if needed
-${PAI_DIR}/voice-server/restart.sh
+~/.claude/voice-server/restart.sh
 
 # Check logs
-tail ${PAI_DIR}/voice-server/logs/voice-server.log
+tail ~/.claude/voice-server/logs/voice-server.log
 ```
 
-### API Keys Not Working
+</details>
+
+<details>
+<summary><strong>API Keys Not Working</strong></summary>
 
 ```bash
 # Verify .env file exists
-ls -la ${PAI_DIR}/.env
+ls -la ~/.claude/.env
 
 # Check format (no spaces around =)
 # Correct: ANTHROPIC_API_KEY=sk-ant-...
 # Wrong:   ANTHROPIC_API_KEY = sk-ant-...
 ```
 
+</details>
+
 ---
 
-## Common Tasks
+## Next Steps
 
-### Update PAI
-
-```bash
-cd ~/Personal_AI_Infrastructure  # or wherever you cloned
-git pull origin main
-
-# Copy updates to your system
-cp -r .claude/* ${PAI_DIR}/
-```
-
-### Add New Skills
-
-```bash
-# Clone or create in skills directory
-cd ${PAI_DIR}/skills/
-# Add your skill folder
-```
-
-Skills auto-activate based on their description triggers.
-
-### Explore CORE Documentation
-
-See `.claude/skills/CORE/` for complete system documentation and configuration guides.
+1. **Read CONSTITUTION.md** — Understand PAI philosophy
+2. **Explore Skills** — See what's available in `~/.claude/skills/`
+3. **Try Voice Feedback** — Start the voice server (macOS)
+4. **Create Your First Skill** — Follow the skill structure guide
 
 ---
 
 ## Resources
 
-- **Full Documentation:** `.claude/skills/CORE/`
+- **Full Documentation:** `~/.claude/skills/CORE/`
 - **Video Overview:** [PAI Video](https://youtu.be/iKwRWwabkEc)
-- **GitHub Issues:** [Report Problems](https://github.com/danielmiessler/Personal_AI_Infrastructure/issues)
-- **Discussions:** [Ask Questions](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions)
+- **GitHub Issues:** [Report Problems](https://github.com/danielmiessler/PAI/issues)
+- **Discussions:** [Ask Questions](https://github.com/danielmiessler/PAI/discussions)
 
 ---
 
@@ -278,12 +363,8 @@ See `.claude/skills/CORE/` for complete system documentation and configuration g
 
 PAI follows three principles:
 
-1. **Command Line First** - Build CLI tools, wrap with AI
-2. **Deterministic Code First** - Same input → Same output
-3. **Prompts Wrap Code** - AI orchestrates, doesn't replace
+1. **Command Line First** — Build CLI tools, wrap with AI
+2. **Deterministic Code First** — Same input → Same output
+3. **Prompts Wrap Code** — AI orchestrates, doesn't replace
 
 **Start clean. Start small. Build out from there.**
-
----
-
-**You're ready! Start exploring and building your personal AI infrastructure.**

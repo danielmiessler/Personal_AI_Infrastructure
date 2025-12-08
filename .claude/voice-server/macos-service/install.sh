@@ -9,18 +9,31 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SERVICE_NAME="com.paivoice.server"
 PLIST_FILE="com.paivoice.server.plist"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
-VOICE_SERVER_DIR="$HOME/.claude/voice-server"
+
+# Use PAI_DIR if set, otherwise default to ~/.claude
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+VOICE_SERVER_DIR="${PAI_DIR}/voice-server"
 
 echo "🚀 PAIVoice Server Service Installer"
 echo "==========================================="
 echo ""
 
-# Check if bun is installed
-if ! command -v bun &> /dev/null; then
+# Check if bun is installed and find its path
+BUN_PATH=""
+if [ -f "$HOME/.bun/bin/bun" ]; then
+    BUN_PATH="$HOME/.bun/bin/bun"
+elif [ -f "/opt/homebrew/bin/bun" ]; then
+    BUN_PATH="/opt/homebrew/bin/bun"
+elif [ -f "/usr/local/bin/bun" ]; then
+    BUN_PATH="/usr/local/bin/bun"
+elif command -v bun &> /dev/null; then
+    BUN_PATH="$(which bun)"
+else
     echo "❌ Error: bun is not installed"
     echo "Please install bun first: curl -fsSL https://bun.sh/install | bash"
     exit 1
 fi
+echo "✅ Found bun at: ${BUN_PATH}"
 
 # Check for ElevenLabs API configuration
 echo "🔑 Checking API configuration..."
@@ -60,9 +73,24 @@ if launchctl list | grep -q "${SERVICE_NAME}"; then
     launchctl remove "${SERVICE_NAME}" 2>/dev/null || true
 fi
 
-# Copy plist file to LaunchAgents
-echo "📝 Installing service configuration..."
-cp "${SCRIPT_DIR}/${PLIST_FILE}" "${LAUNCH_AGENTS_DIR}/"
+# Generate plist from template with correct paths
+echo "📝 Generating service configuration..."
+PLIST_TEMPLATE="${SCRIPT_DIR}/com.paivoice.server.plist.template"
+
+if [ -f "${PLIST_TEMPLATE}" ]; then
+    # Use template and substitute paths
+    sed -e "s|__BUN_PATH__|${BUN_PATH}|g" \
+        -e "s|__PAI_DIR__|${PAI_DIR}|g" \
+        -e "s|__HOME__|${HOME}|g" \
+        "${PLIST_TEMPLATE}" > "${LAUNCH_AGENTS_DIR}/${PLIST_FILE}"
+    echo "✅ Generated plist with your paths:"
+    echo "   PAI_DIR: ${PAI_DIR}"
+    echo "   BUN: ${BUN_PATH}"
+else
+    # Fallback to copying static plist (legacy)
+    echo "⚠️  Template not found, using static plist"
+    cp "${SCRIPT_DIR}/${PLIST_FILE}" "${LAUNCH_AGENTS_DIR}/"
+fi
 
 # Load the service
 echo "🔧 Loading service..."

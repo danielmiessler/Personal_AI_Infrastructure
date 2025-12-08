@@ -142,7 +142,7 @@ bun ${PAI_DIR}/hooks/self-test.ts
 
 Expected output:
 ```
-✅ PAI_DIR resolves: /Users/yourname/.claude
+✅ PAI_DIR resolves: /home/yourname/.claude  # or /Users/yourname/.claude on macOS
 ✅ Hooks directory exists
 ✅ CORE skill loads
 ✅ Settings.json valid

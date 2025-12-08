@@ -14,34 +14,26 @@
 
 ## 📚 Voice Server Documentation
 
-### Complete Usage Guide
-**Location:** `${PAI_DIR}/voice-server/USAGE.md` (553 lines)
-
-**Contains:**
-- Current version and what's new
-- Agent personality system architecture
-- Voice parameter ranges and psychology mapping
-- Complete API reference
-- All agent profiles with voice characteristics
-- Advanced features and configuration
-- Testing and examples
-
 ### Overview and Setup
-**Location:** `${PAI_DIR}/voice-server/README.md` (261 lines)
+**Location:** `${PAI_DIR}/voice-server/README.md`
 
 **Contains:**
-- Voice server overview
+- Voice server overview and features
 - Installation and setup instructions
-- Quick start guide
-- Basic usage examples
+- Service management (start/stop/restart)
+- API usage and endpoints
+- Voice IDs for all agents
+- Menu bar indicator setup
+- Configuration options
+- Troubleshooting guide
 
-### Version History
-**Location:** `${PAI_DIR}/voice-server/CHANGELOG.md`
+### Quick Start
+**Location:** `${PAI_DIR}/voice-server/QUICKSTART.md`
 
 **Contains:**
-- Complete version history
-- Feature additions and changes
-- Bug fixes and improvements
+- 5-minute setup guide
+- Minimal configuration steps
+- Basic testing commands
 
 ---
 
@@ -67,12 +59,36 @@ ${PAI_DIR}/voice-server/restart.sh
 ${PAI_DIR}/voice-server/stop.sh
 ```
 
+**Test voice:**
+```bash
+curl -X POST http://localhost:8888/notify \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Test message","voice_enabled":true}'
+```
+
+---
+
+## 🎤 Available Voice IDs
+
+Voice IDs are ElevenLabs identifiers configured in hook files:
+
+| Agent | Voice ID | Description |
+|-------|----------|-------------|
+| PAI (Main) | s3TPKV1kjDlVtZbl4Ksh | UK Male - Professional |
+| Researcher | AXdMgz6evoL7OPd7eU12 | US Female - Analytical |
+| Engineer | fATgBRI8wg5KkDFg8vBd | US Female - Steady |
+| Architect | muZKMsIDGYtIkjjiUS82 | UK Female - Strategic |
+| Designer | ZF6FPAbjXT4488VcRRnw | Indian Female - Creative |
+| Pentester | xvHLFjaUEpx4BOf7EiDd | UK Male - Technical |
+
+See `${PAI_DIR}/voice-server/README.md` for complete voice list.
+
 ---
 
 ## 🔗 Related Documentation
 
-- **Agent Personalities:** `${PAI_DIR}/skills/CORE/agent-personalities.md` (centralized personality definitions)
-- **Voice Routing Workflow:** `${PAI_DIR}/skills/CORE/workflows/voice-routing-full.md` (operational workflow)
+- **Prosody Guide:** `${PAI_DIR}/skills/CORE/prosody-guide.md` (voice parameter tuning)
+- **Agent Template:** `${PAI_DIR}/skills/CORE/prosody-agent-template.md` (creating agent voices)
 
 ---
 
@@ -87,4 +103,4 @@ ${PAI_DIR}/voice-server/stop.sh
 
 ---
 
-**Last Updated:** 2025-11-16
+**Last Updated:** 2025-12-01

@@ -55,16 +55,28 @@ async function main() {
     console.error('📚 Reading CORE context from skill file...');
 
     // Read the CORE SKILL.md file content
-    const coreContent = readFileSync(coreSkillPath, 'utf-8');
+    let coreContent = readFileSync(coreSkillPath, 'utf-8');
 
-    console.error(`✅ Read ${coreContent.length} characters from CORE SKILL.md`);
+    // Perform Dynamic Variable Substitution
+    // This allows SKILL.md to be generic while the session is personalized
+    const daName = process.env.DA || 'PAI';
+    const daColor = process.env.DA_COLOR || 'blue';
+    const engineerName = process.env.ENGINEER_NAME || 'User';
+
+    // Replace placeholders {{DA}}, {{DA_COLOR}}, {{ENGINEER_NAME}}
+    coreContent = coreContent
+      .replace(/\{\{DA\}\}/g, daName)
+      .replace(/\{\{DA_COLOR\}\}/g, daColor)
+      .replace(/\{\{ENGINEER_NAME\}\}/g, engineerName);
+
+    console.error(`✅ Read ${coreContent.length} characters from CORE SKILL.md (Personalized for ${engineerName} & ${daName})`);
 
     // Output the CORE content as a system-reminder
     // This will be injected into Claude's context at session start
     const message = `<system-reminder>
 PAI CORE CONTEXT (Auto-loaded at Session Start)
 
-📅 CURRENT DATE/TIME: ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} PST
+📅 CURRENT DATE/TIME: ${new Date().toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short' })}
 
 The following context has been loaded from ${coreSkillPath}:
 

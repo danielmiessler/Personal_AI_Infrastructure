@@ -427,10 +427,12 @@ make release-tag VERSION=1.0.0
 - [x] Rename `context/` → `Context/` (match PAI naming)
 - [x] Restructure docs (focused docs, removed SKILL_CONTRACT.md)
 
-### Phase 4: Documentation
-- [ ] Write QUICKSTART.md
-- [ ] Write CONFIGURATION.md
-- [ ] Document all CLI commands
+### Phase 4: Documentation ✅ COMPLETE
+- [x] Write CONCEPTS.md (immutable log, tag structure, embeddings, pipelines)
+- [x] Write CLI-REFERENCE.md (full ingest and obs command reference)
+- [x] Write CAPTURE-TIPS.md (caption syntax, WisprFlow, spoken hints)
+- [x] Write SHORTCUTS.md (macOS/iOS capture shortcuts)
+- [x] Update README.md with documentation links
 
 ### Phase 5: Contribution
 - [ ] Final validation in clean room

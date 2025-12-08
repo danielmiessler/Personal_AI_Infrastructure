@@ -3,9 +3,8 @@ name: context
 description: |
   Knowledge Management - Capture and retrieve from Obsidian vault.
 
-  INGEST: "ingest to knowledge base", "capture this", "save note", pipe content.
-  SEARCH: "find notes about X", "what do I know about Y", discovery phase.
-  LOAD: "load context for X", "get notes about Y", injection phase.
+  USE WHEN: "what context do we have on X", "what do I know about Y", "find notes about Z",
+  "load context for project", "search vault", "save note", "capture this", "ingest".
 
   Two-phase retrieval: SEARCH (discovery) → LOAD (injection)
 ---
@@ -13,6 +12,45 @@ description: |
 # Context Skill (Knowledge Layer)
 
 **Purpose:** Capture, store, and retrieve knowledge from Obsidian vault.
+
+## Workflow Routing (SYSTEM PROMPT)
+
+**CRITICAL: READ the appropriate workflow file FIRST before executing commands.**
+
+**When user asks about context on a topic or project:**
+Examples: "what context do we have on X", "what do I know about Y", "background on project Z", "find notes about X", "search for X"
+→ **READ:** `${PAI_DIR}/.claude/skills/context/workflows/semantic-search.md`
+→ **EXECUTE:** Two-phase retrieval: Show numbered index first, then load selected items
+
+**When user wants to load project context:**
+Examples: "load context for project X", "get context for PAI", "load project context", "background on project"
+→ **READ:** `${PAI_DIR}/.claude/skills/context/workflows/load-project.md`
+→ **EXECUTE:** Two-phase retrieval: Show project notes with index, then load selected
+
+**When user wants to save/capture content:**
+Examples: "save this to vault", "capture this", "ingest this", "save note"
+→ **EXECUTE:** Use `ingest direct` command (no workflow file needed)
+
+**When user selects items to load (after a search):**
+Examples: "load 1,2,5", "load all", "load transcripts", "load all meeting notes"
+→ **EXECUTE:** `obs load <selection>` command
+
+---
+
+## When to Activate This Skill
+
+Activate this skill when user:
+- Asks "what context do we have on X" or "what do I know about Y"
+- Wants to find, search, or discover notes in the vault
+- Asks for "background on project X" or "context for X"
+- Wants to load notes into conversation context
+- Says "save this", "capture this", "ingest this"
+- Mentions vault, notes, knowledge base, or Obsidian
+- Asks about tags, projects, or incoming notes
+
+**NOT for:** General conversation, code editing, file operations outside vault
+
+---
 
 ## Quick Reference
 

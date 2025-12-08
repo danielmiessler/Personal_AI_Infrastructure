@@ -16,16 +16,16 @@ TEST-DATE-013,date,Spoken ISO date,text,no,[TEST-DATE-013] date 2024-06-15 Contr
 TEST-DATE-020,date,Note filename uses document date,text,no,"[TEST-DATE-020] [date:2023-03-15] Meeting notes from March",,ready,Text-only message
 TEST-DATE-021,date,Archive uses document date,document,yes,"[TEST-DATE-021] [date:2023-03-15] /archive Historic contract",[REUSES TEST-INGv2-101] Contract PDF,ready,361KB contract PDF
 TEST-DATE-022,date,Note without date uses today,text,no,[TEST-DATE-022] Regular meeting notes without any date hint,,ready,Text-only message
-TEST-INGv2-100,archive,Archive with auto-naming,document,yes,"[TEST-INGv2-100] /archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45",~/Dropbox/document/_archive/RECEIPT - 20211108 - Regent Lawnmowers.pdf,ready,358KB receipt PDF - captured
-TEST-INGv2-101,archive,Pre-named file preserved,document,yes,[TEST-INGv2-101],"~/Dropbox/document/_archive/CONTRACT - 20220601 - Southern Cross.pdf",ready,361KB contract PDF - no caption tests filename preservation
+TEST-INGv2-100,archive,Archive with auto-naming,document,yes,"[TEST-INGv2-100] /archive [type:RECEIPT][category:CABIN] Bunnings Timber, Polystyrene, Concrete $470.36",[REUSES TEST-INGv2-100] receipt.pdf,ready,Generic receipt PDF - tests auto-naming
+TEST-INGv2-101,archive,Pre-named file preserved,document,yes,"[TEST-INGv2-101] /archive",[REUSES TEST-INGv2-101] Contract PDF,pending,361KB contract PDF - /archive command triggers pipeline
 TEST-ARC-001,archive,Dictated archive intent,document,yes,[TEST-ARC-001] archive this lease agreement for the house,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB contract PDF
 TEST-ARC-002,archive,Dictated receipt intent,photo,yes,[TEST-ARC-002] Archive this invoice,Invoice photo captured from Telegram (133KB),ready,Real photo - source of reused invoice photos
 TEST-ARC-003,archive,Contract detection,document,yes,[TEST-ARC-003] this is my work contract,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB contract PDF
 TEST-ARC-004,archive,Certificate detection,document,yes,[TEST-ARC-004] my medical certificate from the doctor,[REUSES TEST-INGv2-101] Contract PDF,ready,361KB - contract as medical cert placeholder
 TEST-ARC-005,archive,Vision AI document type detection,photo,yes,[TEST-ARC-005] /archive,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo for Vision AI
 TEST-ARC-010,archive,Markdown with Dropbox link,document,yes,[TEST-ARC-010] /archive Work document,[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB receipt PDF
-TEST-ATTACH-001,archive,Default document pipeline is attach,document,yes,"[TEST-ATTACH-001] #project/pai Meeting transcript",Meeting-Transcript-Dec-2025.docx,pending,DOCX file - tests default attach pipeline
-TEST-ATTACH-002,archive,Metadata tags don't trigger archive,document,yes,"[TEST-ATTACH-002] [source:file][device:mac][user:andreas] #project/test",test-document.pdf,pending,Tests bug fix - metadata tags shouldn't trigger archive
+TEST-ATTACH-001,archive,Default document pipeline is attach,document,yes,"[TEST-ATTACH-001] #project/pai Meeting transcript",[REUSES TEST-REG-010a] meeting-notes.docx,pending,DOCX file - tests default attach pipeline
+TEST-ATTACH-002,archive,Metadata tags don't trigger archive,document,yes,"[TEST-ATTACH-002] [source:file][device:mac][user:andreas] #project/test",[REUSES TEST-INGv2-101] Contract PDF,pending,Tests bug fix - metadata tags shouldn't trigger archive
 TEST-REG-001,regression,Simple text message,text,no,[TEST-REG-001] Regression test: Simple text message without any metadata or hints,,ready,Text-only message
 TEST-REG-002,regression,Text with metadata parsing,text,no,"[TEST-REG-002] [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction",,ready,Text-only message
 TEST-REG-003,regression,Mixed hints and metadata,text,no,"[TEST-REG-003] #project/pai @ed_overy [source:voice-memo][device:mac] Discussion about context",,ready,Text-only message

@@ -23,14 +23,14 @@ export const archiveNamingSpecs: TestSpec[] = [
     input: {
       type: "document",
       description: "Document with /archive command - should generate structured name",
-      caption: "/archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45",
+      caption: "/archive [type:RECEIPT][category:CABIN] Bunnings Timber, Polystyrene, Concrete $470.36",
       filename: "receipt.pdf",
     },
     expected: {
-      archiveFilenamePattern: "^RECEIPT\\s*-\\s*\\d{8}\\s*-.*HOME",
+      archiveFilenamePattern: "^RECEIPT\\s*-\\s*\\d{8}\\s*-.*CABIN",
       frontmatter: {
         document_type: "RECEIPT",
-        document_category: "HOME",
+        document_category: "CABIN",
       },
       pipeline: "archive",
       dropboxSync: true,
@@ -49,11 +49,12 @@ export const archiveNamingSpecs: TestSpec[] = [
     input: {
       type: "document",
       description: "Document already following naming convention - should NOT be renamed",
-      filename: "CONTRACT - 20240208 - Employment Agreement.pdf",
+      caption: "/archive",
+      filename: "CONTRACT - 20220601 - Southern Cross Travel Insurance.pdf",
     },
     expected: {
-      // Filename should be preserved exactly
-      archiveFilenamePattern: "^CONTRACT - 20240208 - Employment Agreement\\.pdf$",
+      // Filename should be preserved exactly (dash format)
+      archiveFilenamePattern: "^CONTRACT - 20220601 - Southern Cross Travel Insurance\\.pdf$",
       pipeline: "archive",
       dropboxSync: true,
       verboseOutput: ["Preserving archive name"],
@@ -232,12 +233,12 @@ export const attachPipelineSpecs: TestSpec[] = [
       type: "document",
       description: "Document without explicit command - should default to attach",
       caption: "#project/pai Meeting transcript",
-      filename: "Meeting-Transcript-Dec-2025.docx",
+      filename: "meeting-notes.docx",
     },
     expected: {
       pipeline: "attach",
       frontmatter: {
-        original_filename: "Meeting-Transcript-Dec-2025.docx",
+        original_filename: "meeting-notes.docx",
         attachment: "string",  // Should have attachments/ path
       },
       content: {
@@ -258,14 +259,14 @@ export const attachPipelineSpecs: TestSpec[] = [
       type: "document",
       description: "Document with [source:file] metadata - should NOT trigger archive",
       caption: "[source:file][device:mac][user:andreas] #project/test",
-      filename: "test-document.pdf",
+      filename: "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
     },
     expected: {
-      pipeline: "attach",  // NOT archive (source:file shouldn't match)
+      pipeline: "attach",  // NOT archive (source:file shouldn't match - despite filename)
       frontmatter: {
         source_shortcut: "file",
         source_device: "mac",
-        original_filename: "test-document.pdf",
+        original_filename: "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       },
     },
     meta: {

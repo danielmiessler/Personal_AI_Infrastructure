@@ -87,13 +87,61 @@ export type PipelineType = "note" | "clip" | "archive" | "attach" | "default";
  * Archive naming pattern for detecting pre-named files
  * Matches: CONTRACT - 20240208 - Description...
  */
-const ARCHIVE_NAME_PATTERN = /^(CONTRACT|RECEIPT|CORRESPONDANCE|DOCUMENT|REPORT)\s*-\s*\d{8}\s*-/i;
+// Match archive naming: TYPE - DATE - Name (strict dash format only)
+const ARCHIVE_NAME_PATTERN = /^(CONTRACT|RECEIPT|CORRESPONDANCE|DOCUMENT|REPORT|CERTIFICATE|INVOICE|LEASE)\s*-\s*\d{8}\s*-/i;
 
 /**
  * Check if filename already follows archive naming convention
  */
 export function shouldPreserveArchiveName(filename: string): boolean {
   return ARCHIVE_NAME_PATTERN.test(filename);
+}
+
+/**
+ * Extract date from filename if present
+ * Supports formats:
+ *   - YYYY_MM_DD_... (underscore format, common in transcripts)
+ *   - YYYY-MM-DD-... (dash format, common in notes)
+ *   - YYYYMMDD (compact, no separator after)
+ * Returns ISO date string (YYYY-MM-DD) or null if not found
+ */
+export function extractDateFromFilename(filename: string): string | null {
+  // Pattern 1: YYYY_MM_DD_ (underscore format) e.g., "2025_09_30_Compliance_Transcript.docx"
+  const underscoreMatch = filename.match(/^(\d{4})_(\d{2})_(\d{2})_/);
+  if (underscoreMatch) {
+    const [, year, month, day] = underscoreMatch;
+    const date = `${year}-${month}-${day}`;
+    // Validate it's a real date
+    const parsed = new Date(date + "T00:00:00");
+    if (!isNaN(parsed.getTime())) {
+      return date;
+    }
+  }
+  
+  // Pattern 2: YYYY-MM-DD- (dash format) e.g., "2025-09-30-Meeting-Notes.docx"
+  const dashMatch = filename.match(/^(\d{4})-(\d{2})-(\d{2})-/);
+  if (dashMatch) {
+    const [, year, month, day] = dashMatch;
+    const date = `${year}-${month}-${day}`;
+    const parsed = new Date(date + "T00:00:00");
+    if (!isNaN(parsed.getTime())) {
+      return date;
+    }
+  }
+  
+  // Pattern 3: YYYYMMDD (compact, no separator after)
+  // Match at start of filename or after TYPE - prefix (for archive names)
+  const compactMatch = filename.match(/(?:^|[\s-])(\d{4})(\d{2})(\d{2})(?:[\s_-]|\.)/);
+  if (compactMatch) {
+    const [, year, month, day] = compactMatch;
+    const date = `${year}-${month}-${day}`;
+    const parsed = new Date(date + "T00:00:00");
+    if (!isNaN(parsed.getTime())) {
+      return date;
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -1010,11 +1058,8 @@ export async function processMessage(
         rawContent = messageText || `PDF document: ${docFilename}`;
         suggestedTitle = docFilename.replace(/\.pdf$/i, "");
         (message as any)._originalFilePath = filePath;
-        // Default to attach pipeline (keeps original filename)
-        if (docPipeline === "default") {
-          validCommands.push("attach");
-          hints.commands = validCommands;
-        }
+        // NOTE: Don't set "attach" here - let dictated intent detection run first
+        // Default to "attach" is applied later if no archive intent detected
       } else {
         // Non-PDF or PDF with /ocr: run full extraction
         if (isPdf && hasOcrCommand) {
@@ -1027,11 +1072,8 @@ export async function processMessage(
         if (docResult.originalPath) {
           (message as any)._originalFilePath = docResult.originalPath;
         }
-        // Default to attach pipeline for documents (keeps original filename)
-        if (docPipeline === "default") {
-          validCommands.push("attach");
-          hints.commands = validCommands;
-        }
+        // NOTE: Don't set "attach" here - let dictated intent detection run first
+        // Default to "attach" is applied later if no archive intent detected
       }
       break;
 
@@ -1157,6 +1199,12 @@ export async function processMessage(
     }
   }
 
+  // Step 2b.2: Default to "attach" for documents if no archive intent detected
+  // This runs AFTER dictated intent detection so captions like "archive this" work
+  if (pipeline === "default" && contentType === "document") {
+    pipeline = "attach";
+  }
+
   // Step 2c: Track original filename and file path for all document pipelines
   let archiveName: string | undefined;
   let originalFilePath: string | undefined = (message as any)._originalFilePath;
@@ -1196,10 +1244,26 @@ export async function processMessage(
         ext = contentType === "photo" ? "jpg" : "pdf";
       }
 
-      // Use document date from metadata if provided, otherwise use today
-      const archiveDate = hints.metadata.date
-        ? new Date(hints.metadata.date + "T00:00:00")  // Parse YYYY-MM-DD
-        : new Date();
+      // Use document date from: 1) metadata [date:...], 2) source filename, 3) today
+      let archiveDate: Date;
+      let dateSource: string = "today";
+      
+      if (hints.metadata.date) {
+        // Explicit [date:YYYY-MM-DD] metadata
+        archiveDate = new Date(hints.metadata.date + "T00:00:00");
+        dateSource = `metadata: ${hints.metadata.date}`;
+      } else if (sourceFilename) {
+        // Try to extract date from source filename
+        const filenameDate = extractDateFromFilename(sourceFilename);
+        if (filenameDate) {
+          archiveDate = new Date(filenameDate + "T00:00:00");
+          dateSource = `filename: ${filenameDate}`;
+        } else {
+          archiveDate = new Date();
+        }
+      } else {
+        archiveDate = new Date();
+      }
 
       archiveName = generateArchiveName({
         type: docType,
@@ -1208,7 +1272,7 @@ export async function processMessage(
         category,
         extension: ext,
       });
-      console.log(`  Generated archive name: ${archiveName}${hints.metadata.date ? ` (using document date: ${hints.metadata.date})` : ""}`);
+      console.log(`  Generated archive name: ${archiveName}${dateSource !== "today" ? ` (date from ${dateSource})` : ""}`);
     }
 
     // Add archive-specific tags
@@ -1872,8 +1936,10 @@ async function processPhoto(
       } else if (caption && hints?.cleanedContent) {
         // Use cleaned caption (without commands/tags) as the prompt
         prompt = hints.cleanedContent;
+        console.log(`    Custom prompt: ${prompt}`);
       } else if (caption) {
         prompt = caption;
+        console.log(`    Custom prompt: ${prompt}`);
       } else {
         // Default: describe the image
         prompt = "Describe this image briefly. If it contains text, extract it. If it's a diagram, describe its structure.";

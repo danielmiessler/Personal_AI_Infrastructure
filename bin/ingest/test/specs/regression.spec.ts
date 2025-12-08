@@ -153,10 +153,10 @@ export const regressionVoiceSpecs: TestSpec[] = [
     input: {
       type: "voice",
       description: "Voice memo with dictated caption containing hints",
-      caption: "#Project-pai @Ed Overy, testing the spoken hints feature",
+      caption: "#project/test extract wisdom",
     },
     expected: {
-      tags: ["project-pai", "ed_overy"],
+      tags: ["project/test"],
       verboseOutput: ["Transcribed"],
     },
     meta: {
@@ -237,7 +237,7 @@ export const regressionPhotoSpecs: TestSpec[] = [
       caption: "Extract all text from this screenshot",
     },
     expected: {
-      verboseOutput: ["Vision API", "Extract all text"],
+      verboseOutput: ["Vision API", "Custom prompt"],
       content: {
         contains: ["**Prompt:**", "**Analysis:**"],
       },

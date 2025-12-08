@@ -1,12 +1,12 @@
 {
   "_meta": {
-    "testId": "TEST-INGv2-101",
-    "capturedAt": "2025-12-08T07:44:05.958Z",
+    "testId": "TEST-ATTACH-002",
+    "capturedAt": "2025-12-08T07:44:21.188Z",
     "capturedBy": "populate-channel",
-    "description": "Pre-named file preserved"
+    "description": "Metadata tags don't trigger archive"
   },
   "message": {
-    "message_id": 438,
+    "message_id": 440,
     "sender_chat": {
       "id": -1003383520667,
       "title": "PAI Test Cases",
@@ -17,9 +17,9 @@
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1765179845,
+    "date": 1765179861,
     "document": {
-      "file_name": "CONTRACT - 20220601 - Southern Cross Travel Insurance.pdf",
+      "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
       "mime_type": "application/pdf",
       "thumbnail": {
         "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
@@ -39,12 +39,12 @@
       "file_unique_id": "AgADbgYAAqNzgEU",
       "file_size": 361636
     },
-    "caption": "[TEST-INGv2-101] /archive",
+    "caption": "[TEST-ATTACH-002] [source:file][device:mac][user:andreas] #project/test",
     "caption_entities": [
       {
-        "offset": 17,
+        "offset": 58,
         "length": 8,
-        "type": "bot_command"
+        "type": "hashtag"
       }
     ]
   }

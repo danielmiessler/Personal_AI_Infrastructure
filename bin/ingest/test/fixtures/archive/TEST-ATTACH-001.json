@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "testId": "TEST-ATTACH-001",
+    "capturedAt": "2025-12-08T07:44:16.537Z",
+    "capturedBy": "populate-channel",
+    "description": "Default document pipeline is attach"
+  },
+  "message": {
+    "message_id": 439,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1765179856,
+    "document": {
+      "file_name": "meeting-notes.docx",
+      "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "file_id": "BQACAgEAAyEGAAS8iPOuAAPQaS9vu6Es8ET8K1DYRA8ubW9w-XgAAjwIAALr5oBFSa6ON5JsOME2BA",
+      "file_unique_id": "AgADPAgAAuvmgEU",
+      "file_size": 1279200
+    },
+    "caption": "[TEST-ATTACH-001] #project/pai Meeting transcript",
+    "caption_entities": [
+      {
+        "offset": 18,
+        "length": 8,
+        "type": "hashtag"
+      }
+    ]
+  }
+}

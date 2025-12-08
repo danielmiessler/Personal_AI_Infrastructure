@@ -1,12 +1,12 @@
 {
   "_meta": {
     "testId": "TEST-INGv2-100",
-    "capturedAt": "2025-12-05T05:02:06.867Z",
-    "capturedBy": "integration-setup",
+    "capturedAt": "2025-12-08T07:48:24.000Z",
+    "capturedBy": "manual-capture",
     "description": "Archive with auto-naming"
   },
   "message": {
-    "message_id": 269,
+    "message_id": 442,
     "sender_chat": {
       "id": -1003383520667,
       "title": "PAI Test Cases",
@@ -17,29 +17,29 @@
       "title": "PAI Test Cases",
       "type": "channel"
     },
-    "date": 1764910926,
+    "date": 1765180104,
     "document": {
-      "file_name": "RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf",
+      "file_name": "receipt.pdf",
       "mime_type": "application/pdf",
       "thumbnail": {
-        "file_id": "AAMCAQADIQUABLyI864AA_5pL8tEAzwV3GsosGIl4HuuEBZ59AACbAYAAqNzgEWCj9inUvwnmAEAB20AAzYE",
-        "file_unique_id": "AQADbAYAAqNzgEVy",
-        "file_size": 18565,
+        "file_id": "AAMCAQADIQUABMmsbZsAAgG5aTaCfS_sH8cBmAXiKkzZYMY_GFQAAsgHAAJAKLFFECWpKaOp64UBAAdtAAM2BA",
+        "file_unique_id": "AQADyAcAAkAosUVy",
+        "file_size": 11414,
         "width": 232,
         "height": 320
       },
       "thumb": {
-        "file_id": "AAMCAQADIQUABLyI864AA_5pL8tEAzwV3GsosGIl4HuuEBZ59AACbAYAAqNzgEWCj9inUvwnmAEAB20AAzYE",
-        "file_unique_id": "AQADbAYAAqNzgEVy",
-        "file_size": 18565,
+        "file_id": "AAMCAQADIQUABMmsbZsAAgG5aTaCfS_sH8cBmAXiKkzZYMY_GFQAAsgHAAJAKLFFECWpKaOp64UBAAdtAAM2BA",
+        "file_unique_id": "AQADyAcAAkAosUVy",
+        "file_size": 11414,
         "width": 232,
         "height": 320
       },
-      "file_id": "BQACAgEAAyEFAAS8iPOuAAP-aS_LRAM8FdxrKLBiJeB7rhAWefQAAmwGAAKjc4BFgo_Yp1L8J5g2BA",
-      "file_unique_id": "AgADbAYAAqNzgEU",
-      "file_size": 358433
+      "file_id": "BQACAgEAAyEFAATJrG2bAAIBuWk2gn0v7B_HAZgF4ipM2WDGPxhUAALIBwACQCixRRAlqSmjqeuFNgQ",
+      "file_unique_id": "AgADyAcAAkAosUU",
+      "file_size": 366775
     },
-    "caption": "[TEST-INGv2-100] /archive [type:RECEIPT][category:HOME] Bunnings plumbing supplies $45",
+    "caption": "[TEST-INGv2-100] /archive [type:RECEIPT][category:CABIN] Bunnings Timber, Polystyrene, Concrete $470.36",
     "caption_entities": [
       {
         "offset": 17,

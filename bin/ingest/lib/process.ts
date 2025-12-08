@@ -1064,7 +1064,12 @@ export async function processMessage(
 
       if (isPdf && !hasOcrCommand) {
         // PDF without /ocr: store with link (no OCR extraction)
-        console.log(`  PDF attach mode (no OCR) - use /ocr to extract text`);
+        // Check if filename indicates archive (e.g., "RECEIPT - 20211108 - ...")
+        if (shouldPreserveArchiveName(docFilename)) {
+          console.log(`  PDF archive mode - pre-named archive file`);
+        } else {
+          console.log(`  PDF attach mode (no OCR) - use /ocr to extract text`);
+        }
         const filePath = await downloadFile(message.document!.file_id, docFilename);
         rawContent = messageText || `PDF document: ${docFilename}`;
         suggestedTitle = docFilename.replace(/\.pdf$/i, "");
@@ -1210,10 +1215,18 @@ export async function processMessage(
     }
   }
 
-  // Step 2b.2: Default to "attach" for documents if no archive intent detected
-  // This runs AFTER dictated intent detection so captions like "archive this" work
+  // Step 2b.2: Check if document filename has archive naming pattern
+  // Files named like "RECEIPT - 20211108 - Description - CATEGORY.pdf" should use archive pipeline
   if (pipeline === "default" && contentType === "document") {
-    pipeline = "attach";
+    const docFilename = message.document?.file_name || "";
+    if (shouldPreserveArchiveName(docFilename)) {
+      pipeline = "archive";
+      console.log(`  Pre-named archive file detected: ${docFilename}`);
+    } else {
+      // Default to "attach" for documents if no archive intent detected
+      // This runs AFTER dictated intent detection so captions like "archive this" work
+      pipeline = "attach";
+    }
   }
 
   // Step 2c: Track original filename and file path for all document pipelines

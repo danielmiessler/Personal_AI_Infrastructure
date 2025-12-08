@@ -1,8 +1,8 @@
 # 🧠 Context Management Skill Development Plan
 
 > **Created:** 2025-12-08
-> **Updated:** 2025-12-08
-> **Status:** Phase 3 In Progress - Release branch sanitized, need public repo
+> **Updated:** 2025-12-09
+> **Status:** Phase 3 Complete - Clean room validated ✅
 > **Goal:** Contribute vanilla context skill to upstream PAI repo
 
 ## Executive Summary
@@ -13,24 +13,27 @@ You have a sophisticated knowledge management system (`ingest` + `obs` CLIs) in 
 2. **Validating fresh deployments** to ensure the skill works out-of-the-box
 3. **Managing the three-repo workflow** (upstream → fork → contribution)
 
-### 🚀 Next Steps (Current Session)
+### ✅ Completed This Session
+
+- [x] Created `pai-contrib` public repo
+- [x] Pushed sanitized `release/context-skill` to `pai-contrib:main`
+- [x] Clean room build and validation passed
+- [x] Renamed `context/` → `Context/` (PascalCase)
+- [x] Restructured docs (removed SKILL_CONTRACT.md, added focused docs)
+
+### 🚀 Next Steps
 
 ```bash
-# 1. Create public repo on GitHub: YOUR_USERNAME/pai-contrib
-#    - Go to github.com → New Repository
-#    - Name: pai-contrib
-#    - Visibility: PUBLIC
-#    - Initialize: EMPTY (no README, no .gitignore)
+# 1. Sync feature branch with release changes
+git checkout feature/context-system
+git cherry-pick <commits-from-release>
 
-# 2. Add public repo as remote and push
-cd /path/to/Personal_AI_Infrastructure
-git remote add public git@github.com:YOUR_USERNAME/pai-contrib.git
-git push public release/context-skill:main
+# 2. Push feature branch
+git push origin feature/context-system
 
-# 3. Test clean room build
-cd bin/ingest/deployment
-make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-contrib SKILL_BRANCH=main
-make cleanroom-test
+# 3. Create PR to upstream
+#    From: pai-contrib:main
+#    To:   danielmiessler/Personal_AI_Infrastructure:main
 ```
 
 ---
@@ -133,12 +136,14 @@ pai-contrib/
 ├── README.md                      # Overview of all contributions
 ├── bin/
 │   ├── ingest/                    # Context skill: capture CLI
+│   │   └── docs/                  # telegram-setup.md, daemon-setup.md
 │   └── obs/                       # Context skill: query CLI
 ├── .claude/skills/
-│   └── context/                   # Context skill definition
-├── docs/
-│   └── skills/context/            # Context skill docs
-├── shortcuts/                     # iOS Shortcuts (optional)
+│   └── Context/                   # Context skill definition (PascalCase)
+│       ├── README.md              # Quick start guide
+│       ├── SKILL.md               # Claude skill definition
+│       └── workflows/             # Workflow definitions
+├── shortcuts/                     # iOS Shortcuts templates
 └── .github/workflows/             # CI/CD for all skills
 ```
 
@@ -410,15 +415,17 @@ make release-tag VERSION=1.0.0
 - [x] Create version tagging workflow
 - [x] Create deploy-to-release script
 
-### Phase 3: Skill Extraction 🔄 IN PROGRESS
+### Phase 3: Skill Extraction ✅ COMPLETE
 - [x] Create `release/context-skill` branch (in private fork)
 - [x] Audit code for hardcoded paths (sanitized)
-- [x] Remove personal identifiers (andreas, mellanon, andreas_brain)
+- [x] Remove personal identifiers
 - [x] Create example tag taxonomy
 - [x] Add Telegram setup documentation
-- [ ] **NEXT:** Create public contrib repo (`pai-contrib`) on GitHub
-- [ ] Push `release/context-skill` to `pai-contrib:main`
-- [ ] Run `make cleanroom-full` to validate
+- [x] Create public contrib repo (`pai-contrib`) on GitHub
+- [x] Push `release/context-skill` to `pai-contrib:main`
+- [x] Run clean room validation - **PASSED**
+- [x] Rename `context/` → `Context/` (match PAI naming)
+- [x] Restructure docs (focused docs, removed SKILL_CONTRACT.md)
 
 ### Phase 4: Documentation
 - [ ] Write QUICKSTART.md
@@ -525,6 +532,9 @@ git rebase main
 | CI platform | GitHub Actions | GitHub Actions | Already using GitHub |
 | Release repo | Same fork / Separate repo | **Separate public repo** | Private fork has sensitive data in branches |
 | Public repo name | `pai-context-skill` / `pai-contrib` | **`pai-contrib`** | Mirrors PAI structure, supports multiple skills |
+| Merge feature→main? | Yes / No | **No** | `main` stays synced with upstream only; feature has personal data |
+| Documentation style | Monolithic / Focused | **Focused docs** | Easier to maintain, find; removed SKILL_CONTRACT.md |
+| Skill folder naming | `context` / `Context` | **`Context`** | Match other PAI skills (PascalCase) |
 
 ---
 
@@ -532,5 +542,7 @@ git rebase main
 
 - [Knowledge Layer Discussion](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions/147)
 - [Life OS Vision](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions/157)
-- [SKILL_CONTRACT.md](../../.claude/skills/SKILL_CONTRACT.md)
+- [Context Skill README](../../.claude/skills/Context/README.md)
+- [Telegram Setup Guide](../../bin/ingest/docs/telegram-setup.md)
+- [Daemon Setup Guide](../../bin/ingest/docs/daemon-setup.md)
 

@@ -1124,7 +1124,7 @@ export async function processMessage(
   let references: string[] = [];
   if (config.openaiApiKey && rawContent && rawContent.length > 50) {
     try {
-      const vaultPath = config.obsidianVaultPath;
+      const vaultPath = config.vaultPath;
       const tagIndex = vaultPath ? loadVaultTags(vaultPath) : null;
       const existingTags = tagIndex ? [...tagIndex.tags] : [];
 

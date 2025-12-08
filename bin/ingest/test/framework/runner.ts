@@ -37,6 +37,8 @@ import {
   printTestCount,
   colors,
 } from "./format";
+import { seedTestTags } from "./test-vault";
+import { clearTagIndexCache } from "../../lib/tag-matcher";
 
 // =============================================================================
 // Constants
@@ -244,6 +246,14 @@ async function runTestWithSpec(
     rmSync(testOutputDir, { recursive: true });
   }
   mkdirSync(testOutputDir, { recursive: true });
+
+  // Seed mock tags for tag-matching tests
+  // These tests need known tags to exist in the vault for fuzzy matching
+  if (spec.category === "tag-matching") {
+    const mockTags = ["projectpie", "ed_overy"]; // Known tags from test specs
+    seedTestTags(testOutputDir, mockTags);
+    clearTagIndexCache(); // Ensure fresh load from seeded vault
+  }
 
   // Capture verbose output
   let verboseOutput = "";

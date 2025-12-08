@@ -151,3 +151,34 @@ export function cleanupTestVault(): void {
 export function isUsingTestVault(): boolean {
   return globalTestVault !== null;
 }
+
+/**
+ * Seed mock tags into a test vault directory
+ *
+ * Creates a markdown file with frontmatter containing the specified tags.
+ * This allows tag-matching tests to have known tags to match against.
+ *
+ * @param vaultPath - Path to the test vault/output directory
+ * @param tags - Array of tags to seed (e.g., ["projectpie", "ed_overy"])
+ */
+export function seedTestTags(vaultPath: string, tags: string[]): void {
+  const { writeFileSync } = require("fs");
+  const { join } = require("path");
+
+  if (!existsSync(vaultPath)) {
+    mkdirSync(vaultPath, { recursive: true });
+  }
+
+  // Create a mock note with the tags in frontmatter
+  const frontmatter = [
+    "---",
+    `tags: [${tags.join(", ")}]`,
+    "---",
+    "",
+    "# Mock Tag Index Note",
+    "",
+    "This note exists to provide tags for fuzzy matching tests.",
+  ].join("\n");
+
+  writeFileSync(join(vaultPath, "_mock-tag-index.md"), frontmatter);
+}

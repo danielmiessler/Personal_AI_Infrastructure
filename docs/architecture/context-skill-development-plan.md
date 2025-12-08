@@ -16,20 +16,20 @@ You have a sophisticated knowledge management system (`ingest` + `obs` CLIs) in 
 ### 🚀 Next Steps (Current Session)
 
 ```bash
-# 1. Create public repo on GitHub: YOUR_USERNAME/pai-context-skill
+# 1. Create public repo on GitHub: YOUR_USERNAME/pai-contrib
 #    - Go to github.com → New Repository
-#    - Name: pai-context-skill
+#    - Name: pai-contrib
 #    - Visibility: PUBLIC
 #    - Initialize: EMPTY (no README, no .gitignore)
 
 # 2. Add public repo as remote and push
 cd /path/to/Personal_AI_Infrastructure
-git remote add public git@github.com:YOUR_USERNAME/pai-context-skill.git
+git remote add public git@github.com:YOUR_USERNAME/pai-contrib.git
 git push public release/context-skill:main
 
 # 3. Test clean room build
 cd bin/ingest/deployment
-make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-context-skill SKILL_BRANCH=main
+make cleanroom-build SKILL_REPO=YOUR_USERNAME/pai-contrib SKILL_BRANCH=main
 make cleanroom-test
 ```
 
@@ -416,8 +416,8 @@ make release-tag VERSION=1.0.0
 - [x] Remove personal identifiers (andreas, mellanon, andreas_brain)
 - [x] Create example tag taxonomy
 - [x] Add Telegram setup documentation
-- [ ] **NEXT:** Create public release repo (`pai-context-skill`) on GitHub
-- [ ] Push `release/context-skill` to public repo as `main`
+- [ ] **NEXT:** Create public contrib repo (`pai-contrib`) on GitHub
+- [ ] Push `release/context-skill` to `pai-contrib:main`
 - [ ] Run `make cleanroom-full` to validate
 
 ### Phase 4: Documentation

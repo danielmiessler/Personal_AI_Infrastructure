@@ -18,11 +18,12 @@ import { readNote } from "./lib/read";
 import { writeNote, WriteOptions } from "./lib/write";
 import { listTags } from "./lib/tags";
 import { getConfig } from "./lib/config";
-import { buildEmbeddings, semanticSearch, getEmbeddingStats, ScopeFilter as EmbedScopeFilter } from "./lib/embed";
+import { buildEmbeddings, semanticSearch, getEmbeddingStats, ScopeFilter as EmbedScopeFilter, SemanticSearchOptions } from "./lib/embed";
 import {
   toIndexedResults,
   toSemanticIndexedResults,
   formatIndexTable,
+  formatIndexJson,
   saveSearchIndex,
   loadSearchIndex,
   loadBySelection,
@@ -55,7 +56,7 @@ SEARCH OPTIONS:
   --not-tag <tag>        Exclude notes with this tag
   --text, -x <query>     Full-text search
   --recent, -r <n>       Limit to N most recent notes
-  --format <fmt>         Output format: list (default), index (numbered for load)
+  --format <fmt>         Output format: list, index (table), json (for Claude)
   --since <when>         Filter by capture date (frontmatter generation_date)
                          - "7d", "2w", "1m" - relative (days/weeks/months)
                          - "today", "yesterday", "this week", "this month"
@@ -70,6 +71,8 @@ SEMANTIC OPTIONS:
   --limit, -l <n>        Limit results (default: 10)
   --format <fmt>         Output format: list (default), index (numbered for load)
   --scope <scope>        Scope filter: work (default), private, all
+  --tag, -t <tag>        Filter to notes with this tag (can use multiple, AND logic)
+  --doc, -d <pattern>    Filter by document name pattern (glob: * = any, ? = single char)
 
 LOAD OPTIONS (from last search):
   <selection>            Numbers to load: "all", "1,2,5", "1-5", "1,3-5,10"
@@ -88,6 +91,11 @@ EXAMPLES:
   obs load 1,2,5                                 # Injection: load selected
   obs load all                                   # Injection: load everything
   obs load --type transcript                     # Injection: filter by type
+
+  # Semantic search with filters (NEW)
+  obs semantic "what did Lyndon say" --tag project/ai-tailgating
+  obs semantic "architecture concerns" --doc "2025-12-08-Architecture*"
+  obs semantic "compliance" --tag project/ai-tailgating --tag compliance
 
   # Project context
   obs context pai --format index                 # Discovery + numbered
@@ -170,7 +178,7 @@ async function handleSearch(args: string[]) {
     notTags: [],
     scope: "work",  // Default: exclude private content
   };
-  let format: "list" | "index" = "list";
+  let format: "list" | "index" | "json" = "list";
 
   let i = 0;
   while (i < args.length) {
@@ -197,10 +205,10 @@ async function handleSearch(args: string[]) {
       case "--format":
       case "-f":
         const formatArg = args[++i]?.toLowerCase();
-        if (formatArg === "list" || formatArg === "index") {
+        if (formatArg === "list" || formatArg === "index" || formatArg === "json") {
           format = formatArg;
         } else {
-          console.error(`Invalid format: ${formatArg}. Use: list or index`);
+          console.error(`Invalid format: ${formatArg}. Use: list, index, or json`);
           process.exit(1);
         }
         break;
@@ -265,7 +273,7 @@ async function handleSearch(args: string[]) {
   }
 
   // Format output based on --format flag
-  if (format === "index") {
+  if (format === "index" || format === "json") {
     const query = options.tags.length > 0 
       ? `#${options.tags.join(" #")}` 
       : (options.text || "search");
@@ -280,7 +288,11 @@ async function handleSearch(args: string[]) {
     };
     await saveSearchIndex(searchIndex);
     
-    console.log(formatIndexTable(indexedResults, [], query));
+    if (format === "json") {
+      console.log(formatIndexJson(indexedResults, [], query));
+    } else {
+      console.log(formatIndexTable(indexedResults, [], query));
+    }
   } else {
     // Default list format
     console.log(`Found ${results.length} note(s):\n`);
@@ -411,14 +423,20 @@ async function handleEmbed(args: string[]) {
 
 async function handleSemantic(args: string[]) {
   if (args.length === 0 || args[0].startsWith("-")) {
-    console.error("Usage: obs semantic <query> [--limit <n>] [--scope <scope>] [--format index]");
+    console.error("Usage: obs semantic <query> [--limit <n>] [--scope <scope>] [--format index|json]");
+    console.error("       [--tag <tag>] [--doc <pattern>]");
+    console.error("\nExamples:");
+    console.error("  obs semantic \"what did Lyndon say\" --tag project/ai-tailgating");
+    console.error("  obs semantic \"architecture\" --doc \"2025-12-08-Architecture*\"");
     process.exit(1);
   }
 
   const query = args[0];
   let limit = 10;
   let scope: EmbedScopeFilter = "work"; // Default: exclude private
-  let format: "list" | "index" = "list";
+  let format: "list" | "index" | "json" = "list";
+  const tags: string[] = [];
+  let docPattern: string | undefined;
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--limit" || args[i] === "-l") {
@@ -430,36 +448,63 @@ async function handleSemantic(args: string[]) {
       }
     } else if (args[i] === "--format" || args[i] === "-f") {
       const formatArg = args[++i]?.toLowerCase();
-      if (formatArg === "list" || formatArg === "index") {
+      if (formatArg === "list" || formatArg === "index" || formatArg === "json") {
         format = formatArg;
       }
+    } else if (args[i] === "--tag" || args[i] === "-t") {
+      tags.push(args[++i]);
+    } else if (args[i] === "--doc" || args[i] === "-d") {
+      docPattern = args[++i];
     }
   }
 
-  const results = await semanticSearch(query, limit, scope);
+  const searchOptions: SemanticSearchOptions = {
+    limit,
+    scope,
+    tags: tags.length > 0 ? tags : undefined,
+    docPattern,
+  };
+
+  const results = await semanticSearch(query, searchOptions);
 
   if (results.length === 0) {
-    console.log("No results found. Have you run 'obs embed' first?");
+    const hint = tags.length > 0 || docPattern
+      ? " (check your filters)"
+      : " Have you run 'obs embed' first?";
+    console.log(`No results found.${hint}`);
     return;
   }
 
+  // Build query string for display (include filters)
+  let displayQuery = `"${query}"`;
+  if (tags.length > 0) {
+    displayQuery += ` [tags: ${tags.map(t => `#${t}`).join(", ")}]`;
+  }
+  if (docPattern) {
+    displayQuery += ` [doc: ${docPattern}]`;
+  }
+
   // Format output based on --format flag
-  if (format === "index") {
+  if (format === "index" || format === "json") {
     const indexedResults = toSemanticIndexedResults(results);
-    
+
     // Save for subsequent load command
     const searchIndex: SearchIndex = {
-      query,
+      query: displayQuery,
       timestamp: new Date().toISOString(),
       tagMatches: [],
       semanticMatches: indexedResults,
     };
     await saveSearchIndex(searchIndex);
     
-    console.log(formatIndexTable([], indexedResults, query));
+    if (format === "json") {
+      console.log(formatIndexJson([], indexedResults, displayQuery));
+    } else {
+      console.log(formatIndexTable([], indexedResults, displayQuery));
+    }
   } else {
     // Default list format
-    console.log(`Top ${results.length} results for: "${query}"\n`);
+    console.log(`Top ${results.length} results for: ${displayQuery}\n`);
     for (const result of results) {
       const similarity = (result.similarity * 100).toFixed(1);
       console.log(`  [${similarity}%] ${result.noteName}`);
@@ -472,10 +517,11 @@ async function handleSemantic(args: string[]) {
 
 async function handleContext(args: string[]) {
   if (args.length === 0 || args[0].startsWith("-")) {
-    console.error("Usage: obs context <project-name> [--recent <n>] [--scope <scope>] [--format index]");
+    console.error("Usage: obs context <project-name> [--recent <n>] [--scope <scope>] [--format index|json]");
     console.error("\nExamples:");
     console.error("  obs context pai");
-    console.error("  obs context pai --format index    # Numbered for load command");
+    console.error("  obs context pai --format json     # JSON for Claude to format");
+    console.error("  obs context pai --format index    # Numbered table");
     console.error("  obs context eea24 --recent 10");
     console.error("  obs context pai --scope all       # Include private notes");
     process.exit(1);
@@ -484,7 +530,7 @@ async function handleContext(args: string[]) {
   const projectName = args[0];
   let recent = 20; // Default to 20 recent notes
   let scope: ScopeFilter = "work"; // Default: exclude private
-  let format: "list" | "index" = "list";
+  let format: "list" | "index" | "json" = "list";
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--recent" || args[i] === "-r") {
@@ -496,7 +542,7 @@ async function handleContext(args: string[]) {
       }
     } else if (args[i] === "--format" || args[i] === "-f") {
       const formatArg = args[++i]?.toLowerCase();
-      if (formatArg === "list" || formatArg === "index") {
+      if (formatArg === "list" || formatArg === "index" || formatArg === "json") {
         format = formatArg;
       }
     }
@@ -522,7 +568,7 @@ async function handleContext(args: string[]) {
   }
 
   // Format output based on --format flag
-  if (format === "index") {
+  if (format === "index" || format === "json") {
     const query = `#${projectTag}`;
     const indexedResults = toIndexedResults(results);
     
@@ -535,7 +581,11 @@ async function handleContext(args: string[]) {
     };
     await saveSearchIndex(searchIndex);
     
-    console.log(formatIndexTable(indexedResults, [], query));
+    if (format === "json") {
+      console.log(formatIndexJson(indexedResults, [], query));
+    } else {
+      console.log(formatIndexTable(indexedResults, [], query));
+    }
   } else {
     // Default list format
     console.log(`Context for #${projectTag} (${results.length} notes):\n`);

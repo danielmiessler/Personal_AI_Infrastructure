@@ -18,12 +18,24 @@ description: |
 **CRITICAL: READ the appropriate workflow file FIRST before executing commands.**
 
 **When user asks about context on a topic or project:**
-Examples: "what context do we have on X", "what do I know about Y", "background on project Z", "find notes about X", "search for X"
+Examples: "what context do we have on X", "what do I know about Y", "background on project Z", "find notes about X", "search for X", "Context #project/X", "Context #tag"
 → **READ:** `${PAI_DIR}/.claude/skills/context/workflows/semantic-search.md`
 → **EXECUTE:** **TWO-TURN WORKFLOW:**
-   1. Run search with `--format json`, present results as table
-   2. **STOP and ASK** user which items to load
-   3. **WAIT** for user response before loading
+   1. Run search with `--format index`, present results as table
+   2. **STOP IMMEDIATELY** - respond with ONLY the results table and "Which to load?"
+   3. **DO NOT** continue with full response format - keep response minimal
+   4. **WAIT** for user response before loading
+
+⚠️ **CRITICAL: STOP AFTER SHOWING RESULTS**
+Your response after search should look like this and NOTHING MORE:
+```
+Found 18 documents for #project/X:
+
+[table of results]
+
+Which to load? (all / 1-5 / 1,3,7 / --type transcript)
+```
+DO NOT add 📋 SUMMARY, 🔍 ANALYSIS, 📖 STORY, or other format sections after a search. The two-turn workflow requires a MINIMAL response that waits for user input.
 
 **When user wants to load project context:**
 Examples: "load context for project X", "get context for PAI", "load project context", "background on project"
@@ -80,6 +92,7 @@ Activate this skill when user:
 - Asks "what context do we have on X" or "what do I know about Y"
 - Wants to find, search, or discover notes in the vault
 - Asks for "background on project X" or "context for X"
+- **Types "Context #tag" or "Context #project/X"** ← immediate trigger
 - Wants to load notes into conversation context
 - Says "save this", "capture this", "ingest this"
 - Mentions vault, notes, knowledge base, or Obsidian
@@ -102,6 +115,8 @@ Activate this skill when user:
 | "What do I know about X?" | `obs semantic "X" --format index` | obs |
 | "What context on project Z?" | `obs context Z --format index` | obs |
 | "Find notes tagged Y" | `obs search --tag Y --format index` | obs |
+| "What did X say about Y in project Z?" | `obs semantic "X said about Y" --tag project/Z` | obs |
+| "Search for X in doc Y" | `obs semantic "X" --doc "Y*"` | obs |
 | "Load 1,2,5" | `obs load 1,2,5` | obs |
 | "Load all transcripts" | `obs load --type transcript` | obs |
 | "What's incoming?" | `obs incoming` | obs |
@@ -183,6 +198,28 @@ obs context pai --format index
 # Tag filter (multiple = AND logic)
 obs search --tag ai --tag nvidia --format index   # Must have BOTH
 ```
+
+### Filtered Semantic Search
+
+Semantic search can be filtered by tags or document name patterns:
+
+```bash
+# Search within a project's notes only
+obs semantic "what did Lyndon say" --tag project/ai-tailgating
+
+# Search within a specific document (glob pattern)
+obs semantic "architecture concerns" --doc "2025-12-08-Architecture*"
+
+# Combine multiple tag filters (AND logic)
+obs semantic "compliance requirements" --tag project/ai-tailgating --tag compliance
+
+# Search in documents from a specific date
+obs semantic "meeting decisions" --doc "2025-12-07*"
+```
+
+**Flags:**
+- `--tag, -t <tag>` - Filter to notes with this tag (can use multiple, AND logic)
+- `--doc, -d <pattern>` - Filter by document name pattern (`*` = any chars, `?` = single char)
 
 ### Temporal Filters
 
@@ -306,6 +343,18 @@ obs load --type transcript
 ```bash
 obs search --tag project/ai-tailgating --format index --scope all
 obs load 1,3,5  # Load specific items
+```
+
+**"What did Lyndon say in the architecture meeting?"**
+```bash
+obs semantic "what did Lyndon say" --tag project/ai-tailgating --doc "*Architecture*"
+obs load all
+```
+
+**"Find compliance discussions in the tailgating project"**
+```bash
+obs semantic "compliance requirements" --tag project/ai-tailgating --tag compliance
+obs load 1-5
 ```
 
 **"What's waiting for me to process?"**

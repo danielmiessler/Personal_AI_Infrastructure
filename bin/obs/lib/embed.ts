@@ -350,13 +350,33 @@ export async function buildEmbeddings(options: {
 export type ScopeFilter = "work" | "private" | "all";
 
 /**
+ * Options for semantic search filtering
+ */
+export interface SemanticSearchOptions {
+  limit?: number;
+  scope?: ScopeFilter;
+  tags?: string[];        // Filter to notes with ALL these tags (AND logic)
+  docPattern?: string;    // Glob-like pattern for document names (e.g., "2025-12-08-Architecture*")
+}
+
+/**
  * Perform semantic search using embeddings
+ * Supports filtering by tags and document name patterns
  */
 export async function semanticSearch(
   query: string,
-  limit: number = 10,
+  limitOrOptions: number | SemanticSearchOptions = 10,
   scope: ScopeFilter = "work"
 ): Promise<EmbeddingResult[]> {
+  // Handle both old signature (limit, scope) and new signature (options object)
+  const options: SemanticSearchOptions = typeof limitOrOptions === "number"
+    ? { limit: limitOrOptions, scope }
+    : limitOrOptions;
+
+  const limit = options.limit ?? 10;
+  const effectiveScope = options.scope ?? scope;
+  const filterTags = options.tags ?? [];
+  const docPattern = options.docPattern;
   validateVault();
   const config = getConfig();
   const db = await initDatabase();
@@ -403,54 +423,86 @@ export async function semanticSearch(
   results.sort((a, b) => b.similarity - a.similarity);
   db.close();
 
-  // Apply scope filtering (post-hoc by parsing notes)
+  // Apply filtering (post-hoc by parsing notes)
+  // Filters: scope, tags, docPattern
   // Security model: No tag = private (excluded from default queries)
   // Must explicitly have scope/work to be included
-  if (scope !== "all") {
-    const filteredResults: EmbeddingResult[] = [];
-    const seenPaths = new Set<string>();
+  const filteredResults: EmbeddingResult[] = [];
+  const seenPaths = new Set<string>();
+  const needsFiltering = effectiveScope !== "all" || filterTags.length > 0 || docPattern;
 
-    for (const result of results) {
-      // Skip if we already processed this note
-      if (seenPaths.has(result.notePath)) {
-        // Include result if the note passed filter
-        const prevResult = filteredResults.find(r => r.notePath === result.notePath);
-        if (prevResult) {
-          filteredResults.push(result);
-        }
-        continue;
+  // Convert glob pattern to regex if provided
+  const docRegex = docPattern
+    ? new RegExp("^" + docPattern.replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i")
+    : null;
+
+  for (const result of results) {
+    // Apply doc pattern filter first (fast, no parsing needed)
+    if (docRegex && !docRegex.test(result.noteName)) {
+      continue;
+    }
+
+    // Skip if we already processed this note (for deduplication)
+    if (seenPaths.has(result.notePath)) {
+      // Include result if the note passed filter
+      const prevResult = filteredResults.find(r => r.notePath === result.notePath);
+      if (prevResult) {
+        filteredResults.push(result);
       }
-      seenPaths.add(result.notePath);
+      continue;
+    }
+    seenPaths.add(result.notePath);
 
+    // If we need tag or scope filtering, parse the note
+    if (effectiveScope !== "all" || filterTags.length > 0) {
       try {
         const parsed = await parseNote(result.notePath);
-        const hasWorkTag = parsed.tags.includes("scope/work");
-        const hasPrivateTag = parsed.tags.includes("scope/private");
-        const hasAnyScope = parsed.tags.some(t => t.startsWith("scope/"));
 
-        if (scope === "work" && !hasWorkTag) {
-          continue; // Only include notes WITH scope/work tag
+        // Scope filtering
+        if (effectiveScope !== "all") {
+          const hasWorkTag = parsed.tags.includes("scope/work");
+          const hasPrivateTag = parsed.tags.includes("scope/private");
+          const hasAnyScope = parsed.tags.some(t => t.startsWith("scope/"));
+
+          if (effectiveScope === "work" && !hasWorkTag) {
+            continue; // Only include notes WITH scope/work tag
+          }
+          if (effectiveScope === "private" && !hasPrivateTag && hasAnyScope) {
+            continue; // Include scope/private OR no scope tag
+          }
         }
-        if (scope === "private" && !hasPrivateTag && hasAnyScope) {
-          continue; // Include scope/private OR no scope tag
+
+        // Tag filtering (AND logic - note must have ALL specified tags)
+        if (filterTags.length > 0) {
+          const noteTags = parsed.tags.map(t => t.toLowerCase());
+          const hasAllTags = filterTags.every(tag =>
+            noteTags.some(nt => nt === tag.toLowerCase() || nt === `project/${tag.toLowerCase()}`)
+          );
+          if (!hasAllTags) {
+            continue;
+          }
         }
+
+        // Add tags to result for downstream use
+        (result as EmbeddingResult & { tags?: string[] }).tags = parsed.tags;
 
         filteredResults.push(result);
       } catch {
         // If we can't parse the note, exclude it (fail closed for security)
         continue;
       }
-
-      // Early exit if we have enough results
-      if (filteredResults.length >= limit * 2) {
-        break;
-      }
+    } else {
+      // No filtering needed, just add
+      filteredResults.push(result);
     }
 
-    return filteredResults.slice(0, limit);
+    // Early exit if we have enough results
+    if (filteredResults.length >= limit * 2) {
+      break;
+    }
   }
 
-  return results.slice(0, limit);
+  return filteredResults.slice(0, limit);
 }
 
 /**

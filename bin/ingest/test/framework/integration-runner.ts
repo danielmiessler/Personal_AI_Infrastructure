@@ -36,6 +36,7 @@ import {
   isUsingTestVault,
   getTestVault,
 } from "./test-vault";
+import { formatLocalTimestamp } from "./runner";
 
 // =============================================================================
 // Types

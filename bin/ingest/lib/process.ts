@@ -28,6 +28,17 @@ import { matchTranscribedHints, loadVaultTags, matchTag } from "./tag-matcher";
 
 const execAsync = promisify(exec);
 
+// Format date to local timezone string: YYYY-MM-DD
+function formatLocalDate(date: Date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// Format date to local timezone string for frontmatter: YYYY-MM-DD HH:mm
+function formatLocalDateTime(date: Date = new Date()): string {
+  return `${formatLocalDate(date)} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+}
+
 export interface ProcessedContent {
   title: string;
   rawContent: string;
@@ -156,7 +167,7 @@ export function generateArchiveName(options: {
   category: string;       // HOME, WORK, CAR, etc.
   extension: string;
 }): string {
-  const dateStr = options.date.toISOString().slice(0, 10).replace(/-/g, "");
+  const dateStr = formatLocalDate(options.date).replace(/-/g, "");
   const desc = sanitizeArchiveFilename(options.description);
   const cat = options.category.toUpperCase();
   const type = options.type.toUpperCase();
@@ -2096,7 +2107,7 @@ async function saveImageToVault(
   }
 
   const ext = sourcePath.split(".").pop() || "jpg";
-  const date = new Date().toISOString().split("T")[0];
+  const date = formatLocalDate();
   const destFilename = `${date}-telegram-${messageId}.${ext}`;
   const destPath = join(attachmentsDir, destFilename);
 
@@ -2427,11 +2438,11 @@ export async function saveToVault(
   // Generate frontmatter with source metadata
   const meta = processed.sourceMetadata;
   const receivedDate = processed.messageDate
-    ? new Date(processed.messageDate * 1000).toISOString().slice(0, 16).replace("T", " ")
+    ? formatLocalDateTime(new Date(processed.messageDate * 1000))
     : undefined;
   const frontmatter = [
     "---",
-    `generation_date: ${new Date().toISOString().slice(0, 16).replace("T", " ")}`,
+    `generation_date: ${formatLocalDateTime()}`,
     ...(receivedDate ? [`received_date: ${receivedDate}`] : []),
     "tags:",
     ...processed.tags.map((t) => `  - ${t}`),

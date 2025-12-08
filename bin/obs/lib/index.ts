@@ -89,26 +89,34 @@ function filterDisplayTags(tags: string[]): string[] {
 }
 
 /**
+ * Format date to local timezone string: YYYY-MM-DD
+ */
+function formatLocalDate(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
  * Extract date from note name or captureDate
  * Note names are typically: YYYY-MM-DD-Title
  */
 function extractDate(result: SearchResult): string {
   // Try to get from captureDate first
   if (result.captureDate) {
-    return result.captureDate.toISOString().split("T")[0];
+    return formatLocalDate(result.captureDate);
   }
-  
+
   // Try to extract from filename
   const match = result.name.match(/^(\d{4}-\d{2}-\d{2})/);
   if (match) {
     return match[1];
   }
-  
+
   // Fall back to modification time
   if (result.mtime) {
-    return result.mtime.toISOString().split("T")[0];
+    return formatLocalDate(result.mtime);
   }
-  
+
   return "unknown";
 }
 

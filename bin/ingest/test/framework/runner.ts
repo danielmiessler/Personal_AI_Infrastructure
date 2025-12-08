@@ -48,10 +48,15 @@ const FIXTURES_DIR = join(import.meta.dir, "..", "fixtures");
 const OUTPUT_BASE_DIR = join(import.meta.dir, "..", "output");
 const MEDIA_DIR = join(FIXTURES_DIR, "media");
 
+// Format date to local timezone string: YYYY-MM-DD-HH-mm-ss
+export function formatLocalTimestamp(date: Date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
+
 // Generate timestamped run ID
 function getRunId(): string {
-  const now = new Date();
-  return `run-${now.toISOString().slice(0, 19).replace(/[T:]/g, "-")}`;
+  return `run-${formatLocalTimestamp()}`;
 }
 
 // Current run directory (set at start of test suite)

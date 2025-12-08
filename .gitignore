@@ -83,7 +83,6 @@ save/
 
 # Test output (auto-generated)
 bin/ingest/test/output/
-bin/obs/test/
 
 # Keep .claude/skills/ and .claude/.env.example tracked
 !.claude/skills/

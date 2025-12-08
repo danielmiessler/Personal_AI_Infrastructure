@@ -24,12 +24,14 @@ description: |
 |-----------|---------|------|
 | "Save this to vault" | `echo "content" \| ingest direct --tags "tag"` | ingest |
 | "Capture this note" | `ingest direct --text "..." --tags "..."` | ingest |
-| "What do I know about X?" | `obs search "X"` or `obs semantic "X"` | obs |
-| "Find notes tagged Y" | `obs search --tag Y` | obs |
-| "Load context for project Z" | `obs context Z` | obs |
+| "What do I know about X?" | `obs semantic "X" --format index` | obs |
+| "What context on project Z?" | `obs context Z --format index` | obs |
+| "Find notes tagged Y" | `obs search --tag Y --format index` | obs |
+| "Load 1,2,5" | `obs load 1,2,5` | obs |
+| "Load all transcripts" | `obs load --type transcript` | obs |
 | "What's incoming?" | `obs incoming` | obs |
 | "Read that note" | `obs read "note-name"` | obs |
-| "Notes from last week" | `obs search --since 1w` | obs |
+| "Notes from last week" | `obs search --since 1w --format index` | obs |
 
 ## CLI Overview
 
@@ -89,20 +91,22 @@ ingest direct document.pdf --scope private
 
 ## 2. SEARCH — Discovery Phase
 
-Find notes matching criteria. Returns index of matches.
+Find notes matching criteria. Use `--format index` to get numbered results for loading.
 
 ### Basic Search
 
 ```bash
-# Semantic search (AI-powered)
-obs semantic "deployment strategies"
+# Semantic search (AI-powered) with numbered index
+obs semantic "deployment strategies" --format index
 
-# Text search (grep-based)
-obs search "kubernetes config"
+# Tag-based search with numbered index
+obs search --tag project/pai --format index
+
+# Project context shortcut
+obs context pai --format index
 
 # Tag filter (multiple = AND logic)
-obs search --tag project/pai
-obs search --tag ai --tag nvidia   # Must have BOTH
+obs search --tag ai --tag nvidia --format index   # Must have BOTH
 ```
 
 ### Temporal Filters
@@ -154,16 +158,25 @@ obs search --tag meeting --tag ed_overy --since "this month"
 
 ## 3. LOAD — Injection Phase
 
-Read full content from discovered notes.
+Load selected notes from last search results into context.
 
 ```bash
-# Read single note by name
-obs read "2025-01-15-Planning"
+# Load by selection (from last search/semantic/context command)
+obs load 1,2,5                     # Specific items
+obs load 1-10                      # Range
+obs load all                       # Everything from last search
 
-# Project context (shortcut for tag search + display)
-obs context pai                    # All #project/pai notes
-obs context pai --recent 10        # Limited to 10 most recent
+# Filter options
+obs load --type transcript         # Only transcripts
+obs load --since 2025-12-01        # Only from date
+
+# Read single note by name (bypass index)
+obs read "2025-01-15-Planning"
 ```
+
+**Two-Phase Workflow:**
+1. `obs context pai --format index` → Shows numbered list
+2. `obs load 1,2,5` → Loads selected notes
 
 ---
 
@@ -201,15 +214,23 @@ obs embed --stats
 pbpaste | ingest direct --tags "meeting,project/pai"
 ```
 
-**"What have I captured about Kubernetes recently?"**
+**"What context do we have on Kubernetes?"**
 ```bash
-obs semantic "kubernetes" --since 2w
-obs search --tag kubernetes --since 1m
+obs semantic "kubernetes" --format index --since 2w
+# Shows numbered list
+obs load 1-5  # Load first 5 results
 ```
 
-**"Load everything about the API project"**
+**"Load all meeting transcripts for PAI project"**
 ```bash
-obs context api --recent 20
+obs context pai --format index
+obs load --type transcript
+```
+
+**"What do we have on project ai-tailgating?"**
+```bash
+obs search --tag project/ai-tailgating --format index --scope all
+obs load 1,3,5  # Load specific items
 ```
 
 **"What's waiting for me to process?"**
@@ -217,9 +238,10 @@ obs context api --recent 20
 obs incoming
 ```
 
-**"Find all notes mentioning Ed from this week"**
+**"Find notes mentioning Ed from this week"**
 ```bash
-obs search --tag ed_overy --since "this week"
+obs search --tag ed_overy --since "this week" --format index
+obs load all  # Load all matching
 ```
 
 **"Quick capture an idea"**

@@ -19,6 +19,18 @@ import { writeNote, WriteOptions } from "./lib/write";
 import { listTags } from "./lib/tags";
 import { getConfig } from "./lib/config";
 import { buildEmbeddings, semanticSearch, getEmbeddingStats, ScopeFilter as EmbedScopeFilter } from "./lib/embed";
+import {
+  toIndexedResults,
+  toSemanticIndexedResults,
+  formatIndexTable,
+  saveSearchIndex,
+  loadSearchIndex,
+  loadBySelection,
+  formatLoadSummary,
+  parseSelection,
+  SearchIndex,
+  IndexedResult,
+} from "./lib/index";
 
 const HELP = `
 obs - Obsidian Vault CLI for PAI Context Management
@@ -27,14 +39,15 @@ USAGE:
   obs <command> [options]
 
 COMMANDS:
-  search     Search notes by tag or text
-  read       Read a note's content
+  search     Search notes by tag or text (discovery phase)
+  semantic   Semantic search using embeddings (discovery phase)
+  load       Load notes from last search by selection (injection phase)
+  read       Read a specific note's content
   write      Write a new note to the vault
   tags       List all tags in the vault
   incoming   List notes waiting to be processed (#incoming tag)
   context    Load context for a project (shortcut for tag search)
   embed      Build/update vector embeddings
-  semantic   Semantic search using embeddings
   config     Show current configuration
 
 SEARCH OPTIONS:
@@ -42,6 +55,7 @@ SEARCH OPTIONS:
   --not-tag <tag>        Exclude notes with this tag
   --text, -x <query>     Full-text search
   --recent, -r <n>       Limit to N most recent notes
+  --format <fmt>         Output format: list (default), index (numbered for load)
   --since <when>         Filter by capture date (frontmatter generation_date)
                          - "7d", "2w", "1m" - relative (days/weeks/months)
                          - "today", "yesterday", "this week", "this month"
@@ -50,26 +64,39 @@ SEARCH OPTIONS:
   --created <when>       Filter by file creation time (same formats as --since)
   --untagged             Find notes without tags
   --scope <scope>        Scope filter: work (default), private, all
-                         - work: Exclude private content (default)
-                         - private: Only private content
-                         - all: Include everything
+
+SEMANTIC OPTIONS:
+  <query>                Natural language search query
+  --limit, -l <n>        Limit results (default: 10)
+  --format <fmt>         Output format: list (default), index (numbered for load)
+  --scope <scope>        Scope filter: work (default), private, all
+
+LOAD OPTIONS (from last search):
+  <selection>            Numbers to load: "all", "1,2,5", "1-5", "1,3-5,10"
+  --type <type>          Load by type: transcript, meeting, note, wisdom, etc.
+  --since <date>         Load notes from date (YYYY-MM-DD)
 
 CONTEXT OPTIONS:
   <project>              Project name (searches project/<name> tag)
   --recent, -r <n>       Limit results (default: 20)
-
-INCOMING OPTIONS:
-  --recent, -r <n>       Limit results (default: all)
+  --format <fmt>         Output format: list (default), index (numbered)
 
 EXAMPLES:
-  # Context loading (the key feature)
-  obs context pai                    # Load all PAI project context
-  obs context eea24 --recent 10      # Recent EEA24 notes
+  # Two-phase context retrieval
+  obs search --tag project/pai --format index    # Discovery: numbered list
+  obs semantic "deployment" --format index       # Discovery: semantic search
+  obs load 1,2,5                                 # Injection: load selected
+  obs load all                                   # Injection: load everything
+  obs load --type transcript                     # Injection: filter by type
 
-  # Search
+  # Project context
+  obs context pai --format index                 # Discovery + numbered
+  obs context eea24 --recent 10
+
+  # Basic search
   obs search --tag meeting-notes --tag ed_overy
   obs search --text "kubernetes" --not-tag incoming
-  obs incoming --recent 20           # What needs processing?
+  obs incoming --recent 20
 
   # Read/Write
   obs read "2024-06-10-Meeting"
@@ -120,6 +147,9 @@ async function main() {
       case "incoming":
         await handleIncoming(commandArgs);
         break;
+      case "load":
+        await handleLoad(commandArgs);
+        break;
       default:
         console.error(`Unknown command: ${command}`);
         console.log("Run 'obs --help' for usage.");
@@ -140,6 +170,7 @@ async function handleSearch(args: string[]) {
     notTags: [],
     scope: "work",  // Default: exclude private content
   };
+  let format: "list" | "index" = "list";
 
   let i = 0;
   while (i < args.length) {
@@ -162,6 +193,16 @@ async function handleSearch(args: string[]) {
         break;
       case "--untagged":
         options.untagged = true;
+        break;
+      case "--format":
+      case "-f":
+        const formatArg = args[++i]?.toLowerCase();
+        if (formatArg === "list" || formatArg === "index") {
+          format = formatArg;
+        } else {
+          console.error(`Invalid format: ${formatArg}. Use: list or index`);
+          process.exit(1);
+        }
         break;
       case "--scope":
       case "-s":
@@ -223,10 +264,30 @@ async function handleSearch(args: string[]) {
     return;
   }
 
-  console.log(`Found ${results.length} note(s):\n`);
-  for (const note of results) {
-    const tagsStr = note.tags.length > 0 ? ` [${note.tags.join(", ")}]` : "";
-    console.log(`  ${note.name}${tagsStr}`);
+  // Format output based on --format flag
+  if (format === "index") {
+    const query = options.tags.length > 0 
+      ? `#${options.tags.join(" #")}` 
+      : (options.text || "search");
+    const indexedResults = toIndexedResults(results);
+    
+    // Save for subsequent load command
+    const searchIndex: SearchIndex = {
+      query,
+      timestamp: new Date().toISOString(),
+      tagMatches: indexedResults,
+      semanticMatches: [],
+    };
+    await saveSearchIndex(searchIndex);
+    
+    console.log(formatIndexTable(indexedResults, [], query));
+  } else {
+    // Default list format
+    console.log(`Found ${results.length} note(s):\n`);
+    for (const note of results) {
+      const tagsStr = note.tags.length > 0 ? ` [${note.tags.join(", ")}]` : "";
+      console.log(`  ${note.name}${tagsStr}`);
+    }
   }
 }
 
@@ -350,13 +411,14 @@ async function handleEmbed(args: string[]) {
 
 async function handleSemantic(args: string[]) {
   if (args.length === 0 || args[0].startsWith("-")) {
-    console.error("Usage: obs semantic <query> [--limit <n>] [--scope <scope>]");
+    console.error("Usage: obs semantic <query> [--limit <n>] [--scope <scope>] [--format index]");
     process.exit(1);
   }
 
   const query = args[0];
   let limit = 10;
   let scope: EmbedScopeFilter = "work"; // Default: exclude private
+  let format: "list" | "index" = "list";
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--limit" || args[i] === "-l") {
@@ -365,6 +427,11 @@ async function handleSemantic(args: string[]) {
       const scopeArg = args[++i]?.toLowerCase();
       if (scopeArg === "work" || scopeArg === "private" || scopeArg === "all") {
         scope = scopeArg as EmbedScopeFilter;
+      }
+    } else if (args[i] === "--format" || args[i] === "-f") {
+      const formatArg = args[++i]?.toLowerCase();
+      if (formatArg === "list" || formatArg === "index") {
+        format = formatArg;
       }
     }
   }
@@ -376,29 +443,48 @@ async function handleSemantic(args: string[]) {
     return;
   }
 
-  console.log(`Top ${results.length} results for: "${query}"\n`);
-  for (const result of results) {
-    const similarity = (result.similarity * 100).toFixed(1);
-    console.log(`  [${similarity}%] ${result.noteName}`);
-    // Show snippet of matching content
-    const snippet = result.content.slice(0, 100).replace(/\n/g, " ").trim();
-    console.log(`          ${snippet}...`);
+  // Format output based on --format flag
+  if (format === "index") {
+    const indexedResults = toSemanticIndexedResults(results);
+    
+    // Save for subsequent load command
+    const searchIndex: SearchIndex = {
+      query,
+      timestamp: new Date().toISOString(),
+      tagMatches: [],
+      semanticMatches: indexedResults,
+    };
+    await saveSearchIndex(searchIndex);
+    
+    console.log(formatIndexTable([], indexedResults, query));
+  } else {
+    // Default list format
+    console.log(`Top ${results.length} results for: "${query}"\n`);
+    for (const result of results) {
+      const similarity = (result.similarity * 100).toFixed(1);
+      console.log(`  [${similarity}%] ${result.noteName}`);
+      // Show snippet of matching content
+      const snippet = result.content.slice(0, 100).replace(/\n/g, " ").trim();
+      console.log(`          ${snippet}...`);
+    }
   }
 }
 
 async function handleContext(args: string[]) {
   if (args.length === 0 || args[0].startsWith("-")) {
-    console.error("Usage: obs context <project-name> [--recent <n>] [--scope <scope>]");
+    console.error("Usage: obs context <project-name> [--recent <n>] [--scope <scope>] [--format index]");
     console.error("\nExamples:");
     console.error("  obs context pai");
+    console.error("  obs context pai --format index    # Numbered for load command");
     console.error("  obs context eea24 --recent 10");
-    console.error("  obs context pai --scope all   # Include private notes");
+    console.error("  obs context pai --scope all       # Include private notes");
     process.exit(1);
   }
 
   const projectName = args[0];
   let recent = 20; // Default to 20 recent notes
   let scope: ScopeFilter = "work"; // Default: exclude private
+  let format: "list" | "index" = "list";
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "--recent" || args[i] === "-r") {
@@ -407,6 +493,11 @@ async function handleContext(args: string[]) {
       const scopeArg = args[++i]?.toLowerCase();
       if (scopeArg === "work" || scopeArg === "private" || scopeArg === "all") {
         scope = scopeArg as ScopeFilter;
+      }
+    } else if (args[i] === "--format" || args[i] === "-f") {
+      const formatArg = args[++i]?.toLowerCase();
+      if (formatArg === "list" || formatArg === "index") {
+        format = formatArg;
       }
     }
   }
@@ -430,14 +521,31 @@ async function handleContext(args: string[]) {
     return;
   }
 
-  console.log(`Context for #${projectTag} (${results.length} notes):\n`);
-  for (const note of results) {
-    const otherTags = note.tags.filter((t) => t !== projectTag && !t.includes("incoming"));
-    const tagsStr = otherTags.length > 0 ? ` [${otherTags.slice(0, 3).join(", ")}]` : "";
-    console.log(`  ${note.name}${tagsStr}`);
+  // Format output based on --format flag
+  if (format === "index") {
+    const query = `#${projectTag}`;
+    const indexedResults = toIndexedResults(results);
+    
+    // Save for subsequent load command
+    const searchIndex: SearchIndex = {
+      query,
+      timestamp: new Date().toISOString(),
+      tagMatches: indexedResults,
+      semanticMatches: [],
+    };
+    await saveSearchIndex(searchIndex);
+    
+    console.log(formatIndexTable(indexedResults, [], query));
+  } else {
+    // Default list format
+    console.log(`Context for #${projectTag} (${results.length} notes):\n`);
+    for (const note of results) {
+      const otherTags = note.tags.filter((t) => t !== projectTag && !t.includes("incoming"));
+      const tagsStr = otherTags.length > 0 ? ` [${otherTags.slice(0, 3).join(", ")}]` : "";
+      console.log(`  ${note.name}${tagsStr}`);
+    }
+    console.log(`\nTo read a note: obs read "<note-name>"`);
   }
-
-  console.log(`\nTo read a note: obs read "<note-name>"`);
 }
 
 async function handleIncoming(args: string[]) {
@@ -478,6 +586,66 @@ async function handleIncoming(args: string[]) {
 
   console.log(`\nTo process: read the note, apply fabric pattern, update tags.`);
   console.log(`Example: obs read "<note>" | fabric -p extract_wisdom`);
+}
+
+async function handleLoad(args: string[]) {
+  if (args.length === 0) {
+    console.error("Usage: obs load <selection> [--type <type>] [--since <date>]");
+    console.error("\nSelection formats:");
+    console.error("  all         - Load all results from last search");
+    console.error("  1,2,5       - Load specific items by number");
+    console.error("  1-5         - Load range of items");
+    console.error("  1,3-5,10    - Combined selection");
+    console.error("\nFilters:");
+    console.error("  --type <type>   - Filter by type (transcript, meeting, note, wisdom, etc.)");
+    console.error("  --since <date>  - Filter by date (YYYY-MM-DD)");
+    console.error("\nRun 'obs search --format index' or 'obs semantic <query> --format index' first.");
+    process.exit(1);
+  }
+
+  let selection = "";
+  let filterType: string | undefined;
+  let filterSince: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--type" || args[i] === "-t") {
+      filterType = args[++i];
+    } else if (args[i] === "--since" || args[i] === "-s") {
+      filterSince = args[++i];
+    } else if (!args[i].startsWith("-")) {
+      selection = args[i];
+    }
+  }
+
+  // If only filters provided, use "all" as selection base
+  if (!selection && (filterType || filterSince)) {
+    selection = "all";
+  }
+
+  if (!selection) {
+    console.error("Error: No selection provided. Use 'all', '1,2,5', '1-5', etc.");
+    process.exit(1);
+  }
+
+  try {
+    const result = await loadBySelection(selection, {
+      type: filterType,
+      since: filterSince,
+    });
+
+    // Calculate total size
+    const totalSize = Buffer.byteLength(result.content, "utf-8");
+
+    // Output summary to stderr so content can be piped
+    console.error(formatLoadSummary(result.loaded, totalSize));
+    console.error("");
+
+    // Output actual content to stdout
+    console.log(result.content);
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : error}`);
+    process.exit(1);
+  }
 }
 
 main();

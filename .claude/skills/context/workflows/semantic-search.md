@@ -7,6 +7,7 @@
 - "search knowledge for [query]"
 - "what do I know about [topic]"
 - "related notes to [concept]"
+- "what context do we have on [topic]"
 
 ## Prerequisites
 
@@ -16,61 +17,110 @@ obs embed  # Full rebuild
 obs embed --incremental  # Update changed only
 ```
 
+## Two-Phase Retrieval: Discovery → Load
+
+### Phase 1: Discovery (Search)
+Run search with `--format index` to get numbered results:
+```bash
+obs semantic "${QUERY}" --format index --limit 10
+obs search --tag "project/${PROJECT}" --format index
+```
+
+### Phase 2: Injection (Load)
+User selects which notes to load:
+```bash
+obs load 1,2,5        # Specific items
+obs load 1-10         # Range
+obs load all          # Everything
+obs load --type transcript  # Filter by type
+```
+
 ## Workflow Steps
 
 ### 1. Parse Query
 Extract the search intent from user's natural language request.
 
-### 2. Execute Semantic Search
+### 2. Execute Search with Index Format
 ```bash
-obs semantic "${QUERY}" --limit 10
+# For semantic search
+obs semantic "${QUERY}" --format index --limit 10
+
+# For tag-based search
+obs search --tag "project/${PROJECT}" --format index
 ```
 
-Returns notes ranked by semantic similarity, not just keyword matches.
+Returns numbered list with metadata (date, type, tags, excerpt).
 
-### 3. Filter Results (Optional)
-Combine with tag filters for precision:
-```bash
-obs semantic "${QUERY}" --tag "type/research" --limit 10
+### 3. Present Results to User
+Show the indexed table and ask which items to load:
+
+```
+📋 Search Results for "authentication"
+
+SEMANTIC MATCHES (5 notes)
+────────────────────────────────────────────────────────────────────────────────
+ #  │ Score │ Date       │ Title                                    │ Excerpt
+────────────────────────────────────────────────────────────────────────────────
+ 1  │   89% │ 2024-10-15 │ OAuth Implementation Notes               │ OAuth 2.0 flow...
+ 2  │   85% │ 2024-09-20 │ Security Architecture Review             │ security patterns...
+ 3  │   82% │ 2024-11-01 │ API Authentication Design                │ API auth approach...
+
+Load options: "load all", "load 1,2", "load 1-3"
 ```
 
-### 4. Present Results
-Show ranked results with relevance scores and excerpts.
-
-### 5. Load Relevant Notes
-Based on user selection or top results:
+### 4. Load Selected Notes
+Based on user's selection:
 ```bash
-obs read "note-name"
+obs load 1,2,3
 ```
 
-## Example
+Output goes to stdout (summary to stderr) - ready for context injection.
 
-**User:** "What do I know about authentication patterns?"
+## Example Session
 
-**Execution:**
+**User:** "What context do we have on ai-tailgating?"
+
+**Claude runs:**
 ```bash
-obs semantic "authentication patterns security login"
-
-# Results (ranked by similarity):
-# 1. [0.89] 2024-10-15-OAuth-Implementation-Notes.md
-# 2. [0.85] 2024-09-20-Security-Architecture-Review.md
-# 3. [0.82] 2024-11-01-API-Authentication-Design.md
-# 4. [0.78] 2024-08-10-SSO-Research.md
+obs search --tag "project/ai-tailgating" --format index --scope all
 ```
 
-**Response:**
-"Found 4 relevant notes about authentication:
+**Output:**
+```
+📋 Search Results for "#project/ai-tailgating"
 
-1. **OAuth Implementation Notes** (Oct 15) - Highest relevance
-   - OAuth 2.0 flow implementation details
+TAG MATCHES (18 notes)
+────────────────────────────────────────────────────────────────────────────────
+ #  │ Date       │ Type       │ Title                                    │ Tags
+────────────────────────────────────────────────────────────────────────────────
+ 1  │ 2025-12-08 │ transcript │ Compliance and Integration Discussion... │ compliance, meeting
+ 2  │ 2025-12-08 │ transcript │ Project methodology preferences...       │ agile, architecture
+ 3  │ 2025-12-08 │ transcript │ Data Readiness Planning...               │ data-platform
+...
+```
 
-2. **Security Architecture Review** (Sep 20)
-   - Broader security patterns including auth
+**Claude responds:**
+"Found 18 documents for #project/ai-tailgating. Load options:
+- `load all` - Load everything
+- `load 1-5` - Load first 5
+- `load 1,3,7` - Load specific items
+- `load --type transcript` - Filter by type"
 
-3. **API Authentication Design** (Nov 1)
-   - API-specific authentication approach
+**User:** "load 1,2"
 
-Would you like me to load any of these?"
+**Claude runs:**
+```bash
+obs load 1,2
+```
+
+**Output:**
+```
+✅ Loaded 2 document(s) (160KB)
+  • Compliance and Integration Discussion...
+  • Project methodology preferences...
+
+[Full content follows...]
+```
 
 ## Semantic vs Keyword Search
 
@@ -82,6 +132,8 @@ Would you like me to load any of these?"
 
 ## Notes
 
+- Use `--format index` for numbered results that support `obs load`
+- Results are cached in `~/.cache/obs/last-search.json`
 - Semantic search finds conceptually related content
 - Combine with tag filters for better precision
 - Show similarity scores to indicate confidence

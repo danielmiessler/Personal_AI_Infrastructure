@@ -1,13 +1,16 @@
 # PAI Voice Server
 
-A voice notification server for the Personal AI Infrastructure (PAI) system that provides text-to-speech notifications using ElevenLabs API.
+A voice notification server for the Personal AI Infrastructure (PAI) system that provides text-to-speech notifications using either **macOS native TTS** or **ElevenLabs API**.
 
 > **Quick Start**: See [QUICKSTART.md](QUICKSTART.md) for a 5-minute setup guide (if available).
 
 ## 🎯 Features
 
-- **ElevenLabs Integration**: High-quality AI voices for notifications
-- **Multiple Voice Support**: Different voices for different AI agents
+- **Dual TTS Provider Support**: Choose between free macOS native TTS or premium ElevenLabs
+- **macOS Native TTS**: Zero-cost, offline, instant - uses high-quality Premium/Enhanced voices
+- **ElevenLabs Integration**: AI-generated voices for highest quality output
+- **Automatic Fallback**: If primary provider fails, automatically tries the other
+- **Multiple Voice Support**: Different voices for different AI agents via `voices.json`
 - **macOS Service**: Runs automatically in the background
 - **Menu Bar Indicator**: Visual status indicator in macOS menu bar
 - **Simple HTTP API**: Easy integration with any tool or script
@@ -16,7 +19,7 @@ A voice notification server for the Personal AI Infrastructure (PAI) system that
 
 - macOS (tested on macOS 11+)
 - [Bun](https://bun.sh) runtime installed
-- ElevenLabs API key (required for voice functionality)
+- ElevenLabs API key (optional - only needed if using ElevenLabs provider)
 
 ## 🚀 Quick Start
 
@@ -25,14 +28,25 @@ A voice notification server for the Personal AI Infrastructure (PAI) system that
 curl -fsSL https://bun.sh/install | bash
 ```
 
-### 2. Configure API Key (Required)
-Add your ElevenLabs API key to `~/.env`:
+### 2. Configure TTS Provider
+Add to `~/.env`:
+
+**Option A: macOS Native TTS (Recommended - Free, No API Key)**
 ```bash
+# Use macOS native TTS with Ava Premium voice
+echo "TTS_PROVIDER=macos" >> ~/.env
+echo "MACOS_VOICE=Ava (Premium)" >> ~/.env
+echo "MACOS_RATE=236" >> ~/.env
+```
+
+**Option B: ElevenLabs (Paid, Higher Quality)**
+```bash
+echo "TTS_PROVIDER=elevenlabs" >> ~/.env
 echo "ELEVENLABS_API_KEY=your_api_key_here" >> ~/.env
 echo "ELEVENLABS_VOICE_ID=s3TPKV1kjDlVtZbl4Ksh" >> ~/.env
 ```
 
-> Get your free API key at [elevenlabs.io](https://elevenlabs.io) (10,000 characters/month free)
+> Get your ElevenLabs API key at [elevenlabs.io](https://elevenlabs.io) (10,000 characters/month free)
 
 ### 3. Install Voice Server
 ```bash
@@ -136,7 +150,7 @@ cd ${PAI_DIR}/voice-server/menubar
 ### Menu Bar Features
 - **Visual Status**: 🎙️ (running) or 🎙️⚫ (stopped)
 - **Quick Controls**: Start/Stop/Restart server from menu
-- **Status Info**: Shows voice type (ElevenLabs)
+- **Status Info**: Shows TTS provider (macOS/ElevenLabs)
 - **Quick Test**: Test voice with one click
 - **View Logs**: Access server logs directly
 
@@ -150,16 +164,43 @@ If you prefer manual installation:
 
 ### Environment Variables (in ~/.env)
 
-**Required:**
+**TTS Provider Selection:**
 ```bash
-ELEVENLABS_API_KEY=your_api_key_here
+TTS_PROVIDER=macos                           # 'macos' (default) or 'elevenlabs'
 ```
 
-**Optional:**
+**macOS Native TTS Settings:**
+```bash
+MACOS_VOICE=Ava (Premium)                    # Any installed macOS voice
+MACOS_RATE=236                               # Words per minute (default: 236)
+```
+
+**ElevenLabs Settings (only needed if TTS_PROVIDER=elevenlabs):**
+```bash
+ELEVENLABS_API_KEY=your_api_key_here         # Required for ElevenLabs
+ELEVENLABS_VOICE_ID=s3TPKV1kjDlVtZbl4Ksh    # Default voice ID
+ELEVENLABS_MODEL=eleven_multilingual_v2      # TTS model
+```
+
+**Server Settings:**
 ```bash
 PORT=8888                                    # Server port (default: 8888)
-ELEVENLABS_VOICE_ID=s3TPKV1kjDlVtZbl4Ksh   # Default voice ID (Kai's voice)
 ```
+
+### Available macOS Voices
+
+List installed Premium/Enhanced voices:
+```bash
+say -v '?' | grep -E "(Premium|Enhanced)"
+```
+
+Common high-quality voices:
+- `Ava (Premium)` - US Female, analytical
+- `Zoe (Premium)` - US Female, steady
+- `Serena (Premium)` - UK Female, sophisticated
+- `Jamie (Premium)` - UK Male, professional
+- `Isha (Premium)` - Indian Female, creative
+- `Oliver (Enhanced)` - UK Male, technical
 
 ### Voice Configuration (voices.json)
 
@@ -238,14 +279,19 @@ Check server status:
 curl http://localhost:8888/health
 ```
 
-Response:
+Response (macOS provider):
 ```json
 {
   "status": "healthy",
   "port": 8888,
-  "voice_system": "ElevenLabs",
-  "default_voice_id": "s3TPKV1kjDlVtZbl4Ksh",
-  "api_key_configured": true
+  "tts_provider": "macos",
+  "macos_voice": "Ava (Premium)",
+  "macos_rate": 236,
+  "elevenlabs_model": "eleven_multilingual_v2",
+  "elevenlabs_voice_id": "s3TPKV1kjDlVtZbl4Ksh",
+  "elevenlabs_configured": true,
+  "voices_loaded": 8,
+  "fallback_available": true
 }
 ```
 
@@ -313,8 +359,15 @@ voice-server/
 
 ## 📊 Performance
 
+**macOS Native TTS:**
+- **Voice Generation**: Instant (local processing)
+- **Audio Playback**: Immediate, streamed
+- **Cost**: Free, unlimited
+- **Network**: Not required (works offline)
+
+**ElevenLabs:**
 - **Voice Generation**: ~500ms-2s (API call + network)
-- **Audio Playback**: Immediate after generation
+- **Audio Playback**: After full generation
 - **Monthly Quota**: 10,000 characters (free tier)
 - **Rate Limits**: Per ElevenLabs plan
 

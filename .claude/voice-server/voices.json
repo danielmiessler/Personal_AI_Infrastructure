@@ -6,105 +6,57 @@
       "description": "UK Male - Professional, conversational",
       "rate_multiplier": 1.3,
       "rate_wpm": 228,
-      "elevenlabs": {
-        "voice_name": "Jamie (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_GB-alan-medium",
-        "speaker": 0
-      }
+      "elevenlabs": { "voice_id": "JBFqnCBsd6RMkjVDRZzb" },
+      "piper": { "model": "en_GB-alan-medium", "speaker": 0 }
     },
     "researcher": {
       "description": "US Female - Analytical, highest quality",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Ava (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 5
-      }
+      "elevenlabs": { "voice_id": "EXAVITQu4vr4xnSDxMaL" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 5 }
     },
     "engineer": {
       "description": "US Female - Steady, professional",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Zoe (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 26
-      }
+      "elevenlabs": { "voice_id": "FGY2WhTYpPnrIDTdsKH5" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 26 }
     },
     "architect": {
       "description": "UK Female - Strategic, sophisticated",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Serena (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 42
-      }
+      "elevenlabs": { "voice_id": "pFZP5JQG7iQjIQuC4Bku" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 42 }
     },
     "designer": {
       "description": "Indian Female - Creative, distinct",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Isha (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 46
-      }
+      "elevenlabs": { "voice_id": "cgSgspJ2msm6clMCkdW9" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 46 }
     },
     "artist": {
       "description": "Indian Female - Creative, artistic",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Isha (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 46
-      }
+      "elevenlabs": { "voice_id": "Xb7hH8MSUJpSbSDYk0k2" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 46 }
     },
     "pentester": {
       "description": "UK Male - Technical, sharp",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Oliver (Enhanced)",
-        "type": "Enhanced"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 30
-      }
+      "elevenlabs": { "voice_id": "SOYHLrjzK2X1ezoPC6cr" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 30 }
     },
     "writer": {
       "description": "UK Female - Articulate, warm",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": {
-        "voice_name": "Serena (Premium)",
-        "type": "Premium"
-      },
-      "piper": {
-        "model": "en_US-libritts_r-medium",
-        "speaker": 0
-      }
+      "elevenlabs": { "voice_id": "XrExE9yKIg1WjnnlVkGX" },
+      "piper": { "model": "en_US-libritts_r-medium", "speaker": 0 }
     }
   }
 }

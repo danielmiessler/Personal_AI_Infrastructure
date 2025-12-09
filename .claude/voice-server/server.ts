@@ -71,7 +71,7 @@ function getVoiceForAgent(agent: string | null): string | null {
 
   // Return provider-specific voice identifier
   if (providerName === 'elevenlabs') {
-    return providerConfig.voice_name;
+    return providerConfig.voice_id;
   } else if (providerName === 'piper') {
     // For piper, return agent name - Piper provider looks up model/speaker internally
     return agent;

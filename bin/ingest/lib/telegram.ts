@@ -348,6 +348,7 @@ export interface NotificationOptions {
     type?: string;        // document type (CONTRACT, RECEIPT)
     category?: string;    // category (HOME, WORK)
   };
+  tags?: string[];        // Tags applied to the processed content
 }
 
 export async function sendNotification(options: NotificationOptions): Promise<void> {
@@ -393,6 +394,8 @@ export async function sendNotification(options: NotificationOptions): Promise<vo
         ...(options.sourceMetadata.category && { document_category: options.sourceMetadata.category }),
       },
     }),
+    // Tags applied to content
+    ...(options.tags && options.tags.length > 0 && { tags: options.tags }),
   };
 
   // Build human-readable message parts

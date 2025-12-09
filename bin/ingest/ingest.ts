@@ -438,6 +438,7 @@ async function handleProcess(
         pipeline,
         obsidianVaultName: config.vaultName,
         sourceMetadata: contents[0]?.sourceMetadata,
+        tags: contents[0]?.tags,
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -579,6 +580,7 @@ async function handleWatch(
               pipeline,
               obsidianVaultName: config.vaultName,
               sourceMetadata: contents[0]?.sourceMetadata,
+              tags: contents[0]?.tags,
             });
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);

@@ -31,6 +31,16 @@ mellanon/pai-1.2 (origin) ◄── PRIVATE (this repo)
 1. **Never push to `upstream`** - It's read-only
 2. **Never push personal data to `fork`** - It's public
 3. **Always sanitize before contributing** - Run `scripts/sanitize-for-contrib.sh`
+4. **NEVER auto-commit or auto-push to `fork`** - Always require explicit user instruction
+
+### Claude Code Instructions
+
+**IMPORTANT**: Do NOT proactively commit or push to the `fork` remote. The public fork is for upstream contribution and requires explicit user approval before any git operations.
+
+- Commits to `origin` (private): OK when user requests
+- Commits to `fork` (public): **ONLY with explicit user instruction**
+- Push to `fork`: **ONLY with explicit user instruction**
+- Always run `./scripts/sanitize-for-contrib.sh` before any `fork` operations
 
 ### Personal Data Locations (NEVER commit to fork)
 

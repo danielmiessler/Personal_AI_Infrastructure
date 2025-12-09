@@ -10,6 +10,55 @@
   "WFWorkflowHasOutputFallback": false,
   "WFWorkflowActions": [
     {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.getclipboard",
+      "WFWorkflowActionParameters": {
+        "CustomOutputName": "HTML content",
+        "UUID": "723CFA39-237B-4E1B-9779-5E48CFE97ED2"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Clipboard"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "clipboard"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gethtmlfromrichtext",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Clipboard"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFMakeFullDocument": true,
+        "UUID": "65AE5307-8379-4D31-847E-45F81E0FE969"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.documentpicker.save",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "65AE5307-8379-4D31-847E-45F81E0FE969",
+            "Type": "ActionOutput",
+            "OutputName": "HTML from Rich Text"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFAskWhereToSave": false,
+        "UUID": "717D74AE-0350-407C-8F36-1871686E8511",
+        "WFSaveFileOverwrite": true,
+        "WFFileDestinationPath": "clipboard.html"
+      }
+    },
+    {
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
@@ -107,9 +156,10 @@
     {
       "WFWorkflowActionIdentifier": "is.workflow.actions.ask",
       "WFWorkflowActionParameters": {
+        "WFAskActionDefaultAnswer": "#feed",
         "UUID": "14E773E3-33A9-4FBA-8787-57479F6FF0D3",
-        "WFAskActionPrompt": "Caption?",
-        "WFInputType": "Text"
+        "WFInputType": "Text",
+        "WFAskActionPrompt": "Caption?"
       }
     },
     {
@@ -127,43 +177,6 @@
       }
     },
     {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.getclipboard",
-      "WFWorkflowActionParameters": {
-        "CustomOutputName": "HTML content",
-        "UUID": "723CFA39-237B-4E1B-9779-5E48CFE97ED2"
-      }
-    },
-    {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.gethtmlfromrichtext",
-      "WFWorkflowActionParameters": {
-        "WFInput": {
-          "Value": {
-            "Type": "Clipboard"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
-        },
-        "WFMakeFullDocument": true,
-        "UUID": "65AE5307-8379-4D31-847E-45F81E0FE969"
-      }
-    },
-    {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.documentpicker.save",
-      "WFWorkflowActionParameters": {
-        "WFInput": {
-          "Value": {
-            "OutputUUID": "65AE5307-8379-4D31-847E-45F81E0FE969",
-            "Type": "ActionOutput",
-            "OutputName": "HTML from Rich Text"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
-        },
-        "WFAskWhereToSave": false,
-        "UUID": "717D74AE-0350-407C-8F36-1871686E8511",
-        "WFSaveFileOverwrite": true,
-        "WFFileDestinationPath": "clipboard.html"
-      }
-    },
-    {
       "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
       "WFWorkflowActionParameters": {
         "UUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
@@ -172,7 +185,8 @@
             "string": "[source:￼][device:￼][user:YOUR_USERNAME]\n￼\n￼",
             "attachmentsByRange": {
               "{37, 1}": {
-                "Type": "Clipboard"
+                "VariableName": "clipboard",
+                "Type": "Variable"
               },
               "{18, 1}": {
                 "VariableName": "device",
@@ -190,6 +204,42 @@
           },
           "WFSerializationType": "WFTextTokenString"
         }
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+            "Type": "ActionOutput",
+            "OutputName": "Text"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "inputText"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.text.replace",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+                "Type": "ActionOutput",
+                "OutputName": "Text"
+              }
+            }
+          },
+          "WFSerializationType": "WFTextTokenString"
+        },
+        "WFReplaceTextRegularExpression": true,
+        "UUID": "AAE7D534-2469-4576-B8CC-822EC11FF256",
+        "WFReplaceTextReplace": "$1",
+        "WFReplaceTextFind": "(?s)^(.{0,1020}).*$"
       }
     },
     {
@@ -227,9 +277,9 @@
                     "string": "￼",
                     "attachmentsByRange": {
                       "{0, 1}": {
-                        "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+                        "OutputUUID": "AAE7D534-2469-4576-B8CC-822EC11FF256",
                         "Type": "ActionOutput",
-                        "OutputName": "Text"
+                        "OutputName": "Updated Text"
                       }
                     }
                   },
@@ -247,9 +297,9 @@
                 "WFValue": {
                   "Value": {
                     "Value": {
-                      "OutputUUID": "717D74AE-0350-407C-8F36-1871686E8511",
+                      "OutputUUID": "723CFA39-237B-4E1B-9779-5E48CFE97ED2",
                       "Type": "ActionOutput",
-                      "OutputName": "Saved File"
+                      "OutputName": "HTML content"
                     },
                     "WFSerializationType": "WFTextTokenAttachment"
                   },
@@ -295,8 +345,8 @@
   ],
   "WFWorkflowImportQuestions": [],
   "WFQuickActionSurfaces": [
-    "Services",
-    "Finder"
+    "Finder",
+    "Services"
   ],
   "WFWorkflowTypes": [
     "ActionExtension",

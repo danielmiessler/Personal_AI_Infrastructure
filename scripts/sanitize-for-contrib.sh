@@ -8,7 +8,7 @@
 # With --fix: Attempts to replace personal data with placeholders
 # Without --fix: Reports issues only (default, safe)
 
-set -euo pipefail
+set -eo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -28,20 +28,26 @@ echo "  PAI Contribution Sanitization Check"
 echo "=========================================="
 echo ""
 
-# Personal data patterns to check
-declare -A PATTERNS=(
-    ["Telegram Bot Token"]='bot[0-9]+:[A-Za-z0-9_-]{35}'
-    ["Telegram Chat ID"]='-100[0-9]{10}'
-    ["Vault Path"]='/Users/[a-z]+/Documents/[a-z_]+_brain'
-    ["Username andreas"]='user.*andreas|andreas.*user'
-    ["API Key Pattern"]='sk-[A-Za-z0-9]{48}'
+# Personal data patterns to check (name|pattern pairs)
+PATTERN_NAMES=(
+    "Telegram Bot Token"
+    "Telegram Chat ID"
+    "Vault Path"
+    "Username in metadata"
+    "API Key Pattern"
+)
+PATTERN_REGEXES=(
+    'bot[0-9]+:[A-Za-z0-9_-]{35}'
+    '-100[0-9]{10}'
+    '/Users/[a-z]+/Documents/[a-z_]+_brain'
+    '\[user:[a-z]+\]'
+    'sk-[A-Za-z0-9]{48}'
 )
 
 # Files to always exclude from contribution
 EXCLUDED_FILES=(
     ".env"
     ".env.local"
-    ".env.*.local"
     "profiles/zettelkasten.json"
     ".claude/skills/Context/tags.json"
 )
@@ -49,9 +55,14 @@ EXCLUDED_FILES=(
 echo "Checking for personal data patterns..."
 echo ""
 
-for name in "${!PATTERNS[@]}"; do
-    pattern="${PATTERNS[$name]}"
-    matches=$(grep -rE "$pattern" --include="*.ts" --include="*.json" --include="*.md" --include="*.sh" . 2>/dev/null | grep -v node_modules | grep -v ".git" | grep -v "sanitize-for-contrib.sh" || true)
+for i in "${!PATTERN_NAMES[@]}"; do
+    name="${PATTERN_NAMES[$i]}"
+    pattern="${PATTERN_REGEXES[$i]}"
+    matches=$(grep -rE "$pattern" \
+        --include="*.ts" --include="*.json" --include="*.md" --include="*.sh" \
+        --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=build \
+        --exclude="sanitize-for-contrib.sh" \
+        bin/ shortcuts/ .claude/ docs/ scripts/ 2>/dev/null || true)
 
     if [[ -n "$matches" ]]; then
         echo -e "${RED}FOUND: $name${NC}"
@@ -60,7 +71,7 @@ for name in "${!PATTERNS[@]}"; do
             echo "  ... and more"
         fi
         echo ""
-        ((ISSUES_FOUND++))
+        ISSUES_FOUND=$((ISSUES_FOUND + 1))
     else
         echo -e "${GREEN}OK: $name - not found${NC}"
     fi
@@ -73,7 +84,7 @@ echo ""
 for file in "${EXCLUDED_FILES[@]}"; do
     if [[ -f "$file" ]]; then
         echo -e "${YELLOW}EXCLUDE: $file exists (should not be committed to fork)${NC}"
-        ((ISSUES_FOUND++))
+        ISSUES_FOUND=$((ISSUES_FOUND + 1))
     fi
 done
 

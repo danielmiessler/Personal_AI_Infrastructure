@@ -108,8 +108,8 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.ask",
       "WFWorkflowActionParameters": {
         "WFAllowsMultilineText": true,
-        "WFAskActionPrompt": "Caption?",
-        "UUID": "ABCD25AA-5E45-4F29-A96A-1EC784AABBED"
+        "UUID": "ABCD25AA-5E45-4F29-A96A-1EC784AABBED",
+        "WFAskActionPrompt": "Caption?"
       }
     },
     {
@@ -150,6 +150,28 @@
           "WFSerializationType": "WFTextTokenString"
         },
         "UUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.text.replace",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+                "Type": "ActionOutput",
+                "OutputName": "Text"
+              }
+            }
+          },
+          "WFSerializationType": "WFTextTokenString"
+        },
+        "WFReplaceTextReplace": "$1",
+        "UUID": "E4D2B00F-D7F2-499F-99EA-2B78A12CCC40",
+        "WFReplaceTextRegularExpression": true,
+        "WFReplaceTextFind": "(?s)^(.{0,1020}).*$"
       }
     },
     {
@@ -200,9 +222,9 @@
                     "string": "￼",
                     "attachmentsByRange": {
                       "{0, 1}": {
-                        "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+                        "OutputUUID": "E4D2B00F-D7F2-499F-99EA-2B78A12CCC40",
                         "Type": "ActionOutput",
-                        "OutputName": "Text"
+                        "OutputName": "Updated Text"
                       }
                     }
                   },
@@ -274,12 +296,12 @@
   ],
   "WFWorkflowImportQuestions": [],
   "WFQuickActionSurfaces": [
-    "Services",
-    "Finder"
+    "Finder",
+    "Services"
   ],
   "WFWorkflowTypes": [
-    "QuickActions",
-    "ActionExtension"
+    "ActionExtension",
+    "QuickActions"
   ],
   "WFWorkflowHasShortcutInputVariables": true,
   "WFWorkflowName": "PAI File Capture"

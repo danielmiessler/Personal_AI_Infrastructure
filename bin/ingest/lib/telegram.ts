@@ -282,12 +282,9 @@ export function classifyContent(message: TelegramMessage): ContentType {
   if (message.document) return "document";
   if (message.photo && message.photo.length > 0) return "photo";
 
-  const text = message.text || message.caption || "";
-
-  // Check for URLs
-  const urlPattern = /https?:\/\/[^\s]+/;
-  if (urlPattern.test(text)) return "url";
-
+  // URLs are NOT auto-detected as "url" type anymore.
+  // URLs are stored as-is unless a command like /article or /wisdom triggers fetch.
+  // The "url" type is now only set explicitly when a fetch command is detected.
   return "text";
 }
 
@@ -296,6 +293,33 @@ export function classifyContent(message: TelegramMessage): ContentType {
  */
 export function extractText(message: TelegramMessage): string {
   return message.text || message.caption || "";
+}
+
+/**
+ * Commands that trigger URL fetching
+ * When these commands are present AND the message contains a URL, upgrade type to "url"
+ */
+const URL_FETCH_COMMANDS = ["article", "wisdom", "summarize", "fetch"];
+
+/**
+ * Check if message should be treated as URL type (fetch the linked content)
+ * Returns true if:
+ * 1. Message contains a URL
+ * 2. Message contains a command that requires URL fetching (/article, /wisdom, /summarize, /fetch)
+ */
+export function shouldFetchUrl(message: TelegramMessage): boolean {
+  const text = extractText(message);
+
+  // Check for URL presence
+  const hasUrl = /https?:\/\/[^\s]+/.test(text);
+  if (!hasUrl) return false;
+
+  // Check for fetch-triggering commands
+  const commandMatch = text.match(/\/([a-z]+)/gi);
+  if (!commandMatch) return false;
+
+  const commands = commandMatch.map(cmd => cmd.slice(1).toLowerCase());
+  return commands.some(cmd => URL_FETCH_COMMANDS.includes(cmd));
 }
 
 /**
@@ -641,13 +665,28 @@ export async function sendHelpResponse(messageId: number): Promise<void> {
 \`/wisdom\` - Run extract\\_wisdom pattern
 \`/article\` - Run extract\\_article\\_wisdom
 \`/meeting-notes\` - Run meeting\\_notes pattern
+\`/fetch\` - Fetch URL content without pattern
+\`/tag\` - Force AI tagging (even with 3+ user tags)
 
 _Note: Use #1on1 as a TAG, not /1on1 command_
+
+*URLs & Links:*
+_Links are saved as-is by default (not fetched)_
+_Use a command to fetch and process:_
+• \`/article https://...\` - Fetch & extract article wisdom
+• \`/wisdom https://...\` - Fetch & extract wisdom
+• \`/summarize https://...\` - Fetch & summarize
+• \`/fetch https://...\` - Fetch content only
 
 *Tags & Mentions:*
 \`#project/name\` - Add project tag
 \`#meeting-notes\` - Add any tag
 \`@person\` or \`@First Last\` - Tag a person
+
+*AI Tagging:*
+_AI adds semantic tags if you provide < 3 tags_
+_Use /tag to force AI tagging with any tag count_
+• \`/tag #project/foo Note content\` - AI enriches tags
 
 *Metadata (for shortcuts):*
 \`[source:shortcut-name]\` - Track source

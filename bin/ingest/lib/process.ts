@@ -25,7 +25,7 @@ import {
   type SecurityCheckResult,
 } from "./security";
 import { matchTranscribedHints, loadVaultTags, matchTag } from "./tag-matcher";
-import { loadTaxonomy, matchKeywordTags, getTaxonomyTagList, hasGoodKeywordCoverage } from "./taxonomy";
+import { loadTaxonomy } from "./taxonomy";
 
 const execAsync = promisify(exec);
 
@@ -1136,25 +1136,21 @@ export async function processMessage(
     isWisdom: false,
   });
 
-  // Step 2a: Load taxonomy and match keyword tags (free, deterministic)
-  let keywordTags: string[] = [];
-  const taxonomy = loadTaxonomy();
-  if (taxonomy && rawContent) {
-    keywordTags = matchKeywordTags(rawContent, taxonomy);
-    if (keywordTags.length > 0) {
-      console.log(`  Keyword tags: ${keywordTags.join(", ")}`);
-    }
-  }
-
-  // Step 2b: Generate AI semantic tags only if keyword coverage is insufficient
+  // Step 2a: Generate AI semantic tags
+  // AI tagging runs if:
+  // - /tag command is used (force AI tagging), OR
+  // - User provided < 3 explicit tags (needs enrichment)
   let aiTags: string[] = [];
   let references: string[] = [];
-  const skipAI = hasGoodKeywordCoverage([...hints.tags, ...keywordTags]);
+  const forceAI = validCommands.includes("tag");
+  const userTagCount = hints.tags.length + hints.people.length;
+  const skipAI = !forceAI && userTagCount >= 3;
 
   if (!skipAI && config.openaiApiKey && rawContent && rawContent.length > 50) {
     try {
       const vaultPath = config.vaultPath;
       const tagIndex = vaultPath ? loadVaultTags(vaultPath) : null;
+      const taxonomy = loadTaxonomy();
       // Combine vault tags with taxonomy tags for AI context
       const existingTags = [
         ...(tagIndex ? [...tagIndex.tags] : []),
@@ -1168,16 +1164,15 @@ export async function processMessage(
       console.warn(`  AI tag generation failed: ${err}`);
     }
   } else if (skipAI) {
-    console.log(`  Skipping AI tags (good keyword coverage)`);
+    console.log(`  Skipping AI tags (user provided ${userTagCount} tags)`);
   }
 
-  // Merge: hints (user explicit) + keywords (free) + AI (conditional) + base (status)
+  // Merge: hints (user explicit) + AI (conditional) + base (status)
   // Deduplicate while preserving priority order
   const tags = [...new Set([
     ...hints.tags,       // User explicit first
     ...hints.people,     // @name becomes a tag
-    ...keywordTags,      // Keyword matches (free)
-    ...aiTags,           // AI semantic (only if needed)
+    ...aiTags,           // AI semantic (if needed or /tag forced)
     ...baseTags,         // Status tags always
   ])];
 

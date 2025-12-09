@@ -18,6 +18,7 @@ import {
   downloadFile,
   setReaction,
   classifyContent,
+  shouldFetchUrl,
   extractText,
   extractUrl,
   sendNotification,
@@ -359,7 +360,11 @@ async function handleProcess(
       continue;
     }
 
-    const type = classifyContent(msg);
+    let type = classifyContent(msg);
+    // Upgrade to "url" if message has URL + fetch command (/article, /wisdom, etc.)
+    if (type === "text" && shouldFetchUrl(msg)) {
+      type = "url";
+    }
     console.log(`[${msg.message_id}] Processing ${type}...`);
 
     if (dryRun) {
@@ -521,7 +526,11 @@ async function handleWatch(
 
         // Process each message
         for (const msg of newMessages) {
-          const type = classifyContent(msg);
+          let type = classifyContent(msg);
+          // Upgrade to "url" if message has URL + fetch command (/article, /wisdom, etc.)
+          if (type === "text" && shouldFetchUrl(msg)) {
+            type = "url";
+          }
           console.log(`  [${msg.message_id}] Processing ${type}...`);
 
           try {

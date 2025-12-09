@@ -27,7 +27,9 @@ const PORT = parseInt(process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 // Load TTS provider based on config.json order
-const provider = loadProvider(import.meta.dir);
+const providerResult = loadProvider(import.meta.dir);
+const provider = providerResult?.provider ?? null;
+const providerName = providerResult?.name ?? 'none';
 
 if (!provider) {
   console.error('⚠️  No TTS provider available');
@@ -114,7 +116,7 @@ async function sendNotification(
   if (voiceEnabled && provider) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
-      console.log(`🎙️  Generating speech with ${provider.name} (voice: ${voice})`);
+      console.log(`🎙️  Generating speech with ${providerName} (voice: ${voice})`);
       const result = await provider.synthesize(safeMessage, voice);
       await playAudio(result.audio, result.format);
     } catch (error) {
@@ -250,7 +252,7 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          provider: provider?.name || "elevenlabs",
+          provider: providerName,
           api_key_configured: !!ELEVENLABS_API_KEY
         }),
         {
@@ -268,7 +270,7 @@ const server = serve({
 });
 
 console.log(`🚀 PAIVoice Server running on port ${PORT}`);
-console.log(`🎙️  TTS Provider: ${provider?.name || 'elevenlabs'}`);
+console.log(`🎙️  TTS Provider: ${providerName}`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
 console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);

@@ -9,9 +9,13 @@ export interface AudioResult {
 }
 
 export interface TTSProvider {
-  readonly name: string;
   isAvailable(): boolean;
   synthesize(text: string, voiceId?: string): Promise<AudioResult>;
+}
+
+export interface ProviderResult {
+  provider: TTSProvider;
+  name: string;
 }
 
 export { ElevenLabs } from './ElevenLabs';
@@ -29,7 +33,7 @@ const providerConstructorsFromConfigNames: Record<string, () => TTSProvider> = {
  * Load the first available TTS provider based on config.json order.
  * Returns null if config.json is missing or no providers are available.
  */
-export function loadProvider(configDir: string): TTSProvider | null {
+export function loadProvider(configDir: string): ProviderResult | null {
   const configPath = join(configDir, 'config.json');
 
   if (!existsSync(configPath)) {
@@ -51,7 +55,7 @@ export function loadProvider(configDir: string): TTSProvider | null {
     if (create) {
       const provider = create();
       if (provider.isAvailable()) {
-        return provider;
+        return { provider, name };
       }
     }
   }

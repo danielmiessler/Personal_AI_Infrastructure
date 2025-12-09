@@ -1,8 +1,6 @@
 import type { TTSProvider, AudioResult } from '.';
 
 export class ElevenLabs implements TTSProvider {
-  readonly name = 'elevenlabs';
-
   private get apiKey() { return process.env.ELEVENLABS_API_KEY; }
   private get voiceId() { return process.env.ELEVENLABS_VOICE_ID || 's3TPKV1kjDlVtZbl4Ksh'; }
   private get model() { return process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2'; }

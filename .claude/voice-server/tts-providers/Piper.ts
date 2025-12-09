@@ -9,7 +9,6 @@ interface VoiceConfig {
 }
 
 export class Piper implements TTSProvider {
-  readonly name = 'piper';
   private baseDir: string;
   private binary: string;
   private modelsDir: string;

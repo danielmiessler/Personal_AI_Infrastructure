@@ -4,8 +4,6 @@ import { platform } from 'os';
 import type { TTSProvider, AudioResult } from '.';
 
 export class MacOSSay implements TTSProvider {
-  readonly name = 'macos-say';
-
   isAvailable(): boolean {
     return platform() === 'darwin';
   }

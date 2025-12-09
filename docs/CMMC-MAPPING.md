@@ -1,6 +1,6 @@
 # CMMC Level 2 Compliance Mapping
 
-**Daniel Security Engineer** provides comprehensive coverage of CMMC (Cybersecurity Maturity Model Certification) Level 2 requirements for code-level security analysis.
+The **Security** skill provides comprehensive coverage of CMMC (Cybersecurity Maturity Model Certification) Level 2 requirements for code-level security analysis.
 
 **Last Updated**: December 4, 2025
 **Coverage**: 17/17 domains (100%)
@@ -10,7 +10,7 @@
 
 ## Overview
 
-CMMC Level 2 is based on NIST SP 800-171 and requires organizations to document and implement cybersecurity practices to protect Controlled Unclassified Information (CUI). Daniel maps code-level vulnerabilities to CMMC practices, enabling:
+CMMC Level 2 is based on NIST SP 800-171 and requires organizations to document and implement cybersecurity practices to protect Controlled Unclassified Information (CUI). The Security skill maps code-level vulnerabilities to CMMC practices, enabling:
 
 - **Automated Compliance Checking**: Detect CMMC violations during code review
 - **Audit Trail Generation**: Create compliance documentation for assessments
@@ -212,7 +212,7 @@ app.delete('/api/user/:id', async (req, res) => {
 
 **Purpose**: Periodically assess security controls and remediate deficiencies.
 
-**Note**: This domain covers organizational assessment programs and is not directly detectable at the code level. However, Daniel's vulnerability scanning contributes to security assessment activities.
+**Note**: This domain covers organizational assessment programs and is not directly detectable at the code level. However, the Security skill's vulnerability scanning contributes to security assessment activities.
 
 ---
 
@@ -921,7 +921,7 @@ Use this checklist to track CMMC Level 2 compliance across domains:
 
 ---
 
-## Using Daniel for CMMC Compliance
+## Using the Security Skill for CMMC Compliance
 
 ### 1. Code Review with CMMC Mapping
 
@@ -960,7 +960,7 @@ await result.recordAuditTrail('cmmc-audit.md')
 
 ### 3. CI/CD Integration
 
-Add Daniel to your CI/CD pipeline to enforce CMMC compliance:
+Add Security skill scanning to your CI/CD pipeline to enforce CMMC compliance:
 
 ```yaml
 # .github/workflows/security-scan.yml
@@ -973,7 +973,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Run Daniel Security Scan
+      - name: Run Security Scan
         run: |
           npm test -- tests/emma-security-suite-cmmc.test.ts
       - name: Check for Critical CMMC Violations
@@ -988,7 +988,7 @@ jobs:
 
 ## Additional Resources
 
-- **[Daniel README](../src/emma/README.md)**: Complete usage guide
+- **[Security Implementation README](../src/daniel/README.md)**: Complete usage guide
 - **[Architecture Diagrams](ARCHITECTURE.md)**: System design
 - **[Examples](../examples/)**: Sample usage scenarios
 - **[NIST SP 800-171](https://csrc.nist.gov/publications/detail/sp/800-171/rev-2/final)**: Official CMMC foundation
@@ -997,6 +997,6 @@ jobs:
 ---
 
 **Last Updated**: December 4, 2025
-**Daniel Version**: 1.0 (Production Ready)
+**Security Skill Version**: 1.0 (Production Ready)
 **Test Coverage**: 98.7% (77/78 tests)
 **CMMC Coverage**: 17/17 domains, 25+ practices

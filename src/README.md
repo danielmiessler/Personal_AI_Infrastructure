@@ -1,6 +1,8 @@
-# Daniel Security Engineer
+# Daniel - Security Agent Implementation
 
 **Status:** Production Ready (100% test coverage)
+
+> **Note**: This documents the **Daniel agent** implementation (code that powers security analysis). Daniel is one of the agent personas used in multi-agent standups. To use security features, invoke the **Security skill** in Claude Code. Daniel is the security specialist persona who participates in standups alongside Mary, Clay, Hefley, and Amy.
 
 Daniel is a security specialist agent that provides comprehensive vulnerability detection, STRIDE threat modeling, and CMMC Level 2 compliance analysis for TypeScript/JavaScript applications.
 

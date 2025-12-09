@@ -190,9 +190,8 @@ This fork adds enterprise-grade features for multi-agent collaboration and softw
 
 ### **Enterprise Skills**
 - **AgilePm**: PRD creation, epic decomposition, user stories, sprint planning (scored 10/10 on dogfooding)
-- **Daniel (Security)**: CMMC Level 2 compliance (17 domains), 50+ vulnerability patterns, STRIDE threat modeling
+- **Security**: CMMC Level 2 compliance, STRIDE threat modeling, security reviews, infrastructure audits
 - **TestArchitect**: ATDD workflows, risk-based testing, CI/CD quality gates, 89.65% coverage achieved
-- **Security**: Threat modeling, security reviews, infrastructure security, compliance baselines
 
 ### **Personalization**
 - **Custom Assistant Names**: Name your AI assistant (e.g., "Atlas", "Kai", "Nova")

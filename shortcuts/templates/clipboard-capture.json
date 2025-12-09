@@ -127,54 +127,6 @@
       }
     },
     {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
-      "WFWorkflowActionParameters": {
-        "WFInput": {
-          "Type": "Variable",
-          "Variable": {
-            "Value": {
-              "VariableName": "device",
-              "Type": "Variable"
-            },
-            "WFSerializationType": "WFTextTokenAttachment"
-          }
-        },
-        "WFControlFlowMode": 0,
-        "WFConditionalActionString": "Mac",
-        "GroupingIdentifier": "E709AB81-17B7-4244-B601-C5D3D5F97452",
-        "WFCondition": 4
-      }
-    },
-    {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.ask",
-      "WFWorkflowActionParameters": {
-        "UUID": "BB89B290-2156-4704-810C-D4D5AE13D469",
-        "WFAskActionPrompt": "Caption?",
-        "WFInputType": "Text"
-      }
-    },
-    {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
-      "WFWorkflowActionParameters": {
-        "WFInput": {
-          "Value": {
-            "OutputUUID": "BB89B290-2156-4704-810C-D4D5AE13D469",
-            "Type": "ActionOutput",
-            "OutputName": "Ask for Input"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
-        },
-        "WFVariableName": "caption"
-      }
-    },
-    {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
-      "WFWorkflowActionParameters": {
-        "GroupingIdentifier": "E709AB81-17B7-4244-B601-C5D3D5F97452",
-        "WFControlFlowMode": 2
-      }
-    },
-    {
       "WFWorkflowActionIdentifier": "is.workflow.actions.getclipboard",
       "WFWorkflowActionParameters": {
         "CustomOutputName": "HTML content",

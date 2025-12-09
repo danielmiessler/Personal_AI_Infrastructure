@@ -7,7 +7,9 @@ import { serve } from "bun";
 import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
+import { loadProvider } from "./tts-providers";
+import { playAudio } from "./desktop-audio-playback";
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -24,17 +26,61 @@ if (existsSync(envPath)) {
 const PORT = parseInt(process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
-if (!ELEVENLABS_API_KEY) {
-  console.error('⚠️  ELEVENLABS_API_KEY not found in ~/.env');
-  console.error('Add: ELEVENLABS_API_KEY=your_key_here');
+// Load TTS provider based on config.json order
+const providerResult = loadProvider(import.meta.dir);
+const provider = providerResult?.provider ?? null;
+const providerName = providerResult?.name ?? 'none';
+
+if (!provider) {
+  console.error('⚠️  No TTS provider available');
+  console.error('Configure providers in config.json');
 }
 
-// Default voice ID (Kai's voice)
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+// Load voices.json for agent-based voice lookup
+interface VoiceEntry {
+  description?: string;
+  rate_multiplier?: number;
+  rate_wpm?: number;
+  elevenlabs?: { voice_name: string; type?: string };
+  piper?: { model: string; speaker: number };
+  [key: string]: any;
+}
 
-// Default model - eleven_multilingual_v2 is the current recommended model
-// See: https://elevenlabs.io/docs/models#models-overview
-const DEFAULT_MODEL = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2";
+let voicesConfig: { voices: Record<string, VoiceEntry> } | null = null;
+const voicesPath = join(import.meta.dir, 'voices.json');
+if (existsSync(voicesPath)) {
+  try {
+    voicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
+  } catch (e) {
+    console.error('Failed to load voices.json:', e);
+  }
+}
+
+// Get voice ID for agent based on active provider
+function getVoiceForAgent(agent: string | null): string | null {
+  if (!agent || !voicesConfig?.voices[agent]) {
+    return null;
+  }
+
+  const voiceEntry = voicesConfig.voices[agent];
+  const providerConfig = voiceEntry[providerName];
+
+  if (!providerConfig) {
+    return null;
+  }
+
+  // Return provider-specific voice identifier
+  if (providerName === 'elevenlabs') {
+    return providerConfig.voice_id;
+  } else if (providerName === 'piper') {
+    // For piper, return agent name - Piper provider looks up model/speaker internally
+    return agent;
+  } else if (providerName === 'macos-say') {
+    return providerConfig.voice || 'Samantha';
+  }
+
+  return null;
+}
 
 // Sanitize input for shell commands
 function sanitizeForShell(input: string): string {
@@ -66,71 +112,6 @@ function validateInput(input: any): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-// Generate speech using ElevenLabs API
-async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffer> {
-  if (!ELEVENLABS_API_KEY) {
-    throw new Error('ElevenLabs API key not configured');
-  }
-
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'audio/mpeg',
-      'Content-Type': 'application/json',
-      'xi-api-key': ELEVENLABS_API_KEY,
-    },
-    body: JSON.stringify({
-      text: text,
-      model_id: DEFAULT_MODEL,
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.5,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    // Check for model-related errors
-    if (errorText.includes('model') || response.status === 422) {
-      throw new Error(`ElevenLabs API error: Invalid model "${DEFAULT_MODEL}". Update ELEVENLABS_MODEL in ~/.env. See https://elevenlabs.io/docs/models`);
-    }
-    throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
-  }
-
-  return await response.arrayBuffer();
-}
-
-// Play audio using afplay (macOS)
-async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`;
-
-  // Write audio to temp file
-  await Bun.write(tempFile, audioBuffer);
-
-  return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', [tempFile]);
-
-    proc.on('error', (error) => {
-      console.error('Error playing audio:', error);
-      reject(error);
-    });
-
-    proc.on('exit', (code) => {
-      // Clean up temp file
-      spawn('/bin/rm', [tempFile]);
-
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`afplay exited with code ${code}`));
-      }
-    });
-  });
-}
-
 // Spawn a process safely
 function spawnSafe(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -151,12 +132,12 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
   });
 }
 
-// Send macOS notification with voice
+// Send notification with voice
 async function sendNotification(
   title: string,
   message: string,
   voiceEnabled = true,
-  voiceId: string | null = null
+  agent: string | null = null
 ) {
   // Validate inputs
   const titleValidation = validateInput(title);
@@ -174,14 +155,13 @@ async function sendNotification(
   const safeTitle = sanitizeForShell(title);
   const safeMessage = sanitizeForShell(message);
 
-  // Generate and play voice using ElevenLabs
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
+  // Generate and play voice
+  if (voiceEnabled && provider) {
     try {
-      const voice = voiceId || DEFAULT_VOICE_ID;
-      console.log(`🎙️  Generating speech with ElevenLabs (voice: ${voice})`);
-
-      const audioBuffer = await generateSpeech(safeMessage, voice);
-      await playAudio(audioBuffer);
+      const voice = getVoiceForAgent(agent);
+      console.log(`🎙️  Generating speech with ${providerName} (agent: ${agent}, voice: ${voice})`);
+      const result = await provider.synthesize(safeMessage, voice);
+      await playAudio(result.audio, result.format);
     } catch (error) {
       console.error("Failed to generate/play speech:", error);
     }
@@ -252,15 +232,15 @@ const server = serve({
         const title = data.title || "PAI Notification";
         const message = data.message || "Task completed";
         const voiceEnabled = data.voice_enabled !== false;
-        const voiceId = data.voice_id || data.voice_name || null; // Support both voice_id and voice_name
+        const agent = data.agent || null;
 
-        if (voiceId && typeof voiceId !== 'string') {
-          throw new Error('Invalid voice_id');
+        if (agent && typeof agent !== 'string') {
+          throw new Error('Invalid agent');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, agent: ${agent})`);
 
-        await sendNotification(title, message, voiceEnabled, voiceId);
+        await sendNotification(title, message, voiceEnabled, agent);
 
         return new Response(
           JSON.stringify({ status: "success", message: "Notification sent" }),
@@ -315,9 +295,7 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: "ElevenLabs",
-          model: DEFAULT_MODEL,
-          default_voice_id: DEFAULT_VOICE_ID,
+          provider: providerName,
           api_key_configured: !!ELEVENLABS_API_KEY
         }),
         {
@@ -335,7 +313,7 @@ const server = serve({
 });
 
 console.log(`🚀 PAIVoice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (model: ${DEFAULT_MODEL}, voice: ${DEFAULT_VOICE_ID})`);
+console.log(`🎙️  TTS Provider: ${providerName}`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
 console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);

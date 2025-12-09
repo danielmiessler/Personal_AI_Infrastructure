@@ -105,6 +105,28 @@
       }
     },
     {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.ask",
+      "WFWorkflowActionParameters": {
+        "UUID": "14E773E3-33A9-4FBA-8787-57479F6FF0D3",
+        "WFAskActionPrompt": "Caption?",
+        "WFInputType": "Text"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "14E773E3-33A9-4FBA-8787-57479F6FF0D3",
+            "Type": "ActionOutput",
+            "OutputName": "Ask for Input"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "caption"
+      }
+    },
+    {
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {

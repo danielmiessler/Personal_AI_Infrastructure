@@ -91,6 +91,20 @@
       }
     },
     {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "D2CE169E-5160-4A90-A7E9-A911AF3AEF20",
+            "Type": "ActionOutput",
+            "OutputName": "Device Model"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "device"
+      }
+    },
+    {
       "WFWorkflowActionIdentifier": "is.workflow.actions.ask",
       "WFWorkflowActionParameters": {
         "WFAllowsMultilineText": true,
@@ -110,20 +124,6 @@
           "WFSerializationType": "WFTextTokenAttachment"
         },
         "WFVariableName": "caption"
-      }
-    },
-    {
-      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
-      "WFWorkflowActionParameters": {
-        "WFInput": {
-          "Value": {
-            "OutputUUID": "D2CE169E-5160-4A90-A7E9-A911AF3AEF20",
-            "Type": "ActionOutput",
-            "OutputName": "Device Model"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
-        },
-        "WFVariableName": "device"
       }
     },
     {

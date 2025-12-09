@@ -36,8 +36,51 @@ if (!provider) {
   console.error('Configure providers in config.json');
 }
 
-// Default voice ID (Kai's voice)
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+// Load voices.json for agent-based voice lookup
+interface VoiceEntry {
+  description?: string;
+  rate_multiplier?: number;
+  rate_wpm?: number;
+  elevenlabs?: { voice_name: string; type?: string };
+  piper?: { model: string; speaker: number };
+  [key: string]: any;
+}
+
+let voicesConfig: { voices: Record<string, VoiceEntry> } | null = null;
+const voicesPath = join(import.meta.dir, 'voices.json');
+if (existsSync(voicesPath)) {
+  try {
+    voicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
+  } catch (e) {
+    console.error('Failed to load voices.json:', e);
+  }
+}
+
+// Get voice ID for agent based on active provider
+function getVoiceForAgent(agent: string | null): string | null {
+  if (!agent || !voicesConfig?.voices[agent]) {
+    return null;
+  }
+
+  const voiceEntry = voicesConfig.voices[agent];
+  const providerConfig = voiceEntry[providerName];
+
+  if (!providerConfig) {
+    return null;
+  }
+
+  // Return provider-specific voice identifier
+  if (providerName === 'elevenlabs') {
+    return providerConfig.voice_name;
+  } else if (providerName === 'piper') {
+    // For piper, return agent name - Piper provider looks up model/speaker internally
+    return agent;
+  } else if (providerName === 'macos-say') {
+    return providerConfig.voice || 'Samantha';
+  }
+
+  return null;
+}
 
 // Sanitize input for shell commands
 function sanitizeForShell(input: string): string {
@@ -89,12 +132,12 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
   });
 }
 
-// Send macOS notification with voice
+// Send notification with voice
 async function sendNotification(
   title: string,
   message: string,
   voiceEnabled = true,
-  voiceId: string | null = null
+  agent: string | null = null
 ) {
   // Validate inputs
   const titleValidation = validateInput(title);
@@ -115,8 +158,8 @@ async function sendNotification(
   // Generate and play voice
   if (voiceEnabled && provider) {
     try {
-      const voice = voiceId || DEFAULT_VOICE_ID;
-      console.log(`🎙️  Generating speech with ${providerName} (voice: ${voice})`);
+      const voice = getVoiceForAgent(agent);
+      console.log(`🎙️  Generating speech with ${providerName} (agent: ${agent}, voice: ${voice})`);
       const result = await provider.synthesize(safeMessage, voice);
       await playAudio(result.audio, result.format);
     } catch (error) {
@@ -189,15 +232,15 @@ const server = serve({
         const title = data.title || "PAI Notification";
         const message = data.message || "Task completed";
         const voiceEnabled = data.voice_enabled !== false;
-        const voiceId = data.voice_id || data.voice_name || null; // Support both voice_id and voice_name
+        const agent = data.agent || null;
 
-        if (voiceId && typeof voiceId !== 'string') {
-          throw new Error('Invalid voice_id');
+        if (agent && typeof agent !== 'string') {
+          throw new Error('Invalid agent');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, agent: ${agent})`);
 
-        await sendNotification(title, message, voiceEnabled, voiceId);
+        await sendNotification(title, message, voiceEnabled, agent);
 
         return new Response(
           JSON.stringify({ status: "success", message: "Notification sent" }),

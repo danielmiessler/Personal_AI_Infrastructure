@@ -109,6 +109,45 @@ export async function writePlist(config: SetupConfig, transaction: Transaction):
 }
 
 /**
+ * Update settings.json with actual PAI_DIR path
+ * Replaces __HOME__ placeholder with the user's home directory
+ */
+export async function updateSettingsJson(config: SetupConfig, transaction: Transaction): Promise<void> {
+  const settingsPath = join(config.paiDir, 'settings.json');
+
+  if (!existsSync(settingsPath)) {
+    // If settings.json doesn't exist in paiDir, check if we're in a .claude subdirectory structure
+    const parentSettingsPath = join(dirname(config.paiDir), 'settings.json');
+    if (existsSync(parentSettingsPath)) {
+      // This handles the case where PAI is cloned to ~/.claude and settings is at ~/.claude/settings.json
+      await updateSettingsFile(parentSettingsPath, transaction);
+      return;
+    }
+    // No settings.json found - nothing to update
+    return;
+  }
+
+  await updateSettingsFile(settingsPath, transaction);
+}
+
+/**
+ * Helper to update a single settings.json file
+ */
+async function updateSettingsFile(settingsPath: string, transaction: Transaction): Promise<void> {
+  await transaction.backup(settingsPath);
+
+  let content = readFileSync(settingsPath, 'utf-8');
+
+  // Replace __HOME__ placeholder with actual home directory
+  const home = homedir();
+  const updatedContent = content.replace(/__HOME__/g, home);
+
+  if (content !== updatedContent) {
+    await writeAtomic(settingsPath, updatedContent);
+  }
+}
+
+/**
  * Update shell profile (.zshrc, .bashrc, or PowerShell profile)
  */
 export async function updateShellProfile(config: SetupConfig, transaction: Transaction): Promise<string | null> {

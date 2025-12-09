@@ -77,6 +77,14 @@
         "--extension"
       ],
       "description": "Browser automation and testing using Playwright for visual debugging and web interaction"
+    },
+    "cloudflare": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "node \"${CLOUDFLARE_MCP_PATH}/dist/index.js\""
+      ],
+      "description": "Cloudflare infrastructure management: DNS records, zones, Pages projects/deployments, WAF rules, redirects, SSL certs, and cache. Requires CLOUDFLARE_MCP_PATH, CLOUDFLARE_API_TOKEN, and optionally CLOUDFLARE_ACCOUNT_ID env vars."
     }
   }
 }

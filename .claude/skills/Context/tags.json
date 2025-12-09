@@ -6,28 +6,28 @@
 
   "tags": [
     {
-      "tag": "DailyFeed",
+      "tag": "feed",
       "category": "content-type",
-      "description": "A tag for saving morning news, newsletters, and daily information inputs that I read and want to archive for future reference.",
-      "purpose": "To centralize and track recurring daily content I ingest, creating a searchable stream of news and insights.",
+      "description": "Daily information inputs - news, newsletters, articles worth archiving.",
+      "purpose": "Centralize recurring daily content into a searchable stream.",
       "usage_guidelines": {
         "when_to_use": [
-          "When reading morning newsletters",
-          "When saving daily news articles or summaries",
-          "When clipping noteworthy updates from trusted sources",
-          "When capturing podcast/video summaries from daily consumption"
+          "Morning newsletters",
+          "Daily news articles or summaries",
+          "Noteworthy updates from trusted sources",
+          "Podcast/video summaries from daily consumption"
         ],
         "when_not_to_use": [
-          "Deep-dive research materials (use a topic-specific tag instead)",
+          "Deep-dive research (use topic-specific tag)",
           "Long-term projects or evergreen concepts",
           "Meeting notes or personal communications"
         ],
-        "formatting": "Add #DailyFeed in caption or let auto-tagging detect from keywords"
+        "formatting": "Add #feed in caption or let auto-tagging detect from keywords"
       },
-      "auto_detect_keywords": ["news", "newsletter", "daily", "morning", "feed", "update"],
+      "auto_detect_keywords": ["news", "newsletter", "daily", "morning", "feed", "update", "headlines", "digest"],
       "examples": [
-        "#DailyFeed Interesting AI article from morning reading",
-        "Newsletter notes tagged with #DailyFeed"
+        "#feed Interesting AI article from morning reading",
+        "Newsletter notes tagged with #feed"
       ]
     },
     {

@@ -25,6 +25,7 @@ import {
   type SecurityCheckResult,
 } from "./security";
 import { matchTranscribedHints, loadVaultTags, matchTag } from "./tag-matcher";
+import { loadTaxonomy, matchKeywordTags, getTaxonomyTagList, hasGoodKeywordCoverage } from "./taxonomy";
 
 const execAsync = promisify(exec);
 
@@ -1127,7 +1128,7 @@ export async function processMessage(
       break;
   }
 
-  // Step 2: Generate tags (profile defaults + inline hints + AI semantic tags)
+  // Step 2: Generate tags (profile defaults + taxonomy keywords + AI semantic + inline hints)
   const baseTags = generateTags(profile, {
     contentType,
     source: "telegram",
@@ -1135,14 +1136,30 @@ export async function processMessage(
     isWisdom: false,
   });
 
-  // Step 2a: Generate AI semantic tags if content is substantial
+  // Step 2a: Load taxonomy and match keyword tags (free, deterministic)
+  let keywordTags: string[] = [];
+  const taxonomy = loadTaxonomy();
+  if (taxonomy && rawContent) {
+    keywordTags = matchKeywordTags(rawContent, taxonomy);
+    if (keywordTags.length > 0) {
+      console.log(`  Keyword tags: ${keywordTags.join(", ")}`);
+    }
+  }
+
+  // Step 2b: Generate AI semantic tags only if keyword coverage is insufficient
   let aiTags: string[] = [];
   let references: string[] = [];
-  if (config.openaiApiKey && rawContent && rawContent.length > 50) {
+  const skipAI = hasGoodKeywordCoverage([...hints.tags, ...keywordTags]);
+
+  if (!skipAI && config.openaiApiKey && rawContent && rawContent.length > 50) {
     try {
       const vaultPath = config.vaultPath;
       const tagIndex = vaultPath ? loadVaultTags(vaultPath) : null;
-      const existingTags = tagIndex ? [...tagIndex.tags] : [];
+      // Combine vault tags with taxonomy tags for AI context
+      const existingTags = [
+        ...(tagIndex ? [...tagIndex.tags] : []),
+        ...(taxonomy ? taxonomy.allTagNames : []),
+      ];
 
       const aiResult = await generateAITags(rawContent, config.openaiApiKey, existingTags);
       aiTags = aiResult.tags;
@@ -1150,17 +1167,21 @@ export async function processMessage(
     } catch (err) {
       console.warn(`  AI tag generation failed: ${err}`);
     }
+  } else if (skipAI) {
+    console.log(`  Skipping AI tags (good keyword coverage)`);
   }
 
-  // Merge: base procedural tags + AI semantic tags + inline hints
-  const tags = [
-    ...baseTags,
-    ...aiTags,
-    ...hints.tags,
-    ...hints.people,  // @name becomes a tag
-  ];
+  // Merge: hints (user explicit) + keywords (free) + AI (conditional) + base (status)
+  // Deduplicate while preserving priority order
+  const tags = [...new Set([
+    ...hints.tags,       // User explicit first
+    ...hints.people,     // @name becomes a tag
+    ...keywordTags,      // Keyword matches (free)
+    ...aiTags,           // AI semantic (only if needed)
+    ...baseTags,         // Status tags always
+  ])];
 
-  // Step 2b: Determine pipeline from commands
+  // Step 2c: Determine pipeline from commands
   let pipeline = determinePipeline(validCommands);
   let intentResult: IntentResult | null = null;
 
@@ -2248,7 +2269,8 @@ async function generateAITags(
 1. TAGS: 3-7 semantic tags describing topics, concepts, themes (lowercase, hyphenated)
 2. REFERENCES: 0-3 related concepts for bibliography/backlinks (proper nouns ok)
 
-IMPORTANT: Prefer existing tags when they match. Existing vault tags: ${tagSample || "(none yet)"}
+CRITICAL: You MUST use existing tags from the taxonomy when they fit. Only invent new tags if NO existing tag applies.
+Existing tags (USE THESE FIRST): ${tagSample || "(none yet)"}
 
 Return JSON only: {"tags": ["tag1", "tag2"], "references": ["Concept A", "Related Idea"]}`;
 

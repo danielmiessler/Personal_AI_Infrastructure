@@ -1,0 +1,250 @@
+{
+  "version": "1.0",
+  "updated": "2025-12-10",
+  "owner": "andreas",
+  "description": "Tag taxonomy for Context skill auto-tagging and semantic organization",
+
+  "tags": [
+    {
+      "tag": "DailyFeed",
+      "category": "content-type",
+      "description": "A tag for saving morning news, newsletters, and daily information inputs that I read and want to archive for future reference.",
+      "purpose": "To centralize and track recurring daily content I ingest, creating a searchable stream of news and insights.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "When reading morning newsletters",
+          "When saving daily news articles or summaries",
+          "When clipping noteworthy updates from trusted sources",
+          "When capturing podcast/video summaries from daily consumption"
+        ],
+        "when_not_to_use": [
+          "Deep-dive research materials (use a topic-specific tag instead)",
+          "Long-term projects or evergreen concepts",
+          "Meeting notes or personal communications"
+        ],
+        "formatting": "Add #DailyFeed in caption or let auto-tagging detect from keywords"
+      },
+      "auto_detect_keywords": ["news", "newsletter", "daily", "morning", "feed", "update"],
+      "examples": [
+        "#DailyFeed Interesting AI article from morning reading",
+        "Newsletter notes tagged with #DailyFeed"
+      ]
+    },
+    {
+      "tag": "incoming",
+      "category": "status",
+      "description": "Raw input that has entered the system but not yet been reviewed or processed.",
+      "purpose": "Marks content in the initial capture stage, awaiting triage or Fabric processing.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Automatically applied to all new captures"
+        ],
+        "when_not_to_use": [
+          "After content has been reviewed and tagged with 'main'"
+        ],
+        "formatting": "Auto-applied by pipeline"
+      },
+      "auto_detect_keywords": [],
+      "examples": []
+    },
+    {
+      "tag": "raw",
+      "category": "status",
+      "description": "Unprocessed content - the original capture without Fabric extraction.",
+      "purpose": "Preserves original transcript/content before any AI processing transforms it.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Voice memo transcriptions before extract_wisdom",
+          "Original document content"
+        ],
+        "when_not_to_use": [
+          "Content that has been processed by Fabric patterns"
+        ],
+        "formatting": "Auto-applied by pipeline for voice/document content"
+      },
+      "auto_detect_keywords": [],
+      "examples": []
+    },
+    {
+      "tag": "wisdom",
+      "category": "status",
+      "description": "Content processed through extract_wisdom or similar Fabric pattern.",
+      "purpose": "Identifies notes containing distilled insights, key takeaways, and actionable wisdom.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "After extract_wisdom processing",
+          "After extract_article_wisdom for URLs"
+        ],
+        "when_not_to_use": [
+          "Raw transcripts",
+          "Meeting notes (use meeting-notes instead)"
+        ],
+        "formatting": "Auto-applied after /wisdom command or default Fabric processing"
+      },
+      "auto_detect_keywords": [],
+      "examples": []
+    },
+    {
+      "tag": "fabric-extraction",
+      "category": "status",
+      "description": "Content has been processed by any Fabric pattern.",
+      "purpose": "Indicates AI-assisted processing has been applied to enhance the content.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "After any Fabric pattern processing"
+        ],
+        "when_not_to_use": [
+          "Raw unprocessed content"
+        ],
+        "formatting": "Auto-applied by pipeline"
+      },
+      "auto_detect_keywords": [],
+      "examples": []
+    },
+    {
+      "tag": "main",
+      "category": "status",
+      "description": "Reviewed and organized content in the main slipbox.",
+      "purpose": "Marks content as processed, reviewed, and ready for long-term reference.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "After manual review and organization",
+          "When content is properly tagged and linked"
+        ],
+        "when_not_to_use": [
+          "Unreviewed incoming content"
+        ],
+        "formatting": "Manually applied after review"
+      },
+      "auto_detect_keywords": [],
+      "examples": []
+    },
+    {
+      "tag": "meeting-notes",
+      "category": "content-type",
+      "description": "Notes from meetings, standups, syncs, and group discussions.",
+      "purpose": "Centralizes all meeting-related content for easy retrieval and action tracking.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Team meetings and standups",
+          "Client meetings",
+          "All-hands and town halls",
+          "Project syncs"
+        ],
+        "when_not_to_use": [
+          "1-on-1 meetings (use 1on1 tag)",
+          "Phone calls (use phone-call tag)"
+        ],
+        "formatting": "Add attendees as person tags: meeting-notes + john_doe + jane_smith"
+      },
+      "auto_detect_keywords": ["meeting", "standup", "sync", "all-hands", "retro"],
+      "examples": [
+        "Weekly standup meeting-notes",
+        "Project kickoff meeting-notes with full attendee list"
+      ]
+    },
+    {
+      "tag": "1on1",
+      "category": "content-type",
+      "description": "One-on-one meeting notes with managers, reports, or mentees.",
+      "purpose": "Tracks personal development conversations and private discussions.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Manager 1:1s",
+          "Mentoring sessions",
+          "Career discussions"
+        ],
+        "when_not_to_use": [
+          "Group meetings",
+          "Casual phone calls"
+        ],
+        "formatting": "Always include the person tag: 1on1 + person_name"
+      },
+      "auto_detect_keywords": ["1:1", "1on1", "one on one", "one-on-one"],
+      "examples": []
+    },
+    {
+      "tag": "ideas",
+      "category": "content-type",
+      "description": "Brainstorms, concepts, and creative thoughts for future exploration.",
+      "purpose": "Captures nascent ideas before they're developed into projects or content.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Shower thoughts and random insights",
+          "Feature ideas",
+          "Creative concepts"
+        ],
+        "when_not_to_use": [
+          "Fully developed project plans",
+          "Documentation"
+        ],
+        "formatting": "Quick capture with #ideas tag"
+      },
+      "auto_detect_keywords": ["idea", "brainstorm", "concept", "what if"],
+      "examples": []
+    },
+    {
+      "tag": "bibliography",
+      "category": "content-type",
+      "description": "References to books, papers, and academic sources.",
+      "purpose": "Maintains a reading list and citation sources for research.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Book notes and summaries",
+          "Academic paper references",
+          "Course materials"
+        ],
+        "when_not_to_use": [
+          "News articles (use DailyFeed)",
+          "Blog posts (use interesting-reads)"
+        ],
+        "formatting": "Include author and title in the note"
+      },
+      "auto_detect_keywords": ["book", "paper", "author", "ISBN", "doi"],
+      "examples": []
+    },
+    {
+      "tag": "interesting-reads",
+      "category": "content-type",
+      "description": "Curated web articles and blog posts worth saving.",
+      "purpose": "Archives notable online content for future reference.",
+      "usage_guidelines": {
+        "when_to_use": [
+          "Blog posts with lasting value",
+          "Technical articles",
+          "Think pieces"
+        ],
+        "when_not_to_use": [
+          "Daily news (use DailyFeed)",
+          "Academic papers (use bibliography)"
+        ],
+        "formatting": "Auto-applied to URL captures"
+      },
+      "auto_detect_keywords": [],
+      "examples": []
+    }
+  ],
+
+  "project_keywords": {
+    "pai": ["claude", "kai", "fabric", "ingest", "obs", "personal ai", "pai"],
+    "security": ["security", "vulnerability", "pentest", "threat", "exploit"],
+    "architecture": ["architecture", "design", "system", "enterprise"]
+  },
+
+  "source_tags": [
+    {"tag": "source/telegram", "description": "Captured via Telegram bot"},
+    {"tag": "source/voice", "description": "Voice memo (WisprFlow, iOS, etc.)"},
+    {"tag": "source/web", "description": "Web article or URL"},
+    {"tag": "source/cli", "description": "CLI direct capture"},
+    {"tag": "source/clipboard", "description": "macOS clipboard capture"}
+  ],
+
+  "topic_tags": [
+    {"tag": "ai", "description": "Artificial intelligence and machine learning"},
+    {"tag": "genai", "description": "Generative AI and LLMs"},
+    {"tag": "security", "description": "Cybersecurity and infosec"},
+    {"tag": "architecture", "description": "System and enterprise architecture"},
+    {"tag": "productivity", "description": "Productivity systems and workflows"},
+    {"tag": "zettelkasten", "description": "Note-taking methodology"}
+  ]
+}

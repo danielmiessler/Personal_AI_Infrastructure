@@ -85,6 +85,14 @@
         "node \"${CLOUDFLARE_MCP_PATH}/dist/index.js\""
       ],
       "description": "Cloudflare infrastructure management: DNS records, zones, Pages projects/deployments, WAF rules, redirects, SSL certs, and cache. Requires CLOUDFLARE_MCP_PATH, CLOUDFLARE_API_TOKEN, and optionally CLOUDFLARE_ACCOUNT_ID env vars."
+    },
+    "gitlab": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "GITLAB_PERSONAL_ACCESS_TOKEN=\"${GITLAB_TOKEN}\" npx -y @modelcontextprotocol/server-gitlab"
+      ],
+      "description": "GitLab repository and project management: issues, merge requests, pipelines, branches, commits. Requires GITLAB_TOKEN env var. For self-hosted GitLab, also set GITLAB_API_URL."
     }
   }
 }

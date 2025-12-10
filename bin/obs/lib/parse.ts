@@ -6,7 +6,8 @@ import { readFile } from "fs/promises";
 
 export interface ParsedNote {
   frontmatter: Record<string, unknown>;
-  tags: string[];
+  tags: string[];           // All tags (frontmatter + inline)
+  frontmatterTags: string[]; // Only frontmatter tags (for type detection)
   date?: string;
   content: string;
   rawContent: string;
@@ -27,6 +28,7 @@ export function parseNoteContent(rawContent: string): ParsedNote {
   const result: ParsedNote = {
     frontmatter: {},
     tags: [],
+    frontmatterTags: [],
     content: rawContent,
     rawContent,
   };
@@ -55,6 +57,9 @@ export function parseNoteContent(rawContent: string): ParsedNote {
       if (result.frontmatter.generation_date) {
         result.date = String(result.frontmatter.generation_date);
       }
+
+      // Save frontmatter-only tags before merging with inline tags
+      result.frontmatterTags = [...result.tags];
     }
   }
 

@@ -2522,9 +2522,10 @@ export async function saveToVault(
     ...(meta?.source ? [`source_shortcut: ${meta.source}`] : []),
     ...(meta?.device ? [`source_device: ${meta.device}`] : []),
     ...(meta?.user ? [`source_user: ${meta.user}`] : []),
-    ...(meta?.type ? [`document_type: ${meta.type}`] : []),
-    ...(meta?.category ? [`document_category: ${meta.category}`] : []),
-    ...(meta?.date ? [`document_date: ${meta.date}`] : []),
+    // Archive-specific metadata (only for archive pipeline)
+    ...(processed.pipeline === "archive" && meta?.type ? [`document_type: ${meta.type}`] : []),
+    ...(processed.pipeline === "archive" && meta?.category ? [`document_category: ${meta.category}`] : []),
+    ...(processed.pipeline === "archive" && meta?.date ? [`document_date: ${meta.date}`] : []),
     "---",
   ].join("\n");
 

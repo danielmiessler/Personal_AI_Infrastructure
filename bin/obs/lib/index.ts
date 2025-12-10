@@ -140,7 +140,7 @@ export function toIndexedResults(
     name: result.name,
     path: result.path,
     date: extractDate(result),
-    type: detectType(result.tags),
+    type: detectType(result.frontmatterTags || result.tags),  // Use frontmatter tags, fallback to all tags
     tags: filterDisplayTags(result.tags),
   }));
 }

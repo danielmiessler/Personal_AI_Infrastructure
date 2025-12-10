@@ -31,11 +31,12 @@ export interface SearchOptions {
 export interface SearchResult {
   name: string;
   path: string;
-  tags: string[];
-  date?: string;           // Raw frontmatter date string (for display)
-  captureDate?: Date;      // Parsed capture date from frontmatter
-  mtime: Date;             // File modification time
-  birthtime: Date;         // File creation time
+  tags: string[];              // All tags (frontmatter + inline)
+  frontmatterTags: string[];   // Only frontmatter tags (for type detection)
+  date?: string;               // Raw frontmatter date string (for display)
+  captureDate?: Date;          // Parsed capture date from frontmatter
+  mtime: Date;                 // File modification time
+  birthtime: Date;             // File creation time
 }
 
 /**
@@ -179,6 +180,7 @@ async function searchByText(vaultPath: string, query: string): Promise<SearchRes
           name: basename(filePath, ".md"),
           path: filePath,
           tags: note.tags,
+          frontmatterTags: note.frontmatterTags,
           date: note.date,
           captureDate: parseDateString(note.date),
           mtime: stats.mtime,
@@ -222,6 +224,7 @@ async function listAllNotes(vaultPath: string): Promise<SearchResult[]> {
             name: basename(fullPath, ".md"),
             path: fullPath,
             tags: note.tags,
+            frontmatterTags: note.frontmatterTags,
             date: note.date,
             captureDate: parseDateString(note.date),
             mtime: stats.mtime,

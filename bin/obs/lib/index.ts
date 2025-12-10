@@ -279,19 +279,29 @@ function formatSemanticHeader(): string {
   return " #  │ Score │ Date       │ Title                                    │ Excerpt";
 }
 
+// System/meta tags to filter from display (show user-meaningful tags)
+const SYSTEM_TAGS = new Set([
+  "incoming", "raw", "wisdom", "transcript", "meeting",
+  "source/telegram", "source/email", "source/web",
+  "scope/work", "scope/private",
+  "fabric-extraction",
+]);
+
 function formatResultRow(result: IndexedResult): string {
   const num = result.index.toString().padStart(2);
   const date = result.date;
   const type = result.type.padEnd(10);
   const title = truncate(result.name.replace(/^[\d-]+/, "").trim() || result.name, 40).padEnd(40);
-  // Show first 2 tags more completely (30 chars)
-  const displayTags = result.tags.slice(0, 2).map(t => {
+
+  // Filter out system tags to show user-meaningful tags
+  const userTags = result.tags.filter(t => !SYSTEM_TAGS.has(t));
+  const displayTags = userTags.slice(0, 3).map(t => {
     // Shorten project/ prefix for display
     if (t.startsWith("project/")) return t.replace("project/", "p/");
     return t;
   });
-  const tags = truncate(displayTags.join(", "), 30);
-  
+  const tags = truncate(displayTags.join(", "), 35);
+
   return `${num}  │ ${date} │ ${type} │ ${title} │ ${tags}`;
 }
 

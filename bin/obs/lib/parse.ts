@@ -122,14 +122,20 @@ function parseSimpleYaml(yamlStr: string): Record<string, unknown> {
  * Extract inline tags from content (#tag format)
  */
 function extractInlineTags(content: string): string[] {
-  const tagRegex = /#([a-zA-Z0-9_\-/]+)/g;
+  // Must start with letter or underscore, not hyphen (excludes markdown anchors like #-updates)
+  const tagRegex = /#([a-zA-Z_][a-zA-Z0-9_\-/]*)/g;
   const tags: string[] = [];
   let match;
 
   while ((match = tagRegex.exec(content)) !== null) {
     // Exclude common false positives
     const tag = match[1];
-    if (!tag.match(/^\d+$/) && !["", "todo"].includes(tag.toLowerCase())) {
+    if (
+      !tag.match(/^\d+$/) &&                    // pure numbers
+      !["", "todo"].includes(tag.toLowerCase()) && // reserved words
+      !tag.includes("--") &&                    // likely markdown/CSS
+      tag.length < 50                           // sanity check
+    ) {
       tags.push(tag);
     }
   }

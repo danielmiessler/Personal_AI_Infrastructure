@@ -2154,6 +2154,7 @@ async function saveImageToVault(
 
 /**
  * Apply fabric patterns to content
+ * Uses Bun.spawn with stdin to avoid shell escaping issues with complex markdown
  */
 async function applyFabricPatterns(
   content: string,
@@ -2163,10 +2164,24 @@ async function applyFabricPatterns(
 
   for (const pattern of patterns) {
     console.log(`  Fabric: Running pattern "${pattern}"`);
-    const { stdout } = await execAsync(
-      `echo "${escapeShell(result)}" | fabric -p ${pattern}`,
-      { timeout: 60000 }
-    );
+
+    // Use Bun.spawn with stdin instead of shell echo to avoid escaping issues
+    const proc = Bun.spawn(["fabric", "-p", pattern], {
+      stdin: new Response(result).body,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    if (exitCode !== 0) {
+      throw new Error(`Fabric pattern "${pattern}" failed (exit ${exitCode}): ${stderr}`);
+    }
+
     result = stdout.trim();
     console.log(`  Fabric: Pattern "${pattern}" completed (${result.length} chars)`);
   }

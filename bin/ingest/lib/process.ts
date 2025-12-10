@@ -54,6 +54,7 @@ export interface ProcessedContent {
   archiveName?: string;      // Generated archive filename (if archive pipeline)
   originalFilePath?: string; // Path to original file (for Dropbox sync)
   messageDate?: number;      // Original Telegram message timestamp (Unix)
+  hasWisdomSibling?: boolean; // True if a paired wisdom note will also be created
 }
 
 /**
@@ -1374,6 +1375,15 @@ export async function processMessage(
   // Include source metadata if present
   const hasMetadata = Object.keys(hints.metadata).length > 0;
 
+  // Determine if a wisdom sibling will be created (for bidirectional linking)
+  // Skip auto-patterns for:
+  // - clip pipeline (clips are already summaries/snippets)
+  // - archive pipeline (straight-through archiving, no processing)
+  // - document content (PDFs/DOCX should just be extracted, not auto-summarized)
+  // BUT: Always run if user explicitly requested patterns via command (/wisdom, /summarize)
+  const skipAutoPatterns = (pipeline === "clip" || isArchivePipeline || contentType === "document") && !hasExplicitPatternRequest;
+  const willCreateWisdom = profile.processing.pairedOutput && patterns.length > 0 && !skipAutoPatterns;
+
   results.push({
     title: suggestedTitle,
     rawContent,
@@ -1387,27 +1397,31 @@ export async function processMessage(
     ...(archiveName && { archiveName }),
     ...(originalFilePath && { originalFilePath }),
     ...(hasMetadata && { sourceMetadata: hints.metadata }),
+    ...(willCreateWisdom && { hasWisdomSibling: true }),
   });
 
   // If paired output, also create processed version
-  // Skip auto-patterns for:
-  // - clip pipeline (clips are already summaries/snippets)
-  // - archive pipeline (straight-through archiving, no processing)
-  // - document content (PDFs/DOCX should just be extracted, not auto-summarized)
-  // BUT: Always run if user explicitly requested patterns via command (/wisdom, /summarize)
-  const skipAutoPatterns = (pipeline === "clip" || isArchivePipeline || contentType === "document") && !hasExplicitPatternRequest;
-  if (profile.processing.pairedOutput && patterns.length > 0 && !skipAutoPatterns) {
+  if (willCreateWisdom) {
     if (hasExplicitPatternRequest) {
       console.log(`  Running requested pattern(s): ${patterns.join(", ")}`);
     }
     try {
       const processedContent = await applyFabricPatterns(rawContent, patterns);
-      const wisdomTags = generateTags(profile, {
+      // Wisdom note inherits user-provided tags from raw note
+      // Combine: user explicit + people + wisdom-specific system tags
+      const wisdomSystemTags = generateTags(profile, {
         contentType,
         source: "telegram",
         isRaw: false,
         isWisdom: true,
       });
+
+      // Merge user tags with wisdom system tags (user tags take priority)
+      const wisdomTags = [...new Set([
+        ...hints.tags,        // User explicit tags
+        ...hints.people,      // @name becomes a tag
+        ...wisdomSystemTags,  // Wisdom-specific system tags
+      ])];
 
       // Add scope tag to wisdom output too
       if (scope) {
@@ -2529,6 +2543,31 @@ export async function saveToVault(
   if (dropboxPath) {
     const dropboxLink = `📎 **Original:** [${processed.archiveName}](file://${dropboxPath.replace(/ /g, "%20")})\n\n`;
     content = dropboxLink + content;
+  }
+
+  // Bidirectional links between Raw and Wisdom notes
+  if (isWisdom) {
+    // Wisdom → Raw: backlink to source
+    const rawFilename = generateFilename(profile, {
+      title: processed.title,
+      date: noteDate,
+      source: "telegram",
+      suffix: "raw",
+    });
+    const rawNoteName = rawFilename.replace(/\.md$/, "");
+    const sourceLink = `📄 **Source:** [[${rawNoteName}]]\n\n`;
+    content = sourceLink + content;
+  } else if (processed.hasWisdomSibling) {
+    // Raw → Wisdom: forward link to processed version
+    const wisdomFilename = generateFilename(profile, {
+      title: processed.title,
+      date: noteDate,
+      source: "telegram",
+      suffix: "wisdom",
+    });
+    const wisdomNoteName = wisdomFilename.replace(/\.md$/, "");
+    const processedLink = `📝 **Processed:** [[${wisdomNoteName}]]\n\n`;
+    content = processedLink + content;
   }
 
   await Bun.write(filePath, `${frontmatter}\n\n${content}`);

@@ -381,7 +381,7 @@ export function parseSelection(selection: string, maxIndex: number): number[] {
  */
 export async function loadBySelection(
   selection: string,
-  options?: { type?: string; since?: string; tags?: string[] }
+  options?: { type?: string; since?: string; tags?: string[]; anyTags?: string[] }
 ): Promise<{ loaded: string[]; content: string }> {
   const index = await loadSearchIndex();
 
@@ -398,21 +398,32 @@ export async function loadBySelection(
 
   let selectedResults: IndexedResult[];
 
+  // Start with numeric selection or all
+  const indices = parseSelection(selection, allResults.length);
+  selectedResults = allResults.filter(r => indices.includes(r.index));
+
+  // Apply tag filter (AND logic - all tags must match)
   if (options?.tags && options.tags.length > 0) {
-    // Filter by tags (all tags must match - AND logic)
-    selectedResults = allResults.filter(r =>
+    selectedResults = selectedResults.filter(r =>
       options.tags!.every(tag => r.tags.some(t => t.includes(tag)))
     );
-  } else if (options?.type) {
-    // Filter by type
-    selectedResults = allResults.filter(r => r.type === options.type);
-  } else if (options?.since) {
-    // Filter by date
-    selectedResults = allResults.filter(r => r.date >= options.since!);
-  } else {
-    // Parse numeric selection
-    const indices = parseSelection(selection, allResults.length);
-    selectedResults = allResults.filter(r => indices.includes(r.index));
+  }
+
+  // Apply anyTags filter (OR logic - any tag matches)
+  if (options?.anyTags && options.anyTags.length > 0) {
+    selectedResults = selectedResults.filter(r =>
+      options.anyTags!.some(tag => r.tags.some(t => t.includes(tag)))
+    );
+  }
+
+  // Apply type filter
+  if (options?.type) {
+    selectedResults = selectedResults.filter(r => r.type === options.type);
+  }
+
+  // Apply date filter
+  if (options?.since) {
+    selectedResults = selectedResults.filter(r => r.date >= options.since!);
   }
   
   if (selectedResults.length === 0) {

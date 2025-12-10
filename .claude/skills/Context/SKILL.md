@@ -33,7 +33,7 @@ Found 18 documents for #project/X:
 
 [table of results]
 
-Which to load? (all / 1-5 / 1,3,7 / --type transcript)
+Which to load? (all / 1-5 / 1,3,7 / --type wisdom / --tag architecture / --any-tag X Y)
 ```
 DO NOT add 📋 SUMMARY, 🔍 ANALYSIS, 📖 STORY, or other format sections after a search. The two-turn workflow requires a MINIMAL response that waits for user input.
 
@@ -206,8 +206,29 @@ obs context pai --format index
 # Tag filter (multiple = AND logic)
 obs search --tag ai --tag nvidia --format index   # Must have BOTH
 
+# Tag filter (multiple = OR logic)
+obs search --any-tag project/pai --any-tag project/ai-tailgating  # Either matches
+
 # Type filter (transcript, meeting, wisdom, note, raw, etc.)
 obs search --tag project/pai --type wisdom --format index
+```
+
+### AND vs OR Tag Logic
+
+**Use `--tag` (AND)** when user says:
+- "with both X and Y", "that have X and Y", "must have"
+- "notes tagged X AND Y", "intersection of"
+
+**Use `--any-tag` (OR)** when user says:
+- "from X or Y", "either X or Y", "in multiple projects"
+- "across projects", "notes in X or Y", "union of"
+
+```bash
+# AND: notes with BOTH tags (intersection)
+obs search --tag architecture --tag security        # Must have both
+
+# OR: notes with ANY of the tags (union)
+obs search --any-tag project/pai --any-tag project/ai-tailgating  # Either project
 ```
 
 ### Filtered Semantic Search
@@ -372,6 +393,12 @@ obs load all
 ```bash
 obs semantic "compliance requirements" --tag project/ai-tailgating --tag compliance
 obs load 1-5
+```
+
+**"Find notes from either PAI or AI-Tailgating projects"**
+```bash
+obs search --any-tag project/pai --any-tag project/ai-tailgating --format index
+obs load all
 ```
 
 **"What's waiting for me to process?"**

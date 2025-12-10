@@ -54,6 +54,7 @@ COMMANDS:
 
 SEARCH OPTIONS:
   --tag, -t <tag>        Filter by tag (can use multiple, AND logic)
+  --any-tag <tag>        Filter by tag (can use multiple, OR logic)
   --not-tag <tag>        Exclude notes with this tag
   --type <type>          Filter by type (transcript, meeting, wisdom, note, etc.)
   --text, -x <query>     Full-text search
@@ -74,11 +75,13 @@ SEMANTIC OPTIONS:
   --format <fmt>         Output format: list (default), index (numbered for load)
   --scope <scope>        Scope filter: work (default), private, all
   --tag, -t <tag>        Filter to notes with this tag (can use multiple, AND logic)
+  --any-tag <tag>        Filter to notes with any of these tags (OR logic)
   --doc, -d <pattern>    Filter by document name pattern (glob: * = any, ? = single char)
 
 LOAD OPTIONS (from last search):
   <selection>            Numbers to load: "all", "1,2,5", "1-5", "1,3-5,10"
   --tag <tag>            Load by tag (can use multiple, AND logic)
+  --any-tag <tag>        Load by tag (can use multiple, OR logic)
   --type <type>          Load by type: transcript, meeting, note, wisdom, etc.
   --since <date>         Load notes from date (YYYY-MM-DD)
 
@@ -201,6 +204,7 @@ async function handleSearch(args: string[]) {
   };
   let format: "list" | "index" | "json" = "list";
   let filterType: string | undefined;
+  const anyTags: string[] = [];  // OR logic tags
 
   let i = 0;
   while (i < args.length) {
@@ -209,6 +213,9 @@ async function handleSearch(args: string[]) {
       case "--tag":
       case "-t":
         options.tags.push(args[++i]);
+        break;
+      case "--any-tag":
+        anyTags.push(args[++i]);
         break;
       case "--not-tag":
         options.notTags!.push(args[++i]);
@@ -290,7 +297,14 @@ async function handleSearch(args: string[]) {
     i++;
   }
 
-  const results = await searchNotes(options);
+  let results = await searchNotes(options);
+
+  // Apply anyTags filter (OR logic) if specified
+  if (anyTags.length > 0) {
+    results = results.filter(r =>
+      anyTags.some(tag => r.tags.some(t => t.includes(tag)))
+    );
+  }
 
   if (results.length === 0) {
     console.log("No notes found matching criteria.");
@@ -299,9 +313,11 @@ async function handleSearch(args: string[]) {
 
   // Format output based on --format flag
   if (format === "index" || format === "json") {
-    const query = options.tags.length > 0
-      ? `#${options.tags.join(" #")}`
-      : (options.text || "search");
+    let queryParts: string[] = [];
+    if (options.tags.length > 0) queryParts.push(`#${options.tags.join(" #")}`);
+    if (anyTags.length > 0) queryParts.push(`any:${anyTags.map(t => `#${t}`).join("|")}`);
+    if (options.text) queryParts.push(options.text);
+    const query = queryParts.length > 0 ? queryParts.join(" ") : "search";
     let indexedResults = toIndexedResults(results);
 
     // Filter by type if specified
@@ -542,6 +558,7 @@ async function handleSemantic(args: string[]) {
   let scope: EmbedScopeFilter = "work"; // Default: exclude private
   let format: "list" | "index" | "json" = "list";
   const tags: string[] = [];
+  const anyTags: string[] = [];  // OR logic tags
   let docPattern: string | undefined;
 
   for (let i = 1; i < args.length; i++) {
@@ -559,6 +576,8 @@ async function handleSemantic(args: string[]) {
       }
     } else if (args[i] === "--tag" || args[i] === "-t") {
       tags.push(args[++i]);
+    } else if (args[i] === "--any-tag") {
+      anyTags.push(args[++i]);
     } else if (args[i] === "--doc" || args[i] === "-d") {
       docPattern = args[++i];
     }
@@ -571,10 +590,17 @@ async function handleSemantic(args: string[]) {
     docPattern,
   };
 
-  const results = await semanticSearch(query, searchOptions);
+  let results = await semanticSearch(query, searchOptions);
+
+  // Apply anyTags filter (OR logic) if specified
+  if (anyTags.length > 0) {
+    results = results.filter(r =>
+      anyTags.some(tag => r.tags?.some(t => t.includes(tag)))
+    );
+  }
 
   if (results.length === 0) {
-    const hint = tags.length > 0 || docPattern
+    const hint = tags.length > 0 || anyTags.length > 0 || docPattern
       ? " (check your filters)"
       : " Have you run 'obs embed' first?";
     console.log(`No results found.${hint}`);
@@ -585,6 +611,9 @@ async function handleSemantic(args: string[]) {
   let displayQuery = `"${query}"`;
   if (tags.length > 0) {
     displayQuery += ` [tags: ${tags.map(t => `#${t}`).join(", ")}]`;
+  }
+  if (anyTags.length > 0) {
+    displayQuery += ` [any: ${anyTags.map(t => `#${t}`).join("|")}]`;
   }
   if (docPattern) {
     displayQuery += ` [doc: ${docPattern}]`;
@@ -746,7 +775,7 @@ async function handleIncoming(args: string[]) {
 
 async function handleLoad(args: string[]) {
   if (args.length === 0) {
-    console.error("Usage: obs load <selection> [--tag <tag>] [--type <type>] [--since <date>]");
+    console.error("Usage: obs load <selection> [--tag <tag>] [--any-tag <tag>] [--type <type>] [--since <date>]");
     console.error("\nSelection formats:");
     console.error("  all         - Load all results from last search");
     console.error("  1,2,5       - Load specific items by number");
@@ -754,6 +783,7 @@ async function handleLoad(args: string[]) {
     console.error("  1,3-5,10    - Combined selection");
     console.error("\nFilters:");
     console.error("  --tag <tag>     - Filter by tag (can use multiple, AND logic)");
+    console.error("  --any-tag <tag> - Filter by tag (can use multiple, OR logic)");
     console.error("  --type <type>   - Filter by type (transcript, meeting, note, wisdom, etc.)");
     console.error("  --since <date>  - Filter by date (YYYY-MM-DD)");
     console.error("\nRun 'obs search --format index' or 'obs semantic <query> --format index' first.");
@@ -764,10 +794,13 @@ async function handleLoad(args: string[]) {
   let filterType: string | undefined;
   let filterSince: string | undefined;
   const filterTags: string[] = [];
+  const filterAnyTags: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--tag") {
       filterTags.push(args[++i]);
+    } else if (args[i] === "--any-tag") {
+      filterAnyTags.push(args[++i]);
     } else if (args[i] === "--type" || args[i] === "-t") {
       filterType = args[++i];
     } else if (args[i] === "--since" || args[i] === "-s") {
@@ -778,7 +811,7 @@ async function handleLoad(args: string[]) {
   }
 
   // If only filters provided, use "all" as selection base
-  if (!selection && (filterType || filterSince || filterTags.length > 0)) {
+  if (!selection && (filterType || filterSince || filterTags.length > 0 || filterAnyTags.length > 0)) {
     selection = "all";
   }
 
@@ -792,6 +825,7 @@ async function handleLoad(args: string[]) {
       type: filterType,
       since: filterSince,
       tags: filterTags.length > 0 ? filterTags : undefined,
+      anyTags: filterAnyTags.length > 0 ? filterAnyTags : undefined,
     });
 
     // Calculate total size

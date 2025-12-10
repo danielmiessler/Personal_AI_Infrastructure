@@ -48,8 +48,8 @@ Examples: "save this to vault", "capture this", "ingest this", "save note"
 
 **When user wants to capture a URL to vault:**
 Examples: "capture this URL", "save this page to vault", "ingest this link"
-→ **EXECUTE:** `fabric -u "<URL>" | ingest direct --tags "<tags>" /extract-content -`
-→ **SKILLS:** Fabric (URL extraction via Jina) → Context (pipeline applies `extract_page_content` pattern)
+→ **EXECUTE:** `fabric -u "<URL>" | ingest direct --tags "<tags>" --pipeline "/extract-content" -`
+→ **FLOW:** Fabric extracts URL (via Jina) → ingest sends to Telegram with `/extract-content` → pipeline applies `extract_page_content` pattern
 → **AUTO-TAG:** If <3 tags provided, ingest pipeline applies AI tags automatically
 
 **When user selects items to load (after a search):**

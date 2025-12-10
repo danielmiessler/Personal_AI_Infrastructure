@@ -57,6 +57,8 @@ const DEFAULT_CONFIG: SecurityConfig = {
     "meeting-notes", // Run meeting_notes pattern
     "fetch",       // Fetch URL content (no pattern)
     "tag",         // Force AI tagging
+    "extract-content", // Run extract_page_content pattern (clean web pages)
+    "clean",       // Alias for extract-content
 
     // Routing/tagging commands (do NOT trigger patterns)
     // Use #1on1 or #meeting as TAGS instead

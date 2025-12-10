@@ -1,0 +1,104 @@
+# PAI Context Skill - True Clean Room
+# 
+# This Dockerfile simulates a NEW USER installing the context skill.
+# It clones fresh from upstream and applies the vanilla skill contribution.
+#
+# Build args:
+#   UPSTREAM_REPO  - The upstream PAI repo (default: danielmiessler)
+#   SKILL_REPO     - Your fork with the vanilla skill branch
+#   SKILL_BRANCH   - The branch containing the clean skill contribution
+#
+# Usage:
+#   # Test your vanilla skill against upstream
+#   docker build -f Dockerfile.cleanroom \
+#     --build-arg SKILL_REPO=mellanon/pai-1.2 \
+#     --build-arg SKILL_BRANCH=feature/vanilla-context-skill \
+#     -t pai-cleanroom-test .
+#
+#   # Run validation
+#   docker run --rm pai-cleanroom-test validate
+
+FROM debian:bookworm-slim
+
+LABEL maintainer="mellanon"
+LABEL description="PAI Context Skill - True Clean Room (simulates new user)"
+
+# Build arguments
+ARG UPSTREAM_REPO=danielmiessler/Personal_AI_Infrastructure
+ARG SKILL_REPO=mellanon/pai-1.2
+ARG SKILL_BRANCH=feature/vanilla-context-skill
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    unzip \
+    ca-certificates \
+    python3 \
+    python3-pip \
+    python3-venv \
+    tesseract-ocr \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+# Install Node.js (for Claude Code CLI)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+# Create working directories
+WORKDIR /home/newuser
+RUN mkdir -p vault config
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SIMULATE NEW USER ONBOARDING
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Step 1: Clone upstream PAI (what a new user would do)
+RUN echo "📥 Cloning upstream PAI from ${UPSTREAM_REPO}..." && \
+    git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git pai
+
+# Step 2: Add the skill contribution (applying your PR)
+RUN echo "🔀 Adding context skill from ${SKILL_REPO}@${SKILL_BRANCH}..." && \
+    cd pai && \
+    git remote add skill https://github.com/${SKILL_REPO}.git && \
+    git fetch skill ${SKILL_BRANCH} && \
+    git merge skill/${SKILL_BRANCH} --no-edit -m "Add context management skill"
+
+# Step 3: Install the context skill (using the install script)
+RUN echo "📦 Installing context skill..." && \
+    cd pai/bin/ingest && \
+    chmod +x install.sh && \
+    ./install.sh || echo "Install script completed (may have warnings)"
+
+# Step 4: Install dependencies
+RUN echo "📦 Installing dependencies..." && \
+    cd pai/bin/obs && bun install && \
+    cd ../ingest && bun install
+
+# Set up environment
+ENV PAI_DIR=/home/newuser/pai
+ENV OBSIDIAN_VAULT_PATH=/home/newuser/vault
+ENV PATH="/home/newuser/.local/bin:${PATH}"
+
+# Copy test vault (minimal fixture)
+COPY test-vault/ /home/newuser/vault/
+
+# Copy validation scripts
+COPY validate-cleanroom.sh /home/newuser/validate.sh
+RUN chmod +x /home/newuser/validate.sh
+
+WORKDIR /home/newuser/pai
+
+# Default: run validation
+CMD ["/home/newuser/validate.sh"]
+

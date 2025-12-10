@@ -1,0 +1,44 @@
+{
+  "name": "simple",
+  "description": "Simple workflow with single processed output",
+
+  "tags": {
+    "status": {
+      "incoming": "inbox",
+      "raw": "raw",
+      "processed": "processed",
+      "wisdom": "processed",
+      "main": "main"
+    },
+    "sourcePrefix": "from",
+    "projectPrefix": "project",
+    "personFormat": "snake_case"
+  },
+
+  "naming": {
+    "dateFormat": "%Y-%m-%d",
+    "suffixes": {
+      "raw": "",
+      "wisdom": "",
+      "transcript": ""
+    },
+    "includeSource": false
+  },
+
+  "processing": {
+    "pairedOutput": false,
+    "patterns": {
+      "voice": ["summarize"],
+      "url": ["summarize"],
+      "text": [],
+      "document": ["summarize"]
+    },
+    "addBacklinks": false
+  },
+
+  "autoTag": {
+    "projectKeywords": {},
+    "detectPeople": false,
+    "knownPeople": []
+  }
+}

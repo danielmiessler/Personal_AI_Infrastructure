@@ -1,0 +1,68 @@
+# CI/CD for Context Skill - Version Tagging
+#
+# Runs on: Push tag matching context-skill-v*
+# Purpose: Create GitHub release with changelog
+#
+# Usage:
+#   git tag context-skill-v1.0.0
+#   git push origin context-skill-v1.0.0
+
+name: Context Skill - Release
+
+on:
+  push:
+    tags:
+      - 'context-skill-v*'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/context-skill-}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" -- bin/ingest bin/obs .claude/skills/context)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" -20 -- bin/ingest bin/obs .claude/skills/context)
+          fi
+          
+          echo "## Changes" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "$COMMITS" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Installation" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo '```bash' >> CHANGELOG.md
+          echo "cd bin/ingest && ./install.sh" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          
+          cat CHANGELOG.md
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Context Skill ${{ steps.version.outputs.version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

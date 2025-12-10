@@ -1,0 +1,18 @@
+{
+  "$schema": "./projects.schema.json",
+  "default": "work",
+  "projects": {
+    "work": {
+      "key": "INNOV",
+      "url": "https://your-work-instance.atlassian.net",
+      "description": "Innovation project",
+      "envPrefix": "JIRA_WORK"
+    },
+    "personal": {
+      "key": "PERS",
+      "url": "https://your-personal-instance.atlassian.net",
+      "description": "Personal Jira",
+      "envPrefix": "JIRA_PERSONAL"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-DATE-020",
+    "capturedAt": "2025-12-05T05:01:59.391Z",
+    "capturedBy": "integration-setup",
+    "description": "Note filename uses document date"
+  },
+  "message": {
+    "message_id": 266,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910919,
+    "text": "[TEST-DATE-020] [date:2023-03-15] Meeting notes from March"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-020",
+    "capturedAt": "2025-12-05T05:16:17.861Z",
+    "capturedBy": "integration-setup",
+    "description": "iPhone clipboard via iOS shortcut"
+  },
+  "message": {
+    "message_id": 418,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764911777,
+    "document": {
+      "file_name": "Clipboard 3 Dec 2025 at 22.40.txt",
+      "mime_type": "text/plain",
+      "file_id": "BQACAgEAAyEGAATJrG2bAAIBomkyaqH1zF0B2RwK_sRvk0zxCy3uAAI6BgACU-KQRfSpyue0QmVeNgQ",
+      "file_unique_id": "AgADOgYAAlPikEU",
+      "file_size": 4168
+    },
+    "caption": "[source:clipboard][device:iphone][user:testuser] DeepSeek-V3.2"
+  }
+}

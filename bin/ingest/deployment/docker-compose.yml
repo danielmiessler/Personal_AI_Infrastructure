@@ -1,0 +1,133 @@
+# Docker Compose for PAI Context Skill Development
+#
+# Services:
+#   cleanroom    - Clean environment for deployment validation
+#   test-runner  - Run test suites (unit, integration, CLI)
+#   mock-telegram - Mock Telegram Bot API for integration tests
+#   mock-openai   - Mock OpenAI API for integration tests
+#
+# Usage:
+#   # Validate deployment (quick smoke test)
+#   docker compose run --rm cleanroom validate
+#
+#   # Run unit tests
+#   docker compose run --rm test-runner unit
+#
+#   # Run all tests with mocks
+#   docker compose up -d mock-telegram mock-openai
+#   docker compose run --rm test-runner all
+#
+#   # Run with Claude Code (acceptance tests)
+#   docker compose run --rm -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY test-runner acceptance
+#
+#   # Interactive shell for debugging
+#   docker compose run --rm cleanroom shell
+
+version: '3.8'
+
+services:
+  # Clean room environment for deployment validation
+  cleanroom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount the repo (read-write for installs)
+      - ../../../:/pai/repo
+      # Mount test vault
+      - ./test-vault:/pai/vault:ro
+      # Persistent cache for faster rebuilds
+      - bun-cache:/root/.bun/install/cache
+      - node-modules-obs:/pai/repo/bin/obs/node_modules
+      - node-modules-ingest:/pai/repo/bin/ingest/node_modules
+    environment:
+      - OBSIDIAN_VAULT_PATH=/pai/vault
+      - PAI_DIR=/pai/repo
+      # Optional: pass through API keys for live tests
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    working_dir: /pai/repo
+
+  # Test runner with full mock support
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../../../:/pai/repo
+      - ./test-vault:/pai/vault
+      # Persistent caches
+      - bun-cache:/root/.bun/install/cache
+      - node-modules-obs:/pai/repo/bin/obs/node_modules
+      - node-modules-ingest:/pai/repo/bin/ingest/node_modules
+      # Test output persistence
+      - test-output:/pai/repo/bin/ingest/test/output
+    environment:
+      - OBSIDIAN_VAULT_PATH=/pai/vault
+      - PAI_DIR=/pai/repo
+      # Mock service URLs
+      - TELEGRAM_API_URL=http://mock-telegram:3000
+      - OPENAI_API_URL=http://mock-openai:3001
+      # API keys (optional, for live tests)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-mock-token}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID:--100TEST000001}
+    depends_on:
+      - mock-telegram
+      - mock-openai
+    command: ["all"]
+    working_dir: /pai/repo
+
+  # Mock Telegram Bot API
+  mock-telegram:
+    build:
+      context: ./mocks
+      dockerfile: Dockerfile.telegram
+    ports:
+      - "3100:3000"
+    environment:
+      - MOCK_FIXTURES_PATH=/fixtures
+
+  # Mock OpenAI API
+  mock-openai:
+    build:
+      context: ./mocks
+      dockerfile: Dockerfile.openai
+    ports:
+      - "3101:3001"
+
+  # Development shell with all tools (persistent)
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../../../:/pai/repo
+      - ./test-vault:/pai/vault
+      # Persistent caches
+      - bun-cache:/root/.bun/install/cache
+      - node-modules-obs:/pai/repo/bin/obs/node_modules
+      - node-modules-ingest:/pai/repo/bin/ingest/node_modules
+      - test-output:/pai/repo/bin/ingest/test/output
+      # Mount your local .env for convenience
+      - ${HOME}/.config/fabric/.env:/pai/config/.env:ro
+    environment:
+      - OBSIDIAN_VAULT_PATH=/pai/vault
+      - PAI_DIR=/pai/repo
+    stdin_open: true
+    tty: true
+    command: ["shell"]
+    working_dir: /pai/repo
+
+volumes:
+  # Persistent volumes for faster iteration
+  bun-cache:
+    name: pai-context-bun-cache
+  node-modules-obs:
+    name: pai-context-node-modules-obs
+  node-modules-ingest:
+    name: pai-context-node-modules-ingest
+  test-output:
+    name: pai-context-test-output
+

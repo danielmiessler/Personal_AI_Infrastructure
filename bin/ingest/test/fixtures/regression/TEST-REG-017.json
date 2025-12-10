@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-017",
+    "capturedAt": "2025-12-05T05:03:38.195Z",
+    "capturedBy": "integration-setup",
+    "description": "/article command on URL"
+  },
+  "message": {
+    "message_id": 296,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764911018,
+    "text": "[TEST-REG-017] /article https://example.com/long-article",
+    "entities": [
+      {
+        "offset": 15,
+        "length": 8,
+        "type": "bot_command"
+      },
+      {
+        "offset": 24,
+        "length": 32,
+        "type": "url"
+      }
+    ],
+    "link_preview_options": {
+      "url": "https://example.com/long-article"
+    }
+  }
+}

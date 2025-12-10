@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-SCOPE-004",
+    "capturedAt": "2025-12-05T05:01:31.959Z",
+    "capturedBy": "integration-setup",
+    "description": "This is personal natural language"
+  },
+  "message": {
+    "message_id": 255,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910891,
+    "text": "[TEST-SCOPE-004] This is personal. Blood pressure reading 120/80"
+  }
+}

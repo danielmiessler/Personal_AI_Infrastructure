@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-INGv2-134",
+    "capturedAt": "2025-12-05T05:04:37.811Z",
+    "capturedBy": "integration-setup",
+    "description": "Common words not detected"
+  },
+  "message": {
+    "message_id": 315,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764911077,
+    "audio": {
+      "duration": 10,
+      "file_name": "248 Franklin Rd 17.m4a",
+      "mime_type": "audio/mpeg",
+      "file_id": "CQACAgEAAyEFAATJrG2bAANvaS_UkcMSV0aLezMvNUrBmNOh184AAioGAAKVYoBFstZr-MlYiwE2BA",
+      "file_unique_id": "AgADKgYAApVigEU",
+      "file_size": 175358
+    }
+  }
+}

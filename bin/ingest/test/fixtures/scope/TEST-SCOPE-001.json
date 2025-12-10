@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-SCOPE-001",
+    "capturedAt": "2025-12-05T05:01:24.552Z",
+    "capturedBy": "integration-setup",
+    "description": "Explicit ~private sigil"
+  },
+  "message": {
+    "message_id": 252,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910884,
+    "text": "[TEST-SCOPE-001] ~private This is a personal health note"
+  }
+}

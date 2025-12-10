@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-009",
+    "capturedAt": "2025-12-05T05:03:00.968Z",
+    "capturedBy": "integration-setup",
+    "description": "PDF document extraction"
+  },
+  "message": {
+    "message_id": 286,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910980,
+    "document": {
+      "file_name": "RECEIPT - 20211108 - Regent Lawnmowers(Brushcutter) - HOUSE.pdf",
+      "mime_type": "application/pdf",
+      "thumbnail": {
+        "file_id": "AAMCAQADIQUABLyI864AA_5pL8tEAzwV3GsosGIl4HuuEBZ59AACbAYAAqNzgEWCj9inUvwnmAEAB20AAzYE",
+        "file_unique_id": "AQADbAYAAqNzgEVy",
+        "file_size": 18565,
+        "width": 232,
+        "height": 320
+      },
+      "thumb": {
+        "file_id": "AAMCAQADIQUABLyI864AA_5pL8tEAzwV3GsosGIl4HuuEBZ59AACbAYAAqNzgEWCj9inUvwnmAEAB20AAzYE",
+        "file_unique_id": "AQADbAYAAqNzgEVy",
+        "file_size": 18565,
+        "width": 232,
+        "height": 320
+      },
+      "file_id": "BQACAgEAAyEFAAS8iPOuAAP-aS_LRAM8FdxrKLBiJeB7rhAWefQAAmwGAAKjc4BFgo_Yp1L8J5g2BA",
+      "file_unique_id": "AgADbAYAAqNzgEU",
+      "file_size": 358433
+    },
+    "caption": "[TEST-REG-009]"
+  }
+}

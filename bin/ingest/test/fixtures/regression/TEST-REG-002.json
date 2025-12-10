@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-002",
+    "capturedAt": "2025-12-05T05:02:41.144Z",
+    "capturedBy": "integration-setup",
+    "description": "Text with metadata parsing"
+  },
+  "message": {
+    "message_id": 278,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910961,
+    "text": "[TEST-REG-002] [source:clipboard-share][device:iphone][user:testuser] Testing metadata extraction"
+  }
+}

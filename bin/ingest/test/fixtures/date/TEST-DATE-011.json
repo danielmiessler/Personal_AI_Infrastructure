@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-DATE-011",
+    "capturedAt": "2025-12-05T05:01:51.878Z",
+    "capturedBy": "integration-setup",
+    "description": "Dictated from last month"
+  },
+  "message": {
+    "message_id": 263,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910911,
+    "text": "[TEST-DATE-011] from last month Receipt for home supplies"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-VOICE-004",
+    "capturedAt": "2025-12-05T05:04:10.511Z",
+    "capturedBy": "integration-setup",
+    "description": "Voice with dictated date"
+  },
+  "message": {
+    "message_id": 309,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764911050,
+    "audio": {
+      "duration": 8,
+      "file_name": "248 Franklin Rd 12.m4a",
+      "mime_type": "audio/mpeg",
+      "file_id": "CQACAgEAAyEFAATJrG2bAANqaS_UGFZUlVgEv4BL9SucFEFsycsAAiQGAAKVYoBFq_7cQUGVK7M2BA",
+      "file_unique_id": "AgADJAYAApVigEU",
+      "file_size": 146022
+    }
+  }
+}

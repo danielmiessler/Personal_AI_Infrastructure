@@ -1,0 +1,51 @@
+{
+  "_meta": {
+    "testId": "TEST-INGv2-100",
+    "capturedAt": "2025-12-08T07:48:24.000Z",
+    "capturedBy": "manual-capture",
+    "description": "Archive with auto-naming"
+  },
+  "message": {
+    "message_id": 442,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1765180104,
+    "document": {
+      "file_name": "receipt.pdf",
+      "mime_type": "application/pdf",
+      "thumbnail": {
+        "file_id": "AAMCAQADIQUABMmsbZsAAgG5aTaCfS_sH8cBmAXiKkzZYMY_GFQAAsgHAAJAKLFFECWpKaOp64UBAAdtAAM2BA",
+        "file_unique_id": "AQADyAcAAkAosUVy",
+        "file_size": 11414,
+        "width": 232,
+        "height": 320
+      },
+      "thumb": {
+        "file_id": "AAMCAQADIQUABMmsbZsAAgG5aTaCfS_sH8cBmAXiKkzZYMY_GFQAAsgHAAJAKLFFECWpKaOp64UBAAdtAAM2BA",
+        "file_unique_id": "AQADyAcAAkAosUVy",
+        "file_size": 11414,
+        "width": 232,
+        "height": 320
+      },
+      "file_id": "BQACAgEAAyEFAATJrG2bAAIBuWk2gn0v7B_HAZgF4ipM2WDGPxhUAALIBwACQCixRRAlqSmjqeuFNgQ",
+      "file_unique_id": "AgADyAcAAkAosUU",
+      "file_size": 366775
+    },
+    "caption": "[TEST-INGv2-100] /archive [type:RECEIPT][category:CABIN] Bunnings Timber, Polystyrene, Concrete $470.36",
+    "caption_entities": [
+      {
+        "offset": 17,
+        "length": 8,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

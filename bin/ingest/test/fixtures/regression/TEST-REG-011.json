@@ -1,0 +1,60 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-011",
+    "capturedAt": "2025-12-05T05:03:13.348Z",
+    "capturedBy": "integration-setup",
+    "description": "Mermaid extraction /mermaid"
+  },
+  "message": {
+    "message_id": 291,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910993,
+    "photo": [
+      {
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAANzAAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEV4",
+        "file_size": 971,
+        "width": 90,
+        "height": 67
+      },
+      {
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAANtAAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEVy",
+        "file_size": 22443,
+        "width": 320,
+        "height": 240
+      },
+      {
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAAN4AAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEV9",
+        "file_size": 146668,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "file_id": "AgACAgEAAyEFAAS8iPOuAAMJaS0LZZoNoeyq_wmeLSodx5kyMiEAAiMLaxtm9GhF_UOP962wB_oBAAMCAAN5AAM2BA",
+        "file_unique_id": "AQADIwtrG2b0aEV-",
+        "file_size": 402611,
+        "width": 1280,
+        "height": 960
+      }
+    ],
+    "caption": "[TEST-REG-011] /mermaid",
+    "caption_entities": [
+      {
+        "offset": 15,
+        "length": 8,
+        "type": "bot_command"
+      }
+    ]
+  }
+}

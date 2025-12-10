@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "testId": "TEST-ARC-001",
+    "capturedAt": "2025-12-05T05:02:12.364Z",
+    "capturedBy": "integration-setup",
+    "description": "Dictated archive intent"
+  },
+  "message": {
+    "message_id": 271,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910932,
+    "document": {
+      "file_name": "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
+      "mime_type": "application/pdf",
+      "thumbnail": {
+        "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
+        "file_unique_id": "AQADbgYAAqNzgEVy",
+        "file_size": 14541,
+        "width": 226,
+        "height": 320
+      },
+      "thumb": {
+        "file_id": "AAMCAQADIQUABLyI864AAgEBaS_L4QTXleaOwPMQdGuv67395cYAAm4GAAKjc4BFV3ieiHuBZkYBAAdtAAM2BA",
+        "file_unique_id": "AQADbgYAAqNzgEVy",
+        "file_size": 14541,
+        "width": 226,
+        "height": 320
+      },
+      "file_id": "BQACAgEAAyEFAAS8iPOuAAIBAWkvy-EE15XmjsDzEHRrr-u9_eXGAAJuBgACo3OARVd4noh7gWZGNgQ",
+      "file_unique_id": "AgADbgYAAqNzgEU",
+      "file_size": 361636
+    },
+    "caption": "[TEST-ARC-001] archive this lease agreement for the house"
+  }
+}

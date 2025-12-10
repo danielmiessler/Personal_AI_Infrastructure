@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-003",
+    "capturedAt": "2025-12-05T05:02:43.621Z",
+    "capturedBy": "integration-setup",
+    "description": "Mixed hints and metadata"
+  },
+  "message": {
+    "message_id": 279,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910963,
+    "text": "[TEST-REG-003] #project/pai @ed_overy [source:voice-memo][device:mac] Discussion about context",
+    "entities": [
+      {
+        "offset": 15,
+        "length": 8,
+        "type": "hashtag"
+      },
+      {
+        "offset": 28,
+        "length": 9,
+        "type": "mention"
+      }
+    ]
+  }
+}

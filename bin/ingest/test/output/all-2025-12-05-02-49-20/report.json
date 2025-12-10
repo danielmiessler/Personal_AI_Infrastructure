@@ -1,0 +1,368 @@
+{
+  "runId": "all-2025-12-05-02-49-20",
+  "layer": "unit",
+  "startedAt": "2025-12-05T02:49:20.623Z",
+  "completedAt": "2025-12-05T02:52:44.512Z",
+  "duration": 203880,
+  "counts": {
+    "total": 49,
+    "passed": 49,
+    "failed": 0,
+    "skipped": 28
+  },
+  "passRate": 100,
+  "tests": [
+    {
+      "id": "TEST-SCOPE-001",
+      "name": "Explicit ~private sigil",
+      "category": "scope",
+      "passed": true,
+      "duration": 4423
+    },
+    {
+      "id": "TEST-SCOPE-002",
+      "name": "Explicit ~work sigil",
+      "category": "scope",
+      "passed": true,
+      "duration": 5729
+    },
+    {
+      "id": "TEST-SCOPE-003",
+      "name": "Dictated scope - spoken 'scope private'",
+      "category": "scope",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-SCOPE-004",
+      "name": "Dictated scope - 'this is personal'",
+      "category": "scope",
+      "passed": true,
+      "duration": 5433
+    },
+    {
+      "id": "TEST-SCOPE-005",
+      "name": "Dictated scope - 'for work'",
+      "category": "scope",
+      "passed": true,
+      "duration": 5776
+    },
+    {
+      "id": "TEST-SCOPE-006",
+      "name": "Archive pipeline auto-private",
+      "category": "scope",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-SCOPE-007",
+      "name": "Receipt pipeline auto-private",
+      "category": "scope",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-DATE-001",
+      "name": "ISO date format [date:YYYY-MM-DD]",
+      "category": "date",
+      "passed": true,
+      "duration": 3
+    },
+    {
+      "id": "TEST-DATE-002",
+      "name": "Slash date format [date:DD/MM/YYYY]",
+      "category": "date",
+      "passed": true,
+      "duration": 3
+    },
+    {
+      "id": "TEST-DATE-003",
+      "name": "Short year format [date:DD/MM/YY]",
+      "category": "date",
+      "passed": true,
+      "duration": 3
+    },
+    {
+      "id": "TEST-DATE-010",
+      "name": "Dictated 'dated 15th June'",
+      "category": "date",
+      "passed": true,
+      "duration": 5093
+    },
+    {
+      "id": "TEST-DATE-011",
+      "name": "Dictated 'from last month'",
+      "category": "date",
+      "passed": true,
+      "duration": 3
+    },
+    {
+      "id": "TEST-DATE-012",
+      "name": "Dictated 'from yesterday'",
+      "category": "date",
+      "passed": true,
+      "duration": 5892
+    },
+    {
+      "id": "TEST-DATE-013",
+      "name": "Dictated ISO format 'date 2024-06-15'",
+      "category": "date",
+      "passed": true,
+      "duration": 4
+    },
+    {
+      "id": "TEST-DATE-020",
+      "name": "Note filename uses document date",
+      "category": "date",
+      "passed": true,
+      "duration": 4587
+    },
+    {
+      "id": "TEST-DATE-021",
+      "name": "Archive uses document date",
+      "category": "date",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-DATE-022",
+      "name": "Note without date uses today",
+      "category": "date",
+      "passed": true,
+      "duration": 5238
+    },
+    {
+      "id": "TEST-INGv2-100",
+      "name": "Archive with auto-naming",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-INGv2-101",
+      "name": "Pre-named file preserved",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-ARC-001",
+      "name": "Dictated archive intent",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-ARC-002",
+      "name": "Dictated receipt intent",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-ARC-003",
+      "name": "Dictated archive with contract detection",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-ARC-004",
+      "name": "Dictated archive with certificate detection",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-ARC-005",
+      "name": "Vision AI document type detection",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-ARC-010",
+      "name": "Archive creates markdown with Dropbox link",
+      "category": "archive",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-001",
+      "name": "Simple text message",
+      "category": "regression",
+      "passed": true,
+      "duration": 4629
+    },
+    {
+      "id": "TEST-REG-002",
+      "name": "Text with metadata parsing",
+      "category": "regression",
+      "passed": true,
+      "duration": 4794
+    },
+    {
+      "id": "TEST-REG-003",
+      "name": "Mixed hints and metadata",
+      "category": "regression",
+      "passed": true,
+      "duration": 6953
+    },
+    {
+      "id": "TEST-REG-004",
+      "name": "URL extraction via Jina AI",
+      "category": "regression",
+      "passed": true,
+      "duration": 54369
+    },
+    {
+      "id": "TEST-REG-005a",
+      "name": "Voice memo with caption hints (Wispr Flow)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-005b",
+      "name": "Voice memo with spoken hints (no caption)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-007",
+      "name": "Photo with Vision AI (default)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-008",
+      "name": "Photo with custom prompt",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-011",
+      "name": "Mermaid extraction with /mermaid command",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-012",
+      "name": "Mermaid extraction with dictated intent",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-009",
+      "name": "PDF archive (default, no OCR)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-010a",
+      "name": "DOCX plain extraction (no wisdom)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-020",
+      "name": "iPhone clipboard via iOS shortcut",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-EMB-001",
+      "name": "New note is searchable via semantic",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-REG-014",
+      "name": "Events notification format",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-PAT-001",
+      "name": "/meeting-notes pattern command",
+      "category": "regression",
+      "passed": true,
+      "duration": 25688
+    },
+    {
+      "id": "TEST-PAT-002",
+      "name": "/summarize pattern command",
+      "category": "regression",
+      "passed": true,
+      "duration": 10297
+    },
+    {
+      "id": "TEST-PAT-003",
+      "name": "/wisdom pattern command",
+      "category": "regression",
+      "passed": true,
+      "duration": 44702
+    },
+    {
+      "id": "TEST-PHOTO-001",
+      "name": "/describe photo command",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-PHOTO-002",
+      "name": "/ocr photo command (Tesseract)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-PHOTO-003",
+      "name": "/store photo command (no processing)",
+      "category": "regression",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-TAG-001",
+      "name": "Fuzzy matching spoken hashtag to existing vault tag",
+      "category": "tag-matching",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-TAG-002",
+      "name": "Fuzzy matching spoken person to existing vault tag",
+      "category": "tag-matching",
+      "passed": true,
+      "duration": 0
+    },
+    {
+      "id": "TEST-TAG-003",
+      "name": "Caption tags are deterministic (no fuzzy matching)",
+      "category": "tag-matching",
+      "passed": true,
+      "duration": 10261
+    }
+  ],
+  "comparison": {
+    "previousRunId": "run-2025-12-05-02-42-13",
+    "delta": {
+      "passed": 0,
+      "failed": 0
+    },
+    "newFailures": [],
+    "fixed": []
+  }
+}

@@ -69,6 +69,10 @@ async function main() {
       .replace(/\{\{DA_COLOR\}\}/g, daColor)
       .replace(/\{\{ENGINEER_NAME\}\}/g, engineerName);
 
+    // Replace ${PAI_DIR} with actual path for skill routing
+    // This allows CORE skill to reference other skills with resolvable paths
+    coreContent = coreContent.replace(/\$\{PAI_DIR\}/g, PAI_DIR);
+
     console.error(`✅ Read ${coreContent.length} characters from CORE SKILL.md (Personalized for ${engineerName} & ${daName})`);
 
     // Output the CORE content as a system-reminder

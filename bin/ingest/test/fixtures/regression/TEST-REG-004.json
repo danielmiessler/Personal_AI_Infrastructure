@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-004",
+    "capturedAt": "2025-12-05T05:02:46.108Z",
+    "capturedBy": "integration-setup",
+    "description": "URL extraction via Jina AI"
+  },
+  "message": {
+    "message_id": 280,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910966,
+    "text": "[TEST-REG-004] https://www.anthropic.com/news/claude-4",
+    "entities": [
+      {
+        "offset": 15,
+        "length": 39,
+        "type": "url"
+      }
+    ],
+    "link_preview_options": {
+      "url": "https://www.anthropic.com/news/claude-4"
+    }
+  }
+}

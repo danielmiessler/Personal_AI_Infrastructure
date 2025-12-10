@@ -1,0 +1,53 @@
+{
+  "_meta": {
+    "testId": "TEST-REG-007",
+    "capturedAt": "2025-12-05T05:02:56.020Z",
+    "capturedBy": "integration-setup",
+    "description": "Photo with Vision AI default"
+  },
+  "message": {
+    "message_id": 284,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910975,
+    "photo": [
+      {
+        "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANzAAM2BA",
+        "file_unique_id": "AQADHAtrG6NzgEV4",
+        "file_size": 1116,
+        "width": 67,
+        "height": 90
+      },
+      {
+        "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAANtAAM2BA",
+        "file_unique_id": "AQADHAtrG6NzgEVy",
+        "file_size": 13553,
+        "width": 240,
+        "height": 320
+      },
+      {
+        "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAAN4AAM2BA",
+        "file_unique_id": "AQADHAtrG6NzgEV9",
+        "file_size": 61686,
+        "width": 600,
+        "height": 800
+      },
+      {
+        "file_id": "AgACAgEAAyEGAAS8iPOuAAP7aS_CT0dejHjDqcCkGiEUk0Fi2JMAAhwLaxujc4BFmiM5rYnWItEBAAMCAAN5AAM2BA",
+        "file_unique_id": "AQADHAtrG6NzgEV-",
+        "file_size": 133077,
+        "width": 960,
+        "height": 1280
+      }
+    ],
+    "caption": "[TEST-REG-007]"
+  }
+}

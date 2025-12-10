@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "testId": "TEST-DATE-010",
+    "capturedAt": "2025-12-05T05:01:49.377Z",
+    "capturedBy": "integration-setup",
+    "description": "Dictated dated 15th June"
+  },
+  "message": {
+    "message_id": 262,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764910909,
+    "text": "[TEST-DATE-010] dated 15th June This is an old document"
+  }
+}

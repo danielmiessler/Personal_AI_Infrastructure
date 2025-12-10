@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-TAG-003",
+    "capturedAt": "2025-12-05T05:04:43.190Z",
+    "capturedBy": "integration-setup",
+    "description": "Caption tags are deterministic"
+  },
+  "message": {
+    "message_id": 317,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764911083,
+    "text": "[TEST-TAG-003] #nonexistent_tag_xyz Testing caption tag",
+    "entities": [
+      {
+        "offset": 15,
+        "length": 20,
+        "type": "hashtag"
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "testId": "TEST-INGv2-130",
+    "capturedAt": "2025-12-05T05:04:15.456Z",
+    "capturedBy": "integration-setup",
+    "description": "Spoken hashtag detection"
+  },
+  "message": {
+    "message_id": 311,
+    "sender_chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "chat": {
+      "id": -1003383520667,
+      "title": "PAI Test Cases",
+      "type": "channel"
+    },
+    "date": 1764911055,
+    "audio": {
+      "duration": 9,
+      "file_name": "248 Franklin Rd 14.m4a",
+      "mime_type": "audio/mpeg",
+      "file_id": "CQACAgEAAyEFAATJrG2bAANsaS_URtWZA4qARKZeFJQHCDsbp6EAAiYGAAKVYoBFrfXonWQkiNg2BA",
+      "file_unique_id": "AgADJgYAApVigEU",
+      "file_size": 155841
+    }
+  }
+}

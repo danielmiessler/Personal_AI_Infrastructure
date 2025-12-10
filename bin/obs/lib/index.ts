@@ -281,7 +281,7 @@ export function formatIndexJson(
 }
 
 function formatHeader(): string {
-  return " #  │ Date       │ Type       │ Title                                    │ Tags";
+  return " #  │ Date       │ Type       │ Title                                              │ Tags";
 }
 
 function formatSemanticHeader(): string {
@@ -296,22 +296,61 @@ const SYSTEM_TAGS = new Set([
   "fabric-extraction",
 ]);
 
+// Column widths for consistent formatting
+const TITLE_WIDTH = 50;
+const TAG_LINE_WIDTH = 50;
+
 function formatResultRow(result: IndexedResult): string {
   const num = result.index.toString().padStart(2);
   const date = result.date;
   const type = result.type.padEnd(10);
-  const title = truncate(result.name.replace(/^[\d-]+/, "").trim() || result.name, 40).padEnd(40);
+  const title = truncate(result.name.replace(/^[\d-]+/, "").trim() || result.name, TITLE_WIDTH).padEnd(TITLE_WIDTH);
 
   // Filter out system tags to show user-meaningful tags
   const userTags = result.tags.filter(t => !SYSTEM_TAGS.has(t));
-  const displayTags = userTags.slice(0, 3).map(t => {
+  const displayTags = userTags.map(t => {
     // Shorten project/ prefix for display
     if (t.startsWith("project/")) return t.replace("project/", "p/");
     return t;
   });
-  const tags = truncate(displayTags.join(", "), 35);
 
-  return `${num}  │ ${date} │ ${type} │ ${title} │ ${tags}`;
+  // Wrap tags into multiple lines if needed
+  const tagLines = wrapTags(displayTags, TAG_LINE_WIDTH);
+  const firstLine = `${num}  │ ${date} │ ${type} │ ${title} │ ${tagLines[0] || ""}`;
+
+  if (tagLines.length <= 1) {
+    return firstLine;
+  }
+
+  // Additional lines for overflow tags (indented to align with Tags column)
+  const indent = "    │            │            │                                                    │ ";
+  const extraLines = tagLines.slice(1).map(line => indent + line);
+  return [firstLine, ...extraLines].join("\n");
+}
+
+/**
+ * Wrap tags into lines that fit within maxWidth
+ */
+function wrapTags(tags: string[], maxWidth: number): string[] {
+  if (tags.length === 0) return [""];
+
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const tag of tags) {
+    const separator = currentLine ? ", " : "";
+    const addition = separator + tag;
+
+    if (currentLine.length + addition.length <= maxWidth) {
+      currentLine += addition;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = tag;
+    }
+  }
+
+  if (currentLine) lines.push(currentLine);
+  return lines;
 }
 
 function formatSemanticRow(result: IndexedResult): string {

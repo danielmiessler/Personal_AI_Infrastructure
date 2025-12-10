@@ -3,10 +3,12 @@ name: context
 description: |
   Knowledge Management - Capture and retrieve from Obsidian vault.
 
+  🚫 NEVER AUTO-LOAD: After search, STOP and wait for user to select items. NEVER run `obs load` in same turn as search.
+
   USE WHEN: "what context do we have on X", "what do I know about Y", "find notes about Z",
   "load context for project", "search vault", "save note", "capture this", "ingest".
 
-  Two-phase retrieval: SEARCH (discovery) → LOAD (injection)
+  Two-phase retrieval: SEARCH (show index, wait) → LOAD (only when user requests)
 ---
 
 # Context Skill (Knowledge Layer)
@@ -19,12 +21,17 @@ description: |
 
 **When user asks about context on a topic or project:**
 Examples: "what context do we have on X", "what do I know about Y", "background on project Z", "find notes about X", "search for X", "Context #project/X", "Context #tag"
-→ **READ:** `${PAI_DIR}/.claude/skills/context/workflows/semantic-search.md`
 → **EXECUTE:** **TWO-TURN WORKFLOW:**
-   1. Run search with `--format index`, present results as table
-   2. **STOP IMMEDIATELY** - respond with ONLY the results table and "Which to load?"
-   3. **DO NOT** continue with full response format - keep response minimal
-   4. **WAIT** for user response before loading
+   1. Run `obs search` or `obs semantic` with `--format index`
+   2. Present results as table
+   3. **STOP AND WAIT FOR USER INPUT**
+   4. **DO NOT RUN `obs load` UNTIL USER EXPLICITLY REQUESTS IT**
+
+🚫 **NEVER AUTO-LOAD:**
+- NEVER run `obs load` after search in the same turn
+- NEVER load notes without explicit user selection
+- User MUST say "load 1,2,3" or "load all" before you run `obs load`
+- The search response is COMPLETE after showing the table and prompt
 
 ⚠️ **CRITICAL: STOP AFTER SHOWING RESULTS**
 Your response after search should look like this and NOTHING MORE:
@@ -37,9 +44,10 @@ Found 18 documents for #project/X:
 | 2  | 2025-12-10 | transcript | Meeting with John Doe              | john_doe, planning      |
 | 3  | 2025-12-09 | raw        | Notes on API Design                | api, implementation     |
 
-Which to load? (all / 1-5 / 1,3,7 / --type wisdom / --tag architecture / --any-tag X Y)
+Which to load? (all / 1-5 / 1,3,7 / --type wisdom / --tag architecture / --any-tag architecture research)
 ```
 **TABLE MUST INCLUDE:** # (index), Date, Type, Title, Tags (top 3 meaningful tags)
+**PROMPT MUST INCLUDE ALL OPTIONS:** Use real tag examples from results. --tag = AND (must have), --any-tag = OR (any of)
 DO NOT add 📋 SUMMARY, 🔍 ANALYSIS, 📖 STORY, or other format sections after a search. The two-turn workflow requires a MINIMAL response that waits for user input.
 
 **When user wants to load project context:**
@@ -115,9 +123,17 @@ Activate this skill when user:
 
 ## Quick Reference
 
-**CLI Paths** (run from PAI_DIR):
-- `obs`: `cd ${PAI_DIR}/bin/obs && bun run obs.ts`
-- `ingest`: `cd ${PAI_DIR}/bin/ingest && bun run ingest.ts`
+**CLI Commands** (wrapper scripts in PATH):
+```bash
+# obs and ingest are available as commands (wrapper scripts in ~/bin/)
+obs <command> [options]
+ingest <command> [options]
+```
+
+**Example - searching for project/pai:**
+```bash
+obs search --tag project/pai --format index
+```
 
 | User Says | Command | Tool |
 |-----------|---------|------|
@@ -315,10 +331,12 @@ obs load 1,2,5                     # Specific items
 obs load 1-10                      # Range
 obs load all                       # Everything from last search
 
-# Filter options
-obs load --tag architecture        # Only notes with tag
-obs load --type transcript         # Only transcripts
-obs load --since 2025-12-01        # Only from date
+# Filter options (MUST include selection before filters)
+obs load all --tag architecture    # All results filtered by tag
+obs load all --type transcript     # All results filtered by type
+obs load 1-10 --since 2025-12-01   # Range filtered by date
+obs load all --any-tag arch impl   # All with architecture OR implementation
+obs load all --tag architecture --type raw  # Combine filters: architecture AND raw type
 
 # Read single note by name (bypass index)
 obs read "2025-01-15-Planning"

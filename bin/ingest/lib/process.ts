@@ -339,6 +339,10 @@ const FABRIC_PATTERN_COMMANDS: Record<string, string> = {
   // NOTE: /1on1 is NOT here - use #1on1 as a tag instead
   "meeting-notes": "meeting_minutes",
   "meeting": "meeting_minutes",
+
+  // Content extraction patterns (for web content cleaning)
+  "extract-content": "extract_page_content",
+  "clean": "extract_page_content",
 };
 
 /**

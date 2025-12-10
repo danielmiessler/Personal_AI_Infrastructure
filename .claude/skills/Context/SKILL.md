@@ -46,6 +46,12 @@ Examples: "load context for project X", "get context for PAI", "load project con
 Examples: "save this to vault", "capture this", "ingest this", "save note"
 → **EXECUTE:** Use `ingest direct` command (no workflow file needed)
 
+**When user wants to capture a URL to vault:**
+Examples: "capture this URL", "save this page to vault", "ingest this link"
+→ **EXECUTE:** `fabric -u "<URL>" | ingest direct --tags "<tags>" /extract-content -`
+→ **SKILLS:** Fabric (URL extraction via Jina) → Context (pipeline applies `extract_page_content` pattern)
+→ **AUTO-TAG:** If <3 tags provided, ingest pipeline applies AI tags automatically
+
 **When user selects items to load (after a search):**
 Examples: "load 1,2,5", "load all", "load transcripts", "1,2,5", "all"
 → **EXECUTE:** `obs load <selection>` command - this is Turn 2 of the workflow

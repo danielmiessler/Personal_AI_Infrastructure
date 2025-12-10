@@ -31,10 +31,15 @@ Your response after search should look like this and NOTHING MORE:
 ```
 Found 18 documents for #project/X:
 
-[table of results]
+| #  | Date       | Type       | Title                              | Tags                    |
+|----|------------|------------|------------------------------------|-------------------------|
+| 1  | 2025-12-10 | wisdom     | Architecture Review Session        | architecture, security  |
+| 2  | 2025-12-10 | transcript | Meeting with John Doe              | john_doe, planning      |
+| 3  | 2025-12-09 | raw        | Notes on API Design                | api, implementation     |
 
 Which to load? (all / 1-5 / 1,3,7 / --type wisdom / --tag architecture / --any-tag X Y)
 ```
+**TABLE MUST INCLUDE:** # (index), Date, Type, Title, Tags (top 3 meaningful tags)
 DO NOT add 📋 SUMMARY, 🔍 ANALYSIS, 📖 STORY, or other format sections after a search. The two-turn workflow requires a MINIMAL response that waits for user input.
 
 **When user wants to load project context:**

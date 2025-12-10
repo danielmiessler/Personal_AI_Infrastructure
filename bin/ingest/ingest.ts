@@ -754,11 +754,15 @@ async function handleDirect(
   // Format: [source:cli][device:mac][user:andreas] /pipeline #tags ~scope [date:...] content
   const captionParts: string[] = [];
 
-  // Source metadata (same format as iOS shortcuts)
+  // Source metadata (same format as iOS shortcuts, normalized to lowercase)
   captionParts.push("[source:cli]");
-  captionParts.push("[device:mac]");
-  // Get username from environment
-  const user = process.env.USER || process.env.USERNAME || "unknown";
+
+  // Get device model dynamically (matches iOS shortcut "Get Device Model")
+  const deviceModel = await getDeviceModel();
+  captionParts.push(`[device:${deviceModel.toLowerCase()}]`);
+
+  // Get username from environment (lowercase)
+  const user = (process.env.USER || process.env.USERNAME || "unknown").toLowerCase();
   captionParts.push(`[user:${user}]`);
 
   // Pipeline command (e.g., /archive, /wisdom)
@@ -879,6 +883,34 @@ async function handleDirect(
   } catch (error) {
     console.error(`\n❌ Error: ${error instanceof Error ? error.message : error}`);
     process.exit(1);
+  }
+}
+
+/**
+ * Get device model dynamically (matches iOS shortcut "Get Device Model")
+ * On macOS: Returns model name like "MacBook Pro" or "Mac mini"
+ * On Linux: Returns hostname or "Linux"
+ */
+async function getDeviceModel(): Promise<string> {
+  try {
+    // macOS: Use system_profiler to get human-readable model name
+    if (process.platform === "darwin") {
+      const proc = Bun.spawn(["system_profiler", "SPHardwareDataType"], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const output = await new Response(proc.stdout).text();
+      // Parse "Model Name: MacBook Pro" from output
+      const match = output.match(/Model Name:\s*(.+)/);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+    // Fallback: use hostname
+    const { hostname } = await import("os");
+    return hostname() || process.platform;
+  } catch {
+    return process.platform === "darwin" ? "Mac" : process.platform;
   }
 }
 

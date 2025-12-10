@@ -1,0 +1,15 @@
+{
+  "name": "pai-jira",
+  "version": "1.0.0",
+  "description": "Jira CLI for PAI - Search, create, and manage Jira issues",
+  "type": "module",
+  "main": "jira.ts",
+  "scripts": {
+    "start": "bun run jira.ts",
+    "test": "bun test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

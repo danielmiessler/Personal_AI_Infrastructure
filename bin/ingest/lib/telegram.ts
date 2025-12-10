@@ -100,7 +100,8 @@ export function isFromInbox(message: TelegramMessage, useTestChannel = false): b
  */
 export async function sendToInbox(text: string): Promise<TelegramMessage> {
   const config = getConfig();
-  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
+  // Use sender token (same bot as iOS shortcuts)
+  const url = `https://api.telegram.org/bot${config.telegramSenderBotToken}/sendMessage`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -127,7 +128,8 @@ export async function sendPhotoToInbox(
   caption?: string
 ): Promise<TelegramMessage> {
   const config = getConfig();
-  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendPhoto`;
+  // Use sender token (same bot as iOS shortcuts)
+  const url = `https://api.telegram.org/bot${config.telegramSenderBotToken}/sendPhoto`;
 
   const formData = new FormData();
   formData.append("chat_id", config.telegramChannelId);
@@ -157,7 +159,8 @@ export async function sendDocumentToInbox(
   caption?: string
 ): Promise<TelegramMessage> {
   const config = getConfig();
-  const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendDocument`;
+  // Use sender token (same bot as iOS shortcuts)
+  const url = `https://api.telegram.org/bot${config.telegramSenderBotToken}/sendDocument`;
 
   const formData = new FormData();
   formData.append("chat_id", config.telegramChannelId);

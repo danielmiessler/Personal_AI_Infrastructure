@@ -8,7 +8,8 @@ import { join } from "path";
 import { homedir } from "os";
 
 export interface IngestConfig {
-  telegramBotToken: string;
+  telegramBotToken: string;        // For reading/polling (watch command)
+  telegramSenderBotToken: string;  // For sending (direct command, notifications)
   telegramChannelId: string;
   telegramOutboxId?: string;  // Optional channel for notifications/results
   // Test channel overrides (for test isolation)
@@ -87,6 +88,12 @@ export function getConfig(): IngestConfig {
   const telegramBotToken =
     process.env.TELEGRAM_BOT_TOKEN || env.TELEGRAM_BOT_TOKEN || "";
 
+  // Sender token for direct command and notifications (falls back to bot token)
+  const telegramSenderBotToken =
+    process.env.TELEGRAM_SENDER_BOT_TOKEN ||
+    env.TELEGRAM_SENDER_BOT_TOKEN ||
+    telegramBotToken;
+
   const telegramChannelId =
     process.env.TELEGRAM_CHANNEL_ID || env.TELEGRAM_CHANNEL_ID || "";
 
@@ -139,6 +146,7 @@ export function getConfig(): IngestConfig {
 
   cachedConfig = {
     telegramBotToken,
+    telegramSenderBotToken,
     telegramChannelId,
     telegramOutboxId,
     testTelegramChannelId,

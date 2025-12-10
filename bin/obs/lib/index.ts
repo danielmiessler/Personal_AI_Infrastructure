@@ -65,6 +65,15 @@ function filterDisplayTags(tags: string[]): string[] {
     /^transcript$/,       // Already shown in Type column
     /^meeting-notes$/,    // Already shown in Type column
     /^wisdom$/,           // Already shown in Type column
+    // Metadata pollution: these belong in source_shortcut, source_device, source_user fields
+    /^cli$/,
+    /^mac-studio$/,
+    /^mac$/,
+    /^iphone$/,
+    /^andreas$/,
+    /^magdalena$/,
+    /^clipboard$/,
+    /^clipboard-share$/,
   ];
   
   // Filter and prioritize

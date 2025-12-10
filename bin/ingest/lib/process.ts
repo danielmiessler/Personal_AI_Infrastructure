@@ -1165,6 +1165,23 @@ export async function processMessage(
       const aiResult = await generateAITags(rawContent, config.openaiApiKey, existingTags);
       aiTags = aiResult.tags;
       references = aiResult.references;
+
+      // Filter out metadata values from AI tags (these belong in metadata fields, not tags)
+      // source_shortcut, source_device, source_user are stored separately
+      const metadataValues = [
+        hints.metadata.source,
+        hints.metadata.device,
+        hints.metadata.user,
+      ].filter(Boolean).map(v => v!.toLowerCase().replace(/\s+/g, "-"));
+
+      if (metadataValues.length > 0) {
+        const beforeCount = aiTags.length;
+        aiTags = aiTags.filter(tag => !metadataValues.includes(tag.toLowerCase()));
+        const filtered = beforeCount - aiTags.length;
+        if (filtered > 0) {
+          console.log(`    Filtered ${filtered} metadata-derived tag(s) from AI suggestions`);
+        }
+      }
     } catch (err) {
       console.warn(`  AI tag generation failed: ${err}`);
     }

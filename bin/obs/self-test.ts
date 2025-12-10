@@ -392,7 +392,7 @@ async function runTests(): Promise<void> {
     const testCaptions = [
       "[source:clipboard][device:iphone] Test message",
       "/archive [type:RECEIPT][category:HOME] Receipt from store",
-      "#tag @person /note [user:andreas]",
+      "#tag @person /note [user:testuser]",
     ];
 
     const metadataPattern = /\[([a-zA-Z_]+):([^\]]+)\]/g;
@@ -501,8 +501,8 @@ async function runTests(): Promise<void> {
   }
 
   // Test 22: whisper-cpp availability (for voice transcription)
-  const whisperBin = "/Users/andreas/Documents/src/whisper.cpp/whisper-cpp";
-  const whisperModelDir = "/Users/andreas/Documents/src/whisper.cpp/models";
+  const whisperBin = process.env.WHISPER_CPP_PATH || join(homedir(), "whisper.cpp", "whisper-cpp");
+  const whisperModelDir = process.env.WHISPER_MODEL_DIR || join(homedir(), "whisper.cpp", "models");
   if (existsSync(whisperBin)) {
     const hasLargeV3 = existsSync(join(whisperModelDir, "ggml-large-v3.bin"));
     const hasMedium = existsSync(join(whisperModelDir, "ggml-medium.bin"));

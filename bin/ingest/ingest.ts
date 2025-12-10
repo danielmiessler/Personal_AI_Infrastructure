@@ -751,7 +751,7 @@ async function handleDirect(
   }
 
   // Build caption with metadata tags (like iOS shortcuts)
-  // Format: [source:cli][device:mac][user:andreas] /pipeline #tags ~scope [date:...] content
+  // Format: [source:cli][device:mac][user:testuser] /pipeline #tags ~scope [date:...] content
   const captionParts: string[] = [];
 
   // Source metadata (same format as iOS shortcuts, normalized to lowercase)

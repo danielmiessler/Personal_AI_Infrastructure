@@ -258,7 +258,7 @@ export const attachPipelineSpecs: TestSpec[] = [
     input: {
       type: "document",
       description: "Document with [source:file] metadata - should NOT trigger archive",
-      caption: "[source:file][device:mac][user:andreas] #project/test",
+      caption: "[source:file][device:mac][user:testuser] #project/test",
       filename: "CONTRACT_20220601_Southern_Cross_Certificate_of_Insurance,_Travel.pdf",
     },
     expected: {

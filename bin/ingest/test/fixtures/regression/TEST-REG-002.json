@@ -18,6 +18,6 @@
       "type": "channel"
     },
     "date": 1764910961,
-    "text": "[TEST-REG-002] [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction"
+    "text": "[TEST-REG-002] [source:clipboard-share][device:iphone][user:testuser] Testing metadata extraction"
   }
 }

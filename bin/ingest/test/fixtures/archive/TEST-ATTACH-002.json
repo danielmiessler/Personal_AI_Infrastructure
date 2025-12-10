@@ -39,7 +39,7 @@
       "file_unique_id": "AgADbgYAAqNzgEU",
       "file_size": 361636
     },
-    "caption": "[TEST-ATTACH-002] [source:file][device:mac][user:andreas] #project/test",
+    "caption": "[TEST-ATTACH-002] [source:file][device:mac][user:testuser] #project/test",
     "caption_entities": [
       {
         "offset": 58,

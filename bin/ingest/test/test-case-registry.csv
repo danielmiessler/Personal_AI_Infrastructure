@@ -25,9 +25,9 @@ TEST-ARC-004,archive,Certificate detection,document,yes,[TEST-ARC-004] my medica
 TEST-ARC-005,archive,Vision AI document type detection,photo,yes,[TEST-ARC-005] /archive,[REUSES TEST-ARC-002] Invoice photo,ready,133KB invoice photo for Vision AI
 TEST-ARC-010,archive,Markdown with Dropbox link,document,yes,[TEST-ARC-010] /archive Work document,[REUSES TEST-INGv2-100] Receipt PDF,ready,358KB receipt PDF
 TEST-ATTACH-001,archive,Default document pipeline is attach,document,yes,"[TEST-ATTACH-001] #project/pai Meeting transcript",[REUSES TEST-REG-010a] meeting-notes.docx,pending,DOCX file - tests default attach pipeline
-TEST-ATTACH-002,archive,Metadata tags don't trigger archive,document,yes,"[TEST-ATTACH-002] [source:file][device:mac][user:andreas] #project/test",[REUSES TEST-INGv2-101] Contract PDF,pending,Tests bug fix - metadata tags shouldn't trigger archive
+TEST-ATTACH-002,archive,Metadata tags don't trigger archive,document,yes,"[TEST-ATTACH-002] [source:file][device:mac][user:testuser] #project/test",[REUSES TEST-INGv2-101] Contract PDF,pending,Tests bug fix - metadata tags shouldn't trigger archive
 TEST-REG-001,regression,Simple text message,text,no,[TEST-REG-001] Regression test: Simple text message without any metadata or hints,,ready,Text-only message
-TEST-REG-002,regression,Text with metadata parsing,text,no,"[TEST-REG-002] [source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction",,ready,Text-only message
+TEST-REG-002,regression,Text with metadata parsing,text,no,"[TEST-REG-002] [source:clipboard-share][device:iphone][user:testuser] Testing metadata extraction",,ready,Text-only message
 TEST-REG-003,regression,Mixed hints and metadata,text,no,"[TEST-REG-003] #project/pai @ed_overy [source:voice-memo][device:mac] Discussion about context",,ready,Text-only message
 TEST-REG-004,regression,URL extraction via Jina AI,url,no,[TEST-REG-004] https://www.anthropic.com/news/claude-4,,ready,URL as text message
 TEST-REG-005a,regression,Voice memo with caption hints,voice,yes,"[TEST-REG-005a] #project/test extract wisdom",[EXISTING] 248 Franklin Rd 7.m4a,ready,359KB voice with hashtag caption
@@ -67,7 +67,7 @@ TEST-INGv2-131,voice,Spoken person mention,voice,yes,,[TEST-INGv2-131],ready,at 
 TEST-INGv2-132,voice,Spoken archive command,voice,yes,,[TEST-INGv2-132],ready,forward slash archive spoken in audio
 TEST-INGv2-133,voice,Caption + spoken hints merged,voice,yes,"[TEST-INGv2-133] #project/pai",[TEST-INGv2-133],ready,Caption has tags + audio has more hints
 TEST-INGv2-134,voice,Common words not detected,voice,yes,,[TEST-INGv2-134],ready,at the meeting at least - should NOT detect mentions
-TEST-REG-020,regression,iPhone clipboard via iOS shortcut,document,yes,"[source:clipboard][device:iphone][user:andreas] DeepSeek-V3.2",assets/Clipboard 3 Dec 2025 at 22.40.txt,ready,Real HTML clipboard from iPhone via iOS Shortcut - 4KB
+TEST-REG-020,regression,iPhone clipboard via iOS shortcut,document,yes,"[source:clipboard][device:iphone][user:testuser] DeepSeek-V3.2",assets/Clipboard 3 Dec 2025 at 22.40.txt,ready,Real HTML clipboard from iPhone via iOS Shortcut - 4KB
 TEST-TAG-001,tag-matching,Fuzzy matching to vault tags,voice,yes,,[REUSES TEST-REG-005b] Voice with spoken hints,ready,Spoken project pai matches project/pai in vault
 TEST-TAG-002,tag-matching,Unmatched tags get pending-review,voice,yes,,[NEW] Voice with unknown tags,pending,Spoken tags not in vault get pending-review
 TEST-TAG-003,tag-matching,Caption tags are deterministic,text,no,"[TEST-TAG-003] #nonexistent_tag_xyz Testing caption tag",,ready,Caption hashtag kept as-is no fuzzy matching

@@ -831,7 +831,7 @@ function extractHints(text: string, spokenMode: boolean): InlineHints {
   }
 
   // Extract metadata: [key:value] pairs
-  // Supports: [source:clipboard-share][device:iphone][user:andreas]
+  // Supports: [source:clipboard-share][device:iphone][user:testuser]
   const metadataPattern = /\[([a-zA-Z_]+):([^\]]+)\]/g;
   let match;
   while ((match = metadataPattern.exec(workingText)) !== null) {

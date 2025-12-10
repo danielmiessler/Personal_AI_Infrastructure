@@ -84,6 +84,9 @@ save/
 # Test output (auto-generated)
 bin/ingest/test/output/
 
+# Personal configuration (use *.example.json as templates)
+.claude/skills/Context/tags.json
+
 # Keep .claude/skills/ and .claude/.env.example tracked
 !.claude/skills/
 !.claude/.env.example

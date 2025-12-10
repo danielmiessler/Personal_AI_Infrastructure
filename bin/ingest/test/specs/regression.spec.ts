@@ -45,7 +45,7 @@ export const regressionTextSpecs: TestSpec[] = [
     input: {
       type: "text",
       description: "Text with [key:value] metadata",
-      example: "[source:clipboard-share][device:iphone][user:andreas] Testing metadata extraction from iOS shortcut",
+      example: "[source:clipboard-share][device:iphone][user:testuser] Testing metadata extraction from iOS shortcut",
     },
     expected: {
       frontmatter: {
@@ -365,7 +365,7 @@ export const regressionDocSpecs: TestSpec[] = [
       type: "document",
       description: "Text file with HTML content shared from iPhone via iOS Shortcuts",
       filename: "Clipboard 3 Dec 2025 at 22.40.txt",
-      caption: "[source:clipboard][device:iphone][user:andreas]\nDeepSeek-V3.2 (5 minute read)",
+      caption: "[source:clipboard][device:iphone][user:testuser]\nDeepSeek-V3.2 (5 minute read)",
     },
     expected: {
       frontmatter: {
@@ -378,7 +378,7 @@ export const regressionDocSpecs: TestSpec[] = [
       semantic: {
         description: "iOS Shortcut clipboard sharing correctly processed with metadata extraction",
         checkpoints: [
-          "Metadata extracted from caption ([source:clipboard], [device:iphone], [user:andreas])",
+          "Metadata extracted from caption ([source:clipboard], [device:iphone], [user:testuser])",
           "HTML content converted to readable markdown or plain text",
           "Original content preserved (DeepSeek article reference intact)",
         ],

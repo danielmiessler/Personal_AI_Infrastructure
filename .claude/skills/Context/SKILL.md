@@ -88,7 +88,7 @@ Examples: "what did X say about Y", "summarize the meeting", "any follow-up task
     "index": 1,
     "title": "Project Methodology Preferences for Technical Architecture",
     "date": "2025-10-21",
-    "path": "/Users/andreas/Documents/andreas_brain/2025-10-21-Project-Methodology-Preferences.md"
+    "path": "${OBSIDIAN_VAULT_PATH}/2025-10-21-Project-Methodology-Preferences.md"
   }
   ```
 - **Build vault path from env:** Use `${OBSIDIAN_VAULT_PATH}` + filename for portable, clickable links

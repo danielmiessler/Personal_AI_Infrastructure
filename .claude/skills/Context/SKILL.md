@@ -205,6 +205,9 @@ obs context pai --format index
 
 # Tag filter (multiple = AND logic)
 obs search --tag ai --tag nvidia --format index   # Must have BOTH
+
+# Type filter (transcript, meeting, wisdom, note, raw, etc.)
+obs search --tag project/pai --type wisdom --format index
 ```
 
 ### Filtered Semantic Search
@@ -287,6 +290,7 @@ obs load 1-10                      # Range
 obs load all                       # Everything from last search
 
 # Filter options
+obs load --tag architecture        # Only notes with tag
 obs load --type transcript         # Only transcripts
 obs load --since 2025-12-01        # Only from date
 

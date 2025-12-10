@@ -381,24 +381,29 @@ export function parseSelection(selection: string, maxIndex: number): number[] {
  */
 export async function loadBySelection(
   selection: string,
-  options?: { type?: string; since?: string }
+  options?: { type?: string; since?: string; tags?: string[] }
 ): Promise<{ loaded: string[]; content: string }> {
   const index = await loadSearchIndex();
-  
+
   if (!index) {
     throw new Error("No previous search found. Run 'obs search' or 'obs semantic' first.");
   }
-  
+
   // Combine all results
   const allResults = [...index.tagMatches, ...index.semanticMatches];
-  
+
   if (allResults.length === 0) {
     throw new Error("Previous search had no results.");
   }
-  
+
   let selectedResults: IndexedResult[];
-  
-  if (options?.type) {
+
+  if (options?.tags && options.tags.length > 0) {
+    // Filter by tags (all tags must match - AND logic)
+    selectedResults = allResults.filter(r =>
+      options.tags!.every(tag => r.tags.some(t => t.includes(tag)))
+    );
+  } else if (options?.type) {
     // Filter by type
     selectedResults = allResults.filter(r => r.type === options.type);
   } else if (options?.since) {

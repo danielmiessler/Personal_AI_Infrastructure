@@ -55,6 +55,7 @@ COMMANDS:
 SEARCH OPTIONS:
   --tag, -t <tag>        Filter by tag (can use multiple, AND logic)
   --not-tag <tag>        Exclude notes with this tag
+  --type <type>          Filter by type (transcript, meeting, wisdom, note, etc.)
   --text, -x <query>     Full-text search
   --recent, -r <n>       Limit to N most recent notes
   --format <fmt>         Output format: list, index (table), json (for Claude)
@@ -77,6 +78,7 @@ SEMANTIC OPTIONS:
 
 LOAD OPTIONS (from last search):
   <selection>            Numbers to load: "all", "1,2,5", "1-5", "1,3-5,10"
+  --tag <tag>            Load by tag (can use multiple, AND logic)
   --type <type>          Load by type: transcript, meeting, note, wisdom, etc.
   --since <date>         Load notes from date (YYYY-MM-DD)
 
@@ -101,6 +103,7 @@ EXAMPLES:
   obs load 1,2,5                                 # Injection: load selected
   obs load all                                   # Injection: load everything
   obs load --type transcript                     # Injection: filter by type
+  obs load --tag architecture                    # Injection: filter by tag
 
   # Semantic search with filters (NEW)
   obs semantic "what did Lyndon say" --tag project/ai-tailgating
@@ -197,6 +200,7 @@ async function handleSearch(args: string[]) {
     scope: "work",  // Default: exclude private content
   };
   let format: "list" | "index" | "json" = "list";
+  let filterType: string | undefined;
 
   let i = 0;
   while (i < args.length) {
@@ -208,6 +212,9 @@ async function handleSearch(args: string[]) {
         break;
       case "--not-tag":
         options.notTags!.push(args[++i]);
+        break;
+      case "--type":
+        filterType = args[++i];
         break;
       case "--text":
       case "-x":
@@ -292,29 +299,55 @@ async function handleSearch(args: string[]) {
 
   // Format output based on --format flag
   if (format === "index" || format === "json") {
-    const query = options.tags.length > 0 
-      ? `#${options.tags.join(" #")}` 
+    const query = options.tags.length > 0
+      ? `#${options.tags.join(" #")}`
       : (options.text || "search");
-    const indexedResults = toIndexedResults(results);
-    
+    let indexedResults = toIndexedResults(results);
+
+    // Filter by type if specified
+    if (filterType) {
+      indexedResults = indexedResults.filter(r => r.type === filterType);
+      // Re-index after filtering
+      indexedResults = indexedResults.map((r, i) => ({ ...r, index: i + 1 }));
+    }
+
+    if (indexedResults.length === 0) {
+      console.log(`No notes found matching type: ${filterType}`);
+      return;
+    }
+
     // Save for subsequent load command
     const searchIndex: SearchIndex = {
-      query,
+      query: filterType ? `${query} [type:${filterType}]` : query,
       timestamp: new Date().toISOString(),
       tagMatches: indexedResults,
       semanticMatches: [],
     };
     await saveSearchIndex(searchIndex);
-    
+
     if (format === "json") {
       console.log(formatIndexJson(indexedResults, [], query));
     } else {
       console.log(formatIndexTable(indexedResults, [], query));
     }
   } else {
-    // Default list format
-    console.log(`Found ${results.length} note(s):\n`);
-    for (const note of results) {
+    // Default list format - also filter by type
+    let filteredResults = results;
+    if (filterType) {
+      // Need to detect type for filtering in list mode
+      const indexed = toIndexedResults(results);
+      const filteredIndexed = indexed.filter(r => r.type === filterType);
+      const filteredNames = new Set(filteredIndexed.map(r => r.name));
+      filteredResults = results.filter(r => filteredNames.has(r.name));
+    }
+
+    if (filteredResults.length === 0) {
+      console.log(`No notes found matching type: ${filterType}`);
+      return;
+    }
+
+    console.log(`Found ${filteredResults.length} note(s):\n`);
+    for (const note of filteredResults) {
       const tagsStr = note.tags.length > 0 ? ` [${note.tags.join(", ")}]` : "";
       console.log(`  ${note.name}${tagsStr}`);
     }
@@ -713,13 +746,14 @@ async function handleIncoming(args: string[]) {
 
 async function handleLoad(args: string[]) {
   if (args.length === 0) {
-    console.error("Usage: obs load <selection> [--type <type>] [--since <date>]");
+    console.error("Usage: obs load <selection> [--tag <tag>] [--type <type>] [--since <date>]");
     console.error("\nSelection formats:");
     console.error("  all         - Load all results from last search");
     console.error("  1,2,5       - Load specific items by number");
     console.error("  1-5         - Load range of items");
     console.error("  1,3-5,10    - Combined selection");
     console.error("\nFilters:");
+    console.error("  --tag <tag>     - Filter by tag (can use multiple, AND logic)");
     console.error("  --type <type>   - Filter by type (transcript, meeting, note, wisdom, etc.)");
     console.error("  --since <date>  - Filter by date (YYYY-MM-DD)");
     console.error("\nRun 'obs search --format index' or 'obs semantic <query> --format index' first.");
@@ -729,9 +763,12 @@ async function handleLoad(args: string[]) {
   let selection = "";
   let filterType: string | undefined;
   let filterSince: string | undefined;
+  const filterTags: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--type" || args[i] === "-t") {
+    if (args[i] === "--tag") {
+      filterTags.push(args[++i]);
+    } else if (args[i] === "--type" || args[i] === "-t") {
       filterType = args[++i];
     } else if (args[i] === "--since" || args[i] === "-s") {
       filterSince = args[++i];
@@ -741,7 +778,7 @@ async function handleLoad(args: string[]) {
   }
 
   // If only filters provided, use "all" as selection base
-  if (!selection && (filterType || filterSince)) {
+  if (!selection && (filterType || filterSince || filterTags.length > 0)) {
     selection = "all";
   }
 
@@ -754,6 +791,7 @@ async function handleLoad(args: string[]) {
     const result = await loadBySelection(selection, {
       type: filterType,
       since: filterSince,
+      tags: filterTags.length > 0 ? filterTags : undefined,
     });
 
     // Calculate total size

@@ -5,8 +5,9 @@ description: |
 
   🚫 NEVER AUTO-LOAD: After search, STOP and wait for user to select items. NEVER run `obs load` in same turn as search.
 
-  USE WHEN: "what context do we have on X", "what do I know about Y", "find notes about Z",
-  "load context for project", "search vault", "save note", "capture this", "ingest".
+  USE WHEN: "what do we know about #project/X", "what do I know about project Y",
+  "what context do we have on X", "find notes about Z", "load context for project",
+  "search vault", "save note", "capture this", "ingest".
 
   Two-phase retrieval: SEARCH (show index, wait) → LOAD (only when user requests)
 ---

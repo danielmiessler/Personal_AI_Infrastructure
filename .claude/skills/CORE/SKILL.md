@@ -143,6 +143,19 @@ description: |
   → **READ:** ${PAI_DIR}/skills/CORE/workflows/merge-conflict-resolution.md
   → **EXECUTE:** Use /plan mode with UltraThink for analysis and recommendation
 
+  **When user asks about vault, context, knowledge, or notes:**
+  Examples: "what do I know about", "what context on", "#project/", "#tag", "find notes",
+  "load context", "search vault", "save to vault", "capture this", "ingest", "what's incoming"
+  → **READ:** ${PAI_DIR}/skills/Context/SKILL.md (entry point - contains CLI reference)
+  → **EXECUTE:** Follow two-phase workflow: SEARCH (show table, wait) → LOAD (only after user selects)
+
+  **Context Skill Extended Docs (read when needed):**
+  - `${PAI_DIR}/skills/Context/workflows/load-project.md` - Loading full project context
+  - `${PAI_DIR}/skills/Context/workflows/semantic-search.md` - AI-powered semantic search
+  - `${PAI_DIR}/skills/Context/docs/CLI-REFERENCE.md` - Full obs/ingest CLI reference
+  - `${PAI_DIR}/skills/Context/docs/CONCEPTS.md` - Tags, pipelines, embeddings architecture
+  - `${PAI_DIR}/skills/Context/tag-taxonomy.md` - Personal tag hierarchy
+
   **For voice routing workflow reference:**
   → **READ:** ${PAI_DIR}/skills/CORE/workflows/voice-routing-full.md
   → Complete voice routing table and commands

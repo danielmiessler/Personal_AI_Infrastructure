@@ -1,11 +1,15 @@
 /**
- * Tag listing functionality for obs CLI
+ * Tag functionality for obs CLI
+ * - List all tags in vault
+ * - Add/remove tags from notes
+ * - Suggest tags based on content
  */
 
-import { readdir } from "fs/promises";
-import { join } from "path";
+import { readdir, readFile, writeFile } from "fs/promises";
+import { join, basename } from "path";
 import { getConfig, validateVault } from "./config";
-import { parseNote } from "./parse";
+import { parseNote, parseNoteContent, generateFrontmatter } from "./parse";
+import { loadSearchIndex } from "./index";
 
 /**
  * List all tags in the vault with optional counts
@@ -137,4 +141,155 @@ export async function suggestTags(content: string): Promise<string[]> {
   }
 
   return suggestions;
+}
+
+/**
+ * Resolve note selector to file path
+ * Accepts:
+ *   - Index from last search (e.g., "3")
+ *   - Note name (e.g., "2025-12-08-Context-Management")
+ *   - Full path
+ */
+export async function resolveNotePath(selector: string): Promise<string> {
+  validateVault();
+  const config = getConfig();
+
+  // Check if it's a numeric index from last search
+  const indexNum = parseInt(selector, 10);
+  if (!isNaN(indexNum) && indexNum > 0) {
+    const searchIndex = await loadSearchIndex();
+    if (!searchIndex) {
+      throw new Error("No previous search found. Run 'obs search' first to use index numbers.");
+    }
+
+    const allResults = [...searchIndex.tagMatches, ...searchIndex.semanticMatches];
+    const result = allResults.find(r => r.index === indexNum);
+    if (!result) {
+      throw new Error(`Index ${indexNum} not found in last search results (max: ${allResults.length})`);
+    }
+    return result.path;
+  }
+
+  // Check if it's a full path
+  if (selector.startsWith("/") || selector.includes("/")) {
+    return selector;
+  }
+
+  // Search for note by name in vault
+  const noteName = selector.endsWith(".md") ? selector.slice(0, -3) : selector;
+  const matchingPath = await findNoteByName(config.vaultPath, noteName);
+
+  if (!matchingPath) {
+    throw new Error(`Note not found: ${selector}`);
+  }
+
+  return matchingPath;
+}
+
+/**
+ * Find a note by name in the vault (recursive search)
+ */
+async function findNoteByName(vaultPath: string, noteName: string): Promise<string | null> {
+  async function walkDir(dir: string): Promise<string | null> {
+    const entries = await readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+
+      // Skip hidden directories and _meta
+      if (entry.name.startsWith(".") || entry.name === "_meta" || entry.name === "attachments") {
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        const found = await walkDir(fullPath);
+        if (found) return found;
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        const baseName = basename(entry.name, ".md");
+        // Match exactly or fuzzy match (contains)
+        if (baseName === noteName || baseName.toLowerCase().includes(noteName.toLowerCase())) {
+          return fullPath;
+        }
+      }
+    }
+    return null;
+  }
+
+  return walkDir(vaultPath);
+}
+
+/**
+ * Add a tag to a note's frontmatter
+ * Returns true if tag was added, false if already present
+ */
+export async function addTagToNote(notePath: string, tag: string): Promise<{ added: boolean; notePath: string }> {
+  const rawContent = await readFile(notePath, "utf-8");
+  const parsed = parseNoteContent(rawContent);
+
+  // Check if tag already exists
+  if (parsed.tags.includes(tag)) {
+    return { added: false, notePath };
+  }
+
+  // Get existing frontmatter tags (or empty array)
+  const existingTags = Array.isArray(parsed.frontmatter.tags)
+    ? parsed.frontmatter.tags as string[]
+    : typeof parsed.frontmatter.tags === "string"
+      ? (parsed.frontmatter.tags as string).split(/\s+/).filter(Boolean)
+      : [];
+
+  // Add new tag
+  const newTags = [...existingTags, tag];
+
+  // Rebuild frontmatter
+  const newFrontmatter = {
+    ...parsed.frontmatter,
+    tags: newTags,
+  };
+
+  // Generate new content
+  const newContent = generateFrontmatter(newFrontmatter) + "\n\n" + parsed.content;
+
+  // Write back
+  await writeFile(notePath, newContent, "utf-8");
+
+  return { added: true, notePath };
+}
+
+/**
+ * Remove a tag from a note's frontmatter
+ * Returns true if tag was removed, false if not present
+ */
+export async function removeTagFromNote(notePath: string, tag: string): Promise<{ removed: boolean; notePath: string }> {
+  const rawContent = await readFile(notePath, "utf-8");
+  const parsed = parseNoteContent(rawContent);
+
+  // Get existing frontmatter tags
+  const existingTags = Array.isArray(parsed.frontmatter.tags)
+    ? parsed.frontmatter.tags as string[]
+    : typeof parsed.frontmatter.tags === "string"
+      ? (parsed.frontmatter.tags as string).split(/\s+/).filter(Boolean)
+      : [];
+
+  // Check if tag exists
+  if (!existingTags.includes(tag)) {
+    return { removed: false, notePath };
+  }
+
+  // Remove tag
+  const newTags = existingTags.filter(t => t !== tag);
+
+  // Rebuild frontmatter
+  const newFrontmatter = {
+    ...parsed.frontmatter,
+    tags: newTags,
+  };
+
+  // Generate new content
+  const newContent = generateFrontmatter(newFrontmatter) + "\n\n" + parsed.content;
+
+  // Write back
+  await writeFile(notePath, newContent, "utf-8");
+
+  return { removed: true, notePath };
 }

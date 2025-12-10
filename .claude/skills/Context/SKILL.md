@@ -128,6 +128,8 @@ Activate this skill when user:
 | "What's incoming?" | `obs incoming` | obs |
 | "Read that note" | `obs read "note-name"` | obs |
 | "Notes from last week" | `obs search --since 1w --format index` | obs |
+| "Add tag to note #3" | `obs tag add 3 architecture` | obs |
+| "Remove incoming tag from #5" | `obs tag remove 5 incoming` | obs |
 
 ## CLI Overview
 
@@ -136,7 +138,7 @@ Two complementary tools:
 | Tool | Purpose | Key Commands |
 |------|---------|--------------|
 | `ingest` | **Capture** content into vault | `direct`, `poll`, `watch` |
-| `obs` | **Query** content from vault | `search`, `semantic`, `read`, `context` |
+| `obs` | **Query** content from vault | `search`, `semantic`, `read`, `context`, `tag` |
 
 ---
 
@@ -312,6 +314,11 @@ obs tags --counts
 # Build/update embeddings for semantic search
 obs embed --verbose
 obs embed --stats
+
+# Tag management (add/remove tags from notes)
+obs tag add 3 architecture              # Add tag to note #3 from last search
+obs tag add "My Note" project/pai       # Add tag by note name
+obs tag remove 5 incoming               # Remove tag from note
 ```
 
 ---

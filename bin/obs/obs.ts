@@ -16,7 +16,7 @@ import { parseArgs } from "util";
 import { searchNotes, SearchOptions, ScopeFilter, parseSince } from "./lib/search";
 import { readNote } from "./lib/read";
 import { writeNote, WriteOptions } from "./lib/write";
-import { listTags } from "./lib/tags";
+import { listTags, addTagToNote, removeTagFromNote, resolveNotePath } from "./lib/tags";
 import { getConfig } from "./lib/config";
 import { buildEmbeddings, semanticSearch, getEmbeddingStats, ScopeFilter as EmbedScopeFilter, SemanticSearchOptions } from "./lib/embed";
 import {
@@ -45,6 +45,7 @@ COMMANDS:
   load       Load notes from last search by selection (injection phase)
   read       Read a specific note's content
   write      Write a new note to the vault
+  tag        Add or remove tags from notes
   tags       List all tags in the vault
   incoming   List notes waiting to be processed (#incoming tag)
   context    Load context for a project (shortcut for tag search)
@@ -84,6 +85,15 @@ CONTEXT OPTIONS:
   --recent, -r <n>       Limit results (default: 20)
   --format <fmt>         Output format: list (default), index (numbered)
 
+TAG OPTIONS:
+  tag add <note> <tag>   Add a tag to a note
+  tag remove <note> <tag> Remove a tag from a note
+
+  Note selectors:
+    - Index from last search: obs tag add 3 architecture
+    - Note name: obs tag add "My Note" project/pai
+    - Full path: obs tag add /path/to/note.md todo
+
 EXAMPLES:
   # Two-phase context retrieval
   obs search --tag project/pai --format index    # Discovery: numbered list
@@ -113,6 +123,11 @@ EXAMPLES:
   # Embeddings
   obs embed --verbose
   obs semantic "deployment strategies"
+
+  # Tag management
+  obs tag add 3 architecture                 # Add tag to note #3 from last search
+  obs tag add "My Note" project/pai          # Add tag by note name
+  obs tag remove 3 incoming                  # Remove tag from note
 `;
 
 async function main() {
@@ -139,6 +154,9 @@ async function main() {
         break;
       case "tags":
         await handleTags(commandArgs);
+        break;
+      case "tag":
+        await handleTag(commandArgs);
         break;
       case "config":
         await handleConfig();
@@ -388,6 +406,61 @@ async function handleTags(args: string[]) {
     for (const tag of Object.keys(tags).sort()) {
       console.log(`  ${tag}`);
     }
+  }
+}
+
+async function handleTag(args: string[]) {
+  if (args.length < 2) {
+    console.error("Usage: obs tag <action> <note> <tag>");
+    console.error("");
+    console.error("Actions:");
+    console.error("  add <note> <tag>      Add a tag to a note");
+    console.error("  remove <note> <tag>   Remove a tag from a note");
+    console.error("");
+    console.error("Note selectors:");
+    console.error("  - Index from last search: obs tag add 3 architecture");
+    console.error("  - Note name: obs tag add \"My Note\" project/pai");
+    console.error("  - Full path: obs tag add /path/to/note.md todo");
+    process.exit(1);
+  }
+
+  const action = args[0];
+  const noteSelector = args[1];
+  const tag = args[2];
+
+  if (!tag) {
+    console.error("Error: Tag is required");
+    console.error("Usage: obs tag add <note> <tag>");
+    process.exit(1);
+  }
+
+  // Resolve note path (supports index, name, or path)
+  const notePath = await resolveNotePath(noteSelector);
+  const noteName = notePath.split("/").pop()?.replace(".md", "") || noteSelector;
+
+  switch (action) {
+    case "add": {
+      const result = await addTagToNote(notePath, tag);
+      if (result.added) {
+        console.log(`✅ Added #${tag} to "${noteName}"`);
+      } else {
+        console.log(`ℹ️  Tag #${tag} already exists on "${noteName}"`);
+      }
+      break;
+    }
+    case "remove": {
+      const result = await removeTagFromNote(notePath, tag);
+      if (result.removed) {
+        console.log(`✅ Removed #${tag} from "${noteName}"`);
+      } else {
+        console.log(`ℹ️  Tag #${tag} not found on "${noteName}"`);
+      }
+      break;
+    }
+    default:
+      console.error(`Unknown tag action: ${action}`);
+      console.error("Use: add, remove");
+      process.exit(1);
   }
 }
 

@@ -1,0 +1,24 @@
+{
+  "name": "pai-voice",
+  "version": "1.0.0",
+  "description": "ElevenLabs TTS/STT Command-Line Interface",
+  "type": "module",
+  "bin": {
+    "pai-voice": "./pai-voice.ts"
+  },
+  "scripts": {
+    "help": "bun run pai-voice.ts --help",
+    "test": "bun run pai-voice.ts subscription"
+  },
+  "keywords": [
+    "elevenlabs",
+    "tts",
+    "stt",
+    "voice",
+    "cli",
+    "pai"
+  ],
+  "author": "Daniel Miessler / PAI",
+  "license": "MIT",
+  "dependencies": {}
+}

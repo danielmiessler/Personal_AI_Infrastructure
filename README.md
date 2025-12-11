@@ -106,7 +106,7 @@ git clone https://github.com/danielmiessler/PAI.git ~/.claude
 
 **2. Run the Setup Wizard**
 ```bash
-~/.claude/.claude/tools/setup/bootstrap.sh
+~/.claude/tools/setup/bootstrap.sh
 ```
 
 **3. Add Your API Keys**
@@ -135,7 +135,7 @@ git clone https://github.com/danielmiessler/PAI.git ~/.claude
 
 **2. Run the Setup Wizard**
 ```bash
-~/.claude/.claude/tools/setup/bootstrap.sh
+~/.claude/tools/setup/bootstrap.sh
 ```
 
 **3. Add Your API Keys**

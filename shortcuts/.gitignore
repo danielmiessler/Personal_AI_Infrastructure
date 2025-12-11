@@ -1,0 +1,10 @@
+# Personal shortcuts with credentials
+build/
+*.shortcut
+
+# Environment files
+.env
+.env.local
+
+# macOS
+.DS_Store

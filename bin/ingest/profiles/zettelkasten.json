@@ -1,0 +1,44 @@
+{
+  "name": "zettelkasten",
+  "description": "Zettelkasten workflow with Raw+Wisdom pairs",
+
+  "tags": {
+    "status": {
+      "incoming": "incoming",
+      "raw": "raw",
+      "processed": "fabric-extraction",
+      "wisdom": "wisdom",
+      "main": "main"
+    },
+    "sourcePrefix": "source",
+    "projectPrefix": "project",
+    "personFormat": "snake_case"
+  },
+
+  "naming": {
+    "dateFormat": "%Y-%m-%d",
+    "suffixes": {
+      "raw": "-Raw",
+      "wisdom": "-Wisdom",
+      "transcript": "-Transcript"
+    },
+    "includeSource": true
+  },
+
+  "processing": {
+    "pairedOutput": true,
+    "patterns": {
+      "voice": ["extract_wisdom"],
+      "url": ["extract_article_wisdom"],
+      "text": [],
+      "document": ["summarize"]
+    },
+    "addBacklinks": true
+  },
+
+  "autoTag": {
+    "projectKeywords": {},
+    "detectPeople": true,
+    "knownPeople": []
+  }
+}

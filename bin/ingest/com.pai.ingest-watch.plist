@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PAI Telegram Ingest Watch LaunchAgent
+
+  Continuously polls Telegram for new messages and processes them into your vault.
+  Runs as a background daemon, starting when you log in.
+
+  Installation:
+    cd /path/to/PAI/bin/ingest
+    ./install.sh  # Handles plist installation and launchctl
+
+  Manual commands:
+    launchctl load ~/Library/LaunchAgents/com.pai.ingest-watch.plist    # Start
+    launchctl unload ~/Library/LaunchAgents/com.pai.ingest-watch.plist  # Stop
+    tail -f /tmp/ingest-watch.log                                       # Monitor
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pai.ingest-watch</string>
+
+    <key>Comment</key>
+    <string>PAI: Telegram ingest watcher - polls and processes messages continuously</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/bun</string>
+        <string>run</string>
+        <string>__PAI_DIR__/bin/ingest/ingest.ts</string>
+        <string>watch</string>
+        <string>--interval</string>
+        <string>30</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PAI_DIR__/bin/ingest</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>__HOME__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/ingest-watch.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/ingest-watch.err</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>

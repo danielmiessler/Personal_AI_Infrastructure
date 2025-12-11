@@ -61,8 +61,44 @@ out/
 private/
 secrets/
 credentials/
+.env.*
 
-# PAI Update System (sideloading)
-.claude/pai_updates/
-.claude/pai_backups/
-.claude/.pai-sync-history
+# Claude Code runtime files (not skills)
+.claude/agent-sessions.json
+.claude/file-history/
+.claude/history.jsonl
+.claude/history/
+.claude/projects/
+.claude/shell-snapshots/
+.claude/statsig/
+.claude/todos/
+.claude/ide/
+
+# Save directory (temporary/draft content)
+save/
+
+# Draft documents (not for contribution)
+*DRAFT*.md
+GITHUB_ISSUE_DRAFT*.md
+
+# Embeddings database (local, large)
+**/embeddings.db
+**/_meta/
+
+# Test system (symlinked from pai-tooling repo - NEVER commit to PAI)
+bin/ingest/test
+bin/obs/test
+
+# Personal configuration (use *.example.json as templates)
+.claude/skills/Context/tags.json
+.claude/skills/Context/RELEASE-PLAN.md
+
+# Keep .claude/skills/ and .claude/.env.example tracked
+!.claude/skills/
+!.claude/.env.example
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/settings.json
+# Note: RELEASE-v*.md files are tracked in feature branch for reference
+# but excluded from contrib branch/PR (instance-specific with test run IDs)

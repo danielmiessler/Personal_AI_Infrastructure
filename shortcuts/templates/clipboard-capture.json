@@ -1,0 +1,358 @@
+{
+  "WFWorkflowMinimumClientVersionString": "1106",
+  "WFWorkflowMinimumClientVersion": 1106,
+  "WFWorkflowIcon": {
+    "WFWorkflowIconStartColor": 431817727,
+    "WFWorkflowIconGlyphNumber": 59773
+  },
+  "WFWorkflowClientVersion": "4042.0.4",
+  "WFWorkflowOutputContentItemClasses": [],
+  "WFWorkflowHasOutputFallback": false,
+  "WFWorkflowActions": [
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.getclipboard",
+      "WFWorkflowActionParameters": {
+        "CustomOutputName": "HTML content",
+        "UUID": "723CFA39-237B-4E1B-9779-5E48CFE97ED2"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Clipboard"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "clipboard"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gethtmlfromrichtext",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Clipboard"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFMakeFullDocument": true,
+        "UUID": "65AE5307-8379-4D31-847E-45F81E0FE969"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.documentpicker.save",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "65AE5307-8379-4D31-847E-45F81E0FE969",
+            "Type": "ActionOutput",
+            "OutputName": "HTML from Rich Text"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFAskWhereToSave": false,
+        "UUID": "717D74AE-0350-407C-8F36-1871686E8511",
+        "WFSaveFileOverwrite": true,
+        "WFFileDestinationPath": "clipboard.html"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ExtensionInput"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
+        },
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "776DD6B6-944E-4EB4-8954-7E487A47AA75",
+        "WFCondition": 100
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFTextActionText": "file",
+        "UUID": "9D71D61D-4574-454C-80EF-1417C268EF06"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "9D71D61D-4574-454C-80EF-1417C268EF06",
+            "Type": "ActionOutput",
+            "OutputName": "Text"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "source"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "GroupingIdentifier": "776DD6B6-944E-4EB4-8954-7E487A47AA75",
+        "WFControlFlowMode": 1
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFTextActionText": "clipboard",
+        "UUID": "4D661628-A6A6-4BB8-AA3B-FAEB2A84685D"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "4D661628-A6A6-4BB8-AA3B-FAEB2A84685D",
+            "Type": "ActionOutput",
+            "OutputName": "Text"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "source"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "776DD6B6-944E-4EB4-8954-7E487A47AA75",
+        "UUID": "5C5C07F0-B117-4C75-A25B-3CA3877F6C1F"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.getdevicedetails",
+      "WFWorkflowActionParameters": {
+        "WFDeviceDetail": "Device Model",
+        "UUID": "C247D6CB-FB22-4A7B-960D-A008076A0E33"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "C247D6CB-FB22-4A7B-960D-A008076A0E33",
+            "Type": "ActionOutput",
+            "OutputName": "Device Model"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "device"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.ask",
+      "WFWorkflowActionParameters": {
+        "WFAskActionDefaultAnswer": "#feed",
+        "UUID": "14E773E3-33A9-4FBA-8787-57479F6FF0D3",
+        "WFInputType": "Text",
+        "WFAskActionPrompt": "Caption?"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "14E773E3-33A9-4FBA-8787-57479F6FF0D3",
+            "Type": "ActionOutput",
+            "OutputName": "Ask for Input"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "caption"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "UUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+        "WFTextActionText": {
+          "Value": {
+            "string": "[source:￼][device:￼][user:YOUR_USERNAME]\n￼\n￼",
+            "attachmentsByRange": {
+              "{37, 1}": {
+                "VariableName": "clipboard",
+                "Type": "Variable"
+              },
+              "{18, 1}": {
+                "VariableName": "device",
+                "Type": "Variable"
+              },
+              "{8, 1}": {
+                "VariableName": "source",
+                "Type": "Variable"
+              },
+              "{35, 1}": {
+                "VariableName": "caption",
+                "Type": "Variable"
+              }
+            }
+          },
+          "WFSerializationType": "WFTextTokenString"
+        }
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+            "Type": "ActionOutput",
+            "OutputName": "Text"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFVariableName": "inputText"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.text.replace",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "OutputUUID": "E0DC2121-F8F0-44D9-9428-0162541CC1F9",
+                "Type": "ActionOutput",
+                "OutputName": "Text"
+              }
+            }
+          },
+          "WFSerializationType": "WFTextTokenString"
+        },
+        "WFReplaceTextRegularExpression": true,
+        "UUID": "AAE7D534-2469-4576-B8CC-822EC11FF256",
+        "WFReplaceTextReplace": "$1",
+        "WFReplaceTextFind": "(?s)^(.{0,1020}).*$"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.downloadurl",
+      "WFWorkflowActionParameters": {
+        "WFHTTPBodyType": "Form",
+        "WFFormValues": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFKey": {
+                  "Value": {
+                    "string": "chat_id"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFItemType": 0,
+                "WFValue": {
+                  "Value": {
+                    "string": "YOUR_CHAT_ID_HERE"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFKey": {
+                  "Value": {
+                    "string": "caption"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFItemType": 0,
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "OutputUUID": "AAE7D534-2469-4576-B8CC-822EC11FF256",
+                        "Type": "ActionOutput",
+                        "OutputName": "Updated Text"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFKey": {
+                  "Value": {
+                    "string": "document"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFItemType": 5,
+                "WFValue": {
+                  "Value": {
+                    "Value": {
+                      "OutputUUID": "723CFA39-237B-4E1B-9779-5E48CFE97ED2",
+                      "Type": "ActionOutput",
+                      "OutputName": "HTML content"
+                    },
+                    "WFSerializationType": "WFTextTokenAttachment"
+                  },
+                  "WFSerializationType": "WFTokenAttachmentParameterState"
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        },
+        "UUID": "78E0D27E-994B-4F11-A067-7448744E065D",
+        "WFURL": "https://api.telegram.org/botYOUR_BOT_TOKEN_HERE/sendDocument",
+        "WFHTTPMethod": "POST"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.nothing",
+      "WFWorkflowActionParameters": {
+        "UUID": "D8DFB7DF-29C6-4B6F-B334-ECA5A76F4403"
+      }
+    }
+  ],
+  "WFWorkflowInputContentItemClasses": [
+    "WFAppContentItem",
+    "WFAppStoreAppContentItem",
+    "WFArticleContentItem",
+    "WFContactContentItem",
+    "WFDateContentItem",
+    "WFEmailAddressContentItem",
+    "WFFolderContentItem",
+    "WFGenericFileContentItem",
+    "WFImageContentItem",
+    "WFiTunesProductContentItem",
+    "WFLocationContentItem",
+    "WFDCMapsLinkContentItem",
+    "WFAVAssetContentItem",
+    "WFPDFContentItem",
+    "WFPhoneNumberContentItem",
+    "WFRichTextContentItem",
+    "WFSafariWebPageContentItem",
+    "WFStringContentItem",
+    "WFURLContentItem"
+  ],
+  "WFWorkflowImportQuestions": [],
+  "WFQuickActionSurfaces": [
+    "Finder",
+    "Services"
+  ],
+  "WFWorkflowTypes": [
+    "ActionExtension",
+    "QuickActions",
+    "ReceivesOnScreenContent"
+  ],
+  "WFWorkflowHasShortcutInputVariables": true,
+  "WFWorkflowName": "PAI Clipboard Capture"
+}

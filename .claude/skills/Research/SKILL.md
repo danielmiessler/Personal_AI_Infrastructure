@@ -82,6 +82,23 @@ Examples: "extract knowledge from X", "get insights from this"
 → **READ:** `${PAI_DIR}/skills/research/workflows/extract-knowledge.md`
 → **EXECUTE:** Knowledge extraction and synthesis
 
+### Research Quality & Validation
+
+**When user requests research validation:**
+Examples: "validate this research", "check sources", "verify findings"
+→ **READ:** `${PAI_DIR}/skills/Research/ValidationGates.md`
+→ **EXECUTE:** Run 3-gate validation (sources, confidence, contradictions)
+
+**When calculating confidence scores:**
+Examples: "how confident", "confidence level", "reliability score"
+→ **READ:** `${PAI_DIR}/skills/Research/ConfidenceScoring.md`
+→ **EXECUTE:** Apply 4-factor confidence algorithm
+
+**When debugging research execution:**
+Examples: "research logs", "what went wrong", "agent performance"
+→ **READ:** `${PAI_DIR}/skills/Research/ResearchLogging.md`
+→ **EXECUTE:** Analyze structured execution logs
+
 ---
 
 ## Multi-Source Research
@@ -230,3 +247,11 @@ ${PAI_DIR}/history/research/YYYY-MM/YYYY-MM-DD_[topic]/
 | Fabric Patterns | `workflows/fabric.md` | None |
 | Content Enhancement | `workflows/enhance.md` | None |
 | Knowledge Extraction | `workflows/extract-knowledge.md` | None |
+
+## Reference Files
+
+| Reference | File | Purpose |
+|-----------|------|---------|
+| Validation Gates | `ValidationGates.md` | 3-gate quality validation system |
+| Confidence Scoring | `ConfidenceScoring.md` | 4-factor confidence algorithm |
+| Research Logging | `ResearchLogging.md` | Structured execution logging |

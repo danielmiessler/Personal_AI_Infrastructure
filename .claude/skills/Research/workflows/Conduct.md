@@ -332,7 +332,40 @@ Create a comprehensive report that:
 - **Confidence Level**: Overall confidence percentage
 - **Result**: 1-2 sentence answer to the research question
 
-### Step 4: Return Results Using MANDATORY Format
+### Step 4: Validate Research Quality
+
+**Before finalizing, run validation gates:**
+
+→ **READ:** `${PAI_DIR}/skills/Research/ValidationGates.md` (if detailed validation needed)
+→ **READ:** `${PAI_DIR}/skills/Research/ConfidenceScoring.md` (for confidence calculation)
+
+**Quick Validation Checklist:**
+1. ✅ **Gate 1 (Sources):** Every claim has citation? Sources accessible?
+2. ✅ **Gate 2 (Confidence):** Scores match corroboration level?
+3. ✅ **Gate 3 (Contradictions):** Conflicts documented?
+
+**Confidence Scoring (4-Factor Algorithm):**
+```
+Confidence = (Source Quality × 0.30) + (Source Count × 0.25) +
+             (Agent Agreement × 0.25) + (Specificity × 0.20)
+```
+
+| Score | Label | Meaning |
+|-------|-------|---------|
+| 80%+ | High ✅ | Well-corroborated |
+| 50-79% | Medium 🟡 | Moderate support |
+| <50% | Low ⚠️ | Needs verification |
+
+**Validation Output (include in report):**
+```markdown
+### 🔍 Validation Status
+- Sources: [X/Y cited] ✅
+- Confidence Calibration: ✅
+- Contradictions Documented: ✅
+- Overall: VALIDATED / WARNINGS
+```
+
+### Step 5: Return Results Using MANDATORY Format
 
 📅 [current date from `date` command]
 **📋 SUMMARY:** Research coordination and key findings overview

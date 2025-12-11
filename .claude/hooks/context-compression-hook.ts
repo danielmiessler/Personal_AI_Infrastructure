@@ -169,8 +169,7 @@ async function main() {
     title: 'Kai Context',
     message: message,
     voice_enabled: true,
-    voice_name: kaiVoiceConfig.voice_name,
-    rate: kaiVoiceConfig.rate_wpm,
+    agent: 'kai',
     priority: 'low',
   });
   

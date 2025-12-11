@@ -32,9 +32,6 @@ const LOCKFILE = join(tmpdir(), 'pai-session-start.lock');
 
 async function sendNotification(title: string, message: string, priority: string = 'normal') {
   try {
-    // Get voice ID from environment variable (customize in settings.json)
-    const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
-
     const response = await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: {
@@ -45,7 +42,7 @@ async function sendNotification(title: string, message: string, priority: string
         message,
         voice_enabled: true,
         priority,
-        voice_id: voiceId
+        agent: 'kai'
       }),
     });
 

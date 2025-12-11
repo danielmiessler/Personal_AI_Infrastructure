@@ -494,10 +494,10 @@ async function main() {
 
   // FIRST: Send voice notification if we have a message
   if (message) {
-    // Align voice payload with initialize-pai-session.ts (prefer voice_id)
-    const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
+    // Determine which agent to use for voice
+    const agent = agentType?.toLowerCase() || 'kai';
     const priority = 'low';
-    // Send to voice server
+    // Send to voice server - server looks up voice_id from voices.json based on agent
     await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -506,13 +506,10 @@ async function main() {
         message,
         voice_enabled: true,
         priority,
-        voice_id: voiceId,
-        // keep legacy fields for compatibility with voice server configs that use names/rates
-        voice_name: voiceConfig.voice_name,
-        rate: voiceConfig.rate_wpm
+        agent
       })
     }).catch(() => {});
-    console.error(`🔊 Voice notification sent: "${message}" with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm (${voiceConfig.rate_multiplier}x)`);
+    console.error(`🔊 Voice notification sent: "${message}" with agent: ${agent}`);
   }
 
   // ALWAYS set tab title to override any previous titles (like "dynamic requirements")

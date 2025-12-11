@@ -1,0 +1,21 @@
+{
+  "name": "obs",
+  "version": "1.0.0",
+  "description": "Obsidian vault CLI for PAI context management",
+  "type": "module",
+  "bin": {
+    "obs": "./obs.ts"
+  },
+  "scripts": {
+    "start": "bun run obs.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.0"
+  }
+}

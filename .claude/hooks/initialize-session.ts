@@ -32,6 +32,8 @@ const LOCKFILE = join(tmpdir(), 'pai-session-start.lock');
 
 async function sendNotification(title: string, message: string, priority: string = 'normal') {
   try {
+    // Use DA env var for main agent name (user-configurable)
+    const mainAgent = process.env.DA?.toLowerCase() || 'kai';
     const response = await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: {
@@ -42,7 +44,7 @@ async function sendNotification(title: string, message: string, priority: string
         message,
         voice_enabled: true,
         priority,
-        agent: 'kai'
+        agent: mainAgent
       }),
     });
 

@@ -494,8 +494,9 @@ async function main() {
 
   // FIRST: Send voice notification if we have a message
   if (message) {
-    // Determine which agent to use for voice
-    const agent = agentType?.toLowerCase() || 'kai';
+    // Determine which agent to use for voice - use subagent if detected, otherwise main agent from DA env
+    const mainAgent = process.env.DA?.toLowerCase() || 'kai';
+    const agent = agentType?.toLowerCase() || mainAgent;
     const priority = 'low';
     // Send to voice server - server looks up voice_id from voices.json based on agent
     await fetch('http://localhost:8888/notify', {

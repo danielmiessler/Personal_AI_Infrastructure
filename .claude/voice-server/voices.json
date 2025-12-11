@@ -6,56 +6,56 @@
       "description": "UK Male - Professional, conversational",
       "rate_multiplier": 1.3,
       "rate_wpm": 228,
-      "elevenlabs": { "voice_id": "JBFqnCBsd6RMkjVDRZzb" },
+      "elevenlabs": { "voice_id": "jqcCZkN6Knx8BJ5TBdYR" },
       "piper": { "model": "en_GB-alan-medium", "speaker": 0 }
     },
     "researcher": {
       "description": "US Female - Analytical, highest quality",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "EXAVITQu4vr4xnSDxMaL" },
+      "elevenlabs": { "voice_id": "AXdMgz6evoL7OPd7eU12" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 5 }
     },
     "engineer": {
       "description": "US Female - Steady, professional",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "FGY2WhTYpPnrIDTdsKH5" },
+      "elevenlabs": { "voice_id": "kmSVBPu7loj4ayNinwWM" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 26 }
     },
     "architect": {
       "description": "UK Female - Strategic, sophisticated",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "pFZP5JQG7iQjIQuC4Bku" },
+      "elevenlabs": { "voice_id": "muZKMsIDGYtIkjjiUS82" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 42 }
     },
     "designer": {
       "description": "Indian Female - Creative, distinct",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "cgSgspJ2msm6clMCkdW9" },
+      "elevenlabs": { "voice_id": "ZF6FPAbjXT4488VcRRnw" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 46 }
     },
     "artist": {
       "description": "Indian Female - Creative, artistic",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "Xb7hH8MSUJpSbSDYk0k2" },
+      "elevenlabs": { "voice_id": "ZF6FPAbjXT4488VcRRnw" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 46 }
     },
     "pentester": {
       "description": "UK Male - Technical, sharp",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "SOYHLrjzK2X1ezoPC6cr" },
+      "elevenlabs": { "voice_id": "hmMWXCj9K7N5mCPcRkfC" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 30 }
     },
     "writer": {
       "description": "UK Female - Articulate, warm",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "elevenlabs": { "voice_id": "XrExE9yKIg1WjnnlVkGX" },
+      "elevenlabs": { "voice_id": "gfRt6Z3Z8aTbpLfexQ7N" },
       "piper": { "model": "en_US-libritts_r-medium", "speaker": 0 }
     }
   }

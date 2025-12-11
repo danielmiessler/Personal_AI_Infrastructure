@@ -164,12 +164,13 @@ async function main() {
     }
   }
   
-  // Send notification with voice (using Kai's voice from config)
+  // Send notification with voice (using main agent's voice from config)
+  const mainAgent = process.env.DA?.toLowerCase() || 'kai';
   await sendNotification({
-    title: 'Kai Context',
+    title: `${process.env.DA || 'Kai'} Context`,
     message: message,
     voice_enabled: true,
-    agent: 'kai',
+    agent: mainAgent,
     priority: 'low',
   });
   

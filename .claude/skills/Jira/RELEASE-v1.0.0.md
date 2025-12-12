@@ -107,9 +107,9 @@ TypeScript CLI for Jira operations following PAI deterministic-first architectur
 - [x] **GATE 1:** File inventory approved (2025-12-12)
 - [x] **GATE 2:** Sanitization check passed (2025-12-12)
 - [x] **GATE 3:** Pre-release checklist complete (2025-12-12)
-- [ ] **GATE 4:** Ready to tag v1.0.0
-- [ ] **GATE 5:** Cherry-pick files match inventory
-- [ ] **GATE 6:** Push to fork approved
+- [x] **GATE 4:** Tagged v1.0.0-jira (2025-12-12)
+- [x] **GATE 5:** Cherry-pick to contrib-jira-v1.0.0 (20 files, 2025-12-12)
+- [x] **GATE 6:** Pushed to fork/contrib-jira-v1.0.0 (2025-12-12)
 - [ ] **GATE 7:** PR created
 
 ---

@@ -110,7 +110,7 @@ TypeScript CLI for Jira operations following PAI deterministic-first architectur
 - [x] **GATE 4:** Tagged v1.0.0-jira (2025-12-12)
 - [x] **GATE 5:** Cherry-pick to contrib-jira-v1.0.0 (20 files, 2025-12-12)
 - [x] **GATE 6:** Pushed to fork/contrib-jira-v1.0.0 (2025-12-12)
-- [ ] **GATE 7:** PR created
+- [x] **GATE 7:** PR #190 created (2025-12-12)
 
 ---
 

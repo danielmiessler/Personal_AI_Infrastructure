@@ -69,8 +69,8 @@ export async function runInteractiveSetup(): Promise<SetupConfig | null> {
       assistantName: () =>
         p.text({
           message: 'What would you like to name your AI assistant?',
-          placeholder: 'Kai',
-          initialValue: 'Kai',
+          placeholder: 'e.g., Nova, Atlas, Sage',
+          initialValue: '',
           validate: validateAssistantName,
         }),
 

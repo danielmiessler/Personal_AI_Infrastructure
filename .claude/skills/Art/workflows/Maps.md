@@ -283,7 +283,7 @@ CRITICAL REQUIREMENTS:
 - Navigable and understandable as conceptual geography
 - Editorial illustration aesthetic maintained
 
-Sign "Kai" small in bottom corner in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom corner in charcoal (#2D2D2D).
 ```
 
 ---

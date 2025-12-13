@@ -2,7 +2,7 @@
  * Configurators - apply configuration changes
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import Mustache from 'mustache';
@@ -178,4 +178,39 @@ export async function updateShellProfile(config: SetupConfig, transaction: Trans
   await writeAtomic(profilePath, content);
 
   return profilePath;
+}
+
+/**
+ * Process template files (agents, skills, etc.) that contain {{{assistantName}}} placeholders
+ */
+export async function processTemplateFiles(config: SetupConfig, transaction: Transaction): Promise<void> {
+  const data = {
+    assistantName: config.assistantName,
+  };
+
+  // Directories to process for templates
+  const templateDirs = [
+    join(config.paiDir, 'agents'),
+    join(config.paiDir, 'skills', 'Art', 'workflows'),
+  ];
+
+  for (const dir of templateDirs) {
+    if (!existsSync(dir)) continue;
+
+    const files = readdirSync(dir);
+    for (const file of files) {
+      if (!file.endsWith('.md')) continue;
+
+      const filePath = join(dir, file);
+      await transaction.backup(filePath);
+
+      let content = readFileSync(filePath, 'utf-8');
+
+      // Only process if it contains Mustache templates
+      if (content.includes('{{{') || content.includes('{{')) {
+        content = Mustache.render(content, data);
+        await writeAtomic(filePath, content);
+      }
+    }
+  }
 }

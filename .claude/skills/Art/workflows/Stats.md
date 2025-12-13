@@ -234,7 +234,7 @@ CRITICAL REQUIREMENTS:
 - Immediately scannable (number jumps out at thumbnail)
 - Square 1:1 or horizontal 16:9 format
 
-Sign "Kai" small in bottom right corner in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom right corner in charcoal (#2D2D2D).
 ```
 
 ---

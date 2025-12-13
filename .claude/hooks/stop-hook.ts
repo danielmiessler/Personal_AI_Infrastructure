@@ -172,7 +172,7 @@ try {
   VOICE_CONFIG = {
     default_rate: 175,
     voices: {
-      kai: { voice_name: "Jamie (Premium)", rate_wpm: 263, rate_multiplier: 1.5, description: "UK Male", type: "Premium" },
+      main: { voice_name: "Jamie (Premium)", rate_wpm: 263, rate_multiplier: 1.5, description: "UK Male", type: "Premium" },
       researcher: { voice_name: "Ava (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Premium" },
       engineer: { voice_name: "Tom (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Male", type: "Enhanced" },
       architect: { voice_name: "Serena (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "UK Female", type: "Premium" },
@@ -380,7 +380,7 @@ async function main() {
 
   // Generate the announcement
   let message = '';
-  let voiceConfig = VOICE_CONFIG.voices.kai; // Default to Kai's voice config
+  let voiceConfig = VOICE_CONFIG.voices.main; // Default to main voice config
   let kaiHasCustomCompleted = false;
 
   // ALWAYS check Kai's response FIRST (even when agents are used)
@@ -405,14 +405,14 @@ async function main() {
         if (customText && wordCount <= 8) {
           message = customText;
           kaiHasCustomCompleted = true;
-          console.error(`🗣️ KAI CUSTOM VOICE: ${message}`);
+          console.error(`🗣️ MAIN CUSTOM VOICE: ${message}`);
         } else {
           // Custom completed too long, fall back to regular COMPLETED
           const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
           if (completedMatch) {
             let completedText = completedMatch[1].trim();
             message = generateIntelligentResponse(lastUserQuery, content, completedText);
-            console.error(`🎯 KAI FALLBACK (custom too long): ${message}`);
+            console.error(`🎯 MAIN FALLBACK (custom too long): ${message}`);
           }
         }
       } else if (!isAgentTask) {
@@ -426,7 +426,7 @@ async function main() {
           // Generate intelligent response
           message = generateIntelligentResponse(lastUserQuery, content, completedText);
 
-          console.error(`🎯 KAI INTELLIGENT: ${message}`);
+          console.error(`🎯 MAIN INTELLIGENT: ${message}`);
         } else {
           // No COMPLETED line found - don't send anything
           console.error('⚠️ No COMPLETED line found');
@@ -434,7 +434,7 @@ async function main() {
       }
     }
   } catch (e) {
-    console.error('⚠️ Error parsing Kai response:', e);
+    console.error('⚠️ Error parsing assistant response:', e);
   }
 
   // If Kai didn't provide a CUSTOM COMPLETED and an agent was used, check agent's response
@@ -454,7 +454,7 @@ async function main() {
       const wordCount = customText.split(/\s+/).length;
       if (customText && wordCount <= 8) {
         message = customText;
-        voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.kai;
+        voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.main;
         console.error(`🗣️ AGENT CUSTOM VOICE (fallback): ${message}`);
       } else {
         // Custom completed too long, fall back to regular COMPLETED
@@ -465,7 +465,7 @@ async function main() {
             .replace(/\[AGENT:\w+\]\s*/i, '')
             .trim();
           message = generateIntelligentResponse(lastUserQuery, taskResult, completedText);
-          voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.kai;
+          voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.main;
           console.error(`🎯 AGENT FALLBACK (custom too long): ${message}`);
         }
       }
@@ -485,7 +485,7 @@ async function main() {
 
         // Generate intelligent response for agent tasks
         message = generateIntelligentResponse(lastUserQuery, taskResult, completedText);
-        voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.kai;
+        voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.main;
 
         console.error(`🎯 AGENT INTELLIGENT (fallback): ${message}`);
       }

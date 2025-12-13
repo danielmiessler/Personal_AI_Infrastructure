@@ -576,7 +576,7 @@ VALIDATION CHECKPOINTS:
 - Are labels readable despite hand-lettered style?
 - Does it maintain UL aesthetic (flat colors, no gradients)?
 
-Sign "Kai" small in bottom right corner in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom right corner in charcoal (#2D2D2D).
 ```
 
 ---
@@ -652,7 +652,7 @@ open /path/to/mermaid-diagram.png
 - [ ] **Black dominant:** Most structure in black
 - [ ] **Typography hierarchy:** 3 tiers clear
 - [ ] **No gradients:** Flat colors maintained
-- [ ] **Kai signature:** Present in corner
+- [ ] **{{{assistantName}}} signature:** Present in corner
 
 #### Readability & Clarity
 - [ ] **Labels readable:** All text legible despite hand-drawn style

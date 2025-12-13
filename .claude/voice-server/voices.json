@@ -2,8 +2,8 @@
   "$schema": "./voices-schema.json",
   "default_rate": 175,
   "voices": {
-    "kai": {
-      "description": "UK Male - Professional, conversational",
+    "aito": {
+      "description": "UK Male - Professional, orchestrator voice for AITO",
       "rate_multiplier": 1.3,
       "rate_wpm": 228,
       "elevenlabs": { "voice_id": "jqcCZkN6Knx8BJ5TBdYR" },

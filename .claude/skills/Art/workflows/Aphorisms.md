@@ -147,7 +147,7 @@ COLOR SCHEME:
 - Text: [Black / Purple / White]
 - Background: [Cream / White / Black / Purple]
 - Accent: [Purple / Teal]
-- Kai signature: Charcoal
+- {{{assistantName}}} signature: Charcoal
 ```
 
 ---
@@ -200,7 +200,7 @@ COLOR USAGE:
 - Background: [Color choice] — flat solid fill
 - Typography: [Color choice] — high contrast with background
 - Accent element: [Purple or Teal]
-- Kai signature: Charcoal (#2D2D2D) small in corner
+- {{{assistantName}}} signature: Charcoal (#2D2D2D) small in corner
 
 CRITICAL REQUIREMENTS:
 - Typography is HERO (quote fills 80-90% of frame)
@@ -212,7 +212,7 @@ CRITICAL REQUIREMENTS:
 - No gradients, flat colors only
 - Shareable social media quality
 
-Sign "Kai" small in bottom right corner in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom right corner in charcoal (#2D2D2D).
 ```
 
 ---

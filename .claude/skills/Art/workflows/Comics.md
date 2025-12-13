@@ -270,7 +270,7 @@ CRITICAL REQUIREMENTS:
 - Maintains UL aesthetic (black linework, flat color, imperfect)
 - Smart insight or humor (sophisticated, not silly)
 
-Sign "Kai" small in bottom right corner of final panel in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom right corner of final panel in charcoal (#2D2D2D).
 ```
 
 ---

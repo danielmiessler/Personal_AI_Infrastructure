@@ -240,7 +240,7 @@ CRITICAL REQUIREMENTS:
 - Immediate visual understanding of the difference
 - Equal visual weight to both sides (balanced composition)
 
-Sign "Kai" small in bottom right corner in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom right corner in charcoal (#2D2D2D).
 ```
 
 ---

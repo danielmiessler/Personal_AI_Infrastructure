@@ -14,6 +14,7 @@ import {
   writeProfile,
   writePlist,
   updateShellProfile,
+  processTemplateFiles,
   type SetupConfig,
 } from './configurators';
 import { expandPath, validatePath, validateEmail, validateName, validateAssistantName } from './validators';
@@ -58,7 +59,7 @@ Options:
   --pai-dir <path>          PAI installation directory (default: ~/.claude)
   --name <name>             Your name
   --email <email>           Your email
-  --assistant-name <name>   AI assistant name (default: Kai)
+  --assistant-name <name>   AI assistant name (default: Assistant)
   --assistant-color <color> Color theme: blue, purple, green, cyan, red (default: purple)
   --voice-port <port>       Voice server port (default: 8888)
   --skip-voice              Don't configure voice server
@@ -108,7 +109,7 @@ function buildConfigFromArgs(args: ReturnType<typeof parseCliArgs>): SetupConfig
     return null;
   }
 
-  const assistantName = args['assistant-name'] || 'Kai';
+  const assistantName = args['assistant-name'] || 'Assistant';
   const assistantNameError = validateAssistantName(assistantName);
   if (assistantNameError) {
     logger.error(`Invalid assistant name: ${assistantNameError}`);
@@ -173,6 +174,13 @@ async function applyConfiguration(config: SetupConfig, dryRun: boolean): Promise
     } else {
       p.log.info('Shell profile: skipped');
     }
+
+    // Step 5: Process template files (agents, etc.)
+    p.log.step('Personalizing agent configurations...');
+    if (!dryRun) {
+      await processTemplateFiles(config, transaction);
+    }
+    p.log.success(`Agent files personalized with name: ${config.assistantName}`);
 
     // Commit transaction
     if (!dryRun) {

@@ -392,7 +392,7 @@ VALIDATION CHECKPOINTS:
 - Are data elements accurate and precise?
 - Do editorial elements enhance (not distract from) information?
 
-Sign "Kai" small in bottom right corner in charcoal (#2D2D2D).
+Sign "{{{assistantName}}}" small in bottom right corner in charcoal (#2D2D2D).
 ```
 
 ---

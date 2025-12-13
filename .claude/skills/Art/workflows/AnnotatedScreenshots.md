@@ -213,7 +213,7 @@ CRITICAL REQUIREMENTS:
 - Strategic color (not every annotation needs color)
 - No gradients on annotations
 
-Optional: Sign "Kai" small in bottom corner in charcoal (#2D2D2D).
+Optional: Sign "{{{assistantName}}}" small in bottom corner in charcoal (#2D2D2D).
 ```
 
 ### Alternative: Composite Workflow

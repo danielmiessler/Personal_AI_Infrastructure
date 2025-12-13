@@ -146,7 +146,7 @@ The interactive wizard configures:
 | **PAI Directory** | Where to install | `~/.claude` |
 | **Your Name** | Auto-detected from git config | — |
 | **Your Email** | Auto-detected from git config | — |
-| **Assistant Name** | Name your AI | `Kai` |
+| **Assistant Name** | Name your AI | `Assistant` |
 | **Color Theme** | blue, purple, green, cyan, red | `blue` |
 | **Voice Server** | Text-to-speech (macOS only) | Enabled |
 | **Shell Profile** | Add environment variables | Yes |
@@ -162,7 +162,7 @@ bun run setup.ts \
   --pai-dir ~/.claude \
   --name "Your Name" \
   --email you@example.com \
-  --assistant-name "Kai" \
+  --assistant-name "Nova" \
   --force
 ```
 
@@ -173,7 +173,7 @@ bun run setup.ts `
   --pai-dir "$env:USERPROFILE\.claude" `
   --name "Your Name" `
   --email you@example.com `
-  --assistant-name "Kai" `
+  --assistant-name "Nova" `
   --force
 ```
 

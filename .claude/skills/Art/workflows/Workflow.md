@@ -122,7 +122,7 @@ The concept should be describable in ONE sentence with 2-3 PHYSICAL elements tha
 3. **Style:** Saul Steinberg / New Yorker / risograph aesthetic
 4. **Composition:** Objects fill 40-60% of frame, 30-40% negative space
 5. **Elements:** 2-3 abstract elements maximum
-6. **Kai Signature:** Small charcoal (#2D2D2D) bottom right
+6. **{{{assistantName}}} Signature:** Small charcoal (#2D2D2D) bottom right
 
 ### Color System
 
@@ -215,7 +215,7 @@ CRITICAL REQUIREMENTS:
 - Lines must look hand-drawn, NOT perfect vectors
 - Color is ACCENT only, black linework dominates
 
-Sign "Kai" as a tiny artist signature in charcoal (#2D2D2D) bottom right corner.
+Sign "{{{assistantName}}}" as a tiny artist signature in charcoal (#2D2D2D) bottom right corner.
 NO other text anywhere.
 ```
 
@@ -367,7 +367,7 @@ Before submitting any image:
 - ✅ Elements extend to or bleed off all edges (100% frame fill)
 - ✅ 2-3 elements maximum
 - ✅ No gradients, shadows, or shine
-- ✅ Kai signature bottom right
+- ✅ {{{assistantName}}} signature bottom right
 - ✅ **COLOR VISIBLE** - Purple and/or Teal must be noticeable (not microscopic)
 
 ---

@@ -122,7 +122,7 @@ Technical diagrams explain systems, architectures, processes, and flows. Unlike 
 │   │   Database   │                            │  ← TIER 2: Component label
 │   └──────────────┘                            │
 │                                                 │
-│                    "Kai" signature              │
+│                    "{{{assistantName}}}" signature              │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -341,7 +341,7 @@ CRITICAL REQUIREMENTS:
 - Blueprint/engineering notebook aesthetic
 - Strategic color use (not everything colored, mostly black with purple/teal highlights)
 
-[Optional: Add "Kai" signature in bottom right corner in charcoal]
+[Optional: Add "{{{assistantName}}}" signature in bottom right corner in charcoal]
 ```
 
 ---

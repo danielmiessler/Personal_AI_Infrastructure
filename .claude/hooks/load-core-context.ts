@@ -3,31 +3,24 @@
 /**
  * load-core-context.ts
  *
- * Automatically loads your CORE skill context at session start by reading and injecting
- * the CORE SKILL.md file contents directly into Claude's context as a system-reminder.
+ * Automatically loads shared base context + orchestrator context at session start.
  *
  * Purpose:
- * - Read CORE SKILL.md file content
- * - Output content as system-reminder for Claude to process
- * - Ensure complete context (contacts, preferences, security, identity) available at session start
- * - Bypass skill activation logic by directly injecting context
+ * - Dynamically load ALL .md files from LOAD_AT_SESSION_START/ directory
+ * - Load ORCHESTRATORS/AITO/PERSONALITY.md (orchestrator-specific context)
+ * - Load delegation patterns (critical orchestrator behavior)
+ * - Skip for subagent sessions (they get shared context via @import)
  *
  * Setup:
- * 1. Customize your ${PAI_DIR}/skills/CORE/SKILL.md with your personal context
- * 2. Add this hook to settings.json SessionStart hooks
- * 3. Ensure PAI_DIR environment variable is set (defaults to $HOME/.claude)
- *
- * How it works:
- * - Runs at the start of every Claude Code session
- * - Skips execution for subagent sessions (they don't need CORE context)
- * - Reads your CORE SKILL.md file
- * - Injects content as <system-reminder> which Claude processes automatically
- * - Gives your AI immediate access to your complete personal context
+ * 1. Add this hook to settings.json SessionStart hooks
+ * 2. Reads from ~/MY_AI_AGENTS/DEFINE_AGENTS/
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { PAI_DIR, SKILLS_DIR } from './lib/pai-paths';
+
+// Path to LLM-agnostic agent definitions
+const AGENT_DEFS = join(process.env.HOME || '', 'MY_AI_AGENTS/DEFINE_AGENTS');
 
 async function main() {
   try {
@@ -37,52 +30,84 @@ async function main() {
                       process.env.CLAUDE_AGENT_TYPE !== undefined;
 
     if (isSubagent) {
-      // Subagent sessions don't need CORE context loading
-      console.error('🤖 Subagent session - skipping CORE context loading');
+      // Subagent sessions don't need orchestrator context loading
+      console.error('🤖 Subagent session - skipping orchestrator context loading');
       process.exit(0);
     }
 
-    // Get CORE skill path using PAI paths library
-    const coreSkillPath = join(SKILLS_DIR, 'CORE/SKILL.md');
+    // Dynamically load ALL .md files from LOAD_AT_SESSION_START directory
+    const sessionStartDir = join(AGENT_DEFS, 'SHARED_BY_ALL_AGENTS/LOAD_AT_SESSION_START');
 
-    // Verify CORE skill file exists
-    if (!existsSync(coreSkillPath)) {
-      console.error(`❌ CORE skill not found at: ${coreSkillPath}`);
-      console.error(`💡 Ensure CORE/SKILL.md exists or check PAI_DIR environment variable`);
-      process.exit(1);
+    console.error('📚 Dynamically loading all markdown files from LOAD_AT_SESSION_START...');
+
+    let sessionStartContent = '';
+    const loadedFiles: string[] = [];
+
+    if (existsSync(sessionStartDir)) {
+      // Get all .md files and sort alphabetically for predictability
+      const sessionStartFiles = readdirSync(sessionStartDir)
+        .filter(f => f.endsWith('.md'))
+        .sort();
+
+      console.error(`📂 Found ${sessionStartFiles.length} markdown files to load`);
+
+      // Load each file
+      for (const file of sessionStartFiles) {
+        const filePath = join(sessionStartDir, file);
+        try {
+          const content = readFileSync(filePath, 'utf-8');
+          sessionStartContent += `\n=== ${file} ===\n${content}\n`;
+          loadedFiles.push(file);
+          console.error(`✅ Loaded ${file} (${content.length} characters)`);
+        } catch (error) {
+          console.error(`⚠️ Failed to read ${file}: ${error}`);
+        }
+      }
+
+      console.error(`✅ Successfully loaded ${loadedFiles.length} session start files: ${loadedFiles.join(', ')}`);
+    } else {
+      console.error(`⚠️ Session start directory not found at: ${sessionStartDir}`);
     }
 
-    console.error('📚 Reading CORE context from skill file...');
+    // Path to orchestrator agent definition
+    const orchestratorPath = join(AGENT_DEFS, 'ORCHESTRATORS/AITO/PERSONALITY.md');
+    // Path to delegation patterns (critical for orchestrator behavior)
+    const delegationPath = join(AGENT_DEFS, 'ORCHESTRATORS/AITO/CAPABILITIES/delegation-patterns.md');
 
-    // Read the CORE SKILL.md file content
-    let coreContent = readFileSync(coreSkillPath, 'utf-8');
+    // Read orchestrator context
+    let orchestratorContent = '';
+    if (existsSync(orchestratorPath)) {
+      console.error('📚 Reading orchestrator context...');
+      orchestratorContent = readFileSync(orchestratorPath, 'utf-8');
+      console.error(`✅ Read ${orchestratorContent.length} characters from ORCHESTRATORS/AITO/PERSONALITY.md`);
+    } else {
+      console.error(`⚠️ Orchestrator context not found at: ${orchestratorPath}`);
+    }
 
-    // Perform Dynamic Variable Substitution
-    // This allows SKILL.md to be generic while the session is personalized
-    const daName = process.env.DA || 'PAI';
-    const daColor = process.env.DA_COLOR || 'blue';
-    const engineerName = process.env.ENGINEER_NAME || 'User';
+    // Read delegation patterns (critical for orchestrator behavior)
+    let delegationContent = '';
+    if (existsSync(delegationPath)) {
+      console.error('📚 Reading delegation patterns...');
+      delegationContent = readFileSync(delegationPath, 'utf-8');
+      console.error(`✅ Read ${delegationContent.length} characters from delegation-patterns.md`);
+    } else {
+      console.error(`⚠️ Delegation patterns not found at: ${delegationPath}`);
+    }
 
-    // Replace placeholders {{DA}}, {{DA_COLOR}}, {{ENGINEER_NAME}}
-    coreContent = coreContent
-      .replace(/\{\{DA\}\}/g, daName)
-      .replace(/\{\{DA_COLOR\}\}/g, daColor)
-      .replace(/\{\{ENGINEER_NAME\}\}/g, engineerName);
-
-    console.error(`✅ Read ${coreContent.length} characters from CORE SKILL.md (Personalized for ${engineerName} & ${daName})`);
-
-    // Output the CORE content as a system-reminder
-    // This will be injected into Claude's context at session start
+    // Output the combined content as a system-reminder
     const message = `<system-reminder>
-PAI CORE CONTEXT (Auto-loaded at Session Start)
+AITO CONTEXT (Auto-loaded at Session Start)
 
-📅 CURRENT DATE/TIME: ${new Date().toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short' })}
+📅 CURRENT DATE/TIME: ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} PST
 
-The following context has been loaded from ${coreSkillPath}:
+=== SESSION START CONTEXT (${loadedFiles.length} files loaded) ===
+${sessionStartContent}
 
----
-${coreContent}
----
+=== ORCHESTRATOR CONTEXT (AITO) ===
+${orchestratorContent}
+
+=== DELEGATION PATTERNS (CONSTITUTIONAL) ===
+${delegationContent}
 
 This context is now active for this session. Follow all instructions, preferences, and guidelines contained above.
 </system-reminder>`;
@@ -90,10 +115,10 @@ This context is now active for this session. Follow all instructions, preference
     // Write to stdout (will be captured by Claude Code)
     console.log(message);
 
-    console.error('✅ CORE context injected into session');
+    console.error('✅ Context injected into session');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error in load-core-context hook:', error);
+    console.error('❌ Error in load-base-context hook:', error);
     process.exit(1);
   }
 }

@@ -8,7 +8,7 @@
  * Tests:
  * 1. PAI_DIR resolves correctly
  * 2. Core directories exist
- * 3. CORE skill loads
+ * 3. AITO skill loads
  * 4. Settings.json is valid
  * 5. Agents exist
  * 6. Hooks are executable
@@ -95,17 +95,17 @@ test(
   `Missing: ${HISTORY_DIR}`
 );
 
-// Test 3: CORE skill loads
+// Test 3: AITO skill loads
 test(
-  'CORE Skill',
+  'AITO Skill',
   () => {
-    const coreSkill = join(SKILLS_DIR, 'CORE/SKILL.md');
+    const coreSkill = join(SKILLS_DIR, 'AITO/SKILL.md');
     if (!existsSync(coreSkill)) return false;
     const content = readFileSync(coreSkill, 'utf-8');
     return content.includes('CORE IDENTITY') || content.includes('Personal AI Infrastructure');
   },
-  'CORE skill loads correctly',
-  'CORE skill missing or malformed'
+  'AITO skill loads correctly',
+  'AITO skill missing or malformed'
 );
 
 // Test 4: Settings.json valid

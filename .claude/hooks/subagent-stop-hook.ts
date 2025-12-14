@@ -1,6 +1,20 @@
 #!/usr/bin/env bun
 
 import { readFileSync, existsSync } from 'fs';
+import { getVoicesPath } from '../utils/paths';
+
+// Load voice configuration from voices.json
+interface VoicesConfig {
+  speed: number;
+  voices: Record<string, string>;
+}
+
+const voicesPath = getVoicesPath();
+if (!voicesPath) {
+  console.error('❌ voices.json not found - voice system will not work');
+  process.exit(1);
+}
+const VOICE_CONFIG: VoicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -118,6 +132,8 @@ function extractCompletionMessage(taskOutput: string): { message: string | null,
   // Look for the COMPLETED section in the agent's output
   // Priority is given to [AGENT:type] format
   const agentPatterns = [
+    // Simple format: 🎯 COMPLETED: [AGENT:type] message
+    /🎯\s*\**\s*COMPLETED:\s*\**\s*\[AGENT:(\w+)\]\s*(.+?)(?:\n|$)/is,
     // Handle markdown formatting with asterisks
     /\*+🎯\s*COMPLETED:\*+\s*\[AGENT:(\w+)\]\s*I\s+completed\s+(.+?)(?:\n|$)/is,
     /\*+🎯\s+COMPLETED:\*+\s*\[AGENT:(\w+)\]\s*I\s+completed\s+(.+?)(?:\n|$)/is,
@@ -126,7 +142,9 @@ function extractCompletionMessage(taskOutput: string): { message: string | null,
     /COMPLETED:\s*\[AGENT:(\w+)\]\s*I\s+completed\s+(.+?)(?:\n|$)/is,
     /\[AGENT:(\w+)\]\s*I\s+completed\s+(.+?)(?:\.|!|\n|$)/is,
     // Generic pattern for current format
-    /🎯.*COMPLETED.*\[AGENT:(\w+)\]\s*I\s+completed\s+(.+?)(?:\n|$)/is
+    /🎯.*COMPLETED.*\[AGENT:(\w+)\]\s*I\s+completed\s+(.+?)(?:\n|$)/is,
+    // Fallback: just [AGENT:type] followed by any text
+    /\[AGENT:(\w+)\]\s*(.+?)(?:\n|$)/is
   ];
 
   // First try to match agent-specific patterns
@@ -271,7 +289,7 @@ async function main() {
         title: `${agentName} Agent`,
         message: fullMessage,
         voice_enabled: true,
-        agent: finalAgentType
+        agent: finalAgentType  // Server looks up voice config by agent name
       })
     });
 

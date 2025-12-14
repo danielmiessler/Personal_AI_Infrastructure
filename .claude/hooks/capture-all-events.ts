@@ -23,7 +23,7 @@ interface HookEvent {
 // Get PST timestamp
 function getPSTTimestamp(): string {
   const date = new Date();
-  const pstDate = new Date(date.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
+  const pstDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
 
   const year = pstDate.getFullYear();
   const month = String(pstDate.getMonth() + 1).padStart(2, '0');
@@ -38,7 +38,7 @@ function getPSTTimestamp(): string {
 // Get current events file path
 function getEventsFilePath(): string {
   const now = new Date();
-  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
+  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
   const year = pstDate.getFullYear();
   const month = String(pstDate.getMonth() + 1).padStart(2, '0');
   const day = String(pstDate.getDate()).padStart(2, '0');

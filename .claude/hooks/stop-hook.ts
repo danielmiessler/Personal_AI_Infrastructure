@@ -1,8 +1,12 @@
 #!/usr/bin/env bun
 
 import { readFileSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+
+/**
+ * Regex to match COMPLETED line with optional markdown formatting
+ * Handles: 🎯 COMPLETED:, 🎯 **COMPLETED:**, 🎯 *COMPLETED:*, etc.
+ */
+const COMPLETED_REGEX = /🎯\s*\**\s*COMPLETED:\s*\**\s*(.+?)(?:\n|$)/im;
 
 /**
  * Generate 4-word tab title summarizing what was done
@@ -130,58 +134,8 @@ function setTerminalTabTitle(title: string): void {
   }
 }
 
-// Load voice configuration from voices.json
-interface VoiceConfig {
-  voice_name: string;
-  rate_wpm: number;
-  rate_multiplier: number;
-  description: string;
-  type: string;
-}
-
-interface VoicesConfig {
-  default_rate: number;
-  voices: Record<string, VoiceConfig>;
-}
-
-// Helper to safely turn Claude content (string or array of blocks) into plain text
-function contentToText(content: any): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => {
-        if (typeof c === 'string') return c;
-        if (c?.text) return c.text;
-        if (c?.content) return String(c.content);
-        return '';
-      })
-      .join(' ')
-      .trim();
-  }
-  return '';
-}
-
-// Load voices configuration
-let VOICE_CONFIG: VoicesConfig;
-try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
-  VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
-} catch (e) {
-  // Fallback to hardcoded config if file doesn't exist
-  console.error('⚠️ Could not load voices.json, using fallback config');
-  VOICE_CONFIG = {
-    default_rate: 175,
-    voices: {
-      main: { voice_name: "Jamie (Premium)", rate_wpm: 263, rate_multiplier: 1.5, description: "UK Male", type: "Premium" },
-      researcher: { voice_name: "Ava (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Premium" },
-      engineer: { voice_name: "Tom (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Male", type: "Enhanced" },
-      architect: { voice_name: "Serena (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "UK Female", type: "Premium" },
-      designer: { voice_name: "Isha (Premium)", rate_wpm: 236, rate_multiplier: 1.35, description: "Indian Female", type: "Premium" },
-      pentester: { voice_name: "Oliver (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "UK Male", type: "Enhanced" },
-      writer: { voice_name: "Samantha (Enhanced)", rate_wpm: 236, rate_multiplier: 1.35, description: "US Female", type: "Enhanced" }
-    }
-  };
-}
+// Voice agent names (Piper-based - no longer using ElevenLabs voice IDs)
+const VOICE_AGENTS = ['aito', 'engineer', 'architect', 'researcher', 'designer', 'pentester', 'writer', 'fallback'];
 
 // Intelligent response generator - prioritizes custom COMPLETED messages
 function generateIntelligentResponse(userQuery: string, assistantResponse: string, completedLine: string): string {
@@ -342,9 +296,8 @@ async function main() {
       if (entry.type === 'assistant' && entry.message?.content) {
         // Check if this assistant message contains a Task tool_use
         let foundTask = false;
-        const contentArray = Array.isArray(entry.message.content) ? entry.message.content : [entry.message.content];
-        for (const content of contentArray) {
-          if (content?.type === 'tool_use' && content.name === 'Task') {
+        for (const content of entry.message.content) {
+          if (content.type === 'tool_use' && content.name === 'Task') {
             // This is an agent task - find its result
             foundTask = true;
             agentType = content.input?.subagent_type || '';
@@ -353,12 +306,9 @@ async function main() {
             for (let j = i + 1; j < lines.length; j++) {
               const resultEntry = JSON.parse(lines[j]);
               if (resultEntry.type === 'user' && resultEntry.message?.content) {
-                const resultContentArray = Array.isArray(resultEntry.message.content)
-                  ? resultEntry.message.content
-                  : [resultEntry.message.content];
-                for (const resultContent of resultContentArray) {
-                  if (resultContent?.type === 'tool_result' && resultContent.tool_use_id === content.id) {
-                    taskResult = contentToText(resultContent.content);
+                for (const resultContent of resultEntry.message.content) {
+                  if (resultContent.type === 'tool_result' && resultContent.tool_use_id === content.id) {
+                    taskResult = resultContent.content;
                     isAgentTask = true;
                     break;
                   }
@@ -380,15 +330,15 @@ async function main() {
 
   // Generate the announcement
   let message = '';
-  let voiceConfig = VOICE_CONFIG.voices.main; // Default to main voice config
-  let kaiHasCustomCompleted = false;
+  let agentVoice = 'aito'; // Default to Aito's voice
+  let aitoHasCustomCompleted = false;
 
-  // ALWAYS check Kai's response FIRST (even when agents are used)
+  // ALWAYS check Aito's response FIRST (even when AI-subagents are used)
   const lastResponse = lines[lines.length - 1];
   try {
     const entry = JSON.parse(lastResponse);
     if (entry.type === 'assistant' && entry.message?.content) {
-      const content = contentToText(entry.message.content);
+      const content = entry.message.content.map(c => c.text || '').join(' ');
 
       // First, look for CUSTOM COMPLETED line (voice-optimized)
       const customCompletedMatch = content.match(/🗣️\s*CUSTOM\s+COMPLETED:\s*(.+?)(?:\n|$)/im);
@@ -404,20 +354,20 @@ async function main() {
         const wordCount = customText.split(/\s+/).length;
         if (customText && wordCount <= 8) {
           message = customText;
-          kaiHasCustomCompleted = true;
-          console.error(`🗣️ MAIN CUSTOM VOICE: ${message}`);
+          aitoHasCustomCompleted = true;
+          console.error(`🗣️ KAI CUSTOM VOICE: ${message}`);
         } else {
           // Custom completed too long, fall back to regular COMPLETED
-          const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
+          const completedMatch = content.match(COMPLETED_REGEX);
           if (completedMatch) {
             let completedText = completedMatch[1].trim();
             message = generateIntelligentResponse(lastUserQuery, content, completedText);
-            console.error(`🎯 MAIN FALLBACK (custom too long): ${message}`);
+            console.error(`🎯 KAI FALLBACK (custom too long): ${message}`);
           }
         }
       } else if (!isAgentTask) {
         // No CUSTOM COMPLETED and no agent - look for regular COMPLETED line
-        const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
+        const completedMatch = content.match(COMPLETED_REGEX);
 
         if (completedMatch) {
           // Get the raw text after the colon
@@ -426,7 +376,7 @@ async function main() {
           // Generate intelligent response
           message = generateIntelligentResponse(lastUserQuery, content, completedText);
 
-          console.error(`🎯 MAIN INTELLIGENT: ${message}`);
+          console.error(`🎯 KAI INTELLIGENT: ${message}`);
         } else {
           // No COMPLETED line found - don't send anything
           console.error('⚠️ No COMPLETED line found');
@@ -434,10 +384,10 @@ async function main() {
       }
     }
   } catch (e) {
-    console.error('⚠️ Error parsing assistant response:', e);
+    console.error('⚠️ Error parsing Aito response:', e);
   }
 
-  // If Kai didn't provide a CUSTOM COMPLETED and an agent was used, check agent's response
+  // If Aito didn't provide a CUSTOM COMPLETED and an AI-subagent was used, check AI-subagent's response
   if (!message && isAgentTask && taskResult) {
     // First, try to find CUSTOM COMPLETED line in agent response
     const customCompletedMatch = taskResult.match(/🗣️\s*CUSTOM\s+COMPLETED:\s*(.+?)(?:\n|$)/im);
@@ -454,24 +404,24 @@ async function main() {
       const wordCount = customText.split(/\s+/).length;
       if (customText && wordCount <= 8) {
         message = customText;
-        voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.main;
+        agentVoice = VOICE_AGENTS.includes(agentType.toLowerCase()) ? agentType.toLowerCase() : 'aito';
         console.error(`🗣️ AGENT CUSTOM VOICE (fallback): ${message}`);
       } else {
         // Custom completed too long, fall back to regular COMPLETED
-        const completedMatch = taskResult.match(/🎯\s*COMPLETED:\s*(.+?)$/im);
+        const completedMatch = taskResult.match(COMPLETED_REGEX);
         if (completedMatch) {
           let completedText = completedMatch[1].trim()
             .replace(/\*+/g, '')
             .replace(/\[AGENT:\w+\]\s*/i, '')
             .trim();
           message = generateIntelligentResponse(lastUserQuery, taskResult, completedText);
-          voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.main;
+          agentVoice = VOICE_AGENTS.includes(agentType.toLowerCase()) ? agentType.toLowerCase() : 'aito';
           console.error(`🎯 AGENT FALLBACK (custom too long): ${message}`);
         }
       }
     } else {
       // No CUSTOM COMPLETED, look for regular COMPLETED line
-      const completedMatch = taskResult.match(/🎯\s*COMPLETED:\s*(.+?)$/im);
+      const completedMatch = taskResult.match(COMPLETED_REGEX);
 
       if (completedMatch) {
         // Get exactly what the agent said after COMPLETED:
@@ -485,7 +435,7 @@ async function main() {
 
         // Generate intelligent response for agent tasks
         message = generateIntelligentResponse(lastUserQuery, taskResult, completedText);
-        voiceConfig = VOICE_CONFIG.voices[agentType.toLowerCase()] || VOICE_CONFIG.voices.main;
+        agentVoice = VOICE_AGENTS.includes(agentType.toLowerCase()) ? agentType.toLowerCase() : 'aito';
 
         console.error(`🎯 AGENT INTELLIGENT (fallback): ${message}`);
       }
@@ -494,23 +444,16 @@ async function main() {
 
   // FIRST: Send voice notification if we have a message
   if (message) {
-    // Determine which agent to use for voice - use subagent if detected, otherwise main agent from DA env
-    const mainAgent = process.env.DA?.toLowerCase() || 'kai';
-    const agent = agentType?.toLowerCase() || mainAgent;
-    const priority = 'low';
-    // Send to voice server - server looks up voice_id from voices.json based on agent
     await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: 'Completion',
-        message,
-        voice_enabled: true,
-        priority,
-        agent
+        message: message,
+        agent: agentVoice,
+        voice_enabled: true
       })
     }).catch(() => {});
-    console.error(`🔊 Voice notification sent: "${message}" with agent: ${agent}`);
+    console.error(`🔊 Voice notification sent: "${message}" (agent: ${agentVoice})`);
   }
 
   // ALWAYS set tab title to override any previous titles (like "dynamic requirements")
@@ -524,8 +467,8 @@ async function main() {
       const lastResponse = lines[lines.length - 1];
       const entry = JSON.parse(lastResponse);
       if (entry.type === 'assistant' && entry.message?.content) {
-        const content = contentToText(entry.message.content);
-        const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
+        const content = entry.message.content.map(c => c.text || '').join(' ');
+        const completedMatch = content.match(COMPLETED_REGEX);
         if (completedMatch) {
           tabTitle = completedMatch[1].trim()
             .replace(/\*+/g, '')

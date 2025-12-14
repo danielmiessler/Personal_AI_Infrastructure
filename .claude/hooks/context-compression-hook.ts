@@ -5,29 +5,20 @@
  */
 
 import { readFileSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+import { getVoicesPath } from '../utils/paths';
 
 interface NotificationPayload {
   title: string;
   message: string;
   voice_enabled: boolean;
-  voice_name?: string;
-  rate?: number;
+  voice_id?: string;
+  speed?: number;
   priority?: 'low' | 'normal' | 'high';
 }
 
-interface VoiceConfig {
-  voice_name: string;
-  rate_wpm: number;
-  rate_multiplier: number;
-  description: string;
-  type: string;
-}
-
 interface VoicesConfig {
-  default_rate: number;
-  voices: Record<string, VoiceConfig>;
+  speed: number;
+  voices: Record<string, string>;
 }
 
 interface HookInput {
@@ -50,7 +41,7 @@ interface TranscriptEntry {
 }
 
 /**
- * Send notification to the Kai notification server
+ * Send notification to the Aito notification server (Aito is a fork of Kai)
  */
 async function sendNotification(payload: NotificationPayload): Promise<void> {
   try {
@@ -99,22 +90,13 @@ function getTranscriptStats(transcriptPath: string): { messageCount: number; isL
   }
 }
 
-// Load voice configuration
-let kaiVoiceConfig: VoiceConfig;
-try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
-  const config: VoicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
-  kaiVoiceConfig = config.voices.kai;
-} catch (e) {
-  // Fallback to hardcoded Kai voice config
-  kaiVoiceConfig = {
-    voice_name: "Jamie (Premium)",
-    rate_wpm: 263,
-    rate_multiplier: 1.5,
-    description: "UK Male",
-    type: "Premium"
-  };
+// Load voice configuration from voices.json (single source of truth)
+const voicesPath = getVoicesPath();
+if (!voicesPath) {
+  console.error('❌ voices.json not found - voice system will not work');
+  process.exit(1);
 }
+const voicesConfig: VoicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
 
 async function main() {
   let hookInput: HookInput | null = null;
@@ -164,13 +146,13 @@ async function main() {
     }
   }
   
-  // Send notification with voice (using main agent's voice from config)
-  const mainAgent = process.env.DA?.toLowerCase() || 'kai';
+  // Send notification with voice (using Aito's voice from config)
   await sendNotification({
-    title: `${process.env.DA || 'Kai'} Context`,
+    title: 'Aito Context',
     message: message,
     voice_enabled: true,
-    agent: mainAgent,
+    voice_id: voicesConfig.voices.aito,
+    speed: voicesConfig.speed,
     priority: 'low',
   });
   

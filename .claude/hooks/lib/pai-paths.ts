@@ -59,9 +59,21 @@ validatePAIStructure();
  */
 export function getHistoryFilePath(subdir: string, filename: string): string {
   const now = new Date();
-  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
+  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
   const year = pstDate.getFullYear();
   const month = String(pstDate.getMonth() + 1).padStart(2, '0');
 
   return join(HISTORY_DIR, subdir, `${year}-${month}`, filename);
+}
+
+/**
+ * Get voices.json path for voice server
+ * Checks multiple locations for cross-platform compatibility
+ */
+export function getVoicesPath(): string | null {
+  const paths = [
+    join(PAI_DIR, 'voice-server/voices.json'),
+    join(homedir(), '.claude/voice-server/voices.json'),
+  ].filter((p): p is string => !!p);
+  return paths.find(existsSync) ?? null;
 }

@@ -44,8 +44,8 @@
     </div>
 
     <!-- Timeline - Glass Panel -->
-    <div class="flex flex-col flex-1 overflow-hidden mx-4 my-4 mobile:mx-2 mobile:my-2">
-      <div class="glass-panel rounded-2xl flex-1 overflow-hidden">
+    <div class="flex flex-col flex-1 min-h-0 overflow-hidden mx-4 my-4 mobile:mx-2 mobile:my-2">
+      <div class="glass-panel rounded-2xl flex-1 min-h-0 overflow-hidden flex flex-col">
         <EventTimeline
           :events="events"
           :filters="filters"

@@ -56,10 +56,10 @@ if [ -d "$claude_dir/commands" ]; then
     commands_count=$(ls -1 "$claude_dir/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
 fi
 
-# Count MCPs from settings.json (single parse)
+# Count MCPs from .mcp.json (single parse)
 mcp_names_raw=""
-if [ -f "$claude_dir/settings.json" ]; then
-    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/settings.json" 2>/dev/null)
+if [ -f "$claude_dir/.mcp.json" ]; then
+    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/.mcp.json" 2>/dev/null)
     mcp_names_raw=$(echo "$mcp_data" | head -1)
     mcps_count=$(echo "$mcp_data" | tail -1)
 else
@@ -94,7 +94,7 @@ cache_needs_update=false
 if [ ! -f "$CACHE_FILE" ] || [ -z "$daily_tokens" ]; then
     cache_needs_update=true
 elif [ -f "$CACHE_FILE" ]; then
-    cache_age=$(($(date +%s) - $(stat -f%m "$CACHE_FILE" 2>/dev/null || echo 0)))
+    cache_age=$(($(date +%s) - $(stat -c%Y "$CACHE_FILE" 2>/dev/null || echo 0)))
     if [ $cache_age -ge $CACHE_AGE ]; then
         cache_needs_update=true
     fi
@@ -142,7 +142,7 @@ if [ "$cache_needs_update" = true ]; then
     else
         # Someone else is updating - check if lock is stale (older than 30 seconds)
         if [ -d "$LOCK_FILE" ]; then
-            lock_age=$(($(date +%s) - $(stat -f%m "$LOCK_FILE" 2>/dev/null || echo 0)))
+            lock_age=$(($(date +%s) - $(stat -c%Y "$LOCK_FILE" 2>/dev/null || echo 0)))
             if [ $lock_age -gt 30 ]; then
                 # Stale lock - remove it and try again
                 rmdir "$LOCK_FILE" 2>/dev/null

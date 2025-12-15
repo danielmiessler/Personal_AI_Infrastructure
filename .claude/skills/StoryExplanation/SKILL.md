@@ -339,9 +339,9 @@ Use the selected framing to create the story explanation in the appropriate form
 - Specifically designed for engaging storytelling
 - Prioritizes conversational flow and "wow" factor
 
-## Integration with Kai
+## Integration with {{{assistantName}}}
 
-When this skill activates, Kai should:
+When this skill activates, {{{assistantName}}} should:
 
 1. **Determine format** - Based on user request, select appropriate workflow
 2. **Create scratchpad directory** - `${PAI_DIR}/scratchpad/YYYY-MM-DD-HHMMSS_story-explanation-[topic]/`

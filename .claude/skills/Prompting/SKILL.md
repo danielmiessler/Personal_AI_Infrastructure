@@ -85,8 +85,5 @@ Delegate subtasks to specialized agents with minimal context
 ❌ Premature information loading
 ❌ Vague instructions ("might", "could", "should")
 
-## Supplementary Resources
-For full standards: `read ${PAI_DIR}/skills/prompting/CLAUDE.md`
-
 ## Based On
 Anthropic's "Effective Context Engineering for AI Agents"

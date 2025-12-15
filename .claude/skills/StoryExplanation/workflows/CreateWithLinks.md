@@ -172,7 +172,7 @@ Present the final story explanation in this format:
 ## STEP 7: Save Output (Optional)
 
 If the story explanation is valuable for future reference:
-- Save to: `${PAI_DIR}/history/research/YYYY-MM/YYYY-MM-DD_story-explanation-[topic].md`
+- Save to: `${PAI_DIR}/History/Research/YYYY-MM/YYYY-MM-DD_story-explanation-[topic].md`
 - Include both the narrative and the source content
 - Add metadata: date generated, source files, length
 

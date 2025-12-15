@@ -374,7 +374,7 @@ Save complete technical narrative to scratchpad:
 
 **Archive to history if valuable:**
 ```
-${PAI_DIR}/history/research/YYYY-MM/YYYY-MM-DD-HHMMSS_AGENT-default_RESEARCH_[topic]-technical-narrative.md
+${PAI_DIR}/History/Research/YYYY-MM/YYYY-MM-DD-HHMMSS_AGENT-default_RESEARCH_[topic]-technical-narrative.md
 ```
 
 Include:

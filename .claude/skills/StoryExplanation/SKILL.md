@@ -51,27 +51,27 @@ This skill contains multiple workflows for different story explanation formats:
 
 ### Available Workflows:
 
-1. **`workflows/create.md`** - Main 3-part narrative (default)
+1. **`workflows/Create.md`** - Main 3-part narrative (default)
    - **Use when:** User wants standard story explanation format
    - **Triggers:** "create story explanation", "story explanation", default workflow
    - **Output:** 3-part format (opening 15-25 words → body 5-15 sentences → closing 15-25 words)
 
-2. **`workflows/create-with-links.md`** - N-length format with inline source links
+2. **`workflows/CreateWithLinks.md`** - N-length format with inline source links
    - **Use when:** User wants comprehensive narrative with source attribution
    - **Triggers:** "story explanation with links", "narrative with sources", "with inline citations"
    - **Output:** N sentences (default 25) with inline links after each sentence
 
-3. **`workflows/create-abridged.md`** - Ultra-concise 5-line format (5-12 words per line)
+3. **`workflows/CreateAbridged.md`** - Ultra-concise 5-line format (5-12 words per line)
    - **Use when:** User wants abbreviated format from URL, YouTube, or text
    - **Triggers:** "create abridged story explanation", "5-line summary", command: `/create-abridged-story-explanation`
    - **Output:** 5 lines with strict word limits
 
-4. **`workflows/cse.md`** - Comprehensive explanation using Foundry MCP
+4. **`workflows/Cse.md`** - Comprehensive explanation using Foundry MCP
    - **Use when:** User wants detailed narrative explanation
    - **Triggers:** "run CSE", "explain this story", command: `/cse`
    - **Output:** Complete narrative explanation via Foundry
 
-5. **`workflows/cse5.md`** - Clean 5-line numbered format using Foundry MCP
+5. **`workflows/Cse5.md`** - Clean 5-line numbered format using Foundry MCP
    - **Use when:** User wants scannable, numbered breakdown
    - **Triggers:** "explain in 5 lines", "CSE5", command: `/cse5`
    - **Output:** 5 numbered lines, one concept per line
@@ -82,27 +82,27 @@ This skill contains multiple workflows for different story explanation formats:
 User request → Analyze intent:
 
 ├─ "with links" OR "inline sources" OR "with citations"
-│  └─> workflows/create-with-links.md (N-length format with inline links)
+│  └─> workflows/CreateWithLinks.md (N-length format with inline links)
 │
 ├─ "abridged" OR "5-12 words per line"
-│  └─> workflows/create-abridged.md
+│  └─> workflows/CreateAbridged.md
 │
 ├─ "CSE5" OR "5 lines" OR "numbered"
-│  └─> workflows/cse5.md
+│  └─> workflows/Cse5.md
 │
 ├─ "CSE" OR "comprehensive explanation"
-│  └─> workflows/cse.md
+│  └─> workflows/Cse.md
 │
 └─ Default OR "story explanation"
-   └─> workflows/create.md (3-part narrative)
+   └─> workflows/Create.md (3-part narrative)
 ```
 
 ### Command Routing:
-- `/create-story-explanation` → `workflows/create.md`
-- `/create-story-output-links` → `workflows/create-with-links.md`
-- `/create-abridged-story-explanation` → `workflows/create-abridged.md`
-- `/cse` → `workflows/cse.md`
-- `/cse5` → `workflows/cse5.md`
+- `/create-story-explanation` → `workflows/Create.md`
+- `/create-story-output-links` → `workflows/CreateWithLinks.md`
+- `/create-abridged-story-explanation` → `workflows/CreateAbridged.md`
+- `/cse` → `workflows/Cse.md`
+- `/cse5` → `workflows/Cse5.md`
 
 ## 📁 Scratchpad → History Pattern
 
@@ -118,7 +118,7 @@ User request → Analyze intent:
    - Example: `${PAI_DIR}/scratchpad/2025-10-26-143000_story-explanation-agi-timeline/`
 
 2. **History (Permanent Archive - Optional):**
-   - Move to `${PAI_DIR}/history/research/YYYY-MM/YYYY-MM-DD-HHMMSS_AGENT-[agent]_RESEARCH_[slug].md` **ONLY IF:**
+   - Move to `${PAI_DIR}/History/Research/YYYY-MM/YYYY-MM-DD-HHMMSS_AGENT-[agent]_RESEARCH_[slug].md` **ONLY IF:**
      - The analysis provides valuable reusable insights about narrative framing
      - The content analysis reveals patterns applicable to future work
      - The framing exploration demonstrates particularly effective techniques
@@ -142,7 +142,7 @@ ${PAI_DIR}/scratchpad/2025-10-26-143000_story-explanation-agi-timeline/
 └── final-story-explanation.md         # Final output
 
 # Only if exceptional:
-${PAI_DIR}/history/research/2025-10/2025-10-26-143000_AGENT-default_RESEARCH_agi-timeline-narrative-framing-analysis.md
+${PAI_DIR}/History/Research/2025-10/2025-10-26-143000_AGENT-default_RESEARCH_agi-timeline-narrative-framing-analysis.md
 ```
 
 **Guidelines:**
@@ -237,7 +237,7 @@ Use the selected framing to create the story explanation in the appropriate form
 
 ## Output Formats
 
-### Default: 3-Part Narrative (workflows/create.md)
+### Default: 3-Part Narrative (workflows/Create.md)
 
 **Opening (15-25 words)**
 - Compelling sentence that sets up the content
@@ -260,7 +260,7 @@ Use the selected framing to create the story explanation in the appropriate form
 - First person voice
 - Make the significance clear
 
-### N-Length with Links (workflows/create-with-links.md)
+### N-Length with Links (workflows/CreateWithLinks.md)
 
 **N sentences** (user-specified, default 25) with inline links after EVERY sentence mentioning developments:
 

@@ -199,7 +199,7 @@ Save final story explanation to scratchpad:
 - `${PAI_DIR}/scratchpad/YYYY-MM-DD-HHMMSS_story-explanation-[topic]/final-story-explanation.md`
 
 **Optional:** If analysis methodology is exceptionally valuable, archive to:
-- `${PAI_DIR}/history/research/YYYY-MM/YYYY-MM-DD-HHMMSS_AGENT-default_RESEARCH_[topic]-narrative-framing-analysis.md`
+- `${PAI_DIR}/History/Research/YYYY-MM/YYYY-MM-DD-HHMMSS_AGENT-default_RESEARCH_[topic]-narrative-framing-analysis.md`
 
 Include:
 - Final story explanation

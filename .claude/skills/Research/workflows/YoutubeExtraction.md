@@ -73,4 +73,4 @@ fabric -y "https://www.youtube.com/watch?v=VIDEO_ID" -p summarize
 5. If pattern specified, processes through pattern
 
 ## Supplementary Resources
-For Fabric patterns: `read ${PAI_DIR}/docs/fabric-patterns.md`
+For Fabric patterns: `read ${PAI_DIR}/skills/Fabric/SKILL.md`

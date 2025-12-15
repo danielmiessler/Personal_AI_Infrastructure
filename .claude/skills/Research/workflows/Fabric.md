@@ -14,23 +14,7 @@ This provides access to:
 - Response format requirements
 - Personal preferences and operating instructions
 
-## Setup Check - Fabric Repository
-
-**IMPORTANT: Before using this skill, verify the Fabric repository is available:**
-
-```bash
-# Check if Fabric repo exists
-if [ ! -d "$HOME/.claude/skills/fabric/fabric-repo" ]; then
-  echo "Fabric repository not found. Cloning..."
-  cd "$HOME/.claude/skills/fabric"
-  git clone https://github.com/danielmiessler/fabric.git fabric-repo
-  echo "Fabric repository cloned successfully."
-else
-  echo "Fabric repository found at $HOME/.claude/skills/fabric/fabric-repo"
-fi
-```
-
-**If the repo doesn't exist, clone it immediately before proceeding with any pattern selection.**
+**Fabric patterns are just markdown prompts.** Instead of spawning `fabric -p pattern_name` for every task, Claude Code reads and applies patterns directly from `${PAI_DIR}/skills/Fabric/tools/patterns/`.
 
 ## When to Activate This Skill
 
@@ -279,19 +263,18 @@ fabric "your text here" -p [pattern]
 
 ## 🔄 Updating Patterns
 
-The Fabric repository is included in this skill at `${PAI_DIR}/skills/fabric/fabric-repo/`.
+The Fabric pattern are included in this skill at `${PAI_DIR}/skills/Fabric/tools/patterns`.
 
 **To update patterns:**
 
 ```bash
-cd ${PAI_DIR}/skills/fabric/fabric-repo
-git pull origin main
+${PAI_DIR}/skills/Fabric/tools/update-patterns.sh
 ```
 
 **To see all available patterns:**
 
 ```bash
-ls ${PAI_DIR}/skills/fabric/fabric-repo/data/patterns/
+ls ${PAI_DIR}/skills/Fabric/tools/patterns
 # OR from your local Fabric install:
 ls ~/.config/fabric/patterns/
 ```
@@ -368,10 +351,9 @@ cat wisdom.txt | fabric -p create_5_sentence_summary
 
 ## 📖 Supplementary Resources
 
-**Full Pattern List:** `ls ${PAI_DIR}/skills/fabric/fabric-repo/data/patterns/`
-**Fabric Repo:** `${PAI_DIR}/skills/fabric/fabric-repo/`
+**Full Pattern List:** `ls ${PAI_DIR}/skills/Fabric/tools/patterns/`
 **Fabric Documentation:** https://github.com/danielmiessler/fabric
-**Pattern Templates:** See `${PAI_DIR}/skills/fabric/fabric-repo/data/patterns/official_pattern_template/`
+**Pattern Templates:** See `${PAI_DIR}/skills/Fabric/tools/patterns/official_pattern_template/`
 
 ## 🔑 Key Insight
 

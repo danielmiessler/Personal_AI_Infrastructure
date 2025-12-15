@@ -438,7 +438,7 @@ ${PAI_DIR}/scratchpad/2025-10-26-143022_retrieve-react19-docs/
 
 **History (permanent archive):**
 ```
-${PAI_DIR}/history/research/2025-10-26_react19-documentation/
+${PAI_DIR}/History/Research/2025-10-26_react19-documentation/
 ├── README.md (retrieval documentation)
 ├── content.md (final extracted content)
 ├── metadata.json (sources, layers used, timestamps)

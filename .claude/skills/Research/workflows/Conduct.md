@@ -1,12 +1,12 @@
 ---
-description: Comprehensive multi-source research - Kai loads and invokes researcher commands
+description: Comprehensive multi-source research - {{{assistantName}}} loads and invokes researcher commands
 globs: ""
 alwaysApply: false
 ---
 
-# 🔬 COMPREHENSIVE RESEARCH WORKFLOW FOR KAI
+# 🔬 COMPREHENSIVE RESEARCH WORKFLOW FOR {{{assistantName}}}
 
-**YOU (Kai) are reading this because a research request was detected by the load-context hook.**
+**YOU ({{{assistantName}}}) are reading this because a research request was detected by the load-context hook.**
 
 This command provides instructions for YOU to orchestrate comprehensive multi-source research by directly invoking researcher commands (NOT spawning new Claude Code sessions).
 
@@ -351,7 +351,7 @@ Create a comprehensive report that:
 - **Confidence Level:** [High/Medium/Low] ([percentage]%)
 - **Result:** [Brief summary answer]
 
-## 🚨 CRITICAL RULES FOR KAI
+## 🚨 CRITICAL RULES FOR {{{assistantName}}}
 
 ### ⏱️ TIMEOUT RULES (MOST IMPORTANT):
 **After the timeout period, STOP WAITING and synthesize with whatever results you have.**

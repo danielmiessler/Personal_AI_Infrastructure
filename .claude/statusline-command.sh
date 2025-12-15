@@ -10,9 +10,10 @@
 #   - Comment out any printf lines you don't want displayed
 #
 # LINES DISPLAYED:
-#   1. Greeting: DA name, model, directory, capabilities count
-#   2. MCPs: Active MCP servers with names
-#   3. Tokens: Daily usage and cost (requires ccusage)
+#   1. Greeting: DA name, model, directory
+#   2. Capabilities: Commands, Skills, MCPs counts
+#   3. MCP Names: Active MCP servers with names (if any)
+#   4. Tokens: Daily usage and cost (requires ccusage)
 #
 # ENVIRONMENT VARIABLES (set in settings.json env section):
 #   DA            - Your assistant's name (default: "Assistant")
@@ -56,12 +57,25 @@ if [ -d "$claude_dir/commands" ]; then
     commands_count=$(ls -1 "$claude_dir/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
 fi
 
-# Count MCPs from settings.json (single parse)
+# Count skills (SKILL.md files in skill directories)
+skills_count=0
+if [ -d "$claude_dir/skills" ]; then
+    skills_count=$(find "$claude_dir/skills" -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+fi
+
+# Count MCPs from .mcp.json (single parse)
 mcp_names_raw=""
-if [ -f "$claude_dir/settings.json" ]; then
-    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$claude_dir/settings.json" 2>/dev/null)
-    mcp_names_raw=$(echo "$mcp_data" | head -1)
-    mcps_count=$(echo "$mcp_data" | tail -1)
+mcp_file="$claude_dir/.mcp.json"
+if [ -f "$mcp_file" ]; then
+    mcp_data=$(jq -r '.mcpServers | keys | join(" "), length' "$mcp_file" 2>/dev/null)
+    if [ $? -eq 0 ]; then
+        mcp_names_raw=$(echo "$mcp_data" | head -1)
+        mcps_count=$(echo "$mcp_data" | tail -1)
+        # Ensure mcps_count is a number (default to 0 if empty)
+        mcps_count=${mcps_count:-0}
+    else
+        mcps_count="0"
+    fi
 else
     mcps_count="0"
 fi
@@ -261,14 +275,20 @@ for mcp in $mcp_names_raw; do
     fi
 done
 
-# Output the full 3-line statusline
+# Output the statusline (4 lines total)
 # LINE 1 - Greeting with CC version
 printf "👋 ${DA_DISPLAY_COLOR}\"${DA_NAME} here, ready to go...\"${RESET} ${MODEL_PURPLE}Running CC ${cc_version}${RESET}${LINE1_PRIMARY} with ${MODEL_PURPLE}🧠 ${model_name}${RESET}${LINE1_PRIMARY} in ${DIR_COLOR}📁 ${dir_name}${RESET}\n"
 
-# LINE 2 - BLUE theme with MCP names
-printf "${LINE2_PRIMARY}🔌 MCPs${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${mcp_names_formatted}${RESET}\n"
+# LINE 2 - BLUE theme with capabilities: Commands, Skills, MCPs
+capabilities_text="${LINE2_PRIMARY}📜 Commands${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE2_ACCENT}${commands_count}${RESET}${LINE2_PRIMARY}  🎯 Skills${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE2_ACCENT}${skills_count}${RESET}${LINE2_PRIMARY}  🔌 MCPs${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${LINE2_ACCENT}${mcps_count}${RESET}"
+printf "${capabilities_text}\n"
 
-# LINE 3 - GREEN theme with tokens and cost (show cached or N/A)
+# LINE 3 - MCP names (if we have MCPs)
+if [ "${mcps_count:-0}" -gt 0 ] && [ -n "$mcp_names_formatted" ]; then
+    printf "${LINE2_PRIMARY}   └─ MCPs${RESET}${LINE2_PRIMARY}${SEPARATOR_COLOR}: ${RESET}${mcp_names_formatted}${RESET}\n"
+fi
+
+# LINE 4 - GREEN theme with tokens and cost (show cached or N/A)
 # If we have cached data but it's empty, still show N/A
 tokens_display="${daily_tokens:-N/A}"
 cost_display="${daily_cost:-N/A}"

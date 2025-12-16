@@ -1,0 +1,17 @@
+{
+  "name": "jira-cli",
+  "version": "1.0.0",
+  "description": "PAI JIRA CLI - Deterministic command-line interface for Jira",
+  "type": "module",
+  "main": "jira.ts",
+  "scripts": {
+    "start": "bun run jira.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

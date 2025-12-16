@@ -2,12 +2,19 @@
 # Observability Dashboard Manager - Part of voice-server infrastructure
 # Location: ~/.claude/voice-server/observability/
 
+# Configuration
+HOST="localhost"  # localhost: local only, 0.0.0.0: network access
+
+# Port configuration
+SERVER_PORT=4000   # Backend API port
+CLIENT_PORT=5172   # Frontend dashboard port
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "${1:-}" in
     start)
         # Check if already running
-        if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        if lsof -Pi :$SERVER_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
             echo "❌ Already running. Use: manage.sh restart"
             exit 1
         fi
@@ -19,7 +26,7 @@ case "${1:-}" in
 
         # Wait for server
         for i in {1..10}; do
-            curl -s http://localhost:4000/events/filter-options >/dev/null 2>&1 && break
+            curl -s http://$HOST:$SERVER_PORT/events/filter-options >/dev/null 2>&1 && break
             sleep 1
         done
 
@@ -30,11 +37,11 @@ case "${1:-}" in
 
         # Wait for client
         for i in {1..10}; do
-            curl -s http://localhost:5172 >/dev/null 2>&1 && break
+            curl -s http://$HOST:$CLIENT_PORT >/dev/null 2>&1 && break
             sleep 1
         done
 
-        echo "✅ Observability running at http://localhost:5172"
+        echo "✅ Observability running at http://$HOST:$CLIENT_PORT"
 
         # Cleanup on exit
         cleanup() {
@@ -47,7 +54,7 @@ case "${1:-}" in
 
     stop)
         # Kill processes (silent)
-        for port in 4000 5172; do
+        for port in $SERVER_PORT $CLIENT_PORT; do
             if [[ "$OSTYPE" == "darwin"* ]]; then
                 PIDS=$(lsof -ti :$port 2>/dev/null)
             else
@@ -75,8 +82,8 @@ case "${1:-}" in
         ;;
 
     status)
-        if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null 2>&1; then
-            echo "✅ Running at http://localhost:5172"
+        if lsof -Pi :$SERVER_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo "✅ Running at http://$HOST:$CLIENT_PORT"
         else
             echo "❌ Not running"
         fi

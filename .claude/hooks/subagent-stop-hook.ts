@@ -239,14 +239,19 @@ async function main() {
   }
   
   let transcriptPath: string;
+  let agentId: string | null = null;
   try {
     const parsed = JSON.parse(input);
-    transcriptPath = parsed.transcript_path;
+    // For SubagentStop, use agent_transcript_path (the agent's transcript)
+    // Fall back to transcript_path for backwards compatibility
+    transcriptPath = parsed.agent_transcript_path || parsed.transcript_path;
+    agentId = parsed.agent_id || null;
+    console.error(`📋 Agent ID: ${agentId}, Transcript: ${transcriptPath}`);
   } catch (e) {
     console.error('Invalid input JSON:', e);
     process.exit(0);
   }
-  
+
   if (!transcriptPath) {
     console.log('No transcript path provided');
     process.exit(0);

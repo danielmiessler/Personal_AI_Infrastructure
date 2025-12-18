@@ -9,8 +9,11 @@ import { homedir } from "os";
 import { join } from "path";
 import { existsSync } from "fs";
 
-// Load .env from user home directory
-const envPath = join(homedir(), '.env');
+// Load .env from PAI directory (fallback to home directory)
+const paiEnvPath = join(homedir(), '.claude', '.env');
+const homeEnvPath = join(homedir(), '.env');
+const envPath = existsSync(paiEnvPath) ? paiEnvPath : homeEnvPath;
+
 if (existsSync(envPath)) {
   const envContent = await Bun.file(envPath).text();
   envContent.split('\n').forEach(line => {
@@ -19,6 +22,7 @@ if (existsSync(envPath)) {
       process.env[key.trim()] = value.trim();
     }
   });
+  console.log(`📁 Loaded env from: ${envPath}`);
 }
 
 const PORT = parseInt(process.env.PORT || "8888");
@@ -29,8 +33,20 @@ if (!ELEVENLABS_API_KEY) {
   console.error('Add: ELEVENLABS_API_KEY=your_key_here');
 }
 
-// Default voice ID (Kai's voice)
+// Default voice ID (main PAI voice)
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+
+// Agent-specific ElevenLabs voice IDs
+const AGENT_VOICE_IDS: Record<string, string> = {
+  researcher: 'AXdMgz6evoL7OPd7eU12',
+  pentester: 'hmMWXCj9K7N5mCPcRkfC',
+  engineer: 'kmSVBPu7loj4ayNinwWM',
+  designer: 'ZF6FPAbjXT4488VcRRnw',
+  architect: 'muZKMsIDGYtIkjjiUS82',
+  writer: 'gfRt6Z3Z8aTbpLfexQ7N',
+  main: DEFAULT_VOICE_ID,
+  default: DEFAULT_VOICE_ID
+};
 
 // Default model - eleven_multilingual_v2 is the current recommended model
 // See: https://elevenlabs.io/docs/models#models-overview
@@ -174,16 +190,31 @@ async function sendNotification(
   const safeTitle = sanitizeForShell(title);
   const safeMessage = sanitizeForShell(message);
 
-  // Generate and play voice using ElevenLabs
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
-    try {
-      const voice = voiceId || DEFAULT_VOICE_ID;
-      console.log(`🎙️  Generating speech with ElevenLabs (voice: ${voice})`);
+  // Generate and play voice using ElevenLabs with macOS say fallback
+  if (voiceEnabled) {
+    let voicePlayed = false;
 
-      const audioBuffer = await generateSpeech(safeMessage, voice);
-      await playAudio(audioBuffer);
-    } catch (error) {
-      console.error("Failed to generate/play speech:", error);
+    if (ELEVENLABS_API_KEY) {
+      try {
+        const voice = voiceId || DEFAULT_VOICE_ID;
+        console.log(`🎙️  Generating speech with ElevenLabs (voice: ${voice})`);
+
+        const audioBuffer = await generateSpeech(safeMessage, voice);
+        await playAudio(audioBuffer);
+        voicePlayed = true;
+      } catch (error) {
+        console.error("ElevenLabs failed, falling back to macOS say:", error);
+      }
+    }
+
+    // Fallback to macOS say if ElevenLabs failed or not configured
+    if (!voicePlayed) {
+      try {
+        console.log(`🔊 Using macOS say fallback`);
+        await spawnSafe('/usr/bin/say', ['-v', 'Samantha', safeMessage]);
+      } catch (error) {
+        console.error("macOS say fallback also failed:", error);
+      }
     }
   }
 
@@ -252,13 +283,19 @@ const server = serve({
         const title = data.title || "PAI Notification";
         const message = data.message || "Task completed";
         const voiceEnabled = data.voice_enabled !== false;
-        const voiceId = data.voice_id || data.voice_name || null; // Support both voice_id and voice_name
+        const agentType = data.agent_type?.toLowerCase() || null;
+
+        // Priority: explicit voice_id > agent_type mapping > default
+        let voiceId = data.voice_id || null;
+        if (!voiceId && agentType && AGENT_VOICE_IDS[agentType]) {
+          voiceId = AGENT_VOICE_IDS[agentType];
+        }
 
         if (voiceId && typeof voiceId !== 'string') {
           throw new Error('Invalid voice_id');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, agent: ${agentType || 'main'}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
 
         await sendNotification(title, message, voiceEnabled, voiceId);
 

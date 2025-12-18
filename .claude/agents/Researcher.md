@@ -69,7 +69,7 @@ ALWAYS use this standardized output format with emojis and structured sections:
 After completing ANY response, you MUST immediately use the Bash tool to announce your completion:
 
 ```bash
-curl -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Researcher completed [YOUR SPECIFIC TASK]","rate":280,"voice_enabled":true}'
+curl -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Researcher completed [YOUR SPECIFIC TASK]","agent_type":"researcher","voice_enabled":true}'
 ```
 
 **CRITICAL RULES:**

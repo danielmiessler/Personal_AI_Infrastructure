@@ -164,7 +164,9 @@ function contentToText(content: any): string {
 // Load voices configuration
 let VOICE_CONFIG: VoicesConfig;
 try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
+  // Try PAI_DIR first, then fall back to default location
+  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const voicesPath = join(paiDir, 'voice-server/voices.json');
   VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
 } catch (e) {
   // Fallback to hardcoded config if file doesn't exist
@@ -188,6 +190,7 @@ function generateIntelligentResponse(userQuery: string, assistantResponse: strin
   // Clean the completed line
   const cleanCompleted = completedLine
     .replace(/\*+/g, '')
+    .replace(/🎯\s*/g, '')  // Remove emoji if present
     .replace(/\[AGENT:\w+\]\s*/i, '')
     .trim();
 
@@ -251,8 +254,11 @@ function generateIntelligentResponse(userQuery: string, assistantResponse: strin
 }
 
 async function main() {
-  // Log that hook was triggered
+  // Log that hook was triggered - write to file for debugging
   const timestamp = new Date().toISOString();
+  const fs = await import('fs');
+  const logFile = join(homedir(), '.claude', 'stop-hook-debug.log');
+  fs.appendFileSync(logFile, `\n🎬 STOP-HOOK TRIGGERED AT ${timestamp}\n`);
   console.error(`\n🎬 STOP-HOOK TRIGGERED AT ${timestamp}`);
 
   // Get input
@@ -384,14 +390,30 @@ async function main() {
   let kaiHasCustomCompleted = false;
 
   // ALWAYS check Kai's response FIRST (even when agents are used)
-  const lastResponse = lines[lines.length - 1];
+  // Find the last assistant message with actual text content (not just tool_use)
+  let lastAssistantContent = '';
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const entry = JSON.parse(lines[i]);
+      if (entry.type === 'assistant' && entry.message?.content) {
+        const content = contentToText(entry.message.content);
+        // Only use this if it has actual text (not empty from tool_use only)
+        if (content && content.trim().length > 0) {
+          lastAssistantContent = content;
+          break;
+        }
+      }
+    } catch (e) {
+      // Skip invalid JSON
+    }
+  }
+
   try {
-    const entry = JSON.parse(lastResponse);
-    if (entry.type === 'assistant' && entry.message?.content) {
-      const content = contentToText(entry.message.content);
+    const content = lastAssistantContent;
+    if (content) {
 
       // First, look for CUSTOM COMPLETED line (voice-optimized)
-      const customCompletedMatch = content.match(/🗣️\s*CUSTOM\s+COMPLETED:\s*(.+?)(?:\n|$)/im);
+      const customCompletedMatch = content.match(/(?:🗣️\s*)?CUSTOM\s+COMPLETED:\s*(.+?)(?:\n|$)/im);
 
       if (customCompletedMatch) {
         // Get the custom voice response
@@ -408,7 +430,7 @@ async function main() {
           console.error(`🗣️ MAIN CUSTOM VOICE: ${message}`);
         } else {
           // Custom completed too long, fall back to regular COMPLETED
-          const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
+          const completedMatch = content.match(/(?:🎯\s*)?COMPLETED:\s*(.+?)(?:\n|$)/im);
           if (completedMatch) {
             let completedText = completedMatch[1].trim();
             message = generateIntelligentResponse(lastUserQuery, content, completedText);
@@ -417,7 +439,7 @@ async function main() {
         }
       } else if (!isAgentTask) {
         // No CUSTOM COMPLETED and no agent - look for regular COMPLETED line
-        const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
+        const completedMatch = content.match(/(?:🎯\s*)?COMPLETED:\s*(.+?)(?:\n|$)/im);
 
         if (completedMatch) {
           // Get the raw text after the colon
@@ -440,7 +462,7 @@ async function main() {
   // If Kai didn't provide a CUSTOM COMPLETED and an agent was used, check agent's response
   if (!message && isAgentTask && taskResult) {
     // First, try to find CUSTOM COMPLETED line in agent response
-    const customCompletedMatch = taskResult.match(/🗣️\s*CUSTOM\s+COMPLETED:\s*(.+?)(?:\n|$)/im);
+    const customCompletedMatch = taskResult.match(/(?:🗣️\s*)?CUSTOM\s+COMPLETED:\s*(.+?)(?:\n|$)/im);
 
     if (customCompletedMatch) {
       // Get the custom voice response
@@ -458,7 +480,7 @@ async function main() {
         console.error(`🗣️ AGENT CUSTOM VOICE (fallback): ${message}`);
       } else {
         // Custom completed too long, fall back to regular COMPLETED
-        const completedMatch = taskResult.match(/🎯\s*COMPLETED:\s*(.+?)$/im);
+        const completedMatch = taskResult.match(/(?:🎯\s*)?COMPLETED:\s*(.+?)$/im);
         if (completedMatch) {
           let completedText = completedMatch[1].trim()
             .replace(/\*+/g, '')
@@ -471,7 +493,7 @@ async function main() {
       }
     } else {
       // No CUSTOM COMPLETED, look for regular COMPLETED line
-      const completedMatch = taskResult.match(/🎯\s*COMPLETED:\s*(.+?)$/im);
+      const completedMatch = taskResult.match(/(?:🎯\s*)?COMPLETED:\s*(.+?)$/im);
 
       if (completedMatch) {
         // Get exactly what the agent said after COMPLETED:
@@ -494,10 +516,10 @@ async function main() {
 
   // FIRST: Send voice notification if we have a message
   if (message) {
-    // Align voice payload with initialize-pai-session.ts (prefer voice_id)
-    const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
+    // Use DA_VOICE_ID if set, otherwise let the server use its default ElevenLabs voice
+    const voiceId = process.env.DA_VOICE_ID || null;
     const priority = 'low';
-    // Send to voice server
+    // Send to voice server (let server use its default ElevenLabs voice)
     await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -506,10 +528,7 @@ async function main() {
         message,
         voice_enabled: true,
         priority,
-        voice_id: voiceId,
-        // keep legacy fields for compatibility with voice server configs that use names/rates
-        voice_name: voiceConfig.voice_name,
-        rate: voiceConfig.rate_wpm
+        ...(voiceId && { voice_id: voiceId })
       })
     }).catch(() => {});
     console.error(`🔊 Voice notification sent: "${message}" with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm (${voiceConfig.rate_multiplier}x)`);
@@ -527,7 +546,7 @@ async function main() {
       const entry = JSON.parse(lastResponse);
       if (entry.type === 'assistant' && entry.message?.content) {
         const content = contentToText(entry.message.content);
-        const completedMatch = content.match(/🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/im);
+        const completedMatch = content.match(/(?:🎯\s*)?COMPLETED:\s*(.+?)(?:\n|$)/im);
         if (completedMatch) {
           tabTitle = completedMatch[1].trim()
             .replace(/\*+/g, '')
@@ -562,7 +581,14 @@ async function main() {
   }
 
   console.error(`📝 User query: ${lastUserQuery || 'No query found'}`);
-  console.error(`✅ Message: ${message || 'No completion message'}`)
+  console.error(`✅ Message: ${message || 'No completion message'}`);
+
+  // Log final result to debug file
+  const debugFs = await import('fs');
+  const debugLogFile = join(homedir(), '.claude', 'stop-hook-debug.log');
+  debugFs.appendFileSync(debugLogFile, `📝 Query: ${lastUserQuery?.substring(0, 50) || 'None'}...\n`);
+  debugFs.appendFileSync(debugLogFile, `✅ Message: ${message || 'No completion message'}\n`);
+  debugFs.appendFileSync(debugLogFile, `---\n`);
 
   // Final tab title override as the very last action - use the actual completion message
   if (message) {

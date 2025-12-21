@@ -1,5 +1,5 @@
 ---
-name: prompting
+name: Prompting
 description: Prompt engineering standards and context engineering principles for AI agents based on Anthropic best practices. Covers clarity, structure, progressive discovery, and optimization for signal-to-noise ratio.
 ---
 
@@ -86,7 +86,7 @@ Delegate subtasks to specialized agents with minimal context
 ❌ Vague instructions ("might", "could", "should")
 
 ## Supplementary Resources
-For full standards: `read ${PAI_DIR}/Skills/prompting/CLAUDE.md`
+For full standards: `read ${PAI_DIR}/Skills/Prompting/CLAUDE.md`
 
 ## Based On
 Anthropic's "Effective Context Engineering for AI Agents"

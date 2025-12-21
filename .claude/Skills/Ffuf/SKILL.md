@@ -1,5 +1,5 @@
 ---
-name: ffuf-web-fuzzing
+name: Ffuf
 description: Expert guidance for ffuf web fuzzing during penetration testing, including authenticated fuzzing with raw requests, auto-calibration, and result analysis
 contributor: Joseph Thacker (@rez0)
 ---

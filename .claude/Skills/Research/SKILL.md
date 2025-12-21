@@ -1,5 +1,5 @@
 ---
-name: research
+name: Research
 description: Comprehensive research, analysis, and content extraction system. Multi-source parallel research using available researcher agents. Deep content analysis with extended thinking. Intelligent retrieval for difficult sites. Fabric pattern selection for 242+ specialized prompts. USE WHEN user says 'do research', 'extract wisdom', 'analyze content', 'find information about', or requests web/content research.
 ---
 
@@ -28,58 +28,58 @@ description: Comprehensive research, analysis, and content extraction system. Mu
 
 **When user requests comprehensive parallel research:**
 Examples: "do research on X", "research this topic", "find information about Y", "investigate this subject"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/conduct.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/Conduct.md`
 → **EXECUTE:** Parallel multi-agent research using available researcher agents
 
 **When user requests Claude-based research (FREE - no API keys):**
 Examples: "use claude for research", "claude research on X", "use websearch to research Y"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/claude-research.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/ClaudeResearch.md`
 → **EXECUTE:** Intelligent query decomposition with Claude's WebSearch
 
 **When user requests Perplexity research (requires PERPLEXITY_API_KEY):**
 Examples: "use perplexity to research X", "perplexity research on Y"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/perplexity-research.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/PerplexityResearch.md`
 → **EXECUTE:** Fast web search with query decomposition via Perplexity API
 
 **When user requests interview preparation:**
 Examples: "prepare interview questions for X", "interview research on Y"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/interview-research.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/InterviewResearch.md`
 → **EXECUTE:** Interview prep with diverse question generation
 
 ### Content Retrieval Workflows
 
 **When user indicates difficulty accessing content:**
 Examples: "can't get this content", "site is blocking me", "CAPTCHA blocking"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/retrieve.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/Retrieve.md`
 → **EXECUTE:** Escalation through layers (WebFetch → BrightData → Apify)
 
 **When user provides YouTube URL:**
 Examples: "get this youtube video", "extract from youtube URL"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/youtube-extraction.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/YoutubeExtraction.md`
 → **EXECUTE:** YouTube content extraction using fabric -y
 
 **When user requests web scraping:**
 Examples: "scrape this site", "extract data from this website"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/web-scraping.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/WebScraping.md`
 → **EXECUTE:** Web scraping techniques and tools
 
 ### Fabric Pattern Processing
 
 **When user requests Fabric pattern usage:**
 Examples: "use fabric to X", "create threat model", "summarize with fabric"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/fabric.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/Fabric.md`
 → **EXECUTE:** Auto-select best pattern from 242+ Fabric patterns
 
 ### Content Enhancement Workflows
 
 **When user requests content enhancement:**
 Examples: "enhance this content", "improve this draft"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/enhance.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/Enhance.md`
 → **EXECUTE:** Content improvement and refinement
 
 **When user requests knowledge extraction:**
 Examples: "extract knowledge from X", "get insights from this"
-→ **READ:** `${PAI_DIR}/Skills/research/workflows/extract-knowledge.md`
+→ **READ:** `${PAI_DIR}/Skills/Research/Workflows/ExtractKnowledge.md`
 → **EXECUTE:** Knowledge extraction and synthesis
 
 ---
@@ -220,13 +220,13 @@ ${PAI_DIR}/History/research/YYYY-MM/YYYY-MM-DD_[topic]/
 
 | Workflow | File | API Keys Needed |
 |----------|------|-----------------|
-| Multi-Source Research | `workflows/conduct.md` | Varies by agent |
-| Claude Research | `workflows/claude-research.md` | None (FREE) |
-| Perplexity Research | `workflows/perplexity-research.md` | PERPLEXITY_API_KEY |
-| Interview Prep | `workflows/interview-research.md` | None |
-| Content Retrieval | `workflows/retrieve.md` | Optional: BRIGHTDATA_API_KEY |
-| YouTube Extraction | `workflows/youtube-extraction.md` | None (uses Fabric) |
-| Web Scraping | `workflows/web-scraping.md` | Optional: BRIGHTDATA_API_KEY |
-| Fabric Patterns | `workflows/fabric.md` | None |
-| Content Enhancement | `workflows/enhance.md` | None |
-| Knowledge Extraction | `workflows/extract-knowledge.md` | None |
+| Multi-Source Research | `workflows/Conduct.md` | Varies by agent |
+| Claude Research | `workflows/ClaudeResearch.md` | None (FREE) |
+| Perplexity Research | `workflows/PerplexityResearch.md` | PERPLEXITY_API_KEY |
+| Interview Prep | `workflows/InterviewResearch.md` | None |
+| Content Retrieval | `workflows/Retrieve.md` | Optional: BRIGHTDATA_API_KEY |
+| YouTube Extraction | `workflows/YoutubeExtraction.md` | None (uses Fabric) |
+| Web Scraping | `workflows/WebScraping.md` | Optional: BRIGHTDATA_API_KEY |
+| Fabric Patterns | `workflows/Fabric.md` | None |
+| Content Enhancement | `workflows/Enhance.md` | None |
+| Knowledge Extraction | `workflows/ExtractKnowledge.md` | None |

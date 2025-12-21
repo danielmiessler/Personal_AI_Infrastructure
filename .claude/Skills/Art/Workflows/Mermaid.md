@@ -605,7 +605,7 @@ Sign "{{{assistantName}}}" small in bottom right corner in charcoal (#2D2D2D).
 **Execute with optimal model for text-heavy diagrams:**
 
 ```bash
-bun run ${PAI_DIR}/Skills/art/tools/generate-ulart-image.ts \
+bun run ${PAI_DIR}/Skills/Art/tools/generate-ulart-image.ts \
   --model nano-banana-pro \
   --prompt "[YOUR COMPREHENSIVE PROMPT]" \
   --size 2K \

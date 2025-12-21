@@ -1,5 +1,5 @@
 ---
-name: art
+name: Art
 description: |
   Complete visual content system for PAI.
   Tron-meets-Excalidraw aesthetic - dark backgrounds, neon accents, hand-drawn sketch style.
@@ -74,7 +74,7 @@ Complete visual content system using the **PAI Visual Aesthetic**.
 **Default model:** nano-banana-pro (Gemini 3 Pro)
 
 ```bash
-bun run ${PAI_DIR}/Skills/art/tools/generate-ulart-image.ts \
+bun run ${PAI_DIR}/Skills/Art/tools/generate-ulart-image.ts \
   --model nano-banana-pro \
   --prompt "[PROMPT]" \
   --size 2K \

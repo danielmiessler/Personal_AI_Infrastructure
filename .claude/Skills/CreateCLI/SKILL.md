@@ -1,5 +1,5 @@
 ---
-name: system-createcli
+name: CreateCLI
 description: Generate production-quality TypeScript CLIs with full documentation, error handling, and best practices. Creates deterministic, type-safe command-line tools following PAI's CLI-First Architecture. USE WHEN user says "create a CLI", "build a command-line tool", "make a CLI for X", or requests CLI generation. (user)
 location: user
 ---

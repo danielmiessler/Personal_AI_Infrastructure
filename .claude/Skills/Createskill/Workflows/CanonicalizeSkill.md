@@ -74,7 +74,7 @@ cp -r ${PAI_DIR}/Skills/[skill-name]/ ${PAI_DIR}/History/backups/[skill-name]-ba
 **Rename files if needed:**
 ```bash
 # Example: rename workflow files
-cd ${PAI_DIR}/Skills/[SkillName]/workflows/
+cd ${PAI_DIR}/Skills/[SkillName]/Workflows/
 mv create.md Create.md
 mv update-info.md UpdateInfo.md
 mv sync_repo.md SyncRepo.md
@@ -136,8 +136,8 @@ Running the **WorkflowName** workflow from the **SkillName** skill...
 
 | Workflow | Trigger | File |
 |----------|---------|------|
-| **WorkflowOne** | "trigger phrase one" | `workflows/WorkflowOne.md` |
-| **WorkflowTwo** | "trigger phrase two" | `workflows/WorkflowTwo.md` |
+| **WorkflowOne** | "trigger phrase one" | `Workflows/WorkflowOne.md` |
+| **WorkflowTwo** | "trigger phrase two" | `Workflows/WorkflowTwo.md` |
 
 ## Examples
 
@@ -160,7 +160,7 @@ If the markdown body already had routing information in a different format, cons
 
 List workflow files:
 ```bash
-ls ${PAI_DIR}/Skills/[SkillName]/workflows/
+ls ${PAI_DIR}/Skills/[SkillName]/Workflows/
 ```
 
 For EACH file:

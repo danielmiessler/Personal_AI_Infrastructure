@@ -20,13 +20,13 @@ This provides access to:
 
 ```bash
 # Check if Fabric repo exists
-if [ ! -d "$HOME/.claude/Skills/fabric/fabric-repo" ]; then
+if [ ! -d "$HOME/.claude/Skills/Fabric/fabric-repo" ]; then
   echo "Fabric repository not found. Cloning..."
-  cd "$HOME/.claude/Skills/fabric"
+  cd "$HOME/.claude/Skills/Fabric"
   git clone https://github.com/danielmiessler/fabric.git fabric-repo
   echo "Fabric repository cloned successfully."
 else
-  echo "Fabric repository found at $HOME/.claude/Skills/fabric/fabric-repo"
+  echo "Fabric repository found at $HOME/.claude/Skills/Fabric/fabric-repo"
 fi
 ```
 
@@ -279,19 +279,19 @@ fabric "your text here" -p [pattern]
 
 ## 🔄 Updating Patterns
 
-The Fabric repository is included in this skill at `${PAI_DIR}/Skills/fabric/fabric-repo/`.
+The Fabric repository is included in this skill at `${PAI_DIR}/Skills/Fabric/fabric-repo/`.
 
 **To update patterns:**
 
 ```bash
-cd ${PAI_DIR}/Skills/fabric/fabric-repo
+cd ${PAI_DIR}/Skills/Fabric/fabric-repo
 git pull origin main
 ```
 
 **To see all available patterns:**
 
 ```bash
-ls ${PAI_DIR}/Skills/fabric/fabric-repo/data/patterns/
+ls ${PAI_DIR}/Skills/Fabric/fabric-repo/data/patterns/
 # OR from your local Fabric install:
 ls ~/.config/fabric/patterns/
 ```
@@ -368,10 +368,10 @@ cat wisdom.txt | fabric -p create_5_sentence_summary
 
 ## 📖 Supplementary Resources
 
-**Full Pattern List:** `ls ${PAI_DIR}/Skills/fabric/fabric-repo/data/patterns/`
-**Fabric Repo:** `${PAI_DIR}/Skills/fabric/fabric-repo/`
+**Full Pattern List:** `ls ${PAI_DIR}/Skills/Fabric/fabric-repo/data/patterns/`
+**Fabric Repo:** `${PAI_DIR}/Skills/Fabric/fabric-repo/`
 **Fabric Documentation:** https://github.com/danielmiessler/fabric
-**Pattern Templates:** See `${PAI_DIR}/Skills/fabric/fabric-repo/data/patterns/official_pattern_template/`
+**Pattern Templates:** See `${PAI_DIR}/Skills/Fabric/fabric-repo/data/patterns/official_pattern_template/`
 
 ## 🔑 Key Insight
 

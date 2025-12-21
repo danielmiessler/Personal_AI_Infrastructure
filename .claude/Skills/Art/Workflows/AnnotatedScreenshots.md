@@ -248,7 +248,7 @@ If generating combined image is difficult:
 
 **Option A: Generate combined (if model supports):**
 ```bash
-bun run ${PAI_DIR}/Skills/art/tools/generate-ulart-image.ts \
+bun run ${PAI_DIR}/Skills/Art/tools/generate-ulart-image.ts \
   --model nano-banana-pro \
   --reference-image /path/to/screenshot.png \
   --prompt "[ANNOTATION PROMPT]" \

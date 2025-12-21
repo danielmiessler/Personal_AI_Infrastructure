@@ -20,7 +20,7 @@ interface ToolUseData {
 }
 
 // Configuration
-const CAPTURE_DIR = join(HISTORY_DIR, 'raw-outputs');
+const CAPTURE_DIR = join(HISTORY_DIR, 'RawOutputs');
 const INTERESTING_TOOLS = ['Bash', 'Edit', 'Write', 'Read', 'Task', 'NotebookEdit'];
 
 async function main() {

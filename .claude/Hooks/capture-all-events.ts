@@ -43,7 +43,7 @@ function getEventsFilePath(): string {
   const month = String(pstDate.getMonth() + 1).padStart(2, '0');
   const day = String(pstDate.getDate()).padStart(2, '0');
 
-  const monthDir = join(HISTORY_DIR, 'raw-outputs', `${year}-${month}`);
+  const monthDir = join(HISTORY_DIR, 'RawOutputs', `${year}-${month}`);
 
   // Ensure directory exists
   if (!existsSync(monthDir)) {

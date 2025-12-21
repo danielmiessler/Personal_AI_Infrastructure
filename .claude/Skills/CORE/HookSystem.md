@@ -31,7 +31,7 @@ Claude Code supports the following hook events (from `${PAI_DIR}/Hooks/lib/obser
 ### 1. **SessionStart**
 **When:** Claude Code session begins (new conversation)
 **Use Cases:**
-- Load PAI context from `skills/CORE/SKILL.md`
+- Load PAI context from `Skills/CORE/SKILL.md`
 - Initialize session state
 - Capture session metadata
 
@@ -60,7 +60,7 @@ Claude Code supports the following hook events (from `${PAI_DIR}/Hooks/lib/obser
 ```
 
 **What They Do:**
-- `load-core-context.ts` - Reads `skills/CORE/SKILL.md` and injects PAI context as `<system-reminder>` at session start
+- `load-core-context.ts` - Reads `Skills/CORE/SKILL.md` and injects PAI context as `<system-reminder>` at session start
 - `initialize-pai-session.ts` - Sets up session state and environment
 - `capture-all-events.ts` - Logs event to `${PAI_DIR}/History/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
 
@@ -410,7 +410,7 @@ await fetch('http://localhost:8888/notify', {
 - Pentester: `xvHLFjaUEpx4BOf7EiDd`
 - Intern: `d3MFdIuCfbAIwiu7jC4a`
 
-See `skills/CORE/SKILL.md` for complete voice ID mapping.
+See `Skills/CORE/SKILL.md` for complete voice ID mapping.
 
 ---
 
@@ -736,7 +736,7 @@ setTimeout(() => {
 
 **Check:**
 1. Is voice server running? `curl http://localhost:8888/health`
-2. Is voice_id correct? See `skills/CORE/SKILL.md` for mappings
+2. Is voice_id correct? See `Skills/CORE/SKILL.md` for mappings
 3. Is message format correct? `{"message":"...", "voice_id":"...", "title":"..."}`
 4. Is ElevenLabs API key in `${PAI_DIR}/.env`?
 
@@ -872,7 +872,7 @@ tail -f ${PAI_DIR}/Hooks/subagent-stop-debug.log
 **Debug:**
 ```bash
 # Start dashboard server
-cd ${PAI_DIR}/Skills/system/observability/dashboard/apps/server
+cd ${PAI_DIR}/Skills/Observability/apps/apps/server
 bun run dev
 
 # Check server logs

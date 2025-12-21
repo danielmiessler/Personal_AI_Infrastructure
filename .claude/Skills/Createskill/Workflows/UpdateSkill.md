@@ -46,12 +46,12 @@ What needs to change?
 
 2. **Create the workflow file:**
 ```bash
-touch ${PAI_DIR}/Skills/[SkillName]/workflows/[WorkflowName].md
+touch ${PAI_DIR}/Skills/[SkillName]/Workflows/[WorkflowName].md
 ```
 
 Example:
 ```bash
-touch ${PAI_DIR}/Skills/Daemon/workflows/UpdatePublicRepo.md
+touch ${PAI_DIR}/Skills/Daemon/Workflows/UpdatePublicRepo.md
 ```
 
 3. **Add entry to `## Workflow Routing` section in SKILL.md:**
@@ -60,8 +60,8 @@ touch ${PAI_DIR}/Skills/Daemon/workflows/UpdatePublicRepo.md
 
 | Workflow | Trigger | File |
 |----------|---------|------|
-| **ExistingWorkflow** | "existing trigger" | `workflows/ExistingWorkflow.md` |
-| **NewWorkflow** | "new trigger" | `workflows/NewWorkflow.md` |
+| **ExistingWorkflow** | "existing trigger" | `Workflows/ExistingWorkflow.md` |
+| **NewWorkflow** | "new trigger" | `Workflows/NewWorkflow.md` |
 ```
 
 4. **Write the workflow content**
@@ -93,7 +93,7 @@ mkdir -p ${PAI_DIR}/Skills/[SkillName]/tools
 After making changes, verify naming:
 
 ```bash
-ls ${PAI_DIR}/Skills/[SkillName]/workflows/
+ls ${PAI_DIR}/Skills/[SkillName]/Workflows/
 ls ${PAI_DIR}/Skills/[SkillName]/tools/
 ```
 

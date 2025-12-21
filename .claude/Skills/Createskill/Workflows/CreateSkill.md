@@ -69,8 +69,8 @@ Running the **WorkflowName** workflow from the **SkillName** skill...
 
 | Workflow | Trigger | File |
 |----------|---------|------|
-| **WorkflowOne** | "trigger phrase" | `workflows/WorkflowOne.md` |
-| **WorkflowTwo** | "another trigger" | `workflows/WorkflowTwo.md` |
+| **WorkflowOne** | "trigger phrase" | `Workflows/WorkflowOne.md` |
+| **WorkflowTwo** | "another trigger" | `Workflows/WorkflowTwo.md` |
 
 ## Examples
 
@@ -99,15 +99,15 @@ User: "[Different request]"
 For each workflow in the routing section:
 
 ```bash
-touch ${PAI_DIR}/Skills/[SkillName]/workflows/[WorkflowName].md
+touch ${PAI_DIR}/Skills/[SkillName]/Workflows/[WorkflowName].md
 ```
 
 **Examples (TitleCase):**
 ```bash
-touch ${PAI_DIR}/Skills/Daemon/workflows/UpdateDaemonInfo.md
-touch ${PAI_DIR}/Skills/Daemon/workflows/UpdatePublicRepo.md
-touch ${PAI_DIR}/Skills/Blogging/workflows/Create.md
-touch ${PAI_DIR}/Skills/Blogging/workflows/Publish.md
+touch ${PAI_DIR}/Skills/Daemon/Workflows/UpdateDaemonInfo.md
+touch ${PAI_DIR}/Skills/Daemon/Workflows/UpdatePublicRepo.md
+touch ${PAI_DIR}/Skills/Blogging/Workflows/Create.md
+touch ${PAI_DIR}/Skills/Blogging/Workflows/Publish.md
 ```
 
 ## Step 7: Verify TitleCase
@@ -115,7 +115,7 @@ touch ${PAI_DIR}/Skills/Blogging/workflows/Publish.md
 Run this check:
 ```bash
 ls ${PAI_DIR}/Skills/[SkillName]/
-ls ${PAI_DIR}/Skills/[SkillName]/workflows/
+ls ${PAI_DIR}/Skills/[SkillName]/Workflows/
 ls ${PAI_DIR}/Skills/[SkillName]/tools/
 ```
 

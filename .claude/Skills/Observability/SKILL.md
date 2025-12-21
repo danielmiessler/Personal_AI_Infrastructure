@@ -11,16 +11,16 @@ Real-time monitoring of PAI multi-agent activity with WebSocket streaming.
 
 ```bash
 # Start server and dashboard
-~/.claude/Skills/observability/manage.sh start
+~/.claude/Skills/Observability/manage.sh start
 
 # Stop everything
-~/.claude/Skills/observability/manage.sh stop
+~/.claude/Skills/Observability/manage.sh stop
 
 # Restart both
-~/.claude/Skills/observability/manage.sh restart
+~/.claude/Skills/Observability/manage.sh restart
 
 # Check status
-~/.claude/Skills/observability/manage.sh status
+~/.claude/Skills/Observability/manage.sh status
 ```
 
 ## Access Points
@@ -98,14 +98,14 @@ User: "is observability running?"
 
 ### Server
 ```bash
-cd ~/.claude/Skills/observability/apps/server
+cd ~/.claude/Skills/Observability/apps/server
 bun install
 bun run dev
 ```
 
 ### Client
 ```bash
-cd ~/.claude/Skills/observability/apps/client
+cd ~/.claude/Skills/Observability/apps/client
 bun install
 bun run dev
 ```
@@ -130,7 +130,7 @@ bun run dev
 ## Files
 
 ```
-~/.claude/Skills/observability/
+~/.claude/Skills/Observability/
 ├── SKILL.md                          # This file
 ├── manage.sh                         # Control script
 ├── apps/

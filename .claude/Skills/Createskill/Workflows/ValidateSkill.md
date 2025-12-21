@@ -35,7 +35,7 @@ Verify TitleCase:
 
 ### Workflow Files
 ```bash
-ls ${PAI_DIR}/Skills/[SkillName]/workflows/
+ls ${PAI_DIR}/Skills/[SkillName]/Workflows/
 ```
 
 Verify TitleCase:
@@ -90,7 +90,7 @@ Running the **WorkflowName** workflow from the **SkillName** skill...
 
 | Workflow | Trigger | File |
 |----------|---------|------|
-| **WorkflowOne** | "trigger phrase" | `workflows/WorkflowOne.md` |
+| **WorkflowOne** | "trigger phrase" | `Workflows/WorkflowOne.md` |
 ```
 
 **Check for violations:**
@@ -117,7 +117,7 @@ User: "[Request]"
 ## Step 6: Check Workflow Files
 
 ```bash
-ls ${PAI_DIR}/Skills/[SkillName]/workflows/
+ls ${PAI_DIR}/Skills/[SkillName]/Workflows/
 ```
 
 Verify:

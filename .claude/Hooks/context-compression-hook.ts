@@ -49,8 +49,16 @@ interface TranscriptEntry {
   timestamp?: string;
 }
 
+interface SettingsConfig {
+  env?: {
+    DA?: string;
+    DA_VOICE_ID?: string;
+    PAI_DIR?: string;
+  };
+}
+
 /**
- * Send notification to the Kai notification server
+ * Send notification to the PAI notification server
  */
 async function sendNotification(payload: NotificationPayload): Promise<void> {
   try {
@@ -99,21 +107,31 @@ function getTranscriptStats(transcriptPath: string): { messageCount: number; isL
   }
 }
 
-// Load voice configuration
-let kaiVoiceConfig: VoiceConfig;
+// Load settings.json to get DA name and voice configuration
+let daName = 'PAI';
+let daVoiceId: string | null = null;
+let paiDir = join(homedir(), '.claude');
+
 try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
-  const config: VoicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
-  kaiVoiceConfig = config.voices.kai;
+  const settingsPath = join(paiDir, 'settings.json');
+  const settings: SettingsConfig = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+
+  // Get DA name from settings (e.g., "Kai", "PAI", "Nova")
+  if (settings.env?.DA) {
+    daName = settings.env.DA;
+  }
+
+  // Get DA voice ID from settings
+  if (settings.env?.DA_VOICE_ID) {
+    daVoiceId = settings.env.DA_VOICE_ID;
+  }
+
+  // Get PAI_DIR if set
+  if (settings.env?.PAI_DIR) {
+    paiDir = settings.env.PAI_DIR.replace('__HOME__', homedir());
+  }
 } catch (e) {
-  // Fallback to hardcoded Kai voice config
-  kaiVoiceConfig = {
-    voice_name: "Jamie (Premium)",
-    rate_wpm: 263,
-    rate_multiplier: 1.5,
-    description: "UK Male",
-    type: "Premium"
-  };
+  // Fallback to default values if settings.json is unavailable
 }
 
 async function main() {
@@ -164,15 +182,20 @@ async function main() {
     }
   }
   
-  // Send notification with voice (using Kai's voice from config)
-  await sendNotification({
-    title: 'Kai Context',
+  // Send notification with voice (using DA's voice from settings.json)
+  const notification: NotificationPayload = {
+    title: `${daName} Context`,
     message: message,
     voice_enabled: true,
-    voice_name: kaiVoiceConfig.voice_name,
-    rate: kaiVoiceConfig.rate_wpm,
     priority: 'low',
-  });
+  };
+
+  // Add voice_name (voice_id) if configured in settings.json
+  if (daVoiceId) {
+    notification.voice_name = daVoiceId;
+  }
+
+  await sendNotification(notification);
   
   process.exit(0);
 }

@@ -1,0 +1,48 @@
+services:
+  observability-server:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile
+    container_name: pai-observability-server
+    ports:
+      - "4000:4000"
+    volumes:
+      # Mount entire .claude directory (read-only) so paths resolve correctly
+      - ${HOME}/.claude:/root/.claude:ro
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/events/filter-options"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - observability
+
+  observability-client:
+    build:
+      context: ./apps/client
+      dockerfile: Dockerfile
+    container_name: pai-observability-client
+    ports:
+      - "5172:5172"
+    depends_on:
+      observability-server:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=http://localhost:4000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5172"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - observability
+
+networks:
+  observability:
+    driver: bridge

@@ -82,8 +82,76 @@ case "${1:-}" in
         fi
         ;;
 
+    docker-start)
+        echo "🐳 Starting observability via Docker..."
+        cd "$SCRIPT_DIR"
+        docker compose up -d
+
+        # Wait for services to be healthy
+        echo "⏳ Waiting for services to be healthy..."
+        for i in {1..30}; do
+            if docker compose ps | grep -q "healthy"; then
+                break
+            fi
+            sleep 1
+        done
+
+        echo "✅ Observability running at http://localhost:5172"
+        echo "📊 View logs: manage.sh docker-logs"
+        ;;
+
+    docker-stop)
+        echo "🛑 Stopping Docker containers..."
+        cd "$SCRIPT_DIR"
+        docker compose down
+        echo "✅ Observability stopped"
+        ;;
+
+    docker-restart)
+        echo "🔄 Restarting Docker containers..."
+        cd "$SCRIPT_DIR"
+        docker compose restart
+        echo "✅ Observability restarted"
+        ;;
+
+    docker-status)
+        cd "$SCRIPT_DIR"
+        docker compose ps
+        ;;
+
+    docker-logs)
+        cd "$SCRIPT_DIR"
+        # Follow logs for both services, or specific service if provided
+        if [ -n "$2" ]; then
+            docker compose logs -f "$2"
+        else
+            docker compose logs -f
+        fi
+        ;;
+
+    docker-build)
+        echo "🔨 Building Docker images..."
+        cd "$SCRIPT_DIR"
+        docker compose build
+        echo "✅ Build complete"
+        ;;
+
     *)
-        echo "Usage: manage.sh {start|stop|restart|status}"
+        echo "Usage: manage.sh {start|stop|restart|status|docker-start|docker-stop|docker-restart|docker-status|docker-logs|docker-build}"
+        echo ""
+        echo "Shell Script Mode (default):"
+        echo "  start         - Start using background processes"
+        echo "  stop          - Stop background processes"
+        echo "  restart       - Restart background processes"
+        echo "  status        - Check if running"
+        echo ""
+        echo "Docker Mode (recommended):"
+        echo "  docker-start  - Start using Docker containers"
+        echo "  docker-stop   - Stop Docker containers"
+        echo "  docker-restart- Restart Docker containers"
+        echo "  docker-status - Show Docker container status"
+        echo "  docker-logs   - Follow container logs (optional: specify 'server' or 'client')"
+        echo "  docker-build  - Rebuild Docker images"
         exit 1
         ;;
 esac

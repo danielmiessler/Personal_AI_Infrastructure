@@ -9,6 +9,44 @@ Real-time monitoring of PAI multi-agent activity with WebSocket streaming.
 
 ## Quick Start
 
+### Option 1: Docker (Recommended)
+
+**Prerequisites:** Docker Desktop or OrbStack installed
+
+```bash
+# Start using Docker containers
+~/.claude/Skills/observability/manage.sh docker-start
+
+# Stop Docker containers
+~/.claude/Skills/observability/manage.sh docker-stop
+
+# Restart containers
+~/.claude/Skills/observability/manage.sh docker-restart
+
+# Check container status
+~/.claude/Skills/observability/manage.sh docker-status
+
+# View logs (live tail)
+~/.claude/Skills/observability/manage.sh docker-logs
+
+# View logs for specific service
+~/.claude/Skills/observability/manage.sh docker-logs server
+~/.claude/Skills/observability/manage.sh docker-logs client
+
+# Rebuild images after code changes
+~/.claude/Skills/observability/manage.sh docker-build
+```
+
+**Benefits of Docker:**
+- ✅ Automatic process lifecycle management
+- ✅ Health checks with auto-restart on failure
+- ✅ Structured logging (no more /dev/null)
+- ✅ Clean isolation and resource management
+- ✅ No orphaned processes
+- ✅ Consistent environment across machines
+
+### Option 2: Shell Scripts (Legacy)
+
 ```bash
 # Start server and dashboard
 ~/.claude/Skills/observability/manage.sh start
@@ -110,37 +148,87 @@ bun install
 bun run dev
 ```
 
+## Deployment Options
+
+### Docker Deployment
+
+The observability system can be deployed using Docker for improved reliability and management.
+
+**Architecture:**
+- Server container: Bun runtime with health checks
+- Client container: Multi-stage build (Vite build → nginx serve)
+- Networking: Bridge network for inter-container communication
+- Volumes: Event files and .env mounted read-only
+
+**Health Checks:**
+- Server: Polls `/events/filter-options` endpoint
+- Client: Polls root URL
+- Auto-restart: Services automatically restart on failure
+- Startup grace period: 10-15 seconds
+
+**Resource Requirements:**
+- Server: ~50MB RAM, minimal CPU
+- Client: ~20MB RAM (after build), minimal CPU
+- Disk: ~200MB for images
+
+### Shell Script Deployment
+
+Traditional background process deployment using Bun directly.
+
+**Pros:**
+- No Docker dependency
+- Simpler setup for development
+- Direct access to source code
+
+**Cons:**
+- Manual process management
+- No automatic restart on failure
+- Logs redirected to /dev/null
+- Process can become orphaned
+
 ## Troubleshooting
 
-### Dashboard not loading
-- Check server is running: `curl http://localhost:4000/health`
+### Dashboard not loading (Shell Script Mode)
+- Check server is running: `curl http://localhost:4000/events/filter-options`
 - Check client is running: `curl http://localhost:5172`
 - Restart: `./manage.sh restart`
+
+### Dashboard not loading (Docker Mode)
+- Check container status: `./manage.sh docker-status`
+- View logs: `./manage.sh docker-logs`
+- Check health: `docker compose ps` (should show "healthy")
+- Restart: `./manage.sh docker-restart`
 
 ### No events showing
 - Verify events file exists: `~/.claude/History/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl`
 - Check hooks are configured in `~/.claude/settings.json`
 - Try triggering an event (use any tool or agent)
+- Check server logs: `./manage.sh docker-logs server` (Docker) or check console output (shell script)
 
 ### Port conflicts
 - Server uses: 4000
 - Client uses: 5172
-- Check nothing else is using these ports
+- Check nothing else is using these ports: `lsof -i :4000` and `lsof -i :5172`
+- Docker: Stop containers with `./manage.sh docker-stop`
+- Shell: Stop processes with `./manage.sh stop`
 
 ## Files
 
 ```
 ~/.claude/Skills/observability/
 ├── SKILL.md                          # This file
-├── manage.sh                         # Control script
+├── manage.sh                         # Control script (shell + Docker modes)
+├── docker-compose.yml                # Docker orchestration
 ├── apps/
 │   ├── server/                       # Backend (Bun + Express)
 │   │   ├── src/index.ts
-│   │   └── package.json
+│   │   ├── package.json
+│   │   └── Dockerfile                # Server container image
 │   └── client/                       # Frontend (Vite + Vue)
 │       ├── src/
 │       ├── package.json
-│       └── vite.config.ts
+│       ├── vite.config.ts
+│       └── Dockerfile                # Client container image (multi-stage)
 └── scripts/                          # Utility scripts
 ```
 

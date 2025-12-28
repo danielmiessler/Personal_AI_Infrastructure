@@ -4,6 +4,9 @@
  * Captures ALL Claude Code hook events (not just tools) to JSONL
  * This replaces the Python send_event.py hook
  * Enhanced with agent instance metadata extraction
+ *
+ * Timestamps stored in UTC (ISO 8601) for timezone-independent event tracking
+ * Events grouped by UTC date to avoid midnight boundary issues
  */
 
 import { readFileSync, appendFileSync, mkdirSync, existsSync, writeFileSync } from 'fs';
@@ -17,31 +20,20 @@ interface HookEvent {
   hook_event_type: string;
   payload: Record<string, any>;
   timestamp: number;
-  timestamp_pst: string;
+  timestamp_utc: string;
 }
 
-// Get PST timestamp
-function getPSTTimestamp(): string {
-  const date = new Date();
-  const pstDate = new Date(date.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
-
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
-  const hours = String(pstDate.getHours()).padStart(2, '0');
-  const minutes = String(pstDate.getMinutes()).padStart(2, '0');
-  const seconds = String(pstDate.getSeconds()).padStart(2, '0');
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} PST`;
+// Get UTC timestamp in ISO 8601 format
+function getUTCTimestamp(): string {
+  return new Date().toISOString();
 }
 
-// Get current events file path
+// Get current events file path (using UTC date for consistency)
 function getEventsFilePath(): string {
   const now = new Date();
-  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
 
   const monthDir = join(HISTORY_DIR, 'raw-outputs', `${year}-${month}`);
 
@@ -145,7 +137,7 @@ async function main() {
       hook_event_type: eventType,
       payload: hookData,
       timestamp: Date.now(),
-      timestamp_pst: getPSTTimestamp()
+      timestamp_utc: getUTCTimestamp()
     };
 
     // Enrich with agent instance metadata if this is a Task tool call

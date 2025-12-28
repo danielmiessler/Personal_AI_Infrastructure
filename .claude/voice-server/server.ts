@@ -140,6 +140,13 @@ function validateInput(input: any): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
+// Validate ElevenLabs voice ID format
+function validateVoiceId(voiceId: string): boolean {
+  // ElevenLabs voice IDs are exactly 20 alphanumeric characters
+  const voiceIdRegex = /^[A-Za-z0-9]{20}$/;
+  return voiceIdRegex.test(voiceId);
+}
+
 // Generate cache key from message and voice ID
 function getCacheKey(text: string, voiceId: string): string {
   const hash = createHash('sha256');
@@ -514,10 +521,19 @@ const server = serve({
         const title = data.title || "PAI Notification";
         const message = data.message || "Task completed";
         const voiceEnabled = data.voice_enabled !== false;
-        const voiceId = data.voice_id || data.voice_name || null; // Support both voice_id and voice_name
+        let voiceId = data.voice_id || data.voice_name || null; // Support both voice_id and voice_name
 
-        if (voiceId && typeof voiceId !== 'string') {
-          throw new Error('Invalid voice_id');
+        // Validate voiceId if provided
+        if (voiceId) {
+          if (typeof voiceId !== 'string') {
+            throw new Error('Invalid voice_id type');
+          }
+
+          if (!validateVoiceId(voiceId)) {
+            warn(`⚠️  Invalid voice ID format: "${voiceId}" (must be 20 alphanumeric characters)`);
+            warn(`   Falling back to DA_VOICE_ID from settings.json: ${DEFAULT_VOICE_ID}`);
+            voiceId = null; // Reset to null so it falls back to DEFAULT_VOICE_ID
+          }
         }
 
         log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);

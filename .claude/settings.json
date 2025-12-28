@@ -3,16 +3,22 @@
   "_envDocs": {
     "description": "Platform-agnostic environment variables used throughout the Personal AI system",
     "DA": "Digital Assistant name - your AI's identity (e.g., 'Kai', 'PAI', 'Nova'). Used in statusline, hooks, and agent identification.",
+    "DA_VOICE_ID": "ElevenLabs voice ID for your Digital Assistant. Default is Jessica (available to all users). Used by voice server and hooks. Falls back to ELEVENLABS_VOICE_ID from .env if not set.",
     "PAI_DIR": "Root directory for all PAI configuration. The setup.sh script updates this automatically. If hooks fail with 'No such file or directory', update this to your actual path (e.g., /Users/john/.claude).",
     "PAI_SIMPLE_COLORS": "Set to '1' to use basic ANSI colors in statusline instead of 24-bit RGB. Enable if you see garbled colors or display issues in your terminal. Default: 0 (use full color).",
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "Maximum tokens for Claude responses. Higher values allow longer outputs but cost more."
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "Maximum tokens for Claude responses. Higher values allow longer outputs but cost more.",
+    "VOICE_SERVER_PORT": "Port number for the PAI voice notification server. Default: 8888. Falls back to PORT in .env if not set.",
+    "VOICE_CACHE_TTL_DAYS": "Number of days to keep cached audio files. Cached files older than this are automatically deleted. Default: 30 days. Static messages (like session start) stay cached, dynamic one-time messages are cleaned up."
   },
   "_setupNote": "IMPORTANT: Run 'bash .claude/setup.sh' to automatically configure PAI_DIR. If you see hook errors mentioning '__HOME__', the setup script was not run or you need to manually change PAI_DIR below to your actual home directory path (e.g., /Users/john/.claude on macOS or /home/john/.claude on Linux).",
   "env": {
     "PAI_DIR": "__HOME__/.claude",
     "DA": "PAI",
+    "DA_VOICE_ID": "cgSgspJ2msm6clMCkdW9",
     "PAI_SIMPLE_COLORS": "0",
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
+    "VOICE_SERVER_PORT": "8888",
+    "VOICE_CACHE_TTL_DAYS": "30"
   },
   "permissions": {
     "allow": [

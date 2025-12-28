@@ -1,11 +1,6 @@
 #!/bin/bash
 
-# Check status of PAI Voice Server
-
-SERVICE_NAME="com.pai.voice-server"
-PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
-LOG_PATH="$HOME/Library/Logs/pai-voice-server.log"
-ENV_FILE="$HOME/.env"
+# Check PAI Voice Server status (Cross-platform)
 
 # Colors
 RED='\033[0;31m'
@@ -14,84 +9,91 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Detect platform
+OS="$(uname -s)"
+case "${OS}" in
+    Darwin*)    PLATFORM="macos";;
+    Linux*)     PLATFORM="linux";;
+    *)          echo -e "${RED}✗ Unsupported operating system${NC}"; exit 1;;
+esac
+
+# Get port from settings.json first, then .env
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+SETTINGS_FILE="$PAI_DIR/settings.json"
+ENV_FILE="$PAI_DIR/.env"
+PORT=8888  # Default
+
+# Try settings.json first
+if [ -f "$SETTINGS_FILE" ]; then
+    # Extract VOICE_SERVER_PORT from settings.json
+    PORT_FROM_SETTINGS=$(grep -o '"VOICE_SERVER_PORT"[[:space:]]*:[[:space:]]*"[^"]*"' "$SETTINGS_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -1)
+    if [ -n "$PORT_FROM_SETTINGS" ]; then
+        PORT=$PORT_FROM_SETTINGS
+    fi
+fi
+
+# Fall back to .env if not in settings.json
+if [ "$PORT" = "8888" ] && [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
+    PORT=$(grep "^PORT=" "$ENV_FILE" | cut -d'=' -f2)
+fi
+
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}     PAI Voice Server Status${NC}"
+echo -e "${BLUE}     PAI Voice Server Status (${PLATFORM})${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo
 
-# Check LaunchAgent
-echo -e "${BLUE}Service Status:${NC}"
-if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
-    PID=$(launchctl list | grep "$SERVICE_NAME" | awk '{print $1}')
-    if [ "$PID" != "-" ]; then
-        echo -e "  ${GREEN}✓ Service is loaded (PID: $PID)${NC}"
+# Check service status
+if [ "$PLATFORM" = "macos" ]; then
+    SERVICE_NAME="com.pai.voice-server"
+
+    if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
+        echo -e "${GREEN}✓ Service: Running${NC}"
     else
-        echo -e "  ${YELLOW}⚠ Service is loaded but not running${NC}"
+        echo -e "${RED}✗ Service: Stopped${NC}"
     fi
 else
-    echo -e "  ${RED}✗ Service is not loaded${NC}"
-fi
+    SERVICE_NAME="pai-voice-server"
 
-# Check if server is responding
-echo
-echo -e "${BLUE}Server Status:${NC}"
-if curl -s -f -X GET http://localhost:8888/health > /dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ Server is responding on port 8888${NC}"
-    
-    # Get health info
-    HEALTH=$(curl -s http://localhost:8888/health)
-    echo "  Response: $HEALTH"
-else
-    echo -e "  ${RED}✗ Server is not responding${NC}"
-fi
-
-# Check port binding
-echo
-echo -e "${BLUE}Port Status:${NC}"
-if lsof -i :8888 > /dev/null 2>&1; then
-    PROCESS=$(lsof -i :8888 | grep LISTEN | head -1)
-    echo -e "  ${GREEN}✓ Port 8888 is in use${NC}"
-    echo "  $PROCESS" | awk '{print "  Process: " $1 " (PID: " $2 ")"}'
-else
-    echo -e "  ${YELLOW}⚠ Port 8888 is not in use${NC}"
-fi
-
-# Check ElevenLabs configuration
-echo
-echo -e "${BLUE}Voice Configuration:${NC}"
-if [ -f "$ENV_FILE" ] && grep -q "ELEVENLABS_API_KEY=" "$ENV_FILE"; then
-    API_KEY=$(grep "ELEVENLABS_API_KEY=" "$ENV_FILE" | cut -d'=' -f2)
-    if [ "$API_KEY" != "your_api_key_here" ] && [ -n "$API_KEY" ]; then
-        echo -e "  ${GREEN}✓ ElevenLabs API configured${NC}"
-        if grep -q "ELEVENLABS_VOICE_ID=" "$ENV_FILE"; then
-            VOICE_ID=$(grep "ELEVENLABS_VOICE_ID=" "$ENV_FILE" | cut -d'=' -f2)
-            echo "  Voice ID: $VOICE_ID"
-        fi
+    if systemctl --user is-active "$SERVICE_NAME" &>/dev/null; then
+        echo -e "${GREEN}✓ Service: Running${NC}"
     else
-        echo -e "  ${YELLOW}⚠ Using macOS 'say' (no API key)${NC}"
+        echo -e "${RED}✗ Service: Stopped${NC}"
+    fi
+fi
+
+# Check HTTP endpoint
+echo
+if curl -s -f -X GET http://localhost:$PORT/health > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ HTTP Server: Responding on port $PORT${NC}"
+
+    # Get health details
+    HEALTH=$(curl -s -X GET http://localhost:$PORT/health 2>/dev/null)
+    if [ -n "$HEALTH" ]; then
+        echo "  Response: $HEALTH"
     fi
 else
-    echo -e "  ${YELLOW}⚠ Using macOS 'say' (no configuration)${NC}"
+    echo -e "${RED}✗ HTTP Server: Not responding${NC}"
 fi
 
-# Check logs
+# Show logs location
 echo
-echo -e "${BLUE}Recent Logs:${NC}"
-if [ -f "$LOG_PATH" ]; then
-    echo "  Log file: $LOG_PATH"
-    echo "  Last 5 lines:"
-    tail -5 "$LOG_PATH" | while IFS= read -r line; do
-        echo "    $line"
-    done
+echo -e "${BLUE}Logs:${NC}"
+if [ "$PLATFORM" = "macos" ]; then
+    echo "  ~/Library/Logs/pai-voice-server.log"
+    echo "  View: tail -f ~/Library/Logs/pai-voice-server.log"
 else
-    echo -e "  ${YELLOW}⚠ No log file found${NC}"
+    echo "  ~/.local/share/pai-voice-server.log"
+    echo "  View: journalctl --user -u $SERVICE_NAME -f"
 fi
 
-# Show commands
 echo
-echo -e "${BLUE}Available Commands:${NC}"
-echo "  • Start:     ./start.sh"
-echo "  • Stop:      ./stop.sh"
-echo "  • Restart:   ./restart.sh"
-echo "  • Logs:      tail -f $LOG_PATH"
-echo "  • Test:      curl -X POST http://localhost:8888/notify -H 'Content-Type: application/json' -d '{\"message\":\"Test\"}'"
+echo -e "${BLUE}Management:${NC}"
+echo "  Start:   ./start.sh"
+echo "  Stop:    ./stop.sh"
+echo "  Restart: ./restart.sh"
+
+echo
+echo -e "${BLUE}Test:${NC}"
+echo "  curl -X POST http://localhost:$PORT/notify \\"
+echo "    -H 'Content-Type: application/json' \\"
+echo "    -d '{\"message\": \"Hello from PAI\"}'"

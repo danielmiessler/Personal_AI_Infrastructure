@@ -174,7 +174,19 @@ test(
   'Voice Server',
   async () => {
     try {
-      const response = await fetch('http://localhost:3000/health', {
+      // Get port from settings.json
+      let port = 8888; // Default
+      const settingsPath = join(PAI_DIR, 'settings.json');
+      if (existsSync(settingsPath)) {
+        try {
+          const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+          if (settings.env?.VOICE_SERVER_PORT) {
+            port = parseInt(settings.env.VOICE_SERVER_PORT);
+          }
+        } catch {}
+      }
+
+      const response = await fetch(`http://localhost:${port}/health`, {
         signal: AbortSignal.timeout(2000)
       });
       return response.ok;

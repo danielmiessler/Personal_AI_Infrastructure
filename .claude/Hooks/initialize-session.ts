@@ -30,12 +30,67 @@ import { PAI_DIR } from './lib/pai-paths';
 const DEBOUNCE_MS = 2000;
 const LOCKFILE = join(tmpdir(), 'pai-session-start.lock');
 
+/**
+ * Get voice server port from settings.json or fall back to default
+ */
+function getVoiceServerPort(): number {
+  try {
+    const settingsPath = join(PAI_DIR, 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.env?.VOICE_SERVER_PORT) {
+        return parseInt(settings.env.VOICE_SERVER_PORT);
+      }
+    }
+  } catch (error) {
+    // Fall back to default
+  }
+  return 8888; // Default port
+}
+
+/**
+ * Get voice ID from settings.json or environment variable
+ */
+function getVoiceId(): string {
+  try {
+    // Try to get from process.env first (when running inside Claude Code)
+    if (process.env.DA_VOICE_ID) {
+      return process.env.DA_VOICE_ID;
+    }
+
+    // Fall back to reading settings.json directly (for manual testing)
+    const settingsPath = join(PAI_DIR, 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.env?.DA_VOICE_ID) {
+        return settings.env.DA_VOICE_ID;
+      }
+    }
+
+    // Try .env file
+    const envPath = join(PAI_DIR, '.env');
+    if (existsSync(envPath)) {
+      const envContent = readFileSync(envPath, 'utf-8');
+      const match = envContent.match(/^ELEVENLABS_VOICE_ID=(.+)$/m);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+  } catch (error) {
+    // Fall through to default
+  }
+
+  // Default to Rachel voice (available to all ElevenLabs users)
+  return 'cgSgspJ2msm6clMCkdW9';
+}
+
 async function sendNotification(title: string, message: string, priority: string = 'normal') {
   try {
-    // Get voice ID from environment variable (customize in settings.json)
-    const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
+    // Get voice ID from settings.json or environment variable
+    const voiceId = getVoiceId();
+    const port = getVoiceServerPort();
 
-    const response = await fetch('http://localhost:8888/notify', {
+    const response = await fetch(`http://localhost:${port}/notify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -35,6 +35,114 @@ else
 fi
 echo "✅ Found bun at: ${BUN_PATH}"
 
+# Check for existing installation first
+if [ -f "${LAUNCH_AGENTS_DIR}/${PLIST_FILE}" ]; then
+    echo ""
+    echo "⚠️  Voice server is already installed"
+    read -p "Do you want to reinstall? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "⏹️  Stopping existing service..."
+        if launchctl list | grep -q "${SERVICE_NAME}"; then
+            launchctl unload "${LAUNCH_AGENTS_DIR}/${PLIST_FILE}" 2>/dev/null || true
+            launchctl remove "${SERVICE_NAME}" 2>/dev/null || true
+        fi
+        echo "✅ Existing service stopped"
+    else
+        echo "Installation cancelled"
+        exit 0
+    fi
+fi
+
+# Port selection and validation
+echo ""
+echo "🔌 Configuring server port..."
+
+# Check settings.json first, then .env
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+SETTINGS_FILE="$PAI_DIR/settings.json"
+ENV_FILE="$PAI_DIR/.env"
+EXISTING_PORT=""
+
+if [ -f "$SETTINGS_FILE" ]; then
+    EXISTING_PORT=$(grep -o '"VOICE_SERVER_PORT"[[:space:]]*:[[:space:]]*"[^"]*"' "$SETTINGS_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -1)
+    if [ -n "$EXISTING_PORT" ]; then
+        echo "📝 Current port in settings.json: $EXISTING_PORT"
+    fi
+fi
+
+if [ -z "$EXISTING_PORT" ] && [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
+    EXISTING_PORT=$(grep "^PORT=" "$ENV_FILE" | cut -d'=' -f2)
+    echo "📝 Current port in .env: $EXISTING_PORT"
+fi
+
+PORT_SELECTED=false
+while [ "$PORT_SELECTED" = false ]; do
+    read -p "Enter port for voice server (default: 8888): " USER_PORT
+    PORT="${USER_PORT:-8888}"
+
+    # Validate port is a number
+    if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+        echo "❌ Invalid port. Must be a number between 1-65535"
+        continue
+    fi
+
+    # Check if port is in use
+    if lsof -Pi :$PORT -sTCP:LISTEN -t &>/dev/null 2>&1; then
+        PID=$(lsof -Pi :$PORT -sTCP:LISTEN -t 2>/dev/null)
+        if [ -n "$PID" ]; then
+            PROCESS=$(ps -p $PID -o comm= 2>/dev/null || echo "unknown")
+            CMDLINE=$(ps -p $PID -o args= 2>/dev/null || echo "")
+            echo "⚠️  Port $PORT is currently in use"
+            echo "   Process: $PROCESS (PID: $PID)"
+            echo "   Command: $CMDLINE"
+        else
+            echo "⚠️  Port $PORT is currently in use"
+        fi
+
+        echo ""
+        read -p "Continue with port $PORT anyway? (y/n/retry): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "⚠️  Proceeding with port $PORT (currently in use)"
+            PORT_SELECTED=true
+        elif [[ $REPLY =~ ^[Rr]$ ]]; then
+            continue
+        else
+            continue
+        fi
+    else
+        echo "✅ Port $PORT is available"
+        PORT_SELECTED=true
+    fi
+done
+
+# Save port to settings.json (primary) and .env (fallback)
+if [ -f "$SETTINGS_FILE" ]; then
+    # Update settings.json using sed (works without jq)
+    if grep -q '"VOICE_SERVER_PORT"' "$SETTINGS_FILE"; then
+        # Update existing entry
+        sed -i '' "s/\"VOICE_SERVER_PORT\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"VOICE_SERVER_PORT\": \"$PORT\"/" "$SETTINGS_FILE"
+        echo "✅ Updated VOICE_SERVER_PORT in settings.json"
+    else
+        # Add new entry to env object
+        sed -i '' "s/\"DA_VOICE_ID\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/&,\n    \"VOICE_SERVER_PORT\": \"$PORT\"/" "$SETTINGS_FILE"
+        echo "✅ Added VOICE_SERVER_PORT to settings.json"
+    fi
+else
+    echo "⚠️  settings.json not found, falling back to .env"
+fi
+
+# Also save to .env as fallback
+mkdir -p "$(dirname $ENV_FILE)"
+if grep -q "^PORT=" "$ENV_FILE" 2>/dev/null; then
+    sed -i '' "s/^PORT=.*/PORT=$PORT/" "$ENV_FILE"
+    echo "✅ Updated PORT in .env (fallback)"
+else
+    echo "PORT=$PORT" >> "$ENV_FILE"
+    echo "✅ Saved PORT to .env (fallback)"
+fi
+
 # Check for ElevenLabs API configuration
 echo "🔑 Checking API configuration..."
 if [ -f ~/.env ] && grep -q "ELEVENLABS_API_KEY" ~/.env 2>/dev/null; then
@@ -65,13 +173,6 @@ mkdir -p "${VOICE_SERVER_DIR}/logs"
 # Create LaunchAgents directory if it doesn't exist
 echo "📁 Creating LaunchAgents directory..."
 mkdir -p "${LAUNCH_AGENTS_DIR}"
-
-# Stop existing service if running
-if launchctl list | grep -q "${SERVICE_NAME}"; then
-    echo "⏹️  Stopping existing service..."
-    launchctl unload "${LAUNCH_AGENTS_DIR}/${PLIST_FILE}" 2>/dev/null || true
-    launchctl remove "${SERVICE_NAME}" 2>/dev/null || true
-fi
 
 # Generate plist from template with correct paths
 echo "📝 Generating service configuration..."
@@ -105,7 +206,10 @@ if launchctl list | grep -q "${SERVICE_NAME}"; then
     launchctl list | grep "${SERVICE_NAME}"
     echo ""
     echo "🔍 Test the service:"
-    echo "   curl http://localhost:8888/health"
+    echo "   curl http://localhost:$PORT/health"
+    echo ""
+    echo "📋 Server Information:"
+    echo "   Port: $PORT"
     echo ""
     echo "📋 Service Management Commands:"
     echo "   Start:   launchctl start ${SERVICE_NAME}"

@@ -4,7 +4,7 @@
  * Extracts context information from transcript and notifies about compression
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -50,11 +50,31 @@ interface TranscriptEntry {
 }
 
 /**
+ * Get voice server port from settings.json or fall back to default
+ */
+function getVoiceServerPort(): number {
+  try {
+    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+    const settingsPath = join(paiDir, 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.env?.VOICE_SERVER_PORT) {
+        return parseInt(settings.env.VOICE_SERVER_PORT);
+      }
+    }
+  } catch (error) {
+    // Fall back to default
+  }
+  return 8888; // Default port
+}
+
+/**
  * Send notification to the Kai notification server
  */
 async function sendNotification(payload: NotificationPayload): Promise<void> {
   try {
-    await fetch('http://localhost:8888/notify', {
+    const port = getVoiceServerPort();
+    await fetch(`http://localhost:${port}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

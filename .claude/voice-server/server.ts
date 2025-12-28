@@ -1,17 +1,85 @@
 #!/usr/bin/env bun
 /**
  * PAIVoice - Personal AI Voice notification server using ElevenLabs TTS
+ * Cross-platform support: macOS and Linux
  */
 
 import { serve } from "bun";
 import { spawn } from "child_process";
-import { homedir } from "os";
+import { homedir, platform, tmpdir } from "os";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, statSync } from "fs";
+import { writeFile, unlink, readFile, utimes } from "fs/promises";
+import { createHash } from "crypto";
 
-// Load .env from user home directory
-const envPath = join(homedir(), '.env');
+// Logging utilities with timestamps
+function getTimestamp(): string {
+  const now = new Date();
+  return now.toISOString().replace('T', ' ').split('.')[0];
+}
+
+function log(...args: any[]): void {
+  console.log(`[${getTimestamp()}]`, ...args);
+}
+
+function warn(...args: any[]): void {
+  console.warn(`[${getTimestamp()}]`, ...args);
+}
+
+function error(...args: any[]): void {
+  console.error(`[${getTimestamp()}]`, ...args);
+}
+
+function debug(...args: any[]): void {
+  console.debug(`[${getTimestamp()}]`, ...args);
+}
+
+// Platform detection
+const PLATFORM = platform() === 'darwin' ? 'macos' : 'linux';
+log(`🖥️  Platform detected: ${PLATFORM}`);
+
+// Load configuration from settings.json first, then .env
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.claude');
+
+// Cache directory for generated audio files
+const CACHE_DIR = join(PAI_DIR, 'voice-server', 'cache');
+// Cache TTL in days - configurable via environment variable
+const CACHE_TTL_DAYS = parseInt(process.env.VOICE_CACHE_TTL_DAYS || '30');
+const CACHE_TTL_MS = CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+// Create cache directory if it doesn't exist
+if (!existsSync(CACHE_DIR)) {
+  mkdirSync(CACHE_DIR, { recursive: true });
+  log(`📁 Created cache directory: ${CACHE_DIR}`);
+}
+
+// Clean up expired cache files on startup (async, don't block startup)
+cleanupCache().catch(err => error('Initial cache cleanup failed:', err));
+
+// Try to load PORT and DA_VOICE_ID from settings.json first
+let PORT = 8888; // Default
+let DA_VOICE_ID: string | null = null;
+const settingsPath = join(PAI_DIR, 'settings.json');
+if (existsSync(settingsPath)) {
+  try {
+    const settings = await Bun.file(settingsPath).json();
+    if (settings.env?.VOICE_SERVER_PORT) {
+      PORT = parseInt(settings.env.VOICE_SERVER_PORT);
+      log(`📄 Using port from settings.json: ${PORT}`);
+    }
+    if (settings.env?.DA_VOICE_ID) {
+      DA_VOICE_ID = settings.env.DA_VOICE_ID;
+      log(`📄 Using DA voice ID from settings.json: ${DA_VOICE_ID}`);
+    }
+  } catch (err) {
+    warn(`⚠️  Failed to parse settings.json: ${err}`);
+  }
+}
+
+// Load .env file for all environment variables
+const envPath = existsSync(join(PAI_DIR, '.env')) ? join(PAI_DIR, '.env') : join(homedir(), '.env');
 if (existsSync(envPath)) {
+  log(`📄 Loading environment from: ${envPath}`);
   const envContent = await Bun.file(envPath).text();
   envContent.split('\n').forEach(line => {
     const [key, value] = line.split('=');
@@ -19,18 +87,24 @@ if (existsSync(envPath)) {
       process.env[key.trim()] = value.trim();
     }
   });
-}
 
-const PORT = parseInt(process.env.PORT || "8888");
+  // Fall back to .env PORT if not set in settings.json
+  if (PORT === 8888 && process.env.PORT) {
+    PORT = parseInt(process.env.PORT);
+    log(`📄 Using port from .env: ${PORT}`);
+  }
+}
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 if (!ELEVENLABS_API_KEY) {
-  console.error('⚠️  ELEVENLABS_API_KEY not found in ~/.env');
-  console.error('Add: ELEVENLABS_API_KEY=your_key_here');
+  warn(`⚠️  ELEVENLABS_API_KEY not found`);
+  warn('   Voice features will fall back to system TTS');
+  warn(`   To enable ElevenLabs, add to ${PAI_DIR}/.env:`);
+  warn('   ELEVENLABS_API_KEY=your_key_here');
 }
 
-// Default voice ID (Kai's voice)
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+// Default voice ID - priority: settings.json DA_VOICE_ID > .env ELEVENLABS_VOICE_ID > fallback
+const DEFAULT_VOICE_ID = DA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9";
 
 // Default model - eleven_multilingual_v2 is the current recommended model
 // See: https://elevenlabs.io/docs/models#models-overview
@@ -66,6 +140,101 @@ function validateInput(input: any): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
+// Generate cache key from message and voice ID
+function getCacheKey(text: string, voiceId: string): string {
+  const hash = createHash('sha256');
+  hash.update(`${text}::${voiceId}`);
+  return hash.digest('hex');
+}
+
+// Get cached audio file if it exists
+async function getCachedAudio(text: string, voiceId: string): Promise<ArrayBuffer | null> {
+  try {
+    const cacheKey = getCacheKey(text, voiceId);
+    const cachePath = join(CACHE_DIR, `${cacheKey}.mp3`);
+
+    if (existsSync(cachePath)) {
+      log(`💾 Cache HIT: Using cached audio for "${text.substring(0, 50)}..."`);
+      const buffer = await readFile(cachePath);
+
+      // Touch the file to update its modification time (marks it as recently used)
+      await touchCacheFile(cachePath);
+
+      return buffer.buffer;
+    }
+
+    log(`💾 Cache MISS: Generating new audio for "${text.substring(0, 50)}..."`);
+    return null;
+  } catch (err) {
+    error('Cache read error:', err);
+    return null;
+  }
+}
+
+// Save audio to cache
+async function saveCachedAudio(text: string, voiceId: string, audioBuffer: ArrayBuffer): Promise<void> {
+  try {
+    const cacheKey = getCacheKey(text, voiceId);
+    const cachePath = join(CACHE_DIR, `${cacheKey}.mp3`);
+
+    await writeFile(cachePath, Buffer.from(audioBuffer));
+    log(`💾 Cached audio saved: ${cacheKey}.mp3`);
+  } catch (err) {
+    error('Cache write error:', err);
+    // Don't fail if cache write fails - just log it
+  }
+}
+
+// Update file access time (touch) to mark it as recently used
+async function touchCacheFile(cachePath: string): Promise<void> {
+  try {
+    const now = new Date();
+    await utimes(cachePath, now, now);
+  } catch (error) {
+    // Ignore touch errors - not critical
+  }
+}
+
+// Clean up expired cache files
+async function cleanupCache(): Promise<void> {
+  try {
+    const now = Date.now();
+    const files = readdirSync(CACHE_DIR);
+    let deletedCount = 0;
+    let totalSize = 0;
+
+    for (const file of files) {
+      if (!file.endsWith('.mp3')) continue;
+
+      const filePath = join(CACHE_DIR, file);
+      try {
+        const stats = statSync(filePath);
+        const age = now - stats.mtimeMs;
+        totalSize += stats.size;
+
+        // Delete files older than TTL
+        if (age > CACHE_TTL_MS) {
+          await unlink(filePath);
+          deletedCount++;
+        }
+      } catch (error) {
+        // Skip files we can't stat or delete
+        continue;
+      }
+    }
+
+    const remainingFiles = files.length - deletedCount;
+    const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+    if (deletedCount > 0) {
+      log(`🧹 Cache cleanup: Removed ${deletedCount} expired file(s)`);
+    }
+    log(`💾 Cache stats: ${remainingFiles} file(s), ~${sizeMB}MB, ${CACHE_TTL_DAYS} day TTL`);
+  } catch (err) {
+    error('Cache cleanup error:', err);
+  }
+}
+
 // Generate speech using ElevenLabs API
 async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffer> {
   if (!ELEVENLABS_API_KEY) {
@@ -73,6 +242,7 @@ async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffe
   }
 
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+  log(`🌐 ElevenLabs API request to: ${url}`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -103,32 +273,42 @@ async function generateSpeech(text: string, voiceId: string): Promise<ArrayBuffe
   return await response.arrayBuffer();
 }
 
-// Play audio using afplay (macOS)
+// Play audio using platform-specific player
 async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+  const tempFile = join(tmpdir(), `voice-${Date.now()}.mp3`);
 
   // Write audio to temp file
-  await Bun.write(tempFile, audioBuffer);
+  await writeFile(tempFile, Buffer.from(audioBuffer));
 
-  return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', [tempFile]);
+  try {
+    if (PLATFORM === 'macos') {
+      // macOS: use afplay
+      await spawnSafe('/usr/bin/afplay', [tempFile]);
+    } else {
+      // Linux: try multiple audio players (MP3-capable players prioritized)
+      const audioPlayers = ['mpg123', 'mplayer', 'ffplay', 'paplay', 'aplay'];
+      let played = false;
 
-    proc.on('error', (error) => {
-      console.error('Error playing audio:', error);
-      reject(error);
-    });
-
-    proc.on('exit', (code) => {
-      // Clean up temp file
-      spawn('/bin/rm', [tempFile]);
-
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`afplay exited with code ${code}`));
+      for (const player of audioPlayers) {
+        try {
+          await spawnSafe(player, [tempFile]);
+          played = true;
+          log(`✅ Audio played with ${player}`);
+          break;
+        } catch (err) {
+          debug(`❌ ${player} not available or failed`);
+          continue;
+        }
       }
-    });
-  });
+
+      if (!played) {
+        throw new Error('No audio player found. Install: mpg123, mplayer, or ffplay');
+      }
+    }
+  } finally {
+    // Clean up temp file
+    await unlink(tempFile).catch(() => {});
+  }
 }
 
 // Spawn a process safely
@@ -136,9 +316,9 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args);
 
-    proc.on('error', (error) => {
-      console.error(`Error spawning ${command}:`, error);
-      reject(error);
+    proc.on('error', (err) => {
+      error(`Error spawning ${command}:`, err);
+      reject(err);
     });
 
     proc.on('exit', (code) => {
@@ -151,7 +331,48 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
   });
 }
 
-// Send macOS notification with voice
+// Fallback to system TTS when ElevenLabs is unavailable
+async function fallbackTTS(message: string): Promise<void> {
+  if (PLATFORM === 'macos') {
+    await spawnSafe('/usr/bin/say', [message]);
+  } else {
+    // Linux: try multiple TTS engines
+    const ttsOptions = [
+      { cmd: 'espeak', args: [message] },
+      { cmd: 'spd-say', args: [message] },
+      { cmd: 'festival', args: ['--tts'], stdin: message }
+    ];
+
+    let spoken = false;
+    for (const option of ttsOptions) {
+      try {
+        if (option.stdin) {
+          // Festival needs text via stdin
+          const proc = spawn(option.cmd, option.args);
+          proc.stdin?.write(option.stdin);
+          proc.stdin?.end();
+          spoken = true;
+          log(`✅ TTS with ${option.cmd}`);
+          break;
+        } else {
+          await spawnSafe(option.cmd, option.args);
+          spoken = true;
+          log(`✅ TTS with ${option.cmd}`);
+          break;
+        }
+      } catch (err) {
+        debug(`❌ ${option.cmd} not available`);
+        continue;
+      }
+    }
+
+    if (!spoken) {
+      warn('⚠️  No TTS engine found. Install: espeak-ng, speech-dispatcher, or festival');
+    }
+  }
+}
+
+// Send cross-platform notification with voice
 async function sendNotification(
   title: string,
   message: string,
@@ -174,25 +395,66 @@ async function sendNotification(
   const safeTitle = sanitizeForShell(title);
   const safeMessage = sanitizeForShell(message);
 
-  // Generate and play voice using ElevenLabs
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
-    try {
-      const voice = voiceId || DEFAULT_VOICE_ID;
-      console.log(`🎙️  Generating speech with ElevenLabs (voice: ${voice})`);
+  // Generate and play voice
+  if (voiceEnabled) {
+    if (ELEVENLABS_API_KEY) {
+      try {
+        const voice = voiceId || DEFAULT_VOICE_ID;
 
-      const audioBuffer = await generateSpeech(safeMessage, voice);
-      await playAudio(audioBuffer);
-    } catch (error) {
-      console.error("Failed to generate/play speech:", error);
+        // Try to get cached audio first
+        let audioBuffer = await getCachedAudio(safeMessage, voice);
+
+        if (!audioBuffer) {
+          // Cache miss - generate new audio with ElevenLabs
+          log(`🎙️  Generating speech with ElevenLabs (voice: ${voice})`);
+          audioBuffer = await generateSpeech(safeMessage, voice);
+
+          // Save to cache for future use
+          await saveCachedAudio(safeMessage, voice, audioBuffer);
+        }
+
+        await playAudio(audioBuffer);
+      } catch (err) {
+        error("⚠️  ElevenLabs failed, using system TTS:", err);
+        try {
+          await fallbackTTS(safeMessage);
+        } catch (ttsError) {
+          error("❌ System TTS also failed:", ttsError);
+        }
+      }
+    } else {
+      // No API key, use system TTS
+      try {
+        await fallbackTTS(safeMessage);
+      } catch (err) {
+        error("❌ System TTS failed:", err);
+      }
     }
   }
 
-  // Display macOS notification
+  // Display platform-specific notification
   try {
-    const script = `display notification "${safeMessage}" with title "${safeTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
-  } catch (error) {
-    console.error("Notification display error:", error);
+    if (PLATFORM === 'macos') {
+      const script = `display notification "${safeMessage}" with title "${safeTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } else {
+      // Linux: use notify-send
+      try {
+        await spawnSafe('notify-send', [safeTitle, safeMessage]);
+      } catch (error) {
+        // Fallback to zenity if notify-send not available
+        try {
+          await spawnSafe('zenity', ['--info', '--title', safeTitle, '--text', safeMessage]);
+        } catch (zenityError) {
+          // Final fallback: console output
+          log(`📢 [NOTIFICATION] ${safeTitle}: ${safeMessage}`);
+        }
+      }
+    }
+  } catch (err) {
+    error("❌ Notification display error:", err);
+    // Always log to console as ultimate fallback
+    log(`📢 [NOTIFICATION] ${safeTitle}: ${safeMessage}`);
   }
 }
 
@@ -258,7 +520,7 @@ const server = serve({
           throw new Error('Invalid voice_id');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
 
         await sendNotification(title, message, voiceEnabled, voiceId);
 
@@ -269,13 +531,13 @@ const server = serve({
             status: 200
           }
         );
-      } catch (error: any) {
-        console.error("Notification error:", error);
+      } catch (err: any) {
+        error("Notification error:", err);
         return new Response(
-          JSON.stringify({ status: "error", message: error.message || "Internal server error" }),
+          JSON.stringify({ status: "error", message: err.message || "Internal server error" }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: error.message?.includes('Invalid') ? 400 : 500
+            status: err.message?.includes('Invalid') ? 400 : 500
           }
         );
       }
@@ -287,7 +549,7 @@ const server = serve({
         const title = data.title || "PAI Assistant";
         const message = data.message || "Task completed";
 
-        console.log(`🤖 PAI notification: "${title}" - "${message}"`);
+        log(`🤖 PAI notification: "${title}" - "${message}"`);
 
         await sendNotification(title, message, true, null);
 
@@ -298,13 +560,13 @@ const server = serve({
             status: 200
           }
         );
-      } catch (error: any) {
-        console.error("PAI notification error:", error);
+      } catch (err: any) {
+        error("PAI notification error:", err);
         return new Response(
-          JSON.stringify({ status: "error", message: error.message || "Internal server error" }),
+          JSON.stringify({ status: "error", message: err.message || "Internal server error" }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: error.message?.includes('Invalid') ? 400 : 500
+            status: err.message?.includes('Invalid') ? 400 : 500
           }
         );
       }
@@ -334,8 +596,13 @@ const server = serve({
   },
 });
 
-console.log(`🚀 PAIVoice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (model: ${DEFAULT_MODEL}, voice: ${DEFAULT_VOICE_ID})`);
-console.log(`📡 POST to http://localhost:${PORT}/notify`);
-console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+log(`🚀 PAIVoice Server running on port ${PORT}`);
+log(`🖥️  Platform: ${PLATFORM}`);
+if (ELEVENLABS_API_KEY) {
+  log(`🎙️  Using ElevenLabs TTS (model: ${DEFAULT_MODEL}, voice: ${DEFAULT_VOICE_ID})`);
+  log(`💾 Audio caching: ENABLED at ${CACHE_DIR}`);
+} else {
+  log(`🎙️  Using system TTS (ElevenLabs API key not configured)`);
+}
+log(`📡 POST to http://localhost:${PORT}/notify`);
+log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);

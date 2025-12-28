@@ -7,6 +7,7 @@ set -e
 SERVICE_NAME="com.paivoice.server"
 PLIST_FILE="com.paivoice.server.plist"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
+LOG_FILE="$HOME/Library/Logs/pai-voice-server.log"
 
 echo "🗑️  PAIVoice Server Service Uninstaller"
 echo "============================================"
@@ -31,5 +32,18 @@ rm -f "${LAUNCH_AGENTS_DIR}/${PLIST_FILE}"
 
 echo "✅ Service uninstalled successfully!"
 echo ""
-echo "Note: Log files have been preserved at:"
-echo "  ${PAI_DIR}/voice-server/logs/"
+
+# Ask about logs
+echo "Log files location: $LOG_FILE"
+read -p "Would you like to remove log files? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ -f "$LOG_FILE" ]; then
+        rm -f "$LOG_FILE"
+        echo "✅ Log file removed"
+    else
+        echo "⚠️  No log file found"
+    fi
+else
+    echo "Log files preserved at: $LOG_FILE"
+fi

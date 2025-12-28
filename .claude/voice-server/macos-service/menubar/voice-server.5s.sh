@@ -12,8 +12,28 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # Configuration
 SERVICE_NAME="com.paivoice.server"
-SERVER_URL="http://localhost:8888"
 VOICE_SERVER_DIR="$HOME/.claude/voice-server"
+
+# Get port from settings.json first, then .env
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+SETTINGS_FILE="$PAI_DIR/settings.json"
+ENV_FILE="$PAI_DIR/.env"
+PORT=8888  # Default
+
+# Try settings.json first
+if [ -f "$SETTINGS_FILE" ]; then
+    PORT_FROM_SETTINGS=$(grep -o '"VOICE_SERVER_PORT"[[:space:]]*:[[:space:]]*"[^"]*"' "$SETTINGS_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -1)
+    if [ -n "$PORT_FROM_SETTINGS" ]; then
+        PORT=$PORT_FROM_SETTINGS
+    fi
+fi
+
+# Fall back to .env if not in settings.json
+if [ "$PORT" = "8888" ] && [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
+    PORT=$(grep "^PORT=" "$ENV_FILE" | cut -d'=' -f2)
+fi
+
+SERVER_URL="http://localhost:$PORT"
 
 # Check if server is running
 if curl -s "${SERVER_URL}/health" > /dev/null 2>&1; then
@@ -24,9 +44,9 @@ if curl -s "${SERVER_URL}/health" > /dev/null 2>&1; then
     
     # Get server info
     HEALTH=$(curl -s "${SERVER_URL}/health" 2>/dev/null || echo "{}")
-    PORT=$(echo "$HEALTH" | grep -o '"port":[0-9]*' | grep -o '[0-9]*' || echo "8888")
-    
-    echo "📡 Port: $PORT | color=#666666"
+    SERVER_PORT=$(echo "$HEALTH" | grep -o '"port":[0-9]*' | grep -o '[0-9]*' || echo "$PORT")
+
+    echo "📡 Port: $SERVER_PORT | color=#666666"
     
     # Check if using ElevenLabs
     if [ -f ~/.env ] && grep -q "ELEVENLABS_API_KEY=" ~/.env 2>/dev/null; then

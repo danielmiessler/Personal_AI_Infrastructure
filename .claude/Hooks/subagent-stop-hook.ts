@@ -275,9 +275,22 @@ async function main() {
   const fullMessage = completionMessage; // Message is already prepared with agent name
   const agentName = finalAgentType.charAt(0).toUpperCase() + finalAgentType.slice(1);
   
+  // Get voice server port from settings.json
+  let voiceServerPort = 8888; // Default
+  try {
+    const paiDir = process.env.PAI_DIR || require('os').homedir() + '/.claude';
+    const settingsPath = require('path').join(paiDir, 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.env?.VOICE_SERVER_PORT) {
+        voiceServerPort = parseInt(settings.env.VOICE_SERVER_PORT);
+      }
+    }
+  } catch {}
+
   // Send to notification server
   try {
-    await fetch('http://localhost:8888/notify', {
+    await fetch(`http://localhost:${voiceServerPort}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -288,7 +301,7 @@ async function main() {
         voice_id: AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default
       })
     });
-    
+
     console.log(`✅ Sent: [${agentName}] ${fullMessage}`);
   } catch (e) {
     console.error('Failed to send notification:', e);

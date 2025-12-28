@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -492,13 +492,26 @@ async function main() {
     }
   }
 
+  // Get voice server port from settings.json
+  let voiceServerPort = 8888; // Default
+  try {
+    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+    const settingsPath = join(paiDir, 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.env?.VOICE_SERVER_PORT) {
+        voiceServerPort = parseInt(settings.env.VOICE_SERVER_PORT);
+      }
+    }
+  } catch {}
+
   // FIRST: Send voice notification if we have a message
   if (message) {
     // Align voice payload with initialize-pai-session.ts (prefer voice_id)
     const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
     const priority = 'low';
     // Send to voice server
-    await fetch('http://localhost:8888/notify', {
+    await fetch(`http://localhost:${voiceServerPort}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

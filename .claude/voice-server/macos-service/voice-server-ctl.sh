@@ -7,7 +7,27 @@ SERVICE_NAME="com.paivoice.server"
 PLIST_FILE="com.paivoice.server.plist"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 VOICE_SERVER_DIR="$HOME/.claude/voice-server"
-SERVER_URL="http://localhost:8888"
+
+# Get port from settings.json first, then .env
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+SETTINGS_FILE="$PAI_DIR/settings.json"
+ENV_FILE="$PAI_DIR/.env"
+PORT=8888  # Default
+
+# Try settings.json first
+if [ -f "$SETTINGS_FILE" ]; then
+    PORT_FROM_SETTINGS=$(grep -o '"VOICE_SERVER_PORT"[[:space:]]*:[[:space:]]*"[^"]*"' "$SETTINGS_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -1)
+    if [ -n "$PORT_FROM_SETTINGS" ]; then
+        PORT=$PORT_FROM_SETTINGS
+    fi
+fi
+
+# Fall back to .env if not in settings.json
+if [ "$PORT" = "8888" ] && [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
+    PORT=$(grep "^PORT=" "$ENV_FILE" | cut -d'=' -f2)
+fi
+
+SERVER_URL="http://localhost:$PORT"
 
 # Colors for output
 RED='\033[0;31m'
@@ -88,7 +108,7 @@ function status_service() {
                 echo -e "${GREEN}✅ Server is responding${NC}"
                 echo "   Health: $HEALTH"
             else
-                echo -e "${YELLOW}⚠️  Server not responding on port 8888${NC}"
+                echo -e "${YELLOW}⚠️  Server not responding on port $PORT${NC}"
             fi
         else
             echo -e "${YELLOW}⚠️  Service is loaded but not running${NC}"

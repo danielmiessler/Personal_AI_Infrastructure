@@ -1,0 +1,19 @@
+[Unit]
+Description=PAI Voice Server (User Service)
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.claude/voice-server
+ExecStart=%h/.bun/bin/bun run %h/.claude/voice-server/server.ts
+Restart=always
+RestartSec=10
+StandardOutput=append:%h/.local/share/pai-voice-server.log
+StandardError=append:%h/.local/share/pai-voice-server.log
+
+# Environment variables
+Environment=PAI_DIR=%h/.claude
+Environment=HOME=%h
+
+[Install]
+WantedBy=default.target

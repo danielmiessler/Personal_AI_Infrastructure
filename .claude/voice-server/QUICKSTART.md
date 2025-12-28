@@ -1,56 +1,77 @@
 # PAI Voice Server - Quick Start Guide
 
-Get voice notifications working in 5 minutes with ElevenLabs TTS.
+**5-minute setup for macOS and Linux**
 
-## Prerequisites
+## Prerequisites Check
 
-- macOS (tested on macOS 11+)
-- [Bun](https://bun.sh) runtime
-- ElevenLabs account (free tier available)
+Before starting, verify you have:
+- [ ] Terminal access
+- [ ] Internet connection
+- [ ] Sudo privileges (Linux only, for installing dependencies)
 
-## Step 1: Install Bun
+## Step 1: Install Bun (2 minutes)
 
-If you don't have Bun installed:
+Bun is the JavaScript runtime that powers the voice server.
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
-## Step 2: Get Your ElevenLabs API Key
-
-1. Go to [elevenlabs.io](https://elevenlabs.io) and create a free account
-2. Navigate to your [Profile Settings](https://elevenlabs.io/app/settings/api-keys)
-3. Click "Create API Key" or copy your existing key
-4. Copy the API key (starts with something like `sk_...`)
-
-**Free Tier:** 10,000 characters/month (perfect for notifications)
-
-## Step 3: Configure Your Environment
-
-Add your ElevenLabs API key to `~/.env`:
-
+**Verify installation:**
 ```bash
-# Create or edit ~/.env
-echo "ELEVENLABS_API_KEY=your_api_key_here" >> ~/.env
-echo "ELEVENLABS_VOICE_ID=s3TPKV1kjDlVtZbl4Ksh" >> ~/.env
+bun --version
 ```
 
-Replace `your_api_key_here` with your actual API key from Step 2.
+## Step 2: Install Platform Dependencies
 
-**Important:** The `~/.env` file should be in your home directory, NOT in the PAI directory.
+### macOS
 
-## Step 4: Install the Voice Server
+✅ No action needed! macOS includes all required tools (`afplay`, `say`, `osascript`).
+
+### Linux (Ubuntu/Debian)
+
+Install audio, TTS, and notification tools:
 
 ```bash
-cd ${PAI_DIR}/voice-server
+cd ~/.claude/voice-server/linux-service
+./setup-deps.sh
+```
+
+**Or install manually:**
+```bash
+sudo apt update
+sudo apt install mpg123 espeak-ng libnotify-bin
+```
+
+## Step 3: Configure Voice API (1 minute)
+
+### Option A: AI Voices (ElevenLabs)
+
+Get a free API key at [elevenlabs.io](https://elevenlabs.io) (10,000 characters/month free).
+
+```bash
+mkdir -p ~/.claude
+echo "ELEVENLABS_API_KEY=sk_..." >> ~/.claude/.env
+```
+
+### Option B: System TTS (Free)
+
+Skip this step! The server will automatically use:
+- macOS: `say` command
+- Linux: `espeak` or `spd-say`
+
+## Step 4: Install Voice Server (2 minutes)
+
+```bash
+cd ~/.claude/voice-server
 ./install.sh
 ```
 
-This will:
-- Install dependencies
-- Create a macOS LaunchAgent for auto-start
-- Start the voice server on port 8888
-- Verify the installation works
+The installer will:
+1. Detect your platform (macOS or Linux)
+2. Check dependencies
+3. Create and start the service
+4. Test the installation
 
 ## Step 5: Test It!
 
@@ -59,164 +80,184 @@ Send a test notification:
 ```bash
 curl -X POST http://localhost:8888/notify \
   -H "Content-Type: application/json" \
-  -d '{"message": "Voice system is working perfectly!"}'
+  -d '{"message": "Hello from PAI!"}'
 ```
 
-You should hear the message spoken aloud!
+You should hear/see a notification!
 
-## What's Next?
+## ✅ You're Done!
 
-### Choose Different Voices
+The voice server is now running and will start automatically on boot.
 
-Browse the [ElevenLabs Voice Library](https://elevenlabs.io/voice-library) to find voices you like:
-
-1. Click on a voice to preview it
-2. Click "Use" and copy the Voice ID
-3. Update `ELEVENLABS_VOICE_ID` in your `~/.env`
-
-### Agent Voice Configuration
-
-The PAI system supports different voices for different agents:
-
-| Agent | Default Voice ID | Purpose |
-|-------|------------------|---------|
-| Kai | s3TPKV1kjDlVtZbl4Ksh | Main assistant voice |
-| Perplexity-Researcher | AXdMgz6evoL7OPd7eU12 | Research agent |
-| Claude-Researcher | AXdMgz6evoL7OPd7eU12 | Research agent |
-| Engineer | kmSVBPu7loj4ayNinwWM | Development agent |
-| Designer | ZF6FPAbjXT4488VcRRnw | Design agent |
-| Pentester | hmMWXCj9K7N5mCPcRkfC | Security agent |
-| Architect | muZKMsIDGYtIkjjiUS82 | Architecture agent |
-| Writer | gfRt6Z3Z8aTbpLfexQ7N | Content agent |
-
-These voice IDs are configured in your hooks and agent files.
-
-### Install Menu Bar Indicator (Optional)
-
-Get visual status in your macOS menu bar:
-
-```bash
-# Install SwiftBar (recommended)
-brew install --cask swiftbar
-
-# Install the menu bar indicator
-cd ${PAI_DIR}/voice-server/menubar
-./install-menubar.sh
-```
-
-## Troubleshooting
-
-### "No voice output"
-
-**Check 1:** Verify API key is set:
-```bash
-grep ELEVENLABS_API_KEY ~/.env
-```
-
-**Check 2:** Test the server:
-```bash
-curl http://localhost:8888/health
-```
-
-Expected output:
-```json
-{
-  "status": "healthy",
-  "port": 8888,
-  "voice_system": "ElevenLabs",
-  "default_voice_id": "s3TPKV1kjDlVtZbl4Ksh",
-  "api_key_configured": true
-}
-```
-
-**Check 3:** Look at server logs:
-```bash
-tail -f ${PAI_DIR}/voice-server/logs/voice-server.log
-```
-
-### "Port 8888 already in use"
-
-Kill any existing process and restart:
-```bash
-lsof -ti:8888 | xargs kill -9
-cd ${PAI_DIR}/voice-server && ./restart.sh
-```
-
-### "Invalid API key"
-
-1. Verify your API key is correct in `~/.env`
-2. Check that it doesn't have extra spaces or quotes
-3. Make sure you copied the entire key from ElevenLabs
-
-## Service Management
-
-Once installed, the voice server runs automatically. You can control it with:
+## Common Commands
 
 ```bash
 # Check status
+cd ~/.claude/voice-server
 ./status.sh
-
-# Stop server
-./stop.sh
-
-# Start server
-./start.sh
 
 # Restart server
 ./restart.sh
 
-# Uninstall (removes LaunchAgent)
-./uninstall.sh
+# Run full system test
+./test-system.sh
+
+# View logs (macOS)
+tail -f ~/Library/Logs/pai-voice-server.log
+
+# View logs (Linux)
+journalctl --user -u pai-voice-server -f
 ```
 
-## API Usage
+## Platform-Specific Service Commands
 
-### Send a Notification
+### macOS (LaunchAgent)
+
+```bash
+# Start
+launchctl load ~/Library/LaunchAgents/com.pai.voice-server.plist
+
+# Stop
+launchctl unload ~/Library/LaunchAgents/com.pai.voice-server.plist
+
+# Check status
+launchctl list | grep pai
+```
+
+### Linux (systemd)
+
+```bash
+# Start
+systemctl --user start pai-voice-server
+
+# Stop
+systemctl --user stop pai-voice-server
+
+# Check status
+systemctl --user status pai-voice-server
+
+# Enable auto-start on boot
+loginctl enable-linger $USER
+```
+
+## Next Steps
+
+### For macOS Users
+
+Install the optional menu bar indicator:
+
+1. Install SwiftBar:
+   ```bash
+   brew install --cask swiftbar
+   ```
+
+2. Run the installer:
+   ```bash
+   cd ~/.claude/voice-server/menubar
+   ./install-menubar.sh
+   ```
+
+### Customize Voices
+
+Edit `~/.claude/.env` to change the default voice:
+
+```bash
+# UK Male - Professional
+ELEVENLABS_VOICE_ID=s3TPKV1kjDlVtZbl4Ksh
+
+# US Female - Analytical
+ELEVENLABS_VOICE_ID=AXdMgz6evoL7OPd7eU12
+
+# See README.md for full voice list
+```
+
+## Troubleshooting
+
+### Server not responding?
+
+```bash
+# Run diagnostic test
+cd ~/.claude/voice-server
+./test-system.sh
+```
+
+### Linux: No audio?
+
+```bash
+# Test audio player
+mpg123 --version
+
+# If missing
+sudo apt install mpg123
+```
+
+### Linux: No notifications?
+
+```bash
+# Test notifications
+notify-send "Test" "Hello"
+
+# If missing
+sudo apt install libnotify-bin
+```
+
+### Port 8888 in use?
+
+```bash
+# Find what's using it
+lsof -i:8888
+
+# Kill it
+lsof -ti:8888 | xargs kill -9
+```
+
+## API Integration
+
+### Basic Notification
+
+```bash
+curl -X POST http://localhost:8888/notify \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Task completed"}'
+```
+
+### With Custom Voice
 
 ```bash
 curl -X POST http://localhost:8888/notify \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Your notification message here",
+    "message": "Hello from PAI",
     "voice_id": "s3TPKV1kjDlVtZbl4Ksh",
-    "title": "Optional Title"
+    "title": "PAI Notification"
   }'
 ```
 
-### Parameters
+### Disable Voice
 
-- `message` (required): Text to speak
-- `voice_id` (optional): ElevenLabs voice ID (uses default if not specified)
-- `voice_enabled` (optional): Set to `false` to disable voice
-- `title` (optional): Notification title (default: "PAI Notification")
+```bash
+curl -X POST http://localhost:8888/notify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Silent notification",
+    "voice_enabled": false
+  }'
+```
 
-## Security Notes
+## Support
 
-- Your API key is stored securely in `~/.env` (not in code)
-- Server only accepts connections from localhost
-- Rate limited to 10 requests/minute
-- No sensitive data is logged
+- Full documentation: [README.md](README.md)
+- Test your setup: `./test-system.sh`
+- Check logs for errors
+- Verify ElevenLabs API key: `grep ELEVENLABS_API_KEY ~/.claude/.env`
 
-## What You've Accomplished
+## Uninstall
 
-✅ Voice server running automatically on startup
-✅ High-quality AI voices for notifications
-✅ Secure API key storage
-✅ Simple HTTP API for integration
-✅ Different voices for different agents (optional)
+To remove the voice server:
 
-## Learn More
+```bash
+cd ~/.claude/voice-server
+./uninstall.sh
+```
 
-- [Full Documentation](README.md) - Complete feature guide
-- [Voice System Architecture](../documentation/voice-system.md) - How it works
-- [ElevenLabs Docs](https://elevenlabs.io/docs) - Voice API reference
-
-## Need Help?
-
-1. Check the [README](README.md) for detailed troubleshooting
-2. Review server logs: `tail -f ${PAI_DIR}/voice-server/logs/voice-server.log`
-3. Test the health endpoint: `curl http://localhost:8888/health`
-
----
-
-**🎉 Congratulations!** Your PAI voice system is now set up with professional AI voices!
+This removes the service but keeps your configuration and server files.

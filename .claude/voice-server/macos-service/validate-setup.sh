@@ -19,6 +19,25 @@ echo ""
 ISSUES_FOUND=0
 WARNINGS_FOUND=0
 
+# Get port from settings.json first, then .env
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+SETTINGS_FILE="$PAI_DIR/settings.json"
+ENV_FILE="$PAI_DIR/.env"
+PORT=8888  # Default
+
+# Try settings.json first
+if [ -f "$SETTINGS_FILE" ]; then
+    PORT_FROM_SETTINGS=$(grep -o '"VOICE_SERVER_PORT"[[:space:]]*:[[:space:]]*"[^"]*"' "$SETTINGS_FILE" 2>/dev/null | grep -o '[0-9]\+' | head -1)
+    if [ -n "$PORT_FROM_SETTINGS" ]; then
+        PORT=$PORT_FROM_SETTINGS
+    fi
+fi
+
+# Fall back to .env if not in settings.json
+if [ "$PORT" = "8888" ] && [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
+    PORT=$(grep "^PORT=" "$ENV_FILE" | cut -d'=' -f2)
+fi
+
 # Function to check requirements
 check_requirement() {
     local name=$1
@@ -66,15 +85,15 @@ check_requirement "Server file exists" \
     "[ -f ${PAI_DIR}/voice-server/server.ts ]" \
     "Server file missing at ${PAI_DIR}/voice-server/server.ts"
 
-# Check if port 8888 is available or used by our service
-PORT_CHECK=$(lsof -i :8888 2>/dev/null | grep -v COMMAND | head -1)
+# Check if configured port is available or used by our service
+PORT_CHECK=$(lsof -i :$PORT 2>/dev/null | grep -v COMMAND | head -1)
 if [ -z "$PORT_CHECK" ]; then
-    echo -e "${GREEN}✅ Port 8888 available${NC}"
+    echo -e "${GREEN}✅ Port $PORT available${NC}"
 elif echo "$PORT_CHECK" | grep -q "bun"; then
-    echo -e "${GREEN}✅ Port 8888 used by voice server (bun)${NC}"
+    echo -e "${GREEN}✅ Port $PORT used by voice server (bun)${NC}"
 else
-    echo -e "${RED}❌ Port 8888 used by another service${NC}"
-    echo "   Stop the conflicting service or change PORT in ~/.env"
+    echo -e "${RED}❌ Port $PORT used by another service${NC}"
+    echo "   Stop the conflicting service or change VOICE_SERVER_PORT in settings.json"
     ISSUES_FOUND=$((ISSUES_FOUND + 1))
 fi
 
@@ -132,7 +151,7 @@ if [ -f ~/Library/LaunchAgents/com.kainotify.voice-server.plist ]; then
             echo -e "${GREEN}✅ Service is running (PID: $PID)${NC}"
             
             # Test server endpoint
-            if curl -s http://localhost:8888/health > /dev/null 2>&1; then
+            if curl -s http://localhost:$PORT/health > /dev/null 2>&1; then
                 echo -e "${GREEN}✅ Server is responding${NC}"
             else
                 echo -e "${RED}❌ Server not responding${NC}"

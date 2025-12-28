@@ -25,6 +25,8 @@ services:
     build:
       context: ./apps/client
       dockerfile: Dockerfile
+      args:
+        - VITE_WS_URL=ws://localhost:5172/stream
     container_name: pai-observability-client
     ports:
       - "5172:5172"
@@ -33,6 +35,7 @@ services:
         condition: service_healthy
     environment:
       - VITE_API_URL=http://localhost:4000
+      - VITE_WS_URL=ws://localhost:5172/stream
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5172"]

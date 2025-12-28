@@ -4,6 +4,9 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
+# Build args for environment variables
+ARG VITE_WS_URL=ws://localhost:5172/stream
+
 # Copy package files
 COPY package.json bun.lock* ./
 
@@ -14,7 +17,8 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Build the application (skip type checking - existing TS errors in upstream)
-RUN bun run vite build
+# Environment variables are baked into the build
+RUN VITE_WS_URL=$VITE_WS_URL bun run vite build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine

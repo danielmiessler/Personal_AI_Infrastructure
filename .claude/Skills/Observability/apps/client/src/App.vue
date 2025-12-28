@@ -111,7 +111,9 @@ import ToastNotification from './components/ToastNotification.vue';
 import AgentSwimLaneContainer from './components/AgentSwimLaneContainer.vue';
 
 // WebSocket connection
-const { events, isConnected, error, clearEvents } = useWebSocket('ws://localhost:4000/stream');
+// Use environment variable if available (Docker mode), otherwise default to localhost
+const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:4000/stream';
+const { events, isConnected, error, clearEvents } = useWebSocket(wsUrl);
 
 // Theme management (sets up theme system)
 useThemes();

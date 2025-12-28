@@ -3,60 +3,68 @@
   "default_rate": 175,
   "voices": {
     "main": {
-      "voice_name": "Jamie (Premium)",
+      "voice_name": "Jessica (Default Voice)",
+      "voice_id": "cgSgspJ2msm6clMCkdW9",
       "rate_multiplier": 1.3,
       "rate_wpm": 228,
-      "description": "UK Male - Professional, conversational",
-      "type": "Premium"
+      "description": "Young and popular, this playful American female voice is perfect for trendy content",
+      "type": "Default Voice"
     },
     "researcher": {
-      "voice_name": "Ava (Premium)",
+      "voice_name": "Laura (Default Voice)",
+      "voice_id": "FGY2WhTYpPnrIDTdsKH5",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "US Female - Analytical, highest quality",
-      "type": "Premium"
+      "description": "This young adult female voice delivers sunny enthusiasm with a quirky attitude",
+      "type": "Default Voice"
     },
     "engineer": {
-      "voice_name": "Zoe (Premium)",
+      "voice_name": "Matilda (Default Voice)",
+      "voice_id": "XrExE9yKIg1WjnnlVkGX",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "US Female - Steady, professional",
-      "type": "Premium"
+      "description": "A professional woman with a pleasing alto pitch",
+      "type": "Default Voice"
     },
     "architect": {
-      "voice_name": "Serena (Premium)",
+      "voice_name": "Sarah (Default Voice)",
+      "voice_id": "EXAVITQu4vr4xnSDxMaL",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "UK Female - Strategic, sophisticated",
-      "type": "Premium"
+      "description": "Young adult woman with a confident and warm, mature quality and a reassuring, confident tone",
+      "type": "Default Voice"
     },
     "designer": {
-      "voice_name": "Isha (Premium)",
+      "voice_name": "Alice (Default Voice)",
+      "voice_id": "Xb7hH8MSUJpSbSDYk0k2",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "Indian Female - Creative, distinct",
-      "type": "Premium"
+      "description": "Clear and engaging, friendly woman with a British accent suitable for e-learning",
+      "type": "Default Voice"
     },
     "artist": {
-      "voice_name": "Isha (Premium)",
+      "voice_name": "Lilly (Default Voice)",
+      "voice_id": "pFZP5JQG7iQjIQuC4Bku",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "Indian Female - Creative, artistic",
-      "type": "Premium"
+      "description": "Velvety female British voice delivers news and narrations with warmth and clarity",
+      "type": "Default Voice"
     },
     "pentester": {
-      "voice_name": "Oliver (Enhanced)",
+      "voice_name": "Charlie (Default Voice)",
+      "voice_id": "IKne3meq5aSn9XLyUdCD",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "UK Male - Technical, sharp",
-      "type": "Enhanced"
+      "description": "A young Australian male with a confident and energetic tone",
+      "type": "Default Voice"
     },
     "writer": {
-      "voice_name": "Serena (Premium)",
+      "voice_name": "Roger (Default Voice)",
+      "voice_id": "CwhRBWXzGAHq8TQ4Fs17",
       "rate_multiplier": 1.35,
       "rate_wpm": 236,
-      "description": "UK Female - Articulate, warm",
-      "type": "Premium"
+      "description": "Easy going and perfect for casual conversations",
+      "type": "Default Voice"
     }
   }
 }

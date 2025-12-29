@@ -418,9 +418,8 @@ async function main() {
   // Generate the announcement
   let message = '';
   let voiceConfig = VOICE_CONFIG.voices.main; // Default to main voice config
-  let kaiHasCustomCompleted = false;
 
-  // ALWAYS check Kai's response FIRST (even when agents are used)
+  // ALWAYS check the main assistant's response FIRST (even when agents are used)
   const lastResponse = lines[lines.length - 1];
   try {
     const entry = JSON.parse(lastResponse);
@@ -441,7 +440,6 @@ async function main() {
         const wordCount = customText.split(/\s+/).length;
         if (customText && wordCount <= 8) {
           message = customText;
-          kaiHasCustomCompleted = true;
           console.error(`🗣️ MAIN CUSTOM VOICE: ${message}`);
         } else {
           // Custom completed too long, fall back to regular COMPLETED

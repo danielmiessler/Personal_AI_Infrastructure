@@ -130,6 +130,15 @@ function setTerminalTabTitle(title: string): void {
   }
 }
 
+// Settings configuration interface
+interface SettingsConfig {
+  env?: {
+    DA?: string;
+    DA_VOICE_ID?: string;
+    PAI_DIR?: string;
+  };
+}
+
 // Load voice configuration from voices.json
 interface VoiceConfig {
   voice_name: string;
@@ -161,10 +170,38 @@ function contentToText(content: any): string {
   return '';
 }
 
-// Load voices configuration
+// Load settings.json to get DA name and voice ID
+let daName = 'PAI';
+let daVoiceId: string | null = null;
+let paiDir = join(homedir(), '.claude');
+
+try {
+  const settingsPath = join(paiDir, 'settings.json');
+  const settings: SettingsConfig = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+
+  // Get DA name from settings (e.g., "PAI", "Kai", "Nova")
+  if (settings.env?.DA) {
+    daName = settings.env.DA;
+  }
+
+  // Get DA voice ID from settings
+  if (settings.env?.DA_VOICE_ID) {
+    daVoiceId = settings.env.DA_VOICE_ID;
+  }
+
+  // Get PAI_DIR if set
+  if (settings.env?.PAI_DIR) {
+    paiDir = settings.env.PAI_DIR.replace('__HOME__', homedir());
+  }
+} catch (e) {
+  // Fallback to default values if settings.json is unavailable
+  console.error('⚠️ Could not load settings.json, using default values');
+}
+
+// Load voices configuration from PAI_DIR/voice-server/voices.json
 let VOICE_CONFIG: VoicesConfig;
 try {
-  const voicesPath = join(homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Claude/voice-server/voices.json');
+  const voicesPath = join(paiDir, 'voice-server', 'voices.json');
   VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
 } catch (e) {
   // Fallback to hardcoded config if file doesn't exist
@@ -507,15 +544,15 @@ async function main() {
 
   // FIRST: Send voice notification if we have a message
   if (message) {
-    // Align voice payload with initialize-pai-session.ts (prefer voice_id)
-    const voiceId = process.env.DA_VOICE_ID || 'default-voice-id';
+    // Use DA_VOICE_ID from settings.json (loaded at startup)
+    const voiceId = daVoiceId || 'cgSgspJ2msm6clMCkdW9'; // Fallback to default Jessica voice
     const priority = 'low';
     // Send to voice server
     await fetch(`http://localhost:${voiceServerPort}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: 'Completion',
+        title: `${daName} Completion`,
         message,
         voice_enabled: true,
         priority,
@@ -525,7 +562,7 @@ async function main() {
         rate: voiceConfig.rate_wpm
       })
     }).catch(() => {});
-    console.error(`🔊 Voice notification sent: "${message}" with voice: ${voiceConfig.voice_name} at ${voiceConfig.rate_wpm} wpm (${voiceConfig.rate_multiplier}x)`);
+    console.error(`🔊 Voice notification sent: "${message}" with voice ID: ${voiceId}`);
   }
 
   // ALWAYS set tab title to override any previous titles (like "dynamic requirements")

@@ -1,19 +1,83 @@
 #!/usr/bin/env bun
 
 import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 
-// Voice mappings for different agent types
-// Note: These are placeholder ElevenLabs voice IDs - configure your own in voices.json
+// Settings configuration interface
+interface SettingsConfig {
+  env?: {
+    DA?: string;
+    DA_VOICE_ID?: string;
+    PAI_DIR?: string;
+  };
+}
+
+// Voice configuration from voices.json
+interface VoiceConfig {
+  voice_id?: string;
+  voice_name?: string;
+  rate_wpm?: number;
+  description?: string;
+}
+
+interface VoicesConfig {
+  voices: Record<string, VoiceConfig>;
+}
+
+// Load settings.json to get DA_VOICE_ID and PAI_DIR
+let daName = 'PAI';
+let daVoiceId: string | null = null;
+let paiDir = join(homedir(), '.claude');
+
+try {
+  const settingsPath = join(paiDir, 'settings.json');
+  const settings: SettingsConfig = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+
+  if (settings.env?.DA) {
+    daName = settings.env.DA;
+  }
+
+  if (settings.env?.DA_VOICE_ID) {
+    daVoiceId = settings.env.DA_VOICE_ID;
+  }
+
+  if (settings.env?.PAI_DIR) {
+    paiDir = settings.env.PAI_DIR.replace('__HOME__', homedir());
+  }
+} catch (e) {
+  console.error('⚠️ Could not load settings.json, using default values');
+}
+
+// Load voice mappings from voices.json
 const AGENT_VOICE_IDS: Record<string, string> = {
-  researcher: 'AXdMgz6evoL7OPd7eU12',
-  pentester: 'hmMWXCj9K7N5mCPcRkfC',
-  engineer: 'kmSVBPu7loj4ayNinwWM',
-  designer: 'ZF6FPAbjXT4488VcRRnw',
-  architect: 'muZKMsIDGYtIkjjiUS82',
-  writer: 'gfRt6Z3Z8aTbpLfexQ7N',
-  main: 'jqcCZkN6Knx8BJ5TBdYR',
-  default: 'jqcCZkN6Knx8BJ5TBdYR'
+  default: daVoiceId || 'cgSgspJ2msm6clMCkdW9'
 };
+
+try {
+  const voicesPath = join(paiDir, 'voice-server', 'voices.json');
+  console.error(`📁 Loading voices from: ${voicesPath}`);
+  console.error(`📂 File exists: ${existsSync(voicesPath)}`);
+
+  const voicesConfig: VoicesConfig = JSON.parse(readFileSync(voicesPath, 'utf-8'));
+  console.error(`📊 Found ${Object.keys(voicesConfig.voices || {}).length} voices in config`);
+
+  // Map agent types to their voice IDs from voices.json
+  for (const [agentType, voiceConfig] of Object.entries(voicesConfig.voices)) {
+    if (voiceConfig.voice_id) {
+      AGENT_VOICE_IDS[agentType.toLowerCase()] = voiceConfig.voice_id;
+      console.error(`  ✓ Loaded ${agentType}: ${voiceConfig.voice_id}`);
+    } else {
+      console.error(`  ✗ Skipped ${agentType}: no voice_id`);
+    }
+  }
+
+  console.error(`✅ Loaded ${Object.keys(AGENT_VOICE_IDS).length} total agent voices (including default)`);
+  console.error(`📋 Agent voices:`, AGENT_VOICE_IDS);
+} catch (e) {
+  console.error('⚠️ Could not load voices.json, using default voice for all agents');
+  console.error('⚠️ Error:', e);
+}
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -289,6 +353,11 @@ async function main() {
   } catch {}
 
   // Send to notification server
+  const voiceId = AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default;
+
+  console.error(`🎤 Using voice ID for ${finalAgentType}: ${voiceId}`);
+  console.error(`📋 Available agent voices:`, Object.keys(AGENT_VOICE_IDS));
+
   try {
     await fetch(`http://localhost:${voiceServerPort}/notify`, {
       method: 'POST',
@@ -298,11 +367,11 @@ async function main() {
         message: fullMessage,
         voice_enabled: true,
         agent_type: finalAgentType,
-        voice_id: AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default
+        voice_id: voiceId
       })
     });
 
-    console.log(`✅ Sent: [${agentName}] ${fullMessage}`);
+    console.log(`✅ Sent: [${agentName}] ${fullMessage} with voice ID: ${voiceId}`);
   } catch (e) {
     console.error('Failed to send notification:', e);
   }

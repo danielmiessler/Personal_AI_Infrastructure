@@ -9,8 +9,11 @@ A voice notification server for the Personal AI Infrastructure (PAI) system that
 ## 🎯 Features
 
 - **ElevenLabs Integration**: High-quality AI voices for notifications
+- **Voice ID Validation**: Regex validation ensures valid voice IDs, automatic fallback to configured default
+- **Configuration-Driven**: All voice settings managed through `settings.json` and `voices.json`
 - **Intelligent Audio Caching**: Automatically caches generated audio to reduce API costs by 99%+
-- **Multiple Voice Support**: Different voices for different AI agents
+- **Multiple Voice Support**: Different voices for different AI agents (8+ agent types)
+- **Dynamic Voice Loading**: Hooks automatically load agent voices from `voices.json`
 - **Cross-Platform Service**: Runs automatically in the background (LaunchAgent on macOS, systemd on Linux)
 - **Menu Bar Indicator**: Visual status indicator in macOS menu bar (macOS only)
 - **Simple HTTP API**: Easy integration with any tool or script
@@ -132,32 +135,56 @@ curl -X POST http://localhost:8888/notify \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Task completed successfully",
-    "voice_id": "s3TPKV1kjDlVtZbl4Ksh",
-    "voice_enabled": true
+    "voice_id": "cgSgspJ2msm6clMCkdW9",
+    "voice_enabled": true,
+    "title": "PAI Completion"
   }'
 ```
 
 ### Parameters
 - `message` (required): The text to speak
-- `voice_id` (optional): ElevenLabs voice ID to use
+- `voice_id` (optional): ElevenLabs voice ID to use (validated, falls back to DA_VOICE_ID)
 - `voice_enabled` (optional): Whether to speak the notification (default: true)
 - `title` (optional): Notification title (default: "PAI Notification")
 
-### Available Voice IDs
-```javascript
-// PAI System Agents
-Kai:                     s3TPKV1kjDlVtZbl4Ksh  // Main assistant
-Perplexity-Researcher:   AXdMgz6evoL7OPd7eU12  // Perplexity research agent
-Claude-Researcher:       AXdMgz6evoL7OPd7eU12  // Claude research agent
-Gemini-Researcher:       iLVmqjzCGGvqtMCk6vVQ  // Gemini research agent
-Engineer:                fATgBRI8wg5KkDFg8vBd  // Engineering agent
-Principal-Engineer:      iLVmqjzCGGvqtMCk6vVQ  // Principal engineering agent
-Designer:                ZF6FPAbjXT4488VcRRnw  // Design agent
-Architect:               muZKMsIDGYtIkjjiUS82  // Architecture agent
-Pentester:               xvHLFjaUEpx4BOf7EiDd  // Security agent
-Artist:                  ZF6FPAbjXT4488VcRRnw  // Artist agent
-Writer:                  gfRt6Z3Z8aTbpLfexQ7N  // Content agent
+### Voice ID Validation
+
+The server validates voice IDs using regex pattern `/^[A-Za-z0-9]{20}$/`:
+- **Valid**: Exactly 20 alphanumeric characters (e.g., `cgSgspJ2msm6clMCkdW9`)
+- **Invalid**: Wrong length, special characters, or non-alphanumeric
+
+**Validation Behavior:**
+```bash
+# Valid voice ID - used as provided
+{"voice_id": "cgSgspJ2msm6clMCkdW9"}  # ✅ Valid - used directly
+
+# Invalid voice ID - falls back to DA_VOICE_ID
+{"voice_id": "abc123"}                  # ❌ Invalid - fallback to DA_VOICE_ID
+{"voice_id": "default-voice"}       # ❌ Invalid - fallback to DA_VOICE_ID
 ```
+
+**Server logs on validation failure:**
+```
+⚠️  Invalid voice ID format: "abc123" (must be 20 alphanumeric characters)
+   Falling back to DA_VOICE_ID from settings.json: cgSgspJ2msm6clMCkdW9
+```
+
+### Available Voice IDs
+
+**Default Voice IDs** (configured in `voices.json`):
+```javascript
+// PAI System Agents - All use ElevenLabs Default Voices (free tier)
+main:        cgSgspJ2msm6clMCkdW9  // Jessica - Default Voice (main assistant)
+researcher:  FGY2WhTYpPnrIDTdsKH5  // Laura - Young adult female (research agent)
+engineer:    XrExE9yKIg1WjnnlVkGX  // Matilda - Professional woman (engineering agent)
+architect:   EXAVITQu4vr4xnSDxMaL  // Sarah - Confident and warm (architecture agent)
+designer:    Xb7hH8MSUJpSbSDYk0k2  // Alice - British accent (design agent)
+artist:      pFZP5JQG7iQjIQuC4Bku  // Lilly - Velvety British (artist agent)
+pentester:   IKne3meq5aSn9XLyUdCD  // Charlie - Australian male (security agent)
+writer:      CwhRBWXzGAHq8TQ4Fs17  // Roger - Easy going (content agent)
+```
+
+**These voice IDs are automatically loaded by PAI hooks from `voices.json`.**
 
 ## 🖥️ Menu Bar Indicator
 
@@ -243,73 +270,64 @@ VOICE_CACHE_TTL_DAYS=30                      # Cache expiration in days
 
 ### Voice Configuration (voices.json)
 
-The `voices.json` file provides reference metadata for agent voices:
+The `voices.json` file configures agent voices with ElevenLabs voice IDs and metadata. PAI hooks dynamically load voice configurations from this file at runtime.
 
 ```json
 {
-  "default_rate": 175,
   "voices": {
-    "kai": {
-      "voice_name": "Jamie (Premium)",
-      "rate_multiplier": 1.3,
-      "rate_wpm": 228,
-      "description": "UK Male - Professional, conversational",
-      "type": "Premium"
+    "main": {
+      "voice_id": "cgSgspJ2msm6clMCkdW9",
+      "voice_name": "Jessica (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Default Voice - Available to all ElevenLabs users"
     },
     "researcher": {
-      "voice_name": "Ava (Premium)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "US Female - Analytical, highest quality",
-      "type": "Premium"
+      "voice_id": "FGY2WhTYpPnrIDTdsKH5",
+      "voice_name": "Laura (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Young adult female - Research agent"
     },
     "engineer": {
-      "voice_name": "Zoe (Premium)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "US Female - Steady, professional",
-      "type": "Premium"
+      "voice_id": "XrExE9yKIg1WjnnlVkGX",
+      "voice_name": "Matilda (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Professional woman - Engineering agent"
     },
     "architect": {
-      "voice_name": "Serena (Premium)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "UK Female - Strategic, sophisticated",
-      "type": "Premium"
+      "voice_id": "EXAVITQu4vr4xnSDxMaL",
+      "voice_name": "Sarah (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Confident and warm - Architecture agent"
     },
     "designer": {
-      "voice_name": "Isha (Premium)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "Indian Female - Creative, distinct",
-      "type": "Premium"
+      "voice_id": "Xb7hH8MSUJpSbSDYk0k2",
+      "voice_name": "Alice (Default Voice)",
+      "rate_wpm": 175,
+      "description": "British accent - Design agent"
     },
     "artist": {
-      "voice_name": "Isha (Premium)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "Indian Female - Creative, artistic",
-      "type": "Premium"
+      "voice_id": "pFZP5JQG7iQjIQuC4Bku",
+      "voice_name": "Lilly (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Velvety British - Artist agent"
     },
     "pentester": {
-      "voice_name": "Oliver (Enhanced)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "UK Male - Technical, sharp",
-      "type": "Enhanced"
+      "voice_id": "IKne3meq5aSn9XLyUdCD",
+      "voice_name": "Charlie (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Australian male - Security agent"
     },
     "writer": {
-      "voice_name": "Serena (Premium)",
-      "rate_multiplier": 1.35,
-      "rate_wpm": 236,
-      "description": "UK Female - Articulate, warm",
-      "type": "Premium"
+      "voice_id": "CwhRBWXzGAHq8TQ4Fs17",
+      "voice_name": "Roger (Default Voice)",
+      "rate_wpm": 175,
+      "description": "Easy going - Content agent"
     }
   }
 }
 ```
 
-**Note:** The actual ElevenLabs voice IDs are configured in the hook files (`hooks/stop-hook.ts` and `hooks/subagent-stop-hook.ts`), not in `voices.json`.
+**Dynamic Loading**: PAI hooks (`stop-hook.ts`, `subagent-stop-hook.ts`, `context-compression-hook.ts`) automatically load voice IDs from this file at runtime, eliminating hardcoded values and making voice customization easy.
 
 ## 💾 Audio Caching System
 
@@ -448,6 +466,200 @@ find ~/.claude/voice-server/cache/ -name "*.mp3" -mtime +7 -delete
 
 **Savings: 99.7% reduction** for static messages like session start notifications.
 
+## 🔌 Hook Integration
+
+The voice server is tightly integrated with PAI's hook system to provide voice notifications for different events. All hooks are configuration-driven and dynamically load voice settings from `settings.json` and `voices.json`.
+
+### Hook Types
+
+#### 1. Stop Hook (`Hooks/stop-hook.ts`)
+**Triggers:** When the main assistant completes a task
+
+**Configuration Loading:**
+- Loads `DA` name from `settings.json` (e.g., "PAI", "Kai")
+- Loads `DA_VOICE_ID` from `settings.json` for voice notifications
+- Loads `PAI_DIR` for proper path resolution
+
+**Notification Format:**
+```json
+{
+  "title": "PAI Completion",          // Uses DA name from settings
+  "message": "Task completed",        // Extracted from 🎯 COMPLETED: marker
+  "voice_id": "cgSgspJ2msm6clMCkdW9", // Uses DA_VOICE_ID
+  "voice_enabled": true
+}
+```
+
+**Example:**
+```typescript
+// Settings.json
+{
+  "env": {
+    "DA": "PAI",
+    "DA_VOICE_ID": "cgSgspJ2msm6clMCkdW9"
+  }
+}
+
+// Result: Notification title = "PAI Completion"
+// Voice used: Jessica (cgSgspJ2msm6clMCkdW9)
+```
+
+#### 2. Subagent Stop Hook (`Hooks/subagent-stop-hook.ts`)
+**Triggers:** When a specialized agent (researcher, engineer, etc.) completes a task
+
+**Configuration Loading:**
+- Loads `DA_VOICE_ID` from `settings.json` as default fallback
+- Dynamically loads all agent voice IDs from `voices.json`
+- Maps agent types to their specific voices
+
+**Voice Mapping:**
+```typescript
+// Dynamically loaded from voices.json
+AGENT_VOICE_IDS = {
+  default: "cgSgspJ2msm6clMCkdW9",     // DA_VOICE_ID fallback
+  researcher: "FGY2WhTYpPnrIDTdsKH5",  // Laura
+  engineer: "XrExE9yKIg1WjnnlVkGX",    // Matilda
+  architect: "EXAVITQu4vr4xnSDxMaL",   // Sarah
+  designer: "Xb7hH8MSUJpSbSDYk0k2",    // Alice
+  artist: "pFZP5JQG7iQjIQuC4Bku",      // Lilly
+  pentester: "IKne3meq5aSn9XLyUdCD",   // Charlie
+  writer: "CwhRBWXzGAHq8TQ4Fs17"       // Roger
+}
+```
+
+**Notification Format:**
+```json
+{
+  "title": "Pentester Agent",                        // Agent-specific title
+  "message": "Pentester completed security scan",    // Agent-specific message
+  "voice_id": "IKne3meq5aSn9XLyUdCD",               // Agent-specific voice
+  "agent_type": "pentester",
+  "voice_enabled": true
+}
+```
+
+**Debug Logging:**
+```
+📁 Loading voices from: /home/user/.claude/voice-server/voices.json
+📂 File exists: true
+📊 Found 8 voices in config
+  ✓ Loaded main: cgSgspJ2msm6clMCkdW9
+  ✓ Loaded researcher: FGY2WhTYpPnrIDTdsKH5
+  ✓ Loaded engineer: XrExE9yKIg1WjnnlVkGX
+  ...
+✅ Loaded 9 total agent voices (including default)
+🎤 Using voice ID for pentester: IKne3meq5aSn9XLyUdCD
+```
+
+#### 3. Context Compression Hook (`Hooks/context-compression-hook.ts`)
+**Triggers:** When context is compressed to manage conversation length
+
+**Configuration Loading:**
+- Loads `DA` name from `settings.json`
+- Loads `DA_VOICE_ID` from `settings.json`
+- No longer depends on `voices.json` (simplified)
+
+**Notification Format:**
+```json
+{
+  "title": "PAI Context",                // Uses DA name
+  "message": "Context compressed",       // Compression notification
+  "voice_id": "cgSgspJ2msm6clMCkdW9",   // Uses DA_VOICE_ID
+  "voice_enabled": true,
+  "priority": "low"
+}
+```
+
+#### 4. Initialize Session Hook (`Hooks/initialize-session.ts`)
+**Triggers:** At the start of every Claude Code session (main sessions only, skips subagents)
+
+**Configuration Loading:**
+- Loads `DA` name from `settings.json` (e.g., "PAI", "Kai")
+- Loads `DA_VOICE_ID` from `settings.json` with fallback chain
+- Loads `VOICE_SERVER_PORT` from `settings.json` (default: 8888)
+- Fallback chain: `settings.json DA_VOICE_ID` → `process.env.DA_VOICE_ID` → `.env ELEVENLABS_VOICE_ID` → default
+
+**Functionality:**
+- Detects and skips subagent sessions (prevents duplicate notifications)
+- Debounces duplicate SessionStart events (2-second window)
+- Tests stop-hook configuration and executable status
+- Sets terminal tab title to "{DA} Ready" (e.g., "PAI Ready")
+- Sends voice notification that system is ready
+
+**Notification Format:**
+```json
+{
+  "title": "PAI Systems Initialized",     // Uses DA name
+  "message": "PAI here, ready to go.",    // Personalized greeting
+  "voice_id": "cgSgspJ2msm6clMCkdW9",    // Uses DA_VOICE_ID
+  "voice_enabled": true,
+  "priority": "low"
+}
+```
+
+**Example Output:**
+```
+🤖 Subagent session detected - skipping session initialization  // (if subagent)
+🔇 Debouncing duplicate SessionStart event                       // (if duplicate)
+
+🔍 Testing stop-hook configuration...
+✅ Stop-hook found and is executable
+📍 Set initial tab title: "PAI Ready"
+
+[Voice notification sent: "PAI here, ready to go."]
+```
+
+**Debouncing:**
+The hook uses a lockfile (`/tmp/pai-session-start.lock`) to prevent duplicate notifications when the IDE fires multiple SessionStart events:
+- First event within 2-second window: Sends notification
+- Subsequent events within 2 seconds: Skipped silently
+
+**Subagent Detection:**
+Automatically detects subagent sessions and exits silently to prevent notification spam:
+```typescript
+// Detects subagent by checking:
+// 1. CLAUDE_PROJECT_DIR contains "/.claude/agents/"
+// 2. CLAUDE_AGENT_TYPE environment variable is set
+```
+
+### Configuration Hierarchy
+
+All hooks follow the same configuration loading pattern:
+
+```typescript
+// 1. Load settings.json (primary configuration)
+const settings = JSON.parse(readFileSync('~/.claude/settings.json'));
+const daName = settings.env?.DA || 'PAI';
+const daVoiceId = settings.env?.DA_VOICE_ID;
+const paiDir = settings.env?.PAI_DIR || '~/.claude';
+
+// 2. Load voices.json (agent-specific voices)
+const voicesPath = join(paiDir, 'voice-server', 'voices.json');
+const voicesConfig = JSON.parse(readFileSync(voicesPath));
+
+// 3. Fallback chain
+const voiceId = agentVoiceId || daVoiceId || 'cgSgspJ2msm6clMCkdW9';
+```
+
+### Customizing Agent Voices
+
+To change an agent's voice, edit `~/.claude/voice-server/voices.json`:
+
+```json
+{
+  "voices": {
+    "pentester": {
+      "voice_id": "YOUR_PREFERRED_VOICE_ID",
+      "voice_name": "Your Voice Name",
+      "rate_wpm": 175,
+      "description": "Your description"
+    }
+  }
+}
+```
+
+**No code changes needed** - hooks automatically reload voice configuration on each invocation.
+
 ## 🏥 Health Check
 
 Check server status:
@@ -548,24 +760,37 @@ Response:
 
 ```
 voice-server/
-├── server.ts              # Main server implementation
-├── voices.json            # Voice metadata and configuration
-├── install.sh             # Installation script
-├── start.sh               # Start service
-├── stop.sh                # Stop service
-├── restart.sh             # Restart service
-├── status.sh              # Check service status
-├── uninstall.sh           # Uninstall service
-├── run-server.sh          # Direct server runner
-├── cache/                 # Cached audio files (auto-generated)
-│   └── *.mp3             # SHA256-named cached audio files
-├── logs/                  # Server logs
+├── server.ts                  # Main server implementation (with voice ID validation)
+├── voices.json                # Voice IDs and metadata (dynamically loaded by hooks)
+├── install.sh                 # Cross-platform installation script
+├── start.sh                   # Start service
+├── stop.sh                    # Stop service
+├── restart.sh                 # Restart service
+├── status.sh                  # Check service status
+├── uninstall.sh               # Uninstall service
+├── test-system.sh             # Comprehensive system validation
+├── run-server.sh              # Direct server runner
+├── cache/                     # Cached audio files (auto-generated)
+│   └── *.mp3                 # SHA256-named cached audio files
+├── logs/                      # Server logs
 │   ├── voice-server.log
 │   └── voice-server-error.log
-├── macos-service/         # LaunchAgent configuration
+├── linux-service/             # Linux systemd service configuration
+│   ├── pai-voice-server-user.service
+│   ├── install.sh
+│   ├── setup-deps.sh
+│   ├── uninstall.sh
+│   └── validate-setup.sh
+├── macos-service/             # macOS LaunchAgent configuration
 │   └── com.paivoice.server.plist
-└── menubar/               # Menu bar indicator scripts
+└── menubar/                   # Menu bar indicator scripts (macOS only)
     └── pai-voice.5s.sh
+
+../Hooks/                      # PAI hook integration
+├── initialize-session.ts      # Session start hook (greeting + tab title)
+├── stop-hook.ts               # Main assistant completion hook
+├── subagent-stop-hook.ts      # Agent completion hook (8+ agent types)
+├── context-compression-hook.ts # Context compression hook
 ```
 
 ## 🔒 Security

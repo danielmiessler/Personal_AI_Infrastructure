@@ -19,6 +19,16 @@ import { writeFile, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * PAI_DIR - Root directory for PAI configuration
+ * Reads from environment variable PAI_DIR, falls back to ~/.claude
+ */
+const PAI_DIR = process.env.PAI_DIR || resolve(process.env.HOME!, '.claude');
+
+// ============================================================================
 // Environment Loading
 // ============================================================================
 

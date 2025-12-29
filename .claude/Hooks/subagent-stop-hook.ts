@@ -3,15 +3,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-
-// Settings configuration interface
-interface SettingsConfig {
-  env?: {
-    DA?: string;
-    DA_VOICE_ID?: string;
-    PAI_DIR?: string;
-  };
-}
+import { getPAISettings } from './lib/pai-settings';
 
 // Voice configuration from voices.json
 interface VoiceConfig {
@@ -25,37 +17,16 @@ interface VoicesConfig {
   voices: Record<string, VoiceConfig>;
 }
 
-// Load settings.json to get DA_VOICE_ID and PAI_DIR
-let daName = 'PAI';
-let daVoiceId: string | null = null;
-let paiDir = join(homedir(), '.claude');
-
-try {
-  const settingsPath = join(paiDir, 'settings.json');
-  const settings: SettingsConfig = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-
-  if (settings.env?.DA) {
-    daName = settings.env.DA;
-  }
-
-  if (settings.env?.DA_VOICE_ID) {
-    daVoiceId = settings.env.DA_VOICE_ID;
-  }
-
-  if (settings.env?.PAI_DIR) {
-    paiDir = settings.env.PAI_DIR.replace('__HOME__', homedir());
-  }
-} catch (e) {
-  console.error('⚠️ Could not load settings.json, using default values');
-}
+// Load PAI settings (once, with caching)
+const settings = getPAISettings();
 
 // Load voice mappings from voices.json
 const AGENT_VOICE_IDS: Record<string, string> = {
-  default: daVoiceId || 'cgSgspJ2msm6clMCkdW9'
+  default: settings.voiceId
 };
 
 try {
-  const voicesPath = join(paiDir, 'voice-server', 'voices.json');
+  const voicesPath = join(settings.paiDir, 'voice-server', 'voices.json');
   console.error(`📁 Loading voices from: ${voicesPath}`);
   console.error(`📂 File exists: ${existsSync(voicesPath)}`);
 
@@ -338,19 +309,6 @@ async function main() {
   // Prepare the notification
   const fullMessage = completionMessage; // Message is already prepared with agent name
   const agentName = finalAgentType.charAt(0).toUpperCase() + finalAgentType.slice(1);
-  
-  // Get voice server port from settings.json
-  let voiceServerPort = 8888; // Default
-  try {
-    const paiDir = process.env.PAI_DIR || require('os').homedir() + '/.claude';
-    const settingsPath = require('path').join(paiDir, 'settings.json');
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.env?.VOICE_SERVER_PORT) {
-        voiceServerPort = parseInt(settings.env.VOICE_SERVER_PORT);
-      }
-    }
-  } catch {}
 
   // Send to notification server
   const voiceId = AGENT_VOICE_IDS[finalAgentType] || AGENT_VOICE_IDS.default;
@@ -359,7 +317,7 @@ async function main() {
   console.error(`📋 Available agent voices:`, Object.keys(AGENT_VOICE_IDS));
 
   try {
-    await fetch(`http://localhost:${voiceServerPort}/notify`, {
+    await fetch(`http://localhost:${settings.voiceServerPort}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

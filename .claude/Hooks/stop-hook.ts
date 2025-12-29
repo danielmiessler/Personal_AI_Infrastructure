@@ -3,6 +3,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { getPAISettings } from './lib/pai-settings';
 
 /**
  * Generate 4-word tab title summarizing what was done
@@ -130,15 +131,6 @@ function setTerminalTabTitle(title: string): void {
   }
 }
 
-// Settings configuration interface
-interface SettingsConfig {
-  env?: {
-    DA?: string;
-    DA_VOICE_ID?: string;
-    PAI_DIR?: string;
-  };
-}
-
 // Load voice configuration from voices.json
 interface VoiceConfig {
   voice_name: string;
@@ -170,38 +162,13 @@ function contentToText(content: any): string {
   return '';
 }
 
-// Load settings.json to get DA name and voice ID
-let daName = 'PAI';
-let daVoiceId: string | null = null;
-let paiDir = join(homedir(), '.claude');
-
-try {
-  const settingsPath = join(paiDir, 'settings.json');
-  const settings: SettingsConfig = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-
-  // Get DA name from settings (e.g., "PAI", "Kai", "Nova")
-  if (settings.env?.DA) {
-    daName = settings.env.DA;
-  }
-
-  // Get DA voice ID from settings
-  if (settings.env?.DA_VOICE_ID) {
-    daVoiceId = settings.env.DA_VOICE_ID;
-  }
-
-  // Get PAI_DIR if set
-  if (settings.env?.PAI_DIR) {
-    paiDir = settings.env.PAI_DIR.replace('__HOME__', homedir());
-  }
-} catch (e) {
-  // Fallback to default values if settings.json is unavailable
-  console.error('⚠️ Could not load settings.json, using default values');
-}
+// Load PAI settings (once, with caching)
+const settings = getPAISettings();
 
 // Load voices configuration from PAI_DIR/voice-server/voices.json
 let VOICE_CONFIG: VoicesConfig;
 try {
-  const voicesPath = join(paiDir, 'voice-server', 'voices.json');
+  const voicesPath = join(settings.paiDir, 'voice-server', 'voices.json');
   VOICE_CONFIG = JSON.parse(readFileSync(voicesPath, 'utf-8'));
 } catch (e) {
   // Fallback to hardcoded config if file doesn't exist
@@ -527,40 +494,25 @@ async function main() {
     }
   }
 
-  // Get voice server port from settings.json
-  let voiceServerPort = 8888; // Default
-  try {
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const settingsPath = join(paiDir, 'settings.json');
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.env?.VOICE_SERVER_PORT) {
-        voiceServerPort = parseInt(settings.env.VOICE_SERVER_PORT);
-      }
-    }
-  } catch {}
-
   // FIRST: Send voice notification if we have a message
   if (message) {
-    // Use DA_VOICE_ID from settings.json (loaded at startup)
-    const voiceId = daVoiceId || 'cgSgspJ2msm6clMCkdW9'; // Fallback to default Jessica voice
     const priority = 'low';
     // Send to voice server
-    await fetch(`http://localhost:${voiceServerPort}/notify`, {
+    await fetch(`http://localhost:${settings.voiceServerPort}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: `${daName} Completion`,
+        title: `${settings.daName} Completion`,
         message,
         voice_enabled: true,
         priority,
-        voice_id: voiceId,
+        voice_id: settings.voiceId,
         // keep legacy fields for compatibility with voice server configs that use names/rates
         voice_name: voiceConfig.voice_name,
         rate: voiceConfig.rate_wpm
       })
     }).catch(() => {});
-    console.error(`🔊 Voice notification sent: "${message}" with voice ID: ${voiceId}`);
+    console.error(`🔊 Voice notification sent: "${message}" with voice ID: ${settings.voiceId}`);
   }
 
   // ALWAYS set tab title to override any previous titles (like "dynamic requirements")

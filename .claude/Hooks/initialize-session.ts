@@ -25,72 +25,17 @@ import { existsSync, statSync, readFileSync, writeFileSync, unlinkSync } from 'f
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { PAI_DIR } from './lib/pai-paths';
+import { getPAISettings, getVoiceServerPort, getVoiceId } from './lib/pai-settings';
 
 // Debounce duration in milliseconds (prevents duplicate SessionStart events)
 const DEBOUNCE_MS = 2000;
 const LOCKFILE = join(tmpdir(), 'pai-session-start.lock');
 
-/**
- * Get voice server port from settings.json or fall back to default
- */
-function getVoiceServerPort(): number {
-  try {
-    const settingsPath = join(PAI_DIR, 'settings.json');
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.env?.VOICE_SERVER_PORT) {
-        return parseInt(settings.env.VOICE_SERVER_PORT);
-      }
-    }
-  } catch (error) {
-    // Fall back to default
-  }
-  return 8888; // Default port
-}
-
-/**
- * Get voice ID from settings.json or environment variable
- */
-function getVoiceId(): string {
-  try {
-    // Try to get from process.env first (when running inside Claude Code)
-    if (process.env.DA_VOICE_ID) {
-      return process.env.DA_VOICE_ID;
-    }
-
-    // Fall back to reading settings.json directly (for manual testing)
-    const settingsPath = join(PAI_DIR, 'settings.json');
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.env?.DA_VOICE_ID) {
-        return settings.env.DA_VOICE_ID;
-      }
-    }
-
-    // Try .env file
-    const envPath = join(PAI_DIR, '.env');
-    if (existsSync(envPath)) {
-      const envContent = readFileSync(envPath, 'utf-8');
-      const match = envContent.match(/^ELEVENLABS_VOICE_ID=(.+)$/m);
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-    }
-  } catch (error) {
-    // Fall through to default
-  }
-
-  // Default to Rachel voice (available to all ElevenLabs users)
-  return 'cgSgspJ2msm6clMCkdW9';
-}
-
 async function sendNotification(title: string, message: string, priority: string = 'normal') {
   try {
-    // Get voice ID from settings.json or environment variable
-    const voiceId = getVoiceId();
-    const port = getVoiceServerPort();
+    const settings = getPAISettings();
 
-    const response = await fetch(`http://localhost:${port}/notify`, {
+    const response = await fetch(`http://localhost:${settings.voiceServerPort}/notify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -100,7 +45,7 @@ async function sendNotification(title: string, message: string, priority: string
         message,
         voice_enabled: true,
         priority,
-        voice_id: voiceId
+        voice_id: settings.voiceId
       }),
     });
 
@@ -143,6 +88,7 @@ function shouldDebounce(): boolean {
 }
 
 async function testStopHook() {
+  const settings = getPAISettings();
   const stopHookPath = join(PAI_DIR, 'hooks/stop-hook.ts');
 
   console.error('\n🔍 Testing stop-hook configuration...');
@@ -165,9 +111,8 @@ async function testStopHook() {
 
     console.error('✅ Stop-hook found and is executable');
 
-    // Set initial tab title (customize with your AI's name via DA env var)
-    const daName = process.env.DA || 'AI Assistant';
-    const tabTitle = `${daName} Ready`;
+    // Set initial tab title
+    const tabTitle = `${settings.daName} Ready`;
 
     process.stderr.write(`\x1b]0;${tabTitle}\x07`);
     process.stderr.write(`\x1b]2;${tabTitle}\x07`);
@@ -183,6 +128,9 @@ async function testStopHook() {
 
 async function main() {
   try {
+    // Load PAI settings
+    const settings = getPAISettings();
+
     // Check if this is a subagent session - if so, exit silently
     const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
     const isSubagent = claudeProjectDir.includes('/.claude/agents/') ||
@@ -204,8 +152,7 @@ async function main() {
     // Test stop-hook first (only for main sessions)
     const stopHookOk = await testStopHook();
 
-    const daName = process.env.DA || 'AI Assistant';
-    const message = `${daName} here, ready to go.`;
+    const message = `${settings.daName} here, ready to go.`;
 
     if (!stopHookOk) {
       console.error('\n⚠️ STOP-HOOK ISSUE DETECTED - Tab titles may not update automatically');
@@ -214,7 +161,7 @@ async function main() {
     // Note: PAI core context loading is handled by load-core-context.ts hook
     // which should run BEFORE this hook in settings.json SessionStart hooks
 
-    await sendNotification(`${daName} Systems Initialized`, message, 'low');
+    await sendNotification(`${settings.daName} Systems Initialized`, message, 'low');
     process.exit(0);
   } catch (error) {
     console.error('SessionStart hook error:', error);

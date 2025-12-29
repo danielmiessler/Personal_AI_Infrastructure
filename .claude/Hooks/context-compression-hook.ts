@@ -4,9 +4,7 @@
  * Extracts context information from transcript and notifies about compression
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+import { getPAISettings, getVoiceServerPort } from './lib/pai-settings';
 
 interface NotificationPayload {
   title: string;
@@ -15,19 +13,6 @@ interface NotificationPayload {
   voice_name?: string;
   rate?: number;
   priority?: 'low' | 'normal' | 'high';
-}
-
-interface VoiceConfig {
-  voice_name: string;
-  rate_wpm: number;
-  rate_multiplier: number;
-  description: string;
-  type: string;
-}
-
-interface VoicesConfig {
-  default_rate: number;
-  voices: Record<string, VoiceConfig>;
 }
 
 interface HookInput {
@@ -47,60 +32,6 @@ interface TranscriptEntry {
     }>
   };
   timestamp?: string;
-}
-
-/**
- * Get voice server port from settings.json or fall back to default
- */
-function getVoiceServerPort(): number {
-  try {
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const settingsPath = join(paiDir, 'settings.json');
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.env?.VOICE_SERVER_PORT) {
-        return parseInt(settings.env.VOICE_SERVER_PORT);
-      }
-    }
-  } catch (error) {
-    // Fall back to default
-  }
-  return 8888; // Default port
-}
-
-interface SettingsConfig {
-  env?: {
-    DA?: string;
-    DA_VOICE_ID?: string;
-    PAI_DIR?: string;
-  };
-}
-
-/**
- * Get voice server port from settings.json or fall back to default
- */
-function getVoiceServerPort(): number {
-  try {
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const settingsPath = join(paiDir, 'settings.json');
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.env?.VOICE_SERVER_PORT) {
-        return parseInt(settings.env.VOICE_SERVER_PORT);
-      }
-    }
-  } catch (error) {
-    // Fall back to default
-  }
-  return 8888; // Default port
-}
-
-interface SettingsConfig {
-  env?: {
-    DA?: string;
-    DA_VOICE_ID?: string;
-    PAI_DIR?: string;
-  };
 }
 
 /**
@@ -154,34 +85,9 @@ function getTranscriptStats(transcriptPath: string): { messageCount: number; isL
   }
 }
 
-// Load settings.json to get DA name and voice configuration
-let daName = 'PAI';
-let daVoiceId: string | null = null;
-let paiDir = join(homedir(), '.claude');
-
-try {
-  const settingsPath = join(paiDir, 'settings.json');
-  const settings: SettingsConfig = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-
-  // Get DA name from settings (e.g., "Kai", "PAI", "Nova")
-  if (settings.env?.DA) {
-    daName = settings.env.DA;
-  }
-
-  // Get DA voice ID from settings
-  if (settings.env?.DA_VOICE_ID) {
-    daVoiceId = settings.env.DA_VOICE_ID;
-  }
-
-  // Get PAI_DIR if set
-  if (settings.env?.PAI_DIR) {
-    paiDir = settings.env.PAI_DIR.replace('__HOME__', homedir());
-  }
-} catch (e) {
-  // Fallback to default values if settings.json is unavailable
-}
-
 async function main() {
+  // Load PAI settings (once, with caching)
+  const settings = getPAISettings();
   let hookInput: HookInput | null = null;
   
   try {
@@ -229,18 +135,14 @@ async function main() {
     }
   }
   
-  // Send notification with voice (using DA's voice from settings.json)
+  // Send notification with voice (using DA's voice from settings)
   const notification: NotificationPayload = {
-    title: `${daName} Context`,
+    title: `${settings.daName} Context`,
     message: message,
     voice_enabled: true,
     priority: 'low',
+    voice_name: settings.voiceId,
   };
-
-  // Add voice_name (voice_id) if configured in settings.json
-  if (daVoiceId) {
-    notification.voice_name = daVoiceId;
-  }
 
   await sendNotification(notification);
   

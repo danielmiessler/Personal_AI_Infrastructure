@@ -19,6 +19,16 @@ import { writeFile, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * PAI_DIR - Root directory for PAI configuration
+ * Reads from environment variable PAI_DIR, falls back to ~/.claude
+ */
+const PAI_DIR = process.env.PAI_DIR || resolve(process.env.HOME!, '.claude');
+
+// ============================================================================
 // Environment Loading
 // ============================================================================
 
@@ -70,7 +80,7 @@ interface CLIArgs {
   creativeVariations?: number;
   aspectRatio?: ReplicateSize; // For Gemini models
   transparent?: boolean; // Enable transparent background
-  referenceImage?: string; // Reference image path (Nano Banana Pro only)
+  referenceImages?: string[]; // Reference image paths (Nano Banana Pro only, up to 5 for humans, 14 total)
   removeBg?: boolean; // Remove background after generation using remove.bg API
 }
 
@@ -143,9 +153,10 @@ OPTIONS:
   --aspect-ratio <ratio>     Aspect ratio for Gemini nano-banana-pro (default: 16:9)
                              Options: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
   --output <path>            Output file path (default: /tmp/ul-image.png)
-  --reference-image <path>   Reference image for style/composition guidance (Nano Banana Pro only)
-                             Accepts: PNG, JPEG, WebP images
-                             Model will use this image as visual reference while following text prompt
+  --reference-image <path>   Reference image(s) for character/style consistency (Nano Banana Pro only)
+                             Can be specified multiple times: --reference-image a.jpg --reference-image b.jpg
+                             Accepts: PNG, JPEG, WebP images (up to 5 for humans, 14 total)
+                             Model uses these images to maintain likeness while following text prompt
   --transparent              Enable transparent background (adds transparency instructions to prompt)
                              Note: Not all models support transparency natively; may require post-processing
   --remove-bg                Remove background after generation using remove.bg API
@@ -175,9 +186,14 @@ EXAMPLES:
   generate-ulart-image --model gpt-image-1 --prompt "..." --creative-variations 3 --output /tmp/essay.png
   # Outputs: /tmp/essay-v1.png, /tmp/essay-v2.png, /tmp/essay-v3.png
 
-  # Generate with reference image for style guidance (Nano Banana Pro only)
+  # Generate with single reference image for style guidance (Nano Banana Pro only)
   generate-ulart-image --model nano-banana-pro --prompt "Tokyo Night themed illustration..." \\
     --reference-image /tmp/style-reference.png --size 2K --aspect-ratio 16:9
+
+  # Generate with multiple reference images for character consistency (up to 5 for humans)
+  generate-ulart-image --model nano-banana-pro --prompt "Person from references at a party..." \\
+    --reference-image face1.jpg --reference-image face2.jpg --reference-image face3.jpg \\
+    --size 2K --aspect-ratio 16:9
 
 NOTE: For true creative diversity with different prompts, use the creative workflow in Kai which
 integrates the be-creative skill. CLI creative mode generates multiple images with the SAME prompt.
@@ -268,7 +284,11 @@ function parseArgs(argv: string[]): CLIArgs {
         i++; // Skip next arg (value)
         break;
       case "reference-image":
-        parsed.referenceImage = value;
+        // Collect multiple reference images into an array
+        if (!parsed.referenceImages) {
+          parsed.referenceImages = [];
+        }
+        parsed.referenceImages.push(value);
         i++; // Skip next arg (value)
         break;
       case "creative-variations":
@@ -294,8 +314,13 @@ function parseArgs(argv: string[]): CLIArgs {
   }
 
   // Validate reference-image is only used with nano-banana-pro
-  if (parsed.referenceImage && parsed.model !== "nano-banana-pro") {
+  if (parsed.referenceImages && parsed.referenceImages.length > 0 && parsed.model !== "nano-banana-pro") {
     throw new CLIError("--reference-image is only supported with --model nano-banana-pro");
+  }
+
+  // Validate reference image count (API limits: 5 human, 6 object, 14 total)
+  if (parsed.referenceImages && parsed.referenceImages.length > 14) {
+    throw new CLIError(`Too many reference images: ${parsed.referenceImages.length}. Maximum is 14 total (5 for humans, 6 for objects)`);
   }
 
   // Validate size based on model
@@ -450,7 +475,7 @@ async function generateWithNanoBananaPro(
   size: GeminiSize,
   aspectRatio: ReplicateSize,
   output: string,
-  referenceImage?: string
+  referenceImages?: string[]
 ): Promise<void> {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -459,8 +484,9 @@ async function generateWithNanoBananaPro(
 
   const ai = new GoogleGenAI({ apiKey });
 
-  if (referenceImage) {
-    console.log(`🍌✨ Generating with Nano Banana Pro (Gemini 3 Pro) at ${size} ${aspectRatio} with reference image...`);
+  const refCount = referenceImages?.length || 0;
+  if (refCount > 0) {
+    console.log(`🍌✨ Generating with Nano Banana Pro (Gemini 3 Pro) at ${size} ${aspectRatio} with ${refCount} reference image(s)...`);
   } else {
     console.log(`🍌✨ Generating with Nano Banana Pro (Gemini 3 Pro) at ${size} ${aspectRatio}...`);
   }
@@ -468,36 +494,38 @@ async function generateWithNanoBananaPro(
   // Prepare content parts
   const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
 
-  // Add reference image if provided
-  if (referenceImage) {
-    // Read image file
-    const imageBuffer = await readFile(referenceImage);
-    const imageBase64 = imageBuffer.toString("base64");
+  // Add reference images if provided (up to 14 total, 5 for humans)
+  if (referenceImages && referenceImages.length > 0) {
+    for (const referenceImage of referenceImages) {
+      // Read image file
+      const imageBuffer = await readFile(referenceImage);
+      const imageBase64 = imageBuffer.toString("base64");
 
-    // Determine MIME type from extension
-    const ext = extname(referenceImage).toLowerCase();
-    let mimeType: string;
-    switch (ext) {
-      case ".png":
-        mimeType = "image/png";
-        break;
-      case ".jpg":
-      case ".jpeg":
-        mimeType = "image/jpeg";
-        break;
-      case ".webp":
-        mimeType = "image/webp";
-        break;
-      default:
-        throw new CLIError(`Unsupported image format: ${ext}. Supported: .png, .jpg, .jpeg, .webp`);
+      // Determine MIME type from extension
+      const ext = extname(referenceImage).toLowerCase();
+      let mimeType: string;
+      switch (ext) {
+        case ".png":
+          mimeType = "image/png";
+          break;
+        case ".jpg":
+        case ".jpeg":
+          mimeType = "image/jpeg";
+          break;
+        case ".webp":
+          mimeType = "image/webp";
+          break;
+        default:
+          throw new CLIError(`Unsupported image format: ${ext}. Supported: .png, .jpg, .jpeg, .webp`);
+      }
+
+      parts.push({
+        inlineData: {
+          mimeType,
+          data: imageBase64,
+        },
+      });
     }
-
-    parts.push({
-      inlineData: {
-        mimeType,
-        data: imageBase64,
-      },
-    });
   }
 
   // Add text prompt
@@ -583,7 +611,7 @@ async function main(): Promise<void> {
               args.size as GeminiSize,
               args.aspectRatio!,
               varOutput,
-              args.referenceImage
+              args.referenceImages
             )
           );
         } else if (args.model === "gpt-image-1") {
@@ -607,7 +635,7 @@ async function main(): Promise<void> {
         args.size as GeminiSize,
         args.aspectRatio!,
         args.output,
-        args.referenceImage
+        args.referenceImages
       );
     } else if (args.model === "gpt-image-1") {
       await generateWithGPTImage(finalPrompt, args.size as OpenAISize, args.output);

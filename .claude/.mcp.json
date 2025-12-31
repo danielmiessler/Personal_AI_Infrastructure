@@ -85,7 +85,7 @@
         "@notionhq/notion-mcp-server"
       ],
       "env": {
-        "NOTION_API_KEY": "REDACTED"
+        "NOTION_API_KEY": "${NOTION_API_KEY}"
       },
       "description": "Notion workspace integration for PAI tracking - create/update databases, pages, and visual dashboards for habits, goals, and metrics"
     }

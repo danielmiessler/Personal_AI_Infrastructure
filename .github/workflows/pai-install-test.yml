@@ -282,7 +282,7 @@ EOF
         uses: actions/upload-artifact@v4
         with:
           name: pai-installation-logs
-          path: $HOME/.claude/
+          path: ${{ runner.home }}/.claude/
           retention-days: 7
           if-no-files-found: warn
 

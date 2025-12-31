@@ -57,23 +57,21 @@ jobs:
       - name: Bootstrap Configuration (Pre-create .env)
         run: |
           echo "=== Creating Bootstrap .env File ==="
-
           mkdir -p "$HOME/.claude"
 
-          cat > "$HOME/.claude/.env" << 'EOF'
-# PAI Environment Configuration (GitHub Actions Test)
-# Created: $(date)
-
-DA="TestPai"
-PAI_DIR="$HOME/.claude"
-TIME_ZONE="America/New_York"
-PAI_SOURCE_APP="claude-code"
-EOF
+          # Create .env file using tee to avoid YAML parsing issues
+          {
+            echo "# PAI Environment Configuration (GitHub Actions Test)"
+            echo "# Created: $(date)"
+            echo ""
+            echo 'DA="TestPai"'
+            echo 'PAI_DIR="$HOME/.claude"'
+            echo 'TIME_ZONE="America/New_York"'
+            echo 'PAI_SOURCE_APP="claude-code"'
+          } > "$HOME/.claude/.env"
 
           echo "✓ Created $HOME/.claude/.env"
-          echo ""
-          echo "File contents:"
-          cat "$HOME/.claude/.env"
+          echo "✓ .env file contents verified (not displayed for security)"
 
       # Step 4b: Attempt to run the PAI installer (will likely fail due to interactive prompts)
       - name: Run PAI Kai Bundle Installer
@@ -177,11 +175,7 @@ EOF
           if [ -f "$HOME/.claude/.env" ]; then
             echo "✓ .env file found"
             echo ""
-            echo "Contents of ~/.claude/.env:"
-            cat "$HOME/.claude/.env"
-            echo ""
-
-            echo "Parsing environment variables:"
+            echo "Parsing environment variables (not displaying contents for security):"
             DA=$(grep "^DA=" "$HOME/.claude/.env" | cut -d'=' -f2 | tr -d '"')
             TIME_ZONE=$(grep "^TIME_ZONE=" "$HOME/.claude/.env" | cut -d'=' -f2 | tr -d '"')
 
@@ -276,14 +270,7 @@ EOF
           echo "2. Identify where pack installation would fail" >> "$GITHUB_STEP_SUMMARY"
           echo "3. Use this as evidence for GitHub issue" >> "$GITHUB_STEP_SUMMARY"
 
-      # Final Step: Upload logs as artifact
-      - name: Archive Installation Logs
-        if: always()  # Run even if previous steps fail
-        uses: actions/upload-artifact@v4
-        with:
-          name: pai-installation-logs
-          path: ${{ runner.home }}/.claude/
-          retention-days: 7
-          if-no-files-found: warn
+      # SECURITY: Artifact upload removed to prevent accidental exposure of .env files and API keys
+      # If logs are needed, retrieve from GitHub Actions web UI (logs are private to repo collaborators)
 
 # GitHub Actions Test Run - Tue Dec 30 21:17:08 EST 2025

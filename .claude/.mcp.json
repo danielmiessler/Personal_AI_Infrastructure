@@ -79,13 +79,10 @@
       "description": "Browser automation and testing using Playwright for visual debugging and web interaction"
     },
     "notion": {
-      "command": "bunx",
-      "args": [
-        "-y",
-        "@notionhq/notion-mcp-server"
-      ],
-      "env": {
-        "NOTION_API_KEY": "${NOTION_API_KEY}"
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${NOTION_API_KEY}"
       },
       "description": "Notion workspace integration for PAI tracking - create/update databases, pages, and visual dashboards for habits, goals, and metrics"
     }

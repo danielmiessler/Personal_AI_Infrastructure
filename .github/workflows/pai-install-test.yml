@@ -196,7 +196,7 @@ jobs:
       # Step 10: Upload logs as artifact
       - name: Archive Installation Logs
         if: always()  # Run even if previous steps fail
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: pai-installation-logs
           path: |

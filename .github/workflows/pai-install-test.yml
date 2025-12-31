@@ -1,0 +1,206 @@
+name: PAI Installation & Pack Integration Test
+
+# When to run this workflow
+on:
+  # Manually trigger from GitHub UI
+  workflow_dispatch:
+  # Run on push to any branch (optional - can disable if you want manual only)
+  push:
+    branches:
+      - '**'
+
+# Set default shell for all steps
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  pai-install-test:
+    # Run on Ubuntu (fresh environment, no contamination)
+    runs-on: ubuntu-latest
+
+    name: Test PAI Installation & Pack Setup
+
+    steps:
+      # Step 1: Check out the code
+      - name: Checkout PAI Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Step 2: Set up Node.js and Bun
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      # Step 3: Verify environment is clean
+      - name: Verify Clean Environment
+        run: |
+          echo "=== Environment Verification ==="
+          echo "User: $(whoami)"
+          echo "Home: $HOME"
+          echo "PWD: $PWD"
+          echo "Bun version: $(bun --version)"
+          echo "Node version: $(node --version)"
+          echo "Bash version: $BASH_VERSION"
+          echo ""
+          echo "Checking for existing .claude directory..."
+          if [ -d "$HOME/.claude" ]; then
+            echo "⚠️  Warning: ~/.claude already exists (shouldn't happen on fresh runner)"
+            ls -la "$HOME/.claude"
+          else
+            echo "✓ ~/.claude does not exist (clean environment)"
+          fi
+
+      # Step 4: Run the PAI installer
+      - name: Run PAI Kai Bundle Installer
+        run: |
+          echo "=== Running PAI Kai Bundle Installer ==="
+          cd Bundles/Kai
+
+          # Run installer with automated responses
+          # This simulates: y, Eli, TestPai, America/New_York, n (no voice)
+          echo -e "y\nEli\nTestPai\nAmerica/New_York\nn" | bun run install.ts
+        continue-on-error: true  # Don't fail if installer has issues
+
+      # Step 5: Verify installation files
+      - name: Verify Installation Files
+        run: |
+          echo "=== Verifying Installation Files ==="
+
+          echo "Checking ~/.claude directory structure..."
+          if [ -d "$HOME/.claude" ]; then
+            echo "✓ ~/.claude exists"
+            ls -la "$HOME/.claude"
+            echo ""
+
+            # Check for key files
+            echo "Checking for key installation files:"
+            [ -f "$HOME/.claude/.env" ] && echo "  ✓ .env file exists" || echo "  ✗ .env file NOT found"
+            [ -d "$HOME/.claude/skills" ] && echo "  ✓ skills directory exists" || echo "  ✗ skills directory NOT found"
+            [ -d "$HOME/.claude/hooks" ] && echo "  ✓ hooks directory exists" || echo "  ✗ hooks directory NOT found"
+            [ -d "$HOME/.claude/history" ] && echo "  ✓ history directory exists" || echo "  ✗ history directory NOT found"
+          else
+            echo "✗ ~/.claude does NOT exist - installation failed"
+            exit 1
+          fi
+
+      # Step 6: Check .env file contents
+      - name: Verify .env Configuration
+        run: |
+          echo "=== Checking .env File Contents ==="
+
+          if [ -f "$HOME/.claude/.env" ]; then
+            echo "✓ .env file found"
+            echo ""
+            echo "Contents of ~/.claude/.env:"
+            cat "$HOME/.claude/.env"
+            echo ""
+
+            echo "Parsing environment variables:"
+            DA=$(grep "^DA=" "$HOME/.claude/.env" | cut -d'=' -f2 | tr -d '"')
+            TIME_ZONE=$(grep "^TIME_ZONE=" "$HOME/.claude/.env" | cut -d'=' -f2 | tr -d '"')
+
+            echo "  DA = $DA (expected: TestPai)"
+            echo "  TIME_ZONE = $TIME_ZONE (expected: America/New_York)"
+
+            if [ "$DA" = "TestPai" ]; then
+              echo "  ✓ DA correctly set"
+            else
+              echo "  ✗ DA mismatch - expected 'TestPai' but got '$DA'"
+            fi
+
+            if [ "$TIME_ZONE" = "America/New_York" ]; then
+              echo "  ✓ TIME_ZONE correctly set"
+            else
+              echo "  ✗ TIME_ZONE mismatch"
+            fi
+          else
+            echo "✗ .env file NOT found"
+            exit 1
+          fi
+
+      # Step 7: Attempt to source .env and check environment variables
+      - name: Test Environment Variable Sourcing
+        run: |
+          echo "=== Testing Environment Variable Sourcing ==="
+
+          echo "Before sourcing .env:"
+          echo "  DA=${DA:-'NOT SET'}"
+          echo "  TIME_ZONE=${TIME_ZONE:-'NOT SET'}"
+          echo ""
+
+          echo "Sourcing ~/.claude/.env..."
+          set -a
+          source "$HOME/.claude/.env"
+          set +a
+
+          echo "After sourcing .env:"
+          echo "  DA=${DA:-'NOT SET'}"
+          echo "  TIME_ZONE=${TIME_ZONE:-'NOT SET'}"
+          echo ""
+
+          if [ -z "$DA" ] || [ "$DA" = "NOT SET" ]; then
+            echo "⚠️  Warning: DA not sourced properly"
+          else
+            echo "✓ DA sourced: $DA"
+          fi
+
+      # Step 8: Check pack files
+      - name: Verify Pack Files Exist
+        run: |
+          echo "=== Checking Pack Files ==="
+
+          PACKS=(
+            "kai-hook-system.md"
+            "kai-history-system.md"
+            "kai-core-install.md"
+            "kai-voice-system.md"
+          )
+
+          for pack in "${PACKS[@]}"; do
+            if [ -f "Packs/$pack" ]; then
+              SIZE=$(wc -l < "Packs/$pack")
+              echo "  ✓ $pack ($SIZE lines)"
+            else
+              echo "  ✗ $pack NOT found"
+            fi
+          done
+
+      # Step 9: Report Summary
+      - name: Generate Test Summary
+        run: |
+          echo "=== Test Summary ===" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Installation Status:** Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Environment:** Ubuntu Latest (GitHub Actions)" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Test Date:** $(date -u)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Findings" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "$HOME/.claude/.env" ]; then
+            echo "- ✅ .env file created successfully" >> "$GITHUB_STEP_SUMMARY"
+            DA=$(grep "^DA=" "$HOME/.claude/.env" | cut -d'=' -f2 | tr -d '"')
+            echo "- ✅ DA variable set to: $DA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ .env file NOT created" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Next Steps" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. Check workflow output for detailed logs" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. Identify where pack installation would fail" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. Use this as evidence for GitHub issue" >> "$GITHUB_STEP_SUMMARY"
+
+      # Step 10: Upload logs as artifact
+      - name: Archive Installation Logs
+        if: always()  # Run even if previous steps fail
+        uses: actions/upload-artifact@v3
+        with:
+          name: pai-installation-logs
+          path: |
+            ${{ runner.home }}/.claude/.env
+            ${{ runner.home }}/.claude/skills/CORE/SKILL.md
+          retention-days: 7
+

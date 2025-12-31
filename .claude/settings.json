@@ -9,8 +9,8 @@
   },
   "_setupNote": "IMPORTANT: Run 'bash .claude/setup.sh' to automatically configure PAI_DIR. If you see hook errors mentioning '__HOME__', the setup script was not run or you need to manually change PAI_DIR below to your actual home directory path (e.g., /Users/john/.claude on macOS or /home/john/.claude on Linux).",
   "env": {
-    "PAI_DIR": "__HOME__/.claude",
-    "DA": "PAI",
+    "PAI_DIR": "/home/user/Personal_AI_Infrastructure/.claude",
+    "DA": "MARC",
     "PAI_SIMPLE_COLORS": "0",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
   },

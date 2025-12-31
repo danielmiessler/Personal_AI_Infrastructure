@@ -1,0 +1,207 @@
+# PAI Knowledge Taxonomy - Single Source of Truth
+# Consolidates dimensional taxonomy + keyword detection + title patterns
+# Version: 2.0
+
+version: "2.0"
+name: default
+description: |
+  Multi-dimensional tag taxonomy combining PARA method for actionability
+  and Zettelkasten for intellectual maturity. Includes keyword-based
+  auto-detection for ingest processing.
+
+# =============================================================================
+# DIMENSIONS - The 13-dimension taxonomy schema
+# =============================================================================
+
+dimensions:
+  # 1. PARA Classification (Actionability)
+  - name: para
+    prefix: "para/"
+    type: closed
+    values: [project, area, resource, archive]
+    required: false
+
+  # 2. Instance (Specific project/area/lifeos domain)
+  - name: instance
+    prefix: "project/|lifeos/|area/"
+    type: open
+    pattern: "^(project|lifeos|area)/[a-z0-9-]+$"
+    freeform: true
+
+  # 3. Note Type - Zettelkasten Maturity
+  - name: type
+    prefix: "type/"
+    type: closed
+    values: [fleeting, literature, permanent, synthesized, reference]
+    required: true
+    default: fleeting
+
+  # 4. Content Format
+  - name: format
+    prefix: "format/"
+    type: closed
+    values: [transcript, meeting-notes, article, research, ideas, howto, screenshot, summary, demo, interview, technical]
+    required: false
+
+  # 5. Person
+  - name: person
+    prefix: "person/"
+    type: open
+    pattern: "^person/[a-z_]+$"
+    freeform: true
+
+  # 6. Source (Capture channel)
+  - name: source
+    prefix: "source/"
+    type: closed
+    values: [telegram, clipboard, voice, web, file, screenshot, cli]
+    required: true
+    default: telegram
+
+  # 7. Scope (Privacy)
+  - name: scope
+    prefix: "scope/"
+    type: closed
+    values: [work, personal]
+    required: false
+    default: work
+
+  # 8. Status (Processing state)
+  - name: status
+    prefix: "status/"
+    type: closed
+    values: [inbox, processing, cultivated, archived]
+    required: true
+    default: inbox
+
+  # 9. Topic (Knowledge domain)
+  - name: topic
+    prefix: "topic/"
+    type: open
+    pattern: "^topic/[a-z0-9/-]+$"
+    freeform: true
+
+  # 10. Session (Cultivation session)
+  - name: session
+    prefix: "session/"
+    type: open
+    pattern: "^session/[a-z0-9-]+$"
+    freeform: true
+
+  # 11. Git (Source control)
+  - name: git
+    prefix: "git/"
+    type: closed
+    values: [track, sensitive]
+    required: false
+
+  # 12. Priority (Signal importance)
+  - name: priority
+    prefix: "priority/"
+    type: closed
+    values: [high, low]
+    required: false
+
+  # 13. Action (Async processing queue)
+  - name: action
+    prefix: "action/"
+    type: closed
+    values: [extract-wisdom, fetch-source, summarize]
+    required: false
+
+# =============================================================================
+# KEYWORD DETECTION - Auto-tagging based on content keywords
+# Maps keywords found in content to dimensional tags
+# =============================================================================
+
+keyword_detection:
+  # Format detection
+  format/meeting-notes:
+    keywords: [meeting, standup, sync, all-hands, retro, 1:1, 1on1, "one on one"]
+  format/ideas:
+    keywords: [idea, brainstorm, concept, "what if"]
+  format/article:
+    keywords: [article, blog, post, newsletter]
+  format/research:
+    keywords: [research, study, paper, analysis]
+
+  # Topic detection
+  topic/ai:
+    keywords: [ai, artificial intelligence, machine learning, ml, neural, llm, gpt, claude, anthropic]
+  topic/ai/genai:
+    keywords: [genai, generative ai, chatgpt, copilot, midjourney]
+  topic/ai/agents:
+    keywords: [agent, agentic, tool use, function calling]
+  topic/pkm:
+    keywords: [pkm, knowledge management, second brain, zettelkasten]
+  topic/security:
+    keywords: [security, vulnerability, pentest, threat, exploit, infosec]
+  topic/architecture:
+    keywords: [architecture, design patterns, system design, enterprise]
+  topic/engineering:
+    keywords: [engineering, software development, coding, programming]
+  topic/cloud/aws:
+    keywords: [aws, amazon, ec2, lambda, s3]
+
+  # Para classification hints
+  para/resource:
+    keywords: [reference, resource, guide, documentation, docs]
+
+# =============================================================================
+# PROJECT KEYWORDS - Map keywords to project tags
+# =============================================================================
+
+project_keywords:
+  project/pai:
+    keywords: [claude, kai, fabric, ingest, obs, "personal ai", pai, context skill]
+  project/work:
+    keywords: [work, office, team, sprint, jira]
+
+# =============================================================================
+# TITLE PATTERNS - Extract titles from content
+# Patterns tried in order; first match wins
+# =============================================================================
+
+title_patterns:
+  - name: tldr-read-time
+    description: "TLDR newsletter: Title (X minute read)"
+    regex: "\\[?\\*{0,2}\\[?\\[?([^\\[\\]\\(\\)]+?)\\s*\\(\\d+\\s*minute\\s*read\\)"
+    group: 1
+    minLength: 5
+    maxLength: 150
+    tags: [type/literature, format/article]
+
+  - name: tldr-bold-title
+    description: "TLDR bold item: '- **Title:** description'"
+    regex: "[-•]\\s*\\*\\*(.+?):\\*\\*"
+    group: 1
+    minLength: 3
+    maxLength: 80
+    tags: [type/literature, format/article]
+
+  - name: markdown-bold-start
+    description: "Markdown bold at line start: '**Title:** text'"
+    regex: "^\\*\\*(.+?)\\*\\*:?\\s"
+    group: 1
+    minLength: 3
+    maxLength: 80
+
+  - name: markdown-heading
+    description: "Markdown heading: '# Title' or '## Title'"
+    regex: "^#{1,2}\\s+(.+)$"
+    group: 1
+    minLength: 3
+    maxLength: 80
+
+# =============================================================================
+# VALIDATION - Post-processing validation rules
+# =============================================================================
+
+validation:
+  required_dimensions: [status, type, source]
+  warn_if_missing: [topic]
+  forbidden_patterns:
+    - "^[A-Z]"      # No uppercase tags
+    - " "           # No spaces in tags
+    - "^\\["        # No bracket-wrapped tags
+    - "^None"       # No error artifacts

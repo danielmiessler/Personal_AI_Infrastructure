@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pai.ingest-watch</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/.bun/bin/bun</string>
+        <string>run</string>
+        <string>__PAI_DIR__/bin/ingest/ingest.ts</string>
+        <string>watch</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Poll interval in seconds (300 = 5 minutes) -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/ingest-watch.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/ingest-watch-error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PAI_DIR</key>
+        <string>__PAI_DIR__</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:__HOME__/.bun/bin</string>
+    </dict>
+
+    <!-- Throttle restarts to prevent rapid cycling on errors -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+</dict>
+</plist>

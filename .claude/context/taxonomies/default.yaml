@@ -1,0 +1,311 @@
+# Default Taxonomy: PARA + Zettelkasten (13 dimensions)
+# Context Skill v1.1
+
+version: "1.1"
+name: default
+description: |
+  Multi-dimensional tag taxonomy combining PARA method for actionability
+  and Zettelkasten for intellectual maturity. Supports personal knowledge
+  management with AI-assisted tagging.
+
+dimensions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 1. PARA Classification (Actionability)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: para
+    prefix: "para/"
+    type: closed
+    values:
+      - project
+      - area
+      - resource
+      - archive
+    required: false
+    description: |
+      PARA method classification by actionability:
+      - project: Has deadline, finite scope, active work
+      - area: Ongoing responsibility, no end date
+      - resource: Reference material, topic-based
+      - archive: Completed or inactive items
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 2. Instance (Specific project/area/lifeos domain)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: instance
+    prefix: "project/|lifeos/|area/"
+    type: open
+    pattern: "^(project|lifeos|area)/[a-z0-9-]+$"
+    examples:
+      - project/pai
+      - project/website-redesign
+      - lifeos/knowledge
+      - lifeos/health
+      - lifeos/aspirations
+      - area/career
+    freeform: true
+    description: |
+      Specific instance of a project, area, or lifeos domain.
+      Separate from PARA classification (what kind) vs instance (which one).
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 3. Note Type - Zettelkasten Maturity
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: type
+    prefix: "type/"
+    type: closed
+    values:
+      - fleeting
+      - literature
+      - permanent
+      - synthesized
+      - reference
+    required: true
+    default: fleeting
+    description: |
+      Zettelkasten note intellectual maturity level:
+      - fleeting: Raw capture, unprocessed thought (24-48h lifespan)
+      - literature: Extracted from external source with YOUR interpretation
+      - permanent: Your own refined insight, atomic, connected to network
+      - synthesized: Created by combining multiple sources (cultivation output)
+      - reference: Factual data, definitions, lookup tables, specs
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 4. Content Format
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: format
+    prefix: "format/"
+    type: closed
+    values:
+      - transcript
+      - meeting-notes
+      - article
+      - research
+      - ideas
+      - howto
+      - screenshot
+      - summary
+      - demo
+      - interview
+      - technical
+    required: false
+    description: |
+      Content structure/format:
+      - transcript: Meeting or voice transcription
+      - meeting-notes: Structured meeting notes
+      - article: Web article or blog post
+      - research: Research document
+      - ideas: Brainstorm, ideation
+      - howto: How-to guide, tutorial
+      - screenshot: Screenshot capture
+      - summary: Summarized content
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 5. Person
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: person
+    prefix: "person/"
+    type: open
+    pattern: "^person/[a-z_]+$"
+    examples:
+      - person/john_smith
+      - person/jane_doe
+    freeform: true
+    description: |
+      Person mentioned in or related to the note.
+      Format: firstname_lastname (lowercase, underscore separator)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 6. Source (Capture channel)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: source
+    prefix: "source/"
+    type: closed
+    values:
+      - telegram
+      - clipboard
+      - voice
+      - web
+      - file
+      - screenshot
+      - cli
+    required: true
+    default: telegram
+    description: |
+      How the content was captured:
+      - telegram: Telegram message/forward
+      - clipboard: Clipboard share
+      - voice: Voice memo transcription
+      - web: Web article extraction
+      - file: File attachment
+      - screenshot: Screenshot capture
+      - cli: Direct CLI input
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 7. Scope (Privacy)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: scope
+    prefix: "scope/"
+    type: closed
+    values:
+      - work
+      - personal
+    required: false
+    default: work
+    description: |
+      Privacy scope:
+      - work: Professional context, shareable
+      - personal: Private, personal life
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 8. Status (Processing state)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: status
+    prefix: "status/"
+    type: closed
+    values:
+      - inbox
+      - processing
+      - cultivated
+      - archived
+    required: true
+    default: inbox
+    description: |
+      Processing status:
+      - inbox: Needs processing (new capture)
+      - processing: Currently being worked on
+      - cultivated: Fully processed, connected
+      - archived: Cold storage, superseded
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 9. Topic (Knowledge domain)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: topic
+    prefix: "topic/"
+    type: open
+    pattern: "^topic/[a-z0-9/-]+$"
+    examples:
+      - topic/ai
+      - topic/ai/llm
+      - topic/ai/agents
+      - topic/pkm
+      - topic/pkm/zettelkasten
+      - topic/architecture
+      - topic/cloud/aws
+      - topic/engineering
+      - topic/security
+    freeform: true
+    description: |
+      Knowledge domain or topic. Supports hierarchy with /.
+      Examples: topic/ai, topic/ai/llm, topic/pkm/zettelkasten
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 10. Session (Cultivation session)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: session
+    prefix: "session/"
+    type: open
+    pattern: "^session/[a-z0-9-]+$"
+    examples:
+      - session/cultivation-lifeos-2025-12-15
+      - session/kcf-research-2025-12-15
+      - session/project-api-2025-12-18
+    freeform: true
+    description: |
+      Cultivation or work session identifier.
+      Format: session/{type}-{topic}-{date} or session/{topic}-{date}
+      Groups related work for retrieval and lineage tracking.
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 11. Git (Source control)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: git
+    prefix: "git/"
+    type: closed
+    values:
+      - track
+      - sensitive
+    required: false
+    description: |
+      Source control tracking:
+      - track: Include in git (opt-in for version control)
+      - sensitive: Explicitly exclude (reminder: never commit)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 12. Priority (Signal importance)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: priority
+    prefix: "priority/"
+    type: closed
+    values:
+      - high
+      - low
+    required: false
+    description: |
+      Note importance for filtering signal from noise:
+      - high: Important idea, action item, or reference (~priority, ~important)
+      - low: Nice-to-have, defer, or low-urgency
+      Can be set during ingest (first chance) or sweep (second chance).
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 13. Action (Async processing queue)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: action
+    prefix: "action/"
+    type: closed
+    values:
+      - extract-wisdom
+      - fetch-source
+      - summarize
+    required: false
+    description: |
+      Async processing actions to be performed on the note:
+      - extract-wisdom: Fetch full article and run Fabric extract_wisdom
+      - fetch-source: Fetch and store the source URL content
+      - summarize: Generate a summary of the content
+      Processing removes the action tag and creates linked derivative notes.
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Title Patterns for Auto-Detection
+# ═══════════════════════════════════════════════════════════════════════════
+# These patterns extract titles from content and suggest dimensional tags.
+# Patterns are tried in order; first match wins.
+
+title_patterns:
+  - name: tldr-read-time
+    description: "TLDR newsletter: [**Title (X minute read)**](url) or **[[Title (X minute...]]**"
+    regex: "\\[?\\*{0,2}\\[?\\[?([^\\[\\]\\(\\)]+?)\\s*\\(\\d+\\s*minute\\s*read\\)"
+    group: 1
+    minLength: 5
+    maxLength: 150
+    tags:
+      - type/literature
+      - format/article
+      - source/clipboard
+
+  - name: tldr-bold-title
+    description: "TLDR bold item: '- **Title:** description'"
+    regex: "[-•]\\s*\\*\\*(.+?):\\*\\*"
+    group: 1
+    minLength: 3
+    maxLength: 80
+    tags:
+      - type/literature
+      - format/article
+
+  - name: markdown-bold-start
+    description: "Markdown bold at line start: '**Title:** text'"
+    regex: "^\\*\\*(.+?)\\*\\*:?\\s"
+    group: 1
+    minLength: 3
+    maxLength: 80
+    tags:
+      - type/fleeting
+
+  - name: markdown-heading
+    description: "Markdown heading: '# Title' or '## Title'"
+    regex: "^#{1,2}\\s+(.+)$"
+    group: 1
+    minLength: 3
+    maxLength: 80
+    tags:
+      - type/fleeting

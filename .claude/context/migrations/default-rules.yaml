@@ -1,0 +1,269 @@
+# Tag Migration Rules
+# Maps existing tags to new 11-dimension taxonomy
+
+version: "1.0"
+taxonomy_target: "default"  # The taxonomy these rules migrate TO
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DIRECT REPLACEMENTS
+# One-to-one tag mappings
+# ═══════════════════════════════════════════════════════════════════════════════
+
+replacements:
+  # Status dimension (processing pipeline)
+  # NOTE: 'incoming' has age-based rules - see 'age_based_migrations' section
+  # incoming: status/inbox  # Simple case - but see age-based rules below
+
+  # Type dimension (intellectual maturity)
+  raw: type/fleeting
+  main: type/permanent
+  wisdom: type/literature
+  bibliography: type/reference
+
+  # Format dimension (content structure)
+  transcript: format/transcript
+  meeting-notes: format/meeting-notes
+  meeting_minutes: format/meeting-notes
+  meeting: format/meeting-notes
+  phone-call: format/meeting-notes
+  1on1: format/meeting-notes
+  workshop: format/meeting-notes
+  howto: format/howto
+  research: format/research
+  ideas: format/ideas
+  screenshot: format/screenshot
+
+  # Scope normalization
+  scope/private: scope/personal
+
+  # PARA classification
+  resources: para/resource
+  archive: status/archived
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PREFIX ADDITIONS
+# Add dimension prefix to existing tags
+# ═══════════════════════════════════════════════════════════════════════════════
+
+prefix_rules:
+  # Topic tags - add topic/ prefix
+  topic:
+    pattern: "^(ai|artificial-intelligence|genai|genai-use-case|agentic-tool-use|llm|reasoning-models|rag|architecture|enterprise-architecture|pkm|zettelkasten|knowledge-transformation-stack|productivity-strategies|software-engineering|software-development|aws|data|data-platform|security|automation|innovation|strategy|governance|health|life-os|off-grid|prompt|chatgpt|openai|anthropic|microsoft|amazon)$"
+    prefix: "topic/"
+
+  # Person tags - add person/ prefix
+  person:
+    pattern: "^[a-z]+_[a-z_]+$"  # firstname_lastname pattern
+    prefix: "person/"
+    exclude:
+      - meeting_minutes  # Not a person
+      - meeting_notes
+
+  # Project orphans - add project/ prefix
+  project:
+    tags:
+      - northpower
+      - aitelity
+      - fibre
+      - dgwg
+      - gref
+    prefix: "project/"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONSOLIDATIONS
+# Merge multiple tags into one canonical form
+# ═══════════════════════════════════════════════════════════════════════════════
+
+consolidations:
+  # AI-related consolidation
+  - sources: [ai, artificial-intelligence]
+    target: topic/ai
+
+  - sources: [genai, genai-use-case]
+    target: topic/ai/genai
+
+  - sources: [software-engineering, software-development]
+    target: topic/engineering
+
+  - sources: [eea2024, eea24]
+    target: project/eea24
+
+  - sources: [life-os, lifeos]
+    target: topic/lifeos
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HIERARCHICAL MAPPINGS
+# Map flat tags to hierarchical topic structure
+# ═══════════════════════════════════════════════════════════════════════════════
+
+hierarchy:
+  topic/ai:
+    - genai → topic/ai/genai
+    - llm → topic/ai/llm
+    - agentic-tool-use → topic/ai/agents
+    - reasoning-models → topic/ai/reasoning
+    - rag → topic/ai/rag
+    - prompt → topic/ai/prompting
+    - chatgpt → topic/ai/chatgpt
+
+  topic/architecture:
+    - enterprise-architecture → topic/architecture/enterprise
+    - ea → topic/architecture/enterprise
+
+  topic/pkm:
+    - zettelkasten → topic/pkm/zettelkasten
+    - knowledge-transformation-stack → topic/pkm/kts
+
+  topic/cloud:
+    - aws → topic/cloud/aws
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REMOVALS
+# Tags to delete (provide no value)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+removals:
+  # Processing artifacts
+  exact:
+    - fabric-extraction
+    - "fabric-extraction wisdom"
+    - "fabric-extraction raw"
+    - "None extract_wisdom"
+    - "None raw"
+    - "[excalidraw]"
+    - "[]"
+    - link
+    - interesting-reads
+    - prio
+    - todo
+    - notes
+    - project  # Orphan, meaningless without name
+    - northpower  # Employer - redundant with scope/work
+
+  # Pattern-based removals (regex)
+  patterns:
+    # HTML/CSS garbage from web scraping
+    - "^cmplz-"           # Cookie consent plugin
+    - "^jp-carousel-"     # Jetpack carousel
+    - "^__codelineno-"    # Code block line numbers
+    - "^smallhead"        # CSS class
+    - "^icon-"            # Icon classes
+    - "^section-?\\d*$"   # Section IDs
+
+    # Color codes
+    - "^[0-9a-f]{6}$"     # Hex colors like ffffff, dddddd
+
+    # Generic HTML elements
+    - "^(wrapper|primary|secondary|content|page|header|footer)$"
+
+    # Compound artifacts
+    - "^None "
+    - "^fabric-extraction "
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGE-BASED MIGRATIONS
+# Tags where migration depends on document age
+# ═══════════════════════════════════════════════════════════════════════════════
+
+backlog_cultivation:
+  # Incoming tag - cultivate, don't discard
+  incoming:
+    description: |
+      With 801 incoming notes (many from daily research captures), there are
+      nuggets hidden in the noise. These were captured for a reason - they
+      had value at the time. Cultivate through the CONNECT process rather
+      than bulk archiving.
+    migration:
+      to:
+        - status/inbox
+        - type/fleeting
+      note: "Queue for cultivation - use backlog tools to process"
+
+    # Tools needed for backlog processing (not migration, cultivation)
+    cultivation_tools:
+      - name: "obs cultivate backlog"
+        purpose: "AI-assisted scan, cluster by theme, surface nuggets"
+
+      - name: "obs cultivate daily-split"
+        purpose: "Split daily notes into atomic notes per entry"
+
+      - name: "obs cultivate insights"
+        purpose: "Pattern analysis - topics, interests over time, clusters"
+
+    philosophy: |
+      "Once upon a time, I found it interesting to capture that data.
+      So there was a reason." - Don't archive without cultivation.
+      Work through backlog via themed sessions using the 7-phase
+      CONNECT process. Archive only AFTER cultivation extracts value.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MULTI-TAG EXPANSIONS
+# Single tags that expand to multiple dimension tags
+# ═══════════════════════════════════════════════════════════════════════════════
+
+expansions:
+  # Feed captures - daily reading that needs cultivation
+  feed:
+    description: |
+      Daily feed captures from RSS/reading. These are external sources
+      captured for later integration. They need cultivation to become
+      useful knowledge.
+    expand_to:
+      - para/resource      # Reference material
+      - type/literature    # From external source
+      - status/inbox       # Needs processing
+      - source/web         # Captured from web
+    remove_original: true
+    note: "Feed items are literature notes needing cultivation"
+
+  # Resources tag - similar pattern
+  resources:
+    expand_to:
+      - para/resource
+    remove_original: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SPECIAL HANDLING
+# Tags requiring custom logic
+# ═══════════════════════════════════════════════════════════════════════════════
+
+special:
+  # Fix malformed person tags
+  - pattern: "^qurious/(.+)$"
+    action: replace
+    target: "person/$1"
+
+  # Strategy tags - determine from context
+  - tag: strategy
+    action: contextualize
+    rules:
+      - if_with: [project/*, lifeos/*]
+        then: keep  # Contextual strategy
+      - else: topic/strategy
+
+  # Board meetings
+  - tag: board
+    action: add_format
+    target: format/meeting-notes
+    note: "Keep 'board' as context indicator"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VALIDATION RULES
+# Post-migration validation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+validation:
+  required_dimensions:
+    - status   # Every note needs status
+    - type     # Every note needs type
+    - source   # Every note needs source
+
+  warn_if_missing:
+    - topic    # Most notes should have a topic
+
+  forbidden_patterns:
+    - "^[A-Z]"           # No uppercase tags
+    - " "                # No spaces in tags
+    - "^\\["             # No bracket-wrapped tags
+    - "^None"            # No error artifacts
+    - "^fabric-"         # No processing artifacts

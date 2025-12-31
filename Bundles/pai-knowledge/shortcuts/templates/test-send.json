@@ -1,0 +1,85 @@
+{
+  "WFWorkflowMinimumClientVersionString": "900",
+  "WFWorkflowMinimumClientVersion": 900,
+  "WFWorkflowIcon": {
+    "WFWorkflowIconStartColor": 4274264319,
+    "WFWorkflowIconGlyphNumber": 59773
+  },
+  "WFWorkflowClientVersion": "4042.0.4",
+  "WFWorkflowOutputContentItemClasses": [],
+  "WFWorkflowHasOutputFallback": false,
+  "WFWorkflowActions": [
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.comment",
+      "WFWorkflowActionParameters": {
+        "WFCommentActionText": "Test PAI Send - verifies Telegram API works from Shortcuts"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.downloadurl",
+      "WFWorkflowActionParameters": {
+        "WFHTTPBodyType": "Form",
+        "WFFormValues": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFKey": {
+                  "Value": {
+                    "string": "chat_id"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFItemType": 0,
+                "WFValue": {
+                  "Value": {
+                    "string": "YOUR_CHAT_ID_HERE"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFKey": {
+                  "Value": {
+                    "string": "text"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFItemType": 0,
+                "WFValue": {
+                  "Value": {
+                    "string": "[test:shortcut-api-test][device:mac][user:YOUR_USERNAME]"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        },
+        "UUID": "TEST-SEND-001",
+        "WFURL": "https://api.telegram.org/botYOUR_BOT_TOKEN_HERE/sendMessage",
+        "WFHTTPMethod": "POST"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.notification",
+      "WFWorkflowActionParameters": {
+        "WFNotificationActionBody": {
+          "Value": {
+            "string": "Test message sent to PAI",
+            "attachmentsByRange": {}
+          },
+          "WFSerializationType": "WFTextTokenString"
+        },
+        "WFNotificationActionTitle": "PAI Test",
+        "WFNotificationActionSound": true
+      }
+    }
+  ],
+  "WFWorkflowInputContentItemClasses": [],
+  "WFWorkflowImportQuestions": [],
+  "WFQuickActionSurfaces": [],
+  "WFWorkflowTypes": [],
+  "WFWorkflowHasShortcutInputVariables": false,
+  "WFWorkflowName": "Test → PAI"
+}

@@ -66,3 +66,14 @@ credentials/
 .claude/pai_updates/
 .claude/pai_backups/
 .claude/.pai-sync-history
+
+# Claude Code internals (session data, not PAI config)
+.claude/debug/
+.claude/file-history/
+.claude/history.jsonl
+.claude/projects/
+.claude/shell-snapshots/
+.claude/todos/
+# Build-time symlinks
+Bundles/pai-knowledge/tools/ingest/test
+Bundles/pai-knowledge/tools/obs

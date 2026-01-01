@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 // $PAI_DIR/voice-server/server.ts
-// Voice notification server using ElevenLabs TTS
+// Voice notification server with multi-provider TTS support
+// Supports: Google Cloud TTS, ElevenLabs
+// Platforms: macOS, Linux
 
 import { serve } from "bun";
 import { spawn } from "child_process";
@@ -22,15 +24,38 @@ if (existsSync(envPath)) {
 }
 
 const PORT = parseInt(process.env.PAI_VOICE_PORT || "8888");
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
-if (!ELEVENLABS_API_KEY) {
+// =============================================================================
+// TTS Provider Configuration
+// =============================================================================
+// Options: "google" | "elevenlabs" (default: elevenlabs for backward compatibility)
+const TTS_PROVIDER = (process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
+
+// ElevenLabs Configuration
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+const DEFAULT_ELEVENLABS_VOICE = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+
+// Google Cloud TTS Configuration
+// Free tier: 4M chars/month (Standard), 1M chars/month (WaveNet/Neural2)
+// This is ~800x more than ElevenLabs' free tier
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_TTS_VOICE = process.env.GOOGLE_TTS_VOICE || "en-US-Neural2-J";
+
+// Validate provider configuration
+if (TTS_PROVIDER === 'elevenlabs' && !ELEVENLABS_API_KEY) {
   console.error(`⚠️  ELEVENLABS_API_KEY not found in ${envPath}`);
   console.error('Add: ELEVENLABS_API_KEY=your_key_here to $PAI_DIR/.env');
+  console.error('Or switch to Google TTS: TTS_PROVIDER=google');
 }
 
-// Default voice ID (customize to your preference)
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+if (TTS_PROVIDER === 'google' && !GOOGLE_API_KEY) {
+  console.error(`⚠️  GOOGLE_API_KEY not found in ${envPath}`);
+  console.error('Add: GOOGLE_API_KEY=your_key_here to $PAI_DIR/.env');
+  console.error('Note: Enable Cloud Text-to-Speech API in Google Cloud Console');
+}
+
+// Default voice based on provider
+const DEFAULT_VOICE_ID = TTS_PROVIDER === 'google' ? GOOGLE_TTS_VOICE : DEFAULT_ELEVENLABS_VOICE;
 
 // Voice configuration types
 interface VoiceConfig {
@@ -137,8 +162,12 @@ function validateInput(input: any): { valid: boolean; error?: string; sanitized?
   return { valid: true, sanitized };
 }
 
-// Generate speech using ElevenLabs API
-async function generateSpeech(
+// =============================================================================
+// TTS Providers
+// =============================================================================
+
+// ElevenLabs TTS Generation
+async function generateSpeechElevenLabs(
   text: string,
   voiceId: string,
   voiceSettings?: { stability: number; similarity_boost: number }
@@ -172,6 +201,75 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
+// Google Cloud TTS Generation
+// Free tier: 4M chars/month (Standard), 1M chars/month (WaveNet/Neural2)
+async function generateSpeechGoogle(
+  text: string,
+  voice?: string
+): Promise<ArrayBuffer> {
+  if (!GOOGLE_API_KEY) {
+    throw new Error('Google API key not configured. Add GOOGLE_API_KEY to your .env file.');
+  }
+
+  const voiceName = voice || GOOGLE_TTS_VOICE;
+  // Extract language code from voice name (e.g., "en-US" from "en-US-Neural2-J")
+  const languageCode = voiceName.split('-').slice(0, 2).join('-');
+
+  const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      input: { text },
+      voice: {
+        languageCode,
+        name: voiceName,
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: 1.0,
+        pitch: 0,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google TTS API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Google returns base64-encoded audio in the 'audioContent' field
+  if (!data.audioContent) {
+    throw new Error('Google TTS: No audio content in response');
+  }
+
+  // Decode base64 to ArrayBuffer
+  const binaryString = atob(data.audioContent);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+// Unified speech generation - routes to the configured provider
+async function generateSpeech(
+  text: string,
+  voiceId: string,
+  voiceSettings?: { stability: number; similarity_boost: number }
+): Promise<ArrayBuffer> {
+  if (TTS_PROVIDER === 'google') {
+    return generateSpeechGoogle(text, voiceId);
+  } else {
+    return generateSpeechElevenLabs(text, voiceId, voiceSettings);
+  }
+}
+
 // Get volume setting from config (defaults to 0.8 = 80%)
 function getVolumeSetting(): number {
   if (voicesConfig && typeof voicesConfig.default_volume === 'number') {
@@ -181,37 +279,67 @@ function getVolumeSetting(): number {
   return 0.8;
 }
 
-// Play audio using afplay (macOS)
+// =============================================================================
+// Cross-Platform Audio Playback
+// =============================================================================
+
+// Play audio - supports macOS (afplay) and Linux (mpg123, mpv)
 async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
   await Bun.write(tempFile, audioBuffer);
   const volume = getVolumeSetting();
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let player: string;
+    let args: string[];
+
+    if (process.platform === 'darwin') {
+      // macOS: use afplay
+      player = '/usr/bin/afplay';
+      args = ['-v', volume.toString(), tempFile];
+    } else {
+      // Linux: try mpg123 first, then mpv
+      if (existsSync('/usr/bin/mpg123')) {
+        player = '/usr/bin/mpg123';
+        args = ['-q', tempFile];
+      } else if (existsSync('/usr/bin/mpv')) {
+        player = '/usr/bin/mpv';
+        args = ['--no-terminal', '--volume=' + (volume * 100), tempFile];
+      } else if (existsSync('/snap/bin/mpv')) {
+        player = '/snap/bin/mpv';
+        args = ['--no-terminal', '--volume=' + (volume * 100), tempFile];
+      } else {
+        console.warn('⚠️  No audio player found. Install mpg123 or mpv for audio playback.');
+        spawn('/bin/rm', [tempFile]);
+        resolve();
+        return;
+      }
+    }
+
+    const proc = spawn(player, args);
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
+      spawn('/bin/rm', [tempFile]);
       reject(error);
     });
 
     proc.on('exit', (code) => {
       spawn('/bin/rm', [tempFile]); // Clean up temp file
-      if (code === 0) {
+      if (code === 0 || code === null) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`${player} exited with code ${code}`));
       }
     });
   });
 }
 
-// Escape for AppleScript notifications
-function escapeForAppleScript(input: string): string {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
+// =============================================================================
+// Cross-Platform Notifications
+// =============================================================================
 
-// Send macOS notification with voice
+// Send notification with voice
 async function sendNotification(
   title: string,
   message: string,
@@ -231,8 +359,9 @@ async function sendNotification(
   const { cleaned, emotion } = extractEmotionalMarker(safeMessage);
   safeMessage = cleaned;
 
-  // Generate and play voice using ElevenLabs
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
+  // Generate and play voice
+  const apiKeyConfigured = TTS_PROVIDER === 'google' ? GOOGLE_API_KEY : ELEVENLABS_API_KEY;
+  if (voiceEnabled && apiKeyConfigured) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
       const voiceConfig = getVoiceConfig(voice);
@@ -260,12 +389,18 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification
+  // Display desktop notification (platform-aware)
   try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    spawn('/usr/bin/osascript', ['-e', script]);
+    if (process.platform === 'linux') {
+      // Linux: use notify-send
+      spawn('/usr/bin/notify-send', [safeTitle, safeMessage]);
+    } else if (process.platform === 'darwin') {
+      // macOS: use osascript
+      const escapedTitle = safeTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const escapedMessage = safeMessage.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      spawn('/usr/bin/osascript', ['-e', script]);
+    }
   } catch (error) {
     console.error("Notification display error:", error);
   }
@@ -346,13 +481,23 @@ const server = serve({
 
     // Health check endpoint
     if (url.pathname === "/health") {
+      const providerInfo = TTS_PROVIDER === 'google'
+        ? { name: 'Google Cloud TTS', configured: !!GOOGLE_API_KEY, voice: GOOGLE_TTS_VOICE }
+        : { name: 'ElevenLabs', configured: !!ELEVENLABS_API_KEY, voice: DEFAULT_ELEVENLABS_VOICE };
+
       return new Response(
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: "ElevenLabs",
-          default_voice_id: DEFAULT_VOICE_ID,
-          api_key_configured: !!ELEVENLABS_API_KEY
+          platform: process.platform,
+          tts_provider: providerInfo.name,
+          default_voice: providerInfo.voice,
+          api_key_configured: providerInfo.configured,
+          providers: {
+            active: TTS_PROVIDER,
+            google: { configured: !!GOOGLE_API_KEY, voice: GOOGLE_TTS_VOICE },
+            elevenlabs: { configured: !!ELEVENLABS_API_KEY, voice: DEFAULT_ELEVENLABS_VOICE }
+          }
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
@@ -365,8 +510,17 @@ const server = serve({
   },
 });
 
+// Startup logs
 console.log(`🚀 Voice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
+console.log(`🖥️  Platform: ${process.platform}`);
+console.log(`🎙️  TTS Provider: ${TTS_PROVIDER === 'google' ? 'Google Cloud TTS' : 'ElevenLabs'}`);
+console.log(`🗣️  Default voice: ${DEFAULT_VOICE_ID}`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+if (TTS_PROVIDER === 'google') {
+  console.log(`🔑 Google API Key: ${GOOGLE_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+  console.log(`💰 Free tier: 4M chars/month (Standard), 1M chars/month (Neural2)`);
+} else {
+  console.log(`🔑 ElevenLabs API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+}
+console.log(`💡 Switch providers: TTS_PROVIDER=google or TTS_PROVIDER=elevenlabs in .env`);

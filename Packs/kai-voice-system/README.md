@@ -1,16 +1,16 @@
 ---
 name: Kai Voice System
-pack-id: danielmiessler-kai-voice-system-core-v1.2.0
-version: 1.2.0
+pack-id: danielmiessler-kai-voice-system-core-v1.3.0
+version: 1.3.0
 author: danielmiessler
-description: Voice notification system with ElevenLabs TTS, prosody enhancement for natural speech, and agent personality-driven voice delivery
+description: Voice notification system with multi-provider TTS (Google Cloud or ElevenLabs), prosody enhancement for natural speech, and agent personality-driven voice delivery
 type: feature
 purpose-type: [notifications, accessibility, automation]
-platform: macos (linux with modifications)
+platform: macos, linux
 dependencies:
   - kai-hook-system (required) - Hooks trigger voice notifications
   - kai-core-install (required) - Skills, identity, and response format drive voice output
-keywords: [voice, tts, elevenlabs, notifications, prosody, speech, agents, personalities, accessibility]
+keywords: [voice, tts, elevenlabs, google-cloud-tts, notifications, prosody, speech, agents, personalities, accessibility]
 ---
 
 <p align="center">
@@ -26,28 +26,74 @@ keywords: [voice, tts, elevenlabs, notifications, prosody, speech, agents, perso
 | Platform | Status | Notes |
 |----------|--------|-------|
 | **macOS** | ✅ Fully Supported | Uses `afplay` (built-in) for audio playback |
-| **Linux** | ⚠️ Requires Modification | Must replace `afplay` with `aplay`, `paplay`, or `mpv` |
+| **Linux** | ✅ Fully Supported | Auto-detects `mpg123`, `mpv`, or `paplay` for audio |
 | **Windows** | ❌ Not Supported | No current implementation |
 
-**Before installing:** The installation guide will check your OS and warn you if modifications are needed.
+**Audio player priority (Linux):** mpg123 → mpv → paplay (install one: `sudo apt install mpg123`)
 
 ---
 
 ## What This Pack Provides
 
-- **Spoken Notifications**: Hear task completions via ElevenLabs text-to-speech
+- **Spoken Notifications**: Hear task completions via text-to-speech
+- **Multi-Provider TTS**: Choose between Google Cloud TTS or ElevenLabs
 - **Prosody Enhancement**: Natural speech patterns with emotional markers
 - **Agent Personalities**: Different voices for different agent types
 - **Intelligent Cleaning**: Strips code blocks and artifacts for clean speech
 - **Graceful Degradation**: Works silently when voice server is offline
 
+## TTS Provider Options
+
+Choose your text-to-speech provider based on your needs:
+
+| Provider | Free Tier | Quality | Setup |
+|----------|-----------|---------|-------|
+| **Google Cloud TTS** | 4M chars/month | High (Neural2/WaveNet) | Google API key |
+| **ElevenLabs** | ~10K chars/month | Premium | ElevenLabs API key |
+
+**Recommendation:** Google Cloud TTS offers **400x more free characters** — effectively unlimited for typical PAI notification usage.
+
+### Configuration
+
+Set in your `.env` file:
+
+```bash
+# Choose provider: "google" or "elevenlabs" (default: elevenlabs)
+TTS_PROVIDER=google
+
+# Google Cloud TTS (if using google)
+GOOGLE_API_KEY=your_google_api_key
+GOOGLE_TTS_VOICE=en-US-Neural2-J  # Optional, has sensible default
+
+# ElevenLabs (if using elevenlabs)
+ELEVENLABS_API_KEY=your_api_key
+ELEVENLABS_VOICE_ID=your_voice_id
+```
+
+### Google Cloud TTS Voices
+
+| Voice | Type | Description |
+|-------|------|-------------|
+| `en-US-Neural2-J` | Neural2 (default) | Natural male voice |
+| `en-US-Neural2-F` | Neural2 | Natural female voice |
+| `en-US-Wavenet-D` | WaveNet | Premium male voice |
+| `en-US-Standard-A` | Standard | Basic voice (more free chars) |
+
+See [Google Cloud TTS voices](https://cloud.google.com/text-to-speech/docs/voices) for full list.
+
 ## Architecture Overview
 
 ```
 ┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│   Stop Hook     │ ───► │  Voice Server    │ ───► │   ElevenLabs    │
-│ (extracts msg)  │      │  (localhost:8888)│      │   (TTS API)     │
-└─────────────────┘      └──────────────────┘      └─────────────────┘
+│   Stop Hook     │ ───► │  Voice Server    │ ───► │  TTS Provider   │
+│ (extracts msg)  │      │  (localhost:8888)│      │                 │
+└─────────────────┘      └──────────────────┘      │ ┌─────────────┐ │
+                                                   │ │ Google TTS  │ │
+                                                   │ └─────────────┘ │
+                                                   │ ┌─────────────┐ │
+                                                   │ │ ElevenLabs  │ │
+                                                   │ └─────────────┘ │
+                                                   └─────────────────┘
 ```
 
 ## The 5-Layer Prosody Enhancement Pipeline
@@ -79,7 +125,8 @@ keywords: [voice, tts, elevenlabs, notifications, prosody, speech, agents, perso
 **Summary:**
 - **Files created:** 7
 - **Hooks registered:** 2 (Stop, SubagentStop)
-- **Dependencies:** kai-hook-system (required), kai-core-install (required), ElevenLabs API key
+- **Dependencies:** kai-hook-system (required), kai-core-install (required)
+- **TTS API key:** Google Cloud API key OR ElevenLabs API key (choose one)
 
 ## Agent Voice Mapping
 

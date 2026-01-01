@@ -3,19 +3,19 @@
 ## Prerequisites
 
 - **Bun runtime**: `curl -fsSL https://bun.sh/install | bash`
-- **macOS REQUIRED**: Uses `afplay` for audio playback (see platform note below)
-- **ElevenLabs account**: Sign up at [elevenlabs.io](https://elevenlabs.io)
+- **macOS or Linux**: Cross-platform audio support included
+- **TTS API account** (choose one):
+  - **Google Cloud** (recommended): 4M free chars/month - [console.cloud.google.com](https://console.cloud.google.com)
+  - **ElevenLabs**: ~10K free chars/month - [elevenlabs.io](https://elevenlabs.io)
 - **Required PAI Packs** (install these first):
   - `kai-hook-system` - Foundation hook infrastructure
   - `kai-core-install` - Skills, identity, and response format
 
 ---
 
-## 🚨 CRITICAL: Platform Compatibility Check
+## Platform Compatibility Check
 
-> **FOR AI AGENTS:** You MUST run this check FIRST. If the user is on Linux or Windows, STOP and inform them before proceeding.
-
-### Step 0.0: Operating System Check (MANDATORY)
+### Step 0.0: Operating System Check
 
 ```bash
 OS_TYPE="$(uname -s)"
@@ -23,31 +23,33 @@ echo "Detected OS: $OS_TYPE"
 
 if [ "$OS_TYPE" = "Darwin" ]; then
   echo "✓ macOS detected - Voice system is fully supported"
+  echo "  Audio: afplay (built-in)"
 elif [ "$OS_TYPE" = "Linux" ]; then
+  echo "✓ Linux detected - Voice system is fully supported"
   echo ""
-  echo "⚠️  WARNING: Linux detected"
-  echo ""
-  echo "The Kai Voice System currently requires macOS because:"
-  echo "  1. Uses 'afplay' for audio playback (macOS built-in)"
-  echo "  2. Uses LaunchAgent for auto-start (macOS only)"
-  echo ""
-  echo "Linux alternatives (requires code modification):"
-  echo "  - Replace 'afplay' with 'aplay', 'paplay', or 'mpv'"
-  echo "  - Replace LaunchAgent with systemd service"
-  echo ""
-  echo "Do you want to proceed anyway? (You'll need to modify the code)"
-  echo "If proceeding, you MUST manually replace audio playback commands."
+  echo "Checking audio players..."
+  if command -v mpg123 &> /dev/null; then
+    echo "  ✓ mpg123 found (preferred)"
+  elif command -v mpv &> /dev/null; then
+    echo "  ✓ mpv found"
+  elif command -v paplay &> /dev/null; then
+    echo "  ✓ paplay found"
+  else
+    echo "  ⚠️  No audio player found. Install one:"
+    echo "     sudo apt install mpg123   # Recommended"
+    echo "     sudo apt install mpv"
+  fi
 else
   echo ""
   echo "❌ UNSUPPORTED: $OS_TYPE detected"
-  echo "The Kai Voice System only supports macOS (and Linux with modifications)."
+  echo "The Kai Voice System supports macOS and Linux only."
   echo "Windows is not currently supported."
 fi
 ```
 
 **AI Agent Instructions:**
 - If OS is macOS → Proceed with installation
-- If OS is Linux → Warn user, get explicit confirmation, note they must modify `afplay` calls
+- If OS is Linux → Ensure audio player is installed (mpg123 recommended), then proceed
 - If OS is Windows → STOP, do not proceed, inform user it's unsupported
 
 ---
@@ -104,12 +106,20 @@ else
   echo "❌ kai-core-install NOT installed - REQUIRED!"
 fi
 
-# Check for ElevenLabs API key
+# Check for TTS API key (either Google or ElevenLabs)
 PAI_ENV="${PAI_DIR:-$HOME/.config/pai}/.env"
-if [ -f "$PAI_ENV" ] && grep -q "ELEVENLABS_API_KEY" "$PAI_ENV"; then
-  echo "✓ ELEVENLABS_API_KEY found"
+if [ -f "$PAI_ENV" ]; then
+  if grep -q "GOOGLE_API_KEY" "$PAI_ENV"; then
+    echo "✓ GOOGLE_API_KEY found (Google TTS available)"
+  fi
+  if grep -q "ELEVENLABS_API_KEY" "$PAI_ENV"; then
+    echo "✓ ELEVENLABS_API_KEY found (ElevenLabs available)"
+  fi
+  if ! grep -q "GOOGLE_API_KEY\|ELEVENLABS_API_KEY" "$PAI_ENV"; then
+    echo "⚠️  No TTS API key found - add GOOGLE_API_KEY or ELEVENLABS_API_KEY to $PAI_ENV"
+  fi
 else
-  echo "⚠️  ELEVENLABS_API_KEY not found - add to $PAI_ENV"
+  echo "⚠️  No .env file found at $PAI_ENV"
 fi
 ```
 
@@ -183,14 +193,54 @@ Copy `src/voice/server.ts` to `$PAI_DIR/voice-server/server.ts`
 
 ---
 
-## Step 6: Set Up ElevenLabs Account
+## Step 6: Set Up TTS Provider
+
+Choose one of the following providers:
+
+### Option A: Google Cloud TTS (Recommended)
+
+**Why Google?** 4 million free characters per month vs ~10K for ElevenLabs. Effectively unlimited for PAI notifications.
+
+1. **Create a Google Cloud project** at [console.cloud.google.com](https://console.cloud.google.com)
+2. **Enable Cloud Text-to-Speech API**:
+   - Go to APIs & Services → Library
+   - Search for "Cloud Text-to-Speech API"
+   - Click Enable
+3. **Create API key**:
+   - Go to APIs & Services → Credentials
+   - Create Credentials → API Key
+   - (Optional) Restrict key to Cloud Text-to-Speech API
+4. **Add to $PAI_DIR/.env**:
+
+```bash
+TTS_PROVIDER=google
+GOOGLE_API_KEY=your-google-api-key
+GOOGLE_TTS_VOICE=en-US-Neural2-J  # Optional, this is the default
+```
+
+5. **Test your API key**:
+
+```bash
+curl -X POST "https://texttospeech.googleapis.com/v1/text:synthesize?key=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"input":{"text":"Hello, this is Google Cloud TTS."},"voice":{"languageCode":"en-US","name":"en-US-Neural2-J"},"audioConfig":{"audioEncoding":"MP3"}}' \
+  | jq -r '.audioContent' | base64 -d > test.mp3
+
+# Play (macOS: afplay, Linux: mpg123)
+mpg123 test.mp3 || afplay test.mp3
+rm test.mp3
+```
+
+### Option B: ElevenLabs
 
 1. **Sign up** at [elevenlabs.io](https://elevenlabs.io)
-2. **Get your API key** from Profile + API key
+2. **Get your API key** from Profile → API key
 3. **Add to $PAI_DIR/.env**:
 
 ```bash
-ELEVENLABS_API_KEY="your-api-key"
+TTS_PROVIDER=elevenlabs
+ELEVENLABS_API_KEY=your-api-key
+ELEVENLABS_VOICE_ID=your-voice-id
 ```
 
 4. **Test your API key**:
@@ -202,7 +252,7 @@ curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/s3TPKV1kjDlVtZbl4Ksh" 
   -d '{"text": "Hello, this is a test.", "model_id": "eleven_turbo_v2_5"}' \
   --output test.mp3
 
-afplay test.mp3  # Should hear "Hello, this is a test"
+mpg123 test.mp3 || afplay test.mp3  # Should hear "Hello, this is a test"
 rm test.mp3
 ```
 
@@ -303,15 +353,38 @@ Run the verification checklist in VERIFY.md to confirm everything works.
 ### No Voice Output
 
 1. Check voice server is running: `curl http://localhost:8888/health`
-2. Verify ElevenLabs API key is set in `$PAI_DIR/.env`
-3. Check logs: `tail -f ~/Library/Logs/pai-voice-server.log`
+2. Verify TTS API key is set in `$PAI_DIR/.env`
+3. Check which provider is active: response shows `provider: google` or `provider: elevenlabs`
+4. Check logs: `tail -f $PAI_DIR/voice-server/voice-server.log`
+
+### Google TTS Errors
+
+| Error | Solution |
+|-------|----------|
+| `SERVICE_DISABLED` | Enable Cloud Text-to-Speech API in Google Cloud Console |
+| `API_KEY_SERVICE_BLOCKED` | Add Cloud Text-to-Speech API to allowed APIs for your key |
+| `PERMISSION_DENIED` | Check API key is valid and has correct permissions |
+
+### ElevenLabs Errors
+
+| Error | Solution |
+|-------|----------|
+| `invalid_uid` | Remove quotes from API key in .env: `ELEVENLABS_API_KEY=abc123` not `"abc123"` |
+| `quota_exceeded` | Free tier exhausted. Consider switching to Google TTS |
+| `missing_permissions` | Enable TTS permission in ElevenLabs dashboard |
 
 ### Wrong Voice
 
 1. Verify voice ID in `config/voice-personalities.json`
 2. Check agent type is being detected correctly in hooks
 
-### Audio Playback Issues
+### Audio Playback Issues (Linux)
+
+1. Install an audio player: `sudo apt install mpg123`
+2. Check it works: `echo "test" | mpg123 -`
+3. Server auto-detects: mpg123 → mpv → paplay
+
+### Audio Playback Issues (macOS)
 
 1. Ensure `afplay` is available (macOS built-in)
 2. Check system volume

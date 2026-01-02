@@ -11,7 +11,16 @@ import { homedir } from "os";
 import { existsSync, readFileSync } from "fs";
 
 export function getPAIDir() {
-  return process.env.PAI_DIR || join(homedir(), ".config", 'pai');
+  if (process.env.PAI_DIR) return process.env.PAI_DIR;
+
+  // Self-awareness: If we are in <PAI_DIR>/tools/gemini-pai.ts
+  const possiblePaiDir = join(import.meta.dir, "..");
+  if (existsSync(join(possiblePaiDir, "skills", "CORE", "SKILL.md"))) {
+    return possiblePaiDir;
+  }
+
+  // Fallback to standard location
+  return join(homedir(), ".config", 'pai');
 }
 
 export function loadEnv(paiDir: string) {
@@ -108,26 +117,60 @@ async function main() {
       let promptFlagIndex = -1;
       const promptFlags = ["-i", "--prompt-interactive", "-p", "--prompt"];
       
+      // Extract prompt and check for explicit interactive flags
+      let explicitInteractive = false;
+
       for (let i = 0; i < userArgs.length; i++) {
+        if (userArgs[i] === "-i" || userArgs[i] === "--prompt-interactive") {
+           explicitInteractive = true;
+        }
+
         if (promptFlags.includes(userArgs[i])) {
           promptFlagIndex = i;
           userPrompt = userArgs[i + 1] || "";
+          // If we found the prompt via flag, we stop looking
           break;
         }
       }
 
-      if (promptFlagIndex === -1 && userArgs.length > 0 && !userArgs[0].startsWith("-")) {
-        userPrompt = userArgs[0];
-        promptFlagIndex = 0;
+      // If no prompt found via flags, check positional args
+      if (promptFlagIndex === -1 && userArgs.length > 0) {
+        // Find first non-flag arg
+        for (let i = 0; i < userArgs.length; i++) {
+             if (!userArgs[i].startsWith("-")) {
+                 userPrompt = userArgs[i];
+                 promptFlagIndex = i;
+                 break;
+             }
+        }
       }
 
+      // Default prompt if none provided (implies interactive startup)
+      const isStartup = !userPrompt;
       const finalUserPrompt = userPrompt || "PAI Active. Initialization complete. Please wait for my instruction.";
       const combinedPrompt = context ? `${context}\n\nUSER INSTRUCTION:\n${finalUserPrompt}` : finalUserPrompt;
 
-      finalArgs.push("-i", combinedPrompt);
+      // Determine mode: Interactive if explicit flag OR it's a startup (no prompt)
+      const isInteractive = explicitInteractive || isStartup;
 
+      // Reconstruct Args
+      if (isInteractive) {
+          finalArgs.push("-i");
+      }
+
+      // Add the combined prompt (positional)
+      finalArgs.push(combinedPrompt);
+
+      // Add back all other args, skipping the original prompt and interactive flags that we handled/replaced
       for (let i = 0; i < userArgs.length; i++) {
-        if (i === promptFlagIndex || (promptFlagIndex !== -1 && promptFlags.includes(userArgs[promptFlagIndex]) && i === promptFlagIndex + 1)) continue;
+        const isPromptFlag = promptFlagIndex !== -1 && i === promptFlagIndex;
+        const isPromptValue = promptFlagIndex !== -1 && i === promptFlagIndex + 1 && promptFlags.includes(userArgs[promptFlagIndex]); // Value after flag
+        const isPositionalPrompt = promptFlagIndex !== -1 && i === promptFlagIndex && !promptFlags.includes(userArgs[promptFlagIndex]); // Positional value
+        const isInteractiveFlag = userArgs[i] === "-i" || userArgs[i] === "--prompt-interactive";
+
+        if (isPromptFlag || isPromptValue || isPositionalPrompt || isInteractiveFlag) {
+            continue; 
+        }
         finalArgs.push(userArgs[i]);
       }
     } else {

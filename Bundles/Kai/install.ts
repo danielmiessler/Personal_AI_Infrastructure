@@ -34,6 +34,7 @@ interface WizardConfig {
   daName: string;
   timeZone: string;
   userName: string;
+  userEmail: string;
   elevenLabsApiKey?: string;
   elevenLabsVoiceId?: string;
 }
@@ -46,6 +47,11 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
+
+function stripQuotes(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+}
 
 function ask(question: string): Promise<string> {
   return new Promise((resolve) => {
@@ -81,6 +87,7 @@ interface ExistingConfig {
   daName?: string;
   timeZone?: string;
   userName?: string;
+  userEmail?: string;
   elevenLabsApiKey?: string;
   elevenLabsVoiceId?: string;
 }
@@ -99,18 +106,25 @@ async function readExistingConfig(): Promise<ExistingConfig> {
         const match = line.match(/^([A-Z_]+)=(.*)$/);
         if (match) {
           const [, key, value] = match;
+          const cleanValue = stripQuotes(value.trim());
           switch (key) {
             case "DA":
-              config.daName = value;
+              config.daName = cleanValue;
+              break;
+            case "PAI_USER_NAME":
+              config.userName = cleanValue;
+              break;
+            case "PAI_USER_EMAIL":
+              config.userEmail = cleanValue;
               break;
             case "TIME_ZONE":
-              config.timeZone = value;
+              config.timeZone = cleanValue;
               break;
             case "ELEVENLABS_API_KEY":
-              config.elevenLabsApiKey = value;
+              config.elevenLabsApiKey = cleanValue;
               break;
             case "ELEVENLABS_VOICE_ID":
-              config.elevenLabsVoiceId = value;
+              config.elevenLabsVoiceId = cleanValue;
               break;
           }
         }
@@ -120,12 +134,14 @@ async function readExistingConfig(): Promise<ExistingConfig> {
     // No .env file, continue with empty config
   }
 
-  // Try to read userName from SKILL.md
+  // Try to read userName from SKILL.md if not found in .env
   try {
     const skillPath = `${claudeDir}/skills/CORE/SKILL.md`;
-    if (existsSync(skillPath)) {
+    if (existsSync(skillPath) && !config.userName) {
       const skillContent = await Bun.file(skillPath).text();
-      const userMatch = skillContent.match(/Role:\s*(\w+)'s AI assistant/);
+      const userMatch = skillContent.match(
+        /^\s*-\s*Role:\s*([^'\n]+)'s\s+AI\s+assistant/im,
+      );
       if (userMatch) {
         config.userName = userMatch[1];
       }
@@ -285,11 +301,12 @@ async function gatherConfig(): Promise<WizardConfig> {
 
     // In update mode, just confirm existing values
     const keepExisting = await askYesNo("Keep existing configuration?", true);
-    if (keepExisting && existing.daName && existing.userName && existing.timeZone) {
+    if (keepExisting) {
       return {
-        daName: existing.daName,
-        timeZone: existing.timeZone,
-        userName: existing.userName,
+        daName: existing.daName || "Kai",
+        timeZone: existing.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        userName: existing.userName || await ask("What is your name? "),
+        userEmail: existing.userEmail || await ask("What is your email? "),
         elevenLabsApiKey: existing.elevenLabsApiKey,
         elevenLabsVoiceId: existing.elevenLabsVoiceId,
       };
@@ -321,6 +338,10 @@ async function gatherConfig(): Promise<WizardConfig> {
   const userName = existing.userName
     ? await askWithDefault("What is your name?", existing.userName)
     : await ask("What is your name? ");
+
+  const userEmail = existing.userEmail
+    ? await askWithDefault("What is your email?", existing.userEmail)
+    : await ask("What is your email? ");
 
   const daName = await askWithDefault(
     "What would you like to name your AI assistant?",
@@ -359,6 +380,7 @@ async function gatherConfig(): Promise<WizardConfig> {
     daName,
     timeZone,
     userName,
+    userEmail,
     elevenLabsApiKey,
     elevenLabsVoiceId,
   };
@@ -383,10 +405,11 @@ description: Personal AI Infrastructure core. AUTO-LOADS at session start. USE W
 **Assistant:**
 - Name: ${config.daName}
 - Role: ${config.userName}'s AI assistant
-- Operating Environment: Personal AI infrastructure built on Claude Code
+- Operating Environment: Personal AI infrastructure built on Claude Code / Gemini CLI
 
 **User:**
 - Name: ${config.userName}
+- Email: ${config.userEmail}
 
 ---
 
@@ -429,6 +452,18 @@ Define a consistent response format for task-based responses:
 \`\`\`
 
 Customize this format in SKILL.md to match your preferences.
+
+---
+
+## PAI Tools
+
+You have access to specialized PAI tools in \`\${PAI_DIR}/tools\`.
+Run them using Bun: \`bun \${PAI_DIR}/tools/ToolName.ts\`
+
+**Available Tools:**
+- \`SkillSearch.ts\`: Search for installed capabilities.
+- \`PaiArchitecture.ts\`: Explain the PAI system loops and principles.
+- \`GenerateSkillIndex.ts\`: Rebuild the skill discovery index.
 
 ---
 
@@ -563,7 +598,8 @@ async function main() {
     // Step 3: Install
     printHeader("STEP 3: INSTALLATION");
 
-    const claudeDir = `${process.env.HOME}/.claude`;
+    // Respect PAI_DIR for installation directory
+    const claudeDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
 
     // Create directory structure
     console.log("Creating directory structure...");
@@ -587,12 +623,29 @@ async function main() {
     const coreStackMd = generateCoreStackMd(config);
     await Bun.write(`${claudeDir}/skills/CORE/CoreStack.md`, coreStackMd);
 
+    // Install gemini-pai adapter
+    console.log("Installing gemini-pai adapter...");
+    const possiblePaths = ["../../Tools/gemini-pai.ts", "../../../Tools/gemini-pai.ts", "./Tools/gemini-pai.ts"];
+    let sourcePath: string | null = null;
+    for (const p of possiblePaths) { if (existsSync(p)) { sourcePath = p; break; } }
+
+    if (sourcePath) {
+      const destPath = `${claudeDir}/tools/gemini-pai.ts`;
+      await Bun.write(destPath, await Bun.file(sourcePath).text());
+      await $`chmod +x ${destPath}`;
+      console.log(`✓ Installed gemini-pai adapter to ${destPath}`);
+    } else {
+      console.log("⚠️  Could not locate gemini-pai.ts source. Skipping adapter copy.");
+    }
+
     // Create .env file (no quotes around values - .env format standard)
     console.log("Creating .env file...");
     const envFileContent = `# PAI Environment Configuration
 # Created by Kai Bundle installer - ${new Date().toISOString().split("T")[0]}
 
 DA=${config.daName}
+PAI_USER_NAME=${config.userName}
+PAI_USER_EMAIL=${config.userEmail}
 TIME_ZONE=${config.timeZone}
 ${config.elevenLabsApiKey ? `ELEVENLABS_API_KEY=${config.elevenLabsApiKey}` : "# ELEVENLABS_API_KEY="}
 ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` : "# ELEVENLABS_VOICE_ID="}
@@ -605,6 +658,8 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
     const settingsJson: Record<string, unknown> = {
       env: {
         DA: config.daName,
+        PAI_USER_NAME: config.userName,
+        PAI_USER_EMAIL: config.userEmail,
         TIME_ZONE: config.timeZone,
         PAI_DIR: claudeDir,
         PAI_SOURCE_APP: config.daName,
@@ -642,32 +697,84 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
     // Add to shell profile
     console.log("Updating shell profile...");
     const shell = process.env.SHELL || "/bin/zsh";
-    const shellProfile = shell.includes("zsh")
-      ? `${process.env.HOME}/.zshrc`
-      : `${process.env.HOME}/.bashrc`;
+    const shellProfile = shell.includes("zsh") ? `${process.env.HOME}/.zshrc` : `${process.env.HOME}/.bashrc`;
 
-    const envExports = `
-# PAI Configuration (added by Kai Bundle installer)
-export DA="${config.daName}"
-export TIME_ZONE="${config.timeZone}"
-export PAI_SOURCE_APP="$DA"
-${config.elevenLabsApiKey ? `export ELEVENLABS_API_KEY="${config.elevenLabsApiKey}"` : ""}
-${config.elevenLabsVoiceId ? `export ELEVENLABS_VOICE_ID="${config.elevenLabsVoiceId}"` : ""}
-`;
+    let shellContent = await Bun.file(shellProfile).text().catch(() => "");
+    const legacyStart = "# PAI (Personal AI Infrastructure) Configuration";
+    const newStart = "# PAI Configuration (added by Kai Bundle installer)";
+    const endMarker = "# End PAI Configuration";
 
-    const existingProfile = await Bun.file(shellProfile).text().catch(() => "");
-    if (!existingProfile.includes("PAI Configuration")) {
-      await Bun.write(shellProfile, existingProfile + "\n" + envExports);
-      console.log(`Added environment variables to ${shellProfile}`);
+    let startIndex = shellContent.indexOf(legacyStart);
+    if (startIndex === -1) startIndex = shellContent.indexOf(newStart);
+
+    if (startIndex !== -1) {
+      console.log("  Detected existing PAI configuration block. Updating...");
+      let endIndex = shellContent.indexOf(endMarker, startIndex);
+      let hasEndMarker = true;
+      if (endIndex === -1) {
+        hasEndMarker = false;
+        const nextDoubleNewline = shellContent.indexOf("\n\n", startIndex);
+        endIndex = nextDoubleNewline !== -1 ? nextDoubleNewline : shellContent.length;
+      }
+
+      const blockContent = shellContent.substring(startIndex, endIndex);
+      const lines = blockContent.split("\n");
+      const newLines: string[] = [];
+      const exportLine = lines.find(l => l.trim().startsWith("export"));
+      const indentation = exportLine ? (exportLine.match(/^(\s*)/)?.[1] || "") : "";
+      const keysHandled = new Set<string>();
+
+      for (const line of lines) {
+        let newLine = line;
+        const trimmed = line.trim();
+        const updateExport = (key: string, val: string) => {
+          if (trimmed.startsWith(`export ${key}=`)) {
+            newLine = `${indentation}export ${key}="${val}"`;
+            keysHandled.add(key);
+          }
+        };
+        updateExport("DA", config.daName);
+        updateExport("TIME_ZONE", config.timeZone);
+        updateExport("PAI_DIR", claudeDir);
+        if (config.elevenLabsApiKey) updateExport("ELEVENLABS_API_KEY", config.elevenLabsApiKey);
+        if (config.elevenLabsVoiceId) updateExport("ELEVENLABS_VOICE_ID", config.elevenLabsVoiceId);
+        if (trimmed.startsWith("alias gemini-pai=")) {
+          newLine = `${indentation}alias gemini-pai="bun ${claudeDir}/tools/gemini-pai.ts"`;
+          keysHandled.add("gemini-pai");
+        }
+        if (trimmed.startsWith("export PAI_USER_NAME=")) keysHandled.add("PAI_USER_NAME");
+        if (trimmed.startsWith("export PAI_USER_EMAIL=")) keysHandled.add("PAI_USER_EMAIL");
+        if (trimmed.startsWith("export PAI_SOURCE_APP=")) keysHandled.add("PAI_SOURCE_APP");
+        newLines.push(newLine);
+      }
+      while (newLines.length > 0 && newLines[newLines.length - 1].trim() === "") newLines.pop();
+      const addVar = (key: string, val: string) => { if (!keysHandled.has(key) && val) newLines.push(`${indentation}export ${key}="${val}"`); };
+      addVar("PAI_USER_NAME", config.userName);
+      addVar("PAI_USER_EMAIL", config.userEmail);
+      addVar("PAI_SOURCE_APP", "$DA"); 
+      if (!keysHandled.has("gemini-pai")) newLines.push(`${indentation}alias gemini-pai="bun ${claudeDir}/tools/gemini-pai.ts"`);
+      
+      let newBlock = newLines.join("\n");
+      if (!newBlock.endsWith("\n")) newBlock += "\n";
+      newBlock += endMarker;
+      const replaceEnd = hasEndMarker ? endIndex + endMarker.length : endIndex;
+      shellContent = shellContent.substring(0, startIndex) + newBlock + shellContent.substring(replaceEnd);
     } else {
-      console.log(`PAI environment variables already exist in ${shellProfile}`);
+      console.log("  Creating new PAI configuration block...");
+      const newBlock = `\n${legacyStart}\n# Added by Kai Bundle installer on ${new Date().toISOString().split('T')[0]}\nexport PAI_DIR="${claudeDir}"\nexport DA="${config.daName}"\nexport PAI_USER_NAME="${config.userName}"\nexport PAI_USER_EMAIL="${config.userEmail}"\nexport TIME_ZONE="${config.timeZone}"\nexport PAI_SOURCE_APP="$DA"\nalias gemini-pai="bun ${claudeDir}/tools/gemini-pai.ts"\n${config.elevenLabsApiKey ? `export ELEVENLABS_API_KEY="${config.elevenLabsApiKey}"\n` : ""}${config.elevenLabsVoiceId ? `export ELEVENLABS_VOICE_ID="${config.elevenLabsVoiceId}"\n` : ""}${endMarker}\n`;
+      shellContent += newBlock;
     }
+
+    await Bun.write(shellProfile, shellContent);
+    console.log(`✓ Updated PAI configuration in ${shellProfile}`);
 
     // Source the shell profile to make variables available
     console.log("Sourcing shell profile...");
     try {
       // Export to current process
       process.env.DA = config.daName;
+      process.env.PAI_USER_NAME = config.userName;
+      process.env.PAI_USER_EMAIL = config.userEmail;
       process.env.TIME_ZONE = config.timeZone;
       process.env.PAI_SOURCE_APP = config.daName;
       if (config.elevenLabsApiKey) process.env.ELEVENLABS_API_KEY = config.elevenLabsApiKey;
@@ -684,18 +791,18 @@ ${config.elevenLabsVoiceId ? `export ELEVENLABS_VOICE_ID="${config.elevenLabsVoi
       console.log(`
 Your Kai system has been updated:
 
-  📁 Installation: ~/.claude
+  📁 Installation: ${claudeDir}
   🤖 Assistant Name: ${config.daName}
   👤 User: ${config.userName}
   🌍 Timezone: ${config.timeZone}
   🔊 Voice: ${config.elevenLabsApiKey ? "Enabled" : "Disabled"}
 
 Files updated:
-  - ~/.claude/skills/CORE/SKILL.md
-  - ~/.claude/skills/CORE/Contacts.md
-  - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
-  - ~/.claude/settings.json
+  - ${claudeDir}/skills/CORE/SKILL.md
+  - ${claudeDir}/skills/CORE/Contacts.md
+  - ${claudeDir}/skills/CORE/CoreStack.md
+  - ${claudeDir}/.env
+  - ${claudeDir}/settings.json
 
 Next steps:
 
@@ -708,19 +815,19 @@ Your existing hooks, history, and customizations have been preserved.
       console.log(`
 Your Kai system is configured:
 
-  📁 Installation: ~/.claude
-  💾 Backup: ~/.claude-BACKUP
+  📁 Installation: ${claudeDir}
+  💾 Backup: ${process.env.HOME}/.claude-BACKUP
   🤖 Assistant Name: ${config.daName}
   👤 User: ${config.userName}
   🌍 Timezone: ${config.timeZone}
   🔊 Voice: ${config.elevenLabsApiKey ? "Enabled" : "Disabled"}
 
 Files created:
-  - ~/.claude/skills/CORE/SKILL.md
-  - ~/.claude/skills/CORE/Contacts.md
-  - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
-  - ~/.claude/settings.json (env vars for Claude Code)
+  - ${claudeDir}/skills/CORE/SKILL.md
+  - ${claudeDir}/skills/CORE/Contacts.md
+  - ${claudeDir}/skills/CORE/CoreStack.md
+  - ${claudeDir}/.env
+  - ${claudeDir}/settings.json (env vars for Claude Code)
 
 Next steps:
 

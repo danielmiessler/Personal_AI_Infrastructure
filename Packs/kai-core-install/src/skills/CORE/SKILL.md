@@ -23,10 +23,12 @@ User: "What's Angela's email?"
 **Assistant:**
 - Name: [YOUR_AI_NAME]
 - Role: [YOUR_NAME]'s AI assistant
+- Operating Environment: Personal AI infrastructure built on Claude Code / Gemini CLI
 
 **User:**
 - Name: [YOUR_NAME]
 - Profession: [YOUR_PROFESSION]
+- Email: [YOUR_EMAIL]
 
 ---
 

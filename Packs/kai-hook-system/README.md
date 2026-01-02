@@ -19,6 +19,11 @@ keywords: [hooks, automation, events, security, validation, sessions, context, c
 
 > Event-driven automation framework for Claude Code - the foundation for all hook-based capabilities
 
+## Platform Compatibility
+
+- **Claude Code**: Full native support via `settings.json` hooks.
+- **Gemini CLI**: Supported via the `gemini-pai` adapter, which simulates the hook lifecycle (SessionStart and Stop).
+
 ## What's Included
 
 | Component | File | Purpose |

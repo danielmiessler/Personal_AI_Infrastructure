@@ -21,7 +21,7 @@ The old approach was "here's my whole system—clone it and customize." That cre
 **Packs are different:**
 - **Self-contained** - Works without understanding the rest of the system
 - **Independently installable** - Add what you need, skip what you don't
-- **Platform-agnostic** - Works with Claude Code, OpenCode, Cursor, or custom systems
+- **Platform-agnostic** - Works with Claude Code, Gemini CLI, OpenCode, Cursor, or custom systems
 - **AI-installable** - Give your AI the pack directory, it handles the rest
 
 **The key insight:** Give your AI the complete context it needs, and it can integrate the pack into *your* system autonomously.

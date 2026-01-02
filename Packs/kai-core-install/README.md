@@ -21,6 +21,11 @@ keywords: [core, identity, skills, routing, architecture, installation, foundati
 
 > The complete foundation for Personal AI Infrastructure - skill routing, identity framework, and architecture tracking in one unified pack.
 
+## Platform Compatibility
+
+- **Claude Code**: Full native support.
+- **Gemini CLI**: Supported via the `gemini-pai` adapter, which provides context injection and hook simulation.
+
 ## What This Pack Provides
 
 **Part 1: Skill System**

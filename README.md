@@ -577,9 +577,10 @@ PAI packs are designed to be **platform-agnostic**:
 | Platform | Status | Notes |
 |----------|--------|-------|
 | **Claude Code** | ✅ Full support | Native integration, all features work |
+| **Gemini CLI** | ✅ Full support | Supported via `gemini-pai` adapter |
 | **OpenCode** | ✅ Compatible | Skills/hooks may need adaptation |
 | **Custom systems** | ✅ Compatible | Extract code, adapt to your structure |
-| **Gemini Code / Codex** | 🔄 Testing | Should work with minor tweaks |
+| **GPT-Codex** | 🔄 Testing | Should work with minor tweaks |
 | **Manual use** | ✅ Always works | Packs are documentation + code |
 
 The code itself is platform-independent (TypeScript, Python, Bash). Integration points (skills, hooks) may vary by platform.

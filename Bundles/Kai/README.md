@@ -81,7 +81,7 @@ bun run install.ts --update
 ### Fresh Install
 
 The wizard will:
-1. **Detect existing AI systems** - Scans for Claude Code, Cursor, Windsurf, Cline, Aider, Continue
+1. **Detect existing AI systems** - Scans for Claude Code, Gemini CLI, Cursor, Windsurf, Cline, Aider, Continue
 2. **Show you what it found** and explain what will be backed up
 3. **Ask for your confirmation** before making any changes
 4. **Create a safety backup** of your existing `~/.claude` directory to `~/.claude-BACKUP`

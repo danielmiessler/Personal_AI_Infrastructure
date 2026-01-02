@@ -47,6 +47,36 @@ When extended thinking is disabled:
 
 ---
 
+# Gemini 2.x Behavioral Characteristics
+
+
+
+## Context Window Utilization
+
+- **Exploit the 2M+ window:** Gemini 2.x excels at processing massive documentation and entire codebases simultaneously.
+
+- **Precision anchoring:** Use specific file/line references to guide attention within large contexts.
+
+
+
+## Multimodal Reasoning
+
+- **Visual Evidence:** Reference images, diagrams, and terminal screenshots directly.
+
+- **Video Analysis:** Provide timestamps for specific events in screen recordings.
+
+
+
+## Reasoning Models (Thinking)
+
+- **Pro Thinking:** Use for complex architectural decisions and deep logic.
+
+- **Flash:** Use for rapid implementation and high-speed execution.
+
+
+
+---
+
 # Key Principles
 
 ## 0. Markdown Only - NO XML Tags

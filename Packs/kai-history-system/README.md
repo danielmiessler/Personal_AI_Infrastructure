@@ -24,12 +24,12 @@ keywords: [history, documentation, memory, capture, hooks, sessions, learnings, 
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Universal event capture | `src/capture-all-events.ts` | Log all events to JSONL for audit trail |
-| Stop hook | `src/stop-hook.ts` | Capture main agent completions and learnings |
-| Subagent stop hook | `src/subagent-stop-hook.ts` | Route subagent outputs by type |
-| Session summary | `src/capture-session-summary.ts` | Summarize sessions at close |
-| Metadata extraction lib | `src/lib/metadata-extraction.ts` | Extract agent instance metadata |
-| Hook config | `config/settings-hooks.json` | Claude Code hook registration template |
+| Universal event capture | `src/hooks/capture-all-events.ts` | Log all events to JSONL for audit trail |
+| Stop hook | `src/hooks/stop-hook.ts` | Capture main agent completions and learnings |
+| Subagent stop hook | `src/hooks/subagent-stop-hook.ts` | Route subagent outputs by type |
+| Session summary | `src/hooks/capture-session-summary.ts` | Summarize sessions at close |
+| Metadata extraction lib | `src/hooks/lib/metadata-extraction.ts` | Extract agent instance metadata |
+| Hook config | `src/config/settings-hooks.json` | Claude Code hook registration template |
 
 **Summary:**
 - **Files created:** 6 + history directory structure

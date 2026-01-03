@@ -740,10 +740,10 @@ Files created:
 Next steps:
 
   1. Install the packs IN ORDER by giving each pack file to your AI:
-     - kai-hook-system.md
-     - kai-history-system.md
-     - kai-core-install.md
-     - kai-voice-system.md (optional, requires ElevenLabs)
+     - kai-hook-system/INSTALL.md
+     - kai-history-system/INSTALL.md
+     - kai-core-install/INSTALL.md
+     - kai-voice-system/INSTALL.md (optional, requires ElevenLabs)
 
   2. Restart Claude Code to activate hooks
 

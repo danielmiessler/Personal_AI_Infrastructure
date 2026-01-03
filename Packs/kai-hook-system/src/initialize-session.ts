@@ -60,10 +60,13 @@ function getProjectName(cwd: string | undefined): string {
 }
 
 async function checkForUpdates(): Promise<void> {
-  // Optional: Check for Claude Code updates in background
+  // Optional: Check for AI system updates in background
   // This is non-blocking and fails silently
+  const sourceApp = (process.env.PAI_SOURCE_APP || '').toLowerCase();
+  const binary = sourceApp.includes('gemini') ? 'gemini' : 'claude';
+  
   try {
-    const proc = Bun.spawn(['claude', '--version'], {
+    const proc = Bun.spawn([binary, '--version'], {
       stdout: 'pipe',
       stderr: 'pipe'
     });
@@ -74,7 +77,7 @@ async function checkForUpdates(): Promise<void> {
     if (version) {
       // Could compare against known latest version
       // For now, just log it
-      console.error(`[PAI] Claude Code version: ${version}`);
+      console.error(`[PAI] ${binary === 'gemini' ? 'Gemini CLI' : 'Claude Code'} version: ${version}`);
     }
   } catch {
     // Silently ignore - version check is optional

@@ -20,6 +20,11 @@ keywords: [history, documentation, memory, capture, hooks, sessions, learnings, 
 
 > Granular context-tracking system for the entire AI infrastructure - captures all work, decisions, and learnings automatically with zero manual effort
 
+## Platform Compatibility
+
+- **Claude Code**: Full native support via `settings.json` hooks.
+- **Gemini CLI**: Supported via the `gemini-pai` adapter, which simulates the hook lifecycle (SessionStart and Stop).
+
 ## What's Included
 
 | Component | File | Purpose |

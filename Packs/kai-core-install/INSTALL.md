@@ -73,10 +73,10 @@ fi
 ```bash
 # Create the Skills directory
 mkdir -p $PAI_DIR/skills/CORE/Workflows
-mkdir -p $PAI_DIR/skills/CORE/Tools
+mkdir -p $PAI_DIR/skills/CORE/tools
 mkdir -p $PAI_DIR/skills/CreateSkill/Workflows
-mkdir -p $PAI_DIR/skills/CreateSkill/Tools
-mkdir -p $PAI_DIR/Tools
+mkdir -p $PAI_DIR/skills/CreateSkill/tools
+mkdir -p $PAI_DIR/tools
 ```
 
 ---
@@ -89,10 +89,10 @@ Copy `src/skills/CORE/SkillSystem.md` to `$PAI_DIR/skills/CORE/SkillSystem.md`
 
 ## Step 3: Install Tools
 
-Copy the following tools to `$PAI_DIR/Tools/`:
-- `src/tools/SkillSearch.ts` → `$PAI_DIR/Tools/SkillSearch.ts`
-- `src/tools/GenerateSkillIndex.ts` → `$PAI_DIR/Tools/GenerateSkillIndex.ts`
-- `src/tools/PaiArchitecture.ts` → `$PAI_DIR/Tools/PaiArchitecture.ts`
+Copy the following tools to `$PAI_DIR/tools/`:
+- `src/tools/SkillSearch.ts` → `$PAI_DIR/tools/SkillSearch.ts`
+- `src/tools/GenerateSkillIndex.ts` → `$PAI_DIR/tools/GenerateSkillIndex.ts`
+- `src/tools/PaiArchitecture.ts` → `$PAI_DIR/tools/PaiArchitecture.ts`
 
 ---
 
@@ -123,7 +123,7 @@ Copy `src/skills/CORE/Workflows/UpdateDocumentation.md` to:
 ## Step 7: Generate Initial Index
 
 ```bash
-bun run $PAI_DIR/Tools/GenerateSkillIndex.ts
+bun run $PAI_DIR/tools/GenerateSkillIndex.ts
 ```
 
 ---
@@ -131,8 +131,8 @@ bun run $PAI_DIR/Tools/GenerateSkillIndex.ts
 ## Step 8: Generate Initial Architecture
 
 ```bash
-bun run $PAI_DIR/Tools/PaiArchitecture.ts generate
-bun run $PAI_DIR/Tools/PaiArchitecture.ts log-upgrade "Initial kai-core-install installation"
+bun run $PAI_DIR/tools/PaiArchitecture.ts generate
+bun run $PAI_DIR/tools/PaiArchitecture.ts log-upgrade "Initial kai-core-install installation"
 ```
 
 ---

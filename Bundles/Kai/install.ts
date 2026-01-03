@@ -60,6 +60,15 @@ async function askWithDefault(question: string, defaultValue: string): Promise<s
   return answer || defaultValue;
 }
 
+function isValidTimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function askYesNo(question: string, defaultYes = true): Promise<boolean> {
   const defaultStr = defaultYes ? "Y/n" : "y/N";
   const answer = await ask(`${question} [${defaultStr}]: `);
@@ -327,10 +336,16 @@ async function gatherConfig(): Promise<WizardConfig> {
     existing.daName || "Kai"
   );
 
-  const timeZone = await askWithDefault(
-    "What's your timezone?",
-    existing.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
-  );
+  // Get timezone with validation
+  const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const existingTz = existing.timeZone && isValidTimezone(existing.timeZone) ? existing.timeZone : defaultTz;
+  let timeZone = await askWithDefault("What's your timezone?", existingTz);
+
+  while (!isValidTimezone(timeZone)) {
+    console.log(`  ⚠️  "${timeZone}" is not a valid IANA timezone.`);
+    console.log(`     Examples: America/New_York, Europe/London, Asia/Tokyo`);
+    timeZone = await askWithDefault("What's your timezone?", defaultTz);
+  }
 
   // Voice - in update mode, default to yes if already configured
   const defaultWantsVoice = !!existing.elevenLabsApiKey;

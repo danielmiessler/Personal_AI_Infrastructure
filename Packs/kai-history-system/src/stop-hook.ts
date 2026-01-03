@@ -68,6 +68,33 @@ function generateFilename(type: string, description: string): string {
   return `${timestamp}_${type}_${kebab}.md`;
 }
 
+function extractLastResponse(transcriptPath: string): string | null {
+  try {
+    if (!existsSync(transcriptPath)) return null;
+
+    const content = require('fs').readFileSync(transcriptPath, 'utf-8');
+    const lines = content.split('\n').filter((l: string) => l.trim());
+
+    // Find last assistant message
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        if (entry.type === 'assistant' && entry.message?.content) {
+          // Extract text from content array
+          const textParts = entry.message.content
+            .filter((c: any) => c.type === 'text')
+            .map((c: any) => c.text)
+            .join('\n');
+          if (textParts.length > 50) return textParts;
+        }
+      } catch {}
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   try {
     const stdinData = await Bun.stdin.text();
@@ -76,14 +103,21 @@ async function main() {
     }
 
     const payload: StopPayload = JSON.parse(stdinData);
-    if (!payload.response) {
+
+    // Get response from payload or extract from transcript
+    let response = payload.response;
+    if (!response && payload.transcript_path) {
+      response = extractLastResponse(payload.transcript_path) || undefined;
+    }
+
+    if (!response) {
       process.exit(0);
     }
 
     const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
     const historyDir = join(paiDir, 'history');
 
-    const isLearning = hasLearningIndicators(payload.response);
+    const isLearning = hasLearningIndicators(response);
     const type = isLearning ? 'LEARNING' : 'SESSION';
     const subdir = isLearning ? 'learnings' : 'sessions';
 
@@ -95,7 +129,7 @@ async function main() {
       mkdirSync(outputDir, { recursive: true });
     }
 
-    const summary = extractSummary(payload.response);
+    const summary = extractSummary(response);
     const filename = generateFilename(type, summary);
     const filepath = join(outputDir, filename);
 
@@ -108,7 +142,7 @@ executor: main
 
 # ${type}: ${summary}
 
-${payload.response}
+${response.slice(0, 5000)}
 
 ---
 

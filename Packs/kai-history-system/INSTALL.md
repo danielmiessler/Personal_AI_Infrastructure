@@ -103,13 +103,13 @@ Copy all TypeScript files from this pack's `src/` directory to your hooks direct
 
 ```bash
 # Copy hook files
-cp src/capture-all-events.ts $PAI_DIR/hooks/
-cp src/stop-hook.ts $PAI_DIR/hooks/
-cp src/subagent-stop-hook.ts $PAI_DIR/hooks/
-cp src/capture-session-summary.ts $PAI_DIR/hooks/
+cp src/hooks/capture-all-events.ts $PAI_DIR/hooks/
+cp src/hooks/stop-hook.ts $PAI_DIR/hooks/
+cp src/hooks/subagent-stop-hook.ts $PAI_DIR/hooks/
+cp src/hooks/capture-session-summary.ts $PAI_DIR/hooks/
 
 # Copy library files
-cp src/lib/metadata-extraction.ts $PAI_DIR/hooks/lib/
+cp src/hooks/lib/metadata-extraction.ts $PAI_DIR/hooks/lib/
 
 # Verify all files are in place
 ls -la $PAI_DIR/hooks/*.ts
@@ -120,7 +120,7 @@ ls -la $PAI_DIR/hooks/lib/*.ts
 
 ## Step 3: Register Hooks in settings.json
 
-Merge the hook configuration from `config/settings-hooks.json` into your `~/.claude/settings.json`.
+Merge the hook configuration from `src/config/settings-hooks.json` into your `~/.claude/settings.json`.
 
 **For existing installations:** Add the history hooks alongside your existing hooks in `~/.claude/settings.json`.
 

@@ -4,7 +4,7 @@
  *
  * Parses all SKILL.md files and builds a searchable index.
  *
- * Usage: bun run $PAI_DIR/Tools/GenerateSkillIndex.ts
+ * Usage: bun run $PAI_DIR/tools/GenerateSkillIndex.ts
  */
 
 import { readdir, readFile, writeFile } from 'fs/promises';

@@ -6,10 +6,10 @@
  * tracking all installed packs, bundles, plugins, and upgrades.
  *
  * Usage:
- *   bun PaiArchitecture.ts generate    # Generate/refresh Architecture.md
- *   bun PaiArchitecture.ts status      # Show current state (stdout)
- *   bun PaiArchitecture.ts check       # Verify installation health
- *   bun PaiArchitecture.ts log-upgrade "description"  # Add upgrade entry
+ *   bun $PAI_DIR/tools/PaiArchitecture.ts generate    # Generate/refresh Architecture.md
+ *   bun $PAI_DIR/tools/PaiArchitecture.ts status      # Show current state (stdout)
+ *   bun $PAI_DIR/tools/PaiArchitecture.ts check       # Verify installation health
+ *   bun $PAI_DIR/tools/PaiArchitecture.ts log-upgrade "description"  # Add upgrade entry
  */
 
 import { readdir, readFile, writeFile, appendFile } from 'fs/promises';

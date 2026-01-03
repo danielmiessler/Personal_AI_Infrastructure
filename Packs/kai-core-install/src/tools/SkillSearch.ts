@@ -5,8 +5,8 @@
  * Search the skill index to discover capabilities dynamically.
  *
  * Usage:
- *   bun run $PAI_DIR/Tools/SkillSearch.ts <query>
- *   bun run $PAI_DIR/Tools/SkillSearch.ts --list
+ *   bun run $PAI_DIR/tools/SkillSearch.ts <query>
+ *   bun run $PAI_DIR/tools/SkillSearch.ts --list
  */
 
 import { readFile } from 'fs/promises';

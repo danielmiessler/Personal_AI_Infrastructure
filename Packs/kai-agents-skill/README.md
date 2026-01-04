@@ -1,7 +1,7 @@
 ---
 name: Kai Agents Skill
-pack-id: danielmiessler-agents-skill-core-v1.1.0
-version: 1.1.0
+pack-id: danielmiessler-agents-skill-core-v1.1.1
+version: 1.1.1
 author: danielmiessler
 description: Dynamic agent composition and orchestration system - create custom agents with unique personalities, voices, and trait combinations on-the-fly
 type: skill
@@ -92,6 +92,10 @@ bun run AgentFactory.ts --list
 ```
 
 ## Changelog
+
+### 1.1.1 - 2026-01-03
+- Added missing `SpawnParallelAgents.md` workflow (was referenced but didn't exist)
+- Fixed workflow validation
 
 ### 1.1.0 - 2025-12-30
 - **CRITICAL FIX**: Custom agents now use `subagent_type: "general-purpose"` instead of "Intern"

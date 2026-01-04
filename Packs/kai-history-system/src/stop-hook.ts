@@ -2,7 +2,7 @@
 // $PAI_DIR/hooks/stop-hook.ts
 // Captures main agent work summaries and learnings
 
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -68,6 +68,58 @@ function generateFilename(type: string, description: string): string {
   return `${timestamp}_${type}_${kebab}.md`;
 }
 
+/**
+ * Extract the last assistant response from a transcript file.
+ * Claude Code sends transcript_path but not response in Stop events.
+ */
+function extractResponseFromTranscript(transcriptPath: string): string | null {
+  try {
+    if (!existsSync(transcriptPath)) {
+      return null;
+    }
+
+    const content = readFileSync(transcriptPath, 'utf-8');
+    const lines = content.trim().split('\n').filter(l => l.trim());
+
+    if (lines.length === 0) {
+      return null;
+    }
+
+    // Find the last assistant message by iterating backwards
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        if (entry.type === 'assistant' && entry.message?.content) {
+          // Extract text from content array
+          const contentArray = Array.isArray(entry.message.content)
+            ? entry.message.content
+            : [entry.message.content];
+
+          const response = contentArray
+            .map((c: any) => {
+              if (typeof c === 'string') return c;
+              if (c?.text) return c.text;
+              if (c?.content) return String(c.content);
+              return '';
+            })
+            .join('\n')
+            .trim();
+
+          if (response && response.length > 50) {
+            return response;
+          }
+        }
+      } catch {
+        continue; // Skip malformed lines
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   try {
     const stdinData = await Bun.stdin.text();
@@ -76,14 +128,21 @@ async function main() {
     }
 
     const payload: StopPayload = JSON.parse(stdinData);
-    if (!payload.response) {
+
+    // Try to get response from payload first, then from transcript
+    let response = payload.response;
+    if (!response && payload.transcript_path) {
+      response = extractResponseFromTranscript(payload.transcript_path) || undefined;
+    }
+
+    if (!response) {
       process.exit(0);
     }
 
     const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
     const historyDir = join(paiDir, 'history');
 
-    const isLearning = hasLearningIndicators(payload.response);
+    const isLearning = hasLearningIndicators(response);
     const type = isLearning ? 'LEARNING' : 'SESSION';
     const subdir = isLearning ? 'learnings' : 'sessions';
 
@@ -95,9 +154,12 @@ async function main() {
       mkdirSync(outputDir, { recursive: true });
     }
 
-    const summary = extractSummary(payload.response);
+    const summary = extractSummary(response);
     const filename = generateFilename(type, summary);
     const filepath = join(outputDir, filename);
+
+    // Limit response size to prevent huge files
+    const truncatedResponse = response.slice(0, 5000);
 
     const content = `---
 capture_type: ${type}
@@ -108,7 +170,7 @@ executor: main
 
 # ${type}: ${summary}
 
-${payload.response}
+${truncatedResponse}
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: Kai History System
-pack-id: danielmiessler-kai-history-system-core-v1.0.0
-version: 1.0.0
+pack-id: danielmiessler-kai-history-system-core-v1.0.1
+version: 1.0.1
 author: danielmiessler
 description: Granular context-tracking system for the entire AI infrastructure - captures all work, decisions, and learnings automatically
 type: feature
@@ -208,6 +208,12 @@ See [VERIFY.md](VERIFY.md) for testing and verification procedures.
 - **kai-voice-system** - Voice notifications for significant captures
 
 ## Changelog
+
+### 1.0.1 - 2026-01-03
+- **BUG FIX**: stop-hook.ts now reads from transcript_path when response is not provided
+- Added `extractResponseFromTranscript()` function to parse JSONL transcripts
+- Added response size limit (5000 chars) to prevent huge files
+- Closes #303
 
 ### 1.0.0 - 2025-12-28
 - Initial release

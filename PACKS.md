@@ -49,7 +49,37 @@ If you need to look something up, figure something out, or fill in gaps - the pa
 
 ## Pack Types
 
-### Feature Packs
+PAI has two fundamentally different pack types. Understanding this distinction is critical.
+
+### Skill Packs (🎯)
+
+**AI-invoked capabilities** that Claude routes to via SKILL.md:
+
+| Requirement | Description |
+|-------------|-------------|
+| SKILL.md | **Required** - defines triggers and routing |
+| Workflows/ | Contains workflow definitions |
+| Validation | All workflow refs must resolve |
+
+Skill packs are invoked BY the AI when it detects relevant triggers.
+
+### System Packs (⚙️)
+
+**Human-installed infrastructure** that runs in the background:
+
+| Requirement | Description |
+|-------------|-------------|
+| SKILL.md | **Not required** - these are infrastructure |
+| src/ | Contains hooks, servers, configs |
+| Validation | Must install and run correctly |
+
+System packs are installed BY humans and provide infrastructure. They are NOT incomplete for lacking SKILL.md - that's by design.
+
+**System packs:** kai-hook-system, kai-history-system, kai-voice-system, kai-observability-server
+
+---
+
+### Feature Packs (Legacy Term)
 
 **Architectural systems** that add infrastructure capabilities:
 

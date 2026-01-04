@@ -1,7 +1,7 @@
 ---
 name: Kai Core Install
-pack-id: danielmiessler-kai-core-install-v1.0.0
-version: 1.0.0
+pack-id: danielmiessler-kai-core-install-v1.0.1
+version: 1.0.1
 author: danielmiessler
 description: Complete PAI core installation - skill routing, identity system, and architecture tracking. The foundation pack that makes everything else work. Includes SKILL.md format, intent-based routing, personality calibration, and the 14 founding principles.
 type: feature

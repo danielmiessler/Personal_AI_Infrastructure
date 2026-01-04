@@ -1,7 +1,7 @@
 ---
 name: Kai Core Install
-pack-id: danielmiessler-kai-core-install-v1.0.0
-version: 1.0.0
+pack-id: danielmiessler-kai-core-install-v1.0.1
+version: 1.0.1
 author: danielmiessler
 description: Complete PAI core installation - skill routing, identity system, and architecture tracking. The foundation pack that makes everything else work.
 type: feature
@@ -125,3 +125,12 @@ keywords: [core, identity, skills, routing, architecture, installation, foundati
 - **kai-hook-system** (required) - Enables automatic CORE loading at session start
 - **kai-history-system** - Skills can reference past learnings and capture new ones
 - **kai-voice-system** - Response format drives voice output
+
+## Changelog
+
+### 1.0.1 - 2026-01-03
+- Fixed CreateSkill SKILL.md - removed broken workflow references, now points to SkillSystem.md
+- Improved skill validation compliance
+
+### 1.0.0 - 2025-12-29
+- Initial release

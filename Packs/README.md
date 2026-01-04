@@ -146,6 +146,7 @@ PAI System
 | [**kai-art-skill**](kai-art-skill/) | 1.0.0 | Creativity | Visual content generation with Excalidraw hand-drawn aesthetic - diagrams, comics, illustrations |
 | [**kai-agents-skill**](kai-agents-skill/) | 1.0.0 | Delegation | Dynamic agent composition - create custom agents with unique personalities, voices, and trait combinations |
 | [**kai-prompting-skill**](kai-prompting-skill/) | 1.0.0 | Methodology | Meta-prompting system with Handlebars templates, Claude 4.x best practices, and the Ultimate Prompt Template |
+| [**kai-browser-skill**](kai-browser-skill/) | 1.0.0 | Automation | Code-first browser automation with Playwright - 99% token savings over MCP, screenshots, verification, web testing |
 
 ---
 
@@ -161,7 +162,8 @@ Packs have dependencies. Install in this order:
 5. kai-voice-system           ← Depends on hooks, core-install
 6. kai-agents-skill           ← Depends on core-install, optional voice-system
 7. kai-art-skill              ← Depends on core-install
-8. kai-observability-server   ← Optional, depends on hooks
+8. kai-browser-skill          ← Optional, standalone (only needs Bun + Playwright)
+9. kai-observability-server   ← Optional, depends on hooks
 ```
 
 **Or install the complete [Kai Bundle](../Bundles/Kai/)** which handles ordering automatically.
@@ -222,6 +224,7 @@ See [.env.example](../.env.example) for the complete list of supported variables
 | **Delegation** | Agent orchestration and parallel execution | Agents Skill |
 | **Creativity** | Visual and creative content generation | Art Skill |
 | **Methodology** | Prompt engineering and meta-prompting | Prompting Skill |
+| **Automation** | Browser automation and web verification | Browser Skill |
 
 ---
 

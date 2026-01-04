@@ -1,0 +1,71 @@
+{
+  "compilerOptions": {
+    // Type Checking
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "allowUnusedLocals": false,
+    "allowUnusedParameters": false,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedSideEffectImports": true,
+
+    // Module Resolution
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    // Emit
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "newLine": "lf",
+    "stripInternal": true,
+    "noEmit": false,
+
+    // Interop Constraints
+    "allowJs": false,
+    "forceConsistentCasingInFileNames": true,
+
+    // Language and Environment
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "types": ["bun-types"],
+    "skipLibCheck": true,
+
+    // Projects
+    "composite": false,
+
+    // Completeness
+    "skipDefaultLibCheck": true,
+
+    // Output Paths
+    "outDir": "./dist",
+    "rootDir": ".",
+
+    // Path Mapping (for clean imports)
+    "baseUrl": ".",
+    "paths": {
+      "@server/*": ["./src/server/*"],
+      "@lib/*": ["./src/server/lib/*"],
+      "@tools/*": ["./src/skills/tools/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.sh",
+    "**/*.py"
+  ]
+}

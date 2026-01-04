@@ -1,0 +1,73 @@
+{
+  "name": "pai-knowledge-system",
+  "version": "1.0.0",
+  "description": "Persistent knowledge management system powered by Graphiti knowledge graph with FalkorDB backend",
+  "type": "module",
+  "module": "dist/server/index.js",
+  "main": "dist/server/index.js",
+  "bin": {
+    "pai-knowledge-run": "dist/server/run.js",
+    "pai-knowledge-start": "dist/skills/tools/start.js",
+    "pai-knowledge-stop": "dist/skills/tools/stop.js",
+    "pai-knowledge-status": "dist/skills/tools/status.js",
+    "pai-knowledge-logs": "dist/skills/tools/logs.js",
+    "pai-knowledge-install": "dist/server/install.js",
+    "pai-knowledge-diagnose": "dist/server/diagnose.js"
+  },
+  "scripts": {
+    "build": "bun build src/server/run.ts --outdir dist/server --target bun && bun build src/skills/tools/start.ts --outdir dist/skills/tools --target bun && bun build src/skills/tools/stop.ts --outdir dist/skills/tools --target bun && bun build src/skills/tools/status.ts --outdir dist/skills/tools --target bun && bun build src/skills/tools/logs.ts --outdir dist/skills/tools --target bun && bun build src/server/mcp-wrapper.ts --outdir dist/server --target bun && bun build src/server/install.ts --outdir dist/server --target bun && bun build src/server/diagnose.ts --outdir dist/server --target bun",
+    "build:tsc": "tsc",
+    "dev": "bun run src/server/run.ts",
+    "start": "bun run src/skills/tools/start.ts",
+    "stop": "bun run src/skills/tools/stop.ts",
+    "status": "bun run src/skills/tools/status.ts",
+    "logs": "bun run src/skills/tools/logs.ts",
+    "install:system": "bun run src/server/install.ts",
+    "diagnose": "bun run src/server/diagnose.ts",
+    "test": "bun test",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "inquirer": "^9.3.7",
+    "chalk": "^5.4.1",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/inquirer": "^9.0.7",
+    "@types/bun": "latest",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "knowledge",
+    "graph",
+    "memory",
+    "semantic-search",
+    "entity-extraction",
+    "graphiti",
+    "falkordb",
+    "mcp",
+    "pai",
+    "personal-ai"
+  ],
+  "author": "madeinoz67",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/madeinoz67/personal-ai-infrastructure",
+    "directory": "Packs/pai-knowledge-system"
+  },
+  "bugs": {
+    "url": "https://github.com/madeinoz67/personal-ai-infrastructure/issues"
+  },
+  "homepage": "https://github.com/madeinoz67/personal-ai-infrastructure/tree/main/Packs/pai-knowledge-system"
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Hook configuration for PAI Knowledge System - syncs history to knowledge graph",
+  "_instructions": [
+    "Merge these hook configurations into ~/.claude/settings.json",
+    "The hooks array should be added/merged under the 'hooks' key",
+    "Copy hook files from src/hooks/ to $PAI_DIR/hooks/ during installation"
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/sync-history-to-knowledge.ts",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/sync-learning-realtime.ts",
+            "timeout": 15000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/sync-learning-realtime.ts",
+            "timeout": 15000
+          }
+        ]
+      }
+    ]
+  }
+}

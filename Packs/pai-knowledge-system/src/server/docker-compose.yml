@@ -1,0 +1,97 @@
+# Docker Compose configuration for PAI Knowledge System
+# Uses a shared public network for both services
+#
+# Services:
+#   - falkordb: Graph database backend
+#   - graphiti-mcp: MCP server (exposed to host)
+#
+# Usage from pack directory:
+#   1. Copy src/config/.env.example to src/config/.env and configure your API keys
+#   2. Run: docker compose -f src/server/docker-compose.yml up -d
+#   3. MCP server uses SSE transport at: http://localhost:8000/sse
+#   4. Access FalkorDB web UI at: http://localhost:3000
+
+networks:
+  pai-knowledge-net:
+    driver: bridge
+
+volumes:
+  falkordb-data:
+    driver: local
+
+services:
+  # FalkorDB Graph Database
+  # On public network, web UI exposed to host
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: pai-knowledge-falkordb
+    restart: unless-stopped
+    networks:
+      - pai-knowledge-net
+    volumes:
+      - falkordb-data:/data
+    environment:
+      - FALKORDB_PASSWORD=${FALKORDB_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Graphiti MCP Server
+  # Exposed to host on ports 8000 (MCP) and 3000 (FalkorDB UI)
+  graphiti-mcp:
+    image: falkordb/graphiti-knowledge-graph-mcp:latest
+    container_name: pai-knowledge-graph-mcp
+    restart: unless-stopped
+    networks:
+      - pai-knowledge-net
+    ports:
+      - "8000:8000"  # MCP HTTP endpoint
+      - "3000:3000"  # FalkorDB web UI proxy
+    environment:
+      # LLM Configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY:-}
+
+      # Database Configuration - connect to FalkorDB service
+      - DATABASE_TYPE=falkordb
+      - FALKORDB_HOST=falkordb
+      - FALKORDB_PORT=6379
+      - FALKORDB_PASSWORD=${FALKORDB_PASSWORD:-}
+
+      # Optional Neo4j Configuration
+      - NEO4J_URI=${NEO4J_URI:-bolt://localhost:7687}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-demodemo}
+
+      # Concurrency
+      - SEMAPHORE_LIMIT=${SEMAPHORE_LIMIT:-10}
+
+      # Telemetry
+      - GRAPHITI_TELEMETRY_ENABLED=${GRAPHITI_TELEMETRY_ENABLED:-false}
+
+      # Model Configuration
+      - MODEL_NAME=${MODEL_NAME:-gpt-4o-mini}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - EMBEDDER_PROVIDER=${EMBEDDER_PROVIDER:-openai}
+
+      # Group ID
+      - GROUP_ID=${GROUP_ID:-main}
+    env_file:
+      - ${PAI_DIR:-${HOME}/.config/pai}/.env  # Source of truth - all config here
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    # Note: The Graphiti MCP server doesn't expose a /health endpoint.
+    # Healthcheck verifies the SSE endpoint is responding.
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "--max-time", "5", "-H", "Accept: text/event-stream", "http://localhost:8000/sse"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

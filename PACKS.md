@@ -269,6 +269,12 @@ Browse all packs: [Packs/](Packs/)
 | [pai-agents-skill](Packs/pai-agents-skill.md) | Skill | Dynamic agent composition with specialized personalities and voices |
 | [pai-prompting-skill](Packs/pai-prompting-skill.md) | Skill | Meta-prompting system for programmatic prompt generation |
 
+### Third Party
+
+| Pack | Type | Description |
+|------|------|-------------|
+| [pai-knowledge-system](Packs/pai-knowledge-system) | Infrastructure | Knowledge graph memory system using Graphiti with FalkorDB for persistent AI memory |
+
 **Installation order:** hooks → history → core-install → voice → observability (optional) → skill packs
 
 **Or install the complete [PAI Bundle](Bundles/Official/)** which handles ordering automatically.

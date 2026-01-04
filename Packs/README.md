@@ -178,6 +178,7 @@ PAI System
 | [**pai-prompting-skill**](pai-prompting-skill/) | 1.0.0 | Methodology | Meta-prompting system with Handlebars templates, Claude 4.x best practices, and the Ultimate Prompt Template |
 | [**pai-browser-skill**](pai-browser-skill/) | 1.2.0 | Automation | Debug-first browser automation with Playwright - always-on diagnostics, session auto-start, 99% token savings |
 | [**pai-upgrades-skill**](pai-upgrades-skill/) | 1.0.0 | Maintenance | Track and manage PAI system upgrades - monitors for new features, tracks opportunities, maintains upgrade history |
+| [**pai-knowledge-system**](pai-knowledge-system/) | 1.0.0 | Infrastructure | Persistent knowledge management with Graphiti + FalkorDB - automatic entity extraction, semantic search, relationship mapping |
 
 ---
 
@@ -196,6 +197,7 @@ Packs have dependencies. Install in this order:
 8. pai-browser-skill          ← Optional, standalone (only needs Bun + Playwright)
 9. pai-observability-server   ← Optional, depends on hooks
 10. pai-upgrades-skill        ← Optional, depends on core-install
+11. pai-knowledge-system      ← Optional, depends on history (Docker + FalkorDB required)
 ```
 
 **Or install the complete [PAI Bundle](../Bundles/Official/)** which handles ordering automatically.

@@ -36,6 +36,7 @@ interface WizardConfig {
   userName: string;
   elevenLabsApiKey?: string;
   elevenLabsVoiceId?: string;
+  installDir: string;
 }
 
 // =============================================================================
@@ -295,12 +296,15 @@ async function gatherConfig(): Promise<WizardConfig> {
     // In update mode, just confirm existing values
     const keepExisting = await askYesNo("Keep existing configuration?", true);
     if (keepExisting && existing.daName && existing.userName && existing.timeZone) {
+      // In update mode, use existing PAI_DIR or default
+      const updateInstallDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
       return {
         daName: existing.daName,
         timeZone: existing.timeZone,
         userName: existing.userName,
         elevenLabsApiKey: existing.elevenLabsApiKey,
         elevenLabsVoiceId: existing.elevenLabsVoiceId,
+        installDir: updateInstallDir,
       };
     }
     console.log("\nLet's update your configuration:\n");
@@ -308,8 +312,10 @@ async function gatherConfig(): Promise<WizardConfig> {
     console.log("This wizard will configure your AI assistant.\n");
   }
 
-  // Check for existing PAI_DIR environment variable
+  // Check for existing PAI_DIR environment variable and determine install directory
   const existingPaiDir = process.env.PAI_DIR;
+  let installDir = `${process.env.HOME}/.claude`; // default
+
   if (existingPaiDir && !isUpdateMode) {
     console.log(`📍 Existing PAI_DIR detected: ${existingPaiDir}\n`);
     const useExisting = await askYesNo(
@@ -317,6 +323,7 @@ async function gatherConfig(): Promise<WizardConfig> {
       true
     );
     if (useExisting) {
+      installDir = existingPaiDir;
       console.log(`\nUsing existing PAI_DIR: ${existingPaiDir}\n`);
     } else {
       console.log("\n⚠️  Installation will use ~/.claude (standard Claude Code location)");
@@ -376,6 +383,7 @@ async function gatherConfig(): Promise<WizardConfig> {
     userName,
     elevenLabsApiKey,
     elevenLabsVoiceId,
+    installDir,
   };
 }
 
@@ -578,7 +586,7 @@ async function main() {
     // Step 3: Install
     printHeader("STEP 3: INSTALLATION");
 
-    const claudeDir = `${process.env.HOME}/.claude`;
+    const claudeDir = config.installDir;
 
     // Create directory structure
     console.log("Creating directory structure...");
@@ -699,18 +707,18 @@ ${config.elevenLabsVoiceId ? `export ELEVENLABS_VOICE_ID="${config.elevenLabsVoi
       console.log(`
 Your Kai system has been updated:
 
-  📁 Installation: ~/.claude
+  📁 Installation: ${claudeDir}
   🤖 Assistant Name: ${config.daName}
   👤 User: ${config.userName}
   🌍 Timezone: ${config.timeZone}
   🔊 Voice: ${config.elevenLabsApiKey ? "Enabled" : "Disabled"}
 
 Files updated:
-  - ~/.claude/skills/CORE/SKILL.md
-  - ~/.claude/skills/CORE/Contacts.md
-  - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
-  - ~/.claude/settings.json
+  - ${claudeDir}/skills/CORE/SKILL.md
+  - ${claudeDir}/skills/CORE/Contacts.md
+  - ${claudeDir}/skills/CORE/CoreStack.md
+  - ${claudeDir}/.env
+  - ${claudeDir}/settings.json
 
 Next steps:
 
@@ -723,7 +731,7 @@ Your existing hooks, history, and customizations have been preserved.
       console.log(`
 Your Kai system is configured:
 
-  📁 Installation: ~/.claude
+  📁 Installation: ${claudeDir}
   💾 Backup: ~/.claude-BACKUP
   🤖 Assistant Name: ${config.daName}
   👤 User: ${config.userName}
@@ -731,11 +739,11 @@ Your Kai system is configured:
   🔊 Voice: ${config.elevenLabsApiKey ? "Enabled" : "Disabled"}
 
 Files created:
-  - ~/.claude/skills/CORE/SKILL.md
-  - ~/.claude/skills/CORE/Contacts.md
-  - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
-  - ~/.claude/settings.json (env vars for Claude Code)
+  - ${claudeDir}/skills/CORE/SKILL.md
+  - ${claudeDir}/skills/CORE/Contacts.md
+  - ${claudeDir}/skills/CORE/CoreStack.md
+  - ${claudeDir}/.env
+  - ${claudeDir}/settings.json (env vars for Claude Code)
 
 Next steps:
 

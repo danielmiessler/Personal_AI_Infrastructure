@@ -74,6 +74,21 @@ function setAgentForSession(sessionId: string, agentName: string): void {
   } catch (error) {}
 }
 
+// Tools to exclude from capture (prevents feedback loops with knowledge system)
+const EXCLUDED_TOOL_PATTERNS = [
+  /^mcp__pai-knowledge__/,      // All PAI knowledge system tools
+  /^mcp__.*__search_memory/,    // Any MCP memory search
+  /^mcp__.*__add_memory/,       // Any MCP memory add
+  /^mcp__.*__get_episodes/,     // Any MCP episode retrieval
+  /^mcp__.*__delete_/,          // Any MCP delete operations
+  /^mcp__.*__clear_graph/,      // Graph clearing
+];
+
+function shouldExcludeTool(toolName: string | undefined): boolean {
+  if (!toolName) return false;
+  return EXCLUDED_TOOL_PATTERNS.some(pattern => pattern.test(toolName));
+}
+
 async function main() {
   try {
     const args = process.argv.slice(2);
@@ -87,6 +102,11 @@ async function main() {
     const eventType = args[eventTypeIndex + 1];
     const stdinData = await Bun.stdin.text();
     const hookData = JSON.parse(stdinData);
+
+    // Skip capture for excluded tools (knowledge system operations)
+    if (shouldExcludeTool(hookData.tool_name)) {
+      process.exit(0);
+    }
 
     const sessionId = hookData.session_id || 'main';
     let agentName = getAgentForSession(sessionId);

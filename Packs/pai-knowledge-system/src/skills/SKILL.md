@@ -1,0 +1,170 @@
+---
+name: PAI Knowledge System
+description: Personal knowledge management system using Graphiti knowledge graph with FalkorDB. USE WHEN user says 'store this', 'remember this', 'add to knowledge', 'search my knowledge', 'what do I know about', 'find in my knowledge base', 'organize my information', 'install knowledge', 'setup knowledge system', 'configure knowledge graph', or requests knowledge capture, retrieval, synthesis, installation, or configuration of their personal knowledge graph system.
+---
+
+# Knowledge
+
+Persistent personal knowledge system powered by Graphiti knowledge graph with FalkorDB backend. Automatically extracts entities, relationships, and temporal context from conversations, documents, and ideas.
+
+## Workflow Routing
+
+| Workflow | Trigger | File |
+|----------|---------|------|
+| **Install** | "install knowledge", "setup knowledge system", "configure knowledge graph", "install knowledge system" | `tools/Install.md` |
+| **Capture Episode** | "remember this", "store this", "add to knowledge", "save this", "log this" | `workflows/CaptureEpisode.md` |
+| **Search Knowledge** | "search my knowledge", "what do I know about", "find in my knowledge base", "recall" | `workflows/SearchKnowledge.md` |
+| **Search Facts** | "what's the connection", "how are these related", "show relationships" | `workflows/SearchFacts.md` |
+| **Get Recent Episodes** | "what did I learn", "recent additions", "latest knowledge" | `workflows/GetRecent.md` |
+| **Get Status** | "knowledge status", "graph health", "knowledge stats" | `workflows/GetStatus.md` |
+| **Clear Graph** | "clear knowledge", "reset graph", "delete all knowledge" | `workflows/ClearGraph.md` |
+| **Bulk Import** | "import these documents", "bulk knowledge import" | `workflows/BulkImport.md` |
+
+## Core Capabilities
+
+**Knowledge Graph Features:**
+- **Automatic Entity Extraction** - Identifies people, organizations, locations, concepts, preferences, requirements
+- **Relationship Mapping** - Tracks how entities connect with temporal context
+- **Semantic Search** - Finds relevant knowledge using vector embeddings
+- **Episode-Based Storage** - Preserves context and conversations over time
+- **Multi-Source Input** - Accepts text, JSON, messages, and structured data
+
+**Built-in Entity Types:**
+- **Preferences** - User choices, opinions, configurations
+- **Requirements** - Features, needs, specifications
+- **Procedures** - SOPs, workflows, how-to guides
+- **Locations** - Physical or virtual places
+- **Events** - Time-bound occurrences, experiences
+- **Organizations** - Companies, institutions, groups
+- **Documents** - Articles, reports, books, content
+
+## Prerequisites
+
+**Required Setup:**
+
+1. **Start the Graphiti MCP server:**
+   ```bash
+   cd /path/to/pai-knowledge-system
+   bun run src/server/run.ts
+   ```
+
+2. **Verify server is running:**
+   ```bash
+   curl http://localhost:8000/health
+   ```
+
+3. **Configure API key** (in `config/.env.example`):
+   ```bash
+   PAI_KNOWLEDGE_OPENAI_API_KEY=sk-your-key-here
+   ```
+
+**What Gets Captured:**
+- Conversations and insights from work sessions
+- Research findings and web content
+- Code snippets and technical decisions
+- Project documentation and notes
+- Personal preferences and decisions
+- Meeting notes and action items
+
+## Examples
+
+**Example 1: Capture a Learning**
+
+User: "Remember that when using Podman volumes, you should always mount to /container/path not host/path"
+
+→ Invokes CaptureEpisode workflow
+→ Stores episode with extracted entities:
+  - Entity: "Podman volumes" (Topic)
+  - Entity: "volume mounting" (Procedure)
+  - Fact: "Podman volumes use /container/path syntax"
+→ User receives: "✓ Captured: Podman volume mounting syntax"
+
+**Example 2: Search Knowledge**
+
+User: "What do I know about Graphiti?"
+
+→ Invokes SearchKnowledge workflow
+→ Searches knowledge graph for "Graphiti" entities
+→ Returns related entities, facts, and summaries
+→ User receives: "Based on your knowledge graph, Graphiti is..."
+
+**Example 3: Find Relationships**
+
+User: "How are FalkorDB and Graphiti connected?"
+
+→ Invokes SearchFacts workflow
+→ Searches for edges between FalkorDB and Graphiti entities
+→ Returns facts showing relationship with temporal context
+→ User receives: "FalkorDB is the graph database backend for Graphiti MCP server"
+
+**Example 4: Get Recent Learning**
+
+User: "What did I learn this week about PAI?"
+
+→ Invokes GetRecent workflow
+→ Retrieves recent episodes mentioning "PAI" or "Personal AI Infrastructure"
+→ Returns chronological list with timestamps
+→ User receives: "Recent additions: 1) PAI skills architecture... 2) Canonical skill structure..."
+
+**Example 5: Clear and Reset**
+
+User: "Clear my knowledge graph and start fresh"
+
+→ Invokes ClearGraph workflow
+→ Confirms destructive action
+→ Deletes all entities and relationships
+→ Rebuilds indices
+→ User receives: "✓ Knowledge graph cleared. Ready for fresh knowledge capture."
+
+## MCP Integration
+
+**MCP Server Endpoint:**
+```
+http://localhost:8000/mcp/
+```
+
+**Available MCP Tools:**
+- `add_episode` - Add knowledge to the graph
+- `search_nodes` - Search for entity summaries
+- `search_facts` - Search for relationships/edges
+- `get_episodes` - Retrieve recent episodes
+- `delete_episode` - Remove specific episodes
+- `delete_entity_edge` - Remove relationships
+- `get_entity_edge` - Get edge details by UUID
+- `clear_graph` - Clear all data and rebuild indices
+- `get_status` - Check server and database status
+
+## Configuration Options
+
+**Environment Variables** (set in `.env`):
+
+```bash
+# LLM Configuration
+OPENAI_API_KEY=sk-your-key-here
+MODEL_NAME=gpt-4o-mini
+LLM_PROVIDER=openai
+EMBEDDER_PROVIDER=openai
+
+# Concurrency (adjust based on API tier)
+SEMAPHORE_LIMIT=10
+
+# Group ID (for multiple knowledge graphs)
+GROUP_ID=main
+
+# Disable telemetry
+GRAPHITI_TELEMETRY_ENABLED=false
+```
+
+**Model Recommendations:**
+- **gpt-4o-mini** - Fast, cost-effective for daily use
+- **gpt-4o** - Better for complex reasoning
+- **gpt-3.5-turbo** - Economy option, may miss some entities
+
+## Related Documentation
+
+- `${PAI_DIR}/Skills/CORE/SkillSystem.md` - Canonical skill structure guide
+- `${PAI_DIR}/Skills/CORE/HistorySystem.md` - PAI's history documentation
+- [Graphiti Documentation](https://help.getzep.com/graphiti)
+- [Podman Configuration](../README.md)
+
+**Last Updated:** 2025-01-03

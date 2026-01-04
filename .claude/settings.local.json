@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun test:*)",
+      "Bash(node:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "mcp__pai-knowledge__add_memory",
+      "Bash(ls:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 ---
 name: Kai Voice System
-pack-id: danielmiessler-kai-voice-system-core-v1.3.0
-version: 1.3.0
+pack-id: danielmiessler-kai-voice-system-core-v1.4.0
+version: 1.4.0
 author: danielmiessler
 description: Voice notification system with multi-provider TTS (Google Cloud or ElevenLabs), prosody enhancement for natural speech, and agent personality-driven voice delivery
 type: feature
@@ -68,6 +68,10 @@ GOOGLE_TTS_VOICE=en-US-Neural2-J  # Optional, has sensible default
 # ElevenLabs (if using elevenlabs)
 ELEVENLABS_API_KEY=your_api_key
 ELEVENLABS_VOICE_ID=your_voice_id
+
+# Voice strict mode (optional)
+# When true, only speak when COMPLETED message is detected (silent skip otherwise)
+VOICE_STRICT_MODE=false
 ```
 
 ### Google Cloud TTS Voices
@@ -169,3 +173,15 @@ The prosody enhancer detects emotional context from message patterns:
 - **kai-hook-system** (required) - Hooks trigger voice notifications
 - **kai-core-install** (required) - Response format provides 🎯 COMPLETED line
 - **kai-history-system** - Complementary functionality
+
+## Changelog
+
+### 1.4.0 - 2026-01-06
+- Added `VOICE_STRICT_MODE` environment variable for silent skip when no COMPLETED found
+- When enabled, voice notifications only trigger if COMPLETED message is detected
+
+### 1.3.0 - 2025-12-29
+- Initial release with multi-provider TTS support
+- Google Cloud TTS and ElevenLabs integration
+- Prosody enhancement pipeline
+- Agent personality voice mapping

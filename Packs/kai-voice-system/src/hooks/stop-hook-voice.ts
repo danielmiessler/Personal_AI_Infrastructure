@@ -5,6 +5,9 @@
 import { readFileSync } from 'fs';
 import { enhanceProsody, cleanForSpeech, getVoiceId } from './lib/prosody-enhancer';
 
+const isStrictMode = process.env.VOICE_STRICT_MODE === 'true' ||
+                     process.env.VOICE_STRICT_MODE === '1';
+
 interface NotificationPayload {
   title: string;
   message: string;
@@ -41,7 +44,7 @@ function contentToText(content: unknown): string {
 /**
  * Extract completion message with prosody enhancement
  */
-function extractCompletion(text: string, agentType: string = 'pai'): string {
+function extractCompletion(text: string, agentType: string = 'pai'): string | null {
   // Remove system-reminder tags
   text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
 
@@ -69,7 +72,7 @@ function extractCompletion(text: string, agentType: string = 'pai'): string {
     }
   }
 
-  return 'Completed task';
+  return isStrictMode ? null : 'Completed task';
 }
 
 /**
@@ -157,7 +160,7 @@ async function main() {
   }
 
   // Extract completion from transcript
-  let completion = 'Completed task';
+  let completion: string | null = 'Completed task';
   const agentType = 'pai'; // Main agent is your PAI
 
   if (hookInput?.transcript_path) {
@@ -167,19 +170,22 @@ async function main() {
     }
   }
 
-  // Get voice ID for this agent
-  const voiceId = getVoiceId(agentType);
+  // Skip notification if no completion message (strict mode)
+  if (completion) {
+    // Get voice ID for this agent
+    const voiceId = getVoiceId(agentType);
 
-  // Send voice notification
-  const payload: NotificationPayload = {
-    title: 'PAI',
-    message: completion,
-    voice_enabled: true,
-    priority: 'normal',
-    voice_id: voiceId
-  };
+    // Send voice notification
+    const payload: NotificationPayload = {
+      title: 'PAI',
+      message: completion,
+      voice_enabled: true,
+      priority: 'normal',
+      voice_id: voiceId
+    };
 
-  await sendNotification(payload);
+    await sendNotification(payload);
+  }
 
   process.exit(0);
 }

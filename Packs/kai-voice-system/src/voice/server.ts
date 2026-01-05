@@ -5,10 +5,11 @@
 // Platforms: macOS, Linux
 
 import { serve } from "bun";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { parseArgs } from "util";
 
 // Load .env from PAI directory (single source of truth for all API keys)
 const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
@@ -23,13 +24,26 @@ if (existsSync(envPath)) {
   });
 }
 
-const PORT = parseInt(process.env.PAI_VOICE_PORT || "8888");
+// CLI argument parsing for extra player args and TTS provider
+const cliArgs = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    'extra-args': { type: 'string', default: '' },
+    'tts-provider': { type: 'string', short: 't' },
+    port: { type: 'string', short: 'p' },
+  },
+  allowPositionals: true,
+});
+
+// Port configuration: CLI --port/-p takes precedence over env var
+const PORT = parseInt(cliArgs.values.port || process.env.PAI_VOICE_PORT || "8888");
 
 // =============================================================================
 // TTS Provider Configuration
 // =============================================================================
 // Options: "google" | "elevenlabs" (default: elevenlabs for backward compatibility)
-const TTS_PROVIDER = (process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
+// CLI --tts-provider/-t takes precedence over env var
+const TTS_PROVIDER = (cliArgs.values['tts-provider'] || process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
 
 // ElevenLabs Configuration
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -279,6 +293,34 @@ function getVolumeSetting(): number {
   return 0.8;
 }
 
+// Find audio player executable using 'which' command
+function findPlayer(name: string): string | null {
+  try {
+    return execSync(`which ${name}`, { encoding: 'utf8' }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+// Get extra args from CLI or environment (CLI takes precedence)
+function getExtraArgs(): string[] {
+  const raw = cliArgs.values['extra-args'] || process.env.VOICE_SERVER_EXTRA_ARGS || '';
+  return raw.trim() ? raw.trim().split(/\s+/) : [];
+}
+
+// Detect audio player once at startup
+function detectPlayer(): { path: string | null; type: 'afplay' | 'mpg123' | 'mpv' | null } {
+  if (process.platform === 'darwin') {
+    return { path: '/usr/bin/afplay', type: 'afplay' };
+  }
+  const mpg123 = findPlayer('mpg123');
+  if (mpg123) return { path: mpg123, type: 'mpg123' };
+  const mpv = findPlayer('mpv');
+  if (mpv) return { path: mpv, type: 'mpv' };
+  return { path: null, type: null };
+}
+const DETECTED_PLAYER = detectPlayer();
+
 // =============================================================================
 // Cross-Platform Audio Playback
 // =============================================================================
@@ -290,30 +332,23 @@ async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
   const volume = getVolumeSetting();
 
   return new Promise((resolve, reject) => {
-    let player: string;
+    if (!DETECTED_PLAYER.path) {
+      console.warn('⚠️  No audio player found. Install mpg123 or mpv for audio playback.');
+      spawn('/bin/rm', [tempFile]);
+      resolve();
+      return;
+    }
+
+    const player = DETECTED_PLAYER.path;
     let args: string[];
 
-    if (process.platform === 'darwin') {
-      // macOS: use afplay
-      player = '/usr/bin/afplay';
-      args = ['-v', volume.toString(), tempFile];
+    if (DETECTED_PLAYER.type === 'afplay') {
+      args = ['-v', volume.toString(), ...getExtraArgs(), tempFile];
+    } else if (DETECTED_PLAYER.type === 'mpg123') {
+      args = ['-q', ...getExtraArgs(), tempFile];
     } else {
-      // Linux: try mpg123 first, then mpv
-      if (existsSync('/usr/bin/mpg123')) {
-        player = '/usr/bin/mpg123';
-        args = ['-q', tempFile];
-      } else if (existsSync('/usr/bin/mpv')) {
-        player = '/usr/bin/mpv';
-        args = ['--no-terminal', '--volume=' + (volume * 100), tempFile];
-      } else if (existsSync('/snap/bin/mpv')) {
-        player = '/snap/bin/mpv';
-        args = ['--no-terminal', '--volume=' + (volume * 100), tempFile];
-      } else {
-        console.warn('⚠️  No audio player found. Install mpg123 or mpv for audio playback.');
-        spawn('/bin/rm', [tempFile]);
-        resolve();
-        return;
-      }
+      // mpv
+      args = ['--no-terminal', '--volume=' + (volume * 100), ...getExtraArgs(), tempFile];
     }
 
     const proc = spawn(player, args);
@@ -524,3 +559,10 @@ if (TTS_PROVIDER === 'google') {
   console.log(`🔑 ElevenLabs API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
 }
 console.log(`💡 Switch providers: TTS_PROVIDER=google or TTS_PROVIDER=elevenlabs in .env`);
+
+// Log audio player configuration
+console.log(`🔊 Audio player: ${DETECTED_PLAYER.path || '❌ Not found (install mpg123 or mpv)'}`);
+const extraArgs = getExtraArgs();
+if (extraArgs.length > 0) {
+  console.log(`🎛️  Extra player args: ${extraArgs.join(' ')}`);
+}

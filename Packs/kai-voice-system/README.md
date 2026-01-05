@@ -1,7 +1,7 @@
 ---
 name: Kai Voice System
-pack-id: danielmiessler-kai-voice-system-core-v1.3.0
-version: 1.3.0
+pack-id: danielmiessler-kai-voice-system-core-v1.4.0
+version: 1.4.0
 author: danielmiessler
 description: Voice notification system with multi-provider TTS (Google Cloud or ElevenLabs), prosody enhancement for natural speech, and agent personality-driven voice delivery
 type: feature
@@ -80,6 +80,68 @@ ELEVENLABS_VOICE_ID=your_voice_id
 | `en-US-Standard-A` | Standard | Basic voice (more free chars) |
 
 See [Google Cloud TTS voices](https://cloud.google.com/text-to-speech/docs/voices) for full list.
+
+### Audio Player Arguments
+
+Configure extra arguments for audio players (useful for containers or specific audio setups):
+
+**Environment Variable:**
+```bash
+# In $PAI_DIR/.env
+VOICE_SERVER_EXTRA_ARGS="-o pulse"
+```
+
+**CLI Flag (overrides env var):**
+```bash
+bun run server.ts --extra-args="-o pulse"
+```
+
+**TTS Provider Override:**
+```bash
+# CLI flag (overrides env var)
+bun run server.ts --tts-provider=google
+bun run server.ts -t elevenlabs
+```
+
+**Common use cases:**
+| Use Case | Configuration |
+|----------|---------------|
+| Container with PulseAudio | `VOICE_SERVER_EXTRA_ARGS="-o pulse"` |
+| Specific ALSA device | `VOICE_SERVER_EXTRA_ARGS="-o alsa -a hw:1,0"` |
+
+### Devcontainer Setup
+
+To use voice notifications inside a devcontainer:
+
+1. **Mount PulseAudio socket** from host in `devcontainer.json`
+2. **Set `VOICE_SERVER_EXTRA_ARGS`** in your `.env` file
+
+**Example `devcontainer.json`:**
+```json
+{
+  "name": "My Devcontainer",
+  "image": "mcr.microsoft.com/devcontainers/python:2-3.12-bullseye",
+  "mounts": [
+    "source=/run/user/1000/pulse,target=/run/user/1000/pulse,type=bind"
+  ],
+  "runArgs": [
+    "--device=/dev/snd:/dev/snd"
+  ],
+  "containerEnv": {
+    "PULSE_SERVER": "unix:/run/user/1000/pulse/native"
+  }
+}
+```
+
+**In your `$PAI_DIR/.env`:**
+```bash
+VOICE_SERVER_EXTRA_ARGS="-o pulse"
+```
+
+**Key points:**
+- Mount `/run/user/1000/pulse` to access host's PulseAudio
+- Set `PULSE_SERVER` in container so audio apps find the socket
+- Set `VOICE_SERVER_EXTRA_ARGS` in `.env` (not devcontainer.json)
 
 ## Architecture Overview
 
@@ -169,3 +231,11 @@ The prosody enhancer detects emotional context from message patterns:
 - **kai-hook-system** (required) - Hooks trigger voice notifications
 - **kai-core-install** (required) - Response format provides 🎯 COMPLETED line
 - **kai-history-system** - Complementary functionality
+
+## Changelog
+
+### 1.4.0 - 2026-01-05
+- Fixed argument order for extra-args (now placed before filename for CLI compatibility)
+- Added CLI flags: `--extra-args`, `--tts-provider`, `--port`
+- Added environment variable support: `VOICE_SERVER_EXTRA_ARGS`
+- Improved devcontainer/PulseAudio documentation

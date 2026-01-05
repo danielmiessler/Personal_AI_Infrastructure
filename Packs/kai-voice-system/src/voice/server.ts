@@ -17,9 +17,17 @@ const envPath = join(paiDir, '.env');
 if (existsSync(envPath)) {
   const envContent = await Bun.file(envPath).text();
   envContent.split('\n').forEach(line => {
-    const [key, value] = line.split('=');
-    if (key && value && !key.startsWith('#')) {
-      process.env[key.trim()] = value.trim();
+    const eqIndex = line.indexOf('=');
+    if (eqIndex === -1) return;
+    const key = line.slice(0, eqIndex).trim();
+    let value = line.slice(eqIndex + 1).trim();
+    // Strip surrounding quotes from value
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key && !key.startsWith('#')) {
+      process.env[key] = value;
     }
   });
 }

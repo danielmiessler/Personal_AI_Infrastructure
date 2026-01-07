@@ -95,12 +95,12 @@ interface ExistingConfig {
 }
 
 async function readExistingConfig(): Promise<ExistingConfig> {
-  const claudeDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
+  const paiDir = `${process.env.HOME}/.config/pai`;
   const config: ExistingConfig = {};
 
-  // Try to read from .env file
+  // Try to read from .env file (canonical PAI location)
   try {
-    const envPath = `${claudeDir}/.env`;
+    const envPath = `${paiDir}/.env`;
     if (existsSync(envPath)) {
       const envContent = await Bun.file(envPath).text();
       const lines = envContent.split("\n");
@@ -131,7 +131,7 @@ async function readExistingConfig(): Promise<ExistingConfig> {
 
   // Try to read userName from SKILL.md
   try {
-    const skillPath = `${claudeDir}/skills/CORE/SKILL.md`;
+    const skillPath = `${paiDir}/skills/CORE/SKILL.md`;
     if (existsSync(skillPath)) {
       const skillContent = await Bun.file(skillPath).text();
       const userMatch = skillContent.match(/Role:\s*(\w+)'s AI assistant/);
@@ -602,7 +602,8 @@ async function main() {
     const coreStackMd = generateCoreStackMd(config);
     await Bun.write(`${claudeDir}/skills/CORE/CoreStack.md`, coreStackMd);
 
-    // Create .env file (no quotes around values - .env format standard)
+    // Create .env file in canonical PAI location
+    // This is where PAI components (voice server, hooks, etc.) look for env vars
     console.log("Creating .env file...");
     const envFileContent = `# PAI Environment Configuration
 # Created by Kai Bundle installer - ${new Date().toISOString().split("T")[0]}
@@ -612,7 +613,10 @@ TIME_ZONE=${config.timeZone}
 ${config.elevenLabsApiKey ? `ELEVENLABS_API_KEY=${config.elevenLabsApiKey}` : "# ELEVENLABS_API_KEY="}
 ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` : "# ELEVENLABS_VOICE_ID="}
 `;
-    await Bun.write(`${claudeDir}/.env`, envFileContent);
+    const paiConfigDir = `${process.env.HOME}/.config/pai`;
+    await $`mkdir -p ${paiConfigDir}`;
+    await Bun.write(`${paiConfigDir}/.env`, envFileContent);
+    console.log("✓ Created .env at ~/.config/pai/.env");
 
     // Create settings.json with environment variables for Claude Code
     // This ensures env vars are available immediately without shell sourcing
@@ -709,7 +713,7 @@ Files updated:
   - ~/.claude/skills/CORE/SKILL.md
   - ~/.claude/skills/CORE/Contacts.md
   - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
+  - ~/.config/pai/.env
   - ~/.claude/settings.json
 
 Next steps:
@@ -734,7 +738,7 @@ Files created:
   - ~/.claude/skills/CORE/SKILL.md
   - ~/.claude/skills/CORE/Contacts.md
   - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
+  - ~/.config/pai/.env
   - ~/.claude/settings.json (env vars for Claude Code)
 
 Next steps:

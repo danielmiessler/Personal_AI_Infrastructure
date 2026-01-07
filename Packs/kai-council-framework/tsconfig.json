@@ -1,0 +1,64 @@
+{
+  "compilerOptions": {
+    // Environment
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "types": ["bun-types", "node"],
+
+    // Strictness
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    // Unused code
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    // Additional checks
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Module resolution
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
+    // Emit
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+
+    // Other
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Path mapping
+    "baseUrl": ".",
+    "paths": {
+      "@engine/*": ["Engine/*"],
+      "@adapters/*": ["Adapters/*"],
+      "@config/*": ["Config/*"]
+    }
+  },
+  "include": [
+    "Engine/**/*.ts",
+    "Adapters/**/*.ts",
+    "Tests/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

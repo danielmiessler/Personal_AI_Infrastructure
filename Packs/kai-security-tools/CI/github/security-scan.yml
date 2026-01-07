@@ -1,0 +1,123 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 6am UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      fail-on:
+        description: 'Minimum severity to fail on (critical, high, medium, low)'
+        required: false
+        default: 'high'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    uses: ./.github/workflows/dependency-audit.yml
+    with:
+      fail-on: ${{ github.event.inputs.fail-on || 'high' }}
+
+  secrets-scan:
+    name: Secrets Scan
+    uses: ./.github/workflows/secrets-scan.yml
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: .github/security-tools
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          bun run .github/security-tools/Tools/SbomGenerator.ts \
+            --format=cyclonedx \
+            --include-dev \
+            --output=sbom-cyclonedx.json \
+            ${{ github.workspace }}
+
+      - name: Generate SPDX SBOM
+        run: |
+          bun run .github/security-tools/Tools/SbomGenerator.ts \
+            --format=spdx \
+            --include-dev \
+            --output=sbom-spdx.json \
+            ${{ github.workspace }}
+
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom-cyclonedx.json
+          retention-days: 90
+
+      - name: Upload SPDX SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx
+          path: sbom-spdx.json
+          retention-days: 90
+
+      # Optional: Upload to Dependency Graph
+      - name: Submit Dependency Snapshot
+        uses: actions/dependency-review-action@v4
+        if: github.event_name == 'pull_request'
+        with:
+          fail-on-severity: moderate
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, secrets-scan, sbom]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.dependency-audit.result }}" == "success" ]; then
+            echo "- :white_check_mark: **Dependency Audit**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :x: **Dependency Audit**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.secrets-scan.result }}" == "success" ]; then
+            echo "- :white_check_mark: **Secrets Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :x: **Secrets Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.sbom.result }}" == "success" ]; then
+            echo "- :white_check_mark: **SBOM Generation**: Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :warning: **SBOM Generation**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See the Security tab for detailed findings." >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any security check failed
+        if: needs.dependency-audit.result == 'failure' || needs.secrets-scan.result == 'failure'
+        run: |
+          echo "One or more security checks failed"
+          exit 1

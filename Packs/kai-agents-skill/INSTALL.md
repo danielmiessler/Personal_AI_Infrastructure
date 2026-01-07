@@ -56,11 +56,14 @@ Copy from this pack's `src/` directory to your PAI installation:
 |--------|-------------|
 | `src/skills/Agents/SKILL.md` | `$PAI_DIR/skills/Agents/SKILL.md` |
 | `src/skills/Agents/Data/Traits.yaml` | `$PAI_DIR/skills/Agents/Data/Traits.yaml` |
+| `src/skills/Agents/Data/NamedAgents.yaml` | `$PAI_DIR/skills/Agents/Data/NamedAgents.yaml` |
 | `src/skills/Agents/Tools/AgentFactory.ts` | `$PAI_DIR/skills/Agents/Tools/AgentFactory.ts` |
 | `src/skills/Agents/Templates/DynamicAgent.hbs` | `$PAI_DIR/skills/Agents/Templates/DynamicAgent.hbs` |
+| `src/skills/Agents/Templates/NamedAgent.hbs` | `$PAI_DIR/skills/Agents/Templates/NamedAgent.hbs` |
+| `src/skills/Agents/Workflows/UseNamedAgent.md` | `$PAI_DIR/skills/Agents/Workflows/UseNamedAgent.md` |
 | `src/skills/Agents/Workflows/CreateCustomAgent.md` | `$PAI_DIR/skills/Agents/Workflows/CreateCustomAgent.md` |
 | `src/skills/Agents/Workflows/ListTraits.md` | `$PAI_DIR/skills/Agents/Workflows/ListTraits.md` |
-| `src/skills/Agents/AgentPersonalities.md` | `$PAI_DIR/skills/Agents/AgentPersonalities.md` |
+| `src/skills/Agents/Workflows/SpawnParallelAgents.md` | `$PAI_DIR/skills/Agents/Workflows/SpawnParallelAgents.md` |
 
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.config/pai}"
@@ -68,11 +71,14 @@ PACK_DIR="[PATH_TO_THIS_PACK]"
 
 cp "$PACK_DIR/src/skills/Agents/SKILL.md" "$PAI_DIR/skills/Agents/"
 cp "$PACK_DIR/src/skills/Agents/Data/Traits.yaml" "$PAI_DIR/skills/Agents/Data/"
+cp "$PACK_DIR/src/skills/Agents/Data/NamedAgents.yaml" "$PAI_DIR/skills/Agents/Data/"
 cp "$PACK_DIR/src/skills/Agents/Tools/AgentFactory.ts" "$PAI_DIR/skills/Agents/Tools/"
 cp "$PACK_DIR/src/skills/Agents/Templates/DynamicAgent.hbs" "$PAI_DIR/skills/Agents/Templates/"
+cp "$PACK_DIR/src/skills/Agents/Templates/NamedAgent.hbs" "$PAI_DIR/skills/Agents/Templates/"
+cp "$PACK_DIR/src/skills/Agents/Workflows/UseNamedAgent.md" "$PAI_DIR/skills/Agents/Workflows/"
 cp "$PACK_DIR/src/skills/Agents/Workflows/CreateCustomAgent.md" "$PAI_DIR/skills/Agents/Workflows/"
 cp "$PACK_DIR/src/skills/Agents/Workflows/ListTraits.md" "$PAI_DIR/skills/Agents/Workflows/"
-cp "$PACK_DIR/src/skills/Agents/AgentPersonalities.md" "$PAI_DIR/skills/Agents/"
+cp "$PACK_DIR/src/skills/Agents/Workflows/SpawnParallelAgents.md" "$PAI_DIR/skills/Agents/Workflows/"
 ```
 
 ### Step 3: Install Dependencies
@@ -104,12 +110,22 @@ echo "Checking installation..."
 
 [ -f "$PAI_DIR/skills/Agents/SKILL.md" ] && echo "[OK] SKILL.md" || echo "[MISSING] SKILL.md"
 [ -f "$PAI_DIR/skills/Agents/Data/Traits.yaml" ] && echo "[OK] Traits.yaml" || echo "[MISSING] Traits.yaml"
+[ -f "$PAI_DIR/skills/Agents/Data/NamedAgents.yaml" ] && echo "[OK] NamedAgents.yaml" || echo "[MISSING] NamedAgents.yaml"
 [ -f "$PAI_DIR/skills/Agents/Tools/AgentFactory.ts" ] && echo "[OK] AgentFactory.ts" || echo "[MISSING] AgentFactory.ts"
 [ -f "$PAI_DIR/skills/Agents/Templates/DynamicAgent.hbs" ] && echo "[OK] DynamicAgent.hbs" || echo "[MISSING] DynamicAgent.hbs"
+[ -f "$PAI_DIR/skills/Agents/Templates/NamedAgent.hbs" ] && echo "[OK] NamedAgent.hbs" || echo "[MISSING] NamedAgent.hbs"
+[ -f "$PAI_DIR/skills/Agents/Workflows/UseNamedAgent.md" ] && echo "[OK] UseNamedAgent.md" || echo "[MISSING] UseNamedAgent.md"
+[ -f "$PAI_DIR/skills/Agents/Workflows/CreateCustomAgent.md" ] && echo "[OK] CreateCustomAgent.md" || echo "[MISSING] CreateCustomAgent.md"
+[ -f "$PAI_DIR/skills/Agents/Workflows/ListTraits.md" ] && echo "[OK] ListTraits.md" || echo "[MISSING] ListTraits.md"
+[ -f "$PAI_DIR/skills/Agents/Workflows/SpawnParallelAgents.md" ] && echo "[OK] SpawnParallelAgents.md" || echo "[MISSING] SpawnParallelAgents.md"
 
 echo ""
 echo "Testing AgentFactory..."
 bun run "$PAI_DIR/skills/Agents/Tools/AgentFactory.ts" --list | head -20
+
+echo ""
+echo "Testing named agents..."
+bun run "$PAI_DIR/skills/Agents/Tools/AgentFactory.ts" --list-named
 
 echo ""
 echo "Testing trait composition..."

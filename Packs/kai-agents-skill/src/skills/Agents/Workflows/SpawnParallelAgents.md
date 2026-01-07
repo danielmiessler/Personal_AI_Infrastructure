@@ -1,6 +1,8 @@
 # SpawnParallelAgents Workflow
 
-**Launches multiple generic Intern agents for parallel grunt work (NOT custom agents).**
+**Launches multiple lightweight agents for parallel grunt work (NOT custom agents with unique personalities).**
+
+---
 
 ## When to Use
 
@@ -10,16 +12,18 @@ User says:
 - "Create agents to analyze these files" (no "custom")
 - "Use interns to check these URLs"
 
-**KEY: No "custom" keyword = generic Intern agents (same voice, fast parallel execution)**
+**KEY: No "custom" keyword = lightweight parallel agents (fast execution, same task structure)**
 
 **CRITICAL DISTINCTION:**
 
-| User Says | subagent_type | Voice |
-|-----------|---------------|-------|
-| "**custom** agents" | `general-purpose` | Custom from AgentFactory |
-| "agents" (no custom) | `Intern` | Same for all |
+| User Says | Approach | Voice |
+|-----------|----------|-------|
+| "**custom** agents" | AgentFactory with `--traits` | Unique per agent |
+| "agents" / "interns" (no custom) | Direct Task calls with haiku | N/A (speed focus) |
+| "use **The Intern**" | AgentFactory with `--named intern` | The Intern's personality |
 
-If user says "custom" → use CreateCustomAgent workflow, NOT this one!
+If user says "custom" → use **CreateCustomAgent** workflow
+If user says "The Intern" specifically → use **UseNamedAgent** workflow
 
 ## The Workflow
 
@@ -68,19 +72,19 @@ Company A: Acme AI Security Corp
 Task({
   description: "Research Company A",
   prompt: agent1Prompt,
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "haiku"  // or "sonnet" depending on complexity
 })
 Task({
   description: "Research Company B",
   prompt: agent2Prompt,
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "haiku"
 })
 Task({
   description: "Research Company C",
   prompt: agent3Prompt,
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "haiku"
 })
 // ... up to N agents
@@ -108,7 +112,7 @@ Check for:
 4. Recommendations for follow-up research
 
 Provide a brief assessment and any issues found.`,
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "haiku"
 })
 ```
@@ -135,13 +139,13 @@ Provide a brief assessment and any issues found.`,
 Task({
   description: "Research Acme AI Security",
   prompt: "Research Acme AI Security Corp: products, market, partnerships, tech stack",
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "sonnet"
 })
 Task({
   description: "Research Bolt Security AI",
   prompt: "Research Bolt Security AI: products, market, partnerships, tech stack",
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "sonnet"
 })
 // ... more agents
@@ -150,7 +154,7 @@ Task({
 Task({
   description: "Spotcheck company research",
   prompt: "Review these 5 company research results for consistency and gaps: [results]",
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "haiku"
 })
 ```
@@ -200,7 +204,7 @@ Verify:
 - No conflicting data
 
 Flag any issues for follow-up.`,
-  subagent_type: "Intern",
+  subagent_type: "general-purpose",
   model: "haiku"  // Fast spotcheck
 })
 ```
@@ -266,5 +270,6 @@ Use **SpawnParallelAgents workflow** when:
 
 ## Related Workflows
 
-- **CreateCustomAgent** - For agents with unique personalities/voices
+- **UseNamedAgent** - For spawning The Engineer, The Architect, or The Intern with personality
+- **CreateCustomAgent** - For agents with unique personalities/voices from traits
 - **ListTraits** - Show available traits for custom agents

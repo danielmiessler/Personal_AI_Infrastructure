@@ -1,0 +1,24 @@
+name: joplin
+version: "1.0.0"
+domain: issues
+interface: IssuesProvider
+entry: src/index.ts
+description: Joplin todo notes as issue tracker
+
+config:
+  required: []
+  optional:
+    port: 41184
+    defaultNotebook: null
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+    - linux
+    - win32
+
+integrations:
+  local: true
+  cicd: false
+  kubernetes: false

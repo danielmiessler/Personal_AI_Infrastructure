@@ -1,7 +1,7 @@
 # PAI Infrastructure Pack System - Session Context
 
-**Last Updated**: 2026-01-07 08:15 PST
-**Status**: Phase 2 Complete, Ready for Phase 3+
+**Last Updated**: 2026-01-07 07:30 PST
+**Status**: Phase 3 Complete, Ready for Phase 4+
 
 ---
 
@@ -50,13 +50,6 @@ A **portable infrastructure pack system** using three-layer architecture:
 | kai-mock-adapter | Testing adapter with configurable failures | 28 |
 | kai-secrets-skill | CLI tools (get, list, health) + workflows | 5 |
 
-**Key Features**:
-- `SecretValue` wrapper prevents accidental logging (toString/toJSON return `[REDACTED]`)
-- `AuthReference` with fallback chain: keychain → env → file → secretsManager
-- Adapter discovery via `adapter.yaml` manifests with 60s cache
-- Retry with exponential backoff for transient failures
-- Token refresh on 401 responses
-
 **Git Commit**: `612056e feat(secrets): Add Phase 1 Secrets Domain`
 
 ### Phase 2: Network Domain ✅ COMPLETE (Committed)
@@ -68,16 +61,27 @@ A **portable infrastructure pack system** using three-layer architecture:
 | kai-mock-network-adapter | Testing adapter with latency/failure simulation | 33 |
 | kai-network-skill | CLI tools (devices, clients, vlans, ports, health) + workflows | 11 |
 
-**Key Features**:
-- `NetworkProvider` interface with Device, Port, VLAN, Client types
-- UniFi OS and classic controller auto-detection
-- Provider factory with fallback chain and health checks
-- CLI tools with table and JSON output modes
-- Mock adapter for testing without real hardware
-
 **Git Commit**: `90a3611 feat(network): Add Phase 2 Network Domain`
 
-**Skipped**: kai-cisco-adapter (no Cisco equipment available)
+### Phase 3: Issues/PM Domain ✅ COMPLETE (Ready to commit)
+
+| Package | Description | Tests |
+|---------|-------------|-------|
+| kai-issues-core | IssuesProvider interface, Issue/Project/Label types, discovery, errors | 62 |
+| kai-mock-issues-adapter | Testing adapter with full CRUD and test helpers | 44 |
+| kai-joplin-issues-adapter | Joplin todo notes as issues, notebooks as projects, tags as labels | 12 |
+| kai-linear-adapter | Linear GraphQL API, state/priority mapping | 3 |
+| kai-issues-skill | CLI tools (list, health) + SKILL.md with workflow routing | - |
+
+**Key Features**:
+- `IssuesProvider` interface with Issue, Project, Label types
+- Status mapping: open, in_progress, done, cancelled
+- Type mapping via tags: task, bug, feature, story, epic
+- Priority mapping: urgent, high, medium, low, none
+- Joplin: todo notes -> issues, notebooks -> projects, tags -> labels
+- Linear: GraphQL client with state/priority mapping
+
+**Spec**: `Packs/specs/ISSUES-DOMAIN.md`
 
 ---
 
@@ -87,21 +91,27 @@ A **portable infrastructure pack system** using three-layer architecture:
 # Run all tests
 cd /Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs
 
-# Phase 1
+# Phase 1 (159 total)
 cd kai-secrets-core && bun test    # 89 pass
 cd kai-keychain-adapter && bun test # 14 pass
 cd kai-infisical-adapter && bun test # 23 pass
 cd kai-mock-adapter && bun test     # 28 pass
-cd kai-secrets-skill && bun test    # 5 pass (integration pending real secrets)
+cd kai-secrets-skill && bun test    # 5 pass
 
-# Phase 2
+# Phase 2 (99 total)
 cd kai-network-core && bun test     # 33 pass
 cd kai-unifi-adapter && bun test    # 22 pass
 cd kai-mock-network-adapter && bun test # 33 pass
 cd kai-network-skill && bun test    # 11 pass
+
+# Phase 3 (121 total)
+cd kai-issues-core && bun test      # 62 pass
+cd kai-mock-issues-adapter && bun test # 44 pass
+cd kai-joplin-issues-adapter && bun test # 12 pass
+cd kai-linear-adapter && bun test   # 3 pass
 ```
 
-**Total: 280 tests passing across 9 packages**
+**Total: 379 tests passing across 13 packages**
 
 ---
 
@@ -115,6 +125,7 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 | DOMAIN-TEMPLATE.md | Template for creating new domain specs |
 | SECRETS-DOMAIN.md | Phase 1 specification (implemented) |
 | NETWORK-DOMAIN.md | Phase 2 specification (implemented) |
+| ISSUES-DOMAIN.md | Phase 3 specification (implemented) |
 
 ---
 
@@ -122,13 +133,13 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 
 | Phase | Domain | Home Adapters | Work Adapters |
 |-------|--------|---------------|---------------|
-| 3 | Methodology | (universal) | (universal) |
-| 4 | Issues/PM | Joplin, Linear | Jira |
-| 5 | CI/CD | GitHub | GitLab |
-| 6 | Platform | k3s, Docker | Enterprise K8s |
-| 7 | Observability | Prometheus | Datadog |
+| 4 | CI/CD | GitHub | GitLab |
+| 5 | Platform | k3s, Docker | Enterprise K8s |
+| 6 | Observability | Prometheus | Datadog |
 
-**To proceed**: Write spec using DOMAIN-TEMPLATE.md, then implement following the same pattern as Phases 1-2.
+**Note**: Methodology was skipped (doesn't fit adapter pattern). Issues/PM moved to Phase 3.
+
+**To proceed**: Write spec using DOMAIN-TEMPLATE.md, then implement following the same pattern as Phases 1-3.
 
 ---
 
@@ -153,7 +164,8 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 │   │   ├── ARCHITECTURE-OVERVIEW.md
 │   │   ├── DOMAIN-TEMPLATE.md
 │   │   ├── SECRETS-DOMAIN.md
-│   │   └── NETWORK-DOMAIN.md
+│   │   ├── NETWORK-DOMAIN.md
+│   │   └── ISSUES-DOMAIN.md      # NEW
 │   │
 │   ├── kai-secrets-core/         # Phase 1
 │   ├── kai-keychain-adapter/
@@ -164,7 +176,13 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 │   ├── kai-network-core/         # Phase 2
 │   ├── kai-unifi-adapter/
 │   ├── kai-mock-network-adapter/
-│   └── kai-network-skill/
+│   ├── kai-network-skill/
+│   │
+│   ├── kai-issues-core/          # Phase 3 (NEW)
+│   ├── kai-joplin-issues-adapter/
+│   ├── kai-linear-adapter/
+│   ├── kai-mock-issues-adapter/
+│   └── kai-issues-skill/
 │
 ├── SESSION-CONTEXT.md            # This file
 └── CLAUDE.md                     # Project instructions
@@ -186,11 +204,11 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 
 ## Next Steps
 
-1. **Choose next domain** (Phase 3-7)
-2. **Write spec** using DOMAIN-TEMPLATE.md
-3. **Implement** following Core → Adapter → Skill pattern
-4. **Test** (aim for similar coverage as Phases 1-2)
-5. **Commit** with conventional commit message
+1. **Commit Phase 3** - Issues domain packages
+2. **Choose next domain** (Phase 4-6)
+3. **Write spec** using DOMAIN-TEMPLATE.md
+4. **Implement** following Core → Adapter → Skill pattern
+5. **Test** (aim for similar coverage as Phases 1-3)
 6. **Update** Joplin tracking note
 
 ---

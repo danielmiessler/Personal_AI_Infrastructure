@@ -1,0 +1,28 @@
+name: mock
+version: "1.0.0"
+domain: issues
+interface: IssuesProvider
+entry: src/index.ts
+description: Mock issues adapter for testing and development
+
+config:
+  required: []
+  optional:
+    issues: "Issue[] - Pre-populated issues"
+    projects: "Project[] - Pre-populated projects"
+    labels: "Label[] - Pre-populated labels"
+    latencyMs: "number - Simulated latency in ms"
+    failureRate: "number - Probability of failure (0-1)"
+    failureError: "string - Error type to throw on failure"
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+    - linux
+    - win32
+
+integrations:
+  local: true
+  cicd: true
+  kubernetes: false

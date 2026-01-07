@@ -1,0 +1,24 @@
+name: linear
+version: "1.0.0"
+domain: issues
+interface: IssuesProvider
+entry: src/index.ts
+description: Linear project management adapter
+
+config:
+  required:
+    - teamId
+  optional:
+    - apiUrl: https://api.linear.app/graphql
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+    - linux
+    - win32
+
+integrations:
+  local: true
+  cicd: true
+  kubernetes: true

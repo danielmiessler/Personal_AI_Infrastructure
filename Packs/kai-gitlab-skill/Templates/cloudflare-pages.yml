@@ -1,0 +1,256 @@
+# GitLab CI/CD Template: Cloudflare Pages Deployment
+# =====================================================
+# Deploy static sites and full-stack applications to Cloudflare Pages.
+#
+# Usage:
+#   include:
+#     - project: 'your-group/kai-gitlab-skill'
+#       ref: main
+#       file: '/Templates/cloudflare-pages.yml'
+#
+# Required Variables (set in GitLab CI/CD Settings):
+#   CLOUDFLARE_API_TOKEN   - Cloudflare API token with Pages permissions
+#   CLOUDFLARE_ACCOUNT_ID  - Your Cloudflare account ID
+#   CF_PAGES_PROJECT       - Cloudflare Pages project name
+#
+# Optional Variables:
+#   BUILD_OUTPUT_DIR       - Build output directory (default: dist)
+#   BUILD_COMMAND          - Build command (default: bun run build)
+#   NODE_VERSION           - Node.js version (default: 20)
+
+stages:
+  - install
+  - build
+  - deploy
+
+variables:
+  BUILD_OUTPUT_DIR: "dist"
+  BUILD_COMMAND: "bun run build"
+  NODE_VERSION: "20"
+
+default:
+  image: node:${NODE_VERSION}-alpine
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+# ------------------------------------------------------------------------------
+# Cache Configuration
+# ------------------------------------------------------------------------------
+cache:
+  key:
+    files:
+      - package-lock.json
+      - bun.lockb
+      - pnpm-lock.yaml
+      - yarn.lock
+    prefix: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - .bun/
+  policy: pull-push
+
+# ------------------------------------------------------------------------------
+# Install Stage
+# ------------------------------------------------------------------------------
+install:
+  stage: install
+  before_script:
+    # Install Bun if bun.lockb exists
+    - |
+      if [ -f "bun.lockb" ]; then
+        curl -fsSL https://bun.sh/install | bash
+        export PATH="$HOME/.bun/bin:$PATH"
+      fi
+  script:
+    - echo "Installing dependencies..."
+    - |
+      if [ -f "bun.lockb" ]; then
+        bun install --frozen-lockfile
+      elif [ -f "pnpm-lock.yaml" ]; then
+        npm install -g pnpm
+        pnpm install --frozen-lockfile
+      elif [ -f "yarn.lock" ]; then
+        yarn install --frozen-lockfile
+      else
+        npm ci
+      fi
+    - echo "Dependencies installed"
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+  rules:
+    - when: always
+
+# ------------------------------------------------------------------------------
+# Build Stage
+# ------------------------------------------------------------------------------
+build:
+  stage: build
+  needs:
+    - install
+  before_script:
+    - |
+      if [ -f "bun.lockb" ]; then
+        curl -fsSL https://bun.sh/install | bash
+        export PATH="$HOME/.bun/bin:$PATH"
+      fi
+  script:
+    - echo "Building project..."
+    - |
+      if [ -f "bun.lockb" ]; then
+        export PATH="$HOME/.bun/bin:$PATH"
+      fi
+    - ${BUILD_COMMAND}
+    - echo "Build completed"
+    - ls -la ${BUILD_OUTPUT_DIR}/
+  artifacts:
+    paths:
+      - ${BUILD_OUTPUT_DIR}/
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# ------------------------------------------------------------------------------
+# Deploy Stage
+# ------------------------------------------------------------------------------
+# Deploy preview for merge requests
+deploy-preview:
+  stage: deploy
+  image: node:${NODE_VERSION}-alpine
+  needs:
+    - build
+  before_script:
+    - npm install -g wrangler
+  script:
+    - echo "Deploying preview to Cloudflare Pages..."
+    - |
+      wrangler pages deploy ${BUILD_OUTPUT_DIR} \
+        --project-name=${CF_PAGES_PROJECT} \
+        --branch=${CI_COMMIT_REF_NAME} \
+        --commit-hash=${CI_COMMIT_SHA} \
+        --commit-message="${CI_COMMIT_MESSAGE}" \
+        --commit-dirty=false
+  environment:
+    name: preview/$CI_COMMIT_REF_SLUG
+    url: https://${CI_COMMIT_REF_SLUG}.${CF_PAGES_PROJECT}.pages.dev
+    on_stop: stop-preview
+    auto_stop_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Stop preview environment when MR is closed
+stop-preview:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Preview environment stopped"
+  environment:
+    name: preview/$CI_COMMIT_REF_SLUG
+    action: stop
+  when: manual
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+
+# Deploy to staging (develop branch or non-production branches)
+deploy-staging:
+  stage: deploy
+  image: node:${NODE_VERSION}-alpine
+  needs:
+    - build
+  before_script:
+    - npm install -g wrangler
+  script:
+    - echo "Deploying to staging..."
+    - |
+      wrangler pages deploy ${BUILD_OUTPUT_DIR} \
+        --project-name=${CF_PAGES_PROJECT} \
+        --branch=staging \
+        --commit-hash=${CI_COMMIT_SHA}
+  environment:
+    name: staging
+    url: https://staging.${CF_PAGES_PROJECT}.pages.dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "staging"
+
+# Deploy to production (main branch)
+deploy-production:
+  stage: deploy
+  image: node:${NODE_VERSION}-alpine
+  needs:
+    - build
+  before_script:
+    - npm install -g wrangler
+  script:
+    - echo "Deploying to production..."
+    - |
+      wrangler pages deploy ${BUILD_OUTPUT_DIR} \
+        --project-name=${CF_PAGES_PROJECT} \
+        --branch=main \
+        --commit-hash=${CI_COMMIT_SHA}
+  environment:
+    name: production
+    url: https://${CF_PAGES_PROJECT}.pages.dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - if: $CI_COMMIT_TAG
+      when: manual
+
+# Auto-deploy to production on tags (for release workflow)
+deploy-release:
+  stage: deploy
+  image: node:${NODE_VERSION}-alpine
+  needs:
+    - build
+  before_script:
+    - npm install -g wrangler
+  script:
+    - echo "Deploying release ${CI_COMMIT_TAG} to production..."
+    - |
+      wrangler pages deploy ${BUILD_OUTPUT_DIR} \
+        --project-name=${CF_PAGES_PROJECT} \
+        --branch=main \
+        --commit-hash=${CI_COMMIT_SHA}
+  environment:
+    name: production
+    url: https://${CF_PAGES_PROJECT}.pages.dev
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/
+      when: on_success
+    - when: never
+
+# ------------------------------------------------------------------------------
+# Utility Templates
+# ------------------------------------------------------------------------------
+
+# Template for custom domain deployment
+.deploy_custom_domain:
+  stage: deploy
+  image: node:${NODE_VERSION}-alpine
+  before_script:
+    - npm install -g wrangler
+  script:
+    - |
+      wrangler pages deploy ${BUILD_OUTPUT_DIR} \
+        --project-name=${CF_PAGES_PROJECT} \
+        --branch=main
+
+# Template for deploying with Cloudflare Functions
+.with_functions:
+  variables:
+    BUILD_OUTPUT_DIR: "dist"
+  before_script:
+    - npm install -g wrangler
+    - |
+      # Build functions if they exist
+      if [ -d "functions" ]; then
+        echo "Functions directory detected"
+      fi

@@ -115,7 +115,7 @@ A **portable infrastructure pack system** using three-layer architecture:
 - Both adapters skip integration tests (require running daemon/cluster)
 
 **Spec**: `Packs/specs/PLATFORM-DOMAIN.md`
-**Git Commit**: (pending)
+**Git Commit**: `6ba2581 feat(platform): Add Phase 5 Platform Domain`
 
 ---
 

@@ -38,6 +38,13 @@ keywords: [knowledge, graph, memory, semantic search, entity extraction, relatio
 
 > Persistent personal knowledge management system powered by Graphiti knowledge graph with FalkorDB backend - automatically extracts entities, relationships, and temporal context from conversations, documents, and ideas
 
+> **FOR AI AGENTS:** This is a PAI Pack - a complete, self-contained module for the PAI (Personal AI Infrastructure) system. When installing this pack:
+> 1. Read the entire README first to understand what you're installing
+> 2. Follow INSTALL.md step-by-step - do NOT skip or simplify steps
+> 3. Complete ALL verification checks in VERIFY.md - ALL must pass
+> 4. Each step has specific commands and expected outputs - verify them
+> 5. If any step fails, STOP and troubleshoot before continuing
+
 ## Installation Prompt
 
 You are receiving a PAI Pack - a modular upgrade for AI agent systems.
@@ -440,8 +447,8 @@ Quick start:
 cd /path/to/pai-knowledge-system
 
 # 2. Configure API keys
-cp src/config/.env.example src/config/.env
-nano src/config/.env  # Add your OPENAI_API_KEY
+cp config/.env.example config/.env
+nano config/.env  # Add your PAI_KNOWLEDGE_OPENAI_API_KEY
 
 # 3. Start the MCP server
 bash src/server/run.sh
@@ -697,28 +704,28 @@ Once the server is running, try capturing knowledge again.
 # Location: pai-knowledge-system/src/config/.env
 
 # LLM Provider Configuration
-LLM_PROVIDER=openai
-EMBEDDER_PROVIDER=openai
-MODEL_NAME=gpt-4o-mini
+PAI_KNOWLEDGE_LLM_PROVIDER=openai
+PAI_KNOWLEDGE_EMBEDDER_PROVIDER=openai
+PAI_KNOWLEDGE_MODEL_NAME=gpt-4o-mini
 
 # API Keys
-OPENAI_API_KEY=sk-your-key-here
+PAI_KNOWLEDGE_OPENAI_API_KEY=sk-your-key-here
 
 # Performance Configuration
-SEMAPHORE_LIMIT=10
+PAI_KNOWLEDGE_SEMAPHORE_LIMIT=10
 
 # Knowledge Graph Configuration
-GROUP_ID=main
+PAI_KNOWLEDGE_GROUP_ID=main
 
 # Telemetry
-GRAPHITI_TELEMETRY_ENABLED=false
+PAI_KNOWLEDGE_GRAPHITI_TELEMETRY_ENABLED=false
 ```
 
 **Option 2: Shell profile** (for manual installation):
 ```bash
 # Add to ~/.zshrc or ~/.bashrc
 export PAI_DIR="$HOME/.config/pai"
-export OPENAI_API_KEY="sk-your-key-here"
+export PAI_KNOWLEDGE_OPENAI_API_KEY="sk-your-key-here"
 ```
 
 ### Model Selection
@@ -997,11 +1004,21 @@ The hook tracks synced files in `~/.config/pai/history/.synced/sync-state.json`:
       "filepath": "/path/to/learning.md",
       "synced_at": "2026-01-04T10:30:00.000Z",
       "episode_uuid": "abc-123",
-      "capture_type": "LEARNING"
+      "capture_type": "LEARNING",
+      "content_hash": "sha256-abc123def456..."
     }
   ]
 }
 ```
+
+**SyncedFile Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `filepath` | string | Absolute path to the synced file |
+| `synced_at` | string | ISO timestamp when file was synced |
+| `episode_uuid` | string? | UUID of the created episode (if available) |
+| `capture_type` | string | Type: LEARNING, RESEARCH, DECISION, etc. |
+| `content_hash` | string? | SHA-256 hash of episode_body for content-level deduplication |
 
 ### Resilience
 

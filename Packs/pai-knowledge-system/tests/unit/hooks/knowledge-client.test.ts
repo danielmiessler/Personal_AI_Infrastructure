@@ -10,9 +10,9 @@ describe('knowledge-client', () => {
     it('should return default configuration', () => {
       const config = getConfig();
 
-      expect(config.baseURL).toBe('http://localhost:8000/mcp/');
+      expect(config.baseURL).toBe('http://localhost:8000');
       expect(config.timeout).toBe(15000);
-      expect(config.retries).toBe(2);
+      expect(config.retries).toBe(3);
     });
   });
 

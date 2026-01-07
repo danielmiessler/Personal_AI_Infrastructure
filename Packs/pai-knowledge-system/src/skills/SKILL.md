@@ -136,23 +136,23 @@ http://localhost:8000/mcp/
 
 ## Configuration Options
 
-**Environment Variables** (set in `.env`):
+**Environment Variables** (set in `config/.env`):
 
 ```bash
 # LLM Configuration
-OPENAI_API_KEY=sk-your-key-here
-MODEL_NAME=gpt-4o-mini
-LLM_PROVIDER=openai
-EMBEDDER_PROVIDER=openai
+PAI_KNOWLEDGE_OPENAI_API_KEY=sk-your-key-here
+PAI_KNOWLEDGE_MODEL_NAME=gpt-4o-mini
+PAI_KNOWLEDGE_LLM_PROVIDER=openai
+PAI_KNOWLEDGE_EMBEDDER_PROVIDER=openai
 
 # Concurrency (adjust based on API tier)
-SEMAPHORE_LIMIT=10
+PAI_KNOWLEDGE_SEMAPHORE_LIMIT=10
 
 # Group ID (for multiple knowledge graphs)
-GROUP_ID=main
+PAI_KNOWLEDGE_GROUP_ID=main
 
 # Disable telemetry
-GRAPHITI_TELEMETRY_ENABLED=false
+PAI_KNOWLEDGE_GRAPHITI_TELEMETRY_ENABLED=false
 ```
 
 **Model Recommendations:**

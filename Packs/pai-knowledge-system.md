@@ -38,6 +38,13 @@ keywords: [knowledge, graph, memory, semantic search, entity extraction, relatio
 
 > Persistent personal knowledge management system powered by Graphiti knowledge graph with FalkorDB backend - automatically extracts entities, relationships, and temporal context from conversations, documents, and ideas
 
+> **FOR AI AGENTS:** This is a PAI Pack - a complete, self-contained module for the PAI (Personal AI Infrastructure) system. When installing this pack:
+> 1. Read the entire README first to understand what you're installing
+> 2. Follow INSTALL.md step-by-step - do NOT skip or simplify steps
+> 3. Complete ALL verification checks in VERIFY.md - ALL must pass
+> 4. Each step has specific commands and expected outputs - verify them
+> 5. If any step fails, STOP and troubleshoot before continuing
+
 ## Installation Prompt
 
 You are receiving a PAI Pack - a modular upgrade for AI agent systems.
@@ -906,11 +913,22 @@ The hook tracks synced files in `~/.config/pai/history/.synced/sync-state.json`:
       "filepath": "/path/to/learning.md",
       "synced_at": "2026-01-04T10:30:00.000Z",
       "episode_uuid": "abc-123",
-      "capture_type": "LEARNING"
+      "capture_type": "LEARNING",
+      "content_hash": "sha256-abc123def456..."
     }
   ]
 }
 ```
+
+**SyncedFile Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `filepath` | string | Absolute path to the synced file |
+| `synced_at` | string | ISO timestamp when file was synced |
+| `episode_uuid` | string? | UUID returned by knowledge graph (if successful) |
+| `capture_type` | string | Type of capture: LEARNING, SESSION, RESEARCH, DECISION |
+| `content_hash` | string? | SHA-256 hash of episode_body for content-level deduplication |
 
 ### Resilience
 

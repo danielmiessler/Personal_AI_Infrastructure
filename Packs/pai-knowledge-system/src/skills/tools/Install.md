@@ -25,8 +25,8 @@ Before installation, verify:
    ```
 
 3. **API key configured:**
-   - Check for `OPENAI_API_KEY` or `PAI_KNOWLEDGE_OPENAI_API_KEY` in environment
-   - Or in `~/.config/pai/.env`
+   - Check for `PAI_KNOWLEDGE_OPENAI_API_KEY` in environment or `config/.env`
+   - Legacy `OPENAI_API_KEY` is also supported but `PAI_KNOWLEDGE_*` prefix is preferred
 
 ## Installation Steps
 

@@ -2,6 +2,14 @@
 
 Complete installation guide for the PAI Knowledge System pack.
 
+> **FOR AI AGENTS:** This installation MUST be completed exactly as specified. Follow these rules:
+> 1. **Execute every step** - Do NOT skip steps or mark them as "optional"
+> 2. **Verify outputs** - After each command, check the expected output matches
+> 3. **Stop on errors** - If any step fails, troubleshoot before continuing
+> 4. **Use exact paths** - Do not modify file paths or directory structures
+> 5. **Copy files verbatim** - Do not simplify or "improve" code during installation
+> 6. **Run verification** - After installation, complete ALL checks in VERIFY.md
+
 ---
 
 ## Prerequisites
@@ -26,6 +34,12 @@ Complete installation guide for the PAI Knowledge System pack.
 ## Pre-Installation: System Analysis
 
 **IMPORTANT:** Before installing, analyze the current system state to detect conflicts and ensure dependencies are met.
+
+> **FOR AI AGENTS:** Run ALL pre-installation checks before proceeding. If ANY check shows a conflict or missing dependency:
+> - **Port in use**: Stop the existing service or choose a different port
+> - **Missing dependency**: Install the dependency first (kai-history-system, Podman, Bun)
+> - **Existing installation**: Backup existing files, then proceed with update
+> - **Missing API key**: Prompt user to provide API key before continuing
 
 ### Step 0.1: Detect Current Configuration
 
@@ -88,7 +102,7 @@ fi
 echo ""
 echo "Environment variables:"
 echo "  PAI_DIR: ${PAI_DIR:-'NOT SET'}"
-echo "  OPENAI_API_KEY: ${OPENAI_API_KEY:+SET (value hidden)}"
+echo "  PAI_KNOWLEDGE_OPENAI_API_KEY: ${PAI_KNOWLEDGE_OPENAI_API_KEY:+SET (value hidden)}"
 
 # 8. Check Podman installation
 echo ""
@@ -117,9 +131,11 @@ else
     echo "   Install with: curl -fsSL https://bun.sh/install | bash"
 fi
 
-# Check for API key
-if [ -n "$OPENAI_API_KEY" ] || [ -n "$ANTHROPIC_API_KEY" ] || [ -n "$GOOGLE_API_KEY" ]; then
-    echo "✓ LLM API key is configured"
+# Check for API key (prefer PAI_KNOWLEDGE_* prefix)
+if [ -n "$PAI_KNOWLEDGE_OPENAI_API_KEY" ] || [ -n "$PAI_KNOWLEDGE_ANTHROPIC_API_KEY" ] || [ -n "$PAI_KNOWLEDGE_GOOGLE_API_KEY" ]; then
+    echo "✓ LLM API key is configured (PAI_KNOWLEDGE_* prefix)"
+elif [ -n "$OPENAI_API_KEY" ] || [ -n "$ANTHROPIC_API_KEY" ] || [ -n "$GOOGLE_API_KEY" ]; then
+    echo "✓ LLM API key is configured (legacy - consider using PAI_KNOWLEDGE_* prefix)"
 else
     echo "⚠️  No LLM API key found in environment"
     echo "   You will need to configure this during installation"
@@ -184,6 +200,8 @@ echo "Backup complete!"
 ---
 
 ## Step 1: Verify Pack Contents
+
+> **FOR AI AGENTS:** This step verifies the pack is complete. If ANY file is missing, STOP and inform the user - the pack is incomplete and cannot be installed.
 
 Ensure you have all required files in the pack directory:
 
@@ -252,24 +270,32 @@ echo "Checking for existing API keys..."
 source "$PAI_ENV" 2>/dev/null || true
 
 AUTO_CONFIGURED=false
-if [ -n "$OPENAI_API_KEY" ] || [ -n "$ANTHROPIC_API_KEY" ] || [ -n "$GOOGLE_API_KEY" ] || [ -n "$GROQ_API_KEY" ]; then
-    echo "✓ Found existing API keys in PAI configuration"
+# Check for PAI_KNOWLEDGE_* prefixed keys first (preferred)
+if [ -n "$PAI_KNOWLEDGE_OPENAI_API_KEY" ] || [ -n "$PAI_KNOWLEDGE_ANTHROPIC_API_KEY" ] || [ -n "$PAI_KNOWLEDGE_GOOGLE_API_KEY" ] || [ -n "$PAI_KNOWLEDGE_GROQ_API_KEY" ]; then
+    echo "✓ Found existing API keys in PAI configuration (PAI_KNOWLEDGE_* prefix)"
+    AUTO_CONFIGURED=true
+# Fall back to legacy keys
+elif [ -n "$OPENAI_API_KEY" ] || [ -n "$ANTHROPIC_API_KEY" ] || [ -n "$GOOGLE_API_KEY" ] || [ -n "$GROQ_API_KEY" ]; then
+    echo "✓ Found existing API keys in PAI configuration (legacy - consider migrating to PAI_KNOWLEDGE_* prefix)"
     AUTO_CONFIGURED=true
 fi
 
-# Determine provider settings
-if [ -z "$LLM_PROVIDER" ]; then
+# Determine provider settings (check PAI_KNOWLEDGE_* first)
+if [ -z "$PAI_KNOWLEDGE_LLM_PROVIDER" ] && [ -z "$LLM_PROVIDER" ]; then
     LLM_PROVIDER="openai"
     EMBEDDER_PROVIDER="openai"
 
-    if [ -n "$ANTHROPIC_API_KEY" ]; then
+    if [ -n "$PAI_KNOWLEDGE_ANTHROPIC_API_KEY" ] || [ -n "$ANTHROPIC_API_KEY" ]; then
         LLM_PROVIDER="anthropic"
-    elif [ -n "$GOOGLE_API_KEY" ]; then
+    elif [ -n "$PAI_KNOWLEDGE_GOOGLE_API_KEY" ] || [ -n "$GOOGLE_API_KEY" ]; then
         LLM_PROVIDER="gemini"
         EMBEDDER_PROVIDER="gemini"
-    elif [ -n "$GROQ_API_KEY" ]; then
+    elif [ -n "$PAI_KNOWLEDGE_GROQ_API_KEY" ] || [ -n "$GROQ_API_KEY" ]; then
         LLM_PROVIDER="groq"
     fi
+else
+    LLM_PROVIDER="${PAI_KNOWLEDGE_LLM_PROVIDER:-$LLM_PROVIDER}"
+    EMBEDDER_PROVIDER="${PAI_KNOWLEDGE_EMBEDDER_PROVIDER:-$EMBEDDER_PROVIDER}"
 fi
 
 echo ""
@@ -302,17 +328,17 @@ for line in lines:
     if match:
         existing_vars[match.group(1)] = match.group(2)
 
-# Variables to add (only if not already present)
+# Variables to add (only if not already present) - all use PAI_KNOWLEDGE_* prefix
 vars_to_add = {
-    'LLM_PROVIDER': os.getenv('LLM_PROVIDER', 'openai'),
-    'EMBEDDER_PROVIDER': os.getenv('EMBEDDER_PROVIDER', 'openai'),
-    'MODEL_NAME': os.getenv('MODEL_NAME', 'gpt-4o-mini'),
-    'DATABASE_TYPE': 'falkordb',
-    'FALKORDB_HOST': 'pai-knowledge-falkordb',
-    'FALKORDB_PORT': '6379',
-    'SEMAPHORE_LIMIT': '10',
-    'GROUP_ID': 'main',
-    'GRAPHITI_TELEMETRY_ENABLED': 'false',
+    'PAI_KNOWLEDGE_LLM_PROVIDER': os.getenv('PAI_KNOWLEDGE_LLM_PROVIDER', os.getenv('LLM_PROVIDER', 'openai')),
+    'PAI_KNOWLEDGE_EMBEDDER_PROVIDER': os.getenv('PAI_KNOWLEDGE_EMBEDDER_PROVIDER', os.getenv('EMBEDDER_PROVIDER', 'openai')),
+    'PAI_KNOWLEDGE_MODEL_NAME': os.getenv('PAI_KNOWLEDGE_MODEL_NAME', os.getenv('MODEL_NAME', 'gpt-4o-mini')),
+    'PAI_KNOWLEDGE_DATABASE_TYPE': 'falkordb',
+    'PAI_KNOWLEDGE_FALKORDB_HOST': 'pai-knowledge-falkordb',
+    'PAI_KNOWLEDGE_FALKORDB_PORT': '6379',
+    'PAI_KNOWLEDGE_SEMAPHORE_LIMIT': '10',
+    'PAI_KNOWLEDGE_GROUP_ID': 'main',
+    'PAI_KNOWLEDGE_GRAPHITI_TELEMETRY_ENABLED': 'false',
 }
 
 # Write updated content
@@ -355,6 +381,11 @@ echo "  - PAI Knowledge System settings (newly added)"
 ---
 
 ## Step 3: Start MCP Server
+
+> **FOR AI AGENTS:** This step starts the containerized MCP server. The server MUST be running before proceeding.
+> - If server fails to start: Check container logs with `podman logs pai-knowledge-graph-mcp`
+> - If health check fails: Wait additional 30 seconds and retry - container may still be initializing
+> - Server must show "✓ Server is running" before proceeding to Step 4
 
 Launch the Graphiti MCP server with FalkorDB backend:
 
@@ -420,6 +451,11 @@ bun run src/skills/tools/status.ts
 
 ## Step 4: Install Knowledge Skill
 
+> **FOR AI AGENTS:** This step copies the Knowledge skill to the PAI skills directory.
+> - The skill MUST be copied to `$PAI_DIR/skills/Knowledge` or `~/.claude/skills/Knowledge`
+> - Verify the copy succeeded by checking the directory structure
+> - All workflow files must be present after copy
+
 Copy the skill to your Claude skills directory:
 
 ```bash
@@ -454,6 +490,11 @@ ls -la "$PAI_SKILLS_DIR/Knowledge/"
 ---
 
 ## Step 5: Configure MCP Server in Claude Code
+
+> **FOR AI AGENTS:** This step configures Claude Code to connect to the Knowledge MCP server.
+> - The MCP server configuration MUST be added to `~/.claude.json`
+> - After configuration, Claude Code must be restarted for changes to take effect
+> - Verify the MCP server appears in Claude Code's server list after restart
 
 **Enable the MCP server connection in Claude Code:**
 
@@ -591,6 +632,11 @@ After restart, Claude Code will have access to:
 
 ## Step 6: Verify Installation
 
+> **FOR AI AGENTS:** This step runs basic verification. ALL checks must pass (show ✓).
+> - If ANY check fails (shows ✗), STOP and troubleshoot before proceeding
+> - After this step succeeds, you MUST also complete the full VERIFY.md checklist
+> - Do NOT consider installation complete until VERIFY.md passes
+
 Run comprehensive verification checks:
 
 ```bash
@@ -632,11 +678,11 @@ else
 fi
 
 # Check 5: Configuration exists
-if [[ -f "src/config/.env" ]] && grep -q "OPENAI_API_KEY=sk-" src/config/.env 2>/dev/null; then
+if [[ -f "config/.env" ]] && grep -q "PAI_KNOWLEDGE_OPENAI_API_KEY=sk-" config/.env 2>/dev/null; then
     echo "✓ Configuration file exists with API key"
 else
     echo "⚠️  API key may not be configured properly"
-    echo "  Edit src/config/.env and add your OPENAI_API_KEY"
+    echo "  Edit config/.env and add your PAI_KNOWLEDGE_OPENAI_API_KEY"
 fi
 
 # Check 6: Required skill files
@@ -918,11 +964,22 @@ The hook tracks which files have been synced in `~/.config/pai/history/.synced/s
       "filepath": "/path/to/learning.md",
       "synced_at": "2026-01-04T12:00:00.000Z",
       "episode_uuid": "abc-123",
-      "capture_type": "LEARNING"
+      "capture_type": "LEARNING",
+      "content_hash": "sha256-abc123def456..."
     }
   ]
 }
 ```
+
+**SyncedFile Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `filepath` | string | Absolute path to the synced file |
+| `synced_at` | string | ISO timestamp when file was synced |
+| `episode_uuid` | string? | UUID returned by knowledge graph (if successful) |
+| `capture_type` | string | Type of capture: LEARNING, SESSION, RESEARCH, DECISION |
+| `content_hash` | string? | SHA-256 hash of episode_body for content-level deduplication |
 
 **Troubleshooting Hook Issues:**
 

@@ -220,7 +220,7 @@ cat ~/.claude/.env | grep API_KEY
 
 # Verify API key is valid
 curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
+  -H "Authorization: Bearer $PAI_KNOWLEDGE_OPENAI_API_KEY"
 
 # Update .env if needed
 nano ~/.claude/.env

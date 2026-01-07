@@ -4,6 +4,13 @@ Mandatory verification checklist for the Knowledge pack installation.
 
 **Use this checklist to verify that your installation is complete and functional.**
 
+> **FOR AI AGENTS:** This checklist MUST be completed after installation. Follow these rules:
+> 1. **Run EVERY check** - Do not skip any verification step
+> 2. **Mark each item PASS or FAIL** - Keep track of results
+> 3. **Stop on failures** - If a section fails, troubleshoot before continuing
+> 4. **All sections must pass** - Installation is NOT complete until all checks pass
+> 5. **Report failures clearly** - Tell the user which specific checks failed
+
 ---
 
 ## Verification Overview
@@ -185,6 +192,9 @@ ls -la src/hooks/lib/
 ---
 
 ## Section 2: MCP Server Verification
+
+> **FOR AI AGENTS:** This section verifies the MCP server is operational. ALL checks must pass.
+> If server is not running, go back to INSTALL.md Step 3 and start the server.
 
 Verify the Graphiti MCP server is running and accessible.
 
@@ -459,6 +469,10 @@ lsof -i :3000
 ---
 
 ## Section 5: End-to-End Functionality
+
+> **FOR AI AGENTS:** This is the CRITICAL verification section. It tests actual knowledge operations.
+> ALL tests MUST pass for the installation to be considered complete.
+> If any test fails, the knowledge system is NOT functional - troubleshoot before proceeding.
 
 Verify the complete system works end-to-end using the actual MCP tools.
 
@@ -856,6 +870,11 @@ bun test
 ---
 
 ## Verification Summary
+
+> **FOR AI AGENTS:** Review this summary to confirm installation success.
+> - ALL "Critical" items MUST pass - no exceptions
+> - Report the final status clearly to the user
+> - If any critical item fails, installation is NOT complete
 
 ### Pass Criteria
 

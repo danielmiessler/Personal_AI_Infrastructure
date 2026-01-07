@@ -106,7 +106,7 @@ Error: [error message]
 
 Troubleshooting:
 1. Check if Graphiti server is running: curl http://localhost:8000/health
-2. Verify OPENAI_API_KEY is configured
+2. Verify PAI_KNOWLEDGE_OPENAI_API_KEY is configured
 3. Check server logs: podman logs graphiti-knowledge-graph-mcp
 ```
 
@@ -190,8 +190,8 @@ add_episode({
 - Start server: `cd /path/to/podman-graphiti && ./run.sh`
 
 **Error: "API key not configured"**
-- OPENAI_API_KEY is missing or invalid
-- Check `.env` file has valid key
+- PAI_KNOWLEDGE_OPENAI_API_KEY is missing or invalid
+- Check `config/.env` file has valid key
 - Restart server after updating `.env`
 
 **Error: "No entities extracted"**

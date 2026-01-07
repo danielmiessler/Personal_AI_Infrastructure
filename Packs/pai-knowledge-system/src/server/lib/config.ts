@@ -197,15 +197,30 @@ export class ConfigLoader {
 
     // Mapping of PAI_KNOWLEDGE_* -> standard variable
     const mappings: Record<string, string> = {
+      // API Keys
       PAI_KNOWLEDGE_OPENAI_API_KEY: "OPENAI_API_KEY",
+      PAI_KNOWLEDGE_ANTHROPIC_API_KEY: "ANTHROPIC_API_KEY",
+      PAI_KNOWLEDGE_GOOGLE_API_KEY: "GOOGLE_API_KEY",
+      PAI_KNOWLEDGE_GROQ_API_KEY: "GROQ_API_KEY",
+      PAI_KNOWLEDGE_VOYAGE_API_KEY: "VOYAGE_API_KEY",
+      // LLM Configuration
       PAI_KNOWLEDGE_LLM_PROVIDER: "LLM_PROVIDER",
       PAI_KNOWLEDGE_EMBEDDER_PROVIDER: "EMBEDDER_PROVIDER",
       PAI_KNOWLEDGE_MODEL_NAME: "MODEL_NAME",
+      // Performance
       PAI_KNOWLEDGE_SEMAPHORE_LIMIT: "SEMAPHORE_LIMIT",
+      // Knowledge Graph
       PAI_KNOWLEDGE_GROUP_ID: "GROUP_ID",
       PAI_KNOWLEDGE_DATABASE_TYPE: "DATABASE_TYPE",
       PAI_KNOWLEDGE_GRAPHITI_TELEMETRY_ENABLED: "GRAPHITI_TELEMETRY_ENABLED",
+      // FalkorDB
+      PAI_KNOWLEDGE_FALKORDB_HOST: "FALKORDB_HOST",
+      PAI_KNOWLEDGE_FALKORDB_PORT: "FALKORDB_PORT",
       PAI_KNOWLEDGE_FALKORDB_PASSWORD: "FALKORDB_PASSWORD",
+      // Neo4j
+      PAI_KNOWLEDGE_NEO4J_URI: "NEO4J_URI",
+      PAI_KNOWLEDGE_NEO4J_USER: "NEO4J_USER",
+      PAI_KNOWLEDGE_NEO4J_PASSWORD: "NEO4J_PASSWORD",
     };
 
     // Apply mappings
@@ -386,18 +401,21 @@ export class ConfigLoader {
     newContent += `# Generated: ${new Date().toISOString()}\n`;
     newContent += "\n";
 
-    // Add API Keys
+    // Add API Keys (all use PAI_KNOWLEDGE_* prefix)
     if (config.OPENAI_API_KEY) {
       newContent += `PAI_KNOWLEDGE_OPENAI_API_KEY=${config.OPENAI_API_KEY}\n`;
     }
     if (config.ANTHROPIC_API_KEY) {
-      newContent += `ANTHROPIC_API_KEY=${config.ANTHROPIC_API_KEY}\n`;
+      newContent += `PAI_KNOWLEDGE_ANTHROPIC_API_KEY=${config.ANTHROPIC_API_KEY}\n`;
     }
     if (config.GOOGLE_API_KEY) {
-      newContent += `GOOGLE_API_KEY=${config.GOOGLE_API_KEY}\n`;
+      newContent += `PAI_KNOWLEDGE_GOOGLE_API_KEY=${config.GOOGLE_API_KEY}\n`;
     }
     if (config.GROQ_API_KEY) {
-      newContent += `GROQ_API_KEY=${config.GROQ_API_KEY}\n`;
+      newContent += `PAI_KNOWLEDGE_GROQ_API_KEY=${config.GROQ_API_KEY}\n`;
+    }
+    if (config.VOYAGE_API_KEY) {
+      newContent += `PAI_KNOWLEDGE_VOYAGE_API_KEY=${config.VOYAGE_API_KEY}\n`;
     }
 
     newContent += "\n";
@@ -433,6 +451,32 @@ export class ConfigLoader {
 
     if (config.GRAPHITI_TELEMETRY_ENABLED) {
       newContent += `PAI_KNOWLEDGE_GRAPHITI_TELEMETRY_ENABLED=${config.GRAPHITI_TELEMETRY_ENABLED}\n`;
+    }
+
+    newContent += "\n";
+
+    // Add Database Configuration (FalkorDB)
+    if (config.FALKORDB_HOST) {
+      newContent += `PAI_KNOWLEDGE_FALKORDB_HOST=${config.FALKORDB_HOST}\n`;
+    }
+    if (config.FALKORDB_PORT) {
+      newContent += `PAI_KNOWLEDGE_FALKORDB_PORT=${config.FALKORDB_PORT}\n`;
+    }
+    if (config.FALKORDB_PASSWORD) {
+      newContent += `PAI_KNOWLEDGE_FALKORDB_PASSWORD=${config.FALKORDB_PASSWORD}\n`;
+    }
+
+    newContent += "\n";
+
+    // Add Database Configuration (Neo4j)
+    if (config.NEO4J_URI) {
+      newContent += `PAI_KNOWLEDGE_NEO4J_URI=${config.NEO4J_URI}\n`;
+    }
+    if (config.NEO4J_USER) {
+      newContent += `PAI_KNOWLEDGE_NEO4J_USER=${config.NEO4J_USER}\n`;
+    }
+    if (config.NEO4J_PASSWORD) {
+      newContent += `PAI_KNOWLEDGE_NEO4J_PASSWORD=${config.NEO4J_PASSWORD}\n`;
     }
 
     // Write to file

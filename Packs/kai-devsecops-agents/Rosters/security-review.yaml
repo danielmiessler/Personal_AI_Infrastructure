@@ -1,0 +1,36 @@
+name: Security Review
+description: Security-focused review team
+version: "1.0"
+
+agents:
+  - Daniel  # Lead - Security Engineer
+  - Clay    # Tech Lead - implementation feasibility
+  - Amy     # QA Lead - security testing
+  - Geoff   # Network Specialist - network security
+
+lead: Daniel
+
+use_cases:
+  - Security threat modeling
+  - CMMC compliance reviews
+  - Vulnerability assessments
+  - Authentication/authorization design
+  - Network security architecture
+  - Penetration test planning
+  - Security incident response
+
+estimated_duration: 10-20 minutes
+complexity: medium
+
+focus_areas:
+  - STRIDE threat analysis
+  - OWASP Top 10 vulnerabilities
+  - CMMC Level 2 compliance
+  - Network segmentation
+  - Security testing strategy
+
+notes: |
+  Daniel leads security reviews with veto power on critical vulnerabilities.
+  Clay provides implementation perspective.
+  Amy ensures security is testable.
+  Geoff covers network-level security concerns.

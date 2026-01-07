@@ -1,0 +1,29 @@
+name: Full Team
+description: All 9 agents for comprehensive review
+version: "1.0"
+
+agents:
+  - Daniel
+  - Mary
+  - Clay
+  - Hefley
+  - Amy
+  - Geoff
+  - Justin
+  - Rekha
+  - Roger
+
+use_cases:
+  - Comprehensive architecture reviews
+  - Major feature planning
+  - Pre-release assessments
+  - Quarterly roadmap discussions
+  - Cross-functional decision making
+
+estimated_duration: 15-30 minutes
+complexity: high
+
+notes: |
+  Use this roster when you need input from all perspectives.
+  Best for high-impact decisions that affect multiple domains.
+  Consider using a more focused roster for routine decisions.

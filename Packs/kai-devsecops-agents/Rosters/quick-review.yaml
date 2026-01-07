@@ -1,0 +1,39 @@
+name: Quick Review
+description: Minimal 2-agent review for low-risk decisions
+version: "1.0"
+
+agents:
+  - Clay    # Scrum Master - process and feasibility
+  - Hefley  # Test Architect - quality perspective
+
+lead: Clay
+
+use_cases:
+  - Low-risk feature decisions
+  - Minor scope adjustments
+  - Quick sanity checks
+  - Routine backlog grooming
+  - Simple technical questions
+  - Fast turnaround needs
+
+estimated_duration: 5-10 minutes
+complexity: low
+
+limitations:
+  - No security deep-dive (escalate to security-review if needed)
+  - No infrastructure considerations (escalate if deployment-critical)
+  - No network concerns (escalate to Geoff if networking involved)
+
+escalation_triggers:
+  - Security implications detected
+  - Infrastructure changes required
+  - Cross-team dependencies identified
+  - Compliance requirements mentioned
+
+notes: |
+  Use this roster for quick decisions that don't require full team input.
+  If security, infrastructure, or complex dependencies are involved,
+  escalate to a more comprehensive roster.
+
+  Clay provides agile/process perspective.
+  Hefley ensures quality considerations aren't missed.

@@ -1,0 +1,33 @@
+{
+  "name": "kai-devsecops-agents",
+  "version": "1.0.0",
+  "description": "DevSecOps agent personas for the Council Framework - 9 specialists from security to project management",
+  "type": "module",
+  "keywords": [
+    "pai",
+    "agents",
+    "devsecops",
+    "council",
+    "personas"
+  ],
+  "author": "PAI",
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "pai": {
+    "type": "agents",
+    "framework": "kai-council-framework",
+    "agents": [
+      "Daniel-SecurityEngineer",
+      "Mary-BusinessAnalyst",
+      "Clay-TechLead",
+      "Hefley-ProductManager",
+      "Amy-QaLead",
+      "Geoff-NetworkSpecialist",
+      "Justin-Sre",
+      "Rekha-ProjectManager",
+      "Roger-PlatformEngineer"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+name: Planning & Estimation
+description: Timeline and capacity planning
+version: "1.0"
+
+agents:
+  - Clay    # Scrum Master - sprint planning, velocity
+  - Hefley  # Test Architect - testing effort
+  - Amy     # QA Lead - test automation time
+  - Rekha   # Project Manager - scheduling, dependencies
+
+lead: Clay
+
+use_cases:
+  - Sprint planning
+  - Story estimation
+  - Capacity planning
+  - Release planning
+  - Timeline negotiations
+  - Resource allocation
+  - Dependency mapping
+
+estimated_duration: 10-15 minutes
+complexity: low-medium
+
+focus_areas:
+  - Story points and velocity
+  - Testing effort estimation
+  - Sprint capacity
+  - Risk identification
+  - Dependency tracking
+  - Backlog prioritization
+
+notes: |
+  Clay leads planning with data-driven velocity analysis.
+  Hefley provides test strategy and quality gate timing.
+  Amy estimates test automation effort.
+  Rekha ensures proper tracking and documentation.

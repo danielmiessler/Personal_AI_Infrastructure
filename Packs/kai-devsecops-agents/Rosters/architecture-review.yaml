@@ -1,0 +1,37 @@
+name: Architecture Review
+description: System design review team
+version: "1.0"
+
+agents:
+  - Clay    # Lead - Scrum Master / Technical perspective
+  - Daniel  # Security Engineer - secure architecture
+  - Amy     # QA Lead - testable architecture
+  - Roger   # Platform Engineer - deployment/infrastructure
+
+lead: Clay
+
+use_cases:
+  - System design reviews
+  - API design discussions
+  - Database schema reviews
+  - Microservice architecture
+  - Integration patterns
+  - Technical debt assessment
+  - Platform migration planning
+
+estimated_duration: 10-20 minutes
+complexity: medium
+
+focus_areas:
+  - Scalability and performance
+  - Security by design
+  - Testability
+  - Deployment patterns
+  - GitOps compatibility
+  - Container architecture
+
+notes: |
+  Clay leads architecture discussions with focus on agile delivery.
+  Daniel ensures security is baked in from the start.
+  Amy validates the design is testable.
+  Roger ensures it fits deployment patterns and infrastructure.

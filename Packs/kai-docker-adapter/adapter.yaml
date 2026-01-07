@@ -1,0 +1,22 @@
+name: docker
+version: 1.0.0
+domain: platform
+interface: PlatformProvider
+entry: ./src/DockerAdapter.ts
+description: Docker Engine adapter for container management
+
+config:
+  required: []
+  optional:
+    - socketPath: /var/run/docker.sock
+    - host: null
+    - composeProject: null
+
+requires:
+  runtime: bun >= 1.0
+  platform: [darwin, linux]
+
+integrations:
+  cicd: true
+  kubernetes: false
+  local: true

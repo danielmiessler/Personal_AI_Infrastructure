@@ -1,0 +1,25 @@
+name: mock
+version: 1.0.0
+domain: platform
+interface: PlatformProvider
+entry: ./src/MockPlatformAdapter.ts
+description: Mock adapter for testing
+
+config:
+  required: []
+  optional:
+    - namespaces: []
+    - deployments: []
+    - containers: []
+    - services: []
+    - simulateLatency: 0
+    - failureRate: 0
+
+requires:
+  runtime: bun >= 1.0
+  platform: [darwin, linux, win32]
+
+integrations:
+  cicd: true
+  kubernetes: false
+  local: true

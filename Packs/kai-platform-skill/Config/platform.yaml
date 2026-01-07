@@ -1,0 +1,26 @@
+# Platform skill configuration
+
+# Default provider (can be overridden per-command)
+default_provider: kubernetes
+
+# Namespace defaults
+defaults:
+  namespace: default
+
+# Output preferences
+output:
+  # Default output format: table, json
+  format: table
+  # Show timestamps in logs
+  timestamps: false
+  # Default number of log lines
+  tail: 100
+
+# Safety settings
+safety:
+  # Warn before scaling to 0
+  warn_scale_to_zero: true
+  # Warn before scaling above this number
+  max_replicas_warning: 10
+  # Require confirmation for delete operations
+  confirm_delete: true

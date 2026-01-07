@@ -11,8 +11,32 @@ import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 
 // Load .env from PAI directory (single source of truth for all API keys)
-const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
-const envPath = join(paiDir, '.env');
+// Fallback chain: PAI_DIR env → parent of script dir → ~/.config/pai
+function resolveEnvPath(): { paiDir: string; envPath: string; source: string } {
+  // 1. Explicit PAI_DIR environment variable
+  if (process.env.PAI_DIR) {
+    const envPath = join(process.env.PAI_DIR, '.env');
+    if (existsSync(envPath)) {
+      return { paiDir: process.env.PAI_DIR, envPath, source: 'PAI_DIR env' };
+    }
+  }
+
+  // 2. Parent directory of script (server.ts is typically in $PAI_DIR/voice-server/)
+  const scriptDir = import.meta.dir;
+  const parentDir = join(scriptDir, '..');
+  const parentEnvPath = join(parentDir, '.env');
+  if (existsSync(parentEnvPath)) {
+    return { paiDir: parentDir, envPath: parentEnvPath, source: 'script parent dir' };
+  }
+
+  // 3. Default fallback ~/.config/pai
+  const defaultDir = join(homedir(), '.config', 'pai');
+  return { paiDir: defaultDir, envPath: join(defaultDir, '.env'), source: 'default (~/.config/pai)' };
+}
+
+const { paiDir, envPath, source: envSource } = resolveEnvPath();
+let envLoaded = false;
+
 if (existsSync(envPath)) {
   const envContent = await Bun.file(envPath).text();
   envContent.split('\n').forEach(line => {
@@ -21,7 +45,12 @@ if (existsSync(envPath)) {
       process.env[key.trim()] = value.trim();
     }
   });
+  envLoaded = true;
 }
+
+// Startup logging for debugging
+console.log(`📂 PAI_DIR: ${paiDir} (${envSource})`);
+console.log(`📄 .env: ${envLoaded ? 'loaded' : 'NOT FOUND'} (${envPath})`)
 
 const PORT = parseInt(process.env.PAI_VOICE_PORT || "8888");
 
@@ -123,10 +152,17 @@ function extractEmotionalMarker(message: string): { cleaned: string; emotion?: s
   return { cleaned: message };
 }
 
-// Get voice configuration by voice ID or agent name
+// Get voice configuration by voice ID or agent name (case-insensitive)
 function getVoiceConfig(identifier: string): VoiceConfig | null {
   if (!voicesConfig) return null;
-  if (voicesConfig.voices[identifier]) return voicesConfig.voices[identifier];
+
+  // Normalize to lowercase for lookup
+  const normalizedId = identifier.toLowerCase();
+
+  // Direct match (lowercase key)
+  if (voicesConfig.voices[normalizedId]) return voicesConfig.voices[normalizedId];
+
+  // Search by voice_id
   for (const config of Object.values(voicesConfig.voices)) {
     if (config.voice_id === identifier) return config;
   }
@@ -366,6 +402,10 @@ async function sendNotification(
       const voice = voiceId || DEFAULT_VOICE_ID;
       const voiceConfig = getVoiceConfig(voice);
 
+      // Resolve actual voice_id from environment variable
+      const envKey = `ELEVENLABS_VOICE_${voice.toUpperCase()}`;
+      const resolvedVoiceId = process.env[envKey] || voice;
+
       // Determine voice settings (priority: emotional > personality > defaults)
       let voiceSettings = { stability: 0.5, similarity_boost: 0.5 };
 
@@ -380,9 +420,9 @@ async function sendNotification(
         console.log(`👤 Personality: ${voiceConfig.description}`);
       }
 
-      console.log(`🎙️  Generating speech (voice: ${voice}, stability: ${voiceSettings.stability})`);
+      console.log(`🎙️  Generating speech (voice: ${voice} → ${resolvedVoiceId}, stability: ${voiceSettings.stability})`);
 
-      const audioBuffer = await generateSpeech(safeMessage, voice, voiceSettings);
+      const audioBuffer = await generateSpeech(safeMessage, resolvedVoiceId, voiceSettings);
       await playAudio(audioBuffer);
     } catch (error) {
       console.error("Failed to generate/play speech:", error);

@@ -255,19 +255,19 @@ Browse all packs: [Packs/](Packs/)
 
 | Pack | Type | Description |
 |------|------|-------------|
-| [kai-hook-system](Packs/kai-hook-system) | Foundation | Event-driven automation framework for hook-based capabilities |
-| [kai-history-system](Packs/kai-history-system) | Infrastructure | Automatic context-tracking for all work, decisions, and learnings |
-| [kai-core-install](Packs/kai-core-install) | Core | Skills + Identity + Architecture - complete foundation pack |
-| [kai-voice-system](Packs/kai-voice-system) | Notifications | Voice output with ElevenLabs TTS and prosody enhancement |
-| [kai-observability-server](Packs/kai-observability-server) | Observability | Real-time multi-agent monitoring dashboard |
+| [kai-hook-system](Packs/kai-hook-system.md) | Foundation | Event-driven automation framework for hook-based capabilities |
+| [kai-history-system](Packs/kai-history-system.md) | Infrastructure | Automatic context-tracking for all work, decisions, and learnings |
+| [kai-core-install](Packs/kai-core-install.md) | Core | Skills + Identity + Architecture - complete foundation pack |
+| [kai-voice-system](Packs/kai-voice-system.md) | Notifications | Voice output with ElevenLabs TTS and prosody enhancement |
+| [kai-observability-server](Packs/kai-observability-server.md) | Observability | Real-time multi-agent monitoring dashboard |
 
 ### Skill Packs
 
 | Pack | Type | Description |
 |------|------|-------------|
-| [kai-art-skill](Packs/kai-art-skill) | Skill | Visual content generation with charcoal architectural sketch aesthetic |
-| [kai-agents-skill](Packs/kai-agents-skill) | Skill | Dynamic agent composition with specialized personalities and voices |
-| [kai-prompting-skill](Packs/kai-prompting-skill) | Skill | Meta-prompting system for programmatic prompt generation |
+| [kai-art-skill](Packs/kai-art-skill.md) | Skill | Visual content generation with charcoal architectural sketch aesthetic |
+| [kai-agents-skill](Packs/kai-agents-skill.md) | Skill | Dynamic agent composition with specialized personalities and voices |
+| [kai-prompting-skill](Packs/kai-prompting-skill.md) | Skill | Meta-prompting system for programmatic prompt generation |
 
 **Installation order:** hooks → history → core-install → voice → observability (optional) → skill packs
 

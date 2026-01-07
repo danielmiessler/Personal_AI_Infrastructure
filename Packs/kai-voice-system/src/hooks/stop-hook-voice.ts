@@ -46,9 +46,10 @@ function extractCompletion(text: string, agentType: string = 'pai'): string {
   text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
 
   // Look for COMPLETED section
+  // Format: 🎯 **COMPLETED**: message (colon is AFTER closing asterisks)
   const patterns = [
-    /🎯\s*\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/i,
-    /\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/i
+    /🎯\s*\*{0,2}COMPLETED\*{0,2}:?\s*(.+?)(?:\n|$)/i,
+    /\*{0,2}COMPLETED\*{0,2}:?\s*(.+?)(?:\n|$)/i
   ];
 
   for (const pattern of patterns) {

@@ -1,8 +1,8 @@
 ---
 name: Kai Agents Skill
-pack-id: danielmiessler-agents-skill-core-v1.1.1
-version: 1.1.1
-author: danielmiessler
+pack-id: danielmiessler-agents-skill-core-v1.2.0
+version: 1.2.0
+author: [danielmiessler, sti0]
 description: Dynamic agent composition and orchestration system - create custom agents with unique personalities, voices, and trait combinations on-the-fly
 type: skill
 purpose-type: [productivity, automation, development]
@@ -92,6 +92,14 @@ bun run AgentFactory.ts --list
 ```
 
 ## Changelog
+
+### 1.2.0 - 2026-01-07
+- **Unified voice system integration**: Voice IDs now read from ENV vars (`ELEVENLABS_VOICE_*`)
+- **AGENT tag format**: Dynamic agents output `[AGENT:voice]` tags for personality-specific voice routing
+- Removed hardcoded voice registry from `Traits.yaml` - single source of truth in `.env`
+- Added Handlebars `lowercase` helper for consistent voice name formatting
+- Updated named agent personalities with AGENT tag response format
+- Updated INSTALL.md with comprehensive ENV var voice configuration
 
 ### 1.1.1 - 2026-01-03
 - Added missing `SpawnParallelAgents.md` workflow (was referenced but didn't exist)

@@ -23,6 +23,9 @@ import { readFileSync, existsSync } from "fs";
 import { parse as parseYaml } from "yaml";
 import Handlebars from "handlebars";
 
+// Register Handlebars helpers
+Handlebars.registerHelper('lowercase', (str: string) => str?.toLowerCase() || '');
+
 // Paths - adjust PAI_DIR as needed
 const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.config/pai`;
 const TRAITS_PATH = `${PAI_DIR}/skills/Agents/Data/Traits.yaml`;

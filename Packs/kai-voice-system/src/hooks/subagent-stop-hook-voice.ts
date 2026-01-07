@@ -18,6 +18,25 @@ async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Convert Claude content array to plain text
+ */
+function contentToText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map(c => {
+        if (typeof c === 'string') return c;
+        if (c?.text) return c.text;
+        if (c?.content) return contentToText(c.content);
+        return '';
+      })
+      .join(' ')
+      .trim();
+  }
+  return '';
+}
+
 async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): Promise<{
   result: string | null;
   agentType: string | null;
@@ -52,6 +71,7 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
       const transcript = readFileSync(actualTranscriptPath, 'utf-8');
       const lines = transcript.trim().split('\n');
 
+      // Strategy 1: Look for Task tool results (nested subagents)
       for (let i = lines.length - 1; i >= 0; i--) {
         try {
           const entry = JSON.parse(lines[i]);
@@ -92,6 +112,24 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
           // Skip invalid lines
         }
       }
+
+      // Strategy 2: Look for direct assistant text with COMPLETED (direct responses)
+      // Search backwards to find the last assistant message with a completion phrase
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const entry = JSON.parse(lines[i]);
+
+          if (entry.type === 'assistant' && entry.message?.content) {
+            const text = contentToText(entry.message.content);
+            // Check if this message contains a COMPLETED phrase
+            if (text && /COMPLETED/i.test(text)) {
+              return { result: text, agentType: 'default', description: null };
+            }
+          }
+        } catch (e) {
+          // Skip invalid lines
+        }
+      }
     } catch (e) {
       // Will retry
     }
@@ -102,9 +140,10 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
 
 function extractCompletionMessage(taskOutput: string): { message: string | null; agentType: string | null } {
   // Look for COMPLETED section with agent tag
+  // Format: 🎯 **COMPLETED**: [AGENT:xxx] message (handles markdown bold)
   const agentPatterns = [
-    /🎯\s*COMPLETED:\s*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
-    /COMPLETED:\s*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
+    /🎯\s*\*{0,2}COMPLETED\*{0,2}:?\s*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
+    /\*{0,2}COMPLETED\*{0,2}:?\s*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
     /🎯.*COMPLETED.*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
   ];
 
@@ -135,10 +174,10 @@ function extractCompletionMessage(taskOutput: string): { message: string | null;
     }
   }
 
-  // Fallback patterns
+  // Fallback patterns (handles markdown bold)
   const genericPatterns = [
-    /🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/i,
-    /COMPLETED:\s*(.+?)(?:\n|$)/i,
+    /🎯\s*\*{0,2}COMPLETED\*{0,2}:?\s*(.+?)(?:\n|$)/i,
+    /\*{0,2}COMPLETED\*{0,2}:?\s*(.+?)(?:\n|$)/i,
   ];
 
   for (const pattern of genericPatterns) {
@@ -227,20 +266,17 @@ async function main() {
     process.exit(0);
   }
 
-  // Determine agent type
+  // Determine agent type (voice name)
   const finalAgentType = extractedAgentType || agentType || 'default';
 
-  // Get voice ID for this agent type
-  const voiceId = getVoiceId(finalAgentType);
-
-  // Send voice notification
+  // Send voice notification - server resolves voice_id from ENV
   const agentName = finalAgentType.charAt(0).toUpperCase() + finalAgentType.slice(1);
 
   await sendNotification({
     title: agentName,
     message: completionMessage,
     voice_enabled: true,
-    voice_id: voiceId
+    voice_id: finalAgentType  // Pass voice NAME, server does ENV lookup
   });
 
   process.exit(0);

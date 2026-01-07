@@ -1,8 +1,8 @@
 ---
 name: Kai Voice System
-pack-id: danielmiessler-kai-voice-system-core-v1.3.0
-version: 1.3.0
-author: danielmiessler
+pack-id: danielmiessler-kai-voice-system-core-v1.4.0
+version: 1.4.0
+author: [danielmiessler, sti0]
 description: Voice notification system with multi-provider TTS (Google Cloud or ElevenLabs), prosody enhancement for natural speech, and agent personality-driven voice delivery
 type: feature
 purpose-type: [notifications, accessibility, automation]
@@ -169,3 +169,20 @@ The prosody enhancer detects emotional context from message patterns:
 - **kai-hook-system** (required) - Hooks trigger voice notifications
 - **kai-core-install** (required) - Response format provides 🎯 COMPLETED line
 - **kai-history-system** - Complementary functionality
+
+---
+
+## Changelog
+
+### v1.4.0 (2026-01-06)
+
+- Unified voice system: single source of truth with ENV var voice ID resolution
+- Case-insensitive voice name lookup throughout the pipeline
+- Fixed markdown bold `**COMPLETED**:` pattern detection in hooks
+- Added direct assistant text detection for subagents (not just Task tool results)
+
+### v1.3.0
+
+- Initial release with multi-provider TTS (Google Cloud / ElevenLabs)
+- Prosody enhancement pipeline with emotional detection
+- Agent personality-driven voice delivery

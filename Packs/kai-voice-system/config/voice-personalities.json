@@ -2,64 +2,96 @@
   "default_volume": 0.8,
   "voices": {
     "pai": {
-      "voice_id": "${ELEVENLABS_VOICE_PAI}",
-      "voice_name": "PAI",
       "stability": 0.38,
       "similarity_boost": 0.75,
-      "description": "Professional, expressive - Daniel's primary AI assistant"
+      "description": "Professional, expressive - primary AI assistant"
+    },
+    "professional": {
+      "stability": 0.65,
+      "similarity_boost": 0.80,
+      "description": "Balanced professional voice for general use"
+    },
+    "authoritative": {
+      "stability": 0.70,
+      "similarity_boost": 0.85,
+      "description": "Deep authoritative voice for serious analysis"
+    },
+    "academic": {
+      "stability": 0.62,
+      "similarity_boost": 0.80,
+      "description": "Academic voice for research and analysis"
+    },
+    "warm": {
+      "stability": 0.50,
+      "similarity_boost": 0.75,
+      "description": "Warm friendly voice for supportive interactions"
+    },
+    "gentle": {
+      "stability": 0.55,
+      "similarity_boost": 0.75,
+      "description": "Calm gentle voice for empathetic guidance"
+    },
+    "energetic": {
+      "stability": 0.35,
+      "similarity_boost": 0.65,
+      "description": "High-energy voice for enthusiastic delivery"
+    },
+    "dynamic": {
+      "stability": 0.40,
+      "similarity_boost": 0.70,
+      "description": "Fast-paced dynamic voice for exciting content"
+    },
+    "sophisticated": {
+      "stability": 0.60,
+      "similarity_boost": 0.80,
+      "description": "Sophisticated voice for nuanced discussion"
+    },
+    "intense": {
+      "stability": 0.55,
+      "similarity_boost": 0.75,
+      "description": "Intense voice for adversarial/security work"
+    },
+    "gritty": {
+      "stability": 0.50,
+      "similarity_boost": 0.70,
+      "description": "Gritty authentic voice for skeptical analysis"
     },
     "intern": {
-      "voice_id": "${ELEVENLABS_VOICE_INTERN}",
-      "voice_name": "Intern",
       "stability": 0.30,
       "similarity_boost": 0.85,
       "description": "Enthusiastic, chaotic energy - eager 176 IQ genius"
     },
     "engineer": {
-      "voice_id": "${ELEVENLABS_VOICE_ENGINEER}",
-      "voice_name": "Engineer",
       "stability": 0.72,
       "similarity_boost": 0.80,
       "description": "Wise leader, stable - Fortune 10 principal engineer"
     },
     "architect": {
-      "voice_id": "${ELEVENLABS_VOICE_ARCHITECT}",
-      "voice_name": "Architect",
       "stability": 0.75,
       "similarity_boost": 0.78,
       "description": "Wise leader, deliberate - PhD-level system designer"
     },
     "researcher": {
-      "voice_id": "${ELEVENLABS_VOICE_RESEARCHER}",
-      "voice_name": "Researcher",
       "stability": 0.64,
       "similarity_boost": 0.82,
       "description": "Analyst, measured - comprehensive research specialist"
     },
     "designer": {
-      "voice_id": "${ELEVENLABS_VOICE_DESIGNER}",
-      "voice_name": "Designer",
       "stability": 0.52,
       "similarity_boost": 0.80,
       "description": "Critic, measured - exacting UX/UI specialist"
     },
     "artist": {
-      "voice_id": "${ELEVENLABS_VOICE_ARTIST}",
-      "voice_name": "Artist",
       "stability": 0.20,
       "similarity_boost": 0.90,
       "description": "Enthusiast, chaotic - visual content creator"
     },
     "pentester": {
-      "voice_id": "${ELEVENLABS_VOICE_PENTESTER}",
-      "voice_name": "Pentester",
       "stability": 0.18,
       "similarity_boost": 0.88,
       "description": "Enthusiast, chaotic - offensive security specialist"
     },
     "writer": {
-      "voice_id": "${ELEVENLABS_VOICE_WRITER}",
-      "voice_name": "Writer",
       "stability": 0.45,
       "similarity_boost": 0.85,
       "description": "Professional, expressive - content creation specialist"

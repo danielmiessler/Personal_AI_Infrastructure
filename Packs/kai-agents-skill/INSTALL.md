@@ -82,16 +82,46 @@ cd "$PAI_DIR/skills/Agents/Tools"
 bun add yaml handlebars
 ```
 
-### Step 4: Configure Voice IDs (Optional)
+### Step 4: Configure Voice Environment Variables (Optional)
 
-If using kai-voice-system, edit `Traits.yaml` to replace placeholder voice IDs:
+If using kai-voice-system for voice notifications, add voice IDs to your `.env` file.
 
+> **Important:** Voice IDs MUST be configured in `$PAI_DIR/.env`, NOT in `settings.json` or other config files. The voice server reads ElevenLabs voice IDs exclusively from environment variables.
+
+**$PAI_DIR/.env:**
 ```bash
-# Edit voice mappings with your TTS provider's voice IDs
-nano "$PAI_DIR/skills/Agents/Data/Traits.yaml"
+# Required: ElevenLabs API key
+ELEVENLABS_API_KEY=sk_your_api_key_here
+
+# Dynamic agent voices (from trait mapping)
+ELEVENLABS_VOICE_PROFESSIONAL=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_AUTHORITATIVE=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_ACADEMIC=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_WARM=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_GENTLE=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_ENERGETIC=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_DYNAMIC=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_SOPHISTICATED=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_INTENSE=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_GRITTY=<your_elevenlabs_voice_id>
+
+# Named agent voices
+ELEVENLABS_VOICE_PAI=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_INTERN=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_ARCHITECT=<your_elevenlabs_voice_id>
+ELEVENLABS_VOICE_ENGINEER=<your_elevenlabs_voice_id>
+
+# Fallback voice (used when specific voice not configured)
+ELEVENLABS_VOICE_ID=<your_default_voice_id>
 ```
 
-Replace `YOUR_*_VOICE_ID` placeholders with actual voice IDs from your TTS provider.
+**Configuration Split:**
+| What | Where | Example |
+|------|-------|---------|
+| Voice IDs (secrets) | `$PAI_DIR/.env` | `ELEVENLABS_VOICE_ACADEMIC=dCnu06FiOZma2KVNUoPZ` |
+| Voice settings | `kai-voice-system/config/voice-personalities.json` | `{ "stability": 0.62, "similarity_boost": 0.80 }` |
+
+> **Note:** Get your voice IDs from the [ElevenLabs Voice Library](https://elevenlabs.io/voice-library). Each voice has a unique ID like `dCnu06FiOZma2KVNUoPZ`.
 
 ---
 

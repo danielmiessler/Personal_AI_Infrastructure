@@ -363,91 +363,12 @@ approach:
 # ==============================================================================
 # VOICE MAPPINGS - How dynamic agents map to TTS voices
 # ==============================================================================
-# CUSTOMIZE: Replace voice_id values with your TTS provider's voice IDs
+# Voice IDs come from ENV vars: ELEVENLABS_VOICE_${name.toUpperCase()}
+# Voice settings (stability, similarity_boost) come from voice-personalities.json
 #
 voice_mappings:
   # Default voice when no mapping matches
-  default: "Default"
-  default_voice_id: "YOUR_DEFAULT_VOICE_ID"
-
-  # ===========================================================================
-  # VOICE REGISTRY - Define your available voices
-  # ===========================================================================
-  voice_registry:
-    # --- AUTHORITATIVE VOICES ---
-    Authoritative:
-      voice_id: "YOUR_AUTHORITATIVE_VOICE_ID"
-      characteristics: ["authoritative", "measured", "intellectual"]
-      description: "Deep authoritative voice for serious analysis"
-      stability: 0.70
-      similarity_boost: 0.85
-
-    Professional:
-      voice_id: "YOUR_PROFESSIONAL_VOICE_ID"
-      characteristics: ["professional", "balanced", "neutral"]
-      description: "Balanced professional voice for general use"
-      stability: 0.65
-      similarity_boost: 0.80
-
-    # --- WARM/FRIENDLY VOICES ---
-    Warm:
-      voice_id: "YOUR_WARM_VOICE_ID"
-      characteristics: ["warm", "friendly", "engaging"]
-      description: "Warm friendly voice for supportive interactions"
-      stability: 0.50
-      similarity_boost: 0.75
-
-    Gentle:
-      voice_id: "YOUR_GENTLE_VOICE_ID"
-      characteristics: ["warm", "calm", "gentle"]
-      description: "Calm gentle voice for empathetic guidance"
-      stability: 0.55
-      similarity_boost: 0.75
-
-    # --- ENERGETIC VOICES ---
-    Energetic:
-      voice_id: "YOUR_ENERGETIC_VOICE_ID"
-      characteristics: ["energetic", "excited", "dynamic"]
-      description: "High-energy voice for enthusiastic delivery"
-      stability: 0.35
-      similarity_boost: 0.65
-
-    Dynamic:
-      voice_id: "YOUR_DYNAMIC_VOICE_ID"
-      characteristics: ["energetic", "fast", "charismatic"]
-      description: "Fast-paced dynamic voice for exciting content"
-      stability: 0.40
-      similarity_boost: 0.70
-
-    # --- INTELLECTUAL VOICES ---
-    Academic:
-      voice_id: "YOUR_ACADEMIC_VOICE_ID"
-      characteristics: ["intellectual", "warm", "academic"]
-      description: "Academic voice for research and analysis"
-      stability: 0.62
-      similarity_boost: 0.80
-
-    Sophisticated:
-      voice_id: "YOUR_SOPHISTICATED_VOICE_ID"
-      characteristics: ["intellectual", "sophisticated", "smooth"]
-      description: "Sophisticated voice for nuanced discussion"
-      stability: 0.60
-      similarity_boost: 0.80
-
-    # --- EDGY/DISTINCTIVE VOICES ---
-    Intense:
-      voice_id: "YOUR_INTENSE_VOICE_ID"
-      characteristics: ["edgy", "gravelly", "intense"]
-      description: "Intense voice for adversarial/security work"
-      stability: 0.55
-      similarity_boost: 0.75
-
-    Gritty:
-      voice_id: "YOUR_GRITTY_VOICE_ID"
-      characteristics: ["edgy", "raspy", "authentic"]
-      description: "Gritty authentic voice for skeptical analysis"
-      stability: 0.50
-      similarity_boost: 0.70
+  default: "pai"
 
   # ===========================================================================
   # TRAIT -> VOICE MAPPINGS
@@ -455,84 +376,84 @@ voice_mappings:
   mappings:
     # Skeptical combinations -> Intellectual voices
     - traits: ["contrarian", "skeptical"]
-      voice: "Intense"
+      voice: "intense"
       reason: "Contrarian skepticism needs intensity"
 
     - traits: ["skeptical", "analytical"]
-      voice: "Academic"
+      voice: "academic"
       reason: "Skeptical analysis suits academic warmth"
 
     - traits: ["skeptical", "meticulous"]
-      voice: "Sophisticated"
+      voice: "sophisticated"
       reason: "Meticulous skepticism suits sophistication"
 
     # Creative combinations -> Energetic voices
     - traits: ["enthusiastic", "creative"]
-      voice: "Energetic"
+      voice: "energetic"
       reason: "Creative enthusiasm needs high energy"
 
     - traits: ["creative", "exploratory"]
-      voice: "Dynamic"
+      voice: "dynamic"
       reason: "Creative exploration suits dynamic delivery"
 
     # Analytical combinations -> Professional voices
     - traits: ["analytical", "technical"]
-      voice: "Authoritative"
+      voice: "authoritative"
       reason: "Technical analysis suits authority"
 
     - traits: ["analytical", "systematic"]
-      voice: "Professional"
+      voice: "professional"
       reason: "Systematic analysis suits professionalism"
 
     # Empathetic combinations -> Warm voices
     - traits: ["empathetic", "consultative"]
-      voice: "Warm"
+      voice: "warm"
       reason: "Empathetic consulting suits warmth"
 
     - traits: ["empathetic", "synthesizing"]
-      voice: "Gentle"
+      voice: "gentle"
       reason: "Synthesizing empathy suits gentleness"
 
     # Security combinations -> Edgy voices
     - traits: ["security", "adversarial"]
-      voice: "Intense"
+      voice: "intense"
       reason: "Security adversary suits intensity"
 
     - traits: ["security", "skeptical"]
-      voice: "Gritty"
+      voice: "gritty"
       reason: "Security skepticism suits gritty authenticity"
 
   # ===========================================================================
   # FALLBACKS - Single trait -> voice
   # ===========================================================================
   fallbacks:
-    skeptical: "Academic"
-    enthusiastic: "Energetic"
-    analytical: "Authoritative"
-    cautious: "Professional"
-    bold: "Intense"
-    creative: "Dynamic"
-    empathetic: "Warm"
-    contrarian: "Intense"
-    pragmatic: "Professional"
-    meticulous: "Sophisticated"
+    skeptical: "academic"
+    enthusiastic: "energetic"
+    analytical: "authoritative"
+    cautious: "professional"
+    bold: "intense"
+    creative: "dynamic"
+    empathetic: "warm"
+    contrarian: "intense"
+    pragmatic: "professional"
+    meticulous: "sophisticated"
 
-    security: "Intense"
-    legal: "Authoritative"
-    finance: "Professional"
-    medical: "Warm"
-    technical: "Professional"
-    research: "Academic"
-    communications: "Dynamic"
-    business: "Professional"
-    data: "Academic"
+    security: "intense"
+    legal: "authoritative"
+    finance: "professional"
+    medical: "warm"
+    technical: "professional"
+    research: "academic"
+    communications: "dynamic"
+    business: "professional"
+    data: "academic"
 
-    thorough: "Professional"
-    rapid: "Dynamic"
-    systematic: "Professional"
-    exploratory: "Dynamic"
-    adversarial: "Intense"
-    consultative: "Warm"
+    thorough: "professional"
+    rapid: "dynamic"
+    systematic: "professional"
+    exploratory: "dynamic"
+    adversarial: "intense"
+    consultative: "warm"
 
 # ==============================================================================
 # COMPOSITION EXAMPLES

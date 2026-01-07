@@ -23,6 +23,7 @@ The Observability Server streams every tool call, hook event, and agent action t
 - **Multi-Agent Tracking**: See activity across all agents (main, interns, researchers, etc.)
 - **Event Timeline**: Chronological view of all operations
 - **Agent Swim Lanes**: Compare activity between multiple agents
+- **Local & Remote Access**: Access from localhost or any device on your network
 - **Zero Configuration**: Just start the server and go
 
 ## Architecture
@@ -155,9 +156,14 @@ $PAI_DIR/
 
 ## Usage
 
+### Local Access (Localhost Only)
+
 ```bash
-# Start observability
+# Start observability (foreground)
 $PAI_DIR/observability/manage.sh start
+
+# Start detached (background)
+$PAI_DIR/observability/manage.sh start-detached
 
 # Check status
 $PAI_DIR/observability/manage.sh status
@@ -167,12 +173,50 @@ $PAI_DIR/observability/manage.sh stop
 
 # Restart
 $PAI_DIR/observability/manage.sh restart
-
-# Start detached (background)
-$PAI_DIR/observability/manage.sh start-detached
 ```
 
 Open http://localhost:5172 to view the dashboard.
+
+### Remote Access (Network Access)
+
+Access the dashboard from any device on your network:
+
+```bash
+# Start observability with remote access (foreground)
+$PAI_DIR/observability/manage.sh start-remote
+
+# Start detached with remote access (background)
+$PAI_DIR/observability/manage.sh start-remote-detached
+```
+
+**Example output:**
+```
+Observability running:
+  Local:   http://localhost:5172
+  Network: http://192.168.1.42:5172
+```
+
+Open the network URL from any device on your local network to access the dashboard.
+
+## Remote Access
+
+The observability server supports seamless local and remote access:
+
+**How it works:**
+- The dashboard automatically detects the host it's being accessed from
+- WebSocket connections use the correct protocol (ws/wss) and hostname
+- No configuration needed - just use `start-remote` instead of `start`
+
+**Example:** View the dashboard from your laptop while server runs on your desktop
+```
+Desktop: ./manage.sh start-remote
+Laptop:  Open http://192.168.1.42:5172 in browser
+```
+
+**Security notes:**
+- Both local and remote access use the same ports (5172 for UI, 4000 for API)
+- Firewall rules on your machine will determine network accessibility
+- No authentication is enforced (add a reverse proxy for production use)
 
 ## Related Packs
 
@@ -180,6 +224,13 @@ Open http://localhost:5172 to view the dashboard.
 - **kai-history-system** - Permanent storage of events
 
 ## Changelog
+
+### 1.1.0 - Remote Access Support
+- Added `start-remote` command for foreground remote access
+- Added `start-remote-detached` command for background remote access
+- Dynamic WebSocket URL detection (auto-detects host and protocol)
+- Client listens on all network interfaces with `--host` flag
+- Network IP address displayed in startup output
 
 ### 1.0.0 - Initial Release
 - File-based event streaming architecture

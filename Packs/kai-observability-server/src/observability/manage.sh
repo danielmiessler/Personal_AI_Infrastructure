@@ -51,6 +51,64 @@ case "${1:-}" in
         wait $SERVER_PID $CLIENT_PID
         ;;
 
+    start-remote)
+        if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo "Already running. Use: manage.sh restart"
+            exit 1
+        fi
+
+        echo "Starting Observability Server (Remote Access)..."
+
+        # Start server
+        cd "$SCRIPT_DIR/apps/server"
+        bun run dev >/dev/null 2>&1 &
+        SERVER_PID=$!
+
+        # Wait for server
+        echo -n "Waiting for server..."
+        for i in {1..10}; do
+            if curl -s http://localhost:4000/health >/dev/null 2>&1; then
+                echo " Ready!"
+                break
+            fi
+            sleep 1
+            echo -n "."
+        done
+
+        # Start client with --host flag for network access
+        cd "$SCRIPT_DIR/apps/client"
+        bun run dev -- --host >/dev/null 2>&1 &
+        CLIENT_PID=$!
+
+        # Wait for client
+        echo -n "Waiting for client..."
+        for i in {1..10}; do
+            if curl -s http://localhost:5172 >/dev/null 2>&1; then
+                echo " Ready!"
+                break
+            fi
+            sleep 1
+            echo -n "."
+        done
+
+        # Get local IP for helpful output
+        LOCAL_IP=$(hostname -I | awk '{print $1}')
+
+        echo ""
+        echo "Observability running:"
+        echo "  Local:   http://localhost:5172"
+        echo "  Network: http://$LOCAL_IP:5172"
+        echo ""
+        echo "Press Ctrl+C to stop"
+
+        cleanup() {
+            kill $SERVER_PID $CLIENT_PID 2>/dev/null
+            exit 0
+        }
+        trap cleanup INT
+        wait $SERVER_PID $CLIENT_PID
+        ;;
+
     stop)
         SERVER_PID=$(lsof -ti :4000 2>/dev/null)
         CLIENT_PID=$(lsof -ti :5172 2>/dev/null)
@@ -106,8 +164,55 @@ case "${1:-}" in
         echo "Observability running at http://localhost:5172"
         ;;
 
+    start-remote-detached)
+        if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo "Already running. Use: manage.sh restart"
+            exit 1
+        fi
+
+        echo "Starting Observability Server in detached mode (Remote Access)..."
+
+        cd "$SCRIPT_DIR/apps/server"
+        nohup bun run dev >/dev/null 2>&1 &
+        disown
+
+        echo -n "Waiting for server..."
+        for i in {1..10}; do
+            if curl -s http://localhost:4000/health >/dev/null 2>&1; then
+                echo " Ready!"
+                break
+            fi
+            sleep 1
+            echo -n "."
+        done
+
+        cd "$SCRIPT_DIR/apps/client"
+        nohup bun run dev -- --host >/dev/null 2>&1 &
+        disown
+
+        echo -n "Waiting for client..."
+        for i in {1..10}; do
+            if curl -s http://localhost:5172 >/dev/null 2>&1; then
+                echo " Ready!"
+                break
+            fi
+            sleep 1
+            echo -n "."
+        done
+
+        # Get local IP
+        LOCAL_IP=$(hostname -I | awk '{print $1}')
+
+        echo ""
+        echo "Observability running in background:"
+        echo "  Local:   http://localhost:5172"
+        echo "  Network: http://$LOCAL_IP:5172"
+        echo ""
+        echo "Use './manage.sh stop' to stop the server"
+        ;;
+
     *)
-        echo "Usage: manage.sh {start|stop|restart|status|start-detached}"
+        echo "Usage: manage.sh {start|stop|restart|status|start-detached|start-remote|start-remote-detached}"
         exit 1
         ;;
 esac

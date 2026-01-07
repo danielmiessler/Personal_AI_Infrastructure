@@ -64,7 +64,10 @@ const isConnected = ref(false)
 let ws: WebSocket | null = null
 
 function connect() {
-  ws = new WebSocket('ws://localhost:4000/stream')
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const wsUrl = `${protocol}//${host}:4000/stream`
+  ws = new WebSocket(wsUrl)
 
   ws.onopen = () => {
     isConnected.value = true

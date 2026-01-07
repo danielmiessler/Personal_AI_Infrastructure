@@ -1,0 +1,22 @@
+name: keychain
+version: "1.0.0"
+domain: secrets
+interface: SecretsProvider
+entry: src/index.ts
+description: macOS Keychain secrets adapter for local development
+
+config:
+  required: []
+  optional:
+    servicePrefix: "string - Prefix for keychain service names (default: 'kai')"
+    defaultAccount: "string - Default account name (default: 'claude-code')"
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+
+integrations:
+  local: true
+  cicd: false
+  kubernetes: false

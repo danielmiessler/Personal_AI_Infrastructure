@@ -1,0 +1,27 @@
+name: infisical
+version: "1.0.0"
+domain: secrets
+interface: SecretsProvider
+entry: src/index.ts
+description: Infisical secrets adapter for team/enterprise secrets management
+
+config:
+  required:
+    - url: "string - Infisical API URL (e.g., https://app.infisical.com)"
+    - auth: "AuthReference - Token authentication"
+  optional:
+    environment: "string - Default environment (default: 'development')"
+    project: "string - Default project ID"
+    timeout: "number - Request timeout in ms (default: 30000)"
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+    - linux
+    - win32
+
+integrations:
+  local: true
+  cicd: true
+  kubernetes: true

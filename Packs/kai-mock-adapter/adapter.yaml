@@ -1,0 +1,26 @@
+name: mock
+version: "1.0.0"
+domain: secrets
+interface: SecretsProvider
+entry: src/index.ts
+description: Mock secrets adapter for testing and development
+
+config:
+  required: []
+  optional:
+    secrets: "Record<string, string> - Pre-populated secrets"
+    latencyMs: "number - Simulated latency in ms"
+    failureRate: "number - Probability of failure (0-1)"
+    failureError: "string - Error type to throw on failure"
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+    - linux
+    - win32
+
+integrations:
+  local: true
+  cicd: true
+  kubernetes: false

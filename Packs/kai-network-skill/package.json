@@ -1,0 +1,21 @@
+{
+  "name": "kai-network-skill",
+  "version": "1.0.0",
+  "description": "Network infrastructure skill for PAI",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "devices": "bun run Tools/devices.ts",
+    "clients": "bun run Tools/clients.ts",
+    "vlans": "bun run Tools/vlans.ts",
+    "ports": "bun run Tools/ports.ts",
+    "health": "bun run Tools/health.ts"
+  },
+  "dependencies": {
+    "kai-network-core": "file:../kai-network-core"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "kai-mock-network-adapter": "file:../kai-mock-network-adapter"
+  }
+}

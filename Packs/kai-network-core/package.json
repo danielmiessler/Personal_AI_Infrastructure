@@ -1,0 +1,35 @@
+{
+  "name": "kai-network-core",
+  "version": "1.0.0",
+  "description": "Core interfaces and utilities for KAI network domain",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./interfaces": "./src/interfaces/index.ts",
+    "./types": "./src/types/index.ts",
+    "./discovery": "./src/discovery/index.ts",
+    "./errors": "./src/utils/errors.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kai",
+    "network",
+    "core",
+    "provider",
+    "infrastructure"
+  ],
+  "author": "PAI Community",
+  "license": "MIT",
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "yaml": "^2.3.0"
+  }
+}

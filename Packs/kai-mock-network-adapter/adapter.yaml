@@ -1,0 +1,13 @@
+name: mock
+version: "1.0.0"
+domain: network
+interface: NetworkProvider
+entry: src/MockNetworkAdapter.ts
+description: Mock network adapter for testing and development
+
+config:
+  optional:
+    devices: 3
+    clientsPerDevice: 5
+    latencyMs: 0
+    failureRate: 0

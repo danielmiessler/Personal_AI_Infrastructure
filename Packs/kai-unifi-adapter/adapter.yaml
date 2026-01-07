@@ -1,0 +1,20 @@
+name: unifi
+version: "1.0.0"
+domain: network
+interface: NetworkProvider
+entry: src/UnifiAdapter.ts
+description: UniFi Network Controller adapter for PAI Infrastructure
+
+config:
+  required:
+    - url
+  optional:
+    timeout: 30000
+    site: default
+    verifySSL: false
+
+requires:
+  runtime: bun
+  platform:
+    - darwin
+    - linux

@@ -1,7 +1,7 @@
 # PAI Infrastructure Pack System - Session Context
 
-**Last Updated**: 2026-01-07 07:35 PST
-**Status**: Phase 3 Committed, Ready for Phase 4 (CI/CD Domain)
+**Last Updated**: 2026-01-07 08:15 PST
+**Status**: Phase 4 In Progress (CI/CD Domain - kai-cicd-skill remaining)
 
 ---
 
@@ -75,15 +75,26 @@ A **portable infrastructure pack system** using three-layer architecture:
 | kai-linear-adapter | Linear GraphQL API, state/priority mapping | 3 |
 | kai-issues-skill | CLI tools (list, health) + SKILL.md with workflow routing | - |
 
-**Key Features**:
-- `IssuesProvider` interface with Issue, Project, Label types
-- Status mapping: open, in_progress, done, cancelled
-- Type mapping via tags: task, bug, feature, story, epic
-- Priority mapping: urgent, high, medium, low, none
-- Joplin: todo notes -> issues, notebooks -> projects, tags -> labels
-- Linear: GraphQL client with state/priority mapping
-
 **Spec**: `Packs/specs/ISSUES-DOMAIN.md`
+
+### Phase 4: CI/CD Domain 🚧 IN PROGRESS
+
+| Package | Description | Tests | Status |
+|---------|-------------|-------|--------|
+| kai-cicd-core | CICDProvider interface, Pipeline/Run/Job/Artifact types, discovery, errors | 62 | ✅ Done |
+| kai-mock-cicd-adapter | Testing adapter with full CRUD and test helpers | 34 | ✅ Done |
+| kai-github-cicd-adapter | GitHub Actions API, status/conclusion mapping, pagination | 14 | ✅ Done |
+| kai-gitlab-cicd-adapter | GitLab CI/CD API, pipeline/job mapping | 14 | ✅ Done |
+| kai-cicd-skill | CLI tools + SKILL.md with workflow routing | - | ⏳ Pending |
+
+**Key Features**:
+- `CICDProvider` interface with Pipeline, Run, Job, Artifact types
+- Status mapping: pending, queued, running, completed
+- Conclusion mapping: success, failure, cancelled, skipped, timed_out
+- GitHub: REST API, workflow_dispatch for triggers, artifact zip download
+- GitLab: REST API v4, pipeline variables for triggers, job artifacts
+
+**Spec**: `Packs/specs/CICD-DOMAIN.md`
 
 ---
 
@@ -111,9 +122,15 @@ cd kai-issues-core && bun test      # 62 pass
 cd kai-mock-issues-adapter && bun test # 44 pass
 cd kai-joplin-issues-adapter && bun test # 12 pass
 cd kai-linear-adapter && bun test   # 3 pass
+
+# Phase 4 (124 total so far)
+cd kai-cicd-core && bun test        # 62 pass
+cd kai-mock-cicd-adapter && bun test # 34 pass
+cd kai-github-cicd-adapter && bun test # 14 pass
+cd kai-gitlab-cicd-adapter && bun test # 14 pass
 ```
 
-**Total: 379 tests passing across 13 packages**
+**Total: 503 tests passing across 17 packages**
 
 ---
 
@@ -128,6 +145,7 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 | SECRETS-DOMAIN.md | Phase 1 specification (implemented) |
 | NETWORK-DOMAIN.md | Phase 2 specification (implemented) |
 | ISSUES-DOMAIN.md | Phase 3 specification (implemented) |
+| CICD-DOMAIN.md | Phase 4 specification (in progress) |
 
 ---
 
@@ -135,13 +153,10 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 
 | Phase | Domain | Home Adapters | Work Adapters |
 |-------|--------|---------------|---------------|
-| 4 | CI/CD | GitHub | GitLab |
 | 5 | Platform | k3s, Docker | Enterprise K8s |
 | 6 | Observability | Prometheus | Datadog |
 
 **Note**: Methodology was skipped (doesn't fit adapter pattern). Issues/PM moved to Phase 3.
-
-**To proceed**: Write spec using DOMAIN-TEMPLATE.md, then implement following the same pattern as Phases 1-3.
 
 ---
 
@@ -167,7 +182,8 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 │   │   ├── DOMAIN-TEMPLATE.md
 │   │   ├── SECRETS-DOMAIN.md
 │   │   ├── NETWORK-DOMAIN.md
-│   │   └── ISSUES-DOMAIN.md      # NEW
+│   │   ├── ISSUES-DOMAIN.md
+│   │   └── CICD-DOMAIN.md        # NEW
 │   │
 │   ├── kai-secrets-core/         # Phase 1
 │   ├── kai-keychain-adapter/
@@ -180,11 +196,17 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 │   ├── kai-mock-network-adapter/
 │   ├── kai-network-skill/
 │   │
-│   ├── kai-issues-core/          # Phase 3 (NEW)
+│   ├── kai-issues-core/          # Phase 3
 │   ├── kai-joplin-issues-adapter/
 │   ├── kai-linear-adapter/
 │   ├── kai-mock-issues-adapter/
-│   └── kai-issues-skill/
+│   ├── kai-issues-skill/
+│   │
+│   ├── kai-cicd-core/            # Phase 4 (NEW)
+│   ├── kai-github-cicd-adapter/  # (NEW)
+│   ├── kai-gitlab-cicd-adapter/  # (NEW)
+│   ├── kai-mock-cicd-adapter/    # (NEW)
+│   └── kai-cicd-skill/           # (PENDING)
 │
 ├── SESSION-CONTEXT.md            # This file
 └── CLAUDE.md                     # Project instructions
@@ -206,9 +228,9 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 
 ## Next Steps
 
-1. **Write CI/CD-DOMAIN.md spec** using DOMAIN-TEMPLATE.md
-2. **Implement Phase 4** - kai-cicd-core, kai-github-adapter, kai-gitlab-adapter, kai-cicd-skill
-3. **Test** (aim for similar coverage as Phases 1-3)
+1. **Implement kai-cicd-skill** - CLI tools (pipelines, runs, trigger, logs, artifacts) + SKILL.md
+2. **Run all tests and commit Phase 4**
+3. **Choose Phase 5 or 6** (Platform or Observability)
 4. **Update** Joplin tracking note
 
 ---

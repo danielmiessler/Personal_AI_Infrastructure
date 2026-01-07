@@ -1,0 +1,21 @@
+name: gitlab
+version: 1.0.0
+domain: cicd
+interface: CICDProvider
+entry: ./src/GitLabCICDAdapter.ts
+description: GitLab CI/CD adapter
+
+config:
+  required:
+    - host
+  optional:
+    - apiVersion: v4
+
+requires:
+  runtime: bun >= 1.0
+  platform: [darwin, linux, win32]
+
+integrations:
+  cicd: true
+  kubernetes: true
+  local: true

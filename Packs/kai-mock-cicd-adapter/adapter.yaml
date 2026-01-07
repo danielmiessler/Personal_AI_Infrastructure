@@ -1,0 +1,25 @@
+name: mock
+version: 1.0.0
+domain: cicd
+interface: CICDProvider
+entry: ./src/MockCICDAdapter.ts
+description: Mock adapter for testing CI/CD workflows
+
+config:
+  required: []
+  optional:
+    - pipelines: []
+    - runs: []
+    - jobs: []
+    - artifacts: []
+    - simulateLatency: 0
+    - failureRate: 0
+
+requires:
+  runtime: bun >= 1.0
+  platform: [darwin, linux, win32]
+
+integrations:
+  cicd: true
+  kubernetes: false
+  local: true

@@ -3,14 +3,20 @@
  * PAI Voice Server - Text-to-Speech notification server using ElevenLabs
  *
  * Part of the pai-voice-system pack.
+ * Platforms: macOS, Linux
  *
  * Usage:
- *   bun run src/voice/server.ts
+ *   bun run src/voice/server.ts [options]
+ *
+ * CLI Options:
+ *   --port, -p <port>      Server port (overrides environment variables)
+ *   --extra-args <args>    Extra arguments to pass to audio player (space-separated)
  *
  * Environment Variables:
  *   ELEVENLABS_API_KEY - Your ElevenLabs API key (required)
  *   ELEVENLABS_VOICE_ID - Default voice ID (optional)
- *   VOICE_SERVER_PORT - Server port (default: 8888)
+ *   PAI_VOICE_SERVER_PORT - Server port (default: 8888)
+ *   PAI_VOICE_SERVER_EXTRA_ARGS - Extra arguments for audio player
  *   PAI_DIR - PAI installation directory (default: ~/.config/pai)
  *
  * Endpoints:
@@ -20,30 +26,78 @@
  */
 
 import { serve } from "bun";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
+import { parseArgs } from "util";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 
-// Load .env from user home directory
-const envPath = join(homedir(), '.env');
+// Load .env from PAI_DIR (defaults to ~/.config/pai)
+const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+const envPath = join(paiDir, '.env');
 if (existsSync(envPath)) {
   const envContent = await Bun.file(envPath).text();
   envContent.split('\n').forEach(line => {
-    const [key, value] = line.split('=');
-    if (key && value && !key.startsWith('#')) {
-      process.env[key.trim()] = value.trim();
+    const eqIndex = line.indexOf('=');
+    if (eqIndex === -1) return;
+    const key = line.slice(0, eqIndex).trim();
+    let value = line.slice(eqIndex + 1).trim();
+    // Strip surrounding quotes from value
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key && !key.startsWith('#')) {
+      process.env[key] = value;
     }
   });
 }
 
-const PORT = parseInt(process.env.VOICE_SERVER_PORT || process.env.PORT || "8888");
+// CLI argument parsing
+const cliArgs = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    'extra-args': { type: 'string', default: '' },
+    port: { type: 'string', short: 'p' },
+  },
+  allowPositionals: true,
+});
+
+const PORT = parseInt(cliArgs.values.port || process.env.PAI_VOICE_SERVER_PORT || process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+const PAI_DIR = paiDir;
 
 if (!ELEVENLABS_API_KEY) {
-  console.error('⚠️  ELEVENLABS_API_KEY not found in ~/.env');
+  console.error(`⚠️  ELEVENLABS_API_KEY not found in ${envPath}`);
   console.error('Add: ELEVENLABS_API_KEY=your_key_here');
+}
+
+// Audio player detection for cross-platform support
+function findPlayer(name: string): string | null {
+  try {
+    return execSync(`which ${name}`, { encoding: 'utf8' }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function detectPlayer(): { path: string | null; type: 'afplay' | 'mpg123' | 'mpv' | null } {
+  if (process.platform === 'darwin') {
+    return { path: '/usr/bin/afplay', type: 'afplay' };
+  }
+  const mpg123 = findPlayer('mpg123');
+  if (mpg123) return { path: mpg123, type: 'mpg123' };
+  const mpv = findPlayer('mpv');
+  if (mpv) return { path: mpv, type: 'mpv' };
+  return { path: null, type: null };
+}
+
+const DETECTED_PLAYER = detectPlayer();
+
+// Get extra arguments for audio player from CLI or environment
+function getExtraArgs(): string[] {
+  const raw = cliArgs.values['extra-args'] || process.env.PAI_VOICE_SERVER_EXTRA_ARGS || '';
+  return raw.trim() ? raw.trim().split(/\s+/) : [];
 }
 
 // Default voice ID - configure via environment variable
@@ -128,10 +182,6 @@ try {
   console.warn('⚠️  Failed to load voice personalities, using defaults');
 }
 
-// Escape special characters for AppleScript
-function escapeForAppleScript(input: string): string {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
 
 // Extract emotional marker from message
 // Supports all 13 prosody markers from the expanded system
@@ -281,56 +331,52 @@ function getVolumeSetting(): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
+// Play audio using platform-appropriate player (macOS: afplay, Linux: mpg123/mpv)
 async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
-
-  // Write audio to temp file
   await Bun.write(tempFile, audioBuffer);
-
   const volume = getVolumeSetting();
 
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    if (!DETECTED_PLAYER.path) {
+      console.warn('⚠️  No audio player found. Install mpg123 or mpv for audio playback.');
+      spawn('/bin/rm', [tempFile]);
+      resolve();
+      return;
+    }
+
+    const player = DETECTED_PLAYER.path;
+    let args: string[];
+
+    if (DETECTED_PLAYER.type === 'afplay') {
+      args = ['-v', volume.toString(), ...getExtraArgs(), tempFile];
+    } else if (DETECTED_PLAYER.type === 'mpg123') {
+      // mpg123 doesn't support volume control via CLI args; use system mixer instead
+      args = ['-q', ...getExtraArgs(), tempFile];
+    } else {
+      // mpv
+      args = ['--no-terminal', '--volume=' + (volume * 100), ...getExtraArgs(), tempFile];
+    }
+
+    const proc = spawn(player, args);
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
-      reject(error);
-    });
-
-    proc.on('exit', (code) => {
-      // Clean up temp file
       spawn('/bin/rm', [tempFile]);
-
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`afplay exited with code ${code}`));
-      }
-    });
-  });
-}
-
-// Spawn a process safely
-function spawnSafe(command: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(command, args);
-
-    proc.on('error', (error) => {
-      console.error(`Error spawning ${command}:`, error);
       reject(error);
     });
 
     proc.on('exit', (code) => {
-      if (code === 0) {
+      spawn('/bin/rm', [tempFile]);
+      if (code === 0 || code === null) {
         resolve();
       } else {
-        reject(new Error(`${command} exited with code ${code}`));
+        reject(new Error(`${player} exited with code ${code}`));
       }
     });
   });
 }
+
 
 // Send macOS notification with voice
 async function sendNotification(
@@ -392,12 +438,16 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification - escape for AppleScript
+  // Display notification - platform-specific
   try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    if (process.platform === 'linux') {
+      spawn('/usr/bin/notify-send', [safeTitle, safeMessage]);
+    } else if (process.platform === 'darwin') {
+      const escapedTitle = safeTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const escapedMessage = safeMessage.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      spawn('/usr/bin/osascript', ['-e', script]);
+    }
   } catch (error) {
     console.error("Notification display error:", error);
   }
@@ -545,6 +595,12 @@ const server = serve({
 });
 
 console.log(`🚀 PAI Voice Server running on port ${PORT}`);
+console.log(`🖥️  Platform: ${process.platform}`);
+console.log(`🔊 Audio player: ${DETECTED_PLAYER.path || '❌ Not found (install mpg123 or mpv)'}`);
+const extraArgs = getExtraArgs();
+if (extraArgs.length > 0) {
+  console.log(`🎛️  Extra player args: ${extraArgs.join(' ')}`);
+}
 console.log(`🎙️  Using ElevenLabs TTS`);
 console.log(`🔊 Default voice: ${DEFAULT_VOICE_ID || '(not configured - set ELEVENLABS_VOICE_ID)'}`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);

@@ -1,11 +1,11 @@
-# kai-platform-core
+# kai-containers-core
 
-Core interfaces and utilities for the KAI Platform domain. Provides the `PlatformProvider` interface and shared utilities for container/deployment operations across Docker, Kubernetes, and other platforms.
+Core interfaces and utilities for the KAI Containers domain. Provides the `PlatformProvider` interface and shared utilities for container/deployment operations across Docker, Kubernetes, and other platforms.
 
 ## Installation
 
 ```bash
-bun add kai-platform-core
+bun add kai-containers-core
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ import {
   type PlatformProvider,
   type Deployment,
   type Container
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 // Get configured provider
 const provider = await getPlatformProvider();
@@ -46,7 +46,7 @@ Configure in `~/.config/kai/providers.yaml` or `./providers.yaml`:
 
 ```yaml
 domains:
-  platform:
+  containers:
     primary: kubernetes
     fallback: docker
     adapters:
@@ -102,6 +102,7 @@ domains:
 - `AdapterNotFoundError`
 - `ExecError`
 - `ScaleError`
+- `ConnectionError`
 
 ### Utilities
 - `withRetry()` - Retry with exponential backoff
@@ -110,5 +111,5 @@ domains:
 
 - [kai-docker-adapter](../kai-docker-adapter) - Docker Engine adapter
 - [kai-k8s-adapter](../kai-k8s-adapter) - Kubernetes adapter
-- [kai-mock-platform-adapter](../kai-mock-platform-adapter) - Mock adapter for testing
-- [kai-platform-skill](../kai-platform-skill) - User-facing workflows
+- [kai-mock-containers-adapter](../kai-mock-containers-adapter) - Mock adapter for testing
+- [kai-containers-skill](../kai-containers-skill) - User-facing workflows

@@ -1,6 +1,6 @@
 # kai-docker-adapter
 
-Docker Engine adapter for the KAI Platform domain. Provides container management via the Docker Engine API.
+Docker Engine adapter for the KAI Containers domain. Provides container management via the Docker Engine API.
 
 ## Installation
 
@@ -38,7 +38,7 @@ Via `providers.yaml`:
 
 ```yaml
 domains:
-  platform:
+  containers:
     primary: docker
     adapters:
       docker:
@@ -71,7 +71,7 @@ Standalone containers cannot be scaled (returns error).
 
 ## Related
 
-- [kai-platform-core](../kai-platform-core) - Core interfaces
+- [kai-containers-core](../kai-containers-core) - Core interfaces
 - [kai-k8s-adapter](../kai-k8s-adapter) - Kubernetes adapter
-- [kai-mock-platform-adapter](../kai-mock-platform-adapter) - Mock adapter for testing
-- [kai-platform-skill](../kai-platform-skill) - User-facing workflows
+- [kai-mock-containers-adapter](../kai-mock-containers-adapter) - Mock adapter for testing
+- [kai-containers-skill](../kai-containers-skill) - User-facing workflows

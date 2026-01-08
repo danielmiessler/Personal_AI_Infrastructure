@@ -17,7 +17,7 @@ import { parseArgs } from 'util';
 import {
   getPlatformProvider,
   type Namespace,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 interface NamespacesArgs {
   provider?: string;

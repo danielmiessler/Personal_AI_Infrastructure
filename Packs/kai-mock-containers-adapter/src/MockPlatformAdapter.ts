@@ -11,7 +11,7 @@ import type {
   PortForwardHandle,
   ResourceUsage,
   HealthStatus,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 import {
   NamespaceNotFoundError,
   DeploymentNotFoundError,
@@ -19,7 +19,7 @@ import {
   ServiceNotFoundError,
   ProviderError,
   ScaleError,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 /**
  * Configuration for MockPlatformAdapter

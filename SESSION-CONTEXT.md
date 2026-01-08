@@ -1,7 +1,7 @@
 # PAI Infrastructure Pack System - Session Context
 
-**Last Updated**: 2026-01-07 12:45 PST
-**Status**: Phase 5 Complete (Platform Domain) - Ready for Phase 6
+**Last Updated**: 2026-01-07 15:30 PST
+**Status**: Phase 5 Complete (Containers Domain) - Ready for Phase 6
 
 ---
 
@@ -14,6 +14,37 @@ When starting a new session, read this file and the Joplin note `📍 Current - 
 cd /Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs
 ls -d kai-*
 ```
+
+---
+
+## PENDING TASKS (Complete on Session Start)
+
+The "Platform" to "Containers" rename is complete but needs finalization:
+
+1. **Delete old spec file**: `rm Packs/specs/PLATFORM-DOMAIN.md`
+2. **Run Phase 5 tests** to verify rename didn't break anything:
+   - `cd Packs/kai-containers-core && bun test`
+   - `cd Packs/kai-mock-containers-adapter && bun test`
+3. **Commit the rename**:
+   ```bash
+   git add -A
+   git commit -m "refactor(containers): Rename platform domain to containers
+
+   Renamed for clarity - 'platform' was ambiguous. Now clearly refers to
+   container orchestration (Docker, Kubernetes).
+
+   Package renames:
+   - kai-platform-core → kai-containers-core
+   - kai-mock-platform-adapter → kai-mock-containers-adapter
+   - kai-platform-skill → kai-containers-skill
+
+   Updated all dependencies, READMEs, spec file, and SESSION-CONTEXT.md.
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+   ```
+4. **Remove this PENDING TASKS section** after commit succeeds.
 
 ---
 
@@ -97,15 +128,17 @@ A **portable infrastructure pack system** using three-layer architecture:
 **Spec**: `Packs/specs/CICD-DOMAIN.md`
 **Git Commit**: `3fbc5cc feat(cicd): Complete Phase 4 with kai-cicd-skill`
 
-### Phase 5: Platform Domain ✅ COMPLETE (Committed)
+### Phase 5: Containers Domain ✅ COMPLETE (Committed)
+
+**Note**: Renamed from "Platform" to "Containers" for clarity (2026-01-07).
 
 | Package | Description | Tests |
 |---------|-------------|-------|
-| kai-platform-core | PlatformProvider interface, Namespace/Deployment/Container/Service types, discovery, errors | 56 |
-| kai-mock-platform-adapter | Testing adapter with full CRUD, latency/failure simulation, call logging | 42 |
+| kai-containers-core | PlatformProvider interface, Namespace/Deployment/Container/Service types, discovery, errors | 56 |
+| kai-mock-containers-adapter | Testing adapter with full CRUD, latency/failure simulation, call logging | 42 |
 | kai-docker-adapter | Docker Engine API via Unix socket, namespace via Compose labels | 5 |
 | kai-k8s-adapter | Kubernetes API via kubeconfig, supports k3s | 7 |
-| kai-platform-skill | CLI tools (namespaces, deployments, containers, services, health) + workflows | - |
+| kai-containers-skill | CLI tools (namespaces, deployments, containers, services, health) + workflows | - |
 
 **Key Features**:
 - `PlatformProvider` interface for container orchestration
@@ -114,7 +147,7 @@ A **portable infrastructure pack system** using three-layer architecture:
 - Kubernetes: full k8s API including scale, restart, logs, exec
 - Both adapters skip integration tests (require running daemon/cluster)
 
-**Spec**: `Packs/specs/PLATFORM-DOMAIN.md`
+**Spec**: `Packs/specs/CONTAINERS-DOMAIN.md`
 **Git Commit**: `6ba2581 feat(platform): Add Phase 5 Platform Domain`
 
 ---
@@ -152,8 +185,8 @@ cd kai-gitlab-cicd-adapter && bun test # 14 pass
 cd kai-cicd-skill && bun run typecheck # passes
 
 # Phase 5 (110 total)
-cd kai-platform-core && bun test     # 56 pass
-cd kai-mock-platform-adapter && bun test # 42 pass
+cd kai-containers-core && bun test     # 56 pass
+cd kai-mock-containers-adapter && bun test # 42 pass
 cd kai-docker-adapter && bun test    # 5 pass (1 skip)
 cd kai-k8s-adapter && bun test       # 7 pass (1 skip)
 ```
@@ -174,7 +207,7 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 | NETWORK-DOMAIN.md | Phase 2 specification (implemented) |
 | ISSUES-DOMAIN.md | Phase 3 specification (implemented) |
 | CICD-DOMAIN.md | Phase 4 specification (implemented) |
-| PLATFORM-DOMAIN.md | Phase 5 specification (implemented) |
+| CONTAINERS-DOMAIN.md | Phase 5 specification (implemented) |
 
 ---
 
@@ -184,7 +217,7 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 |-------|--------|---------------|---------------|
 | 6 | Observability | Prometheus | Datadog |
 
-**Note**: Methodology was skipped (doesn't fit adapter pattern). Platform completed in Phase 5.
+**Note**: Methodology was skipped (doesn't fit adapter pattern). Containers (formerly Platform) completed in Phase 5.
 
 ---
 
@@ -211,7 +244,8 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 │   │   ├── SECRETS-DOMAIN.md
 │   │   ├── NETWORK-DOMAIN.md
 │   │   ├── ISSUES-DOMAIN.md
-│   │   └── CICD-DOMAIN.md        # NEW
+│   │   ├── CICD-DOMAIN.md
+│   │   └── CONTAINERS-DOMAIN.md
 │   │
 │   ├── kai-secrets-core/         # Phase 1
 │   ├── kai-keychain-adapter/
@@ -236,11 +270,11 @@ Location: `/Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/specs/`
 │   ├── kai-mock-cicd-adapter/
 │   ├── kai-cicd-skill/
 │   │
-│   ├── kai-platform-core/         # Phase 5
+│   ├── kai-containers-core/       # Phase 5 (renamed from platform)
 │   ├── kai-docker-adapter/
 │   ├── kai-k8s-adapter/
-│   ├── kai-mock-platform-adapter/
-│   └── kai-platform-skill/
+│   ├── kai-mock-containers-adapter/
+│   └── kai-containers-skill/
 │
 ├── SESSION-CONTEXT.md            # This file
 └── CLAUDE.md                     # Project instructions

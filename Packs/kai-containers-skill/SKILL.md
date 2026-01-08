@@ -1,5 +1,5 @@
 ---
-name: Platform
+name: Containers
 description: Container and deployment management. USE WHEN managing containers, pods, deployments, namespaces, or services in Docker or Kubernetes.
 triggers:
   - containers
@@ -28,7 +28,7 @@ workflows:
   - NamespaceOverview
 ---
 
-# Platform Skill
+# Containers Skill
 
 Container orchestration and deployment management for Docker and Kubernetes.
 
@@ -59,7 +59,7 @@ The skill automatically selects the appropriate provider based on your `provider
 
 ```yaml
 domains:
-  platform:
+  containers:
     primary: kubernetes  # or 'docker'
     adapters:
       kubernetes:
@@ -93,5 +93,5 @@ Restart the backend deployment in the staging namespace
 
 ## Dependencies
 
-- **Required**: `kai-platform-core`
+- **Required**: `kai-containers-core`
 - **Adapters**: At least one of `kai-docker-adapter` or `kai-k8s-adapter`

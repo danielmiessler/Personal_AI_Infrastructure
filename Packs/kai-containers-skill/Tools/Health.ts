@@ -12,7 +12,7 @@
  */
 
 import { parseArgs } from 'util';
-import { getPlatformProvider } from 'kai-platform-core';
+import { getPlatformProvider } from 'kai-containers-core';
 
 interface HealthArgs {
   provider?: string;

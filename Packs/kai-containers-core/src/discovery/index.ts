@@ -1,4 +1,4 @@
-// Discovery exports for kai-platform-core
+// Discovery exports for kai-containers-core
 
 export {
   discoverAdapters,

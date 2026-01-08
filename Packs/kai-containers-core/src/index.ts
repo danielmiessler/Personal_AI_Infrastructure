@@ -1,4 +1,4 @@
-// Main exports for kai-platform-core
+// Main exports for kai-containers-core
 
 // Types
 export {

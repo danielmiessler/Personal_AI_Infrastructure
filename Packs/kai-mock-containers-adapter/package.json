@@ -1,7 +1,7 @@
 {
-  "name": "kai-platform-core",
+  "name": "kai-mock-containers-adapter",
   "version": "1.0.0",
-  "description": "Core interfaces and utilities for the PAI Platform domain",
+  "description": "Mock Containers adapter for testing",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -15,10 +15,9 @@
   "keywords": [
     "kai",
     "platform",
-    "kubernetes",
-    "docker",
-    "containers",
-    "core"
+    "mock",
+    "testing",
+    "adapter"
   ],
   "author": "PAI Community",
   "license": "MIT",
@@ -27,6 +26,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "yaml": "^2.3.0"
+    "kai-containers-core": "file:../kai-containers-core"
   }
 }

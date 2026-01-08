@@ -1,4 +1,4 @@
-// Type exports for kai-platform-core
+// Type exports for kai-containers-core
 
 export {
   type Namespace,

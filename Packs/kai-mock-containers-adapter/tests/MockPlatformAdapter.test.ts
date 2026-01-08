@@ -10,7 +10,7 @@ import {
   type Deployment,
   type Container,
   type Service,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 describe('MockPlatformAdapter', () => {
   let adapter: MockPlatformAdapter;

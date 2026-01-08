@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "kai-platform-core": "../kai-platform-core"
+    "kai-containers-core": "../kai-containers-core"
   },
   "devDependencies": {
     "bun-types": "^1.0.0",

@@ -547,7 +547,7 @@ kai-{domain}-skill/
 | 3 | Issues/PM | kai-issues-core | linear, jira, joplin | kai-agile-skill |
 | 4 | Network | kai-network-core | unifi, opnsense, cisco | kai-network-skill |
 | 5 | CI/CD | kai-cicd-core | gitlab, github, jenkins | kai-cicd-skill |
-| 6 | Platform | kai-platform-core | k8s, docker, podman | kai-platform-skill |
+| 6 | Containers | kai-containers-core | k8s, docker, podman | kai-containers-skill |
 | 7 | Observability | kai-observability-core | prometheus, datadog | kai-observability-skill |
 
 ---

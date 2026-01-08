@@ -18,7 +18,7 @@ import { parseArgs } from 'util';
 import {
   getPlatformProvider,
   type Deployment,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 interface DeploymentsArgs {
   provider?: string;

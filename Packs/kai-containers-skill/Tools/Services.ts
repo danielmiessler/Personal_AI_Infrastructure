@@ -16,7 +16,7 @@ import { parseArgs } from 'util';
 import {
   getPlatformProvider,
   type Service,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 interface ServicesArgs {
   provider?: string;

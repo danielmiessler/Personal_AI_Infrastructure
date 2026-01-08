@@ -26,6 +26,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "kai-platform-core": "file:../kai-platform-core"
+    "kai-containers-core": "file:../kai-containers-core"
   }
 }

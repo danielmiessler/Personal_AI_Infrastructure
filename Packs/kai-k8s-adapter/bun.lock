@@ -5,7 +5,7 @@
     "": {
       "name": "kai-k8s-adapter",
       "dependencies": {
-        "kai-platform-core": "../kai-platform-core",
+        "kai-containers-core": "../kai-containers-core",
       },
       "devDependencies": {
         "bun-types": "^1.0.0",
@@ -18,7 +18,7 @@
 
     "bun-types": ["bun-types@1.3.5", "", { "dependencies": { "@types/node": "*" } }, "sha512-inmAYe2PFLs0SUbFOWSVD24sg1jFlMPxOjOSSCYqUgn4Hsc3rDc7dFvfVYjFPNHtov6kgUeulV4SxbuIV/stPw=="],
 
-    "kai-platform-core": ["kai-platform-core@file:../kai-platform-core", { "dependencies": { "yaml": "^2.3.0" }, "devDependencies": { "bun-types": "latest", "typescript": "^5.0.0" } }],
+    "kai-containers-core": ["kai-containers-core@file:../kai-containers-core", { "dependencies": { "yaml": "^2.3.0" }, "devDependencies": { "bun-types": "latest", "typescript": "^5.0.0" } }],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

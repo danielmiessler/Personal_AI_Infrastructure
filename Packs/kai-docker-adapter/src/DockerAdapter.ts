@@ -9,7 +9,7 @@ import type {
   Service,
   ResourceUsage,
   HealthStatus,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 import {
   NamespaceNotFoundError,
   DeploymentNotFoundError,
@@ -20,7 +20,7 @@ import {
   ConfigurationError,
   ExecError,
   ScaleError,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 /**
  * Configuration for DockerAdapter

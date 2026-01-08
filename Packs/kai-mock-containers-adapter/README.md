@@ -1,17 +1,17 @@
-# kai-mock-platform-adapter
+# kai-mock-containers-adapter
 
-Mock Platform adapter for testing the KAI Platform domain. Provides a fully functional in-memory implementation for unit and integration testing.
+Mock Containers adapter for testing the KAI Containers domain. Provides a fully functional in-memory implementation for unit and integration testing.
 
 ## Installation
 
 ```bash
-bun add kai-mock-platform-adapter
+bun add kai-mock-containers-adapter
 ```
 
 ## Usage
 
 ```typescript
-import { MockPlatformAdapter } from 'kai-mock-platform-adapter';
+import { MockPlatformAdapter } from 'kai-mock-containers-adapter';
 
 const adapter = new MockPlatformAdapter();
 
@@ -88,7 +88,7 @@ adapter.clearCallLog();
 
 ## Related
 
-- [kai-platform-core](../kai-platform-core) - Core interfaces
+- [kai-containers-core](../kai-containers-core) - Core interfaces
 - [kai-docker-adapter](../kai-docker-adapter) - Docker adapter
 - [kai-k8s-adapter](../kai-k8s-adapter) - Kubernetes adapter
-- [kai-platform-skill](../kai-platform-skill) - User-facing workflows
+- [kai-containers-skill](../kai-containers-skill) - User-facing workflows

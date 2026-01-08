@@ -23,7 +23,7 @@ import { parseArgs } from 'util';
 import {
   getPlatformProvider,
   type Container,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 interface ContainersArgs {
   provider?: string;

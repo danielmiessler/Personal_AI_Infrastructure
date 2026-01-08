@@ -16,7 +16,7 @@ import type {
   ExecResult,
   PortMapping,
   PortForwardHandle,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 import {
   NamespaceNotFoundError,
@@ -24,7 +24,7 @@ import {
   ContainerNotFoundError,
   ServiceNotFoundError,
   ConnectionError,
-} from 'kai-platform-core';
+} from 'kai-containers-core';
 
 export interface K8sConfig {
   /** Path to kubeconfig file (default: ~/.kube/config) */

@@ -1,6 +1,6 @@
 # kai-k8s-adapter
 
-Kubernetes adapter for the KAI Platform domain. Provides container orchestration via the Kubernetes API.
+Kubernetes adapter for the KAI Containers domain. Provides container orchestration via the Kubernetes API.
 
 ## Installation
 
@@ -59,7 +59,7 @@ Via `providers.yaml`:
 
 ```yaml
 domains:
-  platform:
+  containers:
     primary: kubernetes
     adapters:
       kubernetes:
@@ -202,7 +202,7 @@ const adapter = new K8sAdapter({
 
 ## Related
 
-- [kai-platform-core](../kai-platform-core) - Core interfaces
+- [kai-containers-core](../kai-containers-core) - Core interfaces
 - [kai-docker-adapter](../kai-docker-adapter) - Docker adapter
-- [kai-mock-platform-adapter](../kai-mock-platform-adapter) - Mock adapter for testing
-- [kai-platform-skill](../kai-platform-skill) - User-facing workflows
+- [kai-mock-containers-adapter](../kai-mock-containers-adapter) - Mock adapter for testing
+- [kai-containers-skill](../kai-containers-skill) - User-facing workflows

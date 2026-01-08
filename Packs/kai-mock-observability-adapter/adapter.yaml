@@ -1,0 +1,21 @@
+name: mock
+version: 1.0.0
+domain: observability
+interface: ObservabilityProvider
+entry: ./src/MockObservabilityAdapter.ts
+description: Mock adapter for testing observability workflows
+
+config:
+  required: []
+  optional:
+    - simulateLatency: 0
+    - failureRate: 0
+
+requires:
+  runtime: bun >= 1.0
+  platform: [darwin, linux, win32]
+
+integrations:
+  cicd: true
+  kubernetes: false
+  local: true

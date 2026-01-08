@@ -1,0 +1,23 @@
+name: prometheus
+version: 1.0.0
+domain: observability
+interface: ObservabilityProvider
+entry: ./src/PrometheusAdapter.ts
+description: Prometheus and Alertmanager adapter for observability
+
+config:
+  required:
+    - prometheusUrl
+  optional:
+    - alertmanagerUrl: null
+    - timeout: 30
+    - auth: null
+
+requires:
+  runtime: bun >= 1.0
+  platform: [darwin, linux, win32]
+
+integrations:
+  cicd: false
+  kubernetes: true
+  local: true

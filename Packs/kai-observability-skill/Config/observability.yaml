@@ -1,0 +1,14 @@
+# Example observability configuration
+# Copy to providers.yaml and customize for your environment
+
+domains:
+  observability:
+    primary: prometheus
+    adapters:
+      prometheus:
+        prometheusUrl: http://prometheus:9090
+        # alertmanagerUrl: http://alertmanager:9093
+        timeout: 30
+        # auth:
+        #   type: bearer
+        #   token: ${PROMETHEUS_TOKEN}

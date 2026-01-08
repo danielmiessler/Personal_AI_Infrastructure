@@ -1,0 +1,26 @@
+{
+  "name": "kai-observability-skill",
+  "version": "1.0.0",
+  "description": "Observability skill for KAI - metrics and alerting workflows",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kai",
+    "observability",
+    "metrics",
+    "prometheus",
+    "alerts",
+    "skill"
+  ],
+  "author": "PAI Community",
+  "license": "MIT",
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "kai-observability-core": "file:../kai-observability-core"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Codespaces (Ubuntu) + Bun",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "remoteUser": "vscode",
+  "postCreateCommand": "curl -fsSL https://bun.sh/install | bash",
+  "remoteEnv": {
+    "BUN_INSTALL": "/home/vscode/.bun",
+    "PATH": "/home/vscode/.bun/bin:${containerEnv:PATH}"
+  }
+}

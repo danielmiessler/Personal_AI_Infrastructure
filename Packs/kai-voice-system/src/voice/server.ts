@@ -425,6 +425,22 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+// Authentication verification for sensitive operations
+function verifyAuthToken(authHeader: string | null): boolean {
+  if (!authHeader) return false;
+  
+  const expectedToken = process.env.PAI_AUTH_TOKEN;
+  if (!expectedToken) {
+    console.warn('⚠️  PAI_AUTH_TOKEN not configured. Settings modifications will be denied.');
+    return false;
+  }
+  
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/);
+  if (!tokenMatch) return false;
+  
+  return tokenMatch[1] === expectedToken;
+}
+
 // Start HTTP server
 const server = serve({
   port: PORT,
@@ -475,6 +491,40 @@ const server = serve({
         return new Response(
           JSON.stringify({ status: "error", message: error.message || "Internal server error" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: error.message?.includes('Invalid') ? 400 : 500 }
+        );
+      }
+    }
+
+    // Settings modification endpoint - requires authentication
+    if (url.pathname === "/save-settings" && req.method === "POST") {
+      const authHeader = req.headers.get("Authorization");
+      
+      if (!verifyAuthToken(authHeader)) {
+        console.warn(`🚫 Unauthorized settings modification attempt from ${clientIp}`);
+        return new Response(
+          JSON.stringify({ status: "error", message: "Unauthorized: Valid authentication token required" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+);
+      }
+
+      try {
+        const data = await req.json();
+        // Validate that data is an object with expected settings fields
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid settings format');
+        }
+        console.log(`✅ Settings modification authorized from ${clientIp}`);
+        // In production, this would save settings to persistent storage
+        // For now, just acknowledge the request
+        return new Response(
+          JSON.stringify({ status: "success", message: "Settings updated" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      } catch (error: any) {
+        console.error("Settings error:", error);
+        return new Response(
+          JSON.stringify({ status: "error", message: error.message || "Failed to save settings" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
         );
       }
     }

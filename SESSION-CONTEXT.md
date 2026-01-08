@@ -137,7 +137,7 @@ A **portable infrastructure pack system** using three-layer architecture:
 - Architecture supports future adapters (Datadog, etc.) but only Prometheus implemented
 
 **Spec**: `Packs/specs/OBSERVABILITY-DOMAIN.md`
-**Git Commit**: (pending)
+**Git Commit**: `1e870f3 feat(observability): Add Phase 6 Observability Domain`
 
 ---
 

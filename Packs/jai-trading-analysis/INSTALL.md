@@ -31,15 +31,15 @@ bun run build
 
 ### 4. Link the CLI (Optional)
 
-To use `jai` command globally:
+To use `jsa` command globally:
 
 ```bash
 # Option 1: Add to PATH
-echo 'export PATH="$HOME/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis/dist:$PATH"' >> ~/.zshrc
+echo 'export PATH="$HOME/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis/src/cli:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 # Option 2: Create symlink
-ln -sf ~/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis/dist/jai.js ~/bin/jai
+ln -sf ~/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis/src/cli/jsa.ts ~/bin/jsa
 ```
 
 ### 5. Configure Portfolio (Optional)
@@ -47,12 +47,25 @@ ln -sf ~/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis/dist/jai.
 ```bash
 cat > ~/.config/jai/positions.json << 'EOF'
 {
+  "version": 1,
+  "lastUpdated": "2024-01-15T00:00:00Z",
+  "cashBalance": 5000.00,
   "positions": [
     {
       "ticker": "AAPL",
       "shares": 100,
-      "costBasis": 150.00,
-      "dateAcquired": "2024-01-15"
+      "avgCostBasis": 150.00,
+      "totalCost": 15000.00,
+      "openedAt": "2024-01-15",
+      "sector": "Technology",
+      "taxLots": [
+        {
+          "id": "lot-1",
+          "shares": 100,
+          "costBasis": 150.00,
+          "purchaseDate": "2024-01-15"
+        }
+      ]
     }
   ]
 }
@@ -87,21 +100,21 @@ See VERIFY.md for detailed verification steps.
 source ~/.config/jai/load-secrets.sh
 
 # Analyze stocks
-jai analyze AAPL
-jai analyze AAPL NVDA --detailed
+jsa analyze AAPL
+jsa analyze AAPL NVDA --detailed
 
 # Analyze as existing position
-jai analyze AAPL --position
+jsa analyze AAPL --position
 
 # Screen for opportunities
-jai screen growth
-jai screen value
+jsa screen growth
+jsa screen value
 
 # Portfolio overview
-jai portfolio
+jsa portfolio
 
 # Morning brief
-jai brief
+jsa brief
 ```
 
 ### As Library

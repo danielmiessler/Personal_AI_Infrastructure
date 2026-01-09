@@ -1,9 +1,13 @@
 /**
  * Trade Commands
  *
- * Buy and sell recommendations with optional execution.
+ * Buy and sell recommendations with optional execution via Alpaca.
+ * Uses real analysis pipeline and portfolio data.
  */
 
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import {
   header,
   subheader,
@@ -21,8 +25,16 @@ import {
   info,
   warn,
   spinner,
-  box,
 } from '../format';
+import { RealDataProvider } from '../../analysis/data-provider';
+import { AnalysisPipeline } from '../../analysis/pipeline';
+import {
+  AlpacaClient,
+  PolicyLoader,
+  DEFAULT_POLICY,
+} from 'jai-finance-core';
+import type { OrderRequest, Policy } from 'jai-finance-core';
+import type { AnalysisVerdict } from '../../analysis/types';
 
 // =============================================================================
 // Types
@@ -39,17 +51,42 @@ interface SellOptions {
   method?: 'FIFO' | 'LIFO' | 'HIFO';
 }
 
+interface TaxLot {
+  id: string;
+  shares: number;
+  costBasis: number;
+  purchaseDate: string;
+}
+
+interface StoredPosition {
+  ticker: string;
+  shares: number;
+  avgCostBasis: number;
+  totalCost: number;
+  openedAt: string;
+  sector?: string;
+  taxLots: TaxLot[];
+}
+
+interface PositionsFile {
+  version: number;
+  lastUpdated: string;
+  cashBalance: number;
+  positions: StoredPosition[];
+}
+
 interface BuyRecommendation {
   ticker: string;
   currentPrice: number;
   recommendedPrice: number;
   shares: number;
   totalCost: number;
-  verdict: string;
+  verdict: AnalysisVerdict;
   reasons: string[];
   risks: string[];
   stopLossPrice: number;
   targetPrice: number;
+  analysisConfidence: number;
 }
 
 interface SellRecommendation {
@@ -64,12 +101,20 @@ interface SellRecommendation {
   taxImplication: string;
   verdict: string;
   reasons: string[];
-  selectedLots: Array<{
-    shares: number;
-    costBasis: number;
-    purchaseDate: string;
-  }>;
+  selectedLots: TaxLot[];
 }
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+const CONFIG_DIR = join(homedir(), '.config', 'jai');
+const POSITIONS_FILE = join(CONFIG_DIR, 'positions.json');
+const POLICY_FILE = join(CONFIG_DIR, 'policy.yaml');
+
+// Policy-based thresholds (from Joey's investment policy)
+const STOP_LOSS_PERCENT = 0.08; // 8% stop loss
+const TARGET_GAIN_PERCENT = 0.20; // 20% target
 
 // =============================================================================
 // Buy Command
@@ -85,7 +130,7 @@ export async function buyCommand(
   console.log(header(`Buy Analysis: ${normalizedTicker}`));
   console.log('');
 
-  const loading = spinner('Analyzing buy opportunity...');
+  const loading = spinner('Running analysis pipeline...');
 
   try {
     const recommendation = await analyzeBuy(normalizedTicker, amount, options.price);
@@ -112,35 +157,74 @@ async function analyzeBuy(
   amount: string,
   limitPrice?: string
 ): Promise<BuyRecommendation> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Initialize data provider
+  const finnhubApiKey = process.env.FINNHUB_API_KEY;
+  if (!finnhubApiKey) {
+    throw new Error('FINNHUB_API_KEY not set. Run: source ~/.config/jai/load-secrets.sh');
+  }
 
-  // Parse amount
-  const isDollarAmount = amount.startsWith('$');
-  const numericAmount = parseFloat(amount.replace('$', '').replace(',', ''));
+  const dataProvider = new RealDataProvider({
+    finnhubApiKey,
+    enableCache: true,
+  });
 
-  // Mock current price
-  const currentPrice = getMockPrice(ticker);
+  // Load policy
+  let policy: Policy;
+  if (existsSync(POLICY_FILE)) {
+    const loader = new PolicyLoader(POLICY_FILE);
+    policy = loader.load();
+  } else {
+    policy = DEFAULT_POLICY;
+  }
+
+  // Run analysis pipeline
+  const pipeline = new AnalysisPipeline(dataProvider, policy);
+  const analysis = await pipeline.analyze(ticker);
+
+  // Get current price
+  const quote = await dataProvider.getQuote(ticker);
+  const currentPrice = quote.price;
   const recommendedPrice = limitPrice ? parseFloat(limitPrice) : currentPrice;
 
-  // Calculate shares
+  // Parse amount and calculate shares
+  const isDollarAmount = amount.startsWith('$');
+  const numericAmount = parseFloat(amount.replace('$', '').replace(',', ''));
   const shares = isDollarAmount
     ? Math.floor(numericAmount / recommendedPrice)
     : numericAmount;
   const totalCost = shares * recommendedPrice;
 
-  // Mock analysis
+  // Extract reasons and risks from analysis
+  const reasons: string[] = [];
+  const risks: string[] = [];
+
+  for (const rec of analysis.recommendations) {
+    if (rec.type === 'action' || rec.type === 'info') {
+      reasons.push(rec.summary);
+    } else if (rec.type === 'warning') {
+      risks.push(rec.summary);
+    }
+  }
+
+  // Add F-Score context
+  const fScoreStage = analysis.stages.find(s => s.name === 'fScore');
+  if (fScoreStage) {
+    const score = Math.round(fScoreStage.score * 9 / 100);
+    reasons.push(`F-Score: ${score}/9`);
+  }
+
   return {
     ticker,
     currentPrice,
     recommendedPrice,
     shares,
     totalCost,
-    verdict: getMockBuyVerdict(ticker),
-    reasons: getMockBuyReasons(ticker),
-    risks: getMockRisks(ticker),
-    stopLossPrice: recommendedPrice * 0.92, // 8% stop loss
-    targetPrice: recommendedPrice * 1.20, // 20% target
+    verdict: analysis.verdict,
+    reasons,
+    risks,
+    stopLossPrice: recommendedPrice * (1 - STOP_LOSS_PERCENT),
+    targetPrice: recommendedPrice * (1 + TARGET_GAIN_PERCENT),
+    analysisConfidence: analysis.confidenceScore,
   };
 }
 
@@ -149,17 +233,18 @@ function printBuyRecommendation(rec: BuyRecommendation): void {
 
   console.log(`  Ticker:       ${bold(rec.ticker)}`);
   console.log(`  Verdict:      ${verdictColor}`);
+  console.log(`  Confidence:   ${rec.analysisConfidence}%`);
   console.log('');
   console.log(`  Current:      ${formatCurrency(rec.currentPrice)}`);
   console.log(`  Buy At:       ${formatCurrency(rec.recommendedPrice)}`);
   console.log(`  Shares:       ${rec.shares}`);
   console.log(`  Total Cost:   ${formatCurrency(rec.totalCost)}`);
   console.log('');
-  console.log(`  Stop Loss:    ${formatCurrency(rec.stopLossPrice)} ${gray('(-8%)')}`);
-  console.log(`  Target:       ${formatCurrency(rec.targetPrice)} ${gray('(+20%)')}`);
+  console.log(`  Stop Loss:    ${formatCurrency(rec.stopLossPrice)} ${gray(`(-${STOP_LOSS_PERCENT * 100}%)`)}`);
+  console.log(`  Target:       ${formatCurrency(rec.targetPrice)} ${gray(`(+${TARGET_GAIN_PERCENT * 100}%)`)}`);
 
   if (rec.reasons.length > 0) {
-    console.log(subheader('Reasons to Buy'));
+    console.log(subheader('Analysis Summary'));
     for (const reason of rec.reasons) {
       console.log(`  ${green('+')} ${reason}`);
     }
@@ -171,23 +256,91 @@ function printBuyRecommendation(rec: BuyRecommendation): void {
       console.log(`  ${yellow('!')} ${risk}`);
     }
   }
+
+  // Verdict-based advice
+  console.log(subheader('Recommendation'));
+  switch (rec.verdict) {
+    case 'BUY':
+      console.log(`  ${green('✓')} Analysis supports buying ${rec.ticker}`);
+      console.log(`    Consider a limit order at or below ${formatCurrency(rec.currentPrice)}`);
+      break;
+    case 'MODERATE_RISK':
+      console.log(`  ${yellow('!')} ${rec.ticker} has moderate risk factors`);
+      console.log(`    Consider smaller position size or better entry price`);
+      break;
+    case 'HIGH_RISK':
+      console.log(`  ${red('!')} ${rec.ticker} has significant risk - exercise caution`);
+      console.log(`    Review risks carefully before proceeding`);
+      break;
+    case 'AVOID':
+      console.log(`  ${red('✗')} Analysis does not support buying ${rec.ticker}`);
+      console.log(`    Dealbreaker(s) triggered - strongly consider avoiding`);
+      break;
+  }
 }
 
 async function executeBuy(rec: BuyRecommendation): Promise<void> {
-  warn('PAPER TRADING MODE - No real order will be placed');
-  console.log('');
+  // Check for Alpaca credentials
+  const alpacaKey = process.env.ALPACA_API_KEY;
+  const alpacaSecret = process.env.ALPACA_SECRET_KEY;
 
-  const loading = spinner('Placing order...');
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  loading.stop();
+  if (!alpacaKey || !alpacaSecret) {
+    warn('Alpaca credentials not set - simulating order');
+    console.log('');
+    console.log(`Set ALPACA_API_KEY and ALPACA_SECRET_KEY for real paper trading`);
+    simulateOrder('BUY', rec.ticker, rec.shares, rec.recommendedPrice);
+    return;
+  }
 
-  console.log(green('Order placed successfully (paper)'));
-  console.log(`  Order ID:     PAPER-${Date.now()}`);
-  console.log(`  Action:       BUY`);
-  console.log(`  Ticker:       ${rec.ticker}`);
-  console.log(`  Shares:       ${rec.shares}`);
-  console.log(`  Limit Price:  ${formatCurrency(rec.recommendedPrice)}`);
-  console.log(`  Status:       ${yellow('PENDING')}`);
+  // Create Alpaca client (paper trading mode)
+  const alpaca = new AlpacaClient({
+    apiKey: alpacaKey,
+    secretKey: alpacaSecret,
+    paperMode: true,
+  });
+
+  // Verify account access
+  const loading = spinner('Connecting to Alpaca...');
+  try {
+    const account = await alpaca.getAccount();
+    loading.stop();
+
+    info(`Account: ${account.accountNumber}`);
+    console.log(`  Buying Power: ${formatCurrency(account.buyingPower)}`);
+    console.log('');
+
+    // Check buying power
+    if (account.buyingPower < rec.totalCost) {
+      error(`Insufficient buying power. Need ${formatCurrency(rec.totalCost)}, have ${formatCurrency(account.buyingPower)}`);
+      return;
+    }
+
+    // Submit order
+    const orderLoading = spinner('Submitting order...');
+    const orderRequest: OrderRequest = {
+      ticker: rec.ticker,
+      side: 'buy',
+      type: 'limit',
+      quantity: rec.shares,
+      limitPrice: rec.recommendedPrice,
+      timeInForce: 'day',
+    };
+
+    const result = await alpaca.submitOrder(orderRequest);
+    orderLoading.stop();
+
+    console.log(green('Order submitted successfully'));
+    console.log(`  Order ID:     ${result.orderId}`);
+    console.log(`  Action:       BUY`);
+    console.log(`  Ticker:       ${rec.ticker}`);
+    console.log(`  Shares:       ${rec.shares}`);
+    console.log(`  Limit Price:  ${formatCurrency(rec.recommendedPrice)}`);
+    console.log(`  Status:       ${yellow(result.status.toUpperCase())}`);
+
+  } catch (err) {
+    loading.stop();
+    error(`Alpaca error: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 // =============================================================================
@@ -206,7 +359,7 @@ export async function sellCommand(
   console.log(header(`Sell Analysis: ${normalizedTicker}`));
   console.log('');
 
-  const loading = spinner('Analyzing sell opportunity...');
+  const loading = spinner('Analyzing position...');
 
   try {
     const recommendation = await analyzeSell(
@@ -239,25 +392,88 @@ async function analyzeSell(
   method: 'FIFO' | 'LIFO' | 'HIFO',
   limitPrice?: string
 ): Promise<SellRecommendation> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Initialize data provider
+  const finnhubApiKey = process.env.FINNHUB_API_KEY;
+  if (!finnhubApiKey) {
+    throw new Error('FINNHUB_API_KEY not set. Run: source ~/.config/jai/load-secrets.sh');
+  }
 
-  // Mock position data
-  const position = getMockPosition(ticker);
+  const dataProvider = new RealDataProvider({
+    finnhubApiKey,
+    enableCache: true,
+  });
+
+  // Load position from positions file
+  if (!existsSync(POSITIONS_FILE)) {
+    throw new Error(`Positions file not found: ${POSITIONS_FILE}`);
+  }
+
+  const content = await Bun.file(POSITIONS_FILE).text();
+  const positionsFile: PositionsFile = JSON.parse(content);
+
+  const position = positionsFile.positions.find(p => p.ticker === ticker);
+  if (!position) {
+    throw new Error(`No position found for ${ticker}`);
+  }
+
+  // Get current price
+  const quote = await dataProvider.getQuote(ticker);
+  const currentPrice = limitPrice ? parseFloat(limitPrice) : quote.price;
+
+  // Calculate shares to sell
   const shares = shareCount ?? position.shares;
-  const currentPrice = limitPrice ? parseFloat(limitPrice) : position.currentPrice;
+  if (shares > position.shares) {
+    throw new Error(`Cannot sell ${shares} shares. Position has only ${position.shares} shares.`);
+  }
+
+  // Select tax lots based on method
+  const selectedLots = selectTaxLots(position.taxLots, shares, method);
+
+  // Calculate cost basis from selected lots
+  let totalCostBasis = 0;
+  let totalSelectedShares = 0;
+  for (const lot of selectedLots) {
+    totalCostBasis += lot.shares * lot.costBasis;
+    totalSelectedShares += lot.shares;
+  }
 
   // Calculate gains
   const proceeds = shares * currentPrice;
-  const costBasis = shares * position.avgCostBasis;
+  const costBasis = totalCostBasis;
   const gainLoss = proceeds - costBasis;
-  const gainLossPercent = (gainLoss / costBasis) * 100;
+  const gainLossPercent = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
 
-  // Determine holding period
-  const purchaseDate = new Date(position.purchaseDate);
+  // Determine holding period from earliest selected lot
+  const earliestLot = selectedLots.reduce((earliest, lot) =>
+    new Date(lot.purchaseDate) < new Date(earliest.purchaseDate) ? lot : earliest
+  );
+  const purchaseDate = new Date(earliestLot.purchaseDate);
   const now = new Date();
   const daysHeld = Math.floor((now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
   const isLongTerm = daysHeld > 365;
+
+  // Generate verdict and reasons
+  const reasons: string[] = [];
+  let verdict = 'HOLD';
+
+  if (gainLossPercent >= TARGET_GAIN_PERCENT * 100) {
+    verdict = 'SELL';
+    reasons.push('Target gain reached - consider taking profits');
+  } else if (gainLossPercent <= -STOP_LOSS_PERCENT * 100) {
+    verdict = 'SELL';
+    reasons.push('Stop loss triggered - cut losses per policy');
+  } else if (gainLossPercent > 0) {
+    reasons.push(`Position has ${gainLossPercent.toFixed(1)}% gain - below target`);
+  } else {
+    reasons.push(`Position has ${gainLossPercent.toFixed(1)}% loss - above stop loss`);
+  }
+
+  // Tax considerations
+  if (isLongTerm) {
+    reasons.push('Long-term holding qualifies for favorable tax rate');
+  } else {
+    reasons.push(`Short-term holding (${daysHeld} days) - taxed as ordinary income`);
+  }
 
   return {
     ticker,
@@ -271,20 +487,59 @@ async function analyzeSell(
     taxImplication: isLongTerm
       ? 'Long-term capital gains rate (0-20%)'
       : 'Short-term capital gains (ordinary income)',
-    verdict: getMockSellVerdict(ticker, gainLossPercent),
-    reasons: getMockSellReasons(ticker, gainLossPercent),
-    selectedLots: [
-      {
-        shares,
-        costBasis: position.avgCostBasis,
-        purchaseDate: position.purchaseDate,
-      },
-    ],
+    verdict,
+    reasons,
+    selectedLots,
   };
 }
 
+function selectTaxLots(lots: TaxLot[], sharesToSell: number, method: 'FIFO' | 'LIFO' | 'HIFO'): TaxLot[] {
+  if (lots.length === 0) {
+    // Create synthetic lot from position data
+    return [{
+      id: 'synthetic',
+      shares: sharesToSell,
+      costBasis: 0,
+      purchaseDate: new Date().toISOString().split('T')[0],
+    }];
+  }
+
+  // Sort lots based on method
+  const sortedLots = [...lots];
+  switch (method) {
+    case 'FIFO':
+      sortedLots.sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+      break;
+    case 'LIFO':
+      sortedLots.sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime());
+      break;
+    case 'HIFO':
+      sortedLots.sort((a, b) => b.costBasis - a.costBasis);
+      break;
+  }
+
+  // Select lots until we have enough shares
+  const selectedLots: TaxLot[] = [];
+  let remainingShares = sharesToSell;
+
+  for (const lot of sortedLots) {
+    if (remainingShares <= 0) break;
+
+    const sharesToTake = Math.min(lot.shares, remainingShares);
+    selectedLots.push({
+      ...lot,
+      shares: sharesToTake,
+    });
+    remainingShares -= sharesToTake;
+  }
+
+  return selectedLots;
+}
+
 function printSellRecommendation(rec: SellRecommendation): void {
-  const verdictColor = colorVerdict(rec.verdict);
+  const verdictColor = rec.verdict === 'SELL' ? red(rec.verdict) :
+                       rec.verdict === 'HOLD' ? yellow(rec.verdict) :
+                       gray(rec.verdict);
 
   console.log(`  Ticker:       ${bold(rec.ticker)}`);
   console.log(`  Verdict:      ${verdictColor}`);
@@ -301,121 +556,103 @@ function printSellRecommendation(rec: SellRecommendation): void {
 
   console.log(subheader('Tax Lots to Sell'));
   for (const lot of rec.selectedLots) {
-    console.log(`  ${lot.shares} shares @ ${formatCurrency(lot.costBasis)} (${lot.purchaseDate})`);
+    const lotDate = lot.purchaseDate.split('T')[0];
+    console.log(`  ${lot.shares} shares @ ${formatCurrency(lot.costBasis)} (${lotDate})`);
   }
 
   if (rec.reasons.length > 0) {
     console.log(subheader('Considerations'));
     for (const reason of rec.reasons) {
-      const icon = reason.includes('risk') || reason.includes('loss') ? yellow('!') : cyan('i');
+      const icon = reason.toLowerCase().includes('stop') || reason.toLowerCase().includes('loss')
+        ? yellow('!')
+        : reason.toLowerCase().includes('target') || reason.toLowerCase().includes('long-term')
+        ? green('+')
+        : cyan('i');
       console.log(`  ${icon} ${reason}`);
     }
   }
 }
 
 async function executeSell(rec: SellRecommendation): Promise<void> {
-  warn('PAPER TRADING MODE - No real order will be placed');
+  // Check for Alpaca credentials
+  const alpacaKey = process.env.ALPACA_API_KEY;
+  const alpacaSecret = process.env.ALPACA_SECRET_KEY;
+
+  if (!alpacaKey || !alpacaSecret) {
+    warn('Alpaca credentials not set - simulating order');
+    console.log('');
+    console.log(`Set ALPACA_API_KEY and ALPACA_SECRET_KEY for real paper trading`);
+    simulateOrder('SELL', rec.ticker, rec.shares, rec.currentPrice);
+    return;
+  }
+
+  // Create Alpaca client (paper trading mode)
+  const alpaca = new AlpacaClient({
+    apiKey: alpacaKey,
+    secretKey: alpacaSecret,
+    paperMode: true,
+  });
+
+  // Verify account and position
+  const loading = spinner('Connecting to Alpaca...');
+  try {
+    const account = await alpaca.getAccount();
+    loading.stop();
+
+    info(`Account: ${account.accountNumber}`);
+
+    // Check if position exists in Alpaca
+    const alpacaPosition = await alpaca.getPosition(rec.ticker);
+    if (alpacaPosition) {
+      console.log(`  Alpaca Position: ${alpacaPosition.qty} shares @ ${formatCurrency(alpacaPosition.avgEntryPrice)}`);
+    } else {
+      warn(`No position for ${rec.ticker} in Alpaca - order may be rejected`);
+    }
+    console.log('');
+
+    // Submit order
+    const orderLoading = spinner('Submitting order...');
+    const orderRequest: OrderRequest = {
+      ticker: rec.ticker,
+      side: 'sell',
+      type: 'limit',
+      quantity: rec.shares,
+      limitPrice: rec.currentPrice,
+      timeInForce: 'day',
+    };
+
+    const result = await alpaca.submitOrder(orderRequest);
+    orderLoading.stop();
+
+    console.log(green('Order submitted successfully'));
+    console.log(`  Order ID:     ${result.orderId}`);
+    console.log(`  Action:       SELL`);
+    console.log(`  Ticker:       ${rec.ticker}`);
+    console.log(`  Shares:       ${rec.shares}`);
+    console.log(`  Limit Price:  ${formatCurrency(rec.currentPrice)}`);
+    console.log(`  Status:       ${yellow(result.status.toUpperCase())}`);
+
+    // Reminder about local tracking
+    console.log('');
+    info(`Remember to update ${POSITIONS_FILE} after fill`);
+
+  } catch (err) {
+    loading.stop();
+    error(`Alpaca error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function simulateOrder(side: 'BUY' | 'SELL', ticker: string, shares: number, price: number): void {
+  console.log(yellow('SIMULATION MODE - No real order placed'));
   console.log('');
-
-  const loading = spinner('Placing order...');
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  loading.stop();
-
-  console.log(green('Order placed successfully (paper)'));
-  console.log(`  Order ID:     PAPER-${Date.now()}`);
-  console.log(`  Action:       SELL`);
-  console.log(`  Ticker:       ${rec.ticker}`);
-  console.log(`  Shares:       ${rec.shares}`);
-  console.log(`  Limit Price:  ${formatCurrency(rec.currentPrice)}`);
-  console.log(`  Status:       ${yellow('PENDING')}`);
-}
-
-// =============================================================================
-// Mock Data Functions
-// =============================================================================
-
-function getMockPrice(ticker: string): number {
-  const prices: Record<string, number> = {
-    AAPL: 195.20,
-    MSFT: 425.30,
-    NVDA: 875.50,
-    GOOGL: 142.50,
-    AMZN: 185.30,
-    META: 505.20,
-    TSLA: 248.50,
-  };
-  return prices[ticker] || 100 + (ticker.charCodeAt(0) % 100);
-}
-
-function getMockBuyVerdict(ticker: string): string {
-  const hash = ticker.charCodeAt(0) % 3;
-  return ['BUY', 'MODERATE_RISK', 'AVOID'][hash];
-}
-
-function getMockBuyReasons(ticker: string): string[] {
-  const reasons = [];
-  if (ticker.charCodeAt(0) % 2 === 0) {
-    reasons.push('Strong revenue growth trajectory');
-  }
-  if (ticker.charCodeAt(0) % 3 === 0) {
-    reasons.push('Trading below intrinsic value');
-  }
-  if (ticker.charCodeAt(0) % 4 === 0) {
-    reasons.push('Positive analyst momentum');
-  }
-  reasons.push('Sector showing relative strength');
-  return reasons;
-}
-
-function getMockRisks(ticker: string): string[] {
-  const risks = [];
-  if (ticker.charCodeAt(0) % 2 === 1) {
-    risks.push('Elevated P/E relative to sector');
-  }
-  if (ticker.charCodeAt(0) % 3 === 1) {
-    risks.push('Some insider selling activity');
-  }
-  risks.push('General market volatility');
-  return risks;
-}
-
-function getMockPosition(ticker: string): {
-  shares: number;
-  avgCostBasis: number;
-  currentPrice: number;
-  purchaseDate: string;
-} {
-  const positions: Record<string, { shares: number; avgCostBasis: number; currentPrice: number; purchaseDate: string }> = {
-    AAPL: { shares: 50, avgCostBasis: 145.00, currentPrice: 195.20, purchaseDate: '2023-06-15' },
-    MSFT: { shares: 25, avgCostBasis: 280.00, currentPrice: 425.30, purchaseDate: '2023-03-20' },
-    NVDA: { shares: 10, avgCostBasis: 450.00, currentPrice: 875.50, purchaseDate: '2024-01-10' },
-  };
-
-  return positions[ticker] || {
-    shares: 100,
-    avgCostBasis: getMockPrice(ticker) * 0.85,
-    currentPrice: getMockPrice(ticker),
-    purchaseDate: '2023-09-01',
-  };
-}
-
-function getMockSellVerdict(ticker: string, gainPercent: number): string {
-  if (gainPercent > 20) return 'SELL';
-  if (gainPercent < -8) return 'SELL';
-  return 'HOLD';
-}
-
-function getMockSellReasons(ticker: string, gainPercent: number): string[] {
-  const reasons = [];
-  if (gainPercent > 20) {
-    reasons.push('Target gain reached - consider taking profits');
-  }
-  if (gainPercent < -8) {
-    reasons.push('Stop loss triggered - cut losses per policy');
-  }
-  if (gainPercent > 0 && gainPercent < 20) {
-    reasons.push('Position still has upside to target');
-  }
-  reasons.push('Consider tax-loss harvesting opportunities');
-  return reasons;
+  console.log(`  Order ID:     SIM-${Date.now()}`);
+  console.log(`  Action:       ${side}`);
+  console.log(`  Ticker:       ${ticker}`);
+  console.log(`  Shares:       ${shares}`);
+  console.log(`  Limit Price:  ${formatCurrency(price)}`);
+  console.log(`  Status:       ${gray('SIMULATED')}`);
 }

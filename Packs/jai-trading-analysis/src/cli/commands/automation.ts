@@ -2,8 +2,12 @@
  * Automation Commands
  *
  * Morning brief and watchlist management.
+ * Uses real portfolio data and market prices.
  */
 
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import {
   header,
   subheader,
@@ -21,6 +25,22 @@ import {
   success,
   spinner,
 } from '../format';
+import { RealDataProvider } from '../../analysis/data-provider';
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+const CONFIG_DIR = join(homedir(), '.config', 'jai');
+const POSITIONS_FILE = join(CONFIG_DIR, 'positions.json');
+const WATCHLIST_FILE = join(CONFIG_DIR, 'watchlist.json');
+
+// Market index tickers
+const MARKET_TICKERS = {
+  SP500: 'SPY',    // S&P 500 ETF proxy
+  NASDAQ: 'QQQ',   // NASDAQ ETF proxy
+  VIX: '^VIX',     // VIX (may not be available on Finnhub)
+};
 
 // =============================================================================
 // Types
@@ -69,9 +89,23 @@ interface MorningBrief {
   };
 }
 
-interface Watchlist {
-  tickers: string[];
+interface WatchlistFile {
+  version: number;
   lastUpdated: string;
+  tickers: string[];
+}
+
+interface PositionsFile {
+  version: number;
+  lastUpdated: string;
+  cashBalance: number;
+  positions: Array<{
+    ticker: string;
+    shares: number;
+    avgCostBasis: number;
+    totalCost: number;
+    sector?: string;
+  }>;
 }
 
 // =============================================================================
@@ -110,11 +144,198 @@ export async function briefCommand(options: BriefOptions): Promise<void> {
 }
 
 async function generateBrief(): Promise<MorningBrief> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
+  // Initialize data provider
+  const finnhubApiKey = process.env.FINNHUB_API_KEY;
+  if (!finnhubApiKey) {
+    throw new Error('FINNHUB_API_KEY not set. Run: source ~/.config/jai/load-secrets.sh');
+  }
 
-  // In production, this calls generateMorningBrief from automation module
-  return getMockBrief();
+  const dataProvider = new RealDataProvider({
+    finnhubApiKey,
+    enableCache: true,
+  });
+
+  // Load portfolio
+  let portfolioSummary = {
+    totalValue: 0,
+    unrealizedPnL: 0,
+    unrealizedPnLPercent: 0,
+    dayChange: 0,
+    dayChangePercent: 0,
+    cashAvailable: 0,
+  };
+
+  const positions: MorningBrief['positions'] = [];
+  const alerts: MorningBrief['alerts'] = [];
+  let sectorConcentration = new Map<string, number>();
+
+  if (existsSync(POSITIONS_FILE)) {
+    const content = await Bun.file(POSITIONS_FILE).text();
+    const positionsFile: PositionsFile = JSON.parse(content);
+
+    let totalMarketValue = 0;
+    let totalCost = 0;
+    let totalDayChange = 0;
+
+    for (const pos of positionsFile.positions) {
+      try {
+        const quote = await dataProvider.getQuote(pos.ticker);
+        const marketValue = pos.shares * quote.price;
+        const unrealizedPnL = marketValue - pos.totalCost;
+        const unrealizedPnLPercent = pos.totalCost > 0 ? (unrealizedPnL / pos.totalCost) * 100 : 0;
+        const dayChange = pos.shares * quote.change;
+
+        totalMarketValue += marketValue;
+        totalCost += pos.totalCost;
+        totalDayChange += dayChange;
+
+        // Track sector allocation
+        const sector = pos.sector || 'Unknown';
+        sectorConcentration.set(sector, (sectorConcentration.get(sector) || 0) + marketValue);
+
+        // Generate position alerts
+        const posAlerts: string[] = [];
+
+        // Near target (>50% gain)
+        if (unrealizedPnLPercent > 50) {
+          posAlerts.push('Near target');
+          alerts.push({
+            type: 'INFO',
+            ticker: pos.ticker,
+            message: `Approaching target price (+${unrealizedPnLPercent.toFixed(1)}%)`,
+            severity: 'info',
+          });
+        }
+
+        // Stop loss triggered
+        if (unrealizedPnLPercent < -8) {
+          posAlerts.push('Stop loss');
+          alerts.push({
+            type: 'WARNING',
+            ticker: pos.ticker,
+            message: `Near stop loss (${unrealizedPnLPercent.toFixed(1)}%)`,
+            severity: 'warning',
+          });
+        }
+
+        positions.push({
+          ticker: pos.ticker,
+          currentPrice: quote.price,
+          marketValue,
+          unrealizedPnLPercent,
+          alerts: posAlerts,
+        });
+      } catch (err) {
+        // Skip position if quote fails
+        console.error(gray(`Warning: Could not fetch quote for ${pos.ticker}`));
+      }
+    }
+
+    const cashBalance = positionsFile.cashBalance || 0;
+    const totalPortfolioValue = totalMarketValue + cashBalance;
+
+    portfolioSummary = {
+      totalValue: totalPortfolioValue,
+      unrealizedPnL: totalMarketValue - totalCost,
+      unrealizedPnLPercent: totalCost > 0 ? ((totalMarketValue - totalCost) / totalCost) * 100 : 0,
+      dayChange: totalDayChange,
+      dayChangePercent: (totalMarketValue - totalDayChange) > 0
+        ? (totalDayChange / (totalMarketValue - totalDayChange)) * 100
+        : 0,
+      cashAvailable: cashBalance,
+    };
+
+    // Check sector concentration
+    for (const [sector, value] of sectorConcentration) {
+      const percent = (value / totalPortfolioValue) * 100;
+      if (percent > 40) {
+        alerts.push({
+          type: 'WARNING',
+          ticker: 'PORTFOLIO',
+          message: `${sector} sector concentration at ${percent.toFixed(0)}%`,
+          severity: 'warning',
+        });
+      }
+    }
+  }
+
+  // Fetch market indices
+  let marketOverview = {
+    sp500: { price: 0, changePercent: 0 },
+    nasdaq: { price: 0, changePercent: 0 },
+    vix: { value: 0 },
+    sentiment: 'neutral',
+  };
+
+  try {
+    const spyQuote = await dataProvider.getQuote(MARKET_TICKERS.SP500);
+    marketOverview.sp500 = { price: spyQuote.price, changePercent: spyQuote.changePercent };
+  } catch {
+    // SPY quote failed
+  }
+
+  try {
+    const qqqQuote = await dataProvider.getQuote(MARKET_TICKERS.NASDAQ);
+    marketOverview.nasdaq = { price: qqqQuote.price, changePercent: qqqQuote.changePercent };
+  } catch {
+    // QQQ quote failed
+  }
+
+  // Determine sentiment
+  const avgChange = (marketOverview.sp500.changePercent + marketOverview.nasdaq.changePercent) / 2;
+  if (avgChange > 1) {
+    marketOverview.sentiment = 'bullish';
+  } else if (avgChange < -1) {
+    marketOverview.sentiment = 'bearish';
+  } else {
+    marketOverview.sentiment = 'neutral';
+  }
+
+  // Generate opportunities from watchlist
+  const opportunities: MorningBrief['opportunities'] = [];
+
+  if (existsSync(WATCHLIST_FILE)) {
+    try {
+      const watchlistContent = await Bun.file(WATCHLIST_FILE).text();
+      const watchlist: WatchlistFile = JSON.parse(watchlistContent);
+
+      for (const ticker of watchlist.tickers.slice(0, 3)) { // Limit to 3
+        try {
+          const quote = await dataProvider.getQuote(ticker);
+          // Simple opportunity: positive change
+          if (quote.changePercent < -2) {
+            opportunities.push({
+              ticker,
+              currentPrice: quote.price,
+              reason: `Down ${quote.changePercent.toFixed(1)}% today - potential dip buy`,
+              confidence: 'medium',
+            });
+          }
+        } catch {
+          // Skip
+        }
+      }
+    } catch {
+      // Watchlist doesn't exist
+    }
+  }
+
+  // Generate summary
+  const pnlDirection = portfolioSummary.unrealizedPnL >= 0 ? 'up' : 'down';
+  const alertCount = alerts.filter(a => a.severity === 'warning' || a.severity === 'critical').length;
+  const summary = `Portfolio is ${pnlDirection} ${formatCurrency(Math.abs(portfolioSummary.unrealizedPnL))} (${portfolioSummary.unrealizedPnLPercent >= 0 ? '+' : ''}${portfolioSummary.unrealizedPnLPercent.toFixed(1)}%). ` +
+    `Markets are ${marketOverview.sentiment}. ` +
+    `${alertCount > 0 ? `${alertCount} alert(s) need attention.` : 'No critical alerts.'}`;
+
+  return {
+    date: new Date().toISOString().split('T')[0],
+    summary,
+    portfolioSummary,
+    positions,
+    alerts,
+    opportunities,
+    marketOverview,
+  };
 }
 
 function printBrief(brief: MorningBrief): void {
@@ -136,10 +357,9 @@ function printBrief(brief: MorningBrief): void {
   // Market Overview
   console.log(subheader('Market Overview'));
   const mo = brief.marketOverview;
-  console.log(`  S&P 500:   ${formatCurrency(mo.sp500.price)} ${colorPercent(mo.sp500.changePercent)}`);
-  console.log(`  NASDAQ:    ${formatCurrency(mo.nasdaq.price)} ${colorPercent(mo.nasdaq.changePercent)}`);
-  console.log(`  VIX:       ${mo.vix.value.toFixed(2)}`);
-  console.log(`  Sentiment: ${mo.sentiment.toUpperCase()}`);
+  console.log(`  S&P 500 (SPY): ${formatCurrency(mo.sp500.price)} ${colorPercent(mo.sp500.changePercent)}`);
+  console.log(`  NASDAQ (QQQ):  ${formatCurrency(mo.nasdaq.price)} ${colorPercent(mo.nasdaq.changePercent)}`);
+  console.log(`  Sentiment:     ${mo.sentiment.toUpperCase()}`);
   console.log('');
 
   // Portfolio Summary
@@ -163,13 +383,15 @@ function printBrief(brief: MorningBrief): void {
   }
 
   // Position Summary
-  console.log(subheader('Positions'));
-  for (const pos of brief.positions) {
-    const pnlColor = pos.unrealizedPnLPercent >= 0 ? green : red;
-    const alerts = pos.alerts.length > 0 ? ` ${yellow('[')}${pos.alerts.join(', ')}${yellow(']')}` : '';
-    console.log(`  ${bold(pos.ticker.padEnd(6))} ${formatCurrency(pos.marketValue).padStart(10)} ${pnlColor(colorPercent(pos.unrealizedPnLPercent).padStart(8))}${alerts}`);
+  if (brief.positions.length > 0) {
+    console.log(subheader('Positions'));
+    for (const pos of brief.positions) {
+      const pnlColor = pos.unrealizedPnLPercent >= 0 ? green : red;
+      const alerts = pos.alerts.length > 0 ? ` ${yellow('[')}${pos.alerts.join(', ')}${yellow(']')}` : '';
+      console.log(`  ${bold(pos.ticker.padEnd(6))} ${formatCurrency(pos.marketValue).padStart(10)} ${pnlColor(colorPercent(pos.unrealizedPnLPercent).padStart(8))}${alerts}`);
+    }
+    console.log('');
   }
-  console.log('');
 
   // Opportunities
   if (brief.opportunities.length > 0) {
@@ -184,10 +406,36 @@ function printBrief(brief: MorningBrief): void {
   console.log(gray(`Generated: ${new Date().toLocaleTimeString()}`));
 }
 
-async function sendBriefToDiscord(_brief: MorningBrief): Promise<void> {
-  // Simulate send delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  // In production, this calls DiscordNotifier
+async function sendBriefToDiscord(brief: MorningBrief): Promise<void> {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) {
+    throw new Error('DISCORD_WEBHOOK_URL not set');
+  }
+
+  const embed = {
+    title: `📊 Morning Brief - ${brief.date}`,
+    description: brief.summary,
+    color: brief.portfolioSummary.unrealizedPnL >= 0 ? 0x00ff00 : 0xff0000,
+    fields: [
+      {
+        name: '💰 Portfolio',
+        value: `Value: ${formatCurrency(brief.portfolioSummary.totalValue)}\nP&L: ${formatCurrency(brief.portfolioSummary.unrealizedPnL)} (${brief.portfolioSummary.unrealizedPnLPercent.toFixed(1)}%)`,
+        inline: true,
+      },
+      {
+        name: '📈 Market',
+        value: `S&P 500: ${brief.marketOverview.sp500.changePercent.toFixed(2)}%\nNASDAQ: ${brief.marketOverview.nasdaq.changePercent.toFixed(2)}%`,
+        inline: true,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  };
+
+  await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ embeds: [embed] }),
+  });
 }
 
 // =============================================================================
@@ -207,7 +455,7 @@ export async function watchlistCommand(
     case 'add':
       if (!ticker) {
         error('Ticker required for add action');
-        console.log(gray('Usage: jai watchlist add <ticker>'));
+        console.log(gray('Usage: jsa watchlist add <ticker>'));
         process.exit(1);
       }
       await addToWatchlist(ticker.toUpperCase());
@@ -215,7 +463,7 @@ export async function watchlistCommand(
     case 'remove':
       if (!ticker) {
         error('Ticker required for remove action');
-        console.log(gray('Usage: jai watchlist remove <ticker>'));
+        console.log(gray('Usage: jsa watchlist remove <ticker>'));
         process.exit(1);
       }
       await removeFromWatchlist(ticker.toUpperCase());
@@ -239,27 +487,35 @@ async function showWatchlist(): Promise<void> {
 
     if (watchlist.tickers.length === 0) {
       info('Watchlist is empty');
-      console.log(gray('Add tickers with: jai watchlist add <ticker>'));
+      console.log(gray('Add tickers with: jsa watchlist add <ticker>'));
       return;
     }
 
-    // Get current prices
-    const quotes = await getMockQuotes(watchlist.tickers);
+    // Initialize data provider
+    const finnhubApiKey = process.env.FINNHUB_API_KEY;
+    if (!finnhubApiKey) {
+      throw new Error('FINNHUB_API_KEY not set');
+    }
+
+    const dataProvider = new RealDataProvider({
+      finnhubApiKey,
+      enableCache: true,
+    });
 
     console.log(`  ${bold('Ticker'.padEnd(8))}  ${bold('Price'.padStart(10))}  ${bold('Change'.padStart(10))}`);
     console.log(`  ${'-'.repeat(8)}  ${'-'.repeat(10)}  ${'-'.repeat(10)}`);
 
-    for (const ticker of watchlist.tickers) {
-      const quote = quotes[ticker];
-      if (quote) {
-        console.log(`  ${cyan(ticker.padEnd(8))}  ${formatCurrency(quote.price).padStart(10)}  ${colorPercent(quote.changePercent).padStart(10)}`);
-      } else {
-        console.log(`  ${cyan(ticker.padEnd(8))}  ${gray('N/A').padStart(10)}  ${gray('N/A').padStart(10)}`);
+    for (const t of watchlist.tickers) {
+      try {
+        const quote = await dataProvider.getQuote(t);
+        console.log(`  ${cyan(t.padEnd(8))}  ${formatCurrency(quote.price).padStart(10)}  ${colorPercent(quote.changePercent).padStart(10)}`);
+      } catch {
+        console.log(`  ${cyan(t.padEnd(8))}  ${gray('N/A').padStart(10)}  ${gray('N/A').padStart(10)}`);
       }
     }
 
     console.log('');
-    console.log(gray(`${watchlist.tickers.length} ticker(s) | Last updated: ${watchlist.lastUpdated}`));
+    console.log(gray(`${watchlist.tickers.length} ticker(s) | Last updated: ${new Date(watchlist.lastUpdated).toLocaleDateString()}`));
   } catch (err) {
     loading.stop();
     error(`Failed to load watchlist: ${err instanceof Error ? err.message : String(err)}`);
@@ -320,69 +576,19 @@ async function removeFromWatchlist(ticker: string): Promise<void> {
   }
 }
 
-async function loadWatchlist(): Promise<Watchlist> {
-  // In production, this loads from file
-  // For now, return mock data
-  await new Promise(resolve => setTimeout(resolve, 100));
-  return {
-    tickers: ['GOOGL', 'AMZN', 'META', 'AMD', 'CRM'],
-    lastUpdated: new Date().toISOString(),
-  };
-}
-
-async function saveWatchlist(_watchlist: Watchlist): Promise<void> {
-  // In production, this saves to file
-  await new Promise(resolve => setTimeout(resolve, 100));
-}
-
-async function getMockQuotes(tickers: string[]): Promise<Record<string, { price: number; changePercent: number }>> {
-  await new Promise(resolve => setTimeout(resolve, 200));
-
-  const quotes: Record<string, { price: number; changePercent: number }> = {};
-  for (const ticker of tickers) {
-    quotes[ticker] = {
-      price: 100 + (ticker.charCodeAt(0) * 2),
-      changePercent: ((ticker.charCodeAt(0) % 10) - 5) / 2,
+async function loadWatchlist(): Promise<WatchlistFile> {
+  if (!existsSync(WATCHLIST_FILE)) {
+    return {
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+      tickers: [],
     };
   }
-  return quotes;
+
+  const content = await Bun.file(WATCHLIST_FILE).text();
+  return JSON.parse(content);
 }
 
-// =============================================================================
-// Mock Data
-// =============================================================================
-
-function getMockBrief(): MorningBrief {
-  return {
-    date: new Date().toISOString().split('T')[0],
-    summary: 'Portfolio is up $11,435.50 (+28.3%). Markets are mixed today with tech leading. 1 position near target price. No critical alerts.',
-    portfolioSummary: {
-      totalValue: 50000.00,
-      unrealizedPnL: 11435.50,
-      unrealizedPnLPercent: 28.3,
-      dayChange: 245.30,
-      dayChangePercent: 0.49,
-      cashAvailable: 8564.50,
-    },
-    positions: [
-      { ticker: 'AAPL', currentPrice: 195.20, marketValue: 9760.00, unrealizedPnLPercent: 34.6, alerts: [] },
-      { ticker: 'MSFT', currentPrice: 425.30, marketValue: 10632.50, unrealizedPnLPercent: 51.9, alerts: ['Near target'] },
-      { ticker: 'NVDA', currentPrice: 875.50, marketValue: 8755.00, unrealizedPnLPercent: 94.6, alerts: [] },
-      { ticker: 'JNJ', currentPrice: 158.40, marketValue: 6336.00, unrealizedPnLPercent: -4.0, alerts: [] },
-      { ticker: 'JPM', currentPrice: 198.40, marketValue: 5952.00, unrealizedPnLPercent: 28.0, alerts: [] },
-    ],
-    alerts: [
-      { type: 'INFO', ticker: 'MSFT', message: 'Approaching target price (+51.9%)', severity: 'info' },
-      { type: 'WARNING', ticker: 'PORTFOLIO', message: 'Tech sector concentration at 58%', severity: 'warning' },
-    ],
-    opportunities: [
-      { ticker: 'GOOGL', currentPrice: 142.50, reason: 'Trading below 50-day MA', confidence: 'medium' },
-    ],
-    marketOverview: {
-      sp500: { price: 5024.12, changePercent: 0.32 },
-      nasdaq: { price: 15892.45, changePercent: 0.58 },
-      vix: { value: 14.25 },
-      sentiment: 'bullish',
-    },
-  };
+async function saveWatchlist(watchlist: WatchlistFile): Promise<void> {
+  await Bun.write(WATCHLIST_FILE, JSON.stringify(watchlist, null, 2));
 }

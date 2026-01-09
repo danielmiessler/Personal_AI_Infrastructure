@@ -21,7 +21,7 @@ bun install
 
 ## Configuration
 
-Set environment variables or create `~/.jai/.env`:
+Set environment variables or create `~/.config/jai/.env`:
 
 ```bash
 FINNHUB_API_KEY=your_key_here
@@ -50,7 +50,7 @@ const finnhub = new FinnhubClient({ apiKey: process.env.FINNHUB_API_KEY });
 const quote = await finnhub.getQuote('AAPL');
 
 // Portfolio management
-const positions = new PositionManager('~/.jai');
+const positions = new PositionManager('~/.config/jai');
 positions.addPosition('AAPL', 10, 150.00);
 
 // Trade execution
@@ -62,7 +62,7 @@ const discord = new DiscordNotifier({ webhooks: { alerts: '...' } });
 await discord.sendAlert({ content: 'Buy signal!', embeds: [...] });
 
 // Policy
-const policy = new PolicyLoader('~/.jai/policy.yaml');
+const policy = new PolicyLoader('~/.config/jai/policy.yaml');
 const rule = policy.getRule('E1');
 ```
 

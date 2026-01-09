@@ -2,6 +2,7 @@
  * Screen Command
  *
  * Screen stocks by strategy (growth, value, sectors, dividend).
+ * Uses real data from Finnhub with a predefined stock universe.
  */
 
 import {
@@ -20,8 +21,11 @@ import {
   bold,
   error,
   info,
+  warn,
   spinner,
 } from '../format';
+import { RealDataProvider } from '../../analysis/data-provider';
+import type { FinancialsData, QuoteData } from '../../analysis/types';
 
 // =============================================================================
 // Types
@@ -44,6 +48,24 @@ interface ScreenResult {
   metrics: Record<string, number | string>;
   verdict: string;
 }
+
+// =============================================================================
+// Stock Universe
+// =============================================================================
+
+// Curated universe of liquid, well-known stocks across sectors
+const STOCK_UNIVERSE: Record<string, string[]> = {
+  Technology: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'META', 'AVGO', 'ORCL', 'CRM', 'AMD', 'INTC'],
+  Healthcare: ['JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'LLY', 'TMO', 'ABT', 'DHR', 'BMY'],
+  Financials: ['JPM', 'BAC', 'WFC', 'GS', 'MS', 'BLK', 'C', 'AXP', 'SCHW', 'USB'],
+  'Consumer Staples': ['PG', 'KO', 'PEP', 'COST', 'WMT', 'PM', 'MO', 'CL', 'GIS', 'KHC'],
+  'Consumer Discretionary': ['AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX', 'TJX', 'LOW', 'TGT', 'BKNG'],
+  Energy: ['XOM', 'CVX', 'COP', 'EOG', 'SLB', 'MPC', 'PSX', 'VLO', 'OXY', 'PXD'],
+  Industrials: ['CAT', 'UNP', 'HON', 'UPS', 'BA', 'RTX', 'GE', 'DE', 'LMT', 'MMM'],
+  Utilities: ['NEE', 'DUK', 'SO', 'D', 'AEP', 'EXC', 'SRE', 'XEL', 'PEG', 'ED'],
+  Materials: ['LIN', 'APD', 'SHW', 'FCX', 'NEM', 'ECL', 'DD', 'DOW', 'NUE', 'VMC'],
+  'Real Estate': ['PLD', 'AMT', 'EQIX', 'CCI', 'PSA', 'O', 'WELL', 'SPG', 'DLR', 'AVB'],
+};
 
 // =============================================================================
 // Screen Configurations
@@ -86,8 +108,8 @@ const SCREEN_CONFIGS: Record<ScreenType, {
       { header: 'Ticker', key: 'ticker', width: 8 },
       { header: 'Sector', key: 'sector', width: 15 },
       { header: 'Price', key: 'price', width: 10, align: 'right' },
-      { header: '1M Ret', key: 'return1m', width: 10, align: 'right' },
-      { header: 'RS Rank', key: 'rsRank', width: 8, align: 'right' },
+      { header: '52W Chg', key: 'return52w', width: 10, align: 'right' },
+      { header: 'Beta', key: 'beta', width: 8, align: 'right' },
       { header: 'Score', key: 'score', width: 8, align: 'right' },
     ],
   },
@@ -100,7 +122,6 @@ const SCREEN_CONFIGS: Record<ScreenType, {
       { header: 'Price', key: 'price', width: 10, align: 'right' },
       { header: 'Yield', key: 'divYield', width: 8, align: 'right' },
       { header: 'Payout', key: 'payoutRatio', width: 8, align: 'right' },
-      { header: 'Yrs Grw', key: 'divGrowthYears', width: 8, align: 'right' },
       { header: 'Score', key: 'score', width: 8, align: 'right' },
     ],
   },
@@ -129,7 +150,7 @@ export async function screenCommand(
   console.log(gray(config.description));
   console.log('');
 
-  const loading = spinner('Running screen...');
+  const loading = spinner('Fetching stock data...');
 
   try {
     const results = await runScreen(screenType, limit, options.sector);
@@ -148,8 +169,8 @@ export async function screenCommand(
     printScreenResults(results, config);
 
     console.log('');
-    console.log(gray(`Showing ${results.length} of ${results.length} results`));
-    console.log(gray('Run "jai analyze <ticker>" for detailed analysis'));
+    console.log(gray(`Showing top ${results.length} results`));
+    console.log(gray('Run "jsa analyze <ticker>" for detailed analysis'));
   } catch (err) {
     loading.stop();
     error(`Screen failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -166,18 +187,231 @@ async function runScreen(
   limit: number,
   sector?: string
 ): Promise<ScreenResult[]> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-
-  // In production, this would call the actual screener modules
-  // For now, return mock data
-  let results = getMockResults(type);
-
-  if (sector) {
-    results = results.filter(r => r.sector.toLowerCase().includes(sector.toLowerCase()));
+  // Initialize data provider
+  const finnhubApiKey = process.env.FINNHUB_API_KEY;
+  if (!finnhubApiKey) {
+    throw new Error('FINNHUB_API_KEY not set. Run: source ~/.config/jai/load-secrets.sh');
   }
 
-  return results.slice(0, limit);
+  const dataProvider = new RealDataProvider({
+    finnhubApiKey,
+    enableCache: true,
+  });
+
+  // Get tickers to screen
+  let tickersToScreen: { ticker: string; sector: string }[] = [];
+
+  if (sector) {
+    // Filter to specific sector
+    const sectorKey = Object.keys(STOCK_UNIVERSE).find(
+      s => s.toLowerCase().includes(sector.toLowerCase())
+    );
+    if (sectorKey) {
+      tickersToScreen = STOCK_UNIVERSE[sectorKey].map(t => ({ ticker: t, sector: sectorKey }));
+    } else {
+      throw new Error(`Unknown sector: ${sector}. Available: ${Object.keys(STOCK_UNIVERSE).join(', ')}`);
+    }
+  } else {
+    // Use all sectors but limit stocks per sector to respect rate limits
+    // Finnhub free tier: 60 calls/min, we make 3 calls per stock
+    // So max ~20 stocks/minute, use 2 per sector for 10 sectors = 20 stocks
+    const stocksPerSector = type === 'sectors' ? 2 : 2;
+    for (const [sectorName, tickers] of Object.entries(STOCK_UNIVERSE)) {
+      for (const ticker of tickers.slice(0, stocksPerSector)) {
+        tickersToScreen.push({ ticker, sector: sectorName });
+      }
+    }
+  }
+
+  // Fetch data and score
+  const results: ScreenResult[] = [];
+  let processed = 0;
+
+  for (const { ticker, sector: stockSector } of tickersToScreen) {
+    processed++;
+
+    try {
+      const [quote, profile, financials] = await Promise.all([
+        dataProvider.getQuote(ticker),
+        dataProvider.getProfile(ticker),
+        dataProvider.getFinancials(ticker),
+      ]);
+
+      const metrics = extractMetrics(type, financials, quote);
+      const score = calculateScore(type, metrics);
+      const verdict = score >= 75 ? 'BUY' : score >= 50 ? 'HOLD' : 'AVOID';
+
+      results.push({
+        ticker,
+        name: profile.name || ticker,
+        sector: stockSector,
+        price: quote.price,
+        score,
+        metrics,
+        verdict,
+      });
+
+      // Delay to respect rate limits (60 calls/min = 1 call/sec, 3 calls per stock)
+      await new Promise(resolve => setTimeout(resolve, 3100));
+    } catch (err) {
+      // Skip stocks with data issues (suppress stack traces)
+      const msg = err instanceof Error ? err.message : 'data unavailable';
+      if (!msg.includes('Rate limit')) {
+        console.error(gray(`  Skipping ${ticker}: ${msg}`));
+      }
+      // Wait longer after rate limit hits
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+
+  // Sort by score and limit
+  return results
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+// =============================================================================
+// Metrics Extraction
+// =============================================================================
+
+function extractMetrics(
+  type: ScreenType,
+  financials: FinancialsData,
+  quote: QuoteData
+): Record<string, number | string> {
+  // Note: FinancialsData has percentages in decimal form (0.025 = 2.5%)
+  // Multiply by 100 when displaying as percentages
+
+  switch (type) {
+    case 'growth':
+      return {
+        // Revenue/earnings growth in percentage form for display
+        revenueGrowth: (financials.revenueGrowth ?? 0) * 100,
+        epsGrowth: (financials.earningsGrowth ?? 0) * 100,
+        pe: financials.peRatio ?? 0,
+        roe: (financials.roe ?? 0) * 100,
+      };
+
+    case 'value':
+      return {
+        pe: financials.peRatio ?? 0,
+        pb: financials.pbRatio ?? 0,
+        // Dividend yield as percentage for display
+        divYield: (financials.dividendYield ?? 0) * 100,
+        roe: (financials.roe ?? 0) * 100,
+        currentRatio: financials.currentRatio ?? 0,
+      };
+
+    case 'sectors':
+      return {
+        // No 52-week return in FinancialsData, use 0 for now
+        // Could calculate from price history if needed
+        return52w: 0,
+        beta: financials.beta ?? 1,
+        pe: financials.peRatio ?? 0,
+        netMargin: (financials.netProfitMargin ?? 0) * 100,
+      };
+
+    case 'dividend':
+      return {
+        // Dividend yield as percentage for display
+        divYield: (financials.dividendYield ?? 0) * 100,
+        // Payout ratio as percentage for display
+        payoutRatio: (financials.payoutRatio ?? 0) * 100,
+        pe: financials.peRatio ?? 0,
+        roe: (financials.roe ?? 0) * 100,
+      };
+
+    default:
+      return {};
+  }
+}
+
+// =============================================================================
+// Scoring
+// =============================================================================
+
+function calculateScore(type: ScreenType, metrics: Record<string, number | string>): number {
+  let score = 50; // Base score
+
+  switch (type) {
+    case 'growth':
+      // High revenue growth is good
+      const revGrowth = Number(metrics.revenueGrowth) || 0;
+      if (revGrowth > 30) score += 20;
+      else if (revGrowth > 15) score += 15;
+      else if (revGrowth > 5) score += 10;
+      else if (revGrowth < 0) score -= 10;
+
+      // High EPS growth is good
+      const epsGrowth = Number(metrics.epsGrowth) || 0;
+      if (epsGrowth > 30) score += 20;
+      else if (epsGrowth > 15) score += 15;
+      else if (epsGrowth > 5) score += 10;
+      else if (epsGrowth < 0) score -= 10;
+
+      // High ROE is good
+      const roe = Number(metrics.roe) || 0;
+      if (roe > 20) score += 10;
+      else if (roe > 10) score += 5;
+      break;
+
+    case 'value':
+      // Low P/E is good (but not too low)
+      const pe = Number(metrics.pe) || 0;
+      if (pe > 0 && pe < 15) score += 20;
+      else if (pe >= 15 && pe < 25) score += 10;
+      else if (pe >= 40) score -= 10;
+
+      // Low P/B is good
+      const pb = Number(metrics.pb) || 0;
+      if (pb > 0 && pb < 2) score += 15;
+      else if (pb >= 2 && pb < 4) score += 10;
+      else if (pb >= 10) score -= 5;
+
+      // Higher dividend yield is good
+      const divYield = Number(metrics.divYield) || 0;
+      if (divYield > 3) score += 15;
+      else if (divYield > 1.5) score += 10;
+      else if (divYield > 0.5) score += 5;
+      break;
+
+    case 'sectors':
+      // Positive 52-week return is good
+      const return52w = Number(metrics.return52w) || 0;
+      if (return52w > 50) score += 25;
+      else if (return52w > 20) score += 20;
+      else if (return52w > 0) score += 10;
+      else score -= 10;
+
+      // Beta around 1 is neutral, lower is defensive
+      const beta = Number(metrics.beta) || 1;
+      if (beta < 0.8) score += 5; // Defensive
+      else if (beta > 1.5) score -= 5; // High volatility
+      break;
+
+    case 'dividend':
+      // Higher yield is better (up to a point)
+      const yield_ = Number(metrics.divYield) || 0;
+      if (yield_ > 5) score += 15; // But may be risky
+      else if (yield_ > 3) score += 20;
+      else if (yield_ > 2) score += 15;
+      else if (yield_ > 1) score += 10;
+
+      // Lower payout ratio is more sustainable
+      const payout = Number(metrics.payoutRatio) || 0;
+      if (payout > 0 && payout < 50) score += 15;
+      else if (payout >= 50 && payout < 75) score += 10;
+      else if (payout >= 100) score -= 10; // Unsustainable
+
+      // Reasonable P/E is good
+      const divPe = Number(metrics.pe) || 0;
+      if (divPe > 0 && divPe < 20) score += 10;
+      else if (divPe >= 20 && divPe < 30) score += 5;
+      break;
+  }
+
+  return Math.max(0, Math.min(100, score));
 }
 
 // =============================================================================
@@ -196,7 +430,7 @@ function printScreenResults(
         case 'name':
           return result.name.slice(0, 20);
         case 'sector':
-          return result.sector;
+          return result.sector.slice(0, 15);
         case 'price':
           return formatCurrency(result.price);
         case 'score':
@@ -204,8 +438,11 @@ function printScreenResults(
         default:
           const value = result.metrics[col.key];
           if (typeof value === 'number') {
-            if (col.key.includes('Growth') || col.key.includes('return') || col.key.includes('Yield')) {
+            if (col.key.includes('Growth') || col.key.includes('return') || col.key.includes('Yield') || col.key.includes('divYield')) {
               return colorPercent(value);
+            }
+            if (col.key === 'payoutRatio') {
+              return `${value.toFixed(0)}%`;
             }
             return value.toFixed(2);
           }
@@ -224,168 +461,4 @@ function colorScore(score: number): string {
   if (score >= 80) return green(score.toString());
   if (score >= 60) return yellow(score.toString());
   return red(score.toString());
-}
-
-// =============================================================================
-// Mock Data (Replace with real screener in production)
-// =============================================================================
-
-function getMockResults(type: ScreenType): ScreenResult[] {
-  const mockStocks: ScreenResult[] = [
-    {
-      ticker: 'NVDA',
-      name: 'NVIDIA Corporation',
-      sector: 'Technology',
-      price: 875.50,
-      score: 92,
-      metrics: {
-        revenueGrowth: 122.4,
-        epsGrowth: 486.3,
-        pe: 65.2,
-        pb: 42.1,
-        divYield: 0.02,
-        return1m: 15.3,
-        rsRank: 99,
-        payoutRatio: 1.2,
-        divGrowthYears: 1,
-      },
-      verdict: 'BUY',
-    },
-    {
-      ticker: 'AAPL',
-      name: 'Apple Inc.',
-      sector: 'Technology',
-      price: 195.20,
-      score: 85,
-      metrics: {
-        revenueGrowth: -2.8,
-        epsGrowth: 10.6,
-        pe: 29.8,
-        pb: 45.2,
-        divYield: 0.51,
-        return1m: 3.2,
-        rsRank: 85,
-        payoutRatio: 15.4,
-        divGrowthYears: 12,
-      },
-      verdict: 'HOLD',
-    },
-    {
-      ticker: 'MSFT',
-      name: 'Microsoft Corporation',
-      sector: 'Technology',
-      price: 425.30,
-      score: 88,
-      metrics: {
-        revenueGrowth: 17.6,
-        epsGrowth: 21.8,
-        pe: 36.5,
-        pb: 12.8,
-        divYield: 0.72,
-        return1m: 5.6,
-        rsRank: 90,
-        payoutRatio: 26.4,
-        divGrowthYears: 20,
-      },
-      verdict: 'BUY',
-    },
-    {
-      ticker: 'JNJ',
-      name: 'Johnson & Johnson',
-      sector: 'Healthcare',
-      price: 158.40,
-      score: 75,
-      metrics: {
-        revenueGrowth: 4.3,
-        epsGrowth: 12.1,
-        pe: 15.2,
-        pb: 5.8,
-        divYield: 2.95,
-        return1m: -1.2,
-        rsRank: 45,
-        payoutRatio: 44.8,
-        divGrowthYears: 62,
-      },
-      verdict: 'HOLD',
-    },
-    {
-      ticker: 'XOM',
-      name: 'Exxon Mobil Corp',
-      sector: 'Energy',
-      price: 115.80,
-      score: 72,
-      metrics: {
-        revenueGrowth: -12.4,
-        epsGrowth: -25.3,
-        pe: 12.8,
-        pb: 2.1,
-        divYield: 3.22,
-        return1m: -3.5,
-        rsRank: 35,
-        payoutRatio: 41.2,
-        divGrowthYears: 41,
-      },
-      verdict: 'HOLD',
-    },
-    {
-      ticker: 'COST',
-      name: 'Costco Wholesale',
-      sector: 'Consumer Staples',
-      price: 725.60,
-      score: 82,
-      metrics: {
-        revenueGrowth: 6.2,
-        epsGrowth: 9.8,
-        pe: 48.2,
-        pb: 14.5,
-        divYield: 0.58,
-        return1m: 7.8,
-        rsRank: 88,
-        payoutRatio: 27.8,
-        divGrowthYears: 19,
-      },
-      verdict: 'BUY',
-    },
-    {
-      ticker: 'JPM',
-      name: 'JPMorgan Chase',
-      sector: 'Financials',
-      price: 198.40,
-      score: 79,
-      metrics: {
-        revenueGrowth: 12.5,
-        epsGrowth: 35.2,
-        pe: 11.5,
-        pb: 1.8,
-        divYield: 2.32,
-        return1m: 4.2,
-        rsRank: 78,
-        payoutRatio: 26.5,
-        divGrowthYears: 14,
-      },
-      verdict: 'BUY',
-    },
-    {
-      ticker: 'PG',
-      name: 'Procter & Gamble',
-      sector: 'Consumer Staples',
-      price: 162.30,
-      score: 74,
-      metrics: {
-        revenueGrowth: 2.8,
-        epsGrowth: 6.4,
-        pe: 26.8,
-        pb: 7.5,
-        divYield: 2.42,
-        return1m: 0.8,
-        rsRank: 52,
-        payoutRatio: 64.2,
-        divGrowthYears: 68,
-      },
-      verdict: 'HOLD',
-    },
-  ];
-
-  // Sort by score for all screen types
-  return mockStocks.sort((a, b) => b.score - a.score);
 }

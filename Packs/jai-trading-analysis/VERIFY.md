@@ -37,7 +37,7 @@ Expected: All tests pass
 ### 4. CLI Responds
 
 ```bash
-./src/cli/jai.ts --help
+./src/cli/jsa.ts --help
 ```
 
 Expected: Help text with all commands listed
@@ -46,7 +46,7 @@ Expected: Help text with all commands listed
 
 ```bash
 source ~/.config/jai/load-secrets.sh
-./src/cli/jai.ts analyze AAPL --no-cache
+./src/cli/jsa.ts analyze AAPL --no-cache
 ```
 
 Expected:
@@ -59,7 +59,7 @@ Expected:
 
 ```bash
 source ~/.config/jai/load-secrets.sh
-./src/cli/jai.ts analyze AAPL --position
+./src/cli/jsa.ts analyze AAPL --position
 ```
 
 Expected: Different timing signals focused on HOLD/SELL decisions
@@ -107,13 +107,13 @@ Expected: All insider analysis tests pass
 
 ### CLI Commands
 
-- [ ] `jai analyze` works
-- [ ] `jai analyze --position` works
-- [ ] `jai analyze --detailed` works
-- [ ] `jai analyze --json` works
-- [ ] `jai screen growth` works
-- [ ] `jai portfolio` works
-- [ ] `jai --help` shows all commands
+- [ ] `jsa analyze` works
+- [ ] `jsa analyze --position` works
+- [ ] `jsa analyze --detailed` works
+- [ ] `jsa analyze --json` works
+- [ ] `jsa screen growth` works
+- [ ] `jsa portfolio` works
+- [ ] `jsa --help` shows all commands
 
 ## Troubleshooting
 
@@ -135,7 +135,7 @@ source ~/.config/jai/load-secrets.sh
 Make sure `--no-cache` flag is used for fresh data:
 
 ```bash
-jai analyze AAPL --no-cache
+jsa analyze AAPL --no-cache
 ```
 
 ### Technical analysis missing
@@ -144,8 +144,8 @@ Check that timing is not disabled:
 
 ```bash
 # Wrong - skips technical
-jai analyze AAPL --no-timing
+jsa analyze AAPL --no-timing
 
 # Correct - includes technical
-jai analyze AAPL
+jsa analyze AAPL
 ```

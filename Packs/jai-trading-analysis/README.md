@@ -1,6 +1,8 @@
 # jai-trading-analysis
 
-Trading analysis, screening, timing, and automation for the JAI Investment System.
+Trading analysis, screening, timing, and automation for Joey's investment system.
+
+**CLI Tool:** `jsa` (Joey's Stock Analyzer)
 
 ## Overview
 
@@ -27,43 +29,43 @@ bun install
 
 ```bash
 # Basic analysis
-jai analyze AAPL              # Full analysis with timing signals
-jai analyze AAPL NVDA TSLA    # Batch analysis
+jsa analyze AAPL              # Full analysis with timing signals
+jsa analyze AAPL NVDA TSLA    # Batch analysis
 
 # Position mode (for stocks you own)
-jai analyze AAPL --position   # Analyzes as existing holding
+jsa analyze AAPL --position   # Analyzes as existing holding
 
 # Detailed output
-jai analyze AAPL --detailed   # Shows all technical indicators
+jsa analyze AAPL --detailed   # Shows all technical indicators
 
 # Skip timing (faster, fundamental only)
-jai analyze AAPL --no-timing  # Skip technical analysis
+jsa analyze AAPL --no-timing  # Skip technical analysis
 
 # JSON output (for automation)
-jai analyze AAPL --json       # Machine-readable output
+jsa analyze AAPL --json       # Machine-readable output
 ```
 
 ### Other Commands
 
 ```bash
 # Portfolio
-jai portfolio                 # Current positions
-jai brief                     # Morning brief
+jsa portfolio                 # Current positions
+jsa brief                     # Morning brief
 
 # Screening
-jai screen growth             # Find growth stocks
-jai screen value              # Find value stocks
+jsa screen growth             # Find growth stocks
+jsa screen value              # Find value stocks
 
 # Trading
-jai buy AAPL 1000            # Buy $1000 of AAPL
-jai sell AAPL 10             # Sell 10 shares
+jsa buy AAPL 1000            # Buy $1000 of AAPL
+jsa sell AAPL 10             # Sell 10 shares
 
 # Watchlist
-jai watchlist                 # View watchlist
-jai watchlist add AAPL        # Add to watchlist
+jsa watchlist                 # View watchlist
+jsa watchlist add AAPL        # Add to watchlist
 
 # Council
-jai council AAPL              # Council review
+jsa council AAPL              # Council review
 ```
 
 ## Analysis Pipeline
@@ -242,7 +244,7 @@ src/
 │   ├── data-provider.ts  # Fetches data from APIs
 │   └── types.ts          # Type definitions
 ├── cli/
-│   ├── jai.ts            # Main CLI entry point
+│   ├── jsa.ts            # Main CLI entry point (Joey's Stock Analyzer)
 │   ├── format.ts         # Output formatting
 │   └── commands/         # Command implementations
 └── index.ts              # Package exports

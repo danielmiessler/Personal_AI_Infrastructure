@@ -2,8 +2,12 @@
  * Portfolio Command
  *
  * Show current portfolio positions and compliance status.
+ * Reads from ~/.config/jai/positions.json and fetches live prices.
  */
 
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import {
   header,
   subheader,
@@ -14,14 +18,12 @@ import {
   green,
   red,
   yellow,
-  cyan,
   gray,
   bold,
   error,
-  info,
   spinner,
-  box,
 } from '../format';
+import { RealDataProvider } from '../../analysis/data-provider';
 
 // =============================================================================
 // Types
@@ -33,18 +35,37 @@ interface PortfolioOptions {
   json?: boolean;
 }
 
-interface Position {
+interface TaxLot {
+  id: string;
+  shares: number;
+  costBasis: number;
+  purchaseDate: string;
+}
+
+interface StoredPosition {
   ticker: string;
   shares: number;
   avgCostBasis: number;
+  totalCost: number;
+  openedAt: string;
+  sector?: string;
+  taxLots: TaxLot[];
+}
+
+interface PositionsFile {
+  version: number;
+  lastUpdated: string;
+  cashBalance: number;
+  positions: StoredPosition[];
+}
+
+interface PositionWithValue extends StoredPosition {
   currentPrice: number;
   marketValue: number;
   unrealizedPnL: number;
   unrealizedPnLPercent: number;
   portfolioPercent: number;
-  sector?: string;
-  stopLossPrice?: number;
-  targetPrice?: number;
+  dayChange?: number;
 }
 
 interface PortfolioSummary {
@@ -55,6 +76,12 @@ interface PortfolioSummary {
   cashAvailable: number;
   dayChange: number;
   dayChangePercent: number;
+}
+
+interface SectorAllocation {
+  sector: string;
+  value: number;
+  percent: number;
 }
 
 interface ComplianceStatus {
@@ -68,10 +95,22 @@ interface ComplianceStatus {
 
 interface PortfolioState {
   summary: PortfolioSummary;
-  positions: Position[];
+  positions: PositionWithValue[];
   compliance: ComplianceStatus;
-  sectorAllocation: Array<{ sector: string; percent: number }>;
+  sectorAllocation: SectorAllocation[];
 }
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+const CONFIG_DIR = join(homedir(), '.config', 'jai');
+const POSITIONS_FILE = join(CONFIG_DIR, 'positions.json');
+
+// Compliance thresholds
+const MAX_POSITION_PERCENT = 0.25; // 25%
+const MAX_SECTOR_PERCENT = 0.40;   // 40%
+const MIN_CASH_RESERVE = 0.05;     // 5%
 
 // =============================================================================
 // Command Implementation
@@ -107,11 +146,197 @@ export async function portfolioCommand(options: PortfolioOptions): Promise<void>
 // =============================================================================
 
 async function loadPortfolio(): Promise<PortfolioState> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // Check for positions file
+  if (!existsSync(POSITIONS_FILE)) {
+    throw new Error(
+      `Positions file not found: ${POSITIONS_FILE}\n` +
+      `Create it with your positions or run: jsa portfolio --init`
+    );
+  }
 
-  // In production, this would load from jai-finance-core PortfolioStateManager
-  return getMockPortfolio();
+  // Read positions file
+  const content = await Bun.file(POSITIONS_FILE).text();
+  const positionsFile: PositionsFile = JSON.parse(content);
+
+  if (positionsFile.positions.length === 0) {
+    throw new Error('No positions in portfolio');
+  }
+
+  // Initialize data provider
+  const finnhubApiKey = process.env.FINNHUB_API_KEY;
+  if (!finnhubApiKey) {
+    throw new Error('FINNHUB_API_KEY not set. Run: source ~/.config/jai/load-secrets.sh');
+  }
+
+  const dataProvider = new RealDataProvider({
+    finnhubApiKey,
+    enableCache: true,
+  });
+
+  // Fetch current prices for all positions
+  const tickers = positionsFile.positions.map(p => p.ticker);
+  const prices = new Map<string, { price: number; change: number }>();
+
+  for (const ticker of tickers) {
+    try {
+      const quote = await dataProvider.getQuote(ticker);
+      prices.set(ticker, { price: quote.price, change: quote.change });
+    } catch (err) {
+      console.error(gray(`Warning: Could not fetch price for ${ticker}`));
+      prices.set(ticker, { price: 0, change: 0 });
+    }
+  }
+
+  // Calculate position values
+  let totalMarketValue = 0;
+  let totalCost = 0;
+  let totalDayChange = 0;
+
+  const positionsWithValue: PositionWithValue[] = [];
+
+  for (const position of positionsFile.positions) {
+    const priceData = prices.get(position.ticker) || { price: 0, change: 0 };
+    const currentPrice = priceData.price;
+    const marketValue = position.shares * currentPrice;
+    const unrealizedPnL = marketValue - position.totalCost;
+    const unrealizedPnLPercent = position.totalCost > 0
+      ? (unrealizedPnL / position.totalCost) * 100
+      : 0;
+    const dayChange = position.shares * priceData.change;
+
+    totalMarketValue += marketValue;
+    totalCost += position.totalCost;
+    totalDayChange += dayChange;
+
+    positionsWithValue.push({
+      ...position,
+      currentPrice,
+      marketValue,
+      unrealizedPnL,
+      unrealizedPnLPercent,
+      portfolioPercent: 0, // Will calculate after totals
+      dayChange,
+    });
+  }
+
+  // Calculate portfolio percentages
+  const cashBalance = positionsFile.cashBalance || 0;
+  const totalPortfolioValue = totalMarketValue + cashBalance;
+
+  for (const position of positionsWithValue) {
+    position.portfolioPercent = totalPortfolioValue > 0
+      ? (position.marketValue / totalPortfolioValue) * 100
+      : 0;
+  }
+
+  // Calculate sector allocation
+  const sectorAllocation = calculateSectorAllocation(positionsWithValue, totalPortfolioValue, cashBalance);
+
+  // Calculate summary
+  const unrealizedPnL = totalMarketValue - totalCost;
+  const unrealizedPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0;
+  const dayChangePercent = (totalMarketValue - totalDayChange) > 0
+    ? (totalDayChange / (totalMarketValue - totalDayChange)) * 100
+    : 0;
+
+  const summary: PortfolioSummary = {
+    totalValue: totalPortfolioValue,
+    totalCost,
+    unrealizedPnL,
+    unrealizedPnLPercent,
+    cashAvailable: cashBalance,
+    dayChange: totalDayChange,
+    dayChangePercent,
+  };
+
+  // Check compliance
+  const compliance = checkCompliance(positionsWithValue, sectorAllocation, cashBalance, totalPortfolioValue);
+
+  return {
+    summary,
+    positions: positionsWithValue,
+    compliance,
+    sectorAllocation,
+  };
+}
+
+function calculateSectorAllocation(
+  positions: PositionWithValue[],
+  totalValue: number,
+  cashBalance: number
+): SectorAllocation[] {
+  const sectorMap = new Map<string, number>();
+
+  for (const position of positions) {
+    const sector = position.sector || 'Unknown';
+    const current = sectorMap.get(sector) || 0;
+    sectorMap.set(sector, current + position.marketValue);
+  }
+
+  const allocations: SectorAllocation[] = [];
+
+  for (const [sector, value] of sectorMap) {
+    allocations.push({
+      sector,
+      value,
+      percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+    });
+  }
+
+  // Add cash as a "sector"
+  if (cashBalance > 0) {
+    allocations.push({
+      sector: 'Cash',
+      value: cashBalance,
+      percent: totalValue > 0 ? (cashBalance / totalValue) * 100 : 0,
+    });
+  }
+
+  return allocations.sort((a, b) => b.value - a.value);
+}
+
+function checkCompliance(
+  positions: PositionWithValue[],
+  sectorAllocation: SectorAllocation[],
+  cashBalance: number,
+  totalValue: number
+): ComplianceStatus {
+  // Check max position size
+  let maxPositionViolation = false;
+  let maxPositionTicker: string | undefined;
+
+  for (const position of positions) {
+    if (position.portfolioPercent / 100 > MAX_POSITION_PERCENT) {
+      maxPositionViolation = true;
+      maxPositionTicker = position.ticker;
+      break;
+    }
+  }
+
+  // Check sector concentration (excluding cash)
+  let sectorConcentrationViolation = false;
+  let concentratedSector: string | undefined;
+
+  for (const allocation of sectorAllocation) {
+    if (allocation.sector !== 'Cash' && allocation.percent / 100 > MAX_SECTOR_PERCENT) {
+      sectorConcentrationViolation = true;
+      concentratedSector = `${allocation.sector} (${allocation.percent.toFixed(1)}%)`;
+      break;
+    }
+  }
+
+  // Check cash reserve
+  const cashPercent = totalValue > 0 ? (cashBalance / totalValue) * 100 : 100;
+  const cashReserveViolation = cashPercent / 100 < MIN_CASH_RESERVE;
+
+  return {
+    maxPositionViolation,
+    maxPositionTicker,
+    sectorConcentrationViolation,
+    concentratedSector,
+    cashReserveViolation,
+    cashPercent,
+  };
 }
 
 // =============================================================================
@@ -122,9 +347,6 @@ function printPortfolio(portfolio: PortfolioState, detailed?: boolean): void {
   const { summary, positions, compliance, sectorAllocation } = portfolio;
 
   // Summary box
-  const pnlColor = summary.unrealizedPnL >= 0 ? green : red;
-  const dayColor = summary.dayChange >= 0 ? green : red;
-
   console.log(header('Portfolio Summary'));
   console.log('');
   console.log(`  Total Value:     ${bold(formatCurrency(summary.totalValue))}`);
@@ -175,17 +397,14 @@ function printPortfolio(portfolio: PortfolioState, detailed?: boolean): void {
 
     for (const pos of positions) {
       console.log(`  ${bold(pos.ticker)}`);
-      console.log(`    Cost Basis:  ${formatCurrency(pos.avgCostBasis)}`);
-      if (pos.stopLossPrice) {
-        const stopDist = ((pos.currentPrice - pos.stopLossPrice) / pos.currentPrice) * 100;
-        console.log(`    Stop Loss:   ${formatCurrency(pos.stopLossPrice)} (${stopDist.toFixed(1)}% away)`);
-      }
-      if (pos.targetPrice) {
-        const targetDist = ((pos.targetPrice - pos.currentPrice) / pos.currentPrice) * 100;
-        console.log(`    Target:      ${formatCurrency(pos.targetPrice)} (${targetDist.toFixed(1)}% to go)`);
-      }
+      console.log(`    Cost Basis:  ${formatCurrency(pos.avgCostBasis)} per share`);
+      console.log(`    Total Cost:  ${formatCurrency(pos.totalCost)}`);
+      console.log(`    Opened:      ${pos.openedAt}`);
       if (pos.sector) {
         console.log(`    Sector:      ${pos.sector}`);
+      }
+      if (pos.taxLots && pos.taxLots.length > 1) {
+        console.log(`    Tax Lots:    ${pos.taxLots.length} lots`);
       }
       console.log('');
     }
@@ -203,21 +422,21 @@ function printComplianceStatus(compliance: ComplianceStatus): void {
       name: 'Position Size',
       passed: !compliance.maxPositionViolation,
       detail: compliance.maxPositionTicker
-        ? `${compliance.maxPositionTicker} exceeds max position size`
+        ? `${compliance.maxPositionTicker} exceeds ${MAX_POSITION_PERCENT * 100}% limit`
         : 'All positions within limits',
     },
     {
       name: 'Sector Concentration',
       passed: !compliance.sectorConcentrationViolation,
       detail: compliance.concentratedSector
-        ? `${compliance.concentratedSector} exceeds concentration limit`
+        ? `${compliance.concentratedSector} exceeds ${MAX_SECTOR_PERCENT * 100}% limit`
         : 'Sector diversification OK',
     },
     {
       name: 'Cash Reserve',
       passed: !compliance.cashReserveViolation,
       detail: compliance.cashReserveViolation
-        ? `Cash at ${compliance.cashPercent.toFixed(1)}%, below minimum`
+        ? `Cash at ${compliance.cashPercent.toFixed(1)}%, below ${MIN_CASH_RESERVE * 100}% minimum`
         : `Cash at ${compliance.cashPercent.toFixed(1)}%`,
     },
   ];
@@ -243,107 +462,4 @@ function printComplianceStatus(compliance: ComplianceStatus): void {
 function printComplianceOnly(compliance: ComplianceStatus): void {
   console.log(header('Compliance Status'));
   printComplianceStatus(compliance);
-}
-
-// =============================================================================
-// Mock Data (Replace with real portfolio in production)
-// =============================================================================
-
-function getMockPortfolio(): PortfolioState {
-  const positions: Position[] = [
-    {
-      ticker: 'AAPL',
-      shares: 50,
-      avgCostBasis: 145.00,
-      currentPrice: 195.20,
-      marketValue: 9760.00,
-      unrealizedPnL: 2510.00,
-      unrealizedPnLPercent: 34.62,
-      portfolioPercent: 19.5,
-      sector: 'Technology',
-      stopLossPrice: 175.50,
-      targetPrice: 220.00,
-    },
-    {
-      ticker: 'MSFT',
-      shares: 25,
-      avgCostBasis: 280.00,
-      currentPrice: 425.30,
-      marketValue: 10632.50,
-      unrealizedPnL: 3632.50,
-      unrealizedPnLPercent: 51.89,
-      portfolioPercent: 21.3,
-      sector: 'Technology',
-      stopLossPrice: 391.00,
-      targetPrice: 475.00,
-    },
-    {
-      ticker: 'NVDA',
-      shares: 10,
-      avgCostBasis: 450.00,
-      currentPrice: 875.50,
-      marketValue: 8755.00,
-      unrealizedPnL: 4255.00,
-      unrealizedPnLPercent: 94.56,
-      portfolioPercent: 17.5,
-      sector: 'Technology',
-      stopLossPrice: 805.00,
-      targetPrice: 1000.00,
-    },
-    {
-      ticker: 'JNJ',
-      shares: 40,
-      avgCostBasis: 165.00,
-      currentPrice: 158.40,
-      marketValue: 6336.00,
-      unrealizedPnL: -264.00,
-      unrealizedPnLPercent: -4.00,
-      portfolioPercent: 12.7,
-      sector: 'Healthcare',
-      stopLossPrice: 151.80,
-      targetPrice: 180.00,
-    },
-    {
-      ticker: 'JPM',
-      shares: 30,
-      avgCostBasis: 155.00,
-      currentPrice: 198.40,
-      marketValue: 5952.00,
-      unrealizedPnL: 1302.00,
-      unrealizedPnLPercent: 28.00,
-      portfolioPercent: 11.9,
-      sector: 'Financials',
-      stopLossPrice: 182.00,
-      targetPrice: 220.00,
-    },
-  ];
-
-  const totalValue = positions.reduce((sum, p) => sum + p.marketValue, 0) + 8564.50;
-  const totalCost = positions.reduce((sum, p) => sum + (p.avgCostBasis * p.shares), 0);
-
-  return {
-    summary: {
-      totalValue,
-      totalCost,
-      unrealizedPnL: totalValue - totalCost - 8564.50,
-      unrealizedPnLPercent: ((totalValue - totalCost - 8564.50) / totalCost) * 100,
-      cashAvailable: 8564.50,
-      dayChange: 245.30,
-      dayChangePercent: 0.49,
-    },
-    positions,
-    compliance: {
-      maxPositionViolation: false,
-      sectorConcentrationViolation: true,
-      concentratedSector: 'Technology (58.3%)',
-      cashReserveViolation: false,
-      cashPercent: 17.1,
-    },
-    sectorAllocation: [
-      { sector: 'Technology', percent: 58.3 },
-      { sector: 'Healthcare', percent: 12.7 },
-      { sector: 'Financials', percent: 11.9 },
-      { sector: 'Cash', percent: 17.1 },
-    ],
-  };
 }

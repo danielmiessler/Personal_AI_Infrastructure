@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * JAI CLI - Joey's AI Investment Assistant
+ * JSA CLI - Joey's Stock Analyzer
  *
  * Command-line interface for trading analysis, screening, and automation.
  */
@@ -18,14 +18,16 @@ import { bold, cyan, gray } from './format';
 // Version and Description
 // =============================================================================
 
-const VERSION = '1.0.0';
+const VERSION = '2.0.0';
 const DESCRIPTION = `
-${bold('JAI - Joey\'s AI Investment Assistant')}
+${bold('JSA - Joey\'s Stock Analyzer')}
 
 A comprehensive trading analysis toolkit with policy-driven decision making.
 
 ${cyan('Features:')}
   - Full stock analysis with dealbreakers and scoring
+  - Technical analysis with timing signals (SMA, RSI, MACD)
+  - Enhanced insider transaction analysis
   - Screening for growth, value, and sector opportunities
   - Portfolio tracking and compliance monitoring
   - Morning briefs and automated alerts
@@ -39,7 +41,7 @@ ${cyan('Features:')}
 const program = new Command();
 
 program
-  .name('jai')
+  .name('jsa')
   .version(VERSION)
   .description(DESCRIPTION)
   .configureHelp({
@@ -139,13 +141,14 @@ program
 
 program.addHelpText('after', `
 ${gray('Examples:')}
-  ${gray('$')} jai analyze AAPL MSFT GOOGL
-  ${gray('$')} jai screen growth --limit 20
-  ${gray('$')} jai portfolio --detailed
-  ${gray('$')} jai buy AAPL "$5000"
-  ${gray('$')} jai sell TSLA 50 --method HIFO
-  ${gray('$')} jai council NVDA --question "Should I add to my position?"
-  ${gray('$')} jai brief --send
+  ${gray('$')} jsa analyze AAPL MSFT GOOGL
+  ${gray('$')} jsa analyze AAPL --position      # For stocks you own
+  ${gray('$')} jsa screen growth --limit 20
+  ${gray('$')} jsa portfolio --detailed
+  ${gray('$')} jsa buy AAPL "$5000"
+  ${gray('$')} jsa sell TSLA 50 --method HIFO
+  ${gray('$')} jsa council NVDA --question "Should I add to my position?"
+  ${gray('$')} jsa brief --send
 
 ${gray('Configuration:')}
   Policy file:    ~/.config/jai/policy.yaml

@@ -3,7 +3,7 @@
 // Captures main agent work summaries and learnings
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { join, normalize } from 'path';
 import { homedir } from 'os';
 
 interface StopPayload {
@@ -132,7 +132,9 @@ async function main() {
     // Try to get response from payload first, then from transcript
     let response = payload.response;
     if (!response && payload.transcript_path) {
-      response = extractResponseFromTranscript(payload.transcript_path) || undefined;
+      // Normalize path for cross-platform compatibility (Windows backslashes)
+      const normalizedPath = normalize(payload.transcript_path);
+      response = extractResponseFromTranscript(normalizedPath) || undefined;
     }
 
     if (!response) {

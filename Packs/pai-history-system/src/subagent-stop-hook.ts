@@ -3,7 +3,7 @@
 // Routes subagent outputs to appropriate history directories
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, normalize } from 'path';
 import { homedir } from 'os';
 import { extractAgentInstanceId } from './lib/metadata-extraction';
 
@@ -210,7 +210,8 @@ async function main() {
     if (!input) process.exit(0);
 
     const parsed = JSON.parse(input);
-    const transcriptPath = parsed.transcript_path;
+    // Normalize path for cross-platform compatibility (Windows backslashes)
+    const transcriptPath = parsed.transcript_path ? normalize(parsed.transcript_path) : undefined;
     if (!transcriptPath) process.exit(0);
 
     const { result: taskOutput, agentType, description, toolInput } = await findTaskResult(transcriptPath);

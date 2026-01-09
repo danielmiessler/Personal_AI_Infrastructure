@@ -1,21 +1,20 @@
 # PAI Deployment Pipeline
 # Automatically deploys joey branch changes to VPS
 #
-# Flow: Push → Pull to staging → Verify packs → Deploy to ~/PAI
+# Flow: Push → GitLab checks out code → Verify packs → Deploy to /home/gitlab-runner/PAI
 #
 # Requirements on VPS:
 #   - GitLab Runner registered with tags: vps, pai
-#   - Source repo at ~/src/pai/Personal_AI_Infrastructure
-#   - Production PAI at ~/PAI
-#   - Bun installed
+#   - Bun installed and in PATH
 
 stages:
   - verify
   - deploy
 
 variables:
-  PAI_SOURCE: "${HOME}/src/pai/Personal_AI_Infrastructure"
-  PAI_PRODUCTION: "${HOME}/PAI"
+  # GitLab checks out source to $CI_PROJECT_DIR automatically
+  # We deploy to gitlab-runner's home directory
+  PAI_PRODUCTION: "/home/gitlab-runner/PAI"
 
 # Only run on joey branch pushes
 workflow:
@@ -24,7 +23,7 @@ workflow:
 
 #------------------------------------------------------------------------------
 # Stage 1: Verify
-# Pull latest code and verify packs work before deploying
+# Verify packs work before deploying (source is already checked out by GitLab)
 #------------------------------------------------------------------------------
 verify_packs:
   stage: verify
@@ -32,27 +31,24 @@ verify_packs:
     - vps
     - pai
   script:
-    - echo "=== Pulling latest code to staging ==="
-    - cd ${PAI_SOURCE}
-    - git fetch gitlab
-    - git reset --hard gitlab/joey
+    - echo "=== Source checked out to $CI_PROJECT_DIR ==="
+    - echo "=== Verifying bun is available ==="
+    - which bun || (echo "ERROR: bun not found in PATH" && exit 1)
+    - bun --version
 
     - echo "=== Installing dependencies ==="
-    - cd ${PAI_SOURCE}/Packs/jai-publishing-core && bun install
+    - cd $CI_PROJECT_DIR/Packs/jai-publishing-core && bun install
 
     - echo "=== Verifying jai-publishing-core tools ==="
-    - bun run ${PAI_SOURCE}/Packs/jai-publishing-core/Tools/Calendar.ts --help
-    - bun run ${PAI_SOURCE}/Packs/jai-publishing-core/Tools/KeywordQueue.ts --help
-    - bun run ${PAI_SOURCE}/Packs/jai-publishing-core/Tools/SeoChecker.ts --help
+    - bun run $CI_PROJECT_DIR/Packs/jai-publishing-core/Tools/Calendar.ts --help
+    - bun run $CI_PROJECT_DIR/Packs/jai-publishing-core/Tools/KeywordQueue.ts --help
+    - bun run $CI_PROJECT_DIR/Packs/jai-publishing-core/Tools/SeoChecker.ts --help
 
     - echo "=== Verifying pack structure ==="
-    - test -f ${PAI_SOURCE}/Packs/jai-publishing-skill/SKILL.md
-    - test -f ${PAI_SOURCE}/Bundles/jai-joey-bundle/README.md
+    - test -f $CI_PROJECT_DIR/Packs/jai-publishing-skill/SKILL.md || (echo "ERROR: SKILL.md not found" && exit 1)
+    - test -f $CI_PROJECT_DIR/Bundles/jai-joey-bundle/README.md || (echo "ERROR: Bundle README not found" && exit 1)
 
     - echo "=== All verification passed ==="
-  artifacts:
-    reports:
-      dotenv: verify.env
 
 #------------------------------------------------------------------------------
 # Stage 2: Deploy
@@ -66,66 +62,68 @@ deploy_to_vps:
   needs:
     - verify_packs
   script:
-    - echo "=== Starting deployment to ~/PAI ==="
+    - echo "=== Starting deployment to $PAI_PRODUCTION ==="
 
     # Ensure production directories exist
-    - mkdir -p ${PAI_PRODUCTION}/packs
-    - mkdir -p ${PAI_PRODUCTION}/bundles
-    - mkdir -p ${PAI_PRODUCTION}/skills
+    - mkdir -p $PAI_PRODUCTION/packs
+    - mkdir -p $PAI_PRODUCTION/bundles
+    - mkdir -p $PAI_PRODUCTION/skills
 
     # Deploy foundation packs (pai-*)
     - echo "=== Deploying foundation packs ==="
     - |
-      for pack in ${PAI_SOURCE}/Packs/pai-*/; do
+      for pack in $CI_PROJECT_DIR/Packs/pai-*/; do
         if [ -d "$pack" ]; then
           pack_name=$(basename "$pack")
           echo "  Deploying $pack_name"
-          rm -rf ${PAI_PRODUCTION}/packs/${pack_name}
-          cp -r "$pack" ${PAI_PRODUCTION}/packs/
+          rm -rf $PAI_PRODUCTION/packs/$pack_name
+          cp -r "$pack" $PAI_PRODUCTION/packs/
         fi
       done
 
     # Deploy personal packs (jai-*)
     - echo "=== Deploying personal packs ==="
     - |
-      for pack in ${PAI_SOURCE}/Packs/jai-*/; do
+      for pack in $CI_PROJECT_DIR/Packs/jai-*/; do
         if [ -d "$pack" ]; then
           pack_name=$(basename "$pack")
           echo "  Deploying $pack_name"
-          rm -rf ${PAI_PRODUCTION}/packs/${pack_name}
-          cp -r "$pack" ${PAI_PRODUCTION}/packs/
+          rm -rf $PAI_PRODUCTION/packs/$pack_name
+          cp -r "$pack" $PAI_PRODUCTION/packs/
         fi
       done
 
     # Deploy bundles
     - echo "=== Deploying bundles ==="
     - |
-      for bundle in ${PAI_SOURCE}/Bundles/*/; do
+      for bundle in $CI_PROJECT_DIR/Bundles/*/; do
         if [ -d "$bundle" ]; then
           bundle_name=$(basename "$bundle")
           echo "  Deploying $bundle_name"
-          rm -rf ${PAI_PRODUCTION}/bundles/${bundle_name}
-          cp -r "$bundle" ${PAI_PRODUCTION}/bundles/
+          rm -rf $PAI_PRODUCTION/bundles/$bundle_name
+          cp -r "$bundle" $PAI_PRODUCTION/bundles/
         fi
       done
 
     # Install production dependencies
     - echo "=== Installing production dependencies ==="
-    - cd ${PAI_PRODUCTION}/packs/jai-publishing-core && bun install
+    - cd $PAI_PRODUCTION/packs/jai-publishing-core && bun install
 
     # Post-deploy verification
     - echo "=== Post-deploy verification ==="
-    - bun run ${PAI_PRODUCTION}/packs/jai-publishing-core/Tools/Calendar.ts --help > /dev/null
+    - bun run $PAI_PRODUCTION/packs/jai-publishing-core/Tools/Calendar.ts --help > /dev/null
     - echo "Deployment successful!"
 
     - echo "=== Deployment complete ==="
-    - date
+    - echo "Deployed at: $(date)"
+    - echo "Commit: $CI_COMMIT_SHA"
   environment:
     name: vps-production
     url: http://100.112.181.120
 
 #------------------------------------------------------------------------------
 # Manual rollback job (run manually if needed)
+# Note: This rolls back production to the previous deployment
 #------------------------------------------------------------------------------
 rollback:
   stage: deploy
@@ -134,7 +132,11 @@ rollback:
     - pai
   when: manual
   script:
-    - echo "=== Rolling back to previous commit ==="
-    - cd ${PAI_SOURCE}
-    - git reset --hard HEAD~1
-    - echo "Source rolled back. Re-run deploy_to_vps to apply."
+    - echo "=== Manual rollback requested ==="
+    - echo "To rollback:"
+    - echo "1. git revert on your laptop"
+    - echo "2. Push to joey branch"
+    - echo "3. Pipeline will deploy the reverted code"
+    - echo ""
+    - echo "Current production at: $PAI_PRODUCTION"
+    - ls -la $PAI_PRODUCTION/packs/ || true

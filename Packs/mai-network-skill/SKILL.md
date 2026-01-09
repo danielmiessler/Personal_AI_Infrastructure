@@ -92,19 +92,14 @@ Check network health status.
 bun run Tools/health.ts
 ```
 
-## Workflows
+## Workflow Routing
 
-### NetworkStatus
-Get comprehensive network status overview.
-
-### DeviceAudit
-Audit devices for firmware, uptime, and status issues.
-
-### ClientReport
-Generate report of connected clients by VLAN/device.
-
-### PortUtilization
-Show port utilization and PoE status for switches.
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| NetworkStatus | "network status", "is network healthy", "network overview" | `Workflows/NetworkStatus.md` |
+| DeviceAudit | "audit devices", "check firmware", "device health" | `Workflows/DeviceAudit.md` |
+| ClientReport | "list clients", "who's connected", "client report" | `Workflows/ClientReport.md` |
+| PortUtilization | "port status", "PoE usage", "switch ports" | `Workflows/PortUtilization.md` |
 
 ## Configuration
 

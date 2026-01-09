@@ -69,25 +69,22 @@ domains:
         socketPath: /var/run/docker.sock
 ```
 
-## Example Workflows
+## Workflow Routing
 
-### Check Deployment Status
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| DeploymentStatus | "deployment status", "check deployments", "what's deployed" | `Workflows/DeploymentStatus.md` |
+| ServiceHealth | "service health", "check services", "endpoints status" | `Workflows/ServiceHealth.md` |
+| ContainerLogs | "container logs", "pod logs", "why is it crashing" | `Workflows/ContainerLogs.md` |
+| ScaleDeployment | "scale deployment", "scale up", "scale down", "stop deployment" | `Workflows/ScaleDeployment.md` |
+| NamespaceOverview | "namespace overview", "what's in namespace", "what's running" | `Workflows/NamespaceOverview.md` |
+
+## Example Usage
+
 ```
 Check the status of all deployments in the production namespace
-```
-
-### Scale a Deployment
-```
 Scale the nginx deployment to 3 replicas in default namespace
-```
-
-### View Container Logs
-```
 Show me the last 100 lines of logs from the api-server pod
-```
-
-### Restart Deployment
-```
 Restart the backend deployment in the staging namespace
 ```
 

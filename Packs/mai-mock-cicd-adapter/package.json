@@ -1,0 +1,31 @@
+{
+  "name": "mai-mock-cicd-adapter",
+  "version": "1.0.0",
+  "description": "Mock CI/CD adapter for testing KAI CI/CD domain",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kai",
+    "cicd",
+    "mock",
+    "testing",
+    "adapter"
+  ],
+  "author": "PAI Community",
+  "license": "MIT",
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "mai-cicd-core": "file:../mai-cicd-core"
+  }
+}

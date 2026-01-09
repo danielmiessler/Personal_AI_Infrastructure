@@ -1,0 +1,289 @@
+# Standup Skill Configuration
+# Version: 1.0
+
+version: "1.0"
+
+# Default settings for all standups
+defaults:
+  # Output verbosity: full, progress, or summary
+  # - full: Complete transcript with all agent statements
+  # - progress: Round summaries and key events
+  # - summary: Final synthesis only
+  visibility: full
+
+  # Default adapters (console is always included)
+  adapters:
+    - console
+
+  # Default agent pack to use
+  agentPack: mai-devsecops-agents
+
+  # Maximum rounds for standard standups
+  maxRounds: 3
+
+  # Synthesis strategy: consensus, weighted, or facilitator
+  synthesisStrategy: consensus
+
+  # Enable devil's advocate by default
+  devilsAdvocate: true
+
+# Output destination configuration
+outputDestinations:
+  # Joplin notebook integration
+  joplin:
+    enabled: false
+    notebookName: Standups
+    # Include full transcript in Joplin note
+    includeTranscript: true
+    # Tag to apply to standup notes
+    tags:
+      - standup
+      - council
+
+  # File-based output
+  file:
+    enabled: false
+    path: ~/workshop/standups
+    # Filename pattern (supports placeholders)
+    # {date} - ISO date (YYYY-MM-DD)
+    # {time} - Time (HH-MM-SS)
+    # {topic} - Sanitized topic
+    # {workflow} - Workflow name
+    filenamePattern: "{workflow}-{date}-{topic}.md"
+    # Include full transcript in file
+    includeTranscript: true
+
+# Workflow-specific configuration
+workflows:
+  # Standard standup
+  runStandup:
+    maxRounds: 3
+    visibility: full
+    devilsAdvocate: true
+
+  # Quick review (lightweight)
+  quickReview:
+    roster:
+      - Clay
+      - Hefley
+    maxRounds: 1
+    visibility: progress
+    devilsAdvocate: false
+    # Escalation check for topics that need full review
+    escalationCheck: true
+
+  # Security review (enhanced)
+  securityReview:
+    roster:
+      - Daniel
+      - Clay
+      - Amy
+      - Geoff
+    lead: Daniel
+    maxRounds: 3
+    visibility: full
+    devilsAdvocate: true
+    # Veto configuration
+    veto:
+      enabled: true
+      agent: Daniel
+      triggers:
+        - CRITICAL vulnerability
+        - CMMC blocker
+        - Unencrypted sensitive data
+        - Missing authentication
+        - Privilege escalation risk
+    # Extra compliance check round
+    complianceCheck: true
+    # Output security findings separately
+    separateFindings: true
+
+# Roster presets (for reference - defined in agent pack)
+rosterPresets:
+  full-team:
+    agents:
+      - Daniel
+      - Mary
+      - Clay
+      - Hefley
+      - Amy
+      - Geoff
+      - Justin
+      - Rekha
+      - Roger
+    use_cases:
+      - Comprehensive review
+      - Major architectural decisions
+      - Cross-functional projects
+
+  security-review:
+    agents:
+      - Daniel
+      - Clay
+      - Amy
+      - Geoff
+    lead: Daniel
+    use_cases:
+      - Security threat modeling
+      - CMMC compliance reviews
+      - Authentication/authorization design
+
+  architecture-review:
+    agents:
+      - Clay
+      - Daniel
+      - Amy
+      - Roger
+    use_cases:
+      - System design review
+      - API design
+      - Infrastructure planning
+
+  planning-estimation:
+    agents:
+      - Clay
+      - Hefley
+      - Amy
+      - Rekha
+    use_cases:
+      - Sprint planning
+      - Capacity estimation
+      - Roadmap review
+
+  quick-review:
+    agents:
+      - Clay
+      - Hefley
+    use_cases:
+      - Low-risk decisions
+      - Quick sanity checks
+      - Routine grooming
+
+# Domain keyword mapping for auto-roster selection
+domainKeywords:
+  security:
+    keywords:
+      - auth
+      - authentication
+      - authorization
+      - token
+      - jwt
+      - oauth
+      - password
+      - credential
+      - encrypt
+      - vulnerability
+      - cmmc
+      - security
+    primaryAgents:
+      - Daniel
+      - Amy
+
+  architecture:
+    keywords:
+      - design
+      - api
+      - microservice
+      - scalability
+      - pattern
+      - architecture
+      - schema
+    primaryAgents:
+      - Clay
+      - Hefley
+      - Daniel
+
+  planning:
+    keywords:
+      - timeline
+      - estimate
+      - sprint
+      - velocity
+      - roadmap
+      - backlog
+      - capacity
+    primaryAgents:
+      - Clay
+      - Hefley
+      - Amy
+      - Rekha
+
+  testing:
+    keywords:
+      - coverage
+      - e2e
+      - atdd
+      - testability
+      - regression
+      - qa
+      - test
+    primaryAgents:
+      - Amy
+      - Hefley
+
+  infrastructure:
+    keywords:
+      - k8s
+      - kubernetes
+      - container
+      - docker
+      - ci/cd
+      - deploy
+      - pipeline
+      - gitops
+    primaryAgents:
+      - Roger
+      - Justin
+
+  network:
+    keywords:
+      - vlan
+      - firewall
+      - dns
+      - routing
+      - network
+      - vpn
+      - proxy
+    primaryAgents:
+      - Geoff
+      - Daniel
+
+  database:
+    keywords:
+      - schema
+      - migration
+      - sql
+      - query
+      - data model
+      - database
+      - postgres
+      - mysql
+    primaryAgents:
+      - Clay
+      - Daniel
+
+  compliance:
+    keywords:
+      - cmmc
+      - gdpr
+      - hipaa
+      - audit
+      - regulation
+      - compliance
+      - pci
+      - sox
+    primaryAgents:
+      - Daniel
+      - Amy
+      - Mary
+
+# Debug settings
+debug:
+  enabled: false
+  logLevel: info  # debug, info, warn, error
+  # Log agent selection decisions
+  logRosterSelection: false
+  # Log synthesis process
+  logSynthesis: false
+  # Log adapter output
+  logAdapters: false

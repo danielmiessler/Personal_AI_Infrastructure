@@ -1,0 +1,21 @@
+{
+  "name": "mai-network-skill",
+  "version": "1.0.0",
+  "description": "Network infrastructure skill for PAI",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "devices": "bun run Tools/devices.ts",
+    "clients": "bun run Tools/clients.ts",
+    "vlans": "bun run Tools/vlans.ts",
+    "ports": "bun run Tools/ports.ts",
+    "health": "bun run Tools/health.ts"
+  },
+  "dependencies": {
+    "mai-network-core": "file:../mai-network-core"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "mai-mock-network-adapter": "file:../mai-mock-network-adapter"
+  }
+}

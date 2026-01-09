@@ -1,0 +1,25 @@
+{
+  "name": "mai-k8s-adapter",
+  "version": "1.0.0",
+  "description": "Kubernetes adapter for the KAI Platform domain",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mai-containers-core": "../mai-containers-core"
+  },
+  "devDependencies": {
+    "bun-types": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}

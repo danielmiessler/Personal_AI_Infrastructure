@@ -1,0 +1,27 @@
+{
+  "name": "mai-security-tools",
+  "version": "1.0.0",
+  "description": "CLI security scanning tools for dependencies, secrets, and SBOM generation",
+  "type": "module",
+  "scripts": {
+    "audit": "bun run Tools/DependencyAudit.ts",
+    "secrets": "bun run Tools/SecretsScan.ts",
+    "sbom": "bun run Tools/SbomGenerator.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "security",
+    "vulnerability",
+    "secrets",
+    "sbom",
+    "audit",
+    "cli",
+    "cicd"
+  ],
+  "author": "PAI",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

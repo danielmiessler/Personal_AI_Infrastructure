@@ -1,0 +1,355 @@
+# GitLab CI/CD Template: Kubernetes/Helm Deployment
+# ====================================================
+# Deploy applications to Kubernetes clusters using Helm charts.
+#
+# Usage:
+#   include:
+#     - project: 'your-group/mai-gitlab-skill'
+#       ref: main
+#       file: '/Templates/helm-deploy.yml'
+#
+# Required Variables (set in GitLab CI/CD Settings):
+#   KUBE_CONTEXT       - Kubernetes context (from GitLab Agent or kubeconfig)
+#   KUBE_CONFIG        - Base64 encoded kubeconfig (if not using GitLab Agent)
+#
+# Optional Variables:
+#   HELM_RELEASE       - Helm release name (default: CI_PROJECT_NAME)
+#   HELM_NAMESPACE     - Target namespace (default: default)
+#   HELM_CHART_PATH    - Path to Helm chart (default: ./chart)
+#   HELM_VALUES_FILE   - Values file path (default: values.yaml)
+#   HELM_TIMEOUT       - Deployment timeout (default: 5m)
+
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  HELM_RELEASE: ${CI_PROJECT_NAME}
+  HELM_NAMESPACE: "default"
+  HELM_CHART_PATH: "./chart"
+  HELM_VALUES_FILE: "values.yaml"
+  HELM_TIMEOUT: "5m"
+  # Helm configuration
+  HELM_EXPERIMENTAL_OCI: "1"
+
+default:
+  image: alpine/helm:3.14
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+# ------------------------------------------------------------------------------
+# Kubernetes Authentication
+# ------------------------------------------------------------------------------
+# Setup kubectl and helm authentication
+
+.kube_auth:
+  before_script:
+    - |
+      # Setup kubeconfig
+      if [ -n "${KUBE_CONFIG}" ]; then
+        mkdir -p ~/.kube
+        echo "${KUBE_CONFIG}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+      fi
+
+      # Use GitLab Agent context if available
+      if [ -n "${KUBE_CONTEXT}" ]; then
+        kubectl config use-context "${KUBE_CONTEXT}"
+      fi
+
+      # Verify connection
+      kubectl cluster-info
+      kubectl get namespaces
+
+# ------------------------------------------------------------------------------
+# Build Stage
+# ------------------------------------------------------------------------------
+# Package Helm chart (optional - for chart repository publishing)
+
+helm-lint:
+  stage: build
+  script:
+    - echo "Linting Helm chart..."
+    - helm lint ${HELM_CHART_PATH}
+    - echo "Lint passed"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+helm-template:
+  stage: build
+  script:
+    - echo "Rendering Helm templates..."
+    - |
+      helm template ${HELM_RELEASE} ${HELM_CHART_PATH} \
+        --namespace ${HELM_NAMESPACE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        -f ${HELM_CHART_PATH}/${HELM_VALUES_FILE}
+  artifacts:
+    paths:
+      - rendered-manifests/
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+helm-package:
+  stage: build
+  script:
+    - echo "Packaging Helm chart..."
+    - helm package ${HELM_CHART_PATH} --destination ./packages
+    - ls -la ./packages/
+  artifacts:
+    paths:
+      - packages/
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# ------------------------------------------------------------------------------
+# Test Stage
+# ------------------------------------------------------------------------------
+# Validate deployments before applying
+
+helm-diff:
+  stage: test
+  extends: .kube_auth
+  script:
+    - echo "Running Helm diff..."
+    - helm plugin install https://github.com/databus23/helm-diff || true
+    - |
+      helm diff upgrade ${HELM_RELEASE} ${HELM_CHART_PATH} \
+        --namespace ${HELM_NAMESPACE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        -f ${HELM_CHART_PATH}/${HELM_VALUES_FILE} \
+        --allow-unreleased
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Dry run deployment
+helm-dry-run:
+  stage: test
+  extends: .kube_auth
+  script:
+    - echo "Running Helm dry-run..."
+    - |
+      helm upgrade --install ${HELM_RELEASE} ${HELM_CHART_PATH} \
+        --namespace ${HELM_NAMESPACE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        -f ${HELM_CHART_PATH}/${HELM_VALUES_FILE} \
+        --dry-run
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ------------------------------------------------------------------------------
+# Deploy Stage
+# ------------------------------------------------------------------------------
+# Deploy to Kubernetes environments
+
+# Base deployment template
+.deploy_template:
+  extends: .kube_auth
+  stage: deploy
+  script:
+    - echo "Deploying ${HELM_RELEASE} to ${HELM_NAMESPACE}..."
+    - |
+      # Create namespace if it doesn't exist
+      kubectl create namespace ${HELM_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+      # Deploy with Helm
+      helm upgrade --install ${HELM_RELEASE} ${HELM_CHART_PATH} \
+        --namespace ${HELM_NAMESPACE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        --set image.repository=${CI_REGISTRY_IMAGE} \
+        -f ${HELM_CHART_PATH}/${HELM_VALUES_FILE} \
+        --wait \
+        --timeout ${HELM_TIMEOUT} \
+        --atomic
+
+      # Show deployment status
+      helm status ${HELM_RELEASE} --namespace ${HELM_NAMESPACE}
+      kubectl get pods -n ${HELM_NAMESPACE} -l app.kubernetes.io/instance=${HELM_RELEASE}
+  after_script:
+    - |
+      # Rollback on failure (if atomic didn't catch it)
+      if [ "$CI_JOB_STATUS" == "failed" ]; then
+        echo "Deployment failed, checking rollback..."
+        helm history ${HELM_RELEASE} --namespace ${HELM_NAMESPACE}
+      fi
+
+# Deploy to development environment
+deploy-development:
+  extends: .deploy_template
+  variables:
+    HELM_NAMESPACE: "development"
+    HELM_VALUES_FILE: "values-dev.yaml"
+  environment:
+    name: development
+    url: https://dev.${CI_PROJECT_NAME}.example.com
+    on_stop: stop-development
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^feature\//
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+# Stop development environment
+stop-development:
+  extends: .kube_auth
+  stage: deploy
+  variables:
+    HELM_NAMESPACE: "development"
+  script:
+    - helm uninstall ${HELM_RELEASE} --namespace ${HELM_NAMESPACE} || true
+    - kubectl delete namespace ${HELM_NAMESPACE} --ignore-not-found
+  environment:
+    name: development
+    action: stop
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^feature\//
+      when: manual
+
+# Deploy to staging environment
+deploy-staging:
+  extends: .deploy_template
+  variables:
+    HELM_NAMESPACE: "staging"
+    HELM_VALUES_FILE: "values-staging.yaml"
+  environment:
+    name: staging
+    url: https://staging.${CI_PROJECT_NAME}.example.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "staging"
+
+# Deploy to production environment
+deploy-production:
+  extends: .deploy_template
+  variables:
+    HELM_NAMESPACE: "production"
+    HELM_VALUES_FILE: "values-prod.yaml"
+  environment:
+    name: production
+    url: https://${CI_PROJECT_NAME}.example.com
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# Canary deployment
+deploy-canary:
+  extends: .deploy_template
+  variables:
+    HELM_NAMESPACE: "production"
+    HELM_RELEASE: "${CI_PROJECT_NAME}-canary"
+    HELM_VALUES_FILE: "values-canary.yaml"
+  script:
+    - echo "Deploying canary release..."
+    - |
+      helm upgrade --install ${HELM_RELEASE} ${HELM_CHART_PATH} \
+        --namespace ${HELM_NAMESPACE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        --set replicaCount=1 \
+        --set canary.enabled=true \
+        --set canary.weight=10 \
+        -f ${HELM_CHART_PATH}/${HELM_VALUES_FILE} \
+        --wait \
+        --timeout ${HELM_TIMEOUT}
+  environment:
+    name: production-canary
+    url: https://canary.${CI_PROJECT_NAME}.example.com
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Promote canary to production
+promote-canary:
+  extends: .kube_auth
+  stage: deploy
+  variables:
+    HELM_NAMESPACE: "production"
+  script:
+    - echo "Promoting canary to production..."
+    - |
+      # Get canary image tag
+      CANARY_TAG=$(helm get values ${CI_PROJECT_NAME}-canary -n ${HELM_NAMESPACE} -o json | jq -r '.image.tag')
+
+      # Update production
+      helm upgrade ${CI_PROJECT_NAME} ${HELM_CHART_PATH} \
+        --namespace ${HELM_NAMESPACE} \
+        --set image.tag=${CANARY_TAG} \
+        -f ${HELM_CHART_PATH}/values-prod.yaml \
+        --wait \
+        --atomic
+
+      # Remove canary
+      helm uninstall ${CI_PROJECT_NAME}-canary --namespace ${HELM_NAMESPACE}
+  environment:
+    name: production
+  when: manual
+  needs:
+    - deploy-canary
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ------------------------------------------------------------------------------
+# Rollback
+# ------------------------------------------------------------------------------
+# Manual rollback to previous release
+
+rollback:
+  extends: .kube_auth
+  stage: deploy
+  script:
+    - echo "Rolling back ${HELM_RELEASE}..."
+    - helm history ${HELM_RELEASE} --namespace ${HELM_NAMESPACE}
+    - helm rollback ${HELM_RELEASE} --namespace ${HELM_NAMESPACE} --wait
+    - helm status ${HELM_RELEASE} --namespace ${HELM_NAMESPACE}
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ------------------------------------------------------------------------------
+# Utility Templates
+# ------------------------------------------------------------------------------
+
+# Template for jobs needing helm secrets plugin
+.with_secrets:
+  before_script:
+    - helm plugin install https://github.com/jkroepke/helm-secrets || true
+    - |
+      if [ -n "${SOPS_AGE_KEY}" ]; then
+        export SOPS_AGE_KEY
+      fi
+
+# Template for ArgoCD integration
+.argocd_sync:
+  image: argoproj/argocd:latest
+  script:
+    - |
+      argocd login ${ARGOCD_SERVER} \
+        --username ${ARGOCD_USERNAME} \
+        --password ${ARGOCD_PASSWORD} \
+        --insecure
+      argocd app sync ${CI_PROJECT_NAME} --force
+
+# Template for Flux integration
+.flux_reconcile:
+  image: ghcr.io/fluxcd/flux-cli:v2
+  script:
+    - flux reconcile helmrelease ${HELM_RELEASE} -n ${HELM_NAMESPACE}
+
+# Template for debugging
+.debug_cluster:
+  extends: .kube_auth
+  script:
+    - kubectl get all -n ${HELM_NAMESPACE}
+    - kubectl describe pods -n ${HELM_NAMESPACE} -l app.kubernetes.io/instance=${HELM_RELEASE}
+    - kubectl logs -n ${HELM_NAMESPACE} -l app.kubernetes.io/instance=${HELM_RELEASE} --tail=100
+  when: manual

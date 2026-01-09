@@ -1,0 +1,22 @@
+{
+  "name": "mai-gitlab-skill",
+  "version": "1.0.0",
+  "description": "GitLab REST API integration for repositories, pipelines, issues, and merge requests",
+  "type": "module",
+  "scripts": {
+    "client": "bun run Tools/Client.ts",
+    "repos": "bun run Tools/Repositories.ts",
+    "files": "bun run Tools/Files.ts",
+    "branches": "bun run Tools/Branches.ts",
+    "issues": "bun run Tools/Issues.ts",
+    "mrs": "bun run Tools/MergeRequests.ts",
+    "pipelines": "bun run Tools/Pipelines.ts",
+    "jobs": "bun run Tools/Jobs.ts",
+    "schedules": "bun run Tools/Schedules.ts",
+    "variables": "bun run Tools/Variables.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

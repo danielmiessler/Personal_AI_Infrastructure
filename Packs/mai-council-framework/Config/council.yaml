@@ -1,0 +1,170 @@
+# Council Framework Configuration
+# Version: 1.0
+
+version: "1.0"
+
+# Session defaults
+session:
+  defaults:
+    # Output verbosity: full, progress, or summary
+    visibility: full
+
+    # Maximum discussion rounds before forcing synthesis
+    maxRounds: 3
+
+    # Threshold for detecting conflicts (0-1)
+    # Lower = more sensitive (detects more conflicts)
+    # Higher = less sensitive (only detects major conflicts)
+    conflictThreshold: 0.3
+
+    # How to combine agent perspectives
+    # - consensus: Find common ground (default)
+    # - weighted: Weight by domain expertise
+    # - facilitator: Designated agent makes final call
+    synthesisStrategy: consensus
+
+# Adapter configuration
+adapters:
+  # Adapters enabled by default
+  default:
+    - console
+    - file
+
+  # Optional adapters (must be explicitly enabled)
+  optional:
+    - joplin
+
+# Roster selection configuration
+roster:
+  # Minimum agents for a valid council
+  minAgents: 2
+
+  # Maximum agents to include
+  maxAgents: 5
+
+  # Default number of agents if auto-selecting
+  defaultAgents: 3
+
+  # Fallback roster when no clear domain match
+  fallbackRoster:
+    - ProductManager
+    - TechLead
+    - SecurityEngineer
+
+  # Scoring thresholds for agent selection
+  highRelevanceThreshold: 0.7
+  mediumRelevanceThreshold: 0.4
+
+  # How to break ties when multiple agents have same score
+  # - participation_rate: Prefer agents who haven't participated recently
+  # - alphabetical: Sort alphabetically
+  tieBreaker: participation_rate
+
+# Synthesis configuration
+synthesis:
+  # Minimum confidence to proceed with a decision
+  minConfidence: 0.4
+
+  # Consensus levels and their thresholds
+  consensusThresholds:
+    unanimous: 1.0
+    strong: 0.75
+    moderate: 0.5
+    weak: 0.25
+
+# Conflict resolution configuration
+conflicts:
+  # Enable automatic conflict detection
+  autoDetect: true
+
+  # Enable devil's advocate rotation
+  devilsAdvocate: true
+
+  # Maximum conflicts before escalating
+  maxConflicts: 5
+
+# Quality assessment configuration
+quality:
+  # Enable devil's advocate for quality improvement
+  devilsAdvocateEnabled: true
+
+  # Rotate devil's advocate role across agents
+  devilsAdvocateRotation: true
+
+  # Minimum number of perspectives required for quality session
+  requireMinPerspectives: 2
+
+  # Minimum quality score threshold (0-1)
+  # Sessions below this threshold will show improvement recommendations
+  qualityScoreThreshold: 0.6
+
+  # Enable detailed trade-off matrix generation
+  tradeoffMatrixEnabled: true
+
+  # Show quality metrics in console output
+  showQualityMetrics: true
+
+  # Quality score component weights (must sum to 1.0)
+  scoreWeights:
+    perspectiveDiversity: 0.20
+    concernCoverage: 0.20
+    conflictResolution: 0.20
+    devilsAdvocate: 0.15
+    expertiseAlignment: 0.15
+    roundDepth: 0.10
+
+  # Quality level thresholds
+  qualityLevels:
+    excellent: 0.8
+    good: 0.6
+    adequate: 0.4
+    poor: 0.0
+
+# Output configuration
+output:
+  # Directory for file adapter output
+  # Can be overridden per-session
+  directory: ./council-sessions
+
+  # Filename pattern (supports placeholders)
+  # {id} - session ID
+  # {date} - ISO date
+  # {topic} - sanitized topic
+  filenamePattern: "council-{id}.md"
+
+  # Include full transcript in output
+  includeTranscript: true
+
+  # Include agent contributions in synthesis
+  includeContributions: true
+
+# Visibility mode descriptions
+visibility_modes:
+  full:
+    description: "Complete transcript with all agent statements"
+    showTranscript: true
+    showProgress: true
+    showSynthesis: true
+
+  progress:
+    description: "Round summaries and key events"
+    showTranscript: false
+    showProgress: true
+    showSynthesis: true
+
+  summary:
+    description: "Final synthesis only"
+    showTranscript: false
+    showProgress: false
+    showSynthesis: true
+
+# Agent pack discovery
+agentPacks:
+  # Directory pattern for agent packs
+  pattern: "mai-agents-*"
+
+  # Subdirectory containing agent definitions
+  agentsDir: "Agents"
+
+  # File extension for agent definitions
+  fileExtension: ".md"

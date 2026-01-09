@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "types": ["bun-types"],
+    "paths": {
+      "mai-secrets-core": ["../mai-secrets-core/src/index.ts"],
+      "mai-secrets-core/*": ["../mai-secrets-core/src/*"],
+      "mai-mock-adapter": ["../mai-mock-adapter/src/index.ts"],
+      "mai-mock-adapter/*": ["../mai-mock-adapter/*"]
+    }
+  },
+  "include": ["Tools/**/*", "tests/**/*"],
+  "exclude": ["node_modules"]
+}

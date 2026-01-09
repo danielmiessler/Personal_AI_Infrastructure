@@ -1,0 +1,29 @@
+{
+  "name": "mai-cicd-skill",
+  "version": "1.0.0",
+  "description": "User-facing workflows for CI/CD pipeline management",
+  "type": "module",
+  "main": "./Tools/runs.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kai",
+    "cicd",
+    "pipelines",
+    "github-actions",
+    "gitlab-ci",
+    "skill",
+    "workflow"
+  ],
+  "author": "PAI Community",
+  "license": "MIT",
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "mai-cicd-core": "file:../mai-cicd-core"
+  }
+}

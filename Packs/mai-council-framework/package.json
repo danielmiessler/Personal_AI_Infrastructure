@@ -1,0 +1,52 @@
+{
+  "name": "mai-council-framework",
+  "version": "1.0.0",
+  "description": "Multi-agent orchestration framework for collaborative decision-making in PAI v2.0",
+  "type": "module",
+  "main": "Engine/Orchestrator.ts",
+  "scripts": {
+    "council": "bun run Engine/Orchestrator.ts",
+    "select": "bun run Engine/RosterSelector.ts",
+    "agents": "bun run Engine/AgentLoader.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "pai",
+    "multi-agent",
+    "orchestration",
+    "council",
+    "decision-making",
+    "llm"
+  ],
+  "author": "PAI",
+  "license": "MIT",
+  "dependencies": {
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "bun-types": "latest",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pai/mai-council-framework"
+  },
+  "files": [
+    "Engine/**/*.ts",
+    "Adapters/**/*.ts",
+    "Config/**/*.yaml",
+    "Templates/**/*.md",
+    "README.md",
+    "SKILL.md"
+  ],
+  "exports": {
+    ".": "./Engine/Orchestrator.ts",
+    "./Engine/*": "./Engine/*.ts",
+    "./Adapters/*": "./Adapters/*.ts"
+  }
+}

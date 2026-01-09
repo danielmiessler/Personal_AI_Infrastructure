@@ -1,0 +1,61 @@
+{
+  "name": "mai-security-skill",
+  "version": "1.0.0",
+  "description": "Security workflows and knowledge for KAI framework - threat modeling, OWASP analysis, CMMC compliance",
+  "type": "mai-pack",
+  "packType": "skill",
+  "keywords": [
+    "security",
+    "threat-modeling",
+    "owasp",
+    "cmmc",
+    "compliance",
+    "stride",
+    "dread",
+    "vulnerability",
+    "code-review"
+  ],
+  "author": "PAI Community",
+  "license": "MIT",
+  "dependencies": {
+    "mai-security-tools": "^1.0.0"
+  },
+  "peerDependencies": {},
+  "kai": {
+    "skill": {
+      "name": "Security",
+      "triggers": [
+        "threat model",
+        "security review",
+        "cmmc",
+        "compliance",
+        "owasp",
+        "vulnerability",
+        "stride",
+        "dread",
+        "audit",
+        "infrastructure security"
+      ],
+      "workflows": [
+        "Workflows/ThreatModel.md",
+        "Workflows/SecurityReview.md",
+        "Workflows/CmmcBaseline.md",
+        "Workflows/GenerateAudit.md",
+        "Workflows/InfrastructureSecurity.md"
+      ],
+      "knowledge": [
+        "Knowledge/CMMC-INDEX.md",
+        "Knowledge/owasp-patterns.md"
+      ],
+      "templates": [
+        "Templates/threat-model.md",
+        "Templates/security-report.md"
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/mai-packs.git",
+    "directory": "Packs/mai-security-skill"
+  }
+}

@@ -1,0 +1,40 @@
+# Adapter manifest for mai-k8s-adapter
+domain: platform
+name: kubernetes
+version: 1.0.0
+description: Kubernetes adapter using kubeconfig for authentication
+
+# Configuration schema
+config:
+  kubeconfig:
+    type: string
+    description: Path to kubeconfig file (default: ~/.kube/config)
+    required: false
+  context:
+    type: string
+    description: Kubernetes context to use (default: current-context)
+    required: false
+  namespace:
+    type: string
+    description: Default namespace (default: default)
+    required: false
+  insecureSkipTlsVerify:
+    type: boolean
+    description: Skip TLS verification (not recommended for production)
+    required: false
+    default: false
+
+# Authentication methods supported
+auth:
+  - type: kubeconfig
+    description: Standard kubeconfig file authentication
+  - type: in-cluster
+    description: In-cluster service account authentication
+  - type: token
+    description: Bearer token authentication
+
+# Health check endpoint
+healthCheck:
+  endpoint: /api/v1
+  method: GET
+  expectedStatus: 200

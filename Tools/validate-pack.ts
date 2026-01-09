@@ -9,7 +9,7 @@
  *
  * Usage:
  *   bun run Tools/validate-pack.ts                    # Validate all packs
- *   bun run Tools/validate-pack.ts kai-agents-skill   # Validate specific pack
+ *   bun run Tools/validate-pack.ts pai-agents-skill   # Validate specific pack
  *   bun run Tools/validate-pack.ts --changed-only     # Validate changed packs (for CI)
  */
 
@@ -18,14 +18,37 @@ import { join, basename } from 'path';
 
 const PACKS_DIR = join(import.meta.dir, '..', 'Packs');
 
-// Pack type classification
-const SYSTEM_PACKS = [
-  'kai-hook-system',
-  'kai-history-system',
-  'kai-voice-system',
-  'kai-observability-server',
-  'icons'
+// Pack type classification using patterns (works with any prefix: pai-*, kai-*, mai-*, etc.)
+// System packs are infrastructure - they don't need SKILL.md
+const SYSTEM_PACK_PATTERNS = [
+  /-hook-system$/,        // Hook system infrastructure
+  /-history-system$/,     // History system infrastructure
+  /-voice-system$/,       // Voice system infrastructure
+  /-observability-server$/, // Observability server
+  /-core$/,               // Core/foundation packs (e.g., mai-cicd-core)
+  /-adapter$/,            // Adapter packs (e.g., mai-docker-adapter)
+  /-agents$/,             // Agent definition packs (e.g., mai-devsecops-agents)
 ];
+
+// Explicit system packs that don't match patterns
+const SYSTEM_PACKS_EXPLICIT = [
+  'icons',
+  'specs',
+];
+
+/**
+ * Determine if a pack is a system pack (infrastructure) vs skill pack
+ * System packs don't require SKILL.md validation
+ */
+function isSystemPack(packName: string): boolean {
+  // Check explicit list first
+  if (SYSTEM_PACKS_EXPLICIT.includes(packName)) {
+    return true;
+  }
+
+  // Check patterns
+  return SYSTEM_PACK_PATTERNS.some(pattern => pattern.test(packName));
+}
 
 interface ValidationResult {
   pack: string;
@@ -81,7 +104,7 @@ function validatePack(packName: string): ValidationResult {
   const packDir = join(PACKS_DIR, packName);
   const result: ValidationResult = {
     pack: packName,
-    type: SYSTEM_PACKS.includes(packName) ? 'system' : 'skill',
+    type: isSystemPack(packName) ? 'system' : 'skill',
     valid: true,
     errors: [],
     warnings: []
@@ -213,12 +236,16 @@ PAI Pack Validator
 
 Usage:
   bun run Tools/validate-pack.ts                    # Validate all packs
-  bun run Tools/validate-pack.ts kai-agents-skill   # Validate specific pack
+  bun run Tools/validate-pack.ts pai-agents-skill   # Validate specific pack
   bun run Tools/validate-pack.ts --changed-only     # Validate changed packs (for CI)
 
 Pack Types:
   - Skill packs (🎯): Must have SKILL.md with valid workflow references
+    Examples: *-skill, *-framework, *-agents
   - System packs (⚙️): Infrastructure packs, no SKILL.md required
+    Patterns: *-core, *-adapter, *-system, *-server
+
+Pack type is determined by naming patterns, supporting any prefix (pai-*, kai-*, mai-*, etc.)
 `);
   process.exit(0);
 }

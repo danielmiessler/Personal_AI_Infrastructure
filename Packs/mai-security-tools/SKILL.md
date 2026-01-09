@@ -1,3 +1,8 @@
+---
+name: SecurityTools
+description: CLI security scanning tools for dependencies, secrets, and SBOM. USE WHEN security scan, vulnerability check, secrets detection, SBOM, CVE, compliance, dependency audit.
+---
+
 # Security Tools
 
 CLI security scanning tools for dependencies, secrets, and SBOM generation.

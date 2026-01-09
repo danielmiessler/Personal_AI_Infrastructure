@@ -1,0 +1,37 @@
+{
+  "name": "jai-trading-analysis",
+  "version": "1.0.0",
+  "description": "JAI Investment System - Trading analysis, screening, timing, and automation",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "jai": "./src/cli/jai.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./analysis": "./src/analysis/index.ts",
+    "./screening": "./src/screening/index.ts",
+    "./scoring": "./src/scoring/index.ts",
+    "./timing": "./src/timing/index.ts",
+    "./council": "./src/council/index.ts",
+    "./orchestration": "./src/orchestration/index.ts",
+    "./automation": "./src/automation/index.ts",
+    "./cli": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "jai": "bun run ./src/cli/jai.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "jai-finance-core": "file:../jai-finance-core",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "jai-finance-core",
+  "version": "1.0.0",
+  "description": "JAI Investment System - Core data, portfolio, execution, and notification services",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./data": "./src/data/index.ts",
+    "./portfolio": "./src/portfolio/index.ts",
+    "./execution": "./src/execution/index.ts",
+    "./notifications": "./src/notifications/index.ts",
+    "./config": "./src/config/index.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

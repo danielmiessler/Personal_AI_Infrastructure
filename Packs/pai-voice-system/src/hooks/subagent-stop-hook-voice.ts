@@ -1,166 +1,243 @@
 #!/usr/bin/env bun
-// $PAI_DIR/hooks/subagent-stop-hook-voice.ts
-// Subagent voice notification with personality-specific delivery
+/**
+ * PAI Voice Subagent Stop Hook - Delegated Agent Voice Notifications
+ *
+ * This hook runs when a subagent (spawned via Task tool) finishes responding.
+ * It extracts the 🗣️ line and sends it to the voice server with the agent's voice.
+ *
+ * Part of the pai-voice-system pack.
+ *
+ * Key difference from main agent hook:
+ * - Subagents may have different voice IDs configured
+ * - Looks for [AGENT:Name] tags in the response
+ * - Supports multi-voice agent conversations
+ *
+ * Configuration (settings.json):
+ * ```json
+ * {
+ *   "hooks": {
+ *     "SubagentStop": [{
+ *       "type": "command",
+ *       "command": "bun run ${PAI_DIR}/skills/VoiceSystem/hooks/subagent-stop-hook-voice.ts"
+ *     }]
+ *   }
+ * }
+ * ```
+ *
+ * Environment Variables:
+ *   VOICE_SERVER_URL - Voice server URL (default: http://localhost:8888)
+ *   PAI_DIR - PAI installation directory
+ */
 
 import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { readdirSync, statSync } from 'fs';
-import { enhanceProsody, cleanForSpeech, getVoiceId } from './lib/prosody-enhancer';
+import { join } from 'path';
+import { homedir } from 'os';
+import { enhanceProsody, cleanForSpeech } from './lib/prosody-enhancer';
+
+// Configuration
+const VOICE_SERVER_URL = process.env.VOICE_SERVER_URL || 'http://localhost:8888';
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+
+// Voice personalities configuration
+interface VoicePersonality {
+  voice_id: string;
+  voice_name: string;
+  stability: number;
+  similarity_boost: number;
+  description: string;
+  type: string;
+}
+
+interface VoiceConfig {
+  voices: Record<string, VoicePersonality>;
+}
+
+// Load voice personalities from configuration
+function loadVoicePersonalities(): VoiceConfig | null {
+  try {
+    // Try PAI skill voice-personalities.md first
+    const paiPersonalitiesPath = join(PAI_DIR, 'skills', 'CORE', 'voice-personalities.md');
+    if (existsSync(paiPersonalitiesPath)) {
+      const markdownContent = readFileSync(paiPersonalitiesPath, 'utf-8');
+      const jsonMatch = markdownContent.match(/```json\n([\s\S]*?)\n```/);
+      if (jsonMatch && jsonMatch[1]) {
+        return JSON.parse(jsonMatch[1]);
+      }
+    }
+
+    // Fallback to voice-personalities.json in pack
+    const jsonPath = join(PAI_DIR, 'skills', 'VoiceSystem', 'voice-personalities.json');
+    if (existsSync(jsonPath)) {
+      return JSON.parse(readFileSync(jsonPath, 'utf-8'));
+    }
+  } catch (error) {
+    console.error('Error loading voice personalities:', error);
+  }
+  return null;
+}
+
+const voiceConfig = loadVoicePersonalities();
+
+interface HookInput {
+  session_id: string;
+  transcript_path: string;
+  hook_event_name: string;
+}
 
 interface NotificationPayload {
   title: string;
   message: string;
   voice_enabled: boolean;
-  voice_id: string;
+  voice_id?: string;
+  voice_name?: string;
 }
 
-async function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+/**
+ * Convert Claude content (string or array of blocks) to plain text
+ */
+function contentToText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map(c => {
+        if (typeof c === 'string') return c;
+        if (c?.text) return c.text;
+        if (c?.content) return contentToText(c.content);
+        return '';
+      })
+      .join(' ')
+      .trim();
+  }
+  return '';
 }
 
-async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): Promise<{
-  result: string | null;
-  agentType: string | null;
-  description: string | null;
-}> {
-  let actualTranscriptPath = transcriptPath;
+/**
+ * Extract agent name from response
+ * Looks for [AGENT:Name] tags
+ */
+function extractAgentName(text: string): string | null {
+  const agentMatch = text.match(/\[AGENT:(\w+)\]/i);
+  return agentMatch ? agentMatch[1] : null;
+}
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (attempt > 0) {
-      await delay(200);
+/**
+ * Get voice ID for an agent name
+ */
+function getVoiceIdForAgent(agentName: string): string | null {
+  if (!voiceConfig) return null;
+
+  // Try exact match first
+  if (voiceConfig.voices[agentName]) {
+    return voiceConfig.voices[agentName].voice_id;
+  }
+
+  // Try case-insensitive match
+  const lowerName = agentName.toLowerCase();
+  for (const [name, config] of Object.entries(voiceConfig.voices)) {
+    if (name.toLowerCase() === lowerName) {
+      return config.voice_id;
     }
+  }
 
-    if (!existsSync(actualTranscriptPath)) {
-      const dir = dirname(transcriptPath);
-      if (existsSync(dir)) {
-        const files = readdirSync(dir)
-          .filter(f => f.startsWith('agent-') && f.endsWith('.jsonl'))
-          .map(f => ({ name: f, mtime: statSync(join(dir, f)).mtime }))
-          .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+  return null;
+}
 
-        if (files.length > 0) {
-          actualTranscriptPath = join(dir, files[0].name);
-        }
+/**
+ * Extract the voice message from the response
+ */
+function extractVoiceMessage(text: string): { message: string; agentName: string | null } | null {
+  // Remove system-reminder tags
+  text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
+
+  // Extract agent name if present
+  const agentName = extractAgentName(text);
+
+  // Patterns to try (in order of priority)
+  const patterns = [
+    // 🗣️ AgentName: [text]
+    /🗣️\s*\*{0,2}(\w+):?\*{0,2}\s*(.+?)(?:\n|$)/i,
+    // 🎯 COMPLETED: [text]
+    /🎯\s*\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      // Handle both patterns - first has agentName in group 1
+      let message: string;
+      let extractedAgent: string | null = null;
+
+      if (pattern.source.includes('(\\w+)')) {
+        // First pattern: 🗣️ AgentName: message
+        extractedAgent = match[1];
+        message = match[2];
+      } else {
+        // Second pattern: 🎯 COMPLETED: message
+        message = match[1];
       }
 
-      if (!existsSync(actualTranscriptPath)) {
-        continue;
-      }
+      message = message.trim();
+
+      // Clean up the message
+      message = message.replace(/^\[AGENT:\w+\]\s*/i, '');
+
+      // Clean for speech while preserving prosody markers
+      message = cleanForSpeech(message);
+
+      // Enhance with prosody markers
+      const prosodyAgent = extractedAgent || agentName || 'assistant';
+      message = enhanceProsody(message, prosodyAgent.toLowerCase());
+
+      return {
+        message,
+        agentName: extractedAgent || agentName
+      };
     }
+  }
 
-    try {
-      const transcript = readFileSync(actualTranscriptPath, 'utf-8');
-      const lines = transcript.trim().split('\n');
+  return null;
+}
 
-      for (let i = lines.length - 1; i >= 0; i--) {
+/**
+ * Read the last assistant message from the transcript
+ */
+function getLastAssistantMessage(transcriptPath: string): string {
+  try {
+    const content = readFileSync(transcriptPath, 'utf-8');
+    const lines = content.trim().split('\n');
+
+    let lastAssistantMessage = '';
+
+    for (const line of lines) {
+      if (line.trim()) {
         try {
-          const entry = JSON.parse(lines[i]);
+          const entry = JSON.parse(line) as any;
 
           if (entry.type === 'assistant' && entry.message?.content) {
-            for (const content of entry.message.content) {
-              if (content.type === 'tool_use' && content.name === 'Task') {
-                const toolInput = content.input;
-                const description = toolInput?.description || null;
-
-                for (let j = i + 1; j < lines.length; j++) {
-                  const resultEntry = JSON.parse(lines[j]);
-                  if (resultEntry.type === 'user' && resultEntry.message?.content) {
-                    for (const resultContent of resultEntry.message.content) {
-                      if (resultContent.type === 'tool_result' && resultContent.tool_use_id === content.id) {
-                        let taskOutput: string;
-                        if (typeof resultContent.content === 'string') {
-                          taskOutput = resultContent.content;
-                        } else if (Array.isArray(resultContent.content)) {
-                          taskOutput = resultContent.content
-                            .filter((item: any) => item.type === 'text')
-                            .map((item: any) => item.text)
-                            .join('\n');
-                        } else {
-                          continue;
-                        }
-
-                        const agentType = toolInput?.subagent_type || 'default';
-                        return { result: taskOutput, agentType, description };
-                      }
-                    }
-                  }
-                }
-              }
+            const text = contentToText(entry.message.content);
+            if (text) {
+              lastAssistantMessage = text;
             }
           }
-        } catch (e) {
-          // Skip invalid lines
+        } catch {
+          // Skip invalid JSON lines
         }
       }
-    } catch (e) {
-      // Will retry
     }
-  }
 
-  return { result: null, agentType: null, description: null };
+    return lastAssistantMessage;
+  } catch (error) {
+    console.error('Error reading transcript:', error);
+    return '';
+  }
 }
 
-function extractCompletionMessage(taskOutput: string): { message: string | null; agentType: string | null } {
-  // Look for COMPLETED section with agent tag
-  const agentPatterns = [
-    /🎯\s*COMPLETED:\s*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
-    /COMPLETED:\s*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
-    /🎯.*COMPLETED.*\[AGENT:(\w+[-\w]*)\]\s*(.+?)(?:\n|$)/is,
-  ];
-
-  for (const pattern of agentPatterns) {
-    const match = taskOutput.match(pattern);
-    if (match && match[1] && match[2]) {
-      const agentType = match[1].toLowerCase();
-      let message = match[2].trim();
-
-      // Clean for speech
-      message = cleanForSpeech(message);
-
-      // Enhance with prosody
-      message = enhanceProsody(message, agentType);
-
-      // Format: "AgentName completed [message]"
-      const agentName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-
-      // Don't prepend "completed" for greetings or questions
-      const isGreeting = /^(hey|hello|hi|greetings)/i.test(message);
-      const isQuestion = message.includes('?');
-
-      const fullMessage = (isGreeting || isQuestion)
-        ? message
-        : `${agentName} completed ${message}`;
-
-      return { message: fullMessage, agentType };
-    }
-  }
-
-  // Fallback patterns
-  const genericPatterns = [
-    /🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/i,
-    /COMPLETED:\s*(.+?)(?:\n|$)/i,
-  ];
-
-  for (const pattern of genericPatterns) {
-    const match = taskOutput.match(pattern);
-    if (match && match[1]) {
-      let message = match[1].trim();
-      message = cleanForSpeech(message);
-
-      if (message.length > 5) {
-        return { message, agentType: null };
-      }
-    }
-  }
-
-  return { message: null, agentType: null };
-}
-
-async function sendNotification(payload: NotificationPayload): Promise<void> {
-  const serverUrl = process.env.PAI_VOICE_SERVER || 'http://localhost:8888/notify';
-
+/**
+ * Send notification to the voice server
+ */
+async function sendVoiceNotification(payload: NotificationPayload): Promise<void> {
   try {
-    const response = await fetch(serverUrl, {
+    const response = await fetch(`${VOICE_SERVER_URL}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -170,15 +247,19 @@ async function sendNotification(payload: NotificationPayload): Promise<void> {
       console.error('Voice server error:', response.statusText);
     }
   } catch (error) {
-    // Fail silently
+    // Fail silently - voice server may not be running
+    console.error('Failed to send voice notification:', error);
   }
 }
 
 async function main() {
-  let input = '';
+  let hookInput: HookInput | null = null;
+
+  // Read hook input from stdin
   try {
     const decoder = new TextDecoder();
     const reader = Bun.stdin.stream().getReader();
+    let input = '';
 
     const timeoutPromise = new Promise<void>((resolve) => {
       setTimeout(() => resolve(), 500);
@@ -193,57 +274,45 @@ async function main() {
     })();
 
     await Promise.race([readPromise, timeoutPromise]);
-  } catch (e) {
-    process.exit(0);
+
+    if (input.trim()) {
+      hookInput = JSON.parse(input) as HookInput;
+    }
+  } catch (error) {
+    console.error('Error reading hook input:', error);
   }
 
-  if (!input) {
-    process.exit(0);
+  // Extract voice message from the last response
+  let extracted: { message: string; agentName: string | null } | null = null;
+
+  if (hookInput && hookInput.transcript_path) {
+    const lastMessage = getLastAssistantMessage(hookInput.transcript_path);
+    if (lastMessage) {
+      extracted = extractVoiceMessage(lastMessage);
+    }
   }
 
-  let transcriptPath: string;
-  try {
-    const parsed = JSON.parse(input);
-    transcriptPath = parsed.transcript_path;
-  } catch (e) {
-    process.exit(0);
+  // Send voice notification if we have a message
+  if (extracted) {
+    // Get voice ID for the agent (if configured)
+    const voiceId = extracted.agentName ? getVoiceIdForAgent(extracted.agentName) : null;
+
+    const payload: NotificationPayload = {
+      title: extracted.agentName || 'Agent',
+      message: extracted.message,
+      voice_enabled: true,
+      voice_id: voiceId || undefined,
+      voice_name: extracted.agentName || undefined
+    };
+
+    await sendVoiceNotification(payload);
   }
-
-  if (!transcriptPath) {
-    process.exit(0);
-  }
-
-  // Find task result
-  const { result: taskOutput, agentType } = await findTaskResult(transcriptPath);
-
-  if (!taskOutput) {
-    process.exit(0);
-  }
-
-  // Extract completion message
-  const { message: completionMessage, agentType: extractedAgentType } = extractCompletionMessage(taskOutput);
-
-  if (!completionMessage) {
-    process.exit(0);
-  }
-
-  // Determine agent type
-  const finalAgentType = extractedAgentType || agentType || 'default';
-
-  // Get voice ID for this agent type
-  const voiceId = getVoiceId(finalAgentType);
-
-  // Send voice notification
-  const agentName = finalAgentType.charAt(0).toUpperCase() + finalAgentType.slice(1);
-
-  await sendNotification({
-    title: agentName,
-    message: completionMessage,
-    voice_enabled: true,
-    voice_id: voiceId
-  });
 
   process.exit(0);
 }
 
-main().catch(console.error);
+// Run the hook
+main().catch((error) => {
+  console.error('Voice subagent stop hook error:', error);
+  process.exit(0); // Don't fail the hook - always exit cleanly
+});

@@ -1,100 +1,103 @@
 ---
-name: Kai Voice System
-pack-id: danielmiessler-kai-voice-system-core-v1.3.0
-version: 1.3.0
+name: PAI Voice System
+pack-id: danielmiessler-pai-voice-system-v1.0.0
+version: 1.0.0
 author: danielmiessler
-description: Voice notification system with multi-provider TTS (Google Cloud or ElevenLabs), prosody enhancement for natural speech, and agent personality-driven voice delivery
+description: Voice notification system with ElevenLabs TTS, prosody enhancement for natural speech, and agent personality-driven voice delivery
 type: feature
 purpose-type: [notifications, accessibility, automation]
-platform: macos, linux
+platform: macos
 dependencies:
-  - kai-hook-system (required) - Hooks trigger voice notifications
-  - kai-core-install (required) - Skills, identity, and response format drive voice output
-keywords: [voice, tts, elevenlabs, google-cloud-tts, notifications, prosody, speech, agents, personalities, accessibility]
+  - pai-hook-system (required) - Hooks trigger voice notifications
+  - pai-core-install (required) - Skills, identity, and response format drive voice output
+keywords: [voice, tts, elevenlabs, notifications, prosody, speech, agents, personalities, accessibility]
 ---
 
 <p align="center">
-  <img src="../icons/kai-voice-system-v2.png" alt="Kai Voice System" width="256">
+  <img src="../icons/pai-voice-system-v2.png" alt="PAI Voice System" width="256">
 </p>
 
-# Kai Voice System (kai-voice-system)
+# PAI Voice System (pai-voice-system)
 
 > Voice notification system with natural speech synthesis and personality-driven delivery
 
-## 🚨 Platform Requirements
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
+
+## Platform Requirements
 
 | Platform | Status | Notes |
 |----------|--------|-------|
 | **macOS** | ✅ Fully Supported | Uses `afplay` (built-in) for audio playback |
-| **Linux** | ✅ Fully Supported | Auto-detects `mpg123`, `mpv`, or `paplay` for audio |
+| **Linux** | ⚠️ Experimental | Requires audio player modification |
 | **Windows** | ❌ Not Supported | No current implementation |
-
-**Audio player priority (Linux):** mpg123 → mpv → paplay (install one: `sudo apt install mpg123`)
 
 ---
 
 ## What This Pack Provides
 
 - **Spoken Notifications**: Hear task completions via text-to-speech
-- **Multi-Provider TTS**: Choose between Google Cloud TTS or ElevenLabs
-- **Prosody Enhancement**: Natural speech patterns with emotional markers
+- **ElevenLabs TTS**: High-quality voice synthesis via ElevenLabs API
+- **Prosody Enhancement**: Natural speech patterns with 13 emotional markers
 - **Agent Personalities**: Different voices for different agent types
 - **Intelligent Cleaning**: Strips code blocks and artifacts for clean speech
 - **Graceful Degradation**: Works silently when voice server is offline
 
-## TTS Provider Options
+## Voice Server
 
-Choose your text-to-speech provider based on your needs:
+The voice server runs locally on port 8888 and:
+- Receives notification requests via HTTP POST
+- Generates speech using ElevenLabs API
+- Plays audio using system audio player
+- Supports emotional markers for prosody variation
 
-| Provider | Free Tier | Quality | Setup |
-|----------|-----------|---------|-------|
-| **Google Cloud TTS** | 4M chars/month | High (Neural2/WaveNet) | Google API key |
-| **ElevenLabs** | ~10K chars/month | Premium | ElevenLabs API key |
+### Endpoints
 
-**Recommendation:** Google Cloud TTS offers **400x more free characters** — effectively unlimited for typical PAI notification usage.
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/notify` | POST | Full notification with voice/emotion support |
+| `/pai` | POST | Simple notification with default voice |
+| `/health` | GET | Health check and configuration status |
 
-### Configuration
-
-Set in your `.env` file:
+### Example Request
 
 ```bash
-# Choose provider: "google" or "elevenlabs" (default: elevenlabs)
-TTS_PROVIDER=google
-
-# Google Cloud TTS (if using google)
-GOOGLE_API_KEY=your_google_api_key
-GOOGLE_TTS_VOICE=en-US-Neural2-J  # Optional, has sensible default
-
-# ElevenLabs (if using elevenlabs)
-ELEVENLABS_API_KEY=your_api_key
-ELEVENLABS_VOICE_ID=your_voice_id
+curl -X POST http://localhost:8888/notify \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Task completed successfully", "voice_enabled": true}'
 ```
-
-### Google Cloud TTS Voices
-
-| Voice | Type | Description |
-|-------|------|-------------|
-| `en-US-Neural2-J` | Neural2 (default) | Natural male voice |
-| `en-US-Neural2-F` | Neural2 | Natural female voice |
-| `en-US-Wavenet-D` | WaveNet | Premium male voice |
-| `en-US-Standard-A` | Standard | Basic voice (more free chars) |
-
-See [Google Cloud TTS voices](https://cloud.google.com/text-to-speech/docs/voices) for full list.
 
 ## Architecture Overview
 
 ```
 ┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│   Stop Hook     │ ───► │  Voice Server    │ ───► │  TTS Provider   │
-│ (extracts msg)  │      │  (localhost:8888)│      │                 │
-└─────────────────┘      └──────────────────┘      │ ┌─────────────┐ │
-                                                   │ │ Google TTS  │ │
-                                                   │ └─────────────┘ │
-                                                   │ ┌─────────────┐ │
-                                                   │ │ ElevenLabs  │ │
-                                                   │ └─────────────┘ │
-                                                   └─────────────────┘
+│   Stop Hook     │ ───► │  Voice Server    │ ───► │  ElevenLabs     │
+│ (extracts msg)  │      │  (localhost:8888)│      │  TTS API        │
+└─────────────────┘      └──────────────────┘      └─────────────────┘
+        │                         │
+        │                         ▼
+        │                ┌─────────────────┐
+        │                │  Audio Player   │
+        │                │  (afplay)       │
+        │                └─────────────────┘
+        │
+        ▼
+┌─────────────────┐
+│ Response Format │
+│ 🗣️ [AI_NAME]:  │
+└─────────────────┘
 ```
+
+## Response Format Integration
+
+The voice system reads from the response format defined in `pai-core-install`:
+
+```
+🗣️ PAI: [12 words max - spoken aloud by voice server]
+```
+
+The hook extracts this line, enhances it with prosody markers, and sends it to the voice server.
 
 ## The 5-Layer Prosody Enhancement Pipeline
 
@@ -114,33 +117,18 @@ See [Google Cloud TTS voices](https://cloud.google.com/text-to-speech/docs/voice
 
 | Component | File | Purpose |
 |-----------|------|---------|
+| Voice server | `src/voice/server.ts` | HTTP server for TTS requests |
+| Server management | `src/voice/manage.sh` | Start/stop/restart server |
 | Voice stop hook | `src/hooks/stop-hook-voice.ts` | Main agent voice notification |
 | Subagent voice hook | `src/hooks/subagent-stop-hook-voice.ts` | Subagent voice notification |
 | Prosody enhancer | `src/hooks/lib/prosody-enhancer.ts` | Add emotion/pauses to speech |
-| Voice server | `src/voice/server.ts` | HTTP server for TTS requests |
-| Server management | `src/voice/manage.sh` | Start/stop/restart server |
-| Voice personalities | `config/voice-personalities.json` | Agent voice configurations |
-| Hook configuration | `config/settings-hooks.json` | Hook registration template |
+| Voice personalities | `voice-personalities.json` | Agent voice configurations |
 
 **Summary:**
-- **Files created:** 7
+- **Files created:** 6
 - **Hooks registered:** 2 (Stop, SubagentStop)
-- **Dependencies:** kai-hook-system (required), kai-core-install (required)
-- **TTS API key:** Google Cloud API key OR ElevenLabs API key (choose one)
-
-## Agent Voice Mapping
-
-| Agent Type | Voice Name | Speaking Rate | Stability | Archetype |
-|------------|------------|---------------|-----------|-----------|
-| PAI (Main) | Your DA | 235 wpm | 0.38 | enthusiast |
-| Intern | Dev Patel | 270 wpm | 0.30 | enthusiast |
-| Engineer | Marcus Webb | 212 wpm | 0.72 | wise-leader |
-| Architect | Serena Blackwood | 205 wpm | 0.75 | wise-leader |
-| Researcher | Ava Sterling | 229 wpm | 0.64 | analyst |
-| Designer | Aditi Sharma | 226 wpm | 0.52 | critic |
-| Artist | Priya Desai | 215 wpm | 0.20 | enthusiast |
-| Pentester | Rook Blackburn | 260 wpm | 0.18 | enthusiast |
-| Writer | Emma Hartley | 230 wpm | 0.48 | storyteller |
+- **Dependencies:** pai-hook-system (required), pai-core-install (required)
+- **TTS API key:** ElevenLabs API key required
 
 ## Emotional Detection
 
@@ -158,14 +146,61 @@ The prosody enhancer detects emotional context from message patterns:
 | 8 | success | "completed", "fixed", "deployed" | [✨ success] |
 | 9 | caution | "warning", "careful", "partial" | [⚠️ caution] |
 
+These markers are embedded in the message and the voice server adjusts stability/similarity_boost parameters accordingly.
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ELEVENLABS_API_KEY` | Yes | - | Your ElevenLabs API key |
+| `ELEVENLABS_VOICE_ID` | Yes | - | Default voice ID for TTS |
+| `VOICE_SERVER_PORT` | No | 8888 | Voice server port |
+| `VOICE_SERVER_URL` | No | http://localhost:8888 | Voice server URL (for hooks) |
+| `PAI_DIR` | No | ~/.config/pai | PAI installation directory |
+
+## Agent Voice Mapping
+
+Configure multiple voices in `voice-personalities.json` for multi-agent conversations:
+
+```json
+{
+  "voices": {
+    "PAI": {
+      "voice_id": "YOUR_VOICE_ID",
+      "stability": 0.5,
+      "similarity_boost": 0.5,
+      "description": "Default PAI voice"
+    },
+    "Engineer": {
+      "voice_id": "ENGINEER_VOICE_ID",
+      "stability": 0.72,
+      "similarity_boost": 0.65,
+      "description": "Technical, precise"
+    }
+  }
+}
+```
+
 ## Credits
 
 - **Author:** Daniel Miessler
-- **Origin:** Extracted from production Kai system (2024-2025)
+- **Origin:** Extracted from production Kai system (2024-2026)
 - **License:** MIT
 
 ## Works Well With
 
-- **kai-hook-system** (required) - Hooks trigger voice notifications
-- **kai-core-install** (required) - Response format provides 🎯 COMPLETED line
-- **kai-history-system** - Complementary functionality
+- **pai-hook-system** (required) - Hooks trigger voice notifications
+- **pai-core-install** (required) - Response format provides 🗣️ line
+- **pai-history-system** - Complementary functionality
+
+## Changelog
+
+### 1.0.0 - 2026-01-08
+- Initial release with complete voice server implementation
+- ElevenLabs TTS voice server (`src/voice/server.ts`)
+- Server management script (`src/voice/manage.sh`)
+- Main agent stop hook (`src/hooks/stop-hook-voice.ts`)
+- Subagent stop hook (`src/hooks/subagent-stop-hook-voice.ts`)
+- Prosody enhancer with 13 emotional markers
+- Voice personalities configuration
+- Integrates with pai-core-install response format (`🗣️ [AI_NAME]:`)

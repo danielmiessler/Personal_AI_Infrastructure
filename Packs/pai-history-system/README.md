@@ -1,6 +1,6 @@
 ---
 name: Kai History System
-pack-id: danielmiessler-kai-history-system-core-v1.0.1
+pack-id: danielmiessler-pai-history-system-core-v1.0.1
 version: 1.0.1
 author: danielmiessler
 description: Granular context-tracking system for the entire AI infrastructure - captures all work, decisions, and learnings automatically
@@ -8,17 +8,21 @@ type: feature
 purpose-type: [productivity, automation, development]
 platform: claude-code
 dependencies:
-  - kai-hook-system (required) - History capture depends on hook events
+  - pai-hook-system (required) - History capture depends on hook events
 keywords: [history, documentation, memory, capture, hooks, sessions, learnings, automation, context, recovery, debugging]
 ---
 
 <p align="center">
-  <img src="../icons/kai-history-system.png" alt="Kai History System" width="256">
+  <img src="../icons/pai-history-system.png" alt="Kai History System" width="256">
 </p>
 
-# Kai History System (kai-history-system)
+# Kai History System (pai-history-system)
 
 > Granular context-tracking system for the entire AI infrastructure - captures all work, decisions, and learnings automatically with zero manual effort
+
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
 
 ## What's Included
 
@@ -34,7 +38,7 @@ keywords: [history, documentation, memory, capture, hooks, sessions, learnings, 
 **Summary:**
 - **Files created:** 6 + history directory structure
 - **Hooks registered:** 7 (PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SessionEnd, UserPromptSubmit)
-- **Dependencies:** kai-hook-system (required)
+- **Dependencies:** pai-hook-system (required)
 
 ## The Problem
 
@@ -203,9 +207,9 @@ See [VERIFY.md](VERIFY.md) for testing and verification procedures.
 
 ## Related Packs
 
-- **kai-hook-system** - Required foundation; provides the event stream
-- **kai-core-install** - Skills can reference past learnings
-- **kai-voice-system** - Voice notifications for significant captures
+- **pai-hook-system** - Required foundation; provides the event stream
+- **pai-core-install** - Skills can reference past learnings
+- **pai-voice-system** - Voice notifications for significant captures
 
 ## Changelog
 

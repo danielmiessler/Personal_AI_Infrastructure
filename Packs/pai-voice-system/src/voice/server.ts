@@ -1,8 +1,23 @@
 #!/usr/bin/env bun
-// $PAI_DIR/voice-server/server.ts
-// Voice notification server with multi-provider TTS support
-// Supports: Google Cloud TTS, ElevenLabs
-// Platforms: macOS, Linux
+/**
+ * PAI Voice Server - Text-to-Speech notification server using ElevenLabs
+ *
+ * Part of the pai-voice-system pack.
+ *
+ * Usage:
+ *   bun run src/voice/server.ts
+ *
+ * Environment Variables:
+ *   ELEVENLABS_API_KEY - Your ElevenLabs API key (required)
+ *   ELEVENLABS_VOICE_ID - Default voice ID (optional)
+ *   VOICE_SERVER_PORT - Server port (default: 8888)
+ *   PAI_DIR - PAI installation directory (default: ~/.config/pai)
+ *
+ * Endpoints:
+ *   POST /notify - Send TTS notification with optional voice/emotion
+ *   POST /pai - Simple notification with default voice
+ *   GET /health - Health check
+ */
 
 import { serve } from "bun";
 import { spawn } from "child_process";
@@ -10,9 +25,8 @@ import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 
-// Load .env from PAI directory (single source of truth for all API keys)
-const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
-const envPath = join(paiDir, '.env');
+// Load .env from user home directory
+const envPath = join(homedir(), '.env');
 if (existsSync(envPath)) {
   const envContent = await Bun.file(envPath).text();
   envContent.split('\n').forEach(line => {
@@ -23,39 +37,21 @@ if (existsSync(envPath)) {
   });
 }
 
-const PORT = parseInt(process.env.PAI_VOICE_PORT || "8888");
-
-// =============================================================================
-// TTS Provider Configuration
-// =============================================================================
-// Options: "google" | "elevenlabs" (default: elevenlabs for backward compatibility)
-const TTS_PROVIDER = (process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
-
-// ElevenLabs Configuration
+const PORT = parseInt(process.env.VOICE_SERVER_PORT || process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const DEFAULT_ELEVENLABS_VOICE = process.env.ELEVENLABS_VOICE_ID || "s3TPKV1kjDlVtZbl4Ksh";
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
 
-// Google Cloud TTS Configuration
-// Free tier: 4M chars/month (Standard), 1M chars/month (WaveNet/Neural2)
-// This is ~800x more than ElevenLabs' free tier
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-const GOOGLE_TTS_VOICE = process.env.GOOGLE_TTS_VOICE || "en-US-Neural2-J";
-
-// Validate provider configuration
-if (TTS_PROVIDER === 'elevenlabs' && !ELEVENLABS_API_KEY) {
-  console.error(`⚠️  ELEVENLABS_API_KEY not found in ${envPath}`);
-  console.error('Add: ELEVENLABS_API_KEY=your_key_here to $PAI_DIR/.env');
-  console.error('Or switch to Google TTS: TTS_PROVIDER=google');
+if (!ELEVENLABS_API_KEY) {
+  console.error('⚠️  ELEVENLABS_API_KEY not found in ~/.env');
+  console.error('Add: ELEVENLABS_API_KEY=your_key_here');
 }
 
-if (TTS_PROVIDER === 'google' && !GOOGLE_API_KEY) {
-  console.error(`⚠️  GOOGLE_API_KEY not found in ${envPath}`);
-  console.error('Add: GOOGLE_API_KEY=your_key_here to $PAI_DIR/.env');
-  console.error('Note: Enable Cloud Text-to-Speech API in Google Cloud Console');
-}
+// Default voice ID - configure via environment variable
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "";
 
-// Default voice based on provider
-const DEFAULT_VOICE_ID = TTS_PROVIDER === 'google' ? GOOGLE_TTS_VOICE : DEFAULT_ELEVENLABS_VOICE;
+if (!DEFAULT_VOICE_ID) {
+  console.warn('⚠️  ELEVENLABS_VOICE_ID not set - voice requests will fail without explicit voice_id');
+}
 
 // Voice configuration types
 interface VoiceConfig {
@@ -64,55 +60,107 @@ interface VoiceConfig {
   stability: number;
   similarity_boost: number;
   description: string;
+  type: string;
 }
 
 interface VoicesConfig {
-  default_volume?: number;
   voices: Record<string, VoiceConfig>;
+  default_volume?: number;
+}
+
+// Emotional markers for dynamic voice adjustment
+interface EmotionalSettings {
+  stability: number;
+  similarity_boost: number;
 }
 
 // 13 Emotional Presets - Prosody System
-const EMOTIONAL_PRESETS: Record<string, { stability: number; similarity_boost: number }> = {
-  'excited': { stability: 0.7, similarity_boost: 0.9 },
-  'celebration': { stability: 0.65, similarity_boost: 0.85 },
-  'insight': { stability: 0.55, similarity_boost: 0.8 },
-  'creative': { stability: 0.5, similarity_boost: 0.75 },
-  'success': { stability: 0.6, similarity_boost: 0.8 },
-  'progress': { stability: 0.55, similarity_boost: 0.75 },
-  'investigating': { stability: 0.6, similarity_boost: 0.85 },
-  'debugging': { stability: 0.55, similarity_boost: 0.8 },
-  'learning': { stability: 0.5, similarity_boost: 0.75 },
-  'pondering': { stability: 0.65, similarity_boost: 0.8 },
-  'focused': { stability: 0.7, similarity_boost: 0.85 },
-  'caution': { stability: 0.4, similarity_boost: 0.6 },
-  'urgent': { stability: 0.3, similarity_boost: 0.9 },
+// These markers can be embedded in messages: [💥 excited], [✨ success], etc.
+// The server extracts them and adjusts voice parameters accordingly
+const EMOTIONAL_PRESETS: Record<string, EmotionalSettings> = {
+  // High Energy / Positive
+  'excited': { stability: 0.7, similarity_boost: 0.9 },      // Energetic, expressive
+  'celebration': { stability: 0.65, similarity_boost: 0.85 }, // Joyful, triumphant
+  'insight': { stability: 0.55, similarity_boost: 0.8 },     // Illuminating, clarity
+  'creative': { stability: 0.5, similarity_boost: 0.75 },    // Inspired, innovative
+
+  // Success / Achievement
+  'success': { stability: 0.6, similarity_boost: 0.8 },      // Confident, warm
+  'progress': { stability: 0.55, similarity_boost: 0.75 },   // Steady, encouraging
+
+  // Analysis / Investigation
+  'investigating': { stability: 0.6, similarity_boost: 0.85 }, // Focused, analytical
+  'debugging': { stability: 0.55, similarity_boost: 0.8 },   // Persistent, detective-like
+  'learning': { stability: 0.5, similarity_boost: 0.75 },    // Curious, educational
+
+  // Thoughtful / Careful
+  'pondering': { stability: 0.65, similarity_boost: 0.8 },   // Thoughtful, measured
+  'focused': { stability: 0.7, similarity_boost: 0.85 },     // Concentrated, determined
+  'caution': { stability: 0.4, similarity_boost: 0.6 },      // Uncertain, careful
+
+  // Urgent / Critical
+  'urgent': { stability: 0.3, similarity_boost: 0.9 },       // Fast, intense
 };
 
-// Load voice configuration
+// Load voices configuration
 let voicesConfig: VoicesConfig | null = null;
 try {
-  const voicesPath = join(paiDir, 'config', 'voice-personalities.json');
-  if (existsSync(voicesPath)) {
-    const voicesContent = readFileSync(voicesPath, 'utf-8');
-    voicesConfig = JSON.parse(voicesContent);
-    console.log('✅ Loaded voice personalities from config');
+  // Try PAI skill voice-personalities.md first (canonical source)
+  const paiPersonalitiesPath = join(PAI_DIR, 'skills', 'CORE', 'voice-personalities.md');
+  if (existsSync(paiPersonalitiesPath)) {
+    const markdownContent = readFileSync(paiPersonalitiesPath, 'utf-8');
+    // Extract JSON block from markdown
+    const jsonMatch = markdownContent.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch && jsonMatch[1]) {
+      voicesConfig = JSON.parse(jsonMatch[1]);
+      console.log('✅ Loaded voice personalities from CORE/voice-personalities.md');
+    }
+  } else {
+    // Fallback to local voices.json
+    const voicesPath = join(import.meta.dir, '..', '..', 'voice-personalities.json');
+    if (existsSync(voicesPath)) {
+      const voicesContent = readFileSync(voicesPath, 'utf-8');
+      voicesConfig = JSON.parse(voicesContent);
+      console.log('✅ Loaded from voice-personalities.json');
+    }
   }
 } catch (error) {
   console.warn('⚠️  Failed to load voice personalities, using defaults');
 }
 
+// Escape special characters for AppleScript
+function escapeForAppleScript(input: string): string {
+  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 // Extract emotional marker from message
+// Supports all 13 prosody markers from the expanded system
 function extractEmotionalMarker(message: string): { cleaned: string; emotion?: string } {
+  // Map emoji to emotion name
   const emojiToEmotion: Record<string, string> = {
-    '💥': 'excited', '🎉': 'celebration', '💡': 'insight', '🎨': 'creative',
-    '✨': 'success', '📈': 'progress', '🔍': 'investigating', '🐛': 'debugging',
-    '📚': 'learning', '🤔': 'pondering', '🎯': 'focused', '⚠️': 'caution', '🚨': 'urgent'
+    '💥': 'excited',
+    '🎉': 'celebration',
+    '💡': 'insight',
+    '🎨': 'creative',
+    '✨': 'success',
+    '📈': 'progress',
+    '🔍': 'investigating',
+    '🐛': 'debugging',
+    '📚': 'learning',
+    '🤔': 'pondering',
+    '🎯': 'focused',
+    '⚠️': 'caution',
+    '🚨': 'urgent'
   };
 
+  // Match pattern: [emoji emotion-name]
+  // Examples: [💥 excited], [✨ success], [🎉 celebration]
   const emotionMatch = message.match(/\[(💥|🎉|💡|🎨|✨|📈|🔍|🐛|📚|🤔|🎯|⚠️|🚨)\s+(\w+)\]/);
   if (emotionMatch) {
     const emoji = emotionMatch[1];
     const emotionName = emotionMatch[2].toLowerCase();
+
+    // Verify emoji matches emotion name
     if (emojiToEmotion[emoji] === emotionName) {
       return {
         cleaned: message.replace(emotionMatch[0], '').trim(),
@@ -120,54 +168,69 @@ function extractEmotionalMarker(message: string): { cleaned: string; emotion?: s
       };
     }
   }
+
   return { cleaned: message };
 }
 
 // Get voice configuration by voice ID or agent name
 function getVoiceConfig(identifier: string): VoiceConfig | null {
   if (!voicesConfig) return null;
-  if (voicesConfig.voices[identifier]) return voicesConfig.voices[identifier];
-  for (const config of Object.values(voicesConfig.voices)) {
-    if (config.voice_id === identifier) return config;
+
+  // Try direct agent name lookup
+  if (voicesConfig.voices[identifier]) {
+    return voicesConfig.voices[identifier];
   }
+
+  // Try voice_id lookup
+  for (const config of Object.values(voicesConfig.voices)) {
+    if (config.voice_id === identifier) {
+      return config;
+    }
+  }
+
   return null;
 }
 
-// Sanitize input for TTS - allow natural speech, block dangerous characters
+// Sanitize input for TTS and notifications - allow natural speech punctuation
 function sanitizeForSpeech(input: string): string {
-  return input
-    .replace(/<script/gi, '')
-    .replace(/\.\.\//g, '')
-    .replace(/[;&|><`$\\]/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/#{1,6}\s+/g, '')
+  // Allow: letters, numbers, spaces, common punctuation for natural speech
+  // Block: shell metacharacters, path traversal, script tags, markdown
+  const cleaned = input
+    .replace(/<script/gi, '')  // Remove script tags
+    .replace(/\.\.\//g, '')     // Remove path traversal
+    .replace(/[;&|><`$\\]/g, '') // Remove shell metacharacters
+    .replace(/\*\*([^*]+)\*\*/g, '$1')  // Strip bold markdown: **text** → text
+    .replace(/\*([^*]+)\*/g, '$1')       // Strip italic markdown: *text* → text
+    .replace(/`([^`]+)`/g, '$1')         // Strip inline code: `text` → text
+    .replace(/#{1,6}\s+/g, '')           // Strip markdown headers: ### → (empty)
     .trim()
     .substring(0, 500);
+
+  return cleaned;
 }
 
-// Validate input
+// Validate user input - check for obviously malicious content
 function validateInput(input: any): { valid: boolean; error?: string; sanitized?: string } {
   if (!input || typeof input !== 'string') {
     return { valid: false, error: 'Invalid input type' };
   }
+
   if (input.length > 500) {
     return { valid: false, error: 'Message too long (max 500 characters)' };
   }
+
+  // Sanitize and check if anything remains
   const sanitized = sanitizeForSpeech(input);
+
   if (!sanitized || sanitized.length === 0) {
     return { valid: false, error: 'Message contains no valid content after sanitization' };
   }
+
   return { valid: true, sanitized };
 }
 
-// =============================================================================
-// TTS Providers
-// =============================================================================
-
-// ElevenLabs TTS Generation
-async function generateSpeechElevenLabs(
+// Generate speech using ElevenLabs API
+async function generateSpeech(
   text: string,
   voiceId: string,
   voiceSettings?: { stability: number; similarity_boost: number }
@@ -176,7 +239,13 @@ async function generateSpeechElevenLabs(
     throw new Error('ElevenLabs API key not configured');
   }
 
+  if (!voiceId) {
+    throw new Error('Voice ID not configured - set ELEVENLABS_VOICE_ID environment variable');
+  }
+
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+
+  // Use provided settings or defaults
   const settings = voiceSettings || { stability: 0.5, similarity_boost: 0.5 };
 
   const response = await fetch(url, {
@@ -201,157 +270,88 @@ async function generateSpeechElevenLabs(
   return await response.arrayBuffer();
 }
 
-// Google Cloud TTS Generation
-// Free tier: 4M chars/month (Standard), 1M chars/month (WaveNet/Neural2)
-async function generateSpeechGoogle(
-  text: string,
-  voice?: string
-): Promise<ArrayBuffer> {
-  if (!GOOGLE_API_KEY) {
-    throw new Error('Google API key not configured. Add GOOGLE_API_KEY to your .env file.');
-  }
-
-  const voiceName = voice || GOOGLE_TTS_VOICE;
-  // Extract language code from voice name (e.g., "en-US" from "en-US-Neural2-J")
-  const languageCode = voiceName.split('-').slice(0, 2).join('-');
-
-  const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      input: { text },
-      voice: {
-        languageCode,
-        name: voiceName,
-      },
-      audioConfig: {
-        audioEncoding: 'MP3',
-        speakingRate: 1.0,
-        pitch: 0,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Google TTS API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-
-  // Google returns base64-encoded audio in the 'audioContent' field
-  if (!data.audioContent) {
-    throw new Error('Google TTS: No audio content in response');
-  }
-
-  // Decode base64 to ArrayBuffer
-  const binaryString = atob(data.audioContent);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-// Unified speech generation - routes to the configured provider
-async function generateSpeech(
-  text: string,
-  voiceId: string,
-  voiceSettings?: { stability: number; similarity_boost: number }
-): Promise<ArrayBuffer> {
-  if (TTS_PROVIDER === 'google') {
-    return generateSpeechGoogle(text, voiceId);
-  } else {
-    return generateSpeechElevenLabs(text, voiceId, voiceSettings);
-  }
-}
-
-// Get volume setting from config (defaults to 0.8 = 80%)
+// Get volume setting from config (defaults to 1.0 = 100%)
 function getVolumeSetting(): number {
-  if (voicesConfig && typeof voicesConfig.default_volume === 'number') {
+  if (voicesConfig && 'default_volume' in voicesConfig) {
     const vol = voicesConfig.default_volume;
-    if (vol >= 0 && vol <= 1) return vol;
+    if (typeof vol === 'number' && vol >= 0 && vol <= 1) {
+      return vol;
+    }
   }
-  return 0.8;
+  return 1.0; // Default to full volume
 }
 
-// =============================================================================
-// Cross-Platform Audio Playback
-// =============================================================================
-
-// Play audio - supports macOS (afplay) and Linux (mpg123, mpv)
+// Play audio using afplay (macOS)
 async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+
+  // Write audio to temp file
   await Bun.write(tempFile, audioBuffer);
+
   const volume = getVolumeSetting();
 
   return new Promise((resolve, reject) => {
-    let player: string;
-    let args: string[];
-
-    if (process.platform === 'darwin') {
-      // macOS: use afplay
-      player = '/usr/bin/afplay';
-      args = ['-v', volume.toString(), tempFile];
-    } else {
-      // Linux: try mpg123 first, then mpv
-      if (existsSync('/usr/bin/mpg123')) {
-        player = '/usr/bin/mpg123';
-        args = ['-q', tempFile];
-      } else if (existsSync('/usr/bin/mpv')) {
-        player = '/usr/bin/mpv';
-        args = ['--no-terminal', '--volume=' + (volume * 100), tempFile];
-      } else if (existsSync('/snap/bin/mpv')) {
-        player = '/snap/bin/mpv';
-        args = ['--no-terminal', '--volume=' + (volume * 100), tempFile];
-      } else {
-        console.warn('⚠️  No audio player found. Install mpg123 or mpv for audio playback.');
-        spawn('/bin/rm', [tempFile]);
-        resolve();
-        return;
-      }
-    }
-
-    const proc = spawn(player, args);
+    // afplay -v takes a value from 0.0 to 1.0
+    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
-      spawn('/bin/rm', [tempFile]);
       reject(error);
     });
 
     proc.on('exit', (code) => {
-      spawn('/bin/rm', [tempFile]); // Clean up temp file
-      if (code === 0 || code === null) {
+      // Clean up temp file
+      spawn('/bin/rm', [tempFile]);
+
+      if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`${player} exited with code ${code}`));
+        reject(new Error(`afplay exited with code ${code}`));
       }
     });
   });
 }
 
-// =============================================================================
-// Cross-Platform Notifications
-// =============================================================================
+// Spawn a process safely
+function spawnSafe(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args);
 
-// Send notification with voice
+    proc.on('error', (error) => {
+      console.error(`Error spawning ${command}:`, error);
+      reject(error);
+    });
+
+    proc.on('exit', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${command} exited with code ${code}`));
+      }
+    });
+  });
+}
+
+// Send macOS notification with voice
 async function sendNotification(
   title: string,
   message: string,
   voiceEnabled = true,
   voiceId: string | null = null
 ) {
+  // Validate and sanitize inputs
   const titleValidation = validateInput(title);
   const messageValidation = validateInput(message);
 
-  if (!titleValidation.valid) throw new Error(`Invalid title: ${titleValidation.error}`);
-  if (!messageValidation.valid) throw new Error(`Invalid message: ${messageValidation.error}`);
+  if (!titleValidation.valid) {
+    throw new Error(`Invalid title: ${titleValidation.error}`);
+  }
 
+  if (!messageValidation.valid) {
+    throw new Error(`Invalid message: ${messageValidation.error}`);
+  }
+
+  // Use pre-sanitized values from validation
   const safeTitle = titleValidation.sanitized!;
   let safeMessage = messageValidation.sanitized!;
 
@@ -359,20 +359,23 @@ async function sendNotification(
   const { cleaned, emotion } = extractEmotionalMarker(safeMessage);
   safeMessage = cleaned;
 
-  // Generate and play voice
-  const apiKeyConfigured = TTS_PROVIDER === 'google' ? GOOGLE_API_KEY : ELEVENLABS_API_KEY;
-  if (voiceEnabled && apiKeyConfigured) {
+  // Generate and play voice using ElevenLabs
+  if (voiceEnabled && ELEVENLABS_API_KEY) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
+
+      // Get voice configuration (personality settings)
       const voiceConfig = getVoiceConfig(voice);
 
       // Determine voice settings (priority: emotional > personality > defaults)
       let voiceSettings = { stability: 0.5, similarity_boost: 0.5 };
 
       if (emotion && EMOTIONAL_PRESETS[emotion]) {
+        // Emotional marker overrides personality
         voiceSettings = EMOTIONAL_PRESETS[emotion];
         console.log(`🎭 Emotion: ${emotion}`);
       } else if (voiceConfig) {
+        // Use personality settings from voices config
         voiceSettings = {
           stability: voiceConfig.stability,
           similarity_boost: voiceConfig.similarity_boost
@@ -380,7 +383,7 @@ async function sendNotification(
         console.log(`👤 Personality: ${voiceConfig.description}`);
       }
 
-      console.log(`🎙️  Generating speech (voice: ${voice}, stability: ${voiceSettings.stability})`);
+      console.log(`🎙️  Generating speech (voice: ${voice}, stability: ${voiceSettings.stability}, boost: ${voiceSettings.similarity_boost})`);
 
       const audioBuffer = await generateSpeech(safeMessage, voice, voiceSettings);
       await playAudio(audioBuffer);
@@ -389,18 +392,12 @@ async function sendNotification(
     }
   }
 
-  // Display desktop notification (platform-aware)
+  // Display macOS notification - escape for AppleScript
   try {
-    if (process.platform === 'linux') {
-      // Linux: use notify-send
-      spawn('/usr/bin/notify-send', [safeTitle, safeMessage]);
-    } else if (process.platform === 'darwin') {
-      // macOS: use osascript
-      const escapedTitle = safeTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const escapedMessage = safeMessage.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-      spawn('/usr/bin/osascript', ['-e', script]);
-    }
+    const escapedTitle = escapeForAppleScript(safeTitle);
+    const escapedMessage = escapeForAppleScript(safeMessage);
+    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+    await spawnSafe('/usr/bin/osascript', ['-e', script]);
   } catch (error) {
     console.error("Notification display error:", error);
   }
@@ -409,7 +406,7 @@ async function sendNotification(
 // Rate limiting
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 10;
-const RATE_WINDOW = 60000;
+const RATE_WINDOW = 60000; // 1 minute
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -420,7 +417,10 @@ function checkRateLimit(ip: string): boolean {
     return true;
   }
 
-  if (record.count >= RATE_LIMIT) return false;
+  if (record.count >= RATE_LIMIT) {
+    return false;
+  }
+
   record.count++;
   return true;
 }
@@ -430,6 +430,7 @@ const server = serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
+
     const clientIp = req.headers.get('x-forwarded-for') || 'localhost';
 
     const corsHeaders = {
@@ -445,11 +446,14 @@ const server = serve({
     if (!checkRateLimit(clientIp)) {
       return new Response(
         JSON.stringify({ status: "error", message: "Rate limit exceeded" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429
+        }
       );
     }
 
-    // Main notification endpoint
+    // POST /notify - Full notification with voice/emotion support
     if (url.pathname === "/notify" && req.method === "POST") {
       try {
         const data = await req.json();
@@ -462,65 +466,87 @@ const server = serve({
           throw new Error('Invalid voice_id');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message.substring(0, 50)}..."`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
 
         await sendNotification(title, message, voiceEnabled, voiceId);
 
         return new Response(
           JSON.stringify({ status: "success", message: "Notification sent" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200
+          }
         );
       } catch (error: any) {
         console.error("Notification error:", error);
         return new Response(
           JSON.stringify({ status: "error", message: error.message || "Internal server error" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: error.message?.includes('Invalid') ? 400 : 500 }
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: error.message?.includes('Invalid') ? 400 : 500
+          }
         );
       }
     }
 
-    // Health check endpoint
-    if (url.pathname === "/health") {
-      const providerInfo = TTS_PROVIDER === 'google'
-        ? { name: 'Google Cloud TTS', configured: !!GOOGLE_API_KEY, voice: GOOGLE_TTS_VOICE }
-        : { name: 'ElevenLabs', configured: !!ELEVENLABS_API_KEY, voice: DEFAULT_ELEVENLABS_VOICE };
+    // POST /pai - Simple notification with default voice
+    if (url.pathname === "/pai" && req.method === "POST") {
+      try {
+        const data = await req.json();
+        const title = data.title || "PAI Assistant";
+        const message = data.message || "Task completed";
 
+        console.log(`🤖 PAI notification: "${title}" - "${message}"`);
+
+        await sendNotification(title, message, true, null);
+
+        return new Response(
+          JSON.stringify({ status: "success", message: "PAI notification sent" }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200
+          }
+        );
+      } catch (error: any) {
+        console.error("PAI notification error:", error);
+        return new Response(
+          JSON.stringify({ status: "error", message: error.message || "Internal server error" }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: error.message?.includes('Invalid') ? 400 : 500
+          }
+        );
+      }
+    }
+
+    // GET /health - Health check
+    if (url.pathname === "/health") {
       return new Response(
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          platform: process.platform,
-          tts_provider: providerInfo.name,
-          default_voice: providerInfo.voice,
-          api_key_configured: providerInfo.configured,
-          providers: {
-            active: TTS_PROVIDER,
-            google: { configured: !!GOOGLE_API_KEY, voice: GOOGLE_TTS_VOICE },
-            elevenlabs: { configured: !!ELEVENLABS_API_KEY, voice: DEFAULT_ELEVENLABS_VOICE }
-          }
+          voice_system: "ElevenLabs",
+          default_voice_id: DEFAULT_VOICE_ID || "(not configured)",
+          api_key_configured: !!ELEVENLABS_API_KEY,
+          pai_dir: PAI_DIR
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200
+        }
       );
     }
 
-    return new Response("PAI Voice Server - POST to /notify", {
+    return new Response("PAI Voice Server - POST to /notify or /pai", {
       headers: corsHeaders,
       status: 200
     });
   },
 });
 
-// Startup logs
-console.log(`🚀 Voice Server running on port ${PORT}`);
-console.log(`🖥️  Platform: ${process.platform}`);
-console.log(`🎙️  TTS Provider: ${TTS_PROVIDER === 'google' ? 'Google Cloud TTS' : 'ElevenLabs'}`);
-console.log(`🗣️  Default voice: ${DEFAULT_VOICE_ID}`);
+console.log(`🚀 PAI Voice Server running on port ${PORT}`);
+console.log(`🎙️  Using ElevenLabs TTS`);
+console.log(`🔊 Default voice: ${DEFAULT_VOICE_ID || '(not configured - set ELEVENLABS_VOICE_ID)'}`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
-if (TTS_PROVIDER === 'google') {
-  console.log(`🔑 Google API Key: ${GOOGLE_API_KEY ? '✅ Configured' : '❌ Missing'}`);
-  console.log(`💰 Free tier: 4M chars/month (Standard), 1M chars/month (Neural2)`);
-} else {
-  console.log(`🔑 ElevenLabs API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
-}
-console.log(`💡 Switch providers: TTS_PROVIDER=google or TTS_PROVIDER=elevenlabs in .env`);
+console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);

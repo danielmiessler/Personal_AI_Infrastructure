@@ -1,6 +1,6 @@
 ---
 name: Kai Prompting Skill
-pack-id: danielmiessler-kai-prompting-skill-v1.0.0
+pack-id: danielmiessler-pai-prompting-skill-v1.0.0
 version: 1.0.0
 author: danielmiessler
 description: Meta-prompting system for dynamic prompt generation using Handlebars templates, Claude 4.x best practices, and the Fabric pattern system. Includes the Ultimate Prompt Template, five core primitives (Roster, Voice, Structure, Briefing, Gate), and CLI tools for rendering and validation.
@@ -8,14 +8,22 @@ type: feature
 purpose-type: [productivity, development, automation]
 platform: claude-code
 dependencies:
-  - kai-core-install (required) - Skills directory structure and routing
-  - kai-hook-system (optional) - For session startup context loading
+  - pai-core-install (required) - Skills directory structure and routing
+  - pai-hook-system (optional) - For session startup context loading
 keywords: [prompting, templates, handlebars, meta-prompting, prompt-engineering, fabric, claude-4, context-engineering, templating]
 ---
 
-# Kai Prompting Skill (kai-prompting-skill)
+<p align="center">
+  <img src="../icons/pai-prompting-skill.png" alt="PAI Prompting Skill" width="256">
+</p>
+
+# PAI Prompting Skill (pai-prompting-skill)
 
 > Prompts that write prompts. Meta-prompting enables dynamic composition where structure is fixed but content is parameterized.
+
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
 
 ## What This Pack Does
 
@@ -38,7 +46,7 @@ This Pack provides a complete prompt engineering system:
 ## Architecture
 
 ```
-kai-prompting-skill/
+pai-prompting-skill/
 ├── README.md                    # This file
 ├── INSTALL.md                   # Installation instructions
 ├── VERIFY.md                    # Verification checklist

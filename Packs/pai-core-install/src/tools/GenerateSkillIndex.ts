@@ -15,7 +15,7 @@ const PAI_DIR = process.env.PAI_DIR || process.env.PAI_HOME || join(process.env.
 const SKILLS_DIR = join(PAI_DIR, 'skills');
 const OUTPUT_FILE = join(SKILLS_DIR, 'skill-index.json');
 
-const ALWAYS_LOADED_SKILLS = ['CORE', 'Development', 'Research'];
+const ALWAYS_LOADED_SKILLS = ['CORE'];
 
 async function findSkillFiles(dir: string): Promise<string[]> {
   const skillFiles: string[] = [];

@@ -1,76 +1,117 @@
-# Kai Browser Skill
+---
+name: Kai Browser Skill
+pack-id: danielmiessler-browser-skill-core-v1.2.0
+version: 1.2.0
+author: danielmiessler
+description: Debug-first browser automation with always-on visibility - console/network capture by default, session auto-start, 99% token savings over MCP
+type: skill
+purpose-type: [automation, testing, verification, browser-automation]
+platform: claude-code
+dependencies: []
+keywords: [browser, playwright, automation, screenshot, web-testing, verification, debug, diagnostics, session, mcp-replacement]
+---
 
-**Code-first browser automation for Claude Code with 99% token savings.**
+<p align="center">
+  <img src="icons/pai-browser-skill-v3.png" alt="PAI Browser Skill" width="256">
+</p>
+
+# Browser Skill v1.2.0
+
+**Debug-first browser automation with always-on visibility.**
+
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
 
 ## What It Does
 
-The Browser skill replaces the Playwright MCP with direct code execution:
+The Browser skill provides Playwright automation with 99% token savings:
 
-- **Navigate** to URLs
-- **Screenshot** pages (full page or element)
+- **Navigate** to URLs with automatic diagnostics
+- **Screenshot** pages with issue detection
 - **Interact** with forms, buttons, dropdowns
 - **Verify** page content and elements
-- **Extract** text and HTML
+- **Monitor** console logs and network requests
 
-## Why File-Based?
+## Why Debug-First?
+
+Traditional approach: Run test, it fails, add logging, run again.
+
+Debug-first approach: **Logging already exists.** When something breaks, the data is there.
+
+Every `bun run Browse.ts <url>` command captures:
+- Screenshot
+- Console errors/warnings
+- Failed network requests
+- Network summary
+- Load status
+
+## Quick Start
+
+```bash
+# Navigate and get full diagnostics
+bun run $PAI_DIR/skills/Browser/Tools/Browse.ts https://example.com
+
+# Check for errors
+bun run $PAI_DIR/skills/Browser/Tools/Browse.ts errors
+
+# Take screenshot of current page
+bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot /tmp/shot.png
+```
+
+## Token Savings
 
 | Approach | Tokens | When Loaded |
 |----------|--------|-------------|
 | Playwright MCP | ~13,700 | At startup (always) |
-| Browser Skill | ~50-200 | Per operation (on demand) |
+| Browser Skill | ~0 | Per operation (on demand) |
 
 **Result:** 99%+ token savings
 
-## Quick Start
+## API Reference
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `<url>` | Navigate with full diagnostics |
+| `errors` | Console errors only |
+| `warnings` | Console warnings only |
+| `console` | All console output |
+| `network` | Network activity |
+| `failed` | Failed requests |
+| `screenshot [path]` | Screenshot current page |
+| `navigate <url>` | Navigate without diagnostics |
+| `click <selector>` | Click element |
+| `fill <sel> <val>` | Fill input |
+| `type <sel> <text>` | Type with delay |
+| `eval "<js>"` | Execute JavaScript |
+| `open <url>` | Open in default browser |
+| `status` | Session info |
+| `restart` | Fresh session |
+| `stop` | Stop session |
+
+### TypeScript API
 
 ```typescript
-import { PlaywrightBrowser } from '$PAI_DIR/skills/Browser/index.ts'
+import { PlaywrightBrowser } from '$PAI_DIR/skills/Browser/src/index.ts'
 
 const browser = new PlaywrightBrowser()
 await browser.launch()
 await browser.navigate('https://example.com')
-await browser.screenshot({ path: 'screenshot.png' })
+await browser.screenshot({ path: 'shot.png' })
 await browser.close()
 ```
 
-## CLI Tool
+**Navigation:** `launch()`, `navigate()`, `goBack()`, `goForward()`, `reload()`, `close()`
 
-```bash
-# Open URL in visible browser
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts open https://example.com
+**Capture:** `screenshot()`, `getVisibleText()`, `getVisibleHtml()`, `savePdf()`
 
-# Take screenshot
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot https://example.com /tmp/shot.png
+**Interaction:** `click()`, `fill()`, `type()`, `select()`, `pressKey()`
 
-# Verify element exists
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts verify https://example.com "h1"
-```
+**Monitoring:** `getConsoleLogs()`, `getNetworkLogs()`, `getNetworkStats()`
 
-## API Methods
-
-### Navigation
-- `launch()` / `close()`
-- `navigate(url)`
-- `goBack()` / `goForward()` / `reload()`
-
-### Capture
-- `screenshot(options?)`
-- `getVisibleText(selector?)`
-- `getVisibleHtml(options?)`
-- `savePdf(path)`
-
-### Interaction
-- `click(selector)`
-- `fill(selector, value)`
-- `type(selector, text)`
-- `select(selector, value)`
-- `pressKey(key)`
-
-### Waiting
-- `waitForSelector(selector)`
-- `waitForNavigation()`
-- `waitForNetworkIdle()`
-- `wait(ms)`
+**Waiting:** `waitForSelector()`, `waitForNavigation()`, `waitForNetworkIdle()`
 
 ## Installation
 
@@ -78,4 +119,28 @@ See `INSTALL.md` for step-by-step instructions.
 
 ## Verification
 
-See `VERIFY.md` for verification steps.
+See `VERIFY.md` for verification steps (15 checks for v1.2.0).
+
+---
+
+## Changelog
+
+### v1.2.0 (January 2026)
+- **NEW:** Debug-first architecture with always-on event capture
+- **NEW:** Session auto-start (no explicit start needed)
+- **NEW:** 30-minute idle timeout for auto-cleanup
+- **NEW:** Diagnostic commands (errors, warnings, console, network, failed)
+- **NEW:** BrowserSession.ts persistent server
+- **NEW:** Rich formatted diagnostic output
+- **CHANGED:** Primary command is now `<url>` for navigate + diagnostics
+- **CHANGED:** CLI expanded from 3 to 15+ commands
+
+### v1.1.0
+- CLI-first redesign
+- Added decision tree routing
+- Updated VERIFY phase integration
+
+### v1.0.0
+- Initial release
+- Code-first Playwright wrapper
+- Basic CLI (open, screenshot, verify)

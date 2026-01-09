@@ -1,17 +1,79 @@
 #!/usr/bin/env bun
-// $PAI_DIR/hooks/stop-hook-voice.ts
-// Main agent voice notification with prosody enhancement
+/**
+ * PAI Voice Stop Hook - Main Agent Voice Notifications
+ *
+ * This hook runs when the main Claude Code agent finishes responding.
+ * It extracts the 🗣️ line from responses and sends it to the voice server.
+ *
+ * Part of the pai-voice-system pack.
+ *
+ * Configuration (settings.json):
+ * ```json
+ * {
+ *   "hooks": {
+ *     "Stop": [{
+ *       "type": "command",
+ *       "command": "bun run ${PAI_DIR}/skills/VoiceSystem/hooks/stop-hook-voice.ts"
+ *     }]
+ *   }
+ * }
+ * ```
+ *
+ * Environment Variables:
+ *   VOICE_SERVER_URL - Voice server URL (default: http://localhost:8888)
+ *   ELEVENLABS_VOICE_ID - Default voice ID for TTS
+ *   PAI_DIR - PAI installation directory
+ */
 
-import { readFileSync } from 'fs';
-import { enhanceProsody, cleanForSpeech, getVoiceId } from './lib/prosody-enhancer';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { enhanceProsody, cleanForSpeech } from './lib/prosody-enhancer';
 
-interface NotificationPayload {
-  title: string;
-  message: string;
-  voice_enabled: boolean;
-  priority?: 'low' | 'normal' | 'high';
-  voice_id: string;
+// Configuration
+const VOICE_SERVER_URL = process.env.VOICE_SERVER_URL || 'http://localhost:8888';
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '';
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+
+// AI Identity - loaded from DAIDENTITY.md if it exists
+interface AIIdentity {
+  name: string;
+  displayName: string;
+  voiceId: string;
 }
+
+function loadIdentity(): AIIdentity {
+  const defaultIdentity: AIIdentity = {
+    name: 'PAI',
+    displayName: 'PAI',
+    voiceId: DEFAULT_VOICE_ID
+  };
+
+  try {
+    // Try to load from DAIDENTITY.md
+    const identityPath = join(PAI_DIR, 'skills', 'CORE', 'USER', 'DAIDENTITY.md');
+    if (existsSync(identityPath)) {
+      const content = readFileSync(identityPath, 'utf-8');
+
+      // Extract fields from markdown format: **Field:** Value
+      const nameMatch = content.match(/\*\*Name:\*\*\s*(\w+)/);
+      const displayMatch = content.match(/\*\*Display\s*Name:\*\*\s*(.+?)(?:\n|$)/i);
+      const voiceMatch = content.match(/\*\*Voice\s*ID:\*\*\s*(\S+)/i);
+
+      return {
+        name: nameMatch?.[1] || defaultIdentity.name,
+        displayName: displayMatch?.[1]?.trim() || nameMatch?.[1] || defaultIdentity.displayName,
+        voiceId: voiceMatch?.[1] || defaultIdentity.voiceId
+      };
+    }
+  } catch (error) {
+    console.error('Error loading identity:', error);
+  }
+
+  return defaultIdentity;
+}
+
+const AI_IDENTITY = loadIdentity();
 
 interface HookInput {
   session_id: string;
@@ -19,8 +81,15 @@ interface HookInput {
   hook_event_name: string;
 }
 
+interface NotificationPayload {
+  title: string;
+  message: string;
+  voice_enabled: boolean;
+  voice_id?: string;
+}
+
 /**
- * Convert Claude content to plain text
+ * Convert Claude content (string or array of blocks) to plain text
  */
 function contentToText(content: unknown): string {
   if (typeof content === 'string') return content;
@@ -39,41 +108,45 @@ function contentToText(content: unknown): string {
 }
 
 /**
- * Extract completion message with prosody enhancement
+ * Extract the voice message from the response
+ * Looks for: 🗣️ AI_NAME: [message]
+ * Falls back to: 🎯 COMPLETED: [message]
  */
-function extractCompletion(text: string, agentType: string = 'pai'): string {
+function extractVoiceMessage(text: string): string | null {
   // Remove system-reminder tags
   text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
 
-  // Look for COMPLETED section
+  // Patterns to try (in order of priority)
   const patterns = [
+    // Primary: 🗣️ AI_NAME: [text]
+    new RegExp(`🗣️\\s*\\*{0,2}${AI_IDENTITY.name}:?\\*{0,2}\\s*(.+?)(?:\\n|$)`, 'is'),
+    // Fallback: 🎯 COMPLETED: [text]
     /🎯\s*\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/i,
-    /\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/i
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      let completed = match[1].trim();
+      let message = match[1].trim();
 
-      // Clean agent tags
-      completed = completed.replace(/^\[AGENT:\w+\]\s*/i, '');
+      // Clean up the message
+      message = message.replace(/^\[AGENT:\w+\]\s*/i, ''); // Remove agent tags
 
-      // Clean for speech
-      completed = cleanForSpeech(completed);
+      // Clean for speech while preserving prosody markers
+      message = cleanForSpeech(message);
 
-      // Enhance with prosody
-      completed = enhanceProsody(completed, agentType);
+      // Enhance with prosody markers
+      message = enhanceProsody(message, AI_IDENTITY.name.toLowerCase());
 
-      return completed;
+      return message;
     }
   }
 
-  return 'Completed task';
+  return null;
 }
 
 /**
- * Read last assistant message from transcript
+ * Read the last assistant message from the transcript
  */
 function getLastAssistantMessage(transcriptPath: string): string {
   try {
@@ -85,7 +158,8 @@ function getLastAssistantMessage(transcriptPath: string): string {
     for (const line of lines) {
       if (line.trim()) {
         try {
-          const entry = JSON.parse(line);
+          const entry = JSON.parse(line) as any;
+
           if (entry.type === 'assistant' && entry.message?.content) {
             const text = contentToText(entry.message.content);
             if (text) {
@@ -106,13 +180,11 @@ function getLastAssistantMessage(transcriptPath: string): string {
 }
 
 /**
- * Send notification to voice server
+ * Send notification to the voice server
  */
-async function sendNotification(payload: NotificationPayload): Promise<void> {
-  const serverUrl = process.env.PAI_VOICE_SERVER || 'http://localhost:8888/notify';
-
+async function sendVoiceNotification(payload: NotificationPayload): Promise<void> {
   try {
-    const response = await fetch(serverUrl, {
+    const response = await fetch(`${VOICE_SERVER_URL}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -123,13 +195,14 @@ async function sendNotification(payload: NotificationPayload): Promise<void> {
     }
   } catch (error) {
     // Fail silently - voice server may not be running
-    console.error('Voice notification failed (server may be offline):', error);
+    console.error('Failed to send voice notification:', error);
   }
 }
 
 async function main() {
   let hookInput: HookInput | null = null;
 
+  // Read hook input from stdin
   try {
     const decoder = new TextDecoder();
     const reader = Bun.stdin.stream().getReader();
@@ -150,41 +223,39 @@ async function main() {
     await Promise.race([readPromise, timeoutPromise]);
 
     if (input.trim()) {
-      hookInput = JSON.parse(input);
+      hookInput = JSON.parse(input) as HookInput;
     }
   } catch (error) {
     console.error('Error reading hook input:', error);
   }
 
-  // Extract completion from transcript
-  let completion = 'Completed task';
-  const agentType = 'pai'; // Main agent is your PAI
+  // Extract voice message from the last response
+  let voiceMessage: string | null = null;
 
-  if (hookInput?.transcript_path) {
+  if (hookInput && hookInput.transcript_path) {
     const lastMessage = getLastAssistantMessage(hookInput.transcript_path);
     if (lastMessage) {
-      completion = extractCompletion(lastMessage, agentType);
+      voiceMessage = extractVoiceMessage(lastMessage);
     }
   }
 
-  // Get voice ID for this agent
-  const voiceId = getVoiceId(agentType);
+  // Send voice notification if we have a message
+  if (voiceMessage) {
+    const payload: NotificationPayload = {
+      title: AI_IDENTITY.displayName,
+      message: voiceMessage,
+      voice_enabled: true,
+      voice_id: AI_IDENTITY.voiceId || undefined
+    };
 
-  // Send voice notification
-  const payload: NotificationPayload = {
-    title: 'PAI',
-    message: completion,
-    voice_enabled: true,
-    priority: 'normal',
-    voice_id: voiceId
-  };
-
-  await sendNotification(payload);
+    await sendVoiceNotification(payload);
+  }
 
   process.exit(0);
 }
 
+// Run the hook
 main().catch((error) => {
-  console.error('Stop hook error:', error);
-  process.exit(0);
+  console.error('Voice stop hook error:', error);
+  process.exit(0); // Don't fail the hook - always exit cleanly
 });

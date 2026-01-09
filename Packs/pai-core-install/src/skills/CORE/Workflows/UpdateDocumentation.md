@@ -82,7 +82,7 @@ bun run $PAI_DIR/Tools/PaiArchitecture.ts generate
 📋 SUMMARY: Updated PAI Architecture documentation
 ⚡ ACTIONS:
   - Regenerated Architecture.md
-  - Logged upgrade: "Installed kai-voice-system v1.0.0"
+  - Logged upgrade: "Installed pai-voice-system v1.0.0"
   - Verified system health
 ✅ RESULTS: Architecture.md now shows 4 packs, 1 bundle
 📊 STATUS: All systems healthy

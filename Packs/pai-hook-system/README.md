@@ -1,6 +1,6 @@
 ---
 name: Kai Hook System
-pack-id: danielmiessler-kai-hook-system-core-v1.0.0
+pack-id: danielmiessler-pai-hook-system-core-v1.0.0
 version: 1.0.0
 author: danielmiessler
 description: Event-driven automation framework for Claude Code - the foundation for all hook-based capabilities including security validation, session management, and context injection
@@ -12,12 +12,16 @@ keywords: [hooks, automation, events, security, validation, sessions, context, c
 ---
 
 <p align="center">
-  <img src="../icons/kai-hook-system.png" alt="Kai Hook System" width="256">
+  <img src="../icons/pai-hook-system.png" alt="Kai Hook System" width="256">
 </p>
 
-# Kai Hook System (kai-hook-system)
+# Kai Hook System (pai-hook-system)
 
 > Event-driven automation framework for Claude Code - the foundation for all hook-based capabilities
+
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
 
 ## What's Included
 
@@ -255,9 +259,9 @@ See [VERIFY.md](VERIFY.md) for testing and verification procedures.
 
 ## Related Packs
 
-- **kai-history-system** - Uses hooks for capturing session work and learnings
-- **kai-voice-system** - Uses hooks for voice notification triggers
-- **kai-core-install** - Uses SessionStart hooks for CORE skill context injection
+- **pai-history-system** - Uses hooks for capturing session work and learnings
+- **pai-voice-system** - Uses hooks for voice notification triggers
+- **pai-core-install** - Uses SessionStart hooks for CORE skill context injection
 
 ## Changelog
 

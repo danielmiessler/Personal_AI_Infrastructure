@@ -1,19 +1,27 @@
 ---
 name: Kai Observability Server
-pack-id: danielmiessler-kai-observability-server-core-v1.0.0
+pack-id: danielmiessler-pai-observability-server-core-v1.0.0
 version: 1.0.0
 author: danielmiessler
 description: Real-time multi-agent activity monitoring dashboard with WebSocket streaming
 type: feature
 purpose-type: [observability, monitoring, development, debugging]
 platform: claude-code
-dependencies: [kai-hook-system]
+dependencies: [pai-hook-system]
 keywords: [observability, dashboard, monitoring, agents, websocket, streaming, events, debugging, visualization, real-time]
 ---
 
-# Kai Observability Server
+<p align="center">
+  <img src="../icons/pai-observability-server-v2.png" alt="PAI Observability Server" width="256">
+</p>
+
+# PAI Observability Server
 
 > Real-time multi-agent activity monitoring dashboard - see exactly what your AI agents are doing as they work
+
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
 
 ## What This Pack Does
 
@@ -149,7 +157,7 @@ $PAI_DIR/
 
 ## Dependencies
 
-- **kai-hook-system** (required) - Provides the hook infrastructure
+- **pai-hook-system** (required) - Provides the hook infrastructure
 - **Bun runtime** - For TypeScript execution
 - **Node.js 18+** - For Vite dev server
 
@@ -176,8 +184,8 @@ Open http://localhost:5172 to view the dashboard.
 
 ## Related Packs
 
-- **kai-hook-system** - Required dependency
-- **kai-history-system** - Permanent storage of events
+- **pai-hook-system** - Required dependency
+- **pai-history-system** - Permanent storage of events
 
 ## Changelog
 

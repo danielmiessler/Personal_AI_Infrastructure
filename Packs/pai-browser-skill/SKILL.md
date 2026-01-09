@@ -1,19 +1,112 @@
 ---
 name: Browser
-description: Code-first browser automation and web verification. USE WHEN browser, screenshot, navigate, web testing, verify UI, VERIFY phase. Replaces Playwright MCP with 99% token savings.
+version: 1.2.0
+description: Debug-first browser automation with always-on visibility. USE WHEN browser, screenshot, navigate, web testing, verify UI, VERIFY phase, debug web page. Session auto-starts, captures console/network by default.
 ---
 
-# Browser - Code-First Browser Automation
+# Browser - Debug-First Browser Automation
 
-**Browser automation and web verification using code-first Playwright.**
+**Browser automation with debugging visibility by DEFAULT.**
+
+Console logs, network requests, and errors are always captured - because debugging shouldn't be opt-in.
 
 ---
 
-## File-Based MCP
+## Philosophy: Debug-First
 
-This skill is a **file-based MCP** - pre-written code that executes existing scripts, NOT generates new code.
+Traditional browser automation treats debugging as an afterthought. You run your test, it fails, and THEN you add logging to figure out why.
 
-**Why file-based?** Filter data in code BEFORE returning to model context = 99%+ token savings.
+This skill flips that: **debugging is enabled from the start**. Every page load captures:
+- Console logs (errors, warnings, info)
+- Network requests and responses
+- Failed requests (4xx, 5xx)
+- Page load status
+
+When something breaks, the diagnostic data already exists.
+
+---
+
+## Session Architecture
+
+**Session auto-starts on first use.** No explicit start command needed.
+
+```
+Any CLI command → Session running?
+                      ├─ Yes → Execute command
+                      └─ No → Auto-start session → Execute command
+```
+
+**Key behaviors:**
+- First command starts a persistent browser session
+- Session stays alive between commands (fast subsequent operations)
+- 30-minute idle timeout auto-cleans up zombie processes
+- State stored in `/tmp/browser-session.json`
+
+---
+
+## CLI Commands (Primary Interface)
+
+**Location:** `$PAI_DIR/skills/Browser/Tools/Browse.ts`
+
+### Primary Command - Navigate with Diagnostics
+
+```bash
+bun run Browse.ts <url>
+```
+
+This is the **main command**. Navigates to the URL and outputs:
+- Screenshot path
+- Console errors (if any)
+- Console warnings (if any)
+- Failed requests (if any)
+- Network summary
+- Page load status
+
+**Example output:**
+```
+📸 Screenshot: /tmp/browse-1704567890.png
+
+🔴 Console Errors (1):
+   • Uncaught TypeError: Cannot read property 'map' of undefined
+
+🌐 Failed Requests (1):
+   • GET /api/users → 500 Internal Server Error
+
+📊 Network: 23 requests | 847KB | avg 156ms
+⚠️ Page: "My App" loaded with issues
+```
+
+### Query Commands
+
+Check current session state without navigating:
+
+```bash
+bun run Browse.ts errors      # Console errors only
+bun run Browse.ts warnings    # Console warnings only
+bun run Browse.ts console     # All console output
+bun run Browse.ts network     # All network activity
+bun run Browse.ts failed      # Failed requests (4xx, 5xx)
+```
+
+### Interaction Commands
+
+```bash
+bun run Browse.ts navigate <url>           # Navigate without diagnostics
+bun run Browse.ts screenshot [path]        # Screenshot current page
+bun run Browse.ts click <selector>         # Click element
+bun run Browse.ts fill <selector> <value>  # Fill input field
+bun run Browse.ts type <selector> <text>   # Type with delay
+bun run Browse.ts eval "<javascript>"      # Execute JavaScript
+bun run Browse.ts open <url>               # Open in default browser
+```
+
+### Session Management
+
+```bash
+bun run Browse.ts status     # Show session info
+bun run Browse.ts restart    # Fresh session (clears logs)
+bun run Browse.ts stop       # Stop session
+```
 
 ---
 
@@ -24,8 +117,8 @@ This skill is a **file-based MCP** - pre-written code that executes existing scr
 **DO NOT write new TypeScript code for simple browser tasks:**
 
 ```typescript
-// WRONG - Writing new code defeats the purpose of file-based MCPs
-import { PlaywrightBrowser } from '$PAI_DIR/skills/Browser/index.ts'
+// WRONG - Writing new code defeats the purpose
+import { PlaywrightBrowser } from '$PAI_DIR/skills/Browser/src/index.ts'
 const browser = new PlaywrightBrowser()
 await browser.launch({ headless: true })
 await browser.navigate('https://example.com')
@@ -33,81 +126,23 @@ await browser.screenshot({ path: '/tmp/shot.png' })
 await browser.close()
 ```
 
-**Problems with this approach:**
-- You're writing 5+ lines of boilerplate every time
-- You manage browser lifecycle manually
-- You duplicate what the CLI already does
-- You're generating new code instead of executing existing code
+**Problems:**
+- 5+ lines of boilerplate every time
+- Manual browser lifecycle management
+- No automatic diagnostic capture
 
 ### The Right Pattern
 
-**USE the CLI tool - it executes pre-written code:**
+**USE the CLI - it handles everything:**
 
 ```bash
-# RIGHT - One command, zero boilerplate
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot https://example.com /tmp/shot.png
-```
-
-**Benefits:**
-- One command, instant execution
-- Lifecycle handled automatically
-- Error handling built-in
-- TRUE file-based MCP pattern
-
----
-
-## CLI Commands (Primary Interface)
-
-**Location:** `$PAI_DIR/skills/Browser/Tools/Browse.ts`
-
-### screenshot - Take a screenshot
-
-```bash
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot <url> [output-path]
-```
-
-**Examples:**
-```bash
-# Screenshot to default location
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot https://danielmiessler.com
-
-# Screenshot to specific file
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot https://example.com /tmp/example.png
-```
-
-### verify - Check element exists
-
-```bash
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts verify <url> <selector>
-```
-
-**Examples:**
-```bash
-# Verify body exists
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts verify https://example.com "body"
-
-# Verify specific element
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts verify https://danielmiessler.com "h1"
-
-# Verify by CSS selector
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts verify https://example.com ".main-content"
-```
-
-### open - Open URL in visible browser
-
-```bash
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts open <url>
-```
-
-**Examples:**
-```bash
-# Open site for manual inspection
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts open https://danielmiessler.com
+# One command = navigate + screenshot + diagnostics
+bun run Browse.ts https://example.com
 ```
 
 ---
 
-## Decision Tree: When to Use What
+## Decision Tree
 
 ```
                     What are you trying to do?
@@ -121,9 +156,10 @@ bun run $PAI_DIR/skills/Browser/Tools/Browse.ts open https://danielmiessler.com
            │                                     │
            ▼                                     ▼
     ┌─────────────┐                      ┌─────────────┐
-    │ • Screenshot│                      │ • Form fill │
-    │ • Verify    │                      │ • Auth flow │
-    │ • Open URL  │                      │ • Conditionals│
+    │ • Navigate  │                      │ • Form fill │
+    │ • Screenshot│                      │ • Auth flow │
+    │ • Click     │                      │ • Conditionals│
+    │ • Fill      │                      │ • Scraping  │
     └─────────────┘                      └─────────────┘
            │                                     │
            ▼                                     ▼
@@ -133,50 +169,81 @@ bun run $PAI_DIR/skills/Browser/Tools/Browse.ts open https://danielmiessler.com
     └─────────────┘                      └─────────────┘
 ```
 
-### Quick Reference
-
-| Task | Use CLI? | Use TypeScript? |
-|------|----------|-----------------|
-| Take screenshot | YES | NO |
-| Verify element exists | YES | NO |
-| Open page visually | YES | NO |
-| Fill multi-field form | NO | YES (Workflow) |
-| Authentication flow | NO | YES (Workflow) |
-| Conditional logic | NO | YES (API) |
-| Multi-step interaction | NO | YES (Workflow) |
-
-**The Rule:** Can you describe it in ONE action? (screenshot, verify, open) → CLI
-
 ---
 
 ## VERIFY Phase Integration
 
 **The Browser skill is MANDATORY for VERIFY phase of web changes.**
 
-### Using CLI for Verification
-
 Before claiming ANY web change is "live" or "working":
 
 ```bash
-# 1. Take screenshot of the changed page
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts screenshot https://example.com/changed-page /tmp/verify.png
+# 1. Navigate with full diagnostics
+bun run Browse.ts https://example.com/changed-page
 
-# 2. Verify the specific element that changed
-bun run $PAI_DIR/skills/Browser/Tools/Browse.ts verify https://example.com/changed-page ".changed-element"
+# 2. View the screenshot
+Read /tmp/browse-*.png
 ```
 
-**Then use the Read tool to view the screenshot:**
-```
-Read /tmp/verify.png
+**If you haven't LOOKED at the rendered page and its diagnostics, you CANNOT claim it works.**
+
+---
+
+## Debugging Workflow Example
+
+**Scenario:** "Why isn't the user list loading?"
+
+```bash
+# Step 1: Load the page with diagnostics
+$ bun run Browse.ts https://myapp.com/users
+
+📸 Screenshot: /tmp/browse-1704567890.png
+
+🔴 Console Errors (1):
+   • Uncaught TypeError: Cannot read property 'map' of undefined
+
+🌐 Failed Requests (1):
+   • GET /api/users → 500 Internal Server Error
+
+📊 Network: 23 requests | 847KB | avg 156ms
+⚠️ Page: "User List" loaded with issues
 ```
 
-**If you haven't LOOKED at the rendered page, you CANNOT claim it works.**
+**Immediately identified:**
+1. API returning 500 error
+2. Frontend crashing because no data
+3. Specific error location
+
+```bash
+# Step 2: Dig deeper
+$ bun run Browse.ts console    # Full console output
+$ bun run Browse.ts network    # All network activity
+$ bun run Browse.ts failed     # Just the failures
+```
+
+---
+
+## Server Endpoints (for advanced use)
+
+The persistent session runs an HTTP server on port 9222:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/diagnostics` | GET | Full diagnostic summary |
+| `/console` | GET | Console logs |
+| `/network` | GET | Network activity |
+| `/navigate` | POST | Navigate to URL |
+| `/click` | POST | Click element |
+| `/fill` | POST | Fill input |
+| `/screenshot` | POST | Take screenshot |
+| `/stop` | POST | Stop server |
 
 ---
 
 ## Workflow Routing
 
-For complex, multi-step tasks, use the pre-built workflows:
+For complex, multi-step tasks:
 
 | Trigger | Workflow |
 |---------|----------|
@@ -185,74 +252,35 @@ For complex, multi-step tasks, use the pre-built workflows:
 | Complex verification sequence | `Workflows/VerifyPage.md` |
 | Screenshot with custom options | `Workflows/Screenshot.md` |
 
-**Workflows use the TypeScript API internally but are pre-written.**
-
 ---
 
-## Advanced: TypeScript API
+## TypeScript API (Advanced)
 
 **Only use this for custom automation that CLI cannot handle.**
 
-Before using this API, ask yourself:
-1. Did I check if CLI can do this? (screenshot/verify/open)
-2. Is this a multi-step workflow? (not just one action)
-3. Do I need conditional logic between actions?
-
-**If you answered NO to all, use the CLI instead.**
-
-### Quick Start (Advanced Users Only)
-
 ```typescript
-import { PlaywrightBrowser } from '$PAI_DIR/skills/Browser/index.ts'
+import { PlaywrightBrowser } from '$PAI_DIR/skills/Browser/src/index.ts'
 
 const browser = new PlaywrightBrowser()
 await browser.launch({ headless: true })
 await browser.navigate('https://example.com')
-// ... custom logic here ...
+// ... custom logic ...
 await browser.close()
 ```
 
 ### API Reference
 
-**Navigation:**
-- `launch(options?)` - Start browser
-- `navigate(url)` - Go to URL
-- `goBack()` / `goForward()` - History navigation
-- `reload()` - Refresh page
-- `close()` - Shut down browser
+**Navigation:** `launch()`, `navigate()`, `goBack()`, `goForward()`, `reload()`, `close()`
 
-**Capture:**
-- `screenshot({ path, fullPage, selector })` - Take screenshot
-- `getVisibleText(selector?)` - Extract text
-- `getVisibleHtml(options)` - Get HTML
-- `savePdf(path)` - Export PDF
-- `getAccessibilityTree()` - A11y snapshot
+**Capture:** `screenshot()`, `getVisibleText()`, `getVisibleHtml()`, `savePdf()`, `getAccessibilityTree()`
 
-**Interaction:**
-- `click(selector)` - Click element
-- `fill(selector, value)` - Fill input
-- `type(selector, text, delay?)` - Type with delay
-- `select(selector, value)` - Select dropdown
-- `pressKey(key)` - Keyboard input
-- `hover(selector)` - Mouse hover
-- `drag(source, target)` - Drag and drop
-- `uploadFile(selector, path)` - File upload
+**Interaction:** `click()`, `fill()`, `type()`, `select()`, `pressKey()`, `hover()`, `drag()`, `uploadFile()`
 
-**Waiting:**
-- `waitForSelector(selector, options)` - Wait for element
-- `waitForText(text, options)` - Wait for text
-- `waitForNavigation(options)` - Wait for page load
-- `waitForNetworkIdle(timeout?)` - Wait for idle
-- `wait(ms)` - Fixed delay
+**Monitoring:** `getConsoleLogs()`, `getNetworkLogs()`, `getNetworkStats()`, `clearNetworkLogs()`
 
-**JavaScript:**
-- `evaluate(script)` - Run JS
-- `getConsoleLogs(options)` - Get console output
-- `setUserAgent(ua)` - Change user agent
+**Waiting:** `waitForSelector()`, `waitForText()`, `waitForNavigation()`, `waitForNetworkIdle()`, `wait()`
 
-**Viewport:**
-- `resize(width, height)` - Set size
-- `setDevice(name)` - Emulate device
+**Viewport:** `resize()`, `setDevice()`
 
 ---
 
@@ -260,7 +288,7 @@ await browser.close()
 
 | Approach | Tokens | Notes |
 |----------|--------|-------|
-| Playwright MCP | ~13,700 | Loaded at startup, always |
+| Playwright MCP | ~13,700 | Loaded at startup |
 | CLI tool | ~0 | Executes pre-written code |
 | TypeScript API | ~50-200 | Only what you write |
 | **CLI Savings** | **99%+** | Compared to MCP |

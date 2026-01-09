@@ -11,9 +11,17 @@ dependencies: [danielmiessler-core-install-core-v1.0.0]
 keywords: [agents, delegation, parallel, traits, personalities, voice, composition, dynamic, factory, custom, orchestration, subagents]
 ---
 
-# Kai Agents Skill
+<p align="center">
+  <img src="../icons/agents-skill.png" alt="PAI Agents Skill" width="256">
+</p>
+
+# PAI Agents Skill
 
 > Dynamic agent composition system - create specialized agents with unique personalities and voices, composed from traits on-the-fly
+
+> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using the wizard in `INSTALL.md`. The installation dynamically adapts to your system state. See [AI-First Installation Philosophy](../../README.md#ai-first-installation-philosophy) for details.
+
+---
 
 ## What's Included
 

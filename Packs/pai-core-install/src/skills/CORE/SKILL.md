@@ -11,7 +11,7 @@ description: Personal AI Infrastructure core. AUTO-LOADS at session start. USE W
 
 **Example: Check contact information**
 ```
-User: "What's Angela's email?"
+User: "What's Alice's email?"
 → Reads Contacts.md
 → Returns contact information
 ```
@@ -55,7 +55,9 @@ Your AI should speak as itself, not about itself in third person.
 
 ---
 
-## Response Format (Optional)
+## Response Format
+
+**IMPORTANT:** The `🗣️ [AI_NAME]:` line drives voice output. Without it, your AI is silent.
 
 ```
 📋 SUMMARY: [One sentence]
@@ -63,8 +65,23 @@ Your AI should speak as itself, not about itself in third person.
 ⚡ ACTIONS: [Steps taken]
 ✅ RESULTS: [Outcomes]
 ➡️ NEXT: [Recommended next steps]
-🎯 COMPLETED: [12 words max - drives voice output]
+🗣️ PAI: [12 words max - spoken aloud by voice server]
 ```
+
+Replace "PAI" with your AI's name from `USER/DAIDENTITY.md`.
+
+### Voice Integration
+
+If using a voice server, the `🗣️` line is extracted by hooks and sent to your voice server:
+
+```bash
+curl -s -X POST http://localhost:${VOICE_PORT}/notify \
+  -H "Content-Type: application/json" \
+  -d '{"message": "[text from 🗣️ line]"}' \
+  > /dev/null 2>&1 &
+```
+
+**See:** `SYSTEM/THENOTIFICATIONSYSTEM.md` for full voice/notification architecture.
 
 ---
 

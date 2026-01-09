@@ -1,73 +1,60 @@
-# Installation Guide: Kai Hook System
+# PAI Hook System v1.0.0 - Installation Guide
 
-## Installation Prompt
-
-You are receiving a PAI Pack - a modular upgrade for AI agent systems.
-
-**What is PAI?** See: [PAI Project Overview](../../README.md#what-is-pai)
-
-**What is a Pack?** See: [Pack System](../../README.md#pack-system)
-
-This Pack adds event-driven automation to your AI infrastructure. The Kai Hook System is the foundation that enables all other hook-based Packs to work:
-
-- **Security Validation**: Block dangerous commands before execution
-- **Session Management**: Initialize sessions with context and state
-- **Context Injection**: Load skill definitions at session start
-- **Terminal Integration**: Update tab titles with task context
-- **Event Pipeline**: PreToolUse, PostToolUse, Stop, SessionStart, and more
-
-**Core principle:** Hooks intercept events and add intelligence without interrupting work.
-
-Please follow the installation instructions below to integrate this Pack into your infrastructure.
+**This guide is designed for AI agents installing this pack into a user's infrastructure.**
 
 ---
 
-## Prerequisites
+## AI Agent Instructions
 
-- **Bun runtime**: `curl -fsSL https://bun.sh/install | bash`
-- **Claude Code** (or compatible agent system with hook support)
-- **Write access** to `$PAI_DIR/` (or your PAI directory)
+**This is a wizard-style installation.** Use Claude Code's native tools to guide the user through installation:
+
+1. **AskUserQuestion** - For user decisions and confirmations
+2. **TodoWrite** - For progress tracking
+3. **Bash/Read/Write** - For actual installation
+4. **VERIFY.md** - For final validation
+
+### Welcome Message
+
+Before starting, greet the user:
+```
+"I'm installing PAI Hook System v1.0.0 - Event-driven automation for Claude Code. Security validation, session management, and context injection.
+
+Let me analyze your system and guide you through installation."
+```
 
 ---
 
-## Pre-Installation: System Analysis
+## Phase 1: System Analysis
 
-**IMPORTANT:** Before installing, analyze the current system state to detect conflicts and determine the appropriate installation strategy.
+**Execute this analysis BEFORE any file operations.**
 
-### Step 0.1: Detect Current Configuration
-
-Run these commands to understand your current system:
+### 1.1 Run These Commands
 
 ```bash
-# 1. Check if PAI_DIR is set
-echo "PAI_DIR: ${PAI_DIR:-'NOT SET - will use ~/.config/pai'}"
+# Check for PAI directory
+PAI_CHECK="${PAI_DIR:-$HOME/.claude}"
+echo "PAI_DIR: $PAI_CHECK"
 
-# 2. Check for existing PAI directory
-PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
-if [ -d "$PAI_CHECK" ]; then
-  echo "⚠️  PAI directory EXISTS at: $PAI_CHECK"
-  echo "Contents:"
-  ls -la "$PAI_CHECK" 2>/dev/null || echo "  (empty or inaccessible)"
+# Check if pai-core-install is installed (REQUIRED)
+if [ -f "$PAI_CHECK/skills/CORE/SKILL.md" ]; then
+  echo "✓ pai-core-install is installed"
 else
-  echo "✓ PAI directory does not exist (clean install)"
+  echo "❌ pai-core-install NOT installed - REQUIRED!"
 fi
 
-# 3. Check for existing hooks directory
+# Check for existing hooks directory
 if [ -d "$PAI_CHECK/hooks" ]; then
-  echo "⚠️  Hooks directory EXISTS"
-  echo "Existing hooks:"
-  ls -la "$PAI_CHECK/hooks"/*.ts 2>/dev/null || echo "  (no .ts files)"
+  echo "⚠️  Existing hooks directory found at: $PAI_CHECK/hooks"
+  ls "$PAI_CHECK/hooks"/*.ts 2>/dev/null | head -10
 else
-  echo "✓ No existing hooks directory"
+  echo "✓ No existing hooks directory (clean install)"
 fi
 
-# 4. Check Claude settings for existing hooks
+# Check Claude settings for existing hooks
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 if [ -f "$CLAUDE_SETTINGS" ]; then
-  echo "Claude settings.json EXISTS"
   if grep -q '"hooks"' "$CLAUDE_SETTINGS" 2>/dev/null; then
-    echo "⚠️  Existing hooks configuration found:"
-    grep -A 20 '"hooks"' "$CLAUDE_SETTINGS" | head -25
+    echo "⚠️  Existing hooks configuration found in settings.json"
   else
     echo "✓ No hooks configured in settings.json"
   fi
@@ -75,163 +62,438 @@ else
   echo "✓ No Claude settings.json (will be created)"
 fi
 
-# 5. Check environment variables
+# Check for Bun runtime
+if command -v bun &> /dev/null; then
+  echo "✓ Bun is installed: $(bun --version)"
+else
+  echo "❌ Bun not installed - REQUIRED!"
+fi
+
+# Check environment variables
 echo ""
-echo "Environment variables:"
-echo "  DA: ${DA:-'NOT SET'}"
-echo "  TIME_ZONE: ${TIME_ZONE:-'NOT SET'}"
-echo "  PAI_SOURCE_APP: ${PAI_SOURCE_APP:-'NOT SET'}"
+echo "Environment Variables:"
+echo "  DA: ${DA:-'NOT SET (default: PAI)'}"
+echo "  TIME_ZONE: ${TIME_ZONE:-'NOT SET (default: system)'}"
 ```
 
-### Step 0.2: Conflict Resolution Matrix
+### 1.2 Present Findings
 
-Based on the detection above, follow the appropriate path:
+Tell the user what you found:
+```
+"Here's what I found on your system:
+- pai-core-install: [installed / NOT INSTALLED - REQUIRED]
+- Existing hooks directory: [Yes (N hooks) / No]
+- Claude settings.json: [has hooks / no hooks / doesn't exist]
+- Bun runtime: [installed vX.X / NOT INSTALLED - REQUIRED]
+- DA environment variable: [set / not set]"
+```
 
-| Scenario | Existing State | Action |
-|----------|---------------|--------|
-| **Clean Install** | No PAI_DIR, no hooks | Proceed normally with Step 1 |
-| **PAI Directory Exists** | Directory with files | Review files, backup if needed, then proceed |
-| **Hooks Exist** | Files in `$PAI_DIR/hooks/` | Merge new hooks alongside existing, or backup and replace |
-| **Claude Settings Has Hooks** | `settings.json` has hook config | **MERGE** - add new hooks to existing array |
-| **Environment Variables Set** | PAI_DIR, DA already defined | Use existing values or update in shell profile |
+**STOP if pai-core-install or Bun is not installed.** Tell the user:
+```
+"pai-core-install and Bun are required. Please install them first, then return to install this pack."
+```
 
-### Step 0.3: Backup Existing Configuration (If Needed)
+---
 
-If conflicts were detected, create a backup before proceeding:
+## Phase 2: User Questions
+
+**Use AskUserQuestion tool at each decision point.**
+
+### Question 1: Conflict Resolution (if existing hooks found)
+
+**Only ask if existing hooks directory detected:**
+
+```json
+{
+  "header": "Conflict",
+  "question": "Existing hooks detected. How should I proceed?",
+  "multiSelect": false,
+  "options": [
+    {"label": "Merge with existing (Recommended)", "description": "Adds new hooks alongside your existing hooks"},
+    {"label": "Backup and replace", "description": "Creates timestamped backup, then installs fresh"},
+    {"label": "Abort Installation", "description": "Cancel installation, keep existing"}
+  ]
+}
+```
+
+### Question 2: Environment Variables (if not set)
+
+**Only ask if DA or TIME_ZONE are not set:**
+
+```json
+{
+  "header": "Environment",
+  "question": "Environment variables not set. How should I configure them?",
+  "multiSelect": false,
+  "options": [
+    {"label": "Create .env file (Recommended)", "description": "Creates $PAI_DIR/.env with default values"},
+    {"label": "I'll set them in shell profile", "description": "Skip .env, set in ~/.zshrc or ~/.bashrc"},
+    {"label": "Use defaults", "description": "Continue with default values (DA=PAI)"}
+  ]
+}
+```
+
+### Question 3: Hook Selection
+
+```json
+{
+  "header": "Hooks",
+  "question": "Which hooks should I enable?",
+  "multiSelect": true,
+  "options": [
+    {"label": "Security Validator (Recommended)", "description": "Blocks dangerous bash commands"},
+    {"label": "Session Initializer (Recommended)", "description": "Sets up session context at start"},
+    {"label": "Core Context Loader (Recommended)", "description": "Loads CORE skill at session start"},
+    {"label": "Tab Title Updater", "description": "Updates terminal tab with task context"}
+  ]
+}
+```
+
+### Question 4: Final Confirmation
+
+```json
+{
+  "header": "Install",
+  "question": "Ready to install PAI Hook System v1.0.0?",
+  "multiSelect": false,
+  "options": [
+    {"label": "Yes, install now (Recommended)", "description": "Proceeds with installation using choices above"},
+    {"label": "Show me what will change", "description": "Lists all files that will be created/modified"},
+    {"label": "Cancel", "description": "Abort installation"}
+  ]
+}
+```
+
+---
+
+## Phase 3: Backup (If Needed)
+
+**Only execute if user chose "Backup and replace":**
 
 ```bash
-# Create timestamped backup
-BACKUP_DIR="$HOME/.pai-backup/$(date +%Y%m%d-%H%M%S)"
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+BACKUP_DIR="$PAI_DIR/Backups/hook-system-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
-# Backup PAI directory if exists
-PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
-if [ -d "$PAI_CHECK" ]; then
-  cp -r "$PAI_CHECK" "$BACKUP_DIR/pai"
-  echo "✓ Backed up PAI directory to $BACKUP_DIR/pai"
-fi
+# Backup hooks directory
+[ -d "$PAI_DIR/hooks" ] && cp -r "$PAI_DIR/hooks" "$BACKUP_DIR/"
 
-# Backup Claude settings if exists
-if [ -f "$HOME/.claude/settings.json" ]; then
-  cp "$HOME/.claude/settings.json" "$BACKUP_DIR/settings.json"
-  echo "✓ Backed up settings.json to $BACKUP_DIR/settings.json"
-fi
+# Backup settings.json
+[ -f "$HOME/.claude/settings.json" ] && cp "$HOME/.claude/settings.json" "$BACKUP_DIR/"
 
-echo "Backup complete: $BACKUP_DIR"
+echo "Backup created at: $BACKUP_DIR"
 ```
 
-### Step 0.4: Set Required Environment Variables
+---
 
-**If you used the Kai Bundle wizard:** Environment variables are already configured in `$PAI_DIR/.env` - skip to Step 1.
+## Phase 4: Installation
 
-**For manual installation:** Configure these in your shell profile (`~/.zshrc` or `~/.bashrc`):
+**Create a TodoWrite list to track progress:**
 
-```bash
-# Add to your shell profile
-export PAI_DIR="${HOME}/.config/pai"
-export DA="PAI"  # Your AI assistant name
-export TIME_ZONE="America/Los_Angeles"  # Your timezone
-export PAI_SOURCE_APP="${DA}"
-
-# Reload your shell
-source ~/.zshrc  # or ~/.bashrc
+```json
+{
+  "todos": [
+    {"content": "Create hooks directory structure", "status": "pending", "activeForm": "Creating directory structure"},
+    {"content": "Copy hook files from pack", "status": "pending", "activeForm": "Copying hook files"},
+    {"content": "Copy library files from pack", "status": "pending", "activeForm": "Copying library files"},
+    {"content": "Set up environment variables", "status": "pending", "activeForm": "Setting up environment"},
+    {"content": "Register hooks in settings.json", "status": "pending", "activeForm": "Registering hooks"},
+    {"content": "Run verification", "status": "pending", "activeForm": "Running verification"}
+  ]
+}
 ```
 
-**Alternative:** Create a `.env` file in your PAI directory:
+### 4.1 Create Hooks Directory Structure
+
+**Mark todo "Create hooks directory structure" as in_progress.**
 
 ```bash
-# $PAI_DIR/.env
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+mkdir -p "$PAI_DIR/hooks/lib"
+```
+
+**Mark todo as completed.**
+
+### 4.2 Copy Hook Files
+
+**Mark todo "Copy hook files from pack" as in_progress.**
+
+Copy hook files from the pack's `src/` directory:
+
+```bash
+# From the pack directory (where this INSTALL.md is located)
+PACK_DIR="$(pwd)"
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+cp "$PACK_DIR/src/security-validator.ts" "$PAI_DIR/hooks/"
+cp "$PACK_DIR/src/initialize-session.ts" "$PAI_DIR/hooks/"
+cp "$PACK_DIR/src/load-core-context.ts" "$PAI_DIR/hooks/"
+cp "$PACK_DIR/src/update-tab-titles.ts" "$PAI_DIR/hooks/"
+```
+
+**Files copied:**
+- `security-validator.ts` - Blocks dangerous bash commands (PreToolUse)
+- `initialize-session.ts` - Sets up session context (SessionStart)
+- `load-core-context.ts` - Loads CORE skill context (SessionStart)
+- `update-tab-titles.ts` - Updates terminal tab title (UserPromptSubmit)
+
+**Mark todo as completed.**
+
+### 4.3 Copy Library Files
+
+**Mark todo "Copy library files from pack" as in_progress.**
+
+```bash
+PACK_DIR="$(pwd)"
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+cp "$PACK_DIR/src/lib/observability.ts" "$PAI_DIR/hooks/lib/"
+```
+
+**Mark todo as completed.**
+
+### 4.4 Set Up Environment Variables (If User Chose Yes)
+
+**Mark todo "Set up environment variables" as in_progress.**
+
+**Only execute if user chose to create .env file:**
+
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+# Create .env if it doesn't exist
+if [ ! -f "$PAI_DIR/.env" ]; then
+  cat > "$PAI_DIR/.env" << 'EOF'
+# PAI Hook System Configuration
 DA="PAI"
-PAI_DIR="${HOME}/.config/pai"
+PAI_DIR="${HOME}/.claude"
 TIME_ZONE="America/Los_Angeles"
+PAI_SOURCE_APP="${DA}"
+EOF
+  echo "Created $PAI_DIR/.env"
+else
+  echo ".env already exists at $PAI_DIR/.env"
+fi
 ```
 
----
-
-## Step 1: Create Directory Structure
-
-```bash
-# Create required directories
-mkdir -p $PAI_DIR/hooks/lib
-
-# Verify structure
-ls -la $PAI_DIR/hooks/
+Tell the user:
+```
+"Created .env at $PAI_DIR/.env
+You can customize:
+- DA - Your AI assistant name (default: PAI)
+- TIME_ZONE - Your timezone
+- PAI_SOURCE_APP - Source app identifier"
 ```
 
----
+**Mark todo as completed (or skip if user declined).**
 
-## Step 2: Install Source Files
+### 4.5 Register Hooks in settings.json
 
-Copy all TypeScript files from this pack's `src/` directory to your hooks directory:
+**Mark todo "Register hooks in settings.json" as in_progress.**
 
-```bash
-# Copy hook files
-cp src/security-validator.ts $PAI_DIR/hooks/
-cp src/initialize-session.ts $PAI_DIR/hooks/
-cp src/load-core-context.ts $PAI_DIR/hooks/
-cp src/update-tab-titles.ts $PAI_DIR/hooks/
-
-# Copy library files
-cp src/lib/observability.ts $PAI_DIR/hooks/lib/
-
-# Verify all files are in place
-ls -la $PAI_DIR/hooks/*.ts
-ls -la $PAI_DIR/hooks/lib/*.ts
-```
-
----
-
-## Step 3: Register Hooks in settings.json
-
-Claude Code looks for settings in `~/.claude/settings.json`. The hook configuration template is in `config/settings-hooks.json`.
+Read the hook configuration from `config/settings-hooks.json` and merge it into `~/.claude/settings.json`.
 
 **For new installations:**
-
 ```bash
 # If no settings.json exists, copy the template
-cp config/settings-hooks.json ~/.claude/settings.json
+mkdir -p ~/.claude
+cp "$PACK_DIR/config/settings-hooks.json" ~/.claude/settings.json
 ```
 
 **For existing installations:**
+Merge the hooks section from `config/settings-hooks.json` into the existing `~/.claude/settings.json`. Preserve existing hooks.
 
-Merge the hooks section from `config/settings-hooks.json` into your existing `~/.claude/settings.json`. The hooks section should look like:
+**Mark todo as completed.**
+
+---
+
+## Phase 5: Verification
+
+**Mark todo "Run verification" as in_progress.**
+
+**Execute all checks from VERIFY.md:**
+
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+echo "=== PAI Hook System Verification ==="
+
+# Check hook files
+echo "Checking hook files..."
+[ -f "$PAI_DIR/hooks/security-validator.ts" ] && echo "✓ security-validator.ts" || echo "❌ security-validator.ts missing"
+[ -f "$PAI_DIR/hooks/initialize-session.ts" ] && echo "✓ initialize-session.ts" || echo "❌ initialize-session.ts missing"
+[ -f "$PAI_DIR/hooks/load-core-context.ts" ] && echo "✓ load-core-context.ts" || echo "❌ load-core-context.ts missing"
+[ -f "$PAI_DIR/hooks/update-tab-titles.ts" ] && echo "✓ update-tab-titles.ts" || echo "❌ update-tab-titles.ts missing"
+
+# Check library files
+echo ""
+echo "Checking library files..."
+[ -f "$PAI_DIR/hooks/lib/observability.ts" ] && echo "✓ observability.ts" || echo "❌ observability.ts missing"
+
+# Check settings.json
+echo ""
+echo "Checking settings.json..."
+if [ -f ~/.claude/settings.json ]; then
+  if grep -q '"hooks"' ~/.claude/settings.json; then
+    echo "✓ Hooks section exists in settings.json"
+    if grep -q "security-validator" ~/.claude/settings.json; then
+      echo "✓ Security validator registered"
+    fi
+    if grep -q "initialize-session" ~/.claude/settings.json; then
+      echo "✓ Initialize session registered"
+    fi
+    if grep -q "load-core-context" ~/.claude/settings.json; then
+      echo "✓ Load core context registered"
+    fi
+  else
+    echo "❌ Hooks section missing from settings.json"
+  fi
+else
+  echo "❌ settings.json not found"
+fi
+
+echo "=== Verification Complete ==="
+```
+
+**Mark todo as completed when all checks pass.**
+
+Tell the user:
+```
+"Hooks are loaded when Claude Code starts. Please restart Claude Code to activate the hooks."
+```
+
+---
+
+## Success/Failure Messages
+
+### On Success
+
+```
+"PAI Hook System v1.0.0 installed successfully!
+
+What's available:
+- Security Validator - Blocks dangerous bash commands
+- Session Initializer - Sets up context at session start
+- Core Context Loader - Loads CORE skill automatically
+- Tab Title Updater - Shows task context in terminal tab
+
+The hooks fire automatically on the appropriate events.
+
+**Important:** Restart Claude Code to activate the hooks."
+```
+
+### On Failure
+
+```
+"Installation encountered issues. Here's what to check:
+
+1. Ensure pai-core-install is installed first
+2. Verify Bun is installed: `bun --version`
+3. Check directory permissions on $PAI_DIR/
+4. Verify hooks are registered in ~/.claude/settings.json
+5. Run the verification commands in VERIFY.md
+
+Need help? Check the Troubleshooting section below."
+```
+
+---
+
+## Troubleshooting
+
+### "pai-core-install not found"
+
+This pack requires pai-core-install. Install it first:
+```
+Give the AI the pai-core-install pack directory and ask it to install.
+```
+
+### "bun: command not found"
+
+```bash
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
+# Restart terminal or source ~/.bashrc
+```
+
+### Hooks not firing
+
+```bash
+# Check hooks are registered
+grep -A 30 '"hooks"' ~/.claude/settings.json
+
+# Verify file paths use $PAI_DIR correctly
+echo "PAI_DIR is: $PAI_DIR"
+
+# Restart Claude Code to reload hooks
+# Hooks are only loaded at startup
+```
+
+### Security validator blocking valid commands
+
+```bash
+# Review attack patterns in security-validator.ts
+cat $PAI_DIR/hooks/security-validator.ts | grep -A 5 "ATTACK_PATTERNS"
+
+# Adjust patterns or add exceptions as needed
+```
+
+### Tab titles not updating
+
+```bash
+# Check terminal supports OSC escape sequences
+# Most modern terminals (iTerm2, Hyper, etc.) support this
+
+# Verify the UserPromptSubmit hook is registered
+grep "update-tab-titles" ~/.claude/settings.json
+```
+
+---
+
+## What's Included
+
+| File | Purpose |
+|------|---------|
+| `security-validator.ts` | PreToolUse - blocks dangerous bash commands |
+| `initialize-session.ts` | SessionStart - sets up session context |
+| `load-core-context.ts` | SessionStart - loads CORE skill |
+| `update-tab-titles.ts` | UserPromptSubmit - updates terminal tab |
+| `lib/observability.ts` | Shared logging and event utilities |
+
+---
+
+## Usage
+
+### Automatic Behavior
+
+Hooks fire automatically on their respective events:
+- **SessionStart**: Context is loaded, session initialized
+- **PreToolUse (Bash)**: Commands are validated before execution
+- **UserPromptSubmit**: Terminal tab title is updated
+
+### Hook Events
+
+| Event | When | Hooks |
+|-------|------|-------|
+| `SessionStart` | Claude Code starts | initialize-session, load-core-context |
+| `PreToolUse` | Before tool execution | security-validator (Bash only) |
+| `PostToolUse` | After tool execution | (extensible) |
+| `UserPromptSubmit` | User sends message | update-tab-titles |
+| `Stop` | Session ends | (extensible) |
+
+### Adding Custom Hooks
+
+Create a new `.ts` file in `$PAI_DIR/hooks/` and register it in `~/.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "SessionStart": [
+    "PostToolUse": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/initialize-session.ts"
-          },
-          {
-            "type": "command",
-            "command": "bun run $PAI_DIR/hooks/load-core-context.ts"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun run $PAI_DIR/hooks/security-validator.ts"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun run $PAI_DIR/hooks/update-tab-titles.ts"
+            "command": "bun run $PAI_DIR/hooks/my-custom-hook.ts"
           }
         ]
       }
@@ -239,51 +501,3 @@ Merge the hooks section from `config/settings-hooks.json` into your existing `~/
   }
 }
 ```
-
----
-
-## Step 4: Restart Claude Code
-
-Hooks are only loaded when Claude Code starts. Restart Claude Code to activate the new hooks.
-
----
-
-## Installation Verification
-
-After completing installation, run the verification steps in [VERIFY.md](VERIFY.md).
-
----
-
-## Troubleshooting
-
-### Hooks not firing
-
-1. Check that hooks are registered in `~/.claude/settings.json`
-2. Verify file paths use `$PAI_DIR` correctly
-3. Restart Claude Code after changes
-
-### Security validator blocking valid commands
-
-1. Review the attack patterns in `security-validator.ts`
-2. Adjust patterns or action levels as needed
-3. Add exceptions for your specific workflow
-
-### Tab titles not updating
-
-1. Check that your terminal supports OSC escape sequences
-2. Verify the UserPromptSubmit hook is registered
-3. Check for errors in the hook output
-
----
-
-## Anti-Simplification Directive
-
-**CRITICAL FOR AI AGENTS:**
-
-This installation MUST be completed EXACTLY as specified. DO NOT:
-- Skip any files
-- Summarize or simplify code
-- Modify file paths
-- Skip verification steps
-
-After installation, you MUST complete the verification checklist in [VERIFY.md](VERIFY.md).

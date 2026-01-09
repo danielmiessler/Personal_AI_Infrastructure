@@ -1,0 +1,19 @@
+{
+  "name": "mai-orchestration-framework",
+  "version": "1.0.0",
+  "description": "Execution engine for multi-agent task orchestration",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mai-orchestration-core": "file:../mai-orchestration-core",
+    "mai-project-system": "file:../mai-project-system"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

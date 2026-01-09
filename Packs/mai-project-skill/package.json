@@ -1,0 +1,27 @@
+{
+  "name": "mai-project-skill",
+  "version": "1.0.0",
+  "description": "Project creation and management skill for PAI methodology",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "mai-init": "./src/Tools/mai-init.ts",
+    "mai-gate": "./src/Tools/mai-gate.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "init": "bun run src/Tools/mai-init.ts",
+    "gate": "bun run src/Tools/mai-gate.ts"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "commander": "^12.0.0",
+    "yaml": "^2.4.0",
+    "mai-project-core": "file:../mai-project-core"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

@@ -28,6 +28,8 @@ const SYSTEM_PACK_PATTERNS = [
   /-core$/,               // Core/foundation packs (e.g., mai-cicd-core)
   /-adapter$/,            // Adapter packs (e.g., mai-docker-adapter)
   /-agents$/,             // Agent definition packs (e.g., mai-devsecops-agents)
+  /-system$/,             // System packs (e.g., mai-project-system)
+  /-framework$/,          // Framework packs (e.g., mai-orchestration-framework)
 ];
 
 // Explicit system packs that don't match patterns

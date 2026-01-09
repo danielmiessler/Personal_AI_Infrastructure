@@ -9,11 +9,11 @@ Portable secrets management across multiple backends.
 
 ## Workflow Routing
 
-| Workflow | When to Use | Output |
-|----------|-------------|--------|
-| GetSecret | Retrieve a single secret by key | Secret value (revealed) |
-| ListSecrets | List available secret keys | Array of key names |
-| CheckHealth | Verify secrets provider connectivity | Health status |
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| GetSecret | Retrieve a single secret by key | `Workflows/GetSecret.md` |
+| ListSecrets | List available secret keys | `Workflows/ListSecrets.md` |
+| CheckHealth | Verify secrets provider connectivity | `Workflows/CheckHealth.md` |
 
 ## Examples
 
@@ -76,7 +76,7 @@ bun run Tools/health.ts --adapter keychain
 
 ## Configuration
 
-Configure in `~/.config/kai/providers.yaml`:
+Configure in `~/.config/mai/providers.yaml`:
 
 ```yaml
 domains:

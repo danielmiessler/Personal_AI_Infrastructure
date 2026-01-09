@@ -9,13 +9,13 @@ Unified issue tracking across multiple backends. Works with Joplin (personal tas
 
 ## Workflow Routing
 
-| Workflow | When to Use | Output |
-|----------|-------------|--------|
-| CreateIssue | "create task", "new issue", "add bug" | Created issue |
-| ListIssues | "my tasks", "open issues", "show backlog" | Issue list |
-| UpdateIssue | "complete task", "close issue", "change priority" | Updated issue |
-| SearchIssues | "find issues about X", "search tasks" | Search results |
-| ProjectOverview | "project status", "sprint progress" | Project summary |
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| CreateIssue | "create task", "new issue", "add bug" | `Workflows/CreateIssue.md` |
+| ListIssues | "my tasks", "open issues", "show backlog" | `Workflows/ListIssues.md` |
+| UpdateIssue | "complete task", "close issue", "change priority" | `Workflows/UpdateIssue.md` |
+| SearchIssues | "find issues about X", "search tasks" | `Workflows/SearchIssues.md` |
+| ProjectOverview | "project status", "sprint progress" | `Workflows/ProjectOverview.md` |
 
 ## CLI Tools
 

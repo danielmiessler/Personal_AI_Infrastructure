@@ -9,13 +9,13 @@ Unified CI/CD management across multiple providers. Works with GitHub Actions, G
 
 ## Workflow Routing
 
-| Workflow | When to Use | Output |
-|----------|-------------|--------|
-| ListRuns | "recent builds", "pipeline status", "what's running" | Run list |
-| TriggerPipeline | "run tests", "deploy to staging", "trigger build" | Triggered run |
-| ViewLogs | "show build logs", "why did it fail", "job output" | Job logs |
-| PipelineOverview | "all pipelines", "available workflows" | Pipeline list |
-| DownloadArtifacts | "get build artifact", "download output" | Artifact data |
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| ListRuns | "recent builds", "pipeline status", "what's running" | `Workflows/ListRuns.md` |
+| TriggerPipeline | "run tests", "deploy to staging", "trigger build" | `Workflows/TriggerPipeline.md` |
+| ViewLogs | "show build logs", "why did it fail", "job output" | `Workflows/ViewLogs.md` |
+| PipelineOverview | "all pipelines", "available workflows" | `Workflows/PipelineOverview.md` |
+| DownloadArtifacts | "get build artifact", "download output" | `Workflows/DownloadArtifacts.md` |
 
 ## CLI Tools
 

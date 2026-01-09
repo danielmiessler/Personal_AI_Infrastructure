@@ -153,13 +153,13 @@ bun run Tools/Issues.ts list "myorg/backend/api"
 
 ## Workflow Routing
 
-| Workflow | Trigger | Description |
-|----------|---------|-------------|
-| **CodeReview** | "review MR", "check pipeline", "approve" | Review merge requests and pipelines |
-| **IssueTracking** | "create issue", "list bugs", "close issue" | Manage issues and comments |
-| **CIDebugging** | "why did build fail", "job logs", "retry" | Debug CI/CD failures |
-| **BranchOps** | "create branch", "compare branches", "protect" | Branch management |
-| **ReleaseMgmt** | "trigger pipeline", "deploy", "schedule" | Release and deployment |
+| Workflow | Trigger | Reference |
+|----------|---------|-----------|
+| CodeReview | "review MR", "check pipeline", "approve" | `Workflows/CodeReview.md` |
+| IssueTracking | "create issue", "list bugs", "close issue" | `Workflows/IssueTracking.md` |
+| CIDebugging | "why did build fail", "job logs", "retry" | `Workflows/CIDebugging.md` |
+| BranchOps | "create branch", "compare branches", "protect" | `Workflows/BranchOps.md` |
+| ReleaseMgmt | "trigger pipeline", "deploy", "schedule" | `Workflows/ReleaseMgmt.md` |
 
 ---
 

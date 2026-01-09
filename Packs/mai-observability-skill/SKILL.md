@@ -9,13 +9,13 @@ Unified metrics and alerting across monitoring platforms. Works with Prometheus 
 
 ## Workflow Routing
 
-| Workflow | When to Use | Output |
-|----------|-------------|--------|
-| QueryMetrics | "show CPU usage", "memory over time", "query up" | Metric data |
-| ListAlerts | "active alerts", "what's firing?", "any warnings?" | Alert list |
-| AlertStatus | "is X alerting?", "check high memory alert" | Alert details |
-| TargetHealth | "what's down?", "scrape targets", "endpoint health" | Target list |
-| MetricExplore | "what metrics exist?", "list labels", "available metrics" | Metric metadata |
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| QueryMetrics | "show CPU usage", "memory over time", "query up" | `Workflows/QueryMetrics.md` |
+| ListAlerts | "active alerts", "what's firing?", "any warnings?" | `Workflows/ListAlerts.md` |
+| AlertStatus | "is X alerting?", "check high memory alert" | `Workflows/AlertStatus.md` |
+| TargetHealth | "what's down?", "scrape targets", "endpoint health" | `Workflows/TargetHealth.md` |
+| MetricExplore | "what metrics exist?", "list labels", "available metrics" | `Workflows/MetricExplore.md` |
 
 ## CLI Tools
 

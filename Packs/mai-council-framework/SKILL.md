@@ -20,11 +20,11 @@ Use the Council Framework when you need:
 
 ## Workflow Routing
 
-| Workflow | When to Use | Output |
-|----------|-------------|--------|
-| runCouncil | Complex decision needing multiple perspectives | Synthesized decision from agent discussion |
-| selectRoster | Determine which agents should participate | Agent list with relevance scores |
-| synthesize | Combine agent perspectives into consensus | Actionable decision with rationale |
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| RunCouncil | Complex decision needing multiple perspectives | `Workflows/RunCouncil.md` |
+| SelectRoster | Determine which agents should participate | `Workflows/SelectRoster.md` |
+| Synthesize | Combine agent perspectives into consensus | `Workflows/Synthesize.md` |
 
 ## API
 

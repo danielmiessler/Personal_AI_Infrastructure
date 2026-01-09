@@ -12,6 +12,15 @@ This pack provides three security scanning tools designed for both local develop
 2. **SecretsScan** - Detects leaked secrets and credentials in source code
 3. **SbomGenerator** - Generates Software Bill of Materials (CycloneDX/SPDX)
 
+## Workflow Routing
+
+| Workflow | When to Use | Reference |
+|----------|-------------|-----------|
+| DependencyScan | "scan dependencies", "check CVEs", "audit vulnerabilities" | `Workflows/DependencyScan.md` |
+| SecretsScan | "find secrets", "detect leaked credentials", "scan for keys" | `Workflows/SecretsScan.md` |
+| GenerateSBOM | "create SBOM", "software bill of materials", "compliance report" | `Workflows/GenerateSBOM.md` |
+| FullSecurityAudit | "full security scan", "run all checks", "security audit" | `Workflows/FullSecurityAudit.md` |
+
 ## Tools
 
 ### DependencyAudit.ts

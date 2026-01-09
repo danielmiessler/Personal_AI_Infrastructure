@@ -1,0 +1,18 @@
+{
+  "name": "jai-publishing-core",
+  "version": "1.0.0",
+  "description": "Core infrastructure for affiliate website publishing",
+  "type": "module",
+  "scripts": {
+    "calendar": "bun run Tools/Calendar.ts",
+    "keywords": "bun run Tools/KeywordQueue.ts",
+    "seo": "bun run Tools/SeoChecker.ts"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3"
+  }
+}

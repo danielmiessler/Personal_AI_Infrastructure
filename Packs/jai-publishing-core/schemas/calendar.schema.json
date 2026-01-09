@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pai.barkley.dev/schemas/calendar.schema.json",
+  "title": "Content Calendar",
+  "description": "Schema for the content calendar data file (content-calendar.json)",
+  "type": "object",
+  "required": ["site", "entries", "lastUpdated"],
+  "properties": {
+    "site": {
+      "type": "string",
+      "description": "Site identifier (e.g., 'pispy', 'pg101')"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of last update"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CalendarEntry"
+      }
+    }
+  },
+  "$defs": {
+    "CalendarEntry": {
+      "type": "object",
+      "required": ["id", "title", "scheduledDate", "status", "site"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^cal-\\d{8}-[a-z0-9]{4}$",
+          "description": "Unique calendar entry ID"
+        },
+        "title": {
+          "type": "string",
+          "description": "Article title"
+        },
+        "keywordId": {
+          "type": "string",
+          "description": "Link to keyword queue entry"
+        },
+        "scheduledDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Scheduled publish date (YYYY-MM-DD)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "scheduled", "published", "failed"],
+          "description": "Current status"
+        },
+        "articlePath": {
+          "type": "string",
+          "description": "Path to generated article file"
+        },
+        "site": {
+          "type": "string",
+          "description": "Site identifier"
+        }
+      }
+    }
+  }
+}

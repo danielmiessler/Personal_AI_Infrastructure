@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pai.barkley.dev/schemas/products.schema.json",
+  "title": "Amazon Products",
+  "description": "Schema for Amazon product data",
+  "type": "object",
+  "$defs": {
+    "AmazonProduct": {
+      "type": "object",
+      "required": ["asin", "title", "price", "available"],
+      "properties": {
+        "asin": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{10}$",
+          "description": "Amazon Standard Identification Number"
+        },
+        "title": {
+          "type": "string",
+          "description": "Product title from Amazon"
+        },
+        "price": {
+          "type": "string",
+          "description": "Formatted price (e.g., '$49.99')"
+        },
+        "rating": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Average star rating"
+        },
+        "reviewCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of reviews"
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Primary product image URL"
+        },
+        "variantImages": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" },
+          "description": "Additional product images"
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Product feature bullet points"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category"
+        },
+        "available": {
+          "type": "boolean",
+          "description": "Whether product is currently available"
+        },
+        "lastChecked": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When product data was last verified"
+        }
+      }
+    },
+    "ProductSearchResult": {
+      "type": "object",
+      "required": ["query", "products", "timestamp"],
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query used"
+        },
+        "products": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AmazonProduct" }
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "totalResults": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

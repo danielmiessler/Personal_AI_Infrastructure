@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pai.barkley.dev/schemas/keywords.schema.json",
+  "title": "Keyword Queue",
+  "description": "Schema for the keyword queue data file (keywords.json)",
+  "type": "object",
+  "required": ["site", "keywords", "lastUpdated"],
+  "properties": {
+    "site": {
+      "type": "string",
+      "description": "Site identifier (e.g., 'pispy', 'pg101')"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of last update"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KeywordEntry"
+      }
+    }
+  },
+  "$defs": {
+    "KeywordEntry": {
+      "type": "object",
+      "required": ["id", "keywords", "topic", "priority", "status", "added", "source"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^kw-\\d{4}-\\d{2}-\\d{2}-\\d{3}$",
+          "description": "Unique keyword ID (format: kw-YYYY-MM-DD-NNN)"
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Primary keyword first, then related/secondary keywords"
+        },
+        "topic": {
+          "type": "string",
+          "description": "Article topic description"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Priority score (1 = highest, 10 = lowest)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "completed", "failed"],
+          "description": "Current processing status"
+        },
+        "added": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp when added to queue"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["manual", "discovery_pipeline", "google_trends", "autocomplete", "llm"],
+          "description": "How this keyword was discovered"
+        },
+        "seasonal": {
+          "type": "object",
+          "properties": {
+            "event": { "type": "string" },
+            "eventDate": { "type": "string", "format": "date" },
+            "publishDeadline": { "type": "string", "format": "date" }
+          },
+          "required": ["event", "eventDate", "publishDeadline"]
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "searchVolume": { "type": "integer" },
+            "competition": { "type": "string", "enum": ["low", "medium", "high"] },
+            "trendDirection": { "type": "string", "enum": ["rising", "stable", "falling"] }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+# JAI Trading Analysis - GitLab CI/CD Scheduled Jobs
+#
+# These jobs are designed to run on a local GitLab runner (shell executor)
+# using schedule triggers configured in GitLab CI/CD settings.
+#
+# Required GitLab CI/CD Variables (Settings → CI/CD → Variables):
+#   - FINNHUB_API_KEY
+#   - ALPACA_API_KEY
+#   - ALPACA_SECRET_KEY
+#   - DISCORD_WEBHOOK_URL
+#
+# GitLab Schedule Configuration (CI/CD → Schedules):
+#   - Morning Brief: Cron "0 7 * * 1-5" (Weekdays 7:00 AM)
+#   - Market Open Check: Cron "30 9 * * 1-5" (Weekdays 9:30 AM)
+#   - Midday Check: Cron "0 12 * * 1-5" (Weekdays 12:00 PM)
+#   - Market Close Check: Cron "0 16 * * 1-5" (Weekdays 4:00 PM)
+
+stages:
+  - brief
+  - monitor
+  - health
+
+# ==============================================================================
+# Global Configuration
+# ==============================================================================
+
+variables:
+  # Prevent Git operations during jobs
+  GIT_STRATEGY: fetch
+  # Use bun runtime
+  BUN_INSTALL: "~/.bun"
+
+# Default configuration for all jobs
+default:
+  tags:
+    - vps-runner
+    - jai
+  before_script:
+    # Export environment variables from GitLab CI/CD variables
+    - export FINNHUB_API_KEY="${FINNHUB_API_KEY}"
+    - export ALPACA_API_KEY="${ALPACA_API_KEY}"
+    - export ALPACA_SECRET_KEY="${ALPACA_SECRET_KEY}"
+    - export DISCORD_WEBHOOK_URL="${DISCORD_WEBHOOK_URL}"
+    # Ensure bun is available
+    - export PATH="$BUN_INSTALL/bin:$PATH"
+
+# ==============================================================================
+# Morning Brief Job
+# ==============================================================================
+# Sends daily portfolio brief to Discord
+# Schedule: Weekdays at 7:00 AM (before market open)
+
+morning-brief:
+  stage: brief
+  rules:
+    # Only run on schedule (not on push/merge)
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "morning_brief"
+    # Allow manual trigger for testing
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+  script:
+    - echo "Generating morning brief..."
+    - cd /Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis
+    - ./src/cli/jsa.ts brief --send
+  timeout: 5m
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - api_failure
+
+# ==============================================================================
+# Portfolio Check Jobs
+# ==============================================================================
+# Checks portfolio for alerts during market hours
+# Schedule: Market open (9:30 AM), Midday (12:00 PM), Market close (4:00 PM)
+
+portfolio-check:
+  stage: monitor
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "portfolio_check"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+  script:
+    - echo "Checking portfolio for alerts..."
+    - cd /Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis
+    - |
+      # Run portfolio check and capture alerts
+      OUTPUT=$(./src/cli/jsa.ts portfolio --json)
+
+      # Check for compliance violations
+      VIOLATIONS=$(echo "$OUTPUT" | jq '.compliance | to_entries | map(select(.value == true and .key | endswith("Violation"))) | length')
+
+      if [ "$VIOLATIONS" -gt 0 ]; then
+        echo "Compliance violations detected, sending alert..."
+        # Send alert via brief command (includes alerts)
+        ./src/cli/jsa.ts brief --send
+      else
+        echo "No compliance violations. Portfolio healthy."
+      fi
+  timeout: 5m
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+
+# ==============================================================================
+# Health Check Job
+# ==============================================================================
+# Verifies system is operational (can be used for monitoring)
+
+health-check:
+  stage: health
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "health_check"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+  script:
+    - echo "Running health check..."
+    - cd /Users/jbarkley/src/pai/Personal_AI_Infrastructure/Packs/jai-trading-analysis
+    - |
+      # Verify API connectivity
+      ./src/cli/jsa.ts analyze AAPL --json > /dev/null 2>&1
+      if [ $? -eq 0 ]; then
+        echo "API connectivity: OK"
+      else
+        echo "API connectivity: FAILED"
+        exit 1
+      fi
+
+      # Verify positions file exists
+      if [ -f ~/.config/jai/positions.json ]; then
+        echo "Positions file: OK"
+      else
+        echo "Positions file: MISSING"
+        exit 1
+      fi
+
+      echo "Health check passed"
+  timeout: 2m

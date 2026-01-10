@@ -1,0 +1,17 @@
+{
+  "name": "jai-agents-investing",
+  "version": "1.0.0",
+  "description": "Investment council agents for JAI trading system",
+  "type": "module",
+  "exports": {
+    "./Agents/*": "./Agents/*.md"
+  },
+  "keywords": [
+    "pai",
+    "jai",
+    "investing",
+    "agents",
+    "council"
+  ],
+  "author": "Joey Barkley"
+}

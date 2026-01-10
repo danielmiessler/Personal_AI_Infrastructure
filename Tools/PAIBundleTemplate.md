@@ -38,10 +38,10 @@ Bundles/
 ```yaml
 ---
 # name: (24 words max) Human-readable bundle name
-name: The Official PAI (Kai) Bundle
+name: The Official PAI Bundle
 
 # bundle-id: (format) {author}-{bundle-name}-v{version}
-bundle-id: danielmiessler-kai-bundle-v1.0.0
+bundle-id: danielmiessler-pai-bundle-v1.0.0
 
 # version: (format) SemVer major.minor.patch
 version: 1.0.0

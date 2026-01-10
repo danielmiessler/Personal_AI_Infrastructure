@@ -1,0 +1,16 @@
+{
+  "name": "@pai/browser-skill",
+  "version": "1.2.0",
+  "description": "Debug-first browser automation with always-on visibility",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0"
+  }
+}

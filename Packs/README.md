@@ -56,12 +56,42 @@ The directory structure provides:
 - **Clear separation** - README for context, INSTALL for steps, VERIFY for validation
 - **Verbatim copying** - AI agents copy actual files instead of extracting from markdown
 
-### AI Installation Flow
+### AI Installation Flow (Wizard-Style)
 
-When installing a pack:
-1. AI reads `README.md` for context and architecture understanding
-2. AI follows `INSTALL.md` step-by-step, copying files from `src/` to `$PAI_DIR/`
-3. AI completes `VERIFY.md` checklist to confirm success
+Packs use **wizard-style installation** that leverages Claude Code's native tools:
+
+```
+Phase 1: System Analysis
+├── Run detection commands
+├── Check prerequisites
+├── Find conflicts
+└── Present findings to user
+
+Phase 2: User Questions (AskUserQuestion)
+├── Q1: Handle missing prerequisites
+├── Q2: Resolve conflicts (if any)
+├── Q3: Optional features (if any)
+└── Q4: Final confirmation
+
+Phase 3: Backup (if needed)
+└── Create timestamped backup
+
+Phase 4: Installation (TodoWrite for progress)
+├── Create directories
+├── Copy files from src/
+├── Install dependencies
+└── Pack-specific steps
+
+Phase 5: Verification
+└── Run all VERIFY.md checks
+```
+
+**Key tools used:**
+- **AskUserQuestion** - For user decisions at each decision point
+- **TodoWrite** - For progress tracking (user sees what's happening)
+- **VERIFY.md** - For validation (all checks must pass)
+
+See `Tools/InstallTemplate.md` for the complete INSTALL.md template.
 
 ---
 
@@ -138,15 +168,16 @@ PAI System
 
 | Pack | Version | Category | Description |
 |------|---------|----------|-------------|
-| [**kai-hook-system**](kai-hook-system/) | 1.0.0 | Foundation | Event-driven automation framework - the foundation for all hook-based capabilities |
-| [**kai-history-system**](kai-history-system/) | 1.0.0 | Infrastructure | Granular context-tracking that captures all work, decisions, and learnings automatically |
-| [**kai-core-install**](kai-core-install/) | 1.0.0 | Core | Skills + Identity + Architecture - the complete foundation with routing, response format, and tracking |
-| [**kai-voice-system**](kai-voice-system/) | 1.1.0 | Notifications | Voice notifications with ElevenLabs TTS and prosody enhancement for natural speech |
-| [**kai-observability-server**](kai-observability-server/) | 1.0.0 | Observability | Real-time multi-agent monitoring dashboard with WebSocket streaming |
-| [**kai-art-skill**](kai-art-skill/) | 1.0.0 | Creativity | Visual content generation with Excalidraw hand-drawn aesthetic - diagrams, comics, illustrations |
-| [**kai-agents-skill**](kai-agents-skill/) | 1.0.0 | Delegation | Dynamic agent composition - create custom agents with unique personalities, voices, and trait combinations |
-| [**kai-prompting-skill**](kai-prompting-skill/) | 1.0.0 | Methodology | Meta-prompting system with Handlebars templates, Claude 4.x best practices, and the Ultimate Prompt Template |
-| [**kai-browser-skill**](kai-browser-skill/) | 1.0.0 | Automation | Code-first browser automation with Playwright - 99% token savings over MCP, screenshots, verification, web testing |
+| [**pai-hook-system**](pai-hook-system/) | 1.0.0 | Foundation | Event-driven automation framework - the foundation for all hook-based capabilities |
+| [**pai-history-system**](pai-history-system/) | 1.0.0 | Infrastructure | Granular context-tracking that captures all work, decisions, and learnings automatically |
+| [**pai-core-install**](pai-core-install/) | 1.2.0 | Core | Skills + Identity + Architecture - the complete foundation with routing, response format, and tracking |
+| [**pai-voice-system**](pai-voice-system/) | 1.1.0 | Notifications | Voice notifications with ElevenLabs TTS and prosody enhancement for natural speech |
+| [**pai-observability-server**](pai-observability-server/) | 1.0.0 | Observability | Real-time multi-agent monitoring dashboard with WebSocket streaming |
+| [**pai-art-skill**](pai-art-skill/) | 1.0.0 | Creativity | Visual content generation with Excalidraw hand-drawn aesthetic - diagrams, comics, illustrations |
+| [**pai-agents-skill**](pai-agents-skill/) | 1.0.0 | Delegation | Dynamic agent composition - create custom agents with unique personalities, voices, and trait combinations |
+| [**pai-prompting-skill**](pai-prompting-skill/) | 1.0.0 | Methodology | Meta-prompting system with Handlebars templates, Claude 4.x best practices, and the Ultimate Prompt Template |
+| [**pai-browser-skill**](pai-browser-skill/) | 1.2.0 | Automation | Debug-first browser automation with Playwright - always-on diagnostics, session auto-start, 99% token savings |
+| [**pai-upgrades-skill**](pai-upgrades-skill/) | 1.0.0 | Maintenance | Track and manage PAI system upgrades - monitors for new features, tracks opportunities, maintains upgrade history |
 
 ---
 
@@ -155,18 +186,19 @@ PAI System
 Packs have dependencies. Install in this order:
 
 ```
-1. kai-hook-system            ← Foundation (no dependencies)
-2. kai-history-system         ← Depends on hooks
-3. kai-core-install           ← Depends on hooks, history
-4. kai-prompting-skill        ← Depends on core-install
-5. kai-voice-system           ← Depends on hooks, core-install
-6. kai-agents-skill           ← Depends on core-install, optional voice-system
-7. kai-art-skill              ← Depends on core-install
-8. kai-browser-skill          ← Optional, standalone (only needs Bun + Playwright)
-9. kai-observability-server   ← Optional, depends on hooks
+1. pai-hook-system            ← Foundation (no dependencies)
+2. pai-history-system         ← Depends on hooks
+3. pai-core-install           ← Depends on hooks, history
+4. pai-prompting-skill        ← Depends on core-install
+5. pai-voice-system           ← Depends on hooks, core-install
+6. pai-agents-skill           ← Depends on core-install, optional voice-system
+7. pai-art-skill              ← Depends on core-install
+8. pai-browser-skill          ← Optional, standalone (only needs Bun + Playwright)
+9. pai-observability-server   ← Optional, depends on hooks
+10. pai-upgrades-skill        ← Optional, depends on core-install
 ```
 
-**Or install the complete [Kai Bundle](../Bundles/Kai/)** which handles ordering automatically.
+**Or install the complete [PAI Bundle](../Bundles/Official/)** which handles ordering automatically.
 
 ---
 
@@ -177,7 +209,7 @@ Packs have dependencies. Install in this order:
 Give the pack directory to your AI agent:
 
 ```
-Install the kai-hook-system pack from PAI/Packs/kai-hook-system/.
+Install the pai-hook-system pack from PAI/Packs/pai-hook-system/.
 Use PAI_DIR="~/.config/pai" and DA="MyAI".
 ```
 
@@ -231,10 +263,11 @@ See [.env.example](../.env.example) for the complete list of supported variables
 ## Creating Your Own Pack
 
 See [PAIPackTemplate.md](../Tools/PAIPackTemplate.md) for the complete pack specification.
+See [InstallTemplate.md](../Tools/InstallTemplate.md) for the wizard-style INSTALL.md template.
 
 **Quick checklist for directory-based packs:**
 - [ ] `README.md` with YAML frontmatter, problem/solution, architecture
-- [ ] `INSTALL.md` with step-by-step instructions
+- [ ] `INSTALL.md` with wizard-style phases (analysis, questions, install, verify)
 - [ ] `VERIFY.md` with mandatory completion checklist
 - [ ] `src/` directory with actual code files (not embedded in markdown)
 - [ ] 256x256 transparent icon in `icons/`
@@ -259,7 +292,7 @@ Every pack in this directory must be:
 
 If you have existing single-file packs:
 
-1. Create directory with pack name (e.g., `kai-hook-system/`)
+1. Create directory with pack name (e.g., `pai-hook-system/`)
 2. Extract frontmatter and overview sections to `README.md`
 3. Extract installation steps to `INSTALL.md`
 4. Extract verification steps to `VERIFY.md`

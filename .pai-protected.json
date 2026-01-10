@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "PAI Protected Files - Files that must NOT be overwritten with Kai content",
+  "version": "2.0",
+  "protected": {
+    "core_documents": {
+      "description": "Core PAI documentation that differs from Kai",
+      "files": [
+        "README.md",
+        "INSTALL.md",
+        "SECURITY.md"
+      ],
+      "validation": "Must contain 'PAI' or 'Personal AI Infrastructure' in content"
+    },
+    "pai_infrastructure": {
+      "description": "PAI-specific infrastructure code",
+      "files": [
+        "Tools/validate-protected.ts",
+        ".pai-protected.json"
+      ],
+      "validation": "Must not contain references to private Kai data"
+    },
+    "sanitized_config": {
+      "description": "Configuration files that must remain sanitized",
+      "files": [
+        ".env.example"
+      ],
+      "validation": "Must not contain API keys, personal emails, or secrets"
+    },
+    "forbidden_directories": {
+      "description": "Directories that should NEVER exist in public PAI",
+      "patterns": [
+        "^skills/",
+        "^Deprecated/",
+        "^.deprecated/",
+        "^MEMORY/",
+        "^History/",
+        "^context/",
+        "^progress/"
+      ],
+      "validation": "These directories contain private Kai data and must not be committed"
+    },
+    "protected_patterns": {
+      "description": "String patterns that should never appear in PAI - actual data, not documentation mentions",
+      "patterns": [
+        "daniel@danielmiessler\\.com",
+        "susan@danielmiessler\\.com",
+        "[a-z]+@danielmiessler\\.com",
+        "[a-z]+@unsupervised-learning\\.com",
+        "ANTHROPIC_API_KEY=sk-",
+        "OPENAI_API_KEY=sk-",
+        "PERPLEXITY_API_KEY=pplx-",
+        "ELEVENLABS_API_KEY=[a-f0-9]",
+        "GOOGLE_API_KEY=AIza",
+        "CLOUDFLARE_API_TOKEN=[a-zA-Z0-9_-]{40}",
+        "GITHUB_TOKEN=gh[ps]_",
+        "API_KEY=['\"][a-zA-Z0-9_-]{16,}['\"]",
+        "SECRET_KEY=['\"][a-zA-Z0-9_-]{16,}['\"]",
+        "Bearer [a-zA-Z0-9_-]{20,}",
+        "sk-[a-zA-Z0-9]{20,}",
+        "ghp_[a-zA-Z0-9]{36}",
+        "gho_[a-zA-Z0-9]{36}",
+        "xoxb-[0-9]+-[0-9]+-[a-zA-Z0-9]+",
+        "xoxp-[0-9]+-[0-9]+-[a-zA-Z0-9]+",
+        "/Users/daniel/.claude/skills/personal",
+        "/Users/daniel/.claude/MEMORY",
+        "/Users/daniel/.claude/History",
+        "/Users/daniel/.claude/skills/CORE/USER",
+        "~/.claude/skills/CORE/USER/",
+        "daemon\\.plist",
+        "Kaleigh Feher",
+        "Bryan Brake",
+        "Angela Gunn",
+        "Susan Miessler",
+        "SSN[:\\s]+[0-9]{3}-[0-9]{2}-[0-9]{4}",
+        "-----BEGIN RSA PRIVATE KEY-----",
+        "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "-----BEGIN PGP PRIVATE KEY-----",
+        "-----BEGIN EC PRIVATE KEY-----",
+        "id_rsa\\.pub",
+        "id_ed25519\\.pub"
+      ],
+      "exception_files": [
+        "SECURITY.md",
+        ".pai-protected.json",
+        ".env.example",
+        "Tools/validate-protected.ts",
+        "README.md",
+        "INSTALL.md"
+      ]
+    }
+  },
+  "kai_to_pai_workflow": {
+    "description": "How to safely sync Kai improvements to PAI",
+    "steps": [
+      "1. Make changes in Kai (~/.claude/)",
+      "2. Test thoroughly in Kai environment",
+      "3. Identify which changes should go to public PAI",
+      "4. Copy changes to PAI repo (~/Projects/PAI/)",
+      "5. SKIP protected files (they stay PAI-specific)",
+      "6. Sanitize any personal data or API keys",
+      "7. Run: bun ~/Projects/PAI/Tools/validate-protected.ts",
+      "8. If validation passes, commit to PAI",
+      "9. If validation fails, check which protected files changed"
+    ]
+  }
+}

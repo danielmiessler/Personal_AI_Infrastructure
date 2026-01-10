@@ -1,0 +1,54 @@
+{
+  "name": "pai-algorithm-skill",
+  "version": "0.5.0",
+  "description": "THE ALGORITHM - Universal execution engine using scientific method to achieve ideal state",
+  "type": "module",
+  "scripts": {
+    "effort": "bun run src/skills/THEALGORITHM/Tools/EffortClassifier.ts",
+    "capabilities": "bun run src/skills/THEALGORITHM/Tools/CapabilityLoader.ts",
+    "select": "bun run src/skills/THEALGORITHM/Tools/CapabilitySelector.ts",
+    "isc": "bun run src/skills/THEALGORITHM/Tools/ISCManager.ts",
+    "traits": "bun run src/skills/THEALGORITHM/Tools/TraitModifiers.ts",
+    "ralph": "bun run src/skills/THEALGORITHM/Tools/RalphLoopExecutor.ts",
+    "display": "bun run src/skills/THEALGORITHM/Tools/AlgorithmDisplay.ts"
+  },
+  "keywords": [
+    "pai",
+    "personal-ai-infrastructure",
+    "algorithm",
+    "execution-engine",
+    "isc",
+    "ideal-state-criteria",
+    "capability-routing",
+    "effort-classification",
+    "ralph-loop"
+  ],
+  "author": "PAI Community",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danielmiessler/PAI"
+  },
+  "bugs": {
+    "url": "https://github.com/danielmiessler/PAI/issues"
+  },
+  "pai": {
+    "pack_version": "1.0",
+    "skills": ["THEALGORITHM"],
+    "requires_core": true,
+    "optional_dependencies": [
+      "pai-agents-skill",
+      "pai-browser-skill"
+    ]
+  }
+}

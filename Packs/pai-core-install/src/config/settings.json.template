@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "PAI Settings Template - Copy to $PAI_DIR/settings.json and customize",
+
+  "env": {
+    "PAI_DIR": "$HOME/.claude",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "80000",
+    "BASH_DEFAULT_TIMEOUT_MS": "600000"
+  },
+
+  "permissions": {
+    "allow": [],
+    "deny": [],
+    "additionalDirectories": []
+  },
+
+  "hooks": {
+    "_comment_hooks": "Hooks require pai-hook-system and pai-history-system packs installed",
+
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/initialize-session.ts",
+            "_source": "pai-hook-system"
+          },
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/load-core-context.ts",
+            "_source": "pai-hook-system"
+          },
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SessionStart",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/security-validator.ts",
+            "_source": "pai-hook-system"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PreToolUse",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PostToolUse",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ],
+
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/update-tab-titles.ts",
+            "_source": "pai-hook-system"
+          },
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type UserPromptSubmit",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/stop-hook.ts",
+            "_source": "pai-history-system"
+          },
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type Stop",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ],
+
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/subagent-stop-hook.ts",
+            "_source": "pai-history-system"
+          },
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SubagentStop",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ],
+
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-session-summary.ts",
+            "_source": "pai-history-system"
+          },
+          {
+            "type": "command",
+            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SessionEnd",
+            "_source": "pai-history-system"
+          }
+        ]
+      }
+    ]
+  }
+}

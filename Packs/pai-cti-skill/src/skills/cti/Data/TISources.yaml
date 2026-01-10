@@ -1,0 +1,352 @@
+version: "1.0"
+last_updated: 2026-01-10
+feeds:
+  - name: abuse.ch URLhaus
+    description: Malicious URLs used for malware distribution
+    url: https://urlhaus.abuse.ch/downloads/json_recent/
+    category: malware
+    format: json
+    api_key_env: null
+    update_frequency: hourly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - url
+    added: 2026-01-10
+    last_checked: null
+  - name: abuse.ch MalwareBazaar
+    description: Malware samples and hashes
+    url: https://mb-api.abuse.ch/api/v1/
+    category: malware
+    format: json
+    api_key_env: null
+    update_frequency: hourly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - sha256
+      - sha1
+      - md5
+    added: 2026-01-10
+    last_checked: null
+  - name: abuse.ch ThreatFox
+    description: IOCs associated with malware
+    url: https://threatfox-api.abuse.ch/api/v1/
+    category: iocs
+    format: json
+    api_key_env: null
+    update_frequency: hourly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - ip
+      - domain
+      - url
+      - sha256
+    added: 2026-01-10
+    last_checked: null
+  - name: abuse.ch Feodo Tracker
+    description: Botnet C2 servers
+    url: https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.json
+    category: c2
+    format: json
+    api_key_env: null
+    update_frequency: hourly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - ip
+    added: 2026-01-10
+    last_checked: null
+  - name: OpenPhish
+    description: Phishing URLs
+    url: https://openphish.com/feed.txt
+    category: phishing
+    format: txt
+    api_key_env: null
+    update_frequency: hourly
+    enabled: true
+    priority: 2
+    tlp: clear
+    ioc_types:
+      - url
+    added: 2026-01-10
+    last_checked: null
+  - name: PhishTank
+    description: Verified phishing URLs
+    url: http://data.phishtank.com/data/online-valid.json
+    category: phishing
+    format: json
+    api_key_env: null
+    update_frequency: hourly
+    enabled: true
+    priority: 2
+    tlp: clear
+    ioc_types:
+      - url
+    added: 2026-01-10
+    last_checked: null
+  - name: SANS ISC
+    description: Internet Storm Center daily diary
+    url: https://isc.sans.edu/api/threat/day/
+    category: general
+    format: xml
+    api_key_env: null
+    update_frequency: daily
+    enabled: true
+    priority: 2
+    tlp: clear
+    ioc_types:
+      - ip
+      - domain
+    added: 2026-01-10
+    last_checked: null
+  - name: AlienVault OTX
+    description: Open Threat Exchange pulses
+    url: https://otx.alienvault.com/api/v1/pulses/subscribed
+    category: general
+    format: json
+    api_key_env: PAI_CTI_OTX_API_KEY
+    update_frequency: hourly
+    enabled: false
+    priority: 1
+    tlp: green
+    ioc_types:
+      - ip
+      - domain
+      - url
+      - sha256
+      - md5
+      - email
+    added: 2026-01-10
+    last_checked: null
+    notes: Get API key from https://otx.alienvault.com/
+  - name: VirusTotal
+    description: File and URL reputation
+    url: https://www.virustotal.com/api/v3/
+    category: reputation
+    format: json
+    api_key_env: PAI_CTI_VIRUSTOTAL_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 1
+    tlp: amber
+    ioc_types:
+      - ip
+      - domain
+      - url
+      - sha256
+      - sha1
+      - md5
+    rate_limit: 4/min
+    added: 2026-01-10
+    last_checked: null
+    notes: Get API key from https://www.virustotal.com/gui/join-us
+  - name: Shodan
+    description: Internet infrastructure intelligence
+    url: https://api.shodan.io/
+    category: infrastructure
+    format: json
+    api_key_env: PAI_CTI_SHODAN_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 1
+    tlp: amber
+    ioc_types:
+      - ip
+    rate_limit: 1/sec
+    added: 2026-01-10
+    last_checked: null
+    notes: Get API key from https://shodan.io/
+  - name: URLScan.io
+    description: URL scanning and analysis
+    url: https://urlscan.io/api/v1/
+    category: reputation
+    format: json
+    api_key_env: PAI_CTI_URLSCAN_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 2
+    tlp: green
+    ioc_types:
+      - url
+      - domain
+    added: 2026-01-10
+    last_checked: null
+    notes: Get API key from https://urlscan.io/user/signup
+  - name: CISA Alerts
+    description: US-CERT alerts and advisories
+    url: https://www.cisa.gov/uscert/ncas/alerts.xml
+    category: government
+    format: rss
+    api_key_env: null
+    update_frequency: daily
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - cve
+      - ip
+      - domain
+      - sha256
+    added: 2026-01-10
+    last_checked: null
+
+  # =====================================
+  # Threat Intelligence Blogs (use Browser skill to fetch as markdown)
+  # =====================================
+
+  - name: Krebs on Security
+    description: Brian Krebs' security news and investigation blog
+    url: https://krebsonsecurity.com/
+    category: blog
+    format: markdown
+    api_key_env: null
+    update_frequency: daily
+    enabled: true
+    priority: 2
+    tlp: clear
+    ioc_types:
+      - domain
+      - ip
+      - email
+    added: 2026-01-10
+    last_checked: null
+    notes: Use Browser skill to fetch and parse
+
+  - name: The DFIR Report
+    description: Real intrusion case studies with detailed TTPs and IoCs
+    url: https://thedfirreport.com/
+    category: blog
+    format: markdown
+    api_key_env: null
+    update_frequency: weekly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - ip
+      - domain
+      - sha256
+      - url
+    added: 2026-01-10
+    last_checked: null
+    notes: Excellent source for real-world TTPs and IoCs
+
+  - name: Unit 42 (Palo Alto)
+    description: Palo Alto Networks threat research blog
+    url: https://unit42.paloaltonetworks.com/
+    category: blog
+    format: markdown
+    api_key_env: null
+    update_frequency: weekly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - ip
+      - domain
+      - sha256
+      - url
+    added: 2026-01-10
+    last_checked: null
+    notes: APT and malware research
+
+  - name: Mandiant Blog
+    description: Google Mandiant threat intelligence blog
+    url: https://www.mandiant.com/resources/blog
+    category: blog
+    format: markdown
+    api_key_env: null
+    update_frequency: weekly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - ip
+      - domain
+      - sha256
+    added: 2026-01-10
+    last_checked: null
+    notes: APT tracking and nation-state research
+
+  - name: Securelist (Kaspersky)
+    description: Kaspersky GReAT team threat research
+    url: https://securelist.com/
+    category: blog
+    format: markdown
+    api_key_env: null
+    update_frequency: weekly
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - ip
+      - domain
+      - sha256
+      - md5
+    added: 2026-01-10
+    last_checked: null
+    notes: APT and malware analysis
+
+  - name: BleepingComputer
+    description: Technology and security news
+    url: https://www.bleepingcomputer.com/
+    category: blog
+    format: markdown
+    api_key_env: null
+    update_frequency: daily
+    enabled: true
+    priority: 2
+    tlp: clear
+    ioc_types:
+      - domain
+      - ip
+      - sha256
+    added: 2026-01-10
+    last_checked: null
+    notes: Breaking security news and ransomware coverage
+
+settings:
+  default_update_frequency: hourly
+  max_concurrent_fetches: 3
+  request_timeout: 30
+  retry_attempts: 3
+  retry_delay: 5
+  cache_ttl: 3600
+  storage_path: $PAI_DIR/data/threat-intel/
+  max_iocs_per_feed: 10000
+  retention_days: 90
+  notify_on_critical: true
+  notify_on_high: true
+  notification_channels:
+    - knowledge_graph
+categories:
+  - name: malware
+    description: Malware samples and distribution
+    color: red
+  - name: phishing
+    description: Phishing campaigns and URLs
+    color: orange
+  - name: c2
+    description: Command and control infrastructure
+    color: red
+  - name: iocs
+    description: General indicators of compromise
+    color: yellow
+  - name: reputation
+    description: Reputation lookup services
+    color: blue
+  - name: infrastructure
+    description: Network infrastructure intelligence
+    color: purple
+  - name: government
+    description: Government and ISAC sources
+    color: green
+  - name: general
+    description: General threat intelligence
+    color: gray

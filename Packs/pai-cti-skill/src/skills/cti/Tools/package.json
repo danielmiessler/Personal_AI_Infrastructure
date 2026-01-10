@@ -1,0 +1,17 @@
+{
+  "name": "pai-cti-tools",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "feed": "bun run FeedManager.ts",
+    "ioc": "bun run IoCExtractor.ts",
+    "stix": "bun run StixGenerator.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

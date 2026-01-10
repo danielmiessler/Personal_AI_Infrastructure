@@ -1,0 +1,345 @@
+# IoC Extraction Patterns
+# Regex patterns for extracting Indicators of Compromise
+
+version: "1.0"
+last_updated: "2026-01-10"
+
+patterns:
+  # =====================================
+  # Network Indicators
+  # =====================================
+
+  ipv4:
+    name: "IPv4 Address"
+    pattern: '(?<![0-9])(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?![0-9])'
+    defanged_patterns:
+      - '(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\[?\.\]?){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+      - '(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\(?\.\)?){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+    validation:
+      - exclude_private: true  # 10.x, 172.16-31.x, 192.168.x
+      - exclude_reserved: true # 127.x, 0.x, 255.x
+      - exclude_multicast: true # 224-239.x
+    examples:
+      - "192.168.1.1"
+      - "8.8.8.8"
+
+  ipv6:
+    name: "IPv6 Address"
+    pattern: '(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}'
+    validation:
+      - exclude_loopback: true  # ::1
+      - exclude_link_local: true # fe80::
+    examples:
+      - "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+      - "::1"
+
+  domain:
+    name: "Domain Name"
+    pattern: '(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+(?:[a-zA-Z]{2,})'
+    defanged_patterns:
+      - '(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\[?\.\]?)+(?:[a-zA-Z]{2,})'
+      - '(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\[dot\])+(?:[a-zA-Z]{2,})'
+    validation:
+      - valid_tld: true
+      - exclude_known_good:
+        - "google.com"
+        - "microsoft.com"
+        - "amazon.com"
+        - "cloudflare.com"
+        - "github.com"
+    examples:
+      - "example.com"
+      - "evil.malware.net"
+
+  url:
+    name: "URL"
+    pattern: '(?:https?|ftp|sftp)://[^\s<>"{}|\\^`\[\]]+'
+    defanged_patterns:
+      - 'hxxps?://[^\s<>"{}|\\^`\[\]]+'
+      - '(?:https?)\[:\]//[^\s<>"{}|\\^`\[\]]+'
+      - '(?:https?)__[^\s<>"{}|\\^`\[\]]+'
+    validation:
+      - valid_scheme: ["http", "https", "ftp", "sftp"]
+    examples:
+      - "https://example.com/path"
+      - "hxxp://evil[.]com/malware"
+
+  email:
+    name: "Email Address"
+    pattern: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    defanged_patterns:
+      - '[a-zA-Z0-9._%+-]+\[@\][a-zA-Z0-9.-]+\[?\.\]?[a-zA-Z]{2,}'
+      - '[a-zA-Z0-9._%+-]+\[at\][a-zA-Z0-9.-]+\[dot\][a-zA-Z]{2,}'
+    examples:
+      - "user@example.com"
+      - "attacker[@]evil[.]com"
+
+  # =====================================
+  # File Indicators
+  # =====================================
+
+  md5:
+    name: "MD5 Hash"
+    pattern: '(?<![a-fA-F0-9])[a-fA-F0-9]{32}(?![a-fA-F0-9])'
+    validation:
+      - exclude_all_zeros: true
+      - exclude_all_same: true
+    examples:
+      - "d41d8cd98f00b204e9800998ecf8427e"
+
+  sha1:
+    name: "SHA1 Hash"
+    pattern: '(?<![a-fA-F0-9])[a-fA-F0-9]{40}(?![a-fA-F0-9])'
+    validation:
+      - exclude_all_zeros: true
+      - exclude_all_same: true
+    examples:
+      - "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+
+  sha256:
+    name: "SHA256 Hash"
+    pattern: '(?<![a-fA-F0-9])[a-fA-F0-9]{64}(?![a-fA-F0-9])'
+    validation:
+      - exclude_all_zeros: true
+      - exclude_all_same: true
+    examples:
+      - "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+  sha512:
+    name: "SHA512 Hash"
+    pattern: '(?<![a-fA-F0-9])[a-fA-F0-9]{128}(?![a-fA-F0-9])'
+    validation:
+      - exclude_all_zeros: true
+    examples:
+      - "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+
+  imphash:
+    name: "Import Hash"
+    pattern: '(?:imphash[:\s]+)?[a-fA-F0-9]{32}'
+    context_required: true
+    examples:
+      - "imphash: d41d8cd98f00b204e9800998ecf8427e"
+
+  ssdeep:
+    name: "SSDeep Fuzzy Hash"
+    pattern: '\d+:[a-zA-Z0-9/+]+:[a-zA-Z0-9/+]+'
+    examples:
+      - "3:elHLlltBlJl:eLBl"
+
+  # =====================================
+  # System Indicators
+  # =====================================
+
+  windows_path:
+    name: "Windows File Path"
+    pattern: '[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*'
+    examples:
+      - "C:\\Users\\Public\\malware.exe"
+      - "C:\\Windows\\System32\\cmd.exe"
+
+  unix_path:
+    name: "Unix File Path"
+    pattern: '(?:/[^/\0\s]+)+'
+    validation:
+      - min_depth: 2  # At least /dir/file
+    examples:
+      - "/tmp/malware"
+      - "/etc/passwd"
+
+  registry_key:
+    name: "Windows Registry Key"
+    pattern: '(?:HKEY_[A-Z_]+|HK[A-Z]{2})(?:\\[^\\]+)+'
+    examples:
+      - "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+      - "HKCU\\Software\\Classes\\exefile\\shell\\open\\command"
+
+  mutex:
+    name: "Mutex Name"
+    pattern: '(?:Global\\|Local\\)?[a-zA-Z0-9_\-\.]{5,}'
+    context_required: true  # Needs surrounding context
+    examples:
+      - "Global\\MyMalwareMutex"
+
+  # =====================================
+  # Reference Indicators
+  # =====================================
+
+  cve:
+    name: "CVE Identifier"
+    pattern: 'CVE-\d{4}-\d{4,7}'
+    examples:
+      - "CVE-2021-44228"
+      - "CVE-2023-12345"
+
+  mitre_technique:
+    name: "MITRE ATT&CK Technique"
+    pattern: 'T\d{4}(?:\.\d{3})?'
+    examples:
+      - "T1566"
+      - "T1566.001"
+
+  mitre_tactic:
+    name: "MITRE ATT&CK Tactic"
+    pattern: 'TA\d{4}'
+    examples:
+      - "TA0001"
+
+  mitre_group:
+    name: "MITRE ATT&CK Group"
+    pattern: 'G\d{4}'
+    examples:
+      - "G0016"
+
+  mitre_software:
+    name: "MITRE ATT&CK Software"
+    pattern: 'S\d{4}'
+    examples:
+      - "S0154"
+
+  # =====================================
+  # Cryptocurrency
+  # =====================================
+
+  bitcoin:
+    name: "Bitcoin Address"
+    pattern: '(?<![a-zA-Z0-9])[13][a-km-zA-HJ-NP-Z1-9]{25,34}(?![a-zA-Z0-9])'
+    examples:
+      - "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"
+
+  ethereum:
+    name: "Ethereum Address"
+    pattern: '(?<![a-zA-Z0-9])0x[a-fA-F0-9]{40}(?![a-zA-Z0-9])'
+    examples:
+      - "0x742d35Cc6634C0532925a3b844Bc9e7595f5b5f5"
+
+  monero:
+    name: "Monero Address"
+    pattern: '(?<![a-zA-Z0-9])4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}(?![a-zA-Z0-9])'
+    examples:
+      - "4..." # 95 character address
+
+  # =====================================
+  # Network Signatures
+  # =====================================
+
+  ja3:
+    name: "JA3 SSL Fingerprint"
+    pattern: '[a-fA-F0-9]{32}'
+    context_required: true  # Needs "ja3" context
+    examples:
+      - "ja3: e7d705a3286e19ea42f587b344ee6865"
+
+  jarm:
+    name: "JARM Fingerprint"
+    pattern: '[a-fA-F0-9]{62}'
+    context_required: true  # Needs "jarm" context
+    examples:
+      - "jarm: 2ad2ad0002ad2ad00042d42d000000..."
+
+# =====================================
+# Defanging Rules
+# =====================================
+
+defanging:
+  refang:
+    # URL schemes
+    - pattern: 'hxxp'
+      replacement: 'http'
+    - pattern: 'hXXp'
+      replacement: 'http'
+    - pattern: '\[:\]'
+      replacement: ':'
+    - pattern: '\[/\]'
+      replacement: '/'
+
+    # Dots
+    - pattern: '\[\.\]'
+      replacement: '.'
+    - pattern: '\(\.\)'
+      replacement: '.'
+    - pattern: '\{\.\}'
+      replacement: '.'
+    - pattern: '\[dot\]'
+      replacement: '.'
+      case_insensitive: true
+
+    # At symbol
+    - pattern: '\[@\]'
+      replacement: '@'
+    - pattern: '\[at\]'
+      replacement: '@'
+      case_insensitive: true
+    - pattern: '\(at\)'
+      replacement: '@'
+      case_insensitive: true
+
+    # Protocol separator
+    - pattern: '(\w+)__'
+      replacement: '$1://'
+    - pattern: '(https?):\\\\'
+      replacement: '$1://'
+
+  defang:
+    - pattern: 'http'
+      replacement: 'hxxp'
+    - pattern: '\.'
+      replacement: '[.]'
+    - pattern: '@'
+      replacement: '[@]'
+
+# =====================================
+# Validation Rules
+# =====================================
+
+validation:
+  private_ip_ranges:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+
+  reserved_ip_ranges:
+    - "0.0.0.0/8"
+    - "127.0.0.0/8"
+    - "169.254.0.0/16"
+    - "224.0.0.0/4"
+    - "240.0.0.0/4"
+    - "255.255.255.255/32"
+
+  known_good_domains:
+    - "google.com"
+    - "googleapis.com"
+    - "gstatic.com"
+    - "microsoft.com"
+    - "windows.com"
+    - "windowsupdate.com"
+    - "amazon.com"
+    - "amazonaws.com"
+    - "cloudflare.com"
+    - "github.com"
+    - "githubusercontent.com"
+    - "apple.com"
+    - "icloud.com"
+
+  valid_tlds:
+    # Common TLDs - full list should be loaded from IANA
+    - "com"
+    - "net"
+    - "org"
+    - "edu"
+    - "gov"
+    - "mil"
+    - "io"
+    - "co"
+    - "info"
+    - "biz"
+    # Country codes
+    - "uk"
+    - "de"
+    - "fr"
+    - "ru"
+    - "cn"
+    - "jp"
+    - "kr"
+    - "br"
+    - "au"
+    - "ca"

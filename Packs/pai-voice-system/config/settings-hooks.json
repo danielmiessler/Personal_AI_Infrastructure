@@ -1,0 +1,32 @@
+{
+  "_description": "Hook registration template for Claude Code settings.json",
+  "_instructions": [
+    "Merge these hook configurations into ~/.claude/settings.json",
+    "The hooks array should be added/merged under the 'hooks' key",
+    "Adjust paths based on your $PAI_DIR location"
+  ],
+  "hooks": [
+    {
+      "event": "Stop",
+      "command": "~/.bun/bin/bun run $PAI_DIR/hooks/stop-hook-voice.ts",
+      "description": "Main agent voice notification with prosody enhancement"
+    },
+    {
+      "event": "SubagentStop",
+      "command": "~/.bun/bin/bun run $PAI_DIR/hooks/subagent-stop-hook-voice.ts",
+      "description": "Subagent voice notification with personality-specific delivery"
+    }
+  ],
+  "_example_settings_json": {
+    "hooks": [
+      {
+        "event": "Stop",
+        "command": "~/.bun/bin/bun run /Users/yourname/.config/pai/hooks/stop-hook-voice.ts"
+      },
+      {
+        "event": "SubagentStop",
+        "command": "~/.bun/bin/bun run /Users/yourname/.config/pai/hooks/subagent-stop-hook-voice.ts"
+      }
+    ]
+  }
+}

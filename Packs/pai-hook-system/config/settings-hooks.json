@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/initialize-session.ts"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/security-validator.ts"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/load-core-context.ts"
+          },
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/update-tab-titles.ts"
+          }
+        ]
+      }
+    ]
+  }
+}

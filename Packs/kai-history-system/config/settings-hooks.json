@@ -1,0 +1,88 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PostToolUse"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/stop-hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type Stop"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/subagent-stop-hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SubagentStop"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-session-summary.ts"
+          },
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SessionEnd"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SessionStart"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type UserPromptSubmit"
+          }
+        ]
+      }
+    ]
+  }
+}

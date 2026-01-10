@@ -1,0 +1,21 @@
+{
+  "_description": "Hook registration for Ollama skill",
+  "_instructions": [
+    "Merge these hook configurations into ~/.claude/settings.json",
+    "The hooks section should be added/merged under the 'hooks' key",
+    "Adjust paths based on your $PAI_DIR location"
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/skills/Ollama/Tools/CheckHealth.ts"
+          }
+        ]
+      }
+    ]
+  }
+}

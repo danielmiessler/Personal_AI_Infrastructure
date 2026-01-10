@@ -11,7 +11,6 @@
  */
 
 import { $ } from "bun";
-import * as readline from "readline";
 import { existsSync } from "fs";
 
 // =============================================================================
@@ -42,17 +41,8 @@ interface WizardConfig {
 // UTILITIES
 // =============================================================================
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
 function ask(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      resolve(answer.trim());
-    });
-  });
+  return Promise.resolve(prompt(question) || "");
 }
 
 async function askWithDefault(question: string, defaultValue: string): Promise<string> {
@@ -754,8 +744,6 @@ Your backup is at ~/.claude-BACKUP if you need to restore.
   } catch (error) {
     console.error("\n❌ Installation failed:", error);
     process.exit(1);
-  } finally {
-    rl.close();
   }
 }
 

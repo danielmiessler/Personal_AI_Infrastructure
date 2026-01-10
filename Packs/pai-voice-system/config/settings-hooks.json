@@ -8,12 +8,12 @@
   "hooks": [
     {
       "event": "Stop",
-      "command": "bun run $PAI_DIR/hooks/stop-hook-voice.ts",
+      "command": "~/.bun/bin/bun run $PAI_DIR/hooks/stop-hook-voice.ts",
       "description": "Main agent voice notification with prosody enhancement"
     },
     {
       "event": "SubagentStop",
-      "command": "bun run $PAI_DIR/hooks/subagent-stop-hook-voice.ts",
+      "command": "~/.bun/bin/bun run $PAI_DIR/hooks/subagent-stop-hook-voice.ts",
       "description": "Subagent voice notification with personality-specific delivery"
     }
   ],
@@ -21,11 +21,11 @@
     "hooks": [
       {
         "event": "Stop",
-        "command": "bun run /Users/yourname/.config/pai/hooks/stop-hook-voice.ts"
+        "command": "~/.bun/bin/bun run /Users/yourname/.config/pai/hooks/stop-hook-voice.ts"
       },
       {
         "event": "SubagentStop",
-        "command": "bun run /Users/yourname/.config/pai/hooks/subagent-stop-hook-voice.ts"
+        "command": "~/.bun/bin/bun run /Users/yourname/.config/pai/hooks/subagent-stop-hook-voice.ts"
       }
     ]
   }

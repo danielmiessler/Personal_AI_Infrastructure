@@ -6,11 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/initialize-session.ts"
-          },
-          {
-            "type": "command",
-            "command": "bun run $PAI_DIR/hooks/load-core-context.ts"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/initialize-session.ts"
           }
         ]
       }
@@ -21,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/security-validator.ts"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/security-validator.ts"
           }
         ]
       }
@@ -32,7 +28,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/update-tab-titles.ts"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/load-core-context.ts"
+          },
+          {
+            "type": "command",
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/update-tab-titles.ts"
           }
         ]
       }

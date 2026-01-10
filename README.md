@@ -75,8 +75,9 @@ This is open-source. This is free. This is for everyone.
 
 ---
 
-> [!TIP]
-> ## 🤖 This README Works Great with AI Assistants
+<!-- Do NOT change this title, unless you want to change other references to it as `#-this-readme-is-for-your-ai-assistant` -->
+> [!IMPORTANT]
+> ## 🤖 This README Is For Your AI Assistant
 >
 > **Try AI-assisted installation:** Give this URL to your AI assistant and say *"Walk me through installing PAI and customize it for me."*
 >

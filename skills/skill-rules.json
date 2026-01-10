@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "description": "Config-driven skill trigger patterns for auto-activation suggestions",
+  "rules": [
+    {
+      "skill": "SystematicDebugging",
+      "triggers": {
+        "keywords": ["bug", "error", "failing", "crash", "broken", "fix", "debug", "issue"],
+        "patterns": ["test.* fail", "not working", "why (is|does).*fail", "doesn't work"],
+        "fileTypes": [".test.ts", ".spec.ts"]
+      },
+      "confidence": "high",
+      "suggestion": "Consider using SystematicDebugging for root cause analysis before fixes"
+    },
+    {
+      "skill": "AskDaniel",
+      "triggers": {
+        "keywords": ["skill", "hook", "workflow", "pai", "skish"],
+        "patterns": ["(create|add|build|make|new).*(skill|hook|workflow)", "(skill|hook|workflow).*(create|add|build|make|new)"],
+        "fileTypes": []
+      },
+      "confidence": "high",
+      "suggestion": "Consider AskDaniel to screen against engineering principles"
+    },
+    {
+      "skill": "Brainstorming",
+      "triggers": {
+        "keywords": ["feature", "implement", "design", "new", "add", "build"],
+        "patterns": ["(add|create|build|implement).*(feature|component|function|api|endpoint)", "help me (design|plan|think)"],
+        "fileTypes": []
+      },
+      "confidence": "medium",
+      "suggestion": "Consider Brainstorming for design exploration before implementation"
+    },
+    {
+      "skill": "TestDrivenDevelopment",
+      "triggers": {
+        "keywords": ["test", "tdd", "coverage", "spec"],
+        "patterns": ["write tests", "add tests", "test coverage", "red.green.refactor"],
+        "fileTypes": [".test.ts", ".spec.ts", ".test.js", ".spec.js"]
+      },
+      "confidence": "medium",
+      "suggestion": "Consider TestDrivenDevelopment for red-green-refactor cycle"
+    },
+    {
+      "skill": "DeepResearch",
+      "triggers": {
+        "keywords": ["research", "investigate", "explore", "understand", "analyze"],
+        "patterns": ["what is", "how does", "explain", "tell me about", "deep dive"],
+        "fileTypes": []
+      },
+      "confidence": "low",
+      "suggestion": "Consider DeepResearch for comprehensive investigation"
+    },
+    {
+      "skill": "ContextEngineering",
+      "triggers": {
+        "keywords": ["context", "token", "memory", "compact"],
+        "patterns": ["context (window|limit|usage)", "running out of (context|memory)", "too (long|much) context"],
+        "fileTypes": []
+      },
+      "confidence": "medium",
+      "suggestion": "Consider ContextEngineering for context optimization"
+    },
+    {
+      "skill": "DispatchingParallelAgents",
+      "triggers": {
+        "keywords": ["parallel", "concurrent", "multiple", "simultaneously"],
+        "patterns": ["(run|do|execute).*(parallel|concurrent)", "multiple (tasks|agents)"],
+        "fileTypes": []
+      },
+      "confidence": "medium",
+      "suggestion": "Consider DispatchingParallelAgents for parallel task execution"
+    },
+    {
+      "skill": "RequestingCodeReview",
+      "triggers": {
+        "keywords": ["review", "feedback", "check"],
+        "patterns": ["code review", "review (my|this|the) (code|changes|pr)", "get feedback"],
+        "fileTypes": []
+      },
+      "confidence": "medium",
+      "suggestion": "Consider RequestingCodeReview for structured feedback"
+    }
+  ],
+  "exclusions": {
+    "prefixes": ["/", "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "yes", "no", "sure", "bye"],
+    "patterns": ["ultrathink", "go ahead", "proceed", "continue", "just do it"]
+  },
+  "settings": {
+    "maxSuggestions": 3,
+    "minConfidenceToShow": "low",
+    "showReason": true
+  }
+}

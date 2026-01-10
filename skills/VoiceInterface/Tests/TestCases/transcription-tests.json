@@ -1,0 +1,12 @@
+[
+  {
+    "audio_file": "test1-hello.wav",
+    "expected_text": "hello world this is a test",
+    "provider": "whisperflow"
+  },
+  {
+    "audio_file": "test2-question.wav",
+    "expected_text": "what is the weather like today",
+    "provider": "whisperflow"
+  }
+]

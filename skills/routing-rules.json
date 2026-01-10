@@ -1,0 +1,75 @@
+{
+  "version": "2.0",
+  "description": "Skill routing rules with confidence-based tiering",
+  "rules": [
+    {
+      "skill": "SystematicDebugging",
+      "triggers": {
+        "keywords": ["bug", "error", "failing", "crash", "broken", "debug", "issue"],
+        "patterns": ["test.* fail", "not working", "why (is|does).*fail", "doesn't work"],
+        "fileTypes": [".test.ts", ".spec.ts"]
+      },
+      "baseConfidence": 0.9,
+      "suggestion": "Debug systematically before fixing"
+    },
+    {
+      "skill": "AskDaniel",
+      "triggers": {
+        "keywords": ["skill", "hook", "workflow", "pai", "skish"],
+        "patterns": ["(create|add|build|make|new).*(skill|hook|workflow)"],
+        "fileTypes": []
+      },
+      "baseConfidence": 0.9,
+      "suggestion": "Screen against Daniel principles"
+    },
+    {
+      "skill": "Brainstorming",
+      "triggers": {
+        "keywords": ["feature", "implement", "design", "build", "create"],
+        "patterns": ["(add|create|build|implement).*(feature|component|function|api)", "help me (design|plan|think)"],
+        "fileTypes": []
+      },
+      "baseConfidence": 0.7,
+      "suggestion": "Explore design before implementation"
+    },
+    {
+      "skill": "TestDrivenDevelopment",
+      "triggers": {
+        "keywords": ["test", "tdd", "coverage", "spec"],
+        "patterns": ["write tests", "add tests", "test coverage"],
+        "fileTypes": [".test.ts", ".spec.ts"]
+      },
+      "baseConfidence": 0.7,
+      "suggestion": "Use red-green-refactor cycle"
+    },
+    {
+      "skill": "DeepResearch",
+      "triggers": {
+        "keywords": ["research", "investigate", "explore", "understand", "analyze"],
+        "patterns": ["what is", "how does", "explain", "deep dive"],
+        "fileTypes": []
+      },
+      "baseConfidence": 0.5,
+      "suggestion": "Conduct comprehensive investigation"
+    },
+    {
+      "skill": "RequestingCodeReview",
+      "triggers": {
+        "keywords": ["review", "feedback"],
+        "patterns": ["code review", "review (my|this|the) (code|changes|pr)"],
+        "fileTypes": []
+      },
+      "baseConfidence": 0.7,
+      "suggestion": "Get structured feedback"
+    }
+  ],
+  "thresholds": {
+    "high": 0.8,
+    "medium": 0.5,
+    "trivialDefault": "Trivial"
+  },
+  "exclusions": {
+    "prefixes": ["/", "hi", "hello", "hey", "thanks", "ok", "yes", "no", "sure", "bye"],
+    "patterns": ["^(continue|go ahead|proceed|looks good|lgtm)$"]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "proxy": {
+    "enabled": false,
+    "type": "webshare",
+    "webshare_username": null,
+    "webshare_password": null,
+    "generic_url": null
+  },
+  "_docs": {
+    "webshare": "Sign up at webshare.io - 10 free proxies, $6/mo for 20 residential",
+    "generic_url": "For other proxies: http://user:pass@proxy:port or socks5://proxy:port"
+  }
+}

@@ -297,16 +297,21 @@ function parseArgs(argv: string[]): CLIArgs {
     throw new CLIError(`Too many reference images: ${parsed.referenceImages.length}. Maximum is 14 total`);
   }
 
-  // Validate size for model
-  if (parsed.model === "gpt-image-1" && !OPENAI_SIZES.includes(parsed.size as OpenAISize)) {
-    throw new CLIError(`Invalid size for gpt-image-1: ${parsed.size}`);
+  // Validate size for model (and apply model-specific defaults)
+  if (parsed.model === "gpt-image-1") {
+    if (!parsed.size || !OPENAI_SIZES.includes(parsed.size as OpenAISize)) {
+      parsed.size = "1024x1024"; // Default for OpenAI
+    }
   } else if (parsed.model === "nano-banana-pro") {
-    if (!GEMINI_SIZES.includes(parsed.size as GeminiSize)) {
-      throw new CLIError(`Invalid size for nano-banana-pro: ${parsed.size}`);
+    if (!parsed.size || !GEMINI_SIZES.includes(parsed.size as GeminiSize)) {
+      parsed.size = "2K"; // Default for Gemini
     }
     if (!parsed.aspectRatio) parsed.aspectRatio = "16:9";
-  } else if (!REPLICATE_SIZES.includes(parsed.size as ReplicateSize)) {
-    throw new CLIError(`Invalid size: ${parsed.size}`);
+  } else {
+    // flux or nano-banana (Replicate)
+    if (!parsed.size || !REPLICATE_SIZES.includes(parsed.size as ReplicateSize)) {
+      parsed.size = "16:9"; // Default for Replicate
+    }
   }
 
   return parsed as CLIArgs;

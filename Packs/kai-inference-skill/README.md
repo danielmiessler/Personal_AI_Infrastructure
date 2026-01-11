@@ -1,30 +1,36 @@
-# Ollama Skill for PAI
+# Inference Skill for PAI
 
-Run large language models locally on your machine using Ollama. Perfect for privacy-sensitive work, offline development, experimentation, and cost-effective text generation.
+Multi-backend LLM inference supporting Ollama (local) and Claude API (Anthropic). Perfect for privacy-sensitive work, complex reasoning, offline development, and cost optimization.
 
 ## Overview
 
-The Ollama skill integrates local LLM inference into your Personal AI Infrastructure, enabling you to:
+The Inference skill provides unified access to multiple LLM backends within your Personal AI Infrastructure:
 
+### Ollama Backend (Local, Free)
 - 🔒 **Privacy**: Process sensitive code without external APIs
 - 🚀 **Speed**: Fast local inference with GPU acceleration
 - 💰 **Cost**: Zero API costs for unlimited usage
 - 🔌 **Offline**: Work without internet connectivity
 - 🧪 **Experiment**: Test prompts and models freely
-- 🎯 **Specialized**: Use domain-specific models (code, embeddings, etc.)
+
+### Claude API Backend (Anthropic, Paid)
+- 🧠 **Reasoning**: Best-in-class complex reasoning capabilities
+- 📊 **Research**: System design, architecture, research papers
+- ⚡ **Reliable**: Enterprise-grade API infrastructure
+- 🎯 **Specialized**: Latest frontier models (Opus, Sonnet, Haiku)
 
 ## Features
 
 ### Core Tools
 
-| Tool | Purpose | Key Features |
-|------|---------|--------------|
-| **Run.ts** ⭐ | Quick execution | Simple syntax, model as argument, easy to invoke |
-| **Generate.ts** | Text generation | Streaming, JSON mode, system prompts, temperature control |
-| **Chat.ts** | Interactive conversations | Multi-turn, context preservation, history management |
-| **Embed.ts** | Generate embeddings | Multiple models, cosine similarity, RAG support |
-| **ListModels.ts** | Model management | View installed models, sizes, metadata |
-| **CheckHealth.ts** | Server health check | Used by SessionStart hook |
+| Tool | Purpose | Backends | Key Features |
+|------|---------|----------|--------------|
+| **Run.ts** ⭐ | Quick execution | Both | Simple syntax, auto-detects backend, easy to invoke |
+| **Generate.ts** | Text generation | Both | Streaming, JSON mode, system prompts, temperature control |
+| **Chat.ts** | Interactive conversations | Both | Multi-turn, context preservation, backend selection |
+| **Embed.ts** | Generate embeddings | Ollama only | Multiple models, cosine similarity, RAG support |
+| **ListModels.ts** | Model management | Both | View models from all backends, sizes, metadata |
+| **CheckHealth.ts** | Health check | Both | Checks all backends, used by SessionStart hook |
 
 ### Workflows
 
@@ -34,30 +40,41 @@ The Ollama skill integrates local LLM inference into your Personal AI Infrastruc
 | **Summarize** | Document/code summarization | llama3.2:latest |
 | **Experiment** | Prompt testing, model comparison | Any model |
 
-### 🎯 NEW: Intelligent Task Routing
+### 🎯 Multi-Backend Routing
 
-**Automatic routing between Ollama and Claude API** - The system now intelligently routes simple tasks (code review, summarization, Q&A) to your local Ollama models, while complex tasks (architecture design, multi-step planning) use Claude API.
+**Smart routing between Ollama and Claude API** - The system intelligently selects the best backend based on task complexity, privacy requirements, and user preferences.
+
+**Routing Rules:**
+1. **Privacy keywords** → Ollama (local, private)
+2. **Complex reasoning** → Claude API (best capability)
+3. **Model name detection** → Auto-select backend (claude-* → anthropic)
+4. **Explicit flag** → User choice (`--backend ollama/anthropic`)
+5. **Default** → Ollama (backward compatible)
 
 **Key Features:**
-- ✅ **Transparent** - No manual model selection needed
-- ✅ **Privacy-First** - Sensitive tasks automatically stay local
-- ✅ **Cost-Effective** - Save 30-50% on API costs
-- ✅ **Reliable** - Seamless fallback to Claude if Ollama fails
-- ✅ **Configurable** - Control routing with `OLLAMA_ENABLE_ROUTING`
+- ✅ **Transparent** - Auto-detects backend from model names
+- ✅ **Privacy-First** - Sensitive tasks stay local
+- ✅ **Cost-Optimized** - Use free local models when possible
+- ✅ **Explicit Control** - Override with `--backend` flag
+- ✅ **Configurable** - Set default via `INFERENCE_DEFAULT_BACKEND`
 
 **See [ROUTING.md](ROUTING.md) for complete documentation.**
 
-**Quick Example:**
-```
-User: "Review this function for bugs"
-→ Automatically routed to local qwen2:7b (private, free, fast)
+**Quick Examples:**
+```bash
+# Auto-detects Ollama from model name
+bun run Run.ts "Review this code" qwen2.5-coder:7b
 
-User: "Design a scalable authentication system"
-→ Uses Claude API (complex reasoning required)
+# Auto-detects Claude API from model name
+bun run Run.ts "Design a system" claude-sonnet-4.5
+
+# Explicit backend selection
+bun run Run.ts "Analyze this" --backend ollama
 ```
 
 ## Quick Start
 
+### Ollama Backend (Local)
 ```bash
 # Install Ollama
 brew install ollama  # macOS
@@ -70,34 +87,51 @@ ollama serve
 ollama pull llama3.2
 ollama pull qwen2.5-coder:7b
 ollama pull nomic-embed-text
+```
 
-# Install skill (see INSTALL.md for details)
-cp -r src/skills/Ollama $PAI_DIR/skills/
+### Claude API Backend (Optional)
+```bash
+# Get API key from https://console.anthropic.com/
+# Add to environment
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> $PAI_DIR/.env
+```
+
+### Installation
+```bash
+# Clone/copy skill to PAI directory
+cp -r src/skills/Inference $PAI_DIR/skills/
+
+# Install dependencies
+cd Packs/kai-inference-skill && bun install
 
 # Configure
 echo "OLLAMA_BASE_URL=http://localhost:11434" >> $PAI_DIR/.env
+echo "INFERENCE_DEFAULT_BACKEND=ollama" >> $PAI_DIR/.env
 
 # Test
-bun run $PAI_DIR/skills/Ollama/Tools/Generate.ts --prompt "Hello!"
+bun run $PAI_DIR/skills/Inference/Tools/CheckHealth.ts
+bun run $PAI_DIR/skills/Inference/Tools/ListModels.ts
 ```
 
 ## Usage Examples
 
 ### Quick Run (Simplest Way) ⭐
 ```bash
-# Basic generation with default model
+# Basic generation with default backend (ollama)
 bun run Run.ts "Explain closures in JavaScript"
 
-# Use specific model (just add as second argument)
+# Ollama models (local, free)
 bun run Run.ts "Explain async/await" qwen2.5-coder:7b
-
-# Code review with code model
-bun run Run.ts "Review: $(cat myfile.ts)" qwen2.5-coder:7b --system "You are a code reviewer"
-
-# Different models for different tasks
 bun run Run.ts "Summarize this doc" mistral
 bun run Run.ts "Write unit tests" codellama:7b
-bun run Run.ts "Explain this bug" llama3.2:3b
+
+# Claude API models (auto-detects from name)
+bun run Run.ts "Design an authentication system" claude-sonnet-4.5
+bun run Run.ts "Review system architecture" claude-opus-4.5
+
+# Explicit backend selection
+bun run Run.ts "Review: $(cat myfile.ts)" --backend ollama --model qwen2.5-coder:7b
+bun run Run.ts "Complex reasoning task" --backend anthropic --model claude-opus-4.5
 ```
 
 ### Full-Featured Generation

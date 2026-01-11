@@ -14,6 +14,7 @@
 import { parseArgs } from "node:util";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { OllamaBackend } from "../lib/backends/OllamaBackend.js";
 
 // ============================================================================
 // Environment Loading
@@ -91,78 +92,8 @@ class CLIError extends Error {
   }
 }
 
-// ============================================================================
-// Ollama Embeddings Client
-// ============================================================================
-
-class OllamaEmbedClient {
-  private baseUrl: string;
-
-  constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || DEFAULTS.baseUrl;
-  }
-
-  async embed(text: string, model: string): Promise<number[]> {
-    const url = `${this.baseUrl}/api/embeddings`;
-
-    const request: OllamaEmbedRequest = {
-      model,
-      prompt: text,
-    };
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new CLIError(
-          `Ollama API error (${response.status}): ${errorText}`,
-          1
-        );
-      }
-
-      const data: OllamaEmbedResponse = await response.json();
-      return data.embedding;
-    } catch (error: any) {
-      if (error.code === 'ECONNREFUSED') {
-        throw new CLIError(
-          '❌ Cannot connect to Ollama. Ensure Ollama is running:\n' +
-          '   ollama serve\n' +
-          `   Base URL: ${this.baseUrl}`,
-          1
-        );
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Calculate cosine similarity between two embedding vectors
-   */
-  cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (vecA.length !== vecB.length) {
-      throw new Error('Vectors must have same length');
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < vecA.length; i++) {
-      dotProduct += vecA[i] * vecB[i];
-      normA += vecA[i] * vecA[i];
-      normB += vecB[i] * vecB[i];
-    }
-
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-}
+// Note: Embeddings are Ollama-only
+// Anthropic and OpenAI do not provide embeddings via their APIs
 
 // ============================================================================
 // CLI Argument Parsing
@@ -233,6 +164,7 @@ POPULAR EMBEDDING MODELS:
   all-minilm:latest         384-dimensional embeddings (fast)
 
 NOTES:
+  - This tool is Ollama-only (Claude API/OpenAI don't provide embeddings)
   - Ensure Ollama is running: ollama serve
   - Pull embedding models: ollama pull nomic-embed-text
   - Use embeddings for semantic search, RAG, clustering
@@ -269,9 +201,9 @@ async function main(): Promise<void> {
                   process.env.OLLAMA_DEFAULT_MODEL ||
                   DEFAULTS.model;
 
-    // Create client and generate embeddings
-    const client = new OllamaEmbedClient(baseUrl);
-    const embedding = await client.embed(args.text, model);
+    // Create Ollama backend and generate embeddings
+    const backend = new OllamaBackend({ baseUrl });
+    const embedding = await backend.embed(args.text, model);
 
     // Output based on format
     switch (args.output) {
@@ -306,5 +238,3 @@ async function main(): Promise<void> {
 if (import.meta.main) {
   main();
 }
-
-export { OllamaEmbedClient };

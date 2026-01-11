@@ -1,0 +1,89 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_time",
+      "description": "Get the current time and date",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "Timezone (e.g., 'America/New_York', 'Europe/Paris')"
+          },
+          "format": {
+            "type": "string",
+            "description": "Time format (e.g., '12h', '24h')",
+            "enum": [
+              "12h",
+              "24h",
+              "iso"
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "execute_command",
+      "description": "Execute a shell command",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The shell command to execute"
+          },
+          "working_directory": {
+            "type": "string",
+            "description": "Working directory for the command (optional)"
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_environment_variable",
+      "description": "Get the value of an environment variable",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the environment variable"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "generate_uuid",
+      "description": "Generate a random UUID",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "UUID version (default: 4)",
+            "enum": [
+              4,
+              1
+            ]
+          }
+        }
+      }
+    }
+  }
+]

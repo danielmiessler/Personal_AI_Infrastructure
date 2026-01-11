@@ -1,11 +1,32 @@
 ---
-name: Ollama
-description: Local LLM inference via Ollama. USE WHEN user requests local processing, code review, experimentation, privacy-sensitive tasks, or when Claude API unavailable. Supports multi-model selection, embeddings, streaming, and interactive chat.
+name: Inference
+description: Multi-backend LLM inference (Ollama local + Claude API). USE WHEN user requests local processing, complex reasoning, code review, experimentation, privacy-sensitive tasks, or explicit backend selection. Supports intelligent routing, multi-model selection, embeddings, streaming, and interactive chat.
 ---
 
-# Ollama - Local LLM Inference
+# Inference - Multi-Backend LLM
 
-Run language models locally on your machine using Ollama. Perfect for experimentation, privacy-sensitive work, offline development, and cost-effective text generation.
+Run language models using multiple backends: Ollama (local, free, private) or Claude API (best reasoning, requires API key). Smart routing automatically selects the best backend based on task complexity, privacy needs, and user preferences.
+
+## Supported Backends
+
+| Backend | Type | Cost | Privacy | Best For |
+|---------|------|------|---------|----------|
+| **Ollama** | Local | Free | Complete | Code review, experimentation, privacy-sensitive, offline work |
+| **Anthropic** | API | Paid | Cloud | Complex reasoning, research, system design, maximum capability |
+
+## Backend Selection
+
+**Smart Routing** (automatic):
+- Privacy keywords → Ollama
+- Complex reasoning → Claude API
+- Model name detection (claude-* → anthropic, others → ollama)
+- Configurable via `INFERENCE_DEFAULT_BACKEND`
+
+**Explicit Selection** (--backend flag):
+```bash
+bun run Run.ts "prompt" --backend ollama
+bun run Generate.ts --prompt "..." --backend anthropic
+```
 
 ## Workflow Routing
 
@@ -21,14 +42,16 @@ All tools follow deterministic CLI design and support `--help` for full document
 
 ### Quick Run (Simplified Interface)
 ```bash
-# Basic - uses default model
+# Basic - uses default backend (ollama)
 bun run Run.ts "Explain closures in JavaScript"
 
-# With specific model (positional argument)
+# With specific model (positional argument, auto-detects backend)
 bun run Run.ts "Review this code" qwen2.5-coder:7b
+bun run Run.ts "Design a system" claude-sonnet-4.5
 
-# With model flag
-bun run Run.ts "Summarize this text" --model mistral
+# Explicit backend selection
+bun run Run.ts "Explain async" --backend ollama --model llama3.2
+bun run Run.ts "Complex reasoning" --backend anthropic --model claude-opus-4.5
 
 # Code review with code model
 bun run Run.ts "Review: function add(a,b) { return a+b }" codellama:7b
@@ -36,23 +59,28 @@ bun run Run.ts "Review: function add(a,b) { return a+b }" codellama:7b
 # With system prompt
 bun run Run.ts "Analyze this" llama3.2 --system "You are a security expert"
 
-# JSON output
-bun run Run.ts "List 3 colors" --format json
+# JSON output (Ollama only)
+bun run Run.ts "List 3 colors" --format json --backend ollama
 ```
 
 ### Text Generation (Full-Featured)
 ```bash
-# Basic generation
+# Basic generation (uses default backend)
 bun run Generate.ts --prompt "Explain closures in JavaScript"
 
-# Use specific model
+# Use specific model (auto-detects backend)
 bun run Generate.ts --prompt "..." --model qwen2.5-coder:7b
+bun run Generate.ts --prompt "..." --model claude-sonnet-4.5
+
+# Explicit backend selection
+bun run Generate.ts --prompt "..." --backend ollama --model llama3.2
+bun run Generate.ts --prompt "..." --backend anthropic --model claude-opus-4.5
 
 # Add system prompt
 bun run Generate.ts --prompt "Review this function" --system "You are a code reviewer"
 
-# Request JSON output
-bun run Generate.ts --prompt "List 3 colors" --format json
+# Request JSON output (Ollama only)
+bun run Generate.ts --prompt "List 3 colors" --format json --backend ollama
 
 # Adjust creativity
 bun run Generate.ts --prompt "Write a story" --temperature 0.9
@@ -60,11 +88,17 @@ bun run Generate.ts --prompt "Write a story" --temperature 0.9
 
 ### Interactive Chat
 ```bash
-# Start chat session
+# Start chat session (default backend)
 bun run Chat.ts
 
-# Use coding model
+# Use Ollama coding model
 bun run Chat.ts --model codellama:7b
+
+# Use Claude API (auto-detects from model name)
+bun run Chat.ts --model claude-sonnet-4.5
+
+# Explicit backend selection
+bun run Chat.ts --backend anthropic --model claude-opus-4.5
 
 # Set context
 bun run Chat.ts --system "You are a helpful Python tutor"
@@ -84,8 +118,12 @@ bun run Embed.ts --text "..." --output array
 
 ### Model Management
 ```bash
-# List installed models
+# List models from all backends
 bun run ListModels.ts
+
+# List models from specific backend
+bun run ListModels.ts --backend ollama
+bun run ListModels.ts --backend anthropic
 
 # JSON output
 bun run ListModels.ts --format json
@@ -93,38 +131,54 @@ bun run ListModels.ts --format json
 
 ## Popular Models
 
-### General Purpose
+### Ollama (Local, Free)
+
+**General Purpose**:
 - **llama3.2:3b** - Fast, efficient, good for chat (3B params)
 - **llama3.2:latest** - Balanced performance (8B params)
 - **mistral:latest** - High quality, efficient (7B params)
 
-### Code Generation
+**Code Generation**:
 - **qwen2.5-coder:7b** - Excellent coding, understands 80+ languages
 - **codellama:7b** - Meta's code specialist
 - **deepseek-coder:6.7b** - Strong at code completion
 
-### Embeddings
+**Embeddings** (Ollama-only):
 - **nomic-embed-text:latest** - 768-dim, recommended (137M params)
 - **mxbai-embed-large:latest** - 1024-dim, high quality (335M params)
 - **all-minilm:latest** - 384-dim, fastest (23M params)
+
+### Claude API (Anthropic, Paid)
+
+**General Purpose**:
+- **claude-sonnet-4.5** - Best balance of capability and speed (recommended)
+- **claude-opus-4.5** - Maximum capability for complex tasks
+- **claude-haiku-4** - Fastest responses for simple tasks
 
 ## Environment Configuration
 
 Add to `$PAI_DIR/.env`:
 
 ```bash
-# Ollama Server
+# Backend Configuration
+INFERENCE_DEFAULT_BACKEND=ollama              # Default backend: ollama or anthropic
+INFERENCE_ENABLE_ROUTING=true                # Enable smart routing
+
+# Ollama Configuration
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_TIMEOUT=30000
-
-# Default Models
 OLLAMA_DEFAULT_MODEL=llama3.2:latest
 OLLAMA_CHAT_MODEL=llama3.2:3b
 OLLAMA_CODE_MODEL=qwen2.5-coder:7b
 OLLAMA_EMBED_MODEL=nomic-embed-text:latest
 
-# Features
-OLLAMA_ENABLE_ROUTING=true
+# Anthropic Configuration
+ANTHROPIC_API_KEY=sk-ant-...                 # Required for Claude API
+ANTHROPIC_DEFAULT_MODEL=claude-sonnet-4.5
+ANTHROPIC_TIMEOUT=60000
+
+# Backward Compatibility (still supported)
+OLLAMA_ENABLE_ROUTING=true                   # Maps to INFERENCE_ENABLE_ROUTING
 ```
 
 ## Examples
@@ -269,17 +323,19 @@ bun run Run.ts "Explain async" qwen2.5-coder:7b
 
 ## Use Cases
 
-1. **Local Code Review** - Review PRs without API costs
-2. **Offline Development** - Work without internet connectivity
-3. **Privacy Protection** - Process sensitive code locally
-4. **Prompt Engineering** - Test prompts before production
-5. **Cost Reduction** - Use local models for simple tasks
-6. **RAG Implementation** - Embed documents for semantic search
-7. **Multi-Model Comparison** - Test different models on same task
-8. **Learning & Research** - Experiment with LLMs freely
+1. **Local Code Review** - Review PRs without API costs (Ollama)
+2. **Complex Reasoning** - System design, research papers (Claude API)
+3. **Offline Development** - Work without internet connectivity (Ollama)
+4. **Privacy Protection** - Process sensitive code locally (Ollama)
+5. **Prompt Engineering** - Test prompts before production (Both)
+6. **Cost Optimization** - Smart routing between free/paid backends
+7. **RAG Implementation** - Embed documents for semantic search (Ollama)
+8. **Multi-Model Comparison** - Test different backends on same task
+9. **Learning & Research** - Experiment with LLMs freely (Ollama)
 
 ## Installation
 
+### Ollama Backend (Local, Free)
 1. **Install Ollama**: https://ollama.com/download
 2. **Start Server**: `ollama serve`
 3. **Pull Models**:
@@ -288,8 +344,16 @@ bun run Run.ts "Explain async" qwen2.5-coder:7b
    ollama pull qwen2.5-coder:7b
    ollama pull nomic-embed-text
    ```
-4. **Configure PAI**: Add settings to `$PAI_DIR/.env`
-5. **Verify**: `bun run CheckHealth.ts`
+
+### Anthropic Backend (API, Paid)
+1. **Get API Key**: https://console.anthropic.com/
+2. **Add to Environment**: `ANTHROPIC_API_KEY=sk-ant-...` in `$PAI_DIR/.env`
+3. **No installation needed** - API-based
+
+### Final Steps
+1. **Install Dependencies**: `cd Packs/kai-inference-skill && bun install`
+2. **Configure PAI**: Add settings to `$PAI_DIR/.env`
+3. **Verify**: `bun run CheckHealth.ts` (checks all backends)
 
 ## Performance Tips
 

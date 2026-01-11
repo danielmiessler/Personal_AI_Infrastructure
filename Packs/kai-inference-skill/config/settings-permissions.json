@@ -1,0 +1,24 @@
+{
+  "_description": "Permissions for Inference skill tools",
+  "_instructions": [
+    "Merge these permissions into ~/.claude/settings.json",
+    "Add to the 'permissions.allow' array",
+    "Adjust paths based on your $PAI_DIR location"
+  ],
+  "permissions": {
+    "allow": [
+      "Read(//$PAI_DIR/skills/Inference/**)",
+      "Bash(bun run $PAI_DIR/skills/Inference/Tools/*.ts:*)",
+      "Bash(bun run $PAI_DIR/skills/Inference/Tools/Run.ts:*)",
+      "Bash(bun run $PAI_DIR/skills/Inference/Tools/Generate.ts:*)",
+      "Bash(bun run $PAI_DIR/skills/Inference/Tools/Chat.ts:*)",
+      "Bash(bun run $PAI_DIR/skills/Inference/Tools/Embed.ts:*)",
+      "Bash($PAI_DIR/skills/Inference/Tools/*.ts:*)",
+      "Bash(ollama:*)",
+      "Bash(ollama serve:*)",
+      "Bash(ollama list:*)",
+      "Bash(ollama pull:*)",
+      "Bash(ollama show:*)"
+    ]
+  }
+}

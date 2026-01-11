@@ -1,6 +1,6 @@
-# Ollama Skill Verification Checklist
+# Inference Skill Verification Checklist
 
-This document provides comprehensive verification tests to ensure the Ollama skill is installed and working correctly.
+This document provides comprehensive verification tests to ensure the Inference skill with multi-backend support (Ollama + Claude API) is installed and working correctly.
 
 ## Prerequisites Check
 
@@ -56,12 +56,12 @@ echo $PAI_DIR
 # Expected: Path to PAI directory (e.g., ~/.claude/pai)
 
 # Check skill files exist
-ls -la $PAI_DIR/skills/Ollama
+ls -la $PAI_DIR/skills/Inference
 # Expected: Directory with SKILL.md, Tools/, Workflows/
 ```
 
 - [ ] `$PAI_DIR` environment variable is set
-- [ ] `$PAI_DIR/skills/Ollama` directory exists
+- [ ] `$PAI_DIR/skills/Inference` directory exists
 - [ ] SKILL.md file exists
 - [ ] Tools/ directory exists
 - [ ] Workflows/ directory exists
@@ -78,12 +78,39 @@ cat $PAI_DIR/.env | grep OLLAMA
 - [ ] `.env` file contains `OLLAMA_DEFAULT_MODEL`
 - [ ] Configuration values are correct
 
+### 6. Claude API Configuration (Optional)
+
+```bash
+# Check if Anthropic API key is configured
+cat $PAI_DIR/.env | grep ANTHROPIC_API_KEY
+# Expected: ANTHROPIC_API_KEY=sk-ant-...
+
+# Test API connectivity
+bun run $PAI_DIR/skills/Inference/Tools/CheckHealth.ts
+# Expected: JSON output showing anthropic backend as healthy
+```
+
+- [ ] `ANTHROPIC_API_KEY` is set (if using Claude API)
+- [ ] API key is valid and working
+
+### 7. Backend Health Check
+
+```bash
+# Check all backends
+cd $PAI_DIR/skills/Inference/Tools
+bun run CheckHealth.ts
+# Expected: JSON showing status of all backends
+```
+
+- [ ] Ollama backend shows as healthy
+- [ ] Anthropic backend shows as healthy (if configured)
+
 ## Tool Verification
 
 ### 1. Generate.ts
 
 ```bash
-cd $PAI_DIR/skills/Ollama/Tools
+cd $PAI_DIR/skills/Inference/Tools
 
 # Test 1: Help
 bun run Generate.ts --help
@@ -112,16 +139,31 @@ bun run Generate.ts --prompt "Write a creative sentence" --temperature 0.9
 # Test 7: Specific model
 bun run Generate.ts --prompt "Hello" --model llama3.2:3b
 # Expected: Response from llama3.2:3b
+
+# Test 8: Claude API (if configured)
+bun run Generate.ts --prompt "Explain closures" --backend anthropic --model claude-sonnet-4.5
+# Expected: Response from Claude API
+
+# Test 9: Auto-detect backend from model name
+bun run Generate.ts --prompt "Hello" --model claude-sonnet-4.5
+# Expected: Automatically uses anthropic backend
+
+# Test 10: Explicit Ollama backend
+bun run Generate.ts --prompt "Hello" --backend ollama --model llama3.2
+# Expected: Uses Ollama backend
 ```
 
 #### Checklist
 - [ ] Help text displays correctly
 - [ ] Basic generation works with streaming
 - [ ] Non-streaming mode works
-- [ ] JSON mode produces valid JSON
+- [ ] JSON mode produces valid JSON (Ollama only)
 - [ ] System prompts are respected
 - [ ] Temperature parameter works
-- [ ] Can specify different models
+- [ ] Can specify different Ollama models
+- [ ] Claude API backend works (if configured)
+- [ ] Auto-detects backend from model name
+- [ ] Explicit backend selection works
 - [ ] Performance metrics are displayed
 - [ ] Errors are handled gracefully
 

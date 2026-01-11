@@ -1,0 +1,45 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_weather",
+      "description": "Get the current weather for a specific location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City name or location (e.g., 'Paris', 'New York', 'Tokyo')"
+          },
+          "units": {
+            "type": "string",
+            "description": "Temperature units",
+            "enum": ["celsius", "fahrenheit"]
+          }
+        },
+        "required": ["location"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_forecast",
+      "description": "Get weather forecast for the next few days",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City name or location"
+          },
+          "days": {
+            "type": "number",
+            "description": "Number of days to forecast (1-7)"
+          }
+        },
+        "required": ["location", "days"]
+      }
+    }
+  }
+]

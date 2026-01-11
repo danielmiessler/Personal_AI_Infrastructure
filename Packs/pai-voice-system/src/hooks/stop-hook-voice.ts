@@ -33,7 +33,7 @@ import { enhanceProsody, cleanForSpeech } from './lib/prosody-enhancer';
 // Configuration
 const VOICE_SERVER_URL = process.env.VOICE_SERVER_URL || 'http://localhost:8888';
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '';
-const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.claude');
 
 // AI Identity - loaded from environment variables first, then DAIDENTITY.md as fallback
 interface AIIdentity {

@@ -36,7 +36,7 @@ import { enhanceProsody, cleanForSpeech } from './lib/prosody-enhancer';
 
 // Configuration
 const VOICE_SERVER_URL = process.env.VOICE_SERVER_URL || 'http://localhost:8888';
-const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.claude');
 
 // Voice personalities configuration
 interface VoicePersonality {

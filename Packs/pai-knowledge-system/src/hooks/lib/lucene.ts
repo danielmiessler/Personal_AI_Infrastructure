@@ -6,12 +6,58 @@
  * regular text (like group_ids with hyphens), they must be escaped to avoid
  * syntax errors.
  *
- * Common issues:
- * - Hyphen (-) interpreted as negation operator: "pai-threat" becomes "NOT threat"
- * - Quotes (") used for phrase queries
- * - Wildcards (*, ?) for pattern matching
+ * ## The Problem
  *
- * This module provides utilities to safely escape these characters.
+ * Graphiti's FalkorDB driver has a sanitize() method that replaces special
+ * characters with whitespace for fulltext search. However, this sanitization
+ * is NOT applied to group_ids in search queries. When a group_id like
+ * "my-knowledge-base" is used, the hyphen is passed directly to RediSearch
+ * and interpreted as a negation operator.
+ *
+ * Example: "pai-threat-intel" → RediSearch interprets as "pai AND NOT threat AND NOT intel"
+ *
+ * ## Special Characters
+ *
+ * | Character | Lucene Interpretation |
+ * |-----------|----------------------|
+ * | `-`       | Negation (NOT)       |
+ * | `+`       | Required term (AND)  |
+ * | `@`       | Field prefix         |
+ * | `#`       | Tag field            |
+ * | `* ?`     | Wildcards            |
+ * | `"`       | Phrase query         |
+ * | `( )`     | Grouping             |
+ * | `{ } [ ]` | Range queries        |
+ * | `~`       | Fuzzy/proximity      |
+ * | `:`       | Field specifier      |
+ * | `|`       | OR operator          |
+ * | `&`       | AND operator         |
+ * | `!`       | NOT operator         |
+ * | `%`       | Fuzzy threshold      |
+ * | `< > =`   | Comparison operators |
+ * | `$`       | Variable reference   |
+ * | `/`       | Regex delimiter      |
+ *
+ * ## Related Issues
+ *
+ * - RediSearch #2628: Can't search text with hyphens
+ *   https://github.com/RediSearch/RediSearch/issues/2628
+ *
+ * - RediSearch #4092: Escaping filter values incomplete
+ *   https://github.com/RediSearch/RediSearch/issues/4092
+ *
+ * - Graphiti #815: FalkorDB query syntax errors with pipe character
+ *   https://github.com/getzep/graphiti/issues/815
+ *
+ * - Graphiti #1118: Fix forward slash character handling
+ *   https://github.com/getzep/graphiti/pull/1118
+ *
+ * ## Our Workaround
+ *
+ * 1. For group_ids: Convert hyphens to underscores (sanitizeGroupId)
+ * 2. For search queries: Escape special chars with backslash (sanitizeSearchQuery)
+ *
+ * @module lucene
  */
 
 /**
@@ -21,8 +67,8 @@
  * special characters, ensuring the value is treated as a literal string
  * rather than as Lucene query syntax.
  *
- * Special characters in Lucene syntax:
- * + - && || ! ( ) { } [ ] ^ " ~ * ? : \ /
+ * Special characters in Lucene/RediSearch syntax:
+ * + - && || ! ( ) { } [ ] ^ " ~ * ? : \ / @ # $ % < > =
  *
  * @param value - The value to escape (e.g., group_id, search term)
  * @returns The escaped value safe for use in Lucene queries
@@ -70,8 +116,9 @@ export function luceneSanitizeMany(values: string[]): string[] {
  * needsEscaping("simple") // => false
  */
 export function needsEscaping(value: string): boolean {
-  // Special characters in Lucene syntax
-  const specialChars = /[+\-&|!(){}\[\]^"~*?:\\/]/;
+  // Special characters in Lucene/RediSearch syntax
+  // Includes: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ / @ # $ % < > =
+  const specialChars = /[+\-&|!(){}\[\]^"~*?:\\/@#$%<>=]/;
   return specialChars.test(value);
 }
 
@@ -171,9 +218,8 @@ export function sanitizeSearchQuery(query: string): string {
   sanitized = sanitized.replace(/&&/g, '\\&\\&');
   sanitized = sanitized.replace(/\|\|/g, '\\|\\|');
 
-  // Escape other special characters: + - & | ! ( ) { } [ ] ^ " ~ * ? : /
-  sanitized = sanitized.replace(/[+\-&|!(){}\[\]^"~*?:/]/g, '\\$&');
+  // Escape other special characters: + - & | ! ( ) { } [ ] ^ " ~ * ? : / @ # $ % < > =
+  sanitized = sanitized.replace(/[+\-&|!(){}\[\]^"~*?:/@#$%<>=]/g, '\\$&');
 
   return sanitized;
 }
-

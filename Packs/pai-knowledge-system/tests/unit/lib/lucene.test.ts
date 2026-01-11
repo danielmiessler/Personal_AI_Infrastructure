@@ -61,6 +61,16 @@ describe("needsEscaping", () => {
     expect(needsEscaping('test"quote"')).toBe(true);
   });
 
+  test("should return true for RediSearch-specific special chars", () => {
+    expect(needsEscaping("@field")).toBe(true);
+    expect(needsEscaping("#tag")).toBe(true);
+    expect(needsEscaping("$var")).toBe(true);
+    expect(needsEscaping("50%")).toBe(true);
+    expect(needsEscaping("a<b")).toBe(true);
+    expect(needsEscaping("a>b")).toBe(true);
+    expect(needsEscaping("a=b")).toBe(true);
+  });
+
   test("should return false for simple alphanumeric strings", () => {
     expect(needsEscaping("simple")).toBe(false);
     expect(needsEscaping("Simple123")).toBe(false);
@@ -145,5 +155,20 @@ describe("sanitizeSearchQuery", () => {
 
   test("should escape parentheses", () => {
     expect(sanitizeSearchQuery("(test)")).toBe("\\(test\\)");
+  });
+
+  test("should escape RediSearch-specific special characters", () => {
+    expect(sanitizeSearchQuery("@field")).toBe("\\@field");
+    expect(sanitizeSearchQuery("#tag")).toBe("\\#tag");
+    expect(sanitizeSearchQuery("$var")).toBe("\\$var");
+    expect(sanitizeSearchQuery("50%")).toBe("50\\%");
+    expect(sanitizeSearchQuery("a<b")).toBe("a\\<b");
+    expect(sanitizeSearchQuery("a>b")).toBe("a\\>b");
+    expect(sanitizeSearchQuery("a=b")).toBe("a\\=b");
+  });
+
+  test("should escape combined RediSearch special chars", () => {
+    const result = sanitizeSearchQuery("@user:#admin=$price<100");
+    expect(result).toBe("\\@user\\:\\#admin\\=\\$price\\<100");
   });
 });

@@ -450,6 +450,82 @@ This issue is tracked at: https://github.com/getzep/graphiti/issues/840
 **Not a critical issue:**
 This warning usually doesn't break functionality, but restarting helps if you see repeated failures.
 
+### RediSearch Query Syntax Errors with Special Characters
+
+**Symptom:** Search queries fail with syntax errors, especially when searching for content containing hyphens, at-signs, or other special characters. Error messages may include "QuerySyntaxError" or mention unexpected tokens.
+
+**Root Cause:**
+
+FalkorDB uses RediSearch for fulltext indexing, which interprets certain characters as Lucene query operators:
+
+| Character | Lucene Interpretation |
+|-----------|----------------------|
+| `-` | Negation (NOT operator) |
+| `+` | Required term (AND) |
+| `@` | Field prefix |
+| `#` | Tag field |
+| `*` `?` | Wildcards |
+| `"` | Phrase query |
+| `( )` | Grouping |
+| `{ }` `[ ]` | Range queries |
+| `~` | Fuzzy/proximity |
+| `:` | Field specifier |
+| `\|` | OR operator |
+| `&` | AND operator |
+| `!` | NOT operator |
+| `%` | Fuzzy threshold |
+| `< > =` | Comparison operators |
+| `$` | Variable reference |
+| `/` | Regex delimiter |
+
+**Example of the bug:**
+
+When you search for `pai-threat-intel`:
+- RediSearch interprets this as: `pai AND NOT threat AND NOT intel`
+- This returns wrong results or a syntax error
+
+**The Graphiti Bug:**
+
+Graphiti's FalkorDB driver has a `sanitize()` method that replaces special characters with whitespace. However, this sanitization is **not applied to group_ids** in search queries. When you use a group_id like `my-knowledge-base`, the hyphen is passed directly to RediSearch and interpreted as negation.
+
+**Related Issues:**
+- [RediSearch #2628](https://github.com/RediSearch/RediSearch/issues/2628) - Can't search text with hyphens
+- [RediSearch #4092](https://github.com/RediSearch/RediSearch/issues/4092) - Escaping filter values
+- [Graphiti #815](https://github.com/getzep/graphiti/issues/815) - FalkorDB query syntax errors
+- [Graphiti #1118](https://github.com/getzep/graphiti/pull/1118) - Fix forward slash handling
+
+**Our Local Workaround:**
+
+The PAI Knowledge System implements client-side sanitization in `src/server/lib/lucene.ts`:
+
+1. **For group_ids:** Hyphens are converted to underscores before sending to Graphiti
+   - `pai-threat-intel` → `pai_threat_intel`
+   - This avoids the Graphiti bug where group_ids aren't escaped
+
+2. **For search queries:** Special characters are escaped with backslashes
+   - `user@domain` → `user\@domain`
+   - `50%` → `50\%`
+
+**Full list of escaped characters:**
+```
++ - && || ! ( ) { } [ ] ^ " ~ * ? : \ / @ # $ % < > =
+```
+
+**If you encounter syntax errors:**
+
+1. Check if your group_id contains special characters:
+   ```bash
+   grep PAI_KNOWLEDGE_GROUP_ID config/.env
+   ```
+
+2. Use underscores instead of hyphens in group_ids:
+   - Bad: `my-knowledge-base`
+   - Good: `my_knowledge_base`
+
+3. The sanitization is automatic for MCP tool calls, but if you're calling Graphiti directly, ensure you sanitize inputs.
+
+**Code reference:** `src/server/lib/lucene.ts:158-182` (sanitizeSearchQuery function)
+
 ## Diagnostic Commands Summary
 
 Quick reference for troubleshooting:

@@ -1,0 +1,39 @@
+{
+  "name": "@pai-osint/image-tools",
+  "version": "1.0.0",
+  "description": "OSINT image analysis tool wrappers for local-first investigation",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "test": "bun test ./tests/**/*.test.ts",
+    "test:watch": "bun test --watch ./tests/**/*.test.ts",
+    "lint": "echo 'Linting not configured'",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "osint",
+    "image-analysis",
+    "forensics",
+    "metadata",
+    "ocr",
+    "hashing"
+  ],
+  "author": "Personal AI Infrastructure",
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.33.5",
+    "tesseract.js": "^5.1.1",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

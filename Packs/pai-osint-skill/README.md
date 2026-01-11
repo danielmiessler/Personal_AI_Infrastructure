@@ -21,6 +21,29 @@ keywords: [osint, intelligence, reconnaissance, investigation, social-media, dom
 
 ---
 
+## Quick Navigation
+
+**Getting Started:**
+- [Installation Guide](INSTALL.md) - Step-by-step installation wizard
+- [Verification Checklist](VERIFY.md) - Post-installation validation
+
+**Documentation:**
+- [User Guide](docs/USER_GUIDE.md) - Complete usage documentation
+- [Quick Reference](docs/QUICK_REFERENCE.md) - Command cheat sheet
+- [Company Research Guide](docs/COMPANY_RESEARCH.md) - Business intelligence workflows
+
+**Advanced:**
+- [Image Analysis Tools](docs/IMAGE_ANALYSIS_TOOLS.md) - Tool requirements and setup
+- [Enrichment Roadmap](docs/ENRICHMENT_ROADMAP.md) - API integration guide
+
+**By Workflow Type:**
+- **Person Investigation:** Username enumeration, social media, entity linking
+- **Domain Intelligence:** DNS, WHOIS, subdomains, infrastructure mapping
+- **Company Research:** Corporate profiles, ownership, financials, risk assessment
+- **Digital Artifacts:** Email, phone, and image analysis
+
+---
+
 ## Installation Prompt
 
 You are receiving a PAI Pack - a modular upgrade for AI agent systems.
@@ -62,11 +85,14 @@ Please follow the installation instructions in `INSTALL.md` to integrate this pa
 | Financial Recon | `Workflows/FinancialRecon.md` | SEC filings, funding, investors |
 | Competitor Analysis | `Workflows/CompetitorAnalysis.md` | Market position, SWOT analysis |
 | Risk Assessment | `Workflows/RiskAssessment.md` | Litigation, sanctions, due diligence |
+| Email Reconnaissance | `Workflows/EmailRecon.md` | Email investigation, breach checking |
+| Phone Reconnaissance | `Workflows/PhoneRecon.md` | Phone number lookup, validation |
+| Image Reconnaissance | `Workflows/ImageRecon.md` | Image metadata, forensics, reverse search |
 
 **Summary:**
-- **Files created:** 14 (1 skill + 13 workflows)
+- **Files created:** 17 (1 skill + 16 workflows)
 - **Directories created:** 2 (`skills/osint/Workflows/`, `history/research/osint/`)
-- **Dependencies:** pai-browser-skill (recommended), pai-knowledge-system (recommended)
+- **Dependencies:** pai-browser-skill (recommended), pai-knowledge-system (required)
 
 ---
 
@@ -117,7 +143,7 @@ The PAI OSINT Skill provides **structured, persistent, knowledge-graph-backed in
 │  osint skill    │    │  browser skill  │    │ knowledge skill │
 │                 │    │  (Dependency)   │    │  (Dependency)   │
 │ • Intent Router │    │                 │    │                 │
-│ • 13 Workflows  │    │ • Playwright    │    │ • Entity Store  │
+│ • 16 Workflows  │    │ • Playwright    │    │ • Entity Store  │
 │ • Agents        │    │ • Session Mgmt  │    │ • Relationships │
 │                 │    │ • Screenshots   │    │ • Graph Queries │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
@@ -148,7 +174,7 @@ Each workflow follows a consistent 5-step pattern:
 
 **Design Principles:**
 
-1. **Workflow-Driven**: 13 specialized workflows for different intelligence tasks
+1. **Workflow-Driven**: 16 specialized workflows for different intelligence tasks
 2. **Knowledge-First**: Every workflow stores to knowledge graph via the **knowledge** skill
 3. **Dual Storage**: Both queryable graph AND human-readable file reports
 4. **Ethical by Design**: Legal considerations built into every workflow
@@ -246,6 +272,9 @@ The OSINT system triggers on natural language or `/osint` commands:
 | "financials for X" | FinancialRecon | SEC filings, funding |
 | "competitors of X" | CompetitorAnalysis | Market landscape |
 | "risk assessment X" | RiskAssessment | Due diligence |
+| "email lookup X" | EmailRecon | Email investigation, breach check |
+| "phone lookup X" | PhoneRecon | Phone number validation |
+| "analyze image X" | ImageRecon | Image metadata, forensics |
 
 ---
 
@@ -353,9 +382,12 @@ export PAI_DIR="$HOME/.claude"
 ## Dependencies
 
 - **browser skill** - Browser automation for web scraping (recommended)
-- **knowledge skill** - Knowledge graph for entity storage (recommended)
+  - Without this: Limited web scraping, some workflows will fail
+- **knowledge skill** - Knowledge graph for entity storage (required)
+  - Without this: Findings stored to files only, no cross-investigation linking
 
-Both dependencies are optional but significantly enhance functionality.
+**Required:** pai-knowledge-system for knowledge graph persistence
+**Recommended:** pai-browser-skill for JavaScript-heavy sites and authentication
 
 ---
 
@@ -406,7 +438,11 @@ See `docs/` directory for detailed user guides:
   - FinancialRecon: SEC filings, funding history, investor analysis
   - CompetitorAnalysis: Market positioning, SWOT, competitive landscape
   - RiskAssessment: Litigation, sanctions, adverse media, due diligence
-- Added explicit **knowledge** skill integration to all 13 workflows
+- **NEW: Digital Artifact Analysis Module**
+  - EmailRecon: Email address investigation and breach checking
+  - PhoneRecon: Phone number lookup and validation
+  - ImageRecon: Image metadata, forensics, and reverse search
+- Added explicit **knowledge** skill integration to all 16 workflows
 - Changed skill name to lowercase `osint` per PAI conventions
 - Added user documentation under `docs/`
 - Updated VERIFY.md with comprehensive checks

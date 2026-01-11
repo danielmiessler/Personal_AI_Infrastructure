@@ -111,7 +111,7 @@ Tell the user what you found:
     {"label": "Person Investigation (Recommended)", "description": "Username enumeration, social media, entity linking"},
     {"label": "Domain Intelligence", "description": "DNS, WHOIS, certificate transparency, subdomains"},
     {"label": "Company Research", "description": "Corporate profiles, ownership, financials, risk assessment"},
-    {"label": "All of the above", "description": "Full OSINT capability with all 13 workflows"}
+    {"label": "All of the above", "description": "Full OSINT capability with all 16 workflows"}
   ]
 }
 ```
@@ -133,7 +133,73 @@ Tell the user what you found:
 }
 ```
 
-### Question 4: Final Confirmation
+### Question 4: API Key Configuration (Optional)
+
+```json
+{
+  "header": "API Keys",
+  "question": "Do you want to configure optional API keys for enhanced OSINT capabilities?",
+  "multiSelect": false,
+  "options": [
+    {"label": "Skip for Now", "description": "OSINT will work with free/public data sources"},
+    {"label": "Configure API Keys", "description": "I'll guide you through setting up API keys"},
+    {"label": "Show Me What's Available", "description": "List available API integrations and benefits"}
+  ]
+}
+```
+
+**If user chooses "Configure API Keys" or "Show Me What's Available":**
+
+```bash
+# Create or edit .env file
+ENV_FILE="$PAI_DIR/.env"
+mkdir -p "$(dirname "$ENV_FILE")"
+
+# Add API key template
+cat >> "$ENV_FILE" << 'EOF'
+
+# OSINT API Keys (Optional)
+# All workflows work without these keys using public sources
+# Keys enhance data quality and access rate limits
+
+# Shodan (Infrastructure scanning)
+# Get key at: https://developer.shodan.io/api/requirements
+SHODAN_API_KEY=""
+
+# SecurityTrails (Domain intelligence)
+# Get key at: https://securitytrails.com/corp/api
+SECURITYTRAILS_API_KEY=""
+
+# Hunter.io (Email finding)
+# Get key at: https://hunter.io/api/accounts
+HUNTER_API_KEY=""
+
+# Have I Been Pwned (Breach checking)
+# Get key at: https://haveibeenpwned.com/API/Key
+HIBP_API_KEY=""
+
+# NumVerify (Phone validation)
+# Get key at: https://numverify.com/
+NUMVERIFY_API_KEY=""
+
+EOF
+
+echo "✓ API key template created at: $ENV_FILE"
+echo "  Edit this file to add your API keys"
+echo "  Each key is optional - add only what you need"
+```
+
+**API Key Benefits:**
+
+| Service | Enhances Workflows | Benefits |
+|---------|-------------------|----------|
+| Shodan | InfraMapping | Full port scan results, service fingerprints |
+| SecurityTrails | DomainRecon, CorporateStructure | Complete domain history, WHOIS data |
+| Hunter.io | EmailRecon | Professional email finding, verification |
+| HaveIBeenPwned | EmailRecon | Breach database access |
+| NumVerify | PhoneRecon | International phone validation |
+
+### Question 5: Final Confirmation
 
 ```json
 {
@@ -178,6 +244,34 @@ echo "Backup complete at: $BACKUP_DIR"
 
 ## Phase 4: Installation
 
+**Before installing, locate the pack source:**
+
+```bash
+# Determine where pai-osint-skill pack is located
+# If cloned from git
+PACK_SOURCE="$(git rev-parse --show-toplevel 2>/dev/null)/Packs/pai-osint-skill"
+
+# If downloaded archive or current directory
+PACK_SOURCE="$(pwd)"
+
+# Verify pack contents exist
+if [ -f "$PACK_SOURCE/src/skills/osint/SKILL.md" ]; then
+  echo "✓ Pack source located at: $PACK_SOURCE"
+else
+  echo "✗ Pack source not found. Please navigate to the pai-osint-skill directory"
+  echo "  or specify the full path to PACK_SOURCE"
+  exit 1
+fi
+
+# List what will be installed
+echo ""
+echo "Files to be installed:"
+ls -1 "$PACK_SOURCE/src/skills/osint/SKILL.md"
+ls -1 "$PACK_SOURCE/src/skills/osint/Workflows/"*.md
+echo ""
+echo "Total workflows: $(ls -1 "$PACK_SOURCE/src/skills/osint/Workflows/"*.md | wc -l | xargs)"
+```
+
 **Create a TodoWrite list to track progress:**
 
 ```json
@@ -185,7 +279,7 @@ echo "Backup complete at: $BACKUP_DIR"
   "todos": [
     {"content": "Create directory structure", "status": "pending", "activeForm": "Creating directory structure"},
     {"content": "Copy SKILL.md", "status": "pending", "activeForm": "Copying skill definition"},
-    {"content": "Copy all 13 workflows", "status": "pending", "activeForm": "Copying workflow files"},
+    {"content": "Copy all 16 workflows", "status": "pending", "activeForm": "Copying workflow files"},
     {"content": "Create research directory", "status": "pending", "activeForm": "Creating research directory"},
     {"content": "Run verification", "status": "pending", "activeForm": "Running verification checks"}
   ]
@@ -211,8 +305,8 @@ ls -la $PAI_DIR/skills/osint/
 **Mark todo "Copy SKILL.md" as in_progress.**
 
 ```bash
-# Copy skill definition (use absolute path to pack source)
-cp /path/to/pai-osint-skill/src/skills/osint/SKILL.md $PAI_DIR/skills/osint/
+# Copy skill definition using PACK_SOURCE variable
+cp "$PACK_SOURCE/src/skills/osint/SKILL.md" $PAI_DIR/skills/osint/
 
 # Verify skill name is lowercase
 grep "^name:" $PAI_DIR/skills/osint/SKILL.md
@@ -221,17 +315,17 @@ grep "^name:" $PAI_DIR/skills/osint/SKILL.md
 
 **Mark todo as completed.**
 
-### 4.3 Copy All 13 Workflows
+### 4.3 Copy All 16 Workflows
 
-**Mark todo "Copy all 13 workflows" as in_progress.**
+**Mark todo "Copy all 16 workflows" as in_progress.**
 
 ```bash
-# Copy all workflow files
-cp /path/to/pai-osint-skill/src/skills/osint/Workflows/*.md $PAI_DIR/skills/osint/Workflows/
+# Copy all workflow files using PACK_SOURCE variable
+cp "$PACK_SOURCE/src/skills/osint/Workflows/"*.md $PAI_DIR/skills/osint/Workflows/
 
 # Verify count
 ls $PAI_DIR/skills/osint/Workflows/*.md | wc -l
-# Should show: 13
+# Should show: 16
 ```
 
 **Expected workflows:**
@@ -248,6 +342,9 @@ ls $PAI_DIR/skills/osint/Workflows/*.md | wc -l
 11. FinancialRecon.md
 12. CompetitorAnalysis.md
 13. RiskAssessment.md
+14. EmailRecon.md
+15. PhoneRecon.md
+16. ImageRecon.md
 
 **Mark todo as completed.**
 
@@ -293,17 +390,17 @@ if [ -d "$PAI_DIR/history/research/osint" ]; then echo "  Research directory"; (
 
 # Workflows
 echo ""
-echo "Workflows (13 required):"
+echo "Workflows (16 required):"
 WF_COUNT=$(ls "$PAI_DIR/skills/osint/Workflows/"*.md 2>/dev/null | wc -l | xargs)
-echo "  Found: $WF_COUNT/13 workflows"
-if [ "$WF_COUNT" -eq 13 ]; then ((PASS++)); else ((FAIL++)); fi
+echo "  Found: $WF_COUNT/16 workflows"
+if [ "$WF_COUNT" -eq 16 ]; then ((PASS++)); else ((FAIL++)); fi
 
 # Knowledge integration
 echo ""
 echo "Knowledge Integration:"
 KI_COUNT=$(grep -l 'Use the \*\*knowledge\*\* skill' "$PAI_DIR/skills/osint/Workflows/"*.md 2>/dev/null | wc -l | xargs)
-echo "  Found: $KI_COUNT/13 workflows with knowledge skill"
-if [ "$KI_COUNT" -eq 13 ]; then ((PASS++)); else ((FAIL++)); fi
+echo "  Found: $KI_COUNT/16 workflows with knowledge skill"
+if [ "$KI_COUNT" -eq 16 ]; then ((PASS++)); else ((FAIL++)); fi
 
 # Dependencies
 echo ""
@@ -341,7 +438,7 @@ fi
 "PAI OSINT Skill v1.1.0 installed successfully!
 
 What's available:
-- 13 OSINT workflows for person, domain, and company investigation
+- 16 OSINT workflows for person, domain, company, and digital artifact investigation
 - Knowledge graph integration for persistent findings
 - Dual storage: knowledge graph + file reports
 
@@ -349,6 +446,9 @@ Try it:
 - 'investigate username johndoe'
 - 'company profile Acme Corp'
 - 'risk assessment Vendor LLC'
+- 'email lookup john@example.com'
+- 'phone lookup +1-555-123-4567'
+- 'analyze this image'
 
 See docs/QUICK_REFERENCE.md for all commands."
 ```
@@ -359,7 +459,7 @@ See docs/QUICK_REFERENCE.md for all commands."
 "Installation encountered issues. Here's what to check:
 
 1. Verify $PAI_DIR is set correctly (default: ~/.claude)
-2. Ensure all 13 workflow files were copied
+2. Ensure all 16 workflow files were copied
 3. Check SKILL.md has lowercase name 'osint'
 4. Check VERIFY.md for the specific failing check
 
@@ -388,8 +488,9 @@ mkdir -p $PAI_DIR/skills/osint/Workflows
 ### "Workflows missing"
 
 ```bash
-# Re-copy from pack source
-cp /path/to/pai-osint-skill/src/skills/osint/Workflows/*.md $PAI_DIR/skills/osint/Workflows/
+# Re-copy from pack source using PACK_SOURCE variable
+PACK_SOURCE="/path/to/pai-osint-skill"  # Adjust to your path
+cp "$PACK_SOURCE/src/skills/osint/Workflows/"*.md $PAI_DIR/skills/osint/Workflows/
 ```
 
 ### "Knowledge integration missing"
@@ -439,6 +540,9 @@ done
 | `src/skills/osint/Workflows/FinancialRecon.md` | SEC filings, funding, investors |
 | `src/skills/osint/Workflows/CompetitorAnalysis.md` | Market position, SWOT analysis |
 | `src/skills/osint/Workflows/RiskAssessment.md` | Litigation, sanctions, due diligence |
+| `src/skills/osint/Workflows/EmailRecon.md` | Email address investigation and breach checking |
+| `src/skills/osint/Workflows/PhoneRecon.md` | Phone number lookup and validation |
+| `src/skills/osint/Workflows/ImageRecon.md` | Image metadata, forensics, and reverse search |
 
 ---
 
@@ -452,6 +556,9 @@ done
 "Do a company profile on Acme Corporation"
 "Risk assessment on Vendor LLC"
 "Generate intel report for Investigation Alpha"
+"Email lookup john@example.com"
+"Phone lookup +1-555-123-4567"
+"Analyze this image for metadata"
 ```
 
 ### From Claude Code (/osint Commands)
@@ -462,6 +569,9 @@ done
 /osint company "Acme Corporation"
 /osint risk "Vendor LLC"
 /osint report "Investigation Alpha"
+/osint email john@example.com
+/osint phone +1-555-123-4567
+/osint image /path/to/image.jpg
 ```
 
 ---

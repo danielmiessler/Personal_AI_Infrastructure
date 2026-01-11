@@ -22,6 +22,16 @@ triggers:
   - financial recon
   - risk assessment
   - corporate structure
+  - email lookup
+  - email recon
+  - breach check
+  - phone lookup
+  - phone number
+  - reverse phone
+  - image search
+  - reverse image
+  - photo analysis
+  - exif
 ---
 
 # osint skill
@@ -98,6 +108,34 @@ User: Create complete profile for target
 
 ---
 
+## Digital Artifact Analysis
+
+### Email Reconnaissance
+**Triggers:** "email lookup", "email recon", "check email", "email OSINT", "breach check email", "who owns this email"
+**Workflow:** EmailRecon.md
+```
+User: Investigate email address john@example.com
+→ Execute EmailRecon workflow
+```
+
+### Phone Number Reconnaissance
+**Triggers:** "phone lookup", "phone number", "reverse phone", "caller ID", "who called", "phone OSINT"
+**Workflow:** PhoneRecon.md
+```
+User: Look up phone number +1-555-123-4567
+→ Execute PhoneRecon workflow
+```
+
+### Image Reconnaissance
+**Triggers:** "image search", "reverse image", "photo analysis", "exif data", "where was this photo taken", "image forensics", "is this image real"
+**Workflow:** ImageRecon.md
+```
+User: Analyze this image for metadata and find similar images
+→ Execute ImageRecon workflow
+```
+
+---
+
 ## Company & Business Research
 
 ### Company Profile
@@ -140,46 +178,69 @@ User: Run a risk check on potential vendor
 → Execute RiskAssessment workflow
 ```
 
-## Quick Commands
+## Example Invocations
 
-```bash
-# Username enumeration
-/osint username <username>
+Use natural language to invoke OSINT workflows:
 
-# Domain reconnaissance
-/osint domain <domain>
+**Username enumeration:**
+- "Find all accounts for username johndoe"
+- "Check username johndoe across platforms"
+- "Where is username johndoe registered"
 
-# Social media capture
-/osint social <@handle or URL>
+**Domain reconnaissance:**
+- "Investigate domain example.com"
+- "Get WHOIS and DNS for example.com"
+- "Show me subdomains for example.com"
 
-# Infrastructure mapping
-/osint infra <IP or range>
+**Social media capture:**
+- "Capture social profile for @target_user"
+- "Get profile data from twitter.com/user"
+- "Extract social media intelligence"
 
-# Entity linking
-/osint link <entity1> <entity2>
+**Infrastructure mapping:**
+- "Map infrastructure for 192.168.1.0/24"
+- "Scan ports on example.com"
+- "What services are running on target"
 
-# Timeline analysis
-/osint timeline <target>
+**Entity linking:**
+- "Find connections between these accounts"
+- "Link entities across platforms"
+- "Resolve identity for username X"
 
-# Generate report
-/osint report <investigation_name>
+**Timeline analysis:**
+- "Analyze activity timeline for target"
+- "When was this account most active"
+- "Show temporal patterns"
 
-# Full target profile
-/osint profile <target>
+**Intelligence reporting:**
+- "Generate intel report for Investigation Alpha"
+- "Create dossier from findings"
+- "Summarize collected intelligence"
 
-# Company & Business Research
-/osint company <company_name>        # Full company profile
-/osint structure <company_name>      # Corporate ownership/structure
-/osint financials <company_name>     # Financial reconnaissance
-/osint competitors <company_name>    # Competitive analysis
-/osint risk <company_name>           # Risk/due diligence assessment
-```
+**Target profiling:**
+- "Full profile for target johndoe"
+- "Comprehensive investigation of username X"
+- "Complete dossier for company"
+
+**Digital Artifact Analysis:**
+- "Email lookup john@example.com"
+- "Check if email was breached"
+- "Phone lookup +1-555-123-4567"
+- "Analyze this image for metadata"
+- "Reverse image search"
+
+**Company & Business Research:**
+- "Company profile Acme Corporation"
+- "Corporate structure of XYZ Inc"
+- "Financials for TechCorp"
+- "Competitor analysis for Acme Corp"
+- "Risk assessment on potential vendor"
 
 ## Dependencies
 
-This skill requires:
-- **Browser Pack** - For web scraping and page rendering
-- **Knowledge Pack** - For storing and querying intelligence
+This skill works standalone but recommends:
+- **pai-browser-skill** - For web scraping and JavaScript-heavy sites
+- **pai-knowledge-system** - For storing entities and relationships to knowledge graph (required for full functionality)
 
 ## Ethical Guidelines
 

@@ -5,6 +5,8 @@
  * Handles JSON-RPC 2.0 requests for all MCP tools.
  */
 
+import { sanitizeGroupIds, sanitizeGroupId, sanitizeSearchQuery } from "./lucene.js";
+
 /**
  * MCP tool names (Graphiti MCP server)
  *
@@ -339,23 +341,30 @@ export class MCPClient {
    * Results are cached for repeated queries
    */
   async searchNodes(params: SearchNodesParams): Promise<MCPClientResponse<unknown[]>> {
+    // Sanitize query and group_ids to avoid RediSearch/Lucene syntax errors
+    const sanitizedParams: SearchNodesParams = {
+      ...params,
+      query: sanitizeSearchQuery(params.query),
+      group_ids: sanitizeGroupIds(params.group_ids),
+    };
+
     // Check cache first
     if (this.cache) {
-      const cacheKey = this.getCacheKey(MCP_TOOLS.SEARCH_NODES, params as Record<string, unknown>);
+      const cacheKey = this.getCacheKey(MCP_TOOLS.SEARCH_NODES, sanitizedParams as Record<string, unknown>);
       const cached = this.cache.get(cacheKey);
       if (cached) {
         return { success: true, data: cached as unknown[] };
       }
 
       // Fetch and cache
-      const result = await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_NODES, params);
+      const result = await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_NODES, sanitizedParams);
       if (result.success && result.data) {
         this.cache.set(cacheKey, result.data);
       }
       return result;
     }
 
-    return await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_NODES, params);
+    return await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_NODES, sanitizedParams);
   }
 
   /**
@@ -363,30 +372,42 @@ export class MCPClient {
    * Results are cached for repeated queries
    */
   async searchFacts(params: SearchFactsParams): Promise<MCPClientResponse<unknown[]>> {
+    // Sanitize query and group_ids to avoid RediSearch/Lucene syntax errors
+    const sanitizedParams: SearchFactsParams = {
+      ...params,
+      query: sanitizeSearchQuery(params.query),
+      group_ids: sanitizeGroupIds(params.group_ids),
+    };
+
     // Check cache first
     if (this.cache) {
-      const cacheKey = this.getCacheKey(MCP_TOOLS.SEARCH_FACTS, params as Record<string, unknown>);
+      const cacheKey = this.getCacheKey(MCP_TOOLS.SEARCH_FACTS, sanitizedParams as Record<string, unknown>);
       const cached = this.cache.get(cacheKey);
       if (cached) {
         return { success: true, data: cached as unknown[] };
       }
 
       // Fetch and cache
-      const result = await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_FACTS, params);
+      const result = await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_FACTS, sanitizedParams);
       if (result.success && result.data) {
         this.cache.set(cacheKey, result.data);
       }
       return result;
     }
 
-    return await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_FACTS, params);
+    return await this.callTool<unknown[]>(MCP_TOOLS.SEARCH_FACTS, sanitizedParams);
   }
 
   /**
    * Get recent episodes from the knowledge graph
    */
   async getEpisodes(params: GetEpisodesParams = {}): Promise<MCPClientResponse<unknown[]>> {
-    return await this.callTool<unknown[]>(MCP_TOOLS.GET_EPISODES, params);
+    // Sanitize group_id to avoid RediSearch/Lucene syntax errors
+    const sanitizedParams: GetEpisodesParams = {
+      ...params,
+      group_id: sanitizeGroupId(params.group_id),
+    };
+    return await this.callTool<unknown[]>(MCP_TOOLS.GET_EPISODES, sanitizedParams);
   }
 
   /**

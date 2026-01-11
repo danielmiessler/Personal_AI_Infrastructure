@@ -6,6 +6,8 @@
  * Designed for fail-safe operation with timeouts and graceful degradation.
  */
 
+import { sanitizeGroupId } from "./lucene.js";
+
 export interface KnowledgeClientConfig {
   baseURL: string;
   timeout: number;
@@ -257,6 +259,9 @@ export async function addEpisode(
   params: AddEpisodeParams,
   config: KnowledgeClientConfig = DEFAULT_CONFIG
 ): Promise<AddEpisodeResult> {
+  // Sanitize group_id to avoid RediSearch/Lucene syntax errors
+  const sanitizedGroupId = sanitizeGroupId(params.group_id);
+
   const request = {
     jsonrpc: '2.0',
     id: Date.now(),
@@ -268,7 +273,7 @@ export async function addEpisode(
         episode_body: params.episode_body.slice(0, 5000),
         source: params.source || 'text',
         source_description: params.source_description || '',
-        group_id: params.group_id
+        group_id: sanitizedGroupId
       }
     }
   };

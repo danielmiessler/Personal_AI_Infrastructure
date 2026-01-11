@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * PAI Knowledge System Installation Script
+ * PAI Knowledge System Installation Script v2.1.0
  *
- * Interactive installation wizard that guides users through:
+ * Interactive installer that guides users through:
  * - LLM provider selection
  * - API key configuration
  * - Model selection
@@ -10,7 +10,20 @@
  * - PAI .env integration
  * - Service startup
  * - PAI skill installation
+ *
+ * Usage:
+ *   bun run src/server/install.ts                # Fresh install (interactive)
+ *   bun run src/server/install.ts --update       # Update existing installation
+ *   bun run src/server/install.ts --yes          # Non-interactive with defaults
+ *   bun run src/server/install.ts --update --yes # Update non-interactively
  */
+
+// =============================================================================
+// CLI FLAGS
+// =============================================================================
+
+const isUpdateMode = process.argv.includes("--update") || process.argv.includes("-u");
+const isNonInteractive = process.argv.includes("--yes") || process.argv.includes("-y");
 
 import { createContainerManager } from "./lib/container.js";
 import { createConfigLoader } from "./lib/config.js";
@@ -93,6 +106,65 @@ const OPENAI_TIERS: APITier[] = [
   { name: "Tier 4 (5000 requests/minute)", semaphoreLimit: 20 },
 ];
 
+// =============================================================================
+// NON-INTERACTIVE HELPERS
+// =============================================================================
+
+/**
+ * Prompt wrapper that uses defaults in non-interactive mode
+ */
+async function promptWithDefault<T>(
+  promptFn: () => Promise<T>,
+  defaultValue: T,
+  description?: string
+): Promise<T> {
+  if (isNonInteractive) {
+    if (description) {
+      cli.dim(`  Using default: ${description}`);
+    }
+    return defaultValue;
+  }
+  return promptFn();
+}
+
+/**
+ * Confirm wrapper that auto-accepts in non-interactive mode
+ */
+async function confirmWithDefault(
+  message: string,
+  defaultValue: boolean = true
+): Promise<boolean> {
+  if (isNonInteractive) {
+    cli.dim(`  Auto-${defaultValue ? 'accepting' : 'declining'}: ${message}`);
+    return defaultValue;
+  }
+  const { result } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "result",
+      message,
+      default: defaultValue,
+    },
+  ]);
+  return result;
+}
+
+/**
+ * Press enter wrapper that skips in non-interactive mode
+ */
+async function pressEnterToContinue(message: string = "Press Enter to continue..."): Promise<void> {
+  if (isNonInteractive) {
+    return;
+  }
+  await inquirer.prompt([
+    {
+      type: "input",
+      name: "continue",
+      message,
+    },
+  ]);
+}
+
 /**
  * Installation state
  */
@@ -154,6 +226,12 @@ class Installer {
       cli.dim(`Key: ${masked}`);
       cli.blank();
 
+      // In non-interactive mode, always use existing key
+      if (isNonInteractive) {
+        cli.success(`Using existing ${keyName} API key`);
+        return existingValue;
+      }
+
       const { useKey } = await inquirer.prompt([
         {
           type: "confirm",
@@ -167,6 +245,24 @@ class Installer {
         cli.success(`Using existing ${keyName} API key`);
         return existingValue;
       }
+    }
+
+    // In non-interactive mode without existing key, check environment
+    if (isNonInteractive) {
+      // Try to get from environment variables
+      const envKey = keyName.includes("OpenAI") ? process.env.OPENAI_API_KEY || process.env.PAI_KNOWLEDGE_OPENAI_API_KEY
+        : keyName.includes("Anthropic") ? process.env.ANTHROPIC_API_KEY || process.env.PAI_KNOWLEDGE_ANTHROPIC_API_KEY
+        : keyName.includes("Google") ? process.env.GOOGLE_API_KEY || process.env.PAI_KNOWLEDGE_GOOGLE_API_KEY
+        : keyName.includes("Groq") ? process.env.GROQ_API_KEY || process.env.PAI_KNOWLEDGE_GROQ_API_KEY
+        : undefined;
+
+      if (envKey) {
+        cli.success(`Using ${keyName} API key from environment`);
+        return envKey;
+      }
+
+      cli.warning(`No ${keyName} API key found - set via environment or run interactively`);
+      return undefined;
     }
 
     // Prompt for new key
@@ -205,12 +301,13 @@ class Installer {
 
   /**
    * Read PAI configuration from PAI .env file
+   * Path priority: PAI_DIR > ~/.claude > ~/.config/pai (legacy)
    */
   private async readPAIConfig(): Promise<void> {
     const possiblePaths = [
-      `${process.env.HOME}/.config/pai/.env`,
       process.env.PAI_DIR ? `${process.env.PAI_DIR}/.env` : "",
-      `${process.env.HOME}/.pai/.env`,
+      `${process.env.HOME}/.claude/.env`,
+      `${process.env.HOME}/.config/pai/.env`,  // Legacy fallback
     ].filter(Boolean);
 
     let paiEnvPath: string | undefined;
@@ -331,13 +428,7 @@ class Installer {
     cli.info("Using current pack directory");
     cli.blank();
     cli.dim("(In TypeScript version, we always use the current pack directory)");
-    await inquirer.prompt([
-      {
-        type: "input",
-        name: "continue",
-        message: "Press Enter to continue...",
-      },
-    ]);
+    await pressEnterToContinue();
   }
 
   /**
@@ -347,15 +438,24 @@ class Installer {
     cli.blank();
     cli.header("Step 3: LLM Provider Selection");
 
-    const { provider } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "provider",
-        message: "Select your LLM provider:",
-        choices: PROVIDERS.map((p) => ({ name: p.name, value: p.id })),
-        default: "openai",
-      },
-    ]);
+    let provider: string;
+
+    if (isNonInteractive) {
+      // Use existing provider from state (loaded from config) or default to openai
+      provider = this.state.llmProvider || "openai";
+      cli.dim(`  Using provider: ${provider}`);
+    } else {
+      const result = await inquirer.prompt([
+        {
+          type: "list",
+          name: "provider",
+          message: "Select your LLM provider:",
+          choices: PROVIDERS.map((p) => ({ name: p.name, value: p.id })),
+          default: this.state.llmProvider || "openai",
+        },
+      ]);
+      provider = result.provider;
+    }
 
     const selected = PROVIDERS.find((p) => p.id === provider);
     if (!selected) {
@@ -445,17 +545,23 @@ class Installer {
 
     // If provider has specific models, prompt for selection
     if (provider.models && provider.models.length > 0) {
-      const { model } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "model",
-          message: `Select ${provider.name} model:`,
-          choices: provider.models,
-          default: provider.models[0].value,
-        },
-      ]);
-
-      this.state.modelName = model;
+      if (isNonInteractive) {
+        // Use existing model from state or first available
+        const existingModel = provider.models.find(m => m.value === this.state.modelName);
+        this.state.modelName = existingModel?.value || provider.models[0].value;
+        cli.dim(`  Using model: ${this.state.modelName}`);
+      } else {
+        const { model } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "model",
+            message: `Select ${provider.name} model:`,
+            choices: provider.models,
+            default: this.state.modelName || provider.models[0].value,
+          },
+        ]);
+        this.state.modelName = model;
+      }
     } else {
       // Use default model for provider
       switch (this.state.llmProvider) {
@@ -483,17 +589,25 @@ class Installer {
     cli.header("Step 6: Performance Configuration");
 
     if (this.state.llmProvider === "openai") {
-      const { tier } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "tier",
-          message: "What is your OpenAI API tier?",
-          choices: OPENAI_TIERS.map((t) => ({ name: t.name, value: t.semaphoreLimit })),
-          default: 10,
-        },
-      ]);
-
-      this.state.semaphoreLimit = String(tier);
+      if (isNonInteractive) {
+        // Use existing or default to Tier 3 (most common)
+        const existingLimit = parseInt(this.state.semaphoreLimit, 10);
+        if (!existingLimit || existingLimit < 1) {
+          this.state.semaphoreLimit = "10";
+        }
+        cli.dim(`  Using concurrency limit: ${this.state.semaphoreLimit}`);
+      } else {
+        const { tier } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "tier",
+            message: "What is your OpenAI API tier?",
+            choices: OPENAI_TIERS.map((t) => ({ name: t.name, value: t.semaphoreLimit })),
+            default: parseInt(this.state.semaphoreLimit, 10) || 10,
+          },
+        ]);
+        this.state.semaphoreLimit = String(tier);
+      }
     } else {
       this.state.semaphoreLimit = "5";
       cli.success("Using conservative concurrency: 5");
@@ -513,16 +627,9 @@ class Installer {
     if (this.configLoader.envExists()) {
       cli.warning("Found existing .env file");
 
-      const { backup } = await inquirer.prompt([
-        {
-          type: "confirm",
-          name: "backup",
-          message: "Backup and replace?",
-          default: true,
-        },
-      ]);
+      const shouldBackup = await confirmWithDefault("Backup and replace?", true);
 
-      if (backup) {
+      if (shouldBackup) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
         const backupPath = this.configLoader.getEnvFile() + `.backup.${timestamp}`;
         const originalFile = Bun.file(this.configLoader.getEnvFile());
@@ -566,14 +673,15 @@ class Installer {
     cli.info("Starting Graphiti MCP server...");
     cli.blank();
 
-    // Import and run the start.ts script
+    // Import and run the run.ts script
     const startTime = Date.now();
 
-    // Use spawn to run start.ts
-    const proc = Bun.spawn(["bun", "src/server/start.ts"], {
+    // Use spawn to run run.ts from the pack directory
+    const packDir = import.meta.dir.replace(/\/src\/server$/, "");
+    const proc = Bun.spawn(["bun", "run", "src/server/run.ts"], {
       stdout: "inherit",
       stderr: "inherit",
-      cwd: import.meta.dir + "/../../..",
+      cwd: packDir,
     });
 
     const exitCode = await proc.exited;
@@ -610,21 +718,22 @@ class Installer {
       }
     } catch {
       cli.warning("Server health check inconclusive");
-      cli.dim("Check logs with: bun run src/server/logs.ts");
+      cli.dim("Check logs with: bun run logs");
     }
   }
 
   /**
    * Step 9: Install PAI Skill
+   * Path priority: PAI_DIR > ~/.claude (PAI v2.1.0 standard)
    */
   private async installPAISkill(): Promise<void> {
     cli.blank();
     cli.header("Step 9: Installing PAI Skill");
 
-    // Determine PAI directory
+    // Determine PAI directory - prefer PAI_DIR, then ~/.claude
     const possiblePaths = [
-      `${process.env.HOME}/.claude/Skills`,
-      process.env.PAI_DIR ? `${process.env.PAI_DIR}/Skills` : "",
+      process.env.PAI_DIR ? `${process.env.PAI_DIR}/skills` : "",
+      `${process.env.HOME}/.claude/skills`,
     ].filter(Boolean);
 
     let paiSkillsDir: string | undefined;
@@ -645,20 +754,28 @@ class Installer {
       cli.blank();
       cli.warning("PAI skills directory not found.");
       cli.info("Common locations:");
-      cli.dim("  - ~/.claude/Skills");
-      cli.dim("  - $PAI_DIR/Skills");
+      cli.dim("  - ~/.claude/skills");
+      cli.dim("  - $PAI_DIR/skills");
       cli.blank();
 
-      const { customDir } = await inquirer.prompt([
-        {
-          type: "input",
-          name: "customDir",
-          message: "Enter PAI skills directory (or press Enter to skip):",
-        },
-      ]);
+      if (isNonInteractive) {
+        // Create default skills directory in non-interactive mode
+        paiSkillsDir = `${process.env.HOME}/.claude/skills`;
+        cli.dim(`  Creating default: ${paiSkillsDir}`);
+        const { mkdirSync } = await import("fs");
+        mkdirSync(paiSkillsDir, { recursive: true });
+      } else {
+        const { customDir } = await inquirer.prompt([
+          {
+            type: "input",
+            name: "customDir",
+            message: "Enter PAI skills directory (or press Enter to skip):",
+          },
+        ]);
 
-      if (customDir && customDir.trim().length > 0) {
-        paiSkillsDir = customDir.trim();
+        if (customDir && customDir.trim().length > 0) {
+          paiSkillsDir = customDir.trim();
+        }
       }
     }
 
@@ -697,6 +814,7 @@ class Installer {
 
   /**
    * Step 10: Install History Sync Hook
+   * Hooks install to ~/.claude/hooks/ where Claude Code reads them (PAI v2.1.0)
    */
   private async installHistorySyncHook(): Promise<void> {
     cli.blank();
@@ -707,23 +825,16 @@ class Installer {
     cli.info("from the PAI History System to your knowledge graph.");
     cli.blank();
 
-    const { installHook } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "installHook",
-        message: "Install the History Sync Hook?",
-        default: true,
-      },
-    ]);
+    const installHook = await confirmWithDefault("Install the History Sync Hook?", true);
 
     if (!installHook) {
       cli.warning("Skipping hook installation. You can install it manually later.");
       return;
     }
 
-    // Determine PAI hooks directory
-    const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.config/pai`;
-    const hooksDir = `${paiDir}/hooks/knowledge`;
+    // Determine PAI hooks directory - ~/.claude is where Claude Code reads hooks
+    const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
+    const hooksDir = `${paiDir}/hooks`;
     const settingsPath = `${paiDir}/settings.json`;
 
     cli.blank();
@@ -869,11 +980,11 @@ class Installer {
     cli.blank();
 
     cli.info("Management Commands:");
-    cli.dim("  View logs:    bun run src/server/logs.ts");
-    cli.dim("  Restart:      bun run src/server/restart.ts");
-    cli.dim("  Stop:         bun run src/server/stop.ts");
-    cli.dim("  Start:        bun run src/server/start.ts");
-    cli.dim("  Status:       bun run src/server/status.ts");
+    cli.dim("  View logs:    bun run logs");
+    cli.dim("  Restart:      bun run stop && bun run start");
+    cli.dim("  Stop:         bun run stop");
+    cli.dim("  Start:        bun run start");
+    cli.dim("  Status:       bun run status");
     cli.blank();
 
     cli.success("Installation complete!");
@@ -884,25 +995,72 @@ class Installer {
    */
   async run(): Promise<void> {
     cli.clear();
-    cli.header("PAI Knowledge System Installation");
-    cli.blank();
-    cli.info("This script will install and configure the PAI Knowledge System.");
-    cli.blank();
-    cli.info("Prerequisites:");
-    cli.dim("  - Podman (must be installed)");
-    cli.dim("  - At least one LLM provider API key");
+
+    const modeLabel = isUpdateMode ? "UPDATE" : isNonInteractive ? "NON-INTERACTIVE" : "v2.1.0";
+    cli.header(`PAI Knowledge System Installation (${modeLabel})`);
     cli.blank();
 
-    await inquirer.prompt([
-      {
-        type: "input",
-        name: "continue",
-        message: "Press Enter to continue...",
-      },
-    ]);
+    // In non-interactive mode, always read existing config first
+    if (isNonInteractive) {
+      cli.info("Non-interactive mode: Using defaults and existing configuration.");
+      cli.blank();
+      await this.readPAIConfig();
+
+      if (this.state.llmProvider) cli.dim(`  LLM Provider: ${this.state.llmProvider}`);
+      if (this.state.modelName) cli.dim(`  Model: ${this.state.modelName}`);
+      if (this.state.apiKeys.OPENAI_API_KEY) cli.dim(`  OpenAI API key: ****${this.state.apiKeys.OPENAI_API_KEY.slice(-4)}`);
+      cli.blank();
+    }
+
+    if (isUpdateMode) {
+      cli.info("Update mode: Preserving existing configuration where possible.");
+      cli.blank();
+      cli.dim("  - Will use existing API keys as defaults");
+      cli.dim("  - Will preserve LLM provider settings");
+      cli.dim("  - Only updates infrastructure files");
+      cli.blank();
+
+      // Check for existing installation
+      if (!this.configLoader.envExists()) {
+        cli.error("Update mode requires an existing installation.");
+        cli.dim("Run without --update for a fresh install.");
+        process.exit(1);
+      }
+
+      // Read existing config first (if not already read in non-interactive mode)
+      if (!isNonInteractive) {
+        await this.readPAIConfig();
+
+        cli.info("Found existing configuration:");
+        if (this.state.llmProvider) cli.dim(`  LLM Provider: ${this.state.llmProvider}`);
+        if (this.state.modelName) cli.dim(`  Model: ${this.state.modelName}`);
+        if (this.state.apiKeys.OPENAI_API_KEY) cli.dim(`  OpenAI API key: ****${this.state.apiKeys.OPENAI_API_KEY.slice(-4)}`);
+        cli.blank();
+      }
+
+      const proceed = await confirmWithDefault("Proceed with update?", true);
+
+      if (!proceed) {
+        cli.info("Update cancelled.");
+        process.exit(0);
+      }
+    } else if (!isNonInteractive) {
+      cli.info("This script will install and configure the PAI Knowledge System.");
+      cli.blank();
+      cli.info("Prerequisites:");
+      cli.dim("  - Podman (must be installed)");
+      cli.dim("  - At least one LLM provider API key");
+      cli.blank();
+
+      await pressEnterToContinue();
+    }
 
     await this.verifyPrerequisites();
-    await this.confirmDirectory();
+
+    if (!isUpdateMode && !isNonInteractive) {
+      await this.confirmDirectory();
+    }
+
     await this.selectProvider();
     await this.collectAPIKeys();
     await this.selectModel();

@@ -187,7 +187,7 @@ ls -la src/hooks/
 ls -la src/hooks/lib/
 ```
 
-**Expected result:** Hook script and lib directory with frontmatter-parser.ts, knowledge-client.ts, sync-state.ts
+**Expected result:** Hook script and lib directory with frontmatter-parser.ts, knowledge-client.ts, lucene.ts, sync-state.ts
 
 ---
 
@@ -411,7 +411,7 @@ Check PAI's global .env for required variables:
 
 **Verification commands:**
 ```bash
-PAI_ENV="${PAI_DIR:-$HOME/.config/pai}/.env"
+PAI_ENV="${PAI_DIR:-$HOME/.claude}/.env"
 if [ -f "$PAI_ENV" ]; then
     echo "Checking: $PAI_ENV"
     grep -E "(OPENAI_API_KEY|PAI_KNOWLEDGE_)" "$PAI_ENV" | grep -v "^#" | sed 's/=.*/=<SET>/'
@@ -581,11 +581,161 @@ curl -s -X POST http://localhost:8000/mcp/ \
 
 ---
 
-## Section 6: Integration Verification
+## Section 6: Lucene Query Sanitization
+
+> **FOR AI AGENTS:** This section verifies that hyphenated group_ids work correctly with RediSearch queries.
+> This is critical for preventing syntax errors when using hyphenated identifiers.
+
+Verify that Lucene query sanitization handles special characters correctly.
+
+### 6.1 Hyphenated Group ID Capture
+
+- [ ] **Can capture knowledge with hyphenated group_id**
+
+**Verification commands:**
+```bash
+curl -s -X POST http://localhost:8000/mcp/ \
+    -H "Content-Type: application/json" \
+    -d '{
+        "jsonrpc":"2.0",
+        "id":5,
+        "method":"tools/call",
+        "params":{
+            "name":"add_memory",
+            "arguments":{
+                "name":"Lucene Sanitization Test",
+                "episode_body":"Testing Lucene query sanitization with hyphenated group_id",
+                "source":"text",
+                "source_description":"lucene test",
+                "group_id":"test-group-123"
+            }
+        }
+    }' | head -20
+```
+
+**Expected result:** JSON response with success indication, no RediSearch syntax errors
+
+**Success indicators:**
+- Response contains episode UUID
+- No "Syntax error" in response
+- No "Query syntax error" in server logs
+
+---
+
+### 6.2 Search with Hyphenated Group ID
+
+- [ ] **Can search knowledge using hyphenated group_id**
+
+**Verification commands:**
+```bash
+curl -s -X POST http://localhost:8000/mcp/ \
+    -H "Content-Type: application/json" \
+    -d '{
+        "jsonrpc":"2.0",
+        "id":6,
+        "method":"tools/call",
+        "params":{
+            "name":"search_memory_nodes",
+            "arguments":{
+                "query":"lucene sanitization",
+                "max_nodes":5,
+                "group_id":"test-group-123"
+            }
+        }
+    }' | head -20
+```
+
+**Expected result:** JSON response with search results, no query syntax errors
+
+**Success indicators:**
+- Response contains nodes array
+- No "Syntax error" in response
+- No "Query syntax error" in server logs
+- Results include the test episode from 6.1
+
+---
+
+### 6.3 Verify No RediSearch Syntax Errors
+
+- [ ] **Server logs show no RediSearch syntax errors**
+
+**Verification commands:**
+```bash
+# Check recent logs for syntax errors
+bun run src/skills/tools/logs.ts 2>&1 | grep -i "syntax error" | tail -10
+
+# Or check container logs directly
+podman logs pai-knowledge-graph-mcp 2>&1 | grep -i "syntax error" | tail -10
+
+# For Docker
+docker logs pai-knowledge-graph-mcp 2>&1 | grep -i "syntax error" | tail -10
+```
+
+**Expected result:** No output (no syntax errors)
+
+---
+
+### 6.4 Multiple Hyphens in Group ID
+
+- [ ] **Can handle multiple consecutive hyphens in group_id**
+
+**Verification commands:**
+```bash
+curl -s -X POST http://localhost:8000/mcp/ \
+    -H "Content-Type: application/json" \
+    -d '{
+        "jsonrpc":"2.0",
+        "id":7,
+        "method":"tools/call",
+        "params":{
+            "name":"add_memory",
+            "arguments":{
+                "name":"Multiple Hyphen Test",
+                "episode_body":"Testing multiple hyphens in group_id",
+                "source":"text",
+                "source_description":"hyphen test",
+                "group_id":"test--multiple---hyphens"
+            }
+        }
+    }' | head -20
+```
+
+**Expected result:** JSON response with success indication, no errors
+
+---
+
+### 6.5 Special Characters in Group ID
+
+- [ ] **Can handle various special characters in group_id**
+
+**Verification commands:**
+```bash
+curl -s -X POST http://localhost:8000/mcp/ \
+    -H "Content-Type: application/json" \
+    -d '{
+        "jsonrpc":"2.0",
+        "id":8,
+        "method":"tools/call",
+        "params":{
+            "name":"Special Character Test",
+            "episode_body":"Testing special characters in group_id",
+            "source":"text",
+            "source_description":"special char test",
+                "group_id":"test_group_123"
+            }
+        }
+    }' | head -20
+```
+
+**Expected result:** JSON response with success indication, no query syntax errors
+
+---
+
+## Section 7: Integration Verification
 
 Verify integration with PAI system and Claude Code.
 
-### 6.1 PAI Skill Recognition
+### 7.1 PAI Skill Recognition
 
 - [ ] **Claude Code recognizes the skill**
 
@@ -598,7 +748,7 @@ Verify integration with PAI system and Claude Code.
 
 ---
 
-### 6.2 Workflow Invocation
+### 7.2 Workflow Invocation
 
 - [ ] **Workflows can be invoked via natural language**
 
@@ -613,7 +763,7 @@ In Claude Code, try each trigger phrase:
 
 ---
 
-### 6.3 MCP Tool Access
+### 7.3 MCP Tool Access
 
 - [ ] **Claude Code can access MCP tools**
 
@@ -631,33 +781,37 @@ Check that these tools are available:
 
 ---
 
-## Section 7: History Sync Hook Verification
+## Section 8: History Sync Hook Verification
 
 Verify the history sync hook is properly installed (if using pai-history-system).
 
-### 7.1 Hook Files Installed
+### 8.1 Hook Files Installed
 
 - [ ] **Hook script exists in PAI hooks directory**
 - [ ] **Hook lib files exist**
 
 **Verification commands:**
 ```bash
-PAI_HOOKS="${PAI_DIR:-$HOME/.config/pai}/hooks"
+PAI_HOOKS="${PAI_DIR:-$HOME/.claude}/hooks"
 ls -la "$PAI_HOOKS/"
 ls -la "$PAI_HOOKS/lib/"
 ```
 
-**Expected result:** sync-history-to-knowledge.ts and lib/ directory with support files
+**Expected result:** sync-history-to-knowledge.ts and lib/ directory with:
+- frontmatter-parser.ts
+- knowledge-client.ts
+- lucene.ts (Lucene query sanitization for hyphenated group_ids)
+- sync-state.ts
 
 ---
 
-### 7.2 Hook Registered
+### 8.2 Hook Registered
 
 - [ ] **Hook is registered in settings.json**
 
 **Verification commands:**
 ```bash
-PAI_SETTINGS="${PAI_DIR:-$HOME/.config/pai}/settings.json"
+PAI_SETTINGS="${PAI_DIR:-$HOME/.claude}/settings.json"
 if [ -f "$PAI_SETTINGS" ]; then
     grep "sync-history-to-knowledge" "$PAI_SETTINGS"
 else
@@ -669,13 +823,13 @@ fi
 
 ---
 
-### 7.3 Sync State Directory
+### 8.3 Sync State Directory
 
 - [ ] **Sync state directory exists**
 
 **Verification commands:**
 ```bash
-HISTORY_DIR="${PAI_DIR:-$HOME/.config/pai}/history"
+HISTORY_DIR="${PAI_DIR:-$HOME/.claude}/history"
 ls -la "$HISTORY_DIR/.synced/" 2>/dev/null || echo "Sync state directory not yet created (will be created on first sync)"
 ```
 
@@ -683,7 +837,7 @@ ls -la "$HISTORY_DIR/.synced/" 2>/dev/null || echo "Sync state directory not yet
 
 ---
 
-### 7.4 Hook Dry Run
+### 8.4 Hook Dry Run
 
 - [ ] **Hook runs without errors in dry-run mode**
 
@@ -697,11 +851,11 @@ bun run src/hooks/sync-history-to-knowledge.ts --dry-run --verbose
 
 ---
 
-## Section 8: Documentation Verification
+## Section 9: Documentation Verification
 
 Verify all documentation is complete and accurate.
 
-### 8.1 README.md Completeness
+### 9.1 README.md Completeness
 
 - [ ] **README.md has all required sections**
 - [ ] **README.md has proper YAML frontmatter**
@@ -718,7 +872,7 @@ head -35 README.md | grep "^---"
 
 ---
 
-### 8.2 INSTALL.md Completeness
+### 9.2 INSTALL.md Completeness
 
 - [ ] **INSTALL.md has pre-installation analysis**
 - [ ] **INSTALL.md has step-by-step instructions**
@@ -735,7 +889,7 @@ grep "bun run" INSTALL.md | head -5
 
 ---
 
-### 8.3 Workflow Documentation
+### 9.3 Workflow Documentation
 
 - [ ] **Each workflow has clear purpose**
 - [ ] **Each workflow has usage examples**
@@ -748,11 +902,11 @@ Open and review each workflow file in `src/skills/workflows/`
 
 ---
 
-## Section 9: End-to-End Completeness
+## Section 10: End-to-End Completeness
 
 Verify the pack has no missing components (Template Requirement).
 
-### 9.1 Chain Test
+### 10.1 Chain Test
 
 **The Chain Test:** Trace every data flow to ensure no "beyond scope" gaps.
 
@@ -779,7 +933,7 @@ Verify the pack has no missing components (Template Requirement).
 
 ---
 
-### 9.2 No "Beyond Scope" Statements
+### 10.2 No "Beyond Scope" Statements
 
 - [ ] **README has no "beyond scope" statements**
 - [ ] **INSTALL has no "implement your own" statements**
@@ -796,7 +950,7 @@ grep -i "beyond.*scope\|implement.*your.*own\|left as.*exercise" \
 
 ---
 
-### 9.3 Complete Component List
+### 10.3 Complete Component List
 
 - [ ] **MCP Server included** (`src/server/run.ts` and compose files)
 - [ ] **PAI Skill included** (`SKILL.md` with workflows)
@@ -814,11 +968,11 @@ grep -i "beyond.*scope\|implement.*your.*own\|left as.*exercise" \
 
 ---
 
-## Section 10: Optional Verification
+## Section 11: Optional Verification
 
 Optional but recommended checks.
 
-### 10.1 Performance Test
+### 11.1 Performance Test
 
 - [ ] **Knowledge capture completes in < 30 seconds**
 - [ ] **Search completes in < 10 seconds**
@@ -831,7 +985,7 @@ time curl -s http://localhost:8000/health
 
 ---
 
-### 10.2 Data Persistence
+### 11.2 Data Persistence
 
 - [ ] **Knowledge persists across container restarts**
 
@@ -843,7 +997,7 @@ time curl -s http://localhost:8000/health
 
 ---
 
-### 10.3 Error Handling
+### 11.3 Error Handling
 
 - [ ] **Invalid API key returns clear error**
 - [ ] **Server unavailable handled gracefully in workflows**
@@ -854,7 +1008,7 @@ Test error scenarios and verify helpful error messages
 
 ---
 
-### 10.4 Run Tests
+### 11.4 Run Tests
 
 - [ ] **Unit tests pass**
 - [ ] **Integration tests pass**
@@ -886,13 +1040,14 @@ For a successful installation, you must have:
 - PAI skill installed with flat structure (Section 3)
 - Configuration complete with valid API key (Section 4)
 - End-to-end functionality working (Section 5)
+- Lucene query sanitization working (Section 6)
 - MCP configured in ~/.claude.json (Section 4.3)
-- No "beyond scope" gaps (Section 9)
+- No "beyond scope" gaps (Section 10)
 
 **Important (at least 80% pass):**
-- Integration with Claude Code (Section 6)
-- History sync hook installed (Section 7) - if using pai-history-system
-- Documentation complete (Section 8)
+- Integration with Claude Code (Section 7)
+- History sync hook installed (Section 8) - if using pai-history-system
+- Documentation complete (Section 9)
 
 ### Failure Actions
 

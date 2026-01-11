@@ -1,16 +1,19 @@
 # PAI Knowledge System - Installation
 
-Complete installation guide for the PAI Knowledge System pack.
-
-> **FOR AI AGENTS:** This installation MUST be completed exactly as specified. Follow these rules:
-> 1. **Execute every step** - Do NOT skip steps or mark them as "optional"
-> 2. **Verify outputs** - After each command, check the expected output matches
-> 3. **Stop on errors** - If any step fails, troubleshoot before continuing
-> 4. **Use exact paths** - Do not modify file paths or directory structures
-> 5. **Copy files verbatim** - Do not simplify or "improve" code during installation
-> 6. **Run verification** - After installation, complete ALL checks in VERIFY.md
+**This guide is designed for AI agents installing this pack into a user's infrastructure.**
 
 ---
+
+**FOR AI AGENTS:** This installation MUST be completed exactly as specified. Follow these rules:
+1. **Execute every step** - Do NOT skip steps or mark them as "optional"
+2. **Verify outputs** - After each command, check the expected output matches
+3. **Stop on errors** - If any step fails, troubleshoot before continuing
+4. **Use exact paths** - Do not modify file paths or directory structures
+5. **Copy files verbatim** - Do not simplify or "improve" code during installation
+6. **Run verification** - After installation, complete ALL checks in VERIFY.md
+
+---
+
 
 ## Prerequisites
 
@@ -256,7 +259,7 @@ fi
 **Add PAI Knowledge System settings to your PAI configuration:**
 
 ```bash
-PAI_ENV="${PAI_DIR:-$HOME/.config/pai}/.env"
+PAI_ENV="${PAI_DIR:-$HOME/.claude}/.env"
 
 echo ""
 echo "📝 Updating PAI Configuration"
@@ -312,7 +315,7 @@ python3 << 'PYTHON_EOF'
 import os
 import re
 
-pai_env = os.path.expanduser("${PAI_DIR:-$HOME/.config/pai}/.env")
+pai_env = os.path.expanduser("${PAI_DIR:-$HOME/.claude}/.env")
 
 # Read existing content
 try:
@@ -710,7 +713,7 @@ echo "Installation verification complete!"
 
 ---
 
-## Step 6: Test Installation
+## Step 7: Test Installation
 
 Verify the system works end-to-end:
 
@@ -749,6 +752,54 @@ else
     echo "⚠️  FalkorDB ping failed (may still be starting)"
 fi
 
+# Test 4: Verify Lucene sanitization for hyphenated group_ids
+echo ""
+echo "Test 4: Testing Lucene query sanitization..."
+echo "This test verifies that hyphens in group_ids are properly escaped"
+echo "to prevent Lucene syntax errors."
+
+# Create a test script that calls the MCP server with a hyphenated group_id
+cat > /tmp/test_lucene_sanitization.ts << 'EOF'
+import { sanitizeGroupId } from './src/hooks/lib/lucene';
+
+// Test cases with various hyphenated patterns
+const testCases = [
+  'test-group',
+  'my-knowledge-base',
+  'pai-history-system',
+  'multi-hyphen-group-id',
+  'group-with-dashes-123',
+];
+
+console.log('Testing Lucene query sanitization for hyphenated group_ids:\n');
+
+let allPassed = true;
+testCases.forEach(group => {
+  try {
+    const sanitized = sanitizeGroupId(group);
+    console.log(`✓ ${group} → "${sanitized}"`);
+  } catch (error) {
+    console.log(`✗ ${group} → ERROR: ${error}`);
+    allPassed = false;
+  }
+});
+
+console.log('\n' + (allPassed ? '✓ All sanitization tests passed!' : '✗ Some tests failed'));
+process.exit(allPassed ? 0 : 1);
+EOF
+
+# Run the test
+if bun run /tmp/test_lucene_sanitization.ts 2>&1; then
+    echo "✓ Lucene sanitization is working correctly"
+    echo "  Hyphenated group_ids will be properly escaped in queries"
+else
+    echo "⚠️  Lucene sanitization test failed"
+    echo "  Check that src/hooks/lib/lucene.ts exists and exports sanitizeGroupId"
+fi
+
+# Clean up test file
+rm -f /tmp/test_lucene_sanitization.ts
+
 echo ""
 echo "Testing complete!"
 echo ""
@@ -758,7 +809,7 @@ echo "The MCP server uses SSE transport - tools are accessed through Claude Code
 
 ---
 
-## Step 7: Post-Installation Configuration
+## Step 8: Post-Installation Configuration
 
 Restart Claude Code to load the new skill:
 
@@ -825,7 +876,7 @@ echo "  - Status: bun run src/skills/tools/status.ts"
 
 ---
 
-## Step 8: Install History Sync Hook (Optional but Recommended)
+## Step 9: Install History Sync Hook (Optional but Recommended)
 
 The history sync hook automatically syncs captured learnings, research, and decisions from the PAI History System to the knowledge graph. This provides a seamless integration where your daily captures become searchable knowledge.
 
@@ -840,7 +891,7 @@ echo "================================"
 echo ""
 
 # Verify history system is installed
-HISTORY_DIR="${PAI_DIR:-$HOME/.config/pai}/history"
+HISTORY_DIR="${PAI_DIR:-$HOME/.claude}/history"
 if [ ! -d "$HISTORY_DIR" ]; then
     echo "⚠️  History directory not found at: $HISTORY_DIR"
     echo "   Install pai-history-system first, or skip this step."
@@ -932,14 +983,33 @@ echo "  - Verbose:     bun run src/hooks/sync-history-to-knowledge.ts --verbose"
 
 ```bash
 # Check hook files are installed
-if [ -f "${PAI_DIR:-$HOME/.config/pai}/hooks/sync-history-to-knowledge.ts" ]; then
+PAI_HOOKS="${PAI_DIR:-$HOME/.claude}/hooks"
+
+if [ -f "$PAI_HOOKS/sync-history-to-knowledge.ts" ]; then
     echo "✓ Hook script installed"
 else
     echo "✗ Hook script not found"
 fi
 
+# Check required lib files
+echo "Checking hook lib files..."
+REQUIRED_LIB_FILES=(
+    "frontmatter-parser.ts"
+    "knowledge-client.ts"
+    "lucene.ts"
+    "sync-state.ts"
+)
+
+for file in "${REQUIRED_LIB_FILES[@]}"; do
+    if [ -f "$PAI_HOOKS/lib/$file" ]; then
+        echo "  ✓ $file"
+    else
+        echo "  ✗ MISSING: $file"
+    fi
+done
+
 # Check hook is registered
-if grep -q "sync-history-to-knowledge" "${PAI_DIR:-$HOME/.config/pai}/settings.json" 2>/dev/null; then
+if grep -q "sync-history-to-knowledge" "${PAI_DIR:-$HOME/.claude}/settings.json" 2>/dev/null; then
     echo "✓ Hook registered in settings.json"
 else
     echo "✗ Hook not registered"
@@ -953,7 +1023,7 @@ bun run src/hooks/sync-history-to-knowledge.ts --dry-run --verbose
 
 **Sync State:**
 
-The hook tracks which files have been synced in `~/.config/pai/history/.synced/sync-state.json`:
+The hook tracks which files have been synced in `~/.claude/history/.synced/sync-state.json`:
 
 ```json
 {
@@ -1078,6 +1148,22 @@ grep SEMAPHORE_LIMIT src/config/.env
 2. **Upgrade API tier:** Higher tiers allow more concurrent requests
 3. **Add delay:** Workflows automatically retry with exponential backoff
 4. **Switch model:** gpt-4o-mini has higher rate limits than gpt-4o
+
+### Lucene Query Errors with Hyphenated Groups
+
+**Symptoms:** Search fails with "Lucene query syntax error" when using hyphenated group_ids like "test-group"
+
+**Diagnosis:**
+```bash
+# Check if lucene.ts exists and exports sanitizeGroupId
+cat src/hooks/lib/lucene.ts | grep -A 5 "sanitizeGroupId"
+```
+
+**Solutions:**
+1. **Verify sanitization function exists:** The `sanitizeGroupId()` function should escape hyphens
+2. **Update client code:** Ensure all search calls use `sanitizeGroupId()` on group_id parameters
+3. **Check imports:** Verify both `knowledge-client.ts` and `mcp-client.ts` import and use the sanitization function
+4. **Test manually:** Run the sanitization test in Step 7 above
 
 ---
 

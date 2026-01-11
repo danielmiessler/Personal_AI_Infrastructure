@@ -58,6 +58,7 @@ This pack adds persistent memory to your AI infrastructure. The PAI Knowledge Sy
 - **Semantic Search**: Finds relevant knowledge using natural language
 - **Builds Context**: Compounds knowledge across sessions
 - **Never Forgets**: Persistent storage with temporal tracking
+- **Query Sanitization**: Handles hyphenated identifiers and special characters in CTI/OSINT data
 
 **Core principle**: Work normally, knowledge handles itself.
 
@@ -81,7 +82,7 @@ Please follow the installation instructions below to integrate this pack into yo
 | Bulk Import Workflow | `src/skills/workflows/BulkImport.md` | Import multiple documents at once |
 | Install Tool | `src/skills/tools/Install.md` | Complete installation workflow |
 | **History Sync Hook** | `src/hooks/sync-history-to-knowledge.ts` | Auto-sync learnings/research from PAI History System |
-| Hook Libraries | `src/hooks/lib/*.ts` | Frontmatter parser, sync state, knowledge client |
+| Hook Libraries | `src/hooks/lib/*.ts` | Frontmatter parser, sync state, knowledge client, Lucene sanitization |
 | MCP Server Launcher | `src/server/run.sh` | Graphiti server launcher with Podman |
 | Server Management | `src/server/{start,stop,status,logs}.sh` | Container management scripts |
 | Configuration Template | `src/config/.env.example` | API keys and model settings template |
@@ -380,7 +381,48 @@ Every episode includes:
 
 Example: "FalkorDB backend for Graphiti (learned 2025-01-03, updated 2025-01-05)"
 
-**6. End-to-End Completeness**
+**6. Lucene Query Sanitization**
+
+The knowledge system includes automatic query sanitization to handle special characters in search terms, particularly important for CTI/OSINT data with hyphenated identifiers.
+
+**The Problem:**
+FalkorDB uses RediSearch, which implements Lucene query syntax. In Lucene, certain characters have special meaning:
+- Hyphens (`-`) are interpreted as negation operators (NOT)
+- Quotes (`"`) define phrase queries
+- Wildcards (`*`, `?`) enable pattern matching
+
+When searching for hyphenated group_ids like `pai-threat-intel`, Lucene interprets this as "pai AND NOT threat AND NOT intel", causing query syntax errors.
+
+**The Solution:**
+Two sanitization modules automatically escape special characters:
+
+1. **`src/hooks/lib/lucene.ts`** - Client-side sanitization for hooks
+2. **`src/server/lib/lucene.ts`** - Server-side sanitization for MCP operations
+
+**Sanitization Functions:**
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `luceneSanitize(value)` | Escape a value by wrapping in quotes and escaping special characters | `"pai-threat-intel"` |
+| `sanitizeGroupId(groupId)` | Convenience function for sanitizing group_ids | `"pai-threat-intel"` |
+| `sanitizeGroupIds(groupIds)` | Sanitize an array of group_ids | `["group-1", "group-2"]` |
+| `sanitizeSearchQuery(query)` | Escape special characters in search queries while preserving multi-word searches | `pai\\-threat\\-intel` |
+
+**What Gets Escaped:**
+Special Lucene characters: `+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /`
+
+**Root Cause Analysis:**
+```
+Unsanitized query: group_id:pai-threat-intel
+Lucene interpretation: group_id:pai AND NOT threat AND NOT intel
+Result: Syntax error (incomplete negation)
+
+Sanitized query: group_id:"pai-threat-intel"
+Lucene interpretation: group_id equals literal string "pai-threat-intel"
+Result: Successful search
+```
+
+**7. End-to-End Completeness**
 
 Every component is included:
 - ✅ MCP Server: `run.sh` starts Graphiti + FalkorDB
@@ -389,10 +431,12 @@ Every component is included:
 - ✅ Installation: Step-by-step in `tools/Install.md`
 - ✅ Configuration: `.env` with all environment variables
 - ✅ Documentation: README, INSTALL, VERIFY
+- ✅ Query Sanitization: Handles special characters automatically
 
 NOT: "You need to set up your own vector database" - FalkorDB is included
 NOT: "Implement your own entity extraction" - Graphiti handles it
 NOT: "Configure your own embeddings" - OpenAI integration built-in
+NOT: "Handle special characters manually" - Lucene sanitization built-in
 
 **What Problems This Architecture Prevents:**
 
@@ -404,6 +448,7 @@ NOT: "Configure your own embeddings" - OpenAI integration built-in
 | **No relationships** | Flat documents | Explicit edges between entities |
 | **Manual organization** | Tag and categorize yourself | Automatic entity extraction |
 | **Scattered knowledge** | Multiple tools | Single unified graph |
+| **Hyphenated identifiers** | Query syntax errors | Automatic sanitization |
 
 **The Architectural Innovation:**
 
@@ -417,6 +462,7 @@ The graph structure allows queries impossible with flat notes:
 - "Show me all technologies related to container orchestration I learned about in the past month"
 - "What debugging solutions led to architectural decisions?"
 - "How do my preferences for dev tools relate to past troubleshooting sessions?"
+- "Find all CTI indicators from group 'apt-28'"
 
 This architecture makes your AI infrastructure genuinely intelligent, not just a better filing cabinet.
 
@@ -432,35 +478,38 @@ The PAI Knowledge System uses LLM-powered automatic entity extraction and semant
 - Semantic vector search enables concept-based knowledge queries
 - Temporal tracking shows how your knowledge evolves
 - Conversational interface integrates seamlessly into AI workflows
+- Query sanitization handles CTI/OSINT data with special characters
 
 ---
 
 ## Installation
 
-See [INSTALL.md](INSTALL.md) for complete installation instructions.
+### AI-Assisted Installation (Recommended)
 
-Quick start:
+Give this pack directory to your AI agent and say:
+
+> "Install this pack"
+
+The AI will read [INSTALL.md](INSTALL.md) and execute each step, handling configuration, starting services, and verifying the installation. This is the standard PAI pack installation method.
+
+### Interactive Installer (Alternative)
+
+For humans who prefer an interactive CLI experience without AI assistance:
+
 ```bash
-# 1. Navigate to pack directory
 cd /path/to/pai-knowledge-system
-
-# 2. Configure API keys
-cp config/.env.example config/.env
-nano config/.env  # Add your PAI_KNOWLEDGE_OPENAI_API_KEY
-
-# 3. Start the MCP server
-bun run src/server/run.ts
-
-# 4. Verify server is running (check container status)
-podman ps | grep pai-knowledge  # or: docker ps | grep pai-knowledge
-
-# 5. Install the PAI skill to your PAI directory
-# From the pack directory:
-PACK_DIR=$(pwd)
-PAI_SKILLS_DIR="${PAI_DIR:-$HOME/.claude}/skills"
-mkdir -p "$PAI_SKILLS_DIR"
-cp -r "$PACK_DIR" "$PAI_SKILLS_DIR/Knowledge"
+bun run src/server/install.ts
 ```
+
+This guides you through LLM provider selection, API key configuration, and service startup.
+
+**Flags:**
+- `--yes` or `-y`: Non-interactive mode with defaults
+- `--update` or `-u`: Update existing installation
+
+### Manual Installation
+
+See [INSTALL.md](INSTALL.md) for complete step-by-step instructions that can be followed manually or by an AI agent.
 
 ---
 
@@ -487,6 +536,7 @@ The PAI Knowledge System triggers automatically based on natural language intent
 | Empty search results | Recommends broader queries or different terms |
 | API rate limits | Automatically retries with exponential backoff |
 | Duplicate knowledge | Detects and updates existing entities instead of creating duplicates |
+| Hyphenated group_ids | Automatic sanitization handles CTI/OSINT identifiers |
 
 ---
 
@@ -871,6 +921,34 @@ If you see warnings about "Output length exceeded max tokens 8192":
 - Use a different LLM model with higher output limits by updating `MODEL_NAME` in your `.env` file (e.g., `gpt-4o` instead of `gpt-4o-mini`)
 - The system will retry automatically, but some content may fail to process
 
+### Lucene Query Syntax Errors
+
+If you see errors like "Syntax error near '-'" when searching for hyphenated terms:
+
+**Cause:** FalkorDB uses RediSearch with Lucene query syntax, which interprets hyphens as negation operators (NOT). Searching for `pai-threat-intel` is parsed as "pai AND NOT threat AND NOT intel", causing syntax errors.
+
+**Example Error:**
+```
+QuerySyntaxError: Syntax error near '-' in query 'group_id:pai-threat-intel'
+```
+
+**Solution:** The PAI Knowledge System includes automatic query sanitization that escapes special Lucene characters. The sanitization happens in two places:
+
+1. **Client-side** (`src/hooks/lib/lucene.ts`): For hook operations
+2. **Server-side** (`src/server/lib/lucene.ts`): For MCP server operations
+
+**What Gets Escaped:**
+- Hyphens: `pai-threat-intel` → `"pai-threat-intel"`
+- Other special characters: `+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /`
+
+**Verification:**
+The sanitization is automatic and happens transparently. All CTI/OSINT operations with hyphenated group_ids (e.g., `apt-28`, `tracked-actor-123`) now work correctly without manual intervention.
+
+**If you still see errors:**
+1. Verify you're using the latest version of the knowledge system
+2. Check that both `src/hooks/lib/lucene.ts` and `src/server/lib/lucene.ts` are present
+3. Try the search again - sanitization is applied automatically
+
 ---
 
 ## Credits
@@ -878,6 +956,7 @@ If you see warnings about "Output length exceeded max tokens 8192":
 - **Original concept**: Built as part of Personal AI Infrastructure (PAI) framework
 - **Knowledge graph engine**: [Graphiti](https://github.com/getzep/graphiti) by Zep AI ([GitHub](https://github.com/getzep/graphiti))
 - **Graph database**: [FalkorDB](https://www.falkordb.com/) - Redis-based graph database ([GitHub](https://github.com/FalkorDB/FalkorDB))
+- **Query parsing**: RediSearch with Lucene syntax (special character handling)
 - **Inspired by**: Zettelkasten method, knowledge graph research, semantic search systems
 
 ---
@@ -1062,3 +1141,11 @@ The hook is designed for graceful degradation:
 - Semantic search with vector embeddings
 - Temporal context tracking
 - End-to-end complete with installation and verification
+
+### 1.0.1 - 2025-01-11
+- Added Lucene query sanitization for hyphenated identifiers
+- Implemented `src/hooks/lib/lucene.ts` for client-side sanitization
+- Implemented `src/server/lib/lucene.ts` for server-side sanitization
+- Fixed CTI/OSINT operations with hyphenated group_ids (e.g., `apt-28`, `tracked-actor-123`)
+- Root cause analysis: Hyphens interpreted as negation operators in Lucene syntax
+- All special Lucene characters now automatically escaped: `+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /`

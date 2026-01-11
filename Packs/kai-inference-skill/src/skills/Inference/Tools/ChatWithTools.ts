@@ -209,6 +209,157 @@ async function executeTool(toolCall: ToolCall): Promise<string> {
         return JSON.stringify({ error: String(error) });
       }
 
+    case 'write_file':
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const { path: filePath, content, append } = parsedArgs;
+
+        // Resolve relative paths
+        const absolutePath = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(process.cwd(), filePath);
+
+        // Ensure directory exists
+        const directory = path.dirname(absolutePath);
+        fs.mkdirSync(directory, { recursive: true });
+
+        // Write or append to file
+        if (append) {
+          fs.appendFileSync(absolutePath, content, 'utf-8');
+        } else {
+          fs.writeFileSync(absolutePath, content, 'utf-8');
+        }
+
+        const stats = fs.statSync(absolutePath);
+
+        return JSON.stringify({
+          success: true,
+          path: absolutePath,
+          size: stats.size,
+          mode: append ? 'append' : 'write',
+        });
+      } catch (error: any) {
+        return JSON.stringify({
+          success: false,
+          error: error.message,
+        });
+      }
+
+    case 'read_file':
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const { path: filePath, encoding } = parsedArgs;
+
+        // Resolve relative paths
+        const absolutePath = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(process.cwd(), filePath);
+
+        // Read file with specified encoding
+        const content = fs.readFileSync(absolutePath, encoding || 'utf-8');
+        const stats = fs.statSync(absolutePath);
+
+        return JSON.stringify({
+          success: true,
+          path: absolutePath,
+          content,
+          size: stats.size,
+          encoding: encoding || 'utf-8',
+        });
+      } catch (error: any) {
+        return JSON.stringify({
+          success: false,
+          error: error.message,
+        });
+      }
+
+    case 'list_directory':
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const { path: dirPath, recursive, filter } = parsedArgs;
+
+        // Resolve relative paths
+        const absolutePath = path.isAbsolute(dirPath)
+          ? dirPath
+          : path.resolve(process.cwd(), dirPath);
+
+        let files: string[] = [];
+
+        // Helper function to list files recursively
+        function listFiles(dir: string): void {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            const relativePath = path.relative(absolutePath, fullPath);
+
+            // Apply filter if provided
+            if (filter) {
+              const pattern = filter.replace(/\*/g, '.*').replace(/\?/g, '.');
+              const regex = new RegExp(`^${pattern}$`);
+              if (!regex.test(entry.name)) {
+                continue;
+              }
+            }
+
+            if (entry.isDirectory()) {
+              if (recursive) {
+                listFiles(fullPath);
+              }
+            } else {
+              files.push(relativePath);
+            }
+          }
+        }
+
+        listFiles(absolutePath);
+
+        return JSON.stringify({
+          success: true,
+          path: absolutePath,
+          files,
+          count: files.length,
+        });
+      } catch (error: any) {
+        return JSON.stringify({
+          success: false,
+          error: error.message,
+        });
+      }
+
+    case 'get_file_info':
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const { path: filePath } = parsedArgs;
+
+        // Resolve relative paths
+        const absolutePath = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(process.cwd(), filePath);
+
+        const stats = fs.statSync(absolutePath);
+
+        return JSON.stringify({
+          success: true,
+          path: absolutePath,
+          type: stats.isDirectory() ? 'directory' : 'file',
+          size: stats.size,
+          created: stats.birthtime.toISOString(),
+          modified: stats.mtime.toISOString(),
+          accessed: stats.atime.toISOString(),
+          permissions: stats.mode.toString(8).slice(-3),
+        });
+      } catch (error: any) {
+        return JSON.stringify({
+          success: false,
+          error: error.message,
+        });
+      }
+
     default:
       return JSON.stringify({
         error: `Tool '${name}' not implemented`,

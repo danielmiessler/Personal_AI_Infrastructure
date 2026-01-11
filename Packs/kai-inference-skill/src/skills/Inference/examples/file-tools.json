@@ -1,0 +1,91 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "read_file",
+      "description": "Read the contents of a file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the file"
+          },
+          "encoding": {
+            "type": "string",
+            "description": "File encoding (default: utf-8)",
+            "enum": ["utf-8", "ascii", "base64"]
+          }
+        },
+        "required": ["path"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "write_file",
+      "description": "Write content to a file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the file"
+          },
+          "content": {
+            "type": "string",
+            "description": "Content to write to the file"
+          },
+          "append": {
+            "type": "boolean",
+            "description": "Append to file instead of overwriting (default: false)"
+          }
+        },
+        "required": ["path", "content"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list_directory",
+      "description": "List files and directories in a path",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the directory"
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "List files recursively (default: false)"
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filter pattern (e.g., '*.txt', '*.js')"
+          }
+        },
+        "required": ["path"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_file_info",
+      "description": "Get metadata about a file or directory",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the file or directory"
+          }
+        },
+        "required": ["path"]
+      }
+    }
+  }
+]

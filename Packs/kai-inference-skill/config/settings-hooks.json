@@ -1,5 +1,5 @@
 {
-  "_description": "Hook registration for Ollama skill",
+  "_description": "Hook registration for Inference skill",
   "_instructions": [
     "Merge these hook configurations into ~/.claude/settings.json",
     "The hooks section should be added/merged under the 'hooks' key",
@@ -12,7 +12,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.bun/bin/bun run $PAI_DIR/skills/Ollama/Tools/CheckHealth.ts"
+            "command": "~/.bun/bin/bun run $PAI_DIR/skills/Inference/Tools/CheckHealth.ts"
           }
         ]
       }

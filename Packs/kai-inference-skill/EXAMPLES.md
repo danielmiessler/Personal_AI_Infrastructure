@@ -1,17 +1,73 @@
-# Ollama Skill Usage Examples
+# Inference Skill Usage Examples
 
-Practical examples of using Ollama with different models from Claude Code sessions.
+Practical examples using multiple LLM backends (Ollama local + Claude API) from Claude Code sessions.
 
 ## Quick Model Selection
 
-The `Run.ts` tool makes it easy to choose any model - just add it as the second argument!
+The `Run.ts` tool makes it easy to choose any backend/model:
 
-### Basic Pattern
+### Basic Patterns
 ```bash
+# Model name auto-detects backend
 bun run Run.ts "your prompt" [model-name]
+
+# Explicit backend selection
+bun run Run.ts "your prompt" --backend [ollama|anthropic] --model [model-name]
 ```
 
 ## Examples by Model
+
+## Claude API Models (Anthropic, Paid)
+
+### claude-sonnet-4.5 (Balanced)
+**Best for**: General reasoning, balanced speed/quality, recommended default
+
+```bash
+# System design
+bun run Run.ts "Design a scalable authentication system with JWT" claude-sonnet-4.5
+
+# Complex analysis
+bun run Run.ts "Analyze trade-offs between REST and GraphQL" claude-sonnet-4.5
+
+# Research assistance
+bun run Run.ts "Summarize recent papers on transformers" claude-sonnet-4.5
+
+# Architecture review
+bun run Run.ts "Review this system design: $(cat architecture.md)" claude-sonnet-4.5
+```
+
+### claude-opus-4.5 (Maximum Capability)
+**Best for**: Complex reasoning, system design, research, maximum quality
+
+```bash
+# System design
+bun run Run.ts "Design a scalable authentication system" claude-opus-4.5
+
+# Complex analysis
+bun run Run.ts "Analyze this distributed system architecture" claude-opus-4.5
+
+# Research tasks
+bun run Run.ts "Explain the trade-offs between consistency models" claude-opus-4.5
+
+# Detailed code architecture review
+bun run Run.ts "Review the architecture of: $(cat src/**/*.ts)" claude-opus-4.5
+```
+
+### claude-haiku-4 (Fast Responses)
+**Best for**: Quick answers, high throughput, simple tasks
+
+```bash
+# Quick explanations
+bun run Run.ts "What is a closure?" claude-haiku-4
+
+# Simple summaries
+bun run Run.ts "Summarize: $(cat README.md)" claude-haiku-4
+
+# Fast iterations
+bun run Run.ts "List 5 pros of microservices" claude-haiku-4
+```
+
+## Ollama Models (Local, Free)
 
 ### llama3.2:3b (Fast & Efficient)
 **Best for**: Quick answers, chat, general questions

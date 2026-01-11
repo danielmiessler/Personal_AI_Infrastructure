@@ -1,0 +1,38 @@
+{
+  "name": "kai-inference-skill",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Multi-backend LLM inference skill supporting Ollama (local), Claude API (Anthropic), and OpenAI",
+  "main": "src/skills/Inference/Tools/Run.ts",
+  "scripts": {
+    "generate": "bun run src/skills/Inference/Tools/Generate.ts",
+    "chat": "bun run src/skills/Inference/Tools/Chat.ts",
+    "run": "bun run src/skills/Inference/Tools/Run.ts",
+    "embed": "bun run src/skills/Inference/Tools/Embed.ts",
+    "list-models": "bun run src/skills/Inference/Tools/ListModels.ts",
+    "health": "bun run src/skills/Inference/Tools/CheckHealth.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "llm",
+    "inference",
+    "ollama",
+    "anthropic",
+    "claude",
+    "ai",
+    "chatbot",
+    "local-llm",
+    "pai"
+  ],
+  "author": "Kai Shraiberg",
+  "license": "MIT"
+}

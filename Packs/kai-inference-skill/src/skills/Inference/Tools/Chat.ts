@@ -16,6 +16,10 @@ import { parseArgs } from "node:util";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import * as readline from "node:readline/promises";
+import { BackendRegistry } from "../lib/BackendRegistry.js";
+import { OllamaBackend } from "../lib/backends/OllamaBackend.js";
+import { AnthropicBackend } from "../lib/backends/AnthropicBackend.js";
+import type { BaseBackend, InferenceMessage } from "../lib/backends/BaseBackend.js";
 
 // ============================================================================
 // Environment Loading
@@ -83,6 +87,7 @@ interface OllamaChatResponse {
 
 interface CLIArgs {
   model?: string;
+  backend?: string;
   system?: string;
   temperature?: number;
   help?: boolean;
@@ -94,7 +99,7 @@ interface CLIArgs {
 
 const DEFAULTS = {
   baseUrl: 'http://localhost:11434',
-  model: 'llama3.2:latest',
+  model: 'qwen3:4b',
   temperature: 0.7,
 };
 
@@ -110,17 +115,19 @@ class CLIError extends Error {
 }
 
 // ============================================================================
-// Ollama Chat Client
+// Chat Session Manager
 // ============================================================================
 
-class OllamaChatClient {
-  private baseUrl: string;
+class ChatSession {
+  private backend: BaseBackend;
   private model: string;
-  private messages: Message[] = [];
+  private messages: InferenceMessage[] = [];
+  private temperature?: number;
 
-  constructor(baseUrl: string, model: string, systemPrompt?: string) {
-    this.baseUrl = baseUrl;
+  constructor(backend: BaseBackend, model: string, systemPrompt?: string, temperature?: number) {
+    this.backend = backend;
     this.model = model;
+    this.temperature = temperature;
 
     if (systemPrompt) {
       this.messages.push({
@@ -130,95 +137,31 @@ class OllamaChatClient {
     }
   }
 
-  async chat(userMessage: string, temperature?: number): Promise<string> {
+  async chat(userMessage: string): Promise<string> {
     // Add user message
     this.messages.push({
       role: 'user',
       content: userMessage,
     });
 
-    const request: OllamaChatRequest = {
-      model: this.model,
-      messages: this.messages,
-      stream: true,
-    };
-
-    if (temperature !== undefined) {
-      request.options = { temperature };
-    }
-
-    const url = `${this.baseUrl}/api/chat`;
-
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
+      // Call backend with full message history
+      const response = await this.backend.chat({
+        model: this.model,
+        messages: this.messages,
+        temperature: this.temperature,
+        stream: true,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new CLIError(`Ollama API error (${response.status}): ${errorText}`, 1);
-      }
-
-      // Handle streaming response
-      const assistantMessage = await this.handleStreamingResponse(response);
-
-      // Add assistant message to history
+      // Add assistant response to history
       this.messages.push({
         role: 'assistant',
-        content: assistantMessage,
+        content: response.content,
       });
 
-      return assistantMessage;
+      return response.content;
     } catch (error: any) {
-      if (error.code === 'ECONNREFUSED') {
-        throw new CLIError(
-          '❌ Cannot connect to Ollama. Ensure Ollama is running: ollama serve',
-          1
-        );
-      }
-      throw error;
-    }
-  }
-
-  private async handleStreamingResponse(response: Response): Promise<string> {
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new CLIError('No response body available', 1);
-    }
-
-    const decoder = new TextDecoder();
-    let fullResponse = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line) as OllamaChatResponse;
-
-            if (data.message?.content) {
-              process.stdout.write(data.message.content);
-              fullResponse += data.message.content;
-            }
-          } catch (parseError) {
-            continue;
-          }
-        }
-      }
-
-      process.stdout.write('\n');
-      return fullResponse;
-    } finally {
-      reader.releaseLock();
+      throw new CLIError(`Chat error: ${error.message}`, 1);
     }
   }
 
@@ -240,6 +183,7 @@ function parseArguments(): CLIArgs {
   const { values } = parseArgs({
     options: {
       model: { type: 'string', short: 'm' },
+      backend: { type: 'string', short: 'b' },
       system: { type: 'string', short: 's' },
       temperature: { type: 'string', short: 't' },
       help: { type: 'boolean', short: 'h' },
@@ -249,6 +193,7 @@ function parseArguments(): CLIArgs {
 
   return {
     model: values.model as string | undefined,
+    backend: values.backend as string | undefined,
     system: values.system as string | undefined,
     temperature: values.temperature ? parseFloat(values.temperature) : undefined,
     help: values.help ?? false,
@@ -261,13 +206,14 @@ function parseArguments(): CLIArgs {
 
 function showHelp(): void {
   console.log(`
-Ollama Interactive Chat CLI
+Multi-Backend Interactive Chat CLI
 
 USAGE:
   bun run Chat.ts [OPTIONS]
 
 OPTIONS:
-  -m, --model <name>        Model to use (default: ${DEFAULTS.model})
+  -m, --model <name>        Model to use (auto-detects backend from model name)
+  -b, --backend <name>      Backend to use: ollama, anthropic (default: auto-detect)
   -s, --system <text>       System prompt to set context
   -t, --temperature <num>   Sampling temperature 0.0-1.0 (default: ${DEFAULTS.temperature})
   -h, --help                Show this help message
@@ -277,24 +223,43 @@ COMMANDS (during chat):
   /clear                    Clear conversation history
   /help                     Show available commands
 
+BACKENDS:
+  ollama                    Local models (free, private, offline)
+  anthropic                 Claude API (best reasoning, requires ANTHROPIC_API_KEY)
+
 EXAMPLES:
-  # Start basic chat
+  # Start chat with default backend (ollama)
   bun run Chat.ts
 
-  # Use specific model
-  bun run Chat.ts --model codellama:7b
+  # Use specific Ollama model
+  bun run Chat.ts --model qwen3:4b
+
+  # Use Claude API (auto-detects from model name)
+  bun run Chat.ts --model claude-sonnet-4.5
+
+  # Explicit backend selection
+  bun run Chat.ts --backend anthropic --model claude-opus-4.5
 
   # Set system prompt
   bun run Chat.ts --system "You are a helpful coding assistant"
 
 ENVIRONMENT VARIABLES:
+  # Ollama Configuration
   OLLAMA_BASE_URL           Ollama server URL (default: ${DEFAULTS.baseUrl})
   OLLAMA_CHAT_MODEL         Default chat model name
   OLLAMA_DEFAULT_MODEL      Fallback default model
 
+  # Anthropic Configuration
+  ANTHROPIC_API_KEY         Required for Claude API access
+  ANTHROPIC_DEFAULT_MODEL   Default Claude model (default: claude-sonnet-4.5)
+
+  # General Configuration
+  INFERENCE_DEFAULT_BACKEND Default backend (ollama or anthropic)
+
 NOTES:
-  - Ensure Ollama is running: ollama serve
-  - List available models: ollama list
+  - Model names auto-detect backend (claude-* → anthropic, others → ollama)
+  - For Ollama: ensure ollama serve is running
+  - For Anthropic: set ANTHROPIC_API_KEY in your environment
   - Conversation context is maintained across turns
 `);
 }
@@ -303,7 +268,7 @@ NOTES:
 // Interactive Chat Loop
 // ============================================================================
 
-async function runChatLoop(client: OllamaChatClient, temperature?: number): Promise<void> {
+async function runChatLoop(session: ChatSession): Promise<void> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -325,7 +290,7 @@ async function runChatLoop(client: OllamaChatClient, temperature?: number): Prom
       }
 
       if (trimmed === '/clear') {
-        client.clearHistory();
+        session.clearHistory();
         console.log('✨ Conversation history cleared.\n');
         continue;
       }
@@ -342,7 +307,7 @@ Available commands:
 
       // Send message and get response
       process.stdout.write('\nAssistant: ');
-      await client.chat(trimmed, temperature);
+      await session.chat(trimmed);
       console.log();
     }
   } finally {
@@ -368,24 +333,63 @@ async function main(): Promise<void> {
       process.exit(0);
     }
 
-    // Get configuration
-    const baseUrl = process.env.OLLAMA_BASE_URL || DEFAULTS.baseUrl;
-    const model = args.model ||
-                  process.env.OLLAMA_CHAT_MODEL ||
-                  process.env.OLLAMA_DEFAULT_MODEL ||
-                  DEFAULTS.model;
+    // Initialize backend registry
+    const registry = new BackendRegistry();
+
+    // Register available backends
+    try {
+      const ollama = new OllamaBackend();
+      registry.register({
+        name: 'ollama',
+        backend: ollama,
+        modelPrefixes: ['llama', 'qwen', 'mistral', 'deepseek', 'codellama', 'phi', 'gemma'],
+      });
+    } catch (error) {
+      // Ollama not available, skip
+    }
+
+    try {
+      const anthropic = new AnthropicBackend();
+      registry.register({
+        name: 'anthropic',
+        backend: anthropic,
+        modelPrefixes: ['claude-'],
+      });
+    } catch (error) {
+      // Anthropic not available (no API key), skip
+    }
+
+    // Select backend
+    const backend = registry.selectBackend({
+      explicitBackend: args.backend,
+      model: args.model,
+    });
+
+    // Get model name
+    let model = args.model;
+    if (!model) {
+      model = backend.getDefaultModel();
+      if (!model) {
+        throw new CLIError('No model specified and no default model configured', 1);
+      }
+    }
+
+    // Parse model name to remove backend prefix if present
+    const parsed = registry.parseModelName(model);
+    model = parsed.model;
+
     const temperature = args.temperature || DEFAULTS.temperature;
 
-    console.log(`\n🤖 Using model: ${model}`);
+    console.log(`\n🤖 Using ${backend.name}:${model}`);
     if (args.system) {
       console.log(`📋 System prompt: ${args.system}`);
     }
 
-    // Create chat client
-    const client = new OllamaChatClient(baseUrl, model, args.system);
+    // Create chat session
+    const session = new ChatSession(backend, model, args.system, temperature);
 
     // Run interactive loop
-    await runChatLoop(client, temperature);
+    await runChatLoop(session);
 
   } catch (error) {
     if (error instanceof CLIError) {
@@ -402,4 +406,4 @@ if (import.meta.main) {
   main();
 }
 
-export { OllamaChatClient };
+export { ChatSession };

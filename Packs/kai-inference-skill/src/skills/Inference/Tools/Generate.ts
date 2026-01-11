@@ -15,6 +15,9 @@
 import { parseArgs } from "node:util";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { BackendRegistry } from "../lib/BackendRegistry.js";
+import { OllamaBackend } from "../lib/backends/OllamaBackend.js";
+import { AnthropicBackend } from "../lib/backends/AnthropicBackend.js";
 
 // ============================================================================
 // Environment Loading
@@ -93,6 +96,7 @@ interface OllamaGenerateResponse {
 interface CLIArgs {
   prompt: string;
   model?: string;
+  backend?: string;
   system?: string;
   temperature?: number;
   topP?: number;
@@ -109,7 +113,7 @@ interface CLIArgs {
 
 const DEFAULTS = {
   baseUrl: 'http://localhost:11434',
-  model: 'llama3.2:latest',
+  model: 'qwen3:4b',
   temperature: 0.7,
   timeout: 30000,
 };
@@ -125,139 +129,7 @@ class CLIError extends Error {
   }
 }
 
-// ============================================================================
-// Ollama API Client
-// ============================================================================
-
-class OllamaClient {
-  private baseUrl: string;
-  private timeout: number;
-
-  constructor(baseUrl?: string, timeout?: number) {
-    this.baseUrl = baseUrl || DEFAULTS.baseUrl;
-    this.timeout = timeout || DEFAULTS.timeout;
-  }
-
-  async generate(request: OllamaGenerateRequest): Promise<OllamaGenerateResponse> {
-    const url = `${this.baseUrl}/api/generate`;
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new CLIError(
-          `Ollama API error (${response.status}): ${errorText}`,
-          1
-        );
-      }
-
-      // Handle streaming vs non-streaming
-      if (request.stream) {
-        return await this.handleStreamingResponse(response);
-      } else {
-        const data = await response.json();
-        return data;
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new CLIError(`Request timeout after ${this.timeout}ms`, 1);
-      }
-      if (error.code === 'ECONNREFUSED') {
-        throw new CLIError(
-          '❌ Cannot connect to Ollama. Ensure Ollama is running:\n' +
-          '   ollama serve\n' +
-          `   Base URL: ${this.baseUrl}`,
-          1
-        );
-      }
-      throw error;
-    }
-  }
-
-  private async handleStreamingResponse(response: Response): Promise<OllamaGenerateResponse> {
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new CLIError('No response body available', 1);
-    }
-
-    const decoder = new TextDecoder();
-    let fullResponse = '';
-    let finalData: OllamaGenerateResponse | null = null;
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line) as OllamaGenerateResponse;
-
-            // Print response token by token
-            if (data.response) {
-              process.stdout.write(data.response);
-              fullResponse += data.response;
-            }
-
-            if (data.done) {
-              finalData = data;
-              finalData.response = fullResponse;
-            }
-          } catch (parseError) {
-            // Skip invalid JSON lines
-            continue;
-          }
-        }
-      }
-
-      process.stdout.write('\n');
-
-      if (!finalData) {
-        throw new CLIError('Incomplete streaming response', 1);
-      }
-
-      return finalData;
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
-  async listModels(): Promise<any> {
-    const url = `${this.baseUrl}/api/tags`;
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new CLIError(`Failed to list models: ${response.statusText}`, 1);
-      }
-      return await response.json();
-    } catch (error: any) {
-      if (error.code === 'ECONNREFUSED') {
-        throw new CLIError(
-          '❌ Cannot connect to Ollama. Ensure Ollama is running: ollama serve',
-          1
-        );
-      }
-      throw error;
-    }
-  }
-}
+// OllamaClient removed - now using BackendRegistry with OllamaBackend
 
 // ============================================================================
 // CLI Argument Parsing
@@ -268,6 +140,7 @@ function parseArguments(): CLIArgs {
     options: {
       prompt: { type: 'string', short: 'p' },
       model: { type: 'string', short: 'm' },
+      backend: { type: 'string', short: 'b' },
       system: { type: 'string', short: 's' },
       temperature: { type: 'string', short: 't' },
       topP: { type: 'string' },
@@ -283,6 +156,7 @@ function parseArguments(): CLIArgs {
   return {
     prompt: values.prompt as string,
     model: values.model as string | undefined,
+    backend: values.backend as string | undefined,
     system: values.system as string | undefined,
     temperature: values.temperature ? parseFloat(values.temperature) : undefined,
     topP: values.topP ? parseFloat(values.topP) : undefined,
@@ -300,14 +174,15 @@ function parseArguments(): CLIArgs {
 
 function showHelp(): void {
   console.log(`
-Ollama Text Generation CLI
+Multi-Backend Inference Text Generation CLI
 
 USAGE:
   bun run Generate.ts --prompt "Your prompt here" [OPTIONS]
 
 OPTIONS:
   -p, --prompt <text>       Text prompt for generation (required)
-  -m, --model <name>        Model to use (default: ${DEFAULTS.model})
+  -m, --model <name>        Model to use (auto-detects backend from model name)
+  -b, --backend <name>      Backend to use: ollama, anthropic (default: auto-detect)
   -s, --system <text>       System prompt to set context
   -t, --temperature <num>   Sampling temperature 0.0-1.0 (default: ${DEFAULTS.temperature})
   --topP <num>              Top-p sampling parameter
@@ -315,34 +190,48 @@ OPTIONS:
   --maxTokens <num>         Maximum tokens to generate
   --stream                  Stream output token by token (default: true)
   --no-stream               Disable streaming, return full response
-  --format json             Request JSON formatted output
+  --format json             Request JSON formatted output (ollama only)
   -h, --help                Show this help message
 
+BACKENDS:
+  ollama                    Local models (free, private, offline)
+  anthropic                 Claude API (best reasoning, requires ANTHROPIC_API_KEY)
+
 EXAMPLES:
-  # Basic generation
+  # Basic generation (uses default backend: ollama)
   bun run Generate.ts --prompt "Explain closures in JavaScript"
 
-  # Use specific model
-  bun run Generate.ts --prompt "Review this code" --model codellama:7b
+  # Use specific Ollama model
+  bun run Generate.ts --prompt "Review this code" --model llama3.2
 
-  # Add system prompt
-  bun run Generate.ts --prompt "Analyze this function" --system "You are a code reviewer"
+  # Use Claude API (auto-detects from model name)
+  bun run Generate.ts --prompt "Design a system" --model claude-sonnet-4.5
 
-  # Request JSON output
-  bun run Generate.ts --prompt "List 3 colors" --format json
+  # Explicit backend selection
+  bun run Generate.ts --prompt "Analyze this" --backend anthropic --model claude-opus-4.5
 
-  # Adjust temperature
-  bun run Generate.ts --prompt "Write a story" --temperature 0.9
+  # With system prompt
+  bun run Generate.ts --prompt "Review code" --system "You are a security expert"
+
+  # Adjust creativity
+  bun run Generate.ts --prompt "Write a story" --temperature 0.9 --backend anthropic
 
 ENVIRONMENT VARIABLES:
+  # Ollama Configuration
   OLLAMA_BASE_URL           Ollama server URL (default: ${DEFAULTS.baseUrl})
-  OLLAMA_DEFAULT_MODEL      Default model name
-  OLLAMA_TIMEOUT            Request timeout in ms (default: ${DEFAULTS.timeout})
+  OLLAMA_DEFAULT_MODEL      Default Ollama model
+
+  # Anthropic Configuration
+  ANTHROPIC_API_KEY         Required for Claude API access
+  ANTHROPIC_DEFAULT_MODEL   Default Claude model (default: claude-sonnet-4.5)
+
+  # General Configuration
+  INFERENCE_DEFAULT_BACKEND Default backend (ollama or anthropic)
 
 NOTES:
-  - Ensure Ollama is running: ollama serve
-  - List available models: ollama list
-  - Pull new models: ollama pull llama3.2
+  - Model names auto-detect backend (claude-* → anthropic, others → ollama)
+  - For Ollama: ensure ollama serve is running
+  - For Anthropic: set ANTHROPIC_API_KEY in your environment
 `);
 }
 
@@ -369,47 +258,119 @@ async function main(): Promise<void> {
       throw new CLIError('Error: --prompt is required\n\nUse --help for usage information', 1);
     }
 
-    // Get configuration from environment with fallbacks
-    const baseUrl = process.env.OLLAMA_BASE_URL || DEFAULTS.baseUrl;
-    const model = args.model || process.env.OLLAMA_DEFAULT_MODEL || DEFAULTS.model;
-    const timeout = process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT) : DEFAULTS.timeout;
+    // Initialize backend registry
+    const registry = new BackendRegistry();
 
-    // Build request
-    const request: OllamaGenerateRequest = {
+    // Register available backends
+    try {
+      const ollama = new OllamaBackend();
+      registry.register({
+        name: 'ollama',
+        backend: ollama,
+        modelPrefixes: ['llama', 'qwen', 'mistral', 'deepseek', 'codellama', 'phi', 'gemma'],
+      });
+    } catch (error) {
+      // Ollama not available, skip
+    }
+
+    try {
+      const anthropic = new AnthropicBackend();
+      registry.register({
+        name: 'anthropic',
+        backend: anthropic,
+        modelPrefixes: ['claude-'],
+      });
+    } catch (error) {
+      // Anthropic not available (no API key), skip
+    }
+
+    // Select backend
+    const backend = registry.selectBackend({
+      explicitBackend: args.backend,
+      model: args.model,
+    });
+
+    // Get model name
+    let model = args.model;
+    if (!model) {
+      model = backend.getDefaultModel();
+      if (!model) {
+        throw new CLIError('No model specified and no default model configured', 1);
+      }
+    }
+
+    // Parse model name to remove backend prefix if present
+    const parsed = registry.parseModelName(model);
+    model = parsed.model;
+
+    // Validate model exists (Ollama only)
+    if (backend.name === 'ollama') {
+      try {
+        const availableModels = await backend.listModels();
+        const modelExists = availableModels.some(m => m.name === model);
+
+        if (!modelExists) {
+          const modelNames = availableModels.map(m => m.name).join(', ');
+          throw new CLIError(
+            `Model '${model}' not found.\n\n` +
+            `Available models: ${modelNames}\n\n` +
+            `Pull the model with: ollama pull ${model}`,
+            1
+          );
+        }
+      } catch (error: any) {
+        // If error is already a CLIError, rethrow it
+        if (error instanceof CLIError) throw error;
+        // Otherwise, connection error - provide helpful message
+        throw new CLIError(
+          `Cannot connect to Ollama. Ensure Ollama is running:\n` +
+          `   ollama serve\n` +
+          `   Base URL: ${backend instanceof OllamaBackend ? (backend as any).baseUrl : 'unknown'}`,
+          1
+        );
+      }
+    }
+
+    // Build unified inference request
+    const request = {
       model,
       prompt: args.prompt,
       stream: args.stream,
+      system: args.system,
+      format: args.format,
+      temperature: args.temperature,
+      topP: args.topP,
+      topK: args.topK,
+      maxTokens: args.maxTokens,
     };
 
-    if (args.system) {
-      request.system = args.system;
-    }
-
-    if (args.format) {
-      request.format = args.format;
-    }
-
-    if (args.temperature !== undefined || args.topP !== undefined || args.topK !== undefined || args.maxTokens !== undefined) {
-      request.options = {};
-      if (args.temperature !== undefined) request.options.temperature = args.temperature;
-      if (args.topP !== undefined) request.options.top_p = args.topP;
-      if (args.topK !== undefined) request.options.top_k = args.topK;
-      if (args.maxTokens !== undefined) request.options.num_predict = args.maxTokens;
-    }
-
-    // Create client and generate
-    const client = new OllamaClient(baseUrl, timeout);
-    const response = await client.generate(request);
+    // Generate response
+    const response = await backend.generate(request);
 
     // Output (already streamed if streaming enabled)
     if (!args.stream) {
-      console.log(response.response);
+      console.log(response.content);
     }
 
     // Print performance stats if available
-    if (response.eval_count && response.eval_duration) {
-      const tokensPerSecond = (response.eval_count / (response.eval_duration / 1e9)).toFixed(2);
-      console.error(`\n[${model}] ${response.eval_count} tokens in ${(response.eval_duration / 1e9).toFixed(2)}s (${tokensPerSecond} tok/s)`);
+    if (response.usage || response.metadata) {
+      const stats: string[] = [];
+
+      stats.push(`[${backend.name}:${model}]`);
+
+      if (response.usage?.completionTokens) {
+        stats.push(`${response.usage.completionTokens} tokens`);
+      }
+
+      if (response.metadata?.duration) {
+        stats.push(`${(response.metadata.duration / 1000).toFixed(2)}s`);
+      }
+
+      if (response.metadata?.tokensPerSecond) {
+        stats.push(`${response.metadata.tokensPerSecond.toFixed(2)} tok/s`);
+      }
+
+      console.error(`\n${stats.join(' ')}`);
     }
 
   } catch (error) {
@@ -427,4 +388,5 @@ if (import.meta.main) {
   main();
 }
 
-export { OllamaClient, type OllamaGenerateRequest, type OllamaGenerateResponse };
+// Exports for backward compatibility
+export { type OllamaGenerateRequest, type OllamaGenerateResponse };

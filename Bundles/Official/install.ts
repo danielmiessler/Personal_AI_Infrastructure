@@ -36,6 +36,7 @@ interface WizardConfig {
   userName: string;
   elevenLabsApiKey?: string;
   elevenLabsVoiceId?: string;
+  voiceServerUrl?: string;
 }
 
 // =============================================================================
@@ -370,12 +371,25 @@ async function gatherConfig(): Promise<WizardConfig> {
     );
   }
 
+  // Voice server URL (for remote setups like Ubuntu -> Mac)
+  let voiceServerUrl: string | undefined;
+  if (wantsVoice) {
+    const customUrl = await askYesNo("Use custom voice server URL? (for remote setups)", false);
+    if (customUrl) {
+      voiceServerUrl = await askWithDefault(
+        "Enter voice server URL",
+        "http://localhost:8888"
+      );
+    }
+  }
+
   return {
     daName,
     timeZone,
     userName,
     elevenLabsApiKey,
     elevenLabsVoiceId,
+    voiceServerUrl,
   };
 }
 
@@ -384,6 +398,8 @@ async function gatherConfig(): Promise<WizardConfig> {
 // =============================================================================
 
 function generateSkillMd(config: WizardConfig): string {
+  // Use placeholders that get substituted at runtime by load-core-context.ts
+  // This keeps the skill universal and portable
   return `---
 name: CORE
 description: Personal AI Infrastructure core. AUTO-LOADS at session start. USE WHEN any session begins OR user asks about identity, response format, contacts, stack preferences.
@@ -396,12 +412,12 @@ description: Personal AI Infrastructure core. AUTO-LOADS at session start. USE W
 ## Identity
 
 **Assistant:**
-- Name: ${config.daName}
-- Role: ${config.userName}'s AI assistant
+- Name: [YOUR_AI_NAME]
+- Role: [YOUR_NAME]'s AI assistant
 - Operating Environment: Personal AI infrastructure built on Claude Code
 
 **User:**
-- Name: ${config.userName}
+- Name: [YOUR_NAME]
 
 ---
 
@@ -415,7 +431,7 @@ Your AI should speak as itself, not about itself in third person.
 - "we built this together"
 
 **Wrong:**
-- "for ${config.daName}" / "for the ${config.daName} system"
+- "for [AI_NAME]" / "for the [AI_NAME] system"
 - "the system can" (when meaning "I can")
 
 ---
@@ -431,9 +447,9 @@ Default preferences (customize in CoreStack.md):
 
 ---
 
-## Response Format (Optional)
+## Response Format
 
-Define a consistent response format for task-based responses:
+**IMPORTANT:** The \`🗣️ [AI_NAME]:\` line drives voice output. Without it, your AI is silent.
 
 \`\`\`
 📋 SUMMARY: [One sentence]
@@ -441,9 +457,10 @@ Define a consistent response format for task-based responses:
 ⚡ ACTIONS: [Steps taken]
 ✅ RESULTS: [Outcomes]
 ➡️ NEXT: [Recommended next steps]
+🗣️ PAI: [12 words max - spoken aloud by voice server]
 \`\`\`
 
-Customize this format in SKILL.md to match your preferences.
+Replace "PAI" with your AI's name. The load-core-context hook automatically substitutes \`🗣️ PAI:\` with \`🗣️ [YOUR_AI_NAME]:\` at runtime.
 
 ---
 
@@ -615,13 +632,14 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
     await Bun.write(`${claudeDir}/.env`, envFileContent);
 
     // Create settings.json with environment variables for Claude Code
-    // This ensures env vars are available immediately without shell sourcing
+    // Note: PAI_DIR is NOT included here because JSON doesn't expand $HOME
+    // PAI_DIR is set in shell profiles instead, hooks use homedir() fallback
     console.log("Creating settings.json...");
     const settingsJson: Record<string, unknown> = {
       env: {
         DA: config.daName,
+        USER_NAME: config.userName,
         TIME_ZONE: config.timeZone,
-        PAI_DIR: claudeDir,
         PAI_SOURCE_APP: config.daName,
       },
     };
@@ -630,6 +648,9 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
     }
     if (config.elevenLabsVoiceId) {
       (settingsJson.env as Record<string, string>).ELEVENLABS_VOICE_ID = config.elevenLabsVoiceId;
+    }
+    if (config.voiceServerUrl) {
+      (settingsJson.env as Record<string, string>).VOICE_SERVER_URL = config.voiceServerUrl;
     }
 
     // Check for existing settings.json and merge if present
@@ -654,40 +675,51 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
     await Bun.write(settingsPath, JSON.stringify(mergedSettings, null, 2) + "\n");
     console.log("✓ Created settings.json with environment variables");
 
-    // Add to shell profile
-    console.log("Updating shell profile...");
-    const shell = process.env.SHELL || "/bin/zsh";
-    const shellProfile = shell.includes("zsh")
-      ? `${process.env.HOME}/.zshrc`
-      : `${process.env.HOME}/.bashrc`;
+    // Add to shell profiles (both .bashrc and .zshrc for cross-platform compatibility)
+    console.log("Updating shell profiles...");
+    const shellProfiles = [
+      `${process.env.HOME}/.zshrc`,
+      `${process.env.HOME}/.bashrc`,
+    ];
 
     const envExports = `
 # PAI Configuration (added by Kai Bundle installer)
 export DA="${config.daName}"
+export USER_NAME="${config.userName}"
 export TIME_ZONE="${config.timeZone}"
+export PAI_DIR="$HOME/.claude"
 export PAI_SOURCE_APP="$DA"
 ${config.elevenLabsApiKey ? `export ELEVENLABS_API_KEY="${config.elevenLabsApiKey}"` : ""}
 ${config.elevenLabsVoiceId ? `export ELEVENLABS_VOICE_ID="${config.elevenLabsVoiceId}"` : ""}
+${config.voiceServerUrl ? `export VOICE_SERVER_URL="${config.voiceServerUrl}"` : ""}
 `;
 
-    const existingProfile = await Bun.file(shellProfile).text().catch(() => "");
-    if (!existingProfile.includes("PAI Configuration")) {
-      await Bun.write(shellProfile, existingProfile + "\n" + envExports);
-      console.log(`Added environment variables to ${shellProfile}`);
-    } else {
-      console.log(`PAI environment variables already exist in ${shellProfile}`);
+    for (const shellProfile of shellProfiles) {
+      try {
+        const existingProfile = await Bun.file(shellProfile).text().catch(() => "");
+        if (!existingProfile.includes("PAI Configuration")) {
+          await Bun.write(shellProfile, existingProfile + "\n" + envExports);
+          console.log(`  ✓ Added environment variables to ${shellProfile}`);
+        } else {
+          console.log(`  ✓ PAI configuration already exists in ${shellProfile}`);
+        }
+      } catch {
+        console.log(`  ⚠ Could not update ${shellProfile} (file may not exist)`);
+      }
     }
 
-    // Source the shell profile to make variables available
-    console.log("Sourcing shell profile...");
+    // Export to current process for immediate use
+    console.log("Setting environment variables for current session...");
     try {
-      // Export to current process
       process.env.DA = config.daName;
+      process.env.USER_NAME = config.userName;
       process.env.TIME_ZONE = config.timeZone;
+      process.env.PAI_DIR = claudeDir;
       process.env.PAI_SOURCE_APP = config.daName;
       if (config.elevenLabsApiKey) process.env.ELEVENLABS_API_KEY = config.elevenLabsApiKey;
       if (config.elevenLabsVoiceId) process.env.ELEVENLABS_VOICE_ID = config.elevenLabsVoiceId;
-      console.log("Environment variables set for current session.");
+      if (config.voiceServerUrl) process.env.VOICE_SERVER_URL = config.voiceServerUrl;
+      console.log("✓ Environment variables set for current session");
     } catch (e) {
       // Silently continue - environment is exported to file
     }

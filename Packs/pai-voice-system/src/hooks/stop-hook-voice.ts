@@ -35,7 +35,7 @@ const VOICE_SERVER_URL = process.env.VOICE_SERVER_URL || 'http://localhost:8888'
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '';
 const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
 
-// AI Identity - loaded from DAIDENTITY.md if it exists
+// AI Identity - loaded from environment variables first, then DAIDENTITY.md as fallback
 interface AIIdentity {
   name: string;
   displayName: string;
@@ -43,14 +43,27 @@ interface AIIdentity {
 }
 
 function loadIdentity(): AIIdentity {
+  // Environment variables take priority (set in shell profile or settings.json)
+  const envName = process.env.DA;
+  const envVoiceId = process.env.ELEVENLABS_VOICE_ID;
+
   const defaultIdentity: AIIdentity = {
     name: 'PAI',
     displayName: 'PAI',
     voiceId: DEFAULT_VOICE_ID
   };
 
+  // If DA env var is set, use it as primary source
+  if (envName) {
+    return {
+      name: envName,
+      displayName: envName,
+      voiceId: envVoiceId || DEFAULT_VOICE_ID
+    };
+  }
+
+  // Fallback: Try to load from DAIDENTITY.md for additional customization
   try {
-    // Try to load from DAIDENTITY.md
     const identityPath = join(PAI_DIR, 'skills', 'CORE', 'USER', 'DAIDENTITY.md');
     if (existsSync(identityPath)) {
       const content = readFileSync(identityPath, 'utf-8');
@@ -63,7 +76,7 @@ function loadIdentity(): AIIdentity {
       return {
         name: nameMatch?.[1] || defaultIdentity.name,
         displayName: displayMatch?.[1]?.trim() || nameMatch?.[1] || defaultIdentity.displayName,
-        voiceId: voiceMatch?.[1] || defaultIdentity.voiceId
+        voiceId: voiceMatch?.[1] || envVoiceId || defaultIdentity.voiceId
       };
     }
   } catch (error) {

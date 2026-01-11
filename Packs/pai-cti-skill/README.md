@@ -23,6 +23,23 @@ keywords: [threat-intelligence, cti, ioc, yara, sigma, stix, mitre-attack, kill-
 
 ---
 
+## Quick Start
+
+```bash
+# 1. Set PAI_DIR (add to ~/.zshrc or ~/.bashrc)
+export PAI_DIR="$HOME/.claude"
+
+# 2. Extract IoCs from any threat report
+bun run $PAI_DIR/skills/cti/Tools/IoCExtractor.ts "Check 192.168.1.1 and evil.com"
+
+# 3. Or ask your AI assistant
+"Analyze this threat report and extract all indicators"
+```
+
+**Prerequisites:** [Bun](https://bun.sh) runtime, Claude Code with pai-knowledge-system installed.
+
+---
+
 ## What's Included
 
 | Component | File | Purpose |
@@ -91,7 +108,7 @@ Threat Report / Feed Data
 
 ---
 
-## What Makes This Different
+## Architecture
 
 ```
 USER REQUEST: "Analyze this threat report"
@@ -144,16 +161,14 @@ USER REQUEST: "Analyze this threat report"
 
 ---
 
-## Why This Is Different
+## Why Use This
 
-This sounds similar to commercial TI platforms which also do threat analysis. What makes this approach different?
+Unlike commercial TI platforms requiring expensive subscriptions and dedicated staff, the PAI CTI skill brings enterprise-grade threat intelligence directly into your AI assistant:
 
-Commercial platforms require expensive subscriptions, complex integrations, and dedicated security staff. The PAI CTI skill brings enterprise-grade threat intelligence capabilities directly into your AI assistant, leveraging natural language interaction and your existing infrastructure.
-
-- AI assistant becomes your threat intelligence analyst
-- Industry frameworks built-in, not learned from scratch
-- Detection rules generated automatically from analysis
-- Intelligence stored in your knowledge graph permanently
+- **Natural Language**: Ask questions instead of learning complex UIs
+- **Built-in Frameworks**: MITRE ATT&CK, Kill Chain, Diamond Model ready to use
+- **Automatic Detection**: YARA/Sigma rules generated from analysis
+- **Persistent Memory**: Intelligence stored in your knowledge graph
 
 ---
 
@@ -226,16 +241,12 @@ bun run $PAI_DIR/skills/cti/Tools/FeedManager.ts test --all
 
 **Environment variables:**
 
-**Option 1: `.env` file** (recommended):
-```bash
-# $PAI_DIR/.env
-PAI_DIR="$HOME/.claude"
-```
-
-**Option 2: Shell profile**:
+Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 ```bash
 export PAI_DIR="$HOME/.claude"
 ```
+
+> **Note:** The `.env` file in `$PAI_DIR/.env` is for API keys only. Shell variables like `$HOME` do not expand in `.env` files.
 
 **API Keys (optional, for premium feeds):**
 ```bash
@@ -268,6 +279,14 @@ The risk assessment workflow can be customized with your organization's specific
 | Add custom feeds | `Data/TISources.yaml` | New threat sources |
 | Modify IoC patterns | `Data/IoCPatterns.yaml` | Custom indicator types |
 | Adjust risk thresholds | `Frameworks/RiskScoring.md` | Risk scoring calibration |
+
+---
+
+## Known Issues
+
+⚠️ **RediSearch Hyphen Parsing Bug** - Domain names containing hyphens (e.g., `malware-c2.evil.com`) may not be searchable when stored in the knowledge graph. RediSearch interprets `-` as a negation operator. See [Known Issues](docs/known-issues.md) for workarounds.
+
+For full list of known issues and workarounds, see [docs/known-issues.md](docs/known-issues.md).
 
 ---
 

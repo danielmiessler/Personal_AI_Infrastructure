@@ -448,17 +448,19 @@ Filters exclude:
 
 PLATFORM CONVERSION
 ----------------------------------------
+# Convert using sigma-cli (install via: pip install sigma-cli)
+
 # Convert to Splunk
-sigmac -t splunk rule.yml
+sigma convert -t splunk rule.yml
 
 # Convert to Elastic
-sigmac -t es-qs rule.yml
+sigma convert -t elasticsearch rule.yml
 
-# Convert to Microsoft Sentinel
-sigmac -t ala rule.yml
+# Convert to Microsoft Sentinel (KQL)
+sigma convert -t microsoft365defender rule.yml
 
-# Convert to QRadar
-sigmac -t qradar rule.yml
+# List all available backends
+sigma list backends
 ```
 
 ### Example Rules

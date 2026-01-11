@@ -162,22 +162,6 @@ feeds:
     added: 2026-01-10
     last_checked: null
     notes: Get API key from https://shodan.io/
-  - name: URLScan.io
-    description: URL scanning and analysis
-    url: https://urlscan.io/api/v1/
-    category: reputation
-    format: json
-    api_key_env: PAI_CTI_URLSCAN_API_KEY
-    update_frequency: on_demand
-    enabled: false
-    priority: 2
-    tlp: green
-    ioc_types:
-      - url
-      - domain
-    added: 2026-01-10
-    last_checked: null
-    notes: Get API key from https://urlscan.io/user/signup
   - name: CISA Alerts
     description: US-CERT alerts and advisories
     url: https://www.cisa.gov/uscert/ncas/alerts.xml
@@ -195,6 +179,116 @@ feeds:
       - sha256
     added: 2026-01-10
     last_checked: null
+
+  # =====================================
+  # Enrichment Services (on-demand lookups)
+  # =====================================
+
+  - name: URLScan.io
+    description: URL scanning and analysis
+    url: https://urlscan.io/api/v1/
+    category: reputation
+    format: json
+    api_key_env: PAI_CTI_URLSCAN_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 2
+    tlp: green
+    ioc_types:
+      - url
+      - domain
+    rate_limit: 60/min
+    added: 2026-01-10
+    last_checked: null
+    notes: Get API key from https://urlscan.io/user/signup
+
+  - name: AbuseIPDB
+    description: IP address abuse reports and reputation
+    url: https://api.abuseipdb.com/api/v2/
+    category: reputation
+    format: json
+    api_key_env: PAI_CTI_ABUSEIPDB_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 1
+    tlp: amber
+    ioc_types:
+      - ip
+    rate_limit: 30/min
+    daily_limit: 1000
+    added: 2026-01-11
+    last_checked: null
+    notes: Get API key from https://www.abuseipdb.com/account/api
+
+  - name: EmailRep.io
+    description: Email address reputation and risk scoring
+    url: https://emailrep.io/
+    category: reputation
+    format: json
+    api_key_env: null
+    update_frequency: on_demand
+    enabled: true
+    priority: 2
+    tlp: green
+    ioc_types:
+      - email
+    rate_limit: 10/min
+    added: 2026-01-11
+    last_checked: null
+    notes: Free tier available without API key (rate limited)
+
+  - name: Spamhaus Intelligence API
+    description: Domain and IP spam/botnet reputation
+    url: https://api.spamhaus.org/api/v1/
+    category: reputation
+    format: json
+    api_key_env: PAI_CTI_SPAMHAUS_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 1
+    tlp: amber
+    ioc_types:
+      - ip
+      - domain
+    added: 2026-01-11
+    last_checked: null
+    notes: Commercial API - see https://www.spamhaus.com/developer/sia/
+
+  - name: NIST NVD
+    description: National Vulnerability Database for CVE enrichment
+    url: https://services.nvd.nist.gov/rest/json/cves/2.0
+    category: vulnerability
+    format: json
+    api_key_env: PAI_CTI_NVD_API_KEY
+    update_frequency: on_demand
+    enabled: true
+    priority: 1
+    tlp: clear
+    ioc_types:
+      - cve
+    rate_limit: 5/30sec
+    added: 2026-01-11
+    last_checked: null
+    notes: API key optional but recommended - get from https://nvd.nist.gov/developers/request-an-api-key
+
+  - name: Hybrid Analysis
+    description: Malware sandbox analysis and behavioral reports
+    url: https://www.hybrid-analysis.com/api/v2/
+    category: malware
+    format: json
+    api_key_env: PAI_CTI_HYBRID_ANALYSIS_API_KEY
+    update_frequency: on_demand
+    enabled: false
+    priority: 1
+    tlp: amber
+    ioc_types:
+      - sha256
+      - sha1
+      - md5
+    rate_limit: 5/min
+    added: 2026-01-11
+    last_checked: null
+    notes: Free tier available - https://www.hybrid-analysis.com/apikeys/info
 
   # =====================================
   # Threat Intelligence Blogs (use Browser skill to fetch as markdown)
@@ -317,7 +411,6 @@ settings:
   request_timeout: 30
   retry_attempts: 3
   retry_delay: 5
-  cache_ttl: 3600
   storage_path: $PAI_DIR/data/threat-intel/
   max_iocs_per_feed: 10000
   retention_days: 90
@@ -325,6 +418,115 @@ settings:
   notify_on_high: true
   notification_channels:
     - knowledge_graph
+
+  # =====================================
+  # Enhanced Caching Configuration
+  # =====================================
+  cache:
+    enabled: true
+    backend: file  # Options: file, redis
+    default_ttl: 3600  # 1 hour default
+
+    # TTL by IOC type (in seconds)
+    # IPs change faster than domains, hashes are immutable
+    ttl_by_ioc_type:
+      ip: 3600        # 1 hour - IPs can change ownership quickly
+      domain: 14400   # 4 hours - domains more stable
+      url: 3600       # 1 hour - URLs can be taken down
+      sha256: 86400   # 24 hours - hashes are immutable
+      sha1: 86400     # 24 hours
+      md5: 86400      # 24 hours
+      email: 14400    # 4 hours
+      cve: 86400      # 24 hours - CVE data updates slowly
+
+    # TTL by source (overrides ioc_type when specified)
+    ttl_by_source:
+      virustotal: 14400     # 4 hours (strict rate limits)
+      abuseipdb: 3600       # 1 hour
+      otx: 7200             # 2 hours
+      urlhaus: 1800         # 30 min (frequently updated)
+      nvd: 86400            # 24 hours (slow updates)
+      emailrep: 14400       # 4 hours
+
+    max_cache_size_mb: 500
+    compression: true
+    cleanup_interval: 3600  # Clean expired entries hourly
+
+  # =====================================
+  # Rate Limit Management
+  # =====================================
+  rate_limiting:
+    enabled: true
+
+    # Global rate limit tracker
+    tracking_backend: file  # Options: file, redis
+
+    # Per-service configuration (overrides feed-level rate_limit)
+    services:
+      virustotal:
+        requests_per_minute: 4
+        daily_limit: 500
+        monthly_limit: 15500
+        backoff_strategy: exponential
+        max_backoff_seconds: 300
+
+      abuseipdb:
+        requests_per_minute: 30
+        daily_limit: 1000
+        backoff_strategy: linear
+        max_backoff_seconds: 60
+
+      shodan:
+        requests_per_second: 1
+        backoff_strategy: exponential
+        max_backoff_seconds: 120
+
+      otx:
+        requests_per_second: 10
+        backoff_strategy: linear
+        max_backoff_seconds: 30
+
+      nvd:
+        requests_per_30sec: 5
+        backoff_strategy: exponential
+        max_backoff_seconds: 60
+
+      urlscan:
+        requests_per_minute: 60
+        daily_limit: 1000
+        backoff_strategy: linear
+        max_backoff_seconds: 60
+
+      emailrep:
+        requests_per_minute: 10
+        backoff_strategy: linear
+        max_backoff_seconds: 60
+
+      hybrid_analysis:
+        requests_per_minute: 5
+        backoff_strategy: exponential
+        max_backoff_seconds: 120
+
+      spamhaus:
+        requests_per_minute: 10
+        backoff_strategy: linear
+        max_backoff_seconds: 60
+
+    # Request queue settings
+    queue:
+      enabled: true
+      max_queued_requests: 100
+      priority_levels:
+        critical: 1    # Process immediately
+        high: 2        # Next in queue
+        normal: 3      # Standard priority
+        low: 4         # Background enrichment
+
+    # Alert thresholds
+    alerts:
+      warn_at_percent: 80     # Warn when 80% of limit used
+      critical_at_percent: 95 # Critical when 95% used
+
 categories:
   - name: malware
     description: Malware samples and distribution
@@ -350,3 +552,9 @@ categories:
   - name: general
     description: General threat intelligence
     color: gray
+  - name: vulnerability
+    description: CVE and vulnerability intelligence
+    color: orange
+  - name: blog
+    description: Threat intelligence blogs and research
+    color: blue

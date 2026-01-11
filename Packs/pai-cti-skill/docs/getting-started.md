@@ -257,6 +257,7 @@ $PAI_DIR/skills/cti/
 2. **Explore the tools** - See [Tools Documentation](tools/README.md)
 3. **Learn the workflows** - See [Workflows Documentation](workflows/README.md)
 4. **Understand the frameworks** - See [Frameworks Documentation](frameworks/README.md)
+5. **Review known issues** - See [Known Issues](known-issues.md) (important: RediSearch hyphen bug affects domain searches)
 
 ---
 
@@ -267,5 +268,14 @@ If you encounter issues:
 1. Verify Bun is installed: `bun --version`
 2. Check dependencies are installed: `cd $PAI_DIR/skills/cti/Tools && bun install`
 3. Verify SKILL.md exists: `ls $PAI_DIR/skills/cti/SKILL.md`
+4. Check [Known Issues](known-issues.md) for documented bugs and workarounds
 
 For more help, see the [Troubleshooting Guide](troubleshooting.md).
+
+---
+
+## ⚠️ Important: Knowledge Graph Limitation
+
+If using the pai-knowledge-system to store threat intelligence, be aware of the **RediSearch hyphen parsing bug**. Domain names containing hyphens (e.g., `malware-c2.evil.com`) may not be searchable due to RediSearch interpreting `-` as a negation operator.
+
+See [Known Issues](known-issues.md#redisearch-hyphen-parsing-bug) for workarounds.

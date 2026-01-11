@@ -37,6 +37,18 @@ PAI_CTI_URLSCAN_API_KEY="your-urlscan-api-key"
 # Get key: https://www.abuseipdb.com/account/api
 PAI_CTI_ABUSEIPDB_API_KEY="your-abuseipdb-api-key"
 
+# NIST NVD (optional but recommended for higher rate limits)
+# Get key: https://nvd.nist.gov/developers/request-an-api-key
+PAI_CTI_NVD_API_KEY="your-nvd-api-key"
+
+# Spamhaus Intelligence API
+# Get key: https://www.spamhaus.com/developer/sia/
+PAI_CTI_SPAMHAUS_API_KEY="your-spamhaus-api-key"
+
+# Hybrid Analysis
+# Get key: https://www.hybrid-analysis.com/apikeys/info
+PAI_CTI_HYBRID_ANALYSIS_API_KEY="your-hybrid-analysis-api-key"
+
 # Custom/Corporate Feeds
 PAI_CTI_CUSTOM_FEED_API_KEY="your-custom-key"
 ```
@@ -54,7 +66,6 @@ PAI_CTI_<SERVICE>_API_KEY
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `PAI_DIR` | PAI installation directory | `~/.claude` |
-| `DA` | Assistant name | (system default) |
 | `TIME_ZONE` | Timezone for timestamps | System timezone |
 
 ---
@@ -147,6 +158,9 @@ categories:
   - name: "blog"
     description: "Threat intelligence blogs"
     color: "blue"
+  - name: "vulnerability"
+    description: "CVE and vulnerability intelligence"
+    color: "orange"
 ```
 
 ### Feed Configuration Fields
@@ -165,6 +179,7 @@ categories:
 | `tlp` | No | string | TLP classification: `clear`, `green`, `amber`, `red` |
 | `ioc_types` | No | array | IoC types provided by feed |
 | `rate_limit` | No | string | API rate limit (e.g., "4/min") |
+| `daily_limit` | No | integer | Daily request limit |
 | `added` | No | string | Date feed was added |
 | `last_checked` | No | string | Last successful check timestamp |
 | `notes` | No | string | Additional notes |
@@ -184,6 +199,67 @@ categories:
 | `retention_days` | integer | Days to retain IoCs | `90` |
 | `notify_on_critical` | boolean | Alert on critical findings | `true` |
 | `notify_on_high` | boolean | Alert on high findings | `true` |
+
+### Cache Configuration
+
+The `cache` section provides fine-grained caching control:
+
+```yaml
+cache:
+  enabled: true
+  backend: file  # Options: file, redis
+  default_ttl: 3600  # 1 hour default
+
+  # TTL by IOC type (seconds)
+  ttl_by_ioc_type:
+    ip: 3600        # 1 hour - IPs change quickly
+    domain: 14400   # 4 hours - more stable
+    sha256: 86400   # 24 hours - immutable
+    cve: 86400      # 24 hours
+
+  # TTL by source (overrides ioc_type)
+  ttl_by_source:
+    virustotal: 14400
+    urlhaus: 1800   # 30 min - frequently updated
+
+  max_cache_size_mb: 500
+  compression: true
+```
+
+### Rate Limiting Configuration
+
+The `rate_limiting` section manages API quotas:
+
+```yaml
+rate_limiting:
+  enabled: true
+  tracking_backend: file  # Options: file, redis
+
+  services:
+    virustotal:
+      requests_per_minute: 4
+      daily_limit: 500
+      backoff_strategy: exponential
+      max_backoff_seconds: 300
+
+    abuseipdb:
+      requests_per_minute: 30
+      daily_limit: 1000
+      backoff_strategy: linear
+
+  queue:
+    enabled: true
+    max_queued_requests: 100
+    priority_levels:
+      critical: 1
+      high: 2
+      normal: 3
+      low: 4
+
+  alerts:
+    warn_at_percent: 80
+    critical_at_percent: 95
+```
 
 ---
 
@@ -376,6 +452,9 @@ User: "Add a new threat feed"
 | OTX | 10 requests/sec, unlimited |
 | Shodan | 1 request/sec, varies |
 | URLScan | Varies by plan |
+| NIST NVD | 5 requests/30sec (50/30sec with key) |
+| EmailRep.io | 10 requests/min (no key) |
+| Hybrid Analysis | 5 requests/min |
 
 ### Configuration
 

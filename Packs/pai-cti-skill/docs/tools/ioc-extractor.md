@@ -307,7 +307,9 @@ bun run $PAI_DIR/skills/cti/Tools/IoCExtractor.ts report.txt --format csv > iocs
 The IoC Extractor exports functions that can be imported in other TypeScript files:
 
 ```typescript
-import { extractIoCs, refang, defang, validateIoC } from './IoCExtractor.ts';
+// Import from the installed skill location
+import { extractIoCs, refang, defang, validateIoC } from '$PAI_DIR/skills/cti/Tools/IoCExtractor.ts';
+// Or with relative path from your script location
 
 // Extract IoCs from text
 const result = extractIoCs("Check IP 192.168.1.1 and domain evil.com", "source");

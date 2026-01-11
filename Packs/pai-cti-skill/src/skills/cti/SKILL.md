@@ -25,6 +25,10 @@ triggers:
   - threat hunting
   - indicator enrichment
   - threat prioritization
+  - cve enrichment
+  - vulnerability intelligence
+  - cve lookup
+  - analyze cve
 ---
 
 # Cyber Threat Intelligence (CTI)
@@ -107,6 +111,14 @@ User: Enrich these IP addresses with threat data
 → Execute EnrichIoCs workflow
 ```
 
+### Enrich CVEs
+**Triggers:** "enrich cve", "lookup vulnerability", "cve enrichment", "analyze cve", "vulnerability correlation"
+**Workflow:** EnrichCVE.md
+```
+User: Analyze CVE-2024-21762 and correlate with threat intelligence
+→ Execute EnrichCVE workflow
+```
+
 ### Threat Report
 **Triggers:** "threat report", "intelligence report", "ti summary", "create report"
 **Workflow:** ThreatReport.md
@@ -154,6 +166,9 @@ User: Add a new threat feed source
 
 # Enrich IoCs
 /ti enrich <iocs>
+
+# Enrich CVEs
+/ti cve <cve_ids>
 
 # Generate threat report
 /ti report <investigation_name>
@@ -290,9 +305,21 @@ All TI operations output in structured format:
 
 ---
 
+## Agent Profiles
+
+For specialized analysis personas, see `CTIAgents.md` which defines:
+- **The Threat Analyst** - Named agent for rigorous, evidence-based analysis
+- **Dynamic trait formulas** - Composable profiles for different CTI tasks (Rigorous Analyst, Red Team Assessor, Risk Evaluator, etc.)
+- **Multi-agent patterns** - Triangulated assessment, speed vs depth, red/blue perspectives
+
+Agent integration uses the Agents skill's AgentFactory.
+
+---
+
 ## Reference Documentation
 
 - `Frameworks/MitreAttack.md` - ATT&CK framework reference
 - `Frameworks/CyberKillChain.md` - Kill Chain reference
 - `Frameworks/DiamondModel.md` - Diamond Model reference
 - `Frameworks/RiskScoring.md` - ISO 27001/27005 risk methodology
+- `CTIAgents.md` - Specialized agent profiles for CTI work

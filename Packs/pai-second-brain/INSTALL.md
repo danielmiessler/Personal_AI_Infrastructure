@@ -58,7 +58,7 @@ fi
 **1. Backup current installation:**
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-BACKUP_DIR="$PAI_DIR/Backups/second-brain-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="$HOME/.pai-backups/second-brain-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 cp -r "$PAI_DIR/skills/SecondBrain" "$BACKUP_DIR/"
 cp "$PAI_DIR/config/delegation-rules.yaml" "$BACKUP_DIR/" 2>/dev/null
@@ -241,7 +241,7 @@ Give me the pai-core-install pack directory and I'll install it for you."
 
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-BACKUP_DIR="$PAI_DIR/Backups/second-brain-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="$HOME/.pai-backups/second-brain-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 [ -d "$PAI_DIR/skills/SecondBrain" ] && cp -r "$PAI_DIR/skills/SecondBrain" "$BACKUP_DIR/"
 echo "Backup created at: $BACKUP_DIR"

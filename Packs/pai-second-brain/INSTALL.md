@@ -52,6 +52,8 @@ fi
 | `para-mapping.yaml` vault_root | ✅ Yes | Not overwritten if exists |
 | Custom delegation rules | ⚠️ Backup | Will be replaced |
 | Debate history | ✅ Yes | Stored in `~/.claude/second-brain/debates/` |
+| `settings.json` hooks | ✅ Yes | Hook registration preserved |
+| `vault-context-injector.ts` | ⚠️ Replaced | New version installed |
 
 ### Upgrade Steps
 
@@ -86,10 +88,19 @@ if [ -n "$EXISTING_VAULT" ] && ! grep -q "vault_root:" "$PAI_DIR/config/para-map
 fi
 ```
 
-**5. Verify upgrade:**
+**5. Update hook file:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-bun run "$PAI_DIR/skills/SecondBrain/Tools/VaultReader.ts" --stats
+cp src/hooks/vault-context-injector.ts ~/.claude/hooks/ && echo "✓ Hook updated"
+```
+
+**6. Ensure hook is registered (if upgrading from v1.x):**
+```bash
+grep "vault-context-injector" ~/.claude/settings.json && echo "✓ Hook already registered" || echo "⚠ Add hook to settings.json UserPromptSubmit section"
+```
+
+**7. Verify upgrade:**
+```bash
+bun run ~/.claude/skills/SecondBrain/Tools/VaultReader.ts --stats
 ```
 
 ### Breaking Changes by Version
@@ -97,7 +108,7 @@ bun run "$PAI_DIR/skills/SecondBrain/Tools/VaultReader.ts" --stats
 | From → To | Breaking Changes | Migration |
 |-----------|------------------|-----------|
 | v1.x → v2.0 | New vault tools added | Set `PARA_VAULT` env var |
-| v1.x → v2.0 | `--context` flag on tools | No action needed |
+| v1.x → v2.0 | `vault-context-injector` hook added | Register hook in settings.json |
 
 ---
 
@@ -262,6 +273,7 @@ echo "Backup created at: $BACKUP_DIR"
     {"content": "Install TypeScript tools", "status": "pending", "activeForm": "Installing TypeScript tools"},
     {"content": "Copy config files", "status": "pending", "activeForm": "Copying config files"},
     {"content": "Configure vault location", "status": "pending", "activeForm": "Configuring vault"},
+    {"content": "Install vault context hook", "status": "pending", "activeForm": "Installing vault context hook"},
     {"content": "Run verification", "status": "pending", "activeForm": "Running verification"}
   ]
 }
@@ -396,7 +408,50 @@ grep PARA_VAULT ~/.zshrc ~/.bashrc ~/.bash_profile ~/.claude/.env 2>/dev/null
 
 **Mark todo as completed.**
 
-### 4.7 Verify TypeScript Tools
+### 4.7 Install Vault Context Hook
+
+**Mark todo "Install vault context hook" as in_progress.**
+
+**Copy the hook file:**
+```bash
+cp src/hooks/vault-context-injector.ts ~/.claude/hooks/ && echo "✓ Hook installed to ~/.claude/hooks/"
+```
+
+**Register hook in settings.json:**
+
+The hook must be added to `UserPromptSubmit` in `~/.claude/settings.json`. Add this entry to the hooks array:
+
+```json
+{
+  "type": "command",
+  "command": "bun run $PAI_DIR/hooks/vault-context-injector.ts"
+}
+```
+
+**Full UserPromptSubmit section should look like:**
+```json
+"UserPromptSubmit": [
+  {
+    "matcher": "*",
+    "hooks": [
+      {
+        "type": "command",
+        "command": "bun run $PAI_DIR/hooks/vault-context-injector.ts"
+      }
+      // ... other existing hooks
+    ]
+  }
+]
+```
+
+**Verify hook is registered:**
+```bash
+grep "vault-context-injector" ~/.claude/settings.json && echo "✓ Hook registered" || echo "✗ Hook NOT registered - add to settings.json manually"
+```
+
+**Mark todo as completed.**
+
+### 4.8 Verify TypeScript Tools
 
 **Quick verification that tools work:**
 

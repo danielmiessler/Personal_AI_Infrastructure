@@ -60,10 +60,11 @@ Please follow the installation instructions in `INSTALL.md` to integrate this pa
 | PARA mapping | `src/config/para-mapping.yaml` | PARA to PAI Memory integration |
 | Context thresholds | `src/config/context-thresholds.json` | Budget alert configuration |
 | Delegation rules | `src/config/delegation-rules.yaml` | Agent routing configuration |
+| **Vault context hook** | `src/hooks/vault-context-injector.ts` | Auto-search vault on every user message |
 
 **Summary:**
-- **Files created:** 11
-- **Hooks registered:** 0 (philosophy-based, not event-driven)
+- **Files created:** 12
+- **Hooks registered:** 1 (UserPromptSubmit: vault-context-injector)
 - **Dependencies:** pai-core-install (required)
 
 ---
@@ -497,7 +498,31 @@ export PARA_VAULT="$HOME/Documents/Notes"
 
 ---
 
+## Future Roadmap
+
+### Semantic Search (Aspirational)
+
+Current vault search uses keyword matching. Future versions will implement:
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Local embeddings** | Ollama with `nomic-embed-text` model | Planned |
+| **Vault indexer** | Pre-compute embeddings for all vault docs | Planned |
+| **Vector similarity** | Find conceptually related notes, not just keyword matches | Planned |
+| **Incremental indexing** | Update embeddings when vault changes | Planned |
+
+**Why this matters:** Semantic search finds "Revenue strategies" when you ask about "monetization" - conceptual similarity, not just string matching.
+
+**Design principle:** Local-first (Ollama), no external API dependencies.
+
+---
+
 ## Changelog
+
+### 2.0.0 - 2025-01-12
+- Added `vault-context-injector` hook for automatic vault search
+- UserPromptSubmit hook auto-injects relevant vault context
+- Updated INSTALL.md with hook installation and settings.json update
 
 ### 1.0.0 - 2025-01-12
 - Initial release

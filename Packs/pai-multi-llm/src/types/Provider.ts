@@ -73,9 +73,6 @@ export interface TeamConfig {
   auto_detected?: boolean;
 
   providers: ProviderConfig[];
-
-  // Optional: import from user's existing configs
-  import_from?: string[];
 }
 
 export interface QueryOptions {
@@ -92,5 +89,4 @@ export interface QueryResult {
   session_id?: string;
   response: string;
   duration_ms: number;
-  tokens_used?: number;
 }

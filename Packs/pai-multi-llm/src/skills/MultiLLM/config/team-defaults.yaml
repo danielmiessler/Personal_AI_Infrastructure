@@ -1,0 +1,124 @@
+# Team Generation Defaults
+# Role assignments and session configurations for providers
+
+# Default roles for standard providers
+provider_roles:
+  claude:
+    role: coordinator
+    use_for:
+      - Coordination
+      - Synthesis
+      - Strategic thinking
+      - Complex reasoning
+  codex:
+    role: code_expert
+    use_for:
+      - Code generation
+      - Technical implementation
+      - Code review
+      - Debugging
+  gemini:
+    role: creative_thinker
+    use_for:
+      - Creative synthesis
+      - Cross-domain connections
+      - Brainstorming
+      - Multi-modal tasks
+  opencode:
+    role: executor
+    use_for:
+      - Task execution
+      - Terminal operations
+      - Quick prototyping
+
+# Ollama model role mappings (prefix match)
+ollama_model_roles:
+  deepseek-r1:
+    role: deep_reasoner
+    use_for:
+      - Strategic analysis
+      - Complex reasoning
+      - Multi-step problems
+      - Deep thinking
+  qwen3-coder:
+    role: code_validator
+    use_for:
+      - Code validation
+      - Technical review
+      - Architecture analysis
+  qwen3:
+    role: fast_responder
+    use_for:
+      - Quick tasks
+      - Simple queries
+      - Fast iteration
+  gpt-oss:
+    role: general_assistant
+    use_for:
+      - General tasks
+      - Content generation
+      - Analysis
+  llama:
+    role: general_assistant
+    use_for:
+      - General tasks
+      - Balanced reasoning
+  mistral:
+    role: balanced_thinker
+    use_for:
+      - Balanced analysis
+      - General reasoning
+  phi:
+    role: lightweight_helper
+    use_for:
+      - Simple tasks
+      - Quick responses
+
+# Session configurations per provider
+session_configs:
+  claude:
+    supported: true
+    start: 'claude -p "{prompt}" --output-format json'
+    continue_last: 'claude -c -p "{prompt}"'
+    resume_by_id: 'claude -r {session_id} -p "{prompt}"'
+    session_id_extraction:
+      method: json_field
+      pattern: session_id
+  codex:
+    supported: true
+    start: 'codex "{prompt}"'
+    continue_last: codex resume --last
+    resume_by_id: codex resume {session_id}
+    storage_path: ~/.codex/sessions/
+    session_id_extraction:
+      method: file_based
+  gemini:
+    supported: true
+    start: 'gemini "{prompt}"'
+    continue_last: gemini --resume
+    resume_by_id: gemini --resume {session_id}
+    session_id_extraction:
+      method: none
+  opencode:
+    supported: true
+    start: 'opencode "{prompt}"'
+    continue_last: 'opencode --continue "{prompt}"'
+    session_id_extraction:
+      method: none
+  ollama:
+    supported: false
+    start: 'ollama run {model} "{prompt}"'
+    note: Use interactive mode with /save and /load for session management
+
+# Default for unknown Ollama models
+ollama_default_role:
+  role: local_model
+  use_for:
+    - Local inference
+    - Privacy-sensitive tasks
+
+# Default for unknown providers
+provider_default_role:
+  role: general
+  use_for:
+    - General tasks

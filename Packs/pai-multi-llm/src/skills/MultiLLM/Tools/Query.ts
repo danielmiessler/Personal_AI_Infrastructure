@@ -3,89 +3,43 @@
 /**
  * Query - Unified interface to query any configured LLM provider
  *
- * Loads team.yaml, finds the appropriate provider, and queries
- * with automatic session management.
- *
  * Usage:
  *   bun run Query.ts -p "What is the meaning of life?"
  *   bun run Query.ts -p "Review this code" --provider codex
  *   bun run Query.ts -p "Creative ideas" --role creative_thinker
- *   bun run Query.ts -p "Continue..." --continue
- *
- * @version 1.0.0
  */
 
 import { parseArgs } from "util";
-import { existsSync, readFileSync } from "fs";
-import { parse as parseYaml } from "yaml";
 import { SessionManager } from "./SessionManager";
-import type { ProviderConfig, TeamConfig, QueryOptions } from "../../../types/Provider";
+import { loadTeam, findProviderByName, findProviderByRole, getProviderNames } from "../lib/team";
+import { noTeamError, noProviderError } from "../lib/errors";
+import type { ProviderConfig, QueryOptions } from "../../../types/Provider";
 
-const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-const TEAM_FILE = `${PAI_DIR}/config/team.yaml`;
-
-function loadTeam(): TeamConfig | null {
-  if (!existsSync(TEAM_FILE)) {
-    return null;
-  }
-  const content = readFileSync(TEAM_FILE, "utf-8");
-  return parseYaml(content) as TeamConfig;
-}
-
-function findProvider(
-  team: TeamConfig,
-  options: QueryOptions
-): ProviderConfig | null {
-  // Find by specific provider name
-  if (options.provider) {
-    return team.providers.find(p => p.name === options.provider) || null;
-  }
-
-  // Find by role
-  if (options.role) {
-    return team.providers.find(p => p.role === options.role) || null;
-  }
-
-  // Find first available provider
-  return team.providers.find(p => p.available) || team.providers[0] || null;
-}
-
-async function query(
-  prompt: string,
-  options: QueryOptions = {}
-): Promise<void> {
+function findProvider(options: QueryOptions): ProviderConfig | null {
   const team = loadTeam();
+  if (!team) return null;
 
-  if (!team) {
-    console.error("Error: No team.yaml found.");
-    console.error(`Expected at: ${TEAM_FILE}`);
-    console.error("");
-    console.error("Run the installer first:");
-    console.error("  bun run install-pack");
-    process.exit(1);
+  if (options.provider) {
+    return findProviderByName(team, options.provider) ?? null;
   }
+  if (options.role) {
+    return findProviderByRole(team, options.role) ?? null;
+  }
+  // Default to first available
+  return team.providers.find((p) => p.available) ?? team.providers[0] ?? null;
+}
 
-  const provider = findProvider(team, options);
+async function query(prompt: string, options: QueryOptions = {}): Promise<void> {
+  const team = loadTeam();
+  if (!team) noTeamError();
 
+  const provider = findProvider(options);
   if (!provider) {
-    console.error("Error: No matching provider found.");
-    if (options.provider) {
-      console.error(`Provider '${options.provider}' not in team.yaml`);
-    }
-    if (options.role) {
-      console.error(`Role '${options.role}' not assigned to any provider`);
-    }
-    console.error("");
-    console.error("Available providers:");
-    for (const p of team.providers) {
-      console.error(`  - ${p.name} (role: ${p.role})`);
-    }
-    process.exit(1);
+    noProviderError(options, getProviderNames(team));
   }
 
   if (!provider.available) {
     console.error(`Warning: Provider '${provider.name}' is not available.`);
-    console.error("Run 'bun run detect' to check provider status.");
   }
 
   const sm = new SessionManager();
@@ -93,16 +47,13 @@ async function query(
   try {
     const result = await sm.query(provider, prompt, {
       continue_session: options.continue_session,
-      session_id: options.session_id
+      session_id: options.session_id,
     });
 
     if (options.output_format === "json") {
       console.log(JSON.stringify(result, null, 2));
     } else {
-      // Clean output
       console.log(result.response);
-
-      // Show session info in stderr (doesn't pollute piped output)
       if (result.session_id) {
         console.error(`\n[Session: ${result.session_id} | ${result.duration_ms}ms]`);
       }
@@ -124,8 +75,8 @@ async function main() {
       session: { type: "string", short: "s" },
       json: { type: "boolean", short: "j" },
       list: { type: "boolean", short: "l" },
-      help: { type: "boolean", short: "h" }
-    }
+      help: { type: "boolean", short: "h" },
+    },
   });
 
   if (values.help) {
@@ -138,18 +89,12 @@ USAGE:
 OPTIONS:
   -p, --prompt <text>     The prompt to send
   -P, --provider <name>   Query specific provider
-  -r, --role <role>       Query by role (e.g., creative_thinker)
-  -c, --continue          Continue last session with provider
+  -r, --role <role>       Query by role
+  -c, --continue          Continue last session
   -s, --session <id>      Resume specific session
   -j, --json              Output as JSON
   -l, --list              List available providers
   -h, --help              Show this help
-
-EXAMPLES:
-  bun run Query.ts -p "Explain quantum computing"
-  bun run Query.ts -p "Review this code" --provider codex
-  bun run Query.ts -p "Creative story ideas" --role creative_thinker
-  bun run Query.ts -p "Continue the analysis" --continue --provider claude
 `);
     return;
   }
@@ -160,12 +105,11 @@ EXAMPLES:
       console.log("No team.yaml found. Run installer first.");
       return;
     }
-    console.log("Available Providers:");
-    console.log("─".repeat(50));
+    console.log("Available Providers:\n" + "─".repeat(50));
     for (const p of team.providers) {
       const status = p.available ? "✓" : "✗";
       console.log(`${status} ${p.name.padEnd(15)} role: ${p.role}`);
-      if (p.use_for && p.use_for.length > 0) {
+      if (p.use_for?.length) {
         console.log(`   Use for: ${p.use_for.join(", ")}`);
       }
     }
@@ -174,7 +118,6 @@ EXAMPLES:
 
   if (!values.prompt) {
     console.error("Error: --prompt is required");
-    console.error("Run with --help for usage");
     process.exit(1);
   }
 
@@ -183,7 +126,7 @@ EXAMPLES:
     role: values.role,
     continue_session: values.continue,
     session_id: values.session,
-    output_format: values.json ? "json" : "text"
+    output_format: values.json ? "json" : "text",
   });
 }
 

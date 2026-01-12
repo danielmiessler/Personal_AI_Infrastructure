@@ -3,21 +3,23 @@ name: PAI Multi-LLM
 pack-id: nabilbamoh-pai-multi-llm-core-v0.1.0
 version: 0.1.0
 author: nabilbamoh
-description: Multi-LLM orchestration infrastructure with intelligent session management
+description: CLI-based Multi-LLM orchestration infrastructure with intelligent session management
 type: feature
 purpose-type: [productivity, multi-llm, orchestration]
 platform: claude-code
 dependencies: [danielmiessler-pai-core-install-core-v1.4.0]
-keywords: [multi-llm, ollama, claude, codex, gemini, opencode, session-management, cognitive-diversity]
+keywords: [multi-llm, cli, ollama, claude, codex, gemini, opencode, session-management, cognitive-diversity]
 ---
 
 # pai-multi-llm
 
-> Multi-LLM orchestration infrastructure with intelligent session management.
+> CLI-based Multi-LLM orchestration infrastructure with intelligent session management.
 
 ## Overview
 
-This pack provides infrastructure for orchestrating multiple LLM providers (Claude, Codex, Gemini, Ollama, OpenCode) with automatic session management to preserve context across queries.
+This pack provides infrastructure for orchestrating multiple LLM CLI tools (Claude CLI, Codex, Gemini, Ollama, OpenCode) with automatic session management to preserve context across queries.
+
+**Key principle:** Wraps existing CLI tools - no API keys required. If you can run `ollama run llama3` or `claude -p "hello"` in your terminal, this pack can orchestrate it.
 
 ## Features
 

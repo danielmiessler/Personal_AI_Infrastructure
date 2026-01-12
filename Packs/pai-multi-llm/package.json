@@ -1,6 +1,6 @@
 {
   "name": "pai-multi-llm",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Multi-LLM orchestration infrastructure with session management",
   "type": "module",
   "scripts": {
@@ -34,7 +34,7 @@
     "bun": ">=1.0.0"
   },
   "pai": {
-    "pack_version": "1.0",
+    "pack_version": "0.1",
     "skills": ["MultiLLM"],
     "requires_core": true
   }

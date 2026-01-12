@@ -383,54 +383,15 @@ cp "$PACK_DIR/src/config/delegation-rules.yaml" "$PAI_DIR/config/"
 
 **Skip this step if user chose "No / Skip" in Question 2.**
 
-**If user provided a vault path in Question 2, run these two commands:**
+**Run this single command (replace `/path/to/vault` with user's answer from Question 2):**
 
-**Command 1: Set the vault path variable (use exact path from user's answer)**
 ```bash
-export VAULT_PATH="/path/from/user/answer"
+VAULT_PATH="/path/to/vault" && PAI_DIR="${PAI_DIR:-$HOME/.claude}" && echo "vault_root: \"$VAULT_PATH\"" >> "$PAI_DIR/config/para-mapping.yaml" && echo "export PARA_VAULT=\"$VAULT_PATH\"" >> ~/.zshrc && echo "export PARA_VAULT=\"$VAULT_PATH\"" >> ~/.bashrc 2>/dev/null; echo "export PARA_VAULT=\"$VAULT_PATH\"" >> ~/.bash_profile 2>/dev/null; echo "PARA_VAULT=\"$VAULT_PATH\"" >> "$PAI_DIR/.env" && echo "✓ PARA_VAULT configured in: para-mapping.yaml, ~/.zshrc, ~/.bashrc, ~/.bash_profile, $PAI_DIR/.env"
 ```
 
-**Command 2: Configure vault in all locations**
+**Verify it worked:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-
-# 1. Update para-mapping.yaml
-if [ -f "$PAI_DIR/config/para-mapping.yaml" ]; then
-  echo "" >> "$PAI_DIR/config/para-mapping.yaml"
-  echo "# PARA vault location" >> "$PAI_DIR/config/para-mapping.yaml"
-  echo "vault_root: \"$VAULT_PATH\"" >> "$PAI_DIR/config/para-mapping.yaml"
-  echo "✓ Configured vault in para-mapping.yaml"
-fi
-
-# 2. Add PARA_VAULT to ALL existing shell profiles
-for SHELL_PROFILE in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
-  if [ -f "$SHELL_PROFILE" ]; then
-    if ! grep -q "export PARA_VAULT=" "$SHELL_PROFILE" 2>/dev/null; then
-      echo "" >> "$SHELL_PROFILE"
-      echo "# PAI Second Brain - PARA vault location" >> "$SHELL_PROFILE"
-      echo "export PARA_VAULT=\"$VAULT_PATH\"" >> "$SHELL_PROFILE"
-      echo "✓ Added PARA_VAULT to $SHELL_PROFILE"
-    else
-      echo "⚠ PARA_VAULT already exists in $SHELL_PROFILE - not modified"
-    fi
-  fi
-done
-
-# 3. Add to PAI .env file
-if [ -f "$PAI_DIR/.env" ]; then
-  if ! grep -q "PARA_VAULT=" "$PAI_DIR/.env" 2>/dev/null; then
-    echo "" >> "$PAI_DIR/.env"
-    echo "PARA_VAULT=\"$VAULT_PATH\"" >> "$PAI_DIR/.env"
-    echo "✓ Added PARA_VAULT to $PAI_DIR/.env"
-  fi
-else
-  echo "# PAI Environment Variables" > "$PAI_DIR/.env"
-  echo "PARA_VAULT=\"$VAULT_PATH\"" >> "$PAI_DIR/.env"
-  echo "✓ Created $PAI_DIR/.env with PARA_VAULT"
-fi
-
-echo ""
-echo "IMPORTANT: Run 'source ~/.zshrc' or restart your terminal for changes to take effect."
+grep PARA_VAULT ~/.zshrc ~/.bashrc ~/.bash_profile ~/.claude/.env 2>/dev/null
 ```
 
 **Mark todo as completed.**

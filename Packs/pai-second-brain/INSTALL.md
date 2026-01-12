@@ -381,16 +381,23 @@ cp "$PACK_DIR/src/config/delegation-rules.yaml" "$PAI_DIR/config/"
 
 **Mark todo "Configure vault location" as in_progress.**
 
-**Only if user specified a vault:**
+**Skip this step if user chose "No / Skip" in Question 2.**
 
+**If user provided a vault path in Question 2, run these two commands:**
+
+**Command 1: Set the vault path variable (use exact path from user's answer)**
+```bash
+export VAULT_PATH="/path/from/user/answer"
+```
+
+**Command 2: Configure vault in all locations**
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-VAULT_PATH="[USER_SPECIFIED_PATH]"
 
-# 1. Update para-mapping.yaml with vault location
+# 1. Update para-mapping.yaml
 if [ -f "$PAI_DIR/config/para-mapping.yaml" ]; then
   echo "" >> "$PAI_DIR/config/para-mapping.yaml"
-  echo "# PARA vault location (any folder with PARA structure)" >> "$PAI_DIR/config/para-mapping.yaml"
+  echo "# PARA vault location" >> "$PAI_DIR/config/para-mapping.yaml"
   echo "vault_root: \"$VAULT_PATH\"" >> "$PAI_DIR/config/para-mapping.yaml"
   echo "✓ Configured vault in para-mapping.yaml"
 fi
@@ -409,11 +416,10 @@ for SHELL_PROFILE in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
   fi
 done
 
-# 3. Also add to PAI .env file for Claude sessions
+# 3. Add to PAI .env file
 if [ -f "$PAI_DIR/.env" ]; then
   if ! grep -q "PARA_VAULT=" "$PAI_DIR/.env" 2>/dev/null; then
     echo "" >> "$PAI_DIR/.env"
-    echo "# PARA vault location" >> "$PAI_DIR/.env"
     echo "PARA_VAULT=\"$VAULT_PATH\"" >> "$PAI_DIR/.env"
     echo "✓ Added PARA_VAULT to $PAI_DIR/.env"
   fi
@@ -424,10 +430,10 @@ else
 fi
 
 echo ""
-echo "IMPORTANT: Run 'source $SHELL_PROFILE' or restart your terminal for changes to take effect."
+echo "IMPORTANT: Run 'source ~/.zshrc' or restart your terminal for changes to take effect."
 ```
 
-**Mark todo as completed (or skip if no vault).**
+**Mark todo as completed.**
 
 ### 4.7 Verify TypeScript Tools
 

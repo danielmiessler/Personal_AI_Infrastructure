@@ -81,27 +81,27 @@ bun run "$PAI_DIR/skills/MultiLLM/Tools/Query.ts" --list
 
 ## Phase 1: Install Skill Files
 
-**Copy all skill files to PAI directory first:**
-
+**First, navigate to the pack directory:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-
-# Create directory structure
-mkdir -p "$PAI_DIR/skills/MultiLLM/Tools"
-mkdir -p "$PAI_DIR/skills/MultiLLM/types"
-mkdir -p "$PAI_DIR/config"
-
-# Copy from pack source to PAI directory
-PACK_DIR="$(pwd)"
-cp "$PACK_DIR/src/skills/MultiLLM/SKILL.md" "$PAI_DIR/skills/MultiLLM/"
-cp "$PACK_DIR/src/skills/MultiLLM/Tools/"*.ts "$PAI_DIR/skills/MultiLLM/Tools/"
-cp "$PACK_DIR/src/types/Provider.ts" "$PAI_DIR/skills/MultiLLM/types/"
-
-echo "Skill files installed to: $PAI_DIR/skills/MultiLLM"
-
-# Note: yaml dependency is resolved from Bun's global cache (~/.bun/install/cache/)
-# If tools fail with "Module not found: yaml", run: bun add yaml -g
+cd /path/to/pai-multi-llm
 ```
+
+**Verify you're in the right directory:**
+```bash
+ls src/skills/MultiLLM/SKILL.md && echo "✓ Correct directory" || echo "✗ Wrong directory - navigate to pai-multi-llm pack"
+```
+
+**Copy all skill files:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}" && mkdir -p "$PAI_DIR/skills/MultiLLM/Tools" "$PAI_DIR/skills/MultiLLM/types" "$PAI_DIR/config" && cp src/skills/MultiLLM/SKILL.md "$PAI_DIR/skills/MultiLLM/" && cp src/skills/MultiLLM/Tools/*.ts "$PAI_DIR/skills/MultiLLM/Tools/" && cp src/types/Provider.ts "$PAI_DIR/skills/MultiLLM/types/" && echo "✓ Skill files installed to: $PAI_DIR/skills/MultiLLM"
+```
+
+**Verify files copied:**
+```bash
+ls -la ~/.claude/skills/MultiLLM/Tools/
+```
+
+Note: If tools fail with "Module not found: yaml", run: `bun add yaml -g`
 
 ## Phase 2: System Detection
 
@@ -143,26 +143,17 @@ Ready to generate team.yaml with detected providers.
 
 ## Phase 3: Generate Team Configuration
 
-### If providers were detected:
-
+**Always run this command (it auto-detects and generates appropriate config):**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-bun run "$PAI_DIR/skills/MultiLLM/Tools/GenerateTeam.ts"
+bun run ~/.claude/skills/MultiLLM/Tools/GenerateTeam.ts
 ```
 
-This creates `$PAI_DIR/config/team.yaml` with:
-- All detected providers
-- Pre-configured session management
-- Default role assignments
+**Verify team.yaml was created:**
+```bash
+cat ~/.claude/config/team.yaml
+```
 
-### If NO providers were detected:
-
-The installer creates `$PAI_DIR/config/team.example.yaml` with:
-- Template for all supported providers
-- Installation instructions for each provider
-- Example configurations
-
-**To install providers:**
+If no providers were detected, the tool creates `team.example.yaml` instead. Install providers and re-run:
 
 ```bash
 # Claude CLI
@@ -175,19 +166,15 @@ npm install -g @openai/codex
 pip install google-generativeai
 
 # Ollama (local models)
-brew install ollama
-ollama pull deepseek-r1:14b
-ollama pull qwen3:4b
+brew install ollama && ollama pull deepseek-r1:14b && ollama pull qwen3:4b
 
 # OpenCode
 go install github.com/sst/opencode@latest
 ```
 
-After installing providers, run detection again:
+**After installing providers, re-run detection and generation:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-bun run "$PAI_DIR/skills/MultiLLM/Tools/DetectProviders.ts"
-bun run "$PAI_DIR/skills/MultiLLM/Tools/GenerateTeam.ts"
+bun run ~/.claude/skills/MultiLLM/Tools/DetectProviders.ts --verbose && bun run ~/.claude/skills/MultiLLM/Tools/GenerateTeam.ts
 ```
 
 ## Phase 4: Customize Team Roles
@@ -214,40 +201,33 @@ team:
 
 ## Phase 5: Copy Config Files (Optional)
 
+**Only run if src/config/ exists in pack directory:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-PACK_DIR="$(pwd)"
-
-# Copy config files if any exist
-if [ -d "$PACK_DIR/src/config" ]; then
-  cp -r "$PACK_DIR/src/config/"* "$PAI_DIR/config/" 2>/dev/null || true
-fi
+cp src/config/* ~/.claude/config/ 2>/dev/null && echo "✓ Config files copied" || echo "No config files to copy (this is OK)"
 ```
 
 ## Phase 6: Verify Installation
 
+**Check team configuration:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run ~/.claude/skills/MultiLLM/Tools/Query.ts --list
+```
 
-# Check team configuration
-bun run "$PAI_DIR/skills/MultiLLM/Tools/Query.ts" --list
+**Check session tracking:**
+```bash
+bun run ~/.claude/skills/MultiLLM/Tools/SessionManager.ts --list
+```
 
-# Test a query (optional - requires provider to be running)
-# bun run "$PAI_DIR/skills/MultiLLM/Tools/Query.ts" -p "Hello" --provider claude
-
-# Check session tracking
-bun run "$PAI_DIR/skills/MultiLLM/Tools/SessionManager.ts" --list
-
-# Verify all tools are present
-echo "Checking tool files..."
-ls -la "$PAI_DIR/skills/MultiLLM/Tools/"
+**Verify all tools are present:**
+```bash
+ls -la ~/.claude/skills/MultiLLM/Tools/
 ```
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| "No team.yaml found" | Run `bun run $PAI_DIR/skills/MultiLLM/Tools/GenerateTeam.ts` |
+| "No team.yaml found" | Run `bun run ~/.claude/skills/MultiLLM/Tools/GenerateTeam.ts` |
 | Provider not detected | Check `which <provider>` works |
 | Session not continuing | Check provider supports sessions |
 | Ollama models missing | Run `ollama list` to verify |
@@ -255,10 +235,5 @@ ls -la "$PAI_DIR/skills/MultiLLM/Tools/"
 ## Uninstall
 
 ```bash
-# Remove skill files
-rm -rf "$PAI_DIR/skills/MultiLLM"
-rm "$PAI_DIR/config/team.yaml"
-
-# Remove session data
-rm -rf "$PAI_DIR/multi-llm"
+rm -rf ~/.claude/skills/MultiLLM && rm ~/.claude/config/team.yaml && rm -rf ~/.claude/multi-llm && echo "✓ MultiLLM uninstalled"
 ```

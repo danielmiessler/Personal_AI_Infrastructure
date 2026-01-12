@@ -3,188 +3,121 @@
 /**
  * ComplexityAssessor - Deterministic complexity assessment
  *
- * Analyzes user requests to determine complexity level and
- * minimum number of agents required for delegation.
+ * Analyzes prompts to determine complexity level and agent requirements.
  *
  * Usage:
- *   bun run ComplexityAssessor.ts -p "Should I use microservices or monolith?"
- *   bun run ComplexityAssessor.ts -p "What is the weather?" --json
- *
- * @version 1.0.0
+ *   bun run ComplexityAssessor.ts -p "Should I use microservices?"
+ *   bun run ComplexityAssessor.ts -p "What is TypeScript?" --json
  */
 
 import { parseArgs } from "util";
-import type {
-  ComplexityLevel,
-  ComplexityAssessment,
-  DelegationRule
-} from "../../../types/SecondBrain";
+import { colors, c, header } from "../lib/colors";
+import { loadComplexityRules, type ComplexityConfig } from "../lib/config-loader";
+import type { ComplexityLevel, ComplexityAssessment } from "../../../types/SecondBrain";
 
-// Pattern-based rules for complexity detection
-const COMPLEXITY_RULES: DelegationRule[] = [
-  // COMPLEX patterns (strategic, decisions, multi-perspective)
-  { pattern: /should\s+i/i, complexity: "complex", weight: 3, category: "decision" },
-  { pattern: /should\s+we/i, complexity: "complex", weight: 3, category: "decision" },
-  { pattern: /which\s+(is\s+)?better/i, complexity: "complex", weight: 3, category: "comparison" },
-  { pattern: /pros?\s+(and|&)\s+cons?/i, complexity: "complex", weight: 3, category: "analysis" },
-  { pattern: /trade-?offs?/i, complexity: "complex", weight: 3, category: "analysis" },
-  { pattern: /strategy/i, complexity: "complex", weight: 2, category: "strategic" },
-  { pattern: /architect(ure)?/i, complexity: "complex", weight: 2, category: "technical" },
-  { pattern: /long-?term/i, complexity: "complex", weight: 2, category: "strategic" },
-  { pattern: /road-?map/i, complexity: "complex", weight: 2, category: "strategic" },
-  { pattern: /recommend/i, complexity: "complex", weight: 2, category: "decision" },
-  { pattern: /approach/i, complexity: "medium", weight: 1.5, category: "decision" },
-  { pattern: /vs\.?|versus/i, complexity: "medium", weight: 2, category: "comparison" },
-  { pattern: /compare/i, complexity: "medium", weight: 2, category: "comparison" },
-  { pattern: /difference\s+between/i, complexity: "medium", weight: 2, category: "comparison" },
-
-  // MEDIUM patterns (analysis, research, multi-step)
-  { pattern: /analyze/i, complexity: "medium", weight: 2, category: "analysis" },
-  { pattern: /research/i, complexity: "medium", weight: 2, category: "research" },
-  { pattern: /investigate/i, complexity: "medium", weight: 2, category: "research" },
-  { pattern: /review/i, complexity: "medium", weight: 1.5, category: "analysis" },
-  { pattern: /implement/i, complexity: "medium", weight: 1.5, category: "technical" },
-  { pattern: /refactor/i, complexity: "medium", weight: 1.5, category: "technical" },
-  { pattern: /debug/i, complexity: "medium", weight: 1.5, category: "technical" },
-  { pattern: /optimize/i, complexity: "medium", weight: 1.5, category: "technical" },
-  { pattern: /how\s+(do|can|should)/i, complexity: "medium", weight: 1, category: "how-to" },
-
-  // SIMPLE patterns (lookup, single-step)
-  { pattern: /what\s+is/i, complexity: "simple", weight: 1, category: "lookup" },
-  { pattern: /where\s+is/i, complexity: "simple", weight: 1, category: "lookup" },
-  { pattern: /show\s+me/i, complexity: "simple", weight: 1, category: "lookup" },
-  { pattern: /list/i, complexity: "simple", weight: 1, category: "lookup" },
-  { pattern: /find/i, complexity: "simple", weight: 1, category: "lookup" },
-  { pattern: /check/i, complexity: "simple", weight: 1, category: "lookup" },
-  { pattern: /read/i, complexity: "simple", weight: 1, category: "lookup" }
-];
-
-// Thresholds for complexity determination
-const THRESHOLDS = {
-  simple: { max_score: 2, agents: 1 },
-  medium: { max_score: 5, agents: 2 },
-  complex: { max_score: Infinity, agents: 3 }
-};
-
-// Perspective suggestions based on complexity
-const PERSPECTIVE_SUGGESTIONS: Record<ComplexityLevel, string[]> = {
+// Perspective suggestions by complexity level
+const PERSPECTIVES: Record<ComplexityLevel, string[]> = {
   simple: ["analyst"],
   medium: ["analyst", "critic"],
-  complex: ["optimist", "pessimist", "pragmatist", "contrarian"]
+  complex: ["optimist", "pessimist", "pragmatist", "contrarian"],
 };
 
-function assessComplexity(prompt: string): ComplexityAssessment {
+function assessComplexity(prompt: string, config: ComplexityConfig): ComplexityAssessment {
   let totalScore = 0;
   const detectedPatterns: string[] = [];
   const matchedCategories = new Set<string>();
 
-  // Evaluate against all rules
-  for (const rule of COMPLEXITY_RULES) {
-    const regex = typeof rule.pattern === "string"
-      ? new RegExp(rule.pattern, "i")
-      : rule.pattern;
+  // Evaluate rules by complexity level
+  for (const [level, rules] of Object.entries(config.rules)) {
+    const multiplier = config.multipliers[level as keyof typeof config.multipliers] ?? 1;
 
-    if (regex.test(prompt)) {
-      // Weight complex patterns higher
-      const multiplier = rule.complexity === "complex" ? 2 :
-                         rule.complexity === "medium" ? 1.5 : 1;
-
-      totalScore += rule.weight * multiplier;
-      detectedPatterns.push(`${rule.category}: "${rule.pattern}"`);
-      matchedCategories.add(rule.category);
+    for (const rule of rules) {
+      const regex = new RegExp(rule.pattern, "i");
+      if (regex.test(prompt)) {
+        totalScore += rule.weight * multiplier;
+        detectedPatterns.push(`${rule.category}: "${rule.pattern}"`);
+        matchedCategories.add(rule.category);
+      }
     }
   }
 
-  // Boost for multiple categories (indicates broader scope)
+  // Multi-category bonus
   if (matchedCategories.size > 2) {
     totalScore *= 1.5;
   }
 
-  // Length heuristic - longer prompts often more complex
+  // Length heuristic
   const words = prompt.split(/\s+/).length;
-  if (words > 50) {
-    totalScore += 2;
-  } else if (words > 20) {
-    totalScore += 1;
-  }
+  if (words > 50) totalScore += 2;
+  else if (words > 20) totalScore += 1;
 
-  // Determine complexity level
+  // Determine level from thresholds
   let level: ComplexityLevel;
   let minimumAgents: number;
 
-  if (totalScore <= THRESHOLDS.simple.max_score) {
+  if (totalScore <= config.thresholds.simple.max_score) {
     level = "simple";
-    minimumAgents = THRESHOLDS.simple.agents;
-  } else if (totalScore <= THRESHOLDS.medium.max_score) {
+    minimumAgents = config.thresholds.simple.agents;
+  } else if (totalScore <= config.thresholds.medium.max_score) {
     level = "medium";
-    minimumAgents = THRESHOLDS.medium.agents;
+    minimumAgents = config.thresholds.medium.agents;
   } else {
     level = "complex";
-    minimumAgents = THRESHOLDS.complex.agents;
+    minimumAgents = config.thresholds.complex.agents;
   }
 
-  // Calculate confidence
-  const confidence = Math.min(1, totalScore / 10);
-
-  // Generate reasoning
-  let reasoning: string;
+  // Handle no patterns case
   if (detectedPatterns.length === 0) {
-    reasoning = "No specific complexity patterns detected. Defaulting to simple.";
-    level = "simple";
-    minimumAgents = 1;
-  } else {
-    reasoning = `Detected ${detectedPatterns.length} complexity indicator(s) ` +
-                `across ${matchedCategories.size} categorie(s). ` +
-                `Total score: ${totalScore.toFixed(1)}.`;
+    return {
+      level: "simple",
+      confidence: 0.3,
+      minimum_agents: 1,
+      reasoning: "No complexity patterns detected. Defaulting to simple.",
+      detected_patterns: [],
+      suggested_perspectives: PERSPECTIVES.simple,
+    };
   }
 
   return {
     level,
-    confidence,
+    confidence: Math.min(1, totalScore / 10),
     minimum_agents: minimumAgents,
-    reasoning,
+    reasoning: `Detected ${detectedPatterns.length} indicator(s) across ${matchedCategories.size} category(s). Score: ${totalScore.toFixed(1)}.`,
     detected_patterns: detectedPatterns,
-    suggested_perspectives: PERSPECTIVE_SUGGESTIONS[level]
+    suggested_perspectives: PERSPECTIVES[level],
   };
 }
 
 function formatOutput(assessment: ComplexityAssessment): string {
-  const levelColors: Record<ComplexityLevel, string> = {
-    simple: "\x1b[32m",   // Green
-    medium: "\x1b[33m",   // Yellow
-    complex: "\x1b[31m"   // Red
-  };
-  const reset = "\x1b[0m";
-  const color = levelColors[assessment.level];
+  const levelColor = {
+    simple: "green" as const,
+    medium: "yellow" as const,
+    complex: "red" as const,
+  }[assessment.level];
 
-  const lines: string[] = [];
-
-  lines.push("═══════════════════════════════════════════════════════════════");
-  lines.push("                    COMPLEXITY ASSESSMENT                       ");
-  lines.push("═══════════════════════════════════════════════════════════════");
-  lines.push("");
-  lines.push(`Level:           ${color}${assessment.level.toUpperCase()}${reset}`);
-  lines.push(`Confidence:      ${(assessment.confidence * 100).toFixed(0)}%`);
-  lines.push(`Minimum Agents:  ${assessment.minimum_agents}`);
-  lines.push("");
-  lines.push(`Reasoning: ${assessment.reasoning}`);
-  lines.push("");
+  const lines = [
+    header("COMPLEXITY ASSESSMENT"),
+    "",
+    `Level:           ${c(levelColor, assessment.level.toUpperCase())}`,
+    `Confidence:      ${(assessment.confidence * 100).toFixed(0)}%`,
+    `Minimum Agents:  ${assessment.minimum_agents}`,
+    "",
+    `Reasoning: ${assessment.reasoning}`,
+  ];
 
   if (assessment.detected_patterns.length > 0) {
-    lines.push("Detected Patterns:");
-    for (const pattern of assessment.detected_patterns) {
-      lines.push(`  • ${pattern}`);
+    lines.push("", "Detected Patterns:");
+    for (const p of assessment.detected_patterns) {
+      lines.push(`  • ${p}`);
     }
-    lines.push("");
   }
 
   if (assessment.suggested_perspectives) {
-    lines.push("Suggested Perspectives:");
+    lines.push("", "Suggested Perspectives:");
     lines.push(`  ${assessment.suggested_perspectives.join(", ")}`);
   }
 
-  lines.push("═══════════════════════════════════════════════════════════════");
-
+  lines.push(header(""));
   return lines.join("\n");
 }
 
@@ -194,8 +127,8 @@ async function main() {
     options: {
       prompt: { type: "string", short: "p" },
       json: { type: "boolean", short: "j" },
-      help: { type: "boolean", short: "h" }
-    }
+      help: { type: "boolean", short: "h" },
+    },
   });
 
   if (values.help) {
@@ -210,38 +143,27 @@ OPTIONS:
   -j, --json           Output as JSON
   -h, --help           Show this help
 
-COMPLEXITY LEVELS:
-  simple   → 1 agent  (lookups, single-step tasks)
-  medium   → 2 agents (analysis, research, implementation)
-  complex  → 3+ agents (decisions, strategy, architecture)
-
-EXAMPLES:
-  bun run ComplexityAssessor.ts -p "What is TypeScript?"
-  bun run ComplexityAssessor.ts -p "Should I use microservices or monolith?"
-  bun run ComplexityAssessor.ts -p "Analyze our sales funnel" --json
+LEVELS:
+  simple  → 1 agent  (lookups, single-step)
+  medium  → 2 agents (analysis, research)
+  complex → 3+ agents (decisions, strategy)
 `);
     return;
   }
 
   if (!values.prompt) {
     console.error("Error: --prompt is required");
-    console.error("Run with --help for usage");
     process.exit(1);
   }
 
-  const assessment = assessComplexity(values.prompt);
+  const config = loadComplexityRules();
+  const assessment = assessComplexity(values.prompt, config);
 
-  if (values.json) {
-    console.log(JSON.stringify(assessment, null, 2));
-  } else {
-    console.log(formatOutput(assessment));
-  }
+  console.log(values.json ? JSON.stringify(assessment, null, 2) : formatOutput(assessment));
 }
 
-// Only run main() if this file is the entry point
 if (import.meta.main) {
   main().catch(console.error);
 }
 
-// Export for use as module
-export { assessComplexity, COMPLEXITY_RULES, THRESHOLDS };
+export { assessComplexity };

@@ -3,31 +3,25 @@
 /**
  * DebateOrchestrator - Orchestrate multi-perspective debates
  *
- * Manages the flow of structured debates between multiple agents/perspectives.
  * Integrates with pai-multi-llm if available, otherwise uses Claude subagents.
  *
  * Usage:
  *   bun run DebateOrchestrator.ts -t "Should we adopt microservices?"
  *   bun run DebateOrchestrator.ts -t "topic" --perspectives optimist,pessimist,pragmatist
- *
- * @version 1.0.0
  */
 
 import { parseArgs } from "util";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { parse as parseYaml } from "yaml";
 import { assessComplexity } from "./ComplexityAssessor";
-import { getVaultConfig, searchVault } from "./VaultReader";
-import { loadContext, type LoadedContext } from "./ContextLoader";
-import { synthesizeFromArchives, type SynthesisResult } from "./ArchiveSynthesis";
-import type {
-  Perspective,
-  DebateConfig,
-  DebateRound,
-  DebateResult,
-  AgentTask,
-  MultiLLMIntegration
-} from "../../../types/SecondBrain";
+import { searchVault } from "./VaultReader";
+import { loadContext } from "./ContextLoader";
+import { synthesizeFromArchives } from "./ArchiveSynthesis";
+import { PAI_DIR, DEBATES_DIR, getVaultRoot, loadPerspectives, type PerspectivesConfig } from "../lib/config-loader";
+import { c, header, divider } from "../lib/colors";
+import type { Perspective, DebateRound, DebateResult, MultiLLMIntegration } from "../../../types/SecondBrain";
+
+const TEAM_FILE = `${PAI_DIR}/config/team.yaml`;
 
 interface DebateContext {
   archivePatterns: string[];
@@ -35,234 +29,70 @@ interface DebateContext {
   areaContext: string[];
 }
 
-const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-const DEBATES_DIR = `${PAI_DIR}/second-brain/debates`;
-const TEAM_FILE = `${PAI_DIR}/config/team.yaml`;
-
-// Built-in perspectives
-const DEFAULT_PERSPECTIVES: Record<string, Perspective> = {
-  optimist: {
-    id: "optimist",
-    name: "The Optimist",
-    description: "Focuses on opportunities, potential benefits, and best-case scenarios",
-    stance: "advocate",
-    prompt_template: `You are arguing FROM THE OPTIMIST PERSPECTIVE on: "{topic}"
-
-Your role is to:
-- Highlight potential benefits and opportunities
-- Identify best-case scenarios
-- Focus on what could go right
-- Be genuinely enthusiastic but grounded
-
-Present your argument clearly and compellingly. You will be challenged by other perspectives.`
-  },
-
-  pessimist: {
-    id: "pessimist",
-    name: "The Pessimist",
-    description: "Focuses on risks, potential problems, and worst-case scenarios",
-    stance: "critic",
-    prompt_template: `You are arguing FROM THE PESSIMIST PERSPECTIVE on: "{topic}"
-
-Your role is to:
-- Identify risks and potential problems
-- Highlight worst-case scenarios
-- Point out what could go wrong
-- Be genuinely cautious but constructive
-
-Present your argument clearly. Your job is to stress-test ideas, not just dismiss them.`
-  },
-
-  pragmatist: {
-    id: "pragmatist",
-    name: "The Pragmatist",
-    description: "Balances idealism with practicality, focuses on execution",
-    stance: "moderator",
-    prompt_template: `You are arguing FROM THE PRAGMATIST PERSPECTIVE on: "{topic}"
-
-Your role is to:
-- Balance opportunity with risk
-- Focus on practical execution
-- Consider resource constraints
-- Propose actionable middle ground
-
-Present a balanced, realistic assessment that acknowledges both opportunity and risk.`
-  },
-
-  contrarian: {
-    id: "contrarian",
-    name: "The Contrarian",
-    description: "Challenges assumptions, asks uncomfortable questions",
-    stance: "devil_advocate",
-    prompt_template: `You are THE CONTRARIAN on: "{topic}"
-
-Your role is to:
-- Challenge the assumptions everyone else is making
-- Ask uncomfortable questions
-- Propose alternatives no one is considering
-- Break group-think
-
-Be provocative but substantive. Your job is to ensure blind spots are exposed.`
-  },
-
-  analyst: {
-    id: "analyst",
-    name: "The Analyst",
-    description: "Focuses on data, evidence, and logical reasoning",
-    stance: "analyst",
-    prompt_template: `You are THE ANALYST on: "{topic}"
-
-Your role is to:
-- Focus on evidence and data
-- Apply logical reasoning
-- Identify gaps in reasoning
-- Quantify where possible
-
-Present a fact-based analysis. Avoid emotional arguments.`
-  },
-
-  synthesizer: {
-    id: "synthesizer",
-    name: "The Synthesizer",
-    description: "Combines perspectives into actionable insights",
-    stance: "synthesizer",
-    prompt_template: `You are THE SYNTHESIZER reviewing the debate on: "{topic}"
-
-The following perspectives were presented:
-{debate_summary}
-
-Your role is to:
-- Identify points of agreement across perspectives
-- Highlight genuine friction points (not just disagreements)
-- Extract breakthrough insights that emerge from the collision
-- Provide a clear recommendation
-
-Synthesize into actionable insight, don't just summarize.`
-  }
-};
-
-// Perspective sets for common debate types
-const DEBATE_TEMPLATES: Record<string, string[]> = {
-  decision: ["optimist", "pessimist", "contrarian"],
-  strategic: ["optimist", "pessimist", "pragmatist", "contrarian"],
-  technical: ["analyst", "pragmatist", "contrarian"],
-  binary: ["optimist", "pessimist", "pragmatist"]
-};
-
-function ensureDirectories(): void {
-  if (!existsSync(DEBATES_DIR)) {
-    mkdirSync(DEBATES_DIR, { recursive: true });
-  }
-}
-
 function detectMultiLLM(): MultiLLMIntegration {
-  // Check if pai-multi-llm is installed
   const multiLLMSkill = `${PAI_DIR}/skills/MultiLLM/SKILL.md`;
-
-  if (!existsSync(multiLLMSkill)) {
-    return { available: false, providers: [] };
-  }
-
-  // Check for team.yaml
-  if (!existsSync(TEAM_FILE)) {
+  if (!existsSync(multiLLMSkill) || !existsSync(TEAM_FILE)) {
     return { available: false, providers: [] };
   }
 
   try {
-    const teamContent = readFileSync(TEAM_FILE, "utf-8");
-    const team = parseYaml(teamContent);
-    const providers = team.providers
-      ?.filter((p: any) => p.available !== false)
-      ?.map((p: any) => p.name) || [];
-
-    return {
-      available: providers.length > 0,
-      providers
-    };
+    const team = parseYaml(readFileSync(TEAM_FILE, "utf-8"));
+    const providers = team.providers?.filter((p: any) => p.available !== false)?.map((p: any) => p.name) || [];
+    return { available: providers.length > 0, providers };
   } catch {
     return { available: false, providers: [] };
   }
 }
 
-function selectPerspectives(
-  topic: string,
-  explicitPerspectives?: string[]
-): Perspective[] {
-  if (explicitPerspectives && explicitPerspectives.length > 0) {
+function selectPerspectives(topic: string, explicitPerspectives?: string[]): Perspective[] {
+  const config = loadPerspectives();
+  const perspectives = config.perspectives;
+
+  if (explicitPerspectives?.length) {
     return explicitPerspectives
-      .map(id => DEFAULT_PERSPECTIVES[id])
-      .filter(Boolean);
+      .map((id) => (perspectives[id] ? { ...perspectives[id], id } : null))
+      .filter((p): p is Perspective => p !== null);
   }
 
   // Auto-select based on complexity
   const assessment = assessComplexity(topic);
+  let templateKey = "decision";
 
-  let templateKey: string;
-  if (assessment.detected_patterns.some(p => p.includes("decision"))) {
-    templateKey = "decision";
-  } else if (assessment.detected_patterns.some(p => p.includes("strategic"))) {
-    templateKey = "strategic";
-  } else if (assessment.detected_patterns.some(p => p.includes("technical"))) {
-    templateKey = "technical";
-  } else {
-    templateKey = assessment.level === "complex" ? "strategic" : "decision";
-  }
+  if (assessment.detected_patterns.some((p) => p.includes("strategic"))) templateKey = "strategic";
+  else if (assessment.detected_patterns.some((p) => p.includes("technical"))) templateKey = "technical";
+  else if (assessment.level === "complex") templateKey = "strategic";
 
-  const perspectiveIds = DEBATE_TEMPLATES[templateKey];
-  return perspectiveIds.map(id => DEFAULT_PERSPECTIVES[id]).filter(Boolean);
+  const template = config.templates[templateKey] || config.templates.decision || ["optimist", "pessimist", "contrarian"];
+  return template.map((id) => (perspectives[id] ? { ...perspectives[id], id } : null)).filter((p): p is Perspective => p !== null);
 }
 
 async function loadDebateContext(topic: string): Promise<DebateContext | undefined> {
-  const config = getVaultConfig();
-  if (!config.vault_root) return undefined;
+  const vaultRoot = getVaultRoot();
+  if (!vaultRoot) return undefined;
 
-  const context: DebateContext = {
-    archivePatterns: [],
-    projectContext: [],
-    areaContext: []
-  };
+  const context: DebateContext = { archivePatterns: [], projectContext: [], areaContext: [] };
 
   try {
-    // Load archive patterns
     const synthesis = await synthesizeFromArchives(topic, { depth: "quick", maxPatterns: 5 });
-    context.archivePatterns = synthesis.patternsFound
-      .filter(p => p.relevance !== "low")
-      .map(p => `• ${p.title}: ${p.potentialConnection}`);
+    context.archivePatterns = synthesis.patternsFound.filter((p) => p.relevance !== "low").map((p) => `• ${p.title}: ${p.potentialConnection}`);
 
-    // Load project/area context
-    const loaded = loadContext(config.vault_root, topic, { maxNotes: 3 });
-    context.projectContext = loaded.projectContext.map(n => `• ${n.title}: ${n.summary.substring(0, 100)}...`);
-    context.areaContext = loaded.areaContext.map(n => `• ${n.title}: ${n.summary.substring(0, 100)}...`);
-  } catch {
-    // Continue without context
-  }
+    const loaded = loadContext(vaultRoot, topic, { maxNotes: 3 });
+    context.projectContext = loaded.projectContext.map((n) => `• ${n.title}: ${n.summary.substring(0, 100)}...`);
+    context.areaContext = loaded.areaContext.map((n) => `• ${n.title}: ${n.summary.substring(0, 100)}...`);
+  } catch {}
 
-  const hasContext = context.archivePatterns.length > 0 ||
-                    context.projectContext.length > 0 ||
-                    context.areaContext.length > 0;
-
+  const hasContext = context.archivePatterns.length > 0 || context.projectContext.length > 0 || context.areaContext.length > 0;
   return hasContext ? context : undefined;
 }
 
 function buildDebatePrompt(perspective: Perspective, topic: string, debateContext?: DebateContext): string {
-  let prompt = perspective.prompt_template.replace("{topic}", topic);
+  let prompt = perspective.prompt.replace("{topic}", topic);
 
-  // Add vault context if available
   if (debateContext && (debateContext.archivePatterns.length > 0 || debateContext.projectContext.length > 0)) {
-    prompt += "\n\n---\nRELEVANT CONTEXT FROM KNOWLEDGE BASE:\n";
-
-    if (debateContext.archivePatterns.length > 0) {
-      prompt += "\nHistorical patterns from archives:\n" + debateContext.archivePatterns.join("\n");
-    }
-
-    if (debateContext.projectContext.length > 0) {
-      prompt += "\n\nActive project context:\n" + debateContext.projectContext.join("\n");
-    }
-
-    if (debateContext.areaContext.length > 0) {
-      prompt += "\n\nRelevant areas:\n" + debateContext.areaContext.join("\n");
-    }
-
+    prompt += "\n\n---\nRELEVANT CONTEXT:\n";
+    if (debateContext.archivePatterns.length > 0) prompt += "\nHistorical patterns:\n" + debateContext.archivePatterns.join("\n");
+    if (debateContext.projectContext.length > 0) prompt += "\n\nProjects:\n" + debateContext.projectContext.join("\n");
+    if (debateContext.areaContext.length > 0) prompt += "\n\nAreas:\n" + debateContext.areaContext.join("\n");
     prompt += "\n---\n\nConsider this context in your argument.";
   }
 
@@ -270,85 +100,46 @@ function buildDebatePrompt(perspective: Perspective, topic: string, debateContex
 }
 
 function buildSynthesisPrompt(topic: string, rounds: DebateRound[]): string {
-  const template = DEFAULT_PERSPECTIVES.synthesizer.prompt_template;
+  const config = loadPerspectives();
+  const synthesizer = config.perspectives["synthesizer"];
+  if (!synthesizer) return "";
 
-  // Build summary of debate
-  const summaryParts: string[] = [];
-  for (const round of rounds) {
-    if (round.response) {
-      summaryParts.push(`## ${round.perspective_id.toUpperCase()}\n${round.response}`);
-    }
-  }
-  const debateSummary = summaryParts.join("\n\n---\n\n");
-
-  return template
-    .replace("{topic}", topic)
-    .replace("{debate_summary}", debateSummary);
+  const summaryParts = rounds.filter((r) => r.response).map((r) => `## ${r.perspective_id.toUpperCase()}\n${r.response}`);
+  return synthesizer.prompt.replace("{topic}", topic).replace("{debate_summary}", summaryParts.join("\n\n---\n\n"));
 }
 
-async function runDebate(
-  topic: string,
-  options: {
-    perspectives?: string[];
-    providers?: string[];
-    dryRun?: boolean;
-    includeContext?: boolean;
-  } = {}
-): Promise<DebateResult> {
+async function runDebate(topic: string, options: { perspectives?: string[]; dryRun?: boolean; includeContext?: boolean } = {}): Promise<DebateResult> {
   const multiLLM = detectMultiLLM();
   const perspectives = selectPerspectives(topic, options.perspectives);
+  const debateContext = options.includeContext ? await loadDebateContext(topic) : undefined;
 
-  // Load vault context if requested
-  let debateContext: DebateContext | undefined;
-  if (options.includeContext) {
-    debateContext = await loadDebateContext(topic);
-  }
-
-  console.log(`\n🎭 Starting debate on: "${topic}"`);
-  console.log(`   Perspectives: ${perspectives.map(p => p.name).join(", ")}`);
+  console.log(`\n🎭 Starting debate: "${topic}"`);
+  console.log(`   Perspectives: ${perspectives.map((p) => p.name).join(", ")}`);
   console.log(`   Multi-LLM: ${multiLLM.available ? `Yes (${multiLLM.providers.join(", ")})` : "No (Claude subagents)"}`);
-  if (debateContext) {
-    console.log(`   Vault context: ${debateContext.archivePatterns.length} archive patterns, ${debateContext.projectContext.length} projects`);
-  }
+  if (debateContext) console.log(`   Vault context: ${debateContext.archivePatterns.length} patterns, ${debateContext.projectContext.length} projects`);
   console.log("");
 
   const rounds: DebateRound[] = [];
 
-  // Generate prompts for each perspective
   for (let i = 0; i < perspectives.length; i++) {
-    const perspective = perspectives[i];
-    const prompt = buildDebatePrompt(perspective, topic, debateContext);
+    const p = perspectives[i];
+    const prompt = buildDebatePrompt(p, topic, debateContext);
 
-    const round: DebateRound = {
-      round_number: i + 1,
-      perspective_id: perspective.id,
-      prompt
-    };
+    const round: DebateRound = { round_number: i + 1, perspective_id: p.id, prompt };
 
     if (!options.dryRun) {
-      console.log(`📢 ${perspective.name} is speaking...`);
-
-      // In actual use, this would call the LLM
-      // For now, we generate the task structure
-      round.response = `[${perspective.name} would respond here via ${multiLLM.available ? 'external LLM' : 'Claude subagent'}]`;
+      console.log(`📢 ${p.name} is speaking...`);
+      round.response = `[${p.name} would respond via ${multiLLM.available ? "external LLM" : "Claude subagent"}]`;
       round.provider = multiLLM.available ? multiLLM.providers[i % multiLLM.providers.length] : "claude-subagent";
     }
 
     rounds.push(round);
   }
 
-  // Generate synthesis prompt
-  const synthesisPrompt = buildSynthesisPrompt(topic, rounds);
-
-  const result: DebateResult = {
-    topic,
-    rounds,
-    friction_points: [],
-    agreement_points: []
-  };
+  const result: DebateResult = { topic, rounds, friction_points: [], agreement_points: [] };
 
   if (!options.dryRun) {
-    console.log(`\n🔮 Synthesizer is combining perspectives...`);
+    console.log(`\n🔮 Synthesizer combining perspectives...`);
     result.synthesis = `[Synthesis would be generated here]`;
   }
 
@@ -356,44 +147,21 @@ async function runDebate(
 }
 
 function formatDebateOutput(result: DebateResult, verbose: boolean): string {
-  const lines: string[] = [];
-
-  lines.push("═══════════════════════════════════════════════════════════════");
-  lines.push("                         DEBATE RESULT                          ");
-  lines.push("═══════════════════════════════════════════════════════════════");
-  lines.push("");
-  lines.push(`Topic: ${result.topic}`);
-  lines.push(`Rounds: ${result.rounds.length}`);
-  lines.push("");
+  const lines = [header("DEBATE RESULT"), "", `Topic: ${result.topic}`, `Rounds: ${result.rounds.length}`, ""];
 
   if (verbose) {
-    for (const round of result.rounds) {
-      lines.push(`─── Round ${round.round_number}: ${round.perspective_id.toUpperCase()} ───`);
-      lines.push("");
-      lines.push(`Prompt:\n${round.prompt}`);
-      if (round.response) {
-        lines.push("");
-        lines.push(`Response:\n${round.response}`);
-      }
+    for (const r of result.rounds) {
+      lines.push(`--- Round ${r.round_number}: ${r.perspective_id.toUpperCase()} ---`, "", `Prompt:\n${r.prompt}`);
+      if (r.response) lines.push("", `Response:\n${r.response}`);
       lines.push("");
     }
   } else {
     lines.push("Perspectives heard:");
-    for (const round of result.rounds) {
-      const status = round.response ? "✓" : "○";
-      lines.push(`  ${status} ${round.perspective_id}`);
-    }
+    for (const r of result.rounds) lines.push(`  ${r.response ? "✓" : "○"} ${r.perspective_id}`);
   }
 
-  if (result.synthesis) {
-    lines.push("");
-    lines.push("─── SYNTHESIS ───");
-    lines.push(result.synthesis);
-  }
-
-  lines.push("");
-  lines.push("═══════════════════════════════════════════════════════════════");
-
+  if (result.synthesis) lines.push("", "--- SYNTHESIS ---", result.synthesis);
+  lines.push("", divider());
   return lines.join("\n");
 }
 
@@ -408,8 +176,8 @@ async function main() {
       verbose: { type: "boolean", short: "v" },
       json: { type: "boolean", short: "j" },
       list: { type: "boolean", short: "l" },
-      help: { type: "boolean", short: "h" }
-    }
+      help: { type: "boolean", short: "h" },
+    },
   });
 
   if (values.help) {
@@ -422,47 +190,25 @@ USAGE:
 OPTIONS:
   -t, --topic <text>         The debate topic
   -p, --perspectives <list>  Comma-separated perspective IDs
-  -c, --context              Include vault context in debate prompts
+  -c, --context              Include vault context
   -d, --dry-run              Generate prompts without executing
-  -v, --verbose              Show full prompts and responses
+  -v, --verbose              Show full prompts
   -j, --json                 Output as JSON
   -l, --list                 List available perspectives
   -h, --help                 Show this help
-
-VAULT CONTEXT:
-  When --context is used, each perspective receives:
-  - Historical patterns from _04_Archives
-  - Active project context from _01_Projects
-  - Relevant areas from _02_Areas
-
-PERSPECTIVES:
-  optimist    - Focuses on opportunities and benefits
-  pessimist   - Focuses on risks and problems
-  pragmatist  - Balances idealism with practicality
-  contrarian  - Challenges assumptions
-  analyst     - Data and evidence focused
-  synthesizer - Combines perspectives (auto-added)
-
-EXAMPLES:
-  bun run DebateOrchestrator.ts -t "Should we adopt microservices?"
-  bun run DebateOrchestrator.ts -t "pricing strategy" --context
-  bun run DebateOrchestrator.ts -t "Topic" -p optimist,pessimist,contrarian --context
-  bun run DebateOrchestrator.ts -t "Topic" --dry-run --verbose
 `);
     return;
   }
 
   if (values.list) {
-    console.log("Available Perspectives:");
-    console.log("─".repeat(50));
-    for (const [id, perspective] of Object.entries(DEFAULT_PERSPECTIVES)) {
-      console.log(`${id.padEnd(12)} - ${perspective.name}`);
-      console.log(`              ${perspective.description}`);
-      console.log("");
+    const config = loadPerspectives();
+    console.log("Available Perspectives:\n" + divider());
+    for (const [id, p] of Object.entries(config.perspectives)) {
+      console.log(`${id.padEnd(12)} - ${p.name}`);
+      console.log(`              ${p.description}\n`);
     }
-    console.log("Debate Templates:");
-    console.log("─".repeat(50));
-    for (const [name, perspectives] of Object.entries(DEBATE_TEMPLATES)) {
+    console.log("Debate Templates:\n" + divider());
+    for (const [name, perspectives] of Object.entries(config.templates)) {
       console.log(`${name.padEnd(12)} → ${perspectives.join(", ")}`);
     }
     return;
@@ -470,18 +216,15 @@ EXAMPLES:
 
   if (!values.topic) {
     console.error("Error: --topic is required");
-    console.error("Run with --help for usage");
     process.exit(1);
   }
 
-  ensureDirectories();
-
-  const perspectiveList = values.perspectives?.split(",").map(s => s.trim());
+  if (!existsSync(DEBATES_DIR)) mkdirSync(DEBATES_DIR, { recursive: true });
 
   const result = await runDebate(values.topic, {
-    perspectives: perspectiveList,
+    perspectives: values.perspectives?.split(",").map((s) => s.trim()),
     dryRun: values["dry-run"],
-    includeContext: values.context
+    includeContext: values.context,
   });
 
   if (values.json) {
@@ -490,23 +233,13 @@ EXAMPLES:
     console.log(formatDebateOutput(result, values.verbose ?? false));
   }
 
-  // Save debate to file
   const debateId = `debate-${Date.now()}`;
-  const debatePath = `${DEBATES_DIR}/${debateId}.json`;
-  writeFileSync(debatePath, JSON.stringify(result, null, 2));
-  console.log(`Debate saved to: ${debatePath}`);
+  writeFileSync(`${DEBATES_DIR}/${debateId}.json`, JSON.stringify(result, null, 2));
+  console.log(`Debate saved: ${DEBATES_DIR}/${debateId}.json`);
 }
 
-// Only run main() if this file is the entry point
 if (import.meta.main) {
   main().catch(console.error);
 }
 
-// Export for use as module
-export {
-  runDebate,
-  selectPerspectives,
-  detectMultiLLM,
-  DEFAULT_PERSPECTIVES,
-  DEBATE_TEMPLATES
-};
+export { runDebate, selectPerspectives, detectMultiLLM, loadPerspectives };

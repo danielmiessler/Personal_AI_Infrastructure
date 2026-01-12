@@ -1,4 +1,4 @@
-# PAI Second Brain v1.0.0 - Installation Guide
+# PAI Second Brain v2.0.0 - Installation Guide
 
 **This guide is designed for AI agents installing this pack into a user's infrastructure.**
 
@@ -17,7 +17,7 @@
 
 Before starting, greet the user:
 ```
-"I'm installing PAI Second Brain v1.0.0 - Cognitive amplification system with delegation protocols, sparring partner mode, and PARA-based knowledge architecture.
+"I'm installing PAI Second Brain v2.0.0 - Cognitive amplification system with TypeScript tools for deterministic logic, delegation protocols, debate orchestration, and sparring partner mode.
 
 This will transform how I operate - from assistant to strategic sparring partner.
 
@@ -198,6 +198,7 @@ echo "Backup created at: $BACKUP_DIR"
     {"content": "Create skill directory structure", "status": "pending", "activeForm": "Creating directory structure"},
     {"content": "Copy philosophy files", "status": "pending", "activeForm": "Copying philosophy files"},
     {"content": "Copy workflow files", "status": "pending", "activeForm": "Copying workflow files"},
+    {"content": "Install TypeScript tools", "status": "pending", "activeForm": "Installing TypeScript tools"},
     {"content": "Copy config files", "status": "pending", "activeForm": "Copying config files"},
     {"content": "Configure vault location", "status": "pending", "activeForm": "Configuring vault"},
     {"content": "Run verification", "status": "pending", "activeForm": "Running verification"}
@@ -213,6 +214,8 @@ echo "Backup created at: $BACKUP_DIR"
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 mkdir -p "$PAI_DIR/skills/SecondBrain/Philosophy"
 mkdir -p "$PAI_DIR/skills/SecondBrain/Workflows"
+mkdir -p "$PAI_DIR/skills/SecondBrain/Tools"
+mkdir -p "$PAI_DIR/skills/SecondBrain/types"
 mkdir -p "$PAI_DIR/config"
 ```
 
@@ -265,7 +268,39 @@ cp "$PACK_DIR/src/skills/SecondBrain/Workflows/ArchiveSynthesis.md" "$PAI_DIR/sk
 
 **Mark todo as completed.**
 
-### 4.4 Copy Config Files
+### 4.4 Install TypeScript Tools
+
+**Mark todo "Install TypeScript tools" as in_progress.**
+
+```bash
+PACK_DIR="$(pwd)"
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+# Copy TypeScript tools
+cp "$PACK_DIR/src/skills/SecondBrain/Tools/"*.ts "$PAI_DIR/skills/SecondBrain/Tools/"
+
+# Copy types
+cp "$PACK_DIR/src/types/SecondBrain.ts" "$PAI_DIR/skills/SecondBrain/types/"
+
+# Copy package.json for bun scripts
+cp "$PACK_DIR/package.json" "$PAI_DIR/skills/SecondBrain/"
+
+# Install dependencies in destination (NOT in pack source)
+cd "$PAI_DIR/skills/SecondBrain"
+bun install
+
+echo "TypeScript tools installed to: $PAI_DIR/skills/SecondBrain/Tools/"
+```
+
+**Files installed:**
+- `Tools/ComplexityAssessor.ts` - Pattern-based complexity detection
+- `Tools/DelegationRouter.ts` - Route to delegation strategy
+- `Tools/DebateOrchestrator.ts` - Multi-perspective debates
+- `types/SecondBrain.ts` - Type definitions
+
+**Mark todo as completed.**
+
+### 4.5 Copy Config Files
 
 **Mark todo "Copy config files" as in_progress.**
 
@@ -285,7 +320,7 @@ cp "$PACK_DIR/src/config/delegation-rules.yaml" "$PAI_DIR/config/"
 
 **Mark todo as completed.**
 
-### 4.5 Configure Vault Location
+### 4.6 Configure Vault Location
 
 **Mark todo "Configure vault location" as in_progress.**
 
@@ -306,6 +341,22 @@ fi
 ```
 
 **Mark todo as completed (or skip if no vault).**
+
+### 4.7 Verify TypeScript Tools
+
+**Quick verification that tools work:**
+
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+cd "$PAI_DIR/skills/SecondBrain"
+
+# Test complexity assessor
+bun run assess -p "What is TypeScript?"
+bun run assess -p "Should we migrate to microservices?"
+
+# List available perspectives
+bun run debate --list
+```
 
 ---
 
@@ -335,10 +386,20 @@ echo "Checking workflow files..."
 [ -f "$PAI_DIR/skills/SecondBrain/Workflows/Debate.md" ] && echo "Debate.md" || echo "Debate.md missing"
 [ -f "$PAI_DIR/skills/SecondBrain/Workflows/ArchiveSynthesis.md" ] && echo "ArchiveSynthesis.md" || echo "ArchiveSynthesis.md missing"
 
+echo "Checking TypeScript tools..."
+[ -f "$PAI_DIR/skills/SecondBrain/Tools/ComplexityAssessor.ts" ] && echo "✓ ComplexityAssessor.ts" || echo "✗ ComplexityAssessor.ts missing"
+[ -f "$PAI_DIR/skills/SecondBrain/Tools/DelegationRouter.ts" ] && echo "✓ DelegationRouter.ts" || echo "✗ DelegationRouter.ts missing"
+[ -f "$PAI_DIR/skills/SecondBrain/Tools/DebateOrchestrator.ts" ] && echo "✓ DebateOrchestrator.ts" || echo "✗ DebateOrchestrator.ts missing"
+[ -f "$PAI_DIR/skills/SecondBrain/types/SecondBrain.ts" ] && echo "✓ types/SecondBrain.ts" || echo "✗ types/SecondBrain.ts missing"
+
 echo "Checking config files..."
-[ -f "$PAI_DIR/config/para-mapping.yaml" ] && echo "para-mapping.yaml" || echo "para-mapping.yaml missing"
-[ -f "$PAI_DIR/config/context-thresholds.json" ] && echo "context-thresholds.json" || echo "context-thresholds.json missing"
-[ -f "$PAI_DIR/config/delegation-rules.yaml" ] && echo "delegation-rules.yaml" || echo "delegation-rules.yaml missing"
+[ -f "$PAI_DIR/config/para-mapping.yaml" ] && echo "✓ para-mapping.yaml" || echo "✗ para-mapping.yaml missing"
+[ -f "$PAI_DIR/config/context-thresholds.json" ] && echo "✓ context-thresholds.json" || echo "✗ context-thresholds.json missing"
+[ -f "$PAI_DIR/config/delegation-rules.yaml" ] && echo "✓ delegation-rules.yaml" || echo "✗ delegation-rules.yaml missing"
+
+echo "Testing TypeScript tools execution..."
+cd "$PAI_DIR/skills/SecondBrain"
+bun run assess -p "test" > /dev/null 2>&1 && echo "✓ ComplexityAssessor runs" || echo "✗ ComplexityAssessor failed"
 
 echo "=== Verification Complete ==="
 ```
@@ -352,7 +413,7 @@ echo "=== Verification Complete ==="
 ### On Success
 
 ```
-"PAI Second Brain v1.0.0 installed successfully!
+"PAI Second Brain v2.0.0 installed successfully!
 
 What's changed:
 - I now operate as DIRECTOR, not executor
@@ -432,14 +493,22 @@ export SECOND_BRAIN_VAULT="/path/to/your/vault"
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Main skill routing and philosophy reference |
+| `SKILL.md` | Main skill routing and quick reference |
+| **Philosophy** | |
 | `Philosophy/DELEGATION.md` | Never-execute-directly protocol |
 | `Philosophy/SPARRING.md` | Challenge and friction guidelines |
 | `Philosophy/AUTHORIZATION.md` | Full freedom authorization |
 | `Philosophy/COGNITIVE-DIVERSITY.md` | Multi-AI coordination |
+| **Workflows** | |
 | `Workflows/Delegate.md` | Multi-agent delegation workflow |
 | `Workflows/Debate.md` | Team friction and synthesis |
 | `Workflows/ArchiveSynthesis.md` | Subconscious retrieval |
+| **TypeScript Tools** | |
+| `Tools/ComplexityAssessor.ts` | Pattern-based complexity detection |
+| `Tools/DelegationRouter.ts` | Route to delegation strategy |
+| `Tools/DebateOrchestrator.ts` | Multi-perspective debates |
+| `types/SecondBrain.ts` | Type definitions |
+| **Config** | |
 | `config/para-mapping.yaml` | PARA to PAI Memory mapping |
 | `config/context-thresholds.json` | Budget alert configuration |
 | `config/delegation-rules.yaml` | Agent routing rules |
@@ -450,11 +519,20 @@ export SECOND_BRAIN_VAULT="/path/to/your/vault"
 
 After installation, the Second Brain philosophy is **always active**. There are no slash commands to invoke - it changes how your AI fundamentally operates.
 
+**TypeScript tool commands:**
+```bash
+cd "$PAI_DIR/skills/SecondBrain"
+bun run assess -p "prompt"    # Assess complexity level
+bun run delegate -p "prompt"  # Get delegation plan
+bun run debate -t "topic"     # Run multi-perspective debate
+```
+
 **Key behavioral changes:**
 1. I will delegate tasks to subagents instead of executing directly
-2. I will challenge your assumptions (sparring partner mode)
-3. I will monitor context budget and warn when it's filling
-4. I will retrieve from archives for breakthrough synthesis
-5. Complex decisions will involve multi-agent debate
+2. Complexity assessment determines agent count (simple=1, medium=2, complex=3+)
+3. I will challenge your assumptions (sparring partner mode)
+4. I will monitor context budget and warn when it's filling
+5. I will retrieve from archives for breakthrough synthesis
+6. Complex decisions will involve multi-agent debate
 
 **To test:** Ask a complex strategic question and observe the difference.

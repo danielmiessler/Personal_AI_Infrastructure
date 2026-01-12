@@ -1,17 +1,46 @@
 # Installation Guide - pai-multi-llm
 
+**This guide is designed for AI agents installing this pack into a user's infrastructure.**
+
 ## Prerequisites
 
 - PAI Core installed (`pai-core-install`)
 - Bun >= 1.0.0
 
-## Phase 1: System Detection
+## Phase 1: Install Skill Files
+
+**Copy all skill files to PAI directory first:**
+
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+# Create directory structure
+mkdir -p "$PAI_DIR/skills/MultiLLM/Tools"
+mkdir -p "$PAI_DIR/config"
+
+# Copy from pack source to PAI directory
+PACK_DIR="$(pwd)"
+cp "$PACK_DIR/src/skills/MultiLLM/SKILL.md" "$PAI_DIR/skills/MultiLLM/"
+cp "$PACK_DIR/src/skills/MultiLLM/Tools/"*.ts "$PAI_DIR/skills/MultiLLM/Tools/"
+cp "$PACK_DIR/package.json" "$PAI_DIR/skills/MultiLLM/"
+
+# Copy types
+mkdir -p "$PAI_DIR/skills/MultiLLM/types"
+cp "$PACK_DIR/src/types/Provider.ts" "$PAI_DIR/skills/MultiLLM/types/"
+
+# Install dependencies in destination (NOT in pack source)
+cd "$PAI_DIR/skills/MultiLLM"
+bun install
+
+echo "Skill files installed to: $PAI_DIR/skills/MultiLLM"
+```
+
+## Phase 2: System Detection
 
 Run provider detection to see what's available:
 
 ```bash
-cd Packs/pai-multi-llm
-bun install
+cd "$PAI_DIR/skills/MultiLLM"
 bun run detect --verbose
 ```
 
@@ -114,18 +143,24 @@ team:
         - Strategic problems
 ```
 
-## Phase 4: Install Skill Files
+## Phase 4: Copy Config Files
 
 ```bash
-# Copy skill to PAI directory
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-cp -r src/skills/MultiLLM "$PAI_DIR/skills/"
-cp -r src/config/* "$PAI_DIR/config/"
+PACK_DIR="$(pwd)"
+
+# Copy config files if any exist
+if [ -d "$PACK_DIR/src/config" ]; then
+  cp -r "$PACK_DIR/src/config/"* "$PAI_DIR/config/" 2>/dev/null || true
+fi
 ```
 
 ## Phase 5: Verify Installation
 
 ```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+cd "$PAI_DIR/skills/MultiLLM"
+
 # Check team configuration
 bun run query --list
 
@@ -133,7 +168,11 @@ bun run query --list
 bun run query -p "Hello, what can you do?" --provider claude
 
 # Check session tracking
-bun run SessionManager.ts --list
+bun run session --list
+
+# Verify all tools are present
+echo "Checking tool files..."
+ls -la "$PAI_DIR/skills/MultiLLM/Tools/"
 ```
 
 ## Troubleshooting

@@ -40,7 +40,7 @@ fi
 **1. Backup current installation:**
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-BACKUP_DIR="$PAI_DIR/Backups/multi-llm-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="$HOME/.pai-backups/multi-llm-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 cp -r "$PAI_DIR/skills/MultiLLM" "$BACKUP_DIR/"
 cp "$PAI_DIR/config/team.yaml" "$BACKUP_DIR/" 2>/dev/null

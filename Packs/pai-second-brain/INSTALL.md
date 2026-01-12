@@ -26,6 +26,81 @@ Let me analyze your system and guide you through installation."
 
 ---
 
+## Upgrade Path
+
+**If upgrading from a previous version, follow these steps:**
+
+### Detect Upgrade vs Fresh Install
+
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+if [ -f "$PAI_DIR/skills/SecondBrain/SKILL.md" ]; then
+  echo "UPGRADE: Existing SecondBrain found"
+  # Check version if available
+  grep -m1 "^# .* v[0-9]" "$PAI_DIR/skills/SecondBrain/SKILL.md" 2>/dev/null || echo "Version unknown"
+else
+  echo "FRESH INSTALL: No existing SecondBrain"
+fi
+```
+
+### What Gets Preserved During Upgrade
+
+| Item | Preserved? | Notes |
+|------|------------|-------|
+| `PARA_VAULT` env var | ✅ Yes | Already in shell profile |
+| `para-mapping.yaml` vault_root | ✅ Yes | Not overwritten if exists |
+| Custom delegation rules | ⚠️ Backup | Will be replaced |
+| Debate history | ✅ Yes | Stored in `~/.claude/second-brain/debates/` |
+
+### Upgrade Steps
+
+**1. Backup current installation:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+BACKUP_DIR="$PAI_DIR/Backups/second-brain-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+cp -r "$PAI_DIR/skills/SecondBrain" "$BACKUP_DIR/"
+cp "$PAI_DIR/config/delegation-rules.yaml" "$BACKUP_DIR/" 2>/dev/null
+echo "Backup created: $BACKUP_DIR"
+```
+
+**2. Preserve vault configuration:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+# Save existing vault_root before upgrade
+EXISTING_VAULT=$(grep "vault_root:" "$PAI_DIR/config/para-mapping.yaml" 2>/dev/null | cut -d'"' -f2)
+echo "Existing vault: $EXISTING_VAULT"
+```
+
+**3. Install new version:**
+Follow Phase 4 (Installation) steps below.
+
+**4. Restore vault configuration (if not automatically preserved):**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+if [ -n "$EXISTING_VAULT" ] && ! grep -q "vault_root:" "$PAI_DIR/config/para-mapping.yaml"; then
+  echo "" >> "$PAI_DIR/config/para-mapping.yaml"
+  echo "vault_root: \"$EXISTING_VAULT\"" >> "$PAI_DIR/config/para-mapping.yaml"
+  echo "✓ Restored vault configuration"
+fi
+```
+
+**5. Verify upgrade:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/SecondBrain/Tools/VaultReader.ts" --stats
+```
+
+### Breaking Changes by Version
+
+| From → To | Breaking Changes | Migration |
+|-----------|------------------|-----------|
+| v1.x → v2.0 | New vault tools added | Set `PARA_VAULT` env var |
+| v1.x → v2.0 | `--context` flag on tools | No action needed |
+
+---
+
 ## Phase 1: System Analysis
 
 **Execute this analysis BEFORE any file operations.**
@@ -312,19 +387,52 @@ cp "$PACK_DIR/src/config/delegation-rules.yaml" "$PAI_DIR/config/"
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 VAULT_PATH="[USER_SPECIFIED_PATH]"
 
-# Update para-mapping.yaml with vault location
+# 1. Update para-mapping.yaml with vault location
 if [ -f "$PAI_DIR/config/para-mapping.yaml" ]; then
-  # Add vault_root to the config
   echo "" >> "$PAI_DIR/config/para-mapping.yaml"
   echo "# PARA vault location (any folder with PARA structure)" >> "$PAI_DIR/config/para-mapping.yaml"
   echo "vault_root: \"$VAULT_PATH\"" >> "$PAI_DIR/config/para-mapping.yaml"
-  echo "Configured vault at: $VAULT_PATH"
+  echo "✓ Configured vault in para-mapping.yaml"
 fi
 
-# Also set environment variable hint
+# 2. Add PARA_VAULT to shell profile (REQUIRED for vault tools to work)
+SHELL_PROFILE=""
+if [ -f "$HOME/.zshrc" ]; then
+  SHELL_PROFILE="$HOME/.zshrc"
+elif [ -f "$HOME/.bashrc" ]; then
+  SHELL_PROFILE="$HOME/.bashrc"
+elif [ -f "$HOME/.bash_profile" ]; then
+  SHELL_PROFILE="$HOME/.bash_profile"
+fi
+
+if [ -n "$SHELL_PROFILE" ]; then
+  # Check if PARA_VAULT is already set
+  if ! grep -q "export PARA_VAULT=" "$SHELL_PROFILE" 2>/dev/null; then
+    echo "" >> "$SHELL_PROFILE"
+    echo "# PAI Second Brain - PARA vault location" >> "$SHELL_PROFILE"
+    echo "export PARA_VAULT=\"$VAULT_PATH\"" >> "$SHELL_PROFILE"
+    echo "✓ Added PARA_VAULT to $SHELL_PROFILE"
+  else
+    echo "⚠ PARA_VAULT already exists in $SHELL_PROFILE - not modified"
+  fi
+fi
+
+# 3. Also add to PAI .env file for Claude sessions
+if [ -f "$PAI_DIR/.env" ]; then
+  if ! grep -q "PARA_VAULT=" "$PAI_DIR/.env" 2>/dev/null; then
+    echo "" >> "$PAI_DIR/.env"
+    echo "# PARA vault location" >> "$PAI_DIR/.env"
+    echo "PARA_VAULT=\"$VAULT_PATH\"" >> "$PAI_DIR/.env"
+    echo "✓ Added PARA_VAULT to $PAI_DIR/.env"
+  fi
+else
+  echo "# PAI Environment Variables" > "$PAI_DIR/.env"
+  echo "PARA_VAULT=\"$VAULT_PATH\"" >> "$PAI_DIR/.env"
+  echo "✓ Created $PAI_DIR/.env with PARA_VAULT"
+fi
+
 echo ""
-echo "To make this permanent, add to your shell profile:"
-echo "  export PARA_VAULT=\"$VAULT_PATH\""
+echo "IMPORTANT: Run 'source $SHELL_PROFILE' or restart your terminal for changes to take effect."
 ```
 
 **Mark todo as completed (or skip if no vault).**
@@ -465,11 +573,32 @@ cp src/config/*.json $PAI_DIR/config/
 ### "Configure PARA folder later"
 
 ```bash
-# Add to para-mapping.yaml
-echo 'vault_root: "/path/to/your/notes"' >> ~/.claude/config/para-mapping.yaml
+VAULT_PATH="/path/to/your/notes"
 
-# Or set environment variable
-export PARA_VAULT="/path/to/your/notes"
+# Add to para-mapping.yaml
+echo "vault_root: \"$VAULT_PATH\"" >> ~/.claude/config/para-mapping.yaml
+
+# Add to shell profile
+echo "export PARA_VAULT=\"$VAULT_PATH\"" >> ~/.zshrc
+
+# Add to PAI .env
+echo "PARA_VAULT=\"$VAULT_PATH\"" >> ~/.claude/.env
+
+# Apply changes
+source ~/.zshrc
+```
+
+### "PARA_VAULT not found" or "No vault configured"
+
+The vault tools require PARA_VAULT environment variable. Check:
+
+```bash
+# Verify it's set
+echo $PARA_VAULT
+
+# If empty, add to your shell profile:
+echo 'export PARA_VAULT="/path/to/your/notes"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ---

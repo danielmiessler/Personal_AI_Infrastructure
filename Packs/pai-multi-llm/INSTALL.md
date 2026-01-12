@@ -25,11 +25,10 @@ cp "$PACK_DIR/src/skills/MultiLLM/SKILL.md" "$PAI_DIR/skills/MultiLLM/"
 cp "$PACK_DIR/src/skills/MultiLLM/Tools/"*.ts "$PAI_DIR/skills/MultiLLM/Tools/"
 cp "$PACK_DIR/src/types/Provider.ts" "$PAI_DIR/skills/MultiLLM/types/"
 
-# Install yaml dependency (cached globally by Bun, no node_modules created)
-cd "$PAI_DIR/skills/MultiLLM/Tools"
-bun add yaml
-
 echo "Skill files installed to: $PAI_DIR/skills/MultiLLM"
+
+# Note: yaml dependency is resolved from Bun's global cache (~/.bun/install/cache/)
+# If tools fail with "Module not found: yaml", run: bun add yaml -g
 ```
 
 ## Phase 2: System Detection

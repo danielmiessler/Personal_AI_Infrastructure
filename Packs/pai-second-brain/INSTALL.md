@@ -93,9 +93,10 @@ fi
 cp src/hooks/vault-context-injector.ts ~/.claude/hooks/ && echo "✓ Hook updated"
 ```
 
-**6. Ensure hook is registered (if upgrading from v1.x):**
+**6. Register/update hook in settings.json (idempotent):**
 ```bash
-grep "vault-context-injector" ~/.claude/settings.json && echo "✓ Hook already registered" || echo "⚠ Add hook to settings.json UserPromptSubmit section"
+# Removes any existing vault-context-injector entries, then adds the current version
+jq '.hooks.UserPromptSubmit[0].hooks = ([.hooks.UserPromptSubmit[0].hooks[] | select(.command | contains("vault-context-injector") | not)] + [{"type":"command","command":"bun run $PAI_DIR/hooks/vault-context-injector.ts"}])' ~/.claude/settings.json > /tmp/settings.json && mv /tmp/settings.json ~/.claude/settings.json && echo "✓ Hook registered"
 ```
 
 **7. Verify upgrade:**
@@ -417,36 +418,22 @@ grep PARA_VAULT ~/.zshrc ~/.bashrc ~/.bash_profile ~/.claude/.env 2>/dev/null
 cp src/hooks/vault-context-injector.ts ~/.claude/hooks/ && echo "✓ Hook installed to ~/.claude/hooks/"
 ```
 
-**Register hook in settings.json:**
+**Register hook in settings.json (idempotent - safe for fresh install and upgrades):**
 
-The hook must be added to `UserPromptSubmit` in `~/.claude/settings.json`. Add this entry to the hooks array:
+This command removes any existing `vault-context-injector` entries and adds the current version:
 
-```json
-{
-  "type": "command",
-  "command": "bun run $PAI_DIR/hooks/vault-context-injector.ts"
-}
+```bash
+jq '.hooks.UserPromptSubmit[0].hooks = ([.hooks.UserPromptSubmit[0].hooks[] | select(.command | contains("vault-context-injector") | not)] + [{"type":"command","command":"bun run $PAI_DIR/hooks/vault-context-injector.ts"}])' ~/.claude/settings.json > /tmp/settings.json && mv /tmp/settings.json ~/.claude/settings.json && echo "✓ Hook registered"
 ```
 
-**Full UserPromptSubmit section should look like:**
-```json
-"UserPromptSubmit": [
-  {
-    "matcher": "*",
-    "hooks": [
-      {
-        "type": "command",
-        "command": "bun run $PAI_DIR/hooks/vault-context-injector.ts"
-      }
-      // ... other existing hooks
-    ]
-  }
-]
-```
+**What this does:**
+1. Filters out any existing `vault-context-injector` hook entries
+2. Appends the current hook definition
+3. Result: always exactly one hook, always the latest version
 
 **Verify hook is registered:**
 ```bash
-grep "vault-context-injector" ~/.claude/settings.json && echo "✓ Hook registered" || echo "✗ Hook NOT registered - add to settings.json manually"
+grep "vault-context-injector" ~/.claude/settings.json && echo "✓ Hook registered" || echo "✗ Hook NOT registered"
 ```
 
 **Mark todo as completed.**

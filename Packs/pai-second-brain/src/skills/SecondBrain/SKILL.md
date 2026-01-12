@@ -8,6 +8,26 @@ load_tier: 1
 
 Second Brain transforms Claude from an assistant into a **director** that orchestrates multi-perspective analysis through delegation and debate.
 
+## CRITICAL: Always Search Vault First
+
+**Before answering ANY question about a topic, project, or concept:**
+
+1. **Search the vault** for existing context:
+   ```bash
+   bun run Tools/VaultReader.ts --search "topic name"
+   ```
+
+2. **If results found**, read the relevant notes and use that context in your response.
+
+3. **If the topic sounds like a project** (capitalized name, specific initiative), also check:
+   ```bash
+   bun run Tools/ContextLoader.ts --topic "topic name"
+   ```
+
+**Example:** User asks "how to monetize Project Alpha?"
+- WRONG: Give generic monetization advice
+- RIGHT: First search vault for "Project Alpha", find existing plans/context, then give personalized advice
+
 ## Core Principle
 
 ```

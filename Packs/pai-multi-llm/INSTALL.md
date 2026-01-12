@@ -7,6 +7,78 @@
 - PAI Core installed (`pai-core-install`)
 - Bun >= 1.0.0
 
+---
+
+## Upgrade Path
+
+**If upgrading from a previous version, follow these steps:**
+
+### Detect Upgrade vs Fresh Install
+
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+
+if [ -f "$PAI_DIR/skills/MultiLLM/SKILL.md" ]; then
+  echo "UPGRADE: Existing MultiLLM found"
+  ls -la "$PAI_DIR/skills/MultiLLM/"
+else
+  echo "FRESH INSTALL: No existing MultiLLM"
+fi
+```
+
+### What Gets Preserved During Upgrade
+
+| Item | Preserved? | Notes |
+|------|------------|-------|
+| `team.yaml` | ✅ Yes | Your provider configuration - NOT overwritten |
+| Session history | ✅ Yes | Stored in `~/.claude/multi-llm/sessions/` |
+| Custom provider roles | ✅ Yes | Part of team.yaml |
+| Tool files | ⚠️ Replaced | New versions installed |
+
+### Upgrade Steps
+
+**1. Backup current installation:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+BACKUP_DIR="$PAI_DIR/Backups/multi-llm-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+cp -r "$PAI_DIR/skills/MultiLLM" "$BACKUP_DIR/"
+cp "$PAI_DIR/config/team.yaml" "$BACKUP_DIR/" 2>/dev/null
+echo "Backup created: $BACKUP_DIR"
+```
+
+**2. Preserve team configuration:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+# team.yaml is preserved automatically - installer won't overwrite it
+if [ -f "$PAI_DIR/config/team.yaml" ]; then
+  echo "✓ team.yaml exists - will be preserved"
+fi
+```
+
+**3. Install new version:**
+Follow Phase 1 (Install Skill Files) below - only tool files are replaced.
+
+**4. Re-run provider detection (recommended):**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/MultiLLM/Tools/DetectProviders.ts" --verbose
+```
+
+**5. Verify upgrade:**
+```bash
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/MultiLLM/Tools/Query.ts" --list
+```
+
+### Breaking Changes by Version
+
+| From → To | Breaking Changes | Migration |
+|-----------|------------------|-----------|
+| v1.x → v2.0 | None | Just reinstall tool files |
+
+---
+
 ## Phase 1: Install Skill Files
 
 **Copy all skill files to PAI directory first:**

@@ -18,7 +18,17 @@
 import { parseArgs } from "util";
 import { assessComplexity } from "./ComplexityAssessor";
 import { selectPerspectives, detectMultiLLM, DEFAULT_PERSPECTIVES } from "./DebateOrchestrator";
+import { getVaultConfig, searchVault } from "./VaultReader";
+import { loadContext, type LoadedContext } from "./ContextLoader";
+import { synthesizeFromArchives, type SynthesisResult } from "./ArchiveSynthesis";
 import type { ComplexityAssessment, Perspective } from "../../../types/SecondBrain";
+
+interface VaultContext {
+  projectContext: string[];
+  areaContext: string[];
+  archivePatterns: string[];
+  relatedNotes: string[];
+}
 
 interface DelegationPlan {
   prompt: string;
@@ -27,6 +37,7 @@ interface DelegationPlan {
   agents: AgentPlan[];
   multi_llm_available: boolean;
   execution_notes: string[];
+  vault_context?: VaultContext;
 }
 
 interface AgentPlan {
@@ -37,7 +48,46 @@ interface AgentPlan {
   prompt_template: string;
 }
 
-function createDelegationPlan(prompt: string): DelegationPlan {
+async function loadVaultContext(prompt: string): Promise<VaultContext | undefined> {
+  const config = getVaultConfig();
+  if (!config.vault_root) return undefined;
+
+  const context: VaultContext = {
+    projectContext: [],
+    areaContext: [],
+    archivePatterns: [],
+    relatedNotes: []
+  };
+
+  try {
+    // Load project/area context
+    const loaded = loadContext(config.vault_root, prompt, { maxNotes: 5 });
+    context.projectContext = loaded.projectContext.map(n => `${n.title} (${n.path})`);
+    context.areaContext = loaded.areaContext.map(n => `${n.title} (${n.path})`);
+
+    // Load archive patterns
+    const synthesis = await synthesizeFromArchives(prompt, { depth: "quick", maxPatterns: 5 });
+    context.archivePatterns = synthesis.patternsFound
+      .filter(p => p.relevance !== "low")
+      .map(p => `${p.title}: ${p.potentialConnection}`);
+
+    // Get related notes
+    const related = searchVault(config.vault_root, prompt, { maxResults: 5 });
+    context.relatedNotes = related.map(r => r.file);
+
+  } catch (err) {
+    // Vault operations failed, continue without context
+  }
+
+  // Only return if we found something
+  const hasContext = context.projectContext.length > 0 ||
+                    context.areaContext.length > 0 ||
+                    context.archivePatterns.length > 0;
+
+  return hasContext ? context : undefined;
+}
+
+async function createDelegationPlan(prompt: string, options: { includeVaultContext?: boolean } = {}): Promise<DelegationPlan> {
   const assessment = assessComplexity(prompt);
   const multiLLM = detectMultiLLM();
 
@@ -49,6 +99,14 @@ function createDelegationPlan(prompt: string): DelegationPlan {
     multi_llm_available: multiLLM.available,
     execution_notes: []
   };
+
+  // Load vault context if requested
+  if (options.includeVaultContext) {
+    plan.vault_context = await loadVaultContext(prompt);
+    if (plan.vault_context) {
+      plan.execution_notes.push(`Vault context loaded: ${plan.vault_context.projectContext.length} projects, ${plan.vault_context.areaContext.length} areas, ${plan.vault_context.archivePatterns.length} archive patterns`);
+    }
+  }
 
   // Determine strategy based on complexity
   switch (assessment.level) {
@@ -157,6 +215,36 @@ function formatPlan(plan: DelegationPlan): string {
     }
   }
 
+  // Show vault context if present
+  if (plan.vault_context) {
+    lines.push("");
+    lines.push("─── VAULT CONTEXT ───");
+
+    if (plan.vault_context.projectContext.length > 0) {
+      lines.push("");
+      lines.push("  Projects:");
+      for (const p of plan.vault_context.projectContext) {
+        lines.push(`    • ${p}`);
+      }
+    }
+
+    if (plan.vault_context.areaContext.length > 0) {
+      lines.push("");
+      lines.push("  Areas:");
+      for (const a of plan.vault_context.areaContext) {
+        lines.push(`    • ${a}`);
+      }
+    }
+
+    if (plan.vault_context.archivePatterns.length > 0) {
+      lines.push("");
+      lines.push("  Archive Patterns:");
+      for (const ap of plan.vault_context.archivePatterns) {
+        lines.push(`    • ${ap}`);
+      }
+    }
+  }
+
   lines.push("");
   lines.push("═══════════════════════════════════════════════════════════════");
 
@@ -206,6 +294,7 @@ async function main() {
     args: Bun.argv.slice(2),
     options: {
       prompt: { type: "string", short: "p" },
+      context: { type: "boolean", short: "c" },
       execute: { type: "boolean", short: "e" },
       script: { type: "boolean", short: "s" },
       json: { type: "boolean", short: "j" },
@@ -222,6 +311,7 @@ USAGE:
 
 OPTIONS:
   -p, --prompt <text>  The task/prompt to delegate
+  -c, --context        Load vault context (projects, areas, archives)
   -e, --execute        Execute the delegation plan
   -s, --script         Output execution script
   -j, --json           Output as JSON
@@ -232,10 +322,16 @@ STRATEGIES:
   parallel_agents   → Medium tasks (2 agents)
   debate_synthesis  → Complex tasks (3+ agents + synthesizer)
 
+VAULT CONTEXT:
+  When --context is used, the router loads:
+  - Related projects from _01_Projects
+  - Related areas from _02_Areas
+  - Breakthrough patterns from _04_Archives
+
 EXAMPLES:
   bun run DelegationRouter.ts -p "What is TypeScript?"
-  bun run DelegationRouter.ts -p "Should we migrate to microservices?" --json
-  bun run DelegationRouter.ts -p "Review our architecture" --script
+  bun run DelegationRouter.ts -p "Should we migrate to microservices?" --context
+  bun run DelegationRouter.ts -p "Review our architecture" --context --json
 `);
     return;
   }
@@ -246,7 +342,9 @@ EXAMPLES:
     process.exit(1);
   }
 
-  const plan = createDelegationPlan(values.prompt);
+  const plan = await createDelegationPlan(values.prompt, {
+    includeVaultContext: values.context
+  });
 
   if (values.json) {
     console.log(JSON.stringify(plan, null, 2));
@@ -262,7 +360,10 @@ EXAMPLES:
   }
 }
 
-main().catch(console.error);
+// Only run main() if this file is the entry point
+if (import.meta.main) {
+  main().catch(console.error);
+}
 
 // Export for use as module
-export { createDelegationPlan, DelegationPlan, AgentPlan };
+export { createDelegationPlan, loadVaultContext, DelegationPlan, AgentPlan, VaultContext };

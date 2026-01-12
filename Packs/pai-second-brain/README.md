@@ -294,7 +294,7 @@ See `INSTALL.md` for the complete wizard-style installation guide.
 **Prerequisites:**
 - pai-core-install (required)
 - Claude Code or compatible agent system
-- Obsidian vault with PARA structure (optional but recommended)
+- PARA-structured folder (any markdown folder with _00_Inbox, _01_Projects, etc.)
 
 **Quick Overview:**
 1. System analysis (detect conflicts, dependencies)
@@ -397,14 +397,14 @@ AI retrieves from _04_Archives/:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PAI_DIR` | `~/.claude` | PAI installation directory |
-| `SECOND_BRAIN_VAULT` | `~/Documents/SecondBrain` | Obsidian vault location |
+| `PARA_VAULT` | none | PARA-structured folder location |
 | `CONTEXT_WARNING_THRESHOLD` | `75` | Percentage for context warning |
 | `CONTEXT_CRITICAL_THRESHOLD` | `90` | Percentage for context critical |
 
 **Option 1: `.env` file** (recommended):
 ```bash
 # $PAI_DIR/.env
-SECOND_BRAIN_VAULT="$HOME/Documents/MyVault"
+PARA_VAULT="$HOME/Documents/SecondBrain"
 CONTEXT_WARNING_THRESHOLD=70
 CONTEXT_CRITICAL_THRESHOLD=85
 ```
@@ -412,8 +412,10 @@ CONTEXT_CRITICAL_THRESHOLD=85
 **Option 2: Shell profile**:
 ```bash
 # Add to ~/.zshrc or ~/.bashrc
-export SECOND_BRAIN_VAULT="$HOME/Documents/MyVault"
+export PARA_VAULT="$HOME/Documents/Notes"
 ```
+
+**Note:** `PARA_VAULT` can point to any folder with PARA structure. No specific app required.
 
 ---
 

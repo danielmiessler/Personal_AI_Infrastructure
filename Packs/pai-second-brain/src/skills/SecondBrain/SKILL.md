@@ -20,9 +20,10 @@ Even simple tasks benefit from delegation - it preserves context and enables val
 
 | Tool | Command | Purpose |
 |------|---------|---------|
-| Assess | `bun run assess -p "prompt"` | Determine complexity level |
-| Route | `bun run delegate -p "prompt"` | Get delegation plan |
-| Debate | `bun run debate -t "topic"` | Run multi-perspective debate |
+| Assess | `bun run Tools/ComplexityAssessor.ts -p "prompt"` | Determine complexity level |
+| Route | `bun run Tools/DelegationRouter.ts -p "prompt"` | Get delegation plan |
+| Debate | `bun run Tools/DebateOrchestrator.ts -t "topic"` | Run multi-perspective debate |
+| Vault | `bun run Tools/VaultReader.ts --search "query"` | Search PARA knowledge vault |
 
 ## Complexity Levels
 
@@ -80,8 +81,63 @@ Without `pai-multi-llm`, Second Brain uses Claude subagents.
 | `Philosophy/SPARRING.md` | Challenge mode, friction |
 | `Philosophy/AUTHORIZATION.md` | Full freedom protocol |
 
+## PARA Vault Integration
+
+Configure your PARA-structured knowledge folder:
+
+```bash
+# Option 1: Environment variable
+export PARA_VAULT="/path/to/your/notes"
+
+# Option 2: Config file
+# Add to ~/.claude/config/para-mapping.yaml:
+vault_root: "/path/to/your/notes"
+```
+
+**VaultReader commands:**
+```bash
+bun run Tools/VaultReader.ts --stats                    # Vault overview
+bun run Tools/VaultReader.ts --search "query"           # Search all notes
+bun run Tools/VaultReader.ts --list archives            # List category
+bun run Tools/VaultReader.ts --find-related "topic"     # Find related notes
+bun run Tools/VaultReader.ts --read "path/to/note.md"   # Read specific note
+```
+
+## Vault Tools
+
+| Tool | Command | Purpose |
+|------|---------|---------|
+| VaultReader | `bun run Tools/VaultReader.ts --search "query"` | Foundation: search, list, read vault |
+| ArchiveSynthesis | `bun run Tools/ArchiveSynthesis.ts -c "topic"` | Find breakthrough patterns from archives |
+| ContextLoader | `bun run Tools/ContextLoader.ts -t "topic"` | Load relevant project/area context |
+| InboxProcessor | `bun run Tools/InboxProcessor.ts` | Process and categorize inbox items |
+
+**Archive Synthesis:**
+```bash
+bun run Tools/ArchiveSynthesis.ts --catalyst "current problem"
+# → Finds dormant patterns, generates synthesis prompts
+```
+
+**Context Loading:**
+```bash
+bun run Tools/ContextLoader.ts --topic "pricing strategy"
+bun run Tools/ContextLoader.ts --project "ClientX" --topic "invoice"
+# → Loads relevant notes from Projects and Areas
+```
+
+**Inbox Processing:**
+```bash
+bun run Tools/InboxProcessor.ts --summary
+bun run Tools/InboxProcessor.ts --limit 20
+# → Suggests PARA categorization for each inbox item
+```
+
 ## Files
 
 - `Tools/ComplexityAssessor.ts` - Pattern-based complexity detection
 - `Tools/DelegationRouter.ts` - Route to delegation strategy
 - `Tools/DebateOrchestrator.ts` - Multi-perspective debate management
+- `Tools/VaultReader.ts` - PARA vault foundation: search, list, read
+- `Tools/ArchiveSynthesis.ts` - Archive pattern synthesis for breakthroughs
+- `Tools/ContextLoader.ts` - Load project/area context for informed responses
+- `Tools/InboxProcessor.ts` - Process inbox items with PARA suggestions

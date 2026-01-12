@@ -17,6 +17,9 @@ import { parseArgs } from "util";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { parse as parseYaml } from "yaml";
 import { assessComplexity } from "./ComplexityAssessor";
+import { getVaultConfig, searchVault } from "./VaultReader";
+import { loadContext, type LoadedContext } from "./ContextLoader";
+import { synthesizeFromArchives, type SynthesisResult } from "./ArchiveSynthesis";
 import type {
   Perspective,
   DebateConfig,
@@ -25,6 +28,12 @@ import type {
   AgentTask,
   MultiLLMIntegration
 } from "../../../types/SecondBrain";
+
+interface DebateContext {
+  archivePatterns: string[];
+  projectContext: string[];
+  areaContext: string[];
+}
 
 const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
 const DEBATES_DIR = `${PAI_DIR}/second-brain/debates`;
@@ -203,8 +212,61 @@ function selectPerspectives(
   return perspectiveIds.map(id => DEFAULT_PERSPECTIVES[id]).filter(Boolean);
 }
 
-function buildDebatePrompt(perspective: Perspective, topic: string): string {
-  return perspective.prompt_template.replace("{topic}", topic);
+async function loadDebateContext(topic: string): Promise<DebateContext | undefined> {
+  const config = getVaultConfig();
+  if (!config.vault_root) return undefined;
+
+  const context: DebateContext = {
+    archivePatterns: [],
+    projectContext: [],
+    areaContext: []
+  };
+
+  try {
+    // Load archive patterns
+    const synthesis = await synthesizeFromArchives(topic, { depth: "quick", maxPatterns: 5 });
+    context.archivePatterns = synthesis.patternsFound
+      .filter(p => p.relevance !== "low")
+      .map(p => `• ${p.title}: ${p.potentialConnection}`);
+
+    // Load project/area context
+    const loaded = loadContext(config.vault_root, topic, { maxNotes: 3 });
+    context.projectContext = loaded.projectContext.map(n => `• ${n.title}: ${n.summary.substring(0, 100)}...`);
+    context.areaContext = loaded.areaContext.map(n => `• ${n.title}: ${n.summary.substring(0, 100)}...`);
+  } catch {
+    // Continue without context
+  }
+
+  const hasContext = context.archivePatterns.length > 0 ||
+                    context.projectContext.length > 0 ||
+                    context.areaContext.length > 0;
+
+  return hasContext ? context : undefined;
+}
+
+function buildDebatePrompt(perspective: Perspective, topic: string, debateContext?: DebateContext): string {
+  let prompt = perspective.prompt_template.replace("{topic}", topic);
+
+  // Add vault context if available
+  if (debateContext && (debateContext.archivePatterns.length > 0 || debateContext.projectContext.length > 0)) {
+    prompt += "\n\n---\nRELEVANT CONTEXT FROM KNOWLEDGE BASE:\n";
+
+    if (debateContext.archivePatterns.length > 0) {
+      prompt += "\nHistorical patterns from archives:\n" + debateContext.archivePatterns.join("\n");
+    }
+
+    if (debateContext.projectContext.length > 0) {
+      prompt += "\n\nActive project context:\n" + debateContext.projectContext.join("\n");
+    }
+
+    if (debateContext.areaContext.length > 0) {
+      prompt += "\n\nRelevant areas:\n" + debateContext.areaContext.join("\n");
+    }
+
+    prompt += "\n---\n\nConsider this context in your argument.";
+  }
+
+  return prompt;
 }
 
 function buildSynthesisPrompt(topic: string, rounds: DebateRound[]): string {
@@ -230,14 +292,24 @@ async function runDebate(
     perspectives?: string[];
     providers?: string[];
     dryRun?: boolean;
+    includeContext?: boolean;
   } = {}
 ): Promise<DebateResult> {
   const multiLLM = detectMultiLLM();
   const perspectives = selectPerspectives(topic, options.perspectives);
 
+  // Load vault context if requested
+  let debateContext: DebateContext | undefined;
+  if (options.includeContext) {
+    debateContext = await loadDebateContext(topic);
+  }
+
   console.log(`\n🎭 Starting debate on: "${topic}"`);
   console.log(`   Perspectives: ${perspectives.map(p => p.name).join(", ")}`);
   console.log(`   Multi-LLM: ${multiLLM.available ? `Yes (${multiLLM.providers.join(", ")})` : "No (Claude subagents)"}`);
+  if (debateContext) {
+    console.log(`   Vault context: ${debateContext.archivePatterns.length} archive patterns, ${debateContext.projectContext.length} projects`);
+  }
   console.log("");
 
   const rounds: DebateRound[] = [];
@@ -245,7 +317,7 @@ async function runDebate(
   // Generate prompts for each perspective
   for (let i = 0; i < perspectives.length; i++) {
     const perspective = perspectives[i];
-    const prompt = buildDebatePrompt(perspective, topic);
+    const prompt = buildDebatePrompt(perspective, topic, debateContext);
 
     const round: DebateRound = {
       round_number: i + 1,
@@ -331,6 +403,7 @@ async function main() {
     options: {
       topic: { type: "string", short: "t" },
       perspectives: { type: "string", short: "p" },
+      context: { type: "boolean", short: "c" },
       "dry-run": { type: "boolean", short: "d" },
       verbose: { type: "boolean", short: "v" },
       json: { type: "boolean", short: "j" },
@@ -349,11 +422,18 @@ USAGE:
 OPTIONS:
   -t, --topic <text>         The debate topic
   -p, --perspectives <list>  Comma-separated perspective IDs
+  -c, --context              Include vault context in debate prompts
   -d, --dry-run              Generate prompts without executing
   -v, --verbose              Show full prompts and responses
   -j, --json                 Output as JSON
   -l, --list                 List available perspectives
   -h, --help                 Show this help
+
+VAULT CONTEXT:
+  When --context is used, each perspective receives:
+  - Historical patterns from _04_Archives
+  - Active project context from _01_Projects
+  - Relevant areas from _02_Areas
 
 PERSPECTIVES:
   optimist    - Focuses on opportunities and benefits
@@ -365,7 +445,8 @@ PERSPECTIVES:
 
 EXAMPLES:
   bun run DebateOrchestrator.ts -t "Should we adopt microservices?"
-  bun run DebateOrchestrator.ts -t "Topic" -p optimist,pessimist,contrarian
+  bun run DebateOrchestrator.ts -t "pricing strategy" --context
+  bun run DebateOrchestrator.ts -t "Topic" -p optimist,pessimist,contrarian --context
   bun run DebateOrchestrator.ts -t "Topic" --dry-run --verbose
 `);
     return;
@@ -399,7 +480,8 @@ EXAMPLES:
 
   const result = await runDebate(values.topic, {
     perspectives: perspectiveList,
-    dryRun: values["dry-run"]
+    dryRun: values["dry-run"],
+    includeContext: values.context
   });
 
   if (values.json) {
@@ -415,7 +497,10 @@ EXAMPLES:
   console.log(`Debate saved to: ${debatePath}`);
 }
 
-main().catch(console.error);
+// Only run main() if this file is the entry point
+if (import.meta.main) {
+  main().catch(console.error);
+}
 
 // Export for use as module
 export {

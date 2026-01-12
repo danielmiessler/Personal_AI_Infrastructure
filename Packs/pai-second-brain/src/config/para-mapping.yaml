@@ -1,0 +1,205 @@
+# PARA to PAI Memory System Mapping
+#
+# This configuration maps PARA folder structure to PAI's three-tier memory system,
+# enabling integration between your Obsidian vault and PAI infrastructure.
+
+# Schema version
+version: "1.0.0"
+
+# PARA folder structure
+# Maps each PARA category to its cognitive function and PAI memory tier
+para_structure:
+
+  # Inbox - Working Memory (Hot Tier)
+  inbox:
+    folder: "_00_Inbox"
+    alternate_names:
+      - "00_Inbox"
+      - "Inbox"
+      - "inbox"
+    cognitive_function: "working_memory"
+    description: "Raw sensory capture, unprocessed information"
+    pai_memory_tier: "hot"
+    pai_mapping: "MEMORY/Work/"
+    behavior:
+      - "Quick capture without organization"
+      - "Temporary holding for processing"
+      - "Should be processed regularly"
+    retrieval_priority: "high"  # Recent captures often relevant
+
+  # Projects - Frontal Cortex (Hot Tier)
+  projects:
+    folder: "_01_Projects"
+    alternate_names:
+      - "01_Projects"
+      - "Projects"
+      - "projects"
+    cognitive_function: "frontal_cortex"
+    description: "Active focus, current initiatives requiring conscious attention"
+    pai_memory_tier: "hot"
+    pai_mapping: "MEMORY/Work/"
+    behavior:
+      - "Active task tracking"
+      - "Goal-oriented organization"
+      - "Deadline-driven"
+    retrieval_priority: "highest"  # Current work always relevant
+
+  # Areas - Procedural Memory (Warm Tier)
+  areas:
+    folder: "_02_Areas"
+    alternate_names:
+      - "02_Areas"
+      - "Areas"
+      - "areas"
+    cognitive_function: "procedural_memory"
+    description: "Ongoing responsibilities, maintained systems (business + personal unified)"
+    pai_memory_tier: "warm"
+    pai_mapping: "MEMORY/State/"
+    behavior:
+      - "Ongoing maintenance"
+      - "No end date"
+      - "Standards to maintain"
+    retrieval_priority: "medium"  # Background context
+
+  # Resources - Semantic Memory (Warm Tier)
+  resources:
+    folder: "_03_Resources"
+    alternate_names:
+      - "03_Resources"
+      - "Resources"
+      - "resources"
+    cognitive_function: "semantic_memory"
+    description: "Frameworks, prompts, patterns, accumulated knowledge"
+    pai_memory_tier: "warm"
+    pai_mapping: "MEMORY/Learning/"
+    behavior:
+      - "Reference material"
+      - "Frameworks and models"
+      - "Accumulated wisdom"
+    retrieval_priority: "medium"  # Apply when relevant
+
+  # Archives - Subconscious (Cold Tier)
+  archives:
+    folder: "_04_Archives"
+    alternate_names:
+      - "04_Archives"
+      - "Archives"
+      - "archives"
+    cognitive_function: "subconscious"
+    description: "Living pattern library for breakthrough synthesis"
+    pai_memory_tier: "cold"
+    pai_mapping: "MEMORY/History/"
+    behavior:
+      - "Permanent storage"
+      - "Never deleted"
+      - "Retrieved for synthesis when new catalysts arrive"
+    retrieval_priority: "synthesis"  # Valuable when patterns connect
+
+    # Critical archive philosophy
+    philosophy:
+      - "Archives are NOT dead storage"
+      - "Archives are living subconscious memory"
+      - "Stale patterns wait for catalysts"
+      - "Breakthroughs emerge from pattern synthesis"
+      - "Nothing is deleted - brain doesn't forget"
+
+# PAI Memory System integration
+pai_memory_integration:
+  enabled: true
+
+  # Three-tier memory architecture
+  tiers:
+    hot:
+      description: "Active work with real-time traces"
+      location: "MEMORY/Work/"
+      para_sources:
+        - inbox
+        - projects
+      retention: "active"
+
+    warm:
+      description: "Learnings organized for retrieval"
+      location: "MEMORY/Learning/"
+      para_sources:
+        - areas
+        - resources
+      retention: "permanent"
+
+    cold:
+      description: "Immutable historical archive"
+      location: "MEMORY/History/"
+      para_sources:
+        - archives
+      retention: "permanent"
+      synthesis_enabled: true
+
+# Archive synthesis configuration
+archive_synthesis:
+  enabled: true
+
+  # When to trigger archive retrieval
+  triggers:
+    - "new_project_start"
+    - "complex_problem"
+    - "strategic_decision"
+    - "user_stuck"
+    - "explicit_request"
+
+  # What to search for
+  pattern_types:
+    - "past_projects"
+    - "previous_decisions"
+    - "learned_frameworks"
+    - "failed_attempts"  # Crucial learning data
+    - "cross_domain_patterns"
+
+  # How to present findings
+  presentation:
+    show_original_context: true
+    show_connection_reasoning: true
+    show_adaptation_needed: true
+    show_transfer_cautions: true
+
+# Knowledge flow lifecycle
+knowledge_flow:
+  # External input enters through Inbox
+  capture: "inbox"
+
+  # Processing routes to appropriate location
+  processing:
+    active_work: "projects"
+    ongoing_responsibility: "areas"
+    reference_knowledge: "resources"
+
+  # Completed items flow to Archives
+  archival:
+    from: "projects"
+    to: "archives"
+    trigger: "project_completion"
+    preserve: "all_patterns"  # Nothing deleted
+
+  # Archives feed back into active work
+  synthesis:
+    from: "archives"
+    to:
+      - "projects"
+      - "resources"
+    trigger: "new_catalyst"
+    behavior: "breakthrough_connection"
+
+# Key principles (for AI reference)
+principles:
+  - name: "Nothing is deleted"
+    description: "Archives grow forever like biological memory"
+
+  - name: "Stale is not useless"
+    description: "Dormant patterns wait for catalysts"
+
+  - name: "Breakthroughs from synthesis"
+    description: "Pattern A + Pattern B + New Catalyst = Novel Insight"
+
+  - name: "No business/personal separation"
+    description: "Brain doesn't compartmentalize, neither should digital extension"
+
+  - name: "Archives are living"
+    description: "Regularly retrieved and cross-referenced, not forgotten"

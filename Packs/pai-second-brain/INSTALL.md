@@ -282,11 +282,10 @@ cp "$PACK_DIR/src/skills/SecondBrain/Tools/"*.ts "$PAI_DIR/skills/SecondBrain/To
 # Copy types
 cp "$PACK_DIR/src/types/SecondBrain.ts" "$PAI_DIR/skills/SecondBrain/types/"
 
-# Install yaml dependency (cached globally by Bun, no node_modules created)
-cd "$PAI_DIR/skills/SecondBrain/Tools"
-bun add yaml
-
 echo "TypeScript tools installed to: $PAI_DIR/skills/SecondBrain/Tools/"
+
+# Note: yaml dependency is resolved from Bun's global cache (~/.bun/install/cache/)
+# If tools fail with "Module not found: yaml", run: bun add yaml -g
 ```
 
 **Files installed:**

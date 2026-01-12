@@ -4,10 +4,9 @@
   "description": "Second Brain cognitive philosophy with delegation patterns and debate orchestration",
   "type": "module",
   "scripts": {
-    "assess": "bun run src/skills/SecondBrain/Tools/ComplexityAssessor.ts",
-    "delegate": "bun run src/skills/SecondBrain/Tools/DelegationRouter.ts",
-    "debate": "bun run src/skills/SecondBrain/Tools/DebateOrchestrator.ts",
-    "install-pack": "bun run src/skills/SecondBrain/Tools/Install.ts"
+    "assess": "bun run Tools/ComplexityAssessor.ts",
+    "delegate": "bun run Tools/DelegationRouter.ts",
+    "debate": "bun run Tools/DebateOrchestrator.ts"
   },
   "keywords": [
     "pai",

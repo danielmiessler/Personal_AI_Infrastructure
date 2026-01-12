@@ -1,7 +1,7 @@
 ---
 name: PAI Second Brain
-pack-id: nabilbamoh-pai-second-brain-core-v2.0.0
-version: 2.0.0
+pack-id: nabilbamoh-pai-second-brain-core-v0.1.0
+version: 0.1.0
 author: nabilbamoh
 description: Cognitive philosophy with TypeScript tools for delegation patterns and debate orchestration
 type: feature
@@ -16,7 +16,7 @@ keywords: [second-brain, delegation, debate, sparring-partner, cognitive-diversi
 
 > Cognitive philosophy that transforms Claude from assistant to director through delegation patterns and multi-perspective debate orchestration.
 
-**v2.0.0** - Now with TypeScript tools for deterministic logic + optional `pai-multi-llm` integration.
+**v0.1.0** - TypeScript tools for deterministic logic + optional `pai-multi-llm` integration.
 
 ---
 
@@ -452,7 +452,7 @@ export PARA_VAULT="$HOME/Documents/Notes"
 
 ## Credits
 
-- **Original concept:** Nabil Bamoh - cognitive amplification system for human augmentation
+- **Original concept:** Nabil BA-MOH (@NavNab) - cognitive amplification system for human augmentation
 - **Inspired by:** PARA method (Tiago Forte), Zettelkasten, Daniel Miessler's PAI, biological brain architecture
 - **Built on:** PAI infrastructure by Daniel Miessler
 
@@ -469,6 +469,7 @@ export PARA_VAULT="$HOME/Documents/Notes"
 ## Works Well With
 
 - **pai-core-install** (required) - Foundation for identity and memory
+- **pai-multi-llm** - Multi-AI cognitive diversity for debate orchestration
 - **pai-hook-system** - Event capture for context monitoring
 - **pai-voice-system** - Voice notifications for sparring partner mode
 - **pai-agents-skill** - Dynamic agent composition for delegation
@@ -519,13 +520,10 @@ Current vault search uses keyword matching. Future versions will implement:
 
 ## Changelog
 
-### 2.0.0 - 2025-01-12
-- Added `vault-context-injector` hook for automatic vault search
-- UserPromptSubmit hook auto-injects relevant vault context
-- Updated INSTALL.md with hook installation and settings.json update
-
-### 1.0.0 - 2025-01-12
+### 0.1.0 - 2025-01-12
 - Initial release
+- `vault-context-injector` hook for automatic vault search
+- UserPromptSubmit hook auto-injects relevant vault context
 - Philosophy layer: DELEGATION, SPARRING, AUTHORIZATION, COGNITIVE-DIVERSITY
 - Workflows: Delegate, Debate, ArchiveSynthesis
 - Config: para-mapping, context-thresholds, delegation-rules

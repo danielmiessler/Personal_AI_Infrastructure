@@ -34,6 +34,8 @@ fi
 | Session history | ✅ Yes | Stored in `~/.claude/multi-llm/sessions/` |
 | Custom provider roles | ✅ Yes | Part of team.yaml |
 | Tool files | ⚠️ Replaced | New versions installed |
+| lib/ files | ⚠️ Replaced | Shared utilities - updated with tools |
+| config/ files | ⚠️ Replaced | Default configs - updated with tools |
 
 ### Upgrade Steps
 
@@ -93,12 +95,12 @@ ls src/skills/MultiLLM/SKILL.md && echo "✓ Correct directory" || echo "✗ Wro
 
 **Copy all skill files:**
 ```bash
-PAI_DIR="${PAI_DIR:-$HOME/.claude}" && mkdir -p "$PAI_DIR/skills/MultiLLM/Tools" "$PAI_DIR/skills/MultiLLM/types" "$PAI_DIR/config" && cp src/skills/MultiLLM/SKILL.md "$PAI_DIR/skills/MultiLLM/" && cp src/skills/MultiLLM/Tools/*.ts "$PAI_DIR/skills/MultiLLM/Tools/" && cp src/types/Provider.ts "$PAI_DIR/skills/MultiLLM/types/" && echo "✓ Skill files installed to: $PAI_DIR/skills/MultiLLM"
+PAI_DIR="${PAI_DIR:-$HOME/.claude}" && mkdir -p "$PAI_DIR/skills/MultiLLM/Tools" "$PAI_DIR/skills/MultiLLM/lib" "$PAI_DIR/skills/MultiLLM/config" "$PAI_DIR/skills/MultiLLM/types" "$PAI_DIR/config" && cp src/skills/MultiLLM/SKILL.md "$PAI_DIR/skills/MultiLLM/" && cp src/skills/MultiLLM/Tools/*.ts "$PAI_DIR/skills/MultiLLM/Tools/" && cp src/skills/MultiLLM/lib/*.ts "$PAI_DIR/skills/MultiLLM/lib/" && cp src/skills/MultiLLM/config/*.yaml "$PAI_DIR/skills/MultiLLM/config/" && cp src/types/Provider.ts "$PAI_DIR/skills/MultiLLM/types/" && echo "✓ Skill files installed to: $PAI_DIR/skills/MultiLLM"
 ```
 
 **Verify files copied:**
 ```bash
-ls -la ~/.claude/skills/MultiLLM/Tools/
+ls -la ~/.claude/skills/MultiLLM/Tools/ && ls -la ~/.claude/skills/MultiLLM/lib/ && ls -la ~/.claude/skills/MultiLLM/config/
 ```
 
 Note: If tools fail with "Module not found: yaml", run: `bun add yaml -g`
@@ -218,9 +220,9 @@ bun run ~/.claude/skills/MultiLLM/Tools/Query.ts --list
 bun run ~/.claude/skills/MultiLLM/Tools/SessionManager.ts --list
 ```
 
-**Verify all tools are present:**
+**Verify all files are present:**
 ```bash
-ls -la ~/.claude/skills/MultiLLM/Tools/
+ls -la ~/.claude/skills/MultiLLM/Tools/ && ls ~/.claude/skills/MultiLLM/lib/ && ls ~/.claude/skills/MultiLLM/config/
 ```
 
 ## Troubleshooting
@@ -228,6 +230,8 @@ ls -la ~/.claude/skills/MultiLLM/Tools/
 | Issue | Solution |
 |-------|----------|
 | "No team.yaml found" | Run `bun run ~/.claude/skills/MultiLLM/Tools/GenerateTeam.ts` |
+| "Module not found: ../lib/config" | Re-run Phase 1 - lib/ directory not copied |
+| "Team defaults config not found" | Re-run Phase 1 - config/ directory not copied |
 | Provider not detected | Check `which <provider>` works |
 | Session not continuing | Check provider supports sessions |
 | Ollama models missing | Run `ollama list` to verify |

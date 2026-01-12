@@ -16,21 +16,18 @@ PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 
 # Create directory structure
 mkdir -p "$PAI_DIR/skills/MultiLLM/Tools"
+mkdir -p "$PAI_DIR/skills/MultiLLM/types"
 mkdir -p "$PAI_DIR/config"
 
 # Copy from pack source to PAI directory
 PACK_DIR="$(pwd)"
 cp "$PACK_DIR/src/skills/MultiLLM/SKILL.md" "$PAI_DIR/skills/MultiLLM/"
 cp "$PACK_DIR/src/skills/MultiLLM/Tools/"*.ts "$PAI_DIR/skills/MultiLLM/Tools/"
-cp "$PACK_DIR/package.json" "$PAI_DIR/skills/MultiLLM/"
-
-# Copy types
-mkdir -p "$PAI_DIR/skills/MultiLLM/types"
 cp "$PACK_DIR/src/types/Provider.ts" "$PAI_DIR/skills/MultiLLM/types/"
 
-# Install dependencies in destination (NOT in pack source)
-cd "$PAI_DIR/skills/MultiLLM"
-bun install
+# Install yaml dependency (cached globally by Bun, no node_modules created)
+cd "$PAI_DIR/skills/MultiLLM/Tools"
+bun add yaml
 
 echo "Skill files installed to: $PAI_DIR/skills/MultiLLM"
 ```
@@ -40,8 +37,8 @@ echo "Skill files installed to: $PAI_DIR/skills/MultiLLM"
 Run provider detection to see what's available:
 
 ```bash
-cd "$PAI_DIR/skills/MultiLLM"
-bun run detect --verbose
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/MultiLLM/Tools/DetectProviders.ts" --verbose
 ```
 
 Expected output:
@@ -70,16 +67,16 @@ Expected output:
 SUMMARY: 3/5 providers detected
 
 Ready to generate team.yaml with detected providers.
-Run: bun run generate-team
 ═══════════════════════════════════════════════════════════════
 ```
 
-## Phase 2: Generate Team Configuration
+## Phase 3: Generate Team Configuration
 
 ### If providers were detected:
 
 ```bash
-bun run generate-team
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/MultiLLM/Tools/GenerateTeam.ts"
 ```
 
 This creates `$PAI_DIR/config/team.yaml` with:
@@ -117,11 +114,12 @@ go install github.com/sst/opencode@latest
 
 After installing providers, run detection again:
 ```bash
-bun run detect
-bun run generate-team
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/MultiLLM/Tools/DetectProviders.ts"
+bun run "$PAI_DIR/skills/MultiLLM/Tools/GenerateTeam.ts"
 ```
 
-## Phase 3: Customize Team Roles
+## Phase 4: Customize Team Roles
 
 Edit `$PAI_DIR/config/team.yaml` to customize:
 
@@ -143,7 +141,7 @@ team:
         - Strategic problems
 ```
 
-## Phase 4: Copy Config Files
+## Phase 5: Copy Config Files (Optional)
 
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
@@ -155,20 +153,19 @@ if [ -d "$PACK_DIR/src/config" ]; then
 fi
 ```
 
-## Phase 5: Verify Installation
+## Phase 6: Verify Installation
 
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-cd "$PAI_DIR/skills/MultiLLM"
 
 # Check team configuration
-bun run query --list
+bun run "$PAI_DIR/skills/MultiLLM/Tools/Query.ts" --list
 
-# Test a query
-bun run query -p "Hello, what can you do?" --provider claude
+# Test a query (optional - requires provider to be running)
+# bun run "$PAI_DIR/skills/MultiLLM/Tools/Query.ts" -p "Hello" --provider claude
 
 # Check session tracking
-bun run session --list
+bun run "$PAI_DIR/skills/MultiLLM/Tools/SessionManager.ts" --list
 
 # Verify all tools are present
 echo "Checking tool files..."
@@ -179,7 +176,7 @@ ls -la "$PAI_DIR/skills/MultiLLM/Tools/"
 
 | Issue | Solution |
 |-------|----------|
-| "No team.yaml found" | Run `bun run generate-team` |
+| "No team.yaml found" | Run `bun run $PAI_DIR/skills/MultiLLM/Tools/GenerateTeam.ts` |
 | Provider not detected | Check `which <provider>` works |
 | Session not continuing | Check provider supports sessions |
 | Ollama models missing | Run `ollama list` to verify |

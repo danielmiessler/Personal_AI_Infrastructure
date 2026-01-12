@@ -4,11 +4,11 @@
   "description": "Multi-LLM orchestration infrastructure with session management",
   "type": "module",
   "scripts": {
-    "detect": "bun run src/skills/MultiLLM/Tools/DetectProviders.ts",
-    "query": "bun run src/skills/MultiLLM/Tools/Query.ts",
-    "generate-team": "bun run src/skills/MultiLLM/Tools/GenerateTeam.ts",
-    "health": "bun run src/skills/MultiLLM/Tools/HealthCheck.ts",
-    "install-pack": "bun run src/skills/MultiLLM/Tools/Install.ts"
+    "detect": "bun run Tools/DetectProviders.ts",
+    "query": "bun run Tools/Query.ts",
+    "generate-team": "bun run Tools/GenerateTeam.ts",
+    "session": "bun run Tools/SessionManager.ts",
+    "health": "bun run Tools/HealthCheck.ts"
   },
   "keywords": [
     "pai",

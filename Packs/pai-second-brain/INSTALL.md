@@ -395,27 +395,19 @@ if [ -f "$PAI_DIR/config/para-mapping.yaml" ]; then
   echo "✓ Configured vault in para-mapping.yaml"
 fi
 
-# 2. Add PARA_VAULT to shell profile (REQUIRED for vault tools to work)
-SHELL_PROFILE=""
-if [ -f "$HOME/.zshrc" ]; then
-  SHELL_PROFILE="$HOME/.zshrc"
-elif [ -f "$HOME/.bashrc" ]; then
-  SHELL_PROFILE="$HOME/.bashrc"
-elif [ -f "$HOME/.bash_profile" ]; then
-  SHELL_PROFILE="$HOME/.bash_profile"
-fi
-
-if [ -n "$SHELL_PROFILE" ]; then
-  # Check if PARA_VAULT is already set
-  if ! grep -q "export PARA_VAULT=" "$SHELL_PROFILE" 2>/dev/null; then
-    echo "" >> "$SHELL_PROFILE"
-    echo "# PAI Second Brain - PARA vault location" >> "$SHELL_PROFILE"
-    echo "export PARA_VAULT=\"$VAULT_PATH\"" >> "$SHELL_PROFILE"
-    echo "✓ Added PARA_VAULT to $SHELL_PROFILE"
-  else
-    echo "⚠ PARA_VAULT already exists in $SHELL_PROFILE - not modified"
+# 2. Add PARA_VAULT to ALL existing shell profiles
+for SHELL_PROFILE in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
+  if [ -f "$SHELL_PROFILE" ]; then
+    if ! grep -q "export PARA_VAULT=" "$SHELL_PROFILE" 2>/dev/null; then
+      echo "" >> "$SHELL_PROFILE"
+      echo "# PAI Second Brain - PARA vault location" >> "$SHELL_PROFILE"
+      echo "export PARA_VAULT=\"$VAULT_PATH\"" >> "$SHELL_PROFILE"
+      echo "✓ Added PARA_VAULT to $SHELL_PROFILE"
+    else
+      echo "⚠ PARA_VAULT already exists in $SHELL_PROFILE - not modified"
+    fi
   fi
-fi
+done
 
 # 3. Also add to PAI .env file for Claude sessions
 if [ -f "$PAI_DIR/.env" ]; then

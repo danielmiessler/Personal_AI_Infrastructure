@@ -32,6 +32,8 @@ Library/Logs/
 
 # Node/Bun
 node_modules/
+bun.lock
+bun.lockb
 .npm
 .yarn
 .pnp.*

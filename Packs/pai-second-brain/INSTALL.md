@@ -282,12 +282,9 @@ cp "$PACK_DIR/src/skills/SecondBrain/Tools/"*.ts "$PAI_DIR/skills/SecondBrain/To
 # Copy types
 cp "$PACK_DIR/src/types/SecondBrain.ts" "$PAI_DIR/skills/SecondBrain/types/"
 
-# Copy package.json for bun scripts
-cp "$PACK_DIR/package.json" "$PAI_DIR/skills/SecondBrain/"
-
-# Install dependencies in destination (NOT in pack source)
-cd "$PAI_DIR/skills/SecondBrain"
-bun install
+# Install yaml dependency (cached globally by Bun, no node_modules created)
+cd "$PAI_DIR/skills/SecondBrain/Tools"
+bun add yaml
 
 echo "TypeScript tools installed to: $PAI_DIR/skills/SecondBrain/Tools/"
 ```
@@ -348,14 +345,13 @@ fi
 
 ```bash
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
-cd "$PAI_DIR/skills/SecondBrain"
 
 # Test complexity assessor
-bun run assess -p "What is TypeScript?"
-bun run assess -p "Should we migrate to microservices?"
+bun run "$PAI_DIR/skills/SecondBrain/Tools/ComplexityAssessor.ts" -p "What is TypeScript?"
+bun run "$PAI_DIR/skills/SecondBrain/Tools/ComplexityAssessor.ts" -p "Should we migrate to microservices?"
 
 # List available perspectives
-bun run debate --list
+bun run "$PAI_DIR/skills/SecondBrain/Tools/DebateOrchestrator.ts" --list
 ```
 
 ---
@@ -398,8 +394,7 @@ echo "Checking config files..."
 [ -f "$PAI_DIR/config/delegation-rules.yaml" ] && echo "✓ delegation-rules.yaml" || echo "✗ delegation-rules.yaml missing"
 
 echo "Testing TypeScript tools execution..."
-cd "$PAI_DIR/skills/SecondBrain"
-bun run assess -p "test" > /dev/null 2>&1 && echo "✓ ComplexityAssessor runs" || echo "✗ ComplexityAssessor failed"
+bun run "$PAI_DIR/skills/SecondBrain/Tools/ComplexityAssessor.ts" -p "test" > /dev/null 2>&1 && echo "✓ ComplexityAssessor runs" || echo "✗ ComplexityAssessor failed"
 
 echo "=== Verification Complete ==="
 ```
@@ -521,10 +516,10 @@ After installation, the Second Brain philosophy is **always active**. There are 
 
 **TypeScript tool commands:**
 ```bash
-cd "$PAI_DIR/skills/SecondBrain"
-bun run assess -p "prompt"    # Assess complexity level
-bun run delegate -p "prompt"  # Get delegation plan
-bun run debate -t "topic"     # Run multi-perspective debate
+PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+bun run "$PAI_DIR/skills/SecondBrain/Tools/ComplexityAssessor.ts" -p "prompt"    # Assess complexity level
+bun run "$PAI_DIR/skills/SecondBrain/Tools/DelegationRouter.ts" -p "prompt"      # Get delegation plan
+bun run "$PAI_DIR/skills/SecondBrain/Tools/DebateOrchestrator.ts" -t "topic"     # Run multi-perspective debate
 ```
 
 **Key behavioral changes:**

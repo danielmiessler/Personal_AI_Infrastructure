@@ -1,3 +1,16 @@
+---
+name: PAI Multi-LLM
+pack-id: nabilbamoh-pai-multi-llm-core-v0.1.0
+version: 0.1.0
+author: nabilbamoh
+description: Multi-LLM orchestration infrastructure with intelligent session management
+type: feature
+purpose-type: [productivity, multi-llm, orchestration]
+platform: claude-code
+dependencies: [danielmiessler-pai-core-install-core-v1.4.0]
+keywords: [multi-llm, ollama, claude, codex, gemini, opencode, session-management, cognitive-diversity]
+---
+
 # pai-multi-llm
 
 > Multi-LLM orchestration infrastructure with intelligent session management.

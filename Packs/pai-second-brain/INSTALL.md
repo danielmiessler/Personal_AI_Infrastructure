@@ -59,25 +59,10 @@ else
   echo "No existing SecondBrain skill (clean install)"
 fi
 
-# 5. Check for Obsidian vault with PARA structure
-echo ""
-echo "Checking for common Obsidian vault locations..."
-for dir in "$HOME/Documents/SecondBrain" "$HOME/Documents/Obsidian" "$HOME/Obsidian" "$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"; do
-  if [ -d "$dir" ]; then
-    echo "Found vault candidate: $dir"
-    # Check for PARA folders
-    if [ -d "$dir/_00_Inbox" ] || [ -d "$dir/00_Inbox" ] || [ -d "$dir/Inbox" ]; then
-      echo "  ^ Has PARA-like structure"
-    fi
-  fi
-done
-
-# 6. Check environment variables
+# 5. Check environment variables
 echo ""
 echo "Environment variables:"
-echo "  DA: ${DA:-'NOT SET'}"
 echo "  PAI_DIR: ${PAI_DIR:-'NOT SET'}"
-echo "  SECOND_BRAIN_VAULT: ${SECOND_BRAIN_VAULT:-'NOT SET'}"
 ```
 
 ### 1.2 Present Findings
@@ -87,8 +72,6 @@ Tell the user what you found:
 "Here's what I found on your system:
 - pai-core-install: [installed / NOT INSTALLED - REQUIRED]
 - Existing SecondBrain skill: [Yes at path / No]
-- Obsidian vault: [Found at path / Not found]
-- PARA structure: [Detected / Not detected]
 
 [If pai-core-install missing]: pai-core-install is REQUIRED. Please install it first."
 ```
@@ -123,22 +106,25 @@ Give me the pai-core-install pack directory and I'll install it for you."
 }
 ```
 
-### Question 2: Vault Location
+### Question 2: PARA Folder (Optional)
 
-**Ask about the user's knowledge vault:**
+**Ask if the user has a PARA-structured folder:**
 
 ```json
 {
-  "header": "Vault",
-  "question": "Where is your Obsidian/knowledge vault located?",
+  "header": "PARA",
+  "question": "Do you have a PARA-structured notes folder?",
   "multiSelect": false,
   "options": [
-    {"label": "Auto-detected: [PATH]", "description": "Use the vault I found at [detected path]"},
-    {"label": "I'll specify a custom path", "description": "Enter a different vault location"},
-    {"label": "I don't use a vault yet", "description": "Skip vault integration for now"}
+    {"label": "Yes, I'll provide the path", "description": "I have a folder with _00_Inbox, _01_Projects, etc."},
+    {"label": "No / Skip", "description": "Continue without PARA integration (can configure later)"}
   ]
 }
 ```
+
+**If yes:** Ask for the path. Example: `~/Documents/Notes` or `~/Documents/SecondBrain`
+
+**Note:** PARA integration is optional. Core features (delegation, debate, complexity assessment) work without it.
 
 ### Question 3: Sparring Intensity
 
@@ -316,7 +302,7 @@ cp "$PACK_DIR/src/config/delegation-rules.yaml" "$PAI_DIR/config/"
 
 **Mark todo as completed.**
 
-### 4.6 Configure Vault Location
+### 4.6 Configure PARA Vault Location
 
 **Mark todo "Configure vault location" as in_progress.**
 
@@ -330,10 +316,15 @@ VAULT_PATH="[USER_SPECIFIED_PATH]"
 if [ -f "$PAI_DIR/config/para-mapping.yaml" ]; then
   # Add vault_root to the config
   echo "" >> "$PAI_DIR/config/para-mapping.yaml"
-  echo "# User's Obsidian vault location" >> "$PAI_DIR/config/para-mapping.yaml"
+  echo "# PARA vault location (any folder with PARA structure)" >> "$PAI_DIR/config/para-mapping.yaml"
   echo "vault_root: \"$VAULT_PATH\"" >> "$PAI_DIR/config/para-mapping.yaml"
   echo "Configured vault at: $VAULT_PATH"
 fi
+
+# Also set environment variable hint
+echo ""
+echo "To make this permanent, add to your shell profile:"
+echo "  export PARA_VAULT=\"$VAULT_PATH\""
 ```
 
 **Mark todo as completed (or skip if no vault).**
@@ -471,14 +462,14 @@ cp src/config/*.yaml $PAI_DIR/config/
 cp src/config/*.json $PAI_DIR/config/
 ```
 
-### "Vault not detected"
+### "Configure PARA folder later"
 
 ```bash
-# Find Obsidian vaults
-find ~ -name ".obsidian" -type d 2>/dev/null | head -5
+# Add to para-mapping.yaml
+echo 'vault_root: "/path/to/your/notes"' >> ~/.claude/config/para-mapping.yaml
 
-# Set manually
-export SECOND_BRAIN_VAULT="/path/to/your/vault"
+# Or set environment variable
+export PARA_VAULT="/path/to/your/notes"
 ```
 
 ---

@@ -1,7 +1,11 @@
 # PARA to PAI Memory System Mapping
 #
-# This configuration maps PARA folder structure to PAI's three-tier memory system,
-# enabling integration between your Obsidian vault and PAI infrastructure.
+# This configuration maps PARA folder structure to PAI's three-tier memory system.
+# Works with any folder containing PARA structure (Obsidian, plain markdown, etc.)
+#
+# Set your vault location:
+#   vault_root: "/path/to/your/para/folder"
+# Or use environment variable: PARA_VAULT
 
 # Schema version
 version: "1.0.0"

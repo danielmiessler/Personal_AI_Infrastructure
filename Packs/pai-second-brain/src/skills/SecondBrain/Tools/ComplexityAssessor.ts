@@ -238,7 +238,10 @@ EXAMPLES:
   }
 }
 
-main().catch(console.error);
+// Only run main() if this file is the entry point
+if (import.meta.main) {
+  main().catch(console.error);
+}
 
 // Export for use as module
 export { assessComplexity, COMPLEXITY_RULES, THRESHOLDS };

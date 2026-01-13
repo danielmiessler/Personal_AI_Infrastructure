@@ -1,0 +1,12 @@
+# Generated files and dependencies - exclude from pack distribution
+src/node_modules/
+src/apps/*/node_modules/
+src/apps/*/dist/
+src/sessions/
+src/apps/server/data/sessions/
+src/.claude/
+*.log
+*.pid
+.DS_Store
+
+# These should be generated during installation, not distributed

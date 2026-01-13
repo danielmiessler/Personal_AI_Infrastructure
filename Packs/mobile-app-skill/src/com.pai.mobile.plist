@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pai.mobile</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__SCRIPT_DIR__/service-wrapper.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__SCRIPT_DIR__/apps/server</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__SCRIPT_DIR__/launchd.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__SCRIPT_DIR__/launchd.log</string>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/robt</string>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,6 @@
+# Generated files and logs - exclude from pack distribution
+*.log
+*.pid
+.DS_Store
+
+# These should be generated during usage, not distributed

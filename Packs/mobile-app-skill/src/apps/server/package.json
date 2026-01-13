@@ -1,0 +1,20 @@
+{
+  "name": "pai-mobile-server",
+  "version": "1.0.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^0.2.82",
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

@@ -3,6 +3,7 @@
 // PreToolUse hook: Validates commands and blocks dangerous operations
 
 import { sendEventToObservability, getCurrentTimestamp, getSourceApp } from './lib/observability';
+import { readStdinJson } from './lib/stdin';
 
 interface PreToolUsePayload {
   session_id: string;
@@ -169,12 +170,10 @@ function validateCommand(command: string): { allowed: boolean; message?: string;
 
 async function main() {
   try {
-    const stdinData = await Bun.stdin.text();
-    if (!stdinData.trim()) {
+    const payload = await readStdinJson<PreToolUsePayload>();
+    if (!payload.tool_name) {
       process.exit(0);
     }
-
-    const payload: PreToolUsePayload = JSON.parse(stdinData);
 
     // Only validate Bash commands
     if (payload.tool_name !== 'Bash') {

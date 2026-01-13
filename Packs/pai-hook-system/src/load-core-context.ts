@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { readStdinJson } from './lib/stdin';
 
 interface SessionStartPayload {
   session_id: string;
@@ -44,12 +45,10 @@ async function main() {
       process.exit(0);
     }
 
-    const stdinData = await Bun.stdin.text();
-    if (!stdinData.trim()) {
+    const payload = await readStdinJson<SessionStartPayload>();
+    if (!payload.session_id) {
       process.exit(0);
     }
-
-    const payload: SessionStartPayload = JSON.parse(stdinData);
     const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
 
     // Look for CORE skill to load

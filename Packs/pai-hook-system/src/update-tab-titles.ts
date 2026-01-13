@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { readStdinJson } from './lib/stdin';
 // $PAI_DIR/hooks/update-tab-titles.ts
 // UserPromptSubmit hook: Update terminal tab title with task context
 
@@ -68,12 +69,10 @@ function launchBackgroundSummarization(prompt: string, sessionId: string): void 
 
 async function main() {
   try {
-    const stdinData = await Bun.stdin.text();
-    if (!stdinData.trim()) {
+    const payload = await readStdinJson<UserPromptPayload>();
+    if (!payload.prompt && !payload.message) {
       process.exit(0);
     }
-
-    const payload: UserPromptPayload = JSON.parse(stdinData);
     const prompt = payload.prompt || payload.message || '';
 
     if (!prompt || prompt.length < 3) {

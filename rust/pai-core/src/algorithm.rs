@@ -123,7 +123,7 @@ impl AlgorithmEngine {
                 ISCStatus::Adjusted(r) => &format!("🔧 ADJUSTED ({})", r),
                 ISCStatus::Blocked(r) => &format!("🚫 BLOCKED ({})", r),
             };
-            table.push_str(&format!("| {} | {} | {{:?}} | {} |\n", req.id, req.description, req.source, status_str));
+            table.push_str(&format!("| {} | {} | {:?} | {} |\n", req.id, req.description, req.source, status_str));
         }
         table
     }

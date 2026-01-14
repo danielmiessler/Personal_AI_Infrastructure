@@ -1,7 +1,17 @@
 use handlebars::{Handlebars, Renderable, HelperDef, Helper, Context, RenderContext, Output, HelperResult};
 use serde::Serialize;
-use anyhow::Result;
+use thiserror::Error;
 use std::path::Path;
+
+#[derive(Error, Debug)]
+pub enum PromptError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Template registration error: {0}")]
+    Template(#[from] handlebars::TemplateError),
+    #[error("Template rendering error: {0}")]
+    Render(#[from] handlebars::RenderError),
+}
 
 pub struct RepeatHelper;
 
@@ -112,7 +122,7 @@ impl<'a> PromptEngine<'a> {
         hb.register_helper("codeblock", Box::new(|h: &handlebars::Helper, _: &handlebars::Handlebars, _: &handlebars::Context, _: &mut handlebars::RenderContext, out: &mut dyn handlebars::Output| {
             let code = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
             let lang = h.param(1).and_then(|v| v.value().as_str()).unwrap_or("");
-            out.write(&format!("```{}\n{}\n```", lang, code))?;
+            out.write(&format!("```{{}}\n{{}}\n```", lang, code))?;
             Ok(())
         }));
 
@@ -120,7 +130,7 @@ impl<'a> PromptEngine<'a> {
             let text = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
             let spaces = h.param(1).and_then(|v| v.value().as_u64()).unwrap_or(2) as usize;
             let indent = " ".repeat(spaces);
-            let res = text.lines().map(|line| format!("{}{}", indent, line)).collect::<Vec<_>>().join("\n");
+            let res = text.lines().map(|line| format!("{{}}{{}}", indent, line)).collect::<Vec<_>>().join("\n");
             out.write(&res)?;
             Ok(())
         }));
@@ -196,13 +206,13 @@ impl<'a> PromptEngine<'a> {
         Self { registry: hb }
     }
 
-    pub fn register_template(&mut self, name: &str, path: &Path) -> Result<()> {
+    pub fn register_template(&mut self, name: &str, path: &Path) -> Result<(), PromptError> {
         let content = std::fs::read_to_string(path)?;
         self.registry.register_template_string(name, content)?;
         Ok(())
     }
 
-    pub fn render<T: Serialize>(&self, template_name: &str, data: &T) -> Result<String> {
+    pub fn render<T: Serialize>(&self, template_name: &str, data: &T) -> Result<String, PromptError> {
         let rendered = self.registry.render(template_name, data)?;
         Ok(rendered)
     }

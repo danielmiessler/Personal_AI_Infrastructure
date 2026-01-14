@@ -1,5 +1,13 @@
 use std::path::PathBuf;
-use anyhow::Result;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum SkillError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Regex error: {0}")]
+    Regex(#[from] regex::Error),
+}
 
 pub struct SkillRegistry {
     skills: std::collections::HashMap<String, SkillMetadata>,
@@ -32,7 +40,7 @@ impl SkillRegistry {
         self
     }
 
-    pub fn scan_directory(&mut self, skills_dir: &std::path::Path) -> Result<usize> {
+    pub fn scan_directory(&mut self, skills_dir: &std::path::Path) -> Result<usize, SkillError> {
         if !skills_dir.exists() { return Ok(0); }
 
         let use_when_re = regex::Regex::new(r"USE WHEN\s+([^.]+)")?;
@@ -140,7 +148,7 @@ mod tests {
         let skill_dir = tmp.path().join("BadSkill");
         fs::create_dir_all(&skill_dir).unwrap();
         // Missing name and other fields, should use fallbacks
-        fs::write(skill_dir.join("SKILL.md"), "--- \n version: invalid \n ---").unwrap();
+        fs::write(skill_dir.join("SKILL.md"), "---\n version: invalid\n ---").unwrap();
 
         let mut registry = SkillRegistry::new();
         registry.scan_directory(tmp.path()).unwrap();
@@ -156,7 +164,7 @@ mod tests {
         let tmp = tempdir().unwrap();
         let skill_dir = tmp.path().join("TestSkill");
         fs::create_dir_all(&skill_dir).unwrap();
-        fs::write(skill_dir.join("SKILL.md"), "--- \n name: Test \n --- \n USE WHEN Rust Query").unwrap();
+        fs::write(skill_dir.join("SKILL.md"), "---\n name: Test\n --- \n USE WHEN Rust Query").unwrap();
 
         let mut registry = SkillRegistry::new();
         registry.scan_directory(tmp.path()).unwrap();

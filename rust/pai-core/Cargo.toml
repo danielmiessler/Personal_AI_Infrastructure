@@ -17,3 +17,6 @@ handlebars = "6.2"
 serde_yaml = "0.9"
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 tokio-stream = "0.1"
+
+[dev-dependencies]
+tempfile = "3.10"

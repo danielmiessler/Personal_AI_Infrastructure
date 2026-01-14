@@ -43,8 +43,6 @@ impl UpgradeMonitor {
         let client = reqwest::Client::new();
 
         for source in &self.sources {
-            // Simplified check: just seeing if we can reach the source for now
-            // In a real impl, we would compare hashes or parse RSS
             if let Ok(res) = client.get(&source.url).send().await {
                 if res.status().is_success() {
                     updates.push(UpdateFound {

@@ -1,19 +1,16 @@
-use std::path::{Path, PathBuf};
-use regex::Regex;
-
 pub struct PrivacyGuard {
-    protected_patterns: Vec<Regex>,
+    protected_patterns: Vec<regex::Regex>,
 }
 
 impl PrivacyGuard {
     pub fn new() -> Self {
         Self {
             protected_patterns: vec![
-                Regex::new(r"MISSION\.md").unwrap(),
-                Regex::new(r"BELIEFS\.md").unwrap(),
-                Regex::new(r"TELOS/.*").unwrap(),
-                Regex::new(r"\.env").unwrap(),
-                Regex::new(r"history/.*").unwrap(),
+                regex::Regex::new(r"MISSION\.md").unwrap(),
+                regex::Regex::new(r"BELIEFS\.md").unwrap(),
+                regex::Regex::new(r"TELOS/.*").unwrap(),
+                regex::Regex::new(r"\.env").unwrap(),
+                regex::Regex::new(r"history/.*").unwrap(),
             ],
         }
     }

@@ -1,7 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::fs;
 use anyhow::Result;
-use crate::HookEvent;
 
 pub struct RecoveryJournal {
     backup_dir: PathBuf,
@@ -14,7 +13,7 @@ impl RecoveryJournal {
         }
     }
 
-    pub fn snapshot(&self, file_to_backup: &Path) -> Result<Option<PathBuf>> {
+    pub fn snapshot(&self, file_to_backup: &std::path::Path) -> Result<Option<PathBuf>> {
         if !file_to_backup.exists() || !file_to_backup.is_file() {
             return Ok(None);
         }

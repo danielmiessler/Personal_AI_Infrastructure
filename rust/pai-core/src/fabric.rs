@@ -1,5 +1,4 @@
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
+use std::path::PathBuf;
 use anyhow::{Result, anyhow};
 
 pub struct FabricRegistry {

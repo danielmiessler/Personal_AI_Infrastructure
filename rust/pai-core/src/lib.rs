@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use anyhow::Result;
 
-pub mod hooks;
-pub mod safety;
 pub mod algorithm;
 pub mod memory;
 pub mod identity;
@@ -19,11 +17,17 @@ pub mod classifier;
 pub mod config;
 pub mod enrichment;
 pub mod hardening;
-pub mod upgrades;
-pub mod observability;
 pub mod compliance;
 pub mod swarm;
 pub mod privacy;
+pub mod orchestration;
+pub mod oracle;
+pub mod learning;
+pub mod visuals;
+pub mod manifest;
+pub mod upgrades;
+pub mod observability;
+pub mod safety;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

@@ -1,9 +1,10 @@
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use anyhow::Result;
+use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelosEngine {
+    root_dir: PathBuf,
+}
+
+#[derive(Debug, Clone)]
 pub enum TelosCategory {
     Mission,
     Beliefs,
@@ -15,10 +16,6 @@ pub enum TelosCategory {
     Learned,
     Challenges,
     Ideas,
-}
-
-pub struct TelosEngine {
-    root_dir: PathBuf,
 }
 
 impl TelosEngine {
@@ -42,7 +39,7 @@ impl TelosEngine {
         self.root_dir.join("skills").join("CORE").join("USER").join("TELOS").join(filename)
     }
 
-    pub fn load_deep_context(&self, categories: &[TelosCategory]) -> Result<String> {
+    pub fn load_deep_context(&self, categories: &[TelosCategory]) -> anyhow::Result<String> {
         let mut context = String::from("# DEEP CONTEXT (TELOS)\n\n");
         for cat in categories {
             let path = self.get_file_path(cat.clone());

@@ -148,11 +148,12 @@ impl AlgorithmEngine {
         table.push_str("|---|-------------|--------|--------|\n");
         for req in &state.requirements {
             let status_str = match &req.status {
-                ISCStatus::Pending => "⏳ PENDING",
-                ISCStatus::Active => "🔄 ACTIVE",
-                ISCStatus::Done => "✅ DONE",
-                ISCStatus::Adjusted(r) => &format!("🔧 ADJUSTED ({})", r),
-                ISCStatus::Blocked(r) => &format!("🚫 BLOCKED ({})", r),
+                ISCStatus::Pending => "⏳ PENDING".to_string(),
+                ISCStatus::Active => "🔄 ACTIVE".to_string(),
+                ISCStatus::Looping(c) => format!("🔄 LOOPING ({})", c),
+                ISCStatus::Done => "✅ DONE".to_string(),
+                ISCStatus::Adjusted(r) => format!("🔧 ADJUSTED ({})", r),
+                ISCStatus::Blocked(r) => format!("🚫 BLOCKED ({})", r),
             };
             table.push_str(&format!("| {} | {} | {:?} | {} |\n", req.id, req.description, req.source, status_str));
         }

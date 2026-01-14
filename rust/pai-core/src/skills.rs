@@ -1,12 +1,12 @@
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
+use std::path::PathBuf;
 use anyhow::Result;
-use regex::Regex;
 
-use crate::config::ConfigLoader;
+pub struct SkillRegistry {
+    skills: std::collections::HashMap<String, SkillMetadata>,
+    custom_dir: Option<PathBuf>,
+}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SkillMetadata {
     pub name: String,
     pub description: String,
@@ -15,15 +15,10 @@ pub struct SkillMetadata {
     pub customized: bool,
 }
 
-pub struct SkillRegistry {
-    skills: HashMap<String, SkillMetadata>,
-    custom_dir: Option<PathBuf>,
-}
-
 impl SkillRegistry {
     pub fn new() -> Self {
         Self { 
-            skills: HashMap::new(),
+            skills: std::collections::HashMap::new(),
             custom_dir: None,
         }
     }
@@ -33,10 +28,10 @@ impl SkillRegistry {
         self
     }
 
-    pub fn scan_directory(&mut self, skills_dir: &Path) -> Result<usize> {
+    pub fn scan_directory(&mut self, skills_dir: &std::path::Path) -> Result<usize> {
         if !skills_dir.exists() { return Ok(0); }
 
-        let use_when_re = Regex::new(r"USE WHEN\s+([^.]+)")?;
+        let use_when_re = regex::Regex::new(r"USE WHEN\s+([^.]+)")?;
         let mut count = 0;
 
         for entry in std::fs::read_dir(skills_dir)? {

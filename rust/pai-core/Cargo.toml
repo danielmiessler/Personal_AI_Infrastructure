@@ -21,3 +21,8 @@ tokio-stream = "0.1"
 
 [dev-dependencies]
 tempfile = "3.10"
+criterion = "0.5"
+
+[[bench]]
+name = "pai_bench"
+harness = false

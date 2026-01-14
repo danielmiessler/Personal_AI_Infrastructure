@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::{HookEvent, HookEventType};
+use std::sync::OnceLock;
+use regex::Regex;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentMetadata {
@@ -17,7 +19,9 @@ impl EnrichmentEngine {
                 let description = event.payload["tool_input"]["description"].as_str().unwrap_or("");
                 
                 // PAI Standard Pattern: [agent-type-N]
-                let re = regex::Regex::new(r"\[([a-z-]+)-(\d+)\]").unwrap();
+                static RE: OnceLock<Regex> = OnceLock::new();
+                let re = RE.get_or_init(|| Regex::new(r"\[([a-z-]+)-(\d+)\]").unwrap());
+                
                 if let Some(caps) = re.captures(description) {
                     let agent_type = caps[1].to_string();
                     let instance_number = caps[2].parse::<u32>().unwrap_or(0);

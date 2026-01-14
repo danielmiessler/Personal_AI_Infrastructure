@@ -1,0 +1,15 @@
+[package]
+name = "pai-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.12"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+tokio = { version = "1.48", features = ["full"] }
+async-trait = "0.1"
+tracing = "0.1"
+uuid = { version = "1.8", features = ["v4", "serde"] }

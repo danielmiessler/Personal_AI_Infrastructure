@@ -28,6 +28,7 @@ pub mod manifest;
 pub mod upgrades;
 pub mod observability;
 pub mod safety;
+pub mod hooks;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

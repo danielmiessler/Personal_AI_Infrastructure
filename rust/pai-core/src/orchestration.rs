@@ -22,11 +22,27 @@ pub struct CapabilityRegistry {
     pub execution: HashMap<String, Capability>,
 }
 
+impl Default for CapabilityRegistry {
+    fn default() -> Self {
+        Self {
+            version: "1.0".to_string(),
+            models: HashMap::new(),
+            thinking: HashMap::new(),
+            research: HashMap::new(),
+            execution: HashMap::new(),
+        }
+    }
+}
+
 pub struct DynamicCapabilityLoader {
     registry: CapabilityRegistry,
 }
 
 impl DynamicCapabilityLoader {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn from_yaml(path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
         let registry: CapabilityRegistry = serde_yaml::from_str(&content)?;
@@ -52,6 +68,14 @@ impl DynamicCapabilityLoader {
         }
         
         available
+    }
+}
+
+impl Default for DynamicCapabilityLoader {
+    fn default() -> Self {
+        Self {
+            registry: CapabilityRegistry::default(),
+        }
     }
 }
 

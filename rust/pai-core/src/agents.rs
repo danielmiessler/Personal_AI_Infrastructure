@@ -21,11 +21,7 @@ pub struct AgentRegistry {
 
 impl AgentRegistry {
     pub fn new() -> Self {
-        Self {
-            expertise: HashMap::new(),
-            personality: HashMap::new(),
-            approach: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn from_yaml(path: &Path) -> Result<Self> {
@@ -53,12 +49,34 @@ impl AgentRegistry {
     }
 }
 
+impl Default for AgentRegistry {
+    fn default() -> Self {
+        Self {
+            expertise: HashMap::new(),
+            personality: HashMap::new(),
+            approach: HashMap::new(),
+        }
+    }
+}
+
+impl Default for AgentFactory {
+    fn default() -> Self {
+        Self {
+            registry: AgentRegistry::default(),
+        }
+    }
+}
+
 pub struct AgentFactory {
     registry: AgentRegistry,
 }
 
 impl AgentFactory {
-    pub fn new(registry: AgentRegistry) -> Self {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_registry(registry: AgentRegistry) -> Self {
         Self { registry }
     }
 

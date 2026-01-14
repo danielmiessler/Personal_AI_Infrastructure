@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 use regex::Regex;
+use crate::privacy::PrivacyGuard;
 
 #[derive(Error, Debug)]
 pub enum ProsodyError {
@@ -18,6 +19,11 @@ pub struct EmotionalSettings {
 pub struct ProsodyEngine {
     presets: HashMap<String, EmotionalSettings>,
     marker_regex: Regex,
+    privacy: PrivacyGuard,
+    // Pre-compiled cleaning regexes
+    code_block_re: Regex,
+    link_re: Regex,
+    emoji_re: Regex,
 }
 
 impl ProsodyEngine {
@@ -50,8 +56,16 @@ impl ProsodyEngine {
 
         // Pattern: [emoji emotion-name]
         let marker_regex = Regex::new(r"\[(.+?)\s+(\w+)\]")?;
+        let privacy = PrivacyGuard::new();
 
-        Ok(Self { presets, marker_regex })
+        Ok(Self { 
+            presets, 
+            marker_regex,
+            privacy,
+            code_block_re: Regex::new(r"```[\s\S]*?```")?,
+            link_re: Regex::new(r"\[([^\]]+)\]\([^\s\)]+\)")?,
+            emoji_re: Regex::new(r"[\x{1F300}-\x{1F9FF}]")?,
+        })
     }
 
     pub fn detect_and_clean(&self, message: &str) -> (String, Option<EmotionalSettings>) {
@@ -83,8 +97,12 @@ impl ProsodyEngine {
         for tag in tags_to_remove {
             cleaned = cleaned.replace(&tag, "");
         }
+        
+        let speech_ready = self.clean_for_speech(&cleaned);
+        // Apply Privacy Redaction
+        let redacted = self.privacy.redact(&speech_ready);
 
-        (self.clean_for_speech(&cleaned), best_settings)
+        (redacted, best_settings)
     }
 
     fn clean_for_speech(&self, input: &str) -> String {
@@ -92,18 +110,13 @@ impl ProsodyEngine {
         let mut s = input.to_string();
         
         // 1. Strip code blocks
-        // Note: For production-grade, we might want to compile these regexes too, 
-        // but they are local to this helper. For now, we keep them here or move them to struct if this is hot path.
-        // Given the scope, let's leave them here but use unwrap as they are constant literals.
-        let code_re = regex::Regex::new(r"```[\s\S]*?```").unwrap();
-        s = code_re.replace_all(&s, "[code omitted]").to_string();
+        s = self.code_block_re.replace_all(&s, "[code omitted]").to_string();
 
         // 2. Strip inline backticks
         s = s.replace('`', "");
 
         // 3. Normalize markdown links: [text](url) -> text
-        let link_re = regex::Regex::new(r"\[([^\]]+)\]\([^\s\)]+\)").unwrap();
-        s = link_re.replace_all(&s, "$1").to_string();
+        s = self.link_re.replace_all(&s, "$1").to_string();
 
         // 4. Strip bold/italic markers
         s = s.replace("**", "").replace("__", "").replace('*', "");
@@ -114,8 +127,7 @@ impl ProsodyEngine {
         s = s.replace('[', "").replace(']', "");
         
         // Remove common emojis
-        let emoji_re = regex::Regex::new(r"[\x{1F300}-\x{1F9FF}]").unwrap();
-        s = emoji_re.replace_all(&s, "").to_string();
+        s = self.emoji_re.replace_all(&s, "").to_string();
         
         s.split_whitespace().collect::<Vec<_>>().join(" ")
     }

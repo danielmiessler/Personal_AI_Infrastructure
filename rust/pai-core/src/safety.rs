@@ -22,10 +22,15 @@ impl SecurityValidator {
             
             // Tier 3: Data Exfiltration
             (r"curl.*(@|--upload-file)", "🚨 BLOCKED: Data exfiltration pattern detected"),
+            (r"wget.*(--post-file|--post-data)", "🚨 BLOCKED: Data exfiltration pattern detected"),
             
             // Tier 4: PAI Infrastructure Protection
             (r"rm.*\.config/pai", "🚨 BLOCKED: PAI infrastructure protection triggered"),
             (r"git\s+push.*PAI.*public", "🚨 BLOCKED: Attempt to push private PAI to public repository"),
+
+            // Tier 5: Shell Injection & Evasion
+            (r"[;&|`$]", "🚨 BLOCKED: Shell operator detected"),
+            (r"\b(python|perl|ruby|php|node)\b", "🚨 BLOCKED: Script interpreter execution detected"),
         ];
 
         let blocked_patterns = patterns.into_iter()

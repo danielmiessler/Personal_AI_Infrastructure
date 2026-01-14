@@ -43,6 +43,14 @@ impl UpgradeMonitor {
         let client = reqwest::Client::new();
 
         for source in &self.sources {
+            // SECURITY: SSRF Prevention
+            if !source.url.starts_with("https://") {
+                continue; // Enforce HTTPS
+            }
+            if source.url.contains("localhost") || source.url.contains("127.0.0.1") || source.url.contains("169.254") {
+                continue; // Block local/metadata access
+            }
+
             if let Ok(res) = client.get(&source.url).send().await {
                 if res.status().is_success() {
                     updates.push(UpdateFound {

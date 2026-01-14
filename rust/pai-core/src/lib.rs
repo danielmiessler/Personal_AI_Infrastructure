@@ -17,6 +17,7 @@ pub mod skills;
 pub mod fabric;
 pub mod classifier;
 pub mod config;
+pub mod enrichment;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

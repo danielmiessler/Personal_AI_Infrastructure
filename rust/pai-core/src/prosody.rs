@@ -29,18 +29,44 @@ impl ProsodyEngine {
     }
 
     pub fn detect_and_clean(&self, message: &str) -> (String, Option<EmotionalSettings>) {
-        // Pattern: [emoji emotion-name]
-        // Examples: [✨ success], [🔍 investigating]
+        // ... (Emotion detection remains same)
         let re = regex::Regex::new(r"\[(?:\p{Emoji})\s+(\w+)\]").unwrap();
         
+        let mut cleaned = message.to_string();
+        let mut settings = None;
+
         if let Some(caps) = re.captures(message) {
             let emotion_name = &caps[1];
-            if let Some(settings) = self.presets.get(emotion_name) {
-                let cleaned = re.replace(message, "").to_string();
-                return (cleaned.trim().to_string(), Some(settings.clone()));
+            if let Some(s) = self.presets.get(emotion_name) {
+                cleaned = re.replace(message, "").to_string();
+                settings = Some(s.clone());
             }
         }
 
-        (message.to_string(), None)
+        (self.clean_for_speech(&cleaned), settings)
+    }
+
+    fn clean_for_speech(&self, input: &str) -> String {
+        // PAI Standard Speech Cleaning Pipeline
+        let mut s = input.to_string();
+        
+        // 1. Strip code blocks
+        let code_re = regex::Regex::new(r"```[\s\S]*?```").unwrap();
+        s = code_re.replace_all(&s, "[code omitted]").to_string();
+
+        // 2. Strip inline backticks
+        s = s.replace('`', "");
+
+        // 3. Normalize markdown links: [text](url) -> text
+        let link_re = regex::Regex::new(r"\[([^\]]+)\]\([^\)]+\)").unwrap();
+        s = link_re.replace_all(&s, "$1").to_string();
+
+        // 4. Strip bold/italic markers
+        s = s.replace("**", "").replace("__", "").replace('*', "").replace('_', "");
+
+        // 5. Remove system markers and extra whitespace
+        s = s.replace("🗣️", "").replace("📋", "").replace("🔍", "");
+        
+        s.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 }

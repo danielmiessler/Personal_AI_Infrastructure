@@ -58,4 +58,9 @@ impl AgentFactory {
 
         Ok(prompt)
     }
+
+    pub fn verifier_mode(&self) -> Result<String> {
+        // PAI Standard: The Skeptical Verifier
+        self.compose_agent("technical", "skeptical", "adversarial")
+    }
 }

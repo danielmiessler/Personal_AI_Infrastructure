@@ -1,14 +1,67 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use anyhow::Result;
+
+pub mod hooks;
+pub mod safety;
+pub mod algorithm;
+pub mod memory;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HookEventType {
+    SessionStart,
+    SessionEnd,
+    PreToolUse,
+    PostToolUse,
+    UserPromptSubmit,
+    Stop,
+    SubagentStop,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookEvent {
+    pub event_type: HookEventType,
+    pub session_id: String,
+    pub payload: serde_json::Value,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+#[async_trait]
+pub trait PAIHook: Send + Sync {
+    fn name(&self) -> &str;
+    async fn on_event(&self, event: &HookEvent) -> Result<HookAction>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HookAction {
+    Continue,
+    Block(String),
+    Modify(serde_json::Value),
+}
+
+pub struct HookManager {
+    hooks: Vec<Arc<dyn PAIHook>>,
+}
+
+impl HookManager {
+    pub fn new() -> Self {
+        Self { hooks: Vec::new() }
+    }
+
+    pub fn register(&mut self, hook: Arc<dyn PAIHook>) {
+        self.hooks.push(hook);
+    }
+
+    pub async fn trigger(&self, event: &HookEvent) -> Result<HookAction> {
+        for hook in &self.hooks {
+            let action = hook.on_event(event).await?;
+            match action {
+                HookAction::Continue => continue,
+                HookAction::Block(reason) => return Ok(HookAction::Block(reason)),
+                HookAction::Modify(val) => return Ok(HookAction::Modify(val)),
+            }
+        }
+        Ok(HookAction::Continue)
     }
 }

@@ -11,6 +11,11 @@ import {
 import { claudeCodeService, type StreamEvent } from './services/claude-code';
 import { sessionStore } from './services/session-store';
 import { wikiLinkResolver } from './services/wiki-links';
+import {
+  initObservability,
+  addObservabilityClient,
+  removeObservabilityClient,
+} from './services/observability';
 import { join } from 'node:path';
 import type { ServerWebSocket } from 'bun';
 
@@ -60,7 +65,6 @@ const DISCONNECT_GRACE_PERIOD_MS = 300000; // 5 minutes - research CLI with all 
 interface WebSocketData {
   sessionId?: string;
   type?: 'chat' | 'observability' | 'terminal';
-  observabilityWs?: WebSocket;
   tmuxProcess?: import('bun').Subprocess<'pipe', 'pipe', 'pipe'>;
 }
 
@@ -144,6 +148,7 @@ function cleanupSession(sessionId: string) {
 // Initialize services
 sessionStore.init();
 wikiLinkResolver.init(); // Start indexing vault in background
+initObservability(); // Start watching hook event files
 
 // Create Bun server with HTTP and WebSocket support
 const server = Bun.serve<WebSocketData>({
@@ -268,41 +273,10 @@ const server = Bun.serve<WebSocketData>({
         return;
       }
 
-      // Handle observability proxy
+      // Handle observability - stream hook events directly from local files
       if (ws.data.type === 'observability') {
-        console.log('[WebSocket] Observability client connected, proxying to localhost:4000');
-
-        // Connect to the local observability server
-        const obsWs = new WebSocket('ws://localhost:4000/stream');
-        ws.data.observabilityWs = obsWs;
-
-        obsWs.onopen = () => {
-          console.log('[WebSocket] Connected to observability server');
-        };
-
-        obsWs.onmessage = (event) => {
-          // Forward messages from observability server to client
-          try {
-            ws.send(event.data as string);
-          } catch (e) {
-            console.log('[WebSocket] Failed to forward observability message');
-          }
-        };
-
-        obsWs.onclose = () => {
-          console.log('[WebSocket] Observability server connection closed');
-          try {
-            ws.close();
-          } catch {}
-        };
-
-        obsWs.onerror = (error) => {
-          console.error('[WebSocket] Observability server error:', error);
-          try {
-            ws.send(JSON.stringify({ type: 'error', error: 'Observability server connection failed' }));
-          } catch {}
-        };
-
+        console.log('[WebSocket] Observability client connected');
+        addObservabilityClient(ws);
         return;
       }
 
@@ -528,12 +502,9 @@ const server = Bun.serve<WebSocketData>({
         return;
       }
 
-      // Close observability proxy connection
-      if (ws.data.type === 'observability' && ws.data.observabilityWs) {
-        console.log('[WebSocket] Observability client disconnected');
-        try {
-          ws.data.observabilityWs.close();
-        } catch {}
+      // Remove observability client
+      if (ws.data.type === 'observability') {
+        removeObservabilityClient(ws);
         return;
       }
 
@@ -551,12 +522,10 @@ const server = Bun.serve<WebSocketData>({
         return;
       }
 
-      // Close observability proxy connection on error
-      if (ws.data.type === 'observability' && ws.data.observabilityWs) {
+      // Remove observability client on error
+      if (ws.data.type === 'observability') {
         console.error('[WebSocket] Observability error:', error);
-        try {
-          ws.data.observabilityWs.close();
-        } catch {}
+        removeObservabilityClient(ws);
         return;
       }
 

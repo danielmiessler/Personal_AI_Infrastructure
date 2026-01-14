@@ -12,7 +12,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PostToolUse"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PostToolUse"
           }
         ]
       }
@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PreToolUse"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type PreToolUse"
           }
         ]
       }
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type Stop"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type Stop"
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SubagentStop"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type SubagentStop"
           }
         ]
       }
@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run $PAI_DIR/hooks/capture-all-events.ts --event-type UserPromptSubmit"
+            "command": "~/.bun/bin/bun run $PAI_DIR/hooks/capture-all-events.ts --event-type UserPromptSubmit"
           }
         ]
       }

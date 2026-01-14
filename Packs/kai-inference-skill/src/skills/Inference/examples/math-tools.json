@@ -1,0 +1,71 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "calculate",
+      "description": "Perform basic mathematical calculations",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "The mathematical operation to perform",
+            "enum": ["add", "subtract", "multiply", "divide"]
+          },
+          "a": {
+            "type": "number",
+            "description": "First number"
+          },
+          "b": {
+            "type": "number",
+            "description": "Second number"
+          }
+        },
+        "required": ["operation", "a", "b"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calculate_advanced",
+      "description": "Perform advanced mathematical operations",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "The mathematical operation to perform",
+            "enum": ["power", "sqrt", "log", "sin", "cos", "tan"]
+          },
+          "value": {
+            "type": "number",
+            "description": "Input value"
+          },
+          "exponent": {
+            "type": "number",
+            "description": "Exponent (only for power operation)"
+          }
+        },
+        "required": ["operation", "value"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "factorial",
+      "description": "Calculate the factorial of a number",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "number",
+            "description": "The number to calculate factorial for (must be positive integer)"
+          }
+        },
+        "required": ["n"]
+      }
+    }
+  }
+]

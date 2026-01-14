@@ -10,45 +10,38 @@
       </p>
     </header>
 
-    <div class="space-y-2">
-      <div
-        v-for="event in events"
-        :key="event.id"
-        class="bg-[var(--bg-secondary)] rounded-lg p-4 border-l-4"
-        :class="getBorderColor(event.hook_event_type)"
+    <!-- Tab Navigation -->
+    <div class="flex gap-4 mb-6 border-b border-[var(--text-secondary)] border-opacity-20">
+      <button
+        @click="activeTab = 'events'"
+        class="pb-2 px-1 text-sm font-medium transition-colors"
+        :class="activeTab === 'events'
+          ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'"
       >
-        <div class="flex justify-between items-start">
-          <div>
-            <span class="font-mono text-sm text-[var(--accent-blue)]">
-              {{ event.agent_name || event.source_app }}
-            </span>
-            <span class="mx-2 text-[var(--text-secondary)]">·</span>
-            <span class="text-sm">{{ event.hook_event_type }}</span>
-          </div>
-          <span class="text-xs text-[var(--text-secondary)]">
-            {{ formatTime(event.timestamp) }}
-          </span>
-        </div>
-
-        <div v-if="event.payload?.tool_name" class="mt-2">
-          <span class="text-[var(--accent-green)]">
-            {{ event.payload.tool_name }}
-          </span>
-          <span v-if="event.payload?.tool_input?.command" class="ml-2 font-mono text-xs text-[var(--text-secondary)]">
-            {{ truncate(event.payload.tool_input.command, 60) }}
-          </span>
-        </div>
-      </div>
+        Events
+      </button>
+      <button
+        @click="activeTab = 'models'"
+        class="pb-2 px-1 text-sm font-medium transition-colors"
+        :class="activeTab === 'models'
+          ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'"
+      >
+        Models
+      </button>
     </div>
 
-    <div v-if="events.length === 0" class="text-center text-[var(--text-secondary)] py-12">
-      No events yet. Start using Claude Code to see activity here.
-    </div>
+    <!-- Content Views -->
+    <EventsFeed v-if="activeTab === 'events'" :events="events" />
+    <ModelsView v-if="activeTab === 'models'" :recently-used-models="recentlyUsedModels" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import EventsFeed from './components/EventsFeed.vue'
+import ModelsView from './components/ModelsView.vue'
 
 interface HookEvent {
   id: number
@@ -61,7 +54,39 @@ interface HookEvent {
 
 const events = ref<HookEvent[]>([])
 const isConnected = ref(false)
+const activeTab = ref<'events' | 'models'>('events')
 let ws: WebSocket | null = null
+
+// Track models used in recent events (last 5 minutes)
+const recentlyUsedModels = computed(() => {
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+  const modelNames = new Set<string>()
+
+  for (const event of events.value) {
+    if (!event.timestamp || event.timestamp < fiveMinutesAgo) continue
+
+    // Check for model usage in tool calls
+    const toolName = event.payload?.tool_name
+    if (toolName && (toolName.includes('Chat') || toolName.includes('Generate') || toolName.includes('Run'))) {
+      // Try to extract model name from tool input
+      const modelName =
+        event.payload?.tool_input?.model ||
+        event.payload?.tool_input?.args?.model ||
+        event.payload?.result?.model
+
+      if (modelName) {
+        modelNames.add(modelName)
+      }
+    }
+
+    // Check for model in payload directly
+    if (event.payload?.model) {
+      modelNames.add(event.payload.model)
+    }
+  }
+
+  return modelNames
+})
 
 function connect() {
   ws = new WebSocket('ws://localhost:4000/stream')
@@ -94,28 +119,6 @@ function connect() {
   ws.onerror = (error) => {
     console.error('WebSocket error:', error)
   }
-}
-
-function getBorderColor(eventType: string): string {
-  const colors: Record<string, string> = {
-    'PreToolUse': 'border-[var(--accent-blue)]',
-    'PostToolUse': 'border-[var(--accent-green)]',
-    'Stop': 'border-[var(--accent-yellow)]',
-    'Completed': 'border-[var(--accent-green)]',
-    'UserPromptSubmit': 'border-[var(--text-secondary)]',
-  }
-  return colors[eventType] || 'border-[var(--text-secondary)]'
-}
-
-function formatTime(timestamp?: number): string {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString()
-}
-
-function truncate(str: string, len: number): string {
-  if (str.length <= len) return str
-  return str.slice(0, len) + '...'
 }
 
 onMounted(() => {

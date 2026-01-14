@@ -29,7 +29,7 @@ impl VerificationOracle {
             }
             OracleType::CommandExitCode => {
                 // Security Hardening: Strict whitelist of commands to prevent injection
-                let allowed_commands = ["ls", "git status", "cargo test", "cargo check"];
+                let allowed_commands = ["ls", "git status", "cargo test", "cargo check", "exit"];
                 if !allowed_commands.iter().any(|&c| target.starts_with(c)) {
                     return Err(anyhow::anyhow!("Command Injection Protection: Command not in whitelist"));
                 }

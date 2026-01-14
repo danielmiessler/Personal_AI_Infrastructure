@@ -48,7 +48,6 @@ pub enum ISCStatus {
 }
 
 // Deprecated: Kept for compatibility if used as DTO, but AlgorithmEngine uses granular locks now.
-// Re-purposed as the internal state container for AlgorithmEngine to ensure consistency.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlgorithmState {
     pub phase: AlgorithmPhase,
@@ -59,30 +58,32 @@ pub struct AlgorithmState {
 }
 
 pub struct AlgorithmEngine {
-    state: RwLock<AlgorithmState>,
+    phase: RwLock<AlgorithmPhase>,
+    effort: RwLock<EffortLevel>,
+    requirements: RwLock<Vec<ISCRequirement>>,
+    iteration: AtomicU32,
+    completion_promise: RwLock<Option<String>>,
 }
 
 impl AlgorithmEngine {
     pub fn new(effort: EffortLevel) -> Self {
         Self {
-            state: RwLock::new(AlgorithmState {
-                phase: AlgorithmPhase::Observe,
-                effort,
-                requirements: Vec::new(),
-                iteration: 1,
-                completion_promise: None,
-            }),
+            phase: RwLock::new(AlgorithmPhase::Observe),
+            effort: RwLock::new(effort),
+            requirements: RwLock::new(Vec::new()),
+            iteration: AtomicU32::new(1),
+            completion_promise: RwLock::new(None),
         }
     }
 
     pub fn set_promise(&self, promise: &str) {
-        let mut state = self.state.write().unwrap();
-        state.completion_promise = Some(promise.to_string());
+        let mut promise_lock = self.completion_promise.write().unwrap();
+        *promise_lock = Some(promise.to_string());
     }
 
     pub fn check_promise(&self, output: &str) -> bool {
-        let state = self.state.read().unwrap();
-        if let Some(ref promise) = state.completion_promise {
+        let promise_lock = self.completion_promise.read().unwrap();
+        if let Some(ref promise) = *promise_lock {
             output.contains(promise) || output.contains(&format!("<promise>{}</promise>", promise))
         } else {
             true
@@ -90,8 +91,8 @@ impl AlgorithmEngine {
     }
 
     pub fn increment_loop(&self, id: u32) -> Option<u32> {
-        let mut state = self.state.write().unwrap();
-        if let Some(req) = state.requirements.iter_mut().find(|r| r.id == id) {
+        let mut reqs = self.requirements.write().unwrap();
+        if let Some(req) = reqs.iter_mut().find(|r| r.id == id) {
             let count = match req.status {
                 ISCStatus::Looping(c) => c + 1,
                 _ => 1,
@@ -104,9 +105,9 @@ impl AlgorithmEngine {
     }
 
     pub fn add_requirement(&self, description: &str, source: ISCSource) -> u32 {
-        let mut state = self.state.write().unwrap();
-        let id = (state.requirements.len() + 1) as u32;
-        state.requirements.push(ISCRequirement {
+        let mut reqs = self.requirements.write().unwrap();
+        let id = (reqs.len() + 1) as u32;
+        reqs.push(ISCRequirement {
             id,
             description: description.to_string(),
             source,
@@ -117,8 +118,8 @@ impl AlgorithmEngine {
     }
 
     pub fn set_status(&self, id: u32, status: ISCStatus) -> bool {
-        let mut state = self.state.write().unwrap();
-        if let Some(req) = state.requirements.iter_mut().find(|r| r.id == id) {
+        let mut reqs = self.requirements.write().unwrap();
+        if let Some(req) = reqs.iter_mut().find(|r| r.id == id) {
             req.status = status;
             true
         } else {
@@ -127,32 +128,34 @@ impl AlgorithmEngine {
     }
 
     pub fn advance_phase(&self) -> bool {
-        let mut state = self.state.write().unwrap();
-        match state.phase {
-            AlgorithmPhase::Observe => state.phase = AlgorithmPhase::Think,
-            AlgorithmPhase::Think => state.phase = AlgorithmPhase::Plan,
-            AlgorithmPhase::Plan => state.phase = AlgorithmPhase::Build,
-            AlgorithmPhase::Build => state.phase = AlgorithmPhase::Execute,
-            AlgorithmPhase::Execute => state.phase = AlgorithmPhase::Verify,
-            AlgorithmPhase::Verify => state.phase = AlgorithmPhase::Learn,
+        let mut phase = self.phase.write().unwrap();
+        match *phase {
+            AlgorithmPhase::Observe => *phase = AlgorithmPhase::Think,
+            AlgorithmPhase::Think => *phase = AlgorithmPhase::Plan,
+            AlgorithmPhase::Plan => *phase = AlgorithmPhase::Build,
+            AlgorithmPhase::Build => *phase = AlgorithmPhase::Execute,
+            AlgorithmPhase::Execute => *phase = AlgorithmPhase::Verify,
+            AlgorithmPhase::Verify => *phase = AlgorithmPhase::Learn,
             AlgorithmPhase::Learn => return false,
         }
         true
     }
 
     pub fn get_current_phase(&self) -> AlgorithmPhase {
-        self.state.read().unwrap().phase.clone()
+        self.phase.read().unwrap().clone()
     }
 
     pub fn generate_isc_table(&self) -> String {
-        let state = self.state.read().unwrap();
+        let phase = self.phase.read().unwrap();
+        let effort = self.effort.read().unwrap();
+        let reqs = self.requirements.read().unwrap();
         
-        let mut table = format!("## ISC: Phase {:?} | Effort {:?}\n\n", state.phase, state.effort);
+        let mut table = format!("## ISC: Phase {:?} | Effort {:?}\n\n", *phase, *effort);
 
         table.push_str("| # | Requirement | Source | Status |\n");
         table.push_str("|---|-------------|--------|--------|\n");
         
-        for req in state.requirements.iter() {
+        for req in reqs.iter() {
             let status_str = match &req.status {
                 ISCStatus::Pending => "⏳ PENDING".to_string(),
                 ISCStatus::Active => "🔄 ACTIVE".to_string(),
@@ -164,19 +167,20 @@ impl AlgorithmEngine {
             
             table.push_str(&format!(
                 "| {} | {} | {:?} | {} |\n",
-                req.id, req.description, req.source, status_str
+                req.id,
+                req.description,
+                req.source,
+                status_str
             ));
         }
         table
     }
     
     pub fn get_iteration(&self) -> u32 {
-        self.state.read().unwrap().iteration
+        self.iteration.load(Ordering::Relaxed)
     }
 
     pub fn next_iteration(&self) -> u32 {
-        let mut state = self.state.write().unwrap();
-        state.iteration += 1;
-        state.iteration
+        self.iteration.fetch_add(1, Ordering::SeqCst) + 1
     }
 }

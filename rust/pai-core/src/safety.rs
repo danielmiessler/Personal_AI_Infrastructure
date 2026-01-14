@@ -2,11 +2,6 @@ use async_trait::async_trait;
 use regex::Regex;
 use crate::{PAIHook, HookEvent, HookEventType, HookAction};
 use anyhow::Result;
-
-use async_trait::async_trait;
-use regex::Regex;
-use crate::{PAIHook, HookEvent, HookEventType, HookAction};
-use anyhow::Result;
 use std::sync::OnceLock;
 
 pub struct SecurityValidator;

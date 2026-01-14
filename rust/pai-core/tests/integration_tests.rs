@@ -77,8 +77,8 @@ fn test_privacy_guard() {
     assert!(!guard.is_leak("src/main.rs"));
 }
 
-#[test]
-fn test_learning_engine() {
+#[tokio::test]
+async fn test_learning_engine() {
     let tmp = tempdir().unwrap();
     let engine = LearningEngine::new(tmp.path().to_path_buf());
     
@@ -90,7 +90,7 @@ fn test_learning_engine() {
         reason: "Excellent work".to_string(),
     };
     
-    assert!(engine.capture_signal(signal).is_ok());
+    assert!(engine.capture_signal(signal).await.is_ok());
     
     let stats_path = tmp.path().join("State").join("algorithm-stats.json");
     assert!(stats_path.exists());

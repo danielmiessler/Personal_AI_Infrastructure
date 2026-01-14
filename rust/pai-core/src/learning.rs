@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::fs::{OpenOptions, write};
-use std::io::Write;
+use tokio::fs::{OpenOptions, create_dir_all, read_to_string, write};
+use tokio::io::AsyncWriteExt;
 use anyhow::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,9 +38,9 @@ impl LearningEngine {
         Self { root_dir }
     }
 
-    pub fn capture_signal(&self, signal: Signal) -> Result<()> {
+    pub async fn capture_signal(&self, signal: Signal) -> Result<()> {
         let signal_dir = self.root_dir.join("History").join("Signals");
-        std::fs::create_dir_all(&signal_dir)?;
+        create_dir_all(&signal_dir).await?;
 
         let filename = match signal.signal_type {
             SignalType::Failure => "failures.jsonl",
@@ -52,23 +52,25 @@ impl LearningEngine {
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(signal_dir.join(filename))?;
+            .open(signal_dir.join(filename)).await?;
 
         let json = serde_json::to_string(&signal)?;
-        writeln!(file, "{}", json)?;
+        file.write_all(format!("{}\n", json).as_bytes()).await?;
 
         // Update stats
-        self.update_stats(&signal)?;
+        self.update_stats(&signal).await?;
 
         Ok(())
     }
 
-    fn update_stats(&self, signal: &Signal) -> Result<()> {
+    async fn update_stats(&self, signal: &Signal) -> Result<()> {
         let stats_path = self.root_dir.join("State").join("algorithm-stats.json");
-        std::fs::create_dir_all(stats_path.parent().unwrap())?;
+        if let Some(parent) = stats_path.parent() {
+            create_dir_all(parent).await?;
+        }
 
         let mut stats: PerformanceStats = if stats_path.exists() {
-            let content = std::fs::read_to_string(&stats_path)?;
+            let content = read_to_string(&stats_path).await?;
             serde_json::from_str(&content).unwrap_or_default()
         } else {
             PerformanceStats::default()
@@ -90,11 +92,11 @@ impl LearningEngine {
             _ => {}
         }
 
-        write(stats_path, serde_json::to_string_pretty(&stats)?)?;
+        write(stats_path, serde_json::to_string_pretty(&stats)?).await?;
         Ok(())
     }
 
-    pub fn load_lessons(&self, query: &str) -> Result<String> {
+    pub async fn load_lessons(&self, query: &str) -> Result<String> {
         let mut lessons = String::from("# LESSONS LEARNED (Reinforcement Context)\n\n");
         let signal_dir = self.root_dir.join("History").join("Signals");
         
@@ -105,7 +107,7 @@ impl LearningEngine {
         for filename in files {
             let path = signal_dir.join(filename);
             if path.exists() {
-                let content = std::fs::read_to_string(&path)?;
+                let content = read_to_string(&path).await?;
                 for line in content.lines().rev().take(50) { // Look at last 50 signals
                     if let Ok(signal) = serde_json::from_str::<Signal>(line) {
                         // Semantic check: does this signal relate to our current query?

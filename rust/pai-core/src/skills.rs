@@ -43,7 +43,16 @@ impl SkillRegistry {
     pub fn scan_directory(&mut self, skills_dir: &std::path::Path) -> Result<usize, SkillError> {
         if !skills_dir.exists() { return Ok(0); }
 
-        let use_when_re = regex::Regex::new(r"USE WHEN\s+([^.]+)")?;
+        static USE_WHEN_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+        static SCIENCE_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+        static VERSION_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+        static AUTHOR_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+
+        let use_when_re = USE_WHEN_RE.get_or_init(|| regex::Regex::new(r"USE WHEN\s+([^.]+)").unwrap());
+        let science_re = SCIENCE_RE.get_or_init(|| regex::Regex::new(r"science_cycle_time:\s*(\w+)").unwrap());
+        let version_re = VERSION_RE.get_or_init(|| regex::Regex::new(r"version:\s*([^\n]+)").unwrap());
+        let author_re = AUTHOR_RE.get_or_init(|| regex::Regex::new(r"author:\s*([^\n]+)").unwrap());
+
         let mut count = 0;
 
         for entry in std::fs::read_dir(skills_dir)? {
@@ -75,16 +84,13 @@ impl SkillRegistry {
 
                     let implements_science = content.contains("implements: Science");
                     let science_cycle_time = if implements_science {
-                        let re = regex::Regex::new(r"science_cycle_time:\s*(\w+)")?;
-                        re.captures(&content).map(|c| c[1].to_string())
+                        science_re.captures(&content).map(|c| c[1].to_string())
                     } else {
                         None
                     };
 
-                    let version = regex::Regex::new(r"version:\s*([^\n]+)")?
-                        .captures(&content).map_or("1.0.0".to_string(), |c| c[1].trim().to_string());
-                    let author = regex::Regex::new(r"author:\s*([^\n]+)")?
-                        .captures(&content).map_or("Unknown".to_string(), |c| c[1].trim().to_string());
+                    let version = version_re.captures(&content).map_or("1.0.0".to_string(), |c| c[1].trim().to_string());
+                    let author = author_re.captures(&content).map_or("Unknown".to_string(), |c| c[1].trim().to_string());
 
                     self.skills.insert(name.to_lowercase(), SkillMetadata {
                         name,

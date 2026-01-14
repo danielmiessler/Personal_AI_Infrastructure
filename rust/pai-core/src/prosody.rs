@@ -70,13 +70,13 @@ impl ProsodyEngine {
                     max_priority = priority;
                     best_settings = Some(s.clone());
                 }
-                tags_to_remove.push(full_tag);
+                tags_to_remove.push(full_tag.to_string());
             }
         }
 
         let mut cleaned = message.to_string();
         for tag in tags_to_remove {
-            cleaned = cleaned.replace(tag, "");
+            cleaned = cleaned.replace(&tag, "");
         }
         
         let speech_ready = self.clean_for_speech(&cleaned);

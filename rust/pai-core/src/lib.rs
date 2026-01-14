@@ -79,10 +79,15 @@ impl HookManager {
         let mut modified = false;
 
         for hook in &self.hooks {
-            let mut e = event.clone();
-            e.payload = current_payload.clone();
+            // Efficiency: Only construct a new event if we have a modified payload to inject
+            let action = if modified {
+                let mut e = event.clone();
+                e.payload = current_payload.clone();
+                hook.on_event(&e).await?
+            } else {
+                hook.on_event(event).await?
+            };
 
-            let action = hook.on_event(&e).await?;
             match action {
                 HookAction::Continue => continue,
                 HookAction::Block(reason) => return Ok(HookAction::Block(reason)),

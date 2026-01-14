@@ -30,6 +30,12 @@ impl AgentFactory {
         Ok(Self { registry })
     }
 
+    pub async fn load_from_yaml(path: &Path) -> Result<Self> {
+        let content = tokio::fs::read_to_string(path).await?;
+        let registry: TraitsRegistry = serde_yaml::from_str(&content)?;
+        Ok(Self { registry })
+    }
+
     pub fn compose_agent(&self, expertise: &str, personality: &str, approach: &str) -> Result<String> {
         let exp = self.registry.expertise.get(expertise)
             .ok_or_else(|| anyhow!("Unknown expertise: {}", expertise))?;
@@ -62,5 +68,26 @@ impl AgentFactory {
     pub fn verifier_mode(&self) -> Result<String> {
         // PAI Standard: The Skeptical Verifier
         self.compose_agent("technical", "skeptical", "adversarial")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use std::fs;
+
+    #[tokio::test]
+    async fn test_agent_factory_async_load() {
+        let tmp = tempdir().unwrap();
+        let path = tmp.path().join("traits.yaml");
+        fs::write(&path, r#"
+expertise: {}
+personality: {}
+approach: {}
+"#).unwrap();
+
+        let factory = AgentFactory::load_from_yaml(&path).await.unwrap();
+        assert!(factory.registry.expertise.is_empty());
     }
 }

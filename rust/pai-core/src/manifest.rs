@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use anyhow::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,13 +12,41 @@ pub struct SystemHealth {
     pub last_upgrade: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpgradeEntry {
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub r#type: String,
+    pub description: String,
+}
+
 pub struct ManifestEngine {
-    root_dir: PathBuf,
+    pub root_dir: PathBuf,
 }
 
 impl ManifestEngine {
     pub fn new(root_dir: PathBuf) -> Self {
         Self { root_dir }
+    }
+
+    pub fn log_upgrade(&self, r#type: &str, description: &str) -> Result<()> {
+        let history_dir = self.root_dir.join("History");
+        fs::create_dir_all(&history_dir)?;
+        
+        let path = history_dir.join("Upgrades.jsonl");
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+
+        let entry = UpgradeEntry {
+            timestamp: chrono::Utc::now(),
+            r#type: r#type.to_string(),
+            description: description.to_string(),
+        };
+
+        let json = serde_json::to_string(&entry)?;
+        writeln!(file, "{}", json)?;
+        Ok(())
     }
 
     pub fn check_health(&self) -> Result<SystemHealth> {

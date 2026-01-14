@@ -32,3 +32,70 @@ impl EnrichmentEngine {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{HookEvent, HookEventType};
+    use chrono::Utc;
+
+    #[test]
+    fn test_enrich_success() {
+        let mut event = HookEvent {
+            event_type: HookEventType::PreToolUse,
+            session_id: "test".to_string(),
+            payload: serde_json::json!({
+                "tool_name": "Task",
+                "tool_input": { "description": "Running [researcher-1]" }
+            }),
+            timestamp: Utc::now(),
+        };
+        EnrichmentEngine::enrich(&mut event);
+        assert_eq!(event.payload["agent_metadata"]["agent_type"], "researcher");
+        assert_eq!(event.payload["agent_metadata"]["instance_number"], 1);
+    }
+
+    #[test]
+    fn test_enrich_wrong_tool() {
+        let mut event = HookEvent {
+            event_type: HookEventType::PreToolUse,
+            session_id: "test".to_string(),
+            payload: serde_json::json!({
+                "tool_name": "Bash",
+                "tool_input": { "description": "Running [researcher-1]" }
+            }),
+            timestamp: Utc::now(),
+        };
+        EnrichmentEngine::enrich(&mut event);
+        assert!(event.payload["agent_metadata"].is_null());
+    }
+
+    #[test]
+    fn test_enrich_malformed_pattern() {
+        let mut event = HookEvent {
+            event_type: HookEventType::PreToolUse,
+            session_id: "test".to_string(),
+            payload: serde_json::json!({
+                "tool_name": "Task",
+                "tool_input": { "description": "Running [researcher-abc]" }
+            }),
+            timestamp: Utc::now(),
+        };
+        EnrichmentEngine::enrich(&mut event);
+        assert!(event.payload["agent_metadata"].is_null());
+    }
+
+    #[test]
+    fn test_enrich_missing_fields() {
+        let mut event = HookEvent {
+            event_type: HookEventType::PreToolUse,
+            session_id: "test".to_string(),
+            payload: serde_json::json!({
+                "tool_name": "Task"
+            }),
+            timestamp: Utc::now(),
+        };
+        EnrichmentEngine::enrich(&mut event);
+        assert!(event.payload["agent_metadata"].is_null());
+    }
+}

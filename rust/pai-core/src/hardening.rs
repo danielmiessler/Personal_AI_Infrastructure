@@ -22,6 +22,16 @@ impl HardeningEngine {
             "system override",
             "forget what you were doing",
             "you are now in",
+            // SSRF Hardening Patterns
+            "169.254.169.254",
+            "localhost",
+            "127.0.0.1",
+            "metadata.google.internal",
+            // Shell Pipe Patterns
+            "| sh",
+            "| bash",
+            "| zsh",
+            "| python",
         ];
         
         let input_lower = input.to_lowercase();

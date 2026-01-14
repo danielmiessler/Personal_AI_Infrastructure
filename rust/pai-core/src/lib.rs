@@ -75,14 +75,66 @@ impl HookManager {
     }
 
     pub async fn trigger(&self, event: &HookEvent) -> Result<HookAction> {
+        let mut current_payload = event.payload.clone();
+        let mut modified = false;
+
         for hook in &self.hooks {
-            let action = hook.on_event(event).await?;
+            let mut e = event.clone();
+            e.payload = current_payload.clone();
+
+            let action = hook.on_event(&e).await?;
             match action {
                 HookAction::Continue => continue,
                 HookAction::Block(reason) => return Ok(HookAction::Block(reason)),
-                HookAction::Modify(val) => return Ok(HookAction::Modify(val)),
+                HookAction::Modify(val) => {
+                    current_payload = val;
+                    modified = true;
+                }
             }
         }
-        Ok(HookAction::Continue)
+
+        if modified {
+            Ok(HookAction::Modify(current_payload))
+        } else {
+            Ok(HookAction::Continue)
+        }
+    }
+}
+
+#[cfg(test)]
+mod hook_tests {
+    use super::*;
+
+    struct CounterHook;
+    #[async_trait]
+    impl PAIHook for CounterHook {
+        fn name(&self) -> &str { "Counter" }
+        async fn on_event(&self, e: &HookEvent) -> Result<HookAction> {
+            let mut p = e.payload.clone();
+            p["count"] = serde_json::json!(p["count"].as_u64().unwrap_or(0) + 1);
+            Ok(HookAction::Modify(p))
+        }
+    }
+
+    #[tokio::test]
+    async fn test_hook_manager_large_chain() {
+        let mut hm = HookManager::new();
+        for _ in 0..100 {
+            hm.register(Arc::new(CounterHook));
+        }
+
+        let event = HookEvent {
+            event_type: HookEventType::SessionStart,
+            session_id: "test".to_string(),
+            payload: serde_json::json!({"count": 0}),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let action = hm.trigger(&event).await.unwrap();
+        if let HookAction::Modify(p) = action {
+            assert_eq!(p["count"], 100);
+        } else {
+            panic!("Expected Modify action");
+        }
     }
 }

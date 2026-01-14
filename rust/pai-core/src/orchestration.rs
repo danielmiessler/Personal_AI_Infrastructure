@@ -1,5 +1,59 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+use anyhow::Result;
 use crate::algorithm::EffortLevel;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Capability {
+    pub effort_min: EffortLevel,
+    pub description: Option<String>,
+    pub use_when: Option<String>,
+    pub subagent_type: Option<String>,
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityRegistry {
+    pub version: String,
+    pub models: HashMap<String, Capability>,
+    pub thinking: HashMap<String, Capability>,
+    pub research: HashMap<String, Capability>,
+    pub execution: HashMap<String, Capability>,
+}
+
+pub struct DynamicCapabilityLoader {
+    registry: CapabilityRegistry,
+}
+
+impl DynamicCapabilityLoader {
+    pub fn from_yaml(path: &Path) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let registry: CapabilityRegistry = serde_yaml::from_str(&content)?;
+        Ok(Self { registry })
+    }
+
+    pub fn get_available(&self, effort: EffortLevel) -> Vec<String> {
+        let mut available = Vec::new();
+        
+        let categories = [
+            &self.registry.models,
+            &self.registry.thinking,
+            &self.registry.research,
+            &self.registry.execution,
+        ];
+
+        for cat in categories {
+            for (name, cap) in cat {
+                if effort >= cap.effort_min {
+                    available.push(name.clone());
+                }
+            }
+        }
+        
+        available
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityLimits {

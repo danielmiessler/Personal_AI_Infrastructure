@@ -62,13 +62,14 @@ pub enum HookAction {
     Modify(serde_json::Value),
 }
 
+#[derive(Default)]
 pub struct HookManager {
     hooks: Vec<Arc<dyn PAIHook>>,
 }
 
 impl HookManager {
     pub fn new() -> Self {
-        Self { hooks: Vec::new() }
+        Self::default()
     }
 
     pub fn register(&mut self, hook: Arc<dyn PAIHook>) {
@@ -139,6 +140,41 @@ mod hook_tests {
         let action = hm.trigger(&event).await.unwrap();
         if let HookAction::Modify(p) = action {
             assert_eq!(p["count"], 100);
+        } else {
+            panic!("Expected Modify action");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_hook_manager_deep_nesting() {
+        let mut hm = HookManager::new();
+        // Hook that just returns the payload
+        struct IdentityHook;
+        #[async_trait]
+        impl PAIHook for IdentityHook {
+            fn name(&self) -> &str { "Identity" }
+            async fn on_event(&self, e: &HookEvent) -> Result<HookAction> {
+                Ok(HookAction::Modify(e.payload.clone()))
+            }
+        }
+        hm.register(Arc::new(IdentityHook));
+
+        // Create a deeply nested JSON object
+        let mut deep = serde_json::json!({"level": 0});
+        for i in 1..100 {
+            deep = serde_json::json!({"level": i, "next": deep});
+        }
+
+        let event = HookEvent {
+            event_type: HookEventType::SessionStart,
+            session_id: "test".to_string(),
+            payload: deep.clone(),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let action = hm.trigger(&event).await.unwrap();
+        if let HookAction::Modify(p) = action {
+            assert_eq!(p, deep);
         } else {
             panic!("Expected Modify action");
         }

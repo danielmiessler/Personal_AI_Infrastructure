@@ -22,20 +22,7 @@ pub struct UpgradeMonitor {
 
 impl UpgradeMonitor {
     pub fn new() -> Self {
-        Self {
-            sources: vec![
-                UpgradeSource { 
-                    name: "Claude Code Changelog".to_string(), 
-                    url: "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md".to_string(),
-                    priority: "HIGH".to_string()
-                },
-                UpgradeSource { 
-                    name: "Anthropic News".to_string(), 
-                    url: "https://www.anthropic.com/news".to_string(),
-                    priority: "MEDIUM".to_string()
-                },
-            ],
-        }
+        Self::default()
     }
 
     pub async fn check_for_updates(&self) -> Result<Vec<UpdateFound>> {
@@ -64,5 +51,24 @@ impl UpgradeMonitor {
         }
 
         Ok(updates)
+    }
+}
+
+impl Default for UpgradeMonitor {
+    fn default() -> Self {
+        Self {
+            sources: vec![
+                UpgradeSource { 
+                    name: "Claude Code Changelog".to_string(), 
+                    url: "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md".to_string(),
+                    priority: "HIGH".to_string()
+                },
+                UpgradeSource { 
+                    name: "Anthropic News".to_string(), 
+                    url: "https://www.anthropic.com/news".to_string(),
+                    priority: "MEDIUM".to_string()
+                },
+            ],
+        }
     }
 }

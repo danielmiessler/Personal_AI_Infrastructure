@@ -9,7 +9,7 @@ impl EffortClassifier {
         Self
     }
 
-    pub fn classify(&self, query: &str) -> EffortLevel {
+    pub fn classify(&self, request: &str) -> EffortLevel {
         static QUICK_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
         static THOROUGH_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
         static DETERMINED_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
@@ -34,7 +34,7 @@ impl EffortClassifier {
             Regex::new(r"whatever it takes").unwrap(),
         ]);
 
-        let q = query.to_lowercase();
+        let q = request.to_lowercase();
         
         if determined.iter().any(|re| re.is_match(&q)) {
             return EffortLevel::Determined;
@@ -49,5 +49,11 @@ impl EffortClassifier {
         }
 
         EffortLevel::Standard
+    }
+}
+
+impl Default for EffortClassifier {
+    fn default() -> Self {
+        Self
     }
 }

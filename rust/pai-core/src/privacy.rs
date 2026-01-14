@@ -55,3 +55,9 @@ mod tests {
         assert!(!output.contains("sk-12345"), "Output was: {}", output);
     }
 }
+
+impl Default for PrivacyGuard {
+    fn default() -> Self {
+        Self
+    }
+}

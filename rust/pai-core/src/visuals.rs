@@ -1,5 +1,4 @@
-use crate::algorithm::{AlgorithmPhase, EffortLevel, ISCStatus, AlgorithmEngine};
-use serde::{Deserialize, Serialize};
+use crate::algorithm::{AlgorithmPhase, EffortLevel};
 
 pub struct VisualRenderer;
 
@@ -47,7 +46,7 @@ impl VisualRenderer {
                 bar.push_str("· ");
             }
         }
-        bar.push_str("]");
+        bar.push(']');
         bar
     }
 }

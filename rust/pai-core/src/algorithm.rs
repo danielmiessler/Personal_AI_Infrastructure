@@ -184,3 +184,35 @@ impl AlgorithmEngine {
         self.iteration.fetch_add(1, Ordering::SeqCst) + 1
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::thread;
+
+    #[test]
+    fn test_algorithm_engine_stress() {
+        let engine = Arc::new(AlgorithmEngine::new(EffortLevel::Standard));
+        let mut handles = Vec::new();
+
+        for _ in 0..10 {
+            let engine = Arc::clone(&engine);
+            handles.push(thread::spawn(move || {
+                for i in 0..100 {
+                    engine.add_requirement(&format!("Req {}", i), ISCSource::Inferred);
+                    engine.advance_phase();
+                    engine.next_iteration();
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let state_reqs = engine.requirements.read().unwrap();
+        assert_eq!(state_reqs.len(), 1000);
+        assert_eq!(engine.get_iteration(), 1001);
+    }
+}

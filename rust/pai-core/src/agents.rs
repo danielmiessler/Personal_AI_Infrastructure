@@ -12,7 +12,7 @@ pub struct Trait {
     pub keywords: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentRegistry {
     pub expertise: HashMap<String, Trait>,
     pub personality: HashMap<String, Trait>,
@@ -49,24 +49,7 @@ impl AgentRegistry {
     }
 }
 
-impl Default for AgentRegistry {
-    fn default() -> Self {
-        Self {
-            expertise: HashMap::new(),
-            personality: HashMap::new(),
-            approach: HashMap::new(),
-        }
-    }
-}
-
-impl Default for AgentFactory {
-    fn default() -> Self {
-        Self {
-            registry: AgentRegistry::default(),
-        }
-    }
-}
-
+#[derive(Default)]
 pub struct AgentFactory {
     registry: AgentRegistry,
 }

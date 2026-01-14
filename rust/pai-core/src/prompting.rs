@@ -48,6 +48,23 @@ pub struct PromptEngine<'a> {
 
 impl<'a> PromptEngine<'a> {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register_template(&mut self, name: &str, path: &Path) -> Result<(), PromptError> {
+        let content = std::fs::read_to_string(path)?;
+        self.registry.register_template_string(name, content)?;
+        Ok(())
+    }
+
+    pub fn render<T: Serialize>(&self, template_name: &str, data: &T) -> Result<String, PromptError> {
+        let rendered = self.registry.render(template_name, data)?;
+        Ok(rendered)
+    }
+}
+
+impl<'a> Default for PromptEngine<'a> {
+    fn default() -> Self {
         let mut hb = Handlebars::new();
         hb.set_strict_mode(true);
 
@@ -201,22 +218,11 @@ impl<'a> PromptEngine<'a> {
             let fallback = h.param(1).and_then(|v| v.value().as_str()).unwrap_or("");
             match val {
                 Some(serde_json::Value::Null) | None => out.write(fallback)?,
-                Some(v) => out.write(&v.as_str().unwrap_or(""))?,
+                Some(v) => out.write(v.as_str().unwrap_or(""))?,
             }
             Ok(())
         }));
 
         Self { registry: hb }
-    }
-
-    pub fn register_template(&mut self, name: &str, path: &Path) -> Result<(), PromptError> {
-        let content = std::fs::read_to_string(path)?;
-        self.registry.register_template_string(name, content)?;
-        Ok(())
-    }
-
-    pub fn render<T: Serialize>(&self, template_name: &str, data: &T) -> Result<String, PromptError> {
-        let rendered = self.registry.render(template_name, data)?;
-        Ok(rendered)
     }
 }

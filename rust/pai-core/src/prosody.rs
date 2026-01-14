@@ -100,7 +100,7 @@ impl ProsodyEngine {
         let s = s.replace("**", "").replace("__", "").replace('*', "");
         let s = s.replace('_', " ");
         let s = s.replace("🗣️", "").replace("📋", "").replace("🔍", "");
-        let s = s.replace('[', "").replace(']', "");
+        let s = s.replace(['[', ']'], "");
         let s = emoji_re.replace_all(&s, "");
         
         let mut out = String::with_capacity(s.len());

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use anyhow::Result;

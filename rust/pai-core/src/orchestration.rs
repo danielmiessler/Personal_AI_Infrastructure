@@ -34,6 +34,7 @@ impl Default for CapabilityRegistry {
     }
 }
 
+#[derive(Default)]
 pub struct DynamicCapabilityLoader {
     registry: CapabilityRegistry,
 }
@@ -68,14 +69,6 @@ impl DynamicCapabilityLoader {
         }
         
         available
-    }
-}
-
-impl Default for DynamicCapabilityLoader {
-    fn default() -> Self {
-        Self {
-            registry: CapabilityRegistry::default(),
-        }
     }
 }
 

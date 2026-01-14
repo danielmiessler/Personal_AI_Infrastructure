@@ -12,6 +12,12 @@ impl SecurityValidator {
     }
 }
 
+impl Default for SecurityValidator {
+    fn default() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl PAIHook for SecurityValidator {
     fn name(&self) -> &str {

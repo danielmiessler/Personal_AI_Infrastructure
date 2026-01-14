@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tokio::fs::{OpenOptions, create_dir_all, read_to_string, write};
 use tokio::io::AsyncWriteExt;
 use anyhow::Result;

@@ -9,6 +9,7 @@ pub enum SkillError {
     Regex(#[from] regex::Error),
 }
 
+#[derive(Default)]
 pub struct SkillRegistry {
     skills: std::collections::HashMap<String, SkillMetadata>,
     custom_dir: Option<PathBuf>,
@@ -29,10 +30,7 @@ pub struct SkillMetadata {
 
 impl SkillRegistry {
     pub fn new() -> Self {
-        Self { 
-            skills: std::collections::HashMap::new(),
-            custom_dir: None,
-        }
+        Self::default()
     }
 
     pub fn with_customization(mut self, custom_dir: PathBuf) -> Self {

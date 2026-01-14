@@ -4,21 +4,33 @@ use std::collections::HashMap;
 use anyhow::Result;
 use regex::Regex;
 
+use crate::config::ConfigLoader;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillMetadata {
     pub name: String,
     pub description: String,
     pub path: PathBuf,
     pub triggers: Vec<String>,
+    pub customized: bool,
 }
 
 pub struct SkillRegistry {
     skills: HashMap<String, SkillMetadata>,
+    custom_dir: Option<PathBuf>,
 }
 
 impl SkillRegistry {
     pub fn new() -> Self {
-        Self { skills: HashMap::new() }
+        Self { 
+            skills: HashMap::new(),
+            custom_dir: None,
+        }
+    }
+
+    pub fn with_customization(mut self, custom_dir: PathBuf) -> Self {
+        self.custom_dir = Some(custom_dir);
+        self
     }
 
     pub fn scan_directory(&mut self, skills_dir: &Path) -> Result<usize> {
@@ -34,10 +46,16 @@ impl SkillRegistry {
                 let skill_md = path.join("SKILL.md");
                 if skill_md.exists() {
                     let content = std::fs::read_to_string(&skill_md)?;
-                    
-                    // Parse YAML frontmatter (simplified)
                     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string();
                     
+                    let mut customized = false;
+                    if let Some(ref c_dir) = self.custom_dir {
+                        let custom_file = c_dir.join(&name).join("EXTEND.yaml");
+                        if custom_file.exists() {
+                            customized = true;
+                        }
+                    }
+
                     // Extract triggers
                     let mut triggers = Vec::new();
                     if let Some(caps) = use_when_re.captures(&content) {
@@ -50,9 +68,10 @@ impl SkillRegistry {
 
                     self.skills.insert(name.to_lowercase(), SkillMetadata {
                         name,
-                        description: "Parsed from SKILL.md".to_string(), // In real impl, parse full desc
+                        description: "Parsed from SKILL.md".to_string(),
                         path: skill_md,
                         triggers,
+                        customized,
                     });
                     count += 1;
                 }

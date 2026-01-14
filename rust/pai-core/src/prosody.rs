@@ -15,14 +15,28 @@ impl ProsodyEngine {
     pub fn new() -> Self {
         let mut presets = HashMap::new();
         
-        // PAI Standard Emotional Presets
+        // PAI Standard Emotional Presets (13 Total)
+        // High Energy / Positive
         presets.insert("excited".to_string(), EmotionalSettings { stability: 0.7, similarity_boost: 0.9 });
         presets.insert("celebration".to_string(), EmotionalSettings { stability: 0.65, similarity_boost: 0.85 });
         presets.insert("insight".to_string(), EmotionalSettings { stability: 0.55, similarity_boost: 0.8 });
+        presets.insert("creative".to_string(), EmotionalSettings { stability: 0.5, similarity_boost: 0.75 });
+
+        // Success / Achievement
         presets.insert("success".to_string(), EmotionalSettings { stability: 0.6, similarity_boost: 0.8 });
+        presets.insert("progress".to_string(), EmotionalSettings { stability: 0.55, similarity_boost: 0.75 });
+
+        // Analysis / Investigation
         presets.insert("investigating".to_string(), EmotionalSettings { stability: 0.6, similarity_boost: 0.85 });
         presets.insert("debugging".to_string(), EmotionalSettings { stability: 0.55, similarity_boost: 0.8 });
+        presets.insert("learning".to_string(), EmotionalSettings { stability: 0.5, similarity_boost: 0.75 });
+
+        // Thoughtful / Careful
+        presets.insert("pondering".to_string(), EmotionalSettings { stability: 0.65, similarity_boost: 0.8 });
+        presets.insert("focused".to_string(), EmotionalSettings { stability: 0.7, similarity_boost: 0.85 });
         presets.insert("caution".to_string(), EmotionalSettings { stability: 0.4, similarity_boost: 0.6 });
+
+        // Urgent / Critical
         presets.insert("urgent".to_string(), EmotionalSettings { stability: 0.3, similarity_boost: 0.9 });
 
         Self { presets }

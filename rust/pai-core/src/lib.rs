@@ -7,6 +7,9 @@ pub mod hooks;
 pub mod safety;
 pub mod algorithm;
 pub mod memory;
+pub mod identity;
+pub mod agents;
+pub mod prompting;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

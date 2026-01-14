@@ -20,6 +20,7 @@ pub mod config;
 pub mod enrichment;
 pub mod orchestration;
 pub mod oracle;
+pub mod learning;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

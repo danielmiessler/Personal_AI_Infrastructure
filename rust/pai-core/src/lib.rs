@@ -19,7 +19,11 @@ pub mod classifier;
 pub mod config;
 pub mod enrichment;
 pub mod hardening;
+pub mod upgrades;
+pub mod observability;
 pub mod compliance;
+pub mod swarm;
+pub mod privacy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

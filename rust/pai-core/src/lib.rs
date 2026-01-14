@@ -12,6 +12,8 @@ pub mod agents;
 pub mod prompting;
 pub mod prosody;
 pub mod recovery;
+pub mod telos;
+pub mod skills;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

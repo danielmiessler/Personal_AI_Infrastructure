@@ -18,6 +18,27 @@ function isSubagentSession(): boolean {
          process.env.SUBAGENT === 'true';
 }
 
+/**
+ * Substitute placeholders with environment variable values
+ * This keeps skills universal while personalizing at runtime
+ */
+function substituteEnvVars(content: string): string {
+  const aiName = process.env.DA || 'PAI';
+  const userName = process.env.USER_NAME || process.env.USER || 'User';
+
+  return content
+    // Identity placeholders
+    .replace(/\[YOUR_AI_NAME\]/g, aiName)
+    .replace(/\[YOUR_NAME\]/g, userName)
+    .replace(/\[AI_NAME\]/g, aiName)
+    .replace(/\[USER_NAME\]/g, userName)
+    // Voice marker - replace generic PAI with actual AI name
+    .replace(/🗣️\s*PAI:/g, `🗣️ ${aiName}:`)
+    // Optional placeholders (remove if not set)
+    .replace(/\[YOUR_PROFESSION\]/g, process.env.USER_PROFESSION || '')
+    .replace(/\[0-100\]/g, '50');  // Default personality values
+}
+
 function getLocalTimestamp(): string {
   const date = new Date();
   const tz = process.env.TIME_ZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -50,7 +71,7 @@ async function main() {
     }
 
     const payload: SessionStartPayload = JSON.parse(stdinData);
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
 
     // Look for CORE skill to load
     // The CORE skill contains identity, response format, and operating principles
@@ -62,8 +83,9 @@ async function main() {
       process.exit(0);
     }
 
-    // Read the skill content
-    const skillContent = readFileSync(coreSkillPath, 'utf-8');
+    // Read the skill content and substitute env vars
+    const rawContent = readFileSync(coreSkillPath, 'utf-8');
+    const skillContent = substituteEnvVars(rawContent);
 
     // Output as system-reminder for Claude to process
     // This format is recognized by Claude Code

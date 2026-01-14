@@ -89,7 +89,7 @@ async function main() {
     }
 
     const payload: SessionStartPayload = JSON.parse(stdinData);
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
+    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
 
     // 1. Set initial tab title
     const projectName = getProjectName(payload.cwd);

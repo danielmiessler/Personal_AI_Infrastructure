@@ -311,7 +311,7 @@ Iteration count bounded by effort level:
 
 ### Memory
 - ISC artifacts: `$PAI_DIR/MEMORY/Work/{session}/ISC.md`
-- Learnings: `$PAI_DIR/MEMORY/Learning/ALGORITHM/`
+- Learnings: `$PAI_DIR/MEMORY/learnings/ALGORITHM/`
 - Patterns: `$PAI_DIR/MEMORY/Signals/algorithm-patterns.jsonl`
 
 ## Workflow Routing

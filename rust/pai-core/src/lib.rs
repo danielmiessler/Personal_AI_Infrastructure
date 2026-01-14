@@ -18,6 +18,8 @@ pub mod fabric;
 pub mod classifier;
 pub mod config;
 pub mod enrichment;
+pub mod orchestration;
+pub mod oracle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HookEventType {

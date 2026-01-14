@@ -319,7 +319,9 @@ COMMANDS:
   show       Display current ISC table
   log        Show evolution log
   summary    Show status summary
-  clear      Clear current ISC
+  preflight  Run pre-flight check (consult past learnings)
+  learn      Capture learnings from current ISC (LEARN phase)
+  clear      Clear current ISC (auto-captures learnings first)
 
 OPTIONS:
   -r, --request <text>    Request text (for create)
@@ -548,16 +550,109 @@ EXAMPLES:
       if (existsSync(CURRENT_ISC_PATH)) {
         const isc = loadISC();
         // Archive before clearing
-        if (isc) {
+        if (isc && isc.rows && isc.rows.length > 0) {
           const archivePath = join(ISC_DIR, `archive-${Date.now()}.json`);
           writeFileSync(archivePath, JSON.stringify(isc, null, 2));
           console.log(`Archived to: ${archivePath}`);
+
+          // Capture learnings automatically
+          console.log("Capturing learnings...");
+          const { spawnSync } = await import("child_process");
+          const result = spawnSync("bun", [
+            "run",
+            join(__dirname, "LearningCapture.ts"),
+            "capture",
+            "-i",
+            CURRENT_ISC_PATH
+          ], { stdio: "inherit" });
+
+          if (result.status !== 0) {
+            console.log("Note: Learning capture completed with warnings");
+          }
         }
         writeFileSync(CURRENT_ISC_PATH, "");
         console.log("Current ISC cleared.");
       } else {
         console.log("No current ISC to clear.");
       }
+      break;
+    }
+
+    case "preflight": {
+      // Run pre-flight check - consult past learnings before starting work
+      const isc = loadISC();
+      const request = values.request || isc?.request || "General algorithm execution";
+
+      console.log("🛫 Running pre-flight check...\n");
+
+      const { spawnSync } = await import("child_process");
+      const result = spawnSync("bun", [
+        "run",
+        join(__dirname, "PreFlightCheck.ts"),
+        "check",
+        "-r",
+        request,
+        "-f",
+        values.output === "json" ? "json" : "markdown"
+      ], { stdio: "inherit" });
+
+      if (result.status !== 0) {
+        console.error("Pre-flight check failed");
+        process.exit(1);
+      }
+      break;
+    }
+
+    case "learn": {
+      const isc = loadISC();
+      if (!isc || !isc.rows || isc.rows.length === 0) {
+        console.error("Error: No ISC with rows found. Nothing to learn from.");
+        process.exit(1);
+      }
+
+      console.log("📚 Capturing learnings from current ISC...\n");
+
+      // Call LearningCapture
+      const { spawnSync } = await import("child_process");
+      const captureResult = spawnSync("bun", [
+        "run",
+        join(__dirname, "LearningCapture.ts"),
+        "capture"
+      ], { stdio: "inherit" });
+
+      if (captureResult.status !== 0) {
+        console.error("Learning capture failed");
+        process.exit(1);
+      }
+
+      // Record task completion in signals
+      const completedRows = isc.rows.filter(r => r.status === "DONE").length;
+      const success = completedRows === isc.rows.length;
+
+      const signalResult = spawnSync("bun", [
+        "run",
+        join(__dirname, "SignalCapture.ts"),
+        "complete",
+        "-w",
+        isc.request.slice(0, 50),
+        "-i",
+        String(isc.iteration),
+        ...(success ? ["--success"] : [])
+      ], { stdio: "inherit" });
+
+      // Analyze patterns
+      console.log("\n🔍 Analyzing patterns...");
+      spawnSync("bun", [
+        "run",
+        join(__dirname, "SignalCapture.ts"),
+        "analyze"
+      ], { stdio: "inherit" });
+
+      console.log("\n✅ Learning capture complete!");
+      console.log(`   Request: ${isc.request.slice(0, 50)}...`);
+      console.log(`   Effort: ${isc.effort}`);
+      console.log(`   Iterations: ${isc.iteration}`);
+      console.log(`   Completion: ${completedRows}/${isc.rows.length} rows`);
       break;
     }
 

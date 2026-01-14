@@ -33,10 +33,11 @@ Let me analyze your system and guide you through installation."
 ### 1.1 Run These Commands
 
 ```bash
-PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
+PAI_CHECK="${PAI_DIR:-$HOME/.claude}"
+DEFAULT_CLAUDE_DIR="$HOME/.claude"
 
 # Check if PAI_DIR is set
-echo "PAI_DIR: ${PAI_DIR:-'NOT SET - will use ~/.config/pai'}"
+echo "PAI_DIR: ${PAI_DIR:-'NOT SET - will use ~/.claude'}"
 
 # Check for Bun runtime
 which bun && bun --version
@@ -54,6 +55,23 @@ if [ -d "$PAI_CHECK/skills/CORE" ]; then
 else
   echo "✓ No existing CORE skill (clean install)"
 fi
+
+# Check if PAI_DIR differs from default (symlink may be needed)
+if [ "$PAI_CHECK" != "$DEFAULT_CLAUDE_DIR" ]; then
+  echo "⚠️ PAI_DIR differs from ~/.claude - symlink needed for skill discovery"
+  if [ -L "$DEFAULT_CLAUDE_DIR/skills" ]; then
+    LINK_TARGET=$(readlink "$DEFAULT_CLAUDE_DIR/skills")
+    if [ "$LINK_TARGET" = "$PAI_CHECK/skills" ]; then
+      echo "✓ Symlink exists and points to correct location"
+    else
+      echo "⚠️ Symlink exists but points to: $LINK_TARGET"
+    fi
+  elif [ -d "$DEFAULT_CLAUDE_DIR/skills" ]; then
+    echo "❌ ~/.claude/skills is a directory, not a symlink - skills won't be auto-discovered"
+  else
+    echo "📋 No symlink exists yet - will offer to create one"
+  fi
+fi
 ```
 
 ### 1.2 Present Findings
@@ -64,8 +82,11 @@ Tell the user what you found:
 - PAI_DIR: [path or NOT SET]
 - Bun: [installed vX.X / NOT INSTALLED]
 - Hook system: [installed / NOT INSTALLED - REQUIRED]
-- Existing CORE skill: [Yes at path / No]"
+- Existing CORE skill: [Yes at path / No]
+- Skill discovery symlink: [exists / needs creation / conflict]"
 ```
+
+**NOTE:** If PAI_DIR differs from `~/.claude`, Claude Code won't auto-discover skills unless a symlink exists from `~/.claude/skills` → `$PAI_DIR/skills`.
 
 ---
 
@@ -107,7 +128,24 @@ Tell the user what you found:
 }
 ```
 
-### Question 3: AI Identity Configuration
+### Question 3: Skill Discovery Symlink (if PAI_DIR ≠ ~/.claude)
+
+**Only ask if PAI_DIR is set to a non-default location AND no valid symlink exists:**
+
+```json
+{
+  "header": "Symlink",
+  "question": "Claude Code natively scans ~/.claude/skills/ for skills. Since your PAI_DIR is different, should I create a symlink for skill discovery?",
+  "multiSelect": false,
+  "options": [
+    {"label": "Yes, create symlink (Recommended)", "description": "Creates ~/.claude/skills → $PAI_DIR/skills so Claude Code finds your skills"},
+    {"label": "No, skip symlink", "description": "Skills won't be auto-discovered by Claude Code - you'll need to load them manually"},
+    {"label": "Show me how to do it manually", "description": "I'll explain the command but won't run it"}
+  ]
+}
+```
+
+### Question 4: AI Identity Configuration
 
 ```json
 {
@@ -122,7 +160,7 @@ Tell the user what you found:
 }
 ```
 
-### Question 4: Final Confirmation
+### Question 5: Final Confirmation
 
 ```json
 {
@@ -145,7 +183,7 @@ Tell the user what you found:
 
 ```bash
 BACKUP_DIR="$HOME/.pai-backup/$(date +%Y%m%d-%H%M%S)"
-PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
+PAI_CHECK="${PAI_DIR:-$HOME/.claude}"
 
 if [ -d "$PAI_CHECK/skills/CORE" ]; then
   mkdir -p "$BACKUP_DIR/skills"
@@ -193,6 +231,50 @@ mkdir -p $PAI_DIR/Tools
 ```
 
 **Mark todo as completed.**
+
+### 4.1.1 Create Skill Discovery Symlink (If Needed)
+
+**Only execute if user chose "Yes, create symlink" in Question 3:**
+
+```bash
+DEFAULT_CLAUDE_DIR="$HOME/.claude"
+
+# Only create symlink if PAI_DIR differs from default
+if [ "$PAI_DIR" != "$DEFAULT_CLAUDE_DIR" ]; then
+  # Ensure ~/.claude exists
+  mkdir -p "$DEFAULT_CLAUDE_DIR"
+
+  # Check if something already exists at the target path
+  if [ -e "$DEFAULT_CLAUDE_DIR/skills" ]; then
+    if [ -L "$DEFAULT_CLAUDE_DIR/skills" ]; then
+      echo "⚠️ Symlink already exists at $DEFAULT_CLAUDE_DIR/skills"
+      echo "   Current target: $(readlink "$DEFAULT_CLAUDE_DIR/skills")"
+    else
+      echo "❌ $DEFAULT_CLAUDE_DIR/skills exists as a directory"
+      echo "   Remove it first if you want to create a symlink:"
+      echo "   rm -rf $DEFAULT_CLAUDE_DIR/skills"
+    fi
+  else
+    # Create the symlink
+    ln -s "$PAI_DIR/skills" "$DEFAULT_CLAUDE_DIR/skills"
+    echo "✓ Created symlink: $DEFAULT_CLAUDE_DIR/skills → $PAI_DIR/skills"
+  fi
+fi
+```
+
+**If user chose "Show me how to do it manually"**, display:
+```
+To enable Claude Code skill discovery with a custom PAI_DIR:
+
+1. Remove any existing ~/.claude/skills directory:
+   rm -rf ~/.claude/skills
+
+2. Create the symlink:
+   ln -s $PAI_DIR/skills ~/.claude/skills
+
+3. Verify:
+   ls -la ~/.claude/skills
+```
 
 ### 4.2 Create MEMORY/ Structure
 
@@ -512,4 +594,33 @@ cp -r /path/to/pai-core-install/src/skills/CORE/SYSTEM/* $PAI_DIR/skills/CORE/SY
 
 1. Check PaiArchitecture.ts exists in Tools/
 2. Verify write permissions to skills/CORE/
-3. Run with explicit PAI_DIR: `PAI_DIR=~/.config/pai bun run ...`
+3. Run with explicit PAI_DIR: `PAI_DIR=~/.claude bun run ...`
+
+### Skills Not Auto-Discovered by Claude Code
+
+If you're using a custom PAI_DIR (not `~/.claude`), Claude Code won't find your skills unless you create a symlink:
+
+1. **Check current symlink status:**
+   ```bash
+   ls -la ~/.claude/skills
+   ```
+
+2. **If ~/.claude/skills is a directory (not a symlink):**
+   ```bash
+   # Backup existing skills first if needed
+   mv ~/.claude/skills ~/.claude/skills-backup
+   # Create symlink
+   ln -s $PAI_DIR/skills ~/.claude/skills
+   ```
+
+3. **If no symlink exists:**
+   ```bash
+   mkdir -p ~/.claude
+   ln -s $PAI_DIR/skills ~/.claude/skills
+   ```
+
+4. **Verify the symlink points to correct location:**
+   ```bash
+   readlink ~/.claude/skills
+   # Should output: /path/to/your/PAI_DIR/skills
+   ```

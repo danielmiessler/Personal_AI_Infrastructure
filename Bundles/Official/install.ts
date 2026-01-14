@@ -36,6 +36,8 @@ interface WizardConfig {
   userName: string;
   elevenLabsApiKey?: string;
   elevenLabsVoiceId?: string;
+  installDir: string;
+  createSymlink: boolean;
 }
 
 // =============================================================================
@@ -100,7 +102,7 @@ async function readExistingConfig(): Promise<ExistingConfig> {
 
   // Try to read from .env file
   try {
-    const envPath = `${claudeDir}/.env`;
+    const envPath = `${installDir}/.env`;
     if (existsSync(envPath)) {
       const envContent = await Bun.file(envPath).text();
       const lines = envContent.split("\n");
@@ -131,7 +133,7 @@ async function readExistingConfig(): Promise<ExistingConfig> {
 
   // Try to read userName from SKILL.md
   try {
-    const skillPath = `${claudeDir}/skills/CORE/SKILL.md`;
+    const skillPath = `${installDir}/skills/CORE/SKILL.md`;
     if (existsSync(skillPath)) {
       const skillContent = await Bun.file(skillPath).text();
       const userMatch = skillContent.match(/Role:\s*(\w+)'s AI assistant/);
@@ -309,7 +311,11 @@ async function gatherConfig(): Promise<WizardConfig> {
   }
 
   // Check for existing PAI_DIR environment variable
+  const defaultDir = `${process.env.HOME}/.claude`;
   const existingPaiDir = process.env.PAI_DIR;
+  let installDir = defaultDir;
+  let createSymlink = false;
+
   if (existingPaiDir && !isUpdateMode) {
     console.log(`📍 Existing PAI_DIR detected: ${existingPaiDir}\n`);
     const useExisting = await askYesNo(
@@ -317,7 +323,37 @@ async function gatherConfig(): Promise<WizardConfig> {
       true
     );
     if (useExisting) {
+      installDir = existingPaiDir;
       console.log(`\nUsing existing PAI_DIR: ${existingPaiDir}\n`);
+
+      // If PAI_DIR is not ~/.claude, Claude Code won't find skills natively
+      if (existingPaiDir !== defaultDir) {
+        console.log("┌─────────────────────────────────────────────────────────────┐");
+        console.log("│  CLAUDE CODE SKILL DISCOVERY                                │");
+        console.log("├─────────────────────────────────────────────────────────────┤");
+        console.log("│                                                             │");
+        console.log("│  Claude Code natively scans ~/.claude/skills/ for skills.   │");
+        console.log("│  Since you're installing to a different location, skills    │");
+        console.log("│  won't be auto-discovered unless we create a symlink.       │");
+        console.log("│                                                             │");
+        console.log("│  Recommended: Create symlink from ~/.claude/skills to       │");
+        console.log(`│               ${existingPaiDir}/skills                       `.slice(0, 61) + "│");
+        console.log("│                                                             │");
+        console.log("└─────────────────────────────────────────────────────────────┘");
+        console.log();
+
+        createSymlink = await askYesNo(
+          "Create symlink for Claude Code skill discovery? (Recommended)",
+          true
+        );
+        if (createSymlink) {
+          console.log("✓ Will create symlink after installation.\n");
+        } else {
+          console.log("⚠️  Skills won't be auto-discovered by Claude Code.");
+          console.log("   You can manually create the symlink later:\n");
+          console.log(`   ln -s ${existingPaiDir}/skills ~/.claude/skills\n`);
+        }
+      }
     } else {
       console.log("\n⚠️  Installation will use ~/.claude (standard Claude Code location)");
       console.log("   You may need to update your PAI_DIR environment variable after installation.\n");
@@ -376,6 +412,8 @@ async function gatherConfig(): Promise<WizardConfig> {
     userName,
     elevenLabsApiKey,
     elevenLabsVoiceId,
+    installDir,
+    createSymlink,
   };
 }
 
@@ -578,29 +616,30 @@ async function main() {
     // Step 3: Install
     printHeader("STEP 3: INSTALLATION");
 
-    const claudeDir = `${process.env.HOME}/.claude`;
+    const installDir = config.installDir;
+    const defaultClaudeDir = `${process.env.HOME}/.claude`;
 
     // Create directory structure
-    console.log("Creating directory structure...");
-    await $`mkdir -p ${claudeDir}/skills/CORE/workflows`;
-    await $`mkdir -p ${claudeDir}/skills/CORE/tools`;
-    await $`mkdir -p ${claudeDir}/history/{sessions,learnings,research,decisions}`;
-    await $`mkdir -p ${claudeDir}/hooks/lib`;
-    await $`mkdir -p ${claudeDir}/tools`;
-    await $`mkdir -p ${claudeDir}/voice`;
+    console.log(`Creating directory structure in ${installDir}...`);
+    await $`mkdir -p ${installDir}/skills/CORE/workflows`;
+    await $`mkdir -p ${installDir}/skills/CORE/tools`;
+    await $`mkdir -p ${installDir}/history/{sessions,learnings,research,decisions}`;
+    await $`mkdir -p ${installDir}/hooks/lib`;
+    await $`mkdir -p ${installDir}/tools`;
+    await $`mkdir -p ${installDir}/voice`;
 
     // Generate files
     console.log("Generating SKILL.md...");
     const skillMd = generateSkillMd(config);
-    await Bun.write(`${claudeDir}/skills/CORE/SKILL.md`, skillMd);
+    await Bun.write(`${installDir}/skills/CORE/SKILL.md`, skillMd);
 
     console.log("Generating Contacts.md...");
     const contactsMd = generateContactsMd(config);
-    await Bun.write(`${claudeDir}/skills/CORE/Contacts.md`, contactsMd);
+    await Bun.write(`${installDir}/skills/CORE/Contacts.md`, contactsMd);
 
     console.log("Generating CoreStack.md...");
     const coreStackMd = generateCoreStackMd(config);
-    await Bun.write(`${claudeDir}/skills/CORE/CoreStack.md`, coreStackMd);
+    await Bun.write(`${installDir}/skills/CORE/CoreStack.md`, coreStackMd);
 
     // Create .env file (no quotes around values - .env format standard)
     console.log("Creating .env file...");
@@ -612,7 +651,7 @@ TIME_ZONE=${config.timeZone}
 ${config.elevenLabsApiKey ? `ELEVENLABS_API_KEY=${config.elevenLabsApiKey}` : "# ELEVENLABS_API_KEY="}
 ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` : "# ELEVENLABS_VOICE_ID="}
 `;
-    await Bun.write(`${claudeDir}/.env`, envFileContent);
+    await Bun.write(`${installDir}/.env`, envFileContent);
 
     // Create settings.json with environment variables for Claude Code
     // This ensures env vars are available immediately without shell sourcing
@@ -621,7 +660,7 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
       env: {
         DA: config.daName,
         TIME_ZONE: config.timeZone,
-        PAI_DIR: claudeDir,
+        PAI_DIR: installDir,
         PAI_SOURCE_APP: config.daName,
       },
     };
@@ -633,7 +672,7 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
     }
 
     // Check for existing settings.json and merge if present
-    const settingsPath = `${claudeDir}/settings.json`;
+    const settingsPath = `${installDir}/settings.json`;
     let existingSettings: Record<string, unknown> = {};
     try {
       const existingContent = await Bun.file(settingsPath).text();
@@ -653,6 +692,42 @@ ${config.elevenLabsVoiceId ? `ELEVENLABS_VOICE_ID=${config.elevenLabsVoiceId}` :
 
     await Bun.write(settingsPath, JSON.stringify(mergedSettings, null, 2) + "\n");
     console.log("✓ Created settings.json with environment variables");
+
+    // Create symlink for Claude Code skill discovery if requested
+    if (config.createSymlink && installDir !== defaultClaudeDir) {
+      console.log("\nCreating symlink for Claude Code skill discovery...");
+      const skillsSymlinkTarget = `${installDir}/skills`;
+      const skillsSymlinkPath = `${defaultClaudeDir}/skills`;
+
+      // Ensure ~/.claude directory exists
+      await $`mkdir -p ${defaultClaudeDir}`;
+
+      // Check if symlink target already exists
+      if (existsSync(skillsSymlinkPath)) {
+        const stats = await Bun.file(skillsSymlinkPath).exists();
+        // Check if it's already a symlink pointing to the right place
+        try {
+          const linkTarget = await $`readlink ${skillsSymlinkPath}`.text();
+          if (linkTarget.trim() === skillsSymlinkTarget) {
+            console.log("✓ Symlink already exists and points to correct location");
+          } else {
+            console.log(`⚠️  ${skillsSymlinkPath} already exists`);
+            console.log(`   Current target: ${linkTarget.trim()}`);
+            console.log(`   Expected target: ${skillsSymlinkTarget}`);
+            console.log("   Please manually update the symlink if needed.");
+          }
+        } catch {
+          // Not a symlink - it's a real directory
+          console.log(`⚠️  ${skillsSymlinkPath} exists as a directory, not a symlink`);
+          console.log("   To enable skill discovery, manually create the symlink:");
+          console.log(`   rm -rf ${skillsSymlinkPath} && ln -s ${skillsSymlinkTarget} ${skillsSymlinkPath}`);
+        }
+      } else {
+        // Create the symlink
+        await $`ln -s ${skillsSymlinkTarget} ${skillsSymlinkPath}`;
+        console.log(`✓ Created symlink: ${skillsSymlinkPath} → ${skillsSymlinkTarget}`);
+      }
+    }
 
     // Add to shell profile
     console.log("Updating shell profile...");
@@ -699,18 +774,18 @@ ${config.elevenLabsVoiceId ? `export ELEVENLABS_VOICE_ID="${config.elevenLabsVoi
       console.log(`
 Your Kai system has been updated:
 
-  📁 Installation: ~/.claude
+  📁 Installation: ${installDir}
   🤖 Assistant Name: ${config.daName}
   👤 User: ${config.userName}
   🌍 Timezone: ${config.timeZone}
   🔊 Voice: ${config.elevenLabsApiKey ? "Enabled" : "Disabled"}
 
 Files updated:
-  - ~/.claude/skills/CORE/SKILL.md
-  - ~/.claude/skills/CORE/Contacts.md
-  - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
-  - ~/.claude/settings.json
+  - ${installDir}/skills/CORE/SKILL.md
+  - ${installDir}/skills/CORE/Contacts.md
+  - ${installDir}/skills/CORE/CoreStack.md
+  - ${installDir}/.env
+  - ${installDir}/settings.json
 
 Next steps:
 
@@ -720,22 +795,28 @@ Next steps:
 Your existing hooks, history, and customizations have been preserved.
 `);
     } else {
+      const symlinkNote = config.createSymlink && installDir !== defaultClaudeDir
+        ? `  🔗 Symlink: ${defaultClaudeDir}/skills → ${installDir}/skills\n`
+        : "";
+      const backupNote = installDir === defaultClaudeDir
+        ? `  💾 Backup: ${defaultClaudeDir}-BACKUP\n`
+        : "";
+
       console.log(`
 Your Kai system is configured:
 
-  📁 Installation: ~/.claude
-  💾 Backup: ~/.claude-BACKUP
-  🤖 Assistant Name: ${config.daName}
+  📁 Installation: ${installDir}
+${backupNote}${symlinkNote}  🤖 Assistant Name: ${config.daName}
   👤 User: ${config.userName}
   🌍 Timezone: ${config.timeZone}
   🔊 Voice: ${config.elevenLabsApiKey ? "Enabled" : "Disabled"}
 
 Files created:
-  - ~/.claude/skills/CORE/SKILL.md
-  - ~/.claude/skills/CORE/Contacts.md
-  - ~/.claude/skills/CORE/CoreStack.md
-  - ~/.claude/.env
-  - ~/.claude/settings.json (env vars for Claude Code)
+  - ${installDir}/skills/CORE/SKILL.md
+  - ${installDir}/skills/CORE/Contacts.md
+  - ${installDir}/skills/CORE/CoreStack.md
+  - ${installDir}/.env
+  - ${installDir}/settings.json (env vars for Claude Code)
 
 Next steps:
 
@@ -746,8 +827,8 @@ Next steps:
      - kai-voice-system.md (optional, requires ElevenLabs)
 
   2. Restart Claude Code to activate hooks
-
-Your backup is at ~/.claude-BACKUP if you need to restore.
+${installDir === defaultClaudeDir ? `
+Your backup is at ${defaultClaudeDir}-BACKUP if you need to restore.` : ""}
 `);
     }
 

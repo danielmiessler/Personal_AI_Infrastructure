@@ -99,6 +99,30 @@
 - [ ] `$PAI_DIR/skills/skill-index.json` exists (run GenerateSkillIndex.ts)
 - [ ] `$PAI_DIR/skills/CORE/PaiArchitecture.md` exists (run PaiArchitecture.ts generate)
 
+### Claude Code Skill Discovery (if PAI_DIR ≠ ~/.claude)
+
+**Only check these if PAI_DIR is set to a non-default location:**
+
+- [ ] Symlink exists: `~/.claude/skills` → `$PAI_DIR/skills`
+- [ ] Symlink is valid (not broken)
+- [ ] Skills are discoverable via Claude Code
+
+```bash
+# Verify symlink
+if [ "$PAI_DIR" != "$HOME/.claude" ]; then
+  if [ -L "$HOME/.claude/skills" ]; then
+    LINK_TARGET=$(readlink "$HOME/.claude/skills")
+    if [ "$LINK_TARGET" = "$PAI_DIR/skills" ]; then
+      echo "✓ Symlink correctly points to $PAI_DIR/skills"
+    else
+      echo "⚠️ Symlink points to wrong location: $LINK_TARGET"
+    fi
+  else
+    echo "❌ No symlink found - Claude Code won't auto-discover skills"
+  fi
+fi
+```
+
 ---
 
 ## Functional Tests
@@ -271,7 +295,8 @@ In a Claude Code session:
 
 ```bash
 #!/bin/bash
-PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
+PAI_CHECK="${PAI_DIR:-$HOME/.claude}"
+DEFAULT_CLAUDE_DIR="$HOME/.claude"
 
 echo "=== PAI Core Install v1.2.0 Verification ==="
 echo ""
@@ -371,6 +396,27 @@ else
 fi
 
 echo ""
+
+# Check Claude Code skill discovery symlink (if PAI_DIR ≠ ~/.claude)
+if [ "$PAI_CHECK" != "$DEFAULT_CLAUDE_DIR" ]; then
+  echo "🔗 Claude Code Skill Discovery:"
+  if [ -L "$DEFAULT_CLAUDE_DIR/skills" ]; then
+    LINK_TARGET=$(readlink "$DEFAULT_CLAUDE_DIR/skills")
+    if [ "$LINK_TARGET" = "$PAI_CHECK/skills" ]; then
+      echo "  ✓ Symlink correctly points to $PAI_CHECK/skills"
+    else
+      echo "  ⚠️  Symlink points to: $LINK_TARGET (expected: $PAI_CHECK/skills)"
+    fi
+  elif [ -d "$DEFAULT_CLAUDE_DIR/skills" ]; then
+    echo "  ❌ ~/.claude/skills is a directory, not a symlink"
+    echo "     Skills won't be auto-discovered by Claude Code"
+  else
+    echo "  ❌ No symlink found at ~/.claude/skills"
+    echo "     Create with: ln -s $PAI_CHECK/skills $DEFAULT_CLAUDE_DIR/skills"
+  fi
+  echo ""
+fi
+
 echo "=== Verification Complete ==="
 ```
 
@@ -391,3 +437,4 @@ Installation is complete when:
 9. ✅ `bun run $PAI_DIR/Tools/SkillSearch.ts --list` returns skill list
 10. ✅ `bun run $PAI_DIR/Tools/PaiArchitecture.ts check` shows healthy status
 11. ✅ Documentation headers are present in USER/, PAISECURITYSYSTEM/, and SYSTEM/ files
+12. ✅ If PAI_DIR ≠ ~/.claude: Symlink exists from ~/.claude/skills → $PAI_DIR/skills

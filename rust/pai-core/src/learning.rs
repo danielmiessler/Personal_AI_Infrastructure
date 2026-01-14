@@ -93,4 +93,38 @@ impl LearningEngine {
         write(stats_path, serde_json::to_string_pretty(&stats)?)?;
         Ok(())
     }
+
+    pub fn load_lessons(&self, query: &str) -> Result<String> {
+        let mut lessons = String::from("# LESSONS LEARNED (Reinforcement Context)\n\n");
+        let signal_dir = self.root_dir.join("History").join("Signals");
+        
+        let files = ["failures.jsonl", "loopbacks.jsonl"];
+        let query_lower = query.to_lowercase();
+        let mut count = 0;
+
+        for filename in files {
+            let path = signal_dir.join(filename);
+            if path.exists() {
+                let content = std::fs::read_to_string(&path)?;
+                for line in content.lines().rev().take(50) { // Look at last 50 signals
+                    if let Ok(signal) = serde_json::from_str::<Signal>(line) {
+                        // Semantic check: does this signal relate to our current query?
+                        if signal.reason.to_lowercase().contains(&query_lower) || 
+                           query_lower.contains(&signal.phase.to_lowercase()) {
+                            lessons.push_str(&format!("- **Phase:** {}\n", signal.phase));
+                            lessons.push_str(&format!("  **Issue:** {}\n", signal.reason));
+                            count += 1;
+                        }
+                    }
+                    if count >= 5 { break; } // Max 5 relevant lessons
+                }
+            }
+        }
+
+        if count == 0 {
+            Ok(String::from("No relevant previous failures detected for this task."))
+        } else {
+            Ok(lessons)
+        }
+    }
 }

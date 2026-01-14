@@ -3,24 +3,6 @@ use std::collections::HashMap;
 use thiserror::Error;
 use regex::Regex;
 use crate::privacy::PrivacyGuard;
-
-#[derive(Error, Debug)]
-pub enum ProsodyError {
-    #[error("Failed to compile regex pattern: {0}")]
-    RegexError(#[from] regex::Error),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EmotionalSettings {
-    pub stability: f32,
-    pub similarity_boost: f32,
-}
-
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use thiserror::Error;
-use regex::Regex;
-use crate::privacy::PrivacyGuard;
 use std::sync::OnceLock;
 
 #[derive(Error, Debug)]
@@ -45,27 +27,18 @@ impl ProsodyEngine {
         let mut presets = HashMap::new();
         
         // PAI Standard Emotional Presets (13 Total)
-        // High Energy / Positive
         presets.insert("excited".to_string(), EmotionalSettings { stability: 0.7, similarity_boost: 0.9 });
         presets.insert("celebration".to_string(), EmotionalSettings { stability: 0.65, similarity_boost: 0.85 });
         presets.insert("insight".to_string(), EmotionalSettings { stability: 0.55, similarity_boost: 0.8 });
         presets.insert("creative".to_string(), EmotionalSettings { stability: 0.5, similarity_boost: 0.75 });
-
-        // Success / Achievement
         presets.insert("success".to_string(), EmotionalSettings { stability: 0.6, similarity_boost: 0.8 });
         presets.insert("progress".to_string(), EmotionalSettings { stability: 0.55, similarity_boost: 0.75 });
-
-        // Analysis / Investigation
         presets.insert("investigating".to_string(), EmotionalSettings { stability: 0.6, similarity_boost: 0.85 });
         presets.insert("debugging".to_string(), EmotionalSettings { stability: 0.55, similarity_boost: 0.8 });
         presets.insert("learning".to_string(), EmotionalSettings { stability: 0.5, similarity_boost: 0.75 });
-
-        // Thoughtful / Careful
         presets.insert("pondering".to_string(), EmotionalSettings { stability: 0.65, similarity_boost: 0.8 });
         presets.insert("focused".to_string(), EmotionalSettings { stability: 0.7, similarity_boost: 0.85 });
         presets.insert("caution".to_string(), EmotionalSettings { stability: 0.4, similarity_boost: 0.6 });
-
-        // Urgent / Critical
         presets.insert("urgent".to_string(), EmotionalSettings { stability: 0.3, similarity_boost: 0.9 });
 
         Ok(Self { 
@@ -102,13 +75,11 @@ impl ProsodyEngine {
         }
 
         let mut cleaned = message.to_string();
-        // Clean ONLY valid markers found in presets
         for tag in tags_to_remove {
             cleaned = cleaned.replace(tag, "");
         }
         
         let speech_ready = self.clean_for_speech(&cleaned);
-        // Apply Privacy Redaction
         let redacted = self.privacy.redact(&speech_ready);
 
         (redacted, best_settings)
@@ -123,29 +94,15 @@ impl ProsodyEngine {
         let link_re = LINK_RE.get_or_init(|| Regex::new(r"\[([^\]]+)\]\([^\s\)]+\)").unwrap());
         let emoji_re = EMOJI_RE.get_or_init(|| Regex::new(r"[\x{1F300}-\x{1F9FF}]").unwrap());
 
-        // PAI Standard Speech Cleaning Pipeline
-        // Use Cow or just optimize the replacement chain
         let s = code_block_re.replace_all(input, "[code omitted]");
-        
-        // 2. Strip inline backticks
-        // Cow::Owned or Borrowed
         let s = s.replace('`', "");
-
-        // 3. Normalize markdown links: [text](url) -> text
         let s = link_re.replace_all(&s, "$1");
-
-        // 4. Strip bold/italic markers
         let s = s.replace("**", "").replace("__", "").replace('*', "");
         let s = s.replace('_', " ");
-
-        // 5. Remove system markers, brackets, and extra whitespace
         let s = s.replace("🗣️", "").replace("📋", "").replace("🔍", "");
         let s = s.replace('[', "").replace(']', "");
-        
-        // Remove common emojis
         let s = emoji_re.replace_all(&s, "");
         
-        // Optimized whitespace normalization
         let mut out = String::with_capacity(s.len());
         let mut first = true;
         for part in s.split_whitespace() {

@@ -69,17 +69,20 @@ impl<'a> PromptEngine<'a> {
 
         hb.register_helper("titlecase", Box::new(|h: &handlebars::Helper, _: &handlebars::Handlebars, _: &handlebars::Context, _: &mut handlebars::RenderContext, out: &mut dyn handlebars::Output| {
             let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
-            let res = param.split_whitespace()
-                .map(|w| {
-                    let mut c = w.chars();
-                    match c.next() {
-                        None => String::new(),
-                        Some(f) => f.to_uppercase().collect::<String>() + &c.as_str().to_lowercase(),
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(" ");
-            out.write(&res)?;
+            let mut buffer = String::with_capacity(param.len());
+            let mut next_upper = true;
+            for c in param.chars() {
+                if c.is_whitespace() {
+                    next_upper = true;
+                    buffer.push(c);
+                } else if next_upper {
+                    for uc in c.to_uppercase() { buffer.push(uc); }
+                    next_upper = false;
+                } else {
+                    for lc in c.to_lowercase() { buffer.push(lc); }
+                }
+            }
+            out.write(&buffer)?;
             Ok(())
         }));
 

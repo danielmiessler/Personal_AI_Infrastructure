@@ -84,7 +84,7 @@ impl AlgorithmEngine {
     pub fn check_promise(&self, output: &str) -> bool {
         let promise_lock = self.completion_promise.read().unwrap();
         if let Some(ref promise) = *promise_lock {
-            output.contains(promise) || output.contains(&format!("<promise>{}"</promise>", promise))
+            output.contains(promise) || output.contains(&format!("<promise>{}</promise>", promise))
         } else {
             true
         }
@@ -150,11 +150,7 @@ impl AlgorithmEngine {
         let effort = self.effort.read().unwrap();
         let reqs = self.requirements.read().unwrap();
         
-        let mut table = String::from("## ISC: Phase ");
-        table.push_str(&format!("{:?}", *phase));
-        table.push_str(" | Effort ");
-        table.push_str(&format!("{:?}", *effort));
-        table.push_str("\n\n");
+        let mut table = format!("## ISC: Phase {:?} | Effort {:?}\n\n", *phase, *effort);
 
         table.push_str("| # | Requirement | Source | Status |\n");
         table.push_str("|---|-------------|--------|--------|\n");
@@ -169,15 +165,10 @@ impl AlgorithmEngine {
                 ISCStatus::Blocked(r) => format!("🚫 BLOCKED ({})", r),
             };
             
-            table.push_str("| ");
-            table.push_str(&req.id.to_string());
-            table.push_str(" | ");
-            table.push_str(&req.description);
-            table.push_str(" | ");
-            table.push_str(&format!("{:?}", req.source));
-            table.push_str(" | ");
-            table.push_str(&status_str);
-            table.push_str(" |\n");
+            table.push_str(&format!(
+                "| {} | {} | {:?} | {} |\n",
+                req.id, req.description, req.source, status_str
+            ));
         }
         table
     }

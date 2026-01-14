@@ -122,7 +122,7 @@ impl<'a> PromptEngine<'a> {
         hb.register_helper("codeblock", Box::new(|h: &handlebars::Helper, _: &handlebars::Handlebars, _: &handlebars::Context, _: &mut handlebars::RenderContext, out: &mut dyn handlebars::Output| {
             let code = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
             let lang = h.param(1).and_then(|v| v.value().as_str()).unwrap_or("");
-            out.write(&format!("```{{}}\n{{}}\n```", lang, code))?;
+            out.write(&format!("```{}\n{}\n```", lang, code))?;
             Ok(())
         }));
 
@@ -130,7 +130,7 @@ impl<'a> PromptEngine<'a> {
             let text = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
             let spaces = h.param(1).and_then(|v| v.value().as_u64()).unwrap_or(2) as usize;
             let indent = " ".repeat(spaces);
-            let res = text.lines().map(|line| format!("{{}}{{}}", indent, line)).collect::<Vec<_>>().join("\n");
+            let res = text.lines().map(|line| format!("{}{}", indent, line)).collect::<Vec<_>>().join("\n");
             out.write(&res)?;
             Ok(())
         }));

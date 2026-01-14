@@ -57,7 +57,7 @@ fn test_algorithm_engine() {
 
 #[test]
 fn test_prosody_engine() {
-    let engine = ProsodyEngine::new();
+    let engine = ProsodyEngine::new().unwrap();
     let input = "[✨ success] Task completed successfully! Check the `code` here: [Link](http://example.com)";
     let (cleaned, settings) = engine.detect_and_clean(input);
     
@@ -207,7 +207,7 @@ fn test_swarm_steelmanning() {
 
 #[test]
 fn test_prosody_cleaning_fidelity() {
-    let engine = ProsodyEngine::new();
+    let engine = ProsodyEngine::new().unwrap();
     let input = "Check the [Rust docs](https://rust-lang.org) and this code: ```rust\nfn main() {}\n```. **Bold** and *italic*.";
     let (cleaned, _) = engine.detect_and_clean(input);
     
@@ -219,7 +219,7 @@ fn test_prosody_cleaning_fidelity() {
 
 #[test]
 fn test_prosody_fallback_logic() {
-    let engine = ProsodyEngine::new();
+    let engine = ProsodyEngine::new().unwrap();
     // Valid emoji, but invalid emotion name
     let (cleaned, settings) = engine.detect_and_clean("[✨ unknown_tag] Message");
     assert!(settings.is_none());
@@ -529,7 +529,7 @@ async fn test_session_manager_summary() {
 
 #[test]
 fn test_prosody_intensity_priority() {
-    let engine = ProsodyEngine::new();
+    let engine = ProsodyEngine::new().unwrap();
     // success (7) vs urgent (10)
     let (_, settings) = engine.detect_and_clean("[✨ success] [🚨 urgent] Critical update!");
     // Should choose urgent settings (stability 0.3)
@@ -570,7 +570,7 @@ fn test_hardening_ssrf_detection() {
 
 #[test]
 fn test_prosody_complex_cleaning() {
-    let engine = ProsodyEngine::new();
+    let engine = ProsodyEngine::new().unwrap();
     let input = "First line.\n\n```rust\ncode\n```\n\nSecond line with [Link](url).";
     let (cleaned, _) = engine.detect_and_clean(input);
     
@@ -695,7 +695,7 @@ fn test_manifest_upgrade_logging() {
 
 #[test]
 fn test_prosody_multi_emotion() {
-    let engine = ProsodyEngine::new();
+    let engine = ProsodyEngine::new().unwrap();
     
     let (_, urgent) = engine.detect_and_clean("[🚨 urgent] Mission critical!");
     assert_eq!(urgent.unwrap().stability, 0.3);

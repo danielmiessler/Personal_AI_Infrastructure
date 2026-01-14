@@ -41,6 +41,7 @@ pub enum ISCSource {
 pub enum ISCStatus {
     Pending,
     Active,
+    Looping(u32), // Current iteration count
     Done,
     Adjusted(String),
     Blocked(String),
@@ -51,6 +52,7 @@ pub struct AlgorithmState {
     pub effort: EffortLevel,
     pub requirements: Vec<ISCRequirement>,
     pub iteration: u32,
+    pub completion_promise: Option<String>,
 }
 
 pub struct AlgorithmEngine {
@@ -65,7 +67,36 @@ impl AlgorithmEngine {
                 effort,
                 requirements: Vec::new(),
                 iteration: 1,
+                completion_promise: None,
             })),
+        }
+    }
+
+    pub fn set_promise(&self, promise: &str) {
+        let mut state = self.state.lock().unwrap();
+        state.completion_promise = Some(promise.to_string());
+    }
+
+    pub fn check_promise(&self, output: &str) -> bool {
+        let state = self.state.lock().unwrap();
+        if let Some(ref promise) = state.completion_promise {
+            output.contains(promise) || output.contains(&format!("<promise>{}</promise>", promise))
+        } else {
+            true
+        }
+    }
+
+    pub fn increment_loop(&self, id: u32) -> Option<u32> {
+        let mut state = self.state.lock().unwrap();
+        if let Some(req) = state.requirements.iter_mut().find(|r| r.id == id) {
+            let count = match req.status {
+                ISCStatus::Looping(c) => c + 1,
+                _ => 1,
+            };
+            req.status = ISCStatus::Looping(count);
+            Some(count)
+        } else {
+            None
         }
     }
 

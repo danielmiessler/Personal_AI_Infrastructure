@@ -146,15 +146,19 @@ impl AlgorithmEngine {
     }
 
     pub fn generate_isc_table(&self) -> String {
-        // Acquire read locks. Note: We do not lock all at once atomically, 
-        // so this represents a slightly fuzzy snapshot, which is acceptable for reporting.
         let phase = self.phase.read().unwrap();
         let effort = self.effort.read().unwrap();
         let reqs = self.requirements.read().unwrap();
         
-        let mut table = format!("## ISC: Phase {{:?}} | Effort {{:?}}\n\n", *phase, *effort);
+        let mut table = String::from("## ISC: Phase ");
+        table.push_str(&format!("{:?}", *phase));
+        table.push_str(" | Effort ");
+        table.push_str(&format!("{:?}", *effort));
+        table.push_str("\n\n");
+
         table.push_str("| # | Requirement | Source | Status |\n");
         table.push_str("|---|-------------|--------|--------|\n");
+        
         for req in reqs.iter() {
             let status_str = match &req.status {
                 ISCStatus::Pending => "⏳ PENDING".to_string(),
@@ -164,7 +168,16 @@ impl AlgorithmEngine {
                 ISCStatus::Adjusted(r) => format!("🔧 ADJUSTED ({})", r),
                 ISCStatus::Blocked(r) => format!("🚫 BLOCKED ({})", r),
             };
-            table.push_str(&format!("| {} | {} | {{:?}} | {} |\n", req.id, req.description, req.source, status_str));
+            
+            table.push_str("| ");
+            table.push_str(&req.id.to_string());
+            table.push_str(" | ");
+            table.push_str(&req.description);
+            table.push_str(" | ");
+            table.push_str(&format!("{:?}", req.source));
+            table.push_str(" | ");
+            table.push_str(&status_str);
+            table.push_str(" |\n");
         }
         table
     }

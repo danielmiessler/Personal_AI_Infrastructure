@@ -1027,7 +1027,7 @@ If a pack becomes unmaintained, the community can fork and maintain a new versio
 
 | Document | Description |
 |----------|-------------|
-| [PACKS.md](PACKS.md) | Complete pack system documentation |
+| [Packs/README.md](Packs/README.md) | Complete pack system documentation |
 | [Bundles/](Bundles/) | Bundle system documentation and available bundles |
 | [SECURITY.md](SECURITY.md) | Security policies and best practices |
 
@@ -1338,7 +1338,7 @@ v2.0.0 launched the Packs system. v2.0.1 adds:
 
 **New Documentation**
 - `Tools/PAIPackTemplate.md` - Full pack template specification
-- `PACKS.md` - Complete pack system documentation
+- `Packs/README.md` - Complete pack system documentation
 - Updated README with 14 Founding Principles and full pack installation guide
 
 **Why the Change?**

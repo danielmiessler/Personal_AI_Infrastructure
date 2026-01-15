@@ -298,8 +298,10 @@ function parseArgs(argv: string[]): CLIArgs {
   }
 
   // Validate size for model
-  if (parsed.model === "gpt-image-1" && !OPENAI_SIZES.includes(parsed.size as OpenAISize)) {
-    throw new CLIError(`Invalid size for gpt-image-1: ${parsed.size}`);
+  if (parsed.model === "gpt-image-1") {
+    if (!OPENAI_SIZES.includes(parsed.size as OpenAISize)) {
+      throw new CLIError(`Invalid size for gpt-image-1: ${parsed.size}`);
+    }
   } else if (parsed.model === "nano-banana-pro") {
     if (!GEMINI_SIZES.includes(parsed.size as GeminiSize)) {
       throw new CLIError(`Invalid size for nano-banana-pro: ${parsed.size}`);

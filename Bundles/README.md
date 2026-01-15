@@ -298,7 +298,7 @@ Bundles reference packs by name. When a pack is updated, reinstall it to get the
 ## Resources
 
 - [PAI Repository](https://github.com/danielmiessler/PAI)
-- [Pack System](../PACKS.md)
+- [Pack System](../Packs/README.md)
 - [The Official PAI Bundle](Official/) - Reference implementation
 
 ---

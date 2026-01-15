@@ -1,12 +1,12 @@
 ---
 name: PAI Voice System
-pack-id: danielmiessler-pai-voice-system-v1.0.1
-version: 1.0.1
-author: danielmiessler
+pack-id: danielmiessler-pai-voice-system-v1.1.0
+version: 1.1.0
+author: danielmiessler, sti0
 description: Voice notification system with ElevenLabs TTS, prosody enhancement for natural speech, and agent personality-driven voice delivery
 type: feature
 purpose-type: [notifications, accessibility, automation]
-platform: macos
+platform: macos, linux
 dependencies:
   - pai-hook-system (required) - Hooks trigger voice notifications
   - pai-core-install (required) - Skills, identity, and response format drive voice output
@@ -30,8 +30,10 @@ keywords: [voice, tts, elevenlabs, notifications, prosody, speech, agents, perso
 | Platform | Status | Notes |
 |----------|--------|-------|
 | **macOS** | ✅ Fully Supported | Uses `afplay` (built-in) for audio playback |
-| **Linux** | ⚠️ Experimental | Requires audio player modification |
+| **Linux** | ✅ Fully Supported | Auto-detects `mpg123` or `mpv` for audio playback |
 | **Windows** | ❌ Not Supported | No current implementation |
+
+**Audio player priority (Linux):** mpg123 → mpv (install one: `sudo apt install mpg123`)
 
 ---
 
@@ -43,6 +45,63 @@ keywords: [voice, tts, elevenlabs, notifications, prosody, speech, agents, perso
 - **Agent Personalities**: Different voices for different agent types
 - **Intelligent Cleaning**: Strips code blocks and artifacts for clean speech
 - **Graceful Degradation**: Works silently when voice server is offline
+
+## Audio Player Configuration
+
+Configure extra arguments for audio players (useful for containers or specific audio setups):
+
+**Environment Variable:**
+```bash
+# In $PAI_DIR/.env
+PAI_VOICE_SERVER_EXTRA_ARGS="-o pulse"
+```
+
+**CLI Flag (overrides env var):**
+```bash
+bun run server.ts --extra-args="-o pulse"
+```
+
+**Common use cases:**
+| Use Case | Configuration |
+|----------|---------------|
+| Container with PulseAudio | `PAI_VOICE_SERVER_EXTRA_ARGS="-o pulse"` |
+| Specific ALSA device | `PAI_VOICE_SERVER_EXTRA_ARGS="-o alsa -a hw:1,0"` |
+
+### Devcontainer Setup
+
+To use voice notifications inside a devcontainer:
+
+1. **Mount PulseAudio socket** from host in `devcontainer.json`
+2. **Set `PAI_VOICE_SERVER_EXTRA_ARGS`** in your `.env` file
+
+**Example `devcontainer.json`:**
+```json
+{
+  "name": "My Devcontainer",
+  "image": "mcr.microsoft.com/devcontainers/python:2-3.12-bullseye",
+  "mounts": [
+    "source=/run/user/1000/pulse,target=/run/user/1000/pulse,type=bind"
+  ],
+  "runArgs": [
+    "--device=/dev/snd:/dev/snd"
+  ],
+  "containerEnv": {
+    "PULSE_SERVER": "unix:/run/user/1000/pulse/native"
+  }
+}
+```
+
+**In your `$PAI_DIR/.env`:**
+```bash
+PAI_VOICE_SERVER_EXTRA_ARGS="-o pulse"
+```
+
+**Key points:**
+- Mount `/run/user/1000/pulse` to access host's PulseAudio
+- Set `PULSE_SERVER` in container so audio apps find the socket
+- Set `PAI_VOICE_SERVER_EXTRA_ARGS` in `.env` (not devcontainer.json)
+
+---
 
 ## Voice Server
 
@@ -154,7 +213,8 @@ These markers are embedded in the message and the voice server adjusts stability
 |----------|----------|---------|-------------|
 | `ELEVENLABS_API_KEY` | Yes | - | Your ElevenLabs API key |
 | `ELEVENLABS_VOICE_ID` | Yes | - | Default voice ID for TTS |
-| `VOICE_SERVER_PORT` | No | 8888 | Voice server port |
+| `PAI_VOICE_SERVER_PORT` | No | 8888 | Voice server port |
+| `PAI_VOICE_SERVER_EXTRA_ARGS` | No | - | Extra arguments for audio player |
 | `VOICE_SERVER_URL` | No | http://localhost:8888 | Voice server URL (for hooks) |
 | `PAI_DIR` | No | ~/.config/pai | PAI installation directory |
 
@@ -194,6 +254,14 @@ Configure multiple voices in `voice-personalities.json` for multi-agent conversa
 - **pai-history-system** - Complementary functionality
 
 ## Changelog
+
+### 1.1.0 - 2026-01-09
+- Added Linux audio support (mpg123, mpv auto-detection)
+- Added Linux notifications via notify-send
+- Added CLI arguments: `--port/-p`, `--extra-args`
+- Added `PAI_VOICE_SERVER_PORT` and `PAI_VOICE_SERVER_EXTRA_ARGS` env vars
+- Enhanced .env loading from `$PAI_DIR/.env` with quote stripping
+- Added devcontainer/PulseAudio documentation
 
 ### 1.0.1 - 2026-01-09
 - **Documentation fixes**: INSTALL.md and VERIFY.md now correctly reference actual files

@@ -92,4 +92,4 @@ This context is now active for this session. Follow all instructions, preference
   process.exit(0);
 }
 
-main();
+await main();

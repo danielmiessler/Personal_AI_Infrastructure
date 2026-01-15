@@ -21,9 +21,14 @@
 
 import { serve } from "bun";
 import { spawn } from "child_process";
-import { homedir } from "os";
+import { homedir, platform } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+
+// Detect platform
+const PLATFORM = platform();
+const IS_MACOS = PLATFORM === 'darwin';
+const IS_LINUX = PLATFORM === 'linux';
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -281,9 +286,47 @@ function getVolumeSetting(): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
+// Helper function to setup playback event handlers
+function setupPlaybackHandlers(
+  proc: any,
+  tempFile: string,
+  paddedFile: string,
+  resolve: () => void,
+  reject: (error: Error) => void
+) {
+  // Capture stderr for debugging
+  let playbackError = '';
+  proc.stderr?.on('data', (data: any) => {
+    playbackError += data.toString();
+  });
+
+  proc.on('error', (error: any) => {
+    console.error('❌ Error playing audio:', error);
+    reject(error);
+  });
+
+  proc.on('exit', (code: number) => {
+    // Clean up temp files
+    spawn('rm', [tempFile]);
+    spawn('rm', [paddedFile]);
+
+    if (code === 0) {
+      console.log('✅ Audio playback completed');
+      resolve();
+    } else {
+      console.error(`❌ ffplay exited with code ${code}`);
+      if (playbackError) {
+        console.error('ffplay stderr:', playbackError.substring(playbackError.length - 500));
+      }
+      reject(new Error(`Audio player exited with code ${code}`));
+    }
+  });
+}
+
+// Play audio using platform-specific audio player
 async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+  const paddedFile = `/tmp/voice-padded-${Date.now()}.mp3`;
 
   // Write audio to temp file
   await Bun.write(tempFile, audioBuffer);
@@ -291,24 +334,79 @@ async function playAudio(audioBuffer: ArrayBuffer): Promise<void> {
   const volume = getVolumeSetting();
 
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let proc;
 
-    proc.on('error', (error) => {
-      console.error('Error playing audio:', error);
-      reject(error);
-    });
+    if (IS_MACOS) {
+      // macOS: Use afplay (no padding needed - macOS audio system is faster)
+      // afplay -v takes a value from 0.0 to 1.0
+      proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
 
-    proc.on('exit', (code) => {
-      // Clean up temp file
-      spawn('/bin/rm', [tempFile]);
+      proc.on('error', (error: any) => {
+        console.error('Error playing audio:', error);
+        reject(error);
+      });
 
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`afplay exited with code ${code}`));
-      }
-    });
+      proc.on('exit', (code: number) => {
+        // Clean up temp file
+        spawn('rm', [tempFile]);
+
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Audio player exited with code ${code}`));
+        }
+      });
+    } else if (IS_LINUX) {
+      // Linux: Add silence padding to prevent audio fade-in from cutting off short messages
+      // Use ffmpeg to prepend 0.5s of silence before playing
+      const volumePercent = Math.round(volume * 100);
+
+      // Create padded audio file with silence at the beginning
+      console.log('🔧 Adding 0.5s silence padding for Linux audio fade-in...');
+      const ffmpegPad = spawn('ffmpeg', [
+        '-f', 'lavfi', '-i', 'anullsrc=duration=0.5:channel_layout=stereo:sample_rate=44100',
+        '-i', tempFile,
+        '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1',
+        '-y', paddedFile
+      ]);
+
+      // Capture stderr for debugging
+      let ffmpegError = '';
+      ffmpegPad.stderr?.on('data', (data) => {
+        ffmpegError += data.toString();
+      });
+
+      ffmpegPad.on('error', (error) => {
+        console.error('❌ Error spawning ffmpeg:', error.message);
+        // Fallback to playing without padding
+        console.log('⚠️  Playing without padding...');
+        proc = spawn('ffplay', ['-nodisp', '-autoexit', '-volume', volumePercent.toString(), tempFile]);
+        setupPlaybackHandlers(proc, tempFile, paddedFile, resolve, reject);
+      });
+
+      ffmpegPad.on('exit', (code) => {
+        if (code === 0) {
+          console.log('✅ Padding complete, playing audio...');
+          // Play the padded file
+          proc = spawn('ffplay', ['-nodisp', '-autoexit', '-volume', volumePercent.toString(), paddedFile]);
+          setupPlaybackHandlers(proc, tempFile, paddedFile, resolve, reject);
+        } else {
+          console.error(`❌ ffmpeg failed with code ${code}`);
+          if (ffmpegError) {
+            console.error('ffmpeg stderr:', ffmpegError.substring(0, 200));
+          }
+          // Fallback to playing without padding
+          console.log('⚠️  Playing without padding...');
+          proc = spawn('ffplay', ['-nodisp', '-autoexit', '-volume', volumePercent.toString(), tempFile]);
+          setupPlaybackHandlers(proc, tempFile, paddedFile, resolve, reject);
+        }
+      });
+
+      return; // Early return for Linux (async padding process)
+    } else {
+      reject(new Error(`Unsupported platform: ${PLATFORM}`));
+      return;
+    }
   });
 }
 
@@ -392,14 +490,26 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification - escape for AppleScript
-  try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
-  } catch (error) {
-    console.error("Notification display error:", error);
+  // Display platform-specific notification
+  if (IS_MACOS) {
+    // macOS: Use osascript for native notifications
+    try {
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } catch (error) {
+      console.error("Notification display error:", error);
+    }
+  } else if (IS_LINUX) {
+    // Linux: Use notify-send if available (optional, voice already played)
+    try {
+      await spawnSafe('notify-send', [safeTitle, safeMessage]).catch(() => {
+        // notify-send is optional on Linux, don't log error if not installed
+      });
+    } catch (error) {
+      // Silently ignore notification errors on Linux
+    }
   }
 }
 

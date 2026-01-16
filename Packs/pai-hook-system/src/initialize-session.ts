@@ -95,12 +95,25 @@ async function main() {
     const projectName = getProjectName(payload.cwd);
     setTabTitle(`🤖 ${projectName}`);
 
-    // 2. Ensure required directories exist
+    // 2. Ensure required directories exist - MEMORY system (v2.1.0+)
     const requiredDirs = [
       join(paiDir, 'hooks', 'lib'),
-      join(paiDir, 'history', 'sessions'),
-      join(paiDir, 'history', 'learnings'),
-      join(paiDir, 'history', 'research'),
+      // Three-tier MEMORY architecture (Hot/Warm/Cold)
+      join(paiDir, 'MEMORY', 'Work'),
+      join(paiDir, 'MEMORY', 'Learning', 'OBSERVE'),
+      join(paiDir, 'MEMORY', 'Learning', 'THINK'),
+      join(paiDir, 'MEMORY', 'Learning', 'PLAN'),
+      join(paiDir, 'MEMORY', 'Learning', 'BUILD'),
+      join(paiDir, 'MEMORY', 'Learning', 'EXECUTE'),
+      join(paiDir, 'MEMORY', 'Learning', 'VERIFY'),
+      join(paiDir, 'MEMORY', 'Learning', 'ALGORITHM'),
+      join(paiDir, 'MEMORY', 'History', 'sessions'),
+      join(paiDir, 'MEMORY', 'History', 'learnings'),
+      join(paiDir, 'MEMORY', 'History', 'research'),
+      join(paiDir, 'MEMORY', 'History', 'decisions'),
+      join(paiDir, 'MEMORY', 'History', 'raw-outputs'),
+      join(paiDir, 'MEMORY', 'State'),
+      join(paiDir, 'MEMORY', 'Signals'),
     ];
 
     for (const dir of requiredDirs) {

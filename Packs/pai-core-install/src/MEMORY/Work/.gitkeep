@@ -1,0 +1,12 @@
+# Work Directory - Per-Task Active Tracking (HOT)
+
+This directory contains real-time traces for current tasks.
+
+Each task gets its own timestamped directory with:
+- Work.md - Goals and signal tracking
+- IdealState.jsonl - Success criteria evolution
+- TRACE.jsonl - Decision reasoning logs
+- Output/ - Task outputs
+- Learning/ - Task-specific learnings
+
+Learnings "bubble up" to ../Learning/ when generalizable.

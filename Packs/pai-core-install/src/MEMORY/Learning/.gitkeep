@@ -1,0 +1,18 @@
+# Learning Directory - Phase-Based Synthesis (WARM)
+
+Learnings organized by algorithm phase for targeted retrieval.
+
+Content bubbles up from Work/ when it's:
+- Generalizable beyond single tasks
+- Algorithm-focused
+- Actionable
+- Non-obvious
+
+Subdirectories by phase:
+- OBSERVE/ - Context-gathering insights
+- THINK/ - Hypothesis generation learnings
+- PLAN/ - Execution planning lessons
+- BUILD/ - Success criteria documentation
+- EXECUTE/ - Implementation insights
+- VERIFY/ - Verification learnings
+- ALGORITHM/ - Meta-learnings about the algorithm itself

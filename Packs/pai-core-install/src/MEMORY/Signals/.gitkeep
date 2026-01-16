@@ -1,0 +1,10 @@
+# Signals Directory - Pattern Detection
+
+Pattern monitoring via JSONL logs:
+
+- failures.jsonl - VERIFY failures with root cause analysis
+- loopbacks.jsonl - Phase reversions and iteration counts
+- patterns.jsonl - Weekly aggregated trends with recommendations
+- ratings.jsonl - User satisfaction tracking
+
+Signals feed the continuous improvement loop.

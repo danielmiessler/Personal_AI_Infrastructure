@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for dynamic viewport height (iOS keyboard handling) */
+:root {
+  --vh: 100vh;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+  --safe-right: env(safe-area-inset-right);
+}
+
+/* Use dynamic viewport height */
+html, body, #app {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* Prevent iOS bounce scroll */
+.no-bounce {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Syntax highlighting - GitHub Dark theme */
+.hljs {
+  background: transparent !important;
+  color: #c9d1d9;
+}
+
+.hljs-comment,
+.hljs-quote { color: #8b949e; }
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-addition { color: #ff7b72; }
+
+.hljs-number,
+.hljs-string,
+.hljs-meta .hljs-meta-string,
+.hljs-literal,
+.hljs-doctag,
+.hljs-regexp { color: #a5d6ff; }
+
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class { color: #d2a8ff; }
+
+.hljs-attribute,
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-class .hljs-title,
+.hljs-type { color: #79c0ff; }
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-subst,
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-link { color: #ffa657; }
+
+.hljs-built_in,
+.hljs-deletion { color: #ffa198; }
+
+.hljs-formula { background: #161b22; }
+
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
+
+/* File icon colors */
+.file-icon-folder { color: #fbbf24; }
+.file-icon-md { color: #60a5fa; }
+.file-icon-js, .file-icon-ts { color: #facc15; }
+.file-icon-json { color: #a78bfa; }
+.file-icon-py { color: #34d399; }
+.file-icon-default { color: #9ca3af; }
+
+/* Message bubble animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message-bubble {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Loading dots animation */
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.loading-dot {
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.loading-dot:nth-child(3) { animation-delay: 0; }
+
+/* Touch feedback */
+.touch-feedback {
+  @apply active:bg-white/10 transition-colors duration-75;
+}
+
+/* Safe area padding utilities */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pl-safe { padding-left: env(safe-area-inset-left); }
+.pr-safe { padding-right: env(safe-area-inset-right); }
+
+/* Safe area margin utilities (for elements that need margin instead of padding) */
+.mt-safe { margin-top: env(safe-area-inset-top); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+
+/* iOS keyboard-aware viewport height */
+.h-viewport {
+  height: var(--viewport-height, 100dvh);
+}
+
+/* Keyboard-aware input container */
+.keyboard-aware {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: inherit;
+  transform: translateY(calc(100% - var(--keyboard-offset, 0px)));
+}
+
+/* Prevent iOS rubber-band effect on specific elements */
+.no-overscroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS standalone mode adjustments */
+@media all and (display-mode: standalone) {
+  .standalone-pt {
+    padding-top: env(safe-area-inset-top);
+  }
+}

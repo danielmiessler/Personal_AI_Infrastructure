@@ -140,7 +140,7 @@ async function main() {
     }
 
     const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
-    const historyDir = join(paiDir, 'MEMORY');
+    const historyDir = join(paiDir, 'MEMORY', 'History');
 
     const isLearning = hasLearningIndicators(response);
     const type = isLearning ? 'LEARNING' : 'SESSION';

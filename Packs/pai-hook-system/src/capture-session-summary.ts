@@ -48,7 +48,7 @@ function determineSessionFocus(filesChanged: string[], commandsExecuted: string[
 
 async function analyzeSession(conversationId: string, yearMonth: string): Promise<any> {
   const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
-  const rawOutputsDir = join(paiDir, 'MEMORY', 'raw-outputs', yearMonth);
+  const rawOutputsDir = join(paiDir, 'MEMORY', 'History', 'raw-outputs', yearMonth);
 
   let filesChanged: string[] = [];
   let commandsExecuted: string[] = [];
@@ -97,7 +97,7 @@ async function main() {
 
     const data: SessionData = JSON.parse(input);
     const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
-    const historyDir = join(paiDir, 'MEMORY');
+    const historyDir = join(paiDir, 'MEMORY', 'History');
 
     const now = new Date();
     const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0];

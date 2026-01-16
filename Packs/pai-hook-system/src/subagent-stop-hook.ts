@@ -122,7 +122,7 @@ async function captureAgentOutput(
   transcriptPath: string
 ) {
   const paiDir = process.env.PAI_DIR || join(homedir(), '.config', 'pai');
-  const historyDir = join(paiDir, 'MEMORY');
+  const historyDir = join(paiDir, 'MEMORY', 'History');
 
   const now = new Date();
   const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0];

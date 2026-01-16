@@ -38,7 +38,7 @@ function getEventsFilePath(): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
 
-  const monthDir = join(paiDir, 'MEMORY', 'raw-outputs', `${year}-${month}`);
+  const monthDir = join(paiDir, 'MEMORY', 'History', 'raw-outputs', `${year}-${month}`);
   if (!existsSync(monthDir)) {
     mkdirSync(monthDir, { recursive: true });
   }

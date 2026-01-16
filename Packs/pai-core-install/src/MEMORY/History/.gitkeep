@@ -1,0 +1,12 @@
+# History Directory - Immutable Archive (COLD)
+
+Historical data organized chronologically (YYYY-MM format).
+
+Subdirectories:
+- sessions/ - Session summaries (auto-captured)
+- learnings/ - Captured insights
+- research/ - Research session outputs
+- decisions/ - Architectural decision records
+- raw-outputs/ - JSONL event logs
+
+Retention: Permanent archive with compression for older months.

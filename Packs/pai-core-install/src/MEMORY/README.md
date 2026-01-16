@@ -4,44 +4,101 @@ PAI's persistent memory architecture for session history, learnings, and operati
 
 ## Directory Structure
 
+Three-tier architecture (Hot → Warm → Cold):
+
 ```
 MEMORY/
-├── research/          # Research session outputs (timestamped subdirs)
-├── sessions/          # Session summaries and context
-├── learnings/         # Learning artifacts and insights
-├── decisions/         # Architectural decision records
-├── execution/         # Task execution logs
-├── security/          # Security event logs
-├── recovery/          # Recovery snapshots and journals
-├── raw-outputs/       # JSONL event streams
+├── Work/              # HOT: Per-task active tracking
+│   └── [Task-Name_TIMESTAMP]/
+│       ├── Work.md              # Goals and signal tracking
+│       ├── IdealState.jsonl     # Success criteria evolution
+│       ├── TRACE.jsonl          # Decision reasoning logs
+│       ├── Output/              # Task outputs
+│       └── Learning/            # Task-specific learnings
+│
+├── Learning/          # WARM: Phase-based synthesis
+│   ├── OBSERVE/       # Context-gathering insights
+│   ├── THINK/         # Hypothesis generation learnings
+│   ├── PLAN/          # Execution planning lessons
+│   ├── BUILD/         # Success criteria documentation
+│   ├── EXECUTE/       # Implementation insights
+│   ├── VERIFY/        # Verification learnings
+│   └── ALGORITHM/     # Meta-learnings about the algorithm
+│
+├── History/           # COLD: Immutable archive (YYYY-MM format)
+│   ├── sessions/      # Session summaries
+│   ├── learnings/     # Extracted insights
+│   ├── research/      # Research outputs
+│   ├── decisions/     # ADRs (Architecture Decision Records)
+│   └── raw-outputs/   # JSONL event streams
+│
+├── State/             # Real-time operational metrics
+│   ├── algorithm-stats.json
+│   ├── algorithm-streak.json
+│   ├── format-streak.json
+│   ├── last-judge-rating.json
+│   └── active-work.json
+│
+├── Signals/           # Pattern detection
+│   ├── failures.jsonl    # VERIFY failures with root cause
+│   ├── loopbacks.jsonl   # Phase reversions
+│   ├── patterns.jsonl    # Weekly aggregated trends
+│   └── ratings.jsonl     # User satisfaction tracking
+│
 ├── backups/           # Pre-change backups
-└── State/             # Operational state files
+├── execution/         # Task execution logs
+├── recovery/          # Recovery snapshots
+└── security/          # Security event logs
 ```
+
+## Data Flow
+
+**Per-Task → Learning → History**
+
+1. Active work generates `Work/[Task]/TRACE.jsonl` and phase-specific learnings
+2. Learnings "bubble up" to `Learning/[PHASE]/` when:
+   - Generalizable beyond single task
+   - Algorithm-focused
+   - Actionable
+   - Non-obvious
+3. Historical data archives to `History/` organized by month (YYYY-MM)
+4. Signals track patterns: failures, loopbacks, ratings
+5. State files update in real-time with operational metrics
 
 ## Directory Purposes
 
 | Directory | Purpose | Retention |
 |-----------|---------|-----------|
-| `research/` | Deep research outputs, organized by date | Permanent |
-| `sessions/` | Session summaries captured at session end | Rolling 90 days |
-| `learnings/` | Extracted insights and learnings | Permanent |
-| `decisions/` | ADRs (Architecture Decision Records) | Permanent |
-| `execution/` | Task/feature execution logs | Rolling 30 days |
+| `Work/` | Active per-task tracking with TRACE logs | Active + 7 days |
+| `Learning/` | Phase-based synthesized learnings | Permanent |
+| `History/research/` | Deep research outputs | Permanent |
+| `History/sessions/` | Session summaries | Rolling 90 days |
+| `History/learnings/` | Archived insights | Permanent |
+| `History/decisions/` | ADRs | Permanent |
+| `History/raw-outputs/` | JSONL event streams | Rolling 7 days |
+| `State/` | Current operational metrics | Active |
+| `Signals/` | Pattern detection logs | Rolling 30 days |
+| `execution/` | Task execution logs | Rolling 30 days |
 | `security/` | Security events and audit logs | Permanent |
-| `recovery/` | Recovery snapshots, journals | Rolling 7 days |
-| `raw-outputs/` | JSONL event streams | Rolling 7 days |
+| `recovery/` | Recovery snapshots | Rolling 7 days |
 | `backups/` | Pre-refactoring state backups | As needed |
-| `State/` | Current operational state | Active |
 
 ## Event Capture
 
-Events are captured automatically via the `pai-history-system` hooks:
+Events are captured automatically via the `pai-hook-system` hooks (v2.1.1+):
 
-- **SessionStart**: Session initialization logged
+- **SessionStart**: Session initialization, creates directory structure
 - **UserPromptSubmit**: User inputs captured
-- **PreToolUse/PostToolUse**: Tool invocations logged
-- **Stop/SubagentStop**: Session/agent termination captured
+- **PreToolUse/PostToolUse**: All tool invocations logged to raw-outputs/
+- **Stop**: Session work captured, learnings extracted
+- **SubagentStop**: Delegated agent results captured
 - **SessionEnd**: Full session summary generated
+
+**Required hooks** (installed with pai-hook-system):
+- `capture-all-events.ts` - Universal event logging
+- `capture-session-summary.ts` - Session summary generation
+- `stop-hook.ts` - Main session stop handler
+- `subagent-stop-hook.ts` - Subagent completion handler
 
 ## File Formats
 

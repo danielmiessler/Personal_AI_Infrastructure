@@ -28,15 +28,21 @@ keywords: [hooks, automation, events, security, validation, sessions, context, c
 | Component | File | Purpose |
 |-----------|------|---------|
 | Security validator | `src/security-validator.ts` | Block dangerous commands before execution |
-| Session initializer | `src/initialize-session.ts` | Set up session context and markers |
+| Session initializer | `src/initialize-session.ts` | Set up session context and three-tier MEMORY structure |
 | Context loader | `src/load-core-context.ts` | Load CORE skill at session start |
 | Tab title updater | `src/update-tab-titles.ts` | Update terminal tabs with task context |
-| Observability lib | `src/lib/observability.ts` | Event logging and dashboard integration |
+| **Event capture** | `src/capture-all-events.ts` | Universal event logging to JSONL (RESTORED v2.1.1) |
+| **Session summary** | `src/capture-session-summary.ts` | Auto-generate session summaries (RESTORED v2.1.1) |
+| **Stop handler** | `src/stop-hook.ts` | Capture work at session end (RESTORED v2.1.1) |
+| **Subagent handler** | `src/subagent-stop-hook.ts` | Track delegated agent results (RESTORED v2.1.1) |
+| Observability lib | `src/lib/observability.ts` | Event logging and dashboard integration (RESTORED v2.1.1) |
+| Metadata lib | `src/lib/metadata-extraction.ts` | Agent metadata enrichment (RESTORED v2.1.1) |
 | Hook config | `config/settings-hooks.json` | Claude Code hook registration template |
+| Migration script | `migrate-to-memory.ts` | Migrate existing history/ data to MEMORY/ |
 
 **Summary:**
-- **Files created:** 6
-- **Hooks registered:** 4 (PreToolUse, SessionStart ×2, UserPromptSubmit)
+- **Files created:** 12 (6 core + 4 memory hooks + 2 libraries)
+- **Hooks registered:** 8 (PreToolUse, PostToolUse, SessionStart ×2, Stop, SubagentStop, SessionEnd, UserPromptSubmit)
 - **Dependencies:** None (foundation pack)
 
 ## The Problem

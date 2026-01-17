@@ -70,18 +70,145 @@
 
 ### 3. We believe the ideal AI system functions as a [powerful assistant, friend, coach, and mentor](https://danielmiessler.com/blog/personal-ai-maturity-model) that's continuously helping you achieve your goals, rather than a narrow tool for coding or building applications.
 
-The goal of the PAI system is to produce **Euphoric Surprise** with every result, which means  
+*The overarching goal of the PAI system is to produce **Euphoric Surprise** in how it executes every task.* 
 
-PAI pursues a singular goal—creating *Euphoric Surprise* in how it executes every task. Not just completion, but results so thorough, thoughtful, and effective that you're genuinely surprised and delighted. This is how PAI helps you become the best version of yourself: by consistently exceeding expectations in service of your goals.
-![Image](assets/260116-141626.avif)
+So, not just a good result, or a great result, but results so thorough, thoughtful, and wonderful that you generally can't wait to show someone.
 
-This is open-source. This is free. This is for everyone.
+---
 
-### **Who is PAI for?**
+## What is PAI?
+
+PAI is a Personalized AI Platform designed to magnify your capabilies.
+
+It's designed for humans most of all, but can be used by teams, companies, or Federations of Planets desiring to be better versions of themselves. 
+
+The scale of the entity doesn't matter: It's a system for uunderstanding, articulating, and realizing its principal's goals using a full-featured Agentic AI Platform.
+
+## **Who is PAI for?**
+
+**Everyone, full stop.** It's the anti-gatekeeping AI project.
+
+- **Small business owners** who aren't technical but want AI to handle invoicing, scheduling, customer follow-ups, and marketing
+- **Companies** who want to understand their data, optimize operations, and make better decisions
+- **Managers** who want to run their teams more effectively—tracking projects, preparing for reviews, and communicating clearly
+- **Artists and creatives** who want to find local events, galleries, and opportunities to showcase their work
+- **Everyday people** who want to improve their lives—better fitness routines, stronger social connections, personal finance, or just getting organized
 - **Developers** using AI coding assistants who want persistent memory and custom workflows
 - **Power users** who want their AI to know their goals, preferences, and context
 - **Teams** building shared AI infrastructure with consistent capabilities
 - **Experimenters** interested in AI system design and personal AI patterns
+
+## What makes it different?
+
+The first thing people ask is:
+
+> How is this different from Claude Code, or any of the other Agentic systems, or the systems built on top of them?
+
+Most Agentic systems are built around tools with the user being an afterthought. They are also mostly task-based instead of being goal-based using all the context available to them. PAI is the opposite.
+
+Here are PAI's main differentiators:
+
+1. **GOAL ORIENTATION:** The PAI system's primary focus is on the human running it and what they're trying to do in the world, not the tech. And this is built into how the system executes all tasks.
+2. **PURSUIT OF EUPHORIC SURPRISE:** The system's outer loop and everything it does is trying to produce the exact right output given the current situation in all the contexts around it. If you don't say, "Holy crap, this is amazing," that is counted as a failure. 
+3. **CONTINUOUS LEARNING:** The way this Euporic Surprise concept is pursued is through a Continuous Learning A system that is constantly capturing a signal about what was done, what changes were made, what outputs were produced for each request, and then how you liked or disliked the results.
+
+## Unique PAI Components
+
+<p align="center">
+  <img src="./pai-unique-components-diagram.png" alt="Unique PAI Components - A system that knows you, not a tool harness" width="800">
+</p>
+
+A number of technical differences make up a completely different *feeling* when using PAI. These components work together to create the experience of working with a system that understands and knows you—as opposed to a tool harness that just executes commands.
+
+---
+
+<p align="center">
+  <img src="./pai-component-1-assistant-vs-agent.png" alt="Assistant vs Agent-Based Interaction" width="700">
+</p>
+
+### Assistant vs. Agent-Based AI Interaction
+
+PAI treats AI as a [persistent assistant, friend, coach, and mentor](https://danielmiessler.com/blog/personal-ai-maturity-model) rather than a stateless agent that runs tasks. An assistant knows your goals, remembers your preferences, and improves over time. An agent executes commands and forgets.
+
+---
+
+<p align="center">
+  <img src="./pai-component-2-skill-system.png" alt="Custom Skill System" width="700">
+</p>
+
+### A Custom Skill System
+
+Highly focused on consistent results. It has a new structure that puts *deterministic outcomes first* by going from CODE -> CLI-BASED-TOOL -> PROMPT -> SKILL instead of a haphazard structure.
+
+---
+
+<p align="center">
+  <img src="./pai-component-3-memory-system.png" alt="Custom Memory System" width="700">
+</p>
+
+### A Custom Memory System
+
+Focused on continuous learning. Every interaction generates signals—ratings, sentiment, successes, failures—that feed back into improving the system. PAI literally upgrades itself based on what works and what doesn't.
+
+---
+
+<p align="center">
+  <img src="./pai-component-4-ai-installation.png" alt="AI-Based Installation" width="700">
+</p>
+
+### AI-Based Installation and Management
+
+Your AI assistant reads the packs, understands your system, and installs everything for you. No manual configuration, no guessing—the AI handles it.
+
+---
+
+<p align="center">
+  <img src="./pai-component-5-security-system.png" alt="Custom Security System" width="700">
+</p>
+
+### A Custom Security System
+
+Defines system and user-level security policies by default. You don't have to run with `--dangerously-skip-permissions` to have an uninterrupted experience. PAI's security hooks validate commands before execution, blocking dangerous operations while allowing normal workflows to proceed smoothly.
+
+---
+
+<p align="center">
+  <img src="./pai-component-6-hook-system.png" alt="Custom Hook System" width="700">
+</p>
+
+### A Custom Hook System
+
+Responds to lifecycle events—session start, tool use, task completion, and more. Hooks enable voice notifications, automatic context loading, session capture, security validation, and observability. They're the nervous system that makes PAI feel alive and responsive.
+
+---
+
+<p align="center">
+  <img src="./pai-component-7-terminal-ui.png" alt="Terminal-Based UI" width="700">
+</p>
+
+### A Terminal-Based UI
+
+Rich tab titles and pane management. Dynamic status lines show learning signals, context usage, and current task state. Your terminal is a command center.
+
+---
+
+<p align="center">
+  <img src="./pai-component-8-notification-system.png" alt="Output and Notification System" width="700">
+</p>
+
+### A Custom Output and Notification System
+
+Keeps you informed without being intrusive. Push notifications via ntfy for mobile alerts, Discord integration for team updates, and duration-aware routing that escalates for long-running tasks. Fire-and-forget design means notifications never block your workflow.
+
+---
+
+<p align="center">
+  <img src="./pai-component-9-voice-system.png" alt="Custom Voice System" width="700">
+</p>
+
+### A Custom Voice System
+
+Powered by ElevenLabs TTS. Hear task completions, session summaries, and important updates spoken aloud. Prosody enhancement makes speech sound natural. Your AI has a voice.
 
 ---
 
@@ -91,21 +218,6 @@ This is open-source. This is free. This is for everyone.
 > **Try AI-assisted installation:** Give this URL to your DA assistant and say *"Walk me through installing PAI and customize it for me."*
 >
 > The documentation is designed for both humans and AI. Read on to understand the system, or let your DA guide you through setup—whichever works best for you.
-
----
-
-## What is PAI?
-
-**PAI (Personal AI Infrastructure)** is a **self-learning system** that gets better at helping you over time.
-
-Unlike static AI assistants that treat every conversation as a blank slate, PAI captures feedback from every interaction—explicit ratings, implicit sentiment, behavioral signals, verification outcomes—and uses it to improve. The system literally upgrades itself based on what works and what doesn't.
-
-**PAI is three things:**
-- **A continuously upgrading algorithm** - The centerpiece. Current → Ideal via verifiable iteration, at any scale.
-- **A self-learning system** - Every interaction generates feedback that improves the system.
-- **Personal infrastructure** - Skills, memory, and context that make AI useful for *your* life
-
-The learning happens automatically. Rate a response poorly? The system captures why. Express frustration? Sentiment analysis detects it. Abandon a task? That's a signal too.
 
 ---
 

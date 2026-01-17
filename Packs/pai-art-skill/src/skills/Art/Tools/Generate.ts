@@ -771,10 +771,8 @@ async function generateWithVeo(
     pollCount++;
     console.log(`  Polling... (${pollCount * 20}s elapsed)`);
 
-    // Refresh operation status
-    if (result.name) {
-      result = await ai.operations.get({ operation: result.name });
-    }
+    // Refresh operation status - pass the operation object, not just the name
+    result = await ai.operations.get({ operation: result });
   }
 
   if (!result.done) {
@@ -794,9 +792,11 @@ async function generateWithVeo(
   let videoBuffer: Buffer;
 
   if (video.video?.uri) {
-    // Video is available via URI - fetch it
+    // Video is available via URI - fetch it with auth header
     console.log("Downloading video...");
-    const response = await fetch(video.video.uri);
+    const response = await fetch(video.video.uri, {
+      headers: { "x-goog-api-key": apiKey },
+    });
     if (!response.ok) {
       throw new CLIError(`Failed to download video: ${response.status}`);
     }
@@ -865,9 +865,8 @@ async function extendVideo(
       pollCount++;
       console.log(`    Polling... (${pollCount * 20}s elapsed)`);
 
-      if (result.name) {
-        result = await ai.operations.get({ operation: result.name });
-      }
+      // Refresh operation status - pass the operation object, not just the name
+      result = await ai.operations.get({ operation: result });
     }
 
     if (!result.done) {
@@ -883,7 +882,9 @@ async function extendVideo(
     const video = generatedVideos[0];
 
     if (video.video?.uri) {
-      const response = await fetch(video.video.uri);
+      const response = await fetch(video.video.uri, {
+        headers: { "x-goog-api-key": apiKey },
+      });
       if (!response.ok) {
         throw new CLIError(`Failed to download extended video: ${response.status}`);
       }

@@ -1,0 +1,41 @@
+{
+  "name": "pai-second-brain",
+  "version": "2.0.0",
+  "description": "Second Brain cognitive philosophy with delegation patterns and debate orchestration",
+  "type": "module",
+  "scripts": {
+    "assess": "bun run Tools/ComplexityAssessor.ts",
+    "delegate": "bun run Tools/DelegationRouter.ts",
+    "debate": "bun run Tools/DebateOrchestrator.ts"
+  },
+  "keywords": [
+    "pai",
+    "personal-ai-infrastructure",
+    "second-brain",
+    "delegation",
+    "debate",
+    "multi-agent",
+    "cognitive-diversity",
+    "sparring"
+  ],
+  "author": "PAI Community",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "pai": {
+    "pack_version": "2.0",
+    "skills": ["SecondBrain"],
+    "requires_core": true,
+    "optional_dependencies": [
+      "pai-multi-llm"
+    ]
+  }
+}

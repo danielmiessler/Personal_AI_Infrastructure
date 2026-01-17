@@ -1,0 +1,172 @@
+{
+  "version": "1.0.0",
+  "description": "Context budget management thresholds for Second Brain cognitive protection",
+
+  "context_window": {
+    "total_tokens": 200000,
+    "description": "Claude's context window - the user's cognitive workspace"
+  },
+
+  "thresholds": {
+    "optimal": {
+      "range": {
+        "min_percent": 0,
+        "max_percent": 50
+      },
+      "tokens": {
+        "min": 0,
+        "max": 100000
+      },
+      "status": "OPTIMAL",
+      "indicator": "green",
+      "emoji": "🟢",
+      "description": "Strategic thinking space protected",
+      "actions": [
+        "Continue delegation as normal",
+        "Coordinate team collaboration",
+        "Synthesize insights from multiple sources",
+        "Challenge assumptions proactively"
+      ],
+      "goal": "Stay in this zone always",
+      "mode": "normal"
+    },
+
+    "caution": {
+      "range": {
+        "min_percent": 50,
+        "max_percent": 75
+      },
+      "tokens": {
+        "min": 100000,
+        "max": 150000
+      },
+      "status": "CAUTION",
+      "indicator": "yellow",
+      "emoji": "🟡",
+      "description": "Context starting to fill",
+      "actions": [
+        "Increase delegation aggressiveness",
+        "Avoid reading large files directly",
+        "Delegate file analysis to subagents",
+        "Request user to start new session if strategic work needed"
+      ],
+      "goal": "Reverse trend, return to green zone",
+      "mode": "aggressive_delegation"
+    },
+
+    "warning": {
+      "range": {
+        "min_percent": 75,
+        "max_percent": 90
+      },
+      "tokens": {
+        "min": 150000,
+        "max": 180000
+      },
+      "status": "WARNING",
+      "indicator": "orange",
+      "emoji": "🟠",
+      "description": "Strategic thinking capacity compromised",
+      "actions": [
+        "URGENT: Delegate ALL remaining tasks to subagents",
+        "Stop reading any files (delegate to subagents)",
+        "Warn user: 'Context at 80% - recommend new session'",
+        "Switch to pure coordination mode (no execution)"
+      ],
+      "goal": "Complete current task, then recommend fresh session",
+      "mode": "coordination_only"
+    },
+
+    "critical": {
+      "range": {
+        "min_percent": 90,
+        "max_percent": 100
+      },
+      "tokens": {
+        "min": 180000,
+        "max": 200000
+      },
+      "status": "CRITICAL",
+      "indicator": "red",
+      "emoji": "🔴",
+      "description": "Context emergency - strategic thinking severely limited",
+      "actions": [
+        "STOP: No new task execution",
+        "STOP: No file reading",
+        "Inform user immediately: 'Context at 95% - MUST start new session'",
+        "Coordinate urgent delegation only",
+        "Prepare handoff summary for new session"
+      ],
+      "goal": "Preserve work, transition to fresh context",
+      "mode": "emergency"
+    }
+  },
+
+  "degradation_effects": {
+    "description": "What happens when context fills",
+    "effects": [
+      {
+        "effect": "Strategic synthesis quality degrades",
+        "threshold_percent": 60
+      },
+      {
+        "effect": "Cross-reference capability diminishes",
+        "threshold_percent": 70
+      },
+      {
+        "effect": "Pattern recognition becomes shallow",
+        "threshold_percent": 80
+      },
+      {
+        "effect": "Coordination effectiveness drops",
+        "threshold_percent": 85
+      },
+      {
+        "effect": "Risk of context truncation",
+        "threshold_percent": 95
+      }
+    ]
+  },
+
+  "alerts": {
+    "enabled": true,
+    "alert_at_percent": [50, 75, 90, 95],
+    "messages": {
+      "50": "Context at 50% - increasing delegation priority",
+      "75": "Context at 75% - switching to coordination mode",
+      "90": "Context at 90% - recommend starting new session",
+      "95": "Context CRITICAL - must start new session immediately"
+    }
+  },
+
+  "behavior_rules": {
+    "delegation_multiplier": {
+      "description": "How aggressively to delegate based on context level",
+      "optimal": 1.0,
+      "caution": 1.5,
+      "warning": 2.0,
+      "critical": "delegate_everything"
+    },
+
+    "file_reading": {
+      "optimal": "delegate_preferred",
+      "caution": "delegate_required",
+      "warning": "forbidden",
+      "critical": "forbidden"
+    },
+
+    "execution_mode": {
+      "optimal": "normal_delegation",
+      "caution": "aggressive_delegation",
+      "warning": "coordination_only",
+      "critical": "emergency_handoff"
+    }
+  },
+
+  "principles": {
+    "core": "Claude's 200K context = the user's cognitive workspace",
+    "protected": "Protected context = Sharp strategic thinking",
+    "bloated": "Bloated context = Degraded director capabilities",
+    "delegation": "Delegation preserves context for what matters"
+  }
+}

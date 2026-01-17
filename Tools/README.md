@@ -66,9 +66,10 @@ Read CheckPAIState.md and check my PAI state. Give me recommendations.
 
 **Pack Creation Specification**
 
-The complete specification for creating PAI packs. A pack is a single markdown file containing everything needed to add a capability to an AI agent system.
+The complete specification for creating PAI packs. A pack is a **directory** containing README.md, INSTALL.md, VERIFY.md, and a src/ folder with actual code files.
 
 **What it covers:**
+- Pack directory structure (README.md, INSTALL.md, VERIFY.md, src/)
 - YAML frontmatter schema (metadata, versioning, dependencies)
 - Required sections and their purposes
 - Icon generation requirements (256x256 transparent PNG)

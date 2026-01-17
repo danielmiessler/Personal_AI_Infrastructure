@@ -2,7 +2,33 @@
 
 > **FOR AI AGENTS:** This document contains instructions for creating PAI Packs. When a user asks you to create a pack, follow this template exactly. Each section includes HTML comments with detailed instructions - read them carefully and replace the example content with your pack's actual content.
 
-Each pack is a single flat markdown file with YAML frontmatter and structured sections.
+## Pack Structure (v2.0)
+
+Each pack is a **directory** containing:
+
+```
+pack-name/
+├── README.md           # Pack overview, architecture, what it solves
+├── INSTALL.md          # Step-by-step installation instructions
+├── VERIFY.md           # Mandatory verification checklist
+└── src/                # Actual source code files
+    ├── hooks/          # Hook implementations (if applicable)
+    ├── tools/          # CLI tools and utilities
+    ├── skills/         # Skill definitions and workflows
+    └── config/         # Configuration files
+```
+
+### Why Directory Structure?
+
+The previous single-file approach had limitations:
+- **Token limits** - Large packs exceeded 25k token limits
+- **Code simplification** - AI agents would "helpfully" simplify code instead of copying verbatim
+- **No linting/testing** - Code embedded in markdown couldn't be validated
+
+The directory structure provides:
+- **Real code files** - TypeScript, YAML, Handlebars files that can be linted and tested
+- **Clear separation** - README for context, INSTALL for steps, VERIFY for validation
+- **Verbatim copying** - AI agents copy actual files instead of extracting from markdown
 
 **CRITICAL:** Packs must be COMPLETE. A pack must contain EVERYTHING needed to go from a fresh AI agent installation to a fully working system. No missing components, no "figure it out yourself," no snippets instead of full code.
 
@@ -65,7 +91,7 @@ A voice system pack MUST include:
 ```yaml
 ---
 # name: (24 words max) Human-readable pack name
-name: Kai History System
+name: PAI History System
 
 # pack-id: (format) {author}-{pack-name}-{variant}-v{version}
 pack-id: danielmiessler-history-system-core-v1.0.0
@@ -148,14 +174,14 @@ name: Pack Name
 
 > **FOR AI AGENTS:** Every pack file MUST include these sections in order. The HTML comments in each section contain detailed instructions - read them and follow them exactly. Replace the example content with your pack's actual content.
 
-Below is the Kai History System pack as the reference implementation demonstrating COMPLETE pack structure.
+Below is the PAI History System pack as the reference implementation demonstrating COMPLETE pack structure.
 
 ```markdown
 <p align="center">
-  <img src="icons/history-system.png" alt="Kai History System" width="256">
+  <img src="icons/history-system.png" alt="PAI History System" width="256">
 </p>
 
-# Kai History System
+# PAI History System
 
 > Granular context-tracking system for the entire AI infrastructure - captures all work, decisions, and learnings automatically with zero manual effort
 
@@ -180,7 +206,7 @@ You are receiving a PAI Pack - a modular upgrade for AI agent systems.
 
 **What is a Pack?** See: [Pack System](../README.md#the-journey-pai-v1x--v20)
 
-This pack adds automatic memory to your entire AI infrastructure. The Kai History System is not just about agent outputs - it's a granular context-tracking system for EVERYTHING that happens in your system:
+This pack adds automatic memory to your entire AI infrastructure. The PAI History System is not just about agent outputs - it's a granular context-tracking system for EVERYTHING that happens in your system:
 
 - **Continuous Learning**: Capture insights as they happen
 - **Bug Fixing**: Trace exactly what was done when debugging
@@ -190,7 +216,7 @@ This pack adds automatic memory to your entire AI infrastructure. The Kai Histor
 
 **Core principle:** Work normally, documentation handles itself.
 
-No more forgotten context between sessions. No more lost learnings. Your AI remembers everything so you don't have to.
+No more forgotten context between sessions. No more lost learnings. Your DA remembers everything so you don't have to.
 
 Please follow the installation instructions below to integrate this pack into your infrastructure.
 
@@ -219,7 +245,7 @@ Example:
 **Summary:**
 - **Files created:** 3
 - **Hooks registered:** 2
-- **Dependencies:** kai-hook-system (required)
+- **Dependencies:** pai-hook-system (required)
 -->
 
 | Component | File | Purpose |
@@ -285,7 +311,7 @@ This creates cascading problems across your entire AI infrastructure:
 
 Traditional AI systems treat each interaction as ephemeral. But real work is cumulative. Today's debugging session informs tomorrow's architecture decision. Last month's research prevents this month's repeated mistake.
 
-Without a history system, your AI is brilliant but amnesiac. Every session is day one. Every context is fresh. Every lesson must be relearned.
+Without a history system, your DA is brilliant but amnesiac. Every session is day one. Every context is fresh. Every lesson must be relearned.
 
 ## The Solution
 <!--
@@ -321,7 +347,7 @@ Every pack MUST explain its architectural innovation:
 
 USE VISUAL DIAGRAMS - ASCII art showing the flow is extremely valuable.
 
-EXAMPLE (from kai-skill-system):
+EXAMPLE (from pai-skill-system):
 The skill system has 5 explicit routing layers:
 1. SKILL.md frontmatter → loaded into system prompt for routing
 2. SKILL.md body → workflow routing table, loads on invocation
@@ -351,7 +377,7 @@ This is NOT optional. If your pack doesn't have interesting architecture,
 it might not be worth being a pack.
 -->
 
-The Kai History System solves this through **automatic, hook-based documentation**. Instead of requiring manual effort, it captures work as a byproduct of doing the work.
+The PAI History System solves this through **automatic, hook-based documentation**. Instead of requiring manual effort, it captures work as a byproduct of doing the work.
 
 **Core Architecture:**
 
@@ -544,9 +570,9 @@ PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
 # Check for required packs (customize for your pack)
 # Example: Check if hook system is installed
 if [ -f "$PAI_CHECK/hooks/lib/observability.ts" ]; then
-  echo "✓ kai-hook-system is installed"
+  echo "✓ pai-hook-system is installed"
 else
-  echo "⚠️  kai-hook-system not installed (may be required)"
+  echo "⚠️  pai-hook-system not installed (may be required)"
 fi
 
 # Add checks for other dependencies your pack needs
@@ -976,7 +1002,7 @@ For each customization:
 - Note the EXPECTED OUTCOME
 
 Example from Art Skill:
-- RECOMMENDED: Have an extended conversation with your AI about your aesthetic preferences,
+- RECOMMENDED: Have an extended conversation with your DA about your aesthetic preferences,
   capture this in Aesthetic.md, so all generated images reflect your personal style.
 - OPTIONAL: Add your own color palette, create custom prompt templates for your use cases.
 
@@ -1107,27 +1133,34 @@ Format: ### {version} - {YYYY-MM-DD}
 
 > **FOR AI AGENTS:** Before publishing, verify your pack includes ALL of these:
 
+### Directory Structure (REQUIRED)
+- [ ] **Pack directory created**: `pack-name/` in `Packs/` directory
+- [ ] **README.md**: Pack overview, problem/solution, architecture diagram
+- [ ] **INSTALL.md**: Step-by-step installation with file copy commands
+- [ ] **VERIFY.md**: Mandatory verification checklist with pass/fail criteria
+- [ ] **src/ directory**: All source code files (not embedded in markdown)
+
 ### End-to-End Chain (MOST IMPORTANT)
 - [ ] **Chain test passed**: Traced every data flow - no "implement your own" gaps
-- [ ] **Server included**: If pack needs a server, full server code is in the pack
+- [ ] **Server included**: If pack needs a server, full server code is in `src/`
 - [ ] **Server management**: Start/stop/restart scripts included (if server required)
 - [ ] **No "beyond scope"**: Every component mentioned is fully implemented
 
 ### Standard Requirements
 - [ ] **Why Different**: 64-word paragraph + 4 eight-word bullets
 - [ ] **Full context**: What, why, who needs it
-- [ ] **All code**: Complete, working implementations (no snippets, no placeholders)
-- [ ] **File locations**: Exact paths for every file
-- [ ] **Directory structure**: Commands to create directories
-- [ ] **Hook code**: If hooks required, full implementations
-- [ ] **Library dependencies**: All lib/ files included
-- [ ] **settings.json**: Exact JSON configuration with file location
-- [ ] **Environment variables**: Required vars and where to set them
-- [ ] **Verification steps**: How to confirm success
-- [ ] **256x256 icon**: Transparent PNG in blue/purple palette (generated with `--remove-bg` flag)
-- [ ] **Customization section**: If pack benefits from personalization, document recommended and optional customizations
+- [ ] **All code in src/**: Complete, working implementations (no snippets, no placeholders)
+- [ ] **File locations**: Exact paths for every file in INSTALL.md
+- [ ] **Directory structure**: Commands to create directories in INSTALL.md
+- [ ] **Hook code**: If hooks required, full implementations in `src/hooks/`
+- [ ] **Library dependencies**: All lib/ files included in `src/`
+- [ ] **settings.json**: Exact JSON configuration in `src/config/`
+- [ ] **Environment variables**: Required vars documented in INSTALL.md
+- [ ] **Verification steps**: VERIFY.md checklist with commands
+- [ ] **256x256 icon**: Transparent PNG in `Packs/icons/` (generated with `--remove-bg` flag)
+- [ ] **Customization section**: If pack benefits from personalization, document in README.md
 
-**The test:** Can someone go from fresh Claude Code to fully working system using ONLY this pack?
+**The test:** Can someone go from fresh Claude Code to fully working system using ONLY this pack directory?
 
 **The chain test:** Trace every data flow. If ANY link is missing, the pack is incomplete.
 
@@ -1135,9 +1168,10 @@ Format: ### {version} - {YYYY-MM-DD}
 
 ## File Naming Convention
 
-- Flat files in `Packs/` directory
-- kebab-case: `history-system.md`, `session-progress.md`
-- No subdirectories per pack
+- Pack directories in `Packs/` directory
+- kebab-case for directory names: `pai-history-system/`, `pai-hook-system/`
+- Each pack directory contains: `README.md`, `INSTALL.md`, `VERIFY.md`, `src/`
+- Source files in `src/` use appropriate extensions: `.ts`, `.yaml`, `.hbs`, etc.
 
 ---
 

@@ -6,7 +6,7 @@ A diagnostic workflow for assessing your PAI installation health, identifying is
 
 ## What This Does
 
-When you run this check, your AI will:
+When you run this check, your DA will:
 
 1. **Inventory installed packs** — Identify which PAI packs are currently installed in your system
 2. **Verify basic functionality** — Test that core systems (hooks, history, skills) are working
@@ -18,13 +18,13 @@ When you run this check, your AI will:
 
 ## How to Use
 
-Give this file to your AI and say:
+Give this file to your DA and say:
 
 ```
 Check my PAI state and give me recommendations.
 ```
 
-Your AI will run through the diagnostic steps below and report back.
+Your DA will run through the diagnostic steps below and report back.
 
 ---
 
@@ -167,18 +167,18 @@ cat $PAI_DIR/skills/CORE/SKILL.md 2>/dev/null | head -50
 
 ---
 
-## Comparison: Your Installation vs Kai Bundle
+## Comparison: Your Installation vs PAI Bundle
 
-### Available Packs in Kai Bundle
+### Available Packs in PAI Bundle
 
 | Pack | Version | Purpose | Status |
 |------|---------|---------|--------|
-| kai-hook-system | 1.0.0 | Event-driven automation foundation | ⬜ Check |
-| kai-history-system | 1.0.0 | Automatic context capture and organization | ⬜ Check |
-| kai-skill-system | 1.0.0 | Capability routing and dynamic loading | ⬜ Check |
-| kai-voice-system | 1.1.0 | Voice notifications with ElevenLabs TTS | ⬜ Check |
-| kai-identity | 1.0.0 | Personality, response format, principles | ⬜ Check |
-| kai-observability-server | 1.0.0 | Real-time multi-agent monitoring | ⬜ Check |
+| pai-hook-system | 1.0.0 | Event-driven automation foundation | ⬜ Check |
+| pai-history-system | 1.0.0 | Automatic context capture and organization | ⬜ Check |
+| pai-skill-system | 1.0.0 | Capability routing and dynamic loading | ⬜ Check |
+| pai-voice-system | 1.1.0 | Voice notifications with ElevenLabs TTS | ⬜ Check |
+| pai-identity | 1.0.0 | Personality, response format, principles | ⬜ Check |
+| pai-observability-server | 1.0.0 | Real-time multi-agent monitoring | ⬜ Check |
 
 **Status key:**
 - ✅ Installed and working
@@ -190,7 +190,7 @@ cat $PAI_DIR/skills/CORE/SKILL.md 2>/dev/null | head -50
 
 ## Generating Recommendations
 
-After running diagnostics, your AI should provide:
+After running diagnostics, your DA should provide:
 
 ### 1. Health Summary
 
@@ -236,14 +236,14 @@ PAI State Check Complete
 ========================
 
 INSTALLED (4 packs):
-  ✅ kai-hook-system v1.0.0 - Working
-  ✅ kai-history-system v1.0.0 - Working
-  ✅ kai-skill-system v1.0.0 - Working
-  ⚠️ kai-voice-system v1.0.0 - Installed but ElevenLabs key missing
+  ✅ pai-hook-system v1.0.0 - Working
+  ✅ pai-history-system v1.0.0 - Working
+  ✅ pai-skill-system v1.0.0 - Working
+  ⚠️ pai-voice-system v1.0.0 - Installed but ElevenLabs key missing
 
 NOT INSTALLED (2 packs):
-  ⬜ kai-identity - Would add personality and response format
-  ⬜ kai-observability-server - Would add agent monitoring dashboard
+  ⬜ pai-identity - Would add personality and response format
+  ⬜ pai-observability-server - Would add agent monitoring dashboard
 
 ISSUES FOUND:
   1. Voice system missing ELEVENLABS_API_KEY in environment
@@ -251,13 +251,13 @@ ISSUES FOUND:
 
 RECOMMENDATIONS:
   1. [Quick fix] Add ElevenLabs API key to enable voice notifications
-  2. [New pack] Consider kai-identity for consistent response formatting
-  3. [Optional] kai-observability-server useful if you run multiple agents
+  2. [New pack] Consider pai-identity for consistent response formatting
+  3. [Optional] pai-observability-server useful if you run multiple agents
 
-SUGGESTED NEXT: kai-identity
+SUGGESTED NEXT: pai-identity
   - All dependencies met (hooks, history, skills installed)
   - Adds consistent personality and response format
-  - Installation: Give your AI the kai-identity.md pack file
+  - Installation: Give your DA the pai-identity.md pack file
 ```
 
 ---
@@ -266,11 +266,11 @@ SUGGESTED NEXT: kai-identity
 
 To run this diagnostic:
 
-1. Give this file to your AI
+1. Give this file to your DA
 2. Set your PAI directory: `PAI_DIR=~/.pai` (or wherever you installed)
 3. Say: "Check my PAI state"
 
-Your AI will run through each step, build a health report, and provide actionable recommendations.
+Your DA will run through each step, build a health report, and provide actionable recommendations.
 
 ---
 

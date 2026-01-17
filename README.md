@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./pai-logo.png">
-  <source media="(prefers-color-scheme: light)" srcset="./pai-logo.png">
-  <img alt="PAI Logo" src="./pai-logo.png" width="600">
+  <source media="(prefers-color-scheme: dark)" srcset="./pai-logo-v7.png">
+  <source media="(prefers-color-scheme: light)" srcset="./pai-logo-v7.png">
+  <img alt="PAI Logo" src="./pai-logo-v7.png" width="300">
 </picture>
 
 <br/>
@@ -11,24 +11,37 @@
 
 # Personal AI Infrastructure
 
-### Open-source scaffolding for building your own AI-powered operating system
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=24&pause=1000&color=60A5FA&center=true&vCenter=true&width=600&lines=Everyone+needs+access+to+the+best+AI.;AI+should+magnify+everyone.;Your+personal+AI+stack.)](https://github.com/danielmiessler/PAI)
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-2.0-blue?style=for-the-badge)](https://github.com/danielmiessler/Personal_AI_Infrastructure/releases)
-[![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
-[![Packs](https://img.shields.io/badge/packs-8-purple?style=for-the-badge)](Packs/)
-[![Bundles](https://img.shields.io/badge/bundles-1-orange?style=for-the-badge)](Bundles/)
+<!-- Status Badges -->
+![GitHub Release](https://img.shields.io/github/v/release/danielmiessler/PAI?style=flat&logo=github&logoColor=white&label=Release&color=8B5CF6)
+![GitHub Stars](https://img.shields.io/github/stars/danielmiessler/PAI?style=flat&logo=github&logoColor=white&color=FFD700)
+![Last Commit](https://img.shields.io/github/last-commit/danielmiessler/PAI?style=flat&logo=git&logoColor=white&color=F97316)
+![License](https://img.shields.io/github/license/danielmiessler/PAI?style=flat&color=22C55E)
+
+<!-- Content Badges -->
+[![Get Started](https://img.shields.io/badge/🚀_Get_Started-Quick_Install-22C55E?style=flat)](#-quick-start)
+[![Packs](https://img.shields.io/badge/📦_Packs-23-8B5CF6?style=flat)](Packs/)
+[![Bundles](https://img.shields.io/badge/🎁_Bundles-1-F97316?style=flat)](Bundles/)
+[![Contributors](https://img.shields.io/github/contributors/danielmiessler/PAI?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/PAI/graphs/contributors)
+
+<!-- Tech Stack -->
+[![Built with Claude](https://img.shields.io/badge/Built_with-Claude-D4A574?style=flat&logo=anthropic&logoColor=white)](https://claude.ai)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-000000?style=flat&logo=bun&logoColor=white)](https://bun.sh)
+[![UL Community](https://img.shields.io/badge/UL_Community-5865F2?style=flat&logo=discord&logoColor=white)](https://danielmiessler.com/upgrade)
 
 <br/>
 
-**Getting Started:** [What is PAI?](#what-is-pai) · [Quick Start](#-quick-start) · [15 Principles](#the-15-founding-principles)
+**Getting Started:** [AI-First Install](#-this-readme-is-for-your-ai-assistant) · [What is PAI?](#what-is-pai) · [New to This?](#wait-hold-onassume-im-new-to-all-this) · [The Algorithm](#the-algorithm-the-centerpiece) · [Principles](#the-pai-principles) · [Primitives](#pai-primitives)
 
-**Packs & Bundles:** [Browse Packs](#-available-packs) · [Browse Bundles](#-available-bundles) · [How Packs Work](#-how-pai-packs-work) · [v1 → v2 Journey](#the-journey-pai-v1x--v20)
+**Installation:** [Packs & Bundles](#packs--bundles) · [How AI Install Works](#how-ai-installation-works) · [Browse Packs](#-available-packs) · [Browse Bundles](#-available-bundles) · [Quick Start](#-quick-start)
 
 **Development:** [Create a Pack](#-for-pack-developers) · [Platform Support](#️-platform-compatibility) · [Contributing](#-contributing)
 
-**Resources:** [FAQ](#-faq) · [Documentation](#-documentation) · [Community](#-community) · [Roadmap](#-roadmap) · [Updates](#-update-history)
+**Resources:** [FAQ](#-faq) · [Documentation](#-documentation) · [Community](#-community) · [Roadmap](#-roadmap) · [v1 → v2 Journey](#the-journey-pai-v1x--v20) · [Updates](#-update-history)
 
 <br/>
 
@@ -38,217 +51,611 @@
 
 ---
 
-# An AI system for pursuing your goals
+</div>
+
+> [!IMPORTANT]
+> **PAI v2.3.0 Released** — Complete `.claude/` directories with continuous learning are back.
+>
+> **[Release notes →](Releases/v2.3/README.md)** | **[GitHub Release →](https://github.com/danielmiessler/PAI/releases/tag/v2.3.0)**
+
+<div align="center">
+
+# AI should magnify everyone—not just the top 1%.
 
 </div>
 
-The most powerful AI setups are being built inside companies. That's fine, but I think technology should serve humans—not the other way around.
+### 1. We believe AI provides **AN EXTRAORDINARY ADVANTAGE** to those who know how to use it, and we want that to be *everyone*, not just the rich or nerds like us. That's why this is open-source instead of private.
 
-PAI is open-source infrastructure for building your own AI system. One that knows your goals, learns from your history, and gets better at helping you over time. Not a generic assistant. *Your* assistant, working on *your* problems.
+### 2. We believe the most important part of an AI system is not the tech itself, but the person using it. This is why **customization to the principal (you)** is the central idea of the PAI system.
 
-But here's what makes PAI different: underneath the personal layer is something more fundamental.
+### 3. We believe the ideal AI system functions as a [powerful assistant, friend, coach, and mentor](https://danielmiessler.com/blog/personal-ai-maturity-model) that's continuously helping you achieve your goals, rather than a narrow tool for coding or building applications.
+
+The goal of the PAI system is to produce **Euphoric Surprise** with every result, which means  
+
+PAI pursues a singular goal—creating *Euphoric Surprise* in how it executes every task. Not just completion, but results so thorough, thoughtful, and effective that you're genuinely surprised and delighted. This is how PAI helps you become the best version of yourself: by consistently exceeding expectations in service of your goals.
+![Image](assets/260116-141626.avif)
+
+This is open-source. This is free. This is for everyone.
+
+### **Who is PAI for?**
+- **Developers** using AI coding assistants who want persistent memory and custom workflows
+- **Power users** who want their AI to know their goals, preferences, and context
+- **Teams** building shared AI infrastructure with consistent capabilities
+- **Experimenters** interested in AI system design and personal AI patterns
+
+---
+
+> [!TIP]
+> ## 🤖 This README Works Great with AI Assistants
+>
+> **Try AI-assisted installation:** Give this URL to your DA assistant and say *"Walk me through installing PAI and customize it for me."*
+>
+> The documentation is designed for both humans and AI. Read on to understand the system, or let your DA guide you through setup—whichever works best for you.
 
 ---
 
 ## What is PAI?
 
-**PAI (Personal AI Infrastructure)** started as a framework for building personalized AI assistants. But in building it, we noticed something.
+**PAI (Personal AI Infrastructure)** is a **self-learning system** that gets better at helping you over time.
 
-Every goal—whether it's fixing a bug, writing a book, building a company, or figuring out what to do with your life—follows the same basic structure. There's where you are. There's where you want to be. And there's the process of getting there.
-
-We didn't invent this pattern. Evolution uses it. Science uses it. Every successful human endeavor uses it. We just made it explicit and built tools around it.
+Unlike static AI assistants that treat every conversation as a blank slate, PAI captures feedback from every interaction—explicit ratings, implicit sentiment, behavioral signals, verification outcomes—and uses it to improve. The system literally upgrades itself based on what works and what doesn't.
 
 **PAI is three things:**
-- **A universal pattern** - Two nested loops that apply to any goal, at any scale
-- **Personal infrastructure** - Skills, memory, and context that make AI actually useful for *your* life
-- **Open-source packs** - Battle-tested capabilities anyone can install or contribute
+- **A continuously upgrading algorithm** - The centerpiece. Current → Ideal via verifiable iteration, at any scale.
+- **A self-learning system** - Every interaction generates feedback that improves the system.
+- **Personal infrastructure** - Skills, memory, and context that make AI useful for *your* life
+
+The learning happens automatically. Rate a response poorly? The system captures why. Express frustration? Sentiment analysis detects it. Abandon a task? That's a signal too.
 
 ---
 
-## The Two Loops
+## Wait, Hold On—Assume I'm New to All This
 
-At the foundation of PAI is a simple observation: all progress—personal, professional, civilizational—follows the same two nested loops.
+You've probably used ChatGPT or Claude. Type a question, get an answer. Simple.
 
-### The Outer Loop: Where You Are → Where You Want to Be
+You can think of it as **three levels**:
 
-[![The Universal Algorithm](./pai-outer-loop-current-to-desired.png)](./pai-outer-loop-current-to-desired.png)
+<p align="center">
+  <img src="./pai-eli5-diagram.png" alt="The AI Evolution - From chatbots to your personal AI system" width="800">
+</p>
 
-This is it. The whole game. You have a current state. You have a desired state. Everything else is just figuring out how to close the gap.
+### Level 1: Chatbots
 
-This pattern works at every scale:
-- **Fixing a typo** - Current: wrong word. Desired: right word.
-- **Learning a skill** - Current: can't do it. Desired: can do it.
-- **Building a company** - Current: idea. Desired: profitable business.
-- **Human flourishing** - Current: wherever you are. Desired: the best version of your life.
+ChatGPT, Claude, Gemini—you ask something, it answers, and then it forgets everything. Next conversation starts fresh. No memory of you, your preferences, or what you talked about yesterday.
 
-The pattern doesn't change. Only the scale does.
+**The pattern:** Ask → Answer → Forget
 
-### The Inner Loop: The Scientific Method
+### Level 2: Agentic Platforms
 
-[![The Inner Loop](./pai-inner-loop-7-phases.png)](./pai-inner-loop-7-phases.png)
+Tools like Claude Code, Cursor, and Windsurf. The AI can actually *do* things—write code, browse the web, edit files, run commands.
 
-*How* do you actually move from current to desired? Through iteration. Specifically, through the scientific method—the most reliable process humans have ever discovered for making progress.
+**The pattern:** Ask → Use tools → Get result
 
-PAI implements this as a 7-phase cycle that every workflow follows:
+More capable, but it still doesn't know *you*—your goals, your preferences, your history.
+
+### Level 3: PAI (Personal AI Infrastructure)
+
+Now your DA **learns and improves**:
+- **Captures every signal** — Ratings, sentiment, verification outcomes
+- **Learns from mistakes** — Failures get analyzed and fixed
+- **Gets better over time** — Success patterns get reinforced
+- **Upgrades itself** — Skills, workflows, even The Algorithm evolve
+
+Plus it knows:
+- **Your goals** — What you're working toward
+- **Your preferences** — How you like things done
+- **Your history** — Past decisions and learnings
+
+**The pattern:** Observe → Think → Plan → Execute → Verify → **Learn** → Improve
+
+The key difference: **PAI learns from feedback**. Every interaction makes it better at helping *you* specifically.
+
+---
+
+## The Algorithm (THE CENTERPIECE)
+
+**The Algorithm is the gravitational center of PAI—everything else exists to serve it.**
+
+At the foundation of PAI is a universal pattern for accomplishing any task: **Current State → Ideal State** via verifiable iteration. The memory system captures signals. The hook system detects sentiment and ratings. The learning directories organize evidence. All of this feeds back into improving **The Algorithm itself**.
+
+PAI is not a static tool—it is a **continuously upgrading algorithm** that gets better at helping you with every interaction.
+
+This one unified algorithm works at every scale:
+- **Fixing a typo** — Current: wrong word. Ideal: right word.
+- **Building a feature** — Current: doesn't exist. Ideal: works, tested, deployed.
+- **Building a company** — Current: idea. Ideal: profitable business.
+- **Human flourishing** — Current: wherever you are. Ideal: the best version of your life.
+
+The algorithm has 7 phases:
+
+<p align="center">
+  <img src="./pai-algorithm-diagram.png" alt="The Algorithm - 7 Phases" width="800">
+</p>
 
 | Phase | What You Do |
 |-------|-------------|
-| **OBSERVE** | Look around. Gather context. Understand where you actually are. |
-| **THINK** | Generate ideas. What might work? Come up with hypotheses. |
-| **PLAN** | Pick an approach. Design the experiment. |
-| **BUILD** | Define what success looks like. How will you know if it worked? |
-| **EXECUTE** | Do the thing. Run the plan. |
-| **VERIFY** | Check the results against your criteria. Did it work? |
-| **LEARN** | Harvest insights. What did you learn? Then iterate or complete. |
+| **OBSERVE** | Gather context. Understand where you actually are. |
+| **THINK** | Generate ideas. What might work? |
+| **PLAN** | Pick an approach. Sequence the work. |
+| **BUILD** | Define success criteria. How will you know if it worked? |
+| **EXECUTE** | Do the work. |
+| **VERIFY** | Test against your criteria. Did it work? |
+| **LEARN** | Harvest insights. Iterate or complete. |
 
-The crucial insight: **verifiability is everything**. If you can't tell whether you succeeded, you can't improve. Most people skip the VERIFY step. They try things, sort of check if it worked, and move on. The scientific method's power comes from actually measuring results and learning from them—especially from failures.
+The crucial insight: **verifiability is everything**. Most people skip VERIFY. They try things, vaguely check if it worked, and move on. The algorithm's power comes from defining success criteria *before* execution and measuring against them *after*.
 
-Every PAI skill, every workflow, every task implements these two loops. The outer loop defines *what* you're pursuing. The inner loop defines *how* you pursue it. Together, they're a universal engine for making progress on anything.
+> [!TIP]
+> **The Algorithm Pack is now available:** [**pai-algorithm-skill**](Packs/pai-algorithm-skill/) provides the full implementation—effort classification, capability loading, ISC (Ideal State Criteria) management, and visual progress tracking.
+>
+> ⚠️ **Early Alpha:** This pack is in early alpha and not yet fully integrated with the rest of the PAI system. Expect breaking changes and incomplete features as we iterate.
 
 ### Where Are You on the Journey?
 
-To understand your current capabilities and what to build next, see the **[Personal AI Maturity Model (PAIMM)](https://danielmiessler.com/blog/personal-ai-maturity-model)**—a 9-tier progression from basic chatbots to a full AI companion that knows you, remembers everything, and actively helps you pursue your goals.
+See the **[Personal AI Maturity Model (PAIMM)](https://danielmiessler.com/blog/personal-ai-maturity-model)**—a 9-tier progression from basic chatbots to a full AI companion.
 
 ---
 
-## The 15 Founding Principles
+## The PAI Principles
 
-These principles guide how PAI systems are designed and built:
+These principles guide how PAI systems are designed and built. **[Full breakdown →](https://danielmiessler.com/blog/personal-ai-infrastructure)**
 
-[![PAI System Principles](./pai-system-principles.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-
-**[Read the full breakdown of each principle →](https://danielmiessler.com/blog/personal-ai-infrastructure)**
-
-#### 1. The Foundational Algorithm
-[![Foundational Algorithm](./pai-foundational-algorithm.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-PAI is built around a universal pattern: **Current State → Desired State** via verifiable iteration. This is the outer loop. The inner loop is the 7-phase scientific method (OBSERVE → THINK → PLAN → BUILD → EXECUTE → VERIFY → LEARN). The critical insight: verifiability is everything. If you can't measure whether you reached the desired state, you're just guessing.
-
-#### 2. Clear Thinking + Prompting is King
-[![Clear Thinking](https://danielmiessler.com/images/pai-principle-01-clear-thinking.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Good prompts come from clear thinking about what you actually need. Spend more time clarifying the problem than writing the prompt.
-
-#### 3. Scaffolding > Model
-[![Scaffolding](https://danielmiessler.com/images/pai-principle-02-scaffolding.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-The system architecture matters more than which model you use. Good scaffolding makes even smaller models perform well.
-
-#### 4. As Deterministic as Possible
-[![Deterministic](https://danielmiessler.com/images/pai-principle-03-deterministic.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-AI is probabilistic, but your infrastructure shouldn't be. Use templates and consistent patterns.
-
-#### 5. Code Before Prompts
-[![Code Before Prompts](https://danielmiessler.com/images/pai-principle-04-code-before-prompts.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-If you can solve it with a bash script, don't use AI. Only use AI for the parts that actually need intelligence.
-
-#### 6. Spec / Test / Evals First
-[![Spec Test Evals](https://danielmiessler.com/images/pai-principle-05-spec-test-evals.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Before building anything complex, write specifications and tests. Use evals to measure if the system is actually working.
-
-#### 7. UNIX Philosophy (Modular Tooling)
-[![UNIX Philosophy](https://danielmiessler.com/images/pai-principle-06-unix-philosophy.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Do one thing well. Make tools composable. Use text interfaces.
-
-#### 8. ENG / SRE Principles
-[![ENG SRE Principles](https://danielmiessler.com/images/pai-principle-07-eng-sre.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Treat your AI infrastructure like production software: version control, automation, monitoring, rollback plans.
-
-#### 9. CLI as Interface
-[![CLI Interface](https://danielmiessler.com/images/pai-principle-08-cli-interface.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Command-line interfaces are faster, more scriptable, and more reliable than GUIs.
-
-#### 10. Goal → Code → CLI → Prompts → Agents
-[![Goal to Agents](https://danielmiessler.com/images/pai-principle-09-goal-to-agents.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-The decision hierarchy: clarify the goal first, then try code, then CLI tools, then prompts, and only then agents.
-
-#### 11. Meta / Self Update System
-[![Meta Update](https://danielmiessler.com/images/pai-principle-10-meta-update.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-The system should be able to modify itself. Encode learnings so you never forget.
-
-#### 12. Custom Skill Management
-[![Skill Management](https://danielmiessler.com/images/pai-principle-11-skill-management.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Skills are the foundation of personalization - modular capabilities that route intelligently.
-
-#### 13. Custom History System
-[![History System](https://danielmiessler.com/images/pai-principle-12-history-system.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Everything worth knowing gets captured. History feeds back into context for future sessions.
-
-#### 14. Custom Agent Personalities / Voices
-[![Agent Personalities](https://danielmiessler.com/images/pai-principle-13-agent-personalities.png)](https://danielmiessler.com/blog/personal-ai-infrastructure)
-Different work needs different approaches. Specialized agents with unique personalities and voices.
-
-#### 15. Science as Cognitive Loop
-The meta-principle: Hypothesis → Experiment → Measure → Iterate. Every decision follows this pattern.
+| # | Principle | Summary |
+|---|-----------|---------|
+| 1 | **Customization for Your Goals** | PAI exists to help you accomplish your goals. Personalized agentic infrastructure that knows your goals, preferences, context, and history. |
+| 2 | **The Continuously Upgrading Algorithm** | **THE CENTERPIECE.** Everything else exists to feed signals back into improving The Algorithm. Current → Ideal via verifiable iteration. |
+| 3 | **Clear Thinking First** | Good prompts come from clear thinking. Clarify the problem before writing the prompt. |
+| 4 | **Scaffolding > Model** | System architecture matters more than which model you use. |
+| 5 | **Deterministic Infrastructure** | AI is probabilistic; your infrastructure shouldn't be. Use templates and patterns. |
+| 6 | **Code Before Prompts** | If you can solve it with a bash script, don't use AI. |
+| 7 | **Spec / Test / Evals First** | Write specifications and tests before building. Measure if the system works. |
+| 8 | **UNIX Philosophy** | Do one thing well. Make tools composable. Use text interfaces. |
+| 9 | **ENG / SRE Principles** | Treat AI infrastructure like production software: version control, automation, monitoring. |
+| 10 | **CLI as Interface** | Command-line interfaces are faster, more scriptable, and more reliable than GUIs. |
+| 11 | **Goal → Code → CLI → Prompts → Agents** | The decision hierarchy: clarify goal, then code, then CLI, then prompts, then agents. |
+| 12 | **Skill Management** | Modular capabilities that route intelligently based on context. |
+| 13 | **Memory System** | Everything worth knowing gets captured. History feeds future context. |
+| 14 | **Agent Personalities** | Different work needs different approaches. Specialized agents with unique voices. |
+| 15 | **Science as Meta-Loop** | Hypothesis → Experiment → Measure → Iterate. The Algorithm implements this pattern. |
+| 16 | **Permission to Fail** | Explicit permission to say "I don't know" prevents hallucinations. |
 
 ---
 
-## The Journey: PAI v1.x → v2.0
+## PAI Primitives
 
-**PAI v1.x** attempted to mirror my entire personal AI system (Kai) as an installable template. The idea was simple: "Here's everything I built - clone it and customize."
+While the 15 Principles describe the *philosophy* of PAI, the Primitives are the *architecture*—the core systems that make everything work.
 
-**The problem:** It didn't work. The system was a Jenga tower of interconnected dependencies. Change one piece, and three others broke. Users couldn't easily adopt parts without understanding the whole. Updates were a nightmare because everything was coupled.
+**The Algorithm is the central primitive—THE CENTERPIECE.** Everything else exists to feed signals back into improving The Algorithm. Memory captures data. Hooks detect signals. Security protects learning integrity. This is what makes PAI a *continuously upgrading algorithm* rather than just a tool.
 
-**PAI v2.0** takes a fundamentally different approach: **modular packs**.
-
-Instead of "here's my whole system," it's "here are battle-tested capabilities you can install independently." Each pack is:
-- **Self-contained** - Works without understanding the rest of the system
-- **Independently installable** - Add what you need, skip what you don't
-- **Platform-agnostic** - Works with Claude Code, OpenCode, or custom systems
-- **AI-installable** - Your AI can read the pack and set it up for you
-
-The packs are extracted from Kai - real capabilities that have been running in production. They're not theoretical examples. They're the actual tools and systems I use daily, packaged for others to adopt.
-
----
-
-<div align="center">
-
-# PAI v2.0: PAI Packs
-
-</div>
-
-**PAI Packs** are modular upgrade packages for AI agent systems. Think of them like learning kung-fu in The Matrix - each pack is a complete, tested capability that you can download into your system.
-
-**PAI Packs provide** self-contained bundles with everything your AI needs to implement a specific capability:
-
-- **The problem** being solved
-- **The solution** and how it works
-- **All code** (tools, CLIs, scripts)
-- **Workflows** (step-by-step processes)
-- **Context files** (guidelines, aesthetics, specifications)
-- **Examples** and usage patterns
-- **Installation instructions** (for both AI and manual)
-- **Testing procedures**
-- **Troubleshooting guides**
-
-**The key insight:** Give your AI the complete context it needs, and it can integrate the pack into *your* system, whether that's Claude Code, OpenCode, Gemini Code, GPT-Codex, or a homebrew setup.
+| Primitive | What It Does | Key Features |
+|-----------|--------------|--------------|
+| 🔄 **[The Algorithm](#the-algorithm-the-centerpiece)** | **THE CENTERPIECE.** Continuously upgrading via feedback | Current → Ideal via verifiable iteration. Ratings, sentiment, behavioral signals, verification outcomes → Algorithm upgrades |
+| 🧠 **[Memory System](#-memory-system)** | Captures signals for The Algorithm | Three-tier architecture (hot/warm/cold), phase-based learning directories |
+| ⚡ **[Hook System](#-hook-system)** | Detects signals for The Algorithm | 8 event types, sentiment detection, rating capture, failure logging |
+| 🔒 **[Security System](#-security-system)** | Protects Algorithm integrity | Command validation, repo separation, injection defense |
+| 📁 **[User/System Separation](#-usersystem-separation)** | Clean customization boundaries | Portable identity, upgrade-safe |
+| 🎯 **[TELOS](#-deep-goal-capture-telos)** | Deep goal understanding | 10 files capturing your mission, beliefs, strategies |
+| ⚙️ **[Customization](#-granular-customization)** | Adapt everything to your workflow | 6 levels from identity to memory |
 
 ---
 
-## 📦 Available Packs
+<details>
+<summary><h3>🔄 The Algorithm (THE CENTERPIECE)</h3></summary>
+
+**This is what makes PAI different.** The entire system exists to serve The Algorithm—a continuously upgrading pattern for accomplishing any task. Every other primitive—Memory, Hooks, Skills—exists to feed signals back into improving The Algorithm itself.
+
+```
+                              THE ALGORITHM: Current → Ideal
+                                    ┌─────────────────────────────────────┐
+                                    │                                     │
+User Interaction → Hook Captures → Signal Detection → Learning Directory │
+                                                                          │
+                ← Algorithm Upgrade ← Pattern Analysis ← Evidence Review ←┘
+                                    │                                     │
+                                    └─────────────────────────────────────┘
+```
+
+**Four Types of Signals That Feed The Algorithm:**
+
+| Type | How It's Captured | Example |
+|------|-------------------|---------|
+| **Explicit ratings** | User types "7" or "8 - good work" | Direct quality signal |
+| **Implicit sentiment** | Hooks analyze user message tone | "This is frustrating" → negative signal |
+| **Behavioral signals** | Loopbacks, retries, abandoned tasks | User restarts task → something failed |
+| **Verification outcomes** | VERIFY phase success/failure | Objective measure of whether it worked |
+
+**How Signals Improve The Algorithm:**
+
+1. **Capture** — Hooks write signals to `MEMORY/Signals/` (ratings.jsonl, failures.jsonl, loopbacks.jsonl)
+2. **Organize** — Learnings categorize by Algorithm phase (OBSERVE, THINK, PLAN, BUILD, EXECUTE, VERIFY)
+3. **Analyze** — Pattern extraction identifies recurring issues
+4. **Upgrade** — Skill workflows, response patterns, and The Algorithm itself get updated
+
+**What Gets Better:**
+- Skill workflows that repeatedly fail get flagged for revision
+- Response patterns that frustrate users get identified and fixed
+- Success patterns get reinforced and expanded
+- **The Algorithm itself** evolves based on meta-learnings in `MEMORY/Learning/ALGORITHM/`
+
+**Key Insight:** A system that can't improve itself will stagnate. The Algorithm is the centerpiece; everything else feeds it.
+
+</details>
+
+<details>
+<summary><h3>🧠 Memory System</h3></summary>
+
+The Memory System is PAI's brain—what happened, what we learned, what we're working on.
+
+**Location:** `$PAI_DIR/MEMORY/`
+
+**Three-Tier Architecture:**
+
+| Tier | Temperature | Purpose | Location |
+|------|-------------|---------|----------|
+| **CAPTURE** | Hot | Active work with real-time traces | `Work/[Task-Name]/` |
+| **SYNTHESIS** | Warm | Learnings organized by algorithm phase | `Learning/{OBSERVE,THINK,PLAN,BUILD,EXECUTE,VERIFY}/` |
+| **APPLICATION** | Cold | Immutable historical archive | `History/` |
+
+**Directory Structure:**
+```
+MEMORY/
+├── History/           # All historical recordings (immutable archive)
+│   ├── research/      # Research session outputs
+│   ├── sessions/      # Session summaries (auto-captured)
+│   ├── learnings/     # Learning moments
+│   ├── decisions/     # Architectural decisions
+│   └── ...
+├── Learning/          # Phase-based curated learnings
+│   ├── OBSERVE/       # Learnings about gathering context
+│   ├── THINK/         # Learnings about hypothesis generation
+│   ├── PLAN/          # Learnings about execution planning
+│   ├── BUILD/         # Learnings about success criteria
+│   ├── EXECUTE/       # Learnings about implementation
+│   ├── VERIFY/        # Learnings about verification
+│   └── ALGORITHM/     # Meta-learnings about the algorithm itself
+├── State/             # Real-time operational state
+│   ├── algorithm-stats.json
+│   ├── algorithm-streak.json
+│   └── active-work.json
+├── Signals/           # Pattern detection and anomalies
+│   ├── failures.jsonl
+│   ├── loopbacks.jsonl
+│   ├── patterns.jsonl
+│   └── ratings.jsonl
+└── Work/              # Per-task memory (active work items)
+    └── [Task-Name_TIMESTAMP]/
+```
+
+**Key Insight:** VERIFY failures are the richest source of improvement. When verification fails, it traces back to a weakness in an earlier phase—that weakness gets captured in LEARN.
+
+</details>
+
+<details>
+<summary><h3>⚡ Hook System</h3></summary>
+
+Hooks are event-driven automation that make PAI "alive"—they respond to what's happening and take action.
+
+**Hook Types:**
+
+| Event | When It Fires | Common Uses |
+|-------|---------------|-------------|
+| `SessionStart` | Opening a new session | Load context, set up environment |
+| `SessionEnd` | Session closing | Capture summary, archive learnings |
+| `UserPromptSubmit` | User sends a message | Update tab title, detect sentiment |
+| `Stop` | AI completes response | Voice notification, capture completion |
+| `SubagentStop` | Spawned agent completes | Capture agent output |
+| `PreToolUse` | Before tool execution | Security validation, logging |
+| `PostToolUse` | After tool execution | Capture results, observability |
+| `PreCompact` | Before context compaction | Preserve critical state |
+
+**Design Principles:**
+- **Graceful failure** - Hooks always exit 0; failures log but don't block
+- **Composable** - Multiple hooks can respond to the same event
+- **Fast** - Hooks run synchronously; keep them lightweight
+
+**Example Flow:**
+```
+User types message
+  → UserPromptSubmit hook updates tab title
+  → AI generates response
+  → Stop hook extracts completion message
+  → Stop hook sends to voice server
+  → Stop hook captures to history
+```
+
+</details>
+
+<details>
+<summary><h3>🔒 Security System</h3></summary>
+
+Security is layered, not bolted on. PAI implements defense-in-depth across multiple layers.
+
+**Key Protections:**
+- **Command validation** - Dangerous commands (`rm -rf`, `sudo`, etc.) blocked before execution
+- **Repository separation** - Private (Kai) and public (PAI) repos are completely isolated
+- **Prompt injection defense** - External content is read-only; commands only come from the principal
+- **Secret management** - All API keys in `$PAI_DIR/.env`, never in code
+
+**The Two-Repository Rule:**
+```
+~/.claude/ (PRIVATE)          ~/Projects/PAI/ (PUBLIC)
+├── Contains secrets          ├── Example code only
+├── Personal data             ├── No personal data
+├── Your actual system        ├── Community template
+└── NEVER PUBLIC              └── Safe to share
+```
+
+</details>
+
+<details>
+<summary><h3>📁 User/System Separation</h3></summary>
+
+PAI cleanly separates what's *yours* from what's *system*.
+
+```
+$PAI_DIR/skills/CORE/
+├── USER/              # Your customizations
+│   ├── CONTACTS.md    # Your contacts
+│   ├── TELOS/         # Your goals (see below)
+│   ├── TECHSTACK.md   # Your preferences
+│   └── SECURITY.md    # Your security rules
+└── SYSTEM/            # PAI infrastructure
+    ├── PAISYSTEMARCHITECTURE.md
+    ├── MEMORYSYSTEM.md
+    ├── THEHOOKSYSTEM.md
+    └── ...
+```
+
+**Why This Matters:**
+- **Upgrades don't clobber customizations** - System files update; your files persist
+- **Clear ownership** - You know what's yours to modify
+- **Portable identity** - Move USER/ to a new system; your preferences follow
+
+</details>
+
+<details>
+<summary><h3>🎯 Deep Goal Capture (TELOS)</h3></summary>
+
+TELOS is PAI's framework for understanding *you*—your goals, beliefs, strategies, and what you're working toward.
+
+**The TELOS Files:**
+
+| File | Purpose |
+|------|---------|
+| `MISSION.md` | Your life mission and purpose |
+| `GOALS.md` | Current goals across life areas |
+| `PROJECTS.md` | Active projects with status |
+| `BELIEFS.md` | Core beliefs that guide decisions |
+| `MODELS.md` | Mental models you use |
+| `STRATEGIES.md` | Strategies you employ |
+| `NARRATIVES.md` | Stories you tell about yourself |
+| `LEARNED.md` | Key lessons learned |
+| `CHALLENGES.md` | Current challenges |
+| `IDEAS.md` | Ideas worth capturing |
+
+**Why TELOS Exists:**
+
+Generic AI assistants don't know what you're trying to accomplish. They treat every request as isolated. TELOS gives your DA the context to:
+- Prioritize based on your actual goals
+- Suggest based on your strategies
+- Warn when something conflicts with your beliefs
+- Connect today's task to your bigger picture
+
+</details>
+
+<details>
+<summary><h3>⚙️ Granular Customization</h3></summary>
+
+PAI doesn't force you into a structure. Everything is customizable at the level you choose.
+
+**Customization Levels:**
+
+| Level | What You Change | Example |
+|-------|-----------------|---------|
+| **Identity** | Your DA's name, voice, personality | `DA="Kai"`, voice settings |
+| **Preferences** | Tech stack, tool choices | TypeScript over Python, bun over npm |
+| **Workflows** | How skills execute | Custom research flow, different commit style |
+| **Skills** | What capabilities exist | Add new skills, modify existing ones |
+| **Hooks** | How events are handled | Custom logging, different notifications |
+| **Memory** | What gets captured and how | Retention rules, archive frequency |
+
+**The Principle:** Start with defaults. Customize when you have a reason. PAI works out of the box but adapts to how *you* work.
+
+</details>
+
+---
+
+## Packs & Bundles
+
+PAI capabilities are distributed as **Packs**—self-contained, AI-installable modules that add specific capabilities to your system.
+
+- **Packs** are individual capabilities (e.g., History System, Voice Notifications, Browser Automation)
+- **Bundles** are curated collections of packs that work together (e.g., the PAI Bundle)
+
+Each pack includes everything needed: code, workflows, installation instructions, and verification tests. Your DA reads the pack and installs it into your system—no manual copying required.
+
+**[Browse Available Packs →](#-available-packs)** · **[Browse Bundles →](#-available-bundles)**
+
+---
+
+## How AI Installation Works
+
+> **See [🤖 This README Is For Your DA](#-this-readme-is-for-your-da)** for the quick start. This section explains the technical details.
+
+Your system is unique—existing skills, different directory structures, conflicting configurations, missing prerequisites. A static install script can't handle this. But your DA can:
+
+1. **Analyze your current state** — What's already installed? What conflicts exist?
+2. **Ask smart questions** — Only ask about things that matter for YOUR setup
+3. **Adapt the installation** — Different paths, different configurations, different choices
+4. **Verify the results** — Confirm everything works before declaring success
+
+### The Wizard Pattern
+
+Every pack's `INSTALL.md` follows a wizard-style flow:
+
+| Phase | What Happens | AI Tool Used |
+|-------|--------------|--------------|
+| **1. System Analysis** | Detect current state, find conflicts, check prerequisites | Bash, Read |
+| **2. User Questions** | Ask only relevant questions based on analysis | AskUserQuestion |
+| **3. Backup** | Create timestamped backups if replacing existing content | Bash |
+| **4. Installation** | Execute installation with live progress tracking | TodoWrite, Bash, Write |
+| **5. Verification** | Run all checks from VERIFY.md, confirm success | Bash, VERIFY.md |
+
+### How to Install Any Pack
+
+Give the pack directory to your DA and say:
+
+```
+Install this pack into my system using PAI_DIR="~/.claude"
+```
+
+Your DA will:
+- Read `README.md` for context on what the pack does
+- Follow `INSTALL.md` with the wizard flow
+- Copy files from `src/` to appropriate locations
+- Run `VERIFY.md` checks to confirm success
+- Report what was installed and how to use it
+
+**No manual command copying. No guessing about your system state. Dynamic installation that adapts to you.**
+
+---
+
+## How PAI Works
+
+This section explains the technical architecture, installation process, and runtime mechanics of the Personal AI Infrastructure (PAI) system.
+
+### 1. High-Level Architecture
+
+PAI is not a standalone application but a **configuration and automation layer** that sits on top of **Claude Code** (Anthropic's CLI agent). It transforms a generic AI agent into a personalized system with persistent memory, security controls, and defined skills.
+
+The architecture consists of three main layers:
+
+1.  **The Engine (Claude Code)**: The underlying AI agent that executes commands and processes prompts.
+2.  **The Middleware (Hooks)**: A system of event listeners that intercept Claude Code's operations (like tool use, session start) to enforce security, inject context, and log activity.
+3.  **The Content (Packs)**: Modular bundles of markdown files and scripts that define "Skills" (workflows), "Tools" (executable code), and "Identity" (system prompts).
+
+<p align="center">
+  <img src="./pai-architecture-diagram.png" alt="PAI Architecture" width="800">
+</p>
+
+### 2. The Hook System (The "Magic")
+
+The core mechanism that makes PAI work is the **Hook System**. Claude Code has a native capability to run scripts when certain events occur. PAI leverages this to inject its logic.
+
+**How Hooks Work:**
+1.  **Configuration**: Hooks are registered in `~/.claude/settings.json`. This file maps events (like `PreToolUse`) to specific scripts.
+2.  **Events**:
+    *   `SessionStart`: Fires when you open Claude Code. PAI uses this to load your "CORE" skill and context.
+    *   `PreToolUse`: Fires before the AI runs a command (e.g., `bash`, `edit`). PAI uses this for **Security Validation** (blocking `rm -rf`, etc.).
+    *   `PostToolUse`: Fires after a command. Used for logging and observability.
+    *   `UserPromptSubmit`: Fires when you type a message. Used to update terminal tab titles.
+3.  **Execution**: When an event fires, Claude Code runs the corresponding TypeScript script (using `bun`) located in `~/.claude/hooks/`.
+4.  **Communication**: The script receives event data via `stdin` (JSON) and can control the outcome (e.g., allow or block a command) via exit codes or `stdout`.
+
+### 3. Installation Process
+
+The installation is a two-phase process: **Bootstrapping** (Manual) and **Pack Installation** (AI-Driven).
+
+**Phase 1: Bootstrapping (The `install.ts` script)**
+The user runs `bun run Bundles/Official/install.ts`. This script **does not** install the full system. Instead, it:
+1.  **Creates Directory Structure**: Sets up `~/.claude/` (or `$PAI_DIR`) with folders for `skills`, `hooks`, `history`, etc.
+2.  **Generates Config Files**: Creates `SKILL.md`, `Contacts.md`, and `CoreStack.md` with user preferences (name, timezone).
+3.  **Sets Environment Variables**: Updates `.zshrc` or `.bashrc` with `DA` (Assistant Name), `PAI_DIR`, etc.
+4.  **Updates `settings.json`**: Injects environment variables into Claude Code's settings.
+
+**Crucially, this phase does not install the hooks or skills.** It prepares the environment for the AI to do it.
+
+**Phase 2: Pack Installation (AI-Driven)**
+The user is instructed to "give each pack file to your DA". This is where the actual installation happens.
+1.  **User Action**: The user pastes the content of a pack file (e.g., `Packs/pai-hook-system.md`) into Claude Code.
+2.  **AI Execution**: The pack file contains natural language instructions and code blocks. The AI reads these instructions and:
+    *   **Writes Files**: Creates the TypeScript hook files (e.g., `hooks/security-validator.ts`) and skill definitions.
+    *   **Configures System**: Updates `settings.json` to register the new hooks.
+    *   **Verifies**: Runs verification commands to ensure the pack is working.
+
+This "Inception-style" installation (using the AI to build the AI's infrastructure) ensures that the system is self-documenting and the AI "knows" about its own components.
+
+### 4. Runtime Flow
+
+Here is what happens when you use PAI:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Claude as Claude Code
+    participant Hooks
+    participant Skills
+    participant Memory as MEMORY
+
+    User->>Claude: Run `claude`
+    Claude->>Hooks: SessionStart
+    Hooks->>Skills: Load CORE/SKILL.md
+    Skills-->>Claude: Context injected
+
+    User->>Claude: "Create a new blog post"
+    Claude->>Skills: Route to CreateContent
+    Claude->>Hooks: PreToolUse (touch blog.md)
+    Hooks-->>Claude: ✓ Safe (exit 0)
+    Claude->>Claude: Execute command
+
+    Claude->>Hooks: Stop
+    Hooks->>Memory: Capture session
+    Claude-->>User: Task complete
+```
+
+1.  **Start**: You run `claude`.
+2.  **Initialization (`SessionStart`)**: Hooks load your CORE skill and context. Now the AI knows who it is and what skills it has.
+3.  **User Interaction**: You ask "Create a new blog post".
+4.  **Routing**: The AI recognizes this matches a skill (e.g., `CreateContent`) and loads the specific workflow.
+5.  **Execution (`PreToolUse`)**: Before running commands, hooks validate safety. Safe commands proceed; unsafe ones are blocked.
+6.  **Completion**: The AI finishes and updates memory via the MEMORY system.
+
+### 5. Key Components
+
+*   **`pai-hook-system`**: The engine room. Provides the event bus and security layer.
+*   **`pai-core-install`**: The brain. Defines the "CORE" skill, identity, routing logic, and **MEMORY system** (session capture, learnings, signals).
+*   **`pai-voice-system`**: (Optional) Adds voice capabilities via ElevenLabs.
+
+---
+
+## 📦 Available PAI Packs
 
 ### Features (Architectural Systems)
 
-| Pack | Version | Category | Description |
-|---------|---------|----------|-------------|
-| [**Kai History System**](Packs/kai-history-system.md) | 1.0.0 | Infrastructure | Automatic context-tracking system that captures all work, decisions, and learnings with zero manual effort |
+| Pack | Description |
+|------|-------------|
+| [**pai-core-install**](Packs/pai-core-install/) | Core skills, identity, MEMORY system, and response format |
+| [**pai-hook-system**](Packs/pai-hook-system/) | Event-driven automation and security validation |
+| [**pai-voice-system**](Packs/pai-voice-system/) | Voice notifications with ElevenLabs TTS and prosody enhancement |
+| [**pai-observability-server**](Packs/pai-observability-server/) | Real-time agent monitoring dashboard with live charts |
+| [**pai-statusline**](Packs/pai-statusline/) | 4-mode responsive status line with learning signal display |
 
 ### Skills (Action-Oriented Capabilities)
 
-| Pack | Version | Category | Description |
-|---------|---------|----------|-------------|
-| *Coming soon* | - | - | Skills being extracted and packaged |
+| Pack | Description |
+|------|-------------|
+| [**pai-agents-skill**](Packs/pai-agents-skill/) | Dynamic agent composition with personality mapping and parallel orchestration |
+| [**pai-algorithm-skill**](Packs/pai-algorithm-skill/) | The Algorithm implementation - ISC management, effort classification |
+| [**pai-annualreports-skill**](Packs/pai-annualreports-skill/) | Annual security report aggregation and analysis |
+| [**pai-art-skill**](Packs/pai-art-skill/) | Visual content generation with multi-reference image support |
+| [**pai-brightdata-skill**](Packs/pai-brightdata-skill/) | Progressive URL scraping with Bright Data integration |
+| [**pai-browser-skill**](Packs/pai-browser-skill/) | Browser automation with Playwright for testing and verification |
+| [**pai-council-skill**](Packs/pai-council-skill/) | Multi-agent debate system for exploring perspectives |
+| [**pai-createcli-skill**](Packs/pai-createcli-skill/) | Generate TypeScript CLI tools |
+| [**pai-createskill-skill**](Packs/pai-createskill-skill/) | Create and validate PAI skills |
+| [**pai-firstprinciples-skill**](Packs/pai-firstprinciples-skill/) | First principles analysis and decomposition |
+| [**pai-osint-skill**](Packs/pai-osint-skill/) | Open source intelligence gathering |
+| [**pai-privateinvestigator-skill**](Packs/pai-privateinvestigator-skill/) | Ethical people-finding and reconnection |
+| [**pai-prompting-skill**](Packs/pai-prompting-skill/) | Meta-prompting system with templates and standards |
+| [**pai-recon-skill**](Packs/pai-recon-skill/) | Security reconnaissance and attack surface mapping |
+| [**pai-redteam-skill**](Packs/pai-redteam-skill/) | Adversarial analysis with 32 specialized agents |
+| [**pai-research-skill**](Packs/pai-research-skill/) | Multi-source research with parallel agent execution |
+| [**pai-system-skill**](Packs/pai-system-skill/) | System maintenance, integrity checks, and documentation |
+| [**pai-telos-skill**](Packs/pai-telos-skill/) | Life OS and deep goal capture framework |
 
-### Coming Soon
+> [!NOTE]
+> **23 packs total** — 5 infrastructure packs + 18 skill packs. All extracted from production PAI systems.
 
-**Features being packaged:**
-- **Skill System** - Skill routing and workflow management
-- **Agent Factory** - Custom agent creation and orchestration
-- **Prompting System** - Meta-prompting and template framework
-
-**Skills being packaged:**
-- **Art** - Visual content generation system
-- **Research** - Multi-source research orchestration with parallel agents
-- **OSINT** - Open-source intelligence gathering
-
-[**Submit your own pack**](#-contributing) →
+[**Submit your own pack →**](#-contributing)
 
 ---
 
@@ -258,7 +665,7 @@ The packs are extracted from Kai - real capabilities that have been running in p
 
 | Bundle | Description | Packs | Tier |
 |--------|-------------|-------|------|
-| [**Kai Bundle**](Bundles/Kai/) | The official PAI bundle - complete personal AI infrastructure extracted from Daniel Miessler's production system | 5 | Complete |
+| [**PAI Bundle**](Bundles/Official/) | The official PAI bundle - complete personal AI infrastructure extracted from Daniel Miessler's production system | 5 | Complete |
 
 ### Why Bundles?
 
@@ -268,13 +675,13 @@ The packs are extracted from Kai - real capabilities that have been running in p
 - **Complete experience** - Everything needed for a specific goal
 - **Interactive wizard** - Guided setup with conflict detection
 
-**The Kai Bundle** is the flagship bundle. Installing all its packs recreates the PAI v1.0 "mirrored system" experience - but through modular, maintainable packs instead of a monolithic copy.
+**The PAI Bundle** is the flagship bundle. Installing all its packs recreates the PAI v1.0 "mirrored system" experience - but through modular, maintainable packs instead of a monolithic copy.
 
 **Quick install:**
 ```bash
 # Clone the repo and run the interactive wizard
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Bundles/Kai && bun run install.ts
+cd PAI/Bundles/Official && bun run install.ts
 ```
 
 [**Learn more about bundles →**](Bundles/)
@@ -283,16 +690,20 @@ cd PAI/Bundles/Kai && bun run install.ts
 
 ## 🚀 Quick Start
 
-> **FOR AI AGENTS:** The entire PAI system is designed to be used by AI. You can read this README to understand how PAI works with its Packs and Bundles. A recommended approach: evaluate the entire system, then interact with your principal and ask them which Bundles or Packs they'd like to install—give them options based on their needs. From there, you should be able to read any Bundle or Pack file (including new ones as they're released) and guide your principal on whether they want to install it.
+> [!CAUTION]
+> **Project in Active Development** — PAI is evolving rapidly. Expect breaking changes, restructuring, and frequent updates. Changes should be slowing down shortly, but you should be someone with patience for tinkering if you get in at this stage. We are working on stable and development branches, but currently it's all combined.
 
-### Option 1: Install the Complete Kai Bundle (Recommended)
+> [!NOTE]
+> **FOR AI AGENTS:** The entire PAI system is designed to be used by AI. Evaluate the system, then ask your principal which Bundles or Packs they'd like to install—give them options based on their needs. You should be able to read any Bundle or Pack file and guide your principal on whether they want to install it.
 
-The fastest way to get started is with the interactive bundle wizard:
+### Option 1: Install the Complete PAI Bundle (Recommended)
+
+⏱️ **~15-30 minutes** — The fastest way to get started is with the interactive bundle wizard:
 
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Bundles/Kai
+cd PAI/Bundles/Official
 
 # Run the interactive wizard
 bun run install.ts
@@ -307,18 +718,18 @@ bun run install.ts
 
 ### Option 2: AI-Assisted Pack Installation
 
-Install individual packs by giving them to your AI:
+⏱️ **~5-10 minutes per pack** — Install individual packs by giving them to your DA:
 
 1. **Browse packs** - Find a pack you want in [Packs/](Packs/)
-2. **Give it to your AI** - Provide the entire pack markdown file
-3. **Ask your AI to install it:**
+2. **Give it to your DA** - Provide the entire pack markdown file
+3. **Ask your DA to install it:**
 
 ```
 Install this pack into my system. Use PAI_DIR="~/.config/pai"
 and DA="MyAI". Set up the hooks, save the code, and verify it works.
 ```
 
-Your AI will:
+Your DA will:
 - Check for required dependencies
 - Save code to appropriate directories
 - Set up routing/hooks (if applicable)
@@ -327,11 +738,11 @@ Your AI will:
 
 ### Option 3: Manual Installation
 
-Each pack includes detailed manual installation instructions. Open the pack file and follow the "Installation → Manual" section.
+⏱️ **~10-20 minutes per pack** — Each pack includes detailed manual installation instructions. Open the pack file and follow the "Installation → Manual" section.
 
 ### Option 4: Browse and Cherry-Pick
 
-Packs are self-contained markdown files. You can:
+⏱️ **Varies** — Packs are self-contained markdown files. You can:
 - Read the code directly in the pack
 - Copy specific functions or workflows
 - Adapt the approach to your own system
@@ -414,7 +825,7 @@ nano $PAI_DIR/.env
 ### What Goes in .env
 
 **Core variables:**
-- `DA` - Your AI assistant's name
+- `DA` - Your DA's name
 - `TIME_ZONE` - Your timezone
 
 **Pack-specific keys:** Each pack documents its required API keys in its installation section. Add them to `.env` as you install packs.
@@ -435,7 +846,7 @@ PAI offers **two types of packs**, each with its own structure and purpose:
 
 ### Pack Type 1: Skills
 
-**Skills** are action-oriented capabilities that your AI can invoke - things like generating visual content, conducting research, or processing data.
+**Skills** are action-oriented capabilities that your DA can invoke - things like generating visual content, conducting research, or processing data.
 
 **Examples:** Art (visual content generation), Research (multi-source investigation), OSINT (intelligence gathering)
 
@@ -492,13 +903,13 @@ pack:
     api_keys: [REPLICATE_API_TOKEN]
 ```
 
-**🤖 Assistant Install Prompt** - Every pack starts with instructions for AI assistants to autonomously install it. Your AI reads the pack, understands what it does, verifies dependencies, sets up the code, and validates it works - all without manual intervention.
+**🤖 Assistant Install Prompt** - Every pack starts with instructions for AI assistants to autonomously install it. Your DA reads the pack, understands what it does, verifies dependencies, sets up the code, and validates it works - all without manual intervention.
 
 ### Why Single Files?
 
 **Portability** - One file contains everything. Email it, share it, version control it.
 
-**AI-Friendly** - Your AI can read the entire context at once. No navigation, no missing pieces.
+**AI-Friendly** - Your DA can read the entire context at once. No navigation, no missing pieces.
 
 **No Dependencies** - Packs are self-contained. They may *call* external tools, but the pack itself is complete.
 
@@ -588,7 +999,7 @@ The code itself is platform-independent (TypeScript, Python, Bash). Integration 
 
 ## 💡 Why Packs?
 
-**Text is the interface.** Everything your AI needs to implement a capability should be in one readable file.
+**Text is the interface.** Everything your DA needs to implement a capability should be in one readable file.
 
 **Composability over monoliths.** Mix and match packs. Build your own stack.
 
@@ -645,30 +1056,15 @@ If a pack becomes unmaintained, the community can fork and maintain a new versio
 
 ## 🎯 Roadmap
 
-### v1.0 (Current)
+**Planned capabilities for PAI:**
 
-- [x] Pack format specification
-- [x] History System pack (context-tracking)
-- [x] Pack template
-- [x] Installation documentation
-- [ ] Pack discovery website
-- [ ] 5+ core packs released
-
-### v1.1 (Q1 2026)
-
-- [ ] Pack dependency system
-- [ ] Automated testing framework
-- [ ] Pack marketplace
-- [ ] Cross-pack integration examples
-- [ ] 20+ packs available
-
-### v1.2 (Q2 2026)
-
-- [ ] Pack composition tools
-- [ ] Version compatibility checker
-- [ ] Community pack ratings
-- [ ] Pack search/filter by category
-- [ ] 50+ packs available
+| Feature | Description |
+|---------|-------------|
+| **Local Model Support** | Run PAI with local models (Ollama, llama.cpp, etc.) for privacy and cost control |
+| **Granular Model Routing** | Route different tasks to different models based on complexity and requirements |
+| **Remote Access** | Access your PAI from anywhere—mobile, web, other devices |
+| **Outbound Phone Calling** | Voice capabilities for outbound calls and phone-based interactions |
+| **External Notifications** | Robust notification system for Email, Discord, Telegram, Slack, and more |
 
 ---
 
@@ -676,16 +1072,13 @@ If a pack becomes unmaintained, the community can fork and maintain a new versio
 
 **GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions)
 
-**Discord:** [PAI Community](https://discord.gg/danielmiessler) (coming soon)
+**UL Community Discord:** PAI is discussed in the [Unsupervised Learning community](https://danielmiessler.com/upgrade) along with other AI projects
 
 **Twitter/X:** [@danielmiessler](https://twitter.com/danielmiessler)
 
 **Blog:** [danielmiessler.com](https://danielmiessler.com)
 
 ### Recognition
-
-**Top pack contributors** (packs submitted/maintained):
-- (List will be populated as packs are submitted)
 
 **Special thanks:**
 - All early PAI users who provided feedback
@@ -701,9 +1094,9 @@ PAI isn't a replacement for Claude Code—it's what you build *on top of it*. Cl
 
 PAI provides the scaffolding to make that generic AI *yours*:
 
-- **Persistent memory** — Your AI remembers past sessions, decisions, and learnings
+- **Persistent memory** — Your DA remembers past sessions, decisions, and learnings
 - **Custom skills** — Specialized capabilities for the things you do most (research, content creation, security analysis, etc.)
-- **Your context** — Goals, contacts, preferences, definitions—all available to your AI without re-explaining
+- **Your context** — Goals, contacts, preferences, definitions—all available to your DA without re-explaining
 - **Intelligent routing** — Say "research this" and the right workflow triggers automatically
 - **Self-improvement** — The system can modify itself based on what it learns
 
@@ -724,7 +1117,7 @@ The best way to start: pick ONE pack that solves a problem you have today. Insta
 
 ### What's the difference between PAI and Anthropic's plugin system?
 
-Anthropic's plugin system (Skills, slash commands, MCP servers) provides discrete functionality—individual tools your AI can use. It's powerful, and you're free to use plugins as part of PAI as well.
+Anthropic's plugin system (Skills, slash commands, MCP servers) provides discrete functionality—individual tools your DA can use. It's powerful, and you're free to use plugins as part of PAI as well.
 
 The difference is scope and integration:
 
@@ -737,7 +1130,7 @@ PAI is:
 - **Dynamically adaptive** — Adjusts to your existing environment and workflows
 - **Context-aware** — Understands what you're trying to accomplish in your life and work
 - **Customized to you** — Picks and chooses functionality from different sources
-- **Self-managing** — Your AI installs, configures, and maintains the system itself
+- **Self-managing** — Your DA installs, configures, and maintains the system itself
 
 The plugin system offers building blocks. PAI offers a blueprint for a mansion—plus the AI architect to build it.
 
@@ -753,23 +1146,11 @@ No. PAI packs are designed to be **platform-agnostic**. While the examples use C
 
 The code is TypeScript, Python, and Bash. The concepts are universal. The integration points vary by platform, but the core value transfers.
 
-### Do I need to install everything?
-
-No. That was the mistake of PAI v1.x—trying to install everything at once.
-
-PAI v2.0 is modular by design:
-- **Start with one pack** — History System is a good first choice
-- **Add more as needed** — Each pack is independent
-- **Use the Kai Bundle** if you want the full experience (but even that installs one pack at a time)
-- **Cherry-pick** — Read a pack, extract the ideas, adapt them yourself
-
-There's no "all or nothing." Take what's useful, leave the rest.
-
 ### How do I contribute a pack?
 
 1. **Solve a real problem** — Packs should come from actual use, not theoretical ideas
 2. **Use the template** — Download [PAIPackTemplate.md](Tools/PAIPackTemplate.md)
-3. **Test it** — Have your AI install it in a fresh environment
+3. **Test it** — Have your DA install it in a fresh environment
 4. **Submit a PR** — Include examples and evidence it works
 
 See [Contributing](#-contributing) for full details.
@@ -778,7 +1159,7 @@ See [Contributing](#-contributing) for full details.
 
 [Fabric](https://github.com/danielmiessler/fabric) is a collection of AI prompts (patterns) for specific tasks—extract wisdom, analyze arguments, summarize content. It's focused on *what to ask AI*.
 
-PAI is infrastructure for *how your AI operates*—memory, skills, routing, context, self-improvement. They're complementary:
+PAI is infrastructure for *how your DA operates*—memory, skills, routing, context, self-improvement. They're complementary:
 
 - **Fabric** = A library of expert prompts
 - **PAI** = The system that knows when to use which prompt, remembers your preferences, and learns from results
@@ -790,9 +1171,9 @@ Many PAI users integrate Fabric patterns into their skills. They work great toge
 The modular design makes recovery easy:
 
 - **Packs are isolated** — Breaking one doesn't affect others
-- **History is preserved** — Your AI's memory survives mistakes
+- **History is preserved** — Your DA's memory survives mistakes
 - **Git-backed** — Version control everything, roll back when needed
-- **AI can fix it** — Your AI helped build it, it can help repair it
+- **DA can fix it** — Your DA helped build it, it can help repair it
 
 Start small, experiment, iterate. The system is designed for safe exploration.
 
@@ -813,6 +1194,7 @@ PAI is **free and open-source forever.**
 If you find it valuable:
 
 - ⭐ **Star the repo** - Helps others discover it
+- 💜 **[Sponsor on GitHub](https://github.com/sponsors/danielmiessler)** - Help fund development
 - 📢 **Share your packs** - The more packs, the better PAI gets
 - 💬 **Engage in discussions** - Help answer questions, share ideas
 - 🐛 **Report issues** - Make PAI better for everyone
@@ -830,9 +1212,147 @@ If you find it valuable:
 
 ---
 
+## The Journey: PAI v1.x → v2.0
+
+**PAI v1.x** attempted to mirror my entire personal AI system (Kai) as an installable template. The idea was simple: "Here's everything I built - clone it and customize."
+
+**The problem:** It didn't work. The system was a Jenga tower of interconnected dependencies. Change one piece, and three others broke. Users couldn't easily adopt parts without understanding the whole. Updates were a nightmare because everything was coupled.
+
+**PAI v2.0** takes a fundamentally different approach: **modular packs**.
+
+Instead of "here's my whole system," it's "here are battle-tested capabilities you can install independently." Each pack is:
+- **Self-contained** - Works without understanding the rest of the system
+- **Independently installable** - Add what you need, skip what you don't
+- **Platform-agnostic** - Works with Claude Code, OpenCode, or custom systems
+- **AI-installable** - Your DA can read the pack and set it up for you
+
+The packs are extracted from Kai—real capabilities that have been running in production. They're not theoretical examples. They're the actual tools and systems I use daily, packaged for others to adopt.
+
+---
+
+## Deep Dive: How PAI Packs Work
+
+**PAI Packs** are modular upgrade packages for AI agent systems. Think of them like learning kung-fu in The Matrix—each pack is a complete, tested capability that you can download into your system.
+
+**Each pack provides** everything your DA needs to implement a specific capability:
+
+- **The problem** being solved
+- **The solution** and how it works
+- **All code** (tools, CLIs, scripts)
+- **Workflows** (step-by-step processes)
+- **Context files** (guidelines, aesthetics, specifications)
+- **Examples** and usage patterns
+- **Installation instructions** (for both AI and manual)
+- **Testing procedures**
+- **Troubleshooting guides**
+
+**The key insight:** Give your DA the complete context it needs, and it can integrate the pack into *your* system, whether that's Claude Code, OpenCode, Gemini Code, GPT-Codex, or a homebrew setup.
+
+---
+
 ## 📜 Update History
 
-<details open>
+<details>
+<summary><strong>v2.3.0 (2026-01-15) — Full Releases Return</strong></summary>
+
+<br/>
+
+**Complete .claude Directory Releases**
+- Full functional releases are back — copy `.claude/` and start immediately
+- Complete release in `Releases/v2.3/` with everything included
+- Interactive setup wizard via `bun run install.ts`
+
+**Continuous Learning System**
+- Every interaction teaches the system through automatic signal capture
+- Explicit rating capture: say "8" or "8 - great work" to rate responses
+- Implicit sentiment capture: AI-detected mood from natural expressions
+- All signals merge into unified `ratings.jsonl` for learning
+
+**Enhanced Hook System**
+- 14 production hooks across 6 lifecycle events
+- New sentiment hooks: `ExplicitRatingCapture.hook.ts`, `ImplicitSentimentCapture.hook.ts`
+- Learning extraction: `WorkCompletionLearning.hook.ts` extracts insights at session end
+- Full hook orchestration with `StopOrchestrator.hook.ts`
+
+**Memory Architecture**
+- Layered capture: Raw events → Sentiment overlay → Learning extraction
+- Organized directories: `SESSIONS/`, `SIGNALS/`, `LEARNINGS/`, `RESEARCH/`
+- `ratings.jsonl` as unified learning signal source
+
+**Status Line with Learning Signal**
+- 4-mode responsive display (nano/micro/mini/normal)
+- Real-time learning score with trend indicators (↑ improving, ↓ declining, → stable)
+- Visual feedback that the system is learning from your input
+
+**Release Contents**
+- 20 production skills across 5 categories
+- 11 named agents with persistent personalities
+- Complete hook system with lib dependencies
+- Observability dashboard for agent monitoring
+
+**Resources**
+- [Release Notes](Releases/v2.3/README.md) — Full documentation with diagrams
+- [GitHub Release](https://github.com/danielmiessler/PAI/releases/tag/v2.3.0) — Tagged release
+
+</details>
+
+<details>
+<summary><strong>v2.1.1 (2026-01-09) — MEMORY System Migration</strong></summary>
+
+<br/>
+
+**History System Retired**
+- Removed standalone `pai-history-system` pack
+- History/context-tracking functionality is now part of **pai-core-install** as the **MEMORY System**
+
+**Why This Change?**
+- The MEMORY System in pai-core-install is more comprehensive:
+  - Three-tier architecture (CAPTURE → SYNTHESIS → APPLICATION)
+  - Phase-based learnings organized by algorithm phase (OBSERVE, THINK, PLAN, BUILD, EXECUTE, VERIFY)
+  - Real-time signals tracking (ratings, failures, loopbacks, patterns)
+  - Per-task work directories with full traces
+- Having history as a separate pack created confusion and redundancy
+- Core installation now provides complete memory/history functionality out of the box
+
+**Migration Note**
+If you previously installed `pai-history-system`, your data is preserved. The new MEMORY System in pai-core-install uses the same `$PAI_DIR/MEMORY/` directory structure.
+
+</details>
+
+<details>
+<summary><strong>v2.1.0 (2025-12-31) — Directory-Based Pack Structure</strong></summary>
+
+<br/>
+
+**Major Pack Format Change**
+- All 8 packs migrated from single markdown files to directory-based structure
+- New pack format: `README.md`, `INSTALL.md`, `VERIFY.md`, and `src/` directory
+- Source code now lives in real files (.ts, .yaml, .hbs) instead of embedded in markdown
+
+**Why This Matters**
+- Solves token limit issues (single files exceeded 28k tokens vs 25k limit)
+- Real code files can be linted, tested, and validated
+- AI agents copy actual files instead of extracting from markdown blocks
+- Eliminates "helpful simplification" where AI would reduce code complexity
+
+**Updated Documentation**
+- Packs/README.md updated with v2.0 structure documentation
+- Bundles/README.md updated with new pack format description
+- Bundles/Official/README.md bumped to v2.0.0 with directory references
+
+**What Changed Per Pack**
+Each pack directory now contains:
+```
+pack-name/
+├── README.md      # Overview, architecture, what it solves
+├── INSTALL.md     # Step-by-step installation instructions
+├── VERIFY.md      # Mandatory verification checklist
+└── src/           # Actual source code files
+```
+
+</details>
+
+<details>
 <summary><strong>v2.0.1 (2025-12-30) — Pack Expansion & Polish</strong></summary>
 
 <br/>
@@ -878,7 +1398,7 @@ v2.0.0 launched the Packs system. v2.0.1 adds:
 - Platform-agnostic design: works with Claude Code, OpenCode, Gemini Code, GPT-Codex, or custom systems
 
 **First Pack Released**
-- **Kai History System** (v1.0.0) - Automatic context-tracking for entire AI infrastructure
+- **PAI History System** (v1.0.0) - Automatic context-tracking for entire AI infrastructure
 - Complete implementation: 4 hooks, 3 library files, settings.json configuration
 
 **New Documentation**
@@ -923,7 +1443,7 @@ v2.0.0 launched the Packs system. v2.0.1 adds:
 
 **Platform-Agnostic Configuration**
 - Clear separation: `settings.json` for identity/paths, `.env` for API keys
-- `DA` (Digital Assistant name) — your AI's identity
+- `DA` (Digital Assistant name) — your DA's identity
 - `PAI_DIR` — root directory for all configuration
 - `TIME_ZONE` — configurable timezone for timestamps
 
@@ -1039,6 +1559,22 @@ v2.0.0 launched the Packs system. v2.0.1 adds:
 **Anthropic and the Claude Code team** — First and foremost. You are moving AI further and faster than anyone right now. Claude Code is the foundation that makes all of this possible.
 
 **[IndyDevDan](https://www.youtube.com/@indydevdan)** — For great videos on meta-prompting and custom agents that have inspired parts of PAI.
+
+### Contributors
+
+**[fayerman-source](https://github.com/fayerman-source)** — Google Cloud TTS provider integration and Linux audio support for the voice system.
+
+---
+
+## 💜 Support This Project
+
+<div align="center">
+
+<img src="https://img.shields.io/badge/Sponsor-❤️-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="Sponsor">
+
+**I spend hundreds of hours a year on open source. If you'd like to help support this project, you can sponsor me [here](https://github.com/sponsors/danielmiessler). 🙏🏼**
+
+</div>
 
 ---
 

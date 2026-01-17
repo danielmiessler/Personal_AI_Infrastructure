@@ -1,0 +1,11 @@
+/target
+**/*.rs.bk
+Cargo.lock
+
+# PAI Operational Data (Ignored in Library Source)
+/MEMORY
+/History
+/State
+/Signals
+.env
+.env.*

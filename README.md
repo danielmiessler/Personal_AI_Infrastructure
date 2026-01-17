@@ -212,8 +212,9 @@ Powered by ElevenLabs TTS. Hear task completions, session summaries, and importa
 
 ---
 
-> [!TIP]
-> ## 🤖 This README Works Great with AI Assistants
+<!-- Do NOT change this title, unless you want to change other references to it as `#-this-readme-is-for-your-ai-assistant` -->
+> [!IMPORTANT]
+> ## 🤖 This README Is For Your AI Assistant
 >
 > **Try AI-assisted installation:** Give this URL to your DA assistant and say *"Walk me through installing PAI and customize it for me."*
 >

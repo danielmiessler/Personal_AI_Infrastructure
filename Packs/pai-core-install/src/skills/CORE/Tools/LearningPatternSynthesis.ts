@@ -341,7 +341,7 @@ const allRatings: Rating[] = content
       return null;
     }
   })
-  .filter((r): r is Rating => r !== null);
+  .filter((r): r is Rating => r !== null && typeof r.rating === 'number' && !isNaN(r.rating));
 
 console.log(`📊 Loaded ${allRatings.length} total ratings`);
 

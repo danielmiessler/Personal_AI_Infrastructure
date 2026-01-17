@@ -139,9 +139,19 @@ export function getPrincipalName(): string {
 }
 
 /**
- * Get just the voice ID (convenience function)
+ * Get voice ID with provider-awareness
+ * Supports both ElevenLabs (default) and Google TTS
  */
 export function getVoiceId(): string {
+  const provider = (process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
+
+  if (provider === 'google') {
+    // For Google TTS, check for Google-specific voice ID
+    // Return empty string to use server's default voice
+    return process.env.GOOGLE_TTS_VOICE_ID || '';
+  }
+
+  // ElevenLabs: existing behavior (backward compatible)
   return getIdentity().voiceId;
 }
 

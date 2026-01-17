@@ -16,6 +16,7 @@
 import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 
 // ============================================================================
 // Configuration
@@ -23,8 +24,10 @@ import * as path from "path";
 
 const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
 const MEMORY_DIR = path.join(CLAUDE_DIR, "MEMORY");
-const USERNAME = process.env.USER || require("os").userInfo().username;
-const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-Users-${USERNAME}--claude`);  // Claude Code native storage
+const USERNAME = process.env.USER || os.userInfo().username;
+// Cross-platform support: macOS uses /Users/, Linux uses /home/
+const PATH_PREFIX = os.platform() === "darwin" ? "Users" : "home";
+const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-${PATH_PREFIX}-${USERNAME}--claude`);  // Claude Code native storage
 const SYSTEM_UPDATES_DIR = path.join(MEMORY_DIR, "PAISYSTEMUPDATES");  // Canonical system change history
 
 // ============================================================================

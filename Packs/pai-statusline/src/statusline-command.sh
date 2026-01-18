@@ -119,6 +119,8 @@ fi
 mkdir -p "$(dirname "$MODEL_CACHE")" 2>/dev/null
 echo "$model_name" > "$MODEL_CACHE" 2>/dev/null
 
+# Fallback to PWD if current_dir not provided in JSON
+current_dir="${current_dir:-$PWD}"
 dir_name=$(basename "$current_dir")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -234,10 +236,10 @@ PAI_WEATHER='\033[38;2;135;206;235m'  # Sky blue for weather
 # HELPER FUNCTIONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Get color for rating value (handles "—" for no data)
+# Get color for rating value (handles "-.-" for no data)
 get_rating_color() {
     local val="$1"
-    [[ "$val" == "—" || -z "$val" ]] && { echo "$SLATE_400"; return; }
+    [[ "$val" == "-.-" || -z "$val" ]] && { echo "$SLATE_400"; return; }
     local rating_int=${val%%.*}
     [[ ! "$rating_int" =~ ^[0-9]+$ ]] && { echo "$SLATE_400"; return; }
 
@@ -315,7 +317,12 @@ current_time=$(date +"%H:%M")
 # Fetch location from IP (with caching)
 fetch_location() {
     local cache_age=999999
-    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$LOCATION_CACHE" 2>/dev/null || echo 0)))
+    # Cross-platform stat: Linux uses -c %Y, macOS uses -f %m
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$LOCATION_CACHE" 2>/dev/null || echo 0)))
+    else
+        [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(stat -c %Y "$LOCATION_CACHE" 2>/dev/null || echo 0)))
+    fi
 
     if [ "$cache_age" -gt "$LOCATION_CACHE_TTL" ]; then
         # Fetch fresh location data
@@ -336,7 +343,12 @@ fetch_location() {
 # Fetch weather (with caching) using Open-Meteo (free, no API key)
 fetch_weather() {
     local cache_age=999999
-    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$WEATHER_CACHE" 2>/dev/null || echo 0)))
+    # Cross-platform stat: Linux uses -c %Y, macOS uses -f %m
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$WEATHER_CACHE" 2>/dev/null || echo 0)))
+    else
+        [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(stat -c %Y "$WEATHER_CACHE" 2>/dev/null || echo 0)))
+    fi
 
     if [ "$cache_age" -gt "$WEATHER_CACHE_TTL" ]; then
         # Get lat/lon from location cache
@@ -563,24 +575,24 @@ printf "${SLATE_600}────────────────────
 
 case "$MODE" in
     nano)
-        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
+        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET} ${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET} ${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET} ${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET} ${SLATE_300}${research_count}${RESET}\n"
         ;;
     micro)
-        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
+        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET} ${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET} ${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET} ${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET} ${SLATE_300}${research_count}${RESET}\n"
         ;;
     mini)
         printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_SECONDARY}MEMORY:${RESET} "
-        printf "${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
+        printf "${LEARN_WORK}📁${RESET} ${SLATE_300}${work_count}${RESET} "
+        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET} ${SLATE_300}${ratings_count}${RESET} "
+        printf "${SLATE_600}│${RESET} ${LEARN_SESSIONS}⊕${RESET} ${SLATE_300}${sessions_count}${RESET} "
+        printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET} ${SLATE_300}${research_count}${RESET}\n"
         ;;
     normal)
         printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_SECONDARY}MEMORY:${RESET} "
-        printf "${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_WORK}Work${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SIGNALS}Ratings${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_SESSIONS}Sessions${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET} ${LEARN_RESEARCH}Research${RESET}\n"
+        printf "${LEARN_WORK}📁${RESET} ${SLATE_300}${work_count}${RESET} ${LEARN_WORK}Work${RESET} "
+        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET} ${SLATE_300}${ratings_count}${RESET} ${LEARN_SIGNALS}Ratings${RESET} "
+        printf "${SLATE_600}│${RESET} ${LEARN_SESSIONS}⊕${RESET} ${SLATE_300}${sessions_count}${RESET} ${LEARN_SESSIONS}Sessions${RESET} "
+        printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET} ${SLATE_300}${research_count}${RESET} ${LEARN_RESEARCH}Research${RESET}\n"
         ;;
 esac
 
@@ -607,12 +619,12 @@ if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
       ($now - 604800) as $week_start | ($now - 2592000) as $month_start |
 
       # Calculate averages
-      (map(select(.epoch >= $q15_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "—" end) as $q15_avg |
-      (map(select(.epoch >= $hour_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "—" end) as $hour_avg |
-      (map(select(.epoch >= $today_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "—" end) as $today_avg |
-      (map(select(.epoch >= $week_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "—" end) as $week_avg |
-      (map(select(.epoch >= $month_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "—" end) as $month_avg |
-      (map(.rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "—" end) as $all_avg |
+      (map(select(.epoch >= $q15_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "-.-" end) as $q15_avg |
+      (map(select(.epoch >= $hour_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "-.-" end) as $hour_avg |
+      (map(select(.epoch >= $today_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "-.-" end) as $today_avg |
+      (map(select(.epoch >= $week_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "-.-" end) as $week_avg |
+      (map(select(.epoch >= $month_start) | .rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "-.-" end) as $month_avg |
+      (map(.rating) | if length > 0 then (add / length | . * 10 | floor / 10 | tostring) else "-.-" end) as $all_avg |
 
       # Sparkline: diverging from 5, symmetric heights, color = direction
       def to_bar:
@@ -652,7 +664,7 @@ if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
 
       # Friendly summary helper (8 words max)
       def friendly_summary($avg; $trend; $period):
-        if $avg == "—" then "No data yet for \($period)"
+        if $avg == "-.-" then "No data yet for \($period)"
         elif ($avg | tonumber) >= 8 then
           if $trend == "up" then "Excellent and improving" elif $trend == "down" then "Great but cooling slightly" else "Smooth sailing, all good" end
         elif ($avg | tonumber) >= 6 then
@@ -704,7 +716,7 @@ if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
         esac
 
         # Get colors
-        [ "$q15_avg" != "—" ] && pulse_base="$q15_avg" || { [ "$hour_avg" != "—" ] && pulse_base="$hour_avg" || { [ "$today_avg" != "—" ] && pulse_base="$today_avg" || pulse_base="$all_avg"; }; }
+        [ "$q15_avg" != "-.-" ] && pulse_base="$q15_avg" || { [ "$hour_avg" != "-.-" ] && pulse_base="$hour_avg" || { [ "$today_avg" != "-.-" ] && pulse_base="$today_avg" || pulse_base="$all_avg"; }; }
         PULSE_COLOR=$(get_rating_color "$pulse_base")
         LATEST_COLOR=$(get_rating_color "${latest:-5}")
         Q15_COLOR=$(get_rating_color "${q15_avg:-5}")
@@ -763,8 +775,12 @@ fi
 if [ "$MODE" = "normal" ]; then
     printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
 
-    # Refresh quote if stale (>30s)
-    quote_age=$(($(date +%s) - $(stat -f %m "$QUOTE_CACHE" 2>/dev/null || echo 0)))
+    # Refresh quote if stale (>30s) - cross-platform stat
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        quote_age=$(($(date +%s) - $(stat -f %m "$QUOTE_CACHE" 2>/dev/null || echo 0)))
+    else
+        quote_age=$(($(date +%s) - $(stat -c %Y "$QUOTE_CACHE" 2>/dev/null || echo 0)))
+    fi
     if [ "$quote_age" -gt 30 ] || [ ! -f "$QUOTE_CACHE" ]; then
         if [ -n "${ZENQUOTES_API_KEY:-}" ]; then
             new_quote=$(curl -s --max-time 1 "https://zenquotes.io/api/random/${ZENQUOTES_API_KEY}" 2>/dev/null | \

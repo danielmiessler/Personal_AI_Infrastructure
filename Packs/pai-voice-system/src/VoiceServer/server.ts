@@ -4,30 +4,55 @@
  */
 
 import { serve } from "bun";
-import { spawn } from "child_process";
-import { homedir } from "os";
+import { spawn, execSync } from "child_process";
+import { homedir, release } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 
-// Load .env from user home directory
-const envPath = join(homedir(), '.env');
-if (existsSync(envPath)) {
-  const envContent = await Bun.file(envPath).text();
-  envContent.split('\n').forEach(line => {
-    const eqIndex = line.indexOf('=');
-    if (eqIndex === -1) return;
-    const key = line.slice(0, eqIndex).trim();
-    let value = line.slice(eqIndex + 1).trim();
-    // Strip surrounding quotes (single or double)
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (key && value && !key.startsWith('#')) {
-      process.env[key] = value;
-    }
-  });
+// Detect platform: macos, wsl, or linux
+function getPlatform(): 'macos' | 'wsl' | 'linux' {
+  const platform = process.platform;
+  if (platform === 'darwin') return 'macos';
+  // Check for WSL
+  try {
+    const osRelease = release().toLowerCase();
+    if (osRelease.includes('microsoft') || osRelease.includes('wsl')) return 'wsl';
+  } catch {}
+  return 'linux';
 }
+
+const PLATFORM = getPlatform();
+
+// Helper to load .env file
+async function loadEnvFile(envPath: string): Promise<void> {
+  if (existsSync(envPath)) {
+    const envContent = await Bun.file(envPath).text();
+    envContent.split('\n').forEach(line => {
+      const eqIndex = line.indexOf('=');
+      if (eqIndex === -1) return;
+      const key = line.slice(0, eqIndex).trim();
+      let value = line.slice(eqIndex + 1).trim();
+      // Strip surrounding quotes (single or double)
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (key && value && !key.startsWith('#')) {
+        process.env[key] = value;
+      }
+    });
+    console.log(`Loaded env from ${envPath}`);
+  }
+}
+
+// Load ~/.env first (may contain PAI_DIR)
+await loadEnvFile(join(homedir(), '.env'));
+
+// Get PAI_DIR from environment (with fallback)
+const PAI_DIR = process.env.PAI_DIR || join(homedir(), '.claude');
+
+// Load PAI_DIR/.env (overrides ~/.env values)
+await loadEnvFile(join(PAI_DIR, '.env'));
 
 const PORT = parseInt(process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -43,7 +68,7 @@ let daVoiceId: string | null = null;
 let daVoiceProsody: ProsodySettings | null = null;
 let daName = "Assistant";
 try {
-  const settingsPath = join(homedir(), '.claude', 'settings.json');
+  const settingsPath = join(PAI_DIR, 'settings.json');
   if (existsSync(settingsPath)) {
     const settingsContent = readFileSync(settingsPath, 'utf-8');
     const settings = JSON.parse(settingsContent);
@@ -110,7 +135,7 @@ const DEFAULT_PROSODY: ProsodySettings = {
 // Load voices configuration from CORE skill (canonical source for agent voices)
 let voicesConfig: VoicesConfig | null = null;
 try {
-  const corePersonalitiesPath = join(homedir(), '.claude', 'skills', 'CORE', 'SYSTEM', 'AGENTPERSONALITIES.md');
+  const corePersonalitiesPath = join(PAI_DIR, 'skills', 'CORE', 'SYSTEM', 'AGENTPERSONALITIES.md');
   if (existsSync(corePersonalitiesPath)) {
     const markdownContent = readFileSync(corePersonalitiesPath, 'utf-8');
     // Extract JSON block from markdown
@@ -251,7 +276,7 @@ function getVolumeSetting(requestVolume?: number): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
+// Play audio using platform-appropriate player
 async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
@@ -261,8 +286,33 @@ async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Prom
   const volume = getVolumeSetting(requestVolume);
 
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let proc;
+
+    if (PLATFORM === 'macos') {
+      // macOS: use afplay
+      proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    } else if (PLATFORM === 'wsl') {
+      // WSL: play through Windows PowerShell for clean audio (bypasses WSLg crackling)
+      const winPath = execSync(`wslpath -w '${tempFile}'`).toString().trim();
+      console.log(`Playing audio via Windows: ${winPath}`);
+      proc = spawn('powershell.exe', [
+        '-NoProfile',
+        '-Command',
+        `Add-Type -AssemblyName presentationCore; $p = New-Object System.Windows.Media.MediaPlayer; $p.Volume = ${volume}; $p.Open('${winPath}'); $p.Play(); Start-Sleep -Milliseconds 500; while($p.Position -lt $p.NaturalDuration.TimeSpan -and $p.NaturalDuration.HasTimeSpan){ Start-Sleep -Milliseconds 100 }; $p.Close()`
+      ]);
+    } else {
+      // Linux: use mpv (or ffplay as fallback)
+      const mpvVolume = Math.round(volume * 100);
+      console.log(`Playing audio: mpv ${tempFile} (volume: ${mpvVolume})`);
+      proc = spawn('/usr/bin/mpv', [
+        '--no-video',
+        '--really-quiet',
+        `--volume=${mpvVolume}`,
+        tempFile
+      ], {
+        env: { ...process.env }
+      });
+    }
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
@@ -270,20 +320,24 @@ async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Prom
     });
 
     proc.on('exit', (code) => {
+      console.log(`Audio player exited with code ${code}`);
       // Clean up temp file
       spawn('/bin/rm', [tempFile]);
 
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`Audio player exited with code ${code}`));
       }
     });
   });
 }
 
-// Use macOS say command as fallback
+// Use macOS say command as fallback (macOS only)
 async function speakWithSay(text: string): Promise<void> {
+  if (PLATFORM !== 'macos') {
+    throw new Error('macOS say command not available on this platform');
+  }
   return new Promise((resolve, reject) => {
     const proc = spawn('/usr/bin/say', [text]);
 
@@ -399,24 +453,29 @@ async function sendNotification(
       }
     } catch (error) {
       console.error("Failed to generate/play speech:", error);
-      // Try fallback to say command
-      try {
-        await speakWithSay(safeMessage);
-      } catch (sayError) {
-        console.error("Fallback say also failed:", sayError);
+      // Try fallback to say command (macOS only)
+      if (PLATFORM === 'macos') {
+        try {
+          await speakWithSay(safeMessage);
+        } catch (sayError) {
+          console.error("Fallback say also failed:", sayError);
+        }
       }
     }
   }
 
-  // Display macOS notification - escape for AppleScript
-  try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
-  } catch (error) {
-    console.error("Notification display error:", error);
+  // Display platform-specific notification
+  if (PLATFORM === 'macos') {
+    try {
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } catch (error) {
+      console.error("Notification display error:", error);
+    }
   }
+  // WSL/Linux: voice IS the notification, no visual popup needed
 }
 
 // Rate limiting
@@ -546,9 +605,11 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : "macOS Say",
+          platform: PLATFORM,
+          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : (PLATFORM === 'macos' ? "macOS Say" : "Not available"),
           default_voice_id: DEFAULT_VOICE_ID,
-          api_key_configured: !!ELEVENLABS_API_KEY
+          api_key_configured: !!ELEVENLABS_API_KEY,
+          pai_dir: PAI_DIR
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -565,7 +626,8 @@ const server = serve({
 });
 
 console.log(`Voice Server running on port ${PORT}`);
-console.log(`Using ${ELEVENLABS_API_KEY ? 'ElevenLabs' : 'macOS Say'} TTS (default voice: ${DEFAULT_VOICE_ID})`);
+console.log(`Platform: ${PLATFORM}`);
+console.log(`Using ${ELEVENLABS_API_KEY ? 'ElevenLabs' : (PLATFORM === 'macos' ? 'macOS Say' : 'No TTS')} (default voice: ${DEFAULT_VOICE_ID})`);
 console.log(`POST to http://localhost:${PORT}/notify`);
 console.log(`Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`API Key: ${ELEVENLABS_API_KEY ? 'Configured' : 'Not configured (using fallback)'}`);
+console.log(`API Key: ${ELEVENLABS_API_KEY ? 'Configured' : 'Not configured'}`);

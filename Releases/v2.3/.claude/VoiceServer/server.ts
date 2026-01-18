@@ -188,15 +188,32 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
-// Get volume setting from config (defaults to 1.0 = 100%)
+// Get volume setting - reads fresh from config file for runtime adjustability
+// Priority: volume.json > voices.json default_volume > default (0.5)
 function getVolumeSetting(): number {
+  // Read fresh from volume config file (allows runtime changes without restart)
+  try {
+    const volumePath = join(homedir(), '.claude', 'VoiceServer', 'volume.json');
+    if (existsSync(volumePath)) {
+      const content = readFileSync(volumePath, 'utf-8');
+      const config = JSON.parse(content);
+      if (typeof config.volume === 'number' && config.volume >= 0 && config.volume <= 1) {
+        return config.volume;
+      }
+    }
+  } catch {
+    // Fall through to voices.json or default
+  }
+
+  // Then try voices.json default_volume (cached at startup)
   if (voicesConfig && 'default_volume' in voicesConfig) {
     const vol = (voicesConfig as any).default_volume;
     if (typeof vol === 'number' && vol >= 0 && vol <= 1) {
       return vol;
     }
   }
-  return 1.0; // Default to full volume
+
+  return 0.5; // Default to 50% volume
 }
 
 // Play audio using afplay (macOS)

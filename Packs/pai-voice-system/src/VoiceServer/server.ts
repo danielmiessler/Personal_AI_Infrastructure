@@ -238,17 +238,34 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
-// Get volume setting from DA config or request (defaults to 1.0 = 100%)
+// Get volume setting - reads fresh from config file for runtime adjustability
+// Priority: request volume > volume.json > DA config > default (0.5)
 function getVolumeSetting(requestVolume?: number): number {
   // Request volume takes priority
   if (typeof requestVolume === 'number' && requestVolume >= 0 && requestVolume <= 1) {
     return requestVolume;
   }
-  // Then DA voice config from settings.json
+
+  // Read fresh from volume config file (allows runtime changes without restart)
+  try {
+    const volumePath = join(homedir(), '.claude', 'VoiceServer', 'volume.json');
+    if (existsSync(volumePath)) {
+      const content = readFileSync(volumePath, 'utf-8');
+      const config = JSON.parse(content);
+      if (typeof config.volume === 'number' && config.volume >= 0 && config.volume <= 1) {
+        return config.volume;
+      }
+    }
+  } catch {
+    // Fall through to DA config or default
+  }
+
+  // Then DA voice config from settings.json (cached at startup)
   if (daVoiceProsody?.volume !== undefined && daVoiceProsody.volume >= 0 && daVoiceProsody.volume <= 1) {
     return daVoiceProsody.volume;
   }
-  return 1.0; // Default to full volume
+
+  return 0.5; // Default to 50% volume
 }
 
 // Play audio using afplay (macOS)

@@ -253,46 +253,17 @@ function extractCompletionMessage(taskOutput: string): { message: string | null,
     }
   }
 
-  // Fall back to generic patterns but try to extract agent type
-  const genericPatterns = [
-    // NEW FORMAT: 🗣️ [text] (without specific name - fallback)
-    /🗣️\s*(.+?)(?:\n|$)/i,
-    // LEGACY FORMAT (backward compatibility)
-    // Handle markdown formatting
-    /\*+🎯\s*COMPLETED:\*+\s*(.+?)(?:\n|$)/i,
-    /\*+COMPLETED:\*+\s*(.+?)(?:\n|$)/i,
-    // Non-markdown patterns
-    /🎯\s*COMPLETED:\s*(.+?)(?:\n|$)/i,
-    /COMPLETED:\s*(.+?)(?:\n|$)/i,
-    /Sub-agent\s+\w+\s+completed\s+(.+?)(?:\.|!|\n|$)/i,
-    /Agent\s+completed\s+(.+?)(?:\.|!|\n|$)/i
-  ];
-
-  for (const pattern of genericPatterns) {
-    const match = taskOutput.match(pattern);
-    if (match && match[1]) {
-      let message = match[1].trim();
-
-      // Basic cleanup
-      message = message.replace(/^(the\s+)?requested\s+task$/i, '');
-
-      // Only return if it's not a generic message
-      if (message &&
-          !message.match(/^(the\s+)?requested\s+task$/i) &&
-          !message.match(/^task$/i) &&
-          message.length > 5) {
-
-        // Try to detect agent type from context
-        let agentType = null;
-        const agentMatch = taskOutput.match(/Sub-agent\s+(\w+)\s+completed/i);
-        if (agentMatch) {
-          agentType = agentMatch[1].toLowerCase();
-        }
-
-        return { message, agentType };
-      }
-    }
-  }
+  // GENERIC FALLBACK PATTERNS REMOVED (2026-01-17)
+  // Generic patterns like /COMPLETED:\s*(.+?)/ caught ANY completion message,
+  // including from Explore/Plan agents that don't need voice output.
+  // This caused voice spam when running parallel research agents.
+  //
+  // Voice output is now OPT-IN only:
+  // - Must use 🗣️ AgentName: format, OR
+  // - Must use COMPLETED: [AGENT:type] format
+  //
+  // Native agents (Explore, Plan) don't use these formats, so they stay silent.
+  // Named agents (Engineer, Architect, etc.) use [AGENT:type] format for voice.
 
   return { message: null, agentType: null };
 }
@@ -386,6 +357,17 @@ async function main() {
   // Use extracted agent type if available, otherwise use the one from task analysis
   const finalAgentType = extractedAgentType || agentType || instanceMetadata.agent_type || 'default';
   debug(`Final agent type: ${finalAgentType}`);
+
+  // SILENT TIER CHECK (2026-01-17)
+  // Native Explore/Plan agents are in the "silent tier" - they don't get voice output.
+  // This prevents voice spam from parallel research agents.
+  // NOTE: Do NOT include 'general-purpose' - that's used by ALL AgentFactory agents.
+  // AgentFactory agents have their type extracted from [AGENT:type] pattern in output.
+  const SILENT_NATIVE_AGENTS = ['explore', 'plan'];
+  if (SILENT_NATIVE_AGENTS.includes(finalAgentType.toLowerCase())) {
+    debug(`🔇 Silent tier agent (${finalAgentType}) - skipping voice output`);
+    // Still capture to RESEARCH and send observability events, just no voice
+  }
 
   // NOTE: Voice notifications are now handled by agents themselves
   // The hook only logs completion messages and captures to history

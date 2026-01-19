@@ -1,6 +1,6 @@
 ---
 name: CreateSkill
-description: Create and validate skills. USE WHEN create skill, new skill, skill structure, canonicalize. SkillSearch('createskill') for docs.
+description: Create and validate PAI skills. USE WHEN create a skill, create a new skill, new skill for, build a skill, make a skill, skill for managing, skill for handling, skill structure, canonicalize skill, validate skill. SkillSearch('createskill') for docs.
 ---
 
 ## Customization

@@ -78,25 +78,33 @@ This helps you calibrate how much explanation to provide.
 
 #### Phase 3: Choosing What to Install
 
-Explain the concepts of Bundles and Packs:
+PAI offers three installation paths. Explain each and help them choose:
 
-**What are Packs?**
-> Packs are self-contained capability modules. Each pack adds a specific feature:
-> - **Hook System** — Event-driven automation
-> - **History System** — Automatic context tracking
-> - **Voice System** — Spoken notifications
-> - **Browser Skill** — Web automation and testing
-> - And more...
+**Option A: Full Release Install (Recommended)**
+> The fastest path to a working system. You get a complete, pre-configured `.claude/` directory with all infrastructure packs already installed.
 >
-> You can install packs individually, picking exactly what you need.
+> Best for: First-time users, fresh setups, or when you want PAI working immediately.
+>
+> [See Releases/v2.3/README.md](Releases/v2.3/README.md)
 
-**What are Bundles?**
-> Bundles are curated collections of packs that work well together. Instead of choosing packs one-by-one, a bundle gives you a complete, tested experience.
+**Option B: Bundle + Manual Packs**
+> The Bundle wizard creates a skeleton directory structure. You then install each pack manually in order. This gives you understanding of how the system is built.
+>
+> Best for: Users who want to learn the system as they build it, or need customization.
+>
+> [See Bundles/Official/README.md](Bundles/Official/README.md)
+
+**Option C: Individual Packs**
+> Install only specific capabilities you need. Maximum flexibility, minimum overhead.
+>
+> Best for: Experienced users adding specific features to existing setups.
+>
+> [See Packs/README.md](Packs/README.md)
 
 **Ask: How would you like to proceed?**
-- **Install the PAI Bundle** (Recommended) — The complete PAI experience with all core capabilities
-- **Browse individual packs** — Choose specific capabilities you want
-- **Minimal install** — Just the basics to get started
+- **Full Release Install** (Recommended) — Complete working system in 5 minutes
+- **Bundle + Manual Packs** — Build understanding as you install each pack
+- **Individual Packs** — Cherry-pick specific capabilities
 
 ---
 
@@ -175,23 +183,47 @@ If you prefer to install PAI yourself without AI assistance:
 - An AI coding assistant (Claude Code, Cursor, etc.)
 - Git
 
-### Quick Start
+### Quick Start: Full Release Install (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI
+cd PAI/Releases/v2.3
 
-# Run the PAI Bundle installer
-cd Bundles/Official
-bun run install.ts
+# Back up your existing Claude Code configuration (if any)
+[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# Copy the complete PAI installation
+cp -r .claude ~/
+
+# Run the configuration wizard
+cd ~/.claude && bun run install.ts --setup
 ```
 
-The installer will:
-- Ask for your preferences (AI name, install location, timezone)
-- Create the directory structure
-- Configure environment variables
-- Guide you through installing each pack
+The wizard will ask for your name, DA name, timezone, and voice preferences. After completion, restart Claude Code to activate hooks.
+
+**Shell support:** Works with both bash and zsh. The wizard auto-detects your shell and writes to the appropriate config file.
+
+### Alternative: Bundle + Manual Packs
+
+If you prefer to build understanding as you install:
+
+```bash
+# Clone the repository
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/Bundles/Official
+
+# Run the Bundle wizard (creates skeleton only)
+bun run install.ts
+
+# Then install each pack manually IN ORDER:
+# 1. pai-hook-system
+# 2. pai-core-install
+# 3. pai-statusline
+# 4. pai-voice-system (optional)
+```
+
+> **Warning:** The Bundle wizard alone does NOT create a working system. You must install the required packs afterward.
 
 ### Installing Individual Packs
 

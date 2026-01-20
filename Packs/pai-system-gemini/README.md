@@ -1,7 +1,7 @@
 ---
 name: PAI System Gemini
 pack-id: fabiendostie-system-gemini-v1.0.0
-version: 1.0.0
+version: 0.1.0-alpha.1
 author: fabiendostie
 description: System Pack enabling the Google Gemini CLI as a fully-featured PAI driver with automatic context loading and hook integration.
 type: feature
@@ -124,7 +124,7 @@ This pack manages the `hooks` section of your Gemini settings to point to the ad
 
 ## Changelog
 
-### 1.0.0 - 2026-01-18
+### 0.1.0-alpha.1 - 2026-01-18
 
 - Initial release
 - Full context auto-loading (Identity, Memory, TELOS, Skills)

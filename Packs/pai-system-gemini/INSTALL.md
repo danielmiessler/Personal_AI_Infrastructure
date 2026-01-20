@@ -63,7 +63,7 @@ cd "$PACK_DIR"
 
 # Initialize package.json if missing (simplified)
 if [ ! -f "package.json" ]; then
-  echo '{"name":"pai-system-gemini","version":"1.0.0"}' > package.json
+  echo '{"name":"pai-system-gemini","version":"0.1.0-alpha.1"}' > package.json
 fi
 
 # Install dependencies

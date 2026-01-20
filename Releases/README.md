@@ -49,33 +49,43 @@ v2.3/
 
 PAI offers two ways to install:
 
-### Method 1: Release Install (Complete Installation)
+### Method 1: Release Install (Complete Installation) ⭐ RECOMMENDED
 
 **Best for:** First-time users, fresh setups, or when you want the full PAI experience immediately.
 
-**What happens:**
-1. Back up your current `.claude` directory to `.claude-bak` or something similar.
-2. Copy the entire `.claude` directory to your home folder
-2. The `.claude` directory becomes `~/.claude` (PAI's home)
-3. cd into the directory and run `bun run install.ts --setup`.
-5. Follow the wizard.
-6. Restart Claude Code to activate
+> [!TIP]
+> This is the **fastest path to a working PAI system**. You get a complete, pre-configured `.claude/` directory.
 
-**How to do it:**
+**Step-by-step:**
+
 ```bash
-# From the release directory
+# 1. Clone the repo (if you haven't already)
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/Releases/v2.3
+
+# 2. Back up your existing Claude Code configuration (if any)
+[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# 3. Copy the complete PAI installation to your home directory
 cp -r .claude ~/
 
-# Run configuration (optional - sets your name, DA name, timezone)
-cd ~/.claude
-./configure.sh
+# 4. Run the configuration wizard
+cd ~/.claude && bun run install.ts --setup
+
+# 5. Restart Claude Code to activate hooks
 ```
+
+**The wizard will ask for:**
+- Your name (for personalization)
+- Your DA's name (default: Kai)
+- Your timezone (for date/time awareness)
+- Voice preferences (optional, requires ElevenLabs API key)
+
+**Shell support:** The wizard works with both **zsh** and **bash**. It auto-detects your shell and writes environment variables to the correct config file (`.zshrc` or `.bashrc`).
 
 **Result:** Complete PAI installation with all skills, hooks, memory system, and default configuration.
 
-After this point, you will want to go and collect your context from your existing AI system or systems and use your new PAI system to intelligently place that content into where it belongs inside of the PAI system, such as under the work directory, the user directory, or in the skills directory, etc. 
-
-We recommend you use AI to do this, after it thoroughly inspects your it's new PAI environment, your incoming data, etc.
+**After installation:** If you have existing AI context (from ChatGPT, previous Claude conversations, etc.), use your new PAI system to help organize that content into the appropriate directories (MEMORY/, USER/, skills/).
 
 ---
 

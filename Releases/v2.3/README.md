@@ -266,18 +266,29 @@ v2.3 brings back **complete, functional releases**. Copy the `.claude/` director
 ### Quick Start
 
 ```bash
-# 1. Backup existing installation
-mv ~/.claude ~/.claude-backup
+# 1. Clone the repo (if you haven't already)
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/Releases/v2.3
 
-# 2. Copy the release
+# 2. Backup existing installation (if any)
+[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# 3. Copy the complete release
 cp -r .claude ~/
 
-# 3. Run setup wizard
-cd ~/.claude && bun run install.ts
+# 4. Run the configuration wizard
+cd ~/.claude && bun run install.ts --setup
 
-# 4. Start PAI
-claude
+# 5. Restart Claude Code to activate hooks
 ```
+
+**The wizard will ask for:**
+- Your name (for personalization)
+- Your DA's name (default: Kai)
+- Your timezone (for date/time awareness)
+- Voice preferences (optional)
+
+**Shell support:** Works with both **bash** and **zsh**. The wizard auto-detects your shell.
 
 ---
 

@@ -12,14 +12,14 @@ const CWD = process.cwd();
 function getIdentity(): string {
   const userDir = join(PAI_DIR, 'skills', 'CORE', 'USER');
   const possibleFiles = ['DAIDENTITY.md', 'identity.md', 'Identity.md'];
-  
+
   for (const file of possibleFiles) {
     const path = join(userDir, file);
     if (existsSync(path)) {
       return readFileSync(path, 'utf-8');
     }
   }
-  return "Identity file not found.";
+  return 'Identity file not found.';
 }
 
 function getCoreSkill(): string {
@@ -27,7 +27,7 @@ function getCoreSkill(): string {
   if (existsSync(path)) {
     return readFileSync(path, 'utf-8');
   }
-  return "Core Skill not found.";
+  return 'Core Skill not found.';
 }
 
 function getExtendedContext(): string {
@@ -36,10 +36,10 @@ function getExtendedContext(): string {
     { name: 'BASIC INFO', file: 'BASICINFO.md' },
     { name: 'CONTACTS', file: 'CONTACTS.md' },
     { name: 'TECH STACK', file: 'TECHSTACKPREFERENCES.md' },
-    { name: 'TELOS (GOALS)', file: 'TELOS.md' }
+    { name: 'TELOS (GOALS)', file: 'TELOS.md' },
   ];
 
-  let output = "";
+  let output = '';
   for (const item of filesToLoad) {
     const path = join(userDir, item.file);
     if (existsSync(path)) {
@@ -56,25 +56,27 @@ function getMemoryState(): string {
       const content = readFileSync(activeWorkPath, 'utf-8');
       return `\nACTIVE WORK STATE:\n${content}`;
     } catch (e) {
-      return "";
+      return '';
     }
   }
-  return "";
+  return '';
 }
 
 function getProjectContext(): string {
   try {
-    const files = readdirSync(CWD).filter(f => !f.startsWith('.')); // Ignore hidden files basic check
-    
+    const files = readdirSync(CWD).filter((f) => !f.startsWith('.')); // Ignore hidden files basic check
+
     // Simple tree-like view (top level only for now to save tokens)
-    const fileList = files.map(f => {
-      try {
-        const stats = statSync(join(CWD, f));
-        return stats.isDirectory() ? `${f}/` : f;
-      } catch {
-        return f;
-      }
-    }).join('\n');
+    const fileList = files
+      .map((f) => {
+        try {
+          const stats = statSync(join(CWD, f));
+          return stats.isDirectory() ? `${f}/` : f;
+        } catch {
+          return f;
+        }
+      })
+      .join('\n');
 
     return `\nCURRENT PROJECT (${CWD}):\nFiles:\n${fileList}`;
   } catch (e) {

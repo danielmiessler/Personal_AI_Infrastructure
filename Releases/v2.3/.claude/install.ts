@@ -37,7 +37,11 @@ const HOME = homedir();
 const CLAUDE_DIR = join(HOME, '.claude');
 const BACKUP_DIR = join(HOME, '.claude-BACKUP');
 const PAI_RELEASES = join(HOME, '.claude', 'PAI_RELEASES');
-const ZSHRC = join(HOME, '.zshrc');
+// Shell detection for bash/zsh support
+const SHELL = process.env.SHELL || '/bin/zsh';
+const IS_ZSH = SHELL.includes('zsh');
+const SHELL_RC = join(HOME, IS_ZSH ? '.zshrc' : '.bashrc');
+const SHELL_NAME = IS_ZSH ? 'zsh' : 'bash';
 const VOICE_SERVER_DIR = join(CLAUDE_DIR, 'VoiceServer');
 const VOICE_SERVER_PORT = 8888;
 const KITTY_CONFIG_DIR = join(HOME, '.config', 'kitty');
@@ -325,38 +329,39 @@ async function verifyPort8888(): Promise<{ listening: boolean; canConnect: boole
 // ZSH ALIAS SETUP
 // ============================================================================
 
-function setupZshAlias(): void {
+function setupShellAlias(): void {
   const aliasLine = `alias pai='bun run ${CLAUDE_DIR}/skills/CORE/Tools/PAI.ts'`;
   const marker = '# PAI alias';
+  const rcFileName = IS_ZSH ? '.zshrc' : '.bashrc';
 
   try {
-    let zshrcContent = '';
-    if (existsSync(ZSHRC)) {
-      zshrcContent = readFileSync(ZSHRC, 'utf-8');
+    let shellRcContent = '';
+    if (existsSync(SHELL_RC)) {
+      shellRcContent = readFileSync(SHELL_RC, 'utf-8');
     }
 
     // Check if alias already exists
-    if (zshrcContent.includes('alias pai=')) {
+    if (shellRcContent.includes('alias pai=')) {
       // Update existing alias
-      const lines = zshrcContent.split('\n');
+      const lines = shellRcContent.split('\n');
       const updated = lines.map(line => {
         if (line.includes('alias pai=')) {
           return `${marker}\n${aliasLine}`;
         }
         return line;
       });
-      writeFileSync(ZSHRC, updated.join('\n'));
-      printSuccess('Updated PAI alias in .zshrc');
+      writeFileSync(SHELL_RC, updated.join('\n'));
+      printSuccess(`Updated PAI alias in ${rcFileName}`);
     } else {
       // Add new alias
       const addition = `\n${marker}\n${aliasLine}\n`;
-      appendFileSync(ZSHRC, addition);
-      printSuccess('Added PAI alias to .zshrc');
+      appendFileSync(SHELL_RC, addition);
+      printSuccess(`Added PAI alias to ${rcFileName}`);
     }
 
-    printInfo('Run "source ~/.zshrc" or restart terminal to use "pai" command');
+    printInfo(`Run "source ~/${rcFileName}" or restart terminal to use "pai" command`);
   } catch (err: any) {
-    printWarning(`Could not update .zshrc: ${err.message}`);
+    printWarning(`Could not update ${rcFileName}: ${err.message}`);
     printInfo(`Add manually: ${aliasLine}`);
   }
 }
@@ -1443,7 +1448,7 @@ async function main(): Promise<void> {
   // Step 6: Setup ZSH alias and terminal
   // ================================================================
   printStep(6, 8, 'Setting up PAI command');
-  setupZshAlias();
+  setupShellAlias();
 
   // ================================================================
   // Step 7: Kitty terminal setup (optional)
@@ -1467,7 +1472,8 @@ async function main(): Promise<void> {
     print(`${c.blue}${c.bold}┃${c.reset}   ${c.green}${c.bold}PAI v2.3 installed successfully!${c.reset}                         ${c.blue}${c.bold}┃${c.reset}`);
     print(`${c.blue}${c.bold}┃${c.reset}                                                               ${c.blue}${c.bold}┃${c.reset}`);
     print(`${c.blue}${c.bold}┃${c.reset}   ${c.cyan}Next steps:${c.reset}                                                 ${c.blue}${c.bold}┃${c.reset}`);
-    print(`${c.blue}${c.bold}┃${c.reset}   1. Run ${c.green}source ~/.zshrc${c.reset} to enable 'pai' command          ${c.blue}${c.bold}┃${c.reset}`);
+    const rcFile = IS_ZSH ? '.zshrc' : '.bashrc';
+    print(`${c.blue}${c.bold}┃${c.reset}   1. Run ${c.green}source ~/${rcFile}${c.reset} to enable 'pai' command          ${c.blue}${c.bold}┃${c.reset}`);
     print(`${c.blue}${c.bold}┃${c.reset}   2. Run ${c.green}pai${c.reset} or ${c.green}claude${c.reset} in any directory to start        ${c.blue}${c.bold}┃${c.reset}`);
     print(`${c.blue}${c.bold}┃${c.reset}                                                               ${c.blue}${c.bold}┃${c.reset}`);
     print(`${c.blue}${c.bold}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${c.reset}`);

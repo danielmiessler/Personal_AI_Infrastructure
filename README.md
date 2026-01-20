@@ -24,7 +24,7 @@
 ![Release](https://img.shields.io/github/v/release/danielmiessler/PAI?style=flat&logo=github&color=8B5CF6)
 ![Last Commit](https://img.shields.io/github/last-commit/danielmiessler/PAI?style=flat&logo=git&color=22C55E)
 ![Open Issues](https://img.shields.io/github/issues/danielmiessler/PAI?style=flat&logo=github&color=F97316)
-![Open PRs](https://img.shields.io/github/issues-pr/danielmiessler/PAI?style=flat&logo=githubaccessories&color=EC4899)
+![Open PRs](https://img.shields.io/github/issues-pr/danielmiessler/PAI?style=flat&logo=github&color=EC4899)
 ![License](https://img.shields.io/github/license/danielmiessler/PAI?style=flat&color=60A5FA)
 
 <!-- Content -->
@@ -332,34 +332,93 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 > [!CAUTION]
 > **Project in Active Development** — PAI is evolving rapidly. Expect breaking changes, restructuring, and frequent updates. We are working on stable and development branches, but currently it's all combined.
 
-### Option 1: Complete Bundle (Recommended)
+### Which Install Path Should I Use?
 
-The fastest way to get started is with the interactive bundle wizard:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Do you want a complete, working PAI system right now?          │
+│                                                                 │
+│     YES ──────────► Option 1: Full Release Install              │
+│                     (Complete .claude/ directory, ~5 min)       │
+│                                                                 │
+│     NO, I want to customize or learn the system                 │
+│         │                                                       │
+│         ├──► Option 2: Bundle + Packs (Build it yourself)       │
+│         │    (Skeleton structure, then install packs manually)  │
+│         │                                                       │
+│         └──► Option 3: Individual Packs (Cherry-pick)           │
+│              (Install only specific capabilities you need)      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Option 1: Full Release Install (Recommended)
+
+> **This is the fastest path to a working PAI system.** You get a complete, pre-configured `.claude/` directory with all infrastructure packs already installed.
+
+```bash
+# Clone the repo
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/Releases/v2.3
+
+# Back up your existing Claude Code configuration (if any)
+[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# Copy the complete PAI installation
+cp -r .claude ~/
+
+# Run the configuration wizard
+cd ~/.claude && bun run install.ts --setup
+```
+
+**The wizard will:**
+- Ask for your name, DA name, and timezone
+- Configure environment variables (works with both bash and zsh)
+- Set up voice preferences (optional)
+- Verify the installation
+
+**After installation:** Restart Claude Code to activate hooks.
+
+[**Full Release documentation →**](Releases/v2.3/README.md)
+
+---
+
+### Option 2: Bundle + Manual Pack Installation
+
+> **For users who want to understand the system** as they build it, or need a customized setup.
+
+> [!WARNING]
+> The Bundle wizard creates a **skeleton directory structure only**. You must then install each pack manually in the correct order for a working system.
 
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/PAI.git
 cd PAI/Bundles/Official
 
-# Run the interactive wizard
+# Run the interactive wizard (creates skeleton structure)
 bun run install.ts
 ```
 
-**The wizard will:**
-- Ask for your preferences (AI name, install location, timezone)
-- Detect any existing installations and offer to merge or replace
-- Create the required directory structure
-- Configure environment variables
-- Guide you through installing each pack in order
+**After the wizard completes, you MUST install packs in this order:**
 
-The `PAI_DIR` environment variable determines where your installation lives (defaults to `~/.claude`). The wizard will ask and set this up for you.
+| Order | Pack | Command |
+|-------|------|---------|
+| 1 | pai-hook-system | "Install the pack at PAI/Packs/pai-hook-system/" |
+| 2 | pai-core-install | "Install the pack at PAI/Packs/pai-core-install/" |
+| 3 | pai-statusline | "Install the pack at PAI/Packs/pai-statusline/" |
+| 4+ | Any skill packs | Install as needed |
 
-### Option 2: AI-Assisted Pack Installation
+[**Bundle documentation →**](Bundles/Official/README.md)
+
+---
+
+### Option 3: Individual Pack Installation
 
 Install individual packs by giving them to your DA:
 
 1. **Browse packs** - Find a pack you want in [Packs/](Packs/)
-2. **Give it to your DA** - Provide the entire pack markdown file
+2. **Give it to your DA** - Provide the pack directory path
 3. **Ask your DA to install it:**
 
 ```
@@ -367,13 +426,9 @@ Install this pack into my system. Use PAI_DIR="~/.claude"
 and DA="MyAI". Set up the hooks, save the code, and verify it works.
 ```
 
-### Option 3: Manual Installation
-
-Each pack includes detailed manual installation instructions. Open the pack file and follow the "Installation → Manual" section.
-
 ### Option 4: Browse and Cherry-Pick
 
-Packs are self-contained markdown files. You can:
+Packs are self-contained. You can:
 - Read the code directly in the pack
 - Copy specific functions or workflows
 - Adapt the approach to your own system
@@ -516,7 +571,7 @@ The modular design makes recovery easy:
 
 ## 🌐 Community
 
-**GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions)
+**GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/PAI/discussions)
 
 **UL Community Discord:** PAI is discussed in the [Unsupervised Learning community](https://danielmiessler.com/upgrade) along with other AI projects
 

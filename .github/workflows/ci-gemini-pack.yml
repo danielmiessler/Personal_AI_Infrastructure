@@ -6,9 +6,9 @@ on:
     paths:
       - 'Packs/pai-system-gemini/**'
   pull_request:
-    branches: [ main ]
     paths:
       - 'Packs/pai-system-gemini/**'
+  workflow_dispatch:
 
 jobs:
   test:

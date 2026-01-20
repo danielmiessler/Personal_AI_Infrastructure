@@ -134,6 +134,13 @@ describe('Gemini Adapter Tests', () => {
           vi.mocked(fs.readFileSync).mockImplementation((path) => {
              const p = path.toString();
              if(p === 0) return ''; // Stdin
+             if(p.includes('SKILL.md')) {
+                 return `---
+name: MockSkill
+description: A mock skill for testing
+---
+CONTENT from ${path}`;
+             }
              return `CONTENT from ${path}`;
           });
           vi.mocked(fs.readdirSync).mockImplementation((path) => {
@@ -149,13 +156,33 @@ describe('Gemini Adapter Tests', () => {
           expect(prompt).toContain('PAI GEMINI BRIDGE ACTIVE');
           // Expect loose path matching because path.join might produce slightly different separators
           expect(prompt).toContain('CONTENT from /mock/pai/skills/CORE/USER/DAIDENTITY.md');
-          expect(prompt).toContain('CONTENT from /mock/pai/skills/Agents/SKILL.md'); // Skills scan
+          expect(prompt).toContain('**MockSkill**: A mock skill for testing'); // Skill name/desc
+          expect(prompt).toContain('/mock/pai/skills/Agents/SKILL.md'); // Skill path
           expect(prompt).toContain('CONTENT from /mock/pai/MEMORY/State/active-work.json'); // Memory
           expect(prompt).toContain('file1.txt'); // Project files
       });
   });
 
   describe('main', () => {
+    it('should handle --context flag', async () => {
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const originalArgv = process.argv;
+        process.argv = [...originalArgv, '--context'];
+        
+        // Mock fs to ensure no readFileSync happens (or if it does, it doesn't break)
+        // We actually expect it NOT to read stdin
+        const readSpy = vi.mocked(fs.readFileSync);
+        
+        await main();
+        
+        expect(consoleSpy).toHaveBeenCalled();
+        const output = consoleSpy.mock.calls[0][0];
+        expect(output).toContain('PAI GEMINI BRIDGE ACTIVE');
+        
+        // Restore argv
+        process.argv = originalArgv;
+    });
+
     it('should handle SessionStart hook', async () => {
         const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         vi.mocked(fs.readFileSync).mockImplementation((fd) => {

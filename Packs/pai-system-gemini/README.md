@@ -42,13 +42,12 @@ If you use the Gemini CLI, this pack is essential for bringing it into your PAI 
 | Component         | File                              | Purpose                                             |
 | ----------------- | --------------------------------- | --------------------------------------------------- |
 | Gemini Adapter    | `src/hooks/adapter.ts`            | Bridges Gemini hooks to PAI system                  |
-| Context Generator | `src/scripts/generate-context.ts` | Assembles full PAI context (Identity, Memory, etc.) |
 | Wrapper Script    | `src/scripts/gemini-wrapper.sh`   | CLI wrapper for enhanced startup (optional)         |
 | Settings Template | `src/config/settings.json`        | Configuration for `~/.gemini/settings.json`         |
 
 **Summary:**
 
-- **Files created:** 4
+- **Files created:** 3
 - **Hooks registered:** 4 (SessionStart, BeforeTool, AfterTool, BeforeAgent)
 - **Dependencies:** `pai-core-install`, `pai-hook-system`
 

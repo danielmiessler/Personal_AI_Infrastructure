@@ -14,9 +14,9 @@ fi
 
 # Generate Context
 CONTEXT=""
-if [ -f "$GENERATE_CONTEXT_SCRIPT" ]; then
-    # Use bun to run the typescript script
-    CONTEXT=$(bun run "$GENERATE_CONTEXT_SCRIPT")
+ADAPTER_PATH="$PAI_DIR/Packs/pai-system-gemini/dist/adapter.js"
+if [ -f "$ADAPTER_PATH" ]; then
+    CONTEXT=$(node "$ADAPTER_PATH" --context)
 fi
 
 # Greeting (Interactive Mode Only)

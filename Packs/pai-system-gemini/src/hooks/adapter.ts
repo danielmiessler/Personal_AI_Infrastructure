@@ -193,6 +193,14 @@ You are running as the PAI (Personal AI Infrastructure).
 
 export async function main() {
   try {
+    // Mode 1: Context Generation (CLI)
+    if (process.argv.includes('--context')) {
+      const systemPrompt = generateSystemPrompt();
+      console.log(systemPrompt);
+      return;
+    }
+
+    // Mode 2: Gemini Hook (JSON via Stdin)
     const input = fs.readFileSync(0, 'utf-8');
     if (!input) return;
 

@@ -50,7 +50,6 @@ mkdir -p "$PACK_DIR/dist"
 
 # Copy files (AI Agent: Use write_file or cp)
 # Copying adapter.ts -> $PACK_DIR/src/hooks/adapter.ts
-# Copying generate-context.ts -> $PACK_DIR/src/scripts/generate-context.ts
 # Copying gemini-wrapper.sh -> $PACK_DIR/src/scripts/gemini-wrapper.sh
 ```
 

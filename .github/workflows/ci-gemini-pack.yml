@@ -36,7 +36,7 @@ jobs:
         run: bun run lint
 
       - name: Run Tests with Coverage
-        run: bun run test --coverage
+        run: bun run test
 
       - name: Verify Build
         run: bun run build

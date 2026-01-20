@@ -1,17 +1,62 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { spawnSync } from 'child_process';
 
 function getPaiDir(): string {
   return process.env.PAI_DIR || path.join(os.homedir(), '.claude');
 }
 
-function getRawOutputsDir(): string {
-  return path.join(getPaiDir(), 'history', 'raw-outputs');
+function getSettingsPath(): string {
+  return path.join(getPaiDir(), 'settings.json');
 }
 
-function getSkillsDir(): string {
-  return path.join(getPaiDir(), 'skills');
+/**
+ * Execute registered PAI hooks for a given event type
+ */
+function runPaiHooks(paiEvent: string, payload: any): void {
+  const settingsPath = getSettingsPath();
+  if (!fs.existsSync(settingsPath)) return;
+
+  try {
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    const eventHooks = settings.hooks?.[paiEvent];
+
+    if (!eventHooks || !Array.isArray(eventHooks)) return;
+
+    for (const hookGroup of eventHooks) {
+      if (!hookGroup.hooks || !Array.isArray(hookGroup.hooks)) continue;
+
+      for (const hookConfig of hookGroup.hooks) {
+        if (hookConfig.type === 'command' && hookConfig.command) {
+          // Resolve environment variables in command
+          const command = hookConfig.command.replace(/\$PAI_DIR/g, getPaiDir());
+          
+          // Split command and args
+          const [cmd, ...args] = command.split(' ');
+          
+          // Execute hook, passing payload via stdin
+          const result = spawnSync(cmd, args, {
+            input: JSON.stringify({
+              ...payload,
+              hook_event_name: paiEvent,
+              session_id: 'gemini-session-' + new Date().toISOString().split('T')[0]
+            }),
+            encoding: 'utf-8',
+            shell: true
+          });
+
+          // If hook returns exit code 2 (BLOCK), we should ideally communicate this back to Gemini
+          // For now, PAI hooks mostly use stdout for messaging.
+          if (result.status === 2) {
+             console.error(`[PAI Hook Blocked]: ${result.stdout || result.stderr}`);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error(`[Gemini Adapter] Error executing PAI hooks for ${paiEvent}:`, e);
+  }
 }
 
 interface SkillSummary {
@@ -26,56 +71,24 @@ export function getLocalTimestamp(): string {
   });
 }
 
-export function getLogPath(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-
-  // Format: history/raw-outputs/YYYY-MM/YYYY-MM-DD_all-events.jsonl
-  const monthDir = path.join(getRawOutputsDir(), `${year}-${month}`);
-  if (!fs.existsSync(monthDir)) fs.mkdirSync(monthDir, { recursive: true });
-
-  return path.join(monthDir, `${year}-${month}-${day}_all-events.jsonl`);
-}
-
-export function logToPAI(event: string, data: any) {
-  const timestamp = new Date().toISOString();
-  const logFile = getLogPath();
-
-  // Structure matches Observability expectations
-  const entry = JSON.stringify({
-    timestamp,
-    session_id: 'gemini-session-' + new Date().toISOString().split('T')[0],
-    source_app: 'gemini',
-    agent_name: 'Gemini',
-    hook_event_type: event,
-    payload: data,
-    summary: typeof data === 'string' ? data : JSON.stringify(data).slice(0, 100),
-  });
-
-  try {
-    fs.appendFileSync(logFile, entry + '\n');
-  } catch (err) {}
-}
-
 export function getCoreContext(): string {
+  const skillsDir = path.join(getPaiDir(), 'skills');
   let context = '';
 
   // 1. Load Identity (Primary Source of Truth for Persona)
-  const identityPath = path.join(getSkillsDir(), 'CORE', 'USER', 'DAIDENTITY.md');
+  const identityPath = path.join(skillsDir, 'CORE', 'USER', 'DAIDENTITY.md');
   if (fs.existsSync(identityPath)) {
     context += '=== 🆔 IDENTITY ===\n' + fs.readFileSync(identityPath, 'utf-8') + '\n\n';
   } else {
     // Fallback search
-    const legacyPath = path.join(getSkillsDir(), 'CORE', 'USER', 'identity.md');
+    const legacyPath = path.join(skillsDir, 'CORE', 'USER', 'identity.md');
     if (fs.existsSync(legacyPath)) {
       context += '=== 🆔 IDENTITY ===\n' + fs.readFileSync(legacyPath, 'utf-8') + '\n\n';
     }
   }
 
   // 2. Load Core Skill (Operational Principles)
-  const corePath = path.join(getSkillsDir(), 'CORE', 'SKILL.md');
+  const corePath = path.join(skillsDir, 'CORE', 'SKILL.md');
   if (fs.existsSync(corePath)) {
     context += '=== 🧠 CORE SKILL ===\n' + fs.readFileSync(corePath, 'utf-8');
   } else {
@@ -86,7 +99,7 @@ export function getCoreContext(): string {
 }
 
 export function getExtendedContext(): string {
-  const userDir = path.join(getSkillsDir(), 'CORE', 'USER');
+  const userDir = path.join(getPaiDir(), 'skills', 'CORE', 'USER');
   const filesToLoad = [
     { name: 'BASIC INFO', file: 'BASICINFO.md' },
     { name: 'CONTACTS', file: 'CONTACTS.md' },
@@ -105,14 +118,15 @@ export function getExtendedContext(): string {
 }
 
 export function scanSkills(): SkillSummary[] {
+  const skillsDir = path.join(getPaiDir(), 'skills');
   const skills: SkillSummary[] = [];
-  if (!fs.existsSync(getSkillsDir())) return skills;
+  if (!fs.existsSync(skillsDir)) return skills;
 
-  const dirs = fs.readdirSync(getSkillsDir());
+  const dirs = fs.readdirSync(skillsDir);
   for (const dir of dirs) {
     if (dir === 'CORE' || dir.startsWith('.')) continue;
 
-    const skillPath = path.join(getSkillsDir(), dir, 'SKILL.md');
+    const skillPath = path.join(skillsDir, dir, 'SKILL.md');
     if (fs.existsSync(skillPath)) {
       try {
         const content = fs.readFileSync(skillPath, 'utf-8');
@@ -201,7 +215,6 @@ export async function main() {
     }
 
     // Mode 3: Manual Hook Trigger (CLI)
-    // Usage: node adapter.js --hook SessionEnd --payload '{"reason":"manual"}'
     const hookIndex = process.argv.indexOf('--hook');
     if (hookIndex !== -1 && hookIndex + 1 < process.argv.length) {
       const hookName = process.argv[hookIndex + 1];
@@ -210,14 +223,10 @@ export async function main() {
       if (payloadIndex !== -1 && payloadIndex + 1 < process.argv.length) {
         try {
           payload = JSON.parse(process.argv[payloadIndex + 1]);
-        } catch (e) {
-          // Ignore invalid JSON payload
-        }
+        } catch (e) {}
       }
-
-      logToPAI(hookName, payload);
-      // Run specific logic for SessionEnd if needed (e.g. learning)
-      // For now, logging is the primary action for observability/memory hooks
+      
+      runPaiHooks(hookName, payload);
       return;
     }
 
@@ -228,21 +237,22 @@ export async function main() {
     const event = JSON.parse(input);
     const response: any = {};
 
+    // Map Gemini events to PAI events
+    let paiEvent = event.hook;
+    if (event.hook === 'BeforeTool') paiEvent = 'PreToolUse';
+    if (event.hook === 'AfterTool') paiEvent = 'PostToolUse';
+    if (event.hook === 'BeforeAgent') paiEvent = 'AgentInvoke';
+
+    // 1. Injected Logic for SessionStart
     if (event.hook === 'SessionStart') {
-      const systemPrompt = generateSystemPrompt();
       response.hookSpecificOutput = {
-        systemInstruction: systemPrompt,
+        systemInstruction: generateSystemPrompt(),
       };
-      logToPAI('SessionStart', { mode: 'Interactive', contextInjected: true });
     }
 
-    // Map Gemini events to PAI Observability events
-    let hookType = event.hook;
-    if (event.hook === 'BeforeTool') hookType = 'PreToolUse';
-    if (event.hook === 'AfterTool') hookType = 'PostToolUse';
-    if (event.hook === 'BeforeAgent') hookType = 'AgentInvoke';
+    // 2. Execute PAI Hooks Orchestration
+    runPaiHooks(paiEvent, event.payload);
 
-    logToPAI(hookType, event.payload);
     console.log(JSON.stringify(response));
   } catch (error) {
     console.log('{}');
@@ -252,3 +262,4 @@ export async function main() {
 if (require.main === module) {
   main();
 }
+

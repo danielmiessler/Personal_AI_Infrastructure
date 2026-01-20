@@ -1,3 +1,0 @@
-{"total": {"lines":{"total":182,"covered":179,"skipped":0,"pct":98.35},"statements":{"total":182,"covered":179,"skipped":0,"pct":98.35},"functions":{"total":11,"covered":11,"skipped":0,"pct":100},"branches":{"total":51,"covered":39,"skipped":0,"pct":76.47},"branchesTrue":{"total":0,"covered":0,"skipped":0,"pct":"Unknown"}}
-,"/home/lefab/Personal_AI_Infrastructure/Packs/pai-system-gemini/src/hooks/adapter.ts": {"lines":{"total":182,"covered":179,"skipped":0,"pct":98.35},"functions":{"total":11,"covered":11,"skipped":0,"pct":100},"statements":{"total":182,"covered":179,"skipped":0,"pct":98.35},"branches":{"total":51,"covered":39,"skipped":0,"pct":76.47}}
-}

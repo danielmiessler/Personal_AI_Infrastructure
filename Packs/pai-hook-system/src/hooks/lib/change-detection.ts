@@ -46,6 +46,7 @@ export interface IntegrityState {
   last_run: string;
   last_changes_hash: string;
   cooldown_until: string | null;
+  last_parsed_line?: number;
 }
 
 // ============================================================================
@@ -106,12 +107,19 @@ const STRUCTURAL_PATTERNS = [
 /**
  * Parse tool_use blocks from a transcript that modify files.
  * Extracts Write, Edit, and MultiEdit operations.
+ *
+ * @param transcriptPath - Path to the transcript file
+ * @param startLine - Optional line number to start parsing from (0-indexed)
+ * @returns Object containing changes and the last line number parsed
  */
-export function parseToolUseBlocks(transcriptPath: string): FileChange[] {
+export function parseToolUseBlocks(
+  transcriptPath: string,
+  startLine: number = 0
+): { changes: FileChange[]; lastLine: number } {
   try {
     if (!existsSync(transcriptPath)) {
       console.error('[ChangeDetection] Transcript not found:', transcriptPath);
-      return [];
+      return { changes: [], lastLine: 0 };
     }
 
     const content = readFileSync(transcriptPath, 'utf-8');
@@ -119,7 +127,9 @@ export function parseToolUseBlocks(transcriptPath: string): FileChange[] {
     const changes: FileChange[] = [];
     const seenPaths = new Set<string>();
 
-    for (const line of lines) {
+    // Only parse lines after startLine
+    for (let i = startLine; i < lines.length; i++) {
+      const line = lines[i];
       if (!line.trim()) continue;
 
       try {
@@ -168,10 +178,10 @@ export function parseToolUseBlocks(transcriptPath: string): FileChange[] {
       }
     }
 
-    return changes;
+    return { changes, lastLine: lines.length };
   } catch (error) {
     console.error('[ChangeDetection] Error parsing transcript:', error);
-    return [];
+    return { changes: [], lastLine: 0 };
   }
 }
 

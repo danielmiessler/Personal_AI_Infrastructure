@@ -30,6 +30,7 @@ import {
   determineSignificance,
   inferChangeType,
   generateDescriptiveTitle,
+  readIntegrityState,
   type FileChange,
 } from '../lib/change-detection';
 import type { ParsedTranscript } from '../../skills/CORE/Tools/TranscriptParser';
@@ -71,7 +72,7 @@ async function notifyIntegrityStart(): Promise<void> {
 /**
  * Update the integrity state file.
  */
-function updateIntegrityState(changes: FileChange[]): void {
+function updateIntegrityState(changes: FileChange[], lastParsedLine: number): void {
   try {
     if (!existsSync(STATE_DIR)) {
       mkdirSync(STATE_DIR, { recursive: true });
@@ -81,10 +82,11 @@ function updateIntegrityState(changes: FileChange[]): void {
       last_run: new Date().toISOString(),
       last_changes_hash: hashChanges(changes),
       cooldown_until: getCooldownEndTime(),
+      last_parsed_line: lastParsedLine,
     };
 
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-    console.error('[SystemIntegrity] Updated state file');
+    console.error('[SystemIntegrity] Updated state file (parsed up to line ' + lastParsedLine + ')');
   } catch (error) {
     console.error('[SystemIntegrity] Failed to update state:', error);
   }
@@ -168,9 +170,14 @@ export async function handleSystemIntegrity(
     return;
   }
 
-  // Parse changes from transcript
-  const changes = parseToolUseBlocks(hookInput.transcript_path);
-  console.error(`[SystemIntegrity] Found ${changes.length} file changes in transcript`);
+  // Get last parsed line from state for incremental parsing
+  const state = readIntegrityState();
+  const startLine = state?.last_parsed_line || 0;
+  console.error(`[SystemIntegrity] Incremental parsing from line ${startLine}`);
+
+  // Parse changes from transcript (only new lines since last check)
+  const { changes, lastLine } = parseToolUseBlocks(hookInput.transcript_path, startLine);
+  console.error(`[SystemIntegrity] Found ${changes.length} file changes in transcript (lines ${startLine}-${lastLine})`);
 
   // Filter to only PAI system changes
   const systemChanges = changes.filter(c => c.category !== null);
@@ -202,8 +209,8 @@ export async function handleSystemIntegrity(
     console.error(`  ... and ${systemChanges.length - 5} more`);
   }
 
-  // Update state before spawning
-  updateIntegrityState(systemChanges);
+  // Update state before spawning (including last parsed line for incremental parsing)
+  updateIntegrityState(systemChanges, lastLine);
 
   // Send voice notification (fire-and-forget)
   notifyIntegrityStart().catch(() => {});

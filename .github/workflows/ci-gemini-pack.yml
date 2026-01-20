@@ -1,0 +1,42 @@
+name: CI - Gemini Pack
+
+on:
+  push:
+    branches: [ main, feature/** ]
+    paths:
+      - 'Packs/pai-system-gemini/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Packs/pai-system-gemini/**'
+
+jobs:
+  test:
+    name: Lint, Format & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Packs/pai-system-gemini
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check Formatting
+        run: bun run format:check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Run Tests with Coverage
+        run: bun run test --coverage
+
+      - name: Verify Build
+        run: bun run build

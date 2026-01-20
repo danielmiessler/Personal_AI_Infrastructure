@@ -200,6 +200,27 @@ export async function main() {
       return;
     }
 
+    // Mode 3: Manual Hook Trigger (CLI)
+    // Usage: node adapter.js --hook SessionEnd --payload '{"reason":"manual"}'
+    const hookIndex = process.argv.indexOf('--hook');
+    if (hookIndex !== -1 && hookIndex + 1 < process.argv.length) {
+      const hookName = process.argv[hookIndex + 1];
+      let payload = {};
+      const payloadIndex = process.argv.indexOf('--payload');
+      if (payloadIndex !== -1 && payloadIndex + 1 < process.argv.length) {
+        try {
+          payload = JSON.parse(process.argv[payloadIndex + 1]);
+        } catch (e) {
+          // Ignore invalid JSON payload
+        }
+      }
+
+      logToPAI(hookName, payload);
+      // Run specific logic for SessionEnd if needed (e.g. learning)
+      // For now, logging is the primary action for observability/memory hooks
+      return;
+    }
+
     // Mode 2: Gemini Hook (JSON via Stdin)
     const input = fs.readFileSync(0, 'utf-8');
     if (!input) return;

@@ -39,11 +39,11 @@ If you use the Gemini CLI, this pack is essential for bringing it into your PAI 
 
 ## What's Included
 
-| Component         | File                              | Purpose                                             |
-| ----------------- | --------------------------------- | --------------------------------------------------- |
-| Gemini Adapter    | `src/hooks/adapter.ts`            | Bridges Gemini hooks to PAI system                  |
-| Wrapper Script    | `src/scripts/gemini-wrapper.sh`   | CLI wrapper for enhanced startup (optional)         |
-| Settings Template | `src/config/settings.json`        | Configuration for `~/.gemini/settings.json`         |
+| Component         | File                            | Purpose                                     |
+| ----------------- | ------------------------------- | ------------------------------------------- |
+| Gemini Adapter    | `src/hooks/adapter.ts`          | Bridges Gemini hooks to PAI system          |
+| Wrapper Script    | `src/scripts/gemini-wrapper.sh` | CLI wrapper for enhanced startup (optional) |
+| Settings Template | `src/config/settings.json`      | Configuration for `~/.gemini/settings.json` |
 
 **Summary:**
 
@@ -105,6 +105,7 @@ The integration is automatic once installed.
 ## Example Usage
 
 ### 1. Daily Standup
+
 ```bash
 $ gemini
 > "What's on my plate today?"
@@ -113,6 +114,7 @@ Gemini: "Based on your active work state, you're focused on the Refactor task...
 ```
 
 ### 2. Using PAI Skills
+
 ```bash
 $ gemini
 > "Run the algorithm on this problem"
@@ -141,6 +143,7 @@ This pack manages the `hooks` section of your Gemini settings to point to the ad
 **Why:** To make the experience seamless and replace the default command.
 
 **Process:**
+
 1. Open your shell profile (`~/.zshrc` or `~/.bashrc`).
 2. Add `alias gem="path/to/gemini-wrapper.sh"`.
 3. Reload your shell.
@@ -151,10 +154,10 @@ This pack manages the `hooks` section of your Gemini settings to point to the ad
 
 ### Optional Customization
 
-| Customization | File | Impact |
-|--------------|------|--------|
-| Context Sources | `src/hooks/adapter.ts` | Change which PAI files are loaded |
-| Hook Events | `src/config/settings.json` | Add or remove lifecycle triggers |
+| Customization   | File                       | Impact                            |
+| --------------- | -------------------------- | --------------------------------- |
+| Context Sources | `src/hooks/adapter.ts`     | Change which PAI files are loaded |
+| Hook Events     | `src/config/settings.json` | Add or remove lifecycle triggers  |
 
 ## Credits
 
@@ -179,16 +182,20 @@ This pack manages the `hooks` section of your Gemini settings to point to the ad
 ## Relationships
 
 ### Parent Of
-*None specified.*
+
+_None specified._
 
 ### Child Of
+
 - **pai-core-install**
 
 ### Sibling Of
+
 - **pai-voice-system** (Infrastructure)
 - **pai-observability-server** (Infrastructure)
 
 ### Part Of Collection
+
 - **PAI Drivers**
 
 ## Changelog

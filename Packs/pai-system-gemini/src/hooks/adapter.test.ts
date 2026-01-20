@@ -119,115 +119,135 @@ describe('Gemini Adapter Tests', () => {
       });
     });
 
-     it('should create directory if not exists', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(false);
-        const mkdirSpy = vi.mocked(fs.mkdirSync);
-        logToPAI('TestEvent', {});
-        expect(mkdirSpy).toHaveBeenCalled();
-     });
+    it('should create directory if not exists', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      const mkdirSpy = vi.mocked(fs.mkdirSync);
+      logToPAI('TestEvent', {});
+      expect(mkdirSpy).toHaveBeenCalled();
+    });
   });
-  
+
   describe('generateSystemPrompt', () => {
-      it('should generate a full system prompt with all sections', () => {
-          // Mock everything to exist
-          vi.mocked(fs.existsSync).mockReturnValue(true);
-          vi.mocked(fs.readFileSync).mockImplementation((path) => {
-             const p = path.toString();
-             if(p === 0) return ''; // Stdin
-             if(p.includes('SKILL.md')) {
-                 return `---
+    it('should generate a full system prompt with all sections', () => {
+      // Mock everything to exist
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const p = path.toString();
+        if (p === 0) return ''; // Stdin
+        if (p.includes('SKILL.md')) {
+          return `---
 name: MockSkill
 description: A mock skill for testing
 ---
 CONTENT from ${path}`;
-             }
-             return `CONTENT from ${path}`;
-          });
-          vi.mocked(fs.readdirSync).mockImplementation((path) => {
-              const p = path.toString();
-              // Loose check for skills directory
-              if(p.includes('skills')) return ['CORE', 'Agents', '.hidden'] as any;
-              return ['file1.txt', 'file2.js'] as any;
-          });
-          vi.mocked(fs.statSync).mockReturnValue({ isDirectory: () => false } as any);
-          
-          const prompt = generateSystemPrompt();
-          
-          expect(prompt).toContain('PAI GEMINI BRIDGE ACTIVE');
-          // Expect loose path matching because path.join might produce slightly different separators
-          expect(prompt).toContain('CONTENT from /mock/pai/skills/CORE/USER/DAIDENTITY.md');
-          expect(prompt).toContain('**MockSkill**: A mock skill for testing'); // Skill name/desc
-          expect(prompt).toContain('/mock/pai/skills/Agents/SKILL.md'); // Skill path
-          expect(prompt).toContain('CONTENT from /mock/pai/MEMORY/State/active-work.json'); // Memory
-          expect(prompt).toContain('file1.txt'); // Project files
+        }
+        return `CONTENT from ${path}`;
       });
+      vi.mocked(fs.readdirSync).mockImplementation((path) => {
+        const p = path.toString();
+        // Loose check for skills directory
+        if (p.includes('skills')) return ['CORE', 'Agents', '.hidden'] as any;
+        return ['file1.txt', 'file2.js'] as any;
+      });
+      vi.mocked(fs.statSync).mockReturnValue({ isDirectory: () => false } as any);
+
+      const prompt = generateSystemPrompt();
+
+      expect(prompt).toContain('PAI GEMINI BRIDGE ACTIVE');
+      // Expect loose path matching because path.join might produce slightly different separators
+      expect(prompt).toContain('CONTENT from /mock/pai/skills/CORE/USER/DAIDENTITY.md');
+      expect(prompt).toContain('**MockSkill**: A mock skill for testing'); // Skill name/desc
+      expect(prompt).toContain('/mock/pai/skills/Agents/SKILL.md'); // Skill path
+      expect(prompt).toContain('CONTENT from /mock/pai/MEMORY/State/active-work.json'); // Memory
+      expect(prompt).toContain('file1.txt'); // Project files
+    });
   });
 
   describe('main', () => {
     it('should handle --context flag', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        const originalArgv = process.argv;
-        process.argv = [...originalArgv, '--context'];
-        
-        // Mock fs to ensure no readFileSync happens (or if it does, it doesn't break)
-        // We actually expect it NOT to read stdin
-        const readSpy = vi.mocked(fs.readFileSync);
-        
-        await main();
-        
-        expect(consoleSpy).toHaveBeenCalled();
-        const output = consoleSpy.mock.calls[0][0];
-        expect(output).toContain('PAI GEMINI BRIDGE ACTIVE');
-        
-        // Restore argv
-        process.argv = originalArgv;
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv, '--context'];
+
+      // Mock fs to ensure no readFileSync happens (or if it does, it doesn't break)
+      // We actually expect it NOT to read stdin
+      const readSpy = vi.mocked(fs.readFileSync);
+
+      await main();
+
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = consoleSpy.mock.calls[0][0];
+      expect(output).toContain('PAI GEMINI BRIDGE ACTIVE');
+
+      // Restore argv
+      process.argv = originalArgv;
+    });
+
+    it('should handle --hook flag', async () => {
+      const appendSpy = vi.spyOn(fs, 'appendFileSync').mockImplementation(() => {});
+      const originalArgv = process.argv;
+      process.argv = [...originalArgv, '--hook', 'SessionEnd', '--payload', '{"test":"true"}'];
+
+      await main();
+
+      expect(appendSpy).toHaveBeenCalled();
+      const callArgs = appendSpy.mock.calls[0];
+      const logContent = JSON.parse(callArgs[1] as string);
+      expect(logContent).toMatchObject({
+        hook_event_type: 'SessionEnd',
+        payload: { test: 'true' },
+      });
+
+      process.argv = originalArgv;
     });
 
     it('should handle SessionStart hook', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        vi.mocked(fs.readFileSync).mockImplementation((fd) => {
-            if (fd === 0) return JSON.stringify({ hook: 'SessionStart', payload: {} });
-            return 'CONTENT';
-        });
-        vi.mocked(fs.existsSync).mockReturnValue(true);
-        vi.mocked(fs.readdirSync).mockReturnValue([]);
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.mocked(fs.readFileSync).mockImplementation((fd) => {
+        if (fd === 0) return JSON.stringify({ hook: 'SessionStart', payload: {} });
+        return 'CONTENT';
+      });
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue([]);
 
-        await main();
+      await main();
 
-        expect(consoleSpy).toHaveBeenCalled();
-        const output = JSON.parse(consoleSpy.mock.calls[0][0]);
-        expect(output).toHaveProperty('hookSpecificOutput');
-        expect(output.hookSpecificOutput).toHaveProperty('systemInstruction');
+      expect(consoleSpy).toHaveBeenCalled();
+      const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+      expect(output).toHaveProperty('hookSpecificOutput');
+      expect(output.hookSpecificOutput).toHaveProperty('systemInstruction');
     });
 
     it('should handle Tool hooks (BeforeTool)', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ hook: 'BeforeTool', payload: { tool: 'ls'} }));
-        
-        await main();
-        
-        // Should log empty response for non-SessionStart hooks
-        expect(consoleSpy).toHaveBeenCalledWith('{}');
-        // But should have called appendFileSync (via logToPAI)
-        expect(fs.appendFileSync).toHaveBeenCalled();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify({ hook: 'BeforeTool', payload: { tool: 'ls' } }),
+      );
+
+      await main();
+
+      // Should log empty response for non-SessionStart hooks
+      expect(consoleSpy).toHaveBeenCalledWith('{}');
+      // But should have called appendFileSync (via logToPAI)
+      expect(fs.appendFileSync).toHaveBeenCalled();
     });
-    
+
     it('should handle invalid input gracefully', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-         vi.mocked(fs.readFileSync).mockReturnValue('INVALID JSON');
-         
-         await main();
-         
-         expect(consoleSpy).toHaveBeenCalledWith('{}');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.mocked(fs.readFileSync).mockReturnValue('INVALID JSON');
+
+      await main();
+
+      expect(consoleSpy).toHaveBeenCalledWith('{}');
     });
-    
-     it('should exit if no input', async () => {
-        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-         vi.mocked(fs.readFileSync).mockReturnValue('');
-         
-         await main();
-         
-         expect(consoleSpy).not.toHaveBeenCalled();
+
+    it('should exit if no input', async () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.mocked(fs.readFileSync).mockReturnValue('');
+
+      await main();
+
+      expect(consoleSpy).not.toHaveBeenCalled();
     });
   });
 });

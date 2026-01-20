@@ -19,6 +19,14 @@ if [ -f "$ADAPTER_PATH" ]; then
     CONTEXT=$(node "$ADAPTER_PATH" --context)
 fi
 
+# Trap Exit for SessionEnd Hook (Memory System Parity)
+cleanup() {
+    if [ -f "$ADAPTER_PATH" ]; then
+        node "$ADAPTER_PATH" --hook SessionEnd --payload '{"status":"completed"}' >/dev/null 2>&1
+    fi
+}
+trap cleanup EXIT
+
 # Greeting (Interactive Mode Only)
 if [ -z "$1" ] && [ -t 1 ]; then
     # ANSI Colors

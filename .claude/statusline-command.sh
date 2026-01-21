@@ -91,7 +91,7 @@ DA_NAME=$(jq -r '.daidentity.name // .daidentity.displayName // .env.DA // "Assi
 DA_NAME="${DA_NAME:-Assistant}"
 
 # Get PAI version from settings
-PAI_VERSION=$(jq -r '.pai.version // "—"' "$SETTINGS_FILE" 2>/dev/null)
+PAI_VERSION=$(jq -r '.paiVersion // "—"' "$SETTINGS_FILE" 2>/dev/null)
 PAI_VERSION="${PAI_VERSION:-—}"
 
 # Extract all data from JSON in single jq call

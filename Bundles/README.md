@@ -65,7 +65,7 @@ A **bundle** is a curated collection of PAI packs designed to work together as a
 - `VERIFY.md` - Mandatory verification checklist
 - `src/` - Actual source code files (TypeScript, YAML, etc.)
 
-For example, `kai-hook-system` provides an entire event-driven automation framework with all code files ready to copy.
+For example, `pai-hook-system` provides an entire event-driven automation framework with all code files ready to copy.
 
 **Bundles** are combinations of packs that work exceptionally well together—a harmonious system from a single author or unified around a single theme. The packs in a bundle were designed to integrate seamlessly, creating emergent capabilities greater than the sum of their parts.
 
@@ -95,7 +95,7 @@ While you can install packs individually, bundles provide:
 
 | Bundle | Description | Tier | Status |
 |--------|-------------|------|--------|
-| [The Official PAI (Kai)](Kai/) | Complete personal AI infrastructure from Daniel Miessler's Kai system | Complete | Active |
+| [The Official PAI Bundle](Official/) | Complete personal AI infrastructure from Daniel Miessler's Kai system | Complete | Active |
 
 *More bundles coming soon*
 
@@ -106,12 +106,12 @@ While you can install packs individually, bundles provide:
 ### Option 1: AI-Assisted (Recommended)
 
 1. Open the bundle's directory (the README displays automatically)
-2. Give it to your AI
+2. Give it to your DA
 3. Say: "Install this bundle into my system"
 
-Your AI will:
+Your DA will:
 - **Analyze first** - Review all packs that need to be installed and their dependencies
-- **Run the wizard** - If the bundle includes a setup wizard, walk you through it to collect personalization data (AI name, personality, contacts, technical preferences, etc.)
+- **Run the wizard** - If the bundle includes a setup wizard, walk you through it to collect personalization data (DA name, personality, contacts, technical preferences, etc.)
 - **Install in order** - Install packs in the correct sequence based on dependencies
 - **Configure connections** - Set up integrations between packs
 - **Verify installation** - Confirm each pack works and validate the bundle as a whole
@@ -299,7 +299,7 @@ Bundles reference packs by name. When a pack is updated, reinstall it to get the
 
 - [PAI Repository](https://github.com/danielmiessler/PAI)
 - [Pack System](../PACKS.md)
-- [The Official PAI (Kai) Bundle](Kai/) - Reference implementation
+- [The Official PAI Bundle](Official/) - Reference implementation
 
 ---
 

@@ -38,10 +38,10 @@ Bundles/
 ```yaml
 ---
 # name: (24 words max) Human-readable bundle name
-name: The Official PAI (Kai) Bundle
+name: The Official PAI Bundle
 
 # bundle-id: (format) {author}-{bundle-name}-v{version}
-bundle-id: danielmiessler-kai-bundle-v1.0.0
+bundle-id: danielmiessler-pai-bundle-v1.0.0
 
 # version: (format) SemVer major.minor.patch
 version: 1.0.0
@@ -131,7 +131,7 @@ Include:
 **Start by asking your principal these questions:**
 
 1. **Where should PAI be installed?** (default: `~/.config/pai`)
-2. **What would you like to name your AI assistant?** (e.g., Kai, Atlas, Nova)
+2. **What would you like to name your DA assistant?** (e.g., Kai, Atlas, Nova)
 3. **What's your timezone?** (e.g., America/Los_Angeles)
 4. [Add bundle-specific questions here]
 
@@ -335,7 +335,7 @@ bun run install.ts
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PAI_DIR` | `~/.config/pai` | Where PAI stores files |
-| `DA` | `PAI` | Your AI assistant's name |
+| `DA` | `PAI` | Your DA's name |
 | [Other variables] | | |
 
 ### Manual Installation (Alternative)
@@ -345,12 +345,12 @@ If you prefer not to use the wizard:
 ```bash
 # 1. Set up environment
 export PAI_DIR="$HOME/.config/pai"
-export DA="YourAIName"
+export DA="YourDAName"
 
 # 2. Create directories
 mkdir -p $PAI_DIR/{hooks,history,skills,tools}
 
-# 3. Install each pack in order (give to your AI)
+# 3. Install each pack in order (give to your DA)
 ```
 
 ### Pack Installation Sequence
@@ -360,11 +360,11 @@ mkdir -p $PAI_DIR/{hooks,history,skills,tools}
 | 1 | Pack Name | Give AI: `Packs/pack-name.md` | `[verification command]` |
 | 2 | Another Pack | Give AI: `Packs/another-pack.md` | `[verification command]` |
 
-**For each pack, tell your AI:**
+**For each pack, tell your DA:**
 ```
 Install this pack using:
 - PAI_DIR: [your configured path]
-- DA: [your AI name]
+- DA: [your DA name]
 ```
 
 ---

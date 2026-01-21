@@ -91,7 +91,7 @@ A voice system pack MUST include:
 ```yaml
 ---
 # name: (24 words max) Human-readable pack name
-name: Kai History System
+name: PAI History System
 
 # pack-id: (format) {author}-{pack-name}-{variant}-v{version}
 pack-id: danielmiessler-history-system-core-v1.0.0
@@ -174,14 +174,14 @@ name: Pack Name
 
 > **FOR AI AGENTS:** Every pack file MUST include these sections in order. The HTML comments in each section contain detailed instructions - read them and follow them exactly. Replace the example content with your pack's actual content.
 
-Below is the Kai History System pack as the reference implementation demonstrating COMPLETE pack structure.
+Below is the PAI History System pack as the reference implementation demonstrating COMPLETE pack structure.
 
 ```markdown
 <p align="center">
-  <img src="icons/history-system.png" alt="Kai History System" width="256">
+  <img src="icons/history-system.png" alt="PAI History System" width="256">
 </p>
 
-# Kai History System
+# PAI History System
 
 > Granular context-tracking system for the entire AI infrastructure - captures all work, decisions, and learnings automatically with zero manual effort
 
@@ -206,7 +206,7 @@ You are receiving a PAI Pack - a modular upgrade for AI agent systems.
 
 **What is a Pack?** See: [Pack System](../README.md#the-journey-pai-v1x--v20)
 
-This pack adds automatic memory to your entire AI infrastructure. The Kai History System is not just about agent outputs - it's a granular context-tracking system for EVERYTHING that happens in your system:
+This pack adds automatic memory to your entire AI infrastructure. The PAI History System is not just about agent outputs - it's a granular context-tracking system for EVERYTHING that happens in your system:
 
 - **Continuous Learning**: Capture insights as they happen
 - **Bug Fixing**: Trace exactly what was done when debugging
@@ -216,7 +216,7 @@ This pack adds automatic memory to your entire AI infrastructure. The Kai Histor
 
 **Core principle:** Work normally, documentation handles itself.
 
-No more forgotten context between sessions. No more lost learnings. Your AI remembers everything so you don't have to.
+No more forgotten context between sessions. No more lost learnings. Your DA remembers everything so you don't have to.
 
 Please follow the installation instructions below to integrate this pack into your infrastructure.
 
@@ -245,7 +245,7 @@ Example:
 **Summary:**
 - **Files created:** 3
 - **Hooks registered:** 2
-- **Dependencies:** kai-hook-system (required)
+- **Dependencies:** pai-hook-system (required)
 -->
 
 | Component | File | Purpose |
@@ -311,7 +311,7 @@ This creates cascading problems across your entire AI infrastructure:
 
 Traditional AI systems treat each interaction as ephemeral. But real work is cumulative. Today's debugging session informs tomorrow's architecture decision. Last month's research prevents this month's repeated mistake.
 
-Without a history system, your AI is brilliant but amnesiac. Every session is day one. Every context is fresh. Every lesson must be relearned.
+Without a history system, your DA is brilliant but amnesiac. Every session is day one. Every context is fresh. Every lesson must be relearned.
 
 ## The Solution
 <!--
@@ -347,7 +347,7 @@ Every pack MUST explain its architectural innovation:
 
 USE VISUAL DIAGRAMS - ASCII art showing the flow is extremely valuable.
 
-EXAMPLE (from kai-skill-system):
+EXAMPLE (from pai-skill-system):
 The skill system has 5 explicit routing layers:
 1. SKILL.md frontmatter → loaded into system prompt for routing
 2. SKILL.md body → workflow routing table, loads on invocation
@@ -377,7 +377,7 @@ This is NOT optional. If your pack doesn't have interesting architecture,
 it might not be worth being a pack.
 -->
 
-The Kai History System solves this through **automatic, hook-based documentation**. Instead of requiring manual effort, it captures work as a byproduct of doing the work.
+The PAI History System solves this through **automatic, hook-based documentation**. Instead of requiring manual effort, it captures work as a byproduct of doing the work.
 
 **Core Architecture:**
 
@@ -570,9 +570,9 @@ PAI_CHECK="${PAI_DIR:-$HOME/.config/pai}"
 # Check for required packs (customize for your pack)
 # Example: Check if hook system is installed
 if [ -f "$PAI_CHECK/hooks/lib/observability.ts" ]; then
-  echo "✓ kai-hook-system is installed"
+  echo "✓ pai-hook-system is installed"
 else
-  echo "⚠️  kai-hook-system not installed (may be required)"
+  echo "⚠️  pai-hook-system not installed (may be required)"
 fi
 
 # Add checks for other dependencies your pack needs
@@ -1002,7 +1002,7 @@ For each customization:
 - Note the EXPECTED OUTCOME
 
 Example from Art Skill:
-- RECOMMENDED: Have an extended conversation with your AI about your aesthetic preferences,
+- RECOMMENDED: Have an extended conversation with your DA about your aesthetic preferences,
   capture this in Aesthetic.md, so all generated images reflect your personal style.
 - OPTIONAL: Add your own color palette, create custom prompt templates for your use cases.
 
@@ -1169,7 +1169,7 @@ Format: ### {version} - {YYYY-MM-DD}
 ## File Naming Convention
 
 - Pack directories in `Packs/` directory
-- kebab-case for directory names: `kai-history-system/`, `kai-hook-system/`
+- kebab-case for directory names: `pai-history-system/`, `pai-hook-system/`
 - Each pack directory contains: `README.md`, `INSTALL.md`, `VERIFY.md`, `src/`
 - Source files in `src/` use appropriate extensions: `.ts`, `.yaml`, `.hbs`, etc.
 

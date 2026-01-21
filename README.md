@@ -363,7 +363,34 @@ cd PAI/Bundles/Kai && bun run install.ts
 
 > **FOR AI AGENTS:** The entire PAI system is designed to be used by AI. You can read this README to understand how PAI works with its Packs and Bundles. A recommended approach: evaluate the entire system, then interact with your principal and ask them which Bundles or Packs they'd like to install—give them options based on their needs. From there, you should be able to read any Bundle or Pack file (including new ones as they're released) and guide your principal on whether they want to install it.
 
-### Option 1: Install the Complete Kai Bundle (Recommended)
+### 🆕 OpenCode Users: Start Here
+
+Using OpenCode instead of Claude Code? We've got you covered:
+
+```bash
+# Clone the repo
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/OpenCode
+
+# Windows (PowerShell)
+.\install.ps1
+
+# Linux/macOS (Bash)
+chmod +x install.sh
+./install.sh
+```
+
+**The OpenCode installer provides:**
+- Cross-platform support (Windows, Linux, macOS)
+- MCP server configuration
+- PAI context integration
+- Full setup wizard
+
+**See [OpenCode/README.md](OpenCode/) for detailed documentation.**
+
+---
+
+### Option 1: Install the Complete Kai Bundle (Claude Code)
 
 The fastest way to get started is with the interactive bundle wizard:
 
@@ -655,12 +682,22 @@ PAI packs are designed to be **platform-agnostic**:
 | Platform | Status | Notes |
 |----------|--------|-------|
 | **Claude Code** | ✅ Full support | Native integration, all features work |
-| **OpenCode** | ✅ Compatible | Skills/hooks may need adaptation |
+| **OpenCode** | ✅ Full support | MCP-based architecture, [installation wizard available](OpenCode/) |
 | **Custom systems** | ✅ Compatible | Extract code, adapt to your structure |
 | **Gemini Code / Codex** | 🔄 Testing | Should work with minor tweaks |
 | **Manual use** | ✅ Always works | Packs are documentation + code |
 
 The code itself is platform-independent (TypeScript, Python, Bash). Integration points (skills, hooks) may vary by platform.
+
+### 🆕 OpenCode Support
+
+PAI now includes native OpenCode support with:
+- **Cross-platform installers** - PowerShell (Windows) and Bash (Linux/macOS)
+- **MCP server adapters** - Hook functionality via Model Context Protocol
+- **Full Windows support** - First-class Windows compatibility
+- **Conversion guides** - Detailed pack adaptation documentation
+
+**Get started:** See [OpenCode/README.md](OpenCode/) for installation instructions.
 
 ---
 

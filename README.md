@@ -350,10 +350,6 @@ chmod +x install.sh
 
 ---
 
-### Option 1: Install the Complete Kai Bundle (Claude Code)
-
----
-
 ## 🚀 Installation
 
 > [!CAUTION]

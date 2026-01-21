@@ -200,13 +200,13 @@ Just ensure they're in the PAI directory that OpenCode can access.
 
 ---
 
-## 🔧 Example: Converting kai-history-system
+## 🔧 Example: Converting pai-history-system
 
 ### Original (Claude Code)
 
 **Structure:**
 ```
-kai-history-system/
+pai-history-system/
 ├── hooks/
 │   ├── capture-session-summary.ts
 │   ├── capture-tool-output.ts

@@ -143,6 +143,30 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
   }
 }
 
+/**
+ * Discover and read vault-specific context from VAULT.md
+ * Looks in current working directory only
+ */
+async function loadVaultContext(): Promise<string | null> {
+  try {
+    const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const vaultPath = join(projectDir, 'VAULT.md');
+
+    if (!existsSync(vaultPath)) {
+      return null;
+    }
+
+    console.error(`📁 Vault context found at: ${vaultPath}`);
+    const vaultContent = readFileSync(vaultPath, 'utf-8');
+    console.error(`✅ Read ${vaultContent.length} characters from VAULT.md`);
+
+    return vaultContent;
+  } catch (error) {
+    console.error('⚠️ Error reading vault context:', error);
+    return null;
+  }
+}
+
 async function main() {
   try {
     // Check if this is a subagent session - if so, exit silently
@@ -176,29 +200,55 @@ async function main() {
 
     console.error(`✅ Read ${paiContent.length} characters from PAI SKILL.md`);
 
+    // Check for vault-specific context
+    const vaultContent = await loadVaultContext();
+
     // Get current date/time to prevent confusion about dates
     const currentDate = await getCurrentDate();
     console.error(`📅 Current Date: ${currentDate}`);
 
     // Output the PAI content as a system-reminder
     // This will be injected into Claude's context at session start
-    const message = `<system-reminder>
+    let contextMessage = `<system-reminder>
 PAI CORE CONTEXT (Auto-loaded at Session Start)
 
 📅 CURRENT DATE/TIME: ${currentDate}
 
-The following context has been loaded from ${paiSkillPath}:
+The following GLOBAL context has been loaded from ${paiSkillPath}:
 
 ${paiContent}
 
+---
+`;
+
+    // Append vault context if it exists
+    if (vaultContent) {
+      const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+      contextMessage += `
+📁 VAULT-SPECIFIC CONTEXT (Auto-loaded from current directory)
+
+The following VAULT context has been loaded from ${join(projectDir, 'VAULT.md')}:
+
+${vaultContent}
+
+---
+`;
+      console.error('✅ Vault context will be injected into session');
+    }
+
+    contextMessage += `
 This context is now active for this session. Follow all instructions, preferences, and guidelines contained above.
 </system-reminder>`;
 
     // Write to stdout (will be captured by Claude Code)
-    console.log(message);
+    console.log(contextMessage);
 
     // Output success confirmation for Claude to acknowledge
-    console.log('\n✅ PAI Context successfully loaded...');
+    if (vaultContent) {
+      console.log('\n✅ PAI Core + Vault Context successfully loaded...');
+    } else {
+      console.log('\n✅ PAI Context successfully loaded...');
+    }
 
     // Check for active progress files and display them
     const activeProgress = await checkActiveProgress(paiDir);

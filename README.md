@@ -329,8 +329,8 @@ Using OpenCode instead of Claude Code? We've got you covered:
 
 ```bash
 # Clone the repo
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/OpenCode
+git clone https://github.com/sn0n/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/OpenCode
 
 # Windows (PowerShell)
 .\install.ps1

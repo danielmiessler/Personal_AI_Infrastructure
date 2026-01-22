@@ -42,6 +42,27 @@ WEATHER_CACHE_TTL=900    # 15 minutes
 [ -f "$PAI_DIR/.env" ] && source "$PAI_DIR/.env"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CROSS-PLATFORM HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Get file modification time (cross-platform)
+get_file_mtime() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        echo 0
+        return
+    fi
+    # Detect OS and use appropriate stat format
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        stat -f %m "$file" 2>/dev/null || echo 0
+    else
+        # Linux (WSL, etc.)
+        stat -c %Y "$file" 2>/dev/null || echo 0
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # TERMINAL WIDTH DETECTION
 # ─────────────────────────────────────────────────────────────────────────────
 # Hooks don't inherit terminal context. Try multiple methods.
@@ -55,9 +76,13 @@ detect_terminal_width() {
             '.[].tabs[].windows[] | select(.id == $wid) | .columns' 2>/dev/null)
     fi
 
-    # Tier 2: Direct TTY query
-    [ -z "$width" ] || [ "$width" = "0" ] || [ "$width" = "null" ] && \
-        width=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
+    # Tier 2: Direct TTY query (skip if not in interactive context)
+    if [ -z "$width" ] || [ "$width" = "0" ] || [ "$width" = "null" ]; then
+        # Only try if we're in an interactive shell with accessible tty
+        if [ -t 0 ] 2>/dev/null; then
+            width=$(stty size 2>/dev/null | awk '{print $2}')
+        fi
+    fi
 
     # Tier 3: tput fallback
     [ -z "$width" ] || [ "$width" = "0" ] && width=$(tput cols 2>/dev/null)
@@ -90,9 +115,9 @@ input=$(cat)
 DA_NAME=$(jq -r '.daidentity.name // .daidentity.displayName // .env.DA // "Assistant"' "$SETTINGS_FILE" 2>/dev/null)
 DA_NAME="${DA_NAME:-Assistant}"
 
-# Get PAI version from settings
-PAI_VERSION=$(jq -r '.pai.version // "—"' "$SETTINGS_FILE" 2>/dev/null)
-PAI_VERSION="${PAI_VERSION:-—}"
+# Get PAI version from settings (single source of truth)
+PAI_VERSION=$(jq -r '.pai.version // "2.0"' "$SETTINGS_FILE" 2>/dev/null)
+PAI_VERSION="${PAI_VERSION:-2.0}"
 
 # Extract all data from JSON in single jq call
 eval "$(echo "$input" | jq -r '
@@ -137,12 +162,6 @@ learning_count=$(find "$PAI_DIR/MEMORY/LEARNING" -type f -name "*.md" 2>/dev/nul
 # Count ratings (dynamic learning signal)
 ratings_count=0
 [ -f "$RATINGS_FILE" ] && ratings_count=$(wc -l < "$RATINGS_FILE" 2>/dev/null | tr -d ' ')
-
-# Count session logs (captured experience)
-sessions_count=$(find "$PAI_DIR/MEMORY" -name "*.jsonl" 2>/dev/null | wc -l | tr -d ' ')
-
-# Count research files
-research_count=$(find "$PAI_DIR/MEMORY/RESEARCH" -type f \( -name "*.md" -o -name "*.json" \) 2>/dev/null | wc -l | tr -d ' ')
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COLOR PALETTE
@@ -201,14 +220,12 @@ LEARN_PRIMARY='\033[38;2;167;139;250m'
 LEARN_SECONDARY='\033[38;2;196;181;253m'
 LEARN_WORK='\033[38;2;192;132;252m'
 LEARN_SIGNALS='\033[38;2;139;92;246m'
-LEARN_RESEARCH='\033[38;2;129;140;248m'
-LEARN_SESSIONS='\033[38;2;99;102;241m'
+LEARN_RESEARCH='\033[38;2;165;180;252m'
 
-# Line 5: Learning Signal (green theme for LEARNING label)
+# Line 5: Learning Signal (blue theme)
 SIGNAL_LABEL='\033[38;2;56;189;248m'
 SIGNAL_COLOR='\033[38;2;96;165;250m'
 SIGNAL_PERIOD='\033[38;2;148;163;184m'
-LEARN_LABEL='\033[38;2;21;128;61m'    # Dark green for LEARNING:
 
 # Line 6: Context (indigo theme)
 CTX_PRIMARY='\033[38;2;129;140;248m'
@@ -315,7 +332,7 @@ current_time=$(date +"%H:%M")
 # Fetch location from IP (with caching)
 fetch_location() {
     local cache_age=999999
-    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$LOCATION_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(get_file_mtime "$LOCATION_CACHE")))
 
     if [ "$cache_age" -gt "$LOCATION_CACHE_TTL" ]; then
         # Fetch fresh location data
@@ -336,7 +353,7 @@ fetch_location() {
 # Fetch weather (with caching) using Open-Meteo (free, no API key)
 fetch_weather() {
     local cache_age=999999
-    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$WEATHER_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(get_file_mtime "$WEATHER_CACHE")))
 
     if [ "$cache_age" -gt "$WEATHER_CACHE_TTL" ]; then
         # Get lat/lon from location cache
@@ -387,27 +404,18 @@ weather_str=$(fetch_weather)
 # Output PAI branding line
 case "$MODE" in
     nano)
-        printf "${SLATE_600}── │${RESET} ${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${SLATE_600}│ ────────────${RESET}\n"
-        printf "${PAI_TIME}${current_time}${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
-        printf "${SLATE_400}ENV:${RESET} ${SLATE_500}v${PAI_A}${PAI_VERSION}${RESET} ${SLATE_400}S:${SLATE_300}${skills_count}${RESET}\n"
+        printf "${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${SLATE_400}v${PAI_VERSION}${RESET} ${PAI_TIME}${current_time}${RESET}\n"
         ;;
     micro)
-        printf "${SLATE_600}── │${RESET} ${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${PAI_A}STATUSLINE${RESET} ${SLATE_600}│ ──────────────────${RESET}\n"
-        printf "${PAI_LABEL}LOC:${RESET} ${PAI_CITY}${location_city}${RESET} ${SLATE_600}│${RESET} ${PAI_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
-        printf "${SLATE_400}ENV:${RESET} ${SLATE_400}CC:${RESET} ${PAI_A}${cc_version}${RESET} ${SLATE_600}│${RESET} ${SLATE_500}PAI:${RESET} ${PAI_A}v${PAI_VERSION}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}S:${SLATE_300}${skills_count}${RESET} ${SLATE_400}W:${SLATE_300}${workflows_count}${RESET} ${SLATE_400}H:${SLATE_300}${hooks_count}${RESET}\n"
+        printf "${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${SLATE_400}v${PAI_VERSION}${RESET} ${SLATE_600}│${RESET} ${PAI_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
         ;;
     mini)
-        printf "${SLATE_600}── │${RESET} ${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${PAI_A}STATUSLINE${RESET} ${SLATE_600}│ ────────────────────────────────────────${RESET}\n"
-        printf "${PAI_LABEL}LOC:${RESET} ${PAI_CITY}${location_city}${RESET}${SLATE_600},${RESET} ${PAI_STATE}${location_state}${RESET} ${SLATE_600}│${RESET} ${PAI_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
-        printf "${SLATE_400}ENV:${RESET} ${SLATE_400}CC:${RESET} ${PAI_A}${cc_version}${RESET} ${SLATE_600}│${RESET} ${SLATE_500}PAI:${RESET} ${PAI_A}v${PAI_VERSION}${RESET} ${SLATE_600}│${RESET} ${WIELD_ACCENT}Skills:${RESET}${SLATE_300}${skills_count}${RESET} ${WIELD_WORKFLOWS}Workflows:${RESET}${SLATE_300}${workflows_count}${RESET} ${WIELD_HOOKS}Hooks:${RESET}${SLATE_300}${hooks_count}${RESET}\n"
+        printf "${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${SLATE_400}v${PAI_VERSION}${RESET} ${PAI_A}STATUSLINE:${RESET} ${PAI_CITY}${location_city}${RESET}${SLATE_600},${RESET} ${PAI_STATE}${location_state}${RESET} ${SLATE_600}│${RESET} ${PAI_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
         ;;
     normal)
-        printf "${SLATE_600}── │${RESET} ${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${PAI_A}STATUSLINE${RESET} ${SLATE_600}│ ──────────────────────────────────────────────────${RESET}\n"
-        printf "${PAI_LABEL}LOC:${RESET} ${PAI_CITY}${location_city}${RESET}${SLATE_600},${RESET} ${PAI_STATE}${location_state}${RESET} ${SLATE_600}│${RESET} ${PAI_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
-        printf "${SLATE_400}ENV:${RESET} ${SLATE_400}CC:${RESET} ${PAI_A}${cc_version}${RESET} ${SLATE_600}│${RESET} ${SLATE_500}PAI:${RESET} ${PAI_A}v${PAI_VERSION}${RESET} ${SLATE_600}│${RESET} ${WIELD_ACCENT}Skills:${RESET} ${SLATE_300}${skills_count}${RESET} ${SLATE_600}│${RESET} ${WIELD_WORKFLOWS}Workflows:${RESET} ${SLATE_300}${workflows_count}${RESET} ${SLATE_600}│${RESET} ${WIELD_HOOKS}Hooks:${RESET} ${SLATE_300}${hooks_count}${RESET}\n"
+        printf "${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${SLATE_400}v${PAI_VERSION}${RESET} ${PAI_A}STATUSLINE:${RESET} ${PAI_CITY}${location_city}${RESET}${SLATE_600},${RESET} ${PAI_STATE}${location_state}${RESET} ${SLATE_600}│${RESET} ${PAI_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${PAI_WEATHER}${weather_str}${RESET}\n"
         ;;
 esac
-printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 1: CONTEXT
@@ -423,6 +431,9 @@ fi
 # Calculate context usage
 content_tokens=$((cache_read + input_tokens + cache_creation + output_tokens))
 context_used=$((content_tokens + CONTEXT_BASELINE))
+
+# Ensure context_max has a value (defaults to 0 if empty)
+context_max=${context_max:-0}
 
 if [ "$context_max" -gt 0 ] && [ "$context_used" -gt 0 ]; then
     context_pct=$((context_used * 100 / context_max))
@@ -457,7 +468,6 @@ case "$MODE" in
         printf " ${SLATE_600}│${RESET} ${CTX_ACCENT}⏱${RESET} ${SLATE_300}${time_display}${RESET}\n"
         ;;
 esac
-printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 4: GIT STATUS
@@ -555,37 +565,32 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
             ;;
     esac
 fi
-printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LINE 5: MEMORY
+# LINE 5: LEARNING
 # ═══════════════════════════════════════════════════════════════════════════════
 
 case "$MODE" in
     nano)
-        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
+        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET}\n"
         ;;
     micro)
-        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
+        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET}\n"
         ;;
     mini)
-        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_SECONDARY}MEMORY:${RESET} "
+        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_SECONDARY}LEARNING:${RESET} "
         printf "${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
+        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET}\n"
         ;;
     normal)
-        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_SECONDARY}MEMORY:${RESET} "
+        printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_SECONDARY}LEARNING:${RESET} "
         printf "${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_WORK}Work${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SIGNALS}Ratings${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_SESSIONS}Sessions${RESET} "
-        printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET} ${LEARN_RESEARCH}Research${RESET}\n"
+        printf "${SLATE_600}│${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SIGNALS}Ratings${RESET}\n"
         ;;
 esac
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LINE 6: LEARNING (with sparklines in normal mode)
+# LINE 6: LEARNING SIGNAL (with sparklines in normal mode)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
@@ -718,20 +723,20 @@ if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
 
         case "$MODE" in
             nano)
-                printf "${LEARN_LABEL}✿${RESET} ${LATEST_COLOR}${latest}${RESET} ${SIGNAL_PERIOD}1d:${RESET} ${TODAY_COLOR}${today_avg}${RESET}\n"
+                printf "${SIGNAL_LABEL}◆${RESET} ${LATEST_COLOR}${latest}${RESET} ${SIGNAL_PERIOD}1d:${RESET} ${TODAY_COLOR}${today_avg}${RESET}\n"
                 ;;
             micro)
-                printf "${LEARN_LABEL}✿${RESET} ${LATEST_COLOR}${latest}${RESET} ${SIGNAL_PERIOD}1h:${RESET} ${HOUR_COLOR}${hour_avg}${RESET} ${SIGNAL_PERIOD}1d:${RESET} ${TODAY_COLOR}${today_avg}${RESET} ${SIGNAL_PERIOD}1w:${RESET} ${WEEK_COLOR}${week_avg}${RESET}\n"
+                printf "${SIGNAL_LABEL}◆${RESET} ${LATEST_COLOR}${latest}${RESET} ${SIGNAL_PERIOD}1h:${RESET} ${HOUR_COLOR}${hour_avg}${RESET} ${SIGNAL_PERIOD}1d:${RESET} ${TODAY_COLOR}${today_avg}${RESET} ${SIGNAL_PERIOD}1w:${RESET} ${WEEK_COLOR}${week_avg}${RESET}\n"
                 ;;
             mini)
-                printf "${LEARN_LABEL}✿${RESET} ${LEARN_LABEL}LEARNING:${RESET} ${SLATE_600}│${RESET} "
+                printf "${SIGNAL_LABEL}◆${RESET} ${SIGNAL_COLOR}LEARNING SIGNAL:${RESET} ${SLATE_600}│${RESET} "
                 printf "${LATEST_COLOR}${latest}${RESET} "
                 printf "${SIGNAL_PERIOD}1h:${RESET} ${HOUR_COLOR}${hour_avg}${RESET} "
                 printf "${SIGNAL_PERIOD}1d:${RESET} ${TODAY_COLOR}${today_avg}${RESET} "
                 printf "${SIGNAL_PERIOD}1w:${RESET} ${WEEK_COLOR}${week_avg}${RESET}\n"
                 ;;
             normal)
-                printf "${LEARN_LABEL}✿${RESET} ${LEARN_LABEL}LEARNING:${RESET} ${SLATE_600}│${RESET} "
+                printf "${SIGNAL_LABEL}◆${RESET} ${SIGNAL_COLOR}LEARNING SIGNAL:${RESET} ${SLATE_600}│${RESET} "
                 printf "${LATEST_COLOR}${latest}${RESET}${SLATE_500}${src_label}${RESET} ${SLATE_600}│${RESET} "
                 printf "${SIGNAL_PERIOD}15m:${RESET} ${Q15_COLOR}${q15_avg}${RESET} "
                 printf "${SIGNAL_PERIOD}60m:${RESET} ${HOUR_COLOR}${hour_avg}${RESET} "
@@ -748,11 +753,11 @@ if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
                 ;;
         esac
     else
-        printf "${LEARN_LABEL}✿${RESET} ${LEARN_LABEL}LEARNING:${RESET}\n"
+        printf "${SIGNAL_LABEL}◆${RESET} ${SIGNAL_LABEL}LEARNING SIGNAL:${RESET}\n"
         printf "  ${SLATE_500}No ratings yet${RESET}\n"
     fi
 else
-    printf "${LEARN_LABEL}✿${RESET} ${LEARN_LABEL}LEARNING:${RESET}\n"
+    printf "${SIGNAL_LABEL}◆${RESET} ${SIGNAL_LABEL}LEARNING SIGNAL:${RESET}\n"
     printf "  ${SLATE_500}No ratings yet${RESET}\n"
 fi
 
@@ -761,10 +766,10 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if [ "$MODE" = "normal" ]; then
-    printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
+    echo ""
 
     # Refresh quote if stale (>30s)
-    quote_age=$(($(date +%s) - $(stat -f %m "$QUOTE_CACHE" 2>/dev/null || echo 0)))
+    quote_age=$(($(date +%s) - $(get_file_mtime "$QUOTE_CACHE")))
     if [ "$quote_age" -gt 30 ] || [ ! -f "$QUOTE_CACHE" ]; then
         if [ -n "${ZENQUOTES_API_KEY:-}" ]; then
             new_quote=$(curl -s --max-time 1 "https://zenquotes.io/api/random/${ZENQUOTES_API_KEY}" 2>/dev/null | \
@@ -775,59 +780,6 @@ if [ "$MODE" = "normal" ]; then
 
     if [ -f "$QUOTE_CACHE" ]; then
         IFS='|' read -r quote_text quote_author < "$QUOTE_CACHE"
-        author_suffix="\" —${quote_author}"
-        author_len=${#author_suffix}
-        quote_len=${#quote_text}
-        max_line=72
-
-        # Full display: ✦ "quote text" —Author
-        full_len=$((quote_len + author_len + 4))  # 4 for ✦ "
-
-        if [ "$full_len" -le "$max_line" ]; then
-            # Fits on one line
-            printf "${QUOTE_PRIMARY}✦${RESET} ${SLATE_400}\"${quote_text}\"${RESET} ${QUOTE_AUTHOR}—${quote_author}${RESET}\n"
-        else
-            # Need to wrap - target ~10 words (55-60 chars) on first line
-            # Line 1 gets: "✦ \"" (4) + text
-            line1_text_max=60  # ~10 words worth
-
-            # Only wrap if there's substantial content left for line 2
-            min_line2=12
-
-            # Target: put ~60 chars on line 1
-            target_line1=$line1_text_max
-            [ "$target_line1" -gt "$quote_len" ] && target_line1=$((quote_len - min_line2))
-
-            # Find word boundary near target
-            first_part="${quote_text:0:$target_line1}"
-            remaining="${quote_text:$target_line1}"
-
-            # If we're not at a space, find the last space in first_part
-            if [ -n "$remaining" ] && [ "${remaining:0:1}" != " " ]; then
-                # Find last space position
-                temp="$first_part"
-                last_space_pos=0
-                pos=0
-                while [ $pos -lt ${#temp} ]; do
-                    [ "${temp:$pos:1}" = " " ] && last_space_pos=$pos
-                    pos=$((pos + 1))
-                done
-                if [ $last_space_pos -gt 10 ]; then
-                    first_part="${quote_text:0:$last_space_pos}"
-                fi
-            fi
-
-            second_part="${quote_text:${#first_part}}"
-            second_part="${second_part# }"  # trim leading space
-
-            # Only wrap if second part is substantial (more than just a few words)
-            if [ ${#second_part} -lt 10 ]; then
-                # Too little for line 2, just print on one line (may overflow slightly)
-                printf "${QUOTE_PRIMARY}✦${RESET} ${SLATE_400}\"${quote_text}\"${RESET} ${QUOTE_AUTHOR}—${quote_author}${RESET}\n"
-            else
-                printf "${QUOTE_PRIMARY}✦${RESET} ${SLATE_400}\"${first_part}${RESET}\n"
-                printf "  ${SLATE_400}${second_part}\"${RESET} ${QUOTE_AUTHOR}—${quote_author}${RESET}\n"
-            fi
-        fi
+        printf "${QUOTE_PRIMARY}✦${RESET} ${SLATE_400}\"${quote_text}\"${RESET} ${QUOTE_AUTHOR}—${quote_author}${RESET}\n"
     fi
 fi

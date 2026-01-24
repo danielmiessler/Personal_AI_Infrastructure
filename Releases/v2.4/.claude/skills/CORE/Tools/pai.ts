@@ -11,6 +11,7 @@
  *   pai -m bd,ap         Launch with multiple MCPs
  *   pai -r / --resume    Resume last session
  *   pai --local          Stay in current directory (don't cd to ~/.claude)
+ *   pai --wrapper        VSCode wrapper mode (local, no banner/voice, MCP only)
  *   pai update           Update Claude Code
  *   pai version          Show version info
  *   pai profiles         List available profiles
@@ -363,8 +364,11 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: boolean; local?: boolean }) {
-  displayBanner();
+async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: boolean; local?: boolean; wrapper?: boolean }) {
+  // Skip banner in wrapper mode (VSCode integration)
+  if (!options.wrapper) {
+    displayBanner();
+  }
   const args = ["claude"];
 
   // Handle MCP configuration
@@ -381,13 +385,15 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
     args.push("--resume");
   }
 
-  // Change to PAI directory unless --local flag is set
-  if (!options.local) {
+  // Change to PAI directory unless --local or --wrapper flag is set
+  if (!options.local && !options.wrapper) {
     process.chdir(CLAUDE_DIR);
   }
 
-  // Voice notification (using focused marker for calmer tone)
-  notifyVoice(`[🎯 focused] ${getDAName()} here, ready to go.`);
+  // Voice notification (skip in wrapper mode)
+  if (!options.wrapper) {
+    notifyVoice(`[🎯 focused] ${getDAName()} here, ready to go.`);
+  }
 
   // Launch Claude
   const proc = spawn(args, {
@@ -546,6 +552,7 @@ USAGE:
   k -m bd,ap               Launch with multiple MCPs
   k -r, --resume           Resume last session
   k -l, --local            Stay in current directory (don't cd to ~/.claude)
+  k --wrapper              VSCode wrapper mode (local, no banner/voice)
 
 COMMANDS:
   k update                 Update Claude Code to latest version
@@ -600,6 +607,7 @@ async function main() {
   let resume = false;
   let skipPerms = true;
   let local = false;
+  let wrapper = false;
   let command: string | undefined;
   let subCommand: string | undefined;
   let subArg: string | undefined;
@@ -631,6 +639,9 @@ async function main() {
       case "-l":
       case "--local":
         local = true;
+        break;
+      case "--wrapper":
+        wrapper = true;
         break;
       case "-v":
       case "--version":
@@ -707,7 +718,7 @@ async function main() {
       break;
     default:
       // Launch with options
-      await cmdLaunch({ mcp, resume, skipPerms, local });
+      await cmdLaunch({ mcp, resume, skipPerms, local, wrapper });
   }
 }
 

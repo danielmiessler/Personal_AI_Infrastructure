@@ -1,0 +1,4 @@
+#!/bin/bash
+# PAI wrapper for VSCode Claude Code extension
+# Invokes PAI in wrapper mode (stays local, skips banner/voice, keeps MCP config)
+exec bun ~/.claude/skills/CORE/Tools/pai.ts --wrapper "$@"

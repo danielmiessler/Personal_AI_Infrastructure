@@ -1,0 +1,471 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "PAI Protected Files - Files that must NOT be overwritten with Kai content",
+  "version": "2.0",
+  "protected": {
+    "core_documents": {
+      "description": "Core PAI documentation that differs from Kai",
+      "files": [
+        "README.md",
+        "INSTALL.md",
+        "SECURITY.md"
+      ],
+      "validation": "Must contain 'PAI' or 'Personal AI Infrastructure' in content"
+    },
+    "pai_infrastructure": {
+      "description": "PAI-specific infrastructure code",
+      "files": [
+        "Tools/validate-protected.ts",
+        ".pai-protected.json"
+      ],
+      "validation": "Must not contain references to private Kai data"
+    },
+    "sanitized_config": {
+      "description": "Configuration files that must remain sanitized",
+      "files": [
+        ".env.example"
+      ],
+      "validation": "Must not contain API keys, personal emails, or secrets"
+    },
+    "forbidden_directories": {
+      "description": "Directories that should NEVER exist in public PAI",
+      "patterns": [
+        "^skills/",
+        "^Deprecated/",
+        "^.deprecated/",
+        "^MEMORY/",
+        "^History/",
+        "^context/",
+        "^progress/"
+      ],
+      "validation": "These directories contain private Kai data and must not be committed"
+    },
+    "protected_patterns": {
+      "description": "Comprehensive patterns to catch sensitive data from production agent systems",
+      "categories": {
+        "api_keys": {
+          "description": "API keys and tokens from various services",
+          "patterns": [
+            "sk-ant-api[a-zA-Z0-9-]{20,}",
+            "sk-[a-zA-Z0-9]{20,}",
+            "ANTHROPIC_API_KEY=[^$\\s]{10,}",
+            "OPENAI_API_KEY=[^$\\s]{10,}",
+            "PERPLEXITY_API_KEY=pplx-[a-zA-Z0-9]+",
+            "ELEVENLABS_API_KEY=[a-f0-9]{32}",
+            "GOOGLE_API_KEY=AIza[a-zA-Z0-9_-]{35}",
+            "AKIA[0-9A-Z]{16}",
+            "ABIA[0-9A-Z]{16}",
+            "ACCA[0-9A-Z]{16}",
+            "ASIA[0-9A-Z]{16}",
+            "aws_access_key_id[\"'\\s:=]+[A-Z0-9]{20}",
+            "aws_secret_access_key[\"'\\s:=]+[A-Za-z0-9/+=]{40}",
+            "sk_live_[a-zA-Z0-9]{24,}",
+            "pk_live_[a-zA-Z0-9]{24,}",
+            "rk_live_[a-zA-Z0-9]{24,}",
+            "AC[a-f0-9]{32}",
+            "SK[a-f0-9]{32}",
+            "SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{43}",
+            "dd[a-z]_[a-zA-Z0-9]{40}",
+            "NRAK-[A-Z0-9]{27}",
+            "sntrys_[a-zA-Z0-9]{64}",
+            "AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}",
+            "sbp_[a-f0-9]{40}",
+            "eyJ[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*",
+            "dop_v1_[a-f0-9]{64}",
+            "do_[a-zA-Z0-9_]{40,}",
+            "npm_[a-zA-Z0-9]{36}",
+            "pypi-[a-zA-Z0-9_-]{64,}",
+            "glpat-[a-zA-Z0-9_-]{20,}",
+            "glsa_[a-zA-Z0-9_-]{32,}"
+          ]
+        },
+        "github_tokens": {
+          "description": "GitHub authentication tokens",
+          "patterns": [
+            "ghp_[a-zA-Z0-9]{36}",
+            "gho_[a-zA-Z0-9]{36}",
+            "ghu_[a-zA-Z0-9]{36}",
+            "ghs_[a-zA-Z0-9]{36}",
+            "ghr_[a-zA-Z0-9]{36}",
+            "github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}",
+            "GITHUB_TOKEN=[^$\\s]{10,}"
+          ]
+        },
+        "slack_tokens": {
+          "description": "Slack API tokens",
+          "patterns": [
+            "xoxb-[0-9]+-[0-9]+-[a-zA-Z0-9]+",
+            "xoxp-[0-9]+-[0-9]+-[a-zA-Z0-9]+",
+            "xoxa-[0-9]+-[a-zA-Z0-9]+",
+            "xoxr-[0-9]+-[a-zA-Z0-9]+"
+          ]
+        },
+        "webhooks": {
+          "description": "Webhook URLs that could expose private channels",
+          "patterns": [
+            "https://discord\\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_-]+",
+            "https://discordapp\\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_-]+",
+            "https://hooks\\.slack\\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[a-zA-Z0-9]+",
+            "https://ntfy\\.sh/[a-zA-Z0-9_-]{10,}",
+            "ntfy\\.sh/kai-[a-zA-Z0-9]+",
+            "https://hooks\\.zapier\\.com/hooks/catch/[0-9]+/[a-zA-Z0-9]+",
+            "https://maker\\.ifttt\\.com/trigger/[^/]+/with/key/[a-zA-Z0-9_-]+"
+          ]
+        },
+        "database_credentials": {
+          "description": "Database connection strings and credentials",
+          "patterns": [
+            "mongodb(\\+srv)?://[^:]+:[^@]+@[^/]+",
+            "postgres(ql)?://[^:]+:[^@]+@[^/]+",
+            "mysql://[^:]+:[^@]+@[^/]+",
+            "redis://[^:]+:[^@]+@[^/]+",
+            "DATABASE_URL=[^\\s]+:[^\\s]+@",
+            "REDIS_URL=[^\\s]+:[^\\s]+@",
+            "MONGO_URI=[^\\s]+:[^\\s]+@"
+          ]
+        },
+        "private_keys": {
+          "description": "Private keys and certificates",
+          "patterns": [
+            "-----BEGIN RSA PRIVATE KEY-----",
+            "-----BEGIN OPENSSH PRIVATE KEY-----",
+            "-----BEGIN PGP PRIVATE KEY-----",
+            "-----BEGIN EC PRIVATE KEY-----",
+            "-----BEGIN PRIVATE KEY-----",
+            "-----BEGIN DSA PRIVATE KEY-----",
+            "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+          ]
+        },
+        "pii_ssn_financial": {
+          "description": "SSN, EIN, and financial identifiers",
+          "patterns": [
+            "SSN[:\\s]+[0-9]{3}-[0-9]{2}-[0-9]{4}",
+            "\\b[0-9]{3}-[0-9]{2}-[0-9]{4}\\b",
+            "EIN[:\\s]+[0-9]{2}-[0-9]{7}",
+            "\\b[0-9]{2}-[0-9]{7}\\b",
+            "\\b[45][0-9]{3}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}\\b",
+            "\\b3[47][0-9]{2}[- ]?[0-9]{6}[- ]?[0-9]{5}\\b",
+            "routing[_\\s]?number[:\\s]+[0-9]{9}",
+            "account[_\\s]?number[:\\s]+[0-9]{8,17}"
+          ]
+        },
+        "pii_phone": {
+          "description": "Phone numbers in various formats",
+          "patterns": [
+            "\\+1[- ]?\\(?[0-9]{3}\\)?[- ]?[0-9]{3}[- ]?[0-9]{4}",
+            "\\b\\(?[0-9]{3}\\)?[- ]?[0-9]{3}[- ]?[0-9]{4}\\b",
+            "phone[:\\s]+[0-9]{3}[-.\\s]?[0-9]{3}[-.\\s]?[0-9]{4}",
+            "cell[:\\s]+[0-9]{3}[-.\\s]?[0-9]{3}[-.\\s]?[0-9]{4}",
+            "mobile[:\\s]+[0-9]{3}[-.\\s]?[0-9]{3}[-.\\s]?[0-9]{4}"
+          ]
+        },
+        "personal_emails": {
+          "description": "Personal and business email addresses",
+          "patterns": [
+            "[a-z]+@danielmiessler\\.com",
+            "[a-z]+@unsupervised-learning\\.com",
+            "daniel@[a-z]+\\.[a-z]+",
+            "susan@[a-z]+\\.[a-z]+",
+            "@gmail\\.com(?!.*example)",
+            "@yahoo\\.com(?!.*example)",
+            "@hotmail\\.com(?!.*example)",
+            "@outlook\\.com(?!.*example)",
+            "@icloud\\.com(?!.*example)"
+          ]
+        },
+        "private_paths": {
+          "description": "Private file system paths",
+          "patterns": [
+            "/Users/daniel/(?!Projects/PAI)",
+            "/Users/[a-z]+/\\.claude/",
+            "/home/[a-z]+/\\.claude/",
+            "~/.claude/skills/CORE/USER/",
+            "~/.claude/MEMORY/",
+            "~/.claude/History/",
+            "/Users/daniel/.claude/skills/personal"
+          ]
+        },
+        "internal_infrastructure": {
+          "description": "Internal hostnames, IPs, and URLs",
+          "patterns": [
+            "\\b10\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\b",
+            "\\b172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]{1,3}\\.[0-9]{1,3}\\b",
+            "\\b192\\.168\\.[0-9]{1,3}\\.[0-9]{1,3}\\b",
+            "\\.internal\\.",
+            "\\.local\\.",
+            "\\.corp\\.",
+            "\\.private\\.",
+            "localhost:[0-9]{4,5}(?!/)"
+          ]
+        },
+        "customer_data": {
+          "description": "Customer names and identifiable information",
+          "patterns": [
+            "customer[_\\s]?id[:\\s]+[A-Z0-9]{8,}",
+            "client[_\\s]?name[:\\s]+[A-Z][a-z]+",
+            "account[_\\s]?name[:\\s]+[A-Z][a-z]+",
+            "company[_\\s]?name[:\\s]+[A-Z][a-z]+"
+          ]
+        },
+        "team_members": {
+          "description": "Team member and contact names that shouldn't be public",
+          "patterns": [
+            "Kaleigh Feher",
+            "Bryan Brake",
+            "Angela Gunn",
+            "Susan Miessler",
+            "Matt Johansen",
+            "Dave Kennedy"
+          ]
+        },
+        "credentials_inline": {
+          "description": "Inline credentials and secrets",
+          "patterns": [
+            "password[\"'\\s:=]+[^$\\s\"']{8,}(?!.*placeholder|.*example|.*YOUR_)",
+            "secret[\"'\\s:=]+[^$\\s\"']{8,}(?!.*placeholder|.*example|.*YOUR_)",
+            "API_KEY=['\"][a-zA-Z0-9_-]{16,}['\"]",
+            "SECRET_KEY=['\"][a-zA-Z0-9_-]{16,}['\"]",
+            "Bearer [a-zA-Z0-9_-]{20,}",
+            "Authorization:[\\s]+Bearer [a-zA-Z0-9_-]+"
+          ]
+        },
+        "cloudflare": {
+          "description": "Cloudflare credentials and identifiers",
+          "patterns": [
+            "CLOUDFLARE_API_TOKEN=[a-zA-Z0-9_-]{40}",
+            "CLOUDFLARE_API_KEY=[a-f0-9]{37}",
+            "CF_API_TOKEN=[a-zA-Z0-9_-]{40}",
+            "CLOUDFLARE_ZONE_ID=[a-f0-9]{32}",
+            "CLOUDFLARE_ACCOUNT_ID=[a-f0-9]{32}"
+          ]
+        },
+        "misc_sensitive": {
+          "description": "Miscellaneous sensitive patterns",
+          "patterns": [
+            "daemon\\.plist",
+            "id_rsa",
+            "id_ed25519",
+            "id_ecdsa",
+            "\\.pem$",
+            "\\.key$",
+            "\\.p12$",
+            "\\.pfx$",
+            "service[_-]account.*\\.json"
+          ]
+        }
+      },
+      "exception_files": [
+        "SECURITY.md",
+        ".pai-protected.json",
+        ".env.example",
+        "Tools/validate-protected.ts",
+        "Tools/CheckPAIState.md",
+        "README.md",
+        "INSTALL.md",
+        "Packs/*/README.md",
+        "Packs/*/INSTALL.md",
+        "Packs/*/VERIFY.md",
+        "Packs/*/src/SKILL.md",
+        "Packs/*/src/*.ts",
+        "Packs/*/src/*.json",
+        "Packs/*/src/skills/*/SKILL.md",
+        "Packs/*/src/skills/*/SYSTEM/*.md",
+        "Packs/*/src/skills/*/Phases/*.md",
+        "Packs/*/src/skills/*/Reference/*.md",
+        "Packs/*/src/skills/*/Workflows/*.md",
+        "Packs/*/src/skills/*/Tools/*.ts",
+        "Packs/*/src/skills/*/Data/*.json",
+        "Packs/*/src/hooks/*.ts",
+        "Packs/*/src/hooks/lib/*.ts",
+        "Packs/*/src/hooks/handlers/*.ts",
+        "Packs/*/src/Observability/*.sh",
+        "Packs/*/src/Observability/*.md",
+        "Packs/*/src/Observability/scripts/*.sh",
+        "Packs/*/src/Observability/apps/*/src/*/*.ts",
+        "Packs/*/src/Observability/apps/*/src/*/*.tsx",
+        "Packs/*/src/VoiceServer/*.sh",
+        "Packs/*/src/VoiceServer/*/*.sh",
+        "Packs/*/src/VoiceServer/macos-service/*/*.sh",
+        "Packs/*/src/DashboardTemplate/*.md",
+        "Packs/*/src/DashboardTemplate/*.ts",
+        "Packs/*/src/DashboardTemplate/*.tsx",
+        "Packs/*/src/DashboardTemplate/*.json",
+        "Packs/*/src/DashboardTemplate/*/*.ts",
+        "Packs/*/src/DashboardTemplate/*/*.tsx",
+        "Packs/*/src/DashboardTemplate/app/*.tsx",
+        "Packs/*/src/DashboardTemplate/app/*/*.tsx",
+        "Packs/*/src/DashboardTemplate/app/api/*/*.ts",
+        "Packs/*/src/DashboardTemplate/components/*.tsx",
+        "Packs/*/src/DashboardTemplate/components/*/*.tsx",
+        "Packs/*/src/DashboardTemplate/lib/*.ts",
+        "Packs/*/src/ReportTemplate/*/*.ts",
+        "Packs/*/src/ReportTemplate/*/*.tsx",
+        "Packs/*/src/tools/*.ts",
+        "Packs/*/src/SYSTEM/*.md",
+        "Packs/*/src/Workflows/*.md",
+        "Packs/*/src/Phases/*.md",
+        "Packs/*/src/Reference/*.md",
+        "Packs/*/src/Tools/*.ts",
+        "Packs/*/src/Templates/*.md",
+        "Packs/*/src/Templates/*.hbs",
+        "Packs/*/src/AgentPersonalities.md",
+        "Packs/*/src/PAISECURITYSYSTEM/*.md",
+        "Packs/*/src/PAISECURITYSYSTEM/*.yaml",
+        "Packs/*/src/skills/*.md",
+        "Packs/*/src/skills/Workflows/*.md",
+        "Packs/*/src/skills/Phases/*.md",
+        "Packs/*/src/skills/Reference/*.md",
+        "Packs/*/src/skills/Tools/*.ts",
+        "Plans/*.md",
+        "Releases/*/README.md",
+        "Releases/*/.claude/INSTALL.md",
+        "Releases/*/.claude/skills/*/SKILL.md",
+        "Releases/*/.claude/skills/*/SYSTEM/*.md",
+        "Releases/*/.claude/skills/*/Workflows/*.md",
+        "Releases/*/.claude/skills/*/Phases/*.md",
+        "Releases/*/.claude/skills/*/Reference/*.md",
+        "Releases/*/.claude/skills/*/Tools/*.ts",
+        "Releases/*/.claude/skills/CORE/USER/*/README.md",
+        "Releases/*/.claude/skills/CORE/Tools/fabric/Patterns/*/*.md",
+        "Releases/*/.claude/skills/CORE/Tools/*.ts",
+        "Releases/*/.claude/skills/Recon/*.md",
+        "Releases/*/.claude/skills/Recon/Tools/*.ts",
+        "Releases/*/.claude/skills/Recon/Workflows/*.md",
+        "Releases/*/.claude/skills/OSINT/*.md",
+        "Releases/*/.claude/skills/OSINT/Workflows/*.md",
+        "Releases/*/.claude/skills/PrivateInvestigator/*.md",
+        "Releases/*/.claude/skills/PrivateInvestigator/Workflows/*.md",
+        "Releases/*/.claude/skills/Telos/*.md",
+        "Releases/*/.claude/skills/Telos/Workflows/*.md",
+        "Releases/*/.claude/skills/Telos/DashboardTemplate/*.md",
+        "Releases/*/.claude/skills/Telos/ReportTemplate/*/*.ts",
+        "Releases/*/.claude/skills/Telos/ReportTemplate/*/*.tsx",
+        "Releases/*/.claude/skills/Research/*.md",
+        "Releases/*/.claude/skills/Research/Workflows/*.md",
+        "Releases/*/.claude/skills/System/*.md",
+        "Releases/*/.claude/skills/System/Workflows/*.md",
+        "Releases/*/.claude/skills/System/Tools/*.ts",
+        "Releases/*/.claude/skills/Prompting/*.md",
+        "Releases/*/.claude/skills/Prompting/Templates/*.md",
+        "Releases/*/.claude/skills/CreateSkill/Workflows/*.md",
+        "Releases/*/.claude/skills/PAIUpgrade/*.md",
+        "Releases/*/.claude/skills/PAIUpgrade/Workflows/*.md",
+        "Releases/*/.claude/skills/Agents/*.md",
+        "Releases/*/.claude/PAISECURITYSYSTEM/*.md",
+        "Releases/*/.claude/PAISECURITYSYSTEM/*.yaml",
+        "Releases/*/.claude/Observability/*.sh",
+        "Releases/*/.claude/Observability/scripts/*.sh",
+        "Releases/*/.claude/Observability/apps/*/src/*/*.ts",
+        "Releases/*/.claude/VoiceServer/*/*.sh",
+        "Releases/*/.claude/VoiceServer/macos-service/*/*.sh",
+        "Releases/*/.claude/hooks/lib/*.ts",
+        "Releases/*/.claude/skills/CORE/SYSTEM/UPDATES/*.md",
+        "Releases/*/.claude/skills/CORE/USER/TERMINAL/*.conf",
+        "Releases/*/.claude/skills/CORE/SYSTEM/PAISECURITYSYSTEM/*.yaml",
+        "Releases/*/.claude/skills/Fabric/Patterns/*/*.md",
+        "Releases/*/.claude/skills/Fabric/Patterns/*/system.md",
+        "Releases/*/.claude/skills/Fabric/Patterns/*/README.md",
+        "Releases/*/.claude/skills/WebAssessment/**/*.md",
+        "Releases/*/.claude/skills/WebAssessment/**/*.py",
+        "Releases/*/.claude/skills/WebAssessment/Workflows/**/*.md",
+        "Releases/*/.claude/skills/WebAssessment/OsintTools/*.md",
+        "Releases/*/.claude/skills/WebAssessment/OsintTools/*.py",
+        "Releases/*/.claude/skills/WebAssessment/FfufResources/*.md",
+        "Releases/*/.claude/skills/PromptInjection/*.md",
+        "Releases/*/.claude/skills/Documents/Pdf/*.md",
+        "Releases/*/.claude/skills/WebAssessment/*.py"
+      ],
+      "exception_contexts": {
+        "description": "Patterns that are OK when in documentation/example context",
+        "allowed_prefixes": [
+          "# Example:",
+          "// Example:",
+          "/* Example",
+          "e.g.,",
+          "for example",
+          "placeholder",
+          "YOUR_",
+          "EXAMPLE",
+          "xxx",
+          "<your-",
+          "documentation",
+          "`~/.claude",
+          "$PAI_HOME",
+          "$PAI_DIR",
+          "pattern:",
+          "regex:",
+          "matches:",
+          "// Pattern",
+          "# Pattern",
+          "sample",
+          "template",
+          "default:",
+          "fallback",
+          "config example",
+          "configuration:",
+          "localhost example",
+          "test server",
+          "development server",
+          "local dev",
+          "192.168.x.x",
+          "10.x.x.x",
+          "private IP",
+          "internal IP",
+          "example IP",
+          "example phone",
+          "format:",
+          "(xxx)",
+          "xxx-xxx",
+          "secret detection",
+          "detect secret",
+          "find secret",
+          "scan for",
+          "pattern match",
+          "regex match",
+          "localhost:",
+          "http://localhost",
+          "127.0.0.1",
+          "dashboard at",
+          "server at",
+          "running at",
+          "start server",
+          "dev server",
+          "port ",
+          ":3000",
+          ":8080",
+          ":8888",
+          ":4173",
+          "USER/",
+          "USER directory",
+          "USER tier",
+          "~/.claude/skills",
+          "~/.claude/hooks",
+          "$PAI_DIR/skills",
+          "$PAI_DIR/hooks",
+          "ANTHROPIC_API_KEY=your",
+          "your_api_key",
+          "noreply@anthropic.com",
+          "Co-Authored-By:",
+          "git@github.com",
+          "ssh://",
+          "github.com/",
+          "TELOS_DIR"
+        ]
+      }
+    }
+  },
+  "kai_to_pai_workflow": {
+    "description": "How to safely sync Kai improvements to PAI",
+    "steps": [
+      "1. Make changes in Kai (~/.claude/)",
+      "2. Test thoroughly in Kai environment",
+      "3. Identify which changes should go to public PAI",
+      "4. Copy changes to PAI repo (~/Projects/PAI/)",
+      "5. SKIP protected files (they stay PAI-specific)",
+      "6. Sanitize any personal data or API keys",
+      "7. Run: bun ~/Projects/PAI/Tools/validate-protected.ts",
+      "8. If validation passes, commit to PAI",
+      "9. If validation fails, check which protected files changed"
+    ]
+  }
+}

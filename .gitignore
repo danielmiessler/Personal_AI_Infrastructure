@@ -61,3 +61,8 @@ out/
 private/
 secrets/
 credentials/
+
+# PAI Update System (sideloading)
+.claude/pai_updates/
+.claude/pai_backups/
+.claude/.pai-sync-history

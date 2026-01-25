@@ -1,934 +1,704 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./pai-logo.png">
-  <source media="(prefers-color-scheme: light)" srcset="./pai-logo.png">
-  <img alt="PAI Logo" src="./pai-logo.png" width="1200">
+  <source media="(prefers-color-scheme: dark)" srcset="./images/pai-logo-v7.png">
+  <source media="(prefers-color-scheme: light)" srcset="./images/pai-logo-v7.png">
+  <img alt="PAI Logo" src="./images/pai-logo-v7.png" width="300">
 </picture>
 
-# **PAI** - Personal AI Infrastructure
+<br/>
+<br/>
 
-### **Open-source personal AI infrastructure for orchestrating your life and work**
+# Personal AI Infrastructure
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=24&pause=1000&color=60A5FA&center=true&vCenter=true&width=600&lines=Everyone+needs+access+to+the+best+AI.;AI+should+magnify+everyone.;Your+personal+AI+stack.)](https://github.com/danielmiessler/PAI)
 
 <br/>
 
-![Static Badge](https://img.shields.io/badge/mission-upgrade_humans_using_AI-8B5CF6)
-![GitHub last commit](https://img.shields.io/github/last-commit/danielmiessler/PAI)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Claude Code](https://img.shields.io/badge/Powered%20by-Claude%20Code-blue)](https://claude.ai/code)
-[![PAI Video](https://img.shields.io/badge/🎥_Watch-PAI_Video-6B46C1)](https://youtu.be/iKwRWwabkEc)
+<!-- Social Proof -->
+![Stars](https://img.shields.io/github/stars/danielmiessler/PAI?style=social)
+![Forks](https://img.shields.io/github/forks/danielmiessler/PAI?style=social)
+![Watchers](https://img.shields.io/github/watchers/danielmiessler/PAI?style=social)
+
+<!-- Project Health -->
+![Release](https://img.shields.io/github/v/release/danielmiessler/PAI?style=flat&logo=github&color=8B5CF6)
+![Last Commit](https://img.shields.io/github/last-commit/danielmiessler/PAI?style=flat&logo=git&color=22C55E)
+![Open Issues](https://img.shields.io/github/issues/danielmiessler/PAI?style=flat&logo=github&color=F97316)
+![Open PRs](https://img.shields.io/github/issues-pr/danielmiessler/PAI?style=flat&logo=github&color=EC4899)
+![License](https://img.shields.io/github/license/danielmiessler/PAI?style=flat&color=60A5FA)
+
+<!-- Content -->
+[![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
+[![Release v2.4](https://img.shields.io/badge/📦_Release-v2.4-8B5CF6?style=flat)](Releases/v2.4/)
+[![Packs](https://img.shields.io/badge/📦_Packs-23-8B5CF6?style=flat)](Packs/)
+[![Bundles](https://img.shields.io/badge/🎁_Bundles-1-F97316?style=flat)](Bundles/)
+[![Contributors](https://img.shields.io/github/contributors/danielmiessler/PAI?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/PAI/graphs/contributors)
+
+<!-- Tech Stack -->
+[![Built with Claude](https://img.shields.io/badge/Built_with-Claude-D4A574?style=flat&logo=anthropic&logoColor=white)](https://claude.ai)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-000000?style=flat&logo=bun&logoColor=white)](https://bun.sh)
+[![UL Community](https://img.shields.io/badge/UL_Community-5865F2?style=flat&logo=discord&logoColor=white)](https://danielmiessler.com/upgrade)
 
 <br/>
 
-[![Stars](https://img.shields.io/github/stars/danielmiessler/PAI?style=for-the-badge&logo=starship&color=yellow&logoColor=white)](https://github.com/danielmiessler/PAI/stargazers)
-[![Forks](https://img.shields.io/github/forks/danielmiessler/PAI?style=for-the-badge&logo=git&color=blue&logoColor=white)](https://github.com/danielmiessler/PAI/network/members)
-[![Issues](https://img.shields.io/github/issues/danielmiessler/PAI?style=for-the-badge&logo=github&color=red&logoColor=white)](https://github.com/danielmiessler/PAI/issues)
+**Overview:** [Purpose](#the-purpose-of-this-project) · [What is PAI?](#what-is-pai) · [New to AI?](#new-to-this-start-here) · [Principles](#the-pai-principles) · [Primitives](#pai-primitives)
+
+**Get Started:** [Installation](#-installation) · [Packs](#-packs) · [Bundles](#-bundles)
+
+**Resources:** [FAQ](#-faq) · [Roadmap](#-roadmap) · [Community](#-community) · [Contributing](#-contributing)
 
 <br/>
 
-**[Features](#-key-features)** • **[Quick Start](#-quick-start)** • **[Documentation](#-documentation)** • **[Examples](#-examples)** • **[Community](#-community)**
+[![PAI Overview Video](https://img.youtube.com/vi/Le0DLrn7ta0/maxresdefault.jpg)](https://youtu.be/Le0DLrn7ta0)
+
+**[Watch the full PAI walkthrough](https://youtu.be/Le0DLrn7ta0)** | **[Read: The Real Internet of Things](https://danielmiessler.com/blog/real-internet-of-things)**
+
+---
 
 </div>
 
----
-
-## 🚀 **Recent Updates**
-
-> [!TIP]
-> **[🎉 v0.2.4 Released!](https://github.com/danielmiessler/PAI/releases/tag/v0.2.4)** - README Cleanup & Organization
-
-<details>
-<summary><strong>Click to see all updates</strong></summary>
-
-<details open>
-<summary><strong>📅 October 6, 2025 - README Cleanup & Organization (v0.2.4)</strong></summary>
-
-- 📂 **Collapsed Updates**: Implemented two-level collapsing structure for updates section
-- 🎯 **Better Navigation**: Reduced visual clutter with nested `<details>` tags
-- 🧹 **Issue Management**: Closed PR #24 (voice system) after recent system changes
-- 📊 **Space Optimization**: Updates section now takes minimal vertical space
-- ✅ **Accessibility**: All information still accessible through intuitive collapse/expand
-
-</details>
-
-<details>
-<summary><strong>📅 October 2, 2025 - Voice System Update</strong></summary>
-
-- 🎙️ **Zero-Cost Voice System**: Migrated from ElevenLabs API to macOS native Premium/Enhanced voices
-- 💰 **No API Costs**: 100% offline voice synthesis using built-in macOS neural TTS
-- 🔊 **High-Quality Voices**: Uses Premium voices (Jamie, Ava, Serena, Isha) and Enhanced voices (Tom, Oliver, Samantha)
-- 🔒 **Complete Privacy**: All voice processing happens locally, no cloud services
-- ⚙️ **Centralized Config**: Voice settings managed via `voices.json` configuration file
-- 🚀 **Browser Tools Update**: Switched from Playwright to Chrome DevTools MCP for web automation
-
-</details>
-
-<details>
-<summary><strong>📅 September 28, 2025 - Complete Visibility & Portability Update (v0.2.3)</strong></summary>
-
-- 📁 **Directory Renamed**: `.claude` → `PAI_DIRECTORY` for better visibility
-- 🌍 **Vendor Agnostic**: Works with any AI vendor (Claude, GPT, Gemini, etc.)
-- 👁️ **No More Hidden Files**:
-  - `.zshrc` → `zshrc-aliases`
-  - `.env-example` → `env-example`
-- 🔧 **Dynamic Paths**: All hardcoded paths replaced with `${PAI_DIR}`
-- 📍 **Consistent Config**: `.env` now lives in `${PAI_DIR}/.env`
-- 🐛 **Issues Fixed**: #20 (env location) and #21 (hardcoded paths)
-- ✅ **Full Portability**: Install PAI anywhere, everything just works
-
-</details>
-
-<details>
-<summary><strong>📅 September 26, 2025 - Hooks System Update</strong></summary>
-
-- 🪝 **Hooks Sanitized**: Updated all hook files to be public-ready with no sensitive data
-- 🔧 **Path Portability**: All hooks now use `${PAI_DIR}` variable for installation-agnostic paths
-- 🎯 **Session Management**: Updated session-start-hook for proper initialization
-- 🎙️ **Voice Integration**: Enhanced stop-hook with intelligent voice responses and tab titles
-- 📝 **Subagent Support**: Improved subagent-stop-hook for agent-specific voice notifications
-- 🔌 **Dynamic Loading**: Updated load-dynamic-requirements wrapper for proper context loading
-- 🚀 **Ready for Distribution**: All hooks verified clean and ready for public PAI distribution
-
-</details>
-
-<details>
-<summary><strong>📅 September 25, 2025 - Voice Output Format & Bug Fix</strong></summary>
-
-- 🎯 **Mandatory Format**: Enforced structured response format for voice integration
-- 🔊 **Voice System**: Fixed voice notification system breaking due to inconsistent output
-- 🐛 **Field Name Fix**: Fixed stop-hook.ts sending wrong field names (`text`/`voiceId` → `message`/`voice_id`)
-- 📋 **Response Structure**: All responses now use mandatory emoji headers with COMPLETED line
-- 🪝 **Hook Integration**: COMPLETED line properly triggers voice notifications with correct field names
-- ⚡ **Consistency**: Format applies to all responses, even simple answers
-- 📝 **Documentation**: Added comprehensive voice-system.md documentation
-- 📝 **Context Updates**: Updated both local and PAI CLAUDE.md files with strict enforcement
-
-</details>
-
-<details>
-<summary><strong>📅 September 24, 2025 - DA Environment Variable</strong></summary>
-
-- 🤖 **DA Variable**: Separated Digital Assistant name and color configuration
-- 🎨 **DA_COLOR Variable**: Color now configurable via `DA_COLOR` environment variable
-- 📝 **Clean Separation**: `DA` handles the name, `DA_COLOR` handles the display color
-- 🎨 **Color Options**: purple (default), blue, green, cyan, magenta, yellow, red, orange
-- ⚙️ **Configuration**: Add to `.zshrc`:
-  ```bash
-  export DA="YourAssistantName"    # Defaults to "Assistant"
-  export DA_COLOR="purple"         # Choose your color
-  ```
-
-</details>
-
-<details>
-<summary><strong>📅 September 22, 2025 - v0.2 Release</strong></summary>
-
-- 🔗 **Human 3.0**: Added link to projects fit together blog post
-- 📊 **Badges**: Fixed purple color and stats display issues
-- 📝 **Documentation**: Improved table formatting and structure
-- ✨ **Polish**: Enhanced README readability and navigation
-- 🔧 **Fixes**: Minor formatting and display improvements
-
-</details>
-
-<details>
-<summary><strong>📅 September 21, 2025 - v0.1 Release</strong></summary>
-
-- 🎉 **Release**: Published v0.1 - Initial public release
-- 🔒 **Voice**: Hardened the voice server
-- 🏠 **Portability**: PAI_HOME support eliminates hardcoded paths
-- 📚 **Docs**: Comprehensive documentation under `${PAI_DIR}/documentation/`
-- 🔌 **Dynamic**: MCP detection via `settings.json`
-- 🏗️ **Architecture**: Complete system documentation with examples
-
-</details>
-
-<details>
-<summary><strong>📅 Previous Updates</strong></summary>
-
-**September 20, 2025**
-- 🗣️ Added `/voice-server` with ElevenLabs integration
-- 🔧 Fixed hardcoded path issues
-- 🪝 Working on missing hooks
-
-**September 12, 2025**
-- 🧠 Dynamic resource loading system
-- ⚡ Submit-user-hook for context loading
-- 🗺️ Dynamic routing via load-dynamic-requirements
-
-</details>
-
-</details>
-
----
-
-## 🎯 **What is PAI?**
-
-> **Core Mission:** Augment humans with AI capabilities so they can survive and thrive in a world full of AI.
-
-### 🌍 **The Problem**
-
-**It doesn't matter how powerful AI becomes if it's not in the hands of everyone on Earth.**
-
-Right now, AI is trapped behind corporate APIs, expensive subscriptions, and complex interfaces that only developers can use. Meanwhile, billions of people who could benefit from AI augmentation—artists, teachers, small business owners, researchers, parents—are left behind.
-
-PAI exists to solve this. This project's goal is to give the most powerful AI capabilities, in the form of a complete platform, to everyone on Earth. Not just the tech elite. Not just the wealthy. Everyone.
+> [!IMPORTANT]
+> **PAI v2.4.0 Released** — The Algorithm: A universal problem-solving system with ISC tracking and Euphoric Surprise.
+>
+> **[Release notes →](Releases/v2.4/README.md)** | **[GitHub Release →](https://github.com/danielmiessler/PAI/releases/tag/v2.4.0)**
 
 <div align="center">
 
-```mermaid
-graph TB
-    You[👤 You] --> PAI[🧠 PAI/Kai]
-    
-    PAI --> Work[💼 Work]
-    PAI --> Life[🏠 Life]
-    
-    Work --> Blog[📝 write-blog]
-    Work --> News[📊 get-newsletter-stats]
-    Work --> Site[🌐 get-site-analytics]
-    Work --> Consult[💼 create-consulting-document]
-    
-    Life --> Finance[💰 answer-finance-question]
-    Life --> Memory[🔍 get-life-log]
-    Life --> Alert[🔔 send-text-alert]
-    Life --> Health[🏥 track-health-metrics]
-    
-    Blog --> Output[✨ Augmented Output]
-    News --> Output
-    Site --> Output
-    Consult --> Output
-    Finance --> Output
-    Memory --> Output
-    Alert --> Output
-    Health --> Output
-    
-    style You fill:#24283b,stroke:#7aa2f7,stroke-width:2px,color:#c0caf5
-    style PAI fill:#1a1b26,stroke:#bb9af7,stroke-width:3px,color:#c0caf5
-    style Work fill:#24283b,stroke:#9ece6a,stroke-width:2px,color:#c0caf5
-    style Life fill:#24283b,stroke:#ff9e64,stroke-width:2px,color:#c0caf5
-    style Output fill:#1a1b26,stroke:#f7768e,stroke-width:3px,color:#c0caf5
-```
+# AI should magnify everyone—not just the top 1%.
 
 </div>
 
-**PAI is an open-source, full personal AI platform that's completely agnostic to who you are and what you're trying to accomplish.**
+## The Purpose of This Project
 
-Think of PAI as your personal AI that actually knows you—all your projects, your style, your data—and can handle anything you throw at it. Whether you're an artist transitioning to independence, a founder building a company, or someone managing complex health needs, PAI becomes whatever you need it to be.
+**PAI exists to solve what I believe is the [P0 problem](https://danielmiessler.com/telos) in the world:**
 
-PAI is part of the journey toward Human 3.0—where humans are augmented by AI to amplify their capabilities.
+### Only a tiny fraction of humanity's creative potential is activated on Earth.
 
-📖 **[Learn how PAI fits into the Human 3.0 vision](https://danielmiessler.com/blog/how-my-projects-fit-together)**
+Most people don't believe they have valuable contributions to make. They think there are "special" people—and they aren't one of them. They've never asked who they are, what they're about, and have never articulated or written it down. This makes them catastrophically vulnerable to AI displacement. Without activation, there is no high-agency.
 
-<table>
-<tr>
-<td width="33%" valign="top">
+So our goal with PAI is to activate people.
 
-### 🧠 **Life Management**
+**PAI's mission is twofold:**
 
-**Finance Intelligence**
-- `answer-finance-question` - Analyze bank statements
-- `get-finances-state` - Track spending patterns
-- Parse PDFs for utility bills and expenses
+1. **Activate as many people as possible** — Help people identify, articulate, and pursue their own purpose in life through AI-augmented self-discovery
+2. **Make the best AI available in the world accessible to everyone** — Ensure this quality of AI infrastructure isn't reserved for just the rich or technical elite.
 
-**Memory & Conversations**
-- `get-life-log` - Search recorded meetings
-- Query Limitless.ai pendant recordings
-- Find what was discussed at any event
-
-**Health Tracking**
-- Monitor wellness metrics
-- Track medical records
-- Analyze sleep and fitness data
-
-</td>
-<td width="33%" valign="top">
-
-### 💼 **Professional**
-
-**Content Creation**
-- `write-blog` - Generate posts in your style
-- `publish-blog` - Deploy to production
-- `enhance-content` - Improve existing work
-
-**Business Analytics**
-- `get-newsletter-stats` - Beehiiv metrics
-- `get-site-analytics` - Website performance
-- `create-consulting-document` - Client deliverables
-
-**Development**
-- `design-review` - Code analysis
-- `browser-tools-setup` - Automation
-- `update-daemon` - API management
-
-</td>
-<td width="33%" valign="top">
-
-### 🎯 **Personal Growth**
-
-**Knowledge Capture**
-- `extract-knowledge` - Learn from content
-- `capture-learning` - Document insights
-- `web-research` - Deep investigations
-
-**Communication**
-- `send-email` - Automated outreach
-- `send-text-alert` - SMS notifications
-- `send-discord-alert` - Team updates
-
-**Productivity**
-- `add-linear-ticket` - Task management
-- `create-mermaid-visualization` - Idea mapping
-- `query-context` - Access any stored knowledge
-
-</td>
-</tr>
-</table>
-
-### 🌟 **Why This System is Different**
-
-> *This system is designed from the very beginning to be available to anybody and to grow and scale with you throughout your life.*
-
-- **🔓 Open Framework**: No vendor lock-in, complete transparency, you own everything
-- **🌍 Universal**: Works for anyone, anywhere, in any profession or life situation
-- **🤖 Platform Independent**: Core structure works with Claude, GPT, Gemini, or any AI platform
-- **🧠 Persistent Memory**: Your AI remembers every context, project, and conversation
-- **🎯 Task Agnostic**: From writing a blog to tracking medical data to running a business
-- **📁 Plain Text**: All configuration in human-readable files you can edit and understand
-- **🔌 Extensible**: Add your own commands, agents, and integrations
-
-📖 **[Read the full technical deep-dive on PAI](https://danielmiessler.com/blog/personal-ai-infrastructure)**
+That's why this is an open-source project instead of private.
 
 ---
 
-## ⚡ **Architecture**
+## New to This? Start Here
 
-### 🏗️ **The PAI System Architecture**
+You've probably used ChatGPT or Claude. Type a question, get an answer. Simple.
 
-```mermaid
-graph TD
-    User[👤 You] --> Hooks[🪝 Dynamic Hooks]
-    
-    Hooks --> UFC[📁 UFC Context System]
-    Hooks --> Commands[⚡ Custom Commands]
-    
-    UFC --> Projects[🧠 Projects]
-    UFC --> Life[🏠 Life Context]
-    UFC --> Work[💼 Work Context]
-    
-    Commands --> MCPs[🔌 MCP Servers]
-    Commands --> Agents[🤖 AI Agents]
-    Commands --> APIs[🌐 API Integrations]
-    
-    MCPs --> Playwright[🎭 Browser Automation]
-    MCPs --> Stripe[💳 Payment Processing]
-    MCPs --> Analytics[📊 Analytics]
-    
-    Agents --> Output[✨ Augmented Actions]
-    APIs --> Output
-    MCPs --> Output
-    
-    style User fill:#1f2937,stroke:#10b981,stroke-width:2px,color:#e5e7eb
-    style Hooks fill:#111827,stroke:#8b5cf6,stroke-width:2px,color:#e5e7eb
-    style Output fill:#111827,stroke:#ef4444,stroke-width:2px,color:#e5e7eb
-```
+You can think of AI systems as **three levels**:
 
-### 📁 **UFC Context System**
+<p align="center">
+  <img src="./images/pai-eli5-diagram.png" alt="The AI Evolution - From chatbots to your personal AI system" width="800">
+</p>
 
-<table>
-<tr>
-<td width="50%">
+### Chatbots
 
-```
-${PAI_DIR}/context/
-├── projects/
-│   ├── website/
-│   ├── Alma/
-│   └── PAI/
-├── life/
-│   ├── finances/
-│   ├── health/
-│   └── expenses/
-├── work/
-│   ├── consulting/
-│   └── business/
-└── benefits/
-    └── credit-cards/
-```
+ChatGPT, Claude, Gemini—you ask something, it answers, and then it forgets everything. Next conversation starts fresh. No memory of you, your preferences, or what you talked about yesterday.
 
-</td>
-<td width="50%">
+**The pattern:** Ask → Answer → Forget
 
-**Features:**
-- ✅ Persistent memory across sessions
-- 📄 Plain text files - human readable
-- ⚡ Dynamic loading based on context
-- 📂 Hierarchical organization
+### Agentic Platforms
 
-</td>
-</tr>
-</table>
+Tools like Claude Code, Cursor, and Windsurf. The AI can actually *do* things—write code, browse the web, edit files, run commands.
 
-### ⚡ **Custom Commands**
+**The pattern:** Ask → Use tools → Get result
 
-> [!NOTE]
-> **These are examples from my setup. Your PAI will have completely different commands based on YOUR unique needs. The possibilities are infinite!**
+More capable, but it still doesn't know *you*—your goals, your preferences, your history.
 
-<table>
-<tr>
-<td width="50%">
+### PAI (Personal AI Infrastructure)
 
-**💼 Professional:**
-- `write-blog` - Content generation
-- `get-newsletter-stats` - Beehiiv metrics  
-- `design-review` - Code analysis
-- `create-consulting-document` - Client docs
-- `update-daemon` - API management
+Now your DA **learns and improves**:
+- **Captures every signal** — Ratings, sentiment, verification outcomes
+- **Learns from mistakes** — Failures get analyzed and fixed
+- **Gets better over time** — Success patterns get reinforced
+- **Upgrades itself** — Skills, workflows, even the core behavior evolves
 
-</td>
-<td width="50%">
+Plus it knows:
+- **Your goals** — What you're working toward
+- **Your preferences** — How you like things done
+- **Your history** — Past decisions and learnings
 
-**🏠 Personal:**
-- `answer-finance-question` - Financial insights
-- `get-life-log` - Limitless.ai integration
-- `send-text-alert` - SMS notifications
-- `track-health-metrics` - Wellness tracking
-- `capture-learning` - Knowledge capture
+**The pattern:** Observe → Think → Plan → Execute → Verify → **Learn** → Improve
 
-</td>
-</tr>
-</table>
-
-**🚀 60+ commands** ready to use out of the box
-
-### 🤖 **Specialized Agents**
-
-> [!IMPORTANT]
-> **These agents are examples. You'll create your own specialized agents for YOUR specific workflows - artists might have creative agents, doctors might have diagnostic agents, teachers might have curriculum agents. The system adapts to YOU.**
-
-| Agent | Purpose | Tools | Use Case |
-|:------|:--------|:------|:---------|
-| **🔍 Researcher** | Deep web research | WebSearch, WebFetch | Information gathering |
-| **⚙️ Engineer** | Production code | Testing, Debugging | Software development |
-| **🎨 Designer** | UX/UI design | Figma, shadcn/ui | Interface creation |
-| **🔒 Pentester** | Security testing | Nmap, Burp | Vulnerability assessment |
-| **🏗️ Architect** | System design | Diagrams, PRDs | Technical planning |
-
-**Enhanced with:**
-- 🎙️ ElevenLabs voice synthesis
-- ⚡ Task parallelization
-- 🔌 Deep tool integration
-
-### 🪝 **Dynamic Hook System**
-
-<table>
-<tr>
-<td width="50%">
-
-**📥 Context Loading Hooks:**
-- `submit-user-hook` - Loads context by intent
-- `load-dynamic-requirements` - Smart routing
-- Automatic agent selection
-- Domain-specific knowledge injection
-
-</td>
-<td width="50%">
-
-**🔧 Integration Hooks:**
-- Pre/post command execution
-- Error handling and recovery  
-- Rate limiting and validation
-- Security scanning
-
-</td>
-</tr>
-</table>
-
-### 🔌 **MCP Server Ecosystem**
-
-<table>
-<tr>
-<td>
-
-**🌐 Browser & Testing**
-- Playwright automation
-- Puppeteer control
-- Selenium testing
-- Visual regression
-
-</td>
-<td>
-
-**💳 Financial**  
-- Stripe API
-- Square payments
-- PayPal integration
-- Crypto wallets
-
-</td>
-<td>
-
-**📊 Analytics**
-- Google Analytics
-- Mixpanel tracking
-- Beehiiv stats
-- Site metrics
-
-</td>
-<td>
-
-**💬 Communication**
-- ElevenLabs TTS
-- OpenAI Voice
-- Discord bots
-- Email/SMS
-
-</td>
-</tr>
-</table>
+The key difference: **PAI learns from feedback**. Every interaction makes it better at helping *you* specifically.
 
 ---
 
-## 🚀 **Quick Start**
+## What is PAI?
 
-> [!NOTE]
-> PAI was originally built with [Claude Code](https://claude.ai/code), but the architecture supports any AI platform (GPT, Gemini, etc.)
-> Requires [Bun](https://bun.sh) JavaScript runtime for the current implementation.
+PAI is a Personalized AI Platform designed to magnify your capabilities.
 
-### **Installation**
+It's designed for humans most of all, but can be used by teams, companies, or Federations of Planets desiring to be better versions of themselves.
 
-#### **Step 1: Install Prerequisites**
+The scale of the entity doesn't matter: It's a system for understanding, articulating, and realizing its principal's goals using a full-featured Agentic AI Platform.
 
-```bash
-# Install Bun (JavaScript runtime)
-brew install oven-sh/bun/bun 
+### Who is PAI for?
 
-# Get Claude Code (AI interface)
-# Visit: https://claude.ai/code
+**Everyone, full stop.** It's the anti-gatekeeping AI project.
+
+- **Small business owners** who aren't technical but want AI to handle invoicing, scheduling, customer follow-ups, and marketing
+- **Companies** who want to understand their data, optimize operations, and make better decisions
+- **Managers** who want to run their teams more effectively—tracking projects, preparing for reviews, and communicating clearly
+- **Artists and creatives** who want to find local events, galleries, and opportunities to showcase their work
+- **Everyday people** who want to improve their lives—better fitness routines, stronger social connections, personal finance, or just getting organized
+- **Developers** using AI coding assistants who want persistent memory and custom workflows
+- **Power users** who want their AI to know their goals, preferences, and context
+- **Teams** building shared AI infrastructure with consistent capabilities
+- **Experimenters** interested in AI system design and personal AI patterns
+
+### What makes PAI different?
+
+The first thing people ask is:
+
+> How is this different from Claude Code, or any of the other agentic systems?
+
+Most agentic systems are built around tools with the user being an afterthought. They are also mostly task-based instead of being goal-based using all the context available to them. PAI is the opposite.
+
+**Three core differentiators:**
+
+1. **Goal Orientation** — PAI's primary focus is on the human running it and what they're trying to do in the world, not the tech. This is built into how the system executes all tasks.
+
+2. **Pursuit of Optimal Output** — The system's outer loop and everything it does is trying to produce the exact right output given the current situation and all the contexts around it.
+
+3. **Continuous Learning** — The system constantly captures signals about what was done, what changes were made, what outputs were produced for each request, and then how you liked or disliked the results.
+
+---
+
+## The PAI Principles
+
+These principles guide how PAI systems are designed and built. **[Full breakdown →](https://danielmiessler.com/blog/personal-ai-infrastructure)**
+
+| # | Principle | Summary |
+|---|-----------|---------|
+| 1 | **User Centricity** | PAI is built around you, not tooling. Your goals, preferences, and context come first—the infrastructure exists to serve them. |
+| 2 | **The Foundational Algorithm** | The scientific method as a universal problem-solving loop: Observe → Think → Plan → Build → Execute → Verify → Learn. Define the ideal state, iterate until you reach it. |
+| 3 | **Clear Thinking First** | Good prompts come from clear thinking. Clarify the problem before writing the prompt. |
+| 4 | **Scaffolding > Model** | System architecture matters more than which model you use. |
+| 5 | **Deterministic Infrastructure** | AI is probabilistic; your infrastructure shouldn't be. Use templates and patterns. |
+| 6 | **Code Before Prompts** | If you can solve it with a bash script, don't use AI. |
+| 7 | **Spec / Test / Evals First** | Write specifications and tests before building. Measure if the system works. |
+| 8 | **UNIX Philosophy** | Do one thing well. Make tools composable. Use text interfaces. |
+| 9 | **ENG / SRE Principles** | Treat AI infrastructure like production software: version control, automation, monitoring. |
+| 10 | **CLI as Interface** | Command-line interfaces are faster, more scriptable, and more reliable than GUIs. |
+| 11 | **Goal → Code → CLI → Prompts → Agents** | The decision hierarchy: clarify goal, then code, then CLI, then prompts, then agents. |
+| 12 | **Skill Management** | Modular capabilities that route intelligently based on context. |
+| 13 | **Memory System** | Everything worth knowing gets captured. History feeds future context. |
+| 14 | **Agent Personalities** | Different work needs different approaches. Specialized agents with unique voices. |
+| 15 | **Science as Meta-Loop** | Hypothesis → Experiment → Measure → Iterate. |
+| 16 | **Permission to Fail** | Explicit permission to say "I don't know" prevents hallucinations. |
+
+---
+
+## PAI Primitives
+
+While the Principles describe the *philosophy* of PAI, the Primitives are the *architecture*—the core systems that make everything work.
+
+<p align="center">
+  <img src="./images/pai-unique-components-diagram.png" alt="PAI Primitives - A system that knows you, not a tool harness" width="800">
+</p>
+
+These primitives work together to create the experience of working with a system that understands and knows you—as opposed to a tool harness that just executes commands.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-1-assistant-vs-agent.png" alt="Assistant vs Agent-Based Interaction" width="700">
+</p>
+
+### Assistant vs. Agent-Based AI Interaction
+
+PAI treats AI as a [persistent assistant, friend, coach, and mentor](https://danielmiessler.com/blog/personal-ai-maturity-model) rather than a stateless agent that runs tasks. An assistant knows your goals, remembers your preferences, and improves over time. An agent executes commands and forgets.
+
+---
+
+<p align="center">
+  <img src="./images/pai-primitive-telos.png" alt="TELOS - Deep Goal Understanding" width="700">
+</p>
+
+### TELOS (Deep Goal Understanding)
+
+10 files that capture who you are: MISSION.md, GOALS.md, PROJECTS.md, BELIEFS.md, MODELS.md, STRATEGIES.md, NARRATIVES.md, LEARNED.md, CHALLENGES.md, IDEAS.md. Your DA knows what you're working toward because it's all documented.
+
+---
+
+<p align="center">
+  <img src="./images/pai-primitive-user-system-separation.png" alt="User/System Separation" width="700">
+</p>
+
+### User/System Separation
+
+Your customizations live in USER/. PAI infrastructure lives in SYSTEM/. When PAI upgrades, your files are untouched. Portable identity, upgrade-safe.
+
+---
+
+<p align="center">
+  <img src="./images/pai-primitive-customization.png" alt="Granular Customization" width="700">
+</p>
+
+### Granular Customization
+
+Six layers of customization: Identity (name, voice, personality), Preferences (tech stack, tools), Workflows (how skills execute), Skills (what capabilities exist), Hooks (how events are handled), and Memory (what gets captured). Start with defaults, customize when needed.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-2-skill-system.png" alt="Skill System" width="700">
+</p>
+
+### Skill System
+
+Highly focused on consistent results. It has a structure that puts *deterministic outcomes first* by going from CODE -> CLI-BASED-TOOL -> PROMPT -> SKILL instead of a haphazard structure.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-3-memory-system.png" alt="Memory System" width="700">
+</p>
+
+### Memory System
+
+Focused on continuous learning. Every interaction generates signals—ratings, sentiment, successes, failures—that feed back into improving the system. Three-tier architecture (hot/warm/cold) with phase-based learning directories.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-6-hook-system.png" alt="Hook System" width="700">
+</p>
+
+### Hook System
+
+Responds to lifecycle events—session start, tool use, task completion, and more. 8 event types enable voice notifications, automatic context loading, session capture, security validation, and observability.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-5-security-system.png" alt="Security System" width="700">
+</p>
+
+### Security System
+
+Defines system and user-level security policies by default. You don't have to run with `--dangerously-skip-permissions` to have an uninterrupted experience. PAI's security hooks validate commands before execution, blocking dangerous operations while allowing normal workflows to proceed smoothly.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-4-ai-installation.png" alt="AI-Based Installation" width="700">
+</p>
+
+### AI-Based Installation
+
+Your AI assistant reads the packs, understands your system, and installs everything for you. No manual configuration, no guessing—the AI handles it.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-8-notification-system.png" alt="Notification System" width="700">
+</p>
+
+### Notification System
+
+Keeps you informed without being intrusive. Push notifications via ntfy for mobile alerts, Discord integration for team updates, and duration-aware routing that escalates for long-running tasks. Fire-and-forget design means notifications never block your workflow.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-9-voice-system.png" alt="Voice System" width="700">
+</p>
+
+### Voice System
+
+Powered by ElevenLabs TTS. Hear task completions, session summaries, and important updates spoken aloud. Prosody enhancement makes speech sound natural. Your AI has a voice.
+
+---
+
+<p align="center">
+  <img src="./images/pai-component-7-terminal-ui.png" alt="Terminal-Based UI" width="700">
+</p>
+
+### Terminal-Based UI
+
+Rich tab titles and pane management. Dynamic status lines show learning signals, context usage, and current task state. Your terminal is a command center.
+
+---
+
+## 🚀 Installation
+
+> [!CAUTION]
+> **Project in Active Development** — PAI is evolving rapidly. Expect breaking changes, restructuring, and frequent updates. We are working on stable and development branches, but currently it's all combined.
+
+### Which Install Path Should I Use?
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Do you want a complete, working PAI system right now?          │
+│                                                                 │
+│     YES ──────────► Option 1: Full Release Install              │
+│                     (Complete .claude/ directory, ~5 min)       │
+│                                                                 │
+│     NO, I want to customize or learn the system                 │
+│         │                                                       │
+│         ├──► Option 2: Bundle + Packs (Build it yourself)       │
+│         │    (Skeleton structure, then install packs manually)  │
+│         │                                                       │
+│         └──► Option 3: Individual Packs (Cherry-pick)           │
+│              (Install only specific capabilities you need)      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-#### **Step 2: Clone PAI Repository**
+---
+
+### Option 1: Full Release Install (Recommended)
+
+> **This is the fastest path to a working PAI system.** You get a complete, pre-configured `.claude/` directory with all infrastructure packs already installed.
 
 ```bash
-# Clone the PAI repository
+# Clone the repo
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI
+cd PAI/Releases/v2.4
 
-# Note: PAI_DIRECTORY is now visible by default
-ls -la  # See all files including PAI_DIRECTORY
+# Back up your existing Claude Code configuration (if any)
+[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# Copy the complete PAI installation
+cp -r .claude ~/
+
+# Run the configuration wizard
+cd ~/.claude && bun run PAIInstallWizard.ts
 ```
 
-#### **Step 3: Configure PAI Directory Variable** ⚠️ **IMPORTANT**
+**The wizard will:**
+- Ask for your name, DA name, and timezone
+- Configure environment variables (works with both bash and zsh)
+- Set up voice preferences (optional)
+- Verify the installation
 
-> [!IMPORTANT]
-> **You MUST configure the PAI_DIR variable to point to your PAI installation directory.**
-> This makes the PAI system completely agnostic to your installation location.
+**After installation:** Restart Claude Code to activate hooks.
 
-```bash
-# Add to your shell config (~/.zshrc or ~/.bashrc)
-# Replace /path/to/PAI with YOUR actual PAI installation path
-export PAI_DIR="/path/to/PAI/PAI_DIRECTORY"  # Point to the PAI_DIRECTORY in your PAI installation
-export PAI_HOME="$HOME"  # Your home directory
-
-# Example (adjust to YOUR installation path):
-# export PAI_DIR="$HOME/Projects/PAI/PAI_DIRECTORY"
-# export PAI_DIR="$HOME/Documents/PAI/PAI_DIRECTORY"
-# export PAI_DIR="/Users/yourname/PAI/PAI_DIRECTORY"
-
-# Reload your shell configuration
-source ~/.zshrc  # or source ~/.bashrc
-```
-
-#### **Step 4: Configure Environment**
-
-```bash
-# Copy environment template to PAI_DIRECTORY
-cp ${PAI_DIR}/env-example ${PAI_DIR}/.env
-
-# Add your API keys (optional)
-vim ${PAI_DIR}/.env
-# Add: OPENAI_API_KEY="your_key_here" (if using GPT integration)
-```
-
-#### **Step 5: Launch PAI**
-
-```bash
-# Navigate to PAI directory
-cd ${PAI_DIR}
-
-# Optional: Set up voice notifications (macOS only)
-# Download Premium/Enhanced voices from System Settings → Voice (Live Speech)
-# Then start the voice server:
-cd voice-server && bun server.ts &
-# See documentation/VOICE-SETUP-GUIDE.md for detailed setup instructions
-
-# Open Claude Code and start using PAI!
-# Your personal AI infrastructure is ready 🚀
-```
-
-### **⚙️ Environment Variables**
-
-```bash
-# Required - MUST be configured for PAI to work properly
-PAI_DIR="/path/to/PAI/PAI_DIRECTORY"    # PAI's PAI_DIRECTORY (system agnostic)
-PAI_HOME="$HOME"                  # Your home directory
-
-# Optional API Keys
-OPENAI_API_KEY="your_key"         # GPT integration (optional)
-PORT="8888"                        # Voice server port (default: 8888)
-
-# Digital Assistant Customization
-DA="YourAssistantName"            # Your AI assistant's name (default: "Assistant")
-DA_COLOR="purple"                 # Display color (purple, blue, green, cyan, etc.)
-```
-
-> [!TIP]
-> **Why PAI_DIR is Important:** The PAI_DIR variable makes the entire PAI system portable and installation-agnostic. All commands, contexts, and hooks reference `${PAI_DIR}` instead of hardcoded paths. This means you can install PAI anywhere on your system, and as long as PAI_DIR points to your `PAI_DIRECTORY`, everything will work seamlessly.
+[**Full Release documentation →**](Releases/v2.4/README.md)
 
 ---
 
-## 📚 **Documentation**
+### Option 2: Bundle + Manual Pack Installation
+
+> **For users who want to understand the system** as they build it, or need a customized setup.
+
+> [!WARNING]
+> The Bundle wizard creates a **skeleton directory structure only**. You must then install each pack manually in the correct order for a working system.
+
+```bash
+# Clone the repo
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/Bundles/Official
+
+# Run the interactive wizard (creates skeleton structure)
+bun run install.ts
+```
+
+**After the wizard completes, you MUST install packs in this order:**
+
+| Order | Pack | Command |
+|-------|------|---------|
+| 1 | pai-hook-system | "Install the pack at PAI/Packs/pai-hook-system/" |
+| 2 | pai-core-install | "Install the pack at PAI/Packs/pai-core-install/" |
+| 3 | pai-statusline | "Install the pack at PAI/Packs/pai-statusline/" |
+| 4+ | Any skill packs | Install as needed |
+
+[**Bundle documentation →**](Bundles/Official/README.md)
+
+---
+
+### Option 3: Individual Pack Installation
+
+Install individual packs by giving them to your DA:
+
+1. **Browse packs** - Find a pack you want in [Packs/](Packs/)
+2. **Give it to your DA** - Provide the pack directory path
+3. **Ask your DA to install it:**
+
+```
+Install this pack into my system. Use PAI_DIR="~/.claude"
+and DA="MyAI". Set up the hooks, save the code, and verify it works.
+```
+
+### Option 4: Browse and Cherry-Pick
+
+Packs are self-contained. You can:
+- Read the code directly in the pack
+- Copy specific functions or workflows
+- Adapt the approach to your own system
+- Use it as reference documentation
+
+**No forced structure. No mandatory setup. Take what's useful, leave the rest.**
+
+---
+
+## 📦 Packs
+
+PAI capabilities are distributed as **Packs**—self-contained, AI-installable modules that add specific capabilities to your system.
+
+Each pack includes everything needed: code, workflows, installation instructions, and verification tests. Your DA reads the pack and installs it into your system—no manual copying required.
+
+### Infrastructure Packs
+
+| Pack | Description |
+|------|-------------|
+| [**pai-core-install**](Packs/pai-core-install/) | Core skills, identity, MEMORY system, and response format |
+| [**pai-hook-system**](Packs/pai-hook-system/) | Event-driven automation and security validation |
+| [**pai-voice-system**](Packs/pai-voice-system/) | Voice notifications with ElevenLabs TTS |
+| [**pai-observability-server**](Packs/pai-observability-server/) | Real-time agent monitoring dashboard |
+| [**pai-statusline**](Packs/pai-statusline/) | 4-mode responsive status line with learning signals |
+
+### Skill Packs
+
+| Pack | Description |
+|------|-------------|
+| [**pai-agents-skill**](Packs/pai-agents-skill/) | Dynamic agent composition with personality mapping |
+| [**pai-algorithm-skill**](Packs/pai-algorithm-skill/) | ISC management, effort classification |
+| [**pai-annualreports-skill**](Packs/pai-annualreports-skill/) | Annual security report aggregation |
+| [**pai-art-skill**](Packs/pai-art-skill/) | Visual content generation |
+| [**pai-brightdata-skill**](Packs/pai-brightdata-skill/) | Progressive URL scraping |
+| [**pai-browser-skill**](Packs/pai-browser-skill/) | Browser automation with Playwright |
+| [**pai-council-skill**](Packs/pai-council-skill/) | Multi-agent debate system |
+| [**pai-createcli-skill**](Packs/pai-createcli-skill/) | Generate TypeScript CLI tools |
+| [**pai-createskill-skill**](Packs/pai-createskill-skill/) | Create and validate PAI skills |
+| [**pai-firstprinciples-skill**](Packs/pai-firstprinciples-skill/) | First principles analysis |
+| [**pai-osint-skill**](Packs/pai-osint-skill/) | Open source intelligence gathering |
+| [**pai-privateinvestigator-skill**](Packs/pai-privateinvestigator-skill/) | Ethical people-finding |
+| [**pai-prompting-skill**](Packs/pai-prompting-skill/) | Meta-prompting system |
+| [**pai-recon-skill**](Packs/pai-recon-skill/) | Security reconnaissance |
+| [**pai-redteam-skill**](Packs/pai-redteam-skill/) | Adversarial analysis with 32 agents |
+| [**pai-research-skill**](Packs/pai-research-skill/) | Multi-source research |
+| [**pai-system-skill**](Packs/pai-system-skill/) | System maintenance and integrity checks |
+| [**pai-telos-skill**](Packs/pai-telos-skill/) | Life OS and deep goal capture |
+
+> **23 packs total** — 5 infrastructure + 18 skills. All extracted from production PAI systems.
+
+---
+
+## 📦 Bundles
+
+**Bundles** are curated collections of packs designed to work together.
+
+| Bundle | Description | Packs |
+|--------|-------------|-------|
+| [**PAI Bundle**](Bundles/Official/) | The official PAI bundle - complete personal AI infrastructure | 5 |
+
+**Quick install:**
+```bash
+git clone https://github.com/danielmiessler/PAI.git
+cd PAI/Bundles/Official && bun run install.ts
+```
+
+[**Learn more about bundles →**](Bundles/)
+
+---
+
+## ❓ FAQ
+
+### How is PAI different from just using Claude Code?
+
+PAI isn't a replacement for Claude Code—it's what you build *on top of it*. Claude Code gives you an AI that can read files, write code, and execute commands. But it's generic. It doesn't know your goals, your preferred workflows, your history, or your specific context.
+
+PAI provides the scaffolding to make that generic AI *yours*:
+
+- **Persistent memory** — Your DA remembers past sessions, decisions, and learnings
+- **Custom skills** — Specialized capabilities for the things you do most
+- **Your context** — Goals, contacts, preferences—all available without re-explaining
+- **Intelligent routing** — Say "research this" and the right workflow triggers automatically
+- **Self-improvement** — The system modifies itself based on what it learns
+
+Think of it this way: Claude Code is the engine. PAI is everything else that makes it *your* car.
+
+### Do I need to install everything?
+
+No. PAI v2 is modular by design:
+
+- **Packs are independent** — Install one, install ten, install none
+- **Start small** — Begin with the Hook System, add more when you need it
+- **No dependencies on the whole** — Each pack declares its dependencies explicitly
+- **Incremental adoption** — Use PAI alongside your existing setup
+
+The best way to start: pick ONE pack that solves a problem you have today.
+
+### What's the difference between PAI and Anthropic's plugin system?
+
+Anthropic's plugin system (Skills, slash commands, MCP servers) provides discrete functionality—individual tools your DA can use.
+
+**Anthropic's plugins** = Individual pieces of functionality that don't understand overall context
+
+**PAI** = A complete system where everything understands the context—your goals, your workflows, how pieces work together
+
+The plugin system offers building blocks. PAI offers a complete system.
+
+### Is PAI only for Claude Code?
+
+No. PAI packs are designed to be platform-agnostic. While the examples use Claude Code, the packs work with OpenCode, Cursor, Windsurf, and custom systems. The code is TypeScript, Python, and Bash—the concepts are universal.
+
+### How is this different from fabric?
+
+[Fabric](https://github.com/danielmiessler/fabric) is a collection of AI prompts (patterns) for specific tasks. It's focused on *what to ask AI*.
+
+PAI is infrastructure for *how your DA operates*—memory, skills, routing, context, self-improvement. They're complementary. Many PAI users integrate Fabric patterns into their skills.
+
+### What if I break something?
+
+The modular design makes recovery easy:
+
+- **Packs are isolated** — Breaking one doesn't affect others
+- **History is preserved** — Your DA's memory survives mistakes
+- **Git-backed** — Version control everything, roll back when needed
+- **DA can fix it** — Your DA helped build it, it can help repair it
+
+---
+
+## 🎯 Roadmap
+
+| Feature | Description |
+|---------|-------------|
+| **Local Model Support** | Run PAI with local models (Ollama, llama.cpp) for privacy and cost control |
+| **Granular Model Routing** | Route different tasks to different models based on complexity |
+| **Remote Access** | Access your PAI from anywhere—mobile, web, other devices |
+| **Outbound Phone Calling** | Voice capabilities for outbound calls |
+| **External Notifications** | Robust notification system for Email, Discord, Telegram, Slack |
+
+---
+
+## 🌐 Community
+
+**GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/PAI/discussions)
+
+**UL Community Discord:** PAI is discussed in the [Unsupervised Learning community](https://danielmiessler.com/upgrade) along with other AI projects
+
+**Twitter/X:** [@danielmiessler](https://twitter.com/danielmiessler)
+
+**Blog:** [danielmiessler.com](https://danielmiessler.com)
+
+### Star History
+
+<a href="https://star-history.com/#danielmiessler/PAI&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=danielmiessler/PAI&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=danielmiessler/PAI&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=danielmiessler/PAI&type=Date" />
+ </picture>
+</a>
+
+---
+
+## 🤝 Contributing
+
+### Submit a Pack
+
+1. **Fork the repository**
+2. **Create your pack** using [PAIPackTemplate.md](Tools/PAIPackTemplate.md)
+3. **Test it** — Install in a fresh system with AI assistance
+4. **Submit a PR** with examples and testing evidence
+
+Packs are reviewed for completeness, code quality, security, and usefulness. Most packs reviewed within 7 days.
+
+**Pack authors maintain their packs** — respond to issues, fix bugs, consider feature requests.
+
+---
+
+## 📜 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Credits
+
+**Anthropic and the Claude Code team** — First and foremost. You are moving AI further and faster than anyone right now. Claude Code is the foundation that makes all of this possible.
+
+**[IndyDevDan](https://www.youtube.com/@indydevdan)** — For great videos on meta-prompting and custom agents that have inspired parts of PAI.
+
+### Contributors
+
+**[fayerman-source](https://github.com/fayerman-source)** — Google Cloud TTS provider integration and Linux audio support for the voice system.
+
+**Matt Espinoza** — Extensive testing, ideas, and feedback for the PAI 2.3 release, plus roadmap contributions.
+
+---
+
+## 💜 Support This Project
 
 <div align="center">
 
-| 📖 Guide | 🎯 Purpose | ⏱️ Time |
-|----------|------------|---------|
-| [Quick Start](#-quick-start) | Get up and running | 5 min |
-| [Architecture](#-architecture) | Understand the system | 10 min |
-| [SECURITY.md](./SECURITY.md) | Security guidelines | 5 min |
-| [Voice Server](./PAI_DIRECTORY/voice-server/README.md) | Enable voice interaction | 10 min |
-| [Commands Directory](./PAI_DIRECTORY/commands/) | Browse all commands | 15 min |
+<a href="https://github.com/sponsors/danielmiessler"><img src="https://img.shields.io/badge/Sponsor-❤️-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="Sponsor"></a>
+
+**PAI is free and open-source forever. If you find it valuable, you can [sponsor the project](https://github.com/sponsors/danielmiessler).**
 
 </div>
 
 ---
 
-## 🎬 **Real-World Examples**
-
-<div align="center">
-
-> [!IMPORTANT]
-> **These are examples from my personal PAI setup. Your system will have completely different commands based on YOUR unique needs, workflows, and goals. The beauty of PAI is that it becomes whatever YOU need it to be.**
-
-</div>
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-### 💼 **Professional**
-
-#### 📈 **Business & Analytics**
-
-<details>
-<summary><strong>📊 Newsletter Performance</strong></summary>
-
-```bash
-# Track newsletter metrics in real-time
-get-newsletter-stats
-# Returns subscriber growth, open rates, top content
-```
-
-</details>
-
-<details>
-<summary><strong>🚀 Startup Dashboard</strong></summary>
-
-```bash
-# Monitor all key metrics
-get-site-analytics        # Traffic and conversions
-get-finances-state        # Revenue tracking
-add-linear-ticket         # Development velocity
-```
-
-</details>
-
-#### 🔒 **Development & Security**
-
-<details>
-<summary><strong>🔍 Code Security</strong></summary>
-
-```bash
-# Security automation
-check-for-sensitive --scan all
-design-review --security-focus
-browser-tools-setup --headers
-```
-
-</details>
-
-<details>
-<summary><strong>🔌 API Infrastructure</strong></summary>
-
-```bash
-# Personal API management
-update-daemon --endpoints
-create-cloudflare-mcp-server
-update-tools-context --integrations
-startup-context-load
-```
-
-</details>
-
-#### ✍️ **Content Creation**
-
-<details>
-<summary><strong>📝 Blog Pipeline</strong></summary>
-
-```bash
-# End-to-end content creation
-web-research "emerging AI trends"
-extract-knowledge --key-points
-write-blog --style personal --length 1500
-enhance-content --seo --readability
-publish-blog --schedule tomorrow
-```
-
-</details>
-
-<details>
-<summary><strong>🎨 Visual Content</strong></summary>
-
-```bash
-# Create stunning visualizations
-create-d3-visualization --data metrics.json
-create-custom-image "futuristic AI assistant"
-create-mermaid-visualization --type flowchart
-```
-
-</details>
-
-</td>
-<td width="33%" valign="top">
-
-### 🏠 **Personal**
-
-#### 💰 **Financial Intelligence**
-
-<details>
-<summary><strong>📉 Expense Analysis</strong></summary>
-
-```bash
-# Instant financial insights
-answer-finance-question "monthly utilities average?"
-answer-finance-question "subscription spending?"
-process-finances-data --categorize --visualize
-```
-
-</details>
-
-<details>
-<summary><strong>📈 Financial Planning</strong></summary>
-
-```bash
-# Comprehensive financial overview
-get-finances-state
-prepare-finances-dashboard
-push-finances-state --notify
-```
-
-</details>
-
-#### 🧪 **Memory & Research**
-
-<details>
-<summary><strong>🔍 Meeting Recall</strong></summary>
-
-```bash
-# Never forget a conversation
-get-life-log "investor meeting last week"
-get-life-log "product roadmap decisions"
-query-context "action items from standup"
-```
-
-</details>
-
-<details>
-<summary><strong>📚 Knowledge Building</strong></summary>
-
-```bash
-# Build your second brain
-capture-learning --source conference
-extract-knowledge --summarize
-learn-from-iterations --improve
-query-context "machine learning notes"
-```
-
-</details>
-
-#### 🎯 **Personal Productivity**
-
-<details>
-<summary><strong>툿 Morning Automation</strong></summary>
-
-```bash
-# Start your day right
-get-life-log "yesterday's highlights"
-query-context "today's priorities"
-send-text-alert "heading to office"
-reset-visitor-peak  # Reset daily counters
-```
-
-</details>
-
-<details>
-<summary><strong>📧 Smart Communication</strong></summary>
-
-```bash
-# Intelligent outreach
-send-email --template followup
-send-discord-alert --channel team
-add-links --resource documentation
-update-public-content
-```
-
-</details>
-
-</td>
-<td width="33%" valign="top">
-
-### 🎨 **Creative & Other Fields**
-
-#### 🎭 **Artist Workflow**
-
-<details>
-<summary><strong>🎨 Creative Portfolio</strong></summary>
-
-```bash
-# Manage artistic work
-track-project-progress "oil painting series"
-generate-artist-statement --style contemporary
-update-portfolio-website --new-pieces
-schedule-gallery-submission --deadline friday
-```
-
-</details>
-
-<details>
-<summary><strong>📷 Photography Business</strong></summary>
-
-```bash
-# End-to-end photography workflow
-process-shoot-metadata --wedding-2024-09
-generate-client-gallery --password-protected
-send-invoice --client johnson-wedding
-backup-raw-files --cloud-storage
-```
-
-</details>
-
-#### 🎵 **Musician Setup**
-
-<details>
-<summary><strong>🎤 Music Production</strong></summary>
-
-```bash
-# Creative music workflow
-track-song-ideas --voice-memo-to-text
-generate-chord-progressions --key-of-c
-schedule-studio-time --next-available
-export-stems --for-mixing
-```
-
-</details>
-
-#### 🌿 **Health & Wellness Coach**
-
-<details>
-<summary><strong>🏋️ Client Management</strong></summary>
-
-```bash
-# Wellness practice automation
-track-client-progress --weekly-checkin
-generate-meal-plans --dietary-restrictions
-send-motivation-message --personalized
-schedule-follow-up --in-two-weeks
-```
-
-</details>
-
-#### 📚 **Academic Researcher**
-
-<details>
-<summary><strong>🔬 Research Pipeline</strong></summary>
-
-```bash
-# Academic workflow
-search-literature --keywords "machine learning ethics"
-organize-citations --zotero-import
-generate-literature-review --outline
-track-experiment-results --statistical-analysis
-```
-
-</details>
-
-#### 🏠 **Real Estate Agent**
-
-<details>
-<summary><strong>🏡 Property Management</strong></summary>
-
-```bash
-# Real estate automation
-analyze-market-trends --neighborhood-data
-generate-property-reports --comparative-analysis
-schedule-showings --calendar-optimization
-send-client-updates --weekly-digest
-```
-
-</details>
-
-</td>
-</tr>
-</table>
+## 📚 Related Reading
+
+- [The Real Internet of Things](https://danielmiessler.com/blog/real-internet-of-things) — The vision behind PAI
+- [AI's Predictable Path: 7 Components](https://danielmiessler.com/blog/ai-predictable-path-7-components-2024) — Visual walkthrough of where AI is heading
+- [Building a Personal AI Infrastructure](https://danielmiessler.com/blog/personal-ai-infrastructure) — Full PAI walkthrough with examples
 
 ---
 
-## 🤝 **Community**
+<details>
+<summary><strong>📜 Update History</strong></summary>
+
+<br/>
+
+**v2.4.0 (2026-01-23) — The Algorithm**
+- Universal problem-solving system with ISC (Ideal State Criteria) tracking
+- 29 skills, 15 hooks, 331 workflows
+- Euphoric Surprise as the outcome metric
+- Enhanced security with AllowList enforcement
+- [Release Notes](Releases/v2.4/README.md)
+
+**v2.3.0 (2026-01-15) — Full Releases Return**
+- Complete `.claude/` directory releases with continuous learning
+- Explicit and implicit rating capture
+- Enhanced hook system with 14 production hooks
+- Status line with learning signal display
+- [Release Notes](Releases/v2.3/README.md)
+
+**v2.1.1 (2026-01-09) — MEMORY System Migration**
+- History system merged into pai-core-install as MEMORY System
+
+**v2.1.0 (2025-12-31) — Directory-Based Pack Structure**
+- All packs migrated from single files to directory structure
+- Source code now in real files instead of embedded markdown
+
+**v2.0.1 (2025-12-30) — Pack Expansion**
+- Added Prompting and Agents skills
+- Standardized authentication to single `.env` location
+
+**v2.0.0 (2025-12-28) — PAI Packs System Launch**
+- Transitioned from monolithic to modular pack architecture
+- Platform-agnostic design
+
+</details>
+
+---
+
+## ⭐ Star History
 
 <div align="center">
 
-### **Help Us Give AI to the World**
-
-<a href="https://github.com/danielmiessler/PAI/issues">
-  <img src="https://img.shields.io/badge/Report%20Issues-red?style=for-the-badge&logo=github&logoColor=white" alt="Issues">
-</a>
-<a href="https://github.com/danielmiessler/PAI/discussions">
-  <img src="https://img.shields.io/badge/Discussions-blue?style=for-the-badge&logo=github&logoColor=white" alt="Discussions">
-</a>
-<a href="https://github.com/danielmiessler/PAI/pulls">
-  <img src="https://img.shields.io/badge/Pull%20Requests-green?style=for-the-badge&logo=github&logoColor=white" alt="PRs">
-</a>
-
-<br/>
-<br/>
-
-**⭐ Star this repo** to stay updated with the latest features!
+[![Star History Chart](https://api.star-history.com/svg?repos=danielmiessler/Personal_AI_Infrastructure&type=Date)](https://star-history.com/#danielmiessler/Personal_AI_Infrastructure&Date)
 
 </div>
 
 ---
 
-## 📄 **License**
-
-PAI is MIT licensed. See [LICENSE](./LICENSE) for details.
-
----
-
 <div align="center">
 
-### **The Path to Human 3.0**
+**Built with ❤️ by [Daniel Miessler](https://danielmiessler.com) and the PAI community**
 
-> *"Humans are what matter. AI is only as useful as it is to people. A system like this is need to level the field with AI and help us get to [Human 3.0](https://danielmiessler.com/blog/how-my-projects-fit-together)."*
-
-<br/>
-
-**Created by [Daniel Miessler](https://danielmiessler.com)**
-
-📧 **[Newsletter](https://newsletter.danielmiessler.com)** • 📝 **[Blog](https://danielmiessler.com/blog)** • 💼 **[LinkedIn](https://linkedin.com/in/danielmiessler)** • 🎬 **[YouTube](https://www.youtube.com/@unsupervised-learning)**
-
-<br/>
-
-<a href="#">
-  <img src="https://img.shields.io/badge/Back%20to%20Top-8B5CF6?style=for-the-badge&logo=arrow-up&logoColor=white" alt="Back to Top">
-</a>
+*Augment yourself.*
 
 </div>

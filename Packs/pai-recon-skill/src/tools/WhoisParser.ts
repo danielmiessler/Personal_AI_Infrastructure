@@ -10,7 +10,10 @@
  *   const ipInfo = await whoisIP("1.2.3.4");
  */
 
-import { $ } from "bun";
+import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
 
 export interface DomainWhoisInfo {
   domain: string;
@@ -55,12 +58,28 @@ export interface IPWhoisInfo {
 }
 
 /**
+ * Validate WHOIS query input to prevent injection
+ */
+function validateWhoisQuery(query: string): void {
+  // Only allow valid domain/IP characters
+  const validPattern = /^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+  if (!validPattern.test(query)) {
+    throw new Error(`Invalid WHOIS query: contains disallowed characters`);
+  }
+  if (query.length > 253) {
+    throw new Error(`Invalid WHOIS query: too long`);
+  }
+}
+
+/**
  * Execute WHOIS query
+ * SECURITY: Uses execFile with argument array to prevent command injection
  */
 async function executeWhois(query: string): Promise<string> {
   try {
-    const result = await $`whois ${query}`.text();
-    return result;
+    validateWhoisQuery(query);
+    const { stdout } = await execFileAsync('whois', [query], { timeout: 30000 });
+    return stdout;
   } catch (error) {
     throw new Error(
       `WHOIS query failed: ${error instanceof Error ? error.message : "Unknown error"}`

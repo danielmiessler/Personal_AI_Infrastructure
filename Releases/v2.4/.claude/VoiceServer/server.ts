@@ -512,6 +512,22 @@ function enqueueMessage(
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 10;
 const RATE_WINDOW = 60000;
+const RATE_CLEANUP_INTERVAL = 5 * 60 * 1000;
+
+// Periodic cleanup of stale rate limit entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [ip, record] of requestCounts) {
+    if (now > record.resetTime) {
+      requestCounts.delete(ip);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`🧹 Rate limit cleanup: removed ${cleaned} stale entries`);
+  }
+}, RATE_CLEANUP_INTERVAL);
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();

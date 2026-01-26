@@ -2,7 +2,9 @@
   "compilerOptions": {
     // Environment setup & latest features
     "lib": [
-      "ESNext"
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
     ],
     "target": "ESNext",
     "module": "Preserve",

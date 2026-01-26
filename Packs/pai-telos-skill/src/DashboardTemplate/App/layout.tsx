@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
-import { Sidebar } from "../components/sidebar"
+import { Sidebar } from "../Components/sidebar"
 
 export const metadata: Metadata = {
   title: "TELOS Dashboard Template",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.Node
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en">

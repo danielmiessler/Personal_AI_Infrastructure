@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@/Lib/utils"
 
 interface SectionProps {
   title: string

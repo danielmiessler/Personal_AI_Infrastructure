@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/Ui/card"
+import { Badge } from "@/Components/Ui/badge"
 import { Upload, FileText, Table, CheckCircle, XCircle, Loader2 } from "lucide-react"
 
 interface UploadedFile {

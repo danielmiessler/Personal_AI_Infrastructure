@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/Ui/card"
+import { Badge } from "@/Components/Ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/Ui/table"
 import { Shield, AlertTriangle } from "lucide-react"
 
 export default function VulnerabilitiesPage() {

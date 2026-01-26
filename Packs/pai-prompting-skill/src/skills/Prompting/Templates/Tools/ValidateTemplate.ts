@@ -53,13 +53,13 @@ function extractVariables(source: string): string[] {
   // Match {{variable}} and {{object.property}}
   const simpleVars = source.matchAll(/\{\{([a-zA-Z_][a-zA-Z0-9_.]*)\}\}/g);
   for (const match of simpleVars) {
-    variables.add(match[1]);
+    if (match[1]) variables.add(match[1]);
   }
 
   // Match {{#each items}} and {{#if condition}}
   const blockVars = source.matchAll(/\{\{#(?:each|if|unless|with)\s+([a-zA-Z_][a-zA-Z0-9_.]*)/g);
   for (const match of blockVars) {
-    variables.add(match[1]);
+    if (match[1]) variables.add(match[1]);
   }
 
   return Array.from(variables).sort();
@@ -73,7 +73,7 @@ function extractHelpers(source: string): string[] {
   for (const match of helperCalls) {
     const name = match[1];
     // Filter out built-in block helpers
-    if (!['if', 'unless', 'each', 'with', 'else'].includes(name)) {
+    if (name && !['if', 'unless', 'each', 'with', 'else'].includes(name)) {
       helpers.add(name);
     }
   }
@@ -87,7 +87,7 @@ function extractPartials(source: string): string[] {
   // Match {{> partialName}}
   const partialCalls = source.matchAll(/\{\{>\s*([a-zA-Z_][a-zA-Z0-9_-]*)/g);
   for (const match of partialCalls) {
-    partials.add(match[1]);
+    if (match[1]) partials.add(match[1]);
   }
 
   return Array.from(partials).sort();
@@ -99,19 +99,20 @@ function checkUnbalancedBlocks(source: string): string[] {
   const lines = source.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
     const lineNum = i + 1;
 
     // Opening blocks
     const opens = line.matchAll(/\{\{#([a-z]+)/g);
     for (const match of opens) {
-      blockStack.push({ name: match[1], line: lineNum });
+      if (match[1]) blockStack.push({ name: match[1], line: lineNum });
     }
 
     // Closing blocks
     const closes = line.matchAll(/\{\{\/([a-z]+)\}\}/g);
     for (const match of closes) {
       const closer = match[1];
+      if (!closer) continue;
       if (blockStack.length === 0) {
         errors.push(`Line ${lineNum}: Unexpected closing block {{/${closer}}}`);
       } else {

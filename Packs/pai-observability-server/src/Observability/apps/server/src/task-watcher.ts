@@ -39,8 +39,9 @@ const pendingDescriptions = new Set<string>();
 // Callback for task updates
 let onTaskUpdate: ((task: BackgroundTask) => void) | null = null;
 
-// Tasks directory - dynamically constructed from username
-const TASKS_DIR = `/tmp/claude/-Users-${process.env.USER || 'user'}--claude/tasks`;
+// Tasks directory - dynamically constructed from HOME path (works on both macOS and Linux)
+const homePathEncoded = (process.env.HOME || homedir()).replace(/\//g, '-');
+const TASKS_DIR = `/tmp/claude/${homePathEncoded}--claude/tasks`;
 
 // Idle threshold for determining completion (30 seconds)
 const IDLE_THRESHOLD_MS = 30000;

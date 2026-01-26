@@ -41,6 +41,8 @@
  * - Typical execution: <50ms
  */
 
+import { existsSync } from 'fs';
+
 const TAB_AWAITING_BG = '#085050';  // Dark teal - waiting for user input
 const ACTIVE_TAB_BG = '#002B80';    // Dark blue - active tab always
 const TAB_TEXT = '#FFFFFF';
@@ -49,13 +51,37 @@ const INACTIVE_TEXT = '#A0A0A0';
 // Simple question indicator - teal background does the work
 const QUESTION_TITLE = '❓ Question';
 
+/**
+ * Get kitty socket path - required for socket-only remote control.
+ * Using socket-based control prevents escape sequence leaks (P@kitty-cmd artifacts).
+ */
+function getKittySocket(): string | null {
+  if (process.env.KITTY_LISTEN_ON) {
+    return process.env.KITTY_LISTEN_ON;
+  }
+  const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+  try {
+    if (existsSync(defaultSocket)) {
+      return `unix:${defaultSocket}`;
+    }
+  } catch {}
+  return null;
+}
+
 async function main() {
   try {
+    const socket = getKittySocket();
+
+    if (!socket) {
+      console.error('[SetQuestionTab] No kitty socket available, skipping');
+      process.exit(0);
+    }
+
     // Set tab color: active stays dark blue, inactive shows teal
-    await Bun.$`kitten @ set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${TAB_TEXT} inactive_bg=${TAB_AWAITING_BG} inactive_fg=${INACTIVE_TEXT}`;
+    await Bun.$`kitten @ --to ${socket} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${TAB_TEXT} inactive_bg=${TAB_AWAITING_BG} inactive_fg=${INACTIVE_TEXT}`;
 
     // Set simple question title - teal background provides visual distinction
-    await Bun.$`kitty @ set-tab-title ${QUESTION_TITLE}`;
+    await Bun.$`kitty @ --to ${socket} set-tab-title ${QUESTION_TITLE}`;
 
     console.error('[SetQuestionTab] Tab set to teal with question indicator');
   } catch (error) {

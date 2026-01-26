@@ -36,18 +36,44 @@
  * - Kitty unavailable: Silent failure
  */
 
+import { existsSync } from 'fs';
+
 const TAB_WORKING_BG = '#804000';      // Dark orange - actively working
 const ACTIVE_TAB_BG = '#002B80';       // Dark blue - active tab always
 const ACTIVE_TEXT = '#FFFFFF';
 const INACTIVE_TEXT = '#A0A0A0';
 
+/**
+ * Get kitty socket path - required for socket-only remote control.
+ * Using socket-based control prevents escape sequence leaks (P@kitty-cmd artifacts).
+ */
+function getKittySocket(): string | null {
+  if (process.env.KITTY_LISTEN_ON) {
+    return process.env.KITTY_LISTEN_ON;
+  }
+  const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+  try {
+    if (existsSync(defaultSocket)) {
+      return `unix:${defaultSocket}`;
+    }
+  } catch {}
+  return null;
+}
+
 async function main() {
   try {
+    const socket = getKittySocket();
+
+    if (!socket) {
+      console.error('[QuestionAnswered] No kitty socket available, skipping');
+      process.exit(0);
+    }
+
     // Set tab color: active stays dark blue, inactive shows orange
-    await Bun.$`kitten @ set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_WORKING_BG} inactive_fg=${INACTIVE_TEXT}`.quiet();
+    await Bun.$`kitten @ --to ${socket} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_WORKING_BG} inactive_fg=${INACTIVE_TEXT}`.quiet();
 
     // Set working title
-    await Bun.$`kitty @ set-tab-title "⚙️Processing answer…"`.quiet();
+    await Bun.$`kitty @ --to ${socket} set-tab-title "⚙️Processing answer…"`.quiet();
 
     console.error('[QuestionAnswered] Tab reset to working state (orange on inactive only)');
   } catch (error) {

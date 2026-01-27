@@ -33,8 +33,11 @@ const agentSessions = new Map<string, string>();
 // Todo tracking per session (session_id -> current todos)
 const sessionTodos = new Map<string, any[]>();
 
-// Projects directory path - dynamically constructed from username
-const PROJECTS_DIR = join(homedir(), '.claude', 'projects', `-Users-${process.env.USER || 'user'}--claude`);
+// Projects directory path - dynamically constructed from home path
+// Converts /home/mouch to -home-mouch (Linux) or /Users/foo to -Users-foo (macOS)
+const homeDir = homedir();
+const homeDirSlug = homeDir.replace(/\//g, '-').replace(/^-/, '-');
+const PROJECTS_DIR = join(homeDir, '.claude', 'projects', homeDirSlug);
 
 /**
  * Get the most recently modified JSONL files in projects/

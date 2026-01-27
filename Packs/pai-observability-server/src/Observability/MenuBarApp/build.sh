@@ -1,7 +1,16 @@
 #!/bin/bash
-# Build script for Observability menu bar app
+# Build script for Observability menu bar app (macOS only)
 
 set -e
+
+# Gate: macOS only — the Swift menu bar app requires Xcode/swiftc
+if [ "$(uname -s)" != "Darwin" ]; then
+    echo "The Observability menu bar app is macOS only (requires Swift/Xcode)."
+    echo "On Linux, use the web UI instead: http://localhost:5172"
+    echo "  Start:  ./manage.sh start"
+    echo "  Status: ./manage.sh status"
+    exit 0
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_NAME="Observability"

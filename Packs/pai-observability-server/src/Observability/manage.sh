@@ -4,8 +4,9 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Ensure bun is in PATH (for apps launched from macOS)
-export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Ensure bun is in PATH
+export PATH="$HOME/.bun/bin:/usr/local/bin:$PATH"
+[ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:$PATH"
 
 case "${1:-}" in
     start)

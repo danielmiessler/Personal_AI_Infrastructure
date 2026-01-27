@@ -26,7 +26,12 @@ const CONFIG = {
   basePath: join(process.env.HOME || "", ".claude/Observability"),
   serverPort: 4000,
   clientPort: 5172,
-  logFile: join(process.env.HOME || "", "Library/Logs/pai-observability.log"),
+  logFile: join(
+    process.env.HOME || "",
+    process.platform === "darwin"
+      ? "Library/Logs/pai-observability.log"
+      : ".local/share/logs/pai-observability.log"
+  ),
 };
 
 const colors = {
@@ -190,7 +195,8 @@ async function openDashboard(): Promise<void> {
   }
 
   console.log(colors.blue("Opening dashboard in browser..."));
-  await $`open http://localhost:${CONFIG.clientPort}`.quiet();
+  const openCmd = process.platform === "darwin" ? "open" : "xdg-open";
+  await $`${openCmd} http://localhost:${CONFIG.clientPort}`.quiet();
 }
 
 function showHelp(): void {

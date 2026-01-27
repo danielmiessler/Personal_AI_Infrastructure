@@ -19,6 +19,19 @@
 set -o pipefail
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PLATFORM HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Cross-platform file modification time (epoch seconds)
+get_mtime() {
+    if stat -c %Y "$1" >/dev/null 2>&1; then
+        stat -c %Y "$1"        # GNU stat (Linux)
+    else
+        stat -f %m "$1" 2>/dev/null || echo 0  # BSD stat (macOS)
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -315,7 +328,7 @@ current_time=$(date +"%H:%M")
 # Fetch location from IP (with caching)
 fetch_location() {
     local cache_age=999999
-    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$LOCATION_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(get_mtime "$LOCATION_CACHE")))
 
     if [ "$cache_age" -gt "$LOCATION_CACHE_TTL" ]; then
         # Fetch fresh location data
@@ -336,7 +349,7 @@ fetch_location() {
 # Fetch weather (with caching) using Open-Meteo (free, no API key)
 fetch_weather() {
     local cache_age=999999
-    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$WEATHER_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(get_mtime "$WEATHER_CACHE")))
 
     if [ "$cache_age" -gt "$WEATHER_CACHE_TTL" ]; then
         # Get lat/lon from location cache
@@ -764,7 +777,7 @@ if [ "$MODE" = "normal" ]; then
     printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
 
     # Refresh quote if stale (>30s)
-    quote_age=$(($(date +%s) - $(stat -f %m "$QUOTE_CACHE" 2>/dev/null || echo 0)))
+    quote_age=$(($(date +%s) - $(get_mtime "$QUOTE_CACHE")))
     if [ "$quote_age" -gt 30 ] || [ ! -f "$QUOTE_CACHE" ]; then
         if [ -n "${ZENQUOTES_API_KEY:-}" ]; then
             new_quote=$(curl -s --max-time 1 "https://zenquotes.io/api/random/${ZENQUOTES_API_KEY}" 2>/dev/null | \

@@ -5,7 +5,7 @@
  * Channels:
  * - ntfy.sh: Mobile push notifications
  * - Discord: Team/server notifications (optional)
- * - Desktop: Native macOS notifications
+ * - Desktop: Native notifications (macOS + Linux)
  *
  * Design principles:
  * - Async, non-blocking (fire-and-forget)
@@ -294,27 +294,41 @@ export async function sendDiscord(
 }
 
 /**
- * Send native macOS desktop notification
+ * Send native desktop notification (macOS + Linux)
  */
 export async function sendDesktop(
   title: string,
   message: string,
   options: {
-    sound?: string;       // Sound name (e.g., 'Glass', 'Ping')
+    sound?: string;       // Sound name (e.g., 'Glass', 'Ping') - macOS only
     subtitle?: string;
   } = {}
 ): Promise<boolean> {
   try {
-    const soundPart = options.sound ? ` sound name "${options.sound}"` : '';
-    const subtitlePart = options.subtitle ? ` subtitle "${options.subtitle}"` : '';
+    if (process.platform === 'darwin') {
+      const soundPart = options.sound ? ` sound name "${options.sound}"` : '';
+      const subtitlePart = options.subtitle ? ` subtitle "${options.subtitle}"` : '';
 
-    const script = `display notification "${message}" with title "${title}"${subtitlePart}${soundPart}`;
+      const script = `display notification "${message}" with title "${title}"${subtitlePart}${soundPart}`;
 
-    const proc = Bun.spawn(['osascript', '-e', script]);
-    await proc.exited;
+      const proc = Bun.spawn(['osascript', '-e', script]);
+      await proc.exited;
 
-    return proc.exitCode === 0;
+      return proc.exitCode === 0;
+    } else if (process.platform === 'linux') {
+      // Use notify-send (libnotify) on Linux
+      const args = [title, message];
+
+      const proc = Bun.spawn(['notify-send', ...args]);
+      await proc.exited;
+
+      return proc.exitCode === 0;
+    }
+
+    // Unsupported platform
+    return false;
   } catch (error) {
+    // Gracefully handle missing notify-send (headless Linux) or other errors
     console.error('Desktop notification failed:', error);
     return false;
   }

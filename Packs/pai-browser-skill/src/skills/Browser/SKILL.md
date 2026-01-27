@@ -25,7 +25,10 @@ Debugging shouldn't be opt-in. Like good logging frameworks - you don't turn on 
 
 ```bash
 # Open URL in user's preferred browser
+# macOS:
 open -a "$BROWSER" "<url>"  # BROWSER from tech stack prefs
+# Linux:
+xdg-open "<url>"
 ```
 
 **v2.0.0 Changes:**

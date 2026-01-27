@@ -544,11 +544,20 @@ async function stop(): Promise<void> {
 
 async function openUrl(url: string): Promise<void> {
   console.log(`PAI Browser Action: Opening URL in browser`)
-  // Use browser from settings.json techStack
-  const browser = await getBrowser()
   const { spawn } = await import('child_process')
-  spawn('open', ['-a', browser, url], { detached: true, stdio: 'ignore' }).unref()
-  console.log(`PAI Browser Results: Opened in ${browser}: ${url}`)
+
+  if (process.platform === 'darwin') {
+    // macOS: use 'open -a <browser> <url>'
+    const browser = await getBrowser()
+    spawn('open', ['-a', browser, url], { detached: true, stdio: 'ignore' }).unref()
+    console.log(`PAI Browser Results: Opened in ${browser}: ${url}`)
+  } else if (process.platform === 'linux') {
+    // Linux: use xdg-open
+    spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref()
+    console.log(`PAI Browser Results: Opened with xdg-open: ${url}`)
+  } else {
+    console.error(`PAI Browser Error: Unsupported platform ${process.platform}`)
+  }
 }
 
 // ============================================

@@ -2,7 +2,7 @@
 
 This document tracks all platform-specific code and dependencies across PAI, providing a roadmap for cross-platform support.
 
-**Last Updated:** 2026-01-01
+**Last Updated:** 2026-01-27
 **Maintainer:** Community contributions welcome
 
 ---
@@ -11,125 +11,80 @@ This document tracks all platform-specific code and dependencies across PAI, pro
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| **macOS** | ✅ Fully Supported | Primary development platform |
-| **Linux** | ✅ Fully Supported | Ubuntu/Debian tested, other distros via community |
-| **Windows** | ❌ Not Supported | Community contributions welcome |
+| **macOS** | Fully Supported | Primary development platform |
+| **Linux** | Fully Supported | Ubuntu/Debian tested, systemd required for service management |
+| **Windows** | Not Supported | Community contributions welcome |
 
 ---
 
-## Known Platform-Specific Issues (22 Total)
+## Linux Requirements
 
-### ✅ FIXED (PR #XXX - Linux Compatibility Fixes)
+Install these packages for full functionality on Linux:
 
-**Critical Blockers:**
-1. ✅ `sed -i ''` syntax (macOS BSD vs GNU sed)
-   - **File:** `Packs/pai-voice-system/INSTALL.md` line 337
-   - **Fix:** Platform-aware sed with USERNAME fallback
-   - **Status:** Fixed with conditional `uname -s` detection
+| Package | Purpose | Install (Debian/Ubuntu) |
+|---------|---------|-------------------------|
+| `mpg123` or `mpv` | Audio playback (ElevenLabs TTS output) | `sudo apt install mpg123` |
+| `espeak-ng` | Text-to-speech fallback (when no API key) | `sudo apt install espeak-ng` |
+| `libnotify-bin` | Desktop notifications (`notify-send`) | `sudo apt install libnotify-bin` |
+| `bun` | JavaScript runtime | `curl -fsSL https://bun.sh/install \| bash` |
+| `jq` | JSON processing (statusline) | `sudo apt install jq` |
+| `curl` | HTTP requests | `sudo apt install curl` |
 
-2. ✅ `/opt/homebrew/bin` hardcoded in PATH
-   - **Files:** `pai-observability-server/src/observability/manage.sh:8`, `pai-observability-server.md:1316`
-   - **Fix:** Conditional PATH based on directory existence
-   - **Status:** Fixed with `[ -d "/opt/homebrew/bin" ]` check
-
-**Auto-Start Feature Parity:**
-3. ✅ LaunchAgent plist only (no Linux alternative)
-   - **File:** `Packs/pai-voice-system/INSTALL.md` Step 9
-   - **Fix:** Added systemd user service for Linux
-   - **Status:** Linux now has full auto-start support
-
-4. ✅ launchctl commands (macOS-only daemon management)
-   - **Context:** Part of LaunchAgent system
-   - **Fix:** systemd equivalent provided for Linux
-   - **Status:** Platform-specific but both supported
-
-5. ✅ ~/Library/LaunchAgents path (macOS directory structure)
-   - **Context:** Part of LaunchAgent system
-   - **Fix:** Linux uses `~/.config/systemd/user`
-   - **Status:** Platform-specific but both supported
-
-**Documentation:**
-6. ✅ VERIFY.md misleading "requires modifications" warning
-   - **File:** `Packs/pai-voice-system/VERIFY.md` lines 11-13
-   - **Fix:** Updated to reflect Linux is fully supported
-   - **Status:** Documentation now accurate
+On headless servers, audio and desktop notification packages are optional. The server will skip those features gracefully.
 
 ---
 
-### 📋 ALREADY HANDLED (No Action Needed)
+## Cross-Platform Implementation Details
 
-**Audio Playback (Fixed in PR #285 - Google TTS):**
-17. ✅ afplay calls conditionally executed
-    - **File:** `Packs/pai-voice-system/src/voice/server.ts:286-336`
-    - **Status:** Runtime platform detection via `process.platform`
-    - **Implementation:** macOS uses afplay, Linux auto-detects mpg123/mpv/snap
+### Voice Server (`Packs/pai-voice-system/src/VoiceServer/`)
 
-18. ✅ Linux audio player auto-detection
-    - **Status:** Fully implemented with graceful fallbacks
-    - **Priority:** mpg123 → mpv → snap/mpv → warn user
+| Feature | macOS | Linux |
+|---------|-------|-------|
+| Audio playback | `/usr/bin/afplay` | `mpg123` > `mpv` > `aplay` (auto-detected) |
+| TTS fallback | `/usr/bin/say` | `espeak-ng` > `espeak` (auto-detected) |
+| Desktop notifications | `osascript` (AppleScript) | `notify-send` (libnotify) |
+| Service management | LaunchAgent plist + `launchctl` | systemd user service + `systemctl --user` |
+| Service file location | `~/Library/LaunchAgents/com.pai.voice-server.plist` | `~/.config/systemd/user/pai-voice-server.service` |
+| Log file location | `~/Library/Logs/pai-voice-server.log` | `~/.local/share/logs/pai-voice-server.log` |
+| Menu bar indicator | SwiftBar/BitBar plugin | Not available (use `./status.sh` or `journalctl`) |
 
-19. ✅ Cross-platform notifications
-    - **macOS:** osascript (native notification center)
-    - **Linux:** notify-send (libnotify)
-    - **Status:** Both fully implemented
+### Shell Scripts
 
-20. ✅ process.platform checks
-    - **Status:** Correct pattern throughout codebase
-    - **Note:** Needs Windows support added (future work)
+All management scripts (`install.sh`, `start.sh`, `stop.sh`, `status.sh`, `uninstall.sh`) detect the platform via `uname -s` and use platform-appropriate commands.
 
-21. ✅ Bun runtime
-    - **Status:** Cross-platform, no issues
-    - **Installation:** Works on macOS, Linux, Windows
+### Statusline (`Packs/pai-statusline/`)
 
----
+| Feature | macOS | Linux |
+|---------|-------|-------|
+| File mtime | `stat -f %m` (BSD) | `stat -c %Y` (GNU) |
 
-### 🔮 MINOR ISSUES (Low Priority)
+The `get_mtime()` helper function handles cross-platform `stat` syntax automatically.
 
-**Documentation Inconsistencies:**
-7. 🔮 Platform check mentions paplay but code doesn't use it
-   - **File:** `Packs/pai-voice-system/INSTALL.md` platform check
-   - **Impact:** Minor - doesn't block functionality
-   - **Fix:** Either add paplay support or remove from docs
-   - **Priority:** Low - mpg123/mpv work fine
+### Hook Notifications (`Packs/pai-hook-system/`)
 
-8. 🔮 /Users/ hardcoded paths in examples
-   - **Files:** Various documentation showing macOS examples
-   - **Impact:** Documentation only, not actual code
-   - **Fix:** Use generic paths like `$HOME` in examples
-   - **Priority:** Low - users can adapt examples
+| Feature | macOS | Linux |
+|---------|-------|-------|
+| Desktop notifications | `osascript` (AppleScript) | `notify-send` (libnotify) |
+| Push notifications | ntfy.sh (cross-platform) | ntfy.sh (cross-platform) |
+| SMS | Twilio (cross-platform) | Twilio (cross-platform) |
+| Discord | Webhook (cross-platform) | Webhook (cross-platform) |
 
-**macOS-Specific Features (Can't Test Without macOS):**
-9-14. 🔮 LaunchAgent plist internals (6 specific property keys)
-    - **Context:** macOS-only format
-    - **Status:** Not applicable to Linux
-    - **Priority:** Low - macOS functionality works
+### Observability (`Packs/pai-observability-server/`)
 
-15. 🔮 osascript for notifications
-    - **Status:** Already has notify-send fallback
-    - **Priority:** Low - both platforms supported
+| Feature | macOS | Linux |
+|---------|-------|-------|
+| PATH setup | Includes `/opt/homebrew/bin` | Skips Homebrew path |
+| Log file location | `~/Library/Logs/pai-observability.log` | `~/.local/share/logs/pai-observability.log` |
+| Menu bar app | Swift .app (build.sh) | Not available (use web UI at `http://localhost:5172`) |
+| Web UI | `http://localhost:5172` | `http://localhost:5172` |
+| Open browser | `open` | `xdg-open` |
 
-16. 🔮 ~/Library/Logs for logging
-    - **Status:** Already uses `~/.config/pai` on Linux
-    - **Priority:** Low - platform-appropriate paths used
+### Browser Skill (`Packs/pai-browser-skill/`)
 
----
-
-### ❌ UNSUPPORTED (Windows - Community Contributions Welcome)
-
-22. ❌ Windows support entirely absent
-    - **Audio:** No Windows Media Player integration
-    - **Notifications:** No Windows Toast notifications
-    - **Auto-start:** No Task Scheduler implementation
-    - **Shell scripts:** Assume bash (not cmd/PowerShell)
-    - **Priority:** Medium - depends on community interest
-
-**How to Contribute Windows Support:**
-1. Add Windows audio playback (Windows Media Player, ffplay, or native APIs)
-2. Implement Windows Toast notifications
-3. Create Task Scheduler auto-start alternative
-4. Convert bash scripts to cross-platform Bun/TypeScript
-5. Test on Windows 10/11
-6. Submit PR following PAI contribution guidelines
+| Feature | macOS | Linux |
+|---------|-------|-------|
+| Open URL in browser | `open -a <browser> <url>` | `xdg-open <url>` |
+| Headless Playwright | Works | Works |
 
 ---
 
@@ -163,8 +118,20 @@ if (process.platform === 'darwin') {
 **Anti-patterns to avoid:**
 - Hardcoding paths that only exist on one platform
 - Assuming package manager locations (Homebrew, apt, etc.)
-- Using platform-specific syntax without detection (sed -i '', etc.)
+- Using platform-specific syntax without detection (sed -i '', stat -f, etc.)
 - Skipping platform checks in documentation examples
+
+---
+
+## Known Limitations
+
+### Linux-specific
+- Menu bar indicators (SwiftBar/BitBar) are macOS only. Use CLI tools or web UI on Linux.
+- `aplay` does not support MP3 natively. Install `mpg123` or `mpv` for ElevenLabs audio.
+- On headless servers, audio playback and desktop notifications are skipped gracefully.
+
+### macOS-specific
+- No changes needed. All existing macOS behavior is preserved.
 
 ---
 
@@ -180,7 +147,7 @@ Contributors fixing platform issues should:
 
 **Current test coverage:**
 - macOS: Tested by Daniel Miessler
-- Linux (Ubuntu/WSL2): Tested by contributors
+- Linux (Ubuntu 24.04): Tested by contributors
 - Linux (other distros): Community testing
 - Windows: Untested
 
@@ -195,12 +162,11 @@ Contributors fixing platform issues should:
 
 **Medium Priority:**
 - Test on non-Ubuntu Linux distros (Fedora, Arch, etc.)
-- Improve error messages for missing dependencies
 - Add platform compatibility checks to installation
+- Docker/container deployment guide
 
 **Low Priority:**
 - Support for alternative package managers
-- Docker/container deployment guide
 - Automated multi-platform testing (CI/CD)
 
 ---
@@ -216,31 +182,3 @@ Contributors fixing platform issues should:
    - Proposed solution (if you have one)
 
 **Before submitting:** Try to fix it yourself! PAI is community-driven.
-
----
-
-## Contribution Guidelines
-
-When contributing platform fixes:
-
-1. **Fix what you can test** - Don't guess, verify
-2. **Document what you can't** - Be honest about limitations
-3. **Keep it simple** - Follow PAI's UNIX philosophy
-4. **Stay transparent** - No magic abstractions
-5. **Add tests** - At minimum, manual verification steps
-
-**Good PR example:** "feat: Add systemd auto-start for Linux (tested on Ubuntu 24.04)"
-
-**Bad PR example:** "feat: Universal auto-start abstraction framework for all platforms"
-
----
-
-## Credits
-
-**Platform compatibility work by:**
-- Daniel Miessler - Original PAI implementation (macOS focus)
-- PR #285 - Google Cloud TTS provider, Linux audio support
-- PR #XXX - Linux compatibility fixes (sed, PATH, systemd)
-- Community contributors - Testing and bug reports
-
-Want your name here? Contribute a platform fix!

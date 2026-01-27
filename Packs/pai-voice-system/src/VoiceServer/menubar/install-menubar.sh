@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Install Menu Bar Indicator for Voice Server
+# Install Menu Bar Indicator for Voice Server (macOS only)
 
 set -e
 
@@ -10,6 +10,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+# Gate: macOS only — SwiftBar/BitBar are macOS menu bar apps
+if [ "$(uname -s)" != "Darwin" ]; then
+    echo -e "${BLUE}=====================================================${NC}"
+    echo -e "${BLUE}     PAI Voice Menu Bar - Not Available on Linux${NC}"
+    echo -e "${BLUE}=====================================================${NC}"
+    echo
+    echo "The menu bar indicator requires SwiftBar/BitBar (macOS only)."
+    echo
+    echo -e "${BLUE}Linux alternatives:${NC}"
+    echo "  - Status:  ./status.sh"
+    echo "  - Logs:    journalctl --user -u pai-voice-server -f"
+    echo "  - Health:  curl http://localhost:8888/health"
+    exit 0
+fi
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 MENUBAR_SCRIPT="$SCRIPT_DIR/pai-voice.5s.sh"

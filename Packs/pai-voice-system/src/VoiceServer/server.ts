@@ -34,7 +34,7 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 if (!ELEVENLABS_API_KEY) {
   console.error('Warning: ELEVENLABS_API_KEY not found in ~/.env');
-  console.error('Voice server will use macOS say command as fallback');
+  console.error(`Voice server will use ${process.platform === 'darwin' ? 'macOS say' : 'system TTS'} command as fallback`);
   console.error('Add: ELEVENLABS_API_KEY=your_key_here to ~/.env');
 }
 
@@ -275,7 +275,59 @@ function getVolumeSetting(requestVolume?: number): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
+// Detect available audio player for current platform
+function detectAudioPlayer(): { command: string; args: (volume: number, file: string) => string[] } | null {
+  const platform = process.platform;
+
+  if (platform === 'darwin') {
+    return {
+      command: '/usr/bin/afplay',
+      args: (volume, file) => ['-v', volume.toString(), file],
+    };
+  }
+
+  if (platform === 'linux') {
+    // Auto-detect available player: mpg123 > mpv > aplay > warn
+    try {
+      const { execSync } = require('child_process');
+      if (execSync('command -v mpg123', { stdio: 'pipe' }).toString().trim()) {
+        return {
+          command: 'mpg123',
+          args: (volume, file) => ['--gain', Math.round(volume * 100).toString(), '-q', file],
+        };
+      }
+    } catch {}
+    try {
+      const { execSync } = require('child_process');
+      if (execSync('command -v mpv', { stdio: 'pipe' }).toString().trim()) {
+        return {
+          command: 'mpv',
+          args: (volume, file) => [`--volume=${Math.round(volume * 100)}`, '--no-video', file],
+        };
+      }
+    } catch {}
+    try {
+      const { execSync } = require('child_process');
+      if (execSync('command -v aplay', { stdio: 'pipe' }).toString().trim()) {
+        // aplay doesn't support mp3 natively, but works for wav
+        return {
+          command: 'aplay',
+          args: (_volume, file) => [file],
+        };
+      }
+    } catch {}
+    console.warn('No audio player found on Linux. Install mpg123 or mpv for audio playback.');
+    return null;
+  }
+
+  console.warn(`Unsupported platform for audio playback: ${platform}`);
+  return null;
+}
+
+// Cache the detected audio player
+const audioPlayer = detectAudioPlayer();
+
+// Play audio using platform-appropriate player
 async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
@@ -284,9 +336,15 @@ async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Prom
 
   const volume = getVolumeSetting(requestVolume);
 
+  if (!audioPlayer) {
+    console.warn('No audio player available. Skipping playback.');
+    spawn('/bin/rm', [tempFile]);
+    return;
+  }
+
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    const args = audioPlayer.args(volume, tempFile);
+    const proc = spawn(audioPlayer.command, args);
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
@@ -300,19 +358,65 @@ async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Prom
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`${audioPlayer.command} exited with code ${code}`));
       }
     });
   });
 }
 
-// Use macOS say command as fallback
+// Detect available TTS command for current platform
+function detectTTSCommand(): { command: string; args: (text: string) => string[] } | null {
+  const platform = process.platform;
+
+  if (platform === 'darwin') {
+    return {
+      command: '/usr/bin/say',
+      args: (text) => [text],
+    };
+  }
+
+  if (platform === 'linux') {
+    try {
+      const { execSync } = require('child_process');
+      if (execSync('command -v espeak-ng', { stdio: 'pipe' }).toString().trim()) {
+        return {
+          command: 'espeak-ng',
+          args: (text) => [text],
+        };
+      }
+    } catch {}
+    try {
+      const { execSync } = require('child_process');
+      if (execSync('command -v espeak', { stdio: 'pipe' }).toString().trim()) {
+        return {
+          command: 'espeak',
+          args: (text) => [text],
+        };
+      }
+    } catch {}
+    console.warn('No TTS command found on Linux. Install espeak-ng for text-to-speech fallback.');
+    return null;
+  }
+
+  console.warn(`Unsupported platform for TTS fallback: ${platform}`);
+  return null;
+}
+
+// Cache the detected TTS command
+const ttsCommand = detectTTSCommand();
+
+// Use platform-appropriate TTS command as fallback
 async function speakWithSay(text: string): Promise<void> {
+  if (!ttsCommand) {
+    console.warn('No TTS command available. Skipping speech fallback.');
+    return;
+  }
+
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/say', [text]);
+    const proc = spawn(ttsCommand.command, ttsCommand.args(text));
 
     proc.on('error', (error) => {
-      console.error('Error with say command:', error);
+      console.error(`Error with ${ttsCommand.command}:`, error);
       reject(error);
     });
 
@@ -320,7 +424,7 @@ async function speakWithSay(text: string): Promise<void> {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`say exited with code ${code}`));
+        reject(new Error(`${ttsCommand.command} exited with code ${code}`));
       }
     });
   });
@@ -419,7 +523,7 @@ async function sendNotification(
         await playAudio(audioBuffer, volume);
       } else {
         // Fallback to macOS say
-        console.log('Using macOS say (no API key)');
+        console.log(`Using ${ttsCommand?.command || 'system TTS'} (no API key)`);
         await speakWithSay(applyPronunciations(safeMessage));
       }
     } catch (error) {
@@ -433,12 +537,21 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification - escape for AppleScript
+  // Display desktop notification using platform-appropriate method
   try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    if (process.platform === 'darwin') {
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } else if (process.platform === 'linux') {
+      try {
+        await spawnSafe('notify-send', [safeTitle, safeMessage]);
+      } catch {
+        // notify-send not available (headless server) — skip silently
+        console.log('Desktop notification skipped (notify-send not available)');
+      }
+    }
   } catch (error) {
     console.error("Notification display error:", error);
   }
@@ -571,7 +684,7 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : "macOS Say",
+          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : (ttsCommand?.command || "none"),
           default_voice_id: DEFAULT_VOICE_ID,
           api_key_configured: !!ELEVENLABS_API_KEY
         }),
@@ -590,7 +703,7 @@ const server = serve({
 });
 
 console.log(`Voice Server running on port ${PORT}`);
-console.log(`Using ${ELEVENLABS_API_KEY ? 'ElevenLabs' : 'macOS Say'} TTS (default voice: ${DEFAULT_VOICE_ID})`);
+console.log(`Using ${ELEVENLABS_API_KEY ? 'ElevenLabs' : (ttsCommand?.command || 'no TTS')} TTS (default voice: ${DEFAULT_VOICE_ID})`);
 console.log(`POST to http://localhost:${PORT}/notify`);
 console.log(`Security: CORS restricted to localhost, rate limiting enabled`);
 console.log(`API Key: ${ELEVENLABS_API_KEY ? 'Configured' : 'Not configured (using fallback)'}`);

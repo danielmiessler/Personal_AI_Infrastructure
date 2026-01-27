@@ -3,8 +3,15 @@
 # Uninstall Voice Server
 
 SERVICE_NAME="com.pai.voice-server"
-PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
-LOG_PATH="$HOME/Library/Logs/pai-voice-server.log"
+OS_TYPE="$(uname -s)"
+
+if [ "$OS_TYPE" = "Darwin" ]; then
+    PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
+    LOG_PATH="$HOME/Library/Logs/pai-voice-server.log"
+elif [ "$OS_TYPE" = "Linux" ]; then
+    SERVICE_FILE="$HOME/.config/systemd/user/pai-voice-server.service"
+    LOG_PATH="$HOME/.local/share/logs/pai-voice-server.log"
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -21,7 +28,11 @@ echo
 # Confirm uninstall
 echo -e "${YELLOW}This will:${NC}"
 echo "  - Stop the voice server"
-echo "  - Remove the LaunchAgent"
+if [ "$OS_TYPE" = "Darwin" ]; then
+    echo "  - Remove the LaunchAgent"
+elif [ "$OS_TYPE" = "Linux" ]; then
+    echo "  - Remove the systemd user service"
+fi
 echo "  - Keep your server files and configuration"
 echo
 read -p "Are you sure you want to uninstall? (y/n): " -n 1 -r
@@ -35,20 +46,41 @@ fi
 
 # Stop the service if running
 echo -e "${YELLOW}> Stopping voice server...${NC}"
-if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
-    launchctl unload "$PLIST_PATH" 2>/dev/null
-    echo -e "${GREEN}OK Voice server stopped${NC}"
-else
-    echo -e "${YELLOW}  Service was not running${NC}"
+if [ "$OS_TYPE" = "Darwin" ]; then
+    if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
+        launchctl unload "$PLIST_PATH" 2>/dev/null
+        echo -e "${GREEN}OK Voice server stopped${NC}"
+    else
+        echo -e "${YELLOW}  Service was not running${NC}"
+    fi
+elif [ "$OS_TYPE" = "Linux" ]; then
+    if systemctl --user is-active pai-voice-server >/dev/null 2>&1; then
+        systemctl --user stop pai-voice-server 2>/dev/null
+        echo -e "${GREEN}OK Voice server stopped${NC}"
+    else
+        echo -e "${YELLOW}  Service was not running${NC}"
+    fi
+    systemctl --user disable pai-voice-server 2>/dev/null || true
 fi
 
-# Remove LaunchAgent plist
-echo -e "${YELLOW}> Removing LaunchAgent...${NC}"
-if [ -f "$PLIST_PATH" ]; then
-    rm "$PLIST_PATH"
-    echo -e "${GREEN}OK LaunchAgent removed${NC}"
-else
-    echo -e "${YELLOW}  LaunchAgent file not found${NC}"
+# Remove service configuration
+if [ "$OS_TYPE" = "Darwin" ]; then
+    echo -e "${YELLOW}> Removing LaunchAgent...${NC}"
+    if [ -f "$PLIST_PATH" ]; then
+        rm "$PLIST_PATH"
+        echo -e "${GREEN}OK LaunchAgent removed${NC}"
+    else
+        echo -e "${YELLOW}  LaunchAgent file not found${NC}"
+    fi
+elif [ "$OS_TYPE" = "Linux" ]; then
+    echo -e "${YELLOW}> Removing systemd service...${NC}"
+    if [ -f "$SERVICE_FILE" ]; then
+        rm "$SERVICE_FILE"
+        systemctl --user daemon-reload 2>/dev/null
+        echo -e "${GREEN}OK systemd service removed${NC}"
+    else
+        echo -e "${YELLOW}  Service file not found${NC}"
+    fi
 fi
 
 # Kill any remaining processes

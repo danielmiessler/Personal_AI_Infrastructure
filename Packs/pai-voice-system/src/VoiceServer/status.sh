@@ -3,9 +3,15 @@
 # Check status of Voice Server
 
 SERVICE_NAME="com.pai.voice-server"
-PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
-LOG_PATH="$HOME/Library/Logs/pai-voice-server.log"
 ENV_FILE="$HOME/.env"
+OS_TYPE="$(uname -s)"
+
+if [ "$OS_TYPE" = "Darwin" ]; then
+    PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
+    LOG_PATH="$HOME/Library/Logs/pai-voice-server.log"
+elif [ "$OS_TYPE" = "Linux" ]; then
+    LOG_PATH="$HOME/.local/share/logs/pai-voice-server.log"
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -19,17 +25,28 @@ echo -e "${BLUE}     PAI Voice Server Status${NC}"
 echo -e "${BLUE}=====================================================${NC}"
 echo
 
-# Check LaunchAgent
+# Check service status
 echo -e "${BLUE}Service Status:${NC}"
-if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
-    PID=$(launchctl list | grep "$SERVICE_NAME" | awk '{print $1}')
-    if [ "$PID" != "-" ]; then
-        echo -e "  ${GREEN}OK Service is loaded (PID: $PID)${NC}"
+if [ "$OS_TYPE" = "Darwin" ]; then
+    if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
+        PID=$(launchctl list | grep "$SERVICE_NAME" | awk '{print $1}')
+        if [ "$PID" != "-" ]; then
+            echo -e "  ${GREEN}OK Service is loaded (PID: $PID)${NC}"
+        else
+            echo -e "  ${YELLOW}! Service is loaded but not running${NC}"
+        fi
     else
-        echo -e "  ${YELLOW}! Service is loaded but not running${NC}"
+        echo -e "  ${RED}X Service is not loaded${NC}"
     fi
-else
-    echo -e "  ${RED}X Service is not loaded${NC}"
+elif [ "$OS_TYPE" = "Linux" ]; then
+    if systemctl --user is-active pai-voice-server >/dev/null 2>&1; then
+        PID=$(systemctl --user show pai-voice-server --property=MainPID --value 2>/dev/null)
+        echo -e "  ${GREEN}OK Service is active (PID: $PID)${NC}"
+    elif systemctl --user is-enabled pai-voice-server >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}! Service is enabled but not running${NC}"
+    else
+        echo -e "  ${RED}X Service is not installed${NC}"
+    fi
 fi
 
 # Check if server is responding
@@ -68,10 +85,10 @@ if [ -f "$ENV_FILE" ] && grep -q "ELEVENLABS_API_KEY=" "$ENV_FILE"; then
             echo "  Voice ID: $VOICE_ID"
         fi
     else
-        echo -e "  ${YELLOW}! Using macOS 'say' (no API key)${NC}"
+        echo -e "  ${YELLOW}! Using system TTS (no API key)${NC}"
     fi
 else
-    echo -e "  ${YELLOW}! Using macOS 'say' (no configuration)${NC}"
+    echo -e "  ${YELLOW}! Using system TTS (no configuration)${NC}"
 fi
 
 # Check logs

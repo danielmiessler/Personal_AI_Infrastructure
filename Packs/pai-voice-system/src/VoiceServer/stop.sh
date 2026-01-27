@@ -3,7 +3,7 @@
 # Stop the Voice Server
 
 SERVICE_NAME="com.pai.voice-server"
-PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
+OS_TYPE="$(uname -s)"
 
 # Colors
 RED='\033[0;31m'
@@ -13,19 +13,39 @@ NC='\033[0m'
 
 echo -e "${YELLOW}> Stopping Voice Server...${NC}"
 
-# Check if service is loaded
-if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
-    # Unload the service
-    launchctl unload "$PLIST_PATH" 2>/dev/null
+if [ "$OS_TYPE" = "Darwin" ]; then
+    PLIST_PATH="$HOME/Library/LaunchAgents/${SERVICE_NAME}.plist"
 
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}OK Voice server stopped successfully${NC}"
+    if launchctl list | grep -q "$SERVICE_NAME" 2>/dev/null; then
+        launchctl unload "$PLIST_PATH" 2>/dev/null
+
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}OK Voice server stopped successfully${NC}"
+        else
+            echo -e "${RED}X Failed to stop voice server${NC}"
+            exit 1
+        fi
     else
-        echo -e "${RED}X Failed to stop voice server${NC}"
-        exit 1
+        echo -e "${YELLOW}! Voice server is not running${NC}"
     fi
+
+elif [ "$OS_TYPE" = "Linux" ]; then
+    if systemctl --user is-active pai-voice-server >/dev/null 2>&1; then
+        systemctl --user stop pai-voice-server
+
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}OK Voice server stopped successfully${NC}"
+        else
+            echo -e "${RED}X Failed to stop voice server${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${YELLOW}! Voice server is not running${NC}"
+    fi
+
 else
-    echo -e "${YELLOW}! Voice server is not running${NC}"
+    echo -e "${RED}X Unsupported platform: $OS_TYPE${NC}"
+    exit 1
 fi
 
 # Kill any remaining processes on port 8888

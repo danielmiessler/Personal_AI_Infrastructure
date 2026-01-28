@@ -45,12 +45,93 @@
  * - LEGACY: 🎯 COMPLETED: [AGENT:type] [message]
  */
 
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { createHash } from 'crypto';
 import { paiPath } from './lib/paths';
 import { sendEventToObservability, getCurrentTimestamp, getSourceApp } from './lib/observability';
 import { extractAgentInstanceId } from './lib/metadata-extraction';
 import { notifyBackgroundAgent } from './lib/notifications';
+
+/**
+ * Generate content hash for deduplication
+ */
+function contentHash(content: string): string {
+  return createHash('md5').update(content).digest('hex').substring(0, 12);
+}
+
+/**
+ * Check if similar content already exists in the output directory
+ */
+function isDuplicateContent(outputDir: string, content: string): boolean {
+  if (!existsSync(outputDir)) return false;
+
+  const files = readdirSync(outputDir).filter(f => f.endsWith('.md'));
+  const newHash = contentHash(content);
+
+  for (const file of files) {
+    try {
+      const existingContent = readFileSync(join(outputDir, file), 'utf-8');
+      // Check content hash match OR similar length (within tolerance)
+      if (contentHash(existingContent) === newHash) {
+        return true;
+      }
+      // Also check by extracting the agent output section and comparing
+      const existingOutput = existingContent.match(/## Agent Output\n\n([\s\S]*?)\n\n---\n\n## Metadata/);
+      if (existingOutput) {
+        const existingOutputHash = contentHash(existingOutput[1]);
+        const newOutputHash = contentHash(content);
+        if (existingOutputHash === newOutputHash) {
+          return true;
+        }
+      }
+    } catch (e) {
+      // Skip files that can't be read
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if this is a background agent launch message and extract output file path
+ */
+function parseBackgroundAgentLaunch(taskOutput: string): { isBackground: boolean; outputFile: string | null; agentId: string | null } {
+  if (!taskOutput.includes('Async agent launched successfully')) {
+    return { isBackground: false, outputFile: null, agentId: null };
+  }
+
+  const outputMatch = taskOutput.match(/output_file:\s*([^\s\n]+)/);
+  const agentIdMatch = taskOutput.match(/agentId:\s*([a-f0-9]+)/);
+
+  return {
+    isBackground: true,
+    outputFile: outputMatch ? outputMatch[1] : null,
+    agentId: agentIdMatch ? agentIdMatch[1] : null
+  };
+}
+
+/**
+ * Read background agent's actual output from the output file
+ */
+function readBackgroundAgentOutput(outputFile: string): string | null {
+  // For background agents that just launched, the file might be empty or still being written
+  // We do a quick check but don't wait long - the actual capture should happen when agent completes
+
+  if (!existsSync(outputFile)) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(outputFile, 'utf-8');
+    // If file is empty or just has startup messages, return null
+    if (!content || content.length < 100) {
+      return null;
+    }
+    return content;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Get current timestamp in PST timezone
@@ -68,17 +149,6 @@ function getPSTTimestamp(): string {
   const seconds = String(pstDate.getSeconds()).padStart(2, '0');
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} PST`;
-}
-
-function getPSTDate(): string {
-  const date = new Date();
-  const pstDate = new Date(date.toLocaleString('en-US', { timeZone: process.env.TIME_ZONE || 'America/Los_Angeles' }));
-
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
 }
 
 async function delay(ms: number): Promise<void> {
@@ -283,7 +353,7 @@ function extractCompletionMessage(taskOutput: string): { message: string | null,
           message.length > 5) {
 
         // Try to detect agent type from context
-        let agentType = null;
+        let agentType: string | null = null;
         const agentMatch = taskOutput.match(/Sub-agent\s+(\w+)\s+completed/i);
         if (agentMatch) {
           agentType = agentMatch[1].toLowerCase();
@@ -299,8 +369,6 @@ function extractCompletionMessage(taskOutput: string): { message: string | null,
 
 async function main() {
   const { appendFileSync } = require('fs');
-  const { join } = require('path');
-  const { homedir } = require('os');
   const debugLog = paiPath('hooks', 'subagent-stop-debug.log');
 
   function debug(msg: string) {
@@ -368,8 +436,31 @@ async function main() {
   debug(`Task output found, length: ${taskOutput.length}`);
   debug(`Task output preview: ${taskOutput.substring(Math.max(0, taskOutput.length - 300))}`);
 
+  // Check if this is a background agent launch (not actual completion)
+  const bgLaunch = parseBackgroundAgentLaunch(taskOutput);
+  if (bgLaunch.isBackground) {
+    debug(`Detected background agent launch: agentId=${bgLaunch.agentId}, outputFile=${bgLaunch.outputFile}`);
+
+    // For background agents, try to read their actual output
+    if (bgLaunch.outputFile) {
+      const actualOutput = readBackgroundAgentOutput(bgLaunch.outputFile);
+      if (actualOutput && actualOutput.length > 100) {
+        debug(`Read ${actualOutput.length} chars from background agent output file`);
+        // Continue with actual output instead of launch message
+        // But for now, exit - actual capture should happen when agent truly completes
+        // The SubagentStop event fires again when background agent finishes
+      } else {
+        debug('Background agent just launched, waiting for actual completion event');
+        process.exit(0);  // Don't capture launch message, wait for real completion
+      }
+    } else {
+      debug('Background agent without output file path, skipping');
+      process.exit(0);
+    }
+  }
+
   // Extract agent instance metadata from Task tool input
-  const instanceMetadata = extractAgentInstanceId(toolInput, description);
+  const instanceMetadata = extractAgentInstanceId(toolInput, description ?? undefined);
   debug(`Instance metadata: ${JSON.stringify(instanceMetadata)}`);
 
   // Extract the completion message and agent type
@@ -451,7 +542,6 @@ async function captureAgentOutput(
 ) {
   const { writeFileSync, mkdirSync, existsSync } = require('fs');
   const { join } = require('path');
-  const { homedir } = require('os');
 
   const MEMORY_DIR = paiPath('MEMORY');
 
@@ -531,6 +621,12 @@ ${taskOutput}
 
 *This output was automatically captured by UOCS SubagentStop hook.*
 `;
+
+  // Check for duplicate content before writing
+  if (isDuplicateContent(outputDir, taskOutput)) {
+    console.log(`⏭️ UOCS: Skipping duplicate content (already captured similar output)`);
+    return;
+  }
 
   // Write file
   const filePath = join(outputDir, filename);

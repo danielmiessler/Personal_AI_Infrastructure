@@ -3,6 +3,7 @@
 import pandas as pd
 from ta.momentum import RSIIndicator, StochRSIIndicator, StochasticOscillator
 from ta.trend import EMAIndicator, MACD, SMAIndicator
+from ta.volatility import AverageTrueRange
 
 
 def compute_rsi(close: pd.Series, period: int = 14) -> pd.Series:
@@ -83,6 +84,13 @@ def compute_rate_of_change(close: pd.Series, period: int = 10) -> pd.Series:
     return close.pct_change(periods=period) * 100
 
 
+def compute_atr(
+    high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
+) -> pd.Series:
+    """Compute Average True Range (ATR)."""
+    return AverageTrueRange(high=high, low=low, close=close, window=period).average_true_range()
+
+
 def compute_all_indicators(df: pd.DataFrame, presets: dict | None = None) -> pd.DataFrame:
     """Compute all standard indicators and merge onto the OHLCV DataFrame.
 
@@ -123,5 +131,9 @@ def compute_all_indicators(df: pd.DataFrame, presets: dict | None = None) -> pd.
     result = pd.concat([result, ma_df], axis=1)
 
     result["roc_10"] = compute_rate_of_change(df["close"], period=10)
+
+    result["atr"] = compute_atr(df["high"], df["low"], df["close"])
+    # ATR as percentage of price for cross-ticker comparison
+    result["atr_pct"] = (result["atr"] / df["close"] * 100).round(2)
 
     return result

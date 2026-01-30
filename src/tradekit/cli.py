@@ -115,6 +115,37 @@ def analyze(ticker: str, period: str):
 
     print_analysis(ticker, score, nearest, quote)
 
+    # Print RVOL and ATR prominently
+    console.print("[bold]Volatility & Volume:[/bold]")
+    rvol = latest.get("relative_volume")
+    if rvol is not None:
+        rvol_style = "bold green" if rvol >= 2.0 else "green" if rvol >= 1.5 else "yellow" if rvol >= 1.0 else "red"
+        console.print(f"  RVOL: [{rvol_style}]{rvol:.2f}x[/{rvol_style}]", end="")
+        if rvol >= 3.0:
+            console.print("  [bold magenta]EXTREME[/bold magenta]")
+        elif rvol >= 2.0:
+            console.print("  [bold green]HIGH[/bold green]")
+        elif rvol >= 1.5:
+            console.print("  [green]ABOVE AVG[/green]")
+        elif rvol >= 1.0:
+            console.print("  [yellow]NORMAL[/yellow]")
+        else:
+            console.print("  [red]BELOW AVG[/red]")
+
+    atr = latest.get("atr")
+    atr_pct = latest.get("atr_pct")
+    if atr is not None:
+        console.print(f"  ATR(14): ${atr:.2f}  ({atr_pct:.1f}% of price)")
+
+    vwap = latest.get("vwap")
+    if vwap is not None:
+        current = quote.get("price", latest.get("close", 0))
+        vwap_dist = ((current - vwap) / vwap * 100) if vwap else 0
+        vwap_style = "green" if vwap_dist > 0 else "red"
+        console.print(f"  VWAP: ${vwap:.2f}  [{vwap_style}]({vwap_dist:+.1f}%)[/{vwap_style}]")
+
+    console.print()
+
     # Print indicator snapshot
     console.print("[bold]Indicator Snapshot:[/bold]")
     rsi = latest.get("rsi")
@@ -131,14 +162,6 @@ def analyze(ticker: str, period: str):
     stoch_d = latest.get("stoch_d")
     if stoch_k is not None:
         console.print(f"  Stochastic: %K={stoch_k:.1f}  %D={stoch_d:.1f}")
-
-    vwap = latest.get("vwap")
-    if vwap is not None:
-        console.print(f"  VWAP: ${vwap:.2f}")
-
-    rvol = latest.get("relative_volume")
-    if rvol is not None:
-        console.print(f"  Relative Volume: {rvol:.1f}x")
 
     console.print()
 

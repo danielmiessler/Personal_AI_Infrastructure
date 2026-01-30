@@ -1,0 +1,19 @@
+default:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMD
+  - TSLA
+  - META
+  - AMZN
+  - GOOGL
+  - NFLX
+  - SPY
+
+momentum:
+  # Add high-momentum tickers as discovered
+  []
+
+earnings_this_week:
+  # Update weekly with upcoming earnings
+  []

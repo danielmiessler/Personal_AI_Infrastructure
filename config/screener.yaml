@@ -1,0 +1,21 @@
+premarket_gap:
+  min_gap_pct: 3.0
+  min_premarket_volume: 300000
+  min_price: 5.0
+  max_price: 200.0
+  min_avg_volume: 500000
+  max_results: 20
+
+high_volume_breakout:
+  min_relative_volume: 2.0
+  min_price: 10.0
+  min_avg_volume: 500000
+  max_results: 15
+
+small_cap_momentum:
+  min_gap_pct: 2.0
+  min_premarket_volume: 200000
+  min_price: 2.0
+  max_price: 20.0
+  max_float_millions: 50
+  max_results: 15

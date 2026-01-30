@@ -1,0 +1,31 @@
+rsi:
+  period: 14
+  overbought: 70
+  oversold: 30
+
+macd:
+  fast: 12
+  slow: 26
+  signal: 9
+
+stochastic:
+  k_period: 14
+  d_period: 3
+  overbought: 80
+  oversold: 20
+
+moving_averages:
+  - period: 9
+    type: ema
+  - period: 20
+    type: ema
+  - period: 50
+    type: sma
+  - period: 200
+    type: sma
+
+scoring_weights:
+  momentum: 0.30
+  trend: 0.25
+  volume: 0.25
+  pattern: 0.20

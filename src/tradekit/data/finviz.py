@@ -18,6 +18,37 @@ SIGNAL_MAP = {
     "oversold": "Oversold",
 }
 
+# Finviz only accepts these exact price thresholds
+_PRICE_THRESHOLDS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+_VOLUME_OPTIONS = {
+    50_000: "Over 50K",
+    100_000: "Over 100K",
+    200_000: "Over 200K",
+    300_000: "Over 300K",
+    400_000: "Over 400K",
+    500_000: "Over 500K",
+    750_000: "Over 750K",
+    1_000_000: "Over 1M",
+    2_000_000: "Over 2M",
+}
+
+
+def _nearest_price_over(price: float) -> str:
+    """Map a price to the nearest valid Finviz 'Over $X' filter."""
+    # Find the largest threshold <= the requested price
+    valid = [t for t in _PRICE_THRESHOLDS if t <= price]
+    threshold = valid[-1] if valid else _PRICE_THRESHOLDS[0]
+    return f"Over ${threshold}"
+
+
+def _nearest_volume_over(volume: int) -> str:
+    """Map a volume to the nearest valid Finviz volume filter."""
+    thresholds = sorted(_VOLUME_OPTIONS.keys())
+    valid = [t for t in thresholds if t <= volume]
+    threshold = valid[-1] if valid else thresholds[0]
+    return _VOLUME_OPTIONS[threshold]
+
 
 class FinvizProvider:
     """Fetch screener data from Finviz."""
@@ -46,13 +77,11 @@ class FinvizProvider:
         screener = Overview()
 
         filters_dict: dict[str, str] = {}
-        if min_price is not None and max_price is not None:
-            filters_dict["Price"] = f"Over ${min_price}"
-        elif min_price is not None:
-            filters_dict["Price"] = f"Over ${min_price}"
+        if min_price is not None:
+            filters_dict["Price"] = _nearest_price_over(min_price)
 
         if min_volume is not None:
-            filters_dict["Average Volume"] = f"Over {min_volume // 1000}K"
+            filters_dict["Average Volume"] = _nearest_volume_over(min_volume)
 
         if min_market_cap:
             filters_dict["Market Cap."] = min_market_cap

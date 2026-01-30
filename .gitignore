@@ -66,3 +66,25 @@ credentials/
 .claude/pai_updates/
 .claude/pai_backups/
 .claude/.pai-sync-history
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+*$py.class
+wheels/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+
+# Python tooling cache
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# tradekit data cache
+.tradekit_cache/
+
+# Reports output
+reports/output/

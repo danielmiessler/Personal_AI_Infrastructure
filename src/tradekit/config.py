@@ -1,10 +1,19 @@
 """Settings and configuration management for tradekit."""
 
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
+ET = ZoneInfo("America/New_York")
+
+
+def now_et() -> datetime:
+    """Get current time in US Eastern."""
+    return datetime.now(ET)
 
 
 def _project_root() -> Path:
@@ -45,7 +54,11 @@ class AlertSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    model_config = {"env_file": str(PROJECT_ROOT / ".env"), "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": str(PROJECT_ROOT / ".env"),
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
     data: DataSettings = Field(default_factory=DataSettings)
     screener: ScreenerSettings = Field(default_factory=ScreenerSettings)

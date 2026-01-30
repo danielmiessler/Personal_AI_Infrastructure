@@ -6,10 +6,28 @@ import sys
 import click
 from rich.console import Console
 
-from tradekit.config import get_settings
+from tradekit.config import get_settings, now_et
 
 console = Console()
 logger = logging.getLogger("tradekit")
+
+
+def _market_session() -> str:
+    """Return a description of the current market session in ET."""
+    t = now_et()
+    hour, minute = t.hour, t.minute
+    mins = hour * 60 + minute
+
+    if mins < 4 * 60:
+        return "Overnight (market closed)"
+    elif mins < 9 * 60 + 30:
+        return "Pre-market"
+    elif mins < 16 * 60:
+        return "Market open"
+    elif mins < 20 * 60:
+        return "After-hours"
+    else:
+        return "Overnight (market closed)"
 
 
 @click.group()
@@ -23,6 +41,8 @@ def cli(verbose: bool):
         datefmt="%H:%M:%S",
         stream=sys.stderr,
     )
+    et = now_et()
+    console.print(f"[dim]{et.strftime('%a %b %d, %I:%M %p')} ET — {_market_session()}[/dim]")
 
 
 @cli.command()

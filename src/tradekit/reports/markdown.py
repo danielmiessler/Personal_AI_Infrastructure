@@ -1,14 +1,15 @@
 """Markdown report generation."""
 
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
+from tradekit.config import now_et
+
 
 def generate_scan_report(df: pd.DataFrame, title: str = "Pre-Market Scan") -> str:
     """Generate a Markdown report from scanner results."""
-    now = datetime.now().strftime("%Y-%m-%d %H:%M ET")
+    now = now_et().strftime("%Y-%m-%d %I:%M %p ET")
     lines = [f"# {title}", f"*Generated: {now}*", ""]
 
     if df.empty:
@@ -73,7 +74,7 @@ def generate_daily_report(
     ranked_df: pd.DataFrame | None = None,
 ) -> str:
     """Generate a full daily report combining scan and ranking results."""
-    now = datetime.now().strftime("%Y-%m-%d")
+    now = now_et().strftime("%Y-%m-%d")
     lines = [f"# Daily Trading Report — {now}", ""]
 
     lines.append(generate_scan_report(scan_df, title="Pre-Market Candidates"))
@@ -106,7 +107,7 @@ def save_report(content: str, output_dir: Path | None = None, filename: str = ""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not filename:
-        filename = f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+        filename = f"report_{now_et().strftime('%Y%m%d_%H%M')}.md"
 
     path = output_dir / filename
     path.write_text(content)

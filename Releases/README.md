@@ -20,7 +20,21 @@ This is the fastest way to get PAI running. Copy the directory, run the wizard, 
 
 ## Available Releases
 
-### v2.4.0 — The Algorithm (Current)
+### v2.5.0 — Think Deeper, Execute Faster (Current)
+
+The Algorithm learns metacognition—thinking about how it thinks—and parallel execution.
+
+- 28 Skills, 17 Hooks, 356 Workflows
+- Two-pass capability selection with ISC validation
+- Thinking tools with justify-exclusion principle
+- Parallel-by-default execution for independent tasks
+- 7 named composition patterns for capability orchestration
+
+**[Get v2.5 →](v2.5/)**
+
+---
+
+### v2.4.0 — The Algorithm
 
 Our first attempt at a general problem solver built into PAI to pursue Euphoric Surprise.
 
@@ -50,7 +64,7 @@ The release that introduced persistent learning and sentiment capture.
 ```bash
 # 1. Clone the repo
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Releases/v2.4
+cd PAI/Releases/v2.5
 
 # 2. Back up existing installation (if any)
 [ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
@@ -59,7 +73,7 @@ cd PAI/Releases/v2.4
 cp -r .claude ~/
 
 # 4. Run the wizard
-cd ~/.claude && bun run PAIInstallWizard.ts
+cd ~/.claude && bun run INSTALL.ts
 
 # 5. Restart Claude Code
 ```

@@ -13,9 +13,9 @@ logger = logging.getLogger("tradekit")
 
 source_option = click.option(
     "--source",
-    type=click.Choice(["yahoo", "massive"], case_sensitive=False),
+    type=click.Choice(["yahoo", "massive", "backtest"], case_sensitive=False),
     default=None,
-    help="Data source: yahoo (default) or massive.",
+    help="Data source: yahoo (default), massive, or backtest.",
 )
 
 
@@ -27,6 +27,10 @@ def get_provider(source: str | None = None):
         from tradekit.data.massive import MassiveProvider
 
         return MassiveProvider()
+    elif source == "backtest":
+        from tradekit.data.backtest import BacktestProvider
+
+        return BacktestProvider()
     else:
         from tradekit.data.yahoo import YahooProvider
 

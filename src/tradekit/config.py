@@ -35,6 +35,10 @@ class DataSettings(BaseSettings):
     yahoo_cache_ttl_minutes: int = 5
     finviz_cache_ttl_minutes: int = 10
     cache_dir: Path = Path.home() / ".tradekit" / "cache"
+    backtest_access_key: str = ""
+    backtest_secret_key: str = ""
+    backtest_bucket: str = "flatfiles"
+    backtest_endpoint: str = "https://files.massive.com"
 
 
 class ScreenerSettings(BaseSettings):

@@ -27,6 +27,8 @@ dependencies = [
     "mcp>=1.0",
     # Storage
     "pyarrow",
+    # S3-compatible object storage (backtest flat files)
+    "boto3",
 ]
 
 [project.scripts]

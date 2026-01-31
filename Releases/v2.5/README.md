@@ -11,7 +11,7 @@
 [![Hooks](https://img.shields.io/badge/Hooks-17-3B82F6?style=flat)](hooks/)
 [![Workflows](https://img.shields.io/badge/Workflows-356-F97316?style=flat)](skills/)
 
-![Downloads](https://img.shields.io/github/downloads/danielmiessler/PAI/total?style=flat&logo=github&label=Downloads&color=EAB308)
+![Discussions](https://img.shields.io/github/discussions/danielmiessler/PAI?style=flat&logo=github&label=Discussions&color=EAB308)
 ![Commits/mo](https://img.shields.io/github/commit-activity/m/danielmiessler/PAI?style=flat&logo=git&label=Commits%2Fmo&color=F59E0B)
 ![Repo Size](https://img.shields.io/github/repo-size/danielmiessler/PAI?style=flat&logo=database&label=Repo%20Size&color=D97706)
 

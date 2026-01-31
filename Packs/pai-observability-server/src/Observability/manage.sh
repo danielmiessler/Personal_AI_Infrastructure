@@ -7,6 +7,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Ensure bun is in PATH (for apps launched from macOS)
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# Auto-install dependencies if missing (check for specific binaries, not just dirs)
+install_deps_if_needed() {
+    # Server needs typescript
+    if [ ! -f "$SCRIPT_DIR/apps/server/node_modules/.bin/tsc" ]; then
+        echo "📦 Installing server dependencies..."
+        (cd "$SCRIPT_DIR/apps/server" && bun install)
+    fi
+    # Client needs vite
+    if [ ! -f "$SCRIPT_DIR/apps/client/node_modules/.bin/vite" ]; then
+        echo "📦 Installing client dependencies..."
+        (cd "$SCRIPT_DIR/apps/client" && bun install)
+    fi
+}
+
 case "${1:-}" in
     start)
         # Check if already running
@@ -14,6 +28,9 @@ case "${1:-}" in
             echo "❌ Already running. Use: manage.sh restart"
             exit 1
         fi
+
+        # Install dependencies if needed
+        install_deps_if_needed
 
         # Start server (silent)
         cd "$SCRIPT_DIR/apps/server"
@@ -91,6 +108,9 @@ case "${1:-}" in
             echo "❌ Already running. Use: manage.sh restart"
             exit 1
         fi
+
+        # Install dependencies if needed
+        install_deps_if_needed
 
         # Start server detached (for menu bar app use)
         cd "$SCRIPT_DIR/apps/server"

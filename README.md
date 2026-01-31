@@ -49,7 +49,7 @@
 
 **Overview:** [Purpose](#the-purpose-of-this-project) · [What is PAI?](#what-is-pai) · [New to AI?](#new-to-this-start-here) · [Principles](#the-pai-principles) · [Primitives](#pai-primitives)
 
-**Get Started:** [Installation](#-installation) · [Packs](#-packs) · [Bundles](#-bundles)
+**Get Started:** [Installation](#-installation) · [Releases](Releases/) · [Packs](#-packs) · [Bundles](#-bundles)
 
 **Resources:** [FAQ](#-faq) · [Roadmap](#-roadmap) · [Community](#-community) · [Contributing](#-contributing)
 

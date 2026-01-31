@@ -88,3 +88,6 @@ wheels/
 
 # Reports output
 reports/output/
+
+# Local watchlists (use watchlists.yaml.example as template)
+config/watchlists.yaml

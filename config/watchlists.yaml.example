@@ -7,8 +7,6 @@ default:
   - META
   - AMZN
   - GOOGL
-  - NFLX
-  - SPY
 
 momentum:
   # Add high-momentum tickers as discovered

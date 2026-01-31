@@ -234,14 +234,16 @@ PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 cp "$PACK_DIR/src/hooks/"*.hook.ts "$PAI_DIR/hooks/"
 ```
 
-**Hooks included (15 total):**
+**Hooks included (17 total):**
 - `SecurityValidator.hook.ts` - PreToolUse: Block dangerous commands
 - `LoadContext.hook.ts` - SessionStart: Load CORE skill context
 - `StartupGreeting.hook.ts` - SessionStart: Voice greeting
 - `CheckVersion.hook.ts` - SessionStart: Version compatibility
+- `TaskHygiene.hook.ts` - SessionStart: Autonomous cleanup of orphaned tasks
 - `UpdateTabTitle.hook.ts` - UserPromptSubmit: Tab automation
 - `SetQuestionTab.hook.ts` - UserPromptSubmit: Question tracking
 - `ExplicitRatingCapture.hook.ts` - UserPromptSubmit: Rating capture
+- `TaskRegistration.hook.ts` - PreToolUse: Register tasks for hygiene tracking
 - `FormatEnforcer.hook.ts` - Stop: Format compliance
 - `StopOrchestrator.hook.ts` - Stop: Post-response coordination
 - `SessionSummary.hook.ts` - Stop: Session summaries
@@ -264,7 +266,7 @@ PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 cp "$PACK_DIR/src/hooks/lib/"*.ts "$PAI_DIR/hooks/lib/"
 ```
 
-**Libraries included (12 total):**
+**Libraries included (13 total):**
 - `observability.ts` - Event logging and dashboard integration
 - `notifications.ts` - Voice and notification system
 - `identity.ts` - Session and user identity
@@ -277,6 +279,7 @@ cp "$PACK_DIR/src/hooks/lib/"*.ts "$PAI_DIR/hooks/lib/"
 - `response-format.ts` - Format validation
 - `IdealState.ts` - Goal tracking
 - `TraceEmitter.ts` - Trace emission
+- `TaskRegistry.ts` - External task tracking with PID liveness enforcement
 
 **Mark todo as completed.**
 
@@ -356,7 +359,8 @@ mkdir -p ~/.claude
         "hooks": [
           {"type": "command", "command": "bun run $PAI_DIR/hooks/StartupGreeting.hook.ts"},
           {"type": "command", "command": "bun run $PAI_DIR/hooks/LoadContext.hook.ts"},
-          {"type": "command", "command": "bun run $PAI_DIR/hooks/CheckVersion.hook.ts"}
+          {"type": "command", "command": "bun run $PAI_DIR/hooks/CheckVersion.hook.ts"},
+          {"type": "command", "command": "bun run $PAI_DIR/hooks/TaskHygiene.hook.ts"}
         ]
       }
     ],
@@ -365,6 +369,18 @@ mkdir -p ~/.claude
         "matcher": "Bash",
         "hooks": [
           {"type": "command", "command": "bun run $PAI_DIR/hooks/SecurityValidator.hook.ts"}
+        ]
+      },
+      {
+        "matcher": "TaskCreate",
+        "hooks": [
+          {"type": "command", "command": "bun run $PAI_DIR/hooks/TaskRegistration.hook.ts"}
+        ]
+      },
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          {"type": "command", "command": "bun run $PAI_DIR/hooks/TaskRegistration.hook.ts"}
         ]
       }
     ],
@@ -416,21 +432,21 @@ PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 
 echo "=== PAI Hook System v2.3.0 Verification ==="
 
-# Check hook files (15 expected)
+# Check hook files (17 expected)
 echo "Checking hook files..."
 HOOK_COUNT=$(ls "$PAI_DIR/hooks/"*.hook.ts 2>/dev/null | wc -l)
-echo "Found $HOOK_COUNT hook files (expected: 15)"
+echo "Found $HOOK_COUNT hook files (expected: 17)"
 
 # Check critical hooks
 [ -f "$PAI_DIR/hooks/SecurityValidator.hook.ts" ] && echo "OK SecurityValidator.hook.ts" || echo "ERROR SecurityValidator.hook.ts missing"
 [ -f "$PAI_DIR/hooks/LoadContext.hook.ts" ] && echo "OK LoadContext.hook.ts" || echo "ERROR LoadContext.hook.ts missing"
 [ -f "$PAI_DIR/hooks/StopOrchestrator.hook.ts" ] && echo "OK StopOrchestrator.hook.ts" || echo "ERROR StopOrchestrator.hook.ts missing"
 
-# Check library files (12 expected)
+# Check library files (13 expected)
 echo ""
 echo "Checking library files..."
 LIB_COUNT=$(ls "$PAI_DIR/hooks/lib/"*.ts 2>/dev/null | wc -l)
-echo "Found $LIB_COUNT library files (expected: 12)"
+echo "Found $LIB_COUNT library files (expected: 13)"
 
 # Check handler files (4 expected)
 echo ""
@@ -553,14 +569,16 @@ grep "UpdateTabTitle" ~/.claude/settings.json
 
 ## What's Included
 
-### Hooks (15 files)
+### Hooks (17 files)
 
 | File | Event | Purpose |
 |------|-------|---------|
 | `SecurityValidator.hook.ts` | PreToolUse | Block dangerous commands |
+| `TaskRegistration.hook.ts` | PreToolUse | Register tasks for hygiene tracking |
 | `LoadContext.hook.ts` | SessionStart | Load CORE skill context |
 | `StartupGreeting.hook.ts` | SessionStart | Voice greeting |
 | `CheckVersion.hook.ts` | SessionStart | Version check |
+| `TaskHygiene.hook.ts` | SessionStart | Autonomous cleanup of orphaned tasks |
 | `UpdateTabTitle.hook.ts` | UserPromptSubmit | Tab automation |
 | `SetQuestionTab.hook.ts` | UserPromptSubmit | Question tracking |
 | `ExplicitRatingCapture.hook.ts` | UserPromptSubmit | Rating capture |
@@ -573,7 +591,7 @@ grep "UpdateTabTitle" ~/.claude/settings.json
 | `ImplicitSentimentCapture.hook.ts` | Stop | Sentiment analysis |
 | `AgentOutputCapture.hook.ts` | SubagentStop | Agent output routing |
 
-### Libraries (12 files)
+### Libraries (13 files)
 
 | File | Purpose |
 |------|---------|
@@ -589,6 +607,7 @@ grep "UpdateTabTitle" ~/.claude/settings.json
 | `response-format.ts` | Format validation |
 | `IdealState.ts` | Goal tracking |
 | `TraceEmitter.ts` | Trace emission |
+| `TaskRegistry.ts` | External task tracking with PID enforcement |
 
 ### Handlers (4 files)
 

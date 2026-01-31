@@ -11,6 +11,27 @@ from tradekit.config import get_settings, now_et
 console = Console()
 logger = logging.getLogger("tradekit")
 
+source_option = click.option(
+    "--source",
+    type=click.Choice(["yahoo", "massive"], case_sensitive=False),
+    default=None,
+    help="Data source: yahoo (default) or massive.",
+)
+
+
+def get_provider(source: str | None = None):
+    """Return the appropriate data provider based on source name."""
+    settings = get_settings()
+    source = source or settings.data_source
+    if source == "massive":
+        from tradekit.data.massive import MassiveProvider
+
+        return MassiveProvider()
+    else:
+        from tradekit.data.yahoo import YahooProvider
+
+        return YahooProvider()
+
 
 def _market_session() -> str:
     """Return a description of the current market session in ET."""
@@ -50,12 +71,17 @@ def cli(verbose: bool):
 @click.option("--min-gap", type=float, default=None, help="Override minimum gap %.")
 @click.option("--min-volume", type=int, default=None, help="Override minimum pre-market volume.")
 @click.option("--max-price", type=float, default=None, help="Override maximum price.")
-def scan(preset: str, min_gap: float | None, min_volume: int | None, max_price: float | None):
+@source_option
+def scan(
+    preset: str, min_gap: float | None, min_volume: int | None,
+    max_price: float | None, source: str | None,
+):
     """Run the pre-market stock scanner."""
     from tradekit.reports.terminal import print_scan_results
     from tradekit.screener.premarket import scan_premarket
 
     settings = get_settings()
+    provider = get_provider(source)
 
     # Apply CLI overrides to screener settings
     if min_gap is not None:
@@ -66,7 +92,7 @@ def scan(preset: str, min_gap: float | None, min_volume: int | None, max_price: 
         settings.screener.max_price = max_price
 
     console.print("[bold]Running pre-market scan...[/bold]")
-    df = scan_premarket(settings=settings, preset=preset)
+    df = scan_premarket(settings=settings, preset=preset, provider=provider)
     print_scan_results(df)
 
     if not df.empty:
@@ -77,25 +103,25 @@ def scan(preset: str, min_gap: float | None, min_volume: int | None, max_price: 
 @cli.command()
 @click.argument("ticker")
 @click.option("--period", default="3mo", help="History period (e.g. 1mo, 3mo, 6mo, 1y).")
-def analyze(ticker: str, period: str):
+@source_option
+def analyze(ticker: str, period: str, source: str | None):
     """Run deep technical analysis on a ticker."""
     from tradekit.analysis.indicators import compute_all_indicators
     from tradekit.analysis.levels import find_support_resistance, get_nearest_levels
     from tradekit.analysis.scoring import compute_composite_score
     from tradekit.analysis.volume import add_volume_indicators
-    from tradekit.data.yahoo import YahooProvider
     from tradekit.reports.terminal import print_analysis
 
     settings = get_settings()
     presets = settings.load_indicator_presets()
-    yahoo = YahooProvider()
+    provider = get_provider(source)
 
     ticker = ticker.upper()
     console.print(f"[bold]Analyzing {ticker}...[/bold]")
 
     # Fetch data
-    quote = yahoo.get_quote(ticker)
-    df = yahoo.get_history(ticker, period=period)
+    quote = provider.get_quote(ticker)
+    df = provider.get_history(ticker, period=period)
     if df.empty:
         console.print(f"[red]No data available for {ticker}[/red]")
         return
@@ -169,18 +195,18 @@ def analyze(ticker: str, period: str):
 @cli.command()
 @click.argument("ticker")
 @click.option("--period", default="3mo", help="History period for level detection.")
-def levels(ticker: str, period: str):
+@source_option
+def levels(ticker: str, period: str, source: str | None):
     """Show support and resistance levels for a ticker."""
     from tradekit.analysis.levels import find_support_resistance, get_nearest_levels
     from tradekit.analysis.volume import find_high_volume_nodes
-    from tradekit.data.yahoo import YahooProvider
 
-    yahoo = YahooProvider()
+    provider = get_provider(source)
     ticker = ticker.upper()
 
     console.print(f"[bold]Support/Resistance for {ticker}...[/bold]")
-    quote = yahoo.get_quote(ticker)
-    df = yahoo.get_history(ticker, period=period)
+    quote = provider.get_quote(ticker)
+    df = provider.get_history(ticker, period=period)
 
     if df.empty:
         console.print(f"[red]No data for {ticker}[/red]")
@@ -212,38 +238,40 @@ def levels(ticker: str, period: str):
 
 @cli.command()
 @click.option("--name", default="default", help="Watchlist name from config.")
-def watchlist(name: str):
+@source_option
+def watchlist(name: str, source: str | None):
     """Review watchlist tickers with pre-market data."""
     from tradekit.reports.terminal import print_scan_results
     from tradekit.screener.premarket import scan_watchlist
 
     settings = get_settings()
+    provider = get_provider(source)
     console.print(f"[bold]Scanning watchlist '{name}'...[/bold]")
 
-    df = scan_watchlist(settings=settings, watchlist_name=name)
+    df = scan_watchlist(settings=settings, watchlist_name=name, provider=provider)
     print_scan_results(df, title=f"Watchlist: {name}")
 
 
 @cli.command()
 @click.option("--preset", default="premarket_gap", help="Screener preset.")
 @click.option("--top-n", default=5, help="Number of top picks to analyze in detail.")
-def morning(preset: str, top_n: int):
+@source_option
+def morning(preset: str, top_n: int, source: str | None):
     """Full morning pre-market workflow: scan + analyze top picks."""
     from tradekit.analysis.indicators import compute_all_indicators
     from tradekit.analysis.levels import find_support_resistance, get_nearest_levels
     from tradekit.analysis.scoring import compute_composite_score
     from tradekit.analysis.volume import add_volume_indicators
-    from tradekit.data.yahoo import YahooProvider
     from tradekit.reports.terminal import print_analysis, print_scan_results
     from tradekit.screener.premarket import scan_premarket
 
     settings = get_settings()
     presets = settings.load_indicator_presets()
-    yahoo = YahooProvider()
+    provider = get_provider(source)
 
     # Step 1: Scan
     console.print("[bold]Step 1: Pre-Market Scan[/bold]")
-    scan_df = scan_premarket(settings=settings, preset=preset)
+    scan_df = scan_premarket(settings=settings, preset=preset, provider=provider)
     print_scan_results(scan_df)
 
     if scan_df.empty:
@@ -256,8 +284,8 @@ def morning(preset: str, top_n: int):
 
     for ticker in tickers:
         try:
-            quote = yahoo.get_quote(ticker)
-            df = yahoo.get_history(ticker, period="3mo")
+            quote = provider.get_quote(ticker)
+            df = provider.get_history(ticker, period="3mo")
             if df.empty:
                 console.print(f"[yellow]  Skipping {ticker} — no data[/yellow]")
                 continue
@@ -281,7 +309,8 @@ def morning(preset: str, top_n: int):
 @cli.command()
 @click.option("--preset", default="premarket_gap", help="Screener preset.")
 @click.option("--output-dir", default=None, help="Report output directory.")
-def report(preset: str, output_dir: str | None):
+@source_option
+def report(preset: str, output_dir: str | None, source: str | None):
     """Generate and save a daily report."""
     from pathlib import Path
 
@@ -290,10 +319,11 @@ def report(preset: str, output_dir: str | None):
     from tradekit.screener.ranking import rank_candidates
 
     settings = get_settings()
+    provider = get_provider(source)
 
     console.print("[bold]Generating daily report...[/bold]")
 
-    scan_df = scan_premarket(settings=settings, preset=preset)
+    scan_df = scan_premarket(settings=settings, preset=preset, provider=provider)
 
     ranked_df = None
     if not scan_df.empty:
@@ -304,6 +334,7 @@ def report(preset: str, output_dir: str | None):
             tickers,
             weights=presets.get("scoring_weights"),
             indicator_presets=presets,
+            provider=provider,
         )
 
     content = generate_daily_report(scan_df, ranked_df)

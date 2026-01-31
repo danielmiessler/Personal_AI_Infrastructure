@@ -1,6 +1,9 @@
 """Multi-factor ranking for screener results."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -9,6 +12,9 @@ from tradekit.analysis.scoring import compute_composite_score
 from tradekit.analysis.volume import add_volume_indicators
 from tradekit.data.yahoo import YahooProvider
 
+if TYPE_CHECKING:
+    from typing import Any
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,6 +22,7 @@ def rank_candidates(
     tickers: list[str],
     weights: dict[str, float] | None = None,
     indicator_presets: dict | None = None,
+    provider: Any = None,
 ) -> pd.DataFrame:
     """Fetch data and rank tickers by composite score.
 
@@ -27,12 +34,13 @@ def rank_candidates(
     Returns:
         DataFrame with one row per ticker, sorted by score descending.
     """
-    yahoo = YahooProvider()
+    if provider is None:
+        provider = YahooProvider()
     results = []
 
     for ticker in tickers:
         try:
-            df = yahoo.get_history(ticker, period="3mo", interval="1d")
+            df = provider.get_history(ticker, period="3mo", interval="1d")
             if df.empty or len(df) < 20:
                 logger.warning("Insufficient data for %s (%d rows)", ticker, len(df))
                 continue
@@ -44,7 +52,7 @@ def rank_candidates(
             latest = df.iloc[-1]
             score = compute_composite_score(latest, weights)
 
-            quote = yahoo.get_quote(ticker)
+            quote = provider.get_quote(ticker)
             results.append({
                 "ticker": ticker,
                 "name": quote.get("name", ticker),

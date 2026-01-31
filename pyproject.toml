@@ -23,6 +23,8 @@ dependencies = [
     "click",
     "rich",
     "python-dotenv",
+    # MCP client
+    "mcp>=1.0",
     # Storage
     "pyarrow",
 ]

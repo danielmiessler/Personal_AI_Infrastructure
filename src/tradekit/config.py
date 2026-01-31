@@ -31,6 +31,7 @@ PROJECT_ROOT = _project_root()
 
 class DataSettings(BaseSettings):
     alphavantage_api_key: str = ""
+    massive_api_key: str = ""
     yahoo_cache_ttl_minutes: int = 5
     finviz_cache_ttl_minutes: int = 10
     cache_dir: Path = Path.home() / ".tradekit" / "cache"
@@ -64,6 +65,8 @@ class Settings(BaseSettings):
     screener: ScreenerSettings = Field(default_factory=ScreenerSettings)
     alerts: AlertSettings = Field(default_factory=AlertSettings)
     config_dir: Path = PROJECT_ROOT / "config"
+    data_source: str = "yahoo"
+    massive_mcp_package: str = "git+https://github.com/anthropics/mcp_massive@v0.6.0"
 
     def load_watchlists(self) -> dict[str, list[str]]:
         path = self.config_dir / "watchlists.yaml"

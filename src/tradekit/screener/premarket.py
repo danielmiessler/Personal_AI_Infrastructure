@@ -1,6 +1,9 @@
 """Pre-market gap and volume scanner — the core morning workflow module."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -9,12 +12,16 @@ from tradekit.data.finviz import FinvizProvider
 from tradekit.data.yahoo import YahooProvider
 from tradekit.screener.filters import apply_filters, build_filter_chain
 
+if TYPE_CHECKING:
+    from typing import Any
+
 logger = logging.getLogger(__name__)
 
 
 def scan_premarket(
     settings: Settings | None = None,
     preset: str = "premarket_gap",
+    provider: Any = None,
 ) -> pd.DataFrame:
     """Run the pre-market scanner.
 
@@ -58,11 +65,12 @@ def scan_premarket(
         logger.warning("No candidates found from Finviz screener")
         return pd.DataFrame()
 
-    logger.info("Found %d Finviz candidates, enriching with Yahoo data...", len(tickers))
+    logger.info("Found %d Finviz candidates, enriching with market data...", len(tickers))
 
-    # Step 2: Enrich with Yahoo pre-market data
-    yahoo = YahooProvider()
-    premarket_data = yahoo.get_multiple_premarket(tickers)
+    # Step 2: Enrich with pre-market data from the chosen provider
+    if provider is None:
+        provider = YahooProvider()
+    premarket_data = provider.get_multiple_premarket(tickers)
 
     if not premarket_data:
         logger.warning("No pre-market data retrieved")
@@ -88,6 +96,7 @@ def scan_premarket(
 def scan_watchlist(
     settings: Settings | None = None,
     watchlist_name: str = "default",
+    provider: Any = None,
 ) -> pd.DataFrame:
     """Scan watchlist tickers for pre-market activity.
 
@@ -108,8 +117,9 @@ def scan_watchlist(
         logger.warning("Watchlist '%s' is empty or not found", watchlist_name)
         return pd.DataFrame()
 
-    yahoo = YahooProvider()
-    premarket_data = yahoo.get_multiple_premarket(tickers)
+    if provider is None:
+        provider = YahooProvider()
+    premarket_data = provider.get_multiple_premarket(tickers)
 
     if not premarket_data:
         return pd.DataFrame()

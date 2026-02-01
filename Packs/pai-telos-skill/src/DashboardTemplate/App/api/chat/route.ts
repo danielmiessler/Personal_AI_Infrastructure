@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getTelosContext } from "@/lib/telos-data"
+import { getTelosContext } from "@/Lib/telos-data"
 
 export async function POST(request: Request) {
   try {

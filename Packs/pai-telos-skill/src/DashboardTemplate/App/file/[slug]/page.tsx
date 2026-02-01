@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useParams, notFound } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/Ui/card"
+import { Button } from "@/Components/Ui/button"
 import { FileText, Table as TableIcon, Edit2, Save, X } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 
@@ -179,7 +179,7 @@ function CSVTable({ content }: { content: string }) {
   const lines = content.trim().split('\n')
   if (lines.length === 0) return <p className="text-gray-500">Empty file</p>
 
-  const headers = lines[0].split(',').map(h => h.trim())
+  const headers = lines[0]!.split(',').map(h => h.trim())
   const rows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()))
 
   return (

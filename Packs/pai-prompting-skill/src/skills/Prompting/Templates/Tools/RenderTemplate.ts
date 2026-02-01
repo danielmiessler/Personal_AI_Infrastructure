@@ -144,7 +144,7 @@ function resolveTemplatePath(path: string): string {
   return resolve(templatesDir, path);
 }
 
-function loadTemplate(templatePath: string): HandlebarsTemplateDelegate {
+function loadTemplate(templatePath: string): Handlebars.TemplateDelegate {
   const fullPath = resolveTemplatePath(templatePath);
 
   if (!existsSync(fullPath)) {

@@ -1,4 +1,4 @@
-import type { TimelinePhase } from "@/lib/report-data"
+import type { TimelinePhase } from "@/Lib/report-data"
 
 interface TimelineProps {
   phases: TimelinePhase[]

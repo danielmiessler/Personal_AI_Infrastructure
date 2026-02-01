@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, MessageSquare, Upload, FileText, Table } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { cn } from "@/Lib/utils"
+import { Badge } from "@/Components/Ui/badge"
 import { useEffect, useState } from "react"
 
 interface FileNav {

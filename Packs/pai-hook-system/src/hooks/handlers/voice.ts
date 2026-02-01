@@ -85,11 +85,18 @@ async function sendNotification(payload: NotificationPayload, sessionId: string)
   };
 
   try {
+    // Create AbortController with 2-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     const response = await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error('[Voice] Server error:', response.statusText);

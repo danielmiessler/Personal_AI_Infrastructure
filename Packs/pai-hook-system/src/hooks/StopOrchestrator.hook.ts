@@ -108,16 +108,17 @@ async function main() {
   console.error(`[StopOrchestrator] Parsed transcript: ${parsed.plainCompletion.slice(0, 50)}...`);
 
   // Run handlers with pre-parsed data (isolated failures)
+  // TabState re-enabled with Bun.spawn() subprocess control for proper timeout/kill handling
   const results = await Promise.allSettled([
     handleVoice(parsed, hookInput.session_id),
     handleCapture(parsed, hookInput),
-    handleTabState(parsed),
+    handleTabState(parsed),  // Re-enabled: uses runWithTimeout() for subprocess control
     handleSystemIntegrity(parsed, hookInput),
   ]);
 
   // Log any failures
+  const handlerNames = ['Voice', 'Capture', 'TabState', 'SystemIntegrity'];
   results.forEach((result, index) => {
-    const handlerNames = ['Voice', 'Capture', 'TabState', 'SystemIntegrity'];
     if (result.status === 'rejected') {
       console.error(`[StopOrchestrator] ${handlerNames[index]} handler failed:`, result.reason);
     }

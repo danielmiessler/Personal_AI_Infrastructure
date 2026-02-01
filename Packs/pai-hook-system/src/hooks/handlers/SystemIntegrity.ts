@@ -54,6 +54,10 @@ async function notifyIntegrityStart(): Promise<void> {
     // Wait 4 seconds for main voice handler to finish speaking
     await new Promise(resolve => setTimeout(resolve, 4000));
 
+    // Create AbortController with 2-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     await fetch('http://localhost:8888/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,7 +66,10 @@ async function notifyIntegrityStart(): Promise<void> {
         voice_enabled: true,
         priority: 'low',
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
   } catch {
     // Voice server might not be running - silent fail
   }

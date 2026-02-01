@@ -19,6 +19,7 @@
 import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { getLearningCategory, isLearningCapture } from "../../../hooks/lib/learning-utils";
 
 // ============================================================================
@@ -26,8 +27,10 @@ import { getLearningCategory, isLearningCapture } from "../../../hooks/lib/learn
 // ============================================================================
 
 const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
-const USERNAME = process.env.USER || require("os").userInfo().username;
-const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-Users-${USERNAME}--claude`);
+const USERNAME = process.env.USER || os.userInfo().username;
+// Cross-platform support: macOS uses /Users/, Linux uses /home/
+const PATH_PREFIX = os.platform() === "darwin" ? "Users" : "home";
+const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-${PATH_PREFIX}-${USERNAME}--claude`);
 const LEARNING_DIR = path.join(CLAUDE_DIR, "MEMORY", "LEARNING");
 
 // Patterns indicating learning moments in conversations

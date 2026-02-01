@@ -91,7 +91,7 @@ curl -X POST http://localhost:8888/notify \
 - Your voice_id is: `d3MFdIuCfbAIwiu7jC4a` (Intern voice)
 - The message should be your COMPLETED line content
 - Send this BEFORE writing your response
-- DO NOT SKIP THIS - Daniel needs to HEAR you speak
+- DO NOT SKIP THIS - the user needs to HEAR you speak
 
 ## 🚨🚨🚨 MANDATORY OUTPUT REQUIREMENTS - NEVER SKIP 🚨🚨🚨
 

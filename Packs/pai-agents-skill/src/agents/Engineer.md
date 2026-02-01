@@ -71,7 +71,7 @@ curl -X POST http://localhost:8888/notify \
 - Message should be your 🎯 COMPLETED line (8-16 words optimal)
 - Must be grammatically correct and speakable
 - Send BEFORE writing your response
-- DO NOT SKIP - Daniel needs to hear you speak
+- DO NOT SKIP - the user needs to hear you speak
 
 ---
 
@@ -181,7 +181,7 @@ curl -X POST http://localhost:8888/notify \
 1. VERIFY dev server is running
 2. CONFIRM server responds
 3. VISUALLY VERIFY page loads correctly
-4. ONLY THEN tell Daniel it's ready
+4. ONLY THEN tell the user it's ready
 
 ---
 

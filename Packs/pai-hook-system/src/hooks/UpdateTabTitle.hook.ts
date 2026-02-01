@@ -61,9 +61,27 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { inference } from '../skills/CORE/Tools/Inference';
 import { isValidTabSummary, getTabFallback } from './lib/response-format';
+
+/**
+ * Get kitty socket path - required for socket-only remote control.
+ * Using socket-based control prevents escape sequence leaks (P@kitty-cmd artifacts)
+ * that occur when hooks run as subprocesses.
+ */
+function getKittySocket(): string | null {
+  if (process.env.KITTY_LISTEN_ON) {
+    return process.env.KITTY_LISTEN_ON;
+  }
+  const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+  try {
+    if (existsSync(defaultSocket)) {
+      return `unix:${defaultSocket}`;
+    }
+  } catch {}
+  return null;
+}
 
 // Tab colors - different states
 const TAB_WORKING_BG = '#804000';      // Dark orange - actively working
@@ -218,9 +236,9 @@ ${prompt.slice(0, 800)}`;
 type TabState = 'normal' | 'working' | 'inference';
 
 /**
- * Set terminal tab title and color based on state
- * Uses Kitty remote control if available (hooks run without TTY),
- * falls back to escape codes for other terminals
+ * Set terminal tab title and color based on state.
+ * Uses Kitty socket-based remote control to avoid escape sequence leaks.
+ * Falls back to escape codes for non-Kitty terminals.
  */
 function setTabTitle(title: string, state: TabState = 'normal'): void {
   try {
@@ -229,31 +247,32 @@ function setTabTitle(title: string, state: TabState = 'normal'): void {
     const truncated = titleWithSuffix.length > 50 ? titleWithSuffix.slice(0, 47) + '…' : titleWithSuffix;
     const escaped = truncated.replace(/'/g, "'\\''");
 
-    // Check if we're in Kitty (TERM=xterm-kitty or KITTY_LISTEN_ON set)
-    const isKitty = process.env.TERM === 'xterm-kitty' || process.env.KITTY_LISTEN_ON;
+    // Get kitty socket for socket-based remote control
+    const socket = getKittySocket();
 
-    if (isKitty) {
-      // Use Kitty remote control - works even without TTY
-      execSync(`kitty @ set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
+    if (socket) {
+      // Use socket-based remote control - prevents escape sequence leaks
+      execSync(`kitty @ --to ${socket} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
 
       // Set color based on state
       if (state === 'inference') {
-        // Purple for inference/AI thinking - active tab stays dark blue, inactive shows purple
         execSync(
-          `kitten @ set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_INFERENCE_BG} inactive_fg=${INACTIVE_TEXT}`,
+          `kitten @ --to ${socket} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_INFERENCE_BG} inactive_fg=${INACTIVE_TEXT}`,
           { stdio: 'ignore', timeout: 2000 }
         );
         console.error('[UpdateTabTitle] Set inference color (purple on inactive only)');
       } else if (state === 'working') {
-        // Orange for actively working - active tab stays dark blue, inactive shows orange
         execSync(
-          `kitten @ set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_WORKING_BG} inactive_fg=${INACTIVE_TEXT}`,
+          `kitten @ --to ${socket} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_WORKING_BG} inactive_fg=${INACTIVE_TEXT}`,
           { stdio: 'ignore', timeout: 2000 }
         );
         console.error('[UpdateTabTitle] Set working color (orange on inactive only)');
       }
 
-      console.error('[UpdateTabTitle] Set via Kitty remote control');
+      console.error('[UpdateTabTitle] Set via Kitty socket');
+    } else if (process.env.TERM === 'xterm-kitty') {
+      // Kitty detected but no socket - skip to avoid escape sequence leaks
+      console.error('[UpdateTabTitle] Kitty detected but no socket available, skipping');
     } else {
       // Fallback to escape codes for other terminals
       execSync(`printf '\\033]0;${escaped}\\007' >&2`, { stdio: ['pipe', 'pipe', 'inherit'] });

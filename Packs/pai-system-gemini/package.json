@@ -1,0 +1,35 @@
+{
+  "name": "pai-system-gemini",
+  "version": "0.1.0-alpha.1",
+  "description": "System Pack to enable Google Gemini CLI as a driver for Personal AI Infrastructure",
+  "main": "dist/adapter.js",
+  "scripts": {
+    "build": "tsc src/hooks/adapter.ts --outDir dist --esModuleInterop",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "pai",
+    "gemini",
+    "wsl",
+    "system-pack"
+  ],
+  "author": "Lefab",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^3.0.2",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.3.0",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.0.2"
+  }
+}

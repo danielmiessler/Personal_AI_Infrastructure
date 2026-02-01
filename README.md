@@ -375,7 +375,7 @@ cd PAI/Releases/v2.5
 cp -r .claude ~/
 
 # Run the configuration wizard
-cd ~/.claude && bun run PAIInstallWizard.ts
+cd ~/.claude && bun run INSTALL.ts
 ```
 
 **The wizard will:**

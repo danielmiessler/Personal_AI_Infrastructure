@@ -97,11 +97,11 @@ export function scanInstallation(path: string): InstallationInfo {
         s => s.startsWith('_') && s === s.toUpperCase()
       );
 
-      // Check for CORE skill
-      info.components.coreSkill = existsSync(join(skillsDir, 'CORE', 'SKILL.md'));
+      // Check for PAI skill
+      info.components.coreSkill = existsSync(join(skillsDir, 'PAI', 'SKILL.md'));
 
       // Check for USER content
-      info.components.userContent = existsSync(join(skillsDir, 'CORE', 'USER'));
+      info.components.userContent = existsSync(join(skillsDir, 'PAI', 'USER'));
     } catch (e) {
       // Could not read skills directory
     }
@@ -250,7 +250,7 @@ export function formatInstallationInfo(info: InstallationInfo): string {
   lines.push(`  Complete: ${info.isComplete ? 'Yes' : 'No'}`);
   lines.push('  Components:');
   lines.push(`    - settings.json: ${info.components.settings ? 'Yes' : 'No'}`);
-  lines.push(`    - CORE skill: ${info.components.coreSkill ? 'Yes' : 'No'}`);
+  lines.push(`    - PAI skill: ${info.components.coreSkill ? 'Yes' : 'No'}`);
   lines.push(`    - USER content: ${info.components.userContent ? 'Yes' : 'No'}`);
   lines.push(`    - Skills: ${info.stats.skillCount}`);
   if (info.components.personalSkills.length > 0) {

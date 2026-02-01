@@ -120,7 +120,7 @@ interface StopPayload extends BasePayload {
 | Hook | Purpose | Blocking | Dependencies |
 |------|---------|----------|--------------|
 | `StartupGreeting.hook.ts` | Display PAI banner with system stats | No | None |
-| `LoadContext.hook.ts` | Inject CORE skill into context | Yes (stdout) | `skills/PAI/SKILL.md` |
+| `LoadContext.hook.ts` | Inject PAI skill into context | Yes (stdout) | `skills/PAI/SKILL.md` |
 | `CheckVersion.hook.ts` | Notify if CC update available | No | npm registry |
 
 ### UserPromptSubmit Hooks

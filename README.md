@@ -329,7 +329,30 @@ Powered by ElevenLabs TTS. Hear task completions, session summaries, and importa
 
 ### Terminal-Based UI
 
-Rich tab titles and pane management. Dynamic status lines show learning signals, context usage, and current task state. Your terminal is a command center.
+### 🆕 OpenCode Users: Start Here
+
+Using OpenCode instead of Claude Code? We've got you covered:
+
+```bash
+# Clone the repo
+git clone https://github.com/sn0n/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/OpenCode
+
+# Windows (PowerShell)
+.\install.ps1
+
+# Linux/macOS (Bash)
+chmod +x install.sh
+./install.sh
+```
+
+**The OpenCode installer provides:**
+- Cross-platform support (Windows, Linux, macOS)
+- MCP server configuration
+- PAI context integration
+- Full setup wizard
+
+**See [OpenCode/README.md](OpenCode/) for detailed documentation.**
 
 ---
 
@@ -432,7 +455,102 @@ Install this pack into my system. Use PAI_DIR="~/.claude"
 and DA="MyAI". Set up the hooks, save the code, and verify it works.
 ```
 
-### Option 4: Browse and Cherry-Pick
+Open a PR with:
+- Pack description
+- What problem it solves
+- Testing you've done
+- Screenshots/examples (if applicable)
+
+### Pack Quality Standards
+
+**Must have:**
+- ✅ Clear problem statement
+- ✅ Complete working code (tested)
+- ✅ Real examples (not placeholders)
+- ✅ Both AI and manual installation instructions
+- ✅ Troubleshooting section
+- ✅ No hardcoded personal data
+
+**Nice to have:**
+- Screenshots of output
+- Video demo
+- Multiple examples for different use cases
+- Integration with other packs
+
+---
+
+## 🏗️ Platform Compatibility
+
+PAI packs are designed to be **platform-agnostic**:
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Claude Code** | ✅ Full support | Native integration, all features work |
+| **OpenCode** | ✅ Full support | MCP-based architecture, [installation wizard available](OpenCode/) |
+| **Custom systems** | ✅ Compatible | Extract code, adapt to your structure |
+| **Gemini Code / Codex** | 🔄 Testing | Should work with minor tweaks |
+| **Manual use** | ✅ Always works | Packs are documentation + code |
+
+The code itself is platform-independent (TypeScript, Python, Bash). Integration points (skills, hooks) may vary by platform.
+
+### 🆕 OpenCode Support
+
+PAI now includes native OpenCode support with:
+- **Cross-platform installers** - PowerShell (Windows) and Bash (Linux/macOS)
+- **MCP server adapters** - Hook functionality via Model Context Protocol
+- **Full Windows support** - First-class Windows compatibility
+- **Conversion guides** - Detailed pack adaptation documentation
+
+**Get started:** See [OpenCode/README.md](OpenCode/) for installation instructions.
+
+---
+
+## 💡 Why Packs?
+
+**Text is the interface.** Everything your AI needs to implement a capability should be in one readable file.
+
+**Composability over monoliths.** Mix and match packs. Build your own stack.
+
+**AI-first design.** Optimized for AI agents to read, understand, and implement - not just humans.
+
+**Open contribution.** Anyone can submit a pack. The best ideas win.
+
+**No vendor lock-in.** Packs describe *how to solve a problem*, not just "here's the code for our platform."
+
+---
+
+## 🤝 Contributing
+
+### Submit a Pack
+
+We welcome packs that solve real problems:
+
+1. **Fork the repository**
+2. **Create your pack** - Follow [PAIPackTemplate.md](Tools/PAIPackTemplate.md)
+3. **Test it thoroughly** - Install in a fresh system with AI assistance
+4. **Submit a PR** - Include examples and testing evidence
+
+### Pack Review Process
+
+Submitted packs are reviewed for:
+- **Completeness** - All required sections present
+- **Code quality** - Works as described, no obvious bugs
+- **Security** - No hardcoded secrets, follows best practices
+- **Usefulness** - Solves a real problem for users
+
+**Review timeline:** Most packs reviewed within 7 days.
+
+### Pack Maintenance
+
+**Authors maintain their packs.** When you submit a pack, you're committing to:
+- Respond to issues about your pack
+- Fix bugs that are reported
+- Consider feature requests
+- Update for breaking changes in dependencies
+
+If a pack becomes unmaintained, the community can fork and maintain a new version.
+
+---
 
 Packs are self-contained. You can:
 - Read the code directly in the pack

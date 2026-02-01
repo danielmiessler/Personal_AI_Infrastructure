@@ -1,0 +1,18 @@
+# OpenCode Installation Directory
+# This directory contains installation scripts and documentation
+# The actual OpenCode config lives in ~/.opencode/
+
+# Test installations
+test/
+.test/
+
+# Backup files
+*.backup
+*.bak
+
+# Log files
+*.log
+
+# OS specific
+.DS_Store
+Thumbs.db

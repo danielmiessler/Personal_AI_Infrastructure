@@ -34,6 +34,145 @@ interface LinuxPlayer {
 
 type AudioFormat = 'mp3' | 'wav';
 
+// Audio status detection - differentiate PAI audio from other audio
+interface AudioStatus {
+  paiAudioPlaying: boolean;
+  otherAudioPlaying: boolean;
+}
+
+/**
+ * Check what audio is currently playing on the system.
+ * Differentiates between PAI voice notifications and other audio.
+ *
+ * PAI audio is identified by: application.name = "paplay" AND media.name contains /tmp/voice-*.wav
+ * This allows us to queue PAI notifications while skipping when other audio (YouTube, music) is playing.
+ */
+function checkAudioStatus(): AudioStatus {
+  if (!IS_LINUX) {
+    return { paiAudioPlaying: false, otherAudioPlaying: false };
+  }
+
+  try {
+    const result = execSync('pactl list sink-inputs 2>/dev/null', {
+      encoding: 'utf-8',
+      timeout: 2000,
+    });
+
+    if (!result.trim()) {
+      return { paiAudioPlaying: false, otherAudioPlaying: false };
+    }
+
+    // Parse sink-inputs into individual entries
+    const entries = result.split('Sink Input #').filter(e => e.trim());
+
+    let paiAudioPlaying = false;
+    let otherAudioPlaying = false;
+
+    for (const entry of entries) {
+      // Check if this is PAI audio: paplay playing our voice temp file
+      const isPaplay = entry.includes('application.name = "paplay"');
+      const isVoiceFile = /media\.name = "[^"]*\/tmp\/voice-[^"]*\.wav"/.test(entry);
+
+      if (isPaplay && isVoiceFile) {
+        paiAudioPlaying = true;
+      } else if (entry.includes('application.name')) {
+        // Has an application name but isn't PAI audio
+        otherAudioPlaying = true;
+      }
+    }
+
+    return { paiAudioPlaying, otherAudioPlaying };
+  } catch {
+    // If pactl fails, assume no audio playing (fail open)
+    return { paiAudioPlaying: false, otherAudioPlaying: false };
+  }
+}
+
+// ============================================================================
+// Audio Queue - Non-blocking notification processing
+// ============================================================================
+
+interface QueuedNotification {
+  title: string;
+  message: string;
+  voiceEnabled: boolean;
+  voiceId: string | null;
+  prosody?: any;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+
+/**
+ * Audio queue for serialized, non-blocking notification playback.
+ *
+ * Instead of polling to wait for previous audio to finish, notifications
+ * are queued and processed sequentially. The HTTP handler returns immediately
+ * while audio plays in the background.
+ */
+class AudioQueue {
+  private queue: QueuedNotification[] = [];
+  private isProcessing = false;
+
+  get length(): number {
+    return this.queue.length;
+  }
+
+  get processing(): boolean {
+    return this.isProcessing;
+  }
+
+  /**
+   * Add a notification to the queue. Returns a promise that resolves
+   * when the notification has been fully processed (TTS + playback complete).
+   */
+  enqueue(notification: Omit<QueuedNotification, 'resolve' | 'reject'>): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ ...notification, resolve, reject });
+      this.processQueue(); // Start processing (non-blocking)
+    });
+  }
+
+  /**
+   * Process queued notifications sequentially.
+   * Only one notification plays at a time - no polling needed.
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessing) return; // Already running
+    this.isProcessing = true;
+
+    while (this.queue.length > 0) {
+      const notification = this.queue.shift()!;
+
+      try {
+        // Check for other audio (YouTube, etc.) - skip if playing
+        const audioStatus = checkAudioStatus();
+        if (audioStatus.otherAudioPlaying) {
+          console.log('Voice skipped: other audio currently playing');
+          notification.resolve(); // Resolve without playing
+          continue;
+        }
+
+        // Process notification (TTS + playback)
+        // playAudio() already waits for process exit - no polling needed
+        await processNotificationVoice(
+          notification.message,
+          notification.voiceId,
+          notification.prosody
+        );
+        notification.resolve();
+      } catch (error) {
+        console.error('Queue processing error:', error);
+        notification.reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    this.isProcessing = false;
+  }
+}
+
+// Global audio queue instance
+const audioQueue = new AudioQueue();
+
 /**
  * Detect the best Linux audio player for a given format.
  * - WAV: paplay (PipeWire native) > mpv > aplay
@@ -533,7 +672,7 @@ async function playQwen3Progressive(
 
   // Promise to track when everything is done
   const done = new Promise<void>((resolve, reject) => {
-    // Start generation of all sentences
+    // Start generation of all sentences (with slight stagger to prioritize first)
     const generateAll = async () => {
       for (let i = 0; i < sentences.length; i++) {
         try {
@@ -751,7 +890,74 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
   });
 }
 
-// Send macOS notification with voice
+/**
+ * Process voice for a notification (TTS generation + playback).
+ * Called by the AudioQueue worker - no polling needed, queue handles serialization.
+ */
+async function processNotificationVoice(
+  message: string,
+  voiceId: string | null = null,
+  requestProsody?: Partial<ProsodySettings>
+): Promise<void> {
+  const safeMessage = stripMarkers(message);
+
+  try {
+    if (ELEVENLABS_API_KEY) {
+      // ElevenLabs (cloud TTS) → MP3
+      const voice = voiceId || DEFAULT_VOICE_ID;
+      const voiceConfig = getVoiceConfig(voice);
+
+      let prosody: Partial<ProsodySettings> = {};
+
+      if (voiceConfig) {
+        if (voiceConfig.prosody) {
+          prosody = voiceConfig.prosody;
+        } else {
+          prosody = {
+            stability: voiceConfig.stability,
+            similarity_boost: voiceConfig.similarity_boost,
+            style: voiceConfig.style ?? DEFAULT_PROSODY.style,
+            speed: voiceConfig.speed ?? DEFAULT_PROSODY.speed,
+            use_speaker_boost: voiceConfig.use_speaker_boost ?? DEFAULT_PROSODY.use_speaker_boost,
+          };
+        }
+        console.log(`Voice: ${voiceConfig.description}`);
+      } else if (voice === DEFAULT_VOICE_ID && daVoiceProsody) {
+        prosody = daVoiceProsody;
+        console.log(`Voice: DA default`);
+      }
+
+      if (requestProsody) {
+        prosody = { ...prosody, ...requestProsody };
+      }
+
+      const settings = { ...DEFAULT_PROSODY, ...prosody };
+      const volume = (prosody as any)?.volume ?? daVoiceProsody?.volume;
+      console.log(`Generating speech [ElevenLabs] (voice: ${voice}, stability: ${settings.stability}, style: ${settings.style}, speed: ${settings.speed}, volume: ${volume ?? 1.0})`);
+
+      const spokenMessage = applyPronunciations(safeMessage);
+      const audioBuffer = await generateSpeech(spokenMessage, voice, prosody);
+      await playAudio(audioBuffer, 'mp3', volume);
+    } else if (await checkQwen3Available()) {
+      // Qwen3-TTS with progressive sentence playback
+      const spokenMessage = applyPronunciations(safeMessage);
+      await playQwen3Progressive(spokenMessage, "Ryan", QWEN3_DEFAULT_INSTRUCT);
+    } else {
+      // Ultimate fallback to OS TTS
+      console.log('Using OS TTS fallback (no API key, Qwen3 unavailable)');
+      await speakWithSay(applyPronunciations(safeMessage));
+    }
+  } catch (error) {
+    console.error("Failed to generate/play speech:", error);
+    try {
+      await speakWithSay(applyPronunciations(safeMessage));
+    } catch (sayError) {
+      console.error("Fallback say also failed:", sayError);
+    }
+  }
+}
+
+// Send notification with voice (uses queue for non-blocking audio)
 async function sendNotification(
   title: string,
   message: string,
@@ -775,73 +981,20 @@ async function sendNotification(
   const safeTitle = titleValidation.sanitized!;
   let safeMessage = stripMarkers(messageValidation.sanitized!);
 
-  // Generate and play voice
+  // Queue voice for non-blocking playback
+  // The queue handles: other audio detection, serialization, process exit waiting
   if (voiceEnabled) {
-    try {
-      if (ELEVENLABS_API_KEY) {
-        // ElevenLabs (cloud TTS) → MP3
-        const voice = voiceId || DEFAULT_VOICE_ID;
-
-        // Get voice configuration (personality settings)
-        const voiceConfig = getVoiceConfig(voice);
-
-        // Build prosody: request > voice config > DA config > defaults
-        let prosody: Partial<ProsodySettings> = {};
-
-        // First try voice config from AGENTPERSONALITIES.md
-        if (voiceConfig) {
-          if (voiceConfig.prosody) {
-            // New format: nested prosody object
-            prosody = voiceConfig.prosody;
-          } else {
-            // Legacy format: flat fields
-            prosody = {
-              stability: voiceConfig.stability,
-              similarity_boost: voiceConfig.similarity_boost,
-              style: voiceConfig.style ?? DEFAULT_PROSODY.style,
-              speed: voiceConfig.speed ?? DEFAULT_PROSODY.speed,
-              use_speaker_boost: voiceConfig.use_speaker_boost ?? DEFAULT_PROSODY.use_speaker_boost,
-            };
-          }
-          console.log(`Voice: ${voiceConfig.description}`);
-        } else if (voice === DEFAULT_VOICE_ID && daVoiceProsody) {
-          // Using DA's default voice - use prosody from settings.json
-          prosody = daVoiceProsody;
-          console.log(`Voice: DA default`);
-        }
-
-        // Request prosody overrides config prosody
-        if (requestProsody) {
-          prosody = { ...prosody, ...requestProsody };
-          console.log(`Using request prosody overrides`);
-        }
-
-        const settings = { ...DEFAULT_PROSODY, ...prosody };
-        const volume = (prosody as any)?.volume ?? daVoiceProsody?.volume;
-        console.log(`Generating speech [ElevenLabs] (voice: ${voice}, stability: ${settings.stability}, style: ${settings.style}, speed: ${settings.speed}, volume: ${volume ?? 1.0})`);
-
-        const spokenMessage = applyPronunciations(safeMessage);
-        const audioBuffer = await generateSpeech(spokenMessage, voice, prosody);
-        await playAudio(audioBuffer, 'mp3', volume);
-      } else if (await checkQwen3Available()) {
-        // Qwen3-TTS (local TTS) → WAV with progressive playback
-        // Qwen3-TTS with progressive sentence playback
-        const spokenMessage = applyPronunciations(safeMessage);
-        await playQwen3Progressive(spokenMessage, "Ryan", QWEN3_DEFAULT_INSTRUCT);
-      } else {
-        // Ultimate fallback to OS TTS (say/espeak)
-        console.log('Using OS TTS fallback (no API key, Qwen3 unavailable)');
-        await speakWithSay(applyPronunciations(safeMessage));
-      }
-    } catch (error) {
-      console.error("Failed to generate/play speech:", error);
-      // Try fallback to say command
-      try {
-        await speakWithSay(applyPronunciations(safeMessage));
-      } catch (sayError) {
-        console.error("Fallback say also failed:", sayError);
-      }
-    }
+    // Fire and forget - queue processes in background
+    // No await here: notification displays immediately while voice queues
+    audioQueue.enqueue({
+      title: safeTitle,
+      message: safeMessage,
+      voiceEnabled: true,
+      voiceId: voiceId,
+      prosody: requestProsody,
+    }).catch(error => {
+      console.error('Voice queue error:', error);
+    });
   }
 
   // Display system notification (platform-specific)

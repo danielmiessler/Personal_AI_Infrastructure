@@ -27,12 +27,21 @@ const DEFAULT_PRINCIPAL = {
   timezone: 'UTC',
 };
 
+export interface VoiceSettings {
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  speed?: number;
+  use_speaker_boost?: boolean;
+}
+
 export interface Identity {
   name: string;
   fullName: string;
   displayName: string;
   voiceId: string;
   color: string;
+  voice?: VoiceSettings;
 }
 
 export interface Principal {
@@ -45,6 +54,8 @@ export interface Settings {
   daidentity?: Partial<Identity>;
   principal?: Partial<Principal>;
   env?: Record<string, string>;
+  /** When true, skips non-essential voice notifications. Defaults to false. */
+  reducedVoiceFeedback?: boolean;
   [key: string]: unknown;
 }
 
@@ -78,15 +89,16 @@ export function getIdentity(): Identity {
   const settings = loadSettings();
 
   // Prefer settings.daidentity, fall back to env.DA for backward compat
-  const daidentity = settings.daidentity || {};
+  const daidentity = settings.daidentity || {} as Record<string, unknown>;
   const envDA = settings.env?.DA;
 
   return {
-    name: daidentity.name || envDA || DEFAULT_IDENTITY.name,
-    fullName: daidentity.fullName || daidentity.name || envDA || DEFAULT_IDENTITY.fullName,
-    displayName: daidentity.displayName || daidentity.name || envDA || DEFAULT_IDENTITY.displayName,
-    voiceId: daidentity.voiceId || DEFAULT_IDENTITY.voiceId,
-    color: daidentity.color || DEFAULT_IDENTITY.color,
+    name: (daidentity.name as string) || envDA || DEFAULT_IDENTITY.name,
+    fullName: (daidentity.fullName as string) || (daidentity.name as string) || envDA || DEFAULT_IDENTITY.fullName,
+    displayName: (daidentity.displayName as string) || (daidentity.name as string) || envDA || DEFAULT_IDENTITY.displayName,
+    voiceId: (daidentity.voiceId as string) || DEFAULT_IDENTITY.voiceId,
+    color: (daidentity.color as string) || DEFAULT_IDENTITY.color,
+    voice: daidentity.voice as VoiceSettings | undefined,
   };
 }
 
@@ -154,4 +166,15 @@ export function getDefaultIdentity(): Identity {
  */
 export function getDefaultPrincipal(): Principal {
   return { ...DEFAULT_PRINCIPAL };
+}
+
+/**
+ * Check if reduced voice feedback is enabled.
+ * When true, skips non-essential voice notifications (session start, integrity check, algorithm phases).
+ * Essential notifications (prompt acknowledgment, completion, user questions) always play.
+ * Defaults to false for backwards compatibility.
+ */
+export function isReducedVoiceFeedback(): boolean {
+  const settings = loadSettings();
+  return settings.reducedVoiceFeedback === true;
 }

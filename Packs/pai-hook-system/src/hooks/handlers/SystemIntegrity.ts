@@ -8,7 +8,7 @@
  *
  * SIDE EFFECTS:
  * - Spawns background IntegrityMaintenance.ts process
- * - Voice notification on start
+ * - Voice notification on start (unless reducedVoiceFeedback is enabled)
  * - Updates MEMORY/STATE/integrity-state.json
  *
  * THROTTLING:
@@ -20,6 +20,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { join } from 'path';
 import { paiPath } from '../lib/paths';
+import { isReducedVoiceFeedback } from '../lib/identity';
 import {
   parseToolUseBlocks,
   isSignificantChange,
@@ -47,9 +48,16 @@ const INTEGRITY_SCRIPT = paiPath('tools', 'IntegrityMaintenance.ts');
 /**
  * Send voice notification for integrity check start.
  * Fire-and-forget - doesn't block.
+ * Skipped when reducedVoiceFeedback is enabled.
  * Includes 4-second delay to let main voice handler finish speaking first.
  */
 async function notifyIntegrityStart(): Promise<void> {
+  // Skip if reduced voice feedback is enabled
+  if (isReducedVoiceFeedback()) {
+    console.error('[SystemIntegrity] Skipping voice (reducedVoiceFeedback enabled)');
+    return;
+  }
+
   try {
     // Wait 4 seconds for main voice handler to finish speaking
     await new Promise(resolve => setTimeout(resolve, 4000));
@@ -205,7 +213,7 @@ export async function handleSystemIntegrity(
   // Update state before spawning
   updateIntegrityState(systemChanges);
 
-  // Send voice notification (fire-and-forget)
+  // Send voice notification (fire-and-forget, skipped if reducedVoiceFeedback)
   notifyIntegrityStart().catch(() => {});
 
   // Spawn background process

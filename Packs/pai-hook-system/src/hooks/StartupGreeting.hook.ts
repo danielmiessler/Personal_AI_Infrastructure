@@ -6,6 +6,7 @@
  * Displays the responsive neofetch-style PAI banner with system statistics.
  * Creates a visual confirmation that PAI is initialized and shows key metrics
  * like skill count, session count, and learning items.
+ * Optionally plays voice greeting (disabled when reducedVoiceFeedback is enabled).
  *
  * TRIGGER: SessionStart
  *
@@ -22,6 +23,7 @@
  * SIDE EFFECTS:
  * - Spawns Banner.ts tool as child process
  * - Reads settings.json for configuration
+ * - Sends voice notification (unless reducedVoiceFeedback is enabled)
  *
  * INTER-HOOK RELATIONSHIPS:
  * - DEPENDS ON: None (runs independently at session start)
@@ -54,37 +56,84 @@ import { getPaiDir, getSettingsPath } from './lib/paths';
 const paiDir = getPaiDir();
 const settingsPath = getSettingsPath();
 
-try {
-  const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-
-  // Check if this is a subagent session - if so, exit silently
-  const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
-  const isSubagent = claudeProjectDir.includes('/.claude/Agents/') ||
-                    process.env.CLAUDE_AGENT_TYPE !== undefined;
-
-  if (isSubagent) {
-    process.exit(0);
+/**
+ * Send voice notification for startup greeting.
+ * Fire-and-forget - doesn't block.
+ * Skipped when reducedVoiceFeedback is enabled.
+ */
+async function sendVoiceGreeting(settings: Record<string, unknown>): Promise<void> {
+  // Skip if reduced voice feedback is enabled
+  if (settings.reducedVoiceFeedback === true) {
+    return;
   }
 
-  // Run the banner tool
-  const bannerPath = join(paiDir, 'skills/CORE/Tools/Banner.ts');
-  const result = spawnSync('bun', ['run', bannerPath], {
-    encoding: 'utf-8',
-    stdio: ['inherit', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      // Pass through terminal detection env vars
-      COLUMNS: process.env.COLUMNS,
-      KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,
-    }
-  });
+  const daidentity = settings.daidentity as Record<string, unknown> | undefined;
+  const voiceId = daidentity?.voiceId as string || 's3TPKV1kjDlVtZbl4Ksh';
+  const voiceSettings = daidentity?.voice as Record<string, unknown> | undefined;
+  const catchphrase = daidentity?.startupCatchphrase as string || 'Ready to assist.';
 
-  if (result.stdout) {
-    console.log(result.stdout);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    await fetch('http://localhost:8888/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        message: catchphrase,
+        voice_enabled: true,
+        voice_id: voiceId,
+        voice_settings: voiceSettings ? {
+          stability: voiceSettings.stability ?? 0.5,
+          similarity_boost: voiceSettings.similarity_boost ?? 0.75,
+          style: voiceSettings.style ?? 0.0,
+          speed: voiceSettings.speed ?? 1.0,
+          use_speaker_boost: voiceSettings.use_speaker_boost ?? true,
+        } : undefined,
+      }),
+    }).finally(() => clearTimeout(timeoutId));
+  } catch {
+    // Voice server might not be running - silent fail
   }
-
-  process.exit(0);
-} catch (error) {
-  console.error('StartupGreeting: Failed to display banner', error);
-  process.exit(1);
 }
+
+(async () => {
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+
+    // Check if this is a subagent session - if so, exit silently
+    const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
+    const isSubagent = claudeProjectDir.includes('/.claude/Agents/') ||
+                      process.env.CLAUDE_AGENT_TYPE !== undefined;
+
+    if (isSubagent) {
+      process.exit(0);
+    }
+
+    // Run the banner tool
+    const bannerPath = join(paiDir, 'skills/CORE/Tools/Banner.ts');
+    const result = spawnSync('bun', ['run', bannerPath], {
+      encoding: 'utf-8',
+      stdio: ['inherit', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        // Pass through terminal detection env vars
+        COLUMNS: process.env.COLUMNS,
+        KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,
+      }
+    });
+
+    if (result.stdout) {
+      console.log(result.stdout);
+    }
+
+    // Send voice greeting (fire-and-forget, skipped if reducedVoiceFeedback)
+    sendVoiceGreeting(settings).catch(() => {});
+
+    process.exit(0);
+  } catch (error) {
+    console.error('StartupGreeting: Failed to display banner', error);
+    process.exit(1);
+  }
+})();

@@ -20,6 +20,10 @@ const IS_LINUX = platform() === 'linux';
 // Qwen3-TTS internal server port (runs alongside this server)
 const QWEN3_PORT = parseInt(process.env.QWEN3_INTERNAL_PORT || "8889");
 
+// Default voice style instruction for Qwen3-TTS (formal, consistent delivery)
+// Prevents random emotional variations like laughter or tone shifts
+const QWEN3_DEFAULT_INSTRUCT = "Speak at a brisk pace with confident energy. Professional and clear, slightly upbeat but not overly emotional. No laughter or dramatic shifts. Consistent delivery throughout.";
+
 // Linux audio player detection - format-aware
 interface LinuxPlayer {
   name: string;
@@ -666,7 +670,7 @@ async function sendNotification(
         // Qwen3-TTS (local TTS) → WAV
         console.log('Generating speech [Qwen3-TTS] (local fallback)');
         const spokenMessage = applyPronunciations(safeMessage);
-        const audioBuffer = await generateSpeechQwen3(spokenMessage);
+        const audioBuffer = await generateSpeechQwen3(spokenMessage, "Ryan", QWEN3_DEFAULT_INSTRUCT);
         await playAudio(audioBuffer, 'wav');
       } else {
         // Ultimate fallback to OS TTS (say/espeak)

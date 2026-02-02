@@ -1,0 +1,65 @@
+# Complexity detection rules for ComplexityAssessor
+# Pattern matching to determine task complexity level
+
+rules:
+  # COMPLEX patterns (strategic, decisions, multi-perspective)
+  complex:
+    - { pattern: "should\\s+i", weight: 3, category: decision }
+    - { pattern: "should\\s+we", weight: 3, category: decision }
+    - { pattern: "which\\s+(is\\s+)?better", weight: 3, category: comparison }
+    - { pattern: "pros?\\s+(and|&)\\s+cons?", weight: 3, category: analysis }
+    - { pattern: "trade-?offs?", weight: 3, category: analysis }
+    - { pattern: "strategy", weight: 2, category: strategic }
+    - { pattern: "architect(ure)?", weight: 2, category: technical }
+    - { pattern: "long-?term", weight: 2, category: strategic }
+    - { pattern: "road-?map", weight: 2, category: strategic }
+    - { pattern: "recommend", weight: 2, category: decision }
+
+  # MEDIUM patterns (analysis, research, multi-step)
+  medium:
+    - { pattern: "approach", weight: 1.5, category: decision }
+    - { pattern: "vs\\.?|versus", weight: 2, category: comparison }
+    - { pattern: "compare", weight: 2, category: comparison }
+    - { pattern: "difference\\s+between", weight: 2, category: comparison }
+    - { pattern: "analyze", weight: 2, category: analysis }
+    - { pattern: "research", weight: 2, category: research }
+    - { pattern: "investigate", weight: 2, category: research }
+    - { pattern: "review", weight: 1.5, category: analysis }
+    - { pattern: "implement", weight: 1.5, category: technical }
+    - { pattern: "refactor", weight: 1.5, category: technical }
+    - { pattern: "debug", weight: 1.5, category: technical }
+    - { pattern: "optimize", weight: 1.5, category: technical }
+    - { pattern: "how\\s+(do|can|should)", weight: 1, category: how-to }
+
+  # SIMPLE patterns (lookup, single-step)
+  simple:
+    - { pattern: "what\\s+is", weight: 1, category: lookup }
+    - { pattern: "where\\s+is", weight: 1, category: lookup }
+    - { pattern: "show\\s+me", weight: 1, category: lookup }
+    - { pattern: "list", weight: 1, category: lookup }
+    - { pattern: "find", weight: 1, category: lookup }
+    - { pattern: "check", weight: 1, category: lookup }
+    - { pattern: "read", weight: 1, category: lookup }
+
+# Scoring thresholds
+thresholds:
+  simple:
+    max_score: 2
+    agents: 1
+  medium:
+    max_score: 5
+    agents: 2
+  complex:
+    max_score: 999
+    agents: 3
+
+# Complexity multipliers (applied to rule weight)
+multipliers:
+  complex: 2
+  medium: 1.5
+  simple: 1
+
+# Multi-category bonus (when patterns span multiple categories)
+multi_category_bonus:
+  threshold: 2  # Categories needed to trigger bonus
+  bonus: 1.5    # Score multiplier

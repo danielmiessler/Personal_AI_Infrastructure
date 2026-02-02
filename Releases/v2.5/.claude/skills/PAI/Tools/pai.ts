@@ -390,7 +390,7 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: boolean; local?: boolean }) {
+async function cmdLaunch(options: { mcp?: string; resume?: boolean | string; skipPerms?: boolean; local?: boolean }) {
   displayBanner();
   const args = ["claude"];
 
@@ -406,6 +406,10 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
   // Use --dangerous flag explicitly if you really need to skip all permission checks.
   if (options.resume) {
     args.push("--resume");
+    // If resume is a string (session ID), pass it as the next argument
+    if (typeof options.resume === "string") {
+      args.push(options.resume);
+    }
   }
 
   // Change to PAI directory unless --local flag is set
@@ -572,6 +576,7 @@ USAGE:
   k -m <mcp>               Launch with specific MCP(s)
   k -m bd,ap               Launch with multiple MCPs
   k -r, --resume           Resume last session
+  k -r <session-id>        Resume specific session by ID
   k -l, --local            Stay in current directory (don't cd to ~/.claude)
 
 COMMANDS:
@@ -601,6 +606,7 @@ EXAMPLES:
   k -m bd                  Start with Bright Data
   k -m bd,ap,chrome        Start with multiple MCPs
   k -r                     Resume last session
+  k -r 285728b4-8814-40c4-b643-bb7a8e81859e  Resume specific session
   k mcp set research       Switch to research profile
   k update                 Update Claude Code
   k prompt "What time is it?"   One-shot prompt
@@ -624,7 +630,7 @@ async function main() {
 
   // Parse arguments
   let mcp: string | undefined;
-  let resume = false;
+  let resume: boolean | string = false;
   let skipPerms = true;
   let local = false;
   let command: string | undefined;
@@ -650,7 +656,14 @@ async function main() {
         break;
       case "-r":
       case "--resume":
-        resume = true;
+        // Check if next arg is a session ID (UUID format)
+        const resumeArg = args[i + 1];
+        if (resumeArg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resumeArg)) {
+          resume = resumeArg;
+          i++; // Skip the session ID in next iteration
+        } else {
+          resume = true;
+        }
         break;
       case "--safe":
         skipPerms = false;

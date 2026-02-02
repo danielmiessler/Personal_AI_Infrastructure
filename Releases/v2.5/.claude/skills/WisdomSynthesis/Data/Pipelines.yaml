@@ -1,0 +1,288 @@
+# WisdomSynthesis Pipeline Definitions
+#
+# Each pipeline defines a sequence of PAI skills with data handoff between steps.
+# Workflows execute these pipelines using Task delegation.
+
+pipelines:
+  # ============================================================================
+  # EXTRACT WISDOM - Deep wisdom extraction from content
+  # ============================================================================
+  extract_wisdom:
+    name: "Extract and Synthesize Wisdom"
+    description: "Multi-layered wisdom extraction: Research → Fabric → FirstPrinciples"
+    use_cases:
+      - Articles and essays
+      - Long-form content
+      - Educational material
+      - Books and papers
+
+    steps:
+      - skill: Research
+        mode: standard
+        description: "Gather comprehensive background and context"
+        output_key: research_findings
+        agent_type: ClaudeResearcher
+        params:
+          depth: standard
+          sources: 3
+
+      - skill: Fabric
+        pattern: extract_wisdom
+        description: "Extract structured wisdom (IDEAS, INSIGHTS, QUOTES, HABITS)"
+        input_from: research_findings
+        output_key: extracted_wisdom
+        agent_type: general-purpose
+
+      - skill: FirstPrinciples
+        description: "Decompose to fundamental concepts and reasoning"
+        input_from: extracted_wisdom
+        output_key: fundamental_insights
+        agent_type: general-purpose
+
+    synthesis:
+      template: WisdomReport
+      sections:
+        - research_summary
+        - extracted_wisdom
+        - fundamental_principles
+        - synthesis_insights
+
+  # ============================================================================
+  # THREAT ANALYSIS - Comprehensive security threat assessment
+  # ============================================================================
+  threat_analysis:
+    name: "Deep Threat Analysis Pipeline"
+    description: "Security-focused: Research → Threat Model → RedTeam → Council"
+    use_cases:
+      - API security assessment
+      - System architecture review
+      - Vulnerability analysis
+      - Risk assessment
+
+    steps:
+      - skill: Research
+        mode: standard
+        description: "Gather attack patterns, CVEs, security research"
+        output_key: threat_research
+        agent_type: ClaudeResearcher
+        params:
+          focus: security
+
+      - skill: Fabric
+        pattern: create_threat_model
+        description: "Generate STRIDE threat model"
+        input_from: threat_research
+        output_key: threat_model
+        agent_type: general-purpose
+
+      - skill: RedTeam
+        description: "Adversarial critique of security assumptions"
+        input_from: threat_model
+        output_key: adversarial_analysis
+        agent_type: general-purpose
+        params:
+          agents: 8
+
+      - skill: Council
+        description: "Multi-perspective security debate"
+        input_from: adversarial_analysis
+        output_key: security_synthesis
+        agent_type: general-purpose
+        params:
+          perspectives:
+            - offensive_security
+            - defensive_security
+            - compliance
+            - architecture
+
+    synthesis:
+      template: ThreatReport
+      sections:
+        - threat_landscape
+        - threat_model
+        - attack_scenarios
+        - mitigations
+        - residual_risks
+
+  # ============================================================================
+  # TOPIC MASTERY - Comprehensive topic understanding
+  # ============================================================================
+  topic_mastery:
+    name: "Topic Mastery Pipeline"
+    description: "Deep learning: Research(extensive) → Extract → Decompose → Debate → Synthesize"
+    use_cases:
+      - Learning new technical topics
+      - Academic research
+      - Technology evaluation
+      - Building expertise
+
+    steps:
+      - skill: Research
+        mode: extensive
+        description: "Comprehensive research (12 parallel agents)"
+        output_key: comprehensive_research
+        agent_type: ClaudeResearcher
+        params:
+          depth: extensive
+          sources: 12
+
+      - skill: Fabric
+        pattern: extract_wisdom
+        description: "Extract concepts, insights, and mental models"
+        input_from: comprehensive_research
+        output_key: extracted_concepts
+        agent_type: general-purpose
+
+      - skill: FirstPrinciples
+        description: "Identify fundamental building blocks"
+        input_from: extracted_concepts
+        output_key: core_principles
+        agent_type: general-purpose
+
+      - skill: Council
+        description: "Teaching perspectives debate"
+        input_from: core_principles
+        output_key: pedagogical_insights
+        agent_type: general-purpose
+        params:
+          perspectives:
+            - beginner_teacher
+            - expert_practitioner
+            - researcher
+            - skeptic
+
+      - skill: BeCreative
+        description: "Deep synthesis and integration"
+        input_from: pedagogical_insights
+        output_key: mastery_synthesis
+        agent_type: general-purpose
+
+    synthesis:
+      template: MasteryReport
+      sections:
+        - learning_path
+        - fundamental_concepts
+        - key_insights
+        - mental_models
+        - practice_recommendations
+        - further_exploration
+
+  # ============================================================================
+  # CONTROVERSIAL TOPIC - Nuanced multi-faceted analysis
+  # ============================================================================
+  controversial_topic:
+    name: "Controversial Topic Analysis"
+    description: "Balanced analysis: Research → Council → RedTeam → FirstPrinciples"
+    use_cases:
+      - Political issues
+      - Ethical debates
+      - Policy analysis
+      - Social topics
+
+    steps:
+      - skill: Research
+        mode: extensive
+        description: "Comprehensive multi-source research"
+        output_key: topic_research
+        agent_type: ClaudeResearcher
+        params:
+          depth: extensive
+          bias_awareness: high
+
+      - skill: Council
+        description: "Multi-perspective debate"
+        input_from: topic_research
+        output_key: perspectives
+        agent_type: general-purpose
+        params:
+          perspectives:
+            - progressive
+            - conservative
+            - libertarian
+            - pragmatist
+            - academic
+
+      - skill: RedTeam
+        description: "Challenge all perspectives"
+        input_from: perspectives
+        output_key: critiqued_perspectives
+        agent_type: general-purpose
+
+      - skill: FirstPrinciples
+        description: "Strip away rhetoric to core principles"
+        input_from: critiqued_perspectives
+        output_key: fundamental_analysis
+        agent_type: general-purpose
+
+    synthesis:
+      template: BalancedAnalysis
+      sections:
+        - topic_overview
+        - key_perspectives
+        - core_disagreements
+        - fundamental_principles
+        - areas_of_agreement
+        - nuanced_synthesis
+
+  # ============================================================================
+  # PRODUCT ANALYSIS - Comprehensive product evaluation
+  # ============================================================================
+  product_analysis:
+    name: "Product Analysis Pipeline"
+    description: "Product evaluation: Research → Analyze → Debate → Critique"
+    use_cases:
+      - Product reviews
+      - Competitive analysis
+      - Technology evaluation
+      - Purchase decisions
+
+    steps:
+      - skill: Research
+        mode: standard
+        description: "Gather product info, reviews, comparisons"
+        output_key: product_research
+        agent_type: ClaudeResearcher
+
+      - skill: Fabric
+        pattern: analyze_product
+        description: "Structured product analysis"
+        input_from: product_research
+        output_key: product_analysis
+        agent_type: general-purpose
+
+      - skill: Council
+        description: "Multi-role perspectives"
+        input_from: product_analysis
+        output_key: stakeholder_views
+        agent_type: general-purpose
+        params:
+          perspectives:
+            - end_user
+            - technical_expert
+            - business_analyst
+            - security_reviewer
+
+      - skill: RedTeam
+        description: "Critical evaluation"
+        input_from: stakeholder_views
+        output_key: critical_analysis
+        agent_type: general-purpose
+
+    synthesis:
+      template: ProductReport
+      sections:
+        - product_overview
+        - strengths
+        - weaknesses
+        - use_cases
+        - alternatives
+        - recommendation
+
+# ============================================================================
+# METADATA
+# ============================================================================
+metadata:
+  version: "1.0.0"
+  last_updated: "2026-01-25"
+  author: "PAI System"
+  compatible_with: "PAI v2.0+"

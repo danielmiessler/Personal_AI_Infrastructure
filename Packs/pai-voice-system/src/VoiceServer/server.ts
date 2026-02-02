@@ -22,7 +22,7 @@ const QWEN3_PORT = parseInt(process.env.QWEN3_INTERNAL_PORT || "8889");
 
 // Default voice style instruction for Qwen3-TTS (formal, consistent delivery)
 // Prevents random emotional variations like laughter or tone shifts
-const QWEN3_DEFAULT_INSTRUCT = "Speak at a brisk pace with confident energy. Professional and clear, slightly upbeat but not overly emotional. No laughter or dramatic shifts. Consistent delivery throughout.";
+const QWEN3_DEFAULT_INSTRUCT = "Speak at a brisk pace with confident energy. Professional and clear, slightly upbeat but not overly emotional. No laughter or dramatic shifts. Consistent delivery throughout. Read numbers naturally as quantities, not spelled out digit by digit.";
 
 // Linux audio player detection - format-aware
 interface LinuxPlayer {
@@ -292,9 +292,29 @@ try {
   console.warn('Failed to load pronunciation customizations');
 }
 
+// Sanitize text for TTS: strip URL protocols, clean up for natural speech
+function sanitizeForTTS(text: string): string {
+  let result = text;
+
+  // Strip URL protocols only (keep domain and path for reading)
+  // "https://github.com/repo" -> "github.com/repo"
+  result = result.replace(/https?:\/\//gi, '');
+
+  // Remove markdown links but keep the text: [text](url) -> text
+  result = result.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+  // Clean up multiple spaces and trim
+  result = result.replace(/\s+/g, ' ').trim();
+
+  return result;
+}
+
 // Apply pronunciation substitutions to text before TTS
 function applyPronunciations(text: string): string {
-  let result = text;
+  // First sanitize for TTS (remove URLs, etc.)
+  let result = sanitizeForTTS(text);
+
+  // Then apply custom pronunciations
   for (const [term, pronunciation] of Object.entries(pronunciations)) {
     // Case-insensitive replacement with word boundaries
     const regex = new RegExp(`\\b${term}\\b`, 'gi');

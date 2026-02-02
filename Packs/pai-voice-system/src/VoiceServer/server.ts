@@ -1,13 +1,164 @@
 #!/usr/bin/env bun
 /**
- * Voice Server - Personal AI Voice notification server using ElevenLabs TTS
+ * Voice Server - Personal AI Voice notification server
+ *
+ * TTS Engines:
+ * - ElevenLabs (cloud) when API key available → MP3 → mpv/mpg123
+ * - Qwen3-TTS (local) when no API key → WAV → paplay
  */
 
 import { serve } from "bun";
-import { spawn } from "child_process";
-import { homedir } from "os";
+import { spawn, execSync } from "child_process";
+import { homedir, platform } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+
+// Platform detection
+const IS_MACOS = platform() === 'darwin';
+const IS_LINUX = platform() === 'linux';
+
+// Qwen3-TTS internal server port (runs alongside this server)
+const QWEN3_PORT = parseInt(process.env.QWEN3_INTERNAL_PORT || "8889");
+
+// Linux audio player detection - format-aware
+interface LinuxPlayer {
+  name: string;
+  command: string;
+  args: string[];
+  volumeArg?: (volume: number) => string[];
+}
+
+type AudioFormat = 'mp3' | 'wav';
+
+/**
+ * Detect the best Linux audio player for a given format.
+ * - WAV: paplay (PipeWire native) > mpv > aplay
+ * - MP3: mpv > mpg123 > paplay
+ */
+function detectLinuxAudioPlayer(format: AudioFormat = 'mp3'): LinuxPlayer | null {
+  if (!IS_LINUX) return null;
+
+  if (format === 'wav') {
+    // WAV: paplay is best (PulseAudio/PipeWire native, perfect for Qwen3 output)
+    try {
+      execSync('which paplay', { stdio: 'ignore' });
+      return {
+        name: 'paplay',
+        command: 'paplay',
+        args: []
+        // paplay doesn't have easy volume control
+      };
+    } catch {}
+
+    // mpv can also play WAV
+    try {
+      execSync('which mpv', { stdio: 'ignore' });
+      return {
+        name: 'mpv',
+        command: 'mpv',
+        args: ['--no-video', '--really-quiet'],
+        volumeArg: (v: number) => ['--volume=' + String(Math.round(v * 100))]
+      };
+    } catch {}
+
+    // aplay - ALSA fallback for WAV
+    try {
+      execSync('which aplay', { stdio: 'ignore' });
+      return {
+        name: 'aplay',
+        command: 'aplay',
+        args: ['-q']
+      };
+    } catch {}
+  } else {
+    // MP3: mpv preferred (handles MP3 + routes through PipeWire)
+    try {
+      execSync('which mpv', { stdio: 'ignore' });
+      return {
+        name: 'mpv',
+        command: 'mpv',
+        args: ['--no-video', '--really-quiet'],
+        volumeArg: (v: number) => ['--volume=' + String(Math.round(v * 100))]
+      };
+    } catch {}
+
+    // mpg123 for MP3
+    try {
+      execSync('which mpg123', { stdio: 'ignore' });
+      return {
+        name: 'mpg123',
+        command: 'mpg123',
+        args: ['-q'],
+        volumeArg: (v: number) => ['-f', String(Math.round(v * 32768))]
+      };
+    } catch {}
+
+    // paplay can play MP3 on newer systems
+    try {
+      execSync('which paplay', { stdio: 'ignore' });
+      return {
+        name: 'paplay',
+        command: 'paplay',
+        args: []
+      };
+    } catch {}
+  }
+
+  return null;
+}
+
+// Legacy function for backwards compatibility
+function detectLinuxAudioPlayerLegacy(): LinuxPlayer | null {
+  return detectLinuxAudioPlayer('mp3');
+}
+
+// Linux TTS fallback detection
+function detectLinuxTTS(): { command: string; args: (text: string) => string[] } | null {
+  if (!IS_LINUX) return null;
+
+  // espeak - most common Linux TTS
+  try {
+    execSync('which espeak', { stdio: 'ignore' });
+    return {
+      command: 'espeak',
+      args: (text: string) => [text]
+    };
+  } catch {}
+
+  // espeak-ng - newer espeak
+  try {
+    execSync('which espeak-ng', { stdio: 'ignore' });
+    return {
+      command: 'espeak-ng',
+      args: (text: string) => [text]
+    };
+  } catch {}
+
+  // festival - alternative TTS
+  try {
+    execSync('which festival', { stdio: 'ignore' });
+    return {
+      command: 'festival',
+      args: (text: string) => ['--tts']  // reads from stdin
+    };
+  } catch {}
+
+  return null;
+}
+
+// Cache detected players (for each format)
+const LINUX_AUDIO_PLAYER_MP3 = detectLinuxAudioPlayer('mp3');
+const LINUX_AUDIO_PLAYER_WAV = detectLinuxAudioPlayer('wav');
+const LINUX_TTS = detectLinuxTTS();
+
+if (IS_LINUX) {
+  console.log(`Platform: Linux`);
+  console.log(`Audio player (MP3): ${LINUX_AUDIO_PLAYER_MP3?.name || 'none found'}`);
+  console.log(`Audio player (WAV): ${LINUX_AUDIO_PLAYER_WAV?.name || 'none found'}`);
+  console.log(`TTS fallback: ${LINUX_TTS?.command || 'none found (install espeak or espeak-ng)'}`);
+} else if (IS_MACOS) {
+  console.log(`Platform: macOS`);
+}
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -262,6 +413,50 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
+// Check if Qwen3-TTS internal server is available
+let qwen3Available: boolean | null = null;
+
+async function checkQwen3Available(): Promise<boolean> {
+  if (qwen3Available !== null) return qwen3Available;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${QWEN3_PORT}/health`, {
+      signal: AbortSignal.timeout(2000)
+    });
+    qwen3Available = response.ok;
+  } catch {
+    qwen3Available = false;
+  }
+
+  return qwen3Available;
+}
+
+// Generate speech using Qwen3-TTS (local fallback)
+async function generateSpeechQwen3(
+  text: string,
+  speaker: string = "Ryan",
+  instruct?: string
+): Promise<ArrayBuffer> {
+  const response = await fetch(`http://127.0.0.1:${QWEN3_PORT}/tts/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      speaker,
+      instruct,
+      language: "en"
+    }),
+    signal: AbortSignal.timeout(60000) // 60s timeout for TTS generation
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Qwen3-TTS error: ${response.status} - ${errorText}`);
+  }
+
+  return await response.arrayBuffer();
+}
+
 // Get volume setting from DA config or request (defaults to 1.0 = 100%)
 function getVolumeSetting(requestVolume?: number): number {
   // Request volume takes priority
@@ -275,44 +470,92 @@ function getVolumeSetting(requestVolume?: number): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
-async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Promise<void> {
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+// Play audio using platform-appropriate player (format-aware)
+async function playAudio(
+  audioBuffer: ArrayBuffer,
+  format: AudioFormat = 'mp3',
+  requestVolume?: number
+): Promise<void> {
+  const extension = format === 'wav' ? 'wav' : 'mp3';
+  const tempFile = `/tmp/voice-${Date.now()}.${extension}`;
 
   // Write audio to temp file
   await Bun.write(tempFile, audioBuffer);
 
   const volume = getVolumeSetting(requestVolume);
 
+  // Select the appropriate player for the format
+  const linuxPlayer = format === 'wav' ? LINUX_AUDIO_PLAYER_WAV : LINUX_AUDIO_PLAYER_MP3;
+
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let proc;
+
+    if (IS_MACOS) {
+      // macOS: afplay handles both MP3 and WAV
+      proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    } else if (IS_LINUX && linuxPlayer) {
+      // Linux: use format-appropriate audio player
+      const args = [...linuxPlayer.args];
+      if (linuxPlayer.volumeArg) {
+        args.push(...linuxPlayer.volumeArg(volume));
+      }
+      args.push(tempFile);
+      console.log(`Playing ${format} with ${linuxPlayer.name}`);
+      proc = spawn(linuxPlayer.command, args);
+    } else {
+      // Cleanup and fail
+      spawn('/bin/rm', ['-f', tempFile]);
+      reject(new Error(`No audio player available for ${format} on this platform`));
+      return;
+    }
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
+      spawn('/bin/rm', ['-f', tempFile]);
       reject(error);
     });
 
     proc.on('exit', (code) => {
       // Clean up temp file
-      spawn('/bin/rm', [tempFile]);
+      spawn('/bin/rm', ['-f', tempFile]);
 
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        const player = IS_MACOS ? 'afplay' : linuxPlayer?.name || 'unknown';
+        reject(new Error(`${player} exited with code ${code}`));
       }
     });
   });
 }
 
-// Use macOS say command as fallback
+// Use platform-appropriate TTS command as fallback
 async function speakWithSay(text: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/say', [text]);
+    let proc;
+
+    if (IS_MACOS) {
+      // macOS: use built-in say command
+      proc = spawn('/usr/bin/say', [text]);
+    } else if (IS_LINUX && LINUX_TTS) {
+      // Linux: use detected TTS (espeak, espeak-ng, or festival)
+      if (LINUX_TTS.command === 'festival') {
+        // Festival reads from stdin
+        proc = spawn(LINUX_TTS.command, ['--tts']);
+        proc.stdin?.write(text);
+        proc.stdin?.end();
+      } else {
+        // espeak/espeak-ng take text as argument
+        proc = spawn(LINUX_TTS.command, LINUX_TTS.args(text));
+      }
+    } else {
+      console.warn('No TTS fallback available for this platform');
+      resolve(); // Silently succeed - TTS fallback is optional
+      return;
+    }
 
     proc.on('error', (error) => {
-      console.error('Error with say command:', error);
+      console.error('Error with TTS command:', error);
       reject(error);
     });
 
@@ -320,7 +563,8 @@ async function speakWithSay(text: string): Promise<void> {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`say exited with code ${code}`));
+        const tts = IS_MACOS ? 'say' : LINUX_TTS?.command || 'unknown';
+        reject(new Error(`${tts} exited with code ${code}`));
       }
     });
   });
@@ -374,6 +618,7 @@ async function sendNotification(
   if (voiceEnabled) {
     try {
       if (ELEVENLABS_API_KEY) {
+        // ElevenLabs (cloud TTS) → MP3
         const voice = voiceId || DEFAULT_VOICE_ID;
 
         // Get voice configuration (personality settings)
@@ -412,14 +657,20 @@ async function sendNotification(
 
         const settings = { ...DEFAULT_PROSODY, ...prosody };
         const volume = (prosody as any)?.volume ?? daVoiceProsody?.volume;
-        console.log(`Generating speech (voice: ${voice}, stability: ${settings.stability}, style: ${settings.style}, speed: ${settings.speed}, volume: ${volume ?? 1.0})`);
+        console.log(`Generating speech [ElevenLabs] (voice: ${voice}, stability: ${settings.stability}, style: ${settings.style}, speed: ${settings.speed}, volume: ${volume ?? 1.0})`);
 
         const spokenMessage = applyPronunciations(safeMessage);
         const audioBuffer = await generateSpeech(spokenMessage, voice, prosody);
-        await playAudio(audioBuffer, volume);
+        await playAudio(audioBuffer, 'mp3', volume);
+      } else if (await checkQwen3Available()) {
+        // Qwen3-TTS (local TTS) → WAV
+        console.log('Generating speech [Qwen3-TTS] (local fallback)');
+        const spokenMessage = applyPronunciations(safeMessage);
+        const audioBuffer = await generateSpeechQwen3(spokenMessage);
+        await playAudio(audioBuffer, 'wav');
       } else {
-        // Fallback to macOS say
-        console.log('Using macOS say (no API key)');
+        // Ultimate fallback to OS TTS (say/espeak)
+        console.log('Using OS TTS fallback (no API key, Qwen3 unavailable)');
         await speakWithSay(applyPronunciations(safeMessage));
       }
     } catch (error) {
@@ -433,12 +684,23 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification - escape for AppleScript
+  // Display system notification (platform-specific)
   try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    if (IS_MACOS) {
+      // macOS: use osascript
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } else if (IS_LINUX) {
+      // Linux: use notify-send if available
+      try {
+        await spawnSafe('notify-send', [safeTitle, safeMessage]);
+      } catch {
+        // notify-send not available, skip desktop notification
+        console.log('notify-send not available, skipping desktop notification');
+      }
+    }
   } catch (error) {
     console.error("Notification display error:", error);
   }
@@ -567,13 +829,25 @@ const server = serve({
     }
 
     if (url.pathname === "/health") {
+      const qwen3Ready = await checkQwen3Available();
+      let voiceSystem = "OS TTS (say/espeak)";
+      if (ELEVENLABS_API_KEY) {
+        voiceSystem = "ElevenLabs (cloud)";
+      } else if (qwen3Ready) {
+        voiceSystem = "Qwen3-TTS (local)";
+      }
+
       return new Response(
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : "macOS Say",
+          voice_system: voiceSystem,
+          elevenlabs_configured: !!ELEVENLABS_API_KEY,
+          qwen3_available: qwen3Ready,
+          qwen3_port: QWEN3_PORT,
           default_voice_id: DEFAULT_VOICE_ID,
-          api_key_configured: !!ELEVENLABS_API_KEY
+          audio_player_mp3: LINUX_AUDIO_PLAYER_MP3?.name || (IS_MACOS ? 'afplay' : null),
+          audio_player_wav: LINUX_AUDIO_PLAYER_WAV?.name || (IS_MACOS ? 'afplay' : null)
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -589,8 +863,34 @@ const server = serve({
   },
 });
 
-console.log(`Voice Server running on port ${PORT}`);
-console.log(`Using ${ELEVENLABS_API_KEY ? 'ElevenLabs' : 'macOS Say'} TTS (default voice: ${DEFAULT_VOICE_ID})`);
-console.log(`POST to http://localhost:${PORT}/notify`);
-console.log(`Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`API Key: ${ELEVENLABS_API_KEY ? 'Configured' : 'Not configured (using fallback)'}`);
+// Startup message with TTS engine info
+async function logStartup() {
+  console.log(`Voice Server running on port ${PORT}`);
+
+  let ttsDescription: string;
+  if (ELEVENLABS_API_KEY) {
+    ttsDescription = 'ElevenLabs (cloud) → MP3';
+  } else {
+    const qwen3Ready = await checkQwen3Available();
+    if (qwen3Ready) {
+      ttsDescription = `Qwen3-TTS (local :${QWEN3_PORT}) → WAV`;
+    } else {
+      ttsDescription = IS_MACOS ? 'macOS Say' : (LINUX_TTS?.command || 'no TTS');
+    }
+  }
+
+  console.log(`TTS Engine: ${ttsDescription}`);
+  console.log(`Default voice: ${DEFAULT_VOICE_ID || '(none configured)'}`);
+  console.log(`POST to http://localhost:${PORT}/notify`);
+  console.log(`Security: CORS restricted to localhost, rate limiting enabled`);
+
+  if (!ELEVENLABS_API_KEY) {
+    console.log(`Note: Set ELEVENLABS_API_KEY in ~/.env for cloud TTS`);
+    const qwen3Ready = await checkQwen3Available();
+    if (!qwen3Ready) {
+      console.log(`Note: Start qwen3-server.py on :${QWEN3_PORT} for local TTS`);
+    }
+  }
+}
+
+logStartup();

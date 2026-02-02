@@ -1,0 +1,27 @@
+[project]
+name = "qwen3-tts-server"
+version = "1.0.0"
+description = "Internal Qwen3-TTS API server for PAI Voice System"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "soundfile>=0.12.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+# Qwen3-TTS model (install separately due to GPU requirements)
+tts = [
+    "qwen-tts>=0.1.0",
+    "torch>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

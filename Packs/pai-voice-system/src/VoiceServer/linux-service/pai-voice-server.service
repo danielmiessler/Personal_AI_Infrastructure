@@ -1,0 +1,15 @@
+[Unit]
+Description=PAI Voice Server (Unified: ElevenLabs + Qwen3-TTS)
+After=network.target
+
+[Service]
+Type=forking
+WorkingDirectory=%h/.claude/VoiceServer
+ExecStart=%h/.claude/VoiceServer/start.sh
+ExecStop=%h/.claude/VoiceServer/stop.sh
+PIDFile=%h/.claude/VoiceServer/pids/voice-server.pid
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

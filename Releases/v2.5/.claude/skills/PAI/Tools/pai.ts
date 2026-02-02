@@ -121,6 +121,40 @@ function notifyVoice(message: string) {
   }).catch(() => {}); // Silently ignore errors
 }
 
+function extractSessionCwd(sessionId: string): string | null {
+  // Find session file in ~/.claude/projects/*/<sessionId>.jsonl
+  const projectsDir = join(CLAUDE_DIR, "projects");
+  if (!existsSync(projectsDir)) return null;
+
+  // Search through all project subdirectories
+  const subdirs = readdirSync(projectsDir);
+  for (const subdir of subdirs) {
+    const sessionFile = join(projectsDir, subdir, `${sessionId}.jsonl`);
+    if (existsSync(sessionFile)) {
+      try {
+        // Read the first line that contains sessionId to get the cwd
+        const content = readFileSync(sessionFile, "utf-8");
+        const lines = content.split("\n").filter((l) => l.trim());
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.sessionId === sessionId && data.cwd) {
+              return data.cwd;
+            }
+          } catch {
+            continue; // Skip malformed lines
+          }
+        }
+      } catch {
+        continue; // Skip if file can't be read
+      }
+    }
+  }
+
+  return null;
+}
+
 function displayBanner() {
   if (existsSync(BANNER_SCRIPT)) {
     spawnSync(["bun", BANNER_SCRIPT], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
@@ -409,11 +443,25 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean | string; ski
     // If resume is a string (session ID), pass it as the next argument
     if (typeof options.resume === "string") {
       args.push(options.resume);
-    }
-  }
 
-  // Change to PAI directory unless --local flag is set
-  if (!options.local) {
+      // When resuming by session ID, extract the original cwd from the session file
+      // and change to that directory so Claude Code can find the session
+      if (!options.local) {
+        const sessionCwd = extractSessionCwd(options.resume);
+        if (sessionCwd) {
+          log(`Resuming session from: ${sessionCwd}`, "📂");
+          process.chdir(sessionCwd);
+        } else {
+          // Fallback to CLAUDE_DIR if we can't find the session
+          process.chdir(CLAUDE_DIR);
+        }
+      }
+    } else if (!options.local) {
+      // Regular resume (no session ID): use CLAUDE_DIR
+      process.chdir(CLAUDE_DIR);
+    }
+  } else if (!options.local) {
+    // New session: use CLAUDE_DIR
     process.chdir(CLAUDE_DIR);
   }
 

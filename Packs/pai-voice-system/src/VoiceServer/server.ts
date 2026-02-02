@@ -513,16 +513,15 @@ async function playQwen3Progressive(
   instruct?: string
 ): Promise<void> {
   const sentences = splitIntoSentences(text);
+  const startTime = Date.now();
 
   // For single sentence or short text, use normal flow
   if (sentences.length <= 1) {
-    console.log('Qwen3-TTS: Single sentence, using direct generation');
     const audioBuffer = await generateSpeechQwen3(text, speaker, instruct);
     await playAudio(audioBuffer, 'wav');
+    console.log(`Qwen3-TTS: Completed in ${Date.now() - startTime}ms (single)`);
     return;
   }
-
-  console.log(`Qwen3-TTS: Progressive mode - ${sentences.length} sentences`);
 
   // Track audio buffers and playback state
   let currentIndex = 0;
@@ -530,21 +529,21 @@ async function playQwen3Progressive(
   const audioQueue: ArrayBuffer[] = [];
   let generationComplete = false;
   let playbackComplete = false;
+  let firstAudioTime = 0; // Time to first audio playback
 
   // Promise to track when everything is done
   const done = new Promise<void>((resolve, reject) => {
-    // Start generation of all sentences (with slight stagger to prioritize first)
+    // Start generation of all sentences
     const generateAll = async () => {
       for (let i = 0; i < sentences.length; i++) {
         try {
-          const start = Date.now();
-          console.log(`Qwen3-TTS: Generating sentence ${i + 1}/${sentences.length}: "${sentences[i].substring(0, 40)}..."`);
           const buffer = await generateSpeechQwen3(sentences[i], speaker, instruct);
-          console.log(`Qwen3-TTS: Sentence ${i + 1} generated in ${Date.now() - start}ms`);
           audioQueue[i] = buffer;
 
-          // If this is the first sentence and not playing yet, start playback
-          if (i === 0 && !isPlaying) {
+          // Trigger playback check after each generation
+          // - For sentence 0: starts initial playback
+          // - For subsequent: resumes if playback was waiting for this sentence
+          if (!isPlaying) {
             playNext();
           }
         } catch (error) {
@@ -582,12 +581,14 @@ async function playQwen3Progressive(
       }
 
       isPlaying = true;
-      console.log(`Qwen3-TTS: Playing sentence ${currentIndex + 1}/${sentences.length}`);
+      if (currentIndex === 0) {
+        firstAudioTime = Date.now() - startTime;
+      }
 
       try {
         await playAudio(buffer, 'wav');
       } catch (error) {
-        console.error(`Qwen3-TTS: Playback error for sentence ${currentIndex + 1}:`, error);
+        console.error(`Qwen3-TTS: Playback error:`, error);
       }
 
       isPlaying = false;
@@ -613,7 +614,8 @@ async function playQwen3Progressive(
   });
 
   await done;
-  console.log('Qwen3-TTS: Progressive playback complete');
+  const totalTime = Date.now() - startTime;
+  console.log(`Qwen3-TTS: ${sentences.length} sentences, first-audio: ${firstAudioTime}ms, total: ${totalTime}ms`);
 }
 
 // Get volume setting from DA config or request (defaults to 1.0 = 100%)
@@ -823,7 +825,7 @@ async function sendNotification(
         await playAudio(audioBuffer, 'mp3', volume);
       } else if (await checkQwen3Available()) {
         // Qwen3-TTS (local TTS) → WAV with progressive playback
-        console.log('Generating speech [Qwen3-TTS] (local, progressive)');
+        // Qwen3-TTS with progressive sentence playback
         const spokenMessage = applyPronunciations(safeMessage);
         await playQwen3Progressive(spokenMessage, "Ryan", QWEN3_DEFAULT_INSTRUCT);
       } else {

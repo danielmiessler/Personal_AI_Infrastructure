@@ -109,7 +109,7 @@ async function sendNotification(payload: ElevenLabsNotificationPayload, sessionI
     });
 
     if (!response.ok) {
-      console.error('[Voice] Server error:', response.statusText);
+      // Voice server error - logged to voice event file
       logVoiceEvent({
         ...baseEvent,
         event_type: 'failed',
@@ -124,7 +124,7 @@ async function sendNotification(payload: ElevenLabsNotificationPayload, sessionI
       });
     }
   } catch (error) {
-    console.error('[Voice] Failed to send:', error);
+    // Voice send failed - logged to voice event file
     logVoiceEvent({
       ...baseEvent,
       event_type: 'failed',
@@ -142,13 +142,13 @@ export async function handleVoice(parsed: ParsedTranscript, sessionId: string): 
 
   // Validate voice completion
   if (!isValidVoiceCompletion(voiceCompletion)) {
-    console.error(`[Voice] Invalid completion: "${voiceCompletion.slice(0, 50)}..."`);
+    // Invalid voice completion, using fallback
     voiceCompletion = getVoiceFallback();
   }
 
   // Skip empty or too-short messages
   if (!voiceCompletion || voiceCompletion.length < 5) {
-    console.error('[Voice] Skipping - message too short or empty');
+    // Skipping - message too short or empty
     return;
   }
 

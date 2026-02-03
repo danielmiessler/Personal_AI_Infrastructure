@@ -81,7 +81,7 @@ async function main() {
     ]);
 
     if (currentVersion !== 'unknown' && latestVersion !== 'unknown' && currentVersion !== latestVersion) {
-      console.error(`💡 Update available: CC ${currentVersion} → ${latestVersion}`);
+      // Update available - not surfaced to stderr to avoid false hook errors
     }
 
     process.exit(0);

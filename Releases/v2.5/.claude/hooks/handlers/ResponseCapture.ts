@@ -106,7 +106,7 @@ function updateTaskISC(sessionDir: string, currentTask: string, text: string): v
   const iscPath = join(taskPath, 'ISC.json');
 
   if (!existsSync(iscPath)) {
-    console.error(`[ISC] Task ISC.json not found: ${iscPath}`);
+    // Task ISC.json not found
     return;
   }
 
@@ -135,9 +135,9 @@ function updateTaskISC(sessionDir: string, currentTask: string, text: string): v
     doc.updatedAt = timestamp;
 
     writeFileSync(iscPath, JSON.stringify(doc, null, 2), 'utf-8');
-    console.error(`[ISC] Updated task ISC: ${currentTask}`);
+    // Updated task ISC
   } catch (err) {
-    console.error(`[ISC] Error updating task ISC: ${err}`);
+    // Error updating task ISC - non-critical
   }
 }
 
@@ -149,7 +149,7 @@ function updateTaskMeta(sessionDir: string, currentTask: string, structured: Str
   const threadPath = join(taskPath, 'THREAD.md');
 
   if (!existsSync(threadPath)) {
-    console.error(`[Capture] Task THREAD.md not found: ${threadPath}`);
+    // Task THREAD.md not found
     return;
   }
 
@@ -174,9 +174,9 @@ function updateTaskMeta(sessionDir: string, currentTask: string, structured: Str
     }
 
     writeFileSync(threadPath, content, 'utf-8');
-    console.error(`[Capture] Updated task THREAD: ${currentTask}`);
+    // Updated task THREAD
   } catch (err) {
-    console.error(`[Capture] Error updating task META: ${err}`);
+    // Error updating task META - non-critical
   }
 }
 
@@ -311,7 +311,7 @@ async function captureWorkSummary(text: string, structured: StructuredResponse):
       console.log(`✅ Captured learning to: ${filePath}`);
     }
   } catch (error) {
-    console.error('[Capture] Error capturing work summary:', error);
+    // Error capturing work summary - non-critical
   }
 }
 
@@ -323,16 +323,14 @@ export async function handleCapture(parsed: ParsedTranscript, hookInput: HookInp
 
   // Capture work summary (async, non-blocking)
   if (lastMessage) {
-    captureWorkSummary(lastMessage, structured).catch(err => {
-      console.error('[Capture] History capture failed (non-critical):', err);
+    captureWorkSummary(lastMessage, structured).catch(() => {
+      // History capture failed - non-critical
     });
   }
 
   // Push notifications for long tasks
   const duration = getSessionDurationMinutes();
-  if (duration > 0) {
-    console.error(`⏱️ Session duration: ${duration.toFixed(1)} minutes`);
-  }
+  // Session duration tracked internally
 
   const hasError = lastMessage && (
     /error|failed|exception|crash/i.test(lastMessage) &&

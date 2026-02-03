@@ -69,7 +69,7 @@ interface CurrentWork {
 function clearSessionWork(): void {
   try {
     if (!existsSync(CURRENT_WORK_FILE)) {
-      console.error('[SessionSummary] No current work to complete');
+      // No current work to complete
       return;
     }
 
@@ -85,15 +85,15 @@ function clearSessionWork(): void {
         metaContent = metaContent.replace(/^status: "ACTIVE"$/m, 'status: "COMPLETED"');
         metaContent = metaContent.replace(/^completed_at: null$/m, `completed_at: "${getISOTimestamp()}"`);
         writeFileSync(metaPath, metaContent, 'utf-8');
-        console.error(`[SessionSummary] Marked work directory as COMPLETED: ${currentWork.work_dir}`);
+        // Marked work directory as COMPLETED
       }
     }
 
     // Delete state file
     unlinkSync(CURRENT_WORK_FILE);
-    console.error('[SessionSummary] Cleared session work state');
+    // Cleared session work state
   } catch (error) {
-    console.error(`[SessionSummary] Error clearing session work: ${error}`);
+    // Error clearing session work - non-critical
   }
 }
 
@@ -109,11 +109,9 @@ async function main() {
     // NOTE: Does NOT write to SESSIONS/ - WORK/ is the primary system
     clearSessionWork();
 
-    console.error('[SessionSummary] Session ended, work marked complete');
     process.exit(0);
   } catch (error) {
     // Silent failure - don't disrupt workflow
-    console.error(`[SessionSummary] SessionEnd hook error: ${error}`);
     process.exit(0);
   }
 }

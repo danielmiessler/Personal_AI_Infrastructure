@@ -39,7 +39,7 @@ export async function sendEventToObservability(event: ObservabilityEvent): Promi
 
     if (!response.ok) {
       // Log error but don't throw - dashboard may be offline
-      console.error(`Observability server returned status: ${response.status}`);
+      // Observability server returned non-OK status - dashboard may be offline
     }
   } catch (error) {
     // Fail silently - dashboard may not be running

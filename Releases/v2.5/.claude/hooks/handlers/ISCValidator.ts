@@ -156,19 +156,19 @@ export async function handleISCValidation(
 
   const currentWork = readCurrentWork();
   if (!currentWork) {
-    console.error('[ISCValidator] No current work found - skipping validation');
+    // No current work found - skipping validation
     return result;
   }
 
   // Skip if session IDs don't match
   if (currentWork.session_id !== hookInput.session_id) {
-    console.error('[ISCValidator] Session ID mismatch - skipping validation');
+    // Session ID mismatch - skipping validation
     return result;
   }
 
   const taskPath = join(WORK_DIR, currentWork.session_dir, 'tasks', currentWork.current_task);
   if (!existsSync(taskPath)) {
-    console.error(`[ISCValidator] Task path not found: ${taskPath}`);
+    // Task path not found
     return result;
   }
 
@@ -176,16 +176,7 @@ export async function handleISCValidation(
   result.warnings = validationResult.warnings;
   result.errors = validationResult.errors;
 
-  // Log results
-  if (result.errors.length > 0) {
-    console.error('[ISCValidator] ERRORS:');
-    result.errors.forEach((e) => console.error(`  ❌ ${e}`));
-  }
-
-  if (result.warnings.length > 0) {
-    console.error('[ISCValidator] WARNINGS:');
-    result.warnings.forEach((w) => console.error(`  ⚠️  ${w}`));
-  }
+  // Results logged to validation result object (not stderr)
 
   // Check if OBSERVE phase was attempted (algorithm was run)
   const responseText = parsed.plainCompletion || '';
@@ -211,9 +202,7 @@ Example criterion: "Research agents return findings within two minutes"
 Fix the ISC.json and try again.`;
   }
 
-  if (validationResult.valid && result.warnings.length === 0) {
-    console.error('[ISCValidator] ✓ All validation checks passed');
-  }
+  // Validation complete
 
   return result;
 }

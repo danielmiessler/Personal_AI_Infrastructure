@@ -57,10 +57,9 @@ async function main() {
     // Set simple question title - teal background provides visual distinction
     await Bun.$`kitty @ set-tab-title ${QUESTION_TITLE}`;
 
-    console.error('[SetQuestionTab] Tab set to teal with question indicator');
+    // Tab set to teal with question indicator
   } catch (error) {
     // Silently fail if kitty remote control is not available
-    console.error('[SetQuestionTab] Kitty remote control unavailable');
   }
 
   process.exit(0);

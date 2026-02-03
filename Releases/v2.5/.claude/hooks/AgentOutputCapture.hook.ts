@@ -86,7 +86,7 @@ async function delay(ms: number): Promise<void> {
 }
 
 async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): Promise<{ result: string | null, agentType: string | null, description: string | null, toolInput: any | null }> {
-  console.error(`📂 Looking for Task result in transcript: ${transcriptPath}`);
+  // Looking for Task result in transcript
 
   // If the provided transcript path doesn't exist, try to find the most recent agent transcript
   let actualTranscriptPath = transcriptPath;
@@ -101,7 +101,7 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
     }
 
     if (!existsSync(actualTranscriptPath)) {
-      console.error(`❌ Transcript file doesn't exist: ${actualTranscriptPath} (attempt ${attempt + 1}/${maxAttempts})`);
+      // Transcript file doesn't exist yet
 
       // Try to find agent transcript in the same directory
       const dir = require('path').dirname(transcriptPath);
@@ -114,7 +114,7 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
 
         if (files.length > 0) {
           actualTranscriptPath = join(dir, files[0].name);
-          console.error(`🔄 Found recent agent transcript: ${actualTranscriptPath}`);
+          // Found recent agent transcript
         }
       }
 
@@ -138,7 +138,7 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
               if (content.type === 'tool_use' && content.name === 'Task') {
                 const toolInput = content.input;
                 const description = toolInput?.description || null;
-                console.error(`✅ Found Task invocation with subagent: ${toolInput?.subagent_type}, description: ${description}`);
+                // Found Task invocation
                 // Found a Task invocation, now look for its result
                 // The result should be in a subsequent user message
                 for (let j = i + 1; j < lines.length; j++) {
@@ -158,7 +158,7 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
                             .map((item: any) => item.text)
                             .join('\n');
                         } else {
-                          console.error('❌ Unexpected tool_result content type');
+                          // Unexpected tool_result content type
                           continue;
                         }
 
@@ -190,9 +190,7 @@ async function findTaskResult(transcriptPath: string, maxAttempts: number = 2): 
 }
 
 function extractCompletionMessage(taskOutput: string): { message: string | null, agentType: string | null } {
-  console.error('🔍 DEBUG - Extracting from task output, length:', taskOutput.length);
-  console.error('🔍 DEBUG - First 200 chars:', taskOutput.substring(0, 200));
-  console.error('🔍 DEBUG - Last 200 chars:', taskOutput.substring(taskOutput.length - 200));
+  // Debug extraction from task output
 
   // Look for the COMPLETED section in the agent's output
   // Priority: 1) New 🗣️ format, 2) Legacy [AGENT:type] format
@@ -246,7 +244,7 @@ function extractCompletionMessage(taskOutput: string): { message: string | null,
         ? message  // Just the message for greetings/questions/status
         : `${agentName} completed ${message}`;  // Prepend "completed" for tasks
 
-      console.error(`✅ FOUND AGENT MATCH: [${agentType}] ${fullMessage}`);
+      // Found agent match
 
       // Return agent type and message
       return { message: fullMessage, agentType };
@@ -306,7 +304,7 @@ async function main() {
   function debug(msg: string) {
     const timestamp = new Date().toISOString();
     appendFileSync(debugLog, `[${timestamp}] ${msg}\n`);
-    console.error(msg);
+    // No stderr output - write to debug log file only
   }
 
   debug('🔍 SubagentStop hook started');
@@ -396,7 +394,7 @@ async function main() {
   try {
     await captureAgentOutput(finalAgentType, completionMessage, taskOutput, transcriptPath);
   } catch (e) {
-    console.error('Failed to capture agent output:', e);
+    // Failed to capture agent output - non-critical
   }
 
   // Send push notification for background agents
@@ -539,4 +537,4 @@ ${taskOutput}
   console.log(`📝 UOCS: Captured agent output to ${category}/${yearMonth}/${filename}`);
 }
 
-main().catch(console.error);
+main().catch(() => { /* silent fail */ });

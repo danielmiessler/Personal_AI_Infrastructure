@@ -100,9 +100,9 @@ function updateIntegrityState(changes: FileChange[]): void {
     };
 
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-    console.error('[SystemIntegrity] Updated state file');
+    // Updated integrity state file
   } catch (error) {
-    console.error('[SystemIntegrity] Failed to update state:', error);
+    // Failed to update integrity state - non-critical
   }
 }
 
@@ -116,7 +116,7 @@ function spawnIntegrityMaintenance(
   try {
     // Check if script exists
     if (!existsSync(INTEGRITY_SCRIPT)) {
-      console.error('[SystemIntegrity] IntegrityMaintenance.ts not found:', INTEGRITY_SCRIPT);
+      // IntegrityMaintenance.ts not found
       return;
     }
 
@@ -126,9 +126,7 @@ function spawnIntegrityMaintenance(
     const significance = determineSignificance(filteredChanges);
     const changeType = inferChangeType(filteredChanges);
 
-    console.error(`[SystemIntegrity] Title: ${title}`);
-    console.error(`[SystemIntegrity] Significance: ${significance}`);
-    console.error(`[SystemIntegrity] Change type: ${changeType}`);
+    // Pre-computed: title, significance, change type
 
     // Prepare input data
     const inputData = JSON.stringify({
@@ -157,9 +155,9 @@ function spawnIntegrityMaintenance(
     // Detach from parent
     child.unref();
 
-    console.error(`[SystemIntegrity] Spawned IntegrityMaintenance (pid: ${child.pid})`);
+    // Spawned IntegrityMaintenance background process
   } catch (error) {
-    console.error('[SystemIntegrity] Failed to spawn IntegrityMaintenance:', error);
+    // Failed to spawn IntegrityMaintenance - non-critical
   }
 }
 
@@ -176,47 +174,40 @@ export async function handleSystemIntegrity(
   parsed: ParsedTranscript,
   hookInput: HookInput
 ): Promise<void> {
-  console.error('[SystemIntegrity] Checking for system changes...');
+  // Checking for system changes
 
   // Check cooldown
   if (isInCooldown()) {
-    console.error('[SystemIntegrity] In cooldown period, skipping');
+    // In cooldown period, skipping
     return;
   }
 
   // Parse changes from transcript
   const changes = parseToolUseBlocks(hookInput.transcript_path);
-  console.error(`[SystemIntegrity] Found ${changes.length} file changes in transcript`);
+  // Found file changes in transcript
 
   // Filter to only PAI system changes
   const systemChanges = changes.filter(c => c.category !== null);
-  console.error(`[SystemIntegrity] ${systemChanges.length} are PAI system changes`);
+  // Filtered to PAI system changes
 
   if (systemChanges.length === 0) {
-    console.error('[SystemIntegrity] No system changes detected, skipping');
+    // No system changes detected, skipping
     return;
   }
 
   // Check if significant
   if (!isSignificantChange(systemChanges)) {
-    console.error('[SystemIntegrity] Changes not significant enough, skipping');
+    // Changes not significant enough, skipping
     return;
   }
 
   // Check for duplicate run
   if (isDuplicateRun(changes)) {
-    console.error('[SystemIntegrity] Duplicate change set, skipping');
+    // Duplicate change set, skipping
     return;
   }
 
-  // Log what we found
-  console.error('[SystemIntegrity] Significant changes detected:');
-  for (const change of systemChanges.slice(0, 5)) {
-    console.error(`  - [${change.category}] ${change.path}`);
-  }
-  if (systemChanges.length > 5) {
-    console.error(`  ... and ${systemChanges.length - 5} more`);
-  }
+  // Significant changes detected
 
   // Update state before spawning
   updateIntegrityState(systemChanges);
@@ -227,5 +218,5 @@ export async function handleSystemIntegrity(
   // Spawn background process
   spawnIntegrityMaintenance(systemChanges, hookInput);
 
-  console.error('[SystemIntegrity] Background integrity check started');
+  // Background integrity check started
 }

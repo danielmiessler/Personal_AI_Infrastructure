@@ -158,9 +158,9 @@ export async function handleUpdateCounts(): Promise<void> {
     // Write back
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 
-    console.error(`[UpdateCounts] Updated settings.json: ${counts.skills} skills, ${counts.workflows} workflows, ${counts.hooks} hooks, ${counts.signals} signals, ${counts.files} files`);
+    // Updated settings.json with fresh counts
   } catch (error) {
-    console.error('[UpdateCounts] Failed to update counts:', error);
+    // Failed to update counts - non-fatal
     // Non-fatal - don't throw, let other handlers continue
   }
 }

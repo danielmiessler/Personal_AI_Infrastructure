@@ -64,9 +64,9 @@ function persistTabTitle(title: string, rawTitle: string, state: ResponseState):
     };
 
     writeFileSync(TAB_STATE_PATH, JSON.stringify(tabState, null, 2), 'utf-8');
-    console.error(`[TabState] Persisted title: "${rawTitle}"`);
+    // Persisted tab title
   } catch (error) {
-    console.error('[TabState] Failed to persist title:', error);
+    // Failed to persist title - non-critical
   }
 }
 
@@ -140,8 +140,7 @@ async function generateCompletionSummary(voiceLine: string): Promise<string> {
 
       // Reject generic subjects — "Task completed." tells you nothing
       if (hasGenericSubject(summary)) {
-        console.error(`[TabState] Rejected generic summary: "${summary}"`);
-        // Try to extract something specific from the voice line itself
+        // Rejected generic summary - try to extract something specific
         const fallback = extractSpecificSubject(voiceLine);
         return fallback;
       }
@@ -149,7 +148,7 @@ async function generateCompletionSummary(voiceLine: string): Promise<string> {
       return summary;
     }
   } catch (error) {
-    console.error('[TabState] Inference failed:', error);
+    // Inference failed - using fallback
   }
   return getTabFallback('end');
 }
@@ -184,7 +183,7 @@ export async function handleTabState(parsed: ParsedTranscript): Promise<void> {
 
   // Validate completion
   if (!isValidVoiceCompletion(plainCompletion)) {
-    console.error(`[TabState] Invalid completion: "${plainCompletion.slice(0, 50)}..."`);
+    // Invalid completion, using fallback
     plainCompletion = getTabFallback('end');
   }
 
@@ -198,7 +197,7 @@ export async function handleTabState(parsed: ParsedTranscript): Promise<void> {
     // Simple checkmark for completion - color indicates success vs error
     const tabTitle = `✓${shortTitle}`;
 
-    console.error(`[TabState] State: ${state}, Title: "${tabTitle}"`);
+    // Tab state updated
 
     // Persist title for recovery after compaction/restart
     persistTabTitle(tabTitle, shortTitle, state);
@@ -209,6 +208,6 @@ export async function handleTabState(parsed: ParsedTranscript): Promise<void> {
     // Set tab title
     await Bun.$`kitty @ set-tab-title ${tabTitle}`;
   } catch (error) {
-    console.error('[TabState] Failed to update Kitty tab:', error);
+    // Failed to update Kitty tab - non-critical
   }
 }

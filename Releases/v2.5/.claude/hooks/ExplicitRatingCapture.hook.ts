@@ -144,7 +144,7 @@ function writeRating(entry: RatingEntry): void {
   const jsonLine = JSON.stringify(entry) + '\n';
   appendFileSync(ratingsFile, jsonLine, 'utf-8');
 
-  console.error(`[ExplicitRatingCapture] Wrote rating ${entry.rating} to ${ratingsFile}`);
+  // Wrote rating to ratings file
 }
 
 /**
@@ -231,12 +231,12 @@ ${comment ? `**${getPrincipalName()}'s feedback:** ${comment}` : ''}
 `;
 
   writeFileSync(filepath, content, 'utf-8');
-  console.error(`[ExplicitRatingCapture] Captured low rating learning to ${filepath}`);
+  // Captured low rating learning
 }
 
 async function main() {
   try {
-    console.error('[ExplicitRatingCapture] Hook started');
+    // ExplicitRatingCapture hook started
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
     const prompt = data.prompt || '';
@@ -244,11 +244,11 @@ async function main() {
     const result = parseRating(prompt);
 
     if (!result) {
-      console.error('[ExplicitRatingCapture] Not a rating, exiting');
+      // Not a rating, exiting
       process.exit(0);
     }
 
-    console.error(`[ExplicitRatingCapture] Detected rating: ${result.rating}${result.comment ? ` - ${result.comment}` : ''}`);
+    // Detected explicit rating
 
     const entry: RatingEntry = {
       timestamp: getISOTimestamp(),
@@ -269,7 +269,7 @@ async function main() {
         stdout: 'ignore',
         stderr: 'ignore'
       });
-      console.error('[ExplicitRatingCapture] Triggered TrendingAnalysis update');
+      // Triggered TrendingAnalysis update
     }
 
     if (result.rating < 6) {
@@ -286,17 +286,17 @@ async function main() {
             detailedContext: responseContext,
             sessionId: data.session_id,
           });
-          console.error(`[ExplicitRatingCapture] Created full failure capture for rating ${result.rating}`);
+          // Created full failure capture
         } catch (err) {
-          console.error(`[ExplicitRatingCapture] Error creating failure capture: ${err}`);
+          // Error creating failure capture - non-critical
         }
       }
     }
 
-    console.error('[ExplicitRatingCapture] Done');
+    // ExplicitRatingCapture done
     process.exit(0);
   } catch (err) {
-    console.error(`[ExplicitRatingCapture] Error: ${err}`);
+    // ExplicitRatingCapture error - non-blocking
     process.exit(0);
   }
 }

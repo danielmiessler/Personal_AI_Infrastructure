@@ -63,7 +63,7 @@ function resetTabTitle(paiDir: string): void {
         `kitten @ set-tab-color --self active_bg=#002B80 active_fg=#FFFFFF inactive_bg=none inactive_fg=#A0A0A0`,
         { stdio: 'ignore', timeout: 2000 }
       );
-      console.error('🔄 Tab title reset to clean state');
+      // Tab title reset to clean state
     }
 
     // Reset state file to prevent any stale data
@@ -74,9 +74,9 @@ function resetTabTitle(paiDir: string): void {
       state: 'idle'
     };
     writeFileSync(stateFile, JSON.stringify(cleanState, null, 2));
-    console.error('🔄 Tab state file reset');
+    // Tab state file reset
   } catch (err) {
-    console.error(`⚠️ Failed to reset tab title: ${err}`);
+    // Failed to reset tab title - non-fatal
     // Non-fatal, continue with session
   }
 }
@@ -90,7 +90,7 @@ async function getCurrentDate(): Promise<string> {
     const output = await new Response(proc.stdout).text();
     return output.trim();
   } catch (error) {
-    console.error('Failed to get current date:', error);
+    // Failed to get current date - using fallback
     return new Date().toISOString();
   }
 }
@@ -109,7 +109,7 @@ function loadSettings(paiDir: string): Settings {
     try {
       return JSON.parse(readFileSync(settingsPath, 'utf-8'));
     } catch (err) {
-      console.error(`⚠️ Failed to parse settings.json: ${err}`);
+      // Failed to parse settings.json
     }
   }
   return {};
@@ -135,9 +135,9 @@ function loadContextFiles(paiDir: string, settings: Settings): string {
       const content = readFileSync(fullPath, 'utf-8');
       if (combinedContent) combinedContent += '\n\n---\n\n';
       combinedContent += content;
-      console.error(`✅ Loaded ${relativePath} (${content.length} chars)`);
+      // Loaded context file
     } else {
-      console.error(`⚠️ Context file not found: ${relativePath}`);
+      // Context file not found
     }
   }
 
@@ -185,7 +185,7 @@ function loadRelationshipContext(paiDir: string): string | null {
         parts.push(highConfidence.slice(0, 6).join('\n'));
       }
     } catch (err) {
-      console.error(`⚠️ Failed to load opinions: ${err}`);
+      // Failed to load opinions - non-fatal
     }
   }
 
@@ -296,7 +296,7 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
 
     return summary;
   } catch (error) {
-    console.error('Error checking active progress:', error);
+    // Error checking active progress - non-fatal
     return null;
   }
 }
@@ -310,7 +310,7 @@ async function main() {
 
     if (isSubagent) {
       // Subagent sessions don't need PAI context loading
-      console.error('🤖 Subagent session - skipping PAI context loading');
+      // Subagent session - skipping PAI context loading
       process.exit(0);
     }
 
@@ -322,7 +322,7 @@ async function main() {
 
     // Record session start time for notification timing
     recordSessionStart();
-    console.error('⏱️ Session start time recorded for notification timing');
+    // Session start time recorded
 
     // Only rebuild SKILL.md if source components are newer than the output
     // This saves ~200-500ms on most session starts
@@ -357,39 +357,38 @@ async function main() {
     }
 
     if (needsRebuild) {
-      console.error('🔨 Rebuilding SKILL.md (components changed)...');
+      // Rebuilding SKILL.md (components changed)
       try {
         execSync('bun ~/.claude/skills/PAI/Tools/CreateDynamicCore.ts', {
           cwd: paiDir,
           stdio: 'pipe',
           timeout: 5000
         });
-        console.error('✅ SKILL.md rebuilt from latest components');
+        // SKILL.md rebuilt from latest components
       } catch (err) {
-        console.error(`⚠️ Failed to rebuild SKILL.md: ${err}`);
-        console.error('⚠️ Continuing with existing SKILL.md...');
+        // Failed to rebuild SKILL.md - continuing with existing
       }
     } else {
-      console.error('✅ SKILL.md up-to-date (skipped rebuild)');
+      // SKILL.md up-to-date (skipped rebuild)
     }
 
-    console.error('📚 Reading PAI core context...');
+    // Reading PAI core context
 
     // Load settings.json to get contextFiles array
     const settings = loadSettings(paiDir);
-    console.error(`✅ Loaded settings.json`);
+    // Loaded settings.json
 
     // Load all context files from settings.json array
     const contextContent = loadContextFiles(paiDir, settings);
 
     if (!contextContent) {
-      console.error('❌ No context files loaded');
+      // No context files loaded - fatal error
       process.exit(1);
     }
 
     // Get current date/time to prevent confusion about dates
     const currentDate = await getCurrentDate();
-    console.error(`📅 Current Date: ${currentDate}`);
+    // Current date obtained
 
     // Extract identity values from settings for injection into context
     const PRINCIPAL_NAME = (settings as Record<string, unknown>).principal &&
@@ -401,12 +400,12 @@ async function main() {
         ? ((settings as Record<string, unknown>).daidentity as Record<string, unknown>).name || 'PAI'
         : 'PAI';
 
-    console.error(`👤 Principal: ${PRINCIPAL_NAME}, DA: ${DA_NAME}`);
+    // Identity loaded
 
     // Load relationship context (lightweight summary)
     const relationshipContext = loadRelationshipContext(paiDir);
     if (relationshipContext) {
-      console.error('💕 Loaded relationship context');
+      // Loaded relationship context
     }
 
     const message = `<system-reminder>
@@ -445,13 +444,13 @@ This context is now active. Additional context loads dynamically as needed.
     const activeProgress = await checkActiveProgress(paiDir);
     if (activeProgress) {
       console.log(activeProgress);
-      console.error('📋 Active work found from previous sessions');
+      // Active work found from previous sessions
     }
 
-    console.error('✅ PAI context injected into session');
+    // PAI context injected into session
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error in load-pai-context hook:', error);
+    // Fatal error in load-pai-context hook
     process.exit(1);
   }
 }

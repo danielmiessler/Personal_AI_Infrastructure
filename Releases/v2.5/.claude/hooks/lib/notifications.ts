@@ -129,7 +129,7 @@ export function getNotificationConfig(): NotificationConfig {
     }
   } catch (error) {
     // Fail gracefully, use defaults
-    console.error('Failed to load notification config:', error);
+    // Failed to load notification config - using defaults
   }
 
   return DEFAULT_CONFIG;
@@ -240,7 +240,7 @@ export async function sendPush(
     return response.ok;
   } catch (error) {
     // Fail silently - don't block hook execution
-    console.error('ntfy send failed:', error);
+    // ntfy send failed - silent
     return false;
   }
 }
@@ -288,7 +288,7 @@ export async function sendDiscord(
 
     return response.ok;
   } catch (error) {
-    console.error('Discord send failed:', error);
+    // Discord send failed - silent
     return false;
   }
 }
@@ -315,7 +315,7 @@ export async function sendDesktop(
 
     return proc.exitCode === 0;
   } catch (error) {
-    console.error('Desktop notification failed:', error);
+    // Desktop notification failed - silent
     return false;
   }
 }
@@ -335,14 +335,14 @@ export async function sendSMS(message: string): Promise<boolean> {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
 
   if (!accountSid || !authToken) {
-    console.error('Twilio credentials not found in environment');
+    // Twilio credentials not found in environment
     return false;
   }
 
   try {
     const fromNumber = process.env.TWILIO_FROM_NUMBER;
     if (!fromNumber) {
-      console.error('TWILIO_FROM_NUMBER not set in environment');
+      // TWILIO_FROM_NUMBER not set in environment
       return false;
     }
     const DA_NAME = getIdentity().name;
@@ -361,7 +361,7 @@ export async function sendSMS(message: string): Promise<boolean> {
     await proc.exited;
     return proc.exitCode === 0;
   } catch (error) {
-    console.error('SMS send failed:', error);
+    // SMS send failed - silent
     return false;
   }
 }

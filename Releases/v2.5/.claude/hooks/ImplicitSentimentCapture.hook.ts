@@ -269,7 +269,7 @@ async function analyzeSentiment(prompt: string, context: string): Promise<Sentim
   });
 
   if (!result.success || !result.parsed) {
-    console.error(`[ImplicitSentimentCapture] Inference failed: ${result.error}`);
+    // Inference failed
     return null;
   }
 
@@ -290,7 +290,7 @@ function writeImplicitRating(entry: ImplicitRatingEntry): void {
   }
 
   appendFileSync(ratingsFile, JSON.stringify(entry) + '\n', 'utf-8');
-  console.error(`[ImplicitSentimentCapture] Wrote implicit rating ${entry.rating} to ${ratingsFile}`);
+  // Wrote implicit rating to ratings file
 }
 
 /**
@@ -388,12 +388,12 @@ This response triggered a ${rating}/10 implicit rating based on detected user se
 `;
 
   writeFileSync(filepath, content, 'utf-8');
-  console.error(`[ImplicitSentimentCapture] Captured low rating learning to ${filepath}`);
+  // Captured low rating learning
 }
 
 async function main() {
   try {
-    console.error('[ImplicitSentimentCapture] Hook started');
+    // ImplicitSentimentCapture hook started
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
     // The payload uses 'prompt' (Claude Code) - user_prompt is legacy
@@ -401,12 +401,12 @@ async function main() {
 
     // Skip if explicit rating (let ExplicitRatingCapture handle)
     if (isExplicitRating(prompt)) {
-      console.error('[ImplicitSentimentCapture] Explicit rating detected, deferring to ExplicitRatingCapture');
+      // Explicit rating detected, deferring to ExplicitRatingCapture
       process.exit(0);
     }
 
     if (prompt.length < MIN_PROMPT_LENGTH) {
-      console.error('[ImplicitSentimentCapture] Prompt too short, exiting');
+      // Prompt too short, exiting
       process.exit(0);
     }
 
@@ -420,22 +420,22 @@ async function main() {
     const sentiment = await Promise.race([analysisPromise, timeoutPromise]);
 
     if (!sentiment) {
-      console.error('[ImplicitSentimentCapture] Analysis failed or timed out');
+      // Analysis failed or timed out
       process.exit(0);
     }
 
     // Neutral sentiment gets rating 5 (baseline for feature requests)
     if (sentiment.rating === null) {
       sentiment.rating = 5;
-      console.error('[ImplicitSentimentCapture] Neutral sentiment, assigning baseline rating 5');
+      // Neutral sentiment, assigning baseline rating 5
     }
 
     if (sentiment.confidence < MIN_CONFIDENCE) {
-      console.error(`[ImplicitSentimentCapture] Low confidence (${sentiment.confidence}), not logging`);
+      // Low confidence, not logging
       process.exit(0);
     }
 
-    console.error(`[ImplicitSentimentCapture] Detected: ${sentiment.rating}/10 - ${sentiment.summary}`);
+    // Detected sentiment rating
 
     const entry: ImplicitRatingEntry = {
       timestamp: getISOTimestamp(),
@@ -456,7 +456,7 @@ async function main() {
         stdout: 'ignore',
         stderr: 'ignore'
       });
-      console.error('[ImplicitSentimentCapture] Triggered TrendingAnalysis update');
+      // Triggered TrendingAnalysis update
     }
 
     if (sentiment.rating < 6) {
@@ -477,17 +477,17 @@ async function main() {
             detailedContext: sentiment.detailed_context || '',
             sessionId: data.session_id,
           });
-          console.error(`[ImplicitSentimentCapture] Created full failure capture for rating ${sentiment.rating}`);
+          // Created full failure capture
         } catch (err) {
-          console.error(`[ImplicitSentimentCapture] Error creating failure capture: ${err}`);
+          // Error creating failure capture - non-critical
         }
       }
     }
 
-    console.error('[ImplicitSentimentCapture] Done');
+    // ImplicitSentimentCapture done
     process.exit(0);
   } catch (err) {
-    console.error(`[ImplicitSentimentCapture] Error: ${err}`);
+    // ImplicitSentimentCapture error - non-blocking
     process.exit(0);
   }
 }

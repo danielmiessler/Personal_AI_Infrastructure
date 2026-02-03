@@ -147,7 +147,7 @@ function getRecentContext(transcriptPath: string, maxTurns: number = 3): string 
 
           // CRITICAL: Skip CONTEXT: summaries - these are overflow artifacts from previous sessions
           if (text.trim().startsWith('CONTEXT:')) {
-            console.error('[UpdateTabTitle] Skipping CONTEXT: summary (overflow artifact)');
+            // Skipping CONTEXT: summary (overflow artifact)
             continue;
           }
 
@@ -171,7 +171,7 @@ function getRecentContext(transcriptPath: string, maxTurns: number = 3): string 
 
     return recentTurns.map(t => `User: ${t}`).join('\n');
   } catch (err) {
-    console.error('[UpdateTabTitle] Error reading transcript:', err);
+    // Error reading transcript - return empty context
     return '';
   }
 }
@@ -287,17 +287,17 @@ function setTabTitle(title: string, state: TabState = 'normal'): void {
           `kitten @ set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_INFERENCE_BG} inactive_fg=${INACTIVE_TEXT}`,
           { stdio: 'ignore', timeout: 2000 }
         );
-        console.error('[UpdateTabTitle] Set inference color (purple on inactive only)');
+        // Set inference color (purple on inactive only)
       } else if (state === 'working') {
         // Orange for actively working - active tab stays dark blue, inactive shows orange
         execSync(
           `kitten @ set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TEXT} inactive_bg=${TAB_WORKING_BG} inactive_fg=${INACTIVE_TEXT}`,
           { stdio: 'ignore', timeout: 2000 }
         );
-        console.error('[UpdateTabTitle] Set working color (orange on inactive only)');
+        // Set working color (orange on inactive only)
       }
 
-      console.error('[UpdateTabTitle] Set via Kitty remote control');
+      // Set via Kitty remote control
     } else {
       // Fallback to escape codes for other terminals
       execSync(`printf '\\033]0;${escaped}\\007' >&2`, { stdio: ['pipe', 'pipe', 'inherit'] });
@@ -305,7 +305,7 @@ function setTabTitle(title: string, state: TabState = 'normal'): void {
       execSync(`printf '\\033]30;${escaped}\\007' >&2`, { stdio: ['pipe', 'pipe', 'inherit'] });
     }
   } catch (err) {
-    console.error(`[UpdateTabTitle] Failed to set title: ${err}`);
+    // Failed to set title - non-critical
   }
 }
 
@@ -343,44 +343,38 @@ async function announceVoice(summary: string): Promise<void> {
     });
 
     if (!response.ok) {
-      console.error('[UpdateTabTitle] Voice server error:', response.statusText);
+      // Voice server error - non-critical
     } else {
-      console.error(`[UpdateTabTitle] Voice sent: "${message}"`);
+      // Voice sent successfully
     }
   } catch (err) {
-    console.error('[UpdateTabTitle] Voice failed:', err);
+    // Voice failed - non-critical
   }
 }
 
 async function main() {
   try {
-    console.error('[UpdateTabTitle] Hook started');
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
     const prompt = data.prompt || '';
-    console.error(`[UpdateTabTitle] Prompt: "${prompt.slice(0, 50)}..."`);
 
     if (!prompt || prompt.length < 3) {
-      console.error('[UpdateTabTitle] Prompt too short, exiting');
       process.exit(0);
     }
 
     // Skip ratings (single digit 1-10) - preserve current tab title for the work context
     const trimmedPrompt = prompt.trim();
     if (/^([1-9]|10)$/.test(trimmedPrompt)) {
-      console.error(`[UpdateTabTitle] Detected rating input (${trimmedPrompt}), preserving current tab title`);
+      // Rating input detected - preserving current tab title
       process.exit(0);
     }
 
     // Set quick fallback title immediately with inference state (purple + "…")
     const quickFallback = quickTitle(prompt);
-    console.error(`[UpdateTabTitle] Quick fallback: "${quickFallback}"`);
     setTabTitle(`🧠${quickFallback}`, 'inference');  // Brain = AI thinking/inference
 
     // Get summary from Sonnet inference with conversation context
-    console.error('[UpdateTabTitle] Calling Sonnet inference...');
     const { summary: rawSummary, fromInference } = await summarizePrompt(prompt, data.transcript_path);
-    console.error(`[UpdateTabTitle] Raw summary: "${rawSummary}" (fromInference: ${fromInference})`);
 
     // Validate summary - reject garbage, fragments, and generic subjects
     let summary = rawSummary;
@@ -399,12 +393,10 @@ async function main() {
     const isGenericSummary = (s: string) => GENERIC_PHRASES.some(p => p.test(s.trim()));
 
     if (!isValidTabSummary(rawSummary) || isGenericSummary(rawSummary)) {
-      console.error(`[UpdateTabTitle] Invalid or generic summary: "${rawSummary}", using fallback`);
+      // Invalid or generic summary - using fallback
       summary = 'Working on task.';
       usedFallback = true;
     }
-
-    console.error(`[UpdateTabTitle] Final summary: "${summary}" (fallback: ${usedFallback})`);
 
     // Update tab with SHORT title (5 words max - gerund + topic) + working state
     const shortTitle = summary.split(/\s+/).slice(0, 5).join(' ');
@@ -414,16 +406,11 @@ async function main() {
     // ONLY announce if we got a REAL summary from inference, NOT fallbacks
     if (!usedFallback && isValidTabSummary(shortTitle)) {
       await announceVoice(shortTitle);
-      console.error(`[UpdateTabTitle] Voice announced: "${shortTitle}"`);
-    } else {
-      console.error(`[UpdateTabTitle] Skipped voice - using fallback (fromInference=${fromInference}, usedFallback=${usedFallback})`);
     }
-
-    console.error('[UpdateTabTitle] Complete');
 
     process.exit(0);
   } catch (err) {
-    console.error(`[UpdateTabTitle] Error: ${err}`);
+    // Error in UpdateTabTitle - non-blocking
     process.exit(0);
   }
 }

@@ -103,7 +103,7 @@ async function promptChoice(question: string, choices: string[], defaultIdx = 0)
 }
 
 // ============================================================================
-// PERMISSIONS (chmod → chown → chmod)
+// PERMISSIONS (chown → chmod dirs → chmod files → chmod scripts)
 // ============================================================================
 
 function fixPermissions(targetDir: string): void {
@@ -114,25 +114,25 @@ function fixPermissions(targetDir: string): void {
   print(`${c.gray}─────────────────────────────────────────────────${c.reset}`);
 
   try {
-    // Step 1: chmod first - make files accessible
-    execSync(`chmod -R 755 "${targetDir}"`, { stdio: 'pipe' });
-    printSuccess('Step 1: chmod -R 755 (make accessible)');
-
-    // Step 2: chown - change ownership to current user
+    // Step 1: chown - change ownership to current user
     execSync(`chown -R ${info.uid}:${info.gid} "${targetDir}"`, { stdio: 'pipe' });
-    printSuccess(`Step 2: chown -R to ${info.username}`);
+    printSuccess(`Ownership set to ${info.username} (${info.uid}:${info.gid})`);
 
-    // Step 3: chmod again - set final permissions
-    execSync(`chmod -R 755 "${targetDir}"`, { stdio: 'pipe' });
-    printSuccess('Step 3: chmod -R 755 (final permissions)');
+    // Step 2: directories get rwxr-x--- (750)
+    execSync(`find "${targetDir}" -type d -exec chmod 750 {} +`, { stdio: 'pipe' });
+    printSuccess('Directories set to 750 (rwxr-x---)');
 
-    // Make scripts executable
-    for (const pattern of ['*.ts', '*.sh', '*.hook.ts']) {
+    // Step 3: regular files get rw-r----- (640)
+    execSync(`find "${targetDir}" -type f -exec chmod 640 {} +`, { stdio: 'pipe' });
+    printSuccess('Files set to 640 (rw-r-----)');
+
+    // Step 4: scripts get rwxr-x--- (750)
+    for (const pattern of ['*.ts', '*.sh', '*.py']) {
       try {
-        execSync(`find "${targetDir}" -name "${pattern}" -exec chmod 755 {} \\;`, { stdio: 'pipe' });
+        execSync(`find "${targetDir}" -type f -name "${pattern}" -exec chmod 750 {} +`, { stdio: 'pipe' });
       } catch (e) { /* ignore */ }
     }
-    printSuccess('Set executable permissions on scripts');
+    printSuccess('Scripts (.ts, .sh, .py) set to 750 (rwxr-x---)');
 
   } catch (err: any) {
     printError(`Permission fix failed: ${err.message}`);

@@ -1,13 +1,13 @@
+---
+name: PAI
+description: Personal AI Infrastructure core. The authoritative reference for how PAI works.
+---
 <!--
   🔨 GENERATED FILE - Do not edit directly
   Edit:   ~/.claude/skills/PAI/Components/
   Build:  bun ~/.claude/skills/PAI/Tools/CreateDynamicCore.ts
   Built:  29 January 2026 19:52:53
 -->
----
-name: CORE
-description: Personal AI Infrastructure core. The authoritative reference for how PAI works.
----
 
 # Intro to PAI
 

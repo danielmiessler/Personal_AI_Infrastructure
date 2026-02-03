@@ -1,13 +1,42 @@
 # Debate Workflow
 
-Full structured multi-agent debate with 3 rounds and visible transcript.
+Full structured multi-agent debate with 2-3 adaptive rounds, file-first output, and visible transcript.
 
 ## Prerequisites
 
 - Topic or question to debate
 - Optional: Custom council members (default: architect, designer, engineer, researcher)
+- Optional: Output mode (`deliberative` or `patchlist`)
+
+## Configuration
+
+Load settings from `Config.md`. Key defaults:
+- **Rounds:** 2-3 (adaptive based on convergence)
+- **File output:** Enabled (writes to `~/.claude/MEMORY/`)
+- **Model tiering:** Round 1 sonnet, Round 2 haiku, Round 3/Synthesis sonnet
 
 ## Execution
+
+### Step 0: Initialize Session
+
+Generate a session ID and create session directory:
+
+```bash
+SESSION_ID=$(date +%Y%m%d-%H%M%S)-$(openssl rand -hex 4)
+mkdir -p ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID
+```
+
+Write `metadata.json`:
+```json
+{
+  "session_id": "{SESSION_ID}",
+  "topic": "{topic}",
+  "started_at": "{ISO timestamp}",
+  "members": ["Architect", "Designer", "Engineer", "Researcher"],
+  "output_mode": "deliberative",
+  "rounds_planned": "adaptive"
+}
+```
 
 ### Step 1: Announce the Council
 
@@ -16,13 +45,15 @@ Output the debate header:
 ```markdown
 ## Council Debate: [Topic]
 
+**Session ID:** {SESSION_ID}
 **Council Members:** [List agents participating]
-**Rounds:** 3 (Positions → Responses → Synthesis)
+**Rounds:** 2-3 (adaptive based on convergence)
+**Output:** ~/.claude/MEMORY/STATE/council-sessions/{SESSION_ID}/
 ```
 
 ### Step 2: Round 1 - Initial Positions
 
-Launch 4 parallel Task calls (one per council member).
+Launch 4 parallel Task calls (one per council member). Use `model: "sonnet"`.
 
 **Each agent prompt includes:**
 ```
@@ -47,6 +78,12 @@ Your perspective focuses on: [agent's domain]
 - **engineer**: Implementation reality, tech debt, maintenance burden, practical constraints
 - **researcher** (ClaudeResearcher): Data, precedent, external examples, what others have done
 
+**Write Round 1 to file:**
+```bash
+# Write combined Round 1 output to session directory
+echo "[Round 1 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md
+```
+
 **Output each response as it completes:**
 ```markdown
 ### Round 1: Initial Positions
@@ -66,7 +103,7 @@ Your perspective focuses on: [agent's domain]
 
 ### Step 3: Round 2 - Responses & Challenges
 
-Launch 4 parallel Task calls with Round 1 transcript included.
+Launch 4 parallel Task calls with Round 1 transcript included. Use `model: "haiku"`.
 
 **Each agent prompt includes:**
 ```
@@ -89,6 +126,11 @@ Now respond to the other council members:
 The value is in genuine intellectual friction—engage with their actual arguments.
 ```
 
+**Write Round 2 to file:**
+```bash
+echo "[Round 2 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-2.md
+```
+
 **Output:**
 ```markdown
 ### Round 2: Responses & Challenges
@@ -106,9 +148,35 @@ The value is in genuine intellectual friction—engage with their actual argumen
 [Response referencing others' points]
 ```
 
-### Step 4: Round 3 - Synthesis
+### Step 3.5: Convergence Check (Adaptive Round 3)
 
-Launch 4 parallel Task calls with Round 1 + Round 2 transcripts.
+After Round 2, evaluate whether Round 3 is needed.
+
+**Run Round 3 if ANY of these are true:**
+- Agents express explicit disagreement ("I disagree with...", "I challenge...")
+- BLOCKING issues identified (security, compliance, irreversible decisions)
+- Topic requires normative decision (not just exploratory)
+- User explicitly requested 3 rounds
+
+**Skip Round 3 if ALL of these are true:**
+- High convergence (3+ agents agree on core recommendation)
+- No BLOCKING items identified
+- No unresolved contradictions
+- Topic is exploratory
+
+Write convergence assessment:
+```bash
+echo '{"converged": true/false, "reason": "...", "proceed_to_round3": true/false}' > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/convergence.json
+```
+
+If skipping Round 3:
+```markdown
+**Round 3 skipped:** High convergence detected. Proceeding to synthesis.
+```
+
+### Step 4: Round 3 - Synthesis (Conditional)
+
+If Round 3 is needed, launch 4 parallel Task calls with Round 1 + Round 2 transcripts. Use `model: "sonnet"`.
 
 **Each agent prompt includes:**
 ```
@@ -128,6 +196,11 @@ Final synthesis from your perspective:
 - 50-150 words
 
 Be honest about remaining disagreements—forced consensus is worse than acknowledged tension.
+```
+
+**Write Round 3 to file:**
+```bash
+echo "[Round 3 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-3.md
 ```
 
 **Output:**
@@ -166,6 +239,27 @@ After all rounds complete, synthesize the debate:
 [Based on convergence and weight of arguments, the recommended approach is...]
 ```
 
+### Step 6: Archive to RESEARCH
+
+After synthesis, archive the complete session:
+
+```bash
+TOPIC_SLUG=$(echo "[topic]" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | cut -c1-50)
+TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
+MONTH=$(date +%Y-%m)
+mkdir -p ~/.claude/MEMORY/RESEARCH/$MONTH
+cat ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/*.md > ~/.claude/MEMORY/RESEARCH/$MONTH/${TIMESTAMP}_COUNCIL_${TOPIC_SLUG}.md
+```
+
+Update metadata.json with completion status:
+```json
+{
+  "completed_at": "{ISO timestamp}",
+  "rounds_completed": 2 or 3,
+  "archived_to": "~/.claude/MEMORY/RESEARCH/YYYY-MM/..."
+}
+```
+
 ## Custom Council Members
 
 If user specifies custom members, adjust accordingly:
@@ -177,25 +271,58 @@ If user specifies custom members, adjust accordingly:
 
 ## Agent Type Mapping
 
-| Council Role | Task subagent_type | Personality Reference |
-|--------------|-------------------|----------------------|
-| Architect | Architect | Serena Blackwood |
-| Designer | Designer | Aditi Sharma |
-| Engineer | Engineer | Marcus Webb |
-| Researcher | PerplexityResearcher | Ava Chen |
-| Security | Pentester | Rook Blackburn |
-| Intern | Intern | Dev Patel |
-| Writer | (use Intern with writer prompt) | Emma Hartley |
+| Council Role | Task subagent_type | Model | Personality Reference |
+|--------------|-------------------|-------|----------------------|
+| Architect | Architect | sonnet | Serena Blackwood |
+| Designer | Designer | sonnet | Aditi Sharma |
+| Engineer | Engineer | sonnet | Marcus Webb |
+| Researcher | PerplexityResearcher | sonnet | Ava Chen |
+| Security | Pentester | sonnet | Rook Blackburn |
+| Intern | Intern | haiku | Dev Patel |
+| Writer | (use Intern with writer prompt) | haiku | Emma Hartley |
 
 ## Timing
 
 - Round 1: ~10-20 seconds (parallel)
 - Round 2: ~10-20 seconds (parallel)
-- Round 3: ~10-20 seconds (parallel)
+- Convergence check: ~1 second
+- Round 3 (if needed): ~10-20 seconds (parallel)
 - Synthesis: ~5 seconds
 
-**Total: 30-90 seconds for full debate**
+**Total: 20-60 seconds** (2 rounds) or **30-90 seconds** (3 rounds)
+
+## Output Modes
+
+### Deliberative (default)
+Standard conversational format. Use for architectural debates, design decisions, exploratory discussions.
+
+### Patchlist
+Structured format for specification reviews. Invoke with: `"Council (patchlist): Review..."`
+
+In patchlist mode, instruct agents to structure responses as:
+
+```markdown
+**BLOCKING:**
+- B1: [issue] → [proposed change]
+
+**HIGH:**
+- H1: [issue] → [proposed change]
+
+**MEDIUM/LOW:**
+- M1: [issue]
+```
+
+## Interruption Handling
+
+If the council is interrupted (rate limit, timeout):
+1. Session state is preserved in `~/.claude/MEMORY/STATE/council-sessions/{SESSION_ID}/`
+2. Use Recovery workflow to resume: `"Council recovery: Resume session {SESSION_ID}"`
+3. See `Workflows/Recovery.md` for details
 
 ## Done
 
-Debate complete. The transcript shows the full intellectual journey from initial positions through challenges to synthesis.
+Debate complete. The transcript is archived to `~/.claude/MEMORY/RESEARCH/` and shows the full intellectual journey from initial positions through challenges to synthesis.
+
+---
+
+**Last Updated:** 2026-02-02

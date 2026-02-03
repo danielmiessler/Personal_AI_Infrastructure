@@ -103,14 +103,14 @@ async function main() {
   const hookInput = await readStdin();
 
   if (!hookInput || !hookInput.transcript_path) {
-    console.error('[StopOrchestrator] No transcript path provided');
+    // No transcript path - exit silently
     process.exit(0);
   }
 
   // SINGLE READ, SINGLE PARSE
   const parsed = parseTranscript(hookInput.transcript_path);
 
-  console.error(`[StopOrchestrator] Parsed transcript: ${parsed.plainCompletion.slice(0, 50)}...`);
+  // Parsed transcript successfully
 
   // Run non-blocking handlers first
   const [voiceResult, captureResult, tabResult, integrityResult, rebuildResult, countsResult] = await Promise.allSettled([
@@ -140,7 +140,7 @@ async function main() {
         decision: 'block',
         reason: iscResult.blockReason,
       }));
-      console.error('[StopOrchestrator] ISC validation BLOCKED response');
+      // ISC validation blocked response
       process.exit(0);
     }
   } catch (err) {

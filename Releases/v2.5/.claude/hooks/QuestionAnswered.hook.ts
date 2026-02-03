@@ -49,10 +49,9 @@ async function main() {
     // Set working title
     await Bun.$`kitty @ set-tab-title "⚙️Processing answer…"`.quiet();
 
-    console.error('[QuestionAnswered] Tab reset to working state (orange on inactive only)');
+    // Tab reset to working state (orange on inactive only)
   } catch (error) {
     // Silently fail if kitty remote control is not available
-    console.error('[QuestionAnswered] Kitty remote control unavailable');
   }
 
   process.exit(0);

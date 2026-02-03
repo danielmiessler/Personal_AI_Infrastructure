@@ -288,14 +288,11 @@ function sendEvolutionNotification(update: SoulUpdate): void {
     });
   } catch {}
 
-  // Log to stderr
-  console.error(`[SoulEvolution] ${message}`);
+  // Notification sent (no stderr logging to avoid false hook errors)
 }
 
 async function main() {
   try {
-    console.error('[SoulEvolution] Hook started');
-
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
 
@@ -304,7 +301,6 @@ async function main() {
     // Load current soul file
     const soulContent = loadSoulFile(paiDir);
     if (!soulContent) {
-      console.error('[SoulEvolution] No soul file found, exiting');
       process.exit(0);
     }
 
@@ -313,17 +309,13 @@ async function main() {
     const relationshipNotes = loadRecentRelationshipNotes(paiDir);
 
     if (learnings.length === 0 && relationshipNotes.length === 0) {
-      console.error('[SoulEvolution] No recent learnings or notes, exiting');
       process.exit(0);
     }
-
-    console.error(`[SoulEvolution] Analyzing ${learnings.length} learnings, ${relationshipNotes.length} notes`);
 
     // Analyze for potential evolution
     const updates = analyzeSoulEvolution(soulContent, learnings, relationshipNotes);
 
     if (updates.length === 0) {
-      console.error('[SoulEvolution] No evolution detected this session');
       process.exit(0);
     }
 
@@ -334,26 +326,22 @@ async function main() {
       if (update.requiresApproval) {
         // Queue for approval
         queue.updates.push(update);
-        console.error(`[SoulEvolution] Queued for approval: ${update.section}`);
       } else {
         // Auto-apply with notification
         const applied = applySoulUpdate(paiDir, update);
         if (applied) {
           update.status = 'applied';
           sendEvolutionNotification(update);
-          console.error(`[SoulEvolution] Applied: ${update.section} - ${update.reason}`);
         }
       }
     }
 
     queue.lastProcessed = getISOTimestamp();
     saveEvolutionQueue(paiDir, queue);
-
-    console.error(`[SoulEvolution] Processed ${updates.length} updates`);
     process.exit(0);
 
   } catch (err) {
-    console.error(`[SoulEvolution] Error: ${err}`);
+    // SoulEvolution error - non-blocking
     process.exit(0); // Don't fail the session end
   }
 }

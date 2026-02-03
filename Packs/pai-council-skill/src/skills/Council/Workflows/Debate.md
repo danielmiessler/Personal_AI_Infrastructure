@@ -159,14 +159,15 @@ After Round 2, evaluate whether Round 3 is needed.
 - User explicitly requested 3 rounds
 
 **Skip Round 3 if ALL of these are true:**
-- High convergence (3+ agents agree on core recommendation)
+- High convergence (majority of agents agree on core recommendation)
 - No BLOCKING items identified
 - No unresolved contradictions
 - Topic is exploratory
 
 Write convergence assessment:
 ```bash
-echo '{"converged": true/false, "reason": "...", "proceed_to_round3": true/false}' > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/convergence.json
+# Example: high convergence, skipping Round 3
+echo '{"converged": true, "reason": "4/4 agents agree on core recommendation", "proceed_to_round3": false}' > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/convergence.json
 ```
 
 If skipping Round 3:
@@ -228,7 +229,7 @@ After all rounds complete, synthesize the debate:
 ### Council Synthesis
 
 **Areas of Convergence:**
-- [Points where 3+ agents agreed]
+- [Points where majority of agents agreed]
 - [Shared concerns or recommendations]
 
 **Remaining Disagreements:**
@@ -248,15 +249,19 @@ TOPIC_SLUG=$(echo "[topic]" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | cut -c1-
 TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
 MONTH=$(date +%Y-%m)
 mkdir -p ~/.claude/MEMORY/RESEARCH/$MONTH
-cat ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/*.md > ~/.claude/MEMORY/RESEARCH/$MONTH/${TIMESTAMP}_COUNCIL_${TOPIC_SLUG}.md
+# Explicit file ordering (round-3.md may not exist if skipped)
+cat ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md \
+    ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-2.md \
+    ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-3.md 2>/dev/null \
+    > ~/.claude/MEMORY/RESEARCH/$MONTH/${TIMESTAMP}_COUNCIL_${TOPIC_SLUG}.md
 ```
 
-Update metadata.json with completion status:
+Update metadata.json with completion status (merge with existing):
 ```json
 {
-  "completed_at": "{ISO timestamp}",
-  "rounds_completed": 2 or 3,
-  "archived_to": "~/.claude/MEMORY/RESEARCH/YYYY-MM/..."
+  "completed_at": "2026-02-02T23:55:39Z",
+  "rounds_completed": 2,
+  "archived_to": "~/.claude/MEMORY/RESEARCH/2026-02/2026-02-02-235539_COUNCIL_example-topic.md"
 }
 ```
 
@@ -316,7 +321,7 @@ In patchlist mode, instruct agents to structure responses as:
 
 If the council is interrupted (rate limit, timeout):
 1. Session state is preserved in `~/.claude/MEMORY/STATE/council-sessions/{SESSION_ID}/`
-2. Use Recovery workflow to resume: `"Council recovery: Resume session {SESSION_ID}"`
+2. Use Recovery workflow to resume: `"Council recovery: Resume session 20260202-235539-a1b2c3d4"` (replace with your actual session ID)
 3. See `Workflows/Recovery.md` for details
 
 ## Done

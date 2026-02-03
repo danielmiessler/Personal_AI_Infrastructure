@@ -33,7 +33,7 @@ Round 3 is **conditional**. After Round 2, the orchestrator evaluates:
 4. User explicitly requested 3 rounds
 
 **Skip Round 3 if ALL of these are true:**
-1. High convergence detected (3+ agents agree on core recommendation)
+1. High convergence detected (majority of agents agree on core recommendation)
 2. No BLOCKING items identified
 3. No unresolved contradictions
 4. Topic is exploratory, not normative

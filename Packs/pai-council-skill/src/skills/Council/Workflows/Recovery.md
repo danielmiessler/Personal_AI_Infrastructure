@@ -42,6 +42,8 @@ Keep completed agent outputs, only rerun missing agents.
 
 ### Step 1: Load Session State
 
+**Session ID validation:** Before using a session ID in file paths, validate it matches the expected format `YYYYMMDD-HHMMSS-[hex]` (e.g., `20260202-235539-a1b2c3d4`). Reject IDs containing path traversal characters (`/`, `\`, `..`).
+
 Read the session directory:
 ```
 ~/.claude/MEMORY/STATE/council-sessions/{session-id}/
@@ -174,7 +176,7 @@ System response:
 - Round 2: Not started
 
 **Recovery Plan:**
-- Rerun Round 1 for: Serena, Marcus, Ava
+- Rerun Round 1 for: Architect (Serena), Engineer (Marcus), Researcher (Ava)
 - Complete Round 2
 - Evaluate for Round 3
 - Synthesize

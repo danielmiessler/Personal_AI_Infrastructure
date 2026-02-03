@@ -76,7 +76,7 @@ Running the **WorkflowName** workflow from the **Council** skill...
 |------|---------|
 | `Config.md` | Default settings, model tiering, output modes |
 | `CouncilMembers.md` | Agent roles, perspectives, voice mapping |
-| `RoundStructure.md` | Three-round debate structure and timing |
+| `RoundStructure.md` | Adaptive 2-3 round structure and timing |
 | `OutputFormat.md` | Transcript format templates |
 
 ## Core Philosophy

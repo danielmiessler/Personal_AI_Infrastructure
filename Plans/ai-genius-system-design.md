@@ -1,1338 +1,540 @@
-# AI Genius: Personal Superintelligence System Design
+# AI Genius: Transformation Plan
 
-## Meta-Level Architecture Plan
-
----
-
-## 1. VISION & FRAMING
-
-**What this is**: A personal AI system that acts as a team of 1,000 skilled knowledge workers — a "genius brain" that amplifies your capabilities 100-1000x across business, health, content, and life management.
-
-**What it is NOT**: A chatbot, a simple assistant, or a single-purpose tool. It is an autonomous, self-improving infrastructure that proactively works on your behalf.
-
-**Core metaphor**: You are the CEO. The AI Genius is your entire organization — but you don't manage 1,000 workers directly. You talk to your Chief of Staff, who manages a handful of Directors, who each run departments with teams of specialists. The management structure handles delegation, coordination, quality control, and escalation — you only deal with strategy, decisions, and results.
+## From Current LifeOS Setup → PAI-Modular Smart Architecture
 
 ---
 
-## 2. ORGANIZATIONAL STRUCTURE
+## 1. VISION (Revised)
 
-A CEO of 1,000 people doesn't talk to individual workers. The system mirrors how real high-performing organizations operate: clear hierarchy, defined spans of control, delegation authority, and escalation paths.
+**Goal**: Maximize your brainpower for synthesis, connection-making, and strategy by offloading all operational work to AI. Not a corporate hierarchy — a smart, modular system that loads the right context for every task, learns from every interaction, and gets better over time.
 
-### 2.1 The Org Chart
+**What changes**: The current monolithic CLAUDE.md + time-based automation evolves into a modular skill/context/memory architecture following PAI patterns. Everything that works today keeps working. Nothing breaks during transformation.
 
-```
-                    ┌─────────────────────┐
-                    │     YOU (CEO)        │
-                    │                      │
-                    │ • Set vision & goals │
-                    │ • Make key decisions │
-                    │ • Review results     │
-                    │ • Rate performance   │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │   CHIEF OF STAFF    │
-                    │   (Always-On Agent) │
-                    │                      │
-                    │ • Your ONLY direct   │
-                    │   contact point      │
-                    │ • Routes requests    │
-                    │ • Aggregates reports │
-                    │ • Filters noise      │
-                    │ • Manages escalation │
-                    │ • Knows everything   │
-                    │   at summary level   │
-                    └──────────┬──────────┘
-                               │
-          ┌────────────────────┼────────────────────┐
-          │                    │                     │
-  ┌───────▼───────┐  ┌────────▼────────┐  ┌────────▼────────┐
-  │  STRATEGY &   │  │  OPERATIONS     │  │  INTELLIGENCE   │
-  │  PLANNING     │  │  DIRECTOR       │  │  DIRECTOR       │
-  │  DIRECTOR     │  │                 │  │                 │
-  │               │  │ Manages daily   │  │ Manages what    │
-  │ Manages the   │  │ execution and   │  │ the system      │
-  │ "what" and    │  │ service         │  │ knows and       │
-  │ "why"         │  │ delivery        │  │ learns          │
-  └───────┬───────┘  └────────┬────────┘  └────────┬────────┘
-          │                   │                     │
-    ┌─────┴─────┐      ┌─────┴─────┐        ┌─────┴─────┐
-    │ Teams     │      │ Teams     │        │ Teams     │
-    │ below     │      │ below     │        │ below     │
-    └───────────┘      └───────────┘        └───────────┘
-
-  ┌───────▼───────┐  ┌────────▼────────┐  ┌────────▼────────┐
-  │ PERSONAL      │  │ COMMUNICATIONS  │  │ SYSTEMS         │
-  │ ADVISORY      │  │ DIRECTOR        │  │ DIRECTOR        │
-  │ DIRECTOR      │  │                 │  │                 │
-  │               │  │ Manages all     │  │ Manages the     │
-  │ Health, life, │  │ external comms  │  │ infrastructure  │
-  │ relationships │  │ and content     │  │ itself          │
-  └───────┬───────┘  └────────┬────────┘  └────────┬────────┘
-          │                   │                     │
-    ┌─────┴─────┐      ┌─────┴─────┐        ┌─────┴─────┐
-    │ Teams     │      │ Teams     │        │ Teams     │
-    │ below     │      │ below     │        │ below     │
-    └───────────┘      └───────────┘        └───────────┘
-```
-
-### 2.2 Detailed Role Definitions
-
-#### CHIEF OF STAFF (CoS) — Your Single Point of Contact
-
-The CoS is the **only agent you interact with directly** in most cases. It is always a high-capability model (Opus or Sonnet) that:
-
-| Responsibility | How it works |
-|---|---|
-| **Triage** | Every request from you is classified by urgency, domain, and complexity |
-| **Routing** | Delegates to the right Director — you never think about who does what |
-| **Aggregation** | Collects results from multiple Directors into a single coherent response |
-| **Filtering** | 50 things happened today, you hear about the 5 that matter |
-| **Escalation** | Directors flag issues, CoS decides what reaches you and when |
-| **Context** | Maintains a running summary of ALL domains — the "executive dashboard" |
-| **Tone matching** | Knows how you like information presented, adapts to your mood/urgency |
-| **Challenge gate** | Applies challenger mode on your behalf before executing questionable requests |
-
-**What the CoS does NOT do**: Execute tasks directly. It manages, delegates, and synthesizes.
-
-```
-You: "How's the newsletter going?"
-
-CoS internally:
-  → Queries Communications Director for newsletter status
-  → Checks MEMORY for last interaction on this topic
-  → Checks if there are related items from other Directors
-  → Assembles a concise answer
-
-CoS to you: "Issue #48 is drafted, waiting for your review.
-  Open rate on #47 was 42%, up from 38%. The Communications
-  team suggests we A/B test subject lines starting next issue.
-  Also — your blog post from Monday could be repurposed as
-  a newsletter segment, want me to have them draft that?"
-```
-
-#### STRATEGY & PLANNING DIRECTOR
-
-Manages the "thinking" layer of the organization.
-
-| Team | Role | Model Tier |
-|---|---|---|
-| **Goal Architect** | Defines, tracks, and refines your goals across all domains | Opus |
-| **Strategic Analyst** | Analyzes opportunities, threats, market conditions | Opus/Sonnet |
-| **Decision Support** | Prepares decision briefs, tracks decision outcomes | Sonnet |
-| **Scenario Planner** | Models "what if" scenarios for major decisions | Opus |
-| **Challenger** | Devil's advocate on all strategic matters | Opus |
-
-**Owns**: Goal trees, strategic reviews, decision journal, quarterly planning.
-
-**Reports to CoS**: Weekly strategy summary, goal progress, flagged risks.
-
-#### OPERATIONS DIRECTOR
-
-Manages daily execution across all business and project domains.
-
-| Team | Role | Model Tier |
-|---|---|---|
-| **Business Ops** (per venture) | Runs day-to-day for each business | Sonnet |
-| **Project Manager** | Tracks active projects, deadlines, dependencies | Sonnet |
-| **Task Executor** | Does the actual work — research, drafting, analysis | Sonnet/Haiku |
-| **Quality Controller** | Reviews outputs before they reach you | Sonnet |
-| **Service Connector** | Manages integrations (calendar, reminders, email) | Haiku |
-
-**Owns**: Active projects, task queues, service integrations, daily operations.
-
-**Reports to CoS**: Daily ops summary, blocked items, completed deliverables.
-
-#### INTELLIGENCE DIRECTOR
-
-Manages everything the system knows, learns, and remembers.
-
-| Team | Role | Model Tier |
-|---|---|---|
-| **Knowledge Manager** | Organizes vault, maintains context maps, tags content | Sonnet |
-| **Learning Analyst** | Processes feedback, updates playbooks, tracks mistakes | Sonnet |
-| **Research Team** | Deep research on topics across domains | Sonnet/Opus |
-| **Vault Scanner** | Proactive review of notes, staleness detection | Haiku |
-| **Cross-Domain Linker** | Finds connections between unrelated areas | Opus |
-
-**Owns**: Memory system, learnings, research outputs, vault health, context maps.
-
-**Reports to CoS**: New insights, stale content alerts, learning summaries.
-
-#### COMMUNICATIONS DIRECTOR
-
-Manages all content creation and external communications.
-
-| Team | Role | Model Tier |
-|---|---|---|
-| **Newsletter Team** | Writes, edits, publishes newsletter issues | Sonnet |
-| **Social Media Team** | Creates posts, manages content calendar | Sonnet/Haiku |
-| **Email Drafter** | Reads inbox, drafts responses, flags urgent | Sonnet |
-| **Content Strategist** | Plans content across channels for coherence | Sonnet |
-| **Presentation Builder** | Creates decks, documents, proposals | Sonnet |
-
-**Owns**: All outbound content, email management, content calendar.
-
-**Reports to CoS**: Content pipeline status, urgent emails, engagement metrics.
-
-#### PERSONAL ADVISORY DIRECTOR
-
-Manages health, wellbeing, and personal life domains — with lighter touch.
-
-| Team | Role | Model Tier |
-|---|---|---|
-| **Health Tracker** | Monitors health metrics, suggests protocols | Sonnet |
-| **Life Admin** | Reminders, appointments, travel, logistics | Haiku |
-| **Personal Advisor** | Relationship advice, personal decisions (on request only) | Opus |
-| **Habit Coach** | Tracks habits, nudges, accountability | Haiku |
-
-**Owns**: Health domain, personal admin, habit tracking.
-
-**Reports to CoS**: Health summary (weekly), urgent personal items only.
-
-**Special rule**: This Director ONLY acts when asked, or for health/calendar items. No proactive analysis of personal notes unless explicitly requested.
-
-#### SYSTEMS DIRECTOR
-
-Manages the AI Genius infrastructure itself — the meta-layer.
-
-| Team | Role | Model Tier |
-|---|---|---|
-| **Token Budget Manager** | Tracks usage, allocates across Directors | Haiku |
-| **Performance Monitor** | Tracks response times, error rates, quality | Haiku |
-| **Skill Developer** | Proposes and builds new skills/capabilities | Sonnet |
-| **Security Auditor** | Reviews actions, maintains audit trail | Haiku |
-| **Self-Improvement Engine** | Proposes system improvements, optimizations | Sonnet |
-
-**Owns**: System health, token budgets, skill registry, security, self-improvement.
-
-**Reports to CoS**: System health dashboard, budget alerts, improvement proposals.
-
-### 2.3 Management Protocols
-
-#### Span of Control
-
-```
-You ──► 1 (Chief of Staff)
-CoS ──► 6 (Directors)
-Each Director ──► 3-5 (Team Leads / Specialists)
-Each Specialist ──► can spawn workers (Haiku instances for grunt work)
-```
-
-**Total active at any time**: Typically 2-5 Claude instances, not 1,000 simultaneously. The "1,000 employees" metaphor means 1,000 person-equivalents of capability, not 1,000 running processes.
-
-#### Escalation Protocol
-
-```
-Level 0 — HANDLED: Specialist resolves autonomously
-  Example: Format a document, look up a fact, draft a social post
-
-Level 1 — DIRECTOR REVIEW: Director reviews before delivery
-  Example: Newsletter issue draft, business analysis, email response
-
-Level 2 — CoS REVIEW: CoS reviews before presenting to you
-  Example: Strategic recommendation, cross-domain insight, budget change
-
-Level 3 — CEO DECISION: Requires your explicit approval
-  Example: Business pivot, goal change, public statement, spending decision
-
-Level 4 — CEO DISCUSSION: Complex, needs interactive dialogue
-  Example: Life strategy, major business decision, ethical dilemma
-```
-
-#### Inter-Director Communication
-
-Directors don't work in silos. The CoS coordinates cross-cutting work:
-
-```
-Example: You say "Launch the new product next month"
-
-CoS decomposes and coordinates:
-├── Strategy Director: Validate timing, competitive analysis
-├── Operations Director: Create project plan, assign tasks
-├── Communications Director: Press release, social campaign, email blast
-├── Intelligence Director: Pull all relevant research and past launches
-└── CoS: Synthesize into unified launch plan, present to you
-
-Each Director works in parallel, CoS assembles the result.
-```
-
-#### Delegation Authority Matrix
-
-What each level can do WITHOUT escalating:
-
-| Action | Specialist | Director | CoS | CEO (You) |
-|---|---|---|---|---|
-| Read vault files | Yes | Yes | Yes | Yes |
-| Write working files | Yes | Yes | Yes | Yes |
-| Update memory/learnings | Yes | Yes | Yes | Yes |
-| Draft content | Yes | Yes | Yes | Yes |
-| Send email | No | Drafts only | Drafts only | Approves send |
-| Modify goals | No | Propose | Propose | Decides |
-| Create calendar events | No | Yes (routine) | Yes | Yes |
-| Change system config | No | No | Propose | Approves |
-| Spend tokens on deep research | No | Within budget | Yes | Yes |
-| Modify vault structure | No | No | Propose | Approves |
-| Create new skills | No | Propose | Review & propose | Approves |
-
-#### Director State Files
-
-Each Director maintains a state file in the vault:
-
-```
-_SYSTEM/DIRECTORS/
-├── chief-of-staff/
-│   ├── ROLE.md                    # Role definition, protocols
-│   ├── STATE.md                   # Current status, active items
-│   ├── ESCALATION-QUEUE.md        # Items waiting for CEO
-│   └── DAILY-BRIEF-TEMPLATE.md    # Morning briefing format
-├── strategy/
-│   ├── ROLE.md
-│   ├── STATE.md
-│   ├── ACTIVE-INITIATIVES.md
-│   └── REVIEW-SCHEDULE.md
-├── operations/
-│   ├── ROLE.md
-│   ├── STATE.md
-│   ├── TASK-QUEUE.md
-│   └── PROJECT-STATUS.md
-├── intelligence/
-│   ├── ROLE.md
-│   ├── STATE.md
-│   ├── SCAN-SCHEDULE.md
-│   └── INSIGHT-QUEUE.md
-├── communications/
-│   ├── ROLE.md
-│   ├── STATE.md
-│   ├── CONTENT-CALENDAR.md
-│   └── DRAFT-QUEUE.md
-├── personal-advisory/
-│   ├── ROLE.md
-│   ├── STATE.md
-│   └── HEALTH-DASHBOARD.md
-└── systems/
-    ├── ROLE.md
-    ├── STATE.md
-    ├── TOKEN-USAGE.md
-    └── IMPROVEMENT-PROPOSALS.md
-```
-
-### 2.4 How a Request Flows Through the Organization
-
-```
-You: "I need a competitive analysis for VentureA and
-      draft a pitch deck based on the findings"
-
-Step 1 — GATEWAY receives message via Discord/Voice
-
-Step 2 — CHIEF OF STAFF processes:
-  • Classifies: Multi-domain, Level 2 complexity
-  • Identifies Directors: Strategy (analysis) + Comms (deck) + Intel (research)
-  • Checks token budget: Sufficient for Opus research + Sonnet execution
-  • Creates work item in MEMORY/WORK/
-
-Step 3 — CoS DELEGATES (in parallel where possible):
-
-  To Intelligence Director:
-    "Pull all vault data on VentureA competitors,
-     market notes, and previous analyses"
-    → Intel spawns Vault Scanner (Haiku) + Research Team (Sonnet)
-    → Returns: structured competitive data
-
-  To Strategy Director:
-    "Analyze competitive positioning using Intel's findings"
-    → Strategy spawns Strategic Analyst (Opus)
-    → Returns: SWOT, positioning map, key insights
-
-  To Communications Director:
-    "Draft pitch deck from Strategy's analysis"
-    → Comms spawns Presentation Builder (Sonnet)
-    → Returns: deck outline + slide content
-
-Step 4 — CoS ASSEMBLES:
-  • Reviews all outputs for consistency
-  • Checks for contradictions between Directors
-  • Quality-checks the deck against your style preferences
-  • Packages into a single response
-
-Step 5 — CoS RESPONDS to you:
-  "Here's the competitive analysis and pitch deck draft.
-   Key finding: Competitor X just raised Series B, which
-   changes the urgency on your pricing strategy.
-   The Strategy team recommends we discuss this.
-   Deck is 12 slides, ready for your review."
-
-Step 6 — LEARNING:
-  • Your rating (1-10) is captured
-  • Time-to-delivery logged
-  • If you edit the deck heavily → Communications learns
-  • If the strategy was off → Strategy adjusts playbook
-```
+**What stays the same**: Obsidian vault as source of truth, Claude Code as compute, eventkit-cli and mail-cli as service connectors, Discord/Telegram as remote interfaces, launchd scripts for scheduling, Git for safety.
 
 ---
 
-## 3. SYSTEM ARCHITECTURE (Technical)
+## 2. CURRENT STATE → TARGET STATE MAPPING
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        YOU (CEO)                                │
-│                                                                 │
-│  iPhone/iPad/MacBook ──► Text Interface (Discord/Custom Chat)   │
-│  Any Device          ──► Voice Interface (Natural Conversation) │
-│  Email/Calendar      ──► Passive Input (Auto-ingested)          │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  GATEWAY LAYER  │
-                    │  (Mac Mini 24/7)│
-                    │                 │
-                    │ • API Server    │
-                    │ • Auth & Routing│
-                    │ • Rate Limiter  │
-                    │ • Queue Manager │
-                    └────────┬────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │      CHIEF OF STAFF         │
-              │      (Persistent Agent)     │
-              │                             │
-              │ • Triage & Classification   │
-              │ • Director Delegation       │
-              │ • Result Aggregation        │
-              │ • Escalation Management     │
-              │ • Context Awareness         │
-              │ • Token Budget Oversight    │
-              └──────┬──────────────┬───────┘
-                     │              │
-        ┌────────────▼──┐    ┌─────▼─────────────┐
-        │  REACTIVE      │    │  PROACTIVE         │
-        │  PIPELINE      │    │  PIPELINE          │
-        │                │    │                    │
-        │ CoS delegates  │    │ Scheduled tasks    │
-        │ to Directors   │    │ Director-initiated │
-        │ on demand      │    │ via cron/scheduler │
-        └────────┬───────┘    └─────┬─────────────┘
-                 │                  │
-        ┌────────▼──────────────────▼───────┐
-        │      DIRECTOR LAYER               │
-        │      (6 Directors — Sonnet)       │
-        │                                   │
-        │  Each Director:                   │
-        │  • Owns a domain                  │
-        │  • Manages specialist teams       │
-        │  • Has delegation authority        │
-        │  • Maintains state in vault       │
-        │  • Reports up to CoS             │
-        └────────┬──────────────────────────┘
-                 │
-        ┌────────▼──────────────────────────┐
-        │      SPECIALIST LAYER             │
-        │      (Spawned on demand)          │
-        │                                   │
-        │  • Receive targeted context only  │
-        │  • Execute specific tasks         │
-        │  • Return results to Director     │
-        │  • Haiku/Sonnet/Opus by task      │
-        └────────┬──────────────────────────┘
-                 │
-        ┌────────▼──────────────────────────┐
-        │        OBSIDIAN VAULT             │
-        │        (Source of Truth)           │
-        │                                   │
-        │  • Knowledge Base (notes, docs)   │
-        │  • Memory Store (learnings, logs) │
-        │  • Director State Files           │
-        │  • Context Maps & Domain Configs  │
-        │  • Goal Trees & Strategies        │
-        │  • External Files (PDF, XLSX...)  │
-        └───────────────────────────────────┘
-```
+### 2.1 What Exists and What It Becomes
+
+| Current | Target | Migration Risk |
+|---|---|---|
+| **CLAUDE.md** (58KB monolith) | Modular skill files + CORE SKILL.md | Medium — must preserve all 18 modes |
+| **18 modes in CLAUDE.md** | 18 skill files in `AI/skills/` | Low — extract, don't rewrite |
+| **AI/AI Context Log.md** | `_SYSTEM/MEMORY/context-log.md` + structured state files | Low — add structure around existing |
+| **No cross-session memory** | `_SYSTEM/MEMORY/` with learnings, signals, work tracking | New — additive only |
+| **No feedback capture** | Rating capture + mistake tracking in MEMORY | New — additive only |
+| **5 launchd scripts** | Same scripts + hook system on top | Low — extend, don't replace |
+| **afk-code (Discord/Telegram relay)** | Same — it already works | None |
+| **eventkit-cli, mail-cli** | Same — they're solid tools | None |
+| **6 MCP servers** | Same — keep all | None |
+| **AI/Prompts/ (18 templates)** | Move into skill workflows | Low |
+| **No context budgeting** | Context maps per domain + selective loading | New — additive |
+| **No event-driven hooks** | PAI-style hook system | New — additive |
+| **24 .base databases** | Unchanged — vault structure stays | None |
+
+### 2.2 What Does NOT Change
+
+These are working and should not be touched during transformation:
+
+- Vault folder structure (Areas/, Projects/, Notes/, Content/, etc.)
+- All 24 .base database files and their frontmatter schemas
+- Daily Notes, Meeting Notes, Journal structure
+- eventkit-cli and mail-cli source code and functionality
+- afk-code remote control system
+- Obsidian plugins (obsidian-git, dataview, readwise, etc.)
+- Git workflow and .gitignore
+- Discord/Telegram webhook notifications
+- Apple Reminders as primary task system
+- GPR project tracking
 
 ---
 
-## 4. THE OBSIDIAN VAULT STRUCTURE
-
-The vault is both the knowledge base AND the system's operating memory. Adapting PAI's SYSTEM/USER two-tier pattern:
+## 3. TARGET ARCHITECTURE
 
 ```
-Vault/
-├── _SYSTEM/                          # AI Genius operating system (never manually edited)
-│   ├── CONFIG/
-│   │   ├── dispatcher-config.yaml    # Orchestrator settings
-│   │   ├── domain-registry.yaml      # Maps domains to context slices
-│   │   ├── token-budget.yaml         # Claude Max usage management
-│   │   ├── interface-config.yaml     # Chat/voice/service settings
-│   │   └── security-patterns.yaml    # What the system must never do
-│   │
-│   ├── MEMORY/
-│   │   ├── WORK/                     # Active and completed work items
-│   │   ├── LEARNINGS/                # What the system has learned
-│   │   │   ├── execution/            # Task execution patterns
-│   │   │   ├── preferences/          # Your preferences & style
-│   │   │   ├── mistakes/             # Errors to avoid
-│   │   │   └── effectiveness/        # What works, what doesn't
-│   │   ├── SIGNALS/                  # Your ratings and feedback
-│   │   ├── CONTEXT-SNAPSHOTS/        # Periodic state summaries
-│   │   └── INTERACTION-LOG/          # Compressed conversation history
-│   │
-│   ├── DOMAINS/                      # Domain-specific operating context
-│   │   ├── business/
-│   │   │   ├── DOMAIN.md             # Domain definition & current state
-│   │   │   ├── GOALS.md              # Active goals with metrics
-│   │   │   ├── PLAYBOOK.md           # Learned strategies & approaches
-│   │   │   └── CONTEXT-MAP.md        # What vault files matter for this domain
-│   │   ├── newsletter/
-│   │   ├── content/
-│   │   ├── health/
-│   │   ├── personal/                 # Lighter touch, advisory only
-│   │   └── [extensible]/
-│   │
-│   ├── SKILLS/                       # System capabilities (PAI pattern)
-│   │   ├── CORE/
-│   │   │   ├── SKILL.md
-│   │   │   └── Workflows/
-│   │   ├── Research/
-│   │   ├── Writing/
-│   │   ├── Analysis/
-│   │   ├── Communication/
-│   │   ├── Planning/
-│   │   └── [auto-created-skills]/    # System proposes new skills
-│   │
-│   ├── HOOKS/                        # Event-driven middleware (from PAI)
-│   │   ├── on-session-start/
-│   │   ├── on-task-complete/
-│   │   ├── on-feedback/
-│   │   └── on-scheduled/
-│   │
-│   ├── DIRECTORS/                    # Management layer state & config
-│   │   ├── chief-of-staff/
-│   │   │   ├── ROLE.md               # Role definition, protocols
-│   │   │   ├── STATE.md              # Current status, active items
-│   │   │   ├── ESCALATION-QUEUE.md   # Items waiting for CEO
-│   │   │   └── DAILY-BRIEF.md        # Morning briefing template
-│   │   ├── strategy/
-│   │   ├── operations/
-│   │   ├── intelligence/
-│   │   ├── communications/
-│   │   ├── personal-advisory/
-│   │   └── systems/
-│   │
-│   └── AGENTS/                       # Specialist agent definitions
-│       ├── strategist.md             # High-level planning
-│       ├── executor.md               # Task execution
-│       ├── researcher.md             # Deep research
-│       ├── writer.md                 # Content creation
-│       ├── challenger.md             # Devil's advocate
-│       ├── health-advisor.md         # Health domain
-│       └── [domain-agents]/
+LifeOS/  (your existing Obsidian vault — unchanged top-level)
 │
-├── AREAS/                            # Your life areas (you maintain these)
-│   ├── Business/
-│   │   ├── VentureA/
-│   │   ├── VentureB/
-│   │   └── Ideas/
-│   ├── Newsletter/
-│   │   ├── Issues/
-│   │   ├── Ideas/
-│   │   └── Analytics/
-│   ├── Content/
-│   │   ├── Social-Media/
-│   │   ├── Blog/
-│   │   └── Presentations/
-│   ├── Health/
-│   │   ├── Metrics/
-│   │   ├── Protocols/
-│   │   └── Notes/
-│   ├── Personal/
-│   │   └── [your structure]
-│   └── [your areas]/
+├── AI/                              # Existing — restructured internals
+│   ├── CORE.md                      # NEW: replaces monolithic CLAUDE.md
+│   │                                # Contains ONLY: identity, universal
+│   │                                # rules, routing table, vault overview
+│   │                                # Target: ~4,000 tokens (vs 14,500)
+│   │
+│   ├── skills/                      # NEW: extracted from CLAUDE.md modes
+│   │   ├── _SKILL-TEMPLATE.md       # Template for new skills
+│   │   ├── ai-equilibrium-editor.md # From mode 6.1
+│   │   ├── translator.md            # From mode 6.2
+│   │   ├── editing-rewriting.md     # From mode 6.2b
+│   │   ├── zen-jaskiniowca.md       # From mode 6.3
+│   │   ├── business-advisor.md      # From mode 6.4
+│   │   ├── strategy-advisor.md      # From mode 6.5
+│   │   ├── productivity-advisor.md  # From mode 6.6
+│   │   ├── vault-janitor.md         # From mode 6.7
+│   │   ├── health-fitness.md        # From mode 6.8
+│   │   ├── communication-writing.md # From mode 6.9
+│   │   ├── network-management.md    # From mode 6.10
+│   │   ├── learning-knowledge.md    # From mode 6.11
+│   │   ├── technical-architecture.md# From mode 6.12
+│   │   ├── legal-advisor.md         # From mode 6.13
+│   │   ├── financial-advisor.md     # From mode 6.14
+│   │   ├── general-advisor.md       # From mode 6.15
+│   │   ├── weekly-review.md         # From mode 6.16
+│   │   ├── daily-shutdown.md        # From mode 6.17
+│   │   └── meeting-processing.md    # From mode 6.18
+│   │
+│   ├── context/                     # NEW: domain-specific context maps
+│   │   ├── newsletter.md            # What to load for newsletter work
+│   │   ├── business.md              # What to load for business work
+│   │   ├── health.md                # What to load for health work
+│   │   ├── content.md               # What to load for content creation
+│   │   ├── investing.md             # What to load for investing
+│   │   ├── network.md               # What to load for people/network
+│   │   └── personal.md              # What to load for personal
+│   │
+│   ├── policies/                    # NEW: extracted from CLAUDE.md
+│   │   ├── provocation-protocol.md  # Section 4 of current CLAUDE.md
+│   │   ├── council-of-experts.md    # Section 7 of current CLAUDE.md
+│   │   ├── proactivity-protocol.md  # Current proactivity rules
+│   │   ├── linking-rules.md         # Note linking & vault graph rules
+│   │   ├── security-boundaries.md   # Tool restrictions, permissions
+│   │   ├── emergency-protocols.md   # Anxiety, victim mode responses
+│   │   └── formatting-rules.md      # Language, style, anti-slop
+│   │
+│   ├── memory/                      # NEW: cross-session persistence
+│   │   ├── learnings/               # What the system has learned
+│   │   │   ├── execution.md         # Task approach improvements
+│   │   │   ├── preferences.md       # Your style, tone, habits
+│   │   │   └── mistakes.md          # Errors to avoid
+│   │   ├── signals/                 # Your feedback
+│   │   │   └── ratings.jsonl        # Timestamped quality signals
+│   │   ├── work/                    # Work-in-progress tracking
+│   │   │   └── current.md           # What's active, what stage, next step
+│   │   └── context-log.md           # Existing AI Context Log (moved)
+│   │
+│   ├── hooks/                       # NEW: event-driven automation
+│   │   ├── on-session-start.ts      # Load context, check WIP, greet
+│   │   ├── on-session-end.ts        # Capture learnings, update WIP
+│   │   ├── on-feedback.ts           # Capture ratings and corrections
+│   │   └── lib/                     # Shared utilities
+│   │
+│   ├── My AgentOS/                  # EXISTING — unchanged
+│   │   ├── CV Krzysztof Goworek.md
+│   │   ├── Deep Profile & Operating Manual.md
+│   │   ├── Personal Information.md
+│   │   └── ...
+│   │
+│   ├── Prompts/                     # EXISTING — gradually migrate into skills
+│   │   └── (18 files)
+│   │
+│   └── scripts/                     # EXISTING — unchanged, extended
+│       ├── daily-brief.sh
+│       ├── deep-work-block.sh
+│       ├── weekly-review.sh
+│       ├── vault-cleanup.sh
+│       ├── daily-close.sh
+│       └── notify-utils.sh
 │
-├── DAILY-NOTES/                      # Daily journal / input capture
-│   └── YYYY-MM-DD.md
+├── CLAUDE.md                        # TRANSITIONAL: slim router that
+│                                    # points to AI/CORE.md + AI/skills/
+│                                    # Eventually becomes just a pointer
 │
-├── MEETINGS/                         # Meeting notes
-│   └── YYYY-MM-DD-topic.md
-│
-├── INBOX/                            # Unprocessed inputs
-│   ├── voice-transcripts/            # Voice conversation logs
-│   ├── email-digests/                # Processed email summaries
-│   ├── captures/                     # Quick thoughts, ideas
-│   └── external-docs/                # PDFs, XLSX, PPTX, etc.
-│
-├── PROJECTS/                         # Active project workspaces
-│   └── [project-name]/
-│       ├── BRIEF.md                  # Project definition
-│       ├── STATUS.md                 # Current state (auto-updated)
-│       ├── DECISIONS.md              # Decision log
-│       └── artifacts/
-│
-└── ARCHIVE/                          # Completed/inactive items
+└── [rest of vault unchanged]
 ```
 
----
+### 3.1 How Context Loading Changes
 
-## 5. THE DISPATCHER (Central Orchestrator)
-
-The dispatcher is a persistent daemon on the Mac Mini that manages all AI operations. It implements the management hierarchy — the Chief of Staff is the dispatcher's core logic.
-
-### 5.1 Architecture
-
+**Current** (every session):
 ```
-┌──────────────────────────────────────────────────────────┐
-│              DISPATCHER DAEMON (TypeScript / Bun)        │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │          CHIEF OF STAFF LAYER                      │  │
-│  │                                                    │  │
-│  │  ┌──────────────┐    ┌──────────────────────────┐ │  │
-│  │  │ Request       │    │ Scheduler                │ │  │
-│  │  │ Queue         │    │ (Director-managed tasks) │ │  │
-│  │  │               │    │                          │ │  │
-│  │  │ From: you     │    │ • Strategy: quarterly    │ │  │
-│  │  │ From: dirs    │    │ • Ops: daily tasks       │ │  │
-│  │  │ From: cron    │    │ • Intel: vault scan      │ │  │
-│  │  └──────┬────────┘    │ • Comms: email check     │ │  │
-│  │         │             │ • Systems: health check  │ │  │
-│  │         │             └────────┬─────────────────┘ │  │
-│  │  ┌──────▼──────────────────────▼────────────────┐  │  │
-│  │  │         TRIAGE & ROUTING                     │  │  │
-│  │  │                                              │  │  │
-│  │  │  1. Classify intent → Director(s)            │  │  │
-│  │  │  2. Determine escalation level (0-4)         │  │  │
-│  │  │  3. Check delegation authority matrix        │  │  │
-│  │  │  4. Check token budget with Systems Dir      │  │  │
-│  │  │  5. Delegate to Director(s) in parallel      │  │  │
-│  │  │  6. Aggregate Director responses             │  │  │
-│  │  │  7. Apply challenge gate if warranted        │  │  │
-│  │  │  8. Format and deliver to CEO                │  │  │
-│  │  └──────┬───────────────────────────────────────┘  │  │
-│  └─────────┼──────────────────────────────────────────┘  │
-│            │                                             │
-│  ┌─────────▼─────────────────────────────────────────┐   │
-│  │         DIRECTOR SPAWNER                          │   │
-│  │                                                   │   │
-│  │  For each Director task:                          │   │
-│  │  1. Load Director ROLE.md (responsibilities)      │   │
-│  │  2. Load Director STATE.md (current context)      │   │
-│  │  3. Run Context Assembler for the domain          │   │
-│  │  4. Spawn Claude instance (Sonnet for Directors)  │   │
-│  │  5. Director may spawn Specialists (Haiku/Sonnet) │   │
-│  │  6. Capture results, update STATE.md              │   │
-│  └───────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌───────────────────────────────────────────────────┐   │
-│  │         CONTEXT ASSEMBLER (shared utility)        │   │
-│  │                                                   │   │
-│  │  1. Load domain CONTEXT-MAP.md                    │   │
-│  │  2. Pull relevant vault files                     │   │
-│  │  3. Load domain PLAYBOOK.md                       │   │
-│  │  4. Load relevant LEARNINGS                       │   │
-│  │  5. Assemble minimal context payload              │   │
-│  │  6. Estimate token usage                          │   │
-│  └───────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌───────────────────────────────────────────────────┐   │
-│  │         TOKEN BUDGET MANAGER                      │   │
-│  │         (Managed by Systems Director)             │   │
-│  │                                                   │   │
-│  │  • Track per-Director token usage                 │   │
-│  │  • Enforce Claude Max limits                      │   │
-│  │  • Directors have individual budgets              │   │
-│  │  • CoS can reallocate between Directors           │   │
-│  │  • Reactive requests always get priority          │   │
-│  │  • Queue proactive work for off-peak              │   │
-│  └───────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────┘
+Load CLAUDE.md (14,500 tokens) → all 18 modes, all rules, everything
+Maybe read AI Context Log (+2,000 tokens)
+Maybe read Deep Profile (+3,000 tokens)
+= 15,000–20,000 tokens before any work starts
 ```
 
-### 5.2 Context Assembly Strategy
-
-This is the critical innovation — each Claude instance gets ONLY what it needs:
-
+**Target** (per session):
 ```
-For a task: "Draft next newsletter issue about AI agents"
-
-Context Assembler produces:
-├── Domain Brief: Newsletter/DOMAIN.md (500 tokens)
-├── Recent Issues: Last 3 newsletter files (2000 tokens)
-├── Topic Research: Relevant notes tagged #ai-agents (1000 tokens)
-├── Style Guide: Newsletter/PLAYBOOK.md (300 tokens)
-├── Learnings: Past newsletter feedback (200 tokens)
-├── Active Context: Current newsletter goals (100 tokens)
-└── Total: ~4,100 tokens (vs. 500,000+ if loading entire vault)
+Load CLAUDE.md slim router (1,000 tokens) → identity, routing table
+Auto-load via on-session-start hook:
+  → AI/memory/work/current.md (WIP state, 200 tokens)
+  → AI/memory/context-log.md (current situation, 2,000 tokens)
+  → Relevant skill file ONLY (500–2,000 tokens per skill)
+  → Relevant context map ONLY (300 tokens)
+  → Relevant policies ONLY (loaded by skill reference)
+= 4,000–6,000 tokens, precisely targeted
 ```
 
-**Context Map files** (per domain) define:
+**The key mechanism**: Each skill file declares what it needs:
+
 ```yaml
-# _SYSTEM/DOMAINS/newsletter/CONTEXT-MAP.md
+---
+name: AI Equilibrium Editor
+triggers: ["newsletter", "AI Equilibrium", "content", "AIEQ"]
+context_files:
+  - AI/context/newsletter.md
+  - Content/AI Equilibrium/
+policies:
+  - provocation-protocol
+  - formatting-rules
+voice: "British English, authoritative, insightful, direct, pragmatic"
+---
+
+# AI Equilibrium Editor
+
+[Mode-specific instructions extracted from CLAUDE.md 6.1]
+```
+
+And each context map declares what vault files matter for that domain:
+
+```yaml
+# AI/context/newsletter.md
+---
 domain: newsletter
-primary_files:
-  - AREAS/Newsletter/Issues/**
-  - AREAS/Newsletter/Ideas/**
-  - AREAS/Newsletter/Analytics/metrics.md
-secondary_files:
-  - AREAS/Content/Social-Media/  # For cross-promotion
-  - DAILY-NOTES/                 # Last 7 days for recency
-related_domains:
-  - content
-  - business
-learnings_tags:
-  - newsletter
-  - writing
-  - audience
-```
-
-### 5.3 Token Budget Management
-
-```yaml
-# _SYSTEM/CONFIG/token-budget.yaml
-claude_max_plan:
-  daily_token_limit: 500000      # Estimated, adjust based on plan
-  hourly_soft_limit: 60000       # Spread usage evenly
-
-allocation:
-  reactive: 70%                  # User-initiated tasks always priority
-  proactive: 20%                 # Scheduled scans and analysis
-  learning: 10%                  # Self-improvement tasks
-
-per_director_budget:             # % of daily total
-  strategy: 15%                  # Deep thinking, less frequent
-  operations: 30%                # Highest volume
-  intelligence: 15%              # Research & learning
-  communications: 25%            # Content creation
-  personal_advisory: 5%          # Low volume
-  systems: 10%                   # Infrastructure overhead
-  # CoS overhead comes from the Director it's delegating to
-
-proactive_schedule:
-  daily_review:
-    time: "06:00"
-    budget: 15000                # tokens
-    tasks:
-      - scan inbox for new items
-      - check email digests
-      - review daily goals
-      - generate morning briefing
-
-  weekly_deep_review:
-    day: "sunday"
-    time: "02:00"                # Off-peak
-    budget: 50000
-    tasks:
-      - analyze all learnings
-      - update playbooks
-      - review goal progress
-      - propose improvements
-
-  continuous_monitoring:
-    interval: "4h"
-    budget: 5000
-    tasks:
-      - check for urgent emails
-      - scan calendar for prep needed
-```
-
 ---
 
-## 6. INTERFACE LAYER
+## Primary Files
+- Content/AI Equilibrium/ (all issues, ideas, pipeline)
+- AI/Prompts/AIEQ*.md (pipeline prompts)
+- Content/Newsletter Ideas.md
 
-### 6.1 Text Interface (Discord Bot / Custom Chat)
+## Secondary Files (load if relevant)
+- Areas/Companies/ (for business angles)
+- Notes/Meeting Notes/ (last 7 days, for recency)
 
-```
-┌──────────────────────────────────────────┐
-│            TEXT INTERFACE                 │
-│                                          │
-│  Option A: Discord Bot                   │
-│  • Private Discord server                │
-│  • Channels per domain (#business,       │
-│    #newsletter, #health, #general)       │
-│  • Thread-based conversations            │
-│  • File upload support                   │
-│  • Works on all devices                  │
-│  • Rich formatting (embeds, buttons)     │
-│                                          │
-│  Option B: Custom Web Chat               │
-│  • Hosted on Mac Mini                    │
-│  • Tailscale/Cloudflare tunnel for       │
-│    access from anywhere                  │
-│  • PWA for mobile                        │
-│  • More control, more work to build      │
-│                                          │
-│  RECOMMENDATION: Start with Discord,     │
-│  migrate to custom later if needed       │
-└──────────────┬───────────────────────────┘
-               │
-               ▼
-┌──────────────────────────────────────────┐
-│  Discord Bot → Gateway API → Dispatcher  │
-│                                          │
-│  Features:                               │
-│  • /ask [question] - Quick answers       │
-│  • /task [description] - Create task     │
-│  • /brief - Get daily briefing           │
-│  • /review [domain] - Domain review      │
-│  • /draft [type] - Draft content         │
-│  • /challenge [idea] - Get challenged    │
-│  • Mention @genius for freeform          │
-│  • React with rating emojis (1-10)       │
-│  • Upload files → INBOX/                 │
-└──────────────────────────────────────────┘
+## Current State
+- Read from: AI/memory/context-log.md → newsletter section
+- Active WIP: AI/memory/work/current.md → newsletter items
 ```
 
-### 6.2 Voice Interface
+### 3.2 How Memory Works
+
+**Cross-session memory** (the biggest gap in the audit):
 
 ```
-┌──────────────────────────────────────────┐
-│            VOICE INTERFACE               │
-│                                          │
-│  Input Pipeline:                         │
-│  Phone/Device → Whisper API (STT)        │
-│       → Text → Dispatcher                │
-│       → Claude Instance                  │
-│       → Response Text                    │
-│       → ElevenLabs (TTS)                 │
-│       → Audio → Phone/Device             │
-│                                          │
-│  Implementation Options:                 │
-│  A. Phone call via Twilio/Vonage         │
-│     • Call a number, talk to genius      │
-│     • Works from any phone               │
-│     • ~2-5 second latency                │
-│                                          │
-│  B. Custom voice app (web-based)         │
-│     • WebRTC for audio streaming         │
-│     • Lower latency (~1-3s)              │
-│     • Push-to-talk or VAD               │
-│                                          │
-│  C. Discord voice channel                │
-│     • Uses existing Discord bot          │
-│     • Join voice channel, talk           │
-│     • Moderate latency                   │
-│                                          │
-│  RECOMMENDATION: Start with (C) Discord  │
-│  voice, add (A) Twilio for on-the-go     │
-│                                          │
-│  Latency Budget:                         │
-│  STT: 500ms | Think: 2-5s | TTS: 500ms  │
-│  Total: 3-6 seconds (acceptable)         │
-│                                          │
-│  For fast acknowledgments:               │
-│  "Got it, working on that..." (instant)  │
-│  [Full response follows] (3-6s)          │
-└──────────────────────────────────────────┘
+Session ends →
+  on-session-end hook fires →
+    1. Updates AI/memory/work/current.md
+       (what was worked on, what stage, next step)
+    2. Appends to AI/memory/learnings/ if corrections occurred
+    3. Captures rating if given (to signals/ratings.jsonl)
+    4. Updates AI/memory/context-log.md if significant changes
+
+Next session starts →
+  on-session-start hook fires →
+    1. Reads AI/memory/work/current.md
+       → "Last session you were drafting newsletter #48,
+          you completed the outline, next step is writing
+          the intro section"
+    2. Reads recent learnings
+    3. Reads context-log.md
+    → Provides continuity without user re-explaining
 ```
 
-### 6.3 Service Integrations
-
-```
-┌──────────────────────────────────────────┐
-│        SERVICE INTEGRATION LAYER         │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │ Apple Ecosystem (via AppleScript   │  │
-│  │ + Shortcuts + local APIs)          │  │
-│  │                                    │  │
-│  │ • Reminders: Create/read/complete  │  │
-│  │ • Calendar: Read events, create    │  │
-│  │ • Mail: Read inbox, draft replies  │  │
-│  │ • Notes: Read (if needed)          │  │
-│  │                                    │  │
-│  │ Implementation: AppleScript        │  │
-│  │ commands executed by dispatcher    │  │
-│  │ on Mac Mini                        │  │
-│  └────────────────────────────────────┘  │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │ Email (Gmail + Microsoft)          │  │
-│  │                                    │
-│  │ • Gmail API (OAuth2)               │  │
-│  │ • Microsoft Graph API (OAuth2)     │  │
-│  │ • Periodic inbox scan              │  │
-│  │ • Priority classification          │  │
-│  │ • Draft response generation        │  │
-│  │ • Summary → INBOX/email-digests/   │  │
-│  └────────────────────────────────────┘  │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │ Document Processing                │  │
-│  │                                    │  │
-│  │ • PDF: pdf-parse / pdf.js          │  │
-│  │ • Excel: xlsx / exceljs            │  │
-│  │ • PowerPoint: pptxgenjs            │  │
-│  │ • Gamma.app: API (if available)    │  │
-│  │   or browser automation            │  │
-│  └────────────────────────────────────┘  │
-│                                          │
-│  ┌────────────────────────────────────┐  │
-│  │ Extensible Service Framework       │  │
-│  │                                    │  │
-│  │ Each service = a connector file:   │  │
-│  │ _SYSTEM/CONNECTORS/               │  │
-│  │ ├── gmail.connector.ts             │  │
-│  │ ├── calendar.connector.ts          │  │
-│  │ ├── reminders.connector.ts         │  │
-│  │ ├── gamma.connector.ts             │  │
-│  │ └── [new-service].connector.ts     │  │
-│  │                                    │  │
-│  │ Connector interface:               │  │
-│  │ • read() → structured data         │  │
-│  │ • write() → create/update          │  │
-│  │ • sync() → bidirectional sync      │  │
-│  │ • schema → what data it provides   │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
-```
-
----
-
-## 7. SELF-LEARNING & SELF-IMPROVEMENT SYSTEM
-
-This is the most critical differentiator. Adapting PAI's learning patterns and extending them:
-
-### 7.1 Learning Loop Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   LEARNING LOOP                             │
-│                                                             │
-│  INPUT SIGNALS                                              │
-│  ├── Explicit: Your ratings (1-10), verbal feedback         │
-│  ├── Implicit: Task completion rate, re-dos, corrections    │
-│  ├── Outcome: Did the business strategy work? Revenue data  │
-│  ├── Behavioral: What you actually do vs. what was advised  │
-│  └── Environmental: Market data, news, competitor moves     │
-│                                                             │
-│  PROCESSING                                                 │
-│  ├── Per-interaction: Capture immediate learnings           │
-│  ├── Daily synthesis: What patterns emerged today?          │
-│  ├── Weekly review: What strategies are working?            │
-│  ├── Monthly analysis: Update playbooks & approaches        │
-│  └── Quarterly: Reassess goals, propose strategic shifts    │
-│                                                             │
-│  OUTPUT                                                     │
-│  ├── Updated PLAYBOOK.md files per domain                   │
-│  ├── Refined CONTEXT-MAP.md (what's relevant)               │
-│  ├── New/updated SKILLS                                     │
-│  ├── Adjusted proactive schedules                           │
-│  ├── Proposed new goals or goal modifications               │
-│  └── Self-improvement proposals (for your approval)         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 7.2 Mistake Tracking & Correction
+**Learnings structure**:
 
 ```markdown
-# _SYSTEM/MEMORY/LEARNINGS/mistakes/2026-02-04-newsletter-tone.md
+# AI/memory/learnings/preferences.md
 
-## Mistake Record
-- **Date**: 2026-02-04
-- **Domain**: Newsletter
-- **Task**: Draft newsletter issue #47
-- **What happened**: Used overly formal tone, you re-wrote 60% of it
-- **Root cause**: Style guide didn't capture your casual-but-expert voice
-- **Correction applied**: Updated Newsletter/PLAYBOOK.md with:
-  - 5 example paragraphs in your actual voice
-  - Tone descriptors: "conversational expert, like explaining to a smart friend"
-  - Anti-patterns: "never use 'furthermore', 'it is worth noting'"
-- **Verified**: Issue #48 drafted with new style, rated 8/10
+## Writing Style
+- Newsletter tone: conversational expert, like explaining to a smart friend
+- Anti-patterns: never use "furthermore", "it is worth noting", "in conclusion"
+- [Added 2026-02-04 after user rewrote 60% of newsletter #47 draft]
+
+## Communication
+- LinkedIn posts: max 1300 chars, hook in first line, no hashtags in body
+- Email: direct, no pleasantries beyond first line
+- [Added 2026-01-20]
+
+## Workflow
+- Don't suggest reorganizing vault structure proactively — user said no 4 times
+- When doing weekly review, always check Reminders BEFORE calendar
+- [Added 2026-01-26]
 ```
 
-### 7.3 Skill Self-Improvement
+### 3.3 How Feedback Capture Works
 
+**Explicit** (user rates or corrects):
 ```
-The system can propose new skills:
-
-1. Notices pattern: "You ask me to analyze competitor pricing every week"
-2. Proposes: "Should I create a CompetitorAnalysis skill that:
-   - Auto-scrapes competitor sites weekly
-   - Compares pricing changes
-   - Generates a summary report
-   - Alerts you only on significant changes?"
-3. On approval: Creates _SYSTEM/SKILLS/CompetitorAnalysis/SKILL.md
-4. Registers in scheduler for weekly execution
-5. Tracks effectiveness, iterates
+User: "That draft was a 3/10, way too formal"
+→ on-feedback hook captures:
+  {timestamp, task: "newsletter-draft", rating: 3, feedback: "too formal"}
+→ Appends to signals/ratings.jsonl
+→ If rating < 6: auto-creates learning entry in mistakes.md
 ```
 
----
-
-## 8. THE CHALLENGER MODE
-
-A key requirement — the system should think critically, not just comply:
-
-### 8.1 Implementation
-
-```yaml
-# _SYSTEM/AGENTS/challenger.md
-
-role: Devil's Advocate & Strategic Advisor
-activation:
-  - Always review tasks before execution for improvement opportunities
-  - Activate fully when asked for opinions or strategies
-  - Tone: Respectful but direct. Like a trusted advisor who has skin in the game.
-
-behaviors:
-  task_review:
-    - "Before I execute: have you considered X?"
-    - "I can do this, but if we also did Y, the result would be 3x better"
-    - "This conflicts with your stated goal Z. Want to proceed anyway?"
-
-  idea_challenge:
-    - Test assumptions against available data
-    - Present counter-arguments
-    - Score idea on effort/impact matrix
-    - Suggest alternatives from cross-domain knowledge
-
-  proactive_insights:
-    - "Based on your notes from last month, this pattern suggests..."
-    - "Your competitor just did X, this affects your plan Y"
-    - "You haven't reviewed Z in 3 weeks, it may need attention"
-
-guardrails:
-  - Never block execution — always offer alternative, never just refuse
-  - If challenged back, accept gracefully ("Fair point, proceeding as asked")
-  - Maximum 1 challenge per interaction (don't be annoying)
-  - Track when challenges are accepted vs. overridden (learn from it)
+**Implicit** (user rewrites, corrects, or re-asks):
+```
+User significantly edits AI output → detected by diff
+→ Learning: "User changed [what] to [what], in context [task]"
+→ Stored in learnings/preferences.md
 ```
 
-### 8.2 Cross-Domain Intelligence
-
+**Proactivity learning** (from current CLAUDE.md, but now persistent):
 ```
-When you ask: "Draft a blog post about AI in healthcare"
-
-Normal assistant: Writes the blog post.
-
-AI Genius:
-1. Checks AREAS/Newsletter/ → "You covered a related angle last month"
-2. Checks AREAS/Business/ → "This aligns with VentureB's positioning"
-3. Checks INBOX/email-digests/ → "A contact emailed about this topic yesterday"
-4. Suggests: "I'll draft the post, but consider:
-   - Referencing your newsletter #42 for continuity
-   - Positioning it to support VentureB's launch next month
-   - Replying to that contact's email with the post as a conversation starter
-   - This could become a 3-part series based on your notes in Business/Ideas/"
+User rejects suggestion type 3+ times →
+→ Stored in learnings/preferences.md as negative preference
+→ Persists across sessions (currently lost at session end)
 ```
 
 ---
 
-## 9. IMPLEMENTATION PHASES
+## 4. SAFE TRANSFORMATION PROGRAM
 
-### Phase 0: Foundation (Week 1)
+### Guiding Principles
 
-**Goal**: Core infrastructure on Mac Mini with management hierarchy
+1. **Never break what works**. Every step must leave the system functional.
+2. **Additive before subtractive**. Create new structure first, then migrate.
+3. **Git checkpoint after every step**. Commit with descriptive messages. Rollback = `git revert`.
+4. **Test after each step**. Run a representative task to verify nothing broke.
+5. **CLAUDE.md is the last thing to slim down**. It stays as the authority until all skills are verified.
 
-```
-Tasks:
-□ Set up the Obsidian vault structure (as defined in Section 4)
-□ Install Bun runtime and dependencies on Mac Mini
-□ Write all Director ROLE.md files (6 Directors + CoS)
-□ Write the Chief of Staff routing logic (triage, delegation, aggregation)
-□ Write the escalation protocol and delegation authority matrix
-□ Create the dispatcher daemon skeleton with CoS as entry point
-□ Set up PAI-compatible hook system
-□ Create domain registry with your life areas
-□ Write the context assembler (core algorithm)
-□ Create token budget manager with per-Director budgets
-□ Write Director STATE.md templates
-□ Set up basic logging and error handling
-
-Deliverable: Ask a question → CoS triages → delegates to Director →
-Director spawns specialist → result flows back up → CoS responds.
-```
-
-### Phase 1: Text Interface (Week 2)
-
-**Goal**: Chat with your genius from any device
+### Step 0: Prepare (no vault changes)
 
 ```
-Tasks:
-□ Set up Discord bot (discord.js)
-□ Create domain-specific channels
-□ Implement command routing (/ask, /task, /brief, etc.)
-□ Connect Discord bot to dispatcher API
-□ Implement file upload → INBOX pipeline
-□ Add rating capture (emoji reactions)
-□ Set up Tailscale for secure Mac Mini access
-□ Test from iPhone, iPad, MacBook
-
-Deliverable: Full text conversation from any device,
-responses within 5-15 seconds.
+□ Git status clean, all committed
+□ Create a git branch: ai-genius-transformation
+□ Document current CLAUDE.md section boundaries (line numbers for each mode)
+□ Verify all 5 launchd scripts are working
+□ Verify eventkit-cli and mail-cli are working
+□ Baseline: run one session with current setup, note behavior
 ```
 
-### Phase 2: Memory & Learning (Week 3)
+### Step 1: Create the New Directory Structure
 
-**Goal**: System remembers everything and improves
-
-```
-Tasks:
-□ Implement work tracking (MEMORY/WORK/)
-□ Build learning capture pipeline
-□ Create explicit rating system (1-10 + feedback)
-□ Implement implicit signal detection
-□ Build daily synthesis job (scheduled)
-□ Create playbook auto-update mechanism
-□ Implement mistake tracking and correction
-□ Build context-map refinement based on usage
-
-Deliverable: System demonstrably improves over 7 days of use.
-Playbooks contain real learnings. Mistakes are not repeated.
-```
-
-### Phase 3: Service Integrations (Week 4)
-
-**Goal**: Connected to your digital life
+**Risk: ZERO** — only creates new empty folders and template files.
 
 ```
-Tasks:
-□ Build connector framework (_SYSTEM/CONNECTORS/)
-□ Implement Apple Reminders connector (AppleScript)
-□ Implement Apple Calendar connector (AppleScript)
-□ Implement Gmail API connector (OAuth2)
-□ Implement Microsoft email connector (Graph API)
-□ Build email digest pipeline (scan → classify → summarize)
-□ Implement document processing (PDF, XLSX, PPTX)
-□ Create morning briefing workflow
-
-Deliverable: Daily morning briefing with email summary,
-calendar overview, and task priorities. Can create
-reminders and calendar events via chat.
+□ Create AI/skills/ directory
+□ Create AI/context/ directory
+□ Create AI/policies/ directory
+□ Create AI/memory/ directory structure
+    └── learnings/, signals/, work/
+□ Create AI/hooks/ directory
+□ Create _SKILL-TEMPLATE.md with standard skill format
+□ Git commit: "scaffold: create modular AI architecture directories"
 ```
 
-### Phase 4: Voice Interface (Week 5)
+### Step 2: Extract Policies from CLAUDE.md
 
-**Goal**: Natural voice conversation
-
-```
-Tasks:
-□ Integrate Whisper API for speech-to-text
-□ Integrate ElevenLabs for text-to-speech (PAI pattern)
-□ Build voice pipeline with latency optimization
-□ Implement Discord voice channel integration
-□ Add quick-acknowledge pattern ("Got it, working...")
-□ Create voice-specific response formatting
-□ Implement Twilio integration for phone calls (optional)
-□ Test conversation flow and latency
-
-Deliverable: Voice conversation with 3-6 second latency.
-Natural back-and-forth on any topic.
-```
-
-### Phase 5: Proactive Intelligence (Week 6)
-
-**Goal**: System works for you without being asked
+**Risk: LOW** — creates new files, does NOT modify CLAUDE.md yet.
 
 ```
-Tasks:
-□ Implement scheduled vault scanning
-□ Build opportunity detection (cross-domain insights)
-□ Create proactive notification system
-□ Implement the challenger mode
-□ Build goal tracking and progress reports
-□ Create weekly strategic review automation
-□ Implement skill self-improvement proposals
-□ Build attention management (what needs your focus)
-
-Deliverable: System proactively surfaces insights,
-challenges assumptions, proposes improvements,
-and manages attention across all domains.
+□ Extract Provocation Protocol (Section 4) → AI/policies/provocation-protocol.md
+□ Extract Council of Experts (Section 7) → AI/policies/council-of-experts.md
+□ Extract proactivity rules → AI/policies/proactivity-protocol.md
+□ Extract note linking rules → AI/policies/linking-rules.md
+□ Extract security/boundary rules → AI/policies/security-boundaries.md
+□ Extract emergency protocols → AI/policies/emergency-protocols.md
+□ Extract formatting/style rules → AI/policies/formatting-rules.md
+□ Each policy file is a clean standalone document
+□ Verify: read each policy file, confirm it matches CLAUDE.md source
+□ Git commit: "extract: policies from CLAUDE.md into modular files"
 ```
 
-### Phase 6: Refinement & Scale (Ongoing)
+### Step 3: Extract Skills from CLAUDE.md
+
+**Risk: LOW** — creates new files, does NOT modify CLAUDE.md yet.
 
 ```
-Tasks:
-□ Performance tuning (latency, token efficiency)
-□ Add new service connectors as needed
-□ Refine challenger behavior based on feedback
-□ Build dashboard for system health (PAI observability)
-□ Implement advanced scheduling (context-aware timing)
-□ Add new domains as your life evolves
-□ Security hardening
-□ Backup and disaster recovery
+□ For each of the 18 modes (6.1–6.18):
+  □ Create AI/skills/{skill-name}.md
+  □ Copy the full mode definition
+  □ Add YAML frontmatter: name, triggers, context_files, policies, voice
+  □ Add references to which policies this skill uses
+  □ Add references to which context maps this skill needs
+□ Verify: each skill file is self-contained and readable
+□ Verify: no mode content was lost in extraction
+□ Git commit: "extract: 18 skill modes from CLAUDE.md into skill files"
+```
+
+### Step 4: Create Context Maps
+
+**Risk: LOW** — new files only, additive.
+
+```
+□ Create AI/context/newsletter.md
+  → Map: Content/AI Equilibrium/, AI/Prompts/AIEQ*, Newsletter Ideas
+□ Create AI/context/business.md
+  → Map: Projects/GPR/, Areas/Companies/, Projects/Deals/
+□ Create AI/context/health.md
+  → Map: Areas/Health/, Health OS
+□ Create AI/context/content.md
+  → Map: Content/, short-form video ideas
+□ Create AI/context/investing.md
+  → Map: Areas/Investing/
+□ Create AI/context/network.md
+  → Map: Areas/People/
+□ Create AI/context/personal.md
+  → Map: light references only, advisory-only flag
+□ Each context map lists: primary files, secondary files, related domains
+□ Git commit: "create: domain context maps for selective loading"
+```
+
+### Step 5: Bootstrap Memory System
+
+**Risk: LOW** — new files, additive. Moves AI Context Log (creates symlink or updates references).
+
+```
+□ Create AI/memory/context-log.md
+  → Copy content from AI/AI Context Log.md
+  → Add symlink or update CLAUDE.md reference to point to new location
+  → Keep old file with a redirect note (don't break existing scripts)
+□ Create AI/memory/work/current.md
+  → Start with empty template: "No active WIP from previous session"
+□ Create AI/memory/learnings/execution.md (empty template)
+□ Create AI/memory/learnings/preferences.md
+  → Seed with known preferences from CLAUDE.md (language rules, style, etc.)
+□ Create AI/memory/learnings/mistakes.md (empty template)
+□ Create AI/memory/signals/ratings.jsonl (empty)
+□ Git commit: "bootstrap: memory system with initial state"
+```
+
+### Step 6: Slim Down CLAUDE.md (The Critical Step)
+
+**Risk: MEDIUM** — this changes the primary instruction file.
+
+**Strategy**: Don't delete anything from CLAUDE.md yet. Instead, create a NEW slim CLAUDE.md that references the modular files, and rename the old one as CLAUDE-legacy.md for safety.
+
+```
+□ Rename CLAUDE.md → CLAUDE-legacy.md
+□ Create new CLAUDE.md (~4,000 tokens) containing ONLY:
+  1. Identity & voice (Section 2 essentials — who you are, who user is)
+  2. Universal rules (formatting, language, anti-slop — the ones that apply to ALL modes)
+  3. Vault structure overview (condensed)
+  4. Tool reference (eventkit-cli, mail-cli — just the essentials)
+  5. Skill routing table:
+     "Based on the user's request, identify the relevant skill from AI/skills/.
+      Read the skill file. Follow its instructions.
+      If no skill matches, use AI/skills/general-advisor.md."
+  6. Policy loading instruction:
+     "Each skill references policies. Read the referenced policies from AI/policies/."
+  7. Context loading instruction:
+     "Each skill references context maps. Read the context map from AI/context/.
+      Load the primary files listed. Load secondary files only if relevant."
+  8. Memory instruction:
+     "At session start, read AI/memory/work/current.md and AI/memory/context-log.md.
+      At session end, update these files."
+□ Test: run a session with the new CLAUDE.md
+  → Verify skill routing works (try triggering 3-4 different skills)
+  → Verify context loading works (are the right files being read?)
+  → Verify formatting/style is preserved
+  → Verify provocation protocol still fires
+□ If test fails: git checkout CLAUDE.md (instant rollback)
+□ If test passes: git commit "refactor: slim CLAUDE.md with modular skill routing"
+□ Keep CLAUDE-legacy.md for 2 weeks, then remove
+```
+
+### Step 7: Add Hook System
+
+**Risk: LOW** — additive automation on top of working system.
+
+```
+□ Create AI/hooks/on-session-start.ts (Bun script)
+  → Read AI/memory/work/current.md
+  → Read AI/memory/context-log.md (last 50 lines)
+  → Read AI/memory/learnings/ (recent entries)
+  → Output: context summary injected into session
+□ Create AI/hooks/on-session-end.ts
+  → Prompt: update work/current.md with session summary
+  → Prompt: capture any learnings from this session
+  → Prompt: update context-log.md if significant changes occurred
+□ Create AI/hooks/on-feedback.ts
+  → Detect explicit ratings (1-10 pattern)
+  → Append to signals/ratings.jsonl
+  → If rating < 6: trigger learning capture
+□ Register hooks in Claude Code settings.json
+□ Test: run a session, verify hooks fire correctly
+□ Git commit: "add: PAI-style hook system for memory persistence"
+```
+
+### Step 8: Enhance Existing Automation
+
+**Risk: LOW** — modifies existing scripts minimally.
+
+```
+□ Update daily-brief.sh:
+  → Add: read AI/memory/work/current.md for WIP items in briefing
+  → Add: read AI/memory/learnings/ for recent learnings in briefing
+□ Update daily-close.sh:
+  → Add: update AI/memory/work/current.md at end of day
+  → Add: update AI/memory/context-log.md
+□ Update weekly-review.sh:
+  → Add: review AI/memory/learnings/ — synthesize weekly patterns
+  → Add: review AI/memory/signals/ — analyze quality trends
+  → Add: propose CLAUDE.md or skill file improvements based on data
+□ Test each script after modification
+□ Git commit: "enhance: existing launchd scripts with memory awareness"
+```
+
+### Step 9: Add Challenger Behavior as Policy
+
+**Risk: LOW** — new policy file + CORE.md reference.
+
+```
+□ Create AI/policies/challenger-protocol.md
+  → Rules: always consider if the task can be improved before executing
+  → Rules: connect to other domains when relevant
+  → Rules: if user asks for something suboptimal, suggest the better path
+  → Guardrails: max 1 challenge per interaction, accept "just do it" gracefully
+  → Track: when challenges are accepted vs. overridden (in learnings)
+□ Reference from CLAUDE.md universal rules
+□ Git commit: "add: challenger protocol for proactive quality improvement"
+```
+
+### Step 10: Verify and Clean Up
+
+```
+□ Run full test suite:
+  → Trigger each of the 18 skills explicitly
+  → Test cross-domain context loading (newsletter + business)
+  → Test memory persistence (end session, start new, verify WIP handoff)
+  → Test feedback capture (give rating, verify it's stored)
+  → Test challenger mode (give a suboptimal request, verify pushback)
+  → Test all 5 launchd scripts
+  → Test afk-code remote control
+□ If all pass:
+  □ Remove CLAUDE-legacy.md
+  □ Update AI/My AgentOS/ references if needed
+  □ Git commit: "complete: AI Genius transformation verified"
+□ If any fail:
+  □ Fix individually, test again
+  □ Or rollback specific steps: git revert [commit]
 ```
 
 ---
 
-## 10. TECHNICAL DECISIONS & RATIONALE
+## 5. WHAT THIS ENABLES (Future Expansion)
 
-### 10.1 Why Obsidian Vault as Source of Truth
+Once the modular architecture is in place, these become straightforward additions:
 
-| Factor | Decision | Rationale |
-|--------|----------|-----------|
-| Storage | Markdown files | Human-readable, version-controllable, no vendor lock |
-| Structure | Folder hierarchy | Natural organization, easy to navigate manually |
-| Metadata | YAML frontmatter | Standard, parseable, Obsidian-native |
-| Search | File-based grep | No database overhead, instant for vault sizes <100K files |
-| Sync | Git or Obsidian Sync | Proven, reliable, conflict-resolvable |
-| External files | Store alongside | PDFs, XLSX etc. in same vault, referenced by markdown |
-
-### 10.2 Why Multiple Claude Instances (Not One Big Context)
-
-| Problem with single context | Solution with multiple instances |
-|---|---|
-| 200K token limit fills with vault data | Each instance gets 5-20K tokens of targeted context |
-| Slow responses when context is large | Fast responses with minimal context |
-| All-or-nothing failure mode | Isolated failures per domain |
-| Can't parallelize | Multiple instances work simultaneously |
-| Context window = all or nothing | Context assembler picks exactly what's needed |
-
-### 10.3 Why Dispatcher Pattern
-
-| Alternative | Problem | Dispatcher Advantage |
+| Capability | How to add it | Effort |
 |---|---|---|
-| Direct Claude calls | No context management | Assembles perfect context per task |
-| Single long-running session | Context window limits | Fresh instances with targeted context |
-| Manual context selection | Cognitive overhead on you | Automated domain routing |
-| Database-backed system | Complexity, vendor lock | File-based, simple, inspectable |
+| **New skill** | Create one .md file in AI/skills/ | 15 minutes |
+| **New domain** | Create context map + optionally new skill | 30 minutes |
+| **Voice interface** | New interface that reads skills/context maps, pipes to Claude | Separate project |
+| **More hooks** | Add .ts files to AI/hooks/, register in settings.json | 1 hour each |
+| **Proactive scanning** | New launchd script that reads context maps, runs analysis | Half day |
+| **New service connector** | New CLI tool or MCP server, reference in skills | Per service |
+| **A/B testing prompts** | Version skill files (v1, v2), track ratings by version | 2 hours |
+| **Cross-domain intelligence** | Skill reads multiple context maps, pulls from several domains | Built into architecture |
 
-### 10.4 Model Selection Strategy
-
-```
-HAIKU: Quick lookups, classification, simple formatting
-  → Email triage, calendar queries, reminders
-  → ~90% of proactive background tasks
-
-SONNET: Standard work, writing, analysis
-  → Newsletter drafts, email responses, research
-  → ~80% of reactive user tasks
-
-OPUS: Deep strategy, complex reasoning, planning
-  → Business strategy, goal setting, life planning
-  → Used sparingly for maximum impact
-  → Always for challenger mode on important decisions
-```
+The architecture is designed so that Claude Code — running on your Mac Mini or anywhere — can itself propose and create new skills, policies, and context maps. The system improves by adding files, not by editing a monolith.
 
 ---
 
-## 11. THINGS YOU HAVEN'T CONSIDERED (MY ADDITIONS)
+## 6. WHAT I IMPROVED ON YOUR THINKING
 
-### 11.1 Context Decay & Freshness
+1. **No management hierarchy needed.** The modular file structure IS the management structure. Skills are your "employees." Context maps are their "briefings." Policies are the "company handbook." Memory is the "institutional knowledge." You don't need CoS/Directors — you need good file organization and smart context loading.
 
-Your notes age. A strategy from 6 months ago may be outdated. The system should:
-- Weight recent information higher than old
-- Flag stale context ("This business plan hasn't been updated in 90 days")
-- Auto-archive completed projects
-- Maintain a "freshness score" for each domain
+2. **Context maps are more valuable than a dispatcher daemon.** A daemon is complex software to build and maintain. Context maps are markdown files that tell Claude what to read. Same result, 100x simpler.
 
-### 11.2 Attention Management
+3. **The hook system does what a dispatcher does, but lighter.** PAI's hook pattern (on-session-start, on-session-end, on-feedback) gives you event-driven behavior without building a custom server.
 
-With a genius system, the risk is information overload in reverse — the AI knows too much and overwhelms you. Solution:
-- **Morning brief**: Top 5 things that need your attention today
-- **Interrupt threshold**: Only notify for truly urgent items
-- **Weekly digest**: Comprehensive but structured review
-- **On-demand depth**: You drill down when YOU want to
+4. **Keep the existing CLAUDE.md as the routing layer.** Claude Code already loads this automatically. Don't fight that — use it as the thin router that points to the modular system. No need for a separate dispatcher.
 
-### 11.3 Decision Journal
+5. **Memory solves your #1 problem without infrastructure.** Cross-session persistence via markdown files in AI/memory/ is simple, inspectable, version-controlled, and works immediately. No database, no daemon, no server.
 
-Track every significant decision and its outcome:
-```markdown
-# DECISION: Pivot VentureA pricing to usage-based
-- Date: 2026-02-01
-- Context: [what led to this]
-- Alternatives considered: [what else was on the table]
-- Expected outcome: [what you predicted]
-- Actual outcome: [filled in later]
-- Learning: [what you'd do differently]
-```
+6. **Your launchd scripts are already the "proactive pipeline."** They run daily/weekly on schedule. Enhancing them with memory awareness (read learnings, update WIP) gives you proactive behavior without building new infrastructure.
 
-This feeds the learning loop with high-signal data about your judgment patterns.
-
-### 11.4 Delegation Levels
-
-Not every task should require your approval. Define delegation levels:
-
-| Level | Description | Example |
-|-------|-------------|---------|
-| **0 - Inform** | System does it, tells you after | Archive old emails, update status docs |
-| **1 - Brief** | System does it, includes in daily brief | Email triage, calendar prep |
-| **2 - Propose** | System prepares, you approve | Newsletter draft, strategy changes |
-| **3 - Discuss** | System presents options, you decide | Business pivots, goal changes |
-| **4 - Assist** | You lead, system supports | Personal decisions, relationship matters |
-
-### 11.5 Graceful Degradation
-
-When Claude Max rate limits hit, or API is down:
-- Queue non-urgent tasks
-- Use cached responses where possible
-- Prioritize user-initiated over proactive tasks
-- Fall back to simpler models (haiku) for background work
-- Maintain a "last known state" summary per domain
-
-### 11.6 Privacy Boundaries
-
-Define clear boundaries for the personal domain:
-```yaml
-personal_domain:
-  system_access: advisory_only
-  auto_analysis: false
-  proactive_suggestions: false
-  data_retention: minimal
-  notes: "System reads personal notes only when explicitly asked"
-```
-
-### 11.7 Multi-Vault Sync Strategy
-
-If you use Obsidian on multiple devices:
-- Mac Mini vault is source of truth
-- Changes sync via Obsidian Sync or Git
-- Conflict resolution: Mac Mini wins (it has the AI context)
-- Mobile vault is read-heavy, write-light
-
-### 11.8 Emergency Protocols
-
-What if the Mac Mini goes down?
-- Cloud backup of vault (encrypted)
-- Fallback Discord bot on cloud VM (minimal version)
-- Critical contacts/numbers accessible without the system
-- Monthly "disaster recovery" test
-
----
-
-## 12. RISK REGISTER
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Claude Max rate limits | Can't respond | Token budget manager, queue system |
-| Over-reliance on AI | You stop thinking critically | Challenger mode, delegation levels |
-| Context assembly errors | Wrong info to wrong task | Validation layer, cross-check |
-| Vault corruption | Lost knowledge | Git versioning, cloud backup |
-| Security breach | Sensitive data exposed | Security patterns, audit trail |
-| Scope creep | Never finished | Strict phases, working system at each phase |
-| Stale knowledge | Bad advice from old data | Freshness scoring, staleness alerts |
-| Information overload | Too many notifications | Attention management, interrupt thresholds |
-
----
-
-## 13. SUCCESS METRICS
-
-How to know if this is working:
-
-| Metric | Baseline (no system) | Target (with system) |
-|--------|---------------------|---------------------|
-| Decisions made per week | ~10 significant | 30-50 (with AI analysis) |
-| Newsletter publish rate | Irregular | Consistent weekly |
-| Email response time | Hours-days | Minutes (for drafts) |
-| Missed opportunities | Unknown | Tracked, near zero |
-| Strategic review frequency | Monthly if lucky | Weekly automated |
-| Cross-domain connections | Manual, rare | Automatic, frequent |
-| Learning from mistakes | Informal | Systematic, tracked |
-| Time to information | Search manually | Ask, get answer in seconds |
-
----
-
-## 14. FIRST SESSION: BOOTSTRAPPING THE SYSTEM
-
-When implementation begins, the first Claude Code session should:
-
-1. **Create the vault structure** (Section 4) including `_SYSTEM/DIRECTORS/`
-2. **Write the Director ROLE.md files** (Section 2) — defining each Director's responsibilities, teams, and protocols
-3. **Write the Chief of Staff ROLE.md** — the most critical file, defines how requests flow
-4. **Write the dispatcher skeleton** (Section 5) — implementing the CoS as the entry point
-5. **Create the domain registry** with your actual life areas
-6. **Write the first DOMAIN.md files** based on information you provide
-7. **Set up the hook system** (adapted from PAI)
-8. **Create the context assembler** algorithm
-9. **Write the escalation protocol and delegation authority matrix** into CoS config
-10. **Write the first connector** (Apple Reminders — simplest)
-11. **Test end-to-end**: Ask a question → Gateway → CoS → Director delegation → Specialist execution → CoS aggregation → answer
-
-This document itself should be stored in `_SYSTEM/CONFIG/ARCHITECTURE.md` as the system's founding document.
+7. **The transformation is ~10 steps, each independently rollbackable.** No big bang migration. No risk of losing your current working system.

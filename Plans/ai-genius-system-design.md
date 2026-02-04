@@ -10,15 +10,372 @@
 
 **What it is NOT**: A chatbot, a simple assistant, or a single-purpose tool. It is an autonomous, self-improving infrastructure that proactively works on your behalf.
 
-**Core metaphor**: You are the CEO. The AI Genius is your entire executive team, advisory board, research department, operations team, and personal staff — all running 24/7, all with perfect memory, all continuously improving.
+**Core metaphor**: You are the CEO. The AI Genius is your entire organization — but you don't manage 1,000 workers directly. You talk to your Chief of Staff, who manages a handful of Directors, who each run departments with teams of specialists. The management structure handles delegation, coordination, quality control, and escalation — you only deal with strategy, decisions, and results.
 
 ---
 
-## 2. SYSTEM ARCHITECTURE OVERVIEW
+## 2. ORGANIZATIONAL STRUCTURE
+
+A CEO of 1,000 people doesn't talk to individual workers. The system mirrors how real high-performing organizations operate: clear hierarchy, defined spans of control, delegation authority, and escalation paths.
+
+### 2.1 The Org Chart
+
+```
+                    ┌─────────────────────┐
+                    │     YOU (CEO)        │
+                    │                      │
+                    │ • Set vision & goals │
+                    │ • Make key decisions │
+                    │ • Review results     │
+                    │ • Rate performance   │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │   CHIEF OF STAFF    │
+                    │   (Always-On Agent) │
+                    │                      │
+                    │ • Your ONLY direct   │
+                    │   contact point      │
+                    │ • Routes requests    │
+                    │ • Aggregates reports │
+                    │ • Filters noise      │
+                    │ • Manages escalation │
+                    │ • Knows everything   │
+                    │   at summary level   │
+                    └──────────┬──────────┘
+                               │
+          ┌────────────────────┼────────────────────┐
+          │                    │                     │
+  ┌───────▼───────┐  ┌────────▼────────┐  ┌────────▼────────┐
+  │  STRATEGY &   │  │  OPERATIONS     │  │  INTELLIGENCE   │
+  │  PLANNING     │  │  DIRECTOR       │  │  DIRECTOR       │
+  │  DIRECTOR     │  │                 │  │                 │
+  │               │  │ Manages daily   │  │ Manages what    │
+  │ Manages the   │  │ execution and   │  │ the system      │
+  │ "what" and    │  │ service         │  │ knows and       │
+  │ "why"         │  │ delivery        │  │ learns          │
+  └───────┬───────┘  └────────┬────────┘  └────────┬────────┘
+          │                   │                     │
+    ┌─────┴─────┐      ┌─────┴─────┐        ┌─────┴─────┐
+    │ Teams     │      │ Teams     │        │ Teams     │
+    │ below     │      │ below     │        │ below     │
+    └───────────┘      └───────────┘        └───────────┘
+
+  ┌───────▼───────┐  ┌────────▼────────┐  ┌────────▼────────┐
+  │ PERSONAL      │  │ COMMUNICATIONS  │  │ SYSTEMS         │
+  │ ADVISORY      │  │ DIRECTOR        │  │ DIRECTOR        │
+  │ DIRECTOR      │  │                 │  │                 │
+  │               │  │ Manages all     │  │ Manages the     │
+  │ Health, life, │  │ external comms  │  │ infrastructure  │
+  │ relationships │  │ and content     │  │ itself          │
+  └───────┬───────┘  └────────┬────────┘  └────────┬────────┘
+          │                   │                     │
+    ┌─────┴─────┐      ┌─────┴─────┐        ┌─────┴─────┐
+    │ Teams     │      │ Teams     │        │ Teams     │
+    │ below     │      │ below     │        │ below     │
+    └───────────┘      └───────────┘        └───────────┘
+```
+
+### 2.2 Detailed Role Definitions
+
+#### CHIEF OF STAFF (CoS) — Your Single Point of Contact
+
+The CoS is the **only agent you interact with directly** in most cases. It is always a high-capability model (Opus or Sonnet) that:
+
+| Responsibility | How it works |
+|---|---|
+| **Triage** | Every request from you is classified by urgency, domain, and complexity |
+| **Routing** | Delegates to the right Director — you never think about who does what |
+| **Aggregation** | Collects results from multiple Directors into a single coherent response |
+| **Filtering** | 50 things happened today, you hear about the 5 that matter |
+| **Escalation** | Directors flag issues, CoS decides what reaches you and when |
+| **Context** | Maintains a running summary of ALL domains — the "executive dashboard" |
+| **Tone matching** | Knows how you like information presented, adapts to your mood/urgency |
+| **Challenge gate** | Applies challenger mode on your behalf before executing questionable requests |
+
+**What the CoS does NOT do**: Execute tasks directly. It manages, delegates, and synthesizes.
+
+```
+You: "How's the newsletter going?"
+
+CoS internally:
+  → Queries Communications Director for newsletter status
+  → Checks MEMORY for last interaction on this topic
+  → Checks if there are related items from other Directors
+  → Assembles a concise answer
+
+CoS to you: "Issue #48 is drafted, waiting for your review.
+  Open rate on #47 was 42%, up from 38%. The Communications
+  team suggests we A/B test subject lines starting next issue.
+  Also — your blog post from Monday could be repurposed as
+  a newsletter segment, want me to have them draft that?"
+```
+
+#### STRATEGY & PLANNING DIRECTOR
+
+Manages the "thinking" layer of the organization.
+
+| Team | Role | Model Tier |
+|---|---|---|
+| **Goal Architect** | Defines, tracks, and refines your goals across all domains | Opus |
+| **Strategic Analyst** | Analyzes opportunities, threats, market conditions | Opus/Sonnet |
+| **Decision Support** | Prepares decision briefs, tracks decision outcomes | Sonnet |
+| **Scenario Planner** | Models "what if" scenarios for major decisions | Opus |
+| **Challenger** | Devil's advocate on all strategic matters | Opus |
+
+**Owns**: Goal trees, strategic reviews, decision journal, quarterly planning.
+
+**Reports to CoS**: Weekly strategy summary, goal progress, flagged risks.
+
+#### OPERATIONS DIRECTOR
+
+Manages daily execution across all business and project domains.
+
+| Team | Role | Model Tier |
+|---|---|---|
+| **Business Ops** (per venture) | Runs day-to-day for each business | Sonnet |
+| **Project Manager** | Tracks active projects, deadlines, dependencies | Sonnet |
+| **Task Executor** | Does the actual work — research, drafting, analysis | Sonnet/Haiku |
+| **Quality Controller** | Reviews outputs before they reach you | Sonnet |
+| **Service Connector** | Manages integrations (calendar, reminders, email) | Haiku |
+
+**Owns**: Active projects, task queues, service integrations, daily operations.
+
+**Reports to CoS**: Daily ops summary, blocked items, completed deliverables.
+
+#### INTELLIGENCE DIRECTOR
+
+Manages everything the system knows, learns, and remembers.
+
+| Team | Role | Model Tier |
+|---|---|---|
+| **Knowledge Manager** | Organizes vault, maintains context maps, tags content | Sonnet |
+| **Learning Analyst** | Processes feedback, updates playbooks, tracks mistakes | Sonnet |
+| **Research Team** | Deep research on topics across domains | Sonnet/Opus |
+| **Vault Scanner** | Proactive review of notes, staleness detection | Haiku |
+| **Cross-Domain Linker** | Finds connections between unrelated areas | Opus |
+
+**Owns**: Memory system, learnings, research outputs, vault health, context maps.
+
+**Reports to CoS**: New insights, stale content alerts, learning summaries.
+
+#### COMMUNICATIONS DIRECTOR
+
+Manages all content creation and external communications.
+
+| Team | Role | Model Tier |
+|---|---|---|
+| **Newsletter Team** | Writes, edits, publishes newsletter issues | Sonnet |
+| **Social Media Team** | Creates posts, manages content calendar | Sonnet/Haiku |
+| **Email Drafter** | Reads inbox, drafts responses, flags urgent | Sonnet |
+| **Content Strategist** | Plans content across channels for coherence | Sonnet |
+| **Presentation Builder** | Creates decks, documents, proposals | Sonnet |
+
+**Owns**: All outbound content, email management, content calendar.
+
+**Reports to CoS**: Content pipeline status, urgent emails, engagement metrics.
+
+#### PERSONAL ADVISORY DIRECTOR
+
+Manages health, wellbeing, and personal life domains — with lighter touch.
+
+| Team | Role | Model Tier |
+|---|---|---|
+| **Health Tracker** | Monitors health metrics, suggests protocols | Sonnet |
+| **Life Admin** | Reminders, appointments, travel, logistics | Haiku |
+| **Personal Advisor** | Relationship advice, personal decisions (on request only) | Opus |
+| **Habit Coach** | Tracks habits, nudges, accountability | Haiku |
+
+**Owns**: Health domain, personal admin, habit tracking.
+
+**Reports to CoS**: Health summary (weekly), urgent personal items only.
+
+**Special rule**: This Director ONLY acts when asked, or for health/calendar items. No proactive analysis of personal notes unless explicitly requested.
+
+#### SYSTEMS DIRECTOR
+
+Manages the AI Genius infrastructure itself — the meta-layer.
+
+| Team | Role | Model Tier |
+|---|---|---|
+| **Token Budget Manager** | Tracks usage, allocates across Directors | Haiku |
+| **Performance Monitor** | Tracks response times, error rates, quality | Haiku |
+| **Skill Developer** | Proposes and builds new skills/capabilities | Sonnet |
+| **Security Auditor** | Reviews actions, maintains audit trail | Haiku |
+| **Self-Improvement Engine** | Proposes system improvements, optimizations | Sonnet |
+
+**Owns**: System health, token budgets, skill registry, security, self-improvement.
+
+**Reports to CoS**: System health dashboard, budget alerts, improvement proposals.
+
+### 2.3 Management Protocols
+
+#### Span of Control
+
+```
+You ──► 1 (Chief of Staff)
+CoS ──► 6 (Directors)
+Each Director ──► 3-5 (Team Leads / Specialists)
+Each Specialist ──► can spawn workers (Haiku instances for grunt work)
+```
+
+**Total active at any time**: Typically 2-5 Claude instances, not 1,000 simultaneously. The "1,000 employees" metaphor means 1,000 person-equivalents of capability, not 1,000 running processes.
+
+#### Escalation Protocol
+
+```
+Level 0 — HANDLED: Specialist resolves autonomously
+  Example: Format a document, look up a fact, draft a social post
+
+Level 1 — DIRECTOR REVIEW: Director reviews before delivery
+  Example: Newsletter issue draft, business analysis, email response
+
+Level 2 — CoS REVIEW: CoS reviews before presenting to you
+  Example: Strategic recommendation, cross-domain insight, budget change
+
+Level 3 — CEO DECISION: Requires your explicit approval
+  Example: Business pivot, goal change, public statement, spending decision
+
+Level 4 — CEO DISCUSSION: Complex, needs interactive dialogue
+  Example: Life strategy, major business decision, ethical dilemma
+```
+
+#### Inter-Director Communication
+
+Directors don't work in silos. The CoS coordinates cross-cutting work:
+
+```
+Example: You say "Launch the new product next month"
+
+CoS decomposes and coordinates:
+├── Strategy Director: Validate timing, competitive analysis
+├── Operations Director: Create project plan, assign tasks
+├── Communications Director: Press release, social campaign, email blast
+├── Intelligence Director: Pull all relevant research and past launches
+└── CoS: Synthesize into unified launch plan, present to you
+
+Each Director works in parallel, CoS assembles the result.
+```
+
+#### Delegation Authority Matrix
+
+What each level can do WITHOUT escalating:
+
+| Action | Specialist | Director | CoS | CEO (You) |
+|---|---|---|---|---|
+| Read vault files | Yes | Yes | Yes | Yes |
+| Write working files | Yes | Yes | Yes | Yes |
+| Update memory/learnings | Yes | Yes | Yes | Yes |
+| Draft content | Yes | Yes | Yes | Yes |
+| Send email | No | Drafts only | Drafts only | Approves send |
+| Modify goals | No | Propose | Propose | Decides |
+| Create calendar events | No | Yes (routine) | Yes | Yes |
+| Change system config | No | No | Propose | Approves |
+| Spend tokens on deep research | No | Within budget | Yes | Yes |
+| Modify vault structure | No | No | Propose | Approves |
+| Create new skills | No | Propose | Review & propose | Approves |
+
+#### Director State Files
+
+Each Director maintains a state file in the vault:
+
+```
+_SYSTEM/DIRECTORS/
+├── chief-of-staff/
+│   ├── ROLE.md                    # Role definition, protocols
+│   ├── STATE.md                   # Current status, active items
+│   ├── ESCALATION-QUEUE.md        # Items waiting for CEO
+│   └── DAILY-BRIEF-TEMPLATE.md    # Morning briefing format
+├── strategy/
+│   ├── ROLE.md
+│   ├── STATE.md
+│   ├── ACTIVE-INITIATIVES.md
+│   └── REVIEW-SCHEDULE.md
+├── operations/
+│   ├── ROLE.md
+│   ├── STATE.md
+│   ├── TASK-QUEUE.md
+│   └── PROJECT-STATUS.md
+├── intelligence/
+│   ├── ROLE.md
+│   ├── STATE.md
+│   ├── SCAN-SCHEDULE.md
+│   └── INSIGHT-QUEUE.md
+├── communications/
+│   ├── ROLE.md
+│   ├── STATE.md
+│   ├── CONTENT-CALENDAR.md
+│   └── DRAFT-QUEUE.md
+├── personal-advisory/
+│   ├── ROLE.md
+│   ├── STATE.md
+│   └── HEALTH-DASHBOARD.md
+└── systems/
+    ├── ROLE.md
+    ├── STATE.md
+    ├── TOKEN-USAGE.md
+    └── IMPROVEMENT-PROPOSALS.md
+```
+
+### 2.4 How a Request Flows Through the Organization
+
+```
+You: "I need a competitive analysis for VentureA and
+      draft a pitch deck based on the findings"
+
+Step 1 — GATEWAY receives message via Discord/Voice
+
+Step 2 — CHIEF OF STAFF processes:
+  • Classifies: Multi-domain, Level 2 complexity
+  • Identifies Directors: Strategy (analysis) + Comms (deck) + Intel (research)
+  • Checks token budget: Sufficient for Opus research + Sonnet execution
+  • Creates work item in MEMORY/WORK/
+
+Step 3 — CoS DELEGATES (in parallel where possible):
+
+  To Intelligence Director:
+    "Pull all vault data on VentureA competitors,
+     market notes, and previous analyses"
+    → Intel spawns Vault Scanner (Haiku) + Research Team (Sonnet)
+    → Returns: structured competitive data
+
+  To Strategy Director:
+    "Analyze competitive positioning using Intel's findings"
+    → Strategy spawns Strategic Analyst (Opus)
+    → Returns: SWOT, positioning map, key insights
+
+  To Communications Director:
+    "Draft pitch deck from Strategy's analysis"
+    → Comms spawns Presentation Builder (Sonnet)
+    → Returns: deck outline + slide content
+
+Step 4 — CoS ASSEMBLES:
+  • Reviews all outputs for consistency
+  • Checks for contradictions between Directors
+  • Quality-checks the deck against your style preferences
+  • Packages into a single response
+
+Step 5 — CoS RESPONDS to you:
+  "Here's the competitive analysis and pitch deck draft.
+   Key finding: Competitor X just raised Series B, which
+   changes the urgency on your pricing strategy.
+   The Strategy team recommends we discuss this.
+   Deck is 12 slides, ready for your review."
+
+Step 6 — LEARNING:
+  • Your rating (1-10) is captured
+  • Time-to-delivery logged
+  • If you edit the deck heavily → Communications learns
+  • If the strategy was off → Strategy adjusts playbook
+```
+
+---
+
+## 3. SYSTEM ARCHITECTURE (Technical)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        YOU (Principal)                          │
+│                        YOU (CEO)                                │
 │                                                                 │
 │  iPhone/iPad/MacBook ──► Text Interface (Discord/Custom Chat)   │
 │  Any Device          ──► Voice Interface (Natural Conversation) │
@@ -36,36 +393,46 @@
                     └────────┬────────┘
                              │
               ┌──────────────▼──────────────┐
-              │     CENTRAL DISPATCHER      │
-              │     (Orchestrator Daemon)    │
+              │      CHIEF OF STAFF         │
+              │      (Persistent Agent)     │
               │                             │
-              │ • Intent Classification     │
-              │ • Context Assembly          │
-              │ • Instance Spawning         │
+              │ • Triage & Classification   │
+              │ • Director Delegation       │
               │ • Result Aggregation        │
-              │ • Priority Management       │
-              │ • Token Budget Management   │
+              │ • Escalation Management     │
+              │ • Context Awareness         │
+              │ • Token Budget Oversight    │
               └──────┬──────────────┬───────┘
                      │              │
         ┌────────────▼──┐    ┌─────▼─────────────┐
         │  REACTIVE      │    │  PROACTIVE         │
         │  PIPELINE      │    │  PIPELINE          │
         │                │    │                    │
-        │ User-initiated │    │ Scheduled scans    │
-        │ requests flow  │    │ Opportunity detect │
-        │ through here   │    │ Monitoring tasks   │
+        │ CoS delegates  │    │ Scheduled tasks    │
+        │ to Directors   │    │ Director-initiated │
+        │ on demand      │    │ via cron/scheduler │
         └────────┬───────┘    └─────┬─────────────┘
                  │                  │
         ┌────────▼──────────────────▼───────┐
-        │        SPECIALIST INSTANCES       │
-        │        (Claude Code Processes)    │
+        │      DIRECTOR LAYER               │
+        │      (6 Directors — Sonnet)       │
         │                                   │
-        │  Each instance receives:          │
-        │  • Minimal targeted context       │
-        │  • Domain-specific vault slice    │
-        │  • Relevant memory/learnings      │
-        │  • Clear mission & constraints    │
-        │  • Token budget allocation        │
+        │  Each Director:                   │
+        │  • Owns a domain                  │
+        │  • Manages specialist teams       │
+        │  • Has delegation authority        │
+        │  • Maintains state in vault       │
+        │  • Reports up to CoS             │
+        └────────┬──────────────────────────┘
+                 │
+        ┌────────▼──────────────────────────┐
+        │      SPECIALIST LAYER             │
+        │      (Spawned on demand)          │
+        │                                   │
+        │  • Receive targeted context only  │
+        │  • Execute specific tasks         │
+        │  • Return results to Director     │
+        │  • Haiku/Sonnet/Opus by task      │
         └────────┬──────────────────────────┘
                  │
         ┌────────▼──────────────────────────┐
@@ -74,8 +441,8 @@
         │                                   │
         │  • Knowledge Base (notes, docs)   │
         │  • Memory Store (learnings, logs) │
-        │  • Context Registry (who knows    │
-        │    what, domain maps)             │
+        │  • Director State Files           │
+        │  • Context Maps & Domain Configs  │
         │  • Goal Trees & Strategies        │
         │  • External Files (PDF, XLSX...)  │
         └───────────────────────────────────┘
@@ -83,7 +450,7 @@
 
 ---
 
-## 3. THE OBSIDIAN VAULT STRUCTURE
+## 4. THE OBSIDIAN VAULT STRUCTURE
 
 The vault is both the knowledge base AND the system's operating memory. Adapting PAI's SYSTEM/USER two-tier pattern:
 
@@ -137,7 +504,20 @@ Vault/
 │   │   ├── on-feedback/
 │   │   └── on-scheduled/
 │   │
-│   └── AGENTS/                       # Agent definitions & personalities
+│   ├── DIRECTORS/                    # Management layer state & config
+│   │   ├── chief-of-staff/
+│   │   │   ├── ROLE.md               # Role definition, protocols
+│   │   │   ├── STATE.md              # Current status, active items
+│   │   │   ├── ESCALATION-QUEUE.md   # Items waiting for CEO
+│   │   │   └── DAILY-BRIEF.md        # Morning briefing template
+│   │   ├── strategy/
+│   │   ├── operations/
+│   │   ├── intelligence/
+│   │   ├── communications/
+│   │   ├── personal-advisory/
+│   │   └── systems/
+│   │
+│   └── AGENTS/                       # Specialist agent definitions
 │       ├── strategist.md             # High-level planning
 │       ├── executor.md               # Task execution
 │       ├── researcher.md             # Deep research
@@ -191,64 +571,81 @@ Vault/
 
 ---
 
-## 4. THE DISPATCHER (Central Orchestrator)
+## 5. THE DISPATCHER (Central Orchestrator)
 
-The dispatcher is a persistent daemon on the Mac Mini that manages all AI operations.
+The dispatcher is a persistent daemon on the Mac Mini that manages all AI operations. It implements the management hierarchy — the Chief of Staff is the dispatcher's core logic.
 
-### 4.1 Architecture
+### 5.1 Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│            DISPATCHER DAEMON                │
-│            (TypeScript / Bun)               │
-│                                             │
-│  ┌─────────────┐    ┌──────────────────┐   │
-│  │ Request      │    │ Scheduler        │   │
-│  │ Queue        │    │ (Proactive Tasks)│   │
-│  │              │    │                  │   │
-│  │ Priority:    │    │ • Daily review   │   │
-│  │ • URGENT     │    │ • Email check    │   │
-│  │ • NORMAL     │    │ • Goal progress  │   │
-│  │ • BACKGROUND │    │ • Vault scan     │   │
-│  └──────┬───────┘    └────────┬─────────┘   │
-│         │                     │             │
-│  ┌──────▼─────────────────────▼──────────┐  │
-│  │         CONTEXT ASSEMBLER             │  │
-│  │                                       │  │
-│  │  1. Classify intent → domain          │  │
-│  │  2. Load domain CONTEXT-MAP.md        │  │
-│  │  3. Pull relevant vault files         │  │
-│  │  4. Load domain PLAYBOOK.md           │  │
-│  │  5. Load relevant LEARNINGS           │  │
-│  │  6. Assemble minimal context payload  │  │
-│  │  7. Estimate token usage              │  │
-│  └──────┬────────────────────────────────┘  │
-│         │                                   │
-│  ┌──────▼────────────────────────────────┐  │
-│  │         INSTANCE SPAWNER              │  │
-│  │                                       │  │
-│  │  • Select model tier (opus/sonnet/    │  │
-│  │    haiku) based on task complexity    │  │
-│  │  • Launch Claude Code process         │  │
-│  │  • Inject assembled context           │  │
-│  │  • Monitor execution                  │  │
-│  │  • Capture results                    │  │
-│  │  • Write learnings back to vault      │  │
-│  └───────────────────────────────────────┘  │
-│                                             │
-│  ┌───────────────────────────────────────┐  │
-│  │         TOKEN BUDGET MANAGER          │  │
-│  │                                       │  │
-│  │  • Track daily/hourly token usage     │  │
-│  │  • Enforce Claude Max limits          │  │
-│  │  • Prioritize reactive over proactive │  │
-│  │  • Queue low-priority work for off-   │  │
-│  │    peak hours                         │  │
-│  └───────────────────────────────────────┘  │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│              DISPATCHER DAEMON (TypeScript / Bun)        │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │          CHIEF OF STAFF LAYER                      │  │
+│  │                                                    │  │
+│  │  ┌──────────────┐    ┌──────────────────────────┐ │  │
+│  │  │ Request       │    │ Scheduler                │ │  │
+│  │  │ Queue         │    │ (Director-managed tasks) │ │  │
+│  │  │               │    │                          │ │  │
+│  │  │ From: you     │    │ • Strategy: quarterly    │ │  │
+│  │  │ From: dirs    │    │ • Ops: daily tasks       │ │  │
+│  │  │ From: cron    │    │ • Intel: vault scan      │ │  │
+│  │  └──────┬────────┘    │ • Comms: email check     │ │  │
+│  │         │             │ • Systems: health check  │ │  │
+│  │         │             └────────┬─────────────────┘ │  │
+│  │  ┌──────▼──────────────────────▼────────────────┐  │  │
+│  │  │         TRIAGE & ROUTING                     │  │  │
+│  │  │                                              │  │  │
+│  │  │  1. Classify intent → Director(s)            │  │  │
+│  │  │  2. Determine escalation level (0-4)         │  │  │
+│  │  │  3. Check delegation authority matrix        │  │  │
+│  │  │  4. Check token budget with Systems Dir      │  │  │
+│  │  │  5. Delegate to Director(s) in parallel      │  │  │
+│  │  │  6. Aggregate Director responses             │  │  │
+│  │  │  7. Apply challenge gate if warranted        │  │  │
+│  │  │  8. Format and deliver to CEO                │  │  │
+│  │  └──────┬───────────────────────────────────────┘  │  │
+│  └─────────┼──────────────────────────────────────────┘  │
+│            │                                             │
+│  ┌─────────▼─────────────────────────────────────────┐   │
+│  │         DIRECTOR SPAWNER                          │   │
+│  │                                                   │   │
+│  │  For each Director task:                          │   │
+│  │  1. Load Director ROLE.md (responsibilities)      │   │
+│  │  2. Load Director STATE.md (current context)      │   │
+│  │  3. Run Context Assembler for the domain          │   │
+│  │  4. Spawn Claude instance (Sonnet for Directors)  │   │
+│  │  5. Director may spawn Specialists (Haiku/Sonnet) │   │
+│  │  6. Capture results, update STATE.md              │   │
+│  └───────────────────────────────────────────────────┘   │
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐   │
+│  │         CONTEXT ASSEMBLER (shared utility)        │   │
+│  │                                                   │   │
+│  │  1. Load domain CONTEXT-MAP.md                    │   │
+│  │  2. Pull relevant vault files                     │   │
+│  │  3. Load domain PLAYBOOK.md                       │   │
+│  │  4. Load relevant LEARNINGS                       │   │
+│  │  5. Assemble minimal context payload              │   │
+│  │  6. Estimate token usage                          │   │
+│  └───────────────────────────────────────────────────┘   │
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐   │
+│  │         TOKEN BUDGET MANAGER                      │   │
+│  │         (Managed by Systems Director)             │   │
+│  │                                                   │   │
+│  │  • Track per-Director token usage                 │   │
+│  │  • Enforce Claude Max limits                      │   │
+│  │  • Directors have individual budgets              │   │
+│  │  • CoS can reallocate between Directors           │   │
+│  │  • Reactive requests always get priority          │   │
+│  │  • Queue proactive work for off-peak              │   │
+│  └───────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Context Assembly Strategy
+### 5.2 Context Assembly Strategy
 
 This is the critical innovation — each Claude instance gets ONLY what it needs:
 
@@ -285,7 +682,7 @@ learnings_tags:
   - audience
 ```
 
-### 4.3 Token Budget Management
+### 5.3 Token Budget Management
 
 ```yaml
 # _SYSTEM/CONFIG/token-budget.yaml
@@ -297,6 +694,15 @@ allocation:
   reactive: 70%                  # User-initiated tasks always priority
   proactive: 20%                 # Scheduled scans and analysis
   learning: 10%                  # Self-improvement tasks
+
+per_director_budget:             # % of daily total
+  strategy: 15%                  # Deep thinking, less frequent
+  operations: 30%                # Highest volume
+  intelligence: 15%              # Research & learning
+  communications: 25%            # Content creation
+  personal_advisory: 5%          # Low volume
+  systems: 10%                   # Infrastructure overhead
+  # CoS overhead comes from the Director it's delegating to
 
 proactive_schedule:
   daily_review:
@@ -328,9 +734,9 @@ proactive_schedule:
 
 ---
 
-## 5. INTERFACE LAYER
+## 6. INTERFACE LAYER
 
-### 5.1 Text Interface (Discord Bot / Custom Chat)
+### 6.1 Text Interface (Discord Bot / Custom Chat)
 
 ```
 ┌──────────────────────────────────────────┐
@@ -373,7 +779,7 @@ proactive_schedule:
 └──────────────────────────────────────────┘
 ```
 
-### 5.2 Voice Interface
+### 6.2 Voice Interface
 
 ```
 ┌──────────────────────────────────────────┐
@@ -416,7 +822,7 @@ proactive_schedule:
 └──────────────────────────────────────────┘
 ```
 
-### 5.3 Service Integrations
+### 6.3 Service Integrations
 
 ```
 ┌──────────────────────────────────────────┐
@@ -479,11 +885,11 @@ proactive_schedule:
 
 ---
 
-## 6. SELF-LEARNING & SELF-IMPROVEMENT SYSTEM
+## 7. SELF-LEARNING & SELF-IMPROVEMENT SYSTEM
 
 This is the most critical differentiator. Adapting PAI's learning patterns and extending them:
 
-### 6.1 Learning Loop Architecture
+### 7.1 Learning Loop Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -513,7 +919,7 @@ This is the most critical differentiator. Adapting PAI's learning patterns and e
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 Mistake Tracking & Correction
+### 7.2 Mistake Tracking & Correction
 
 ```markdown
 # _SYSTEM/MEMORY/LEARNINGS/mistakes/2026-02-04-newsletter-tone.md
@@ -531,7 +937,7 @@ This is the most critical differentiator. Adapting PAI's learning patterns and e
 - **Verified**: Issue #48 drafted with new style, rated 8/10
 ```
 
-### 6.3 Skill Self-Improvement
+### 7.3 Skill Self-Improvement
 
 ```
 The system can propose new skills:
@@ -549,11 +955,11 @@ The system can propose new skills:
 
 ---
 
-## 7. THE CHALLENGER MODE
+## 8. THE CHALLENGER MODE
 
 A key requirement — the system should think critically, not just comply:
 
-### 7.1 Implementation
+### 8.1 Implementation
 
 ```yaml
 # _SYSTEM/AGENTS/challenger.md
@@ -588,7 +994,7 @@ guardrails:
   - Track when challenges are accepted vs. overridden (learn from it)
 ```
 
-### 7.2 Cross-Domain Intelligence
+### 8.2 Cross-Domain Intelligence
 
 ```
 When you ask: "Draft a blog post about AI in healthcare"
@@ -608,25 +1014,29 @@ AI Genius:
 
 ---
 
-## 8. IMPLEMENTATION PHASES
+## 9. IMPLEMENTATION PHASES
 
 ### Phase 0: Foundation (Week 1)
 
-**Goal**: Core infrastructure on Mac Mini
+**Goal**: Core infrastructure on Mac Mini with management hierarchy
 
 ```
 Tasks:
-□ Set up the Obsidian vault structure (as defined in Section 3)
+□ Set up the Obsidian vault structure (as defined in Section 4)
 □ Install Bun runtime and dependencies on Mac Mini
-□ Create the dispatcher daemon skeleton
+□ Write all Director ROLE.md files (6 Directors + CoS)
+□ Write the Chief of Staff routing logic (triage, delegation, aggregation)
+□ Write the escalation protocol and delegation authority matrix
+□ Create the dispatcher daemon skeleton with CoS as entry point
 □ Set up PAI-compatible hook system
 □ Create domain registry with your life areas
 □ Write the context assembler (core algorithm)
-□ Create token budget manager
+□ Create token budget manager with per-Director budgets
+□ Write Director STATE.md templates
 □ Set up basic logging and error handling
 
-Deliverable: Dispatcher can receive a task, assemble context,
-spawn a Claude instance, and return a result.
+Deliverable: Ask a question → CoS triages → delegates to Director →
+Director spawns specialist → result flows back up → CoS responds.
 ```
 
 ### Phase 1: Text Interface (Week 2)
@@ -742,9 +1152,9 @@ Tasks:
 
 ---
 
-## 9. TECHNICAL DECISIONS & RATIONALE
+## 10. TECHNICAL DECISIONS & RATIONALE
 
-### 9.1 Why Obsidian Vault as Source of Truth
+### 10.1 Why Obsidian Vault as Source of Truth
 
 | Factor | Decision | Rationale |
 |--------|----------|-----------|
@@ -755,7 +1165,7 @@ Tasks:
 | Sync | Git or Obsidian Sync | Proven, reliable, conflict-resolvable |
 | External files | Store alongside | PDFs, XLSX etc. in same vault, referenced by markdown |
 
-### 9.2 Why Multiple Claude Instances (Not One Big Context)
+### 10.2 Why Multiple Claude Instances (Not One Big Context)
 
 | Problem with single context | Solution with multiple instances |
 |---|---|
@@ -765,7 +1175,7 @@ Tasks:
 | Can't parallelize | Multiple instances work simultaneously |
 | Context window = all or nothing | Context assembler picks exactly what's needed |
 
-### 9.3 Why Dispatcher Pattern
+### 10.3 Why Dispatcher Pattern
 
 | Alternative | Problem | Dispatcher Advantage |
 |---|---|---|
@@ -774,7 +1184,7 @@ Tasks:
 | Manual context selection | Cognitive overhead on you | Automated domain routing |
 | Database-backed system | Complexity, vendor lock | File-based, simple, inspectable |
 
-### 9.4 Model Selection Strategy
+### 10.4 Model Selection Strategy
 
 ```
 HAIKU: Quick lookups, classification, simple formatting
@@ -793,9 +1203,9 @@ OPUS: Deep strategy, complex reasoning, planning
 
 ---
 
-## 10. THINGS YOU HAVEN'T CONSIDERED (MY ADDITIONS)
+## 11. THINGS YOU HAVEN'T CONSIDERED (MY ADDITIONS)
 
-### 10.1 Context Decay & Freshness
+### 11.1 Context Decay & Freshness
 
 Your notes age. A strategy from 6 months ago may be outdated. The system should:
 - Weight recent information higher than old
@@ -803,7 +1213,7 @@ Your notes age. A strategy from 6 months ago may be outdated. The system should:
 - Auto-archive completed projects
 - Maintain a "freshness score" for each domain
 
-### 10.2 Attention Management
+### 11.2 Attention Management
 
 With a genius system, the risk is information overload in reverse — the AI knows too much and overwhelms you. Solution:
 - **Morning brief**: Top 5 things that need your attention today
@@ -811,7 +1221,7 @@ With a genius system, the risk is information overload in reverse — the AI kno
 - **Weekly digest**: Comprehensive but structured review
 - **On-demand depth**: You drill down when YOU want to
 
-### 10.3 Decision Journal
+### 11.3 Decision Journal
 
 Track every significant decision and its outcome:
 ```markdown
@@ -826,7 +1236,7 @@ Track every significant decision and its outcome:
 
 This feeds the learning loop with high-signal data about your judgment patterns.
 
-### 10.4 Delegation Levels
+### 11.4 Delegation Levels
 
 Not every task should require your approval. Define delegation levels:
 
@@ -838,7 +1248,7 @@ Not every task should require your approval. Define delegation levels:
 | **3 - Discuss** | System presents options, you decide | Business pivots, goal changes |
 | **4 - Assist** | You lead, system supports | Personal decisions, relationship matters |
 
-### 10.5 Graceful Degradation
+### 11.5 Graceful Degradation
 
 When Claude Max rate limits hit, or API is down:
 - Queue non-urgent tasks
@@ -847,7 +1257,7 @@ When Claude Max rate limits hit, or API is down:
 - Fall back to simpler models (haiku) for background work
 - Maintain a "last known state" summary per domain
 
-### 10.6 Privacy Boundaries
+### 11.6 Privacy Boundaries
 
 Define clear boundaries for the personal domain:
 ```yaml
@@ -859,7 +1269,7 @@ personal_domain:
   notes: "System reads personal notes only when explicitly asked"
 ```
 
-### 10.7 Multi-Vault Sync Strategy
+### 11.7 Multi-Vault Sync Strategy
 
 If you use Obsidian on multiple devices:
 - Mac Mini vault is source of truth
@@ -867,7 +1277,7 @@ If you use Obsidian on multiple devices:
 - Conflict resolution: Mac Mini wins (it has the AI context)
 - Mobile vault is read-heavy, write-light
 
-### 10.8 Emergency Protocols
+### 11.8 Emergency Protocols
 
 What if the Mac Mini goes down?
 - Cloud backup of vault (encrypted)
@@ -877,7 +1287,7 @@ What if the Mac Mini goes down?
 
 ---
 
-## 11. RISK REGISTER
+## 12. RISK REGISTER
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
@@ -892,7 +1302,7 @@ What if the Mac Mini goes down?
 
 ---
 
-## 12. SUCCESS METRICS
+## 13. SUCCESS METRICS
 
 How to know if this is working:
 
@@ -909,17 +1319,20 @@ How to know if this is working:
 
 ---
 
-## 13. FIRST SESSION: BOOTSTRAPPING THE SYSTEM
+## 14. FIRST SESSION: BOOTSTRAPPING THE SYSTEM
 
 When implementation begins, the first Claude Code session should:
 
-1. **Create the vault structure** (Section 3)
-2. **Write the dispatcher skeleton** (Section 4)
-3. **Create the domain registry** with your actual life areas
-4. **Write the first DOMAIN.md files** based on information you provide
-5. **Set up the hook system** (adapted from PAI)
-6. **Create the context assembler** algorithm
-7. **Write the first connector** (Apple Reminders — simplest)
-8. **Test end-to-end**: Ask a question → dispatcher → context assembly → Claude instance → answer
+1. **Create the vault structure** (Section 4) including `_SYSTEM/DIRECTORS/`
+2. **Write the Director ROLE.md files** (Section 2) — defining each Director's responsibilities, teams, and protocols
+3. **Write the Chief of Staff ROLE.md** — the most critical file, defines how requests flow
+4. **Write the dispatcher skeleton** (Section 5) — implementing the CoS as the entry point
+5. **Create the domain registry** with your actual life areas
+6. **Write the first DOMAIN.md files** based on information you provide
+7. **Set up the hook system** (adapted from PAI)
+8. **Create the context assembler** algorithm
+9. **Write the escalation protocol and delegation authority matrix** into CoS config
+10. **Write the first connector** (Apple Reminders — simplest)
+11. **Test end-to-end**: Ask a question → Gateway → CoS → Director delegation → Specialist execution → CoS aggregation → answer
 
 This document itself should be stored in `_SYSTEM/CONFIG/ARCHITECTURE.md` as the system's founding document.

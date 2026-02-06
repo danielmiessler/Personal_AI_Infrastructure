@@ -1,0 +1,28 @@
+[package]
+name = "pai-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.12"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.48", features = ["full"] }
+async-trait = "0.1"
+tracing = "0.1"
+uuid = { version = "1.8", features = ["v4", "serde"] }
+handlebars = "6.2"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+tokio-stream = "0.1"
+
+[dev-dependencies]
+tempfile = "3.10"
+criterion = "0.5"
+
+[[bench]]
+name = "pai_bench"
+harness = false

@@ -20,7 +20,7 @@
  *   bun BountyPrograms.ts check example.com
  */
 
-import { $ } from "bun";
+import { mkdir } from "fs/promises";
 
 interface BountyProgram {
   name: string;
@@ -59,9 +59,9 @@ interface ChaosProgram {
 }
 
 async function ensureCacheDir(): Promise<void> {
-  const dir = Bun.file(CACHE_DIR);
   try {
-    await $`mkdir -p ${CACHE_DIR}`.quiet();
+    // SECURITY: Use fs.mkdir instead of shell interpolation
+    await mkdir(CACHE_DIR, { recursive: true });
   } catch {
     // Directory might already exist
   }

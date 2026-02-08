@@ -66,3 +66,16 @@ credentials/
 .claude/pai_updates/
 .claude/pai_backups/
 .claude/.pai-sync-history
+
+# PAI Sensitive Data
+.credentials.json
+*.credentials.json
+history.jsonl
+*.jsonl
+
+# PAI Runtime/Cache
+debug/
+cache/
+downloads/
+file-history/
+history/

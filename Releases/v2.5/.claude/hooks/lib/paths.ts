@@ -9,7 +9,7 @@
  *   const paiDir = getPaiDir(); // Always returns expanded absolute path
  */
 
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 
 /**
@@ -72,4 +72,27 @@ export function getSkillsDir(): string {
  */
 export function getMemoryDir(): string {
   return paiPath('MEMORY');
+}
+
+/**
+ * Get the user's home directory (cross-platform)
+ * Priority: HOME (Unix/Git Bash) → USERPROFILE (Windows) → os.homedir()
+ */
+export function getHome(): string {
+  return process.env.HOME || process.env.USERPROFILE || homedir();
+}
+
+/**
+ * Get a cross-platform temp path
+ * Uses os.tmpdir() instead of hardcoded /tmp/
+ */
+export function getTempPath(...segments: string[]): string {
+  return join(tmpdir(), ...segments);
+}
+
+/**
+ * Check if running on Windows
+ */
+export function isWindows(): boolean {
+  return process.platform === 'win32';
 }

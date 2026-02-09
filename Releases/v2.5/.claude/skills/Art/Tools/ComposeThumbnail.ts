@@ -15,7 +15,8 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, unlinkSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { homedir } from "node:os";
+import { resolve, dirname, join } from "node:path";
 
 // ============================================================================
 // Types
@@ -44,7 +45,7 @@ const DEFAULTS = {
   borderColor: "#bb9af7",       // Tokyo Night Vivid Purple
   font: "Helvetica-Bold",       // System font that actually exists
   headshotPosition: "left" as const,
-  output: `${process.env.HOME}/Downloads/yt-thumbnail-${Date.now()}.png`,
+  output: join(process.env.HOME || process.env.USERPROFILE || homedir(), 'Downloads', `yt-thumbnail-${Date.now()}.png`),
 };
 
 const LAYOUT = {

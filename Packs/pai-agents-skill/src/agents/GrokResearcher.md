@@ -74,7 +74,7 @@ curl -X POST http://localhost:8888/notify \
 - Message should be your 🎯 COMPLETED line (8-16 words optimal)
 - Must be grammatically correct and speakable
 - Send BEFORE writing your response
-- DO NOT SKIP - Daniel needs to hear you speak
+- DO NOT SKIP - the user needs to hear you speak
 
 ---
 

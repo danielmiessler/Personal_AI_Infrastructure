@@ -15,10 +15,10 @@
  *
  * OUTPUT:
  * - Writes to: MEMORY/RELATIONSHIP/YYYY-MM/YYYY-MM-DD.md
- * - May update: skills/PAI/USER/ABOUT_DANIEL.md (significant learnings)
+ * - May update: skills/PAI/USER/ABOUT_PRINCIPAL.md (significant learnings)
  *
  * RELATIONSHIP NOTE TYPES:
- * - W (World): Objective facts about Daniel's situation
+ * - W (World): Objective facts about the principal's situation
  * - B (Biographical): What happened this session (first-person DA)
  * - O (Opinion): Preference/belief with confidence
  *
@@ -130,7 +130,7 @@ function analyzeForRelationship(entries: TranscriptEntry[]): RelationshipNote[] 
 
   // Track what happened this session
   let sessionSummary: string[] = [];
-  let danielPreferences: string[] = [];
+  let principalPreferences: string[] = [];
   let frustrations: string[] = [];
   let positives: string[] = [];
 
@@ -143,7 +143,7 @@ function analyzeForRelationship(entries: TranscriptEntry[]): RelationshipNote[] 
       if (patterns.preference.test(text)) {
         // Extract preference (simplified - would benefit from LLM analysis)
         const snippet = text.slice(0, 200);
-        danielPreferences.push(snippet);
+        principalPreferences.push(snippet);
       }
 
       if (patterns.frustration.test(text)) {

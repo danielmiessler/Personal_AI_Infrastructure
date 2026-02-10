@@ -28,7 +28,7 @@ This document tracks all platform-specific code and dependencies across PAI, pro
    - **Status:** Fixed with conditional `uname -s` detection
 
 2. ✅ `/opt/homebrew/bin` hardcoded in PATH
-   - **Files:** `pai-observability-server/src/observability/manage.sh:8`, `pai-observability-server.md:1316`
+   - **Files:** `pai-observability-server/src/Observability/manage.sh:8`, `pai-observability-server.md:1316`
    - **Fix:** Conditional PATH based on directory existence
    - **Status:** Fixed with `[ -d "/opt/homebrew/bin" ]` check
 

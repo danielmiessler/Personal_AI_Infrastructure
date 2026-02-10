@@ -49,9 +49,10 @@
 
 import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { getISOTimestamp } from './lib/time';
 
-const MEMORY_DIR = join(process.env.HOME!, '.claude', 'MEMORY');
+const MEMORY_DIR = join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude', 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
 const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');

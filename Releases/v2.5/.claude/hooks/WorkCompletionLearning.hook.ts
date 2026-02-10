@@ -52,10 +52,11 @@
 
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
+import { homedir } from 'os';
 import { getISOTimestamp, getPSTDate } from './lib/time';
 import { getLearningCategory } from './lib/learning-utils';
 
-const MEMORY_DIR = join(process.env.HOME!, '.claude', 'MEMORY');
+const MEMORY_DIR = join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude', 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
 const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');

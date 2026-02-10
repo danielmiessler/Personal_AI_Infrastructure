@@ -2,6 +2,9 @@
  * recovery-types.ts - Type definitions for the recovery journal system
  */
 
+import { tmpdir, homedir } from 'os';
+import { join } from 'path';
+
 export interface RecoveryPoint {
   id: string;                    // UUID for this recovery point
   timestamp: string;             // ISO timestamp
@@ -48,7 +51,7 @@ export interface RecoveryPointSummary {
 }
 
 // Safe paths that don't need journaling (within .claude ecosystem)
-const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
+const PAI_DIR = process.env.PAI_DIR || join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude');
 export const SAFE_PATH_PREFIXES = [
   `${PAI_DIR}/MEMORY/`,  // All MEMORY output is safe (sessions, learnings, raw-outputs, etc.)
   `${PAI_DIR}/Scratchpad/`,
@@ -56,8 +59,7 @@ export const SAFE_PATH_PREFIXES = [
   `${PAI_DIR}/Debug/`,
   `${PAI_DIR}/SessionEnv/`,
   `${PAI_DIR}/Todos/`,
-  '/tmp/',
-  '/var/tmp/',
+  join(tmpdir(), '/'),  // OS temp directory (cross-platform)
 ];
 
 // Skip journaling for these output-only operations

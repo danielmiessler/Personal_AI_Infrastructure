@@ -19,13 +19,14 @@
 import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import { homedir } from "os";
 import { getLearningCategory, isLearningCapture } from "../../../hooks/lib/learning-utils";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = path.join(process.env.HOME || process.env.USERPROFILE || homedir(), ".claude");
 const USERNAME = process.env.USER || require("os").userInfo().username;
 const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-Users-${USERNAME}--claude`);
 const LEARNING_DIR = path.join(CLAUDE_DIR, "MEMORY", "LEARNING");

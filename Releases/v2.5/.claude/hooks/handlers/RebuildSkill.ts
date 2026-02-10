@@ -21,10 +21,11 @@
 
 import { statSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { spawnSync } from 'child_process';
 
 export async function handleRebuildSkill(): Promise<void> {
-  const CORE_DIR = join(process.env.HOME!, '.claude/skills/PAI');
+  const CORE_DIR = join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude', 'skills', 'PAI');
   const COMPONENTS_DIR = join(CORE_DIR, 'Components');
   const SKILL_MD = join(CORE_DIR, 'SKILL.md');
   const BUILD_SCRIPT = join(CORE_DIR, 'Tools/CreateDynamicCore.ts');
@@ -62,7 +63,7 @@ export async function handleRebuildSkill(): Promise<void> {
 
 function rebuild(buildScript: string): void {
   const result = spawnSync('bun', [buildScript], {
-    cwd: join(process.env.HOME!, '.claude/skills/PAI'),
+    cwd: join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude', 'skills', 'PAI'),
     encoding: 'utf-8',
   });
 

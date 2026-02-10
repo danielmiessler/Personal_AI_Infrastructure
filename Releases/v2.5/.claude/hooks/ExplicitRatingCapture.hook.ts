@@ -57,6 +57,7 @@
 
 import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { getLearningCategory } from './lib/learning-utils';
 import { getPrincipalName } from './lib/identity';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
@@ -133,7 +134,7 @@ function parseRating(prompt: string): { rating: number; comment?: string } | nul
  * NOTE: Ratings are now stored in LEARNING/SIGNALS/ (consolidated from separate SIGNALS/)
  */
 function writeRating(entry: RatingEntry): void {
-  const baseDir = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+  const baseDir = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude');
   const signalsDir = join(baseDir, 'MEMORY', 'LEARNING', 'SIGNALS');
   const ratingsFile = join(signalsDir, 'ratings.jsonl');
 
@@ -185,7 +186,7 @@ function getLastResponseSummary(transcriptPath: string): string {
 function captureLowRatingLearning(rating: number, comment: string | undefined, responseContext: string): void {
   if (rating >= 6) return;
 
-  const baseDir = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+  const baseDir = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude');
   const { year, month, day, hours, minutes, seconds } = getPSTComponents();
 
   const yearMonth = `${year}-${month}`;
@@ -262,7 +263,7 @@ async function main() {
     writeRating(entry);
 
     // Update trending analysis cache (fire-and-forget, don't block)
-    const baseDir = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+    const baseDir = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude');
     const trendingScript = join(baseDir, 'tools', 'TrendingAnalysis.ts');
     if (existsSync(trendingScript)) {
       Bun.spawn(['bun', trendingScript, '--force'], {

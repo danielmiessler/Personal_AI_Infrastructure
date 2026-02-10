@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 
 // ============================================================================
 // Types
@@ -68,8 +69,8 @@ interface PromptOutput {
 // ============================================================================
 
 const ART_AESTHETIC_PATH = resolve(
-  process.env.HOME!,
-  ".claude/skills/PAI/Aesthetic.md"
+  process.env.HOME || process.env.USERPROFILE || homedir(),
+  ".claude", "skills", "PAI", "Aesthetic.md"
 );
 
 const COLOR_HEX_MAP: Record<TokyoNightColor, string> = {

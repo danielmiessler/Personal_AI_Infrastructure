@@ -35,8 +35,9 @@
 
 import { readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME || process.env.USERPROFILE || homedir();
 const PAI_DIR = process.env.PAI_DIR || join(HOME, ".claude");
 
 interface Counts {

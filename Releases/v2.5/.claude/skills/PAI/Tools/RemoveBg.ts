@@ -17,13 +17,14 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 
 // ============================================================================
 // Environment Loading
 // ============================================================================
 
 async function loadEnv(): Promise<void> {
-  const envPath = resolve(process.env.HOME!, ".claude/.env");
+  const envPath = resolve(process.env.HOME || process.env.USERPROFILE || homedir(), ".claude/.env");
   try {
     const envContent = await readFile(envPath, "utf-8");
     for (const line of envContent.split("\n")) {

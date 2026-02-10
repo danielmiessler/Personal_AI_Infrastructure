@@ -21,6 +21,7 @@
 import { spawn } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { join, basename, dirname } from 'path';
+import { homedir } from 'os';
 import { inference } from './Inference';
 import { getIdentity } from '../../../hooks/lib/identity';
 
@@ -108,7 +109,7 @@ interface UpdateData {
 // Constants
 // ============================================================================
 
-const PAI_DIR = process.env.HOME + '/.claude';
+const PAI_DIR = join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude');
 const CREATE_UPDATE_SCRIPT = join(PAI_DIR, 'skills/_SYSTEM/Tools/CreateUpdate.ts');
 
 // Words that indicate generic/bad titles - reject these

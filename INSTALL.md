@@ -85,7 +85,7 @@ PAI offers three installation paths. Explain each and help them choose:
 >
 > Best for: First-time users, fresh setups, or when you want PAI working immediately.
 >
-> [See Releases/v2.4/README.md](Releases/v2.4/README.md)
+> [See Releases/v2.5/README.md](Releases/v2.5/README.md)
 
 **Option B: Bundle + Manual Packs**
 > The Bundle wizard creates a skeleton directory structure. You then install each pack manually in order. This gives you understanding of how the system is built.
@@ -188,7 +188,7 @@ If you prefer to install PAI yourself without AI assistance:
 ```bash
 # Clone the repository
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Releases/v2.4
+cd PAI/Releases/v2.5
 
 # Back up your existing Claude Code configuration (if any)
 [ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)

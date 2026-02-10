@@ -16,7 +16,7 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { getIdentity } from './identity';
 
 // ============================================================================
@@ -139,7 +139,7 @@ export function getNotificationConfig(): NotificationConfig {
 // Session Timing
 // ============================================================================
 
-const SESSION_START_FILE = '/tmp/pai-session-start.txt';
+const SESSION_START_FILE = join(tmpdir(), 'pai-session-start.txt');
 
 /**
  * Record session start time (call from SessionStart hook)

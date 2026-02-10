@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getTelosFileCount, getTelosFileList } from "@/lib/telos-data"
+import { getTelosFileCount, getTelosFileList } from "@/Lib/telos-data"
 
 export const dynamic = 'force-dynamic'
 

@@ -1,5 +1,5 @@
-import { cn } from "@/lib/utils"
-import type { Recommendation } from "@/lib/report-data"
+import { cn } from "@/Lib/utils"
+import type { Recommendation } from "@/Lib/report-data"
 import { ArrowRight, Clock, Zap } from "lucide-react"
 
 interface RecommendationCardProps {

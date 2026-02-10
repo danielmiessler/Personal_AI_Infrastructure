@@ -1,0 +1,18 @@
+[Unit]
+Description=PAI Voice Server - ElevenLabs TTS notification server
+After=network.target sound.target
+Wants=pulseaudio.service
+
+[Service]
+Type=simple
+ExecStart=%h/.bun/bin/bun run %h/.claude/VoiceServer/server.ts
+WorkingDirectory=%h/.claude/VoiceServer
+Restart=on-failure
+RestartSec=5
+Environment=HOME=%h
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

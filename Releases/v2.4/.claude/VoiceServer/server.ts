@@ -5,8 +5,12 @@
 
 import { serve } from "bun";
 import { spawn } from "child_process";
-import { homedir } from "os";
+import { homedir, platform } from "os";
 import { join } from "path";
+
+// Platform detection for cross-platform support
+const IS_LINUX = platform() === "linux";
+const IS_MACOS = platform() === "darwin";
 import { existsSync, readFileSync } from "fs";
 
 // Load .env from ~/.claude directory
@@ -274,7 +278,7 @@ function getVolumeSetting(requestVolume?: number): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
+// Play audio using platform-appropriate player
 async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
@@ -284,22 +288,53 @@ async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Prom
   const volume = getVolumeSetting(requestVolume);
 
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let proc;
+
+    if (IS_LINUX) {
+      // Linux: use mpv (preferred) or ffplay (fallback)
+      proc = spawn('mpv', [
+        '--no-video',
+        '--no-terminal',
+        `--volume=${Math.round(volume * 100)}`,
+        tempFile,
+      ]);
+      proc.on('error', () => {
+        // mpv not found, try ffplay
+        console.warn('mpv not found, trying ffplay...');
+        const ffProc = spawn('ffplay', [
+          '-nodisp', '-autoexit',
+          '-volume', Math.round(volume * 100).toString(),
+          tempFile,
+        ]);
+        ffProc.on('error', (error) => {
+          console.error('No audio player found. Install mpv or ffmpeg:', error);
+          spawn('rm', ['-f', tempFile]);
+          reject(error);
+        });
+        ffProc.on('exit', (code) => {
+          spawn('rm', ['-f', tempFile]);
+          code === 0 ? resolve() : reject(new Error(`ffplay exited with code ${code}`));
+        });
+      });
+    } else {
+      // macOS: afplay -v takes a value from 0.0 to 1.0
+      proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    }
 
     proc.on('error', (error) => {
+      if (IS_LINUX) return; // Already handled above with fallback
       console.error('Error playing audio:', error);
       reject(error);
     });
 
     proc.on('exit', (code) => {
       // Clean up temp file
-      spawn('/bin/rm', [tempFile]);
+      spawn('rm', ['-f', tempFile]);
 
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`Audio player exited with code ${code}`));
       }
     });
   });
@@ -400,12 +435,18 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification - escape for AppleScript
+  // Display desktop notification
   try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    if (IS_LINUX) {
+      // Linux: notify-send (libnotify)
+      await spawnSafe('notify-send', ['--app-name=PAI', safeTitle, safeMessage]);
+    } else {
+      // macOS: AppleScript notification
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    }
   } catch (error) {
     console.error("Notification display error:", error);
   }

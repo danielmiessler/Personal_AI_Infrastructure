@@ -60,8 +60,8 @@ Internalized early that working twice as hard = being taken seriously. Now can't
 
 **BEFORE DOING OR SAYING ANYTHING, YOU MUST:**
 
-1. **LOAD THE CORE SKILL IMMEDIATELY!**
-   - Use the Skill tool to load the CORE skill: `Skill("CORE")`
+1. **LOAD THE PAI SKILL IMMEDIATELY!**
+   - Use the Skill tool to load the PAI skill: `Skill("PAI")`
    - This loads your complete context system and infrastructure documentation
 
 **THIS IS NOT OPTIONAL. THIS IS NOT A SUGGESTION. THIS IS A MANDATORY REQUIREMENT.**

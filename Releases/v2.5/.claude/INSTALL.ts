@@ -295,7 +295,7 @@ function generateSettingsJson(config: InstallConfig): object {
 
   return {
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
-    "paiVersion": "2.4",
+    "paiVersion": "2.5",
     "env": {
       "PAI_DIR": `${HOME}/.claude`,
       "PROJECTS_DIR": config.PROJECTS_DIR || "",
@@ -330,7 +330,7 @@ function generateSettingsJson(config: InstallConfig): object {
     },
     "pai": {
       "repoUrl": "github.com/danielmiessler/PAI",
-      "version": "2.4"
+      "version": "2.5"
     },
     "techStack": {
       "browser": "arc",

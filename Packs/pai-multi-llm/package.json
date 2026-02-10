@@ -1,0 +1,41 @@
+{
+  "name": "pai-multi-llm",
+  "version": "0.1.0",
+  "description": "Multi-LLM orchestration infrastructure with session management",
+  "type": "module",
+  "scripts": {
+    "detect": "bun run Tools/DetectProviders.ts",
+    "query": "bun run Tools/Query.ts",
+    "generate-team": "bun run Tools/GenerateTeam.ts",
+    "session": "bun run Tools/SessionManager.ts",
+    "health": "bun run Tools/HealthCheck.ts"
+  },
+  "keywords": [
+    "pai",
+    "personal-ai-infrastructure",
+    "multi-llm",
+    "ollama",
+    "claude",
+    "codex",
+    "gemini",
+    "opencode",
+    "session-management"
+  ],
+  "author": "PAI Community",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "pai": {
+    "pack_version": "0.1",
+    "skills": ["MultiLLM"],
+    "requires_core": true
+  }
+}

@@ -130,7 +130,6 @@ function logSecurityEvent(event: SecurityEvent): void {
     writeFileSync(logPath, content);
   } catch {
     // Logging failure should not block operations
-    console.error('Warning: Failed to log security event');
   }
 }
 

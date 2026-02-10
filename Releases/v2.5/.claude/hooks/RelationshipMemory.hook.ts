@@ -261,28 +261,21 @@ function initDailyFile(filepath: string): void {
 
 async function main() {
   try {
-    console.error('[RelationshipMemory] Hook started');
-
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
 
     if (!data.transcript_path) {
-      console.error('[RelationshipMemory] No transcript path, exiting');
       process.exit(0);
     }
 
     // Read and analyze transcript
     const entries = readTranscript(data.transcript_path);
     if (entries.length === 0) {
-      console.error('[RelationshipMemory] No transcript entries, exiting');
       process.exit(0);
     }
 
-    console.error(`[RelationshipMemory] Analyzing ${entries.length} transcript entries`);
-
     const notes = analyzeForRelationship(entries);
     if (notes.length === 0) {
-      console.error('[RelationshipMemory] No relationship notes to capture');
       process.exit(0);
     }
 
@@ -293,12 +286,10 @@ async function main() {
 
     const formatted = formatNotes(notes);
     appendFileSync(filepath, formatted, 'utf-8');
-
-    console.error(`[RelationshipMemory] Captured ${notes.length} notes to ${filepath}`);
     process.exit(0);
 
   } catch (err) {
-    console.error(`[RelationshipMemory] Error: ${err}`);
+    // RelationshipMemory error - non-blocking
     process.exit(0); // Don't fail the session end
   }
 }

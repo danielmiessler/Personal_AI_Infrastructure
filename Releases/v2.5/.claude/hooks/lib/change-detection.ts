@@ -110,7 +110,7 @@ const STRUCTURAL_PATTERNS = [
 export function parseToolUseBlocks(transcriptPath: string): FileChange[] {
   try {
     if (!existsSync(transcriptPath)) {
-      console.error('[ChangeDetection] Transcript not found:', transcriptPath);
+      // Transcript not found
       return [];
     }
 
@@ -170,7 +170,7 @@ export function parseToolUseBlocks(transcriptPath: string): FileChange[] {
 
     return changes;
   } catch (error) {
-    console.error('[ChangeDetection] Error parsing transcript:', error);
+    // Error parsing transcript
     return [];
   }
 }

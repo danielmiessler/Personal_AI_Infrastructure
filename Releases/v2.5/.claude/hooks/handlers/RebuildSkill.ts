@@ -36,7 +36,7 @@ export async function handleRebuildSkill(): Promise<void> {
       skillStat = statSync(SKILL_MD);
     } catch {
       // SKILL.md doesn't exist - rebuild needed
-      console.error('[RebuildSkill] SKILL.md missing - rebuilding');
+      // SKILL.md missing - rebuilding
       rebuild(BUILD_SCRIPT);
       return;
     }
@@ -50,13 +50,13 @@ export async function handleRebuildSkill(): Promise<void> {
     });
 
     if (anyNewer) {
-      console.error('[RebuildSkill] Components modified - rebuilding SKILL.md');
+      // Components modified - rebuilding SKILL.md
       rebuild(BUILD_SCRIPT);
     } else {
-      console.error('[RebuildSkill] SKILL.md is current - no rebuild needed');
+      // SKILL.md is current - no rebuild needed
     }
   } catch (error) {
-    console.error('[RebuildSkill] Error checking/rebuilding:', error);
+    // Error checking/rebuilding - non-critical
   }
 }
 
@@ -66,9 +66,5 @@ function rebuild(buildScript: string): void {
     encoding: 'utf-8',
   });
 
-  if (result.error) {
-    console.error('[RebuildSkill] Build failed:', result.error);
-  } else {
-    console.error('[RebuildSkill]', result.stdout?.trim() || 'Build completed');
-  }
+  // Build completed (or failed silently)
 }

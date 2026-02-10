@@ -569,6 +569,18 @@ async function main(): Promise<void> {
   }
   printSuccess('Created MEMORY directories');
 
+  // Install dependencies (yaml is needed by hooks like SecurityValidator)
+  print('');
+  print(`${c.bold}Installing Dependencies${c.reset}`);
+  print(`${c.gray}─────────────────────────────────────────────────${c.reset}`);
+  try {
+    execSync('bun install', { cwd: CLAUDE_DIR, stdio: 'pipe' });
+    printSuccess('Dependencies installed');
+  } catch (err: any) {
+    printWarning(`Could not install dependencies: ${err.message}`);
+    printInfo('Run "cd ~/.claude && bun install" manually');
+  }
+
   // Start voice server (only if API key was provided)
   print('');
   print(`${c.bold}Voice Server${c.reset}`);

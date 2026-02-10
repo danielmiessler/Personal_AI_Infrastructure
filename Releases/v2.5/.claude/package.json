@@ -1,0 +1,8 @@
+{
+  "name": "pai",
+  "private": true,
+  "description": "PAI - Personal AI Infrastructure",
+  "dependencies": {
+    "yaml": "^2.8.0"
+  }
+}

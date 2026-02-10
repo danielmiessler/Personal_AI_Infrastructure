@@ -4,11 +4,12 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'fs';
+import { homedir } from 'os';
 import { join } from 'path';
 
 export type AlgorithmPhase = 'OBSERVE' | 'THINK' | 'PLAN' | 'BUILD' | 'EXECUTE' | 'VERIFY' | 'LEARN';
 
-const CLAUDE_DIR = process.env.PAI_DIR || process.env.HOME + '/.claude';
+const CLAUDE_DIR = process.env.PAI_DIR || join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude');
 const WORK_DIR = join(CLAUDE_DIR, 'MEMORY', 'WORK');
 
 /**

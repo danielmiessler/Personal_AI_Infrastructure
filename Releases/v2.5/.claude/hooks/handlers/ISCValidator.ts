@@ -20,6 +20,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import type { ParsedTranscript } from '../../skills/PAI/Tools/TranscriptParser';
 
 interface CurrentWork {
@@ -47,7 +48,7 @@ interface ValidationResult {
   errors: string[];
 }
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude');
 const WORK_DIR = join(BASE_DIR, 'MEMORY', 'WORK');
 const STATE_DIR = join(BASE_DIR, 'MEMORY', 'STATE');
 const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');

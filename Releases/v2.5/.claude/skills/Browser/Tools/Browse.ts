@@ -18,12 +18,14 @@
  */
 
 import { PlaywrightBrowser } from '../index.ts'
+import { tmpdir, homedir } from 'os'
+import { join } from 'path'
 
 const VOICE_SERVER = 'http://localhost:8888/notify'
-const STATE_FILE = '/tmp/browser-session.json'
+const STATE_FILE = join(tmpdir(), 'browser-session.json')
 const DEFAULT_PORT = 9222
 const SESSION_TIMEOUT = 5000 // 5s to wait for session start
-const SETTINGS_PATH = `${process.env.HOME}/.claude/settings.json`
+const SETTINGS_PATH = join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude', 'settings.json')
 
 // ============================================
 // SETTINGS
@@ -318,7 +320,7 @@ async function debugUrl(url: string): Promise<void> {
 
   // Take screenshot
   const timestamp = Date.now()
-  const screenshotPath = `/tmp/browse-${timestamp}.png`
+  const screenshotPath = join(tmpdir(), `browse-${timestamp}.png`)
   await sessionCommand('screenshot', { path: screenshotPath })
 
   // Get diagnostics
@@ -424,7 +426,7 @@ async function showFailed(): Promise<void> {
 }
 
 async function takeScreenshot(path?: string): Promise<void> {
-  const screenshotPath = path || `/tmp/screenshot-${Date.now()}.png`
+  const screenshotPath = path || join(tmpdir(), `screenshot-${Date.now()}.png`)
   await sessionCommand('screenshot', { path: screenshotPath })
   console.log(`📸 Screenshot: ${screenshotPath}`)
 }

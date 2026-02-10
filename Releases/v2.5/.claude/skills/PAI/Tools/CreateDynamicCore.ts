@@ -11,8 +11,9 @@
 
 import { readdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME || process.env.USERPROFILE || homedir();
 const CORE_DIR = join(HOME, ".claude/skills/PAI");
 const COMPONENTS_DIR = join(CORE_DIR, "Components");
 const ALGORITHM_DIR = join(COMPONENTS_DIR, "Algorithm");

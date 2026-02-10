@@ -20,8 +20,9 @@
 import { readdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import { homedir } from "os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME || process.env.USERPROFILE || homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
 
 // =============================================================================
@@ -32,6 +33,11 @@ type DisplayMode = "nano" | "micro" | "mini" | "normal";
 
 function getTerminalWidth(): number {
   let width: number | null = null;
+
+  // Tier 0: process.stdout.columns (cross-platform, works on Windows)
+  if (process.stdout.columns) {
+    return process.stdout.columns;
+  }
 
   // Tier 1: Kitty IPC
   const kittyWindowId = process.env.KITTY_WINDOW_ID;

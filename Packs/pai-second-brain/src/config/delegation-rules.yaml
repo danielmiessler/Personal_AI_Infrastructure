@@ -1,0 +1,319 @@
+# Delegation Rules Configuration
+#
+# This configuration defines how tasks are assessed and delegated to subagents
+# based on complexity, type, and context budget state.
+
+version: "1.0.0"
+description: "Rules for mandatory task delegation in Second Brain architecture"
+
+# Core principle
+principle: "NEVER EXECUTE DIRECTLY. ALWAYS DELEGATE."
+
+# Complexity assessment rules
+complexity_assessment:
+
+  # Simple tasks - 1 subagent minimum
+  simple:
+    description: "Quick, single-step operations"
+    minimum_subagents: 1
+    indicators:
+      - "Single file read/write"
+      - "Quick lookup or search"
+      - "Simple fact retrieval"
+      - "One-step operation"
+      - "< 5 minute estimated time"
+    keywords:
+      - "what is"
+      - "show me"
+      - "read"
+      - "list"
+      - "find"
+      - "check"
+    delegation_mode: "single_agent"
+
+  # Medium tasks - 2 subagents minimum
+  medium:
+    description: "Multi-step or multi-file operations"
+    minimum_subagents: 2
+    indicators:
+      - "Multi-file analysis"
+      - "Research with multiple sources"
+      - "Implementation with testing"
+      - "Comparative analysis"
+      - "5-30 minute estimated time"
+    keywords:
+      - "analyze"
+      - "compare"
+      - "research"
+      - "implement"
+      - "review"
+      - "investigate"
+    delegation_mode: "parallel_execution"
+
+  # Complex tasks - 3+ subagents minimum
+  complex:
+    description: "Strategic decisions or multi-perspective analysis"
+    minimum_subagents: 3
+    recommended_subagents: 4
+    indicators:
+      - "Strategic decision"
+      - "Architecture choice"
+      - "Business direction"
+      - "Multi-perspective needed"
+      - "> 30 minute estimated time"
+      - "High impact/risk"
+    keywords:
+      - "should I"
+      - "which is better"
+      - "decide"
+      - "strategy"
+      - "approach"
+      - "recommend"
+      - "trade-off"
+      - "pros and cons"
+    delegation_mode: "debate_synthesis"
+
+# Question detection patterns
+question_patterns:
+
+  # Decision questions - always complex
+  decision:
+    patterns:
+      - "should I"
+      - "should we"
+      - "which should"
+      - "what should"
+      - "is it better to"
+      - "would it be better"
+    complexity: "complex"
+    reason: "Decisions benefit from multiple perspectives"
+
+  # Strategic questions - always complex
+  strategic:
+    patterns:
+      - "strategy for"
+      - "approach to"
+      - "how to position"
+      - "direction"
+      - "roadmap"
+      - "long-term"
+    complexity: "complex"
+    reason: "Strategy requires diverse cognitive frameworks"
+
+  # Comparison questions - medium or complex
+  comparison:
+    patterns:
+      - "compare"
+      - "versus"
+      - "vs"
+      - "difference between"
+      - "trade-offs"
+    complexity: "medium"
+    upgrade_to_complex_if:
+      - "involves strategic impact"
+      - "multiple stakeholders"
+      - "reversibility concerns"
+
+  # Research questions - medium
+  research:
+    patterns:
+      - "research"
+      - "investigate"
+      - "look into"
+      - "find out about"
+      - "learn about"
+    complexity: "medium"
+    reason: "Research benefits from parallel exploration"
+
+  # Lookup questions - simple
+  lookup:
+    patterns:
+      - "what is"
+      - "where is"
+      - "show me"
+      - "list"
+      - "find"
+    complexity: "simple"
+    reason: "Quick retrieval, single perspective sufficient"
+
+# Agent type routing
+agent_routing:
+
+  # File operations
+  file_operations:
+    read_file:
+      agent_type: "general-purpose"
+      complexity: "simple"
+      prompt_template: "Read and summarize: {file_path}"
+
+    analyze_file:
+      agent_type: "general-purpose"
+      complexity: "medium"
+      prompt_template: "Analyze {file_path} for: {analysis_type}"
+
+    multi_file_analysis:
+      agent_type: "general-purpose"
+      complexity: "medium"
+      parallel: true
+      prompt_template: "Analyze files in {directory} for: {criteria}"
+
+  # Code operations
+  code_operations:
+    code_review:
+      agent_type: "general-purpose"
+      complexity: "medium"
+      perspectives:
+        - "security"
+        - "architecture"
+      prompt_template: "Review code from {perspective} perspective"
+
+    implementation:
+      agent_type: "general-purpose"
+      complexity: "medium"
+      prompt_template: "Implement {feature} following: {requirements}"
+
+    architecture_decision:
+      agent_type: "general-purpose"
+      complexity: "complex"
+      perspectives:
+        - "advocate_option_a"
+        - "advocate_option_b"
+        - "devils_advocate"
+      prompt_template: "Argue for {position} regarding {decision}"
+
+  # Strategic operations
+  strategic_operations:
+    business_decision:
+      agent_type: "general-purpose"
+      complexity: "complex"
+      minimum_subagents: 3
+      perspectives:
+        - "optimist"
+        - "pessimist"
+        - "pragmatist"
+        - "contrarian"
+      prompt_template: "Analyze {decision} from {perspective} viewpoint"
+
+    strategy_development:
+      agent_type: "general-purpose"
+      complexity: "complex"
+      minimum_subagents: 4
+      perspectives:
+        - "market_analysis"
+        - "competitive_analysis"
+        - "resource_analysis"
+        - "risk_analysis"
+      prompt_template: "Develop strategy for {goal} focusing on {perspective}"
+
+# Context-aware adjustments
+context_adjustments:
+
+  # When context is filling, increase delegation
+  by_context_level:
+    optimal:
+      delegation_modifier: 1.0
+      behavior: "normal"
+
+    caution:
+      delegation_modifier: 1.5
+      behavior: "prefer_delegation_over_direct"
+      force_delegate:
+        - "file_reading"
+        - "research"
+
+    warning:
+      delegation_modifier: 2.0
+      behavior: "mandatory_delegation"
+      force_delegate:
+        - "all_operations"
+      direct_execution_allowed: false
+
+    critical:
+      delegation_modifier: "max"
+      behavior: "emergency_delegation"
+      force_delegate:
+        - "everything"
+      only_allow: "coordination"
+
+# Debate configuration for complex tasks
+debate_config:
+
+  # Minimum perspectives for debate
+  minimum_perspectives: 3
+
+  # Recommended perspective combinations
+  perspective_templates:
+
+    binary_decision:
+      description: "A vs B choices"
+      perspectives:
+        - "advocate_a"
+        - "advocate_b"
+        - "devils_advocate"
+
+    strategic_decision:
+      description: "High-stakes strategic choices"
+      perspectives:
+        - "optimist"
+        - "pessimist"
+        - "pragmatist"
+        - "contrarian"
+
+    technical_decision:
+      description: "Architecture/technology choices"
+      perspectives:
+        - "simplicity_advocate"
+        - "scalability_advocate"
+        - "security_advocate"
+        - "maintainability_advocate"
+
+    business_decision:
+      description: "Business direction choices"
+      perspectives:
+        - "growth_focused"
+        - "profitability_focused"
+        - "risk_averse"
+        - "disruptor"
+
+  # Rebuttal rounds
+  rebuttals:
+    enabled: true
+    max_rounds: 2
+
+  # Synthesis requirements
+  synthesis:
+    required: true
+    must_include:
+      - "core_tension"
+      - "agreement_points"
+      - "friction_insight"
+      - "recommendation"
+      - "remaining_uncertainty"
+
+# Validation rules
+validation:
+
+  # Never skip delegation
+  never_skip_for:
+    - "file_reading"
+    - "code_execution"
+    - "research"
+    - "analysis"
+    - "decisions"
+
+  # Always spawn minimum agents
+  enforce_minimum_agents: true
+
+  # Exception handling
+  exceptions:
+    none: "There are no exceptions to delegation"
+    message: "The answer to 'Should I delegate?' is ALWAYS YES"
+
+# Self-check prompts
+self_check:
+  before_execution:
+    - "Am I about to execute directly? → STOP"
+    - "Have I spawned a subagent? → If no, STOP"
+    - "Is this staying in main context? → If yes, STOP"
+    - "Have I assessed complexity correctly?"
+    - "Am I meeting minimum subagent count?"

@@ -390,7 +390,7 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: boolean; local?: boolean }) {
+async function cmdLaunch(options: { mcp?: string; resume?: boolean | string; skipPerms?: boolean; local?: boolean }) {
   displayBanner();
   const args = ["claude"];
 
@@ -406,6 +406,9 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
   // Use --dangerous flag explicitly if you really need to skip all permission checks.
   if (options.resume) {
     args.push("--resume");
+    if (typeof options.resume === "string") {
+      args.push(options.resume);
+    }
   }
 
   // Change to PAI directory unless --local flag is set
@@ -624,7 +627,7 @@ async function main() {
 
   // Parse arguments
   let mcp: string | undefined;
-  let resume = false;
+  let resume: boolean | string = false;
   let skipPerms = true;
   let local = false;
   let command: string | undefined;
@@ -649,9 +652,17 @@ async function main() {
         }
         break;
       case "-r":
-      case "--resume":
-        resume = true;
+      case "--resume": {
+        const COMMANDS = new Set(["update", "version", "help", "profiles", "mcp", "prompt"]);
+        const nextResume = args[i + 1];
+        if (nextResume && !nextResume.startsWith("-") && !COMMANDS.has(nextResume)) {
+          resume = nextResume;
+          i++;
+        } else {
+          resume = true;
+        }
         break;
+      }
       case "--safe":
         skipPerms = false;
         break;

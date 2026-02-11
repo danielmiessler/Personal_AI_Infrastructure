@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun run:*)",
+      "Bash(echo:*)",
+      "Bash(EXIT_CODE=$?)",
+      "Bash(bun -e:*)",
+      "Bash(PACK=\"C:/Users/David/Documents/GitHub/PAI/Packs/pai-core-install/src/skills/CORE/USER\")",
+      "Bash(DEST=\"$HOME/.claude/skills/CORE/USER\")",
+      "Bash(for f in README.md BASICINFO.md CONTACTS.md DAIDENTITY.md TECHSTACKPREFERENCES.md ASSETMANAGEMENT.md DEFINITIONS.md CORECONTENT.md RESUME.md REMINDERS.md ALGOPREFS.md ART.md ABOUTME.md TELOS.md)",
+      "Bash(do cp \"$PACK/$f\" \"$DEST/$f\")",
+      "Bash(done)",
+      "Bash(PACK=\"C:/Users/David/Documents/GitHub/PAI/Packs/pai-core-install/src/skills/CORE/SYSTEM\")",
+      "Bash(DEST=\"$HOME/.claude/skills/CORE/SYSTEM\")",
+      "Bash(for f in README.md PAISYSTEMARCHITECTURE.md SKILLSYSTEM.md MEMORYSYSTEM.md THEHOOKSYSTEM.md THEDELEGATIONSYSTEM.md THENOTIFICATIONSYSTEM.md AGENTS.md ACTIONS.md PIPELINES.md TOOLS.md CLIFIRSTARCHITECTURE.md THEFABRICSYSTEM.md SCRAPINGREFERENCE.md TERMINALTABS.md DOCUMENTATIONINDEX.md BACKUPS.md)",
+      "Bash(PAI_DIR=\"$HOME/.claude\")",
+      "Bash([ -f \"$PAI_DIR/skills/CORE/SKILL.md\" ])",
+      "Bash(PAI_DIR=\"C:/Users/David/.claude\" bun:*)"
+    ]
+  }
+}

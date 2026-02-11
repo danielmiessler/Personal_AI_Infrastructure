@@ -1,0 +1,8 @@
+{
+  "env": {
+    "DA": "Zapper",
+    "TIME_ZONE": "America/Chicago",
+    "PAI_DIR": "undefined/.claude",
+    "PAI_SOURCE_APP": "Zapper"
+  }
+}

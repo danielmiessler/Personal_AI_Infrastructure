@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{title}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1e1e2e; color: #cdd6f4; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .header { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .meta { font-size: 13px; color: #a6adc8; }
+    .chart-container { width: 100%; height: calc(100vh - 60px); }
+    .marker-info {
+      position: absolute; top: 70px; right: 24px; background: #313244;
+      padding: 12px 16px; border-radius: 8px; font-size: 13px; z-index: 10;
+    }
+    .marker-info .entry { color: #a6e3a1; }
+    .marker-info .exit { color: #f38ba8; }
+    .marker-info .level { color: #89b4fa; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{ticker}} &mdash; {{date}}</h1>
+    <div class="meta">{{interval}} candles</div>
+  </div>
+
+  {{#if hasEntry}}
+  <div class="marker-info">
+    {{#if hasEntry}}<div class="entry">Entry: ${{entryPrice}}{{#if entryTime}} @ {{entryTime}}{{/if}}</div>{{/if}}
+    {{#if hasExit}}<div class="exit">Exit: ${{exitPrice}}{{#if exitTime}} @ {{exitTime}}{{/if}}</div>{{/if}}
+    {{#if hasLevels}}<div class="level">Levels: {{levelsJson}}</div>{{/if}}
+  </div>
+  {{/if}}
+
+  <div id="chart" class="chart-container"></div>
+
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+    const chartEl = document.getElementById('chart');
+    const chart = LightweightCharts.createChart(chartEl, {
+      layout: { background: { color: '#1e1e2e' }, textColor: '#cdd6f4' },
+      grid: { vertLines: { color: '#313244' }, horzLines: { color: '#313244' } },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: '#45475a' },
+      timeScale: { borderColor: '#45475a', timeVisible: true, secondsVisible: false },
+    });
+
+    // Candlestick data
+    const rawCandles = {{{candlesJson}}};
+    const candles = rawCandles.map(c => ({
+      time: Math.floor(new Date(c.time).getTime() / 1000),
+      open: c.open, high: c.high, low: c.low, close: c.close,
+    }));
+    const volumes = rawCandles.map(c => ({
+      time: Math.floor(new Date(c.time).getTime() / 1000),
+      value: c.volume || 0,
+      color: c.close >= c.open ? 'rgba(166,227,161,0.3)' : 'rgba(243,139,168,0.3)',
+    }));
+
+    // Candlestick series
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: '#a6e3a1', downColor: '#f38ba8',
+      borderUpColor: '#a6e3a1', borderDownColor: '#f38ba8',
+      wickUpColor: '#a6e3a1', wickDownColor: '#f38ba8',
+    });
+    candleSeries.setData(candles);
+
+    // Volume histogram
+    const volumeSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+    });
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+    volumeSeries.setData(volumes);
+
+    // VWAP overlay
+    const rawVwap = {{{vwapJson}}};
+    const vwapData = rawVwap.map(v => ({
+      time: Math.floor(new Date(v.time).getTime() / 1000),
+      value: v.value,
+    }));
+    const vwapSeries = chart.addLineSeries({
+      color: '#f9e2af', lineWidth: 2, lineStyle: 0, title: 'VWAP',
+    });
+    vwapSeries.setData(vwapData);
+
+    // Entry/exit markers
+    const markers = [];
+    {{#if hasEntry}}
+    if (candles.length > 0) {
+      const entryTime = '{{entryTime}}';
+      let entryCandle = candles[0];
+      if (entryTime) {
+        const [h, m] = entryTime.split(':').map(Number);
+        const targetMins = h * 60 + m;
+        entryCandle = candles.reduce((best, c) => {
+          const d = new Date(c.time * 1000);
+          const cMins = d.getUTCHours() * 60 + d.getUTCMinutes();
+          const bMins = new Date(best.time * 1000).getUTCHours() * 60 + new Date(best.time * 1000).getUTCMinutes();
+          return Math.abs(cMins - targetMins) < Math.abs(bMins - targetMins) ? c : best;
+        }, candles[0]);
+      }
+      markers.push({
+        time: entryCandle.time, position: 'belowBar',
+        color: '#a6e3a1', shape: 'arrowUp', text: 'Entry ${{entryPrice}}',
+      });
+    }
+    {{/if}}
+    {{#if hasExit}}
+    if (candles.length > 0) {
+      const exitTime = '{{exitTime}}';
+      let exitCandle = candles[candles.length - 1];
+      if (exitTime) {
+        const [h, m] = exitTime.split(':').map(Number);
+        const targetMins = h * 60 + m;
+        exitCandle = candles.reduce((best, c) => {
+          const d = new Date(c.time * 1000);
+          const cMins = d.getUTCHours() * 60 + d.getUTCMinutes();
+          const bMins = new Date(best.time * 1000).getUTCHours() * 60 + new Date(best.time * 1000).getUTCMinutes();
+          return Math.abs(cMins - targetMins) < Math.abs(bMins - targetMins) ? c : best;
+        }, candles[0]);
+      }
+      markers.push({
+        time: exitCandle.time, position: 'aboveBar',
+        color: '#f38ba8', shape: 'arrowDown', text: 'Exit ${{exitPrice}}',
+      });
+    }
+    {{/if}}
+    if (markers.length > 0) {
+      markers.sort((a, b) => a.time - b.time);
+      candleSeries.setMarkers(markers);
+    }
+
+    // Support/resistance levels
+    {{#if hasLevels}}
+    const levels = {{{levelsJson}}};
+    const levelColors = ['#89b4fa', '#cba6f7', '#94e2d5', '#fab387'];
+    levels.forEach((level, i) => {
+      candleSeries.createPriceLine({
+        price: level,
+        color: levelColors[i % levelColors.length],
+        lineWidth: 1, lineStyle: 2,
+        axisLabelVisible: true, title: '$' + level,
+      });
+    });
+    {{/if}}
+
+    // Entry/exit price lines
+    {{#if hasEntry}}
+    candleSeries.createPriceLine({
+      price: {{entryPrice}}, color: '#a6e3a1',
+      lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'Entry',
+    });
+    {{/if}}
+    {{#if hasExit}}
+    candleSeries.createPriceLine({
+      price: {{exitPrice}}, color: '#f38ba8',
+      lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'Exit',
+    });
+    {{/if}}
+
+    chart.timeScale().fitContent();
+    window.addEventListener('resize', () => {
+      chart.applyOptions({ width: chartEl.clientWidth, height: chartEl.clientHeight });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Trade: {{id}}
+
+| Field | Value |
+|-------|-------|
+| **Ticker** | {{ticker}} |
+| **Side** | {{side}} |
+| **Entry** | ${{entry_avg}} @ {{entry_time}} |
+| **Exit** | ${{exit_avg}} @ {{exit_time}} |
+| **Shares** | {{total_shares}} |
+| **P&L** | {{#if positive}}+{{/if}}${{net_pnl}} |
+| **Fees** | ${{fees}} |
+| **Duration** | {{duration_mins}} min |
+| **Fills** | {{fills}} |
+| **Account(s)** | {{#each accounts}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} |
+| **Setup** | {{#if setup}}{{setup}}{{else}}*(untagged)*{{/if}} |
+
+{{#if chart}}
+**Chart:** {{chart}}
+{{/if}}
+
+{{#if notes}}
+## Notes
+{{notes}}
+{{/if}}
+
+---
+
+### R-Multiple
+
+{{#if risk_per_share}}
+| Metric | Value |
+|--------|-------|
+| Risk/Share | ${{risk_per_share}} |
+| R-Multiple | {{r_multiple}}R |
+| Result | {{#if positive}}Winner{{else}}Loser{{/if}} |
+{{else}}
+*Annotate this trade with a setup and stop price to calculate R-multiple.*
+{{/if}}

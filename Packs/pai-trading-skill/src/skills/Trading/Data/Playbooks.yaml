@@ -1,0 +1,149 @@
+# SMB Capital-Style Intraday Playbooks
+# Each playbook defines a repeatable setup with clear entry/stop/target rules.
+# Add your own setups as you discover them. Grade each trade against these.
+
+playbooks:
+  - name: Opening Range Breakout (ORB)
+    id: orb
+    category: momentum
+    timeframe: "9:30-10:00 range"
+    description: >
+      Stock establishes a range in the first 15-30 minutes, then breaks out
+      with volume. Trade the breakout direction with a stop below the range.
+    criteria:
+      - Stock has a catalyst (earnings, news, upgrade)
+      - Gap up/down >2% on above-average pre-market volume
+      - Clean opening range forms in first 15-30 minutes
+      - Relative volume (RVOL) > 2.0 at breakout
+    entry_rules:
+      - Enter on break above/below the opening range high/low
+      - Confirm with volume surge (>1.5x average bar volume)
+      - Wait for a 1-min candle to close outside the range
+    stop_rules:
+      - Stop at opposite side of the opening range
+      - If range is too wide (>2% of price), use VWAP as stop
+      - Max risk per share should stay within RiskRules limits
+    target_rules:
+      - Target 1 (1R): Equal to risk distance from entry
+      - Target 2 (2R): 2x risk distance — take partial profits
+      - Target 3 (3R+): Trail stop using 5-min moving average or VWAP
+    notes:
+      - Best in first 30 minutes after the range establishes
+      - Avoid if the range is choppy or volume is declining
+      - Works best on stocks gapping into new highs/lows
+
+  - name: VWAP Reclaim
+    id: vwap-reclaim
+    category: mean-reversion
+    timeframe: "10:00+"
+    description: >
+      Stock sells off below VWAP early in the session, then reclaims VWAP
+      with conviction. Trade the reclaim as a mean-reversion long.
+    criteria:
+      - Stock was strong pre-market but sold off after open
+      - Price dips below VWAP on declining volume
+      - Stock holds a higher low near a key support level
+      - Volume picks up as price approaches VWAP from below
+    entry_rules:
+      - Enter on first 1-min close above VWAP after the reclaim
+      - Alternatively, enter on pullback to VWAP after initial reclaim
+      - Confirmation: increasing bid-side volume
+    stop_rules:
+      - Stop just below the higher low that preceded the reclaim
+      - Or stop at LOD (low of day) if it's within risk tolerance
+      - Tight stop — this is a precision setup
+    target_rules:
+      - Target 1 (1R): Pre-market high or morning high
+      - Target 2 (2R): New HOD push
+      - Target 3: Trail with VWAP — if it holds above, stay in
+    notes:
+      - Most reliable between 10:00-11:30 AM
+      - Avoid if overall market is weak and trending down
+      - Stronger when stock has positive catalyst
+
+  - name: First Pullback (Bull Flag)
+    id: first-pullback
+    category: momentum
+    timeframe: "9:45-11:00"
+    description: >
+      After a strong opening move, stock pulls back on low volume forming
+      a bull flag pattern. Enter on the breakout of the flag.
+    criteria:
+      - Strong opening move (>3% from open) on heavy volume
+      - Pullback on declining volume (flag portion)
+      - Flag holds above VWAP or key intraday support
+      - Duration of flag: 5-15 minutes typical
+    entry_rules:
+      - Enter on break above the flag high with volume confirmation
+      - Can enter at the bottom of the flag if support is very clear
+      - Use a 1-min chart for precise entry timing
+    stop_rules:
+      - Stop below the flag low
+      - If flag low is below VWAP, use VWAP as stop instead
+      - Risk should not exceed 1% of stock price
+    target_rules:
+      - Target 1 (1R): Measured move equal to the initial leg up
+      - Target 2 (2R): Extension to next resistance level
+      - Target 3: Trail stop behind each new higher low
+    notes:
+      - The FIRST pullback is the highest-probability one
+      - Later pullbacks have diminishing returns
+      - Best on stocks making new 52-week highs on catalyst
+
+  - name: Red to Green
+    id: red-to-green
+    category: reversal
+    timeframe: "First 2 hours"
+    description: >
+      Stock gaps down or opens red, finds a bottom, then reverses through
+      the previous close (red to green move). Trade the reversal.
+    criteria:
+      - Stock opens red (below previous close) on news/earnings
+      - Selling volume exhausts in first 15-30 minutes
+      - Price forms a clear bottoming pattern (double bottom, hammer)
+      - Relative strength vs sector/market appears
+    entry_rules:
+      - Enter on break above previous close (the "green" level)
+      - Or enter at the confirmed bottom with stop below LOD
+      - Volume should increase on the reversal candles
+    stop_rules:
+      - Stop below the intraday low (the confirmed bottom)
+      - If LOD is too far, use the most recent higher low
+      - This is a wider-stop setup — size down accordingly
+    target_rules:
+      - Target 1 (1R): Gap fill level or pre-market high
+      - Target 2 (2R): Previous day's high
+      - Target 3: Extended move if catalyst supports it
+    notes:
+      - Works best when the gap down was an overreaction
+      - Avoid if the stock has genuine fundamental problems
+      - Watch for short squeeze acceleration on the reversal
+
+  - name: Breakdown Short
+    id: breakdown-short
+    category: momentum
+    timeframe: Any
+    description: >
+      Stock loses a key support level (VWAP, prior day low, consolidation low)
+      on increasing volume. Short the breakdown.
+    criteria:
+      - Stock is weak relative to the market
+      - Approaching a clear support level with declining bounces
+      - Volume increases on down moves, decreases on bounces
+      - No major support levels close below (room to fall)
+    entry_rules:
+      - Short on break below the support level
+      - Confirm with volume (>1.5x average on the breakdown bar)
+      - Or short the first lower-high retest of broken support
+    stop_rules:
+      - Stop above the broken support level (now resistance)
+      - Or stop above the most recent lower high
+      - Keep stops tight — breakdowns can reverse quickly
+    target_rules:
+      - Target 1 (1R): Next support level below
+      - Target 2 (2R): Measured move equal to the prior consolidation range
+      - Target 3: Trail stop above each new lower high
+    notes:
+      - Strongest when overall market is also weak
+      - Avoid shorting into major support (200 DMA, round numbers)
+      - Best after 10:30 AM when morning buying pressure fades

@@ -1,0 +1,61 @@
+# Risk Management Rules
+# Personalized at install time. These are conservative defaults.
+# Modify via the Playbooks workflow or edit directly.
+
+config:
+  trade_review_path: "C:/Users/David/OneDrive/Documents/Trade_Review"
+  chart_output_path: "Data/TradeLog/charts"
+
+account:
+  size: 25000                    # Total account capital
+  max_daily_loss: 500            # 2% of account — hard stop for the day
+  max_daily_loss_pct: 2.0
+  max_risk_per_trade: 125        # 0.5% of account — max loss on a single trade
+  max_risk_per_trade_pct: 0.5
+
+position:
+  max_position_size: 5000        # 20% of account in a single stock
+  max_position_pct: 20.0
+  max_concurrent_positions: 3    # No more than 3 open at once
+  max_shares_per_trade: 1000     # Safety cap
+
+risk_reward:
+  minimum_rr: 2.0                # Minimum 2:1 reward-to-risk
+  scale_out:
+    - level: 1R
+      action: "Sell 1/3 of position, move stop to breakeven"
+    - level: 2R
+      action: "Sell 1/3 of position, trail stop at 1R"
+    - level: 3R
+      action: "Sell remaining or trail with 5-min MA"
+
+behavioral:
+  - rule: "No revenge trading — if you hit max daily loss, stop trading"
+    category: discipline
+  - rule: "Honor your stops — never widen a stop after entry"
+    category: discipline
+  - rule: "Wait for your setup — no FOMO entries on extended moves"
+    category: patience
+  - rule: "Size down after 2 consecutive losses"
+    category: risk
+  - rule: "No trading in the last 15 minutes unless managing existing positions"
+    category: timing
+  - rule: "Review every trade at end of day — no exceptions"
+    category: review
+  - rule: "Take partials at 1R — never let a winner turn into a loser"
+    category: profit-taking
+  - rule: "Pre-market prep is mandatory — no plan, no trade"
+    category: preparation
+
+time_rules:
+  market_open: "09:30"
+  market_close: "16:00"
+  best_trading_window: "09:30-11:30"
+  avoid_window: "12:00-14:00"    # Lunch chop
+  power_hour: "15:00-16:00"
+  no_new_trades_after: "15:45"
+
+database:
+  provider: "sqlite"              # "sqlite" or "postgres"
+  sqlite_path: "Data/trades.db"   # Relative to skill dir
+  postgres_url: ""                # postgres://user:pass@host:5432/trades (for future)

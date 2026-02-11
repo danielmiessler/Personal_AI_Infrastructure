@@ -1,0 +1,66 @@
+# Session Review — {{date}}
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Trades | {{summary.total_trades}} |
+| Total P&L | {{#if summary.positive}}+{{/if}}${{summary.total_pnl}} |
+| Win Rate | {{summary.win_rate}}% ({{summary.winners}}W / {{summary.losers}}L / {{summary.breakeven}}BE) |
+| Symbols | {{#each summary.symbols}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} |
+
+---
+
+## Trades
+
+| # | ID | Side | Shares | Entry | Exit | P&L | Time | Setup |
+|---|-----|------|--------|-------|------|-----|------|-------|
+{{#each trades}}
+| {{@index}} | {{id}} | {{side}} | {{total_shares}} | ${{entry_avg}} | ${{exit_avg}} | {{#if positive}}+{{/if}}${{net_pnl}} | {{entry_time}}-{{exit_time}} | {{#if setup}}{{setup}}{{else}}—{{/if}} |
+{{/each}}
+
+---
+
+## Best & Worst
+
+{{#if bestTrade}}
+**Best Trade:** {{bestTrade.id}} ({{bestTrade.ticker}}) +${{bestTrade.net_pnl}}
+{{#if bestTrade.setup}}Setup: {{bestTrade.setup}}{{/if}}
+{{/if}}
+
+{{#if worstTrade}}
+**Worst Trade:** {{worstTrade.id}} ({{worstTrade.ticker}}) ${{worstTrade.net_pnl}}
+{{#if worstTrade.setup}}Setup: {{worstTrade.setup}}{{/if}}
+{{/if}}
+
+---
+
+## Setup Breakdown
+
+| Setup | Trades | P&L | Win Rate |
+|-------|--------|-----|----------|
+{{#each setupBreakdown}}
+| {{name}} | {{count}} | {{#if positive}}+{{/if}}${{pnl}} | {{winRate}}% |
+{{/each}}
+
+---
+
+## SMB Capital Reflection
+
+1. **Best trade and why:**
+   {{#if reflections.bestTradeWhy}}{{reflections.bestTradeWhy}}{{else}}*[To be filled]*{{/if}}
+
+2. **Worst trade and why:**
+   {{#if reflections.worstTradeWhy}}{{reflections.worstTradeWhy}}{{else}}*[To be filled]*{{/if}}
+
+3. **Did you follow your playbook?**
+   {{#if reflections.followedPlaybook}}{{reflections.followedPlaybook}}{{else}}*[To be filled]*{{/if}}
+
+4. **One thing to improve tomorrow:**
+   {{#if reflections.improveTomorrow}}{{reflections.improveTomorrow}}{{else}}*[To be filled]*{{/if}}
+
+5. **Did you honor stops and risk rules?**
+   {{#if reflections.honoredStops}}{{reflections.honoredStops}}{{else}}*[To be filled]*{{/if}}
+
+6. **Discipline rating (1-10):**
+   {{#if reflections.disciplineRating}}{{reflections.disciplineRating}}/10{{else}}*[To be filled]*{{/if}}

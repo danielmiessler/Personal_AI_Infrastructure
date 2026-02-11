@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "handlebars": "^4.7.8",
+    "yaml": "^2.8.2"
+  }
+}

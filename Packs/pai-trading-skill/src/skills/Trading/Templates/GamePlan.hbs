@@ -1,0 +1,55 @@
+# Game Plan — {{date}}
+
+## Market Context
+{{#if marketContext}}
+{{marketContext}}
+{{else}}
+*Run `uv run tradekit morning` to populate market context.*
+{{/if}}
+
+---
+
+## Stocks in Play
+
+| # | Ticker | Catalyst | Setup | Entry | Stop | Target | Risk $ | Shares |
+|---|--------|----------|-------|-------|------|--------|--------|--------|
+{{#each stocks}}
+| {{@index}} | **{{ticker}}** | {{catalyst}} | {{setup}} | {{entry}} | {{stop}} | {{target}} | ${{risk}} | {{shares}} |
+{{/each}}
+{{#unless stocks}}
+| - | — | — | — | — | — | — | — | — |
+{{/unless}}
+
+---
+
+## Risk Budget
+
+| Metric | Value |
+|--------|-------|
+| Account Size | ${{account.size}} |
+| Max Daily Loss | ${{account.maxDailyLoss}} ({{account.maxDailyLossPct}}%) |
+| Remaining Risk | ${{account.remainingRisk}} |
+| Max Risk/Trade | ${{account.maxRiskPerTrade}} |
+| Max Positions | {{account.maxConcurrent}} |
+
+---
+
+## Plan
+
+{{#each plan}}
+- {{this}}
+{{/each}}
+{{#unless plan}}
+- No plan items defined yet. Add your trading plan for the day.
+{{/unless}}
+
+---
+
+## Pre-Market Checklist
+
+- [ ] Reviewed overnight news and futures
+- [ ] Identified 2-4 stocks in play with catalysts
+- [ ] Each stock has entry/stop/target defined
+- [ ] Position sizes calculated within risk limits
+- [ ] Total risk exposure under max daily loss
+- [ ] Mental state: focused, rested, disciplined

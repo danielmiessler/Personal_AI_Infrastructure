@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ${PAI_DIR}/Packs/pai-system-gemini/dist/adapter.js"
+      }
+    ],
+    "BeforeTool": [
+      {
+        "type": "command",
+        "command": "node ${PAI_DIR}/Packs/pai-system-gemini/dist/adapter.js"
+      }
+    ],
+    "AfterTool": [
+      {
+        "type": "command",
+        "command": "node ${PAI_DIR}/Packs/pai-system-gemini/dist/adapter.js"
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "type": "command",
+        "command": "node ${PAI_DIR}/Packs/pai-system-gemini/dist/adapter.js"
+      }
+    ]
+  }
+}

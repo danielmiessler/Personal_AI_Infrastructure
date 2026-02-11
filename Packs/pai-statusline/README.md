@@ -7,7 +7,7 @@ description: Rich terminal status line for Claude Code showing context usage, gi
 type: feature
 purpose-type: [display, observability, ux]
 platform: claude-code
-dependencies: []
+dependencies: [jq]
 keywords: [statusline, status, terminal, display, context, git, memory, learning, sparklines, quotes, ux, observability]
 ---
 
@@ -33,7 +33,7 @@ keywords: [statusline, status, terminal, display, context, git, memory, learning
 **Summary:**
 - **Files created:** 1 (statusline-command.sh)
 - **Settings updated:** statusLine configuration block
-- **Dependencies:** None (standalone feature)
+- **Dependencies:** `jq` (JSON processor - install via `apt install jq` on Linux or `brew install jq` on macOS)
 
 ## The Problem
 

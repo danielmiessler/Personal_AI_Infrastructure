@@ -16,7 +16,7 @@ import Replicate from "replicate";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { writeFile, readFile } from "node:fs/promises";
-import { extname, resolve } from "node:path";
+import { extname, resolve, dirname, basename, join } from "node:path";
 
 // ============================================================================
 // Environment Loading
@@ -382,6 +382,64 @@ function enhancePromptForTransparency(prompt: string): string {
   return transparencyPrefix + prompt;
 }
 
+type ImageFormat = "png" | "jpeg" | "webp" | "gif";
+
+function detectImageFormat(data: Buffer | Uint8Array): ImageFormat | null {
+  if (data.length < 4) return null;
+
+  // PNG: 89 50 4E 47
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) return "png";
+
+  // JPEG: FF D8 FF
+  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return "jpeg";
+
+  // GIF: 47 49 46
+  if (data.length >= 3 && data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) return "gif";
+
+  // WEBP: RIFF....WEBP
+  if (
+    data.length >= 12 &&
+    data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&
+    data[8] === 0x57 && data[9] === 0x45 && data[10] === 0x42 && data[11] === 0x50
+  ) return "webp";
+
+  return null;
+}
+
+function formatToMimeType(format: ImageFormat): string {
+  switch (format) {
+    case "png": return "image/png";
+    case "jpeg": return "image/jpeg";
+    case "webp": return "image/webp";
+    case "gif": return "image/gif";
+  }
+}
+
+function normalizeExt(ext: string): string {
+  if (ext === ".jpg") return ".jpeg";
+  return ext;
+}
+
+function outputPathWithDetectedFormat(output: string, data: Buffer): string {
+  const detected = detectImageFormat(data);
+  if (!detected) return output;
+
+  const expectedExt = `.${detected}`;
+  const currentExt = normalizeExt(extname(output).toLowerCase());
+
+  if (currentExt === expectedExt) return output;
+
+  const dir = dirname(output);
+  const nameWithoutExt = currentExt ? basename(output, extname(output)) : basename(output);
+  return join(dir, `${nameWithoutExt}${expectedExt}`);
+}
+
+async function writeImageSmart(output: string, data: Buffer): Promise<string> {
+  const finalOutput = outputPathWithDetectedFormat(output, data);
+  await writeFile(finalOutput, data);
+  return finalOutput;
+}
+
 // ============================================================================
 // Background Removal
 // ============================================================================
@@ -449,7 +507,7 @@ async function removeBackground(imagePath: string): Promise<void> {
 // Image Generation
 // ============================================================================
 
-async function generateWithFlux(prompt: string, size: ReplicateSize, output: string): Promise<void> {
+async function generateWithFlux(prompt: string, size: ReplicateSize, output: string): Promise<string> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) {
     throw new CLIError("Missing environment variable: REPLICATE_API_TOKEN");
@@ -469,11 +527,16 @@ async function generateWithFlux(prompt: string, size: ReplicateSize, output: str
     },
   });
 
-  await writeFile(output, result);
-  console.log(`Image saved to ${output}`);
+  const data = result instanceof Buffer ? result : Buffer.from(result as ArrayBuffer);
+  const finalOutput = await writeImageSmart(output, data);
+  if (finalOutput !== output) {
+    console.warn(`Output format mismatch detected; saved as ${finalOutput}`);
+  }
+  console.log(`Image saved to ${finalOutput}`);
+  return finalOutput;
 }
 
-async function generateWithNanoBanana(prompt: string, size: ReplicateSize, output: string): Promise<void> {
+async function generateWithNanoBanana(prompt: string, size: ReplicateSize, output: string): Promise<string> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) {
     throw new CLIError("Missing environment variable: REPLICATE_API_TOKEN");
@@ -491,11 +554,16 @@ async function generateWithNanoBanana(prompt: string, size: ReplicateSize, outpu
     },
   });
 
-  await writeFile(output, result);
-  console.log(`Image saved to ${output}`);
+  const data = result instanceof Buffer ? result : Buffer.from(result as ArrayBuffer);
+  const finalOutput = await writeImageSmart(output, data);
+  if (finalOutput !== output) {
+    console.warn(`Output format mismatch detected; saved as ${finalOutput}`);
+  }
+  console.log(`Image saved to ${finalOutput}`);
+  return finalOutput;
 }
 
-async function generateWithGPTImage(prompt: string, size: OpenAISize, output: string): Promise<void> {
+async function generateWithGPTImage(prompt: string, size: OpenAISize, output: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new CLIError("Missing environment variable: OPENAI_API_KEY");
@@ -518,8 +586,12 @@ async function generateWithGPTImage(prompt: string, size: OpenAISize, output: st
   }
 
   const imageBuffer = Buffer.from(imageData, "base64");
-  await writeFile(output, imageBuffer);
-  console.log(`Image saved to ${output}`);
+  const finalOutput = await writeImageSmart(output, imageBuffer);
+  if (finalOutput !== output) {
+    console.warn(`Output format mismatch detected; saved as ${finalOutput}`);
+  }
+  console.log(`Image saved to ${finalOutput}`);
+  return finalOutput;
 }
 
 async function generateWithNanoBananaPro(
@@ -528,7 +600,7 @@ async function generateWithNanoBananaPro(
   aspectRatio: ReplicateSize,
   output: string,
   referenceImages?: string[]
-): Promise<void> {
+): Promise<string> {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     throw new CLIError("Missing environment variable: GOOGLE_API_KEY");
@@ -552,22 +624,19 @@ async function generateWithNanoBananaPro(
       const imageBuffer = await readFile(referenceImage);
       const imageBase64 = imageBuffer.toString("base64");
 
-      // Determine MIME type from extension
-      const ext = extname(referenceImage).toLowerCase();
-      let mimeType: string;
-      switch (ext) {
-        case ".png":
-          mimeType = "image/png";
-          break;
-        case ".jpg":
-        case ".jpeg":
-          mimeType = "image/jpeg";
-          break;
-        case ".webp":
-          mimeType = "image/webp";
-          break;
-        default:
-          throw new CLIError(`Unsupported image format: ${ext}. Supported: .png, .jpg, .jpeg, .webp`);
+      // Determine MIME type from content first, then extension fallback
+      const detectedFormat = detectImageFormat(imageBuffer);
+      let mimeType: string | null = detectedFormat ? formatToMimeType(detectedFormat) : null;
+
+      if (!mimeType) {
+        const ext = normalizeExt(extname(referenceImage).toLowerCase());
+        if (ext === ".png") mimeType = "image/png";
+        else if (ext === ".jpeg") mimeType = "image/jpeg";
+        else if (ext === ".webp") mimeType = "image/webp";
+      }
+
+      if (!mimeType) {
+        throw new CLIError(`Unsupported image format for reference image: ${referenceImage}. Supported: PNG, JPEG, WebP, GIF`);
       }
 
       parts.push({
@@ -613,8 +682,12 @@ async function generateWithNanoBananaPro(
   }
 
   const imageBuffer = Buffer.from(imageData, "base64");
-  await writeFile(output, imageBuffer);
-  console.log(`Image saved to ${output}`);
+  const finalOutput = await writeImageSmart(output, imageBuffer);
+  if (finalOutput !== output) {
+    console.warn(`Output format mismatch detected; saved as ${finalOutput}`);
+  }
+  console.log(`Image saved to ${finalOutput}`);
+  return finalOutput;
 }
 
 // ============================================================================
@@ -645,7 +718,7 @@ async function main(): Promise<void> {
       console.log(`   For true creative diversity, use the creative workflow with be-creative skill\n`);
 
       const basePath = args.output.replace(/\.png$/, "");
-      const promises: Promise<void>[] = [];
+      const promises: Promise<string>[] = [];
 
       for (let i = 1; i <= args.creativeVariations; i++) {
         const varOutput = `${basePath}-v${i}.png`;
@@ -676,12 +749,14 @@ async function main(): Promise<void> {
     }
 
     // Standard single image generation
+    let generatedOutput = args.output;
+
     if (args.model === "flux") {
-      await generateWithFlux(finalPrompt, args.size as ReplicateSize, args.output);
+      generatedOutput = await generateWithFlux(finalPrompt, args.size as ReplicateSize, args.output);
     } else if (args.model === "nano-banana") {
-      await generateWithNanoBanana(finalPrompt, args.size as ReplicateSize, args.output);
+      generatedOutput = await generateWithNanoBanana(finalPrompt, args.size as ReplicateSize, args.output);
     } else if (args.model === "nano-banana-pro") {
-      await generateWithNanoBananaPro(
+      generatedOutput = await generateWithNanoBananaPro(
         finalPrompt,
         args.size as GeminiSize,
         args.aspectRatio!,
@@ -689,31 +764,31 @@ async function main(): Promise<void> {
         args.referenceImages
       );
     } else if (args.model === "gpt-image-1") {
-      await generateWithGPTImage(finalPrompt, args.size as OpenAISize, args.output);
+      generatedOutput = await generateWithGPTImage(finalPrompt, args.size as OpenAISize, args.output);
     }
 
     // Remove background if requested
     if (args.removeBg) {
-      await removeBackground(args.output);
+      await removeBackground(generatedOutput);
     }
 
     // Add background color if requested (standalone mode)
     if (args.addBg && !args.thumbnail) {
       // For standalone --add-bg, modify the image in place
-      const tempPath = args.output.replace(/\.png$/, "-temp.png");
-      await addBackgroundColor(args.output, tempPath, args.addBg);
+      const tempPath = generatedOutput.replace(/\.[^.]+$/, "-temp.png");
+      await addBackgroundColor(generatedOutput, tempPath, args.addBg);
       // Replace original with the one with background
       const { rename } = await import("node:fs/promises");
-      await rename(tempPath, args.output);
+      await rename(tempPath, generatedOutput);
     }
 
     // Generate thumbnail with background color if requested (blog header mode)
     if (args.thumbnail) {
-      const thumbPath = args.output.replace(/\.png$/, "-thumb.png");
+      const thumbPath = generatedOutput.replace(/\.[^.]+$/, "-thumb.png");
       const THUMBNAIL_BG_COLOR = "#EAE9DF"; // UL brand background color for social previews
-      await addBackgroundColor(args.output, thumbPath, THUMBNAIL_BG_COLOR);
+      await addBackgroundColor(generatedOutput, thumbPath, THUMBNAIL_BG_COLOR);
       console.log(`\nBlog header mode: Created both versions`);
-      console.log(`   Transparent: ${args.output}`);
+      console.log(`   Transparent: ${generatedOutput}`);
       console.log(`   Thumbnail:   ${thumbPath}`);
     }
   } catch (error) {

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.example.codex-pai-bridge</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>__BUN_PATH__</string>
+      <string>__BRIDGE_PATH__</string>
+      <string>--watch</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PAI_DIR</key>
+      <string>__PAI_DIR__</string>
+      <key>CODEX_HOME</key>
+      <string>__CODEX_HOME__</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>__PAI_DIR__/bridge/logs/bridge.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PAI_DIR__/bridge/logs/bridge.err.log</string>
+  </dict>
+</plist>

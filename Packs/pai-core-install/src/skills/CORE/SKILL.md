@@ -369,4 +369,39 @@ echo "Your prompt here" | bun ~/.claude/tools/Inference.ts smart
 
 ---
 
+## Bash Scripting Guidelines
+
+**Always follow these heuristics when designing bash/shell scripts:**
+
+### 1. CLI, Not Interactive
+- Scripts must accept all inputs via command-line arguments/flags
+- No interactive prompts (no `read` commands asking for user input)
+- All configuration passable as arguments
+- Must be scriptable/automatable
+
+### 2. Single-Character Responses
+- When yes/no confirmation is unavoidable, accept "y" or "n" (not "yes" or "no")
+- Use single character for brevity
+- Prefer non-interactive flags like `-y` or `--yes` when possible
+
+### 3. Always Include Setup Script
+- New projects must include an install or setup script
+- Should handle:
+  - Dependencies installation
+  - Environment configuration
+  - Initial setup requirements
+  - Prerequisite checks
+
+---
+
+## Quick Reference
+
+**Full documentation:**
+- Skill System: `SkillSystem.md`
+- Architecture: `PaiArchitecture.md` (auto-generated)
+- Contacts: `Contacts.md`
+- Stack: `CoreStack.md`
+
+---
+
 **End of CORE skill. Full documentation in `SYSTEM/DOCUMENTATIONINDEX.md`.**

@@ -245,17 +245,12 @@ GITEOF
             "workflows_count=" + (.counts.workflows // 0 | tostring) + "\n" +
             "hooks_count=" + (.counts.hooks // 0 | tostring) + "\n" +
             "learnings_count=" + (.counts.signals // 0 | tostring) + "\n" +
-            "files_count=" + (.counts.files // 0 | tostring)
+            "files_count=" + (.counts.files // 0 | tostring) + "\n" +
+            "work_count=" + (.counts.work // 0 | tostring) + "\n" +
+            "research_count=" + (.counts.research // 0 | tostring) + "\n" +
+            "ratings_count=" + (.counts.ratings // 0 | tostring) + "\n" +
+            "sessions_count=" + (.counts.ratings // 0 | tostring)
         ' "$SETTINGS_FILE" > "$_parallel_tmp/counts.sh" 2>/dev/null
-        # Add work/sessions/research/ratings counts (not in settings.json counts section)
-        work_count=$(fd -t d -d 1 . "$PAI_DIR/MEMORY/WORK" 2>/dev/null | wc -l | tr -d ' ')
-        sessions_count=$(fd -e jsonl . "$PAI_DIR/MEMORY" 2>/dev/null | wc -l | tr -d ' ')
-        research_count=$(fd -e md -e json . "$PAI_DIR/MEMORY/RESEARCH" 2>/dev/null | wc -l | tr -d ' ')
-        ratings_count=$([ -f "$RATINGS_FILE" ] && wc -l < "$RATINGS_FILE" 2>/dev/null | tr -d ' ' || echo 0)
-        echo "work_count=$work_count" >> "$_parallel_tmp/counts.sh"
-        echo "sessions_count=$sessions_count" >> "$_parallel_tmp/counts.sh"
-        echo "research_count=$research_count" >> "$_parallel_tmp/counts.sh"
-        echo "ratings_count=$ratings_count" >> "$_parallel_tmp/counts.sh"
     else
         # Fallback: settings.json doesn't have counts yet (first run)
         # Use defaults until StopOrchestrator populates them
@@ -266,9 +261,9 @@ hooks_count=18
 learnings_count=3000
 files_count=172
 work_count=0
-sessions_count=0
 research_count=0
 ratings_count=0
+sessions_count=0
 COUNTSEOF
     fi
 } &

@@ -10,10 +10,21 @@
  * Session start → Banner reads settings.json (instant)
  * Session start → Statusline reads settings.json (instant)
  *
+ * COUNTING METHODOLOGY:
+ * - Skills: Directories in skills/ that contain a SKILL.md file
+ * - Workflows: .md files in any Workflows/ directory (recursive)
+ * - Hooks: .ts files directly in hooks/ (depth 1)
+ * - Signals: .md files in MEMORY/LEARNING/ (recursive) - learning documents
+ * - Files: All files in skills/PAI/USER/ (recursive)
+ * - Work: Directories in MEMORY/WORK/ (depth 1) - work projects
+ * - Research: .md and .json files in MEMORY/RESEARCH/ (recursive)
+ * - Ratings: Lines in ratings.jsonl (rating entries)
+ *
  * This design ensures:
  * - No spawning/execution at session start
  * - Counts are always available (no waiting)
  * - Single source of truth in settings.json
+ * - No dependency on external tools like fd
  */
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'fs';
@@ -26,6 +37,9 @@ interface Counts {
   hooks: number;
   signals: number;
   files: number;
+  work: number;
+  research: number;
+  ratings: number;
   updatedAt: string;
 }
 
@@ -113,7 +127,7 @@ function countHooks(paiDir: string): number {
 }
 
 /**
- * Count non-empty lines in a JSONL file (signals = rating entries)
+ * Count non-empty lines in a JSONL file (ratings = rating entries)
  */
 function countRatingsLines(filePath: string): number {
   try {
@@ -125,6 +139,32 @@ function countRatingsLines(filePath: string): number {
 }
 
 /**
+ * Count directories at depth 1 (work projects)
+ */
+function countWorkDirs(paiDir: string): number {
+  let count = 0;
+  const workDir = join(paiDir, 'MEMORY/WORK');
+  try {
+    for (const entry of readdirSync(workDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        count++;
+      }
+    }
+  } catch {
+    // MEMORY/WORK doesn't exist
+  }
+  return count;
+}
+
+/**
+ * Count .md and .json files in MEMORY/RESEARCH (research documents)
+ */
+function countResearchFiles(paiDir: string): number {
+  const researchDir = join(paiDir, 'MEMORY/RESEARCH');
+  return countFilesRecursive(researchDir, '.md') + countFilesRecursive(researchDir, '.json');
+}
+
+/**
  * Get all counts
  */
 function getCounts(paiDir: string): Counts {
@@ -132,8 +172,11 @@ function getCounts(paiDir: string): Counts {
     skills: countSkills(paiDir),
     workflows: countWorkflowFiles(join(paiDir, 'skills')),
     hooks: countHooks(paiDir),
-    signals: countRatingsLines(join(paiDir, 'MEMORY/LEARNING/SIGNALS/ratings.jsonl')),
+    signals: countFilesRecursive(join(paiDir, 'MEMORY/LEARNING'), '.md'),
     files: countFilesRecursive(join(paiDir, 'skills/PAI/USER')),
+    work: countWorkDirs(paiDir),
+    research: countResearchFiles(paiDir),
+    ratings: countRatingsLines(join(paiDir, 'MEMORY/LEARNING/SIGNALS/ratings.jsonl')),
     updatedAt: new Date().toISOString(),
   };
 }

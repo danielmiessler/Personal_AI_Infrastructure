@@ -18,7 +18,7 @@
  */
 
 import { inference } from '../skills/PAI/Tools/Inference';
-import { getDAName } from './lib/identity';
+import { getDAName, getSkills } from './lib/identity';
 
 // Maps inference capability names → output format for the reminder
 const CAPABILITY_MAP: Record<string, { name: string; agents: string }> = {
@@ -41,7 +41,45 @@ const THINKING_MAP: Record<string, { name: string; description: string }> = {
   prompting: { name: 'Prompting', description: 'Meta-prompting, prompt generation at scale' },
 };
 
-const CLASSIFICATION_SYSTEM_PROMPT = `You classify user prompts for an AI assistant's response depth, required capabilities, relevant skills, and thinking tools.
+// Default skills if none are configured in settings.json
+const DEFAULT_SKILLS = [
+  '- _BLOGGING: Blog workflow. Triggers: blog, website, publish, deploy, preview, write post, edit post',
+  '- _BROADCAST: Multi-platform social posting. Triggers: broadcast, tweet, post to X, LinkedIn post, cross-post',
+  '- _COMMUNICATION: Email/Discord/SMS. Triggers: send email, message, text, Discord alert',
+  '- _CLICKUP: Task management. Triggers: ClickUp, tasks, inbox, time tracking, projects',
+  '- _CONTENT: Search published content. Triggers: search content, my tweets, LinkedIn posts, newsletter search',
+  '- _DAEMON: Daemon site. Triggers: daemon, daemon site',
+  '- _DOTFILES: Dotfiles management. Triggers: dotfiles, push dotfiles, sync dotfiles, zshrc',
+  '- _INBOX: Gmail inbox. Triggers: check email, Gmail, inbox, unread, drafts, search mail',
+  '- _METRICS: Unified metrics. Triggers: metrics, stats, analytics, dashboard, traffic numbers',
+  '- _NEWS: AI news. Triggers: news, AI news, tldrsec',
+  '- _NEWSLETTER: Newsletter drafts/stats. Triggers: newsletter, draft, Beehiiv, engagement',
+  '- _OPENSOURCEMANAGEMENT: OS project management. Triggers: open source issues, pull requests, PAI issues, fabric PRs',
+  '- _PAI: PAI repository gateway. Triggers: PAI change, packs, README, documentation, releases',
+  '- _SOCIALPOST: Social content creation. Triggers: social post, create post, X post, tweet',
+  '- _SYSTEM: System maintenance. Triggers: integrity check, document session, security scan',
+  '- _TELEGRAM: Telegram bot. Triggers: telegram, send telegram',
+  '- _UL: UL business. Triggers: consulting, NDA, proposal, SOW',
+  '- _ULCOMMUNITY: UL Discord. Triggers: Discord, community, UL community',
+  '- _ULWORK: UL operations. Triggers: tasks, reminders, SOPs, work items, standard operating procedures',
+  '- Art: Visual content. Triggers: art, header images, diagrams, illustrations, visualizations',
+  '- Browser: Browser automation. Triggers: browser, screenshot, debug web, verify UI',
+  '- Cloudflare: Deploy workers. Triggers: Cloudflare, worker, deploy, Pages',
+  '- CreateSkill: Skill management. Triggers: create skill, update skill, validate skill, canonicalize',
+  '- Evals: Agent evaluation. Triggers: eval, evaluate, test agent, benchmark, regression test',
+  '- Fabric: 240+ prompt patterns. Triggers: use fabric, fabric pattern, extract wisdom, summarize',
+  '- Observability: Agent monitoring. Triggers: agent server, observability, monitor agents',
+  '- OSINT: Intelligence gathering. Triggers: OSINT, due diligence, background check, investigate',
+  '- PAIUpgrade: System improvements. Triggers: upgrade, improve system, check Anthropic, new features',
+  '- Parser: Parse URLs/files to JSON. Triggers: parse, extract, URL, transcript, YouTube, PDF',
+  '- Remotion: Video creation. Triggers: video, animation, motion graphics, render video',
+  '- WebAssessment: Web security. Triggers: web assessment, pentest, security testing, vulnerability scan',
+];
+
+function getSystemPrompt(userSkills: string[]): string {
+  const skillsList = (userSkills.length > 0 ? userSkills : DEFAULT_SKILLS).join('\n');
+
+  return `You classify user prompts for an AI assistant's response depth, required capabilities, relevant skills, and thinking tools.
 
 DEPTH LEVELS (choose exactly one):
 - FULL: Any non-trivial work. Problem-solving, analysis, implementation, design, planning, thinking, evaluation, creation. This is the DEFAULT. Use it unless the request CLEARLY fits ITERATION or MINIMAL.
@@ -56,37 +94,7 @@ CAPABILITIES (choose zero or more that would help):
 - qa: Testing, verification, validation, quality checks, browser verification
 
 SKILLS (choose zero or more matching skills — use "SkillName" or "SkillName:WorkflowName"):
-- _BLOGGING: Blog workflow. Triggers: blog, website, publish, deploy, preview, write post, edit post
-- _BROADCAST: Multi-platform social posting. Triggers: broadcast, tweet, post to X, LinkedIn post, cross-post
-- _COMMUNICATION: Email/Discord/SMS. Triggers: send email, message, text, Discord alert
-- _CLICKUP: Task management. Triggers: ClickUp, tasks, inbox, time tracking, projects
-- _CONTENT: Search published content. Triggers: search content, my tweets, LinkedIn posts, newsletter search
-- _DAEMON: Daemon site. Triggers: daemon, daemon site
-- _DOTFILES: Dotfiles management. Triggers: dotfiles, push dotfiles, sync dotfiles, zshrc
-- _INBOX: Gmail inbox. Triggers: check email, Gmail, inbox, unread, drafts, search mail
-- _METRICS: Unified metrics. Triggers: metrics, stats, analytics, dashboard, traffic numbers
-- _NEWS: AI news. Triggers: news, AI news, tldrsec
-- _NEWSLETTER: Newsletter drafts/stats. Triggers: newsletter, draft, Beehiiv, engagement
-- _OPENSOURCEMANAGEMENT: OS project management. Triggers: open source issues, pull requests, PAI issues, fabric PRs
-- _PAI: PAI repository gateway. Triggers: PAI change, packs, README, documentation, releases
-- _SOCIALPOST: Social content creation. Triggers: social post, create post, X post, tweet
-- _SYSTEM: System maintenance. Triggers: integrity check, document session, security scan
-- _TELEGRAM: Telegram bot. Triggers: telegram, send telegram
-- _UL: UL business. Triggers: consulting, NDA, proposal, SOW
-- _ULCOMMUNITY: UL Discord. Triggers: Discord, community, UL community
-- _ULWORK: UL operations. Triggers: tasks, reminders, SOPs, work items, standard operating procedures
-- Art: Visual content. Triggers: art, header images, diagrams, illustrations, visualizations
-- Browser: Browser automation. Triggers: browser, screenshot, debug web, verify UI
-- Cloudflare: Deploy workers. Triggers: Cloudflare, worker, deploy, Pages
-- CreateSkill: Skill management. Triggers: create skill, update skill, validate skill, canonicalize
-- Evals: Agent evaluation. Triggers: eval, evaluate, test agent, benchmark, regression test
-- Fabric: 240+ prompt patterns. Triggers: use fabric, fabric pattern, extract wisdom, summarize
-- Observability: Agent monitoring. Triggers: agent server, observability, monitor agents
-- OSINT: Intelligence gathering. Triggers: OSINT, due diligence, background check, investigate
-- PAIUpgrade: System improvements. Triggers: upgrade, improve system, check Anthropic, new features
-- Parser: Parse URLs/files to JSON. Triggers: parse, extract, URL, transcript, YouTube, PDF
-- Remotion: Video creation. Triggers: video, animation, motion graphics, render video
-- WebAssessment: Web security. Triggers: web assessment, pentest, security testing, vulnerability scan
+${skillsList}
 
 THINKING TOOLS (choose zero or more — these are DRAFT hints, the main agent validates in THINK phase):
 - council: Multiple valid approaches exist. Need to weigh tradeoffs. Design decisions with no clear winner.
@@ -109,6 +117,7 @@ CRITICAL RULES:
 
 Return ONLY valid JSON. No explanation, no markdown, no wrapping:
 {"depth":"FULL","capabilities":["analyst","engineer"],"skills":["CreateSkill:UpdateSkill"],"thinking":["council"]}`;
+}
 
 // Read stdin with timeout
 async function readStdin(timeout = 3000): Promise<string> {
@@ -128,8 +137,11 @@ async function classifyPrompt(prompt: string): Promise<{
   skills: string[];
   thinking: string[];
 }> {
+  const userSkills = getSkills();
+  const systemPrompt = getSystemPrompt(userSkills);
+
   const result = await inference({
-    systemPrompt: CLASSIFICATION_SYSTEM_PROMPT,
+    systemPrompt,
     userPrompt: prompt,
     level: 'standard',
     expectJson: true,
@@ -166,9 +178,9 @@ function buildReminder(
 ): string {
   const capabilitySection = capabilities.length > 0
     ? `\n⚡ DETECTED CAPABILITIES (based on your request):\n${capabilities.map(c => {
-        const cap = CAPABILITY_MAP[c];
-        return cap ? `• ${cap.name} → ${cap.agents}` : '';
-      }).filter(Boolean).join('\n')}\n\nYou SHOULD spawn these agents in BUILD/EXECUTE phases.`
+      const cap = CAPABILITY_MAP[c];
+      return cap ? `• ${cap.name} → ${cap.agents}` : '';
+    }).filter(Boolean).join('\n')}\n\nYou SHOULD spawn these agents in BUILD/EXECUTE phases.`
     : '';
 
   const skillSection = skills.length > 0
@@ -177,9 +189,9 @@ function buildReminder(
 
   const thinkingSection = thinking.length > 0
     ? `\n🧠 SUGGESTED THINKING TOOLS (Pass 1 hints — run justify-exclusion in THINK):\n${thinking.map(t => {
-        const tool = THINKING_MAP[t];
-        return tool ? `• ${tool.name} — ${tool.description}` : '';
-      }).filter(Boolean).join('\n')}`
+      const tool = THINKING_MAP[t];
+      return tool ? `• ${tool.name} — ${tool.description}` : '';
+    }).filter(Boolean).join('\n')}`
     : '';
 
   switch (depth) {

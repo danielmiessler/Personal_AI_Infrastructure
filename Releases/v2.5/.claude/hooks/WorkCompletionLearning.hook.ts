@@ -64,9 +64,9 @@ const LEARNING_DIR = join(MEMORY_DIR, 'LEARNING');
 
 interface CurrentWork {
   session_id: string;
-  work_dir: string;
+  session_dir: string;  // Must match AutoWorkCreation's field name
   created_at: string;
-  item_count: number;
+  task_count: number;
 }
 
 interface WorkMeta {
@@ -240,10 +240,15 @@ ${idealContent || 'Not specified'}
 
 async function main() {
   try {
-    // Read input from stdin (required for hook pattern)
-    const input = await Bun.stdin.text();
-    if (!input || input.trim() === '') {
-      process.exit(0);
+    // Read stdin with timeout — SessionEnd may send empty/no stdin.
+    // This hook reads state from disk files, so empty stdin is fine.
+    try {
+      await Promise.race([
+        Bun.stdin.text(),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+      ]);
+    } catch {
+      // Timeout or empty stdin — proceed anyway
     }
 
     // Check if there's an active work session
@@ -255,13 +260,13 @@ async function main() {
     // Read current work state
     const currentWork: CurrentWork = JSON.parse(readFileSync(CURRENT_WORK_FILE, 'utf-8'));
 
-    if (!currentWork.work_dir) {
+    if (!currentWork.session_dir) {
       // No work directory in current session
       process.exit(0);
     }
 
     // Read work directory metadata
-    const workPath = join(WORK_DIR, currentWork.work_dir);
+    const workPath = join(WORK_DIR, currentWork.session_dir);
     const metaPath = join(workPath, 'META.yaml');
 
     if (!existsSync(metaPath)) {
@@ -302,7 +307,7 @@ async function main() {
     // Check if this was significant work (has files changed or was manually created)
     const hasSignificantWork = (
       (workMeta.lineage?.files_changed?.length || 0) > 0 ||
-      currentWork.item_count > 1 ||
+      currentWork.task_count > 1 ||
       workMeta.source === 'MANUAL'
     );
 

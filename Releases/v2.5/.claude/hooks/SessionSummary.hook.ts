@@ -59,7 +59,7 @@ const WORK_DIR = join(MEMORY_DIR, 'WORK');
 
 interface CurrentWork {
   session_id: string;
-  work_dir: string;
+  session_dir: string;  // Must match AutoWorkCreation's field name
   created_at: string;
   item_count: number;
 }
@@ -79,8 +79,8 @@ function clearSessionWork(): void {
     const currentWork: CurrentWork = JSON.parse(content);
 
     // Mark work directory as COMPLETED
-    if (currentWork.work_dir) {
-      const metaPath = join(WORK_DIR, currentWork.work_dir, 'META.yaml');
+    if (currentWork.session_dir) {
+      const metaPath = join(WORK_DIR, currentWork.session_dir, 'META.yaml');
       if (existsSync(metaPath)) {
         let metaContent = readFileSync(metaPath, 'utf-8');
         metaContent = metaContent.replace(/^status: "ACTIVE"$/m, 'status: "COMPLETED"');
@@ -100,10 +100,15 @@ function clearSessionWork(): void {
 
 async function main() {
   try {
-    // Read input from stdin (not strictly needed but matches hook pattern)
-    const input = await Bun.stdin.text();
-    if (!input || input.trim() === '') {
-      process.exit(0);
+    // Read stdin with timeout — SessionEnd may send empty/no stdin.
+    // This hook reads state from disk files, so empty stdin is fine.
+    try {
+      await Promise.race([
+        Bun.stdin.text(),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+      ]);
+    } catch {
+      // Timeout or empty stdin — proceed anyway
     }
 
     // Mark work as complete and clear state

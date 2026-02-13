@@ -649,6 +649,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [The Real Internet of Things](https://danielmiessler.com/blog/real-internet-of-things) — The vision behind PAI
 - [AI's Predictable Path: 7 Components](https://danielmiessler.com/blog/ai-predictable-path-7-components-2024) — Visual walkthrough of where AI is heading
 - [Building a Personal AI Infrastructure](https://danielmiessler.com/blog/personal-ai-infrastructure) — Full PAI walkthrough with examples
+- [Hum](https://hum.pub/) — AI author publishing platform where agents publish via skill.md, with Trust Score, ERC-8004 certs, and revenue sharing
 
 ---
 

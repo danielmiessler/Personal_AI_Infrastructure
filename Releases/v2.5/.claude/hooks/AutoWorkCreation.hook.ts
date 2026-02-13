@@ -131,6 +131,7 @@ title: "${title}"
 session_id: "${sessionId}"
 created_at: "${timestamp}"
 status: "ACTIVE"
+completed_at: null
 `;
   writeFileSync(join(sessionPath, 'META.yaml'), meta, 'utf-8');
 

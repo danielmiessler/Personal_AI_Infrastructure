@@ -71,6 +71,7 @@ export interface Principal {
 export interface Settings {
   daidentity?: Partial<Identity>;
   principal?: Partial<Principal>;
+  skills?: string[];
   env?: Record<string, string>;
   [key: string]: unknown;
 }
@@ -169,6 +170,14 @@ export function getVoiceId(): string {
  */
 export function getSettings(): Settings {
   return loadSettings();
+}
+
+/**
+ * Get the list of personal skills from settings.json
+ */
+export function getSkills(): string[] {
+  const settings = loadSettings();
+  return Array.isArray(settings.skills) ? settings.skills : [];
 }
 
 /**

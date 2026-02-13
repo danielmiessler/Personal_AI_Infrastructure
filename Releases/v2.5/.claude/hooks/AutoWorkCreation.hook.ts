@@ -52,7 +52,12 @@ interface PromptClassification {
 const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude');
 const WORK_DIR = join(BASE_DIR, 'MEMORY', 'WORK');
 const STATE_DIR = join(BASE_DIR, 'MEMORY', 'STATE');
-const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');
+
+/** Session-scoped state file to avoid race conditions in multi-session setups */
+function currentWorkFile(sessionId?: string): string {
+  if (sessionId) return join(STATE_DIR, `current-work-${sessionId}.json`);
+  return join(STATE_DIR, 'current-work.json'); // fallback for legacy reads
+}
 
 const CLASSIFICATION_PROMPT = `Classify this user request. Return ONLY valid JSON:
 {
@@ -84,10 +89,17 @@ async function readStdinWithTimeout(timeout: number = 5000): Promise<string> {
   });
 }
 
-function readCurrentWork(): CurrentWork | null {
+function readCurrentWork(sessionId?: string): CurrentWork | null {
   try {
-    if (!existsSync(CURRENT_WORK_FILE)) return null;
-    return JSON.parse(readFileSync(CURRENT_WORK_FILE, 'utf-8'));
+    // Try session-scoped file first, fall back to legacy singleton
+    const scopedFile = sessionId ? currentWorkFile(sessionId) : null;
+    const legacyFile = currentWorkFile();
+
+    const file = (scopedFile && existsSync(scopedFile)) ? scopedFile
+               : existsSync(legacyFile) ? legacyFile
+               : null;
+    if (!file) return null;
+    return JSON.parse(readFileSync(file, 'utf-8'));
   } catch {
     return null;
   }
@@ -95,7 +107,7 @@ function readCurrentWork(): CurrentWork | null {
 
 function writeCurrentWork(state: CurrentWork): void {
   if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(CURRENT_WORK_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  writeFileSync(currentWorkFile(state.session_id), JSON.stringify(state, null, 2), 'utf-8');
 }
 
 function slugify(text: string, maxLen: number = 40): string {
@@ -290,7 +302,7 @@ async function main() {
 
     if (!existsSync(WORK_DIR)) mkdirSync(WORK_DIR, { recursive: true });
 
-    let currentWork = readCurrentWork();
+    let currentWork = readCurrentWork(sessionId);
     const isExistingSession = currentWork && currentWork.session_id === sessionId;
 
     const classification = await classifyPrompt(prompt, !!isExistingSession);

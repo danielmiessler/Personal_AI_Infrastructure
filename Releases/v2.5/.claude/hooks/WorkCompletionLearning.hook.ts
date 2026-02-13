@@ -12,7 +12,7 @@
  *
  * INPUT:
  * - stdin: Hook input JSON (session_id, transcript_path)
- * - Files: MEMORY/STATE/current-work.json, MEMORY/WORK/<dir>/META.yaml
+ * - Files: MEMORY/STATE/current-work-{session_id}.json (session-scoped), MEMORY/WORK/<dir>/META.yaml
  *
  * OUTPUT:
  * - stdout: None
@@ -24,7 +24,7 @@
  * - Reads: Current work state and work directory metadata
  *
  * INTER-HOOK RELATIONSHIPS:
- * - DEPENDS ON: AutoWorkCreation (expects WORK/ structure)
+ * - DEPENDS ON: AutoWorkCreation (expects WORK/ structure and current-work-*.json)
  * - COORDINATES WITH: SessionSummary (both run at SessionEnd)
  * - MUST RUN BEFORE: SessionSummary (captures before state is cleared)
  * - MUST RUN AFTER: Stop handlers (captures completed work)
@@ -58,9 +58,23 @@ import { getLearningCategory } from './lib/learning-utils';
 
 const MEMORY_DIR = join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude', 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
-const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');
 const LEARNING_DIR = join(MEMORY_DIR, 'LEARNING');
+
+/**
+ * Find the state file for this session.
+ * Tries session-scoped file first, falls back to legacy singleton.
+ */
+function findStateFile(sessionId?: string): string | null {
+  if (sessionId) {
+    const scoped = join(STATE_DIR, `current-work-${sessionId}.json`);
+    if (existsSync(scoped)) return scoped;
+  }
+  // Legacy fallback
+  const legacy = join(STATE_DIR, 'current-work.json');
+  if (existsSync(legacy)) return legacy;
+  return null;
+}
 
 interface CurrentWork {
   session_id: string;
@@ -240,25 +254,35 @@ ${idealContent || 'Not specified'}
 
 async function main() {
   try {
-    // Read stdin with timeout — SessionEnd may send empty/no stdin.
-    // This hook reads state from disk files, so empty stdin is fine.
+    // Read stdin with timeout — extract session_id if available
+    let sessionId: string | undefined;
     try {
-      await Promise.race([
+      const input = await Promise.race([
         Bun.stdin.text(),
         new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
       ]);
+      if (input && input.trim()) {
+        const data = JSON.parse(input);
+        sessionId = data.session_id;
+      }
     } catch {
-      // Timeout or empty stdin — proceed anyway
+      // Timeout or parse error — proceed without session_id (will use fallback)
     }
 
-    // Check if there's an active work session
-    if (!existsSync(CURRENT_WORK_FILE)) {
+    // Find the state file for this session
+    const stateFile = findStateFile(sessionId);
+    if (!stateFile) {
       // No active work session
       process.exit(0);
     }
 
     // Read current work state
-    const currentWork: CurrentWork = JSON.parse(readFileSync(CURRENT_WORK_FILE, 'utf-8'));
+    const currentWork: CurrentWork = JSON.parse(readFileSync(stateFile, 'utf-8'));
+
+    // Only process our own session's work (guard against legacy file with wrong session)
+    if (sessionId && currentWork.session_id !== sessionId) {
+      process.exit(0);
+    }
 
     if (!currentWork.session_dir) {
       // No work directory in current session

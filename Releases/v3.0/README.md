@@ -356,8 +356,8 @@ The Algorithm doesn't just learn from mistakes—it proposes its own fixes and k
 
 ```bash
 # 1. Clone the repo (if you haven't already)
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Releases/v3.0
+git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/Releases/v3.0
 
 # 2. Backup existing installation (if any)
 [ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
@@ -502,6 +502,9 @@ The Algorithm no longer relies on being smart. It relies on being systematic.
 v3.0 is a major upgrade from v2.5. The installer has been completely rebuilt and the Algorithm has changed substantially. Recommended approach:
 
 ```bash
+# Run from the Releases/v3.0 directory after cloning the repo
+# (e.g., cd Personal_AI_Infrastructure/Releases/v3.0)
+
 # 1. Backup your current installation
 mv ~/.claude ~/.claude-v2.5-backup
 

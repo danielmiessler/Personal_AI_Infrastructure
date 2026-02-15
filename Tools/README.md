@@ -4,53 +4,39 @@
 
 # Utilities
 
-> **FOR AI AGENTS:** This directory contains tools for building and maintaining PAI installations.
+> **FOR AI AGENTS:** This directory contains tools for maintaining PAI installations.
 
 ---
 
 ## Contents
 
-### Diagnostic Tools
-
-#### CheckPAIState.md
-
-**PAI Installation Diagnostic**
-
-A comprehensive diagnostic workflow for assessing PAI installation health. Give this file to an AI and ask it to check the system.
-
-**What it does:**
-- Verifies core systems are working (hooks, skills, memory)
-- Detects broken, misconfigured, or missing dependencies
-- Provides actionable recommendations for improvements
-
-**AI invocation:**
-```
-Read CheckPAIState.md and check my PAI state. Give me recommendations.
-```
-
-### Maintenance Tools
-
-#### validate-protected.ts
+### validate-protected.ts
 
 **Security Validation**
 
-Validates that PAI repository files don't contain sensitive data before committing.
+Validates that PAI repository files don't contain sensitive data before committing. Used by the pre-commit hook automatically.
 
-#### BackupRestore.ts
+### BackupRestore.ts
 
 **Backup and Restore**
 
 Create and restore backups of PAI installations.
 
+```bash
+bun BackupRestore.ts backup                    # Create timestamped backup
+bun BackupRestore.ts backup --name "pre-v3"    # Named backup
+bun BackupRestore.ts list                      # List backups
+bun BackupRestore.ts restore <backup-name>     # Restore
+```
+
 ---
 
 ## Quick Reference
 
-| File | Type | Purpose |
-|------|------|---------|
-| CheckPAIState.md | Diagnostic | Check PAI installation health |
-| validate-protected.ts | Security | Validate no sensitive data in commits |
-| BackupRestore.ts | Maintenance | Backup and restore PAI installations |
+| File | Purpose |
+|------|---------|
+| validate-protected.ts | Validate no sensitive data in commits |
+| BackupRestore.ts | Backup and restore PAI installations |
 
 ---
 

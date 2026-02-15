@@ -339,10 +339,10 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure
+cd Personal_AI_Infrastructure/Releases/v3.0
 
-# Run the installer
-bash PAI-Install/install.sh
+# Copy the release and run the installer
+cp -r .claude ~/ && cd ~/.claude && bash PAI-Install/install.sh
 ```
 
 **The installer will:**

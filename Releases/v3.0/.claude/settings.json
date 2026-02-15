@@ -696,7 +696,7 @@
       "Hydrogen-Sonata-playing"
     ]
   },
-  "plansDirectory": "~/.claude/Plans/",
+  "plansDirectory": "Plans/",
   "teammateMode": "in-process",
   "contextFiles": [
     "skills/PAI/SKILL.md",

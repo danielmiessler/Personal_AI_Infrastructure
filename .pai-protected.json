@@ -381,7 +381,14 @@
         "Releases/*/.claude/skills/WebAssessment/FfufResources/*.md",
         "Releases/*/.claude/skills/PromptInjection/*.md",
         "Releases/*/.claude/skills/Documents/Pdf/*.md",
-        "Releases/*/.claude/skills/WebAssessment/*.py"
+        "Releases/*/.claude/skills/WebAssessment/*.py",
+        "Releases/*/.claude/skills/PAI/*.md",
+        "Releases/*/.claude/skills/PAI/Components/Algorithm/*.md",
+        "Releases/*/.claude/skills/PAI/USER/PAISECURITYSYSTEM/*.md",
+        "Releases/*/.claude/skills/PAI/USER/PAISECURITYSYSTEM/*.yaml",
+        "Releases/*/.claude/skills/PAI/PAISECURITYSYSTEM/*.yaml",
+        "Releases/*/.claude/skills/Parser/Prompts/*.md",
+        "Releases/*/.claude/skills/Parser/Utils/*.ts"
       ],
       "exception_contexts": {
         "description": "Patterns that are OK when in documentation/example context",

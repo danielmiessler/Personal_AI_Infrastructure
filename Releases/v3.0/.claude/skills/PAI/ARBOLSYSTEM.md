@@ -194,7 +194,7 @@ crons = ["0 */6 * * *"]   # Every 6 hours
 | Actions | `ACTIONS.md` | Full action documentation: creation, testing, deployment |
 | Pipelines | `PIPELINES.md` | Full pipeline documentation: YAML format, composition, binding |
 | Flows | `FLOWS.md` | Full flow documentation: scheduling, sources, destinations |
-| Source Code | `~/Projects/arbol/` | Cloudflare Workers source repository |
+| Source Code | `~/Projects/your-arbol-project/` | Cloudflare Workers source repository |
 
 ---
 

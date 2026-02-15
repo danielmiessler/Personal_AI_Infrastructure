@@ -90,10 +90,10 @@ User: "deploy the MCP server to Cloudflare"
 
 **Example 2: Deploy Pages site**
 ```
-User: "deploy daemon to Cloudflare"
+User: "deploy my-app to Cloudflare"
 → Builds dist/, unsets tokens
 → Runs wrangler pages deploy
-→ "Deployed daemon to Cloudflare Pages"
+→ "Deployed my-app to Cloudflare Pages"
 ```
 
 **Example 3: Fix deployment error**

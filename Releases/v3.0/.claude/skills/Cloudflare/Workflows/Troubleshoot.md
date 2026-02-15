@@ -83,7 +83,7 @@ interface TestResult {
 }
 
 const CLOUDFLARE_ACCOUNT_ID = "your-account-id-here";
-const PROJECT_NAME = "website";
+const PROJECT_NAME = "your-project-name"; // Replace with your project
 const MAX_RETRIES = 5;
 const DEPLOYMENT_WAIT_TIME = 180000; // 3 minutes in ms
 
@@ -91,7 +91,7 @@ const DEPLOYMENT_WAIT_TIME = 180000; // 3 minutes in ms
  * Load Cloudflare API token from environment
  */
 function loadApiToken(): string {
-  const envPath = join(process.env.HOME!, "${PROJECTS_DIR}/your-site/.env");
+  const envPath = join(process.env.HOME!, "Projects/your-project/.env");
 
   try {
     const envContent = readFileSync(envPath, "utf-8");

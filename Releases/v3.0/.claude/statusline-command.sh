@@ -49,6 +49,12 @@ COUNTS_CACHE="$PAI_DIR/MEMORY/STATE/counts-cache.sh"
 # Source .env for API keys
 [ -f "${PAI_CONFIG_DIR:-$HOME/.config/PAI}/.env" ] && source "${PAI_CONFIG_DIR:-$HOME/.config/PAI}/.env"
 
+# Cross-platform file mtime (seconds since epoch)
+# macOS uses stat -f %m, Linux uses stat -c %Y
+get_mtime() {
+    stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PARSE INPUT (must happen before parallel block consumes stdin)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,9 +135,9 @@ if [ -n "$session_id" ]; then
     if [ -f "$SESSION_CACHE" ]; then
         source "$SESSION_CACHE" 2>/dev/null
         if [ "${cached_session_id:-}" = "$session_id" ] && [ -n "${cached_session_label:-}" ]; then
-            cache_mtime=$(stat -f %m "$SESSION_CACHE" 2>/dev/null || echo 0)
-            idx_mtime=$(stat -f %m "$SESSIONS_INDEX" 2>/dev/null || echo 0)
-            names_mtime=$(stat -f %m "$SESSION_NAMES_FILE" 2>/dev/null || echo 0)
+            cache_mtime=$(get_mtime "$SESSION_CACHE")
+            idx_mtime=$(get_mtime "$SESSIONS_INDEX")
+            names_mtime=$(get_mtime "$SESSION_NAMES_FILE")
             # Cache valid only if newer than BOTH sessions-index AND session-names.json
             # This catches /rename (updates index) and manual session-names.json edits
             max_source_mtime=$idx_mtime
@@ -178,7 +184,7 @@ mkdir -p "$_parallel_tmp"
 
         # Check cache validity
         if [ -f "$GIT_REPO_CACHE" ]; then
-            git_cache_mtime=$(stat -f %m "$GIT_REPO_CACHE" 2>/dev/null || echo 0)
+            git_cache_mtime=$(get_mtime "$GIT_REPO_CACHE")
             git_cache_age=$(($(date +%s) - git_cache_mtime))
             [ "$git_cache_age" -lt "$GIT_CACHE_TTL" ] && cp "$GIT_REPO_CACHE" "$_parallel_tmp/git.sh" && exit 0
         fi
@@ -233,7 +239,7 @@ GITEOF
 {
     # 2. Location fetch (with caching)
     cache_age=999999
-    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$LOCATION_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$LOCATION_CACHE" ] && cache_age=$(($(date +%s) - $(get_mtime "$LOCATION_CACHE")))
 
     if [ "$cache_age" -gt "$LOCATION_CACHE_TTL" ]; then
         loc_data=$(curl -s --max-time 2 "http://ip-api.com/json/?fields=city,regionName,country,lat,lon" 2>/dev/null)
@@ -252,7 +258,7 @@ GITEOF
 {
     # 3. Weather fetch (with caching)
     cache_age=999999
-    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$WEATHER_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$WEATHER_CACHE" ] && cache_age=$(($(date +%s) - $(get_mtime "$WEATHER_CACHE")))
 
     if [ "$cache_age" -gt "$WEATHER_CACHE_TTL" ]; then
         lat="" lon=""
@@ -319,7 +325,7 @@ COUNTSEOF
 {
     # 5. Usage data — refresh from Anthropic API if cache is stale
     cache_age=999999
-    [ -f "$USAGE_CACHE" ] && cache_age=$(($(date +%s) - $(stat -f %m "$USAGE_CACHE" 2>/dev/null || echo 0)))
+    [ -f "$USAGE_CACHE" ] && cache_age=$(($(date +%s) - $(get_mtime "$USAGE_CACHE")))
 
     if [ "$cache_age" -gt "$USAGE_CACHE_TTL" ]; then
         # Extract OAuth token from macOS Keychain
@@ -367,7 +373,7 @@ COUNTSEOF
 
 {
     # 6. Quote prefetch (was serial at the end — now parallel)
-    quote_age=$(($(date +%s) - $(stat -f %m "$QUOTE_CACHE" 2>/dev/null || echo 0)))
+    quote_age=$(($(date +%s) - $(get_mtime "$QUOTE_CACHE")))
     if [ "$quote_age" -gt 300 ] || [ ! -f "$QUOTE_CACHE" ]; then
         if [ -n "${ZENQUOTES_API_KEY:-}" ]; then
             new_quote=$(curl -s --max-time 1 "https://zenquotes.io/api/random/${ZENQUOTES_API_KEY}" 2>/dev/null | \
@@ -1105,8 +1111,8 @@ if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
     # Check cache validity (by mtime and ratings file mtime)
     cache_valid=false
     if [ -f "$LEARNING_CACHE" ]; then
-        cache_mtime=$(stat -f %m "$LEARNING_CACHE" 2>/dev/null || echo 0)
-        ratings_mtime=$(stat -f %m "$RATINGS_FILE" 2>/dev/null || echo 0)
+        cache_mtime=$(get_mtime "$LEARNING_CACHE")
+        ratings_mtime=$(get_mtime "$RATINGS_FILE")
         cache_age=$((now - cache_mtime))
         # Cache valid if: cache newer than ratings AND cache age < TTL
         if [ "$cache_mtime" -gt "$ratings_mtime" ] && [ "$cache_age" -lt "$LEARNING_CACHE_TTL" ]; then

@@ -325,12 +325,9 @@ cd PAI/Releases/v3.0
 cp -r .claude ~/
 
 # 4. Run the installer
-cd ~/.claude/PAI-Install && bun run engine/actions.ts
+cd ~/.claude && ./PAI-Install/install.sh
 
-# 5. Or launch the GUI wizard (if display available)
-cd ~/.claude/PAI-Install && bun run electron/main.ts
-
-# 6. Restart Claude Code to activate hooks
+# 5. Restart Claude Code to activate hooks
 ```
 
 ### The Installer Will Handle
@@ -471,8 +468,8 @@ mv ~/.claude ~/.claude-v2.5-backup
 # 2. Install v3.0
 cp -r .claude ~/
 
-# 3. Run the new installer
-cd ~/.claude/PAI-Install && bun run engine/actions.ts
+# 3. Run the installer
+cd ~/.claude && ./PAI-Install/install.sh
 
 # 4. Migrate personal content
 # Copy USER/ and MEMORY/ from backup if desired

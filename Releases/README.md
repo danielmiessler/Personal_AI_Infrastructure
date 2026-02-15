@@ -89,7 +89,7 @@ cd PAI/Releases/v3.0
 cp -r .claude ~/
 
 # 4. Run the installer
-cd ~/.claude/PAI-Install && bun run engine/actions.ts
+cd ~/.claude && ./PAI-Install/install.sh
 
 # 5. Restart Claude Code
 ```

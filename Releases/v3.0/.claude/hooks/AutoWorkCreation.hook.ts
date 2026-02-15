@@ -50,7 +50,11 @@ interface PromptClassification {
 const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
 const WORK_DIR = join(BASE_DIR, 'MEMORY', 'WORK');
 const STATE_DIR = join(BASE_DIR, 'MEMORY', 'STATE');
-const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');
+// Session-scoped state files prevent parallel sessions from overwriting each other
+function currentWorkFile(sessionId?: string): string {
+  if (sessionId) return join(STATE_DIR, `current-work-${sessionId}.json`);
+  return join(STATE_DIR, 'current-work.json'); // legacy fallback
+}
 
 // No more inference — simple heuristic classification
 
@@ -64,10 +68,18 @@ async function readStdinWithTimeout(timeout: number = 5000): Promise<string> {
   });
 }
 
-function readCurrentWork(): CurrentWork | null {
+function readCurrentWork(sessionId?: string): CurrentWork | null {
   try {
-    if (!existsSync(CURRENT_WORK_FILE)) return null;
-    return JSON.parse(readFileSync(CURRENT_WORK_FILE, 'utf-8'));
+    // Try session-scoped file first, fall back to legacy
+    const scopedFile = sessionId ? currentWorkFile(sessionId) : null;
+    if (scopedFile && existsSync(scopedFile)) {
+      return JSON.parse(readFileSync(scopedFile, 'utf-8'));
+    }
+    const legacyFile = currentWorkFile();
+    if (existsSync(legacyFile)) {
+      return JSON.parse(readFileSync(legacyFile, 'utf-8'));
+    }
+    return null;
   } catch {
     return null;
   }
@@ -75,7 +87,8 @@ function readCurrentWork(): CurrentWork | null {
 
 function writeCurrentWork(state: CurrentWork): void {
   if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(CURRENT_WORK_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  // Write to session-scoped file
+  writeFileSync(currentWorkFile(state.session_id), JSON.stringify(state, null, 2), 'utf-8');
 }
 
 function slugify(text: string, maxLen: number = 40): string {
@@ -110,6 +123,7 @@ function createSessionDirectory(sessionDirName: string, sessionId: string, title
 title: "${title}"
 session_id: "${sessionId}"
 created_at: "${timestamp}"
+completed_at: null
 status: "ACTIVE"
 `;
   writeFileSync(join(sessionPath, 'META.yaml'), meta, 'utf-8');
@@ -253,7 +267,7 @@ async function main() {
 
     if (!existsSync(WORK_DIR)) mkdirSync(WORK_DIR, { recursive: true });
 
-    let currentWork = readCurrentWork();
+    let currentWork = readCurrentWork(sessionId);
     const isExistingSession = currentWork && currentWork.session_id === sessionId;
 
     const classification = classifyPrompt(prompt, !!isExistingSession);

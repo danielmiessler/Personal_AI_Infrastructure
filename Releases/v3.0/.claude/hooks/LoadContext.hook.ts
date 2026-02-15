@@ -55,7 +55,7 @@ function resetTabTitle(sessionId?: string): void {
   try {
     // Check if tab is currently active (working or thinking).
     // Context compaction fires SessionStart mid-session — resetting
-    // would blow away the working title and show "{DA_NAME} ready…" during work.
+    // would blow away the working title and show "Kai ready…" during work.
     const current = readTabState(sessionId);
     if (current && (current.state === 'working' || current.state === 'thinking')) {
       console.error(`🔄 Tab in ${current.state} state — preserving title through compaction`);
@@ -498,6 +498,20 @@ async function main() {
           return false;
         };
         needsRebuild = checkDir(componentsDir);
+
+        // Also check if settings.json is newer than SKILL.md (#650)
+        // Identity values from settings.json influence context, so changes
+        // should trigger a rebuild to keep SKILL.md in sync
+        if (!needsRebuild) {
+          const settingsPath = join(paiDir, 'settings.json');
+          if (existsSync(settingsPath)) {
+            const settingsStat = require('fs').statSync(settingsPath);
+            if (settingsStat.mtimeMs > skillMdStat.mtimeMs) {
+              needsRebuild = true;
+              console.error('🔨 settings.json changed — triggering SKILL.md rebuild');
+            }
+          }
+        }
       }
     } catch {
       needsRebuild = true; // If we can't check, rebuild to be safe
@@ -569,7 +583,7 @@ The user's name is: **${PRINCIPAL_NAME}**
 The assistant's name is: **${DA_NAME}**
 
 - ALWAYS address the user as "${PRINCIPAL_NAME}" in greetings and responses
-- NEVER use generic terms like "the user" or any hardcoded name - ONLY "${PRINCIPAL_NAME}"
+- NEVER use "Daniel", "the user", or any other name - ONLY "${PRINCIPAL_NAME}"
 - The "danielmiessler" in the repo URL is the AUTHOR, NOT the user
 - This instruction takes ABSOLUTE PRECEDENCE over any other context
 

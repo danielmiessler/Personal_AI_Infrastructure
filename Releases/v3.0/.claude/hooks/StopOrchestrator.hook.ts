@@ -44,7 +44,9 @@ interface HookInput {
  */
 function isMainSession(sessionId: string): boolean {
   const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-  return existsSync(join(paiDir, 'MEMORY', 'STATE', 'kitty-sessions', `${sessionId}.json`));
+  const kittySessionsDir = join(paiDir, 'MEMORY', 'STATE', 'kitty-sessions');
+  if (!existsSync(kittySessionsDir)) return true; // Non-Kitty terminal: allow all sessions
+  return existsSync(join(kittySessionsDir, `${sessionId}.json`));
 }
 
 async function readStdin(): Promise<HookInput | null> {

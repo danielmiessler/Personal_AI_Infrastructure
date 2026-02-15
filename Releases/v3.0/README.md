@@ -508,14 +508,21 @@ mv ~/.claude ~/.claude-v2.5-backup
 # 2. Install v3.0
 cp -r .claude ~/
 
-# 3. Run the installer
+# 3. Restore your settings BEFORE running the installer
+# The installer reads settings.json for identity, timezone, and API keys.
+# Without this step, the installer generates defaults and your config is lost.
+cp ~/.claude-v2.5-backup/settings.json ~/.claude/settings.json
+
+# 4. Run the installer
 cd ~/.claude && ./PAI-Install/install.sh
 
-# 4. Migrate personal content
+# 5. Migrate personal content
 # Copy USER/ and MEMORY/ from backup if desired
 cp -r ~/.claude-v2.5-backup/USER ~/.claude/skills/PAI/USER
 cp -r ~/.claude-v2.5-backup/MEMORY ~/.claude/MEMORY
 ```
+
+> **Note:** The VoiceServer registers a LaunchAgent on port 8888. If you already have a service on that port, the voice server will fail silently. Check with `lsof -i :8888` before installing, and update the port in `settings.json` if needed.
 
 **Breaking changes:**
 - `INSTALL.ts` replaced by `PAI-Install/` directory (full installer system)

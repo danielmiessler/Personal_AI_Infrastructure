@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://github.com/danielmiessler/TheAlgorithm/raw/main/assets/algorithm-blocks.png" alt="PAI v3.0" width="200">
+<img src="images/pai-installer-v3.png" alt="PAI v3.0 Installer" width="600">
 
 # PAI v3.0.0 — The Algorithm Matures
 
 **Constraint extraction, build drift prevention, persistent PRDs, and parallel loop execution**
 
 [![GitHub Release](https://img.shields.io/badge/Release-v3.0.0-8B5CF6?style=flat&logo=github)](https://github.com/danielmiessler/PAI/releases/tag/v3.0.0)
-[![Skills](https://img.shields.io/badge/Skills-38-22C55E?style=flat)](skills/)
+[![Skills](https://img.shields.io/badge/Skills-37-22C55E?style=flat)](skills/)
 [![Hooks](https://img.shields.io/badge/Hooks-20-3B82F6?style=flat)](hooks/)
 [![Workflows](https://img.shields.io/badge/Workflows-162-F97316?style=flat)](skills/)
 
@@ -45,13 +45,15 @@ The difference is mechanical rigor. The Algorithm no longer trusts itself—it e
 
 ---
 
-## Seven Major Features
+## Eight Major Features
 
 ### 1. Algorithm v1.4.0 — From Prototype to Production
 
 The Algorithm jumped 56 minor versions. This is not a version bump—it is a rewrite of how the system reasons about problems. Every phase gained new mechanical safeguards.
 
 **Constraint Extraction (v1.3.0)**
+
+<img src="images/feature-constraint-extraction.png" alt="Constraint Extraction" width="700">
 
 The Algorithm no longer infers what rules apply. It mechanically extracts every rule, threshold, and prohibition from the source material before reasoning begins:
 
@@ -64,6 +66,8 @@ CONSTRAINT EXTRACTION:
 ```
 
 **Self-Interrogation**
+
+<img src="images/feature-self-interrogation.png" alt="Self-Interrogation" width="700">
 
 Five structured questions asked before every build to catch blind spots the Algorithm's own reasoning would miss:
 
@@ -78,6 +82,8 @@ SELF-INTERROGATION:
 
 **Build Drift Prevention**
 
+<img src="images/feature-build-drift-prevention.png" alt="Build Drift Prevention" width="700">
+
 ISC criteria are re-read before each artifact is produced. After each artifact, anti-criteria are checked. The build cannot silently drift from intent:
 
 ```
@@ -89,6 +95,8 @@ BUILD ARTIFACT #3:
 ```
 
 **Verification Rehearsal**
+
+<img src="images/feature-verification-rehearsal.png" alt="Verification Rehearsal" width="700">
 
 Before the real VERIFY phase, the Algorithm simulates violations of CRITICAL criteria to confirm its verification methods would actually catch them:
 
@@ -103,6 +111,8 @@ VERIFICATION REHEARSAL:
 
 **Loop Mode with Parallel Workers**
 
+<img src="images/feature-parallel-loop.png" alt="Parallel Loop Execution" width="700">
+
 Run the Algorithm in a loop with configurable parallel agents:
 
 ```bash
@@ -113,11 +123,15 @@ Workers distribute across criteria. Effort levels decay from Extended to Fast as
 
 **Plan Mode Integration**
 
+<img src="images/feature-plan-mode.png" alt="Plan Mode" width="700">
+
 At Extended+ effort levels, the Algorithm enters a structured ISC construction workshop—a guided process for building ideal state criteria rather than improvising them.
 
 ---
 
 ### 2. Full Installer System
+
+<img src="images/feature-installer.png" alt="Full Installer System" width="700">
 
 The configuration wizard was rebuilt from scratch as a professional installation system with two interfaces.
 
@@ -138,7 +152,9 @@ For terminal-only environments (SSH, containers, headless servers), the same ins
 
 ---
 
-### 3. 10 New Skills (28 to 38)
+### 3. 9 New Skills (28 to 37)
+
+<img src="images/feature-new-skills.png" alt="New Skills" width="700">
 
 | Skill | Purpose |
 |-------|---------|
@@ -146,7 +162,6 @@ For terminal-only environments (SSH, containers, headless servers), the same ins
 | **Science** | Universal thinking engine based on the scientific method |
 | **Remotion** | Programmatic video creation with React components |
 | **WorldThreatModelHarness** | 11 time-horizon adversarial analysis framework |
-| **WriteStory** | Layered fiction writing powered by storytelling science |
 | **Evals** | Agent evaluation framework for measuring capability |
 | **USMetrics** | US economic indicators and trend analysis |
 | **ExtractWisdom** | Dynamic content-adaptive wisdom extraction |
@@ -156,6 +171,8 @@ For terminal-only environments (SSH, containers, headless servers), the same ins
 ---
 
 ### 4. Agent Teams / Swarm
+
+<img src="images/feature-agent-teams.png" alt="Agent Teams / Swarm" width="700">
 
 Coordinated multi-agent execution for complex tasks that exceed what a single agent can manage:
 
@@ -176,6 +193,8 @@ TEAM: security-audit
 
 ### 5. Persistent Requirements Documents (PRDs)
 
+<img src="images/feature-persistent-prds.png" alt="Persistent PRDs" width="700">
+
 ISC criteria no longer die with the session. Every Algorithm run creates persistent PRD files that track ideal state criteria across sessions with a full lifecycle:
 
 ```
@@ -188,6 +207,8 @@ PRDs survive session restarts, agent switches, and system reboots. When you resu
 ---
 
 ### 6. Voice Personality System
+
+<img src="images/feature-voice-personality.png" alt="Voice Personality System" width="700">
 
 The voice server gained a configurable personality layer. Traits shape how the DA expresses emotions vocally:
 
@@ -204,6 +225,8 @@ Personality traits combine to create a consistent vocal identity that adapts ton
 ---
 
 ### 7. Inline Verification Methods
+
+<img src="images/feature-verification-methods.png" alt="Inline Verification Methods" width="700">
 
 Every ISC criterion now carries an explicit verification method suffix. No more ambiguity about how success will be measured:
 
@@ -228,6 +251,24 @@ ISC CRITERIA:
 
 ---
 
+### 8. Algorithm Self-Upgrade Loop
+
+<img src="images/feature-algorithm-upgrade.png" alt="Algorithm Self-Upgrade" width="700">
+
+The PAI Upgrade skill now closes the learning loop. Every Algorithm run writes a structured reflection (Q1: execution mistakes, Q2: algorithm fixes, Q3: fundamental gaps) to persistent JSONL. The new MineReflections and AlgorithmUpgrade workflows mine those reflections for recurring patterns, weight them by signal strength (low sentiment + over-budget = highest signal), cluster them into themes, map each theme to the exact Algorithm section it affects, and produce section-targeted upgrade proposals with specific spec diffs.
+
+```
+ALGORITHM SELF-UPGRADE LOOP:
+│ Run Algorithm  →  Write reflection (Q1/Q2/Q3 + sentiment + budget)
+│ Mine reflections →  Cluster themes →  Route to Algorithm sections
+│ Generate proposals →  Apply spec changes →  Version bump
+│ Repeat
+```
+
+The Algorithm doesn't just learn from mistakes—it proposes its own fixes and knows exactly which spec section to change.
+
+---
+
 ## What's New in v3.0
 
 ### Major Features
@@ -236,12 +277,13 @@ ISC CRITERIA:
 |---------|-------------|
 | **Algorithm v1.4.0** | Constraint extraction, self-interrogation, drift prevention, verification rehearsal |
 | **Full Installer System** | Electron GUI wizard + CLI fallback with auto-discovery |
-| **10 New Skills** | IterativeDepth, Science, Remotion, WorldThreatModelHarness, WriteStory, and 5 more |
+| **9 New Skills** | IterativeDepth, Science, Remotion, WorldThreatModelHarness, Evals, and 4 more |
 | **Agent Teams / Swarm** | Multi-agent coordination with shared tasks and message passing |
 | **PRD System** | Persistent requirements documents that survive across sessions |
 | **Voice Personality** | Configurable personality traits for vocal expression |
 | **Inline Verification Methods** | CLI, Test, Static, Browser, Grep, Read, Custom per criterion |
-| **38 Skills** | 10 new skills added to the system |
+| **Algorithm Self-Upgrade** | Mines reflections for recurring patterns, proposes section-targeted spec changes |
+| **37 Skills** | 9 new skills added to the system |
 | **20 Hooks** | 3 new hooks for deeper system awareness |
 | **162 Workflows** | Refined automation coverage |
 | **1,229 Total Files** | Complete system across all components |
@@ -289,7 +331,7 @@ ISC CRITERIA:
 │   ├── SoulEvolution.hook.ts
 │   └── ... (15 more)
 │
-├── skills/                    # 38 production skills
+├── skills/                    # 37 production skills
 │   ├── PAI/                   # The Algorithm v1.4.0 and system core
 │   ├── Agents/                # Agent personalities, teams, swarm
 │   ├── Art/                   # Visual content creation
@@ -298,9 +340,8 @@ ISC CRITERIA:
 │   ├── Fabric/                # Prompt patterns
 │   ├── Science/               # Scientific method thinking engine
 │   ├── Remotion/              # Programmatic video creation
-│   ├── WriteStory/            # Layered fiction writing
 │   ├── Cloudflare/            # Worker/Pages deployment
-│   └── ... (28 more)
+│   └── ... (27 more)
 │
 ├── agents/                    # 12+ named agent definitions
 ├── lib/                       # Shared utilities
@@ -352,7 +393,7 @@ The installer auto-detects your shell and configures the appropriate file:
 
 ---
 
-## The 38 Skills
+## The 37 Skills
 
 ### Core System
 | Skill | Purpose |
@@ -396,7 +437,6 @@ The installer auto-detects your shell and configures the appropriate file:
 | **Documents** | Document processing |
 | **Remotion** | Programmatic video creation with React |
 | **Cloudflare** | Worker and Pages deployment automation |
-| **WriteStory** | Layered fiction writing powered by storytelling science |
 | **Art** | Visual content, diagrams, icons |
 
 ### Security

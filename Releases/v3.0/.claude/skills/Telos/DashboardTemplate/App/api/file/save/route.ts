@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-const TELOS_DIR = path.join(os.homedir(), '.claude/skills/life/telos')
+const TELOS_DIR = path.join(os.homedir(), '.claude/skills/Telos')
 
 export async function POST(request: Request) {
   try {

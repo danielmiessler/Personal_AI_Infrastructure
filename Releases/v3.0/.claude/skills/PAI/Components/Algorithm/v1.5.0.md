@@ -433,10 +433,10 @@ For EACH anti-criterion:
 
 | Tier | ISC Count | Structure | When |
 |------|-----------|-----------|------|
-| **Simple** | 4-8 | Flat list | Single-file fix, skill invocation, config change |
-| **Medium** | 12-40 | Grouped by domain (### headers) | Multi-file feature, API endpoint, component build |
-| **Large** | 40-150 | Grouped domains + child PRDs | Multi-system feature, major refactor, 16-action plan |
-| **Massive** | 150-500+ | Multi-level hierarchy, team decomposition | Platform redesign, full product build, system migration |
+| **Simple** | 4-16 | Flat list | Single-file fix, skill invocation, config change |
+| **Medium** | 17-32 | Grouped by domain (### headers) | Multi-file feature, API endpoint, component build |
+| **Large** | 33-99 | Grouped domains + child PRDs | Multi-system feature, major refactor, 16-action plan |
+| **Massive** | 100-500+ | Multi-level hierarchy, team decomposition | Platform redesign, full product build, system migration |
 
 **Structure rules:** ≤16 criteria = flat list. 17-32 = group under `### Domain` headers. 33+ = decompose into child PRDs (one per domain). 100+ = multi-level hierarchy with agent teams.
 

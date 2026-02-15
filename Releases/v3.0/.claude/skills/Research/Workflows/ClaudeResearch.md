@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 /**
  * # Claude Web Research Command - Intelligent Multi-Query WebSearch
  *

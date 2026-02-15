@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 /**
- * generate - UL Image Generation CLI
+ * generate - PAI Image Generation CLI
  *
- * Generate branded images using Flux 1.1 Pro, Nano Banana, Nano Banana Pro, or GPT-image-1.
+ * Generate images using Flux 1.1 Pro, Nano Banana, Nano Banana Pro, or GPT-image-1.
  * Follows llcli pattern for deterministic, composable CLI design.
  *
  * Usage:
@@ -122,6 +122,68 @@ function handleError(error: unknown): never {
 }
 
 // ============================================================================
+// Image Format Detection
+// ============================================================================
+
+/**
+ * Detect actual image format from magic bytes.
+ * Prevents MIME type mismatch when API returns different format than requested.
+ */
+function detectImageFormat(data: Buffer | Uint8Array): { format: string; ext: string; mime: string } | null {
+  if (data.length < 12) return null;
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47)
+    return { format: "png", ext: ".png", mime: "image/png" };
+  if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff)
+    return { format: "jpeg", ext: ".jpg", mime: "image/jpeg" };
+  if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&
+      data[8] === 0x57 && data[9] === 0x45 && data[10] === 0x42 && data[11] === 0x50)
+    return { format: "webp", ext: ".webp", mime: "image/webp" };
+  if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46)
+    return { format: "gif", ext: ".gif", mime: "image/gif" };
+  return null;
+}
+
+/**
+ * Save image data with correct file extension based on actual content format.
+ * Returns the final path (may differ from requested if format mismatch detected).
+ */
+async function saveImage(data: Buffer | Uint8Array | any, requestedPath: string): Promise<string> {
+  const buffer = data instanceof Buffer ? data : Buffer.from(data as any);
+  const detected = detectImageFormat(buffer);
+  if (detected) {
+    const requestedExt = extname(requestedPath).toLowerCase();
+    if (requestedExt && requestedExt !== detected.ext) {
+      const correctedPath = requestedPath.replace(/\.[^.]+$/, detected.ext);
+      console.warn(`⚠️ API returned ${detected.format.toUpperCase()} data (requested ${requestedExt.slice(1).toUpperCase()}). Saving as ${correctedPath}`);
+      await writeFile(correctedPath, buffer);
+      return correctedPath;
+    }
+  }
+  await writeFile(requestedPath, buffer);
+  return requestedPath;
+}
+
+/**
+ * Detect MIME type from image file content (magic bytes), falling back to extension.
+ */
+async function detectMimeType(filePath: string): Promise<string> {
+  try {
+    const data = await readFile(filePath);
+    const detected = detectImageFormat(data);
+    if (detected) return detected.mime;
+  } catch {
+    // Fall through to extension-based detection
+  }
+  const ext = extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".png": return "image/png";
+    case ".jpg": case ".jpeg": return "image/jpeg";
+    case ".webp": return "image/webp";
+    default: throw new CLIError(`Unsupported image format: ${ext}. Supported: .png, .jpg, .jpeg, .webp`);
+  }
+}
+
+// ============================================================================
 // Help Text
 // ============================================================================
 
@@ -130,9 +192,9 @@ const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
 
 function showHelp(): void {
   console.log(`
-generate - UL Image Generation CLI
+generate - PAI Image Generation CLI
 
-Generate branded images using Flux 1.1 Pro, Nano Banana, or GPT-image-1.
+Generate images using Flux 1.1 Pro, Nano Banana, or GPT-image-1.
 
 USAGE:
   generate --model <model> --prompt "<prompt>" [OPTIONS]
@@ -169,13 +231,13 @@ OPTIONS:
 
 EXAMPLES:
   # Generate blog header with Nano Banana Pro (16:9, 2K quality)
-  generate --model nano-banana-pro --prompt "Abstract UL illustration..." --size 2K --aspect-ratio 16:9
+  generate --model nano-banana-pro --prompt "Abstract editorial illustration..." --size 2K --aspect-ratio 16:9
 
   # Generate high-res 4K image with Nano Banana Pro
   generate --model nano-banana-pro --prompt "Editorial cover..." --size 4K --aspect-ratio 3:2
 
   # Generate blog header with original Nano Banana (16:9)
-  generate --model nano-banana --prompt "Abstract UL illustration..." --size 16:9
+  generate --model nano-banana --prompt "Abstract editorial illustration..." --size 16:9
 
   # Generate square image with Flux
   generate --model flux --prompt "Minimal geometric art..." --size 1:1 --output /tmp/header.png
@@ -235,7 +297,6 @@ function parseArgs(argv: string[]): CLIArgs {
 
   const parsed: Partial<CLIArgs> = {
     model: DEFAULTS.model,
-    size: DEFAULTS.size,
     output: DEFAULTS.output,
   };
 
@@ -347,6 +408,21 @@ function parseArgs(argv: string[]): CLIArgs {
     throw new CLIError(`Too many reference images: ${parsed.referenceImages.length}. Maximum is 14 total (5 human, 6 object)`);
   }
 
+  // Set model-appropriate default size if not explicitly provided
+  if (!parsed.size) {
+    switch (parsed.model) {
+      case "gpt-image-1":
+        parsed.size = "1024x1024";
+        break;
+      case "nano-banana-pro":
+        parsed.size = "2K";
+        break;
+      default: // flux, nano-banana
+        parsed.size = "16:9";
+        break;
+    }
+  }
+
   // Validate size based on model
   if (parsed.model === "gpt-image-1") {
     if (!OPENAI_SIZES.includes(parsed.size as OpenAISize)) {
@@ -449,7 +525,7 @@ async function removeBackground(imagePath: string): Promise<void> {
 // Image Generation
 // ============================================================================
 
-async function generateWithFlux(prompt: string, size: ReplicateSize, output: string): Promise<void> {
+async function generateWithFlux(prompt: string, size: ReplicateSize, output: string): Promise<string> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) {
     throw new CLIError("Missing environment variable: REPLICATE_API_TOKEN");
@@ -469,11 +545,12 @@ async function generateWithFlux(prompt: string, size: ReplicateSize, output: str
     },
   });
 
-  await writeFile(output, result);
-  console.log(`✅ Image saved to ${output}`);
+  const finalPath = await saveImage(result, output);
+  console.log(`✅ Image saved to ${finalPath}`);
+  return finalPath;
 }
 
-async function generateWithNanoBanana(prompt: string, size: ReplicateSize, output: string): Promise<void> {
+async function generateWithNanoBanana(prompt: string, size: ReplicateSize, output: string): Promise<string> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) {
     throw new CLIError("Missing environment variable: REPLICATE_API_TOKEN");
@@ -491,11 +568,12 @@ async function generateWithNanoBanana(prompt: string, size: ReplicateSize, outpu
     },
   });
 
-  await writeFile(output, result);
-  console.log(`✅ Image saved to ${output}`);
+  const finalPath = await saveImage(result, output);
+  console.log(`✅ Image saved to ${finalPath}`);
+  return finalPath;
 }
 
-async function generateWithGPTImage(prompt: string, size: OpenAISize, output: string): Promise<void> {
+async function generateWithGPTImage(prompt: string, size: OpenAISize, output: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new CLIError("Missing environment variable: OPENAI_API_KEY");
@@ -518,8 +596,9 @@ async function generateWithGPTImage(prompt: string, size: OpenAISize, output: st
   }
 
   const imageBuffer = Buffer.from(imageData, "base64");
-  await writeFile(output, imageBuffer);
-  console.log(`✅ Image saved to ${output}`);
+  const finalPath = await saveImage(imageBuffer, output);
+  console.log(`✅ Image saved to ${finalPath}`);
+  return finalPath;
 }
 
 async function generateWithNanoBananaPro(
@@ -528,7 +607,7 @@ async function generateWithNanoBananaPro(
   aspectRatio: ReplicateSize,
   output: string,
   referenceImages?: string[]
-): Promise<void> {
+): Promise<string> {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     throw new CLIError("Missing environment variable: GOOGLE_API_KEY");
@@ -552,23 +631,8 @@ async function generateWithNanoBananaPro(
       const imageBuffer = await readFile(referenceImage);
       const imageBase64 = imageBuffer.toString("base64");
 
-      // Determine MIME type from extension
-      const ext = extname(referenceImage).toLowerCase();
-      let mimeType: string;
-      switch (ext) {
-        case ".png":
-          mimeType = "image/png";
-          break;
-        case ".jpg":
-        case ".jpeg":
-          mimeType = "image/jpeg";
-          break;
-        case ".webp":
-          mimeType = "image/webp";
-          break;
-        default:
-          throw new CLIError(`Unsupported image format: ${ext}. Supported: .png, .jpg, .jpeg, .webp`);
-      }
+      // Detect MIME type from actual file content (magic bytes), not just extension
+      const mimeType = await detectMimeType(referenceImage);
 
       parts.push({
         inlineData: {
@@ -613,8 +677,9 @@ async function generateWithNanoBananaPro(
   }
 
   const imageBuffer = Buffer.from(imageData, "base64");
-  await writeFile(output, imageBuffer);
-  console.log(`✅ Image saved to ${output}`);
+  const finalPath = await saveImage(imageBuffer, output);
+  console.log(`✅ Image saved to ${finalPath}`);
+  return finalPath;
 }
 
 // ============================================================================
@@ -644,8 +709,8 @@ async function main(): Promise<void> {
       console.log(`💡 Note: CLI mode uses same prompt for all variations (tests model variability)`);
       console.log(`   For true creative diversity, use the creative workflow with be-creative skill\n`);
 
-      const basePath = args.output.replace(/\.png$/, "");
-      const promises: Promise<void>[] = [];
+      const basePath = args.output.replace(/\.[^.]+$/, "");
+      const promises: Promise<string>[] = [];
 
       for (let i = 1; i <= args.creativeVariations; i++) {
         const varOutput = `${basePath}-v${i}.png`;
@@ -670,18 +735,20 @@ async function main(): Promise<void> {
         }
       }
 
-      await Promise.all(promises);
+      const actualPaths = await Promise.all(promises);
       console.log(`\n✅ Generated ${args.creativeVariations} variations`);
+      console.log(`   Files: ${actualPaths.join(", ")}`);
       return;
     }
 
-    // Standard single image generation
+    // Standard single image generation — track actual output path (may differ if format corrected)
+    let actualOutput: string = args.output;
     if (args.model === "flux") {
-      await generateWithFlux(finalPrompt, args.size as ReplicateSize, args.output);
+      actualOutput = await generateWithFlux(finalPrompt, args.size as ReplicateSize, args.output);
     } else if (args.model === "nano-banana") {
-      await generateWithNanoBanana(finalPrompt, args.size as ReplicateSize, args.output);
+      actualOutput = await generateWithNanoBanana(finalPrompt, args.size as ReplicateSize, args.output);
     } else if (args.model === "nano-banana-pro") {
-      await generateWithNanoBananaPro(
+      actualOutput = await generateWithNanoBananaPro(
         finalPrompt,
         args.size as GeminiSize,
         args.aspectRatio!,
@@ -689,31 +756,31 @@ async function main(): Promise<void> {
         args.referenceImages
       );
     } else if (args.model === "gpt-image-1") {
-      await generateWithGPTImage(finalPrompt, args.size as OpenAISize, args.output);
+      actualOutput = await generateWithGPTImage(finalPrompt, args.size as OpenAISize, args.output);
     }
 
-    // Remove background if requested
+    // Remove background if requested (use actual output path)
     if (args.removeBg) {
-      await removeBackground(args.output);
+      await removeBackground(actualOutput);
     }
 
     // Add background color if requested (standalone mode)
     if (args.addBg && !args.thumbnail) {
       // For standalone --add-bg, modify the image in place
-      const tempPath = args.output.replace(/\.png$/, "-temp.png");
-      await addBackgroundColor(args.output, tempPath, args.addBg);
+      const tempPath = actualOutput.replace(/\.[^.]+$/, "-temp.png");
+      await addBackgroundColor(actualOutput, tempPath, args.addBg);
       // Replace original with the one with background
       const { rename } = await import("node:fs/promises");
-      await rename(tempPath, args.output);
+      await rename(tempPath, actualOutput);
     }
 
     // Generate thumbnail with background color if requested (blog header mode)
     if (args.thumbnail) {
-      const thumbPath = args.output.replace(/\.png$/, "-thumb.png");
-      const THUMBNAIL_BG_COLOR = "#EAE9DF"; // UL brand background color for social previews
-      await addBackgroundColor(args.output, thumbPath, THUMBNAIL_BG_COLOR);
+      const thumbPath = actualOutput.replace(/\.[^.]+$/, "-thumb.png");
+      const THUMBNAIL_BG_COLOR = "#EAE9DF"; // Brand background color for social previews
+      await addBackgroundColor(actualOutput, thumbPath, THUMBNAIL_BG_COLOR);
       console.log(`\n📸 Blog header mode: Created both versions`);
-      console.log(`   Transparent: ${args.output}`);
+      console.log(`   Transparent: ${actualOutput}`);
       console.log(`   Thumbnail:   ${thumbPath}`);
     }
   } catch (error) {

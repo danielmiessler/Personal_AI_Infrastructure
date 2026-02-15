@@ -221,6 +221,9 @@ export function categorizeChange(path: string): ChangeCategory | null {
 
   // Categorize by path pattern
   if (path.includes('skills/')) {
+    // Exclude personal/private skills (prefixed with _ by convention)
+    const skillMatch = path.match(/skills\/(_[^/]+)/);
+    if (skillMatch) return null;
     if (path.includes('/Workflows/')) return 'workflow';
     if (path.includes('skills/PAI/')) return 'core-system';
     return 'skill';

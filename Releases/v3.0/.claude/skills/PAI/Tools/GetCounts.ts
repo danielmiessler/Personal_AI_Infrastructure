@@ -104,7 +104,10 @@ function countSkills(): number {
   const skillsDir = join(PAI_DIR, "skills");
   try {
     for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
+      // Handle both real directories and symlinks to directories
+      const isDir = entry.isDirectory() ||
+        (entry.isSymbolicLink() && statSync(join(skillsDir, entry.name)).isDirectory());
+      if (isDir) {
         const skillFile = join(skillsDir, entry.name, "SKILL.md");
         if (existsSync(skillFile)) {
           count++;

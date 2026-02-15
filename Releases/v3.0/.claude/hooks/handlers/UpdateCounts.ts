@@ -86,7 +86,10 @@ function countSkills(paiDir: string): number {
   const skillsDir = join(paiDir, 'skills');
   try {
     for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
+      // Handle both real directories and symlinks to directories
+      const isDir = entry.isDirectory() ||
+        (entry.isSymbolicLink() && statSync(join(skillsDir, entry.name)).isDirectory());
+      if (isDir) {
         const skillFile = join(skillsDir, entry.name, 'SKILL.md');
         if (existsSync(skillFile)) {
           count++;
@@ -149,7 +152,7 @@ function getCounts(paiDir: string): Counts {
     skills: countSkills(paiDir),
     workflows: countWorkflowFiles(join(paiDir, 'skills')),
     hooks: countHooks(paiDir),
-    signals: countRatingsLines(ratingsPath),
+    signals: countFilesRecursive(join(paiDir, 'MEMORY/LEARNING'), '.md'),
     files: countFilesRecursive(join(paiDir, 'skills/PAI/USER')),
     work: countSubdirs(join(paiDir, 'MEMORY/WORK')),
     sessions: countFilesRecursive(join(paiDir, 'MEMORY'), '.jsonl'),

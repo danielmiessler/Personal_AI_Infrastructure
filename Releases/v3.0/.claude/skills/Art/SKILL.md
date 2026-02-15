@@ -112,6 +112,19 @@ Check `~/.claude/skills/PAI/USER/SKILLCUSTOMIZATIONS/Art/PREFERENCES.md` for:
 **Default model:** Check user customization at `SKILLCUSTOMIZATIONS/Art/PREFERENCES.md`
 **Fallback:** nano-banana-pro (Gemini 3 Pro)
 
+### Model-Specific Size Requirements
+
+Each model accepts different `--size` formats. Using the wrong format causes validation errors.
+
+| Model | `--size` format | Valid values | Default |
+|-------|----------------|--------------|---------|
+| `flux` | Aspect ratio | `1:1`, `16:9`, `3:2`, `2:3`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `21:9` | `16:9` |
+| `nano-banana` | Aspect ratio | `1:1`, `16:9`, `3:2`, `2:3`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `21:9` | `16:9` |
+| `nano-banana-pro` | Resolution tier | `1K`, `2K`, `4K` (also accepts `--aspect-ratio` separately) | `2K` |
+| `gpt-image-1` | Pixel dimensions | `1024x1024`, `1536x1024`, `1024x1536` | `1024x1024` |
+
+**Note:** `nano-banana-pro` uses `--size` for resolution quality and a separate `--aspect-ratio` flag for aspect ratio (defaults to `16:9`).
+
 ### 🚨 CRITICAL: Always Output to Downloads First
 
 **ALL generated images MUST go to `~/Downloads/` first for preview and selection.**

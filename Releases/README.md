@@ -106,6 +106,4 @@ The wizard asks for your name, AI name, timezone, and optional voice preferences
 
 ---
 
-**Looking for modular installation?** See [Packs](../Packs/) for individual components.
-
 **Questions?** See the main [PAI README](../README.md).

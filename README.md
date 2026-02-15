@@ -35,8 +35,6 @@
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
 [![Release v3.0](https://img.shields.io/badge/📦_Release-v3.0-8B5CF6?style=flat)](Releases/v3.0/)
-[![Packs](https://img.shields.io/badge/📦_Packs-23-8B5CF6?style=flat)](Packs/)
-[![Bundles](https://img.shields.io/badge/🎁_Bundles-1-F97316?style=flat)](Bundles/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/PAI?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/PAI/graphs/contributors)
 
 <!-- Tech Stack -->
@@ -49,7 +47,7 @@
 
 **Overview:** [Purpose](#the-purpose-of-this-project) · [What is PAI?](#what-is-pai) · [New to AI?](#new-to-this-start-here) · [Principles](#the-pai-principles) · [Primitives](#pai-primitives)
 
-**Get Started:** [Installation](#-installation) · [Releases](Releases/) · [Packs](#-packs) · [Bundles](#-bundles)
+**Get Started:** [Installation](#-installation) · [Releases](Releases/)
 
 **Resources:** [FAQ](#-faq) · [Roadmap](#-roadmap) · [Community](#-community) · [Contributing](#-contributing)
 
@@ -111,7 +109,7 @@ ChatGPT, Claude, Gemini—you ask something, it answers, and then it forgets eve
 
 ### Agentic Platforms
 
-Tools like Claude Code, Cursor, and Windsurf. The AI can actually *do* things—write code, browse the web, edit files, run commands.
+Tools like Claude Code. The AI can actually *do* things—write code, browse the web, edit files, run commands.
 
 **The pattern:** Ask → Use tools → Get result
 
@@ -299,7 +297,7 @@ Defines system and user-level security policies by default. You don't have to ru
 
 ### AI-Based Installation
 
-Your AI assistant reads the packs, understands your system, and installs everything for you. No manual configuration, no guessing—the AI handles it.
+The GUI installer handles everything—prerequisites, configuration, and setup. No manual configuration, no guessing.
 
 ---
 
@@ -338,31 +336,6 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 > [!CAUTION]
 > **Project in Active Development** — PAI is evolving rapidly. Expect breaking changes, restructuring, and frequent updates. We are working on stable and development branches, but currently it's all combined.
 
-### Which Install Path Should I Use?
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Do you want a complete, working PAI system right now?          │
-│                                                                 │
-│     YES ──────────► Option 1: Full Release Install              │
-│                     (Complete .claude/ directory, ~5 min)       │
-│                                                                 │
-│     NO, I want to customize or learn the system                 │
-│         │                                                       │
-│         ├──► Option 2: Bundle + Packs (Build it yourself)       │
-│         │    (Skeleton structure, then install packs manually)  │
-│         │                                                       │
-│         └──► Option 3: Individual Packs (Cherry-pick)           │
-│              (Install only specific capabilities you need)      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Option 1: Full Install (Recommended)
-
-> **This is the fastest path to a working PAI system.** The GUI installer walks you through everything.
-
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/PAI.git
@@ -383,128 +356,13 @@ bash PAI-Install/install.sh
 
 ---
 
-### Option 2: Bundle + Manual Pack Installation
-
-> **For users who want to understand the system** as they build it, or need a customized setup.
-
-> [!WARNING]
-> The Bundle wizard creates a **skeleton directory structure only**. You must then install each pack manually in the correct order for a working system.
-
-```bash
-# Clone the repo
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Bundles/Official
-
-# Run the interactive wizard (creates skeleton structure)
-bun run install.ts
-```
-
-**After the wizard completes, you MUST install packs in this order:**
-
-| Order | Pack | Command |
-|-------|------|---------|
-| 1 | pai-hook-system | "Install the pack at PAI/Packs/pai-hook-system/" |
-| 2 | pai-core-install | "Install the pack at PAI/Packs/pai-core-install/" |
-| 3 | pai-statusline | "Install the pack at PAI/Packs/pai-statusline/" |
-| 4+ | Any skill packs | Install as needed |
-
-[**Bundle documentation →**](Bundles/Official/README.md)
-
----
-
-### Option 3: Individual Pack Installation
-
-Install individual packs by giving them to your DA:
-
-1. **Browse packs** - Find a pack you want in [Packs/](Packs/)
-2. **Give it to your DA** - Provide the pack directory path
-3. **Ask your DA to install it:**
-
-```
-Install this pack into my system. Use PAI_DIR="~/.claude"
-and DA="MyAI". Set up the hooks, save the code, and verify it works.
-```
-
-### Option 4: Browse and Cherry-Pick
-
-Packs are self-contained. You can:
-- Read the code directly in the pack
-- Copy specific functions or workflows
-- Adapt the approach to your own system
-- Use it as reference documentation
-
-**No forced structure. No mandatory setup. Take what's useful, leave the rest.**
-
----
-
-## 📦 Packs
-
-PAI capabilities are distributed as **Packs**—self-contained, AI-installable modules that add specific capabilities to your system.
-
-Each pack includes everything needed: code, workflows, installation instructions, and verification tests. Your DA reads the pack and installs it into your system—no manual copying required.
-
-### Infrastructure Packs
-
-| Pack | Description |
-|------|-------------|
-| [**pai-core-install**](Packs/pai-core-install/) | Core skills, identity, MEMORY system, and response format |
-| [**pai-hook-system**](Packs/pai-hook-system/) | Event-driven automation and security validation |
-| [**pai-voice-system**](Packs/pai-voice-system/) | Voice notifications with ElevenLabs TTS |
-| [**pai-observability-server**](Packs/pai-observability-server/) | Real-time agent monitoring dashboard |
-| [**pai-statusline**](Packs/pai-statusline/) | 4-mode responsive status line with learning signals |
-
-### Skill Packs
-
-| Pack | Description |
-|------|-------------|
-| [**pai-agents-skill**](Packs/pai-agents-skill/) | Dynamic agent composition with personality mapping |
-| [**pai-algorithm-skill**](Packs/pai-algorithm-skill/) | ISC management, effort classification |
-| [**pai-annualreports-skill**](Packs/pai-annualreports-skill/) | Annual security report aggregation |
-| [**pai-art-skill**](Packs/pai-art-skill/) | Visual content generation |
-| [**pai-brightdata-skill**](Packs/pai-brightdata-skill/) | Progressive URL scraping |
-| [**pai-browser-skill**](Packs/pai-browser-skill/) | Browser automation with Playwright |
-| [**pai-council-skill**](Packs/pai-council-skill/) | Multi-agent debate system |
-| [**pai-createcli-skill**](Packs/pai-createcli-skill/) | Generate TypeScript CLI tools |
-| [**pai-createskill-skill**](Packs/pai-createskill-skill/) | Create and validate PAI skills |
-| [**pai-firstprinciples-skill**](Packs/pai-firstprinciples-skill/) | First principles analysis |
-| [**pai-osint-skill**](Packs/pai-osint-skill/) | Open source intelligence gathering |
-| [**pai-privateinvestigator-skill**](Packs/pai-privateinvestigator-skill/) | Ethical people-finding |
-| [**pai-prompting-skill**](Packs/pai-prompting-skill/) | Meta-prompting system |
-| [**pai-recon-skill**](Packs/pai-recon-skill/) | Security reconnaissance |
-| [**pai-redteam-skill**](Packs/pai-redteam-skill/) | Adversarial analysis with 32 agents |
-| [**pai-research-skill**](Packs/pai-research-skill/) | Multi-source research |
-| [**pai-system-skill**](Packs/pai-system-skill/) | System maintenance and integrity checks |
-| [**pai-telos-skill**](Packs/pai-telos-skill/) | Life OS and deep goal capture |
-
-> **23 packs total** — 5 infrastructure + 18 skills. All extracted from production PAI systems.
-
----
-
-## 📦 Bundles
-
-**Bundles** are curated collections of packs designed to work together.
-
-| Bundle | Description | Packs |
-|--------|-------------|-------|
-| [**PAI Bundle**](Bundles/Official/) | The official PAI bundle - complete personal AI infrastructure | 5 |
-
-**Quick install:**
-```bash
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Bundles/Official && bun run install.ts
-```
-
-[**Learn more about bundles →**](Bundles/)
-
----
-
 ## ❓ FAQ
 
 ### How is PAI different from just using Claude Code?
 
-PAI isn't a replacement for Claude Code—it's what you build *on top of it*. Claude Code gives you an AI that can read files, write code, and execute commands. But it's generic. It doesn't know your goals, your preferred workflows, your history, or your specific context.
+PAI is built natively on Claude Code and designed to stay that way. We chose Claude Code because its hook system, context management, and agentic architecture are the best foundation available for personal AI infrastructure.
 
-PAI provides the scaffolding to make that generic AI *yours*:
+PAI isn't a replacement for Claude Code — it's the layer on top that makes Claude Code *yours*:
 
 - **Persistent memory** — Your DA remembers past sessions, decisions, and learnings
 - **Custom skills** — Specialized capabilities for the things you do most
@@ -514,30 +372,17 @@ PAI provides the scaffolding to make that generic AI *yours*:
 
 Think of it this way: Claude Code is the engine. PAI is everything else that makes it *your* car.
 
-### Do I need to install everything?
+### What's the difference between PAI and Claude Code's built-in features?
 
-No. PAI v2 is modular by design:
+Claude Code provides powerful primitives — hooks, slash commands, MCP servers, context files. These are individual building blocks.
 
-- **Packs are independent** — Install one, install ten, install none
-- **Start small** — Begin with the Hook System, add more when you need it
-- **No dependencies on the whole** — Each pack declares its dependencies explicitly
-- **Incremental adoption** — Use PAI alongside your existing setup
-
-The best way to start: pick ONE pack that solves a problem you have today.
-
-### What's the difference between PAI and Anthropic's plugin system?
-
-Anthropic's plugin system (Skills, slash commands, MCP servers) provides discrete functionality—individual tools your DA can use.
-
-**Anthropic's plugins** = Individual pieces of functionality that don't understand overall context
-
-**PAI** = A complete system where everything understands the context—your goals, your workflows, how pieces work together
-
-The plugin system offers building blocks. PAI offers a complete system.
+PAI is the complete system built on those primitives. It connects everything together: your goals inform your skills, your skills generate memory, your memory improves future responses. PAI turns Claude Code's building blocks into a coherent personal AI platform.
 
 ### Is PAI only for Claude Code?
 
-No. PAI packs are designed to be platform-agnostic. While the examples use Claude Code, the packs work with OpenCode, Cursor, Windsurf, and custom systems. The code is TypeScript, Python, and Bash—the concepts are universal.
+PAI is Claude Code native. We believe Claude Code's hook system, context management, and agentic capabilities make it the best platform for personal AI infrastructure, and PAI is designed to take full advantage of those features.
+
+That said, PAI's concepts (skills, memory, algorithms) are universal, and the code is TypeScript, Python, and Bash — so community members are welcome to adapt it for other platforms.
 
 ### How is this different from fabric?
 
@@ -547,12 +392,12 @@ PAI is infrastructure for *how your DA operates*—memory, skills, routing, cont
 
 ### What if I break something?
 
-The modular design makes recovery easy:
+Recovery is straightforward:
 
-- **Packs are isolated** — Breaking one doesn't affect others
-- **History is preserved** — Your DA's memory survives mistakes
 - **Git-backed** — Version control everything, roll back when needed
+- **History is preserved** — Your DA's memory survives mistakes
 - **DA can fix it** — Your DA helped build it, it can help repair it
+- **Re-install** — Run the installer again to reset to a clean state
 
 ---
 
@@ -592,16 +437,12 @@ The modular design makes recovery easy:
 
 ## 🤝 Contributing
 
-### Submit a Pack
+We welcome contributions! See our [GitHub Issues](https://github.com/danielmiessler/PAI/issues) for open tasks.
 
 1. **Fork the repository**
-2. **Create your pack** using [PAIPackTemplate.md](Tools/PAIPackTemplate.md)
-3. **Test it** — Install in a fresh system with AI assistance
+2. **Make your changes** — Bug fixes, new skills, documentation improvements
+3. **Test thoroughly** — Install in a fresh system to verify
 4. **Submit a PR** with examples and testing evidence
-
-Packs are reviewed for completeness, code quality, security, and usefulness. Most packs reviewed within 7 days.
-
-**Pack authors maintain their packs** — respond to issues, fix bugs, consider feature requests.
 
 ---
 
@@ -680,19 +521,14 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [Release Notes](Releases/v2.3/README.md)
 
 **v2.1.1 (2026-01-09) — MEMORY System Migration**
-- History system merged into pai-core-install as MEMORY System
+- History system merged into core as MEMORY System
 
-**v2.1.0 (2025-12-31) — Directory-Based Pack Structure**
-- All packs migrated from single files to directory structure
-- Source code now in real files instead of embedded markdown
+**v2.1.0 (2025-12-31) — Modular Architecture**
+- Source code in real files instead of embedded markdown
 
-**v2.0.1 (2025-12-30) — Pack Expansion**
-- Added Prompting and Agents skills
-- Standardized authentication to single `.env` location
-
-**v2.0.0 (2025-12-28) — PAI Packs System Launch**
-- Transitioned from monolithic to modular pack architecture
-- Platform-agnostic design
+**v2.0.0 (2025-12-28) — PAI v2 Launch**
+- Modular architecture with independent skills
+- Claude Code native design
 
 </details>
 

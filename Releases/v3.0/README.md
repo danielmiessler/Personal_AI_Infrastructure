@@ -513,7 +513,7 @@ cd ~/.claude && ./PAI-Install/install.sh
 
 # 4. Migrate personal content
 # Copy USER/ and MEMORY/ from backup if desired
-cp -r ~/.claude-v2.5-backup/USER ~/.claude/USER
+cp -r ~/.claude-v2.5-backup/USER ~/.claude/skills/PAI/USER
 cp -r ~/.claude-v2.5-backup/MEMORY ~/.claude/MEMORY
 ```
 

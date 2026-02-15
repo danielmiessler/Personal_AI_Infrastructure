@@ -221,7 +221,7 @@ Skills (install any you need):
 
 **Or install the complete [PAI Bundle](../Bundles/Official/)** which handles ordering automatically.
 
-**Or use a Full Release** from [Releases/v2.5/](../Releases/v2.5/) which includes everything pre-configured.
+**Or use a Full Release** from [Releases/v3.0/](../Releases/v3.0/) which includes everything pre-configured.
 
 ---
 

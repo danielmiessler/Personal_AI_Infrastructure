@@ -34,7 +34,7 @@
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Release v2.5](https://img.shields.io/badge/📦_Release-v2.5-8B5CF6?style=flat)](Releases/v2.5/)
+[![Release v3.0](https://img.shields.io/badge/📦_Release-v3.0-8B5CF6?style=flat)](Releases/v3.0/)
 [![Packs](https://img.shields.io/badge/📦_Packs-23-8B5CF6?style=flat)](Packs/)
 [![Bundles](https://img.shields.io/badge/🎁_Bundles-1-F97316?style=flat)](Bundles/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/PAI?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/PAI/graphs/contributors)
@@ -64,9 +64,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v2.5.0 Released** — Think Deeper, Execute Faster: Two-Pass Capability Selection, Thinking Tools with Justify-Exclusion, and Parallel-by-Default Execution.
+> **PAI v3.0.0 Released** — The Algorithm Matures: Constraint Extraction, Build Drift Prevention, Persistent PRDs, and Parallel Loop Execution.
 >
-> **[Release notes →](Releases/v2.5/README.md)** | **[GitHub Release →](https://github.com/danielmiessler/PAI/releases/tag/v2.5.0)**
+> **[Release notes →](Releases/v3.0/README.md)** | **[GitHub Release →](https://github.com/danielmiessler/PAI/releases/tag/v3.0.0)**
 
 <div align="center">
 
@@ -359,34 +359,27 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 
 ---
 
-### Option 1: Full Release Install (Recommended)
+### Option 1: Full Install (Recommended)
 
-> **This is the fastest path to a working PAI system.** You get a complete, pre-configured `.claude/` directory with all infrastructure packs already installed.
+> **This is the fastest path to a working PAI system.** The GUI installer walks you through everything.
 
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Releases/v2.5
+cd PAI
 
-# Back up your existing Claude Code configuration (if any)
-[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
-
-# Copy the complete PAI installation
-cp -r .claude ~/
-
-# Run the configuration wizard
-cd ~/.claude && bun run INSTALL.ts
+# Run the installer
+bash PAI-Install/install.sh
 ```
 
-**The wizard will:**
-- Ask for your name, DA name, and timezone
-- Configure environment variables (works with both bash and zsh)
-- Set up voice preferences (optional)
-- Verify the installation
+**The installer will:**
+- Detect your system and install prerequisites (Bun, Git, Claude Code)
+- Ask for your name, AI assistant name, and timezone
+- Clone/configure the PAI repository into `~/.claude/`
+- Set up voice features with ElevenLabs (optional)
+- Configure your shell alias and verify the installation
 
-**After installation:** Restart Claude Code to activate hooks.
-
-[**Full Release documentation →**](Releases/v2.5/README.md)
+**After installation:** Run `source ~/.zshrc && pai` to launch PAI.
 
 ---
 
@@ -656,6 +649,14 @@ MIT License - see [LICENSE](LICENSE) for details.
 <summary><strong>📜 Update History</strong></summary>
 
 <br/>
+
+**v3.0.0 (2026-02-15) — The Algorithm Matures**
+- Algorithm v1.4.0 with constraint extraction and build drift prevention
+- Persistent PRDs and parallel loop execution
+- Full installer with GUI wizard
+- 10 new skills, agent teams/swarm, voice personality system
+- 38 skills, 20 hooks, 162 workflows
+- [Release Notes](Releases/v3.0/README.md)
 
 **v2.5.0 (2026-01-30) — Think Deeper, Execute Faster**
 - Two-Pass Capability Selection: Hook hints validated against ISC in THINK phase

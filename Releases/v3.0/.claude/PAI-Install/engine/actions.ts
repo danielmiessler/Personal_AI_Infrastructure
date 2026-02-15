@@ -461,7 +461,7 @@ export async function runConfiguration(
   const latestPath = join(paiDir, "skills", "PAI", "Components", "Algorithm", "LATEST");
   const latestDir = join(paiDir, "skills", "PAI", "Components", "Algorithm");
   if (existsSync(latestDir)) {
-    try { writeFileSync(latestPath, "v1.4.0\n"); } catch {}
+    try { writeFileSync(latestPath, "v1.5.0\n"); } catch {}
   }
 
   // Calculate and write initial counts so banner shows real numbers on first launch

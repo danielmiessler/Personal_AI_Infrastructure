@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Server - Audio Player</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 2rem;
+        }
+
+        .status-card {
+            background: #161620;
+            border: 1px solid #2a2a3a;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #555;
+            transition: background 0.3s;
+        }
+
+        .status-dot.connected { background: #4ade80; box-shadow: 0 0 8px #4ade8055; }
+        .status-dot.connecting { background: #facc15; animation: pulse 1s infinite; }
+        .status-dot.error { background: #f87171; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .notification-area {
+            background: #1a1a2e;
+            border: 1px solid #2a2a3a;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification-title {
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .notification-text {
+            color: #fff;
+            font-size: 1.1rem;
+            line-height: 1.4;
+            transition: opacity 0.3s;
+        }
+
+        .notification-text.fade { opacity: 0.3; }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: block;
+        }
+
+        .visualizer {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            margin: 1rem 0;
+        }
+
+        .visualizer .bar {
+            width: 4px;
+            height: 4px;
+            background: #6366f1;
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+
+        .visualizer.active .bar {
+            animation: bars 0.6s ease-in-out infinite alternate;
+        }
+
+        .visualizer.active .bar:nth-child(1) { animation-delay: 0s; }
+        .visualizer.active .bar:nth-child(2) { animation-delay: 0.1s; }
+        .visualizer.active .bar:nth-child(3) { animation-delay: 0.2s; }
+        .visualizer.active .bar:nth-child(4) { animation-delay: 0.1s; }
+        .visualizer.active .bar:nth-child(5) { animation-delay: 0s; }
+
+        @keyframes bars {
+            0% { height: 4px; }
+            100% { height: 32px; }
+        }
+
+        .volume-control {
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .volume-control input[type="range"] {
+            width: 120px;
+            accent-color: #6366f1;
+        }
+
+        .error-msg {
+            color: #f87171;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .log-area {
+            margin-top: 1rem;
+            text-align: left;
+            background: #0d0d15;
+            border: 1px solid #1a1a2a;
+            border-radius: 8px;
+            padding: 0.75rem;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .log-area .log-entry { margin-bottom: 0.2rem; }
+        .log-area .log-entry.info { color: #6366f1; }
+        .log-area .log-entry.warn { color: #facc15; }
+        .log-area .log-entry.err { color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Server - Audio Player</h1>
+        <p class="subtitle">Remote audio receiver (ElevenLabs TTS)</p>
+
+        <div class="status-card">
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+
+            <div class="visualizer" id="visualizer">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+
+            <div class="volume-control">
+                <span>Volume</span>
+                <input type="range" id="volume" min="0" max="100" value="80">
+                <span id="volumeLabel">80%</span>
+            </div>
+        </div>
+
+        <div class="notification-area">
+            <div class="notification-title">Last Notification</div>
+            <div class="notification-text fade" id="notificationText">Waiting for audio...</div>
+        </div>
+
+        <div class="stats">
+            <div>
+                <span class="stat-value" id="playCount">0</span>
+                Played
+            </div>
+            <div>
+                <span class="stat-value" id="totalBytes">0 KB</span>
+                Received
+            </div>
+            <div>
+                <span class="stat-value" id="latency">--</span>
+                Latency
+            </div>
+        </div>
+
+        <div class="log-area" id="logArea"></div>
+    </div>
+
+    <script>
+        // ---- Configuration ----
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || '';
+        const wsHost = window.location.host;
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${wsHost}/ws?token=${encodeURIComponent(token)}`;
+
+        // ---- State ----
+        let ws = null;
+        let audioCtx = null;
+        let playCount = 0;
+        let totalBytes = 0;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_DELAY = 30000;
+
+        // ---- DOM Elements ----
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const visualizer = document.getElementById('visualizer');
+        const notificationText = document.getElementById('notificationText');
+        const playCountEl = document.getElementById('playCount');
+        const totalBytesEl = document.getElementById('totalBytes');
+        const latencyEl = document.getElementById('latency');
+        const volumeSlider = document.getElementById('volume');
+        const volumeLabel = document.getElementById('volumeLabel');
+        const logArea = document.getElementById('logArea');
+
+        // ---- Logging ----
+        function log(msg, level = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${level}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${msg}`;
+            logArea.appendChild(entry);
+            logArea.scrollTop = logArea.scrollHeight;
+
+            // Keep log trimmed
+            while (logArea.children.length > 50) {
+                logArea.removeChild(logArea.firstChild);
+            }
+        }
+
+        // ---- Volume ----
+        volumeSlider.addEventListener('input', () => {
+            volumeLabel.textContent = `${volumeSlider.value}%`;
+        });
+
+        function getVolume() {
+            return volumeSlider.value / 100;
+        }
+
+        // ---- Audio Playback ----
+        function ensureAudioContext() {
+            if (!audioCtx || audioCtx.state === 'closed') {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        async function playAudioBytes(arrayBuffer) {
+            const startTime = performance.now();
+            const ctx = ensureAudioContext();
+
+            try {
+                // decodeAudioData handles MP3, WAV, and other formats automatically
+                const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+                const source = ctx.createBufferSource();
+                const gainNode = ctx.createGain();
+
+                source.buffer = audioBuffer;
+                gainNode.gain.value = getVolume();
+
+                source.connect(gainNode);
+                gainNode.connect(ctx.destination);
+
+                // Show visualizer active
+                visualizer.classList.add('active');
+                source.onended = () => {
+                    visualizer.classList.remove('active');
+                };
+
+                source.start(0);
+
+                const latencyMs = Math.round(performance.now() - startTime);
+                latencyEl.textContent = `${latencyMs}ms`;
+
+                playCount++;
+                playCountEl.textContent = playCount;
+
+                log(`Played audio: ${(arrayBuffer.byteLength / 1024).toFixed(1)} KB, ${latencyMs}ms decode`);
+            } catch (err) {
+                log(`Playback error: ${err.message}`, 'err');
+                visualizer.classList.remove('active');
+            }
+        }
+
+        // ---- WebSocket Connection ----
+        function setStatus(state, text) {
+            statusDot.className = `status-dot ${state}`;
+            statusText.textContent = text;
+        }
+
+        function connect() {
+            if (!token) {
+                setStatus('error', 'No auth token');
+                log('No token provided. Add ?token=YOUR_TOKEN to the URL.', 'err');
+                return;
+            }
+
+            setStatus('connecting', 'Connecting...');
+            log(`Connecting to ${wsUrl.replace(token, token.substring(0, 8) + '...')}`);
+
+            ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                setStatus('connected', 'Connected');
+                reconnectAttempts = 0;
+                log('WebSocket connected');
+
+                // Resume AudioContext on user gesture proxy (connection is user-initiated)
+                ensureAudioContext();
+            };
+
+            ws.onmessage = (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    // Binary data = audio (MP3 from ElevenLabs)
+                    totalBytes += event.data.byteLength;
+                    totalBytesEl.textContent = formatBytes(totalBytes);
+                    playAudioBytes(event.data);
+                } else {
+                    // Text data = JSON notification
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'notification') {
+                            notificationText.textContent = msg.message || '';
+                            notificationText.classList.remove('fade');
+
+                            // Fade after 10 seconds
+                            setTimeout(() => {
+                                notificationText.classList.add('fade');
+                            }, 10000);
+
+                            log(`Notification: ${msg.message}`);
+                        } else if (msg.type === 'pong') {
+                            // Keepalive response
+                        }
+                    } catch (e) {
+                        log(`Unknown message: ${event.data}`, 'warn');
+                    }
+                }
+            };
+
+            ws.onclose = (event) => {
+                setStatus('error', 'Disconnected');
+                log(`WebSocket closed: code=${event.code} reason=${event.reason || 'none'}`, 'warn');
+                scheduleReconnect();
+            };
+
+            ws.onerror = (err) => {
+                log('WebSocket error', 'err');
+            };
+
+            // Keepalive ping every 30 seconds
+            setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send('ping');
+                }
+            }, 30000);
+        }
+
+        function scheduleReconnect() {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), MAX_RECONNECT_DELAY);
+            log(`Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${reconnectAttempts})`, 'warn');
+
+            setTimeout(() => {
+                if (!ws || ws.readyState === WebSocket.CLOSED) {
+                    connect();
+                }
+            }, delay);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        // ---- Click-to-unlock Audio Context ----
+        document.body.addEventListener('click', () => {
+            ensureAudioContext();
+        }, { once: true });
+
+        // ---- Start ----
+        connect();
+    </script>
+</body>
+</html>

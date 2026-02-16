@@ -51,11 +51,18 @@ import { captureFailure } from '../skills/PAI/Tools/FailureCapture';
 
 // ── Algorithm Format Reminder (absorbed from AlgorithmEnforcement) ──
 // Output IMMEDIATELY before any async work — this is blocking stdout injection.
+// Read Algorithm version dynamically from LATEST file (never hardcode)
+const ALGO_VERSION = (() => {
+  try {
+    const paiDir = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+    return readFileSync(join(paiDir, 'skills', 'PAI', 'Components', 'Algorithm', 'LATEST'), 'utf-8').trim();
+  } catch { return 'v?.?.?'; }
+})();
 const ALGORITHM_REMINDER = `<user-prompt-submit-hook>
 \u{1F6A8} ALGORITHM FORMAT REQUIRED - EVERY RESPONSE \u{1F6A8}
 
 START WITH:
-\u{267B}\u{FE0F} Entering the PAI ALGORITHM\u{2026} (v0.4.9 | github.com/danielmiessler/TheAlgorithm) \u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}
+\u{267B}\u{FE0F} Entering the PAI ALGORITHM\u{2026} (${ALGO_VERSION} | github.com/danielmiessler/TheAlgorithm) \u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}
 
 EXECUTE VOICE CURLS at each phase (OBSERVE, THINK, PLAN, BUILD, EXECUTE, VERIFY, LEARN)
 

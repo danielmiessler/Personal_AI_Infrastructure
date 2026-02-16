@@ -27,7 +27,8 @@ import { getLearningCategory, isLearningCapture } from "../../../hooks/lib/learn
 
 const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
 const USERNAME = process.env.USER || require("os").userInfo().username;
-const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-Users-${USERNAME}--claude`);
+const CWD_SLUG = CLAUDE_DIR.replace(/[\/\.]/g, "-");
+const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", CWD_SLUG);
 const LEARNING_DIR = path.join(CLAUDE_DIR, "MEMORY", "LEARNING");
 
 // Patterns indicating learning moments in conversations

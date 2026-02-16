@@ -55,17 +55,30 @@ import { join, dirname } from 'path';
 import { getISOTimestamp, getPSTDate } from './lib/time';
 import { getLearningCategory } from './lib/learning-utils';
 
-const MEMORY_DIR = join(process.env.HOME!, '.claude', 'MEMORY');
+const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
-const CURRENT_WORK_FILE = join(STATE_DIR, 'current-work.json');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');
 const LEARNING_DIR = join(MEMORY_DIR, 'LEARNING');
 
+// Session-scoped state file lookup with legacy fallback
+function findStateFile(sessionId?: string): string | null {
+  if (sessionId) {
+    const scoped = join(STATE_DIR, `current-work-${sessionId}.json`);
+    if (existsSync(scoped)) return scoped;
+  }
+  const legacy = join(STATE_DIR, 'current-work.json');
+  if (existsSync(legacy)) return legacy;
+  return null;
+}
+
 interface CurrentWork {
   session_id: string;
-  work_dir: string;
+  session_dir: string;
+  current_task: string;
+  task_title: string;
+  task_count: number;
   created_at: string;
-  item_count: number;
 }
 
 interface WorkMeta {
@@ -239,28 +252,45 @@ ${idealContent || 'Not specified'}
 
 async function main() {
   try {
-    // Read input from stdin (required for hook pattern)
-    const input = await Bun.stdin.text();
-    if (!input || input.trim() === '') {
-      process.exit(0);
+    // Read input from stdin with timeout — SessionEnd hooks may receive
+    // empty or slow stdin. Proceed regardless since state is read from disk.
+    let sessionId: string | undefined;
+    try {
+      const input = await Promise.race([
+        Bun.stdin.text(),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+      ]);
+      if (input && input.trim()) {
+        const parsed = JSON.parse(input);
+        sessionId = parsed.session_id;
+      }
+    } catch {
+      // Timeout or parse error — proceed without session_id
     }
 
-    // Check if there's an active work session
-    if (!existsSync(CURRENT_WORK_FILE)) {
+    // Check if there's an active work session (session-scoped with legacy fallback)
+    const stateFile = findStateFile(sessionId);
+    if (!stateFile) {
       console.error('[WorkCompletionLearning] No active work session');
       process.exit(0);
     }
 
     // Read current work state
-    const currentWork: CurrentWork = JSON.parse(readFileSync(CURRENT_WORK_FILE, 'utf-8'));
+    const currentWork: CurrentWork = JSON.parse(readFileSync(stateFile, 'utf-8'));
 
-    if (!currentWork.work_dir) {
+    // Guard: don't process another session's state
+    if (sessionId && currentWork.session_id !== sessionId) {
+      console.error('[WorkCompletionLearning] State file belongs to different session, skipping');
+      process.exit(0);
+    }
+
+    if (!currentWork.session_dir) {
       console.error('[WorkCompletionLearning] No work directory in current session');
       process.exit(0);
     }
 
     // Read work directory metadata
-    const workPath = join(WORK_DIR, currentWork.work_dir);
+    const workPath = join(WORK_DIR, currentWork.session_dir);
     const metaPath = join(workPath, 'META.yaml');
 
     if (!existsSync(metaPath)) {
@@ -301,7 +331,7 @@ async function main() {
     // Check if this was significant work (has files changed or was manually created)
     const hasSignificantWork = (
       (workMeta.lineage?.files_changed?.length || 0) > 0 ||
-      currentWork.item_count > 1 ||
+      currentWork.task_count > 1 ||
       workMeta.source === 'MANUAL'
     );
 

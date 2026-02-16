@@ -91,7 +91,7 @@ function parseCriterion(text: string): { id: string; description: string } | nul
 
 // ── Session Activation (replaces SessionReactivator) ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
 
 function getSessionName(sid: string): string {
   try {

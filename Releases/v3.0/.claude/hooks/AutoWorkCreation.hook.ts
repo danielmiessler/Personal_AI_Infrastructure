@@ -25,6 +25,7 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync, symlinkSync, unlinkSync, lstatSync } from 'fs';
 import { join } from 'path';
 import { getPSTComponents, getISOTimestamp } from './lib/time';
+import { generatePRDTemplate, generatePRDFilename } from './lib/prd-template';
 interface HookInput {
   session_id: string;
   prompt?: string;
@@ -38,6 +39,7 @@ interface CurrentWork {
   task_title: string;
   task_count: number;
   created_at: string;
+  prd_path?: string;
 }
 
 interface PromptClassification {
@@ -141,7 +143,7 @@ function createTaskDirectory(
   title: string,
   effort: string,
   prompt: string
-): string {
+): { taskDirName: string; prdPath: string } {
   const taskId = String(taskNumber).padStart(3, '0');
   const taskSlug = slugify(title);
   const taskDirName = `${taskId}_${taskSlug}`;
@@ -213,6 +215,17 @@ _Important observations during execution..._
   };
   writeFileSync(join(taskPath, 'ISC.json'), JSON.stringify(isc, null, 2), 'utf-8');
 
+  // Task PRD file — stub for model to populate during Algorithm phases
+  const prdSlug = taskSlug.substring(0, 40);
+  const prdFilename = generatePRDFilename(prdSlug);
+  const prdContent = generatePRDTemplate({
+    title,
+    slug: prdSlug,
+    effortLevel: effort,
+    prompt,
+  });
+  writeFileSync(join(taskPath, prdFilename), prdContent, 'utf-8');
+
   // Update 'current' symlink
   const currentLink = join(sessionPath, 'tasks', 'current');
   try {
@@ -223,7 +236,8 @@ _Important observations during execution..._
   symlinkSync(taskDirName, currentLink);
 
   console.error(`[AutoWork] Created task: ${taskPath}`);
-  return taskDirName;
+  console.error(`[AutoWork] Created PRD: ${prdFilename}`);
+  return { taskDirName, prdPath: join(taskPath, prdFilename) };
 }
 
 /**
@@ -284,7 +298,7 @@ async function main() {
       const sessionDirName = generateSessionDirName(title);
       const sessionPath = createSessionDirectory(sessionDirName, sessionId, title);
 
-      const taskDirName = createTaskDirectory(
+      const { taskDirName, prdPath } = createTaskDirectory(
         sessionPath,
         1,
         title,
@@ -299,6 +313,7 @@ async function main() {
         task_title: title,
         task_count: 1,
         created_at: getISOTimestamp(),
+        prd_path: prdPath,
       };
       writeCurrentWork(currentWork);
 
@@ -309,7 +324,7 @@ async function main() {
       const newTaskNumber = currentWork!.task_count + 1;
       const title = classification.title || prompt.substring(0, 50);
 
-      const taskDirName = createTaskDirectory(
+      const { taskDirName, prdPath } = createTaskDirectory(
         sessionPath,
         newTaskNumber,
         title,
@@ -320,6 +335,7 @@ async function main() {
       currentWork!.current_task = taskDirName;
       currentWork!.task_title = title;
       currentWork!.task_count = newTaskNumber;
+      currentWork!.prd_path = prdPath;
       writeCurrentWork(currentWork!);
 
       console.error(`[AutoWork] New task in session: ${taskDirName}`);

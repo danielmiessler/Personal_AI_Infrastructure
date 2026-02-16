@@ -22,6 +22,7 @@
  * USAGE:
  *   algorithm -m loop -p <PRD> [-n 128]        Autonomous loop execution
  *   algorithm -m interactive -p <PRD>           Interactive claude session
+ *   algorithm new -t <title> [-e <effort>]      Create a new PRD
  *   algorithm status [-p <PRD>]                 Show PRD status
  *   algorithm pause -p <PRD>                    Pause a running loop
  *   algorithm resume -p <PRD>                   Resume a paused loop
@@ -31,6 +32,7 @@
  *   algorithm -m loop -p ~/.claude/MEMORY/WORK/auth/PRD-20260207-auth.md
  *   algorithm -m loop -p /path/to/project/.prd/PRD-20260213-feature.md -n 20
  *   algorithm -m interactive -p PRD-20260213-surface
+ *   algorithm new -t "Build auth system" -e Extended
  *   algorithm status
  *   algorithm pause -p PRD-20260207-auth
  */
@@ -48,7 +50,7 @@ const ALGORITHMS_DIR = join(BASE_DIR, "MEMORY", "STATE", "algorithms");
 const SESSION_NAMES_PATH = join(BASE_DIR, "MEMORY", "STATE", "session-names.json");
 const PROJECTS_DIR = process.env.PROJECTS_DIR || join(HOME, "Projects");
 const VOICE_URL = "http://localhost:8888/notify";
-const VOICE_ID = "YOUR_VOICE_ID_HERE";
+const VOICE_ID = "fTtv3eikoepIosk8dTZ5";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -133,19 +135,21 @@ interface LoopAlgorithmState {
 // ─── CLI Argument Parsing ────────────────────────────────────────────────────
 
 interface ParsedArgs {
-  subcommand: string | null;    // status, pause, resume, stop, or null (= run)
+  subcommand: string | null;    // status, pause, resume, stop, new, or null (= run)
   mode: string | null;          // loop, interactive
   prdPath: string | null;       // -p value
   maxIterations: number | null; // -n value
   agentCount: number;           // -a value (default 1)
+  title: string | null;         // -t value (for 'new' subcommand)
+  effortLevel: string | null;   // -e value (for 'new' subcommand)
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
-  const result: ParsedArgs = { subcommand: null, mode: null, prdPath: null, maxIterations: null, agentCount: 1 };
+  const result: ParsedArgs = { subcommand: null, mode: null, prdPath: null, maxIterations: null, agentCount: 1, title: null, effortLevel: null };
 
   // Check for subcommand (first arg that isn't a flag)
-  const subcommands = ["status", "pause", "resume", "stop"];
+  const subcommands = ["status", "pause", "resume", "stop", "new"];
   if (args.length > 0 && subcommands.includes(args[0])) {
     result.subcommand = args[0];
   }
@@ -161,6 +165,10 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.maxIterations = parseInt(args[++i], 10);
     } else if ((arg === "-a" || arg === "--agents") && i + 1 < args.length) {
       result.agentCount = parseInt(args[++i], 10);
+    } else if ((arg === "-t" || arg === "--title") && i + 1 < args.length) {
+      result.title = args[++i];
+    } else if ((arg === "-e" || arg === "--effort") && i + 1 < args.length) {
+      result.effortLevel = args[++i];
     } else if (arg === "-h" || arg === "--help") {
       printHelp();
       process.exit(0);
@@ -182,6 +190,7 @@ function printHelp(): void {
 
 Usage:
   algorithm -m <mode> -p <PRD> [-n N] [-a N]   Run the Algorithm against a PRD
+  algorithm new -t <title> [-e <effort>] [-p <dir>]  Create a new PRD
   algorithm status [-p <PRD>]                   Show PRD status
   algorithm pause -p <PRD>                      Pause a running loop
   algorithm resume -p <PRD>                     Resume a paused loop
@@ -193,9 +202,11 @@ Modes:
 
 Flags:
   -m, --mode <mode>     Execution mode: loop or interactive
-  -p, --prd <path>      PRD file path or PRD ID
+  -p, --prd <path>      PRD file path or PRD ID (or output dir for 'new')
   -n, --max <N>         Max iterations (loop mode only, default: 128)
   -a, --agents <N>      Parallel agents per iteration (1-16, default: 1)
+  -t, --title <title>   PRD title (required for 'new')
+  -e, --effort <level>  Effort level: Standard, Extended, etc. (default: Standard)
   -h, --help            Show this help
 
 PRD Resolution:
@@ -204,6 +215,8 @@ PRD Resolution:
   Project path  /path/to/project/.prd/PRD-20260213-feature.md
 
 Examples:
+  algorithm new -t "Build authentication system" -e Extended
+  algorithm new -t "Fix login bug" -p ./project/.prd/
   algorithm -m loop -p PRD-20260213-surface -n 20
   algorithm -m loop -p PRD-20260213-surface -n 20 -a 4     # 4 parallel agents
   algorithm -m interactive -p PRD-20260213-surface
@@ -1128,21 +1141,135 @@ function runInteractive(prdPath: string): void {
   });
 }
 
+// ─── PRD Creation ───────────────────────────────────────────────────────────
+
+function createNewPRD(title: string, effortLevel: string = "Standard", outputDir?: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .substring(0, 40)
+    .replace(/-$/, "") || "task";
+
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const today = `${y}-${m}-${d}`;
+  const id = `PRD-${y}${m}${d}-${slug}`;
+  const filename = `${id}.md`;
+
+  // Determine output directory
+  let targetDir: string;
+  if (outputDir) {
+    targetDir = resolve(outputDir);
+  } else {
+    // Default: create in MEMORY/WORK session directory
+    const sessionSlug = `${y}${m}${d}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}_${slug}`;
+    targetDir = join(BASE_DIR, "MEMORY", "WORK", sessionSlug);
+  }
+  mkdirSync(targetDir, { recursive: true });
+
+  const prdContent = `---
+prd: true
+id: ${id}
+status: DRAFT
+mode: interactive
+effort_level: ${effortLevel}
+created: ${today}
+updated: ${today}
+iteration: 0
+maxIterations: 128
+loopStatus: null
+last_phase: null
+failing_criteria: []
+verification_summary: "0/0"
+parent: null
+children: []
+---
+
+# ${title}
+
+> _To be populated: what this achieves and why it matters._
+
+## STATUS
+
+| What | State |
+|------|-------|
+| Progress | 0/0 criteria passing |
+| Phase | DRAFT |
+| Next action | OBSERVE phase — create ISC |
+| Blocked by | nothing |
+
+## CONTEXT
+
+### Problem Space
+_To be populated during OBSERVE phase._
+
+### Key Files
+_To be populated during exploration._
+
+### Constraints
+_To be populated during OBSERVE/PLAN._
+
+### Decisions Made
+_None yet._
+
+## PLAN
+
+_To be populated during PLAN phase._
+
+## IDEAL STATE CRITERIA (Verification Criteria)
+
+_Criteria will be added during OBSERVE phase via TaskCreate._
+_Format: ISC-C{N}: {8-12 word state criterion} | Verify: {method}_
+
+## DECISIONS
+
+_Non-obvious technical decisions logged here during BUILD/EXECUTE._
+
+## LOG
+
+_Session entries appended during LEARN phase._
+`;
+
+  const fullPath = join(targetDir, filename);
+  writeFileSync(fullPath, prdContent, "utf-8");
+  return fullPath;
+}
+
 // ─── PRD Discovery ──────────────────────────────────────────────────────────
 
 function findAllPRDs(): string[] {
   const files: string[] = [];
 
-  // 1. Scan MEMORY/WORK directory
+  // 1. Scan MEMORY/WORK directory (session-level and task-level PRDs)
   const workDir = join(BASE_DIR, "MEMORY", "WORK");
   if (existsSync(workDir)) {
     try {
-      for (const sub of readdirSync(workDir)) {
-        const subPath = join(workDir, sub);
+      for (const session of readdirSync(workDir)) {
+        const sessionPath = join(workDir, session);
         try {
-          for (const f of readdirSync(subPath)) {
+          // Session-level PRDs
+          for (const f of readdirSync(sessionPath)) {
             if (f.startsWith("PRD-") && f.endsWith(".md")) {
-              files.push(join(subPath, f));
+              files.push(join(sessionPath, f));
+            }
+          }
+          // Task-level PRDs (WORK/{session}/tasks/{task}/PRD-*.md)
+          const tasksDir = join(sessionPath, "tasks");
+          if (existsSync(tasksDir)) {
+            for (const task of readdirSync(tasksDir)) {
+              if (task === "current") continue; // skip symlink
+              const taskPath = join(tasksDir, task);
+              try {
+                for (const f of readdirSync(taskPath)) {
+                  if (f.startsWith("PRD-") && f.endsWith(".md")) {
+                    files.push(join(taskPath, f));
+                  }
+                }
+              } catch { /* not a directory */ }
             }
           }
         } catch { /* not a directory */ }
@@ -1297,6 +1424,17 @@ if (parsed.subcommand) {
     case "status":
       showStatus(prdRef ? resolvePRDPath(prdRef) : undefined);
       break;
+    case "new": {
+      if (!parsed.title) {
+        console.error("Usage: algorithm new -t <title> [-e <effort>] [-p <output-dir>]");
+        process.exit(1);
+      }
+      const prdPath = createNewPRD(parsed.title, parsed.effortLevel || "Standard", prdRef || undefined);
+      console.log(`\x1b[32m✓\x1b[0m Created PRD: ${prdPath}`);
+      console.log(`\n  Run with:  algorithm -m interactive -p ${prdPath}`);
+      console.log(`  Or loop:   algorithm -m loop -p ${prdPath} -n 20`);
+      break;
+    }
     case "pause":
       if (!prdRef) { console.error("Usage: algorithm pause -p <PRD>"); process.exit(1); }
       pauseLoop(resolvePRDPath(prdRef));

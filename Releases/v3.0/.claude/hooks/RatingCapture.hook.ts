@@ -301,7 +301,8 @@ function captureLowRatingLearning(
   detailedContext: string,
   source: 'explicit' | 'implicit'
 ): void {
-  if (rating >= 6) return;
+  if (rating >= 5) return;  // 5 = neutral (no sentiment), only capture actual negatives (<=4)
+  if (!detailedContext?.trim()) return;  // Skip if no meaningful context to learn from
 
   const { year, month, day, hours, minutes, seconds } = getPSTComponents();
   const yearMonth = `${year}-${month}`;
@@ -377,7 +378,7 @@ async function main() {
       writeRating(entry);
       triggerTrending();
 
-      if (explicitResult.rating < 6) {
+      if (explicitResult.rating < 5) {
         // Get last response for context
         let responseContext = '';
         try {
@@ -462,7 +463,7 @@ async function main() {
       writeRating(entry);
       triggerTrending();
 
-      if (sentiment.rating < 6) {
+      if (sentiment.rating < 5) {
         captureLowRatingLearning(
           sentiment.rating,
           sentiment.summary,

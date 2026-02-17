@@ -589,6 +589,25 @@ export async function runConfiguration(
     writeFileSync(zshrcPath, `${marker}\n${aliasLine}\n`);
   }
 
+  // Set up fish shell config (if fish is installed)
+  const fishConfigPath = join(homedir(), ".config", "fish", "config.fish");
+  const fishConfigDir = join(homedir(), ".config", "fish");
+  const paiToolPath = join(paiDir, "skills", "PAI", "Tools", "pai.ts");
+  const fishFunction = `# PAI alias\nfunction pai\n    bun ${paiToolPath} $argv\nend`;
+
+  if (existsSync(fishConfigDir)) {
+    if (existsSync(fishConfigPath)) {
+      let content = readFileSync(fishConfigPath, "utf-8");
+      // Remove old PAI/CORE fish functions
+      content = content.replace(/^#\s*(?:PAI|CORE)\s*alias\nfunction pai\n.*\nend\n?/gm, "");
+      content = content.replace(/^function pai\n.*\nend\n?/gm, "");
+      content = content.trimEnd() + `\n\n${fishFunction}\n`;
+      writeFileSync(fishConfigPath, content);
+    } else {
+      writeFileSync(fishConfigPath, `${fishFunction}\n`);
+    }
+  }
+
   // Fix permissions
   await emit({ event: "progress", step: "configuration", percent: 90, detail: "Setting permissions..." });
   try {

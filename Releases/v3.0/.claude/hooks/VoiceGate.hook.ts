@@ -35,9 +35,20 @@ interface HookInput {
 }
 
 function isMainSession(sessionId: string): boolean {
+  // Terminal detection: if we're in a recognized terminal, this is a main session.
+  // Subagents spawned by Task tool don't inherit terminal environment variables,
+  // so their absence indicates a subagent context.
+  const termProgram = process.env.TERM_PROGRAM;
+  if (termProgram === 'iTerm.app' || termProgram === 'WarpTerminal' ||
+      termProgram === 'Alacritty' || termProgram === 'Apple_Terminal' ||
+      process.env.ITERM_SESSION_ID) {
+    return true; // Running in a recognized terminal → main session
+  }
+
+  // Kitty detection via session files (backward-compatible)
   const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
   const kittySessionsDir = join(paiDir, 'MEMORY', 'STATE', 'kitty-sessions');
-  if (!existsSync(kittySessionsDir)) return true; // Non-Kitty terminal: allow all sessions
+  if (!existsSync(kittySessionsDir)) return true; // No session tracking dir → allow
   return existsSync(join(kittySessionsDir, `${sessionId}.json`));
 }
 

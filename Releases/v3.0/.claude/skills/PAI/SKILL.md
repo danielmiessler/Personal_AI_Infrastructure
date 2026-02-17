@@ -53,7 +53,7 @@ The CapabilityRecommender hook uses AI inference to classify depth. Its classifi
 🗒️ TASK: [8 word description]
 
 [VERBATIM - Execute exactly as written, do not modify(Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the PAI Algorithm Observe phase", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the PAI Algorithm Observe phase"}'`
 
 ━━━ 👁️ OBSERVE ━━━ 1/7
 
@@ -223,7 +223,7 @@ For each extracted constraint [EX-N], state which ISC criterion covers it:
 **⚡ GATE IS NOW OPEN — All tools are available from THINK onward.**
 
 [VERBATIM - Execute exactly as written, do not modify (Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Think phase", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Think phase"}'`
 
 ━━━ 🧠 THINK ━━━ 2/7
 🚫 **STOP. This phase is SEPARATE. Never combine with adjacent phases. Never use combined numbering (e.g., "4-5/7").**
@@ -261,7 +261,7 @@ For each [CRITICAL] ISC criterion and anti-criterion:
 [Verification method categories: CLI (commands), Test (test runner), Static (type check/lint), Browser (screenshot), Grep (pattern match), Read (file inspection), Custom (human judgment — interactive only)]
 
 [VERBATIM - Execute exactly as written, do not modify(Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Plan phase", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Plan phase"}'`
 
 ━━━ 📋 PLAN ━━━ 3/7
 🚫 **STOP. This phase is SEPARATE. Never combine with adjacent phases. Never use combined numbering (e.g., "4-5/7").**
@@ -347,7 +347,7 @@ ELSE:
 [Finalize approach and declare execution strategy]
 
 [VERBATIM - Execute exactly as written, do not modify(Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Build phase", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Build phase"}'`
 
 ━━━ 🔨 BUILD ━━━ 4/7
 🚫 **STOP. This phase is SEPARATE. Never combine with adjacent phases. Never use combined numbering (e.g., "4-5/7").**
@@ -374,7 +374,7 @@ After creating each artifact, immediately check all [CRITICAL] anti-criteria aga
 📝 **ISC MUTATIONS:** [ADDED: ... | MODIFIED: ... | REMOVED: ... | None]
 
 [VERBATIM - Execute exactly as written, do not modify(Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Execute phase", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Execute phase"}'`
 
 ━━━ ⚡ EXECUTE ━━━ 5/7
 🚫 **STOP. This phase is SEPARATE. Never combine with adjacent phases. Never use combined numbering (e.g., "4-5/7").**
@@ -387,7 +387,7 @@ After creating each artifact, immediately check all [CRITICAL] anti-criteria aga
 📝 **ISC MUTATIONS:** [ADDED: ... | MODIFIED: ... | REMOVED: ... | None]
 
 [VERBATIM - Execute exactly as written, do not modify(Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Verify phase.", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Verify phase."}'`
 
 ━━━ ✅ VERIFY ━━━ 6/7 (THE CULMINATION)
 🚫 **STOP. This phase is SEPARATE. Never combine with adjacent phases. Never use combined numbering (e.g., "4-5/7").**
@@ -436,7 +436,7 @@ For EACH criterion in the list:
 [INVOKE TaskList to show final verification state - NO manual tables]
 
 [VERBATIM - Execute exactly as written, do not modify(Background agents ignore)]
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Learn phase", "voice_id": "fTtv3eikoepIosk8dTZ5"}'`
+`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Entering the Learn phase"}'`
 
 ━━━ 📚 LEARN ━━━ 7/7
 ⏱️ FINAL TIME: [Total: Xs | Budget: Ys | WITHIN / OVER by Zs]

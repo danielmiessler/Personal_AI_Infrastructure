@@ -23,6 +23,11 @@ const KITTY_SESSIONS_DIR = paiPath('MEMORY', 'STATE', 'kitty-sessions');
  * Resolution order:
  * 1. Process env vars (direct terminal context — always correct)
  * 2. Per-session file: kitty-sessions/{sessionId}.json (no shared state, no races)
+ * 3. Default socket at /tmp/kitty-$USER (fallback for socket-only configs)
+ *
+ * IMPORTANT: listenOn MUST be set for remote control to work safely.
+ * Without it, kitten @ commands fall back to escape-sequence IPC which
+ * leaks garbage text into the terminal output. See PR #493.
  */
 function getKittyEnv(sessionId?: string): { listenOn: string | null; windowId: string | null } {
   // Try environment first (direct terminal calls)
@@ -43,9 +48,21 @@ function getKittyEnv(sessionId?: string): { listenOn: string | null; windowId: s
     } catch { /* silent */ }
   }
 
+  // Fallback: check default socket path used by kitty's listen_on config.
+  // This prevents escape-sequence IPC when KITTY_LISTEN_ON isn't propagated
+  // to subprocess contexts (the root cause of terminal garbage in #493).
+  if (!listenOn) {
+    const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+    try {
+      if (existsSync(defaultSocket)) {
+        listenOn = `unix:${defaultSocket}`;
+      }
+    } catch { /* silent */ }
+  }
+
   // Log when kitty env lookup fails with a session ID (diagnostic for compaction issues)
   if (sessionId && !listenOn && !windowId) {
-    console.error(`[tab-setter] getKittyEnv: no kitty env found for session ${sessionId.slice(0, 8)} (no env vars, no session file)`);
+    console.error(`[tab-setter] getKittyEnv: no kitty env found for session ${sessionId.slice(0, 8)} (no env vars, no session file, no default socket)`);
   }
 
   return { listenOn, windowId };
@@ -100,8 +117,11 @@ function cleanupStaleStateFiles(): void {
     const files = readdirSync(TAB_TITLES_DIR).filter(f => f.endsWith('.json'));
     if (files.length === 0) return;
 
-    // Get live window IDs from kitty
-    const liveOutput = execSync('kitten @ ls 2>/dev/null | jq -r ".[].tabs[].windows[].id" 2>/dev/null', {
+    // Get live window IDs from kitty via socket (prevents escape sequence leaks)
+    const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+    const socketPath = process.env.KITTY_LISTEN_ON || (existsSync(defaultSocket) ? `unix:${defaultSocket}` : null);
+    if (!socketPath) return; // No socket — skip cleanup to avoid escape sequence IPC
+    const liveOutput = execSync(`kitten @ --to="${socketPath}" ls 2>/dev/null | jq -r ".[].tabs[].windows[].id" 2>/dev/null`, {
       encoding: 'utf-8', timeout: 2000,
     }).trim();
     if (!liveOutput) return;
@@ -127,15 +147,22 @@ export function setTabState(opts: SetTabOptions): void {
     const isKitty = process.env.TERM === 'xterm-kitty' || kittyEnv.listenOn;
     if (!isKitty) return;
 
+    // CRITICAL: Always use --to flag for socket-based remote control.
+    // Without it, kitten @ falls back to escape-sequence IPC which leaks
+    // garbage text (e.g. "P@kitty-cmd{...}") into terminal output when
+    // running in subprocess contexts. See PR #493.
+    if (!kittyEnv.listenOn) {
+      console.error(`[tab-setter] No kitty socket available, skipping tab update to prevent escape sequence leaks`);
+      return;
+    }
+
     const escaped = title.replace(/"/g, '\\"');
     // Set BOTH tab title AND window title. Kitty's tab_title_template uses
     // {active_window.title} (the window title). OSC escape codes from Claude Code
     // reset set-tab-title overrides, so the template falls back to window title.
     // By setting both, our title survives OSC resets.
-    //
-    // Use --to flag with KITTY_LISTEN_ON for remote control when not in terminal context
-    const toFlag = kittyEnv.listenOn ? `--to="${kittyEnv.listenOn}"` : '';
-    console.error(`[tab-setter] Setting tab: "${escaped}" with toFlag: ${toFlag || '(none)'}`);
+    const toFlag = `--to="${kittyEnv.listenOn}"`;
+    console.error(`[tab-setter] Setting tab: "${escaped}" with toFlag: ${toFlag}`);
     execSync(`kitten @ ${toFlag} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
     execSync(`kitten @ ${toFlag} set-window-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
 
@@ -291,8 +318,14 @@ export function setPhaseTab(phase: AlgorithmTabPhase, sessionId: string, summary
     const isKitty = process.env.TERM === 'xterm-kitty' || kittyEnv.listenOn;
     if (!isKitty) return;
 
+    // CRITICAL: Require socket for remote control. See PR #493.
+    if (!kittyEnv.listenOn) {
+      console.error(`[tab-setter] No kitty socket available, skipping phase tab update`);
+      return;
+    }
+
     const escaped = title.replace(/"/g, '\\"');
-    const toFlag = kittyEnv.listenOn ? `--to="${kittyEnv.listenOn}"` : '';
+    const toFlag = `--to="${kittyEnv.listenOn}"`;
 
     execSync(`kitten @ ${toFlag} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
     execSync(`kitten @ ${toFlag} set-window-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });

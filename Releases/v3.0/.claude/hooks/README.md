@@ -50,15 +50,14 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │  UserPromptSubmit ──┬──► RatingCapture (algo reminder + ratings)    │
 │                     ├──► AutoWorkCreation (work directory setup)    │
 │                     ├──► UpdateTabTitle (tab + voice announcement)  │
-│                     ├──► SessionAutoName (session naming)           │
-│                     └──► SessionReactivator (algorithm state)       │
+│                     └──► SessionAutoName (session naming)           │
 │                                                                     │
 │  PreToolUse ──┬──► SecurityValidator (Bash/Edit/Write/Read)         │
 │               ├──► SetQuestionTab (AskUserQuestion)                 │
 │               ├──► AgentExecutionGuard (Task)                       │
 │               └──► SkillGuard (Skill)                               │
 │                                                                     │
-│  PostToolUse ──┬──► CriteriaTracker (all tools — phase + criteria)  │
+│  PostToolUse ──┬──► AlgorithmTracker (phase + criteria tracking)    │
 │                └──► QuestionAnswered (AskUserQuestion)               │
 │                                                                     │
 │  Stop ──► StopOrchestrator ──┬──► VoiceNotification                 │
@@ -136,7 +135,6 @@ interface StopPayload extends BasePayload {
 | `AutoWorkCreation.hook.ts` | Create/update work directories | No | `MEMORY/STATE/current-work.json` |
 | `UpdateTabTitle.hook.ts` | Set tab title + voice announcement | No | Inference API, Voice Server |
 | `SessionAutoName.hook.ts` | Name session on first prompt | No | Inference API, `session-names.json` |
-| `SessionReactivator.hook.ts` | Reactivate algorithm state on new prompt | No | `lib/algorithm-state.ts` |
 
 ### PreToolUse Hooks
 
@@ -151,7 +149,7 @@ interface StopPayload extends BasePayload {
 
 | Hook | Purpose | Blocking | Dependencies |
 |------|---------|----------|--------------|
-| `CriteriaTracker.hook.ts` | Real-time phase tracking + ISC criteria tracking | No | `lib/algorithm-state.ts` |
+| `AlgorithmTracker.hook.ts` | Real-time phase tracking + ISC criteria tracking | No | `lib/algorithm-state.ts` |
 | `QuestionAnswered.hook.ts` | Reset tab state after question answered | No | Kitty terminal |
 
 ### Stop Hooks

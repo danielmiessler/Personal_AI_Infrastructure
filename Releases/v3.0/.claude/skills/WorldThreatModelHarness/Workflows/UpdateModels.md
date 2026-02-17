@@ -79,11 +79,11 @@ For each model, following `ModelTemplate.md`:
 4. Include specific data points, named entities, cited reasoning
 5. Write Wildcards section with probability estimates
 
-Save to: `~/.claude/MEMORY/RESEARCH/WorldModels/{horizon}.md`
+Save to: `$HOME/.claude/MEMORY/RESEARCH/WorldModels/{horizon}.md` (resolve `$HOME` to absolute path — NEVER use literal `~`)
 
 ### Step 5: Update INDEX
 
-Write/update `~/.claude/MEMORY/RESEARCH/WorldModels/INDEX.md`:
+Write/update `$HOME/.claude/MEMORY/RESEARCH/WorldModels/INDEX.md` (resolve `$HOME` to absolute path — NEVER use literal `~`):
 
 ```markdown
 # World Threat Models — Index

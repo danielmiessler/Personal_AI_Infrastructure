@@ -39,7 +39,7 @@ mkdir -p ~/.claude/skills/Evals/UseCases/<name>/{test-cases,golden-outputs,promp
 
 ### Step 3: Create Config File
 
-Create `~/.claude/skills/Evals/UseCases/<name>/config.yaml`:
+Create `$HOME/.claude/skills/Evals/UseCases/<name>/config.yaml`:
 
 ```yaml
 name: <use_case_name>
@@ -97,7 +97,7 @@ models:
 
 ### Step 4: Create Initial Prompt Version
 
-Create `~/.claude/skills/Evals/UseCases/<name>/prompts/v1.0.0.md`:
+Create `$HOME/.claude/skills/Evals/UseCases/<name>/prompts/v1.0.0.md`:
 
 ```markdown
 # <Task Name> Prompt v1.0.0
@@ -121,7 +121,7 @@ Create `~/.claude/skills/Evals/UseCases/<name>/prompts/v1.0.0.md`:
 
 ### Step 5: Create Test Cases
 
-Create test cases in `~/.claude/skills/Evals/UseCases/<name>/test-cases/`:
+Create test cases in `$HOME/.claude/skills/Evals/UseCases/<name>/test-cases/`:
 
 Each test case is a YAML file:
 
@@ -173,7 +173,7 @@ Golden outputs serve as:
 
 ### Step 7: Create README
 
-Create `~/.claude/skills/Evals/UseCases/<name>/README.md`:
+Create `$HOME/.claude/skills/Evals/UseCases/<name>/README.md`:
 
 ```markdown
 # <Use Case Name>

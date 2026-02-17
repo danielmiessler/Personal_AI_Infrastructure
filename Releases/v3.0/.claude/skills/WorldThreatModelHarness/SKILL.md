@@ -39,7 +39,7 @@ All workflows support three execution tiers:
 
 ## World Model Storage
 
-Models are stored at: `~/.claude/MEMORY/RESEARCH/WorldModels/`
+Models are stored at: `$HOME/.claude/MEMORY/RESEARCH/WorldModels/` (resolve `$HOME` to absolute path — NEVER use literal `~`)
 
 | File | Horizon |
 |------|---------|

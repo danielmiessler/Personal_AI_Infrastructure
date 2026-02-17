@@ -379,10 +379,10 @@ When this skill activates, PAI should:
 
 1. **Load content** via appropriate method (fabric -y, WebFetch, Read, or paste)
 2. **Get current work directory** - Read `~/.claude/MEMORY/STATE/current-work.json` for `work_dir`
-3. **Create scratch workspace** - Work in `~/.claude/MEMORY/WORK/{work_dir}/scratch/`
+3. **Create scratch workspace** - Work in `$HOME/.claude/MEMORY/WORK/{work_dir}/scratch/` (resolve `$HOME` to absolute path — NEVER use literal `~`)
 4. **Engage deep thinking mode** - Deep extended thinking through all 10 dimensions
 5. **Extract insights** - Extract 24-30 highest-alpha ideas focusing on low-probability brilliant insights
-6. **Save to history** - Final outputs to `~/.claude/History/research/YYYY-MM-DD_description/`
+6. **Save to history** - Final outputs to `$HOME/.claude/History/research/YYYY-MM-DD_description/`
 7. **Verify capture** - Ensure hooks captured or manually save all files
 8. **Output simple list** - Unformatted markdown, Paul Graham style, 8-12 words each
 9. **Prioritize surprise** - Novel ideas over obvious takeaways

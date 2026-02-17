@@ -204,23 +204,14 @@ function getCustomTitle(sessionId: string): string | null {
 
 async function readStdin(): Promise<HookInput | null> {
   try {
-    const decoder = new TextDecoder();
-    const reader = Bun.stdin.stream().getReader();
-    let input = '';
-
-    const timeoutPromise = new Promise<void>((resolve) => {
-      setTimeout(() => resolve(), 2000);
+    const input = await new Promise<string>((resolve) => {
+      let data = '';
+      const timer = setTimeout(() => resolve(data), 2000);
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', chunk => { data += chunk; });
+      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
+      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
     });
-
-    const readPromise = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        input += decoder.decode(value, { stream: true });
-      }
-    })();
-
-    await Promise.race([readPromise, timeoutPromise]);
 
     if (input.trim()) {
       return JSON.parse(input) as HookInput;

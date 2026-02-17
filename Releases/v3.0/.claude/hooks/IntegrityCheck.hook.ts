@@ -22,18 +22,14 @@ interface HookInput {
 
 async function readStdin(): Promise<HookInput | null> {
   try {
-    const decoder = new TextDecoder();
-    const reader = Bun.stdin.stream().getReader();
-    let input = '';
-    const timeout = new Promise<void>(r => setTimeout(r, 500));
-    const read = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        input += decoder.decode(value, { stream: true });
-      }
-    })();
-    await Promise.race([read, timeout]);
+    const input = await new Promise<string>((resolve) => {
+      let data = '';
+      const timer = setTimeout(() => resolve(data), 500);
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', chunk => { data += chunk; });
+      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
+      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
+    });
     if (input.trim()) return JSON.parse(input) as HookInput;
   } catch {}
   return null;

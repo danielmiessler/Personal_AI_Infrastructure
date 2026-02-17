@@ -55,16 +55,14 @@ function isMainSession(sessionId: string): boolean {
 async function main() {
   let input: HookInput;
   try {
-    const reader = Bun.stdin.stream().getReader();
-    let raw = '';
-    const read = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        raw += new TextDecoder().decode(value, { stream: true });
-      }
-    })();
-    await Promise.race([read, new Promise<void>(r => setTimeout(r, 200))]);
+    const raw = await new Promise<string>((resolve) => {
+      let data = '';
+      const timer = setTimeout(() => resolve(data), 200);
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', chunk => { data += chunk; });
+      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
+      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
+    });
     if (!raw.trim()) {
       console.log(JSON.stringify({ continue: true }));
       return;

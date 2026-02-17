@@ -10,7 +10,7 @@
  * Output: ~/.claude/skills/skill-index.json
  */
 
-import { readdir, readFile, writeFile } from 'fs/promises';
+import { readdir, readFile, writeFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -52,7 +52,10 @@ async function findSkillFiles(dir: string): Promise<string[]> {
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
 
-      if (entry.isDirectory()) {
+      // Follow symlinks: Bun's readdir reports symlinks as isDirectory=false
+      const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (await stat(fullPath)).isDirectory());
+
+      if (isDir) {
         // Skip hidden directories and node_modules
         if (entry.name.startsWith('.') || entry.name === 'node_modules') {
           continue;

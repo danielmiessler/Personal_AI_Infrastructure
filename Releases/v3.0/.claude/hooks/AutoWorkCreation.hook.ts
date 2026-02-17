@@ -279,6 +279,13 @@ async function main() {
       process.exit(0);
     }
 
+    // Allow headless/automated sessions to opt out of WORK directory creation.
+    // Useful for cron jobs, CI pipelines, or any non-interactive session where
+    // the session's own logging is the record-of-truth.
+    if (process.env.PAI_SKIP_WORK_CREATION === '1') {
+      process.exit(0);
+    }
+
     if (!existsSync(WORK_DIR)) mkdirSync(WORK_DIR, { recursive: true });
 
     let currentWork = readCurrentWork(sessionId);

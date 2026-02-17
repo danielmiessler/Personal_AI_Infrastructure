@@ -436,7 +436,7 @@ async function sendNotification(
   voiceId: string | null = null,
   callerVoiceSettings?: Partial<ElevenLabsVoiceSettings> | null,
   callerVolume?: number | null,
-) {
+): Promise<{ voicePlayed: boolean; voiceError?: string }> {
   const titleValidation = validateInput(title);
   const messageValidation = validateInput(message);
 
@@ -455,6 +455,9 @@ async function sendNotification(
   safeMessage = cleaned;
 
   // Generate and play voice using ElevenLabs
+  let voicePlayed = false;
+  let voiceError: string | undefined;
+
   if (voiceEnabled && ELEVENLABS_API_KEY) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
@@ -502,8 +505,10 @@ async function sendNotification(
 
       const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings);
       await playAudio(audioBuffer, resolvedVolume);
-    } catch (error) {
+      voicePlayed = true;
+    } catch (error: any) {
       console.error("Failed to generate/play speech:", error);
+      voiceError = error.message || "TTS generation failed";
     }
   }
 
@@ -518,6 +523,8 @@ async function sendNotification(
       console.error("Notification display error:", error);
     }
   }
+
+  return { voicePlayed, voiceError };
 }
 
 // Rate limiting
@@ -586,7 +593,17 @@ const server = serve({
 
         console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
 
-        await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume);
+        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume);
+
+        if (voiceEnabled && !result.voicePlayed && result.voiceError) {
+          return new Response(
+            JSON.stringify({ status: "error", message: `TTS failed: ${result.voiceError}`, notification_sent: true }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502
+            }
+          );
+        }
 
         return new Response(
           JSON.stringify({ status: "success", message: "Notification sent" }),

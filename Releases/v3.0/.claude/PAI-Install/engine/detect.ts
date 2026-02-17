@@ -152,15 +152,30 @@ export function detectSystem(): DetectionResult {
 
 /**
  * Validate an ElevenLabs API key.
+ * Uses /v1/voices endpoint (requires only voices_read permission)
+ * instead of /v1/user (requires user_read, which many keys lack).
+ * Also handles 401 with missing_permissions as "valid key, limited scope".
  */
 export async function validateElevenLabsKey(key: string): Promise<{ valid: boolean; error?: string }> {
   try {
-    const res = await fetch("https://api.elevenlabs.io/v1/user", {
+    const res = await fetch("https://api.elevenlabs.io/v1/voices", {
       headers: { "xi-api-key": key },
       signal: AbortSignal.timeout(10000),
     });
 
     if (res.ok) return { valid: true };
+
+    // 401 with missing_permissions means the key IS valid but lacks a specific scope
+    // This still means TTS will work (TTS doesn't need voices_read to use a known voice_id)
+    if (res.status === 401) {
+      try {
+        const body = await res.json();
+        if (body?.detail?.status === "missing_permissions") {
+          return { valid: true }; // Key is valid, just limited permissions
+        }
+      } catch { /* fall through to error */ }
+    }
+
     return { valid: false, error: `HTTP ${res.status}` };
   } catch (e: any) {
     return { valid: false, error: e.message || "Network error" };

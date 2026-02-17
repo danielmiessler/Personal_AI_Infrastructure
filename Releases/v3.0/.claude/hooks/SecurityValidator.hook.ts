@@ -237,6 +237,25 @@ function loadPatterns(): PatternsConfig {
 }
 
 // ========================================
+// Command Normalization
+// ========================================
+
+/**
+ * Strip leading environment variable assignments from a command.
+ * Prevents bypass like: LANG=C rm -rf / or FOO="bar" dangerous-cmd
+ * Also strips leading whitespace.
+ */
+function stripEnvVarPrefix(command: string): string {
+  // Pattern: optional whitespace, then one or more VAR=value assignments
+  // VAR names: [A-Z_][A-Z0-9_]* (standard env var naming)
+  // Values: quoted ("..." or '...') or unquoted non-space sequences
+  return command.replace(
+    /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s]*)\s+)*/,
+    ''
+  );
+}
+
+// ========================================
 // Pattern Matching
 // ========================================
 
@@ -369,15 +388,17 @@ function validatePath(filePath: string, action: PathAction): { action: 'allow' |
 // ========================================
 
 function handleBash(input: HookInput): void {
-  const command = typeof input.tool_input === 'string'
+  const rawCommand = typeof input.tool_input === 'string'
     ? input.tool_input
     : (input.tool_input?.command as string) || '';
 
-  if (!command) {
+  if (!rawCommand) {
     console.log(JSON.stringify({ continue: true }));
     return;
   }
 
+  // Normalize: strip env var prefixes to prevent bypass (e.g., LANG=C rm -rf /)
+  const command = stripEnvVarPrefix(rawCommand);
   const result = validateBashCommand(command);
 
   switch (result.action) {
@@ -579,20 +600,37 @@ async function main(): Promise<void> {
   let input: HookInput;
 
   try {
-    // Fast stdin read with timeout
-    const text = await Promise.race([
-      Bun.stdin.text(),
-      new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 100)
-      )
-    ]);
+    // Streaming stdin read with hard timeout.
+    // Bun.stdin.text() can hang forever if stdin never closes (known Bun issue).
+    // Use streaming reader + setTimeout that forces process.exit on timeout.
+    const reader = Bun.stdin.stream().getReader();
+    let raw = '';
+    const readLoop = (async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        raw += new TextDecoder().decode(value, { stream: true });
+      }
+    })();
 
-    if (!text.trim()) {
+    // Hard timeout: if stdin doesn't close in 200ms, exit the process.
+    // setTimeout keeps the event loop alive, so we use process.exit to force cleanup.
+    const timeout = setTimeout(() => {
+      if (!raw.trim()) {
+        console.log(JSON.stringify({ continue: true }));
+        process.exit(0);
+      }
+    }, 200);
+
+    await Promise.race([readLoop, new Promise<void>(r => setTimeout(r, 200))]);
+    clearTimeout(timeout);
+
+    if (!raw.trim()) {
       console.log(JSON.stringify({ continue: true }));
       return;
     }
 
-    input = JSON.parse(text);
+    input = JSON.parse(raw);
   } catch {
     // Parse error or timeout - fail open
     console.log(JSON.stringify({ continue: true }));

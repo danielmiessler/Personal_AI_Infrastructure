@@ -13,10 +13,10 @@ import { readdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 const HOME = process.env.HOME!;
-const CORE_DIR = join(HOME, ".claude/skills/PAI");
-const COMPONENTS_DIR = join(CORE_DIR, "Components");
+const PAI_DIR = join(HOME, ".claude/skills/PAI");
+const COMPONENTS_DIR = join(PAI_DIR, "Components");
 const ALGORITHM_DIR = join(COMPONENTS_DIR, "Algorithm");
-const OUTPUT_FILE = join(CORE_DIR, "SKILL.md");
+const OUTPUT_FILE = join(PAI_DIR, "SKILL.md");
 const SETTINGS_PATH = join(HOME, ".claude/settings.json");
 
 /**
@@ -31,7 +31,7 @@ function loadVariables(): Record<string, string> {
       "{DAIDENTITY.DISPLAYNAME}": settings.daidentity?.displayName || "PAI",
       "{PRINCIPAL.NAME}": settings.principal?.name || "User",
       "{PRINCIPAL.TIMEZONE}": settings.principal?.timezone || "UTC",
-      "{DAIDENTITY.ALGORITHMVOICEID}": settings.daidentity?.algorithmVoiceID || "",
+      "{DAIDENTITY.ALGORITHMVOICEID}": settings.daidentity?.voices?.algorithm?.voiceId || "",
     };
   } catch {
     console.warn("⚠️ Could not read settings.json, using defaults");

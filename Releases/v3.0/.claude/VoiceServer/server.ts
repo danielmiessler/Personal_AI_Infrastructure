@@ -135,6 +135,7 @@ interface LoadedVoiceConfig {
   defaultVoiceId: string;
   voices: Record<string, VoiceEntry>;     // keyed by name ("main", "algorithm")
   voicesByVoiceId: Record<string, VoiceEntry>;  // keyed by voiceId for lookup
+  desktopNotifications: boolean;  // whether to show macOS notification banners
 }
 
 // Last-resort defaults if settings.json is entirely missing or unparseable
@@ -154,13 +155,14 @@ function loadVoiceConfig(): LoadedVoiceConfig {
   try {
     if (!existsSync(settingsPath)) {
       console.warn('⚠️  settings.json not found — using fallback voice defaults');
-      return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {} };
+      return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true };
     }
 
     const content = readFileSync(settingsPath, 'utf-8');
     const settings = JSON.parse(content);
     const daidentity = settings.daidentity || {};
     const voicesSection = daidentity.voices || {};
+    const desktopNotifications = settings.notifications?.desktop?.enabled !== false;
 
     // Build lookup maps
     const voices: Record<string, VoiceEntry> = {};
@@ -173,10 +175,10 @@ function loadVoiceConfig(): LoadedVoiceConfig {
           voiceId: entry.voiceId,
           voiceName: entry.voiceName,
           stability: entry.stability ?? 0.5,
-          similarity_boost: entry.similarity_boost ?? 0.75,
+          similarity_boost: entry.similarity_boost ?? entry.similarityBoost ?? 0.75,
           style: entry.style ?? 0.0,
           speed: entry.speed ?? 1.0,
-          use_speaker_boost: entry.use_speaker_boost ?? true,
+          use_speaker_boost: entry.use_speaker_boost ?? entry.useSpeakerBoost ?? true,
           volume: entry.volume ?? 1.0,
         };
         voices[name] = voiceEntry;
@@ -193,10 +195,10 @@ function loadVoiceConfig(): LoadedVoiceConfig {
       console.log(`   ${name}: ${entry.voiceName || entry.voiceId} (speed: ${entry.speed}, stability: ${entry.stability})`);
     }
 
-    return { defaultVoiceId, voices, voicesByVoiceId };
+    return { defaultVoiceId, voices, voicesByVoiceId, desktopNotifications };
   } catch (error) {
     console.error('⚠️  Failed to load settings.json voice config:', error);
-    return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {} };
+    return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true };
   }
 }
 
@@ -505,14 +507,16 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification
-  try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
-  } catch (error) {
-    console.error("Notification display error:", error);
+  // Display macOS notification (can be disabled via settings.json: notifications.desktop.enabled: false)
+  if (voiceConfig.desktopNotifications) {
+    try {
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } catch (error) {
+      console.error("Notification display error:", error);
+    }
   }
 }
 

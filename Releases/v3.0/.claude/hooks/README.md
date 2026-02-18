@@ -53,6 +53,7 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │                     └──► SessionAutoName (session naming)           │
 │                                                                     │
 │  PreToolUse ──┬──► SecurityValidator (Bash/Edit/Write/Read)         │
+│               ├──► SystemFileGuard (Edit/Write — patch protection)  │
 │               ├──► SetQuestionTab (AskUserQuestion)                 │
 │               ├──► AgentExecutionGuard (Task)                       │
 │               └──► SkillGuard (Skill)                               │
@@ -141,6 +142,7 @@ interface StopPayload extends BasePayload {
 | Hook | Purpose | Blocking | Dependencies |
 |------|---------|----------|--------------|
 | `SecurityValidator.hook.ts` | Validate Bash/Edit/Write/Read | Yes (decision) | `patterns.yaml`, `MEMORY/SECURITY/` |
+| `SystemFileGuard.hook.ts` | Protect locally-patched SYSTEM files | Yes (decision) | `LOCAL_PATCHES.md` |
 | `SetQuestionTab.hook.ts` | Set teal tab for questions | No | Kitty terminal |
 | `AgentExecutionGuard.hook.ts` | Guard agent spawning (Task tool) | Yes (decision) | None |
 | `SkillGuard.hook.ts` | Prevent erroneous skill invocations | Yes (decision) | None |

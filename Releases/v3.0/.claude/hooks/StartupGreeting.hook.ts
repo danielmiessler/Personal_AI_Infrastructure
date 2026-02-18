@@ -49,7 +49,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
 
-import { getPaiDir, getSettingsPath } from './lib/paths';
+import { getPaiDir, getSettingsPath, sanitizeSessionId } from './lib/paths';
 import { persistKittySession } from './lib/tab-setter';
 import { readStdinWithTimeout } from './lib/stdin';
 
@@ -75,7 +75,7 @@ const settingsPath = getSettingsPath();
       const stdinText = await readStdinWithTimeout(1000);
       if (stdinText.trim()) {
         const hookInput = JSON.parse(stdinText);
-        sessionId = hookInput.session_id || null;
+        sessionId = hookInput.session_id ? sanitizeSessionId(hookInput.session_id) : null;
       }
     } catch { /* stdin parse failed — proceed without session_id */ }
 

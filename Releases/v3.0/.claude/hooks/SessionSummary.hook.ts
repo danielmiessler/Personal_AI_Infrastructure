@@ -50,12 +50,12 @@
 
 import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
 import { readStdinWithTimeout } from './lib/stdin';
+import { sanitizeSessionId, getPaiDir } from './lib/paths';
 
-const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude');
+const BASE_DIR = getPaiDir();
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');
@@ -130,7 +130,7 @@ async function main() {
       const input = await readStdinWithTimeout(3000);
       if (input && input.trim()) {
         const parsed = JSON.parse(input);
-        sessionId = parsed.session_id;
+        sessionId = parsed.session_id ? sanitizeSessionId(parsed.session_id) : undefined;
       }
     } catch {
       // Parse error — proceed without session_id

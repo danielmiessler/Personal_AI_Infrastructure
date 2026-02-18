@@ -76,9 +76,9 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
     const args = [
       '--print',
       '--model', config.model,
-      '--tools', '',  // Disable tools for faster response
+      '--tools', '""',  // Disable tools for faster response
       '--output-format', 'text',
-      '--setting-sources', '',  // Disable hooks to prevent recursion
+      '--setting-sources', '""',  // Disable hooks to prevent recursion
       '--system-prompt', options.systemPrompt,
       options.userPrompt,
     ];

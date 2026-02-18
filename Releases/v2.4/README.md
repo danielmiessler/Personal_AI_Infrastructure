@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../release-icon-v2.png" alt="PAI v2.4" width="200">
+<img src="https://github.com/danielmiessler/TheAlgorithm/raw/main/assets/algorithm-blocks.png" alt="PAI v2.4" width="200">
 
 # PAI v2.4.0 — The Algorithm
 

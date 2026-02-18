@@ -65,6 +65,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
 import { paiPath } from './lib/paths';
+import { readStdinWithTimeout } from './lib/stdin';
 
 // ========================================
 // Security Event Logging
@@ -600,15 +601,8 @@ async function main(): Promise<void> {
   let input: HookInput;
 
   try {
-    // Fast stdin read with timeout (process.stdin for Windows/MSYS compat)
-    const text = await new Promise<string>((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => resolve(data), 100);
-      process.stdin.setEncoding('utf8');
-      process.stdin.on('data', chunk => { data += chunk; });
-      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
-      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
-    });
+    // Fast stdin read with timeout (cross-platform via lib/stdin.ts)
+    const text = await readStdinWithTimeout(100);
 
     if (!text.trim()) {
       console.log(JSON.stringify({ continue: true }));

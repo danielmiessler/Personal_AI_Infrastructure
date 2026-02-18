@@ -23,7 +23,9 @@ import {
 import type { AlgorithmCriterion, AlgorithmPhase, AlgorithmState } from './lib/algorithm-state';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { setPhaseTab } from './lib/tab-setter';
+import { readStdinWithTimeout } from './lib/stdin';
 
 // ── Phase Detection from Voice Curls ──
 
@@ -91,7 +93,7 @@ function parseCriterion(text: string): { id: string; description: string } | nul
 
 // ── Session Activation (replaces SessionReactivator) ──
 
-const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
+const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || homedir()), '.claude');
 
 function getSessionName(sid: string): string {
   try {
@@ -143,14 +145,7 @@ async function main() {
 
   let input: any;
   try {
-    const raw = await new Promise<string>((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => resolve(data), 200);
-      process.stdin.setEncoding('utf8');
-      process.stdin.on('data', chunk => { data += chunk; });
-      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
-      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
-    });
+    const raw = await readStdinWithTimeout(200);
     if (!raw.trim()) return;
     input = JSON.parse(raw);
   } catch { return; }

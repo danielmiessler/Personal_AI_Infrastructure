@@ -30,6 +30,7 @@ import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { readStdinWithTimeout } from './lib/stdin';
 
 interface HookInput {
   session_id: string;
@@ -51,15 +52,7 @@ function isMainSession(sessionId: string): boolean {
 
 async function readStdin(): Promise<HookInput | null> {
   try {
-    const input = await new Promise<string>((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => resolve(data), 500);
-      process.stdin.setEncoding('utf8');
-      process.stdin.on('data', chunk => { data += chunk; });
-      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
-      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
-    });
-
+    const input = await readStdinWithTimeout(500);
     if (input.trim()) {
       return JSON.parse(input) as HookInput;
     }

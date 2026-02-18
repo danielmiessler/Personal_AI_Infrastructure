@@ -29,6 +29,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { paiPath } from './lib/paths';
 import { inference } from '../skills/PAI/Tools/Inference';
+import { readStdinWithTimeout } from './lib/stdin';
 
 interface HookInput {
   session_id: string;
@@ -204,15 +205,7 @@ function getCustomTitle(sessionId: string): string | null {
 
 async function readStdin(): Promise<HookInput | null> {
   try {
-    const input = await new Promise<string>((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => resolve(data), 2000);
-      process.stdin.setEncoding('utf8');
-      process.stdin.on('data', chunk => { data += chunk; });
-      process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
-      process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
-    });
-
+    const input = await readStdinWithTimeout(2000);
     if (input.trim()) {
       return JSON.parse(input) as HookInput;
     }

@@ -51,6 +51,7 @@ import { spawnSync } from 'child_process';
 
 import { getPaiDir, getSettingsPath } from './lib/paths';
 import { persistKittySession } from './lib/tab-setter';
+import { readStdinWithTimeout } from './lib/stdin';
 
 const paiDir = getPaiDir();
 const settingsPath = getSettingsPath();
@@ -71,14 +72,7 @@ const settingsPath = getSettingsPath();
     // Read session_id from stdin (Claude Code passes hook input as JSON)
     let sessionId: string | null = null;
     try {
-      const stdinText = await new Promise<string>((resolve) => {
-        let data = '';
-        const timer = setTimeout(() => resolve(data), 1000);
-        process.stdin.setEncoding('utf8');
-        process.stdin.on('data', chunk => { data += chunk; });
-        process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
-        process.stdin.on('error', () => { clearTimeout(timer); resolve(''); });
-      });
+      const stdinText = await readStdinWithTimeout(1000);
       if (stdinText.trim()) {
         const hookInput = JSON.parse(stdinText);
         sessionId = hookInput.session_id || null;

@@ -127,16 +127,27 @@ function extractSessionCwd(sessionId: string): string | null {
   if (!existsSync(projectsDir)) return null;
 
   // Search through all project subdirectories
-  const subdirs = readdirSync(projectsDir);
+  let subdirs: string[];
+  try {
+    subdirs = readdirSync(projectsDir);
+  } catch {
+    return null;
+  }
+
   for (const subdir of subdirs) {
     const sessionFile = join(projectsDir, subdir, `${sessionId}.jsonl`);
     if (existsSync(sessionFile)) {
       try {
-        // Read the first line that contains sessionId to get the cwd
-        const content = readFileSync(sessionFile, "utf-8");
-        const lines = content.split("\n").filter((l) => l.trim());
+        // Stream line-by-line using Bun.file() to avoid loading entire JSONL into memory.
+        // Session files can grow large; we only need the first line with cwd.
+        const file = Bun.file(sessionFile);
+        const text = file.size > 1024 * 1024
+          ? readFileSync(sessionFile, "utf-8").slice(0, 64 * 1024) // For large files, only read first 64KB
+          : readFileSync(sessionFile, "utf-8");
+        const lines = text.split("\n");
 
         for (const line of lines) {
+          if (!line.trim()) continue;
           try {
             const data = JSON.parse(line);
             if (data.sessionId === sessionId && data.cwd) {
@@ -448,11 +459,16 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean | string; ski
       // and change to that directory so Claude Code can find the session
       if (!options.local) {
         const sessionCwd = extractSessionCwd(options.resume);
-        if (sessionCwd) {
-          log(`Resuming session from: ${sessionCwd}`, "📂");
-          process.chdir(sessionCwd);
+        if (sessionCwd && existsSync(sessionCwd)) {
+          try {
+            log(`Resuming session from: ${sessionCwd}`, "📂");
+            process.chdir(sessionCwd);
+          } catch {
+            // Fallback if chdir fails (permissions, race condition, etc.)
+            process.chdir(CLAUDE_DIR);
+          }
         } else {
-          // Fallback to CLAUDE_DIR if we can't find the session
+          // Fallback to CLAUDE_DIR if we can't find the session or directory is gone
           process.chdir(CLAUDE_DIR);
         }
       }

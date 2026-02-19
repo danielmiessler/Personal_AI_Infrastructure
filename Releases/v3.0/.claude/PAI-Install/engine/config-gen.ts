@@ -55,6 +55,7 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
     pai: {
       repoUrl: "https://github.com/danielmiessler/PAI",
       version: "3.0",
+      paiMode: config.paiMode ?? "always",
     },
   };
 }

@@ -45,6 +45,7 @@ import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } fr
 import { join } from 'path';
 import { inference } from '../skills/PAI/Tools/Inference';
 import { getIdentity, getPrincipal, getPrincipalName } from './lib/identity';
+import { getSettingsPath } from './lib/paths';
 import { getLearningCategory } from './lib/learning-utils';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../skills/PAI/Tools/FailureCapture';
@@ -358,6 +359,14 @@ This response was rated ${rating}/10 by ${getPrincipalName()}. Use this as an im
 
 async function main() {
   try {
+    // Respect pai.paiMode setting: "pai-only" requires PAI_MODE env var (set by `pai` command)
+    try {
+      const settings = JSON.parse(readFileSync(getSettingsPath(), 'utf-8'));
+      if (settings.pai?.paiMode === 'pai-only' && !process.env.PAI_MODE) {
+        process.exit(0);
+      }
+    } catch { /* settings unreadable — use default (always) */ }
+
     console.error('[RatingCapture] Hook started');
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);

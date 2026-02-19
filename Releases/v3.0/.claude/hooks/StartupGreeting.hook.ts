@@ -68,6 +68,11 @@ const settingsPath = getSettingsPath();
       process.exit(0);
     }
 
+    // Respect pai.paiMode setting: "pai-only" requires PAI_MODE env var (set by `pai` command)
+    if (settings.pai?.paiMode === 'pai-only' && !process.env.PAI_MODE) {
+      process.exit(0);
+    }
+
     // Read session_id from stdin (Claude Code passes hook input as JSON)
     let sessionId: string | null = null;
     try {

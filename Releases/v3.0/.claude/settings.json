@@ -764,7 +764,8 @@
   },
   "pai": {
     "repoUrl": "github.com/danielmiessler/PAI",
-    "version": "3.0"
+    "version": "3.0",
+    "paiMode": "always"
   },
   "contextDisplay": {
     "compactionThreshold": 83,

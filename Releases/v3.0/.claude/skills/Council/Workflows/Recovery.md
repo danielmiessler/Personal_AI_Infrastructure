@@ -21,7 +21,7 @@ Running the **Recovery** workflow in the **Council** skill to resume interrupted
 
 ## Prerequisites
 
-- Session ID or session directory path
+- Session ID (the workflow resolves this to a session directory under `~/.claude/MEMORY/STATE/council-sessions/`)
 - Prior round outputs (partial or complete)
 - Knowledge of which agents completed / which didn't
 
@@ -49,11 +49,19 @@ Keep completed agent outputs, only rerun missing agents.
 
 **Invoke:** `"Council recovery (partial): Resume session {session-id}"`
 
+### Short Form (Alias)
+
+`"Council recovery: Resume session {session-id}"` — defaults to partial rerun.
+
 ## Execution
 
 ### Step 1: Load Session State
 
-**Session ID validation:** Before using a session ID in file paths, validate it matches the expected format `YYYYMMDD-HHMMSS-[hex]` (e.g., `20260202-235539-a1b2c3d4`). Reject IDs containing path traversal characters (`/`, `\`, `..`).
+**Session ID and path handling:** The session root is a fixed base directory: `~/.claude/MEMORY/STATE/council-sessions/`.
+- Only accept **session IDs**, not arbitrary directory paths.
+- Validate the ID matches the expected format `YYYYMMDD-HHMMSS-[hex]` (e.g., `20260202-235539-a1b2c3d4`).
+- Reject IDs containing path traversal characters (`/`, `\`, `..`).
+- Always resolve the session directory as `{session-root}/{session-id}/` — never allow user-provided absolute paths.
 
 Read the session directory:
 ```

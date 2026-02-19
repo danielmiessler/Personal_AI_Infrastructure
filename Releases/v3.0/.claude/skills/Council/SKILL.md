@@ -93,7 +93,7 @@ Running the **WorkflowName** workflow in the **Council** skill to ACTION...
 -> DEBATE with Security agent added
 
 "Council recovery: Resume session 20260202-143052-a1b2c3d4"
--> RECOVERY workflow -> Continue from checkpoint
+-> RECOVERY workflow (partial rerun) -> Continue from checkpoint
 ```
 
 ## Integration

@@ -99,7 +99,9 @@ Your perspective focuses on: [agent's domain]
 **Write Round 1 to file:**
 ```bash
 # Write combined Round 1 output to session directory
-echo "[Round 1 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md
+cat <<'EOF' > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md
+[Round 1 content]
+EOF
 ```
 
 ### Step 3: Round 2 - Responses & Challenges
@@ -129,7 +131,9 @@ The value is in genuine intellectual friction—engage with their actual argumen
 
 **Write Round 2 to file:**
 ```bash
-echo "[Round 2 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-2.md
+cat <<'EOF' > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-2.md
+[Round 2 content]
+EOF
 ```
 
 **Output:**
@@ -175,7 +179,9 @@ Be honest about remaining disagreements—forced consensus is worse than acknowl
 
 **Write Round 3 to file:**
 ```bash
-echo "[Round 3 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-3.md
+cat <<'EOF' > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-3.md
+[Round 3 content]
+EOF
 ```
 
 **Output:**
@@ -219,7 +225,7 @@ After all rounds complete, synthesize the debate:
 After synthesis, archive the complete session:
 
 ```bash
-TOPIC_SLUG=$(echo "[topic]" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | cut -c1-50)
+TOPIC_SLUG=$(echo "[topic]" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | tr -s '-' | sed 's/^-//;s/-$//' | cut -c1-50)
 TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
 MONTH=$(date +%Y-%m)
 mkdir -p ~/.claude/MEMORY/RESEARCH/$MONTH
@@ -233,7 +239,10 @@ cat ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md \
 
 If the council is interrupted (rate limit, timeout):
 1. Session state is preserved in `~/.claude/MEMORY/STATE/council-sessions/{SESSION_ID}/`
-2. Use Recovery workflow to resume: `"Council recovery: Resume session {SESSION_ID}"`
+2. Use the Recovery workflow to resume with one of:
+   - `"Council recovery: Resume session {SESSION_ID}"` (defaults to partial rerun)
+   - `"Council recovery (partial): Resume session {SESSION_ID}"`
+   - `"Council recovery (full rerun): {topic}"`
 3. See `Workflows/Recovery.md` for details
 
 ## Custom Council Members

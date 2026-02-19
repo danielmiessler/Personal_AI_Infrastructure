@@ -1,6 +1,6 @@
 # Debate Workflow
 
-Full structured multi-agent debate with 3 rounds and visible transcript.
+Full structured multi-agent debate with 3 rounds, file-first output, and visible transcript.
 
 ## Voice Notification
 
@@ -20,6 +20,25 @@ Running the **Debate** workflow in the **Council** skill to run multi-agent deba
 
 ## Execution
 
+### Step 0: Initialize Session
+
+Generate a session ID and create session directory:
+
+```bash
+SESSION_ID=$(date +%Y%m%d-%H%M%S)-$(openssl rand -hex 4)
+mkdir -p ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID
+```
+
+Write `metadata.json`:
+```json
+{
+  "session_id": "{SESSION_ID}",
+  "topic": "{topic}",
+  "started_at": "{ISO timestamp}",
+  "members": ["Architect", "Designer", "Engineer", "Researcher"]
+}
+```
+
 ### Step 1: Announce the Council
 
 Output the debate header:
@@ -27,8 +46,10 @@ Output the debate header:
 ```markdown
 ## Council Debate: [Topic]
 
+**Session ID:** {SESSION_ID}
 **Council Members:** [List agents participating]
 **Rounds:** 3 (Positions → Responses → Synthesis)
+**Output:** ~/.claude/MEMORY/STATE/council-sessions/{SESSION_ID}/
 ```
 
 ### Step 2: Round 1 - Initial Positions
@@ -75,6 +96,12 @@ Your perspective focuses on: [agent's domain]
 [Response]
 ```
 
+**Write Round 1 to file:**
+```bash
+# Write combined Round 1 output to session directory
+echo "[Round 1 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md
+```
+
 ### Step 3: Round 2 - Responses & Challenges
 
 Launch 4 parallel Task calls with Round 1 transcript included.
@@ -98,6 +125,11 @@ Now respond to the other council members:
 - 50-150 words
 
 The value is in genuine intellectual friction—engage with their actual arguments.
+```
+
+**Write Round 2 to file:**
+```bash
+echo "[Round 2 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-2.md
 ```
 
 **Output:**
@@ -141,6 +173,11 @@ Final synthesis from your perspective:
 Be honest about remaining disagreements—forced consensus is worse than acknowledged tension.
 ```
 
+**Write Round 3 to file:**
+```bash
+echo "[Round 3 content]" > ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-3.md
+```
+
 **Output:**
 ```markdown
 ### Round 3: Synthesis
@@ -177,6 +214,28 @@ After all rounds complete, synthesize the debate:
 [Based on convergence and weight of arguments, the recommended approach is...]
 ```
 
+### Step 6: Archive to RESEARCH
+
+After synthesis, archive the complete session:
+
+```bash
+TOPIC_SLUG=$(echo "[topic]" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | cut -c1-50)
+TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
+MONTH=$(date +%Y-%m)
+mkdir -p ~/.claude/MEMORY/RESEARCH/$MONTH
+cat ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-1.md \
+    ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-2.md \
+    ~/.claude/MEMORY/STATE/council-sessions/$SESSION_ID/round-3.md \
+    > ~/.claude/MEMORY/RESEARCH/$MONTH/${TIMESTAMP}_COUNCIL_${TOPIC_SLUG}.md
+```
+
+## Interruption Handling
+
+If the council is interrupted (rate limit, timeout):
+1. Session state is preserved in `~/.claude/MEMORY/STATE/council-sessions/{SESSION_ID}/`
+2. Use Recovery workflow to resume: `"Council recovery: Resume session {SESSION_ID}"`
+3. See `Workflows/Recovery.md` for details
+
 ## Custom Council Members
 
 If user specifies custom members, adjust accordingly:
@@ -209,4 +268,4 @@ If user specifies custom members, adjust accordingly:
 
 ## Done
 
-Debate complete. The transcript shows the full intellectual journey from initial positions through challenges to synthesis.
+Debate complete. The transcript is archived to `~/.claude/MEMORY/RESEARCH/` and shows the full intellectual journey from initial positions through challenges to synthesis.

@@ -17,6 +17,7 @@ Running the **Debate** workflow in the **Council** skill to run multi-agent deba
 
 - Topic or question to debate
 - Optional: Custom council members (default: architect, designer, engineer, researcher)
+- Optional: Output mode (`deliberative` or `patchlist`)
 
 ## Execution
 
@@ -206,6 +207,29 @@ If user specifies custom members, adjust accordingly:
 - Synthesis: ~5 seconds
 
 **Total: 30-90 seconds for full debate**
+
+## Output Modes
+
+### Deliberative (default)
+Standard conversational format. Use for architectural debates, design decisions, exploratory discussions.
+
+### Patchlist
+Structured format for specification reviews. Invoke with: `"Council (patchlist): Review..."`
+
+In patchlist mode, instruct agents to structure responses as:
+
+```markdown
+**BLOCKING:**
+- B1: [issue] → [proposed change]
+
+**HIGH:**
+- H1: [issue] → [proposed change]
+
+**MEDIUM/LOW:**
+- M1: [issue]
+```
+
+This produces actionable, prioritized output rather than conversational prose. Useful for document reviews, spec audits, and code review sessions.
 
 ## Done
 

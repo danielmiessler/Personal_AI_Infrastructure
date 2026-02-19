@@ -710,6 +710,8 @@
     "displayName": "{DAIDENTITY.NAME}",
     "color": "#3B82F6",
     "voices": {
+      "enabled": true,
+      "_docs_enabled": "Master voice toggle. Set false to disable all TTS. Defaults true if omitted.",
       "main": {
         "_docs": "Primary DA voice - stability 0.85 for consistent output, style 0.3 for minimal variation",
         "voiceId": "YOUR_VOICE_ID_HERE",

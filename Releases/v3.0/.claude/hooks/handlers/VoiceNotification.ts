@@ -144,6 +144,9 @@ async function sendNotification(payload: ElevenLabsNotificationPayload, sessionI
  * Uses ElevenLabs TTS via the voice server.
  */
 export async function handleVoice(parsed: ParsedTranscript, sessionId: string): Promise<void> {
+  // Global voice toggle — skip all TTS when disabled
+  if (!DA_IDENTITY.voiceEnabled) return;
+
   let voiceCompletion = parsed.voiceCompletion;
 
   // Validate voice completion

@@ -22,7 +22,7 @@
  * PERFORMANCE: <5ms. Fast-path exit for non-voice commands.
  */
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -81,6 +81,23 @@ async function main() {
   if (!command.includes('localhost:8888')) {
     console.log(JSON.stringify({ continue: true }));
     return;
+  }
+
+  // Global voice toggle: if voices.enabled is explicitly false, block ALL voice curls
+  try {
+    const settingsPath = join(homedir(), '.claude/settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.daidentity?.voices?.enabled === false) {
+        console.log(JSON.stringify({
+          decision: "block",
+          reason: "Voice is globally disabled (daidentity.voices.enabled = false)"
+        }));
+        return;
+      }
+    }
+  } catch {
+    // Settings unreadable — default to enabled (don't break voice for parse errors)
   }
 
   // It's a voice curl — check if main session

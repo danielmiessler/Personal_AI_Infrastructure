@@ -34,6 +34,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { paiPath, getPaiDir } from '../lib/paths';
+import { getIdentity } from '../lib/identity';
 import { inference } from '../../skills/PAI/Tools/Inference';
 import type { ParsedTranscript } from '../../skills/PAI/Tools/TranscriptParser';
 
@@ -356,6 +357,9 @@ function checkHookCounts(docsToCheck: string[], actualCount: number): DriftItem[
 // ============================================================================
 
 async function notifyVoice(message: string): Promise<void> {
+  // Global voice toggle — skip TTS when disabled
+  if (!getIdentity().voiceEnabled) return;
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);

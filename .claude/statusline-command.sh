@@ -11,6 +11,10 @@
 #
 # Output order: Greeting → Wielding → Git → Learning → Signal → Context → Quote
 #
+# Section visibility: Toggle sections via settings.json → statusline.sections
+# Set any to false to hide: env, context, git, memory, learning, quote
+# All default to true (shown) when not configured.
+#
 # KNOWN LIMITATION: Context percentage won't match /context exactly.
 # Hook JSON excludes system prompt, tools, MCP tokens. See:
 # github.com/anthropics/claude-code/issues/13783
@@ -37,6 +41,16 @@ CONTEXT_BASELINE=22600
 # Cache TTL in seconds
 LOCATION_CACHE_TTL=3600  # 1 hour (IP rarely changes)
 WEATHER_CACHE_TTL=900    # 15 minutes
+
+# Section visibility — toggle sections via settings.json → statusline.sections
+# Default: all visible. Set to false to hide: env, context, git, memory, learning, quote
+# NOTE: Uses `if . == null` instead of `//` because jq's `//` treats false as falsy
+SHOW_ENV=$(jq -r '.statusline.sections.env | if . == null then true else . end' "$SETTINGS_FILE" 2>/dev/null)
+SHOW_CONTEXT=$(jq -r '.statusline.sections.context | if . == null then true else . end' "$SETTINGS_FILE" 2>/dev/null)
+SHOW_GIT=$(jq -r '.statusline.sections.git | if . == null then true else . end' "$SETTINGS_FILE" 2>/dev/null)
+SHOW_MEMORY=$(jq -r '.statusline.sections.memory | if . == null then true else . end' "$SETTINGS_FILE" 2>/dev/null)
+SHOW_LEARNING=$(jq -r '.statusline.sections.learning | if . == null then true else . end' "$SETTINGS_FILE" 2>/dev/null)
+SHOW_QUOTE=$(jq -r '.statusline.sections.quote | if . == null then true else . end' "$SETTINGS_FILE" 2>/dev/null)
 
 # Source .env for API keys
 [ -f "$PAI_DIR/.env" ] && source "$PAI_DIR/.env"
@@ -385,6 +399,7 @@ location_state="${location_raw##*|}"
 weather_str=$(fetch_weather)
 
 # Output PAI branding line
+if [ "$SHOW_ENV" = "true" ]; then
 case "$MODE" in
     nano)
         printf "${SLATE_600}── │${RESET} ${PAI_P}P${PAI_A}A${PAI_I}I${RESET} ${SLATE_600}│ ────────────${RESET}\n"
@@ -408,11 +423,13 @@ case "$MODE" in
         ;;
 esac
 printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
+fi  # SHOW_ENV
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 1: CONTEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_CONTEXT" = "true" ]; then
 # Format duration
 duration_sec=$((duration_ms / 1000))
 if   [ "$duration_sec" -ge 3600 ]; then time_display="$((duration_sec / 3600))h$((duration_sec % 3600 / 60))m"
@@ -458,11 +475,13 @@ case "$MODE" in
         ;;
 esac
 printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
+fi  # SHOW_CONTEXT
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 4: GIT STATUS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_GIT" = "true" ]; then
 if git rev-parse --git-dir > /dev/null 2>&1; then
     branch=$(git branch --show-current 2>/dev/null || echo "detached")
     modified=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
@@ -556,11 +575,13 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
     esac
 fi
 printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
+fi  # SHOW_GIT
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 5: MEMORY
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_MEMORY" = "true" ]; then
 case "$MODE" in
     nano)
         printf "${LEARN_PRIMARY}◎${RESET} ${LEARN_WORK}📁${RESET}${SLATE_300}${work_count}${RESET} ${LEARN_SIGNALS}✦${RESET}${SLATE_300}${ratings_count}${RESET} ${LEARN_SESSIONS}⊕${RESET}${SLATE_300}${sessions_count}${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET}\n"
@@ -583,11 +604,13 @@ case "$MODE" in
         printf "${SLATE_600}│${RESET} ${LEARN_RESEARCH}◇${RESET}${SLATE_300}${research_count}${RESET} ${LEARN_RESEARCH}Research${RESET}\n"
         ;;
 esac
+fi  # SHOW_MEMORY
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 6: LEARNING (with sparklines in normal mode)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_LEARNING" = "true" ]; then
 if [ -f "$RATINGS_FILE" ] && [ -s "$RATINGS_FILE" ]; then
     now=$(date +%s)
 
@@ -755,12 +778,13 @@ else
     printf "${LEARN_LABEL}✿${RESET} ${LEARN_LABEL}LEARNING:${RESET}\n"
     printf "  ${SLATE_500}No ratings yet${RESET}\n"
 fi
+fi  # SHOW_LEARNING
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 7: QUOTE (normal mode only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-if [ "$MODE" = "normal" ]; then
+if [ "$MODE" = "normal" ] && [ "$SHOW_QUOTE" = "true" ]; then
     printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"
 
     # Refresh quote if stale (>30s)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Windows Smoke Test — Phase 0 + Phase 2
+ * Windows Smoke Test — Phase 0 + Phase 2 + Phase 3
  *
  * Run this on Windows (not WSL) to verify platform.ts and hook changes work:
  *   cd C:\users\justi\code\pai\Releases\v3.0\.claude
@@ -37,6 +37,13 @@ import {
   getDeleteFileCommand,
   getServiceManager,
 } from './platform';
+import {
+  KittyTerminalAdapter,
+  WindowsTerminalAdapter,
+  GenericTerminalAdapter,
+  createTerminalAdapter,
+  getTerminalSize,
+} from './terminal';
 import { join } from 'path';
 
 let passed = 0;
@@ -230,6 +237,60 @@ for (const hook of hookFiles) {
     }
   }
 }
+
+// ═══════════════════════════════════════════
+// Phase 3: Terminal Abstraction Layer
+// ═══════════════════════════════════════════
+
+// Section 10: Terminal Adapter Classes
+console.log('\n📋 Section 10: Terminal Adapter Classes (Phase 3)');
+
+// Verify all three adapters instantiate without crash
+try {
+  const kittyAdapter = new KittyTerminalAdapter('unix:/tmp/kitty-test');
+  check('KittyTerminalAdapter instantiates', kittyAdapter.type === 'kitty', `type = "${kittyAdapter.type}"`);
+  check('KittyTerminalAdapter is supported', kittyAdapter.supported === true, `supported = ${kittyAdapter.supported}`);
+  check('KittyTerminalAdapter.setTitle no crash', (() => { kittyAdapter.setTitle('smoke-test'); return true; })(), 'no throw');
+} catch (e: any) {
+  check('KittyTerminalAdapter instantiates', false, `error: ${e.message}`);
+}
+
+try {
+  const wtAdapter = new WindowsTerminalAdapter();
+  check('WindowsTerminalAdapter instantiates', wtAdapter.type === 'windows-terminal', `type = "${wtAdapter.type}"`);
+  check('WindowsTerminalAdapter is supported', wtAdapter.supported === true, `supported = ${wtAdapter.supported}`);
+  check('WindowsTerminalAdapter.setTitle no crash', (() => { wtAdapter.setTitle('smoke-test'); return true; })(), 'no throw');
+  check('WindowsTerminalAdapter.setTabColor no-op', (() => { wtAdapter.setTabColor({ activeBg: '#000', activeFg: '#fff', inactiveBg: '#333', inactiveFg: '#ccc' }); return true; })(), 'no throw');
+  check('WindowsTerminalAdapter.resetTabColor no-op', (() => { wtAdapter.resetTabColor(); return true; })(), 'no throw');
+} catch (e: any) {
+  check('WindowsTerminalAdapter instantiates', false, `error: ${e.message}`);
+}
+
+try {
+  const genericAdapter = new GenericTerminalAdapter();
+  check('GenericTerminalAdapter instantiates', genericAdapter.type === 'generic', `type = "${genericAdapter.type}"`);
+  check('GenericTerminalAdapter is NOT supported', genericAdapter.supported === false, `supported = ${genericAdapter.supported}`);
+} catch (e: any) {
+  check('GenericTerminalAdapter instantiates', false, `error: ${e.message}`);
+}
+
+// Section 11: Terminal Factory
+console.log('\n📋 Section 11: Terminal Factory (Phase 3)');
+const adapter = createTerminalAdapter(null);
+check('createTerminalAdapter returns adapter', adapter !== null && typeof adapter.type === 'string', `type = "${adapter.type}"`);
+check('adapter has setTitle method', typeof adapter.setTitle === 'function', 'setTitle is function');
+check('adapter has setTabColor method', typeof adapter.setTabColor === 'function', 'setTabColor is function');
+check('adapter has resetTabColor method', typeof adapter.resetTabColor === 'function', 'resetTabColor is function');
+
+if (isWindows && (process.env.WT_SESSION || process.env.WT_PROFILE_ID)) {
+  check('Factory detects Windows Terminal', adapter.type === 'windows-terminal', `adapter type = "${adapter.type}"`);
+}
+
+// Section 12: Terminal Size
+console.log('\n📋 Section 12: Terminal Size (Phase 3)');
+const termSize = getTerminalSize();
+check('getTerminalSize returns columns', typeof termSize.columns === 'number' && termSize.columns > 0, `columns = ${termSize.columns}`);
+check('getTerminalSize returns rows', typeof termSize.rows === 'number' && termSize.rows > 0, `rows = ${termSize.rows}`);
 
 // Summary
 console.log('\n═══════════════════════════════════════════');

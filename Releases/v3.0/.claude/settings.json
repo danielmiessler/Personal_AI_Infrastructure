@@ -698,12 +698,6 @@
   },
   "plansDirectory": "Plans/",
   "teammateMode": "in-process",
-  "contextFiles": [
-    "skills/PAI/SKILL.md",
-    "skills/PAI/AISTEERINGRULES.md",
-    "skills/PAI/USER/AISTEERINGRULES.md",
-    "skills/PAI/USER/DAIDENTITY.md"
-  ],
   "daidentity": {
     "name": "{DAIDENTITY.NAME}",
     "fullName": "{DAIDENTITY.FULLNAME}",

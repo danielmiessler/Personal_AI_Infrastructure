@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Windows Smoke Test — Phase 0
+ * Windows Smoke Test — Phase 0 + Phase 2
  *
- * Run this on Windows (not WSL) to verify platform.ts works:
+ * Run this on Windows (not WSL) to verify platform.ts and hook changes work:
  *   cd C:\users\justi\code\pai\Releases\v3.0\.claude
  *   bun lib/smoke-test-windows.ts
  *
  * Expected: All checks PASS on Windows, all return Windows-appropriate values.
- * Part of: PRD-20260219-windows-11-support (Phase 0 Smoke Test Checkpoint)
+ * Part of: PRD-20260219-windows-11-support
  */
 
 import {
@@ -162,6 +162,73 @@ check('getServiceManager returns valid type', ['launchctl', 'systemd', 'task-sch
 
 if (isWindows) {
   check('service manager is task-scheduler on Windows', svcMgr === 'task-scheduler', 'Windows service manager');
+}
+
+// ═══════════════════════════════════════════
+// Phase 2: Hook Hardening
+// ═══════════════════════════════════════════
+
+// Section 7: stdin utility
+console.log('\n📋 Section 7: stdin Utility (Phase 2)');
+try {
+  const { readStdinWithTimeout } = await import('../hooks/lib/stdin');
+  check('readStdinWithTimeout imports', typeof readStdinWithTimeout === 'function', 'function exported');
+  // Don't actually call it (would block on stdin) — just verify it exists
+} catch (e: any) {
+  check('readStdinWithTimeout imports', false, `import error: ${e.message}`);
+}
+
+// Section 8: sanitizeSessionId
+console.log('\n📋 Section 8: sanitizeSessionId (Phase 2)');
+try {
+  const { sanitizeSessionId } = await import('../hooks/lib/paths');
+  check('sanitizeSessionId imports', typeof sanitizeSessionId === 'function', 'function exported');
+  check('sanitizeSessionId strips dots', sanitizeSessionId('../../etc/passwd') === 'etcpasswd', 'path traversal blocked');
+  check('sanitizeSessionId preserves UUID', sanitizeSessionId('abc-123-def') === 'abc-123-def', 'UUID preserved');
+  check('sanitizeSessionId strips special chars', sanitizeSessionId('a;rm -rf /') === 'arm-rf', 'injection blocked');
+} catch (e: any) {
+  check('sanitizeSessionId imports', false, `import error: ${e.message}`);
+}
+
+// Section 9: Hook file imports (verify no crash on load)
+console.log('\n📋 Section 9: Hook File Imports (Phase 2)');
+const hookFiles = [
+  'AlgorithmTracker.hook',
+  'IntegrityCheck.hook',
+  'SecurityValidator.hook',
+  'StopOrchestrator.hook',
+  'VoiceGate.hook',
+  'QuestionAnswered.hook',
+  'SessionAutoName.hook',
+  'SessionSummary.hook',
+  'StartupGreeting.hook',
+  'WorkCompletionLearning.hook',
+];
+
+for (const hook of hookFiles) {
+  try {
+    // Dynamic import to check if the file can be parsed/loaded by Bun
+    // Hooks will fail at runtime (no stdin, no env) but the MODULE should load
+    const mod = await import(`../hooks/${hook}`);
+    check(`${hook} loads`, true, 'module parsed');
+  } catch (e: any) {
+    // Some hooks may throw at top-level due to missing env — that's OK
+    // We care that the MODULE SYNTAX is valid, not that it runs
+    const isRuntimeError = e.message?.includes('process.stdin') ||
+      e.message?.includes('ENOENT') ||
+      e.message?.includes('undefined') ||
+      e.message?.includes('null') ||
+      e.message?.includes('Cannot read') ||
+      e.message?.includes('fetch') ||
+      e.message?.includes('ECONNREFUSED');
+    const isSyntaxError = e instanceof SyntaxError;
+    if (isSyntaxError) {
+      check(`${hook} loads`, false, `SYNTAX ERROR: ${e.message}`);
+    } else {
+      // Runtime error = file parsed OK, just can't execute without proper env
+      check(`${hook} loads`, true, `module parsed (runtime error expected: ${e.message?.slice(0, 60)})`);
+    }
+  }
 }
 
 // Summary

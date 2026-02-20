@@ -19,7 +19,7 @@
  * - CHALLENGES.md - Current challenges
  * - FRAMES.md - Mental frames and perspectives
  * - GOALS.md - Life goals
- * - LESSONS.md - Lessons learned
+ * - LEARNED.md - Lessons learned
  * - MISSION.md - Life mission
  * - MODELS.md - Mental models
  * - MOVIES.md - Favorite movies
@@ -37,15 +37,16 @@
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getPrincipal } from '../../../hooks/lib/identity';
+import { paiPath } from '../../../hooks/lib/paths';
 
-const TELOS_DIR = join(process.env.HOME!, '.claude', 'context', 'life', 'telos');
-const BACKUPS_DIR = join(TELOS_DIR, 'backups');
+const TELOS_DIR = paiPath('skills', 'PAI', 'USER', 'TELOS');
+const BACKUPS_DIR = join(TELOS_DIR, 'Backups');
 const UPDATES_FILE = join(TELOS_DIR, 'updates.md');
 
 // Valid TELOS files
 const VALID_FILES = [
   'BELIEFS.md', 'BOOKS.md', 'CHALLENGES.md', 'FRAMES.md', 'GOALS.md',
-  'LESSONS.md', 'MISSION.md', 'MODELS.md', 'MOVIES.md', 'NARRATIVES.md',
+  'LEARNED.md', 'MISSION.md', 'MODELS.md', 'MOVIES.md', 'NARRATIVES.md',
   'PREDICTIONS.md', 'PROBLEMS.md', 'PROJECTS.md', 'STRATEGIES.md',
   'TELOS.md', 'TRAUMAS.md', 'WISDOM.md', 'WRONG.md'
 ];

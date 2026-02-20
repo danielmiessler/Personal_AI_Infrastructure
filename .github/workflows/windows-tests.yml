@@ -1,0 +1,105 @@
+name: Windows Compatibility Tests
+
+on:
+  pull_request:
+    paths:
+      - 'Releases/v3.0/.claude/**'
+      - '.github/workflows/windows-tests.yml'
+  push:
+    branches:
+      - main
+      - 'feature/windows-*'
+    paths:
+      - 'Releases/v3.0/.claude/**'
+      - '.github/workflows/windows-tests.yml'
+  # Allow manual trigger for debugging
+  workflow_dispatch:
+
+jobs:
+  # ─── Windows Native Tests ──────────────────────────────────────────────
+  windows-tests:
+    name: Windows 11 Native Tests
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Verify Bun installation
+        run: |
+          bun --version
+          echo "Platform: $env:OS"
+
+      - name: Run Windows E2E test suite
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/ --timeout 30000
+
+      - name: Run existing platform tests
+        working-directory: Releases/v3.0/.claude
+        run: bun test lib/platform.test.ts lib/terminal.test.ts --timeout 30000
+
+      - name: Run forbidden pattern audit
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/07-forbidden-patterns.test.ts --timeout 60000
+
+  # ─── Cross-Platform Regression (Linux) ─────────────────────────────────
+  linux-regression:
+    name: Linux Regression Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run platform tests (verify no Linux breakage)
+        working-directory: Releases/v3.0/.claude
+        run: bun test lib/platform.test.ts lib/terminal.test.ts lib/platform-audit.test.ts --timeout 30000
+
+      - name: Run Windows test suite on Linux (cross-platform tests only)
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/ --timeout 30000
+
+      - name: Run forbidden pattern audit
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/07-forbidden-patterns.test.ts --timeout 60000
+
+  # ─── macOS Regression ──────────────────────────────────────────────────
+  macos-regression:
+    name: macOS Regression Check
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run platform tests (verify no macOS breakage)
+        working-directory: Releases/v3.0/.claude
+        run: bun test lib/platform.test.ts lib/terminal.test.ts lib/platform-audit.test.ts --timeout 30000
+
+      - name: Run cross-platform subset of Windows tests
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/ --timeout 30000

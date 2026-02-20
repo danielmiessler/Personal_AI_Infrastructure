@@ -11,6 +11,7 @@ import { join, basename } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
 import { detectSystem, validateElevenLabsKey } from "./detect";
 import { generateSettingsJson } from "./config-gen";
+import { isWindows, getKillCommand } from "../../lib/platform";
 
 /**
  * Search existing .claude directories and config locations for a given env key.
@@ -644,9 +645,20 @@ async function stopVoiceServer(emit: EngineEventHandler): Promise<void> {
   }
 
   // Kill the process LISTENING on port 8888 (not clients connected to it — that would kill us!)
-  tryExec(`lsof -ti:8888 -sTCP:LISTEN | xargs kill -9 2>/dev/null`, 5000);
+  if (isWindows) {
+    // Windows: netstat to find PID, then taskkill
+    const netstat = tryExec(`netstat -ano | findstr :8888 | findstr LISTENING`, 5000);
+    if (netstat) {
+      const pids = new Set(netstat.split('\n').map(line => line.trim().split(/\s+/).pop()).filter(Boolean));
+      for (const pid of pids) {
+        tryExec(getKillCommand(pid!, true), 5000);
+      }
+    }
+  } else {
+    tryExec(`lsof -ti:8888 -sTCP:LISTEN | xargs kill -9 2>/dev/null`, 5000);
+  }
 
-  // Unload existing LaunchAgent if present
+  // Unload existing LaunchAgent if present (macOS only)
   const plistPath = join(homedir(), "Library", "LaunchAgents", "com.pai.voice-server.plist");
   if (existsSync(plistPath)) {
     tryExec(`launchctl unload "${plistPath}" 2>/dev/null`, 5000);

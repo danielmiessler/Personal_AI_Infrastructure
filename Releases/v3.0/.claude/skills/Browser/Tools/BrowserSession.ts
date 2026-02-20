@@ -438,9 +438,10 @@ console.log(`  Diagnostics: http://localhost:${CONFIG.port}/diagnostics`)
 console.log(`\nSession will auto-close after ${CONFIG.idleTimeout / 60000} minutes of inactivity.`)
 console.log(`Press Ctrl+C to stop manually.`)
 
-// Cleanup handlers
+// Cleanup handlers — SIGINT works cross-platform, SIGTERM does not fire on Windows
 process.on('SIGTERM', cleanup)
 process.on('SIGINT', cleanup)
+process.on('beforeExit', cleanup) // Windows fallback: fires when event loop drains
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err)
   cleanup()

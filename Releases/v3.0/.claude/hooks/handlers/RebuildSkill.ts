@@ -64,7 +64,7 @@ export async function handleRebuildSkill(): Promise<void> {
 function rebuild(buildScript: string): Promise<void> {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      child.kill('SIGTERM');
+      child.kill('SIGTERM'); // Cross-platform: Bun sends TerminateProcess on Windows
       console.error('[RebuildSkill] Build timed out after 10s');
       resolve();
     }, 10000);

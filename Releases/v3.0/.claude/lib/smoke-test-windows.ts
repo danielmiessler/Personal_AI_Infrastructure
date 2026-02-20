@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Windows Smoke Test — Phase 0 + Phase 2 + Phase 3
+ * Windows Smoke Test — Phase 0 + Phase 2 + Phase 3 + Phase 4
  *
  * Run this on Windows (not WSL) to verify platform.ts and hook changes work:
  *   cd C:\users\justi\code\pai\Releases\v3.0\.claude
@@ -291,6 +291,57 @@ console.log('\n📋 Section 12: Terminal Size (Phase 3)');
 const termSize = getTerminalSize();
 check('getTerminalSize returns columns', typeof termSize.columns === 'number' && termSize.columns > 0, `columns = ${termSize.columns}`);
 check('getTerminalSize returns rows', typeof termSize.rows === 'number' && termSize.rows > 0, `rows = ${termSize.rows}`);
+
+// ═══════════════════════════════════════════
+// Phase 4: Process Management
+// ═══════════════════════════════════════════
+
+// Section 13: Process command abstractions
+console.log('\n📋 Section 13: Process Commands (Phase 4)');
+const portCmd8888 = getPortCheckCommandString(8888);
+const killCmd1234 = getKillCommand(1234, true);
+const killPatternCmd = getKillByPatternCommand('voice-server');
+
+check('port check command returns string', portCmd8888.length > 0, `cmd = "${portCmd8888}"`);
+check('kill command returns string', killCmd1234.length > 0, `cmd = "${killCmd1234}"`);
+check('kill-by-pattern returns string', killPatternCmd.length > 0, `cmd = "${killPatternCmd}"`);
+
+if (isWindows) {
+  check('port check uses netstat on Windows', portCmd8888.includes('netstat'), 'Windows netstat');
+  check('kill uses taskkill on Windows', killCmd1234.includes('taskkill'), 'Windows taskkill');
+  check('kill-by-pattern uses taskkill on Windows', killPatternCmd.includes('taskkill'), 'Windows pattern kill');
+} else {
+  check('port check uses lsof on Unix', portCmd8888.includes('lsof'), 'Unix lsof');
+  check('kill uses kill -9 on Unix', killCmd1234.includes('kill -9'), 'Unix kill');
+  check('kill-by-pattern uses pkill on Unix', killPatternCmd.includes('pkill'), 'Unix pkill');
+}
+
+// Section 14: Signal handling verification
+console.log('\n📋 Section 14: Signal Handling (Phase 4)');
+try {
+  const { spawn } = await import('child_process');
+  check('child_process.spawn available', typeof spawn === 'function', 'spawn importable');
+  // Verify child.kill exists (cross-platform in Bun — sends TerminateProcess on Windows)
+  const child = spawn(process.execPath, ['--version'], { stdio: 'pipe' });
+  check('child.kill is function', typeof child.kill === 'function', 'kill method exists');
+  child.kill();
+} catch (e: any) {
+  check('child_process.spawn available', false, `error: ${e.message}`);
+}
+
+// Section 15: actions.ts platform import
+console.log('\n📋 Section 15: Installer Process Guards (Phase 4)');
+try {
+  const actions = await import('../PAI-Install/engine/actions');
+  check('actions.ts imports', true, 'module parsed');
+} catch (e: any) {
+  const isSyntax = e instanceof SyntaxError;
+  if (isSyntax) {
+    check('actions.ts imports', false, `SYNTAX ERROR: ${e.message}`);
+  } else {
+    check('actions.ts imports', true, `module parsed (runtime error expected: ${e.message?.slice(0, 60)})`);
+  }
+}
 
 // Summary
 console.log('\n═══════════════════════════════════════════');

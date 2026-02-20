@@ -14,6 +14,7 @@ import { execSync } from 'child_process';
 import { tmpdir } from 'os';
 import { TAB_COLORS, PHASE_TAB_CONFIG, ACTIVE_TAB_BG, ACTIVE_TAB_FG, INACTIVE_TAB_FG, type TabState, type AlgorithmTabPhase } from './tab-constants';
 import { paiPath } from './paths';
+import { createTerminalAdapter } from '../../lib/terminal';
 
 const TAB_TITLES_DIR = paiPath('MEMORY', 'STATE', 'tab-titles');
 const KITTY_SESSIONS_DIR = paiPath('MEMORY', 'STATE', 'kitty-sessions');
@@ -144,42 +145,50 @@ export function setTabState(opts: SetTabOptions): void {
   const kittyEnv = getKittyEnv(sessionId);
 
   try {
-    // Need either TERM=xterm-kitty OR a valid KITTY_LISTEN_ON to proceed
+    // Need either Kitty OR another supported terminal to proceed
     const isKitty = process.env.TERM === 'xterm-kitty' || kittyEnv.listenOn;
-    if (!isKitty) return;
 
-    // CRITICAL: Always use --to flag for socket-based remote control.
-    // Without it, kitten @ falls back to escape-sequence IPC which leaks
-    // garbage text (e.g. "P@kitty-cmd{...}") into terminal output when
-    // running in subprocess contexts. See PR #493.
-    if (!kittyEnv.listenOn) {
+    if (isKitty && kittyEnv.listenOn) {
+      // Kitty path: use kitten @ remote control with socket
+      const escaped = title.replace(/"/g, '\\"');
+      const toFlag = `--to="${kittyEnv.listenOn}"`;
+      console.error(`[tab-setter] Setting tab: "${escaped}" with toFlag: ${toFlag}`);
+      execSync(`kitten @ ${toFlag} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
+      execSync(`kitten @ ${toFlag} set-window-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
+
+      if (state === 'idle') {
+        execSync(
+          `kitten @ ${toFlag} set-tab-color --self active_bg=none active_fg=none inactive_bg=none inactive_fg=none`,
+          { stdio: 'ignore', timeout: 2000 }
+        );
+      } else {
+        execSync(
+          `kitten @ ${toFlag} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TAB_FG} inactive_bg=${colors.inactiveBg} inactive_fg=${INACTIVE_TAB_FG}`,
+          { stdio: 'ignore', timeout: 2000 }
+        );
+      }
+      console.error(`[tab-setter] Tab commands completed successfully`);
+    } else if (isKitty && !kittyEnv.listenOn) {
+      // Kitty detected but no socket — skip to prevent escape sequence leaks (PR #493)
       console.error(`[tab-setter] No kitty socket available, skipping tab update to prevent escape sequence leaks`);
-      return;
-    }
-
-    const escaped = title.replace(/"/g, '\\"');
-    // Set BOTH tab title AND window title. Kitty's tab_title_template uses
-    // {active_window.title} (the window title). OSC escape codes from Claude Code
-    // reset set-tab-title overrides, so the template falls back to window title.
-    // By setting both, our title survives OSC resets.
-    const toFlag = `--to="${kittyEnv.listenOn}"`;
-    console.error(`[tab-setter] Setting tab: "${escaped}" with toFlag: ${toFlag}`);
-    execSync(`kitten @ ${toFlag} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
-    execSync(`kitten @ ${toFlag} set-window-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
-
-    // For idle state, reset ALL colors to Kitty defaults (no lingering backgrounds)
-    if (state === 'idle') {
-      execSync(
-        `kitten @ ${toFlag} set-tab-color --self active_bg=none active_fg=none inactive_bg=none inactive_fg=none`,
-        { stdio: 'ignore', timeout: 2000 }
-      );
     } else {
-      execSync(
-        `kitten @ ${toFlag} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TAB_FG} inactive_bg=${colors.inactiveBg} inactive_fg=${INACTIVE_TAB_FG}`,
-        { stdio: 'ignore', timeout: 2000 }
-      );
+      // Non-Kitty terminal: use terminal adapter (Windows Terminal, generic, etc.)
+      const adapter = createTerminalAdapter(kittyEnv.listenOn);
+      if (adapter.supported) {
+        adapter.setTitle(title);
+        if (state === 'idle') {
+          adapter.resetTabColor();
+        } else {
+          adapter.setTabColor({
+            activeBg: ACTIVE_TAB_BG,
+            activeFg: ACTIVE_TAB_FG,
+            inactiveBg: colors.inactiveBg,
+            inactiveFg: INACTIVE_TAB_FG,
+          });
+        }
+        console.error(`[tab-setter] Non-Kitty tab set via ${adapter.type} adapter`);
+      }
     }
-    console.error(`[tab-setter] Tab commands completed successfully`);
   } catch (err) {
     console.error(`[tab-setter] Error setting tab:`, err);
   }
@@ -317,32 +326,47 @@ export function setPhaseTab(phase: AlgorithmTabPhase, sessionId: string, summary
 
   try {
     const isKitty = process.env.TERM === 'xterm-kitty' || kittyEnv.listenOn;
-    if (!isKitty) return;
 
-    // CRITICAL: Require socket for remote control. See PR #493.
-    if (!kittyEnv.listenOn) {
+    if (isKitty && kittyEnv.listenOn) {
+      // Kitty path: kitten @ remote control
+      const escaped = title.replace(/"/g, '\\"');
+      const toFlag = `--to="${kittyEnv.listenOn}"`;
+
+      execSync(`kitten @ ${toFlag} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
+      execSync(`kitten @ ${toFlag} set-window-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
+
+      if (phase === 'IDLE') {
+        execSync(
+          `kitten @ ${toFlag} set-tab-color --self active_bg=none active_fg=none inactive_bg=none inactive_fg=none`,
+          { stdio: 'ignore', timeout: 2000 }
+        );
+      } else {
+        execSync(
+          `kitten @ ${toFlag} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TAB_FG} inactive_bg=${config.inactiveBg} inactive_fg=${INACTIVE_TAB_FG}`,
+          { stdio: 'ignore', timeout: 2000 }
+        );
+      }
+      console.error(`[tab-setter] Phase tab: "${escaped}" (${phase}, bg=${config.inactiveBg})`);
+    } else if (isKitty && !kittyEnv.listenOn) {
       console.error(`[tab-setter] No kitty socket available, skipping phase tab update`);
-      return;
-    }
-
-    const escaped = title.replace(/"/g, '\\"');
-    const toFlag = `--to="${kittyEnv.listenOn}"`;
-
-    execSync(`kitten @ ${toFlag} set-tab-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
-    execSync(`kitten @ ${toFlag} set-window-title "${escaped}"`, { stdio: 'ignore', timeout: 2000 });
-
-    if (phase === 'IDLE') {
-      execSync(
-        `kitten @ ${toFlag} set-tab-color --self active_bg=none active_fg=none inactive_bg=none inactive_fg=none`,
-        { stdio: 'ignore', timeout: 2000 }
-      );
     } else {
-      execSync(
-        `kitten @ ${toFlag} set-tab-color --self active_bg=${ACTIVE_TAB_BG} active_fg=${ACTIVE_TAB_FG} inactive_bg=${config.inactiveBg} inactive_fg=${INACTIVE_TAB_FG}`,
-        { stdio: 'ignore', timeout: 2000 }
-      );
+      // Non-Kitty terminal: use terminal adapter
+      const adapter = createTerminalAdapter(kittyEnv.listenOn);
+      if (adapter.supported) {
+        adapter.setTitle(title);
+        if (phase === 'IDLE') {
+          adapter.resetTabColor();
+        } else {
+          adapter.setTabColor({
+            activeBg: ACTIVE_TAB_BG,
+            activeFg: ACTIVE_TAB_FG,
+            inactiveBg: config.inactiveBg,
+            inactiveFg: INACTIVE_TAB_FG,
+          });
+        }
+        console.error(`[tab-setter] Phase tab via ${adapter.type} adapter: "${title}" (${phase})`);
+      }
     }
-    console.error(`[tab-setter] Phase tab: "${escaped}" (${phase}, bg=${config.inactiveBg})`);
   } catch (err) {
     console.error(`[tab-setter] Error setting phase tab:`, err);
   }

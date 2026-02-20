@@ -50,6 +50,7 @@ import { join } from 'path';
 import { spawnSync } from 'child_process';
 
 import { getPaiDir, getSettingsPath } from './lib/paths';
+import { readStdinWithTimeout } from './lib/stdin';
 import { persistKittySession } from './lib/tab-setter';
 
 const paiDir = getPaiDir();
@@ -71,7 +72,7 @@ const settingsPath = getSettingsPath();
     // Read session_id from stdin (Claude Code passes hook input as JSON)
     let sessionId: string | null = null;
     try {
-      const stdinText = await Bun.stdin.text();
+      const stdinText = await readStdinWithTimeout(1000);
       if (stdinText.trim()) {
         const hookInput = JSON.parse(stdinText);
         sessionId = hookInput.session_id || null;

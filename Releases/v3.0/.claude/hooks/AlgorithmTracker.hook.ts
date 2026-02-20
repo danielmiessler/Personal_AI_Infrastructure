@@ -25,6 +25,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { setPhaseTab } from './lib/tab-setter';
 import { getPaiDir } from './lib/paths';
+import { readStdinWithTimeout } from './lib/stdin';
 
 // ── Phase Detection from Voice Curls ──
 
@@ -144,16 +145,7 @@ async function main() {
 
   let input: any;
   try {
-    const reader = Bun.stdin.stream().getReader();
-    let raw = '';
-    const read = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        raw += new TextDecoder().decode(value, { stream: true });
-      }
-    })();
-    await Promise.race([read, new Promise<void>(r => setTimeout(r, 200))]);
+    const raw = await readStdinWithTimeout(200);
     if (!raw.trim()) return;
     input = JSON.parse(raw);
   } catch { return; }

@@ -53,6 +53,7 @@ import { join } from 'path';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
 import { getPaiDir } from './lib/paths';
+import { readStdinWithTimeout } from './lib/stdin';
 
 const BASE_DIR = getPaiDir();
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
@@ -126,10 +127,7 @@ async function main() {
     // empty or slow stdin. Proceed regardless since state is read from disk.
     let sessionId: string | undefined;
     try {
-      const input = await Promise.race([
-        Bun.stdin.text(),
-        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
-      ]);
+      const input = await readStdinWithTimeout(3000);
       if (input && input.trim()) {
         const parsed = JSON.parse(input);
         sessionId = parsed.session_id;

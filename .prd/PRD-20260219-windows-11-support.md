@@ -26,9 +26,9 @@ children: []
 |------|-------|
 | Progress | 18/30 criteria passing (Phase 0-5 verified) |
 | Phase | Phase 5 COMPLETE — Installer Windows path |
-| Next action | Phase 5 smoke test on Windows, then Phase 6: Voice System |
-| Blocked by | Smoke test checkpoint (requires native Windows) |
-| Smoke test | **PASS** — Phase 0+1+2+3+4: 86/86 on native Windows 11 (2026-02-20) |
+| Next action | Phase 6: Voice System |
+| Blocked by | Nothing |
+| Smoke test | **PASS** — Phase 0-5: all checks on native Windows 11 (2026-02-20) |
 
 ## CONTEXT
 

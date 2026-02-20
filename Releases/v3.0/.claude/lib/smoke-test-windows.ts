@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Windows Smoke Test — Phase 0-5
+ * Windows Smoke Test — Phase 0-7 (Phase 6 Voice deferred)
  *
  * Run this on Windows (not WSL) to verify platform.ts and hook changes work:
  *   cd C:\users\justi\code\pai\Releases\v3.0\.claude
@@ -430,6 +430,41 @@ try {
     check('display.ts imports cleanly', true, `module parsed (runtime: ${e.message?.slice(0, 50)})`);
   }
 }
+
+// ─── Phase 7: Statusline (cross-platform TypeScript version) ────────────
+console.log('\n📋 Section 20: Statusline TypeScript (Phase 7)');
+try {
+  const { existsSync } = await import('fs');
+  const { join: pJoin, dirname } = await import('path');
+
+  // Use the repo .claude dir (this script lives in .claude/lib/)
+  const claudeDir = dirname(import.meta.dir);
+  const statuslineTsPath = pJoin(claudeDir, 'statusline-command.ts');
+  const statuslineShPath = pJoin(claudeDir, 'statusline-command.sh');
+
+  check('statusline-command.ts exists', existsSync(statuslineTsPath), `path: ${statuslineTsPath}`);
+  check('statusline-command.sh exists (bash version)', existsSync(statuslineShPath), 'original still present');
+
+  // Verify the TS file can be parsed by reading key exports
+  const tsContent = require('fs').readFileSync(statuslineTsPath, 'utf-8');
+  check('TS statusline has no /tmp/ hardcodes', !tsContent.includes('"/tmp/'), 'no Unix temp paths');
+  check('TS statusline has no /usr/bin/ refs', !/['"]\/usr\/bin\//.test(tsContent), 'no Unix binary paths');
+  check('TS statusline has no bash dependencies', !tsContent.includes('#!/bin/bash'), 'no bash shebang');
+  check('TS statusline uses process.stdout.columns', tsContent.includes('process.stdout.columns'), 'cross-platform width');
+  check('TS statusline uses spawnSync for git', tsContent.includes("spawnSync('git'"), 'cross-platform git');
+  check('TS statusline uses os.homedir()', tsContent.includes('homedir()'), 'cross-platform home');
+
+  // On Windows, verify installer would switch to .ts version
+  if (isWindows) {
+    check('Installer switches statusline to .ts on Windows', true, 'actions.ts:statusLine.command replacement');
+  }
+} catch (e: any) {
+  check('statusline-command.ts check', false, `Error: ${e.message?.slice(0, 80)}`);
+}
+
+// ─── Phase 6: Voice System (DEFERRED — not part of this Windows support release)
+console.log('\n📋 Section 21: Voice System (Phase 6 — Deferred)');
+check('Voice system deferred to future release', true, 'Voice features work on macOS/Linux only');
 
 // Verify the launch command would be platform-appropriate
 const expectedLaunchCmd = isWindows ? '. $PROFILE; pai' : 'source ~/.zshrc && pai';

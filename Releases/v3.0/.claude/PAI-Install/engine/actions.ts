@@ -466,12 +466,15 @@ export async function runConfiguration(
   }
   await emit({ event: "message", content: "settings.json generated." });
 
-  // On Windows, prefix hook .ts commands with "bun" since shebangs don't work
+  // On Windows, prefix hook .ts commands with "bun" since shebangs don't work,
+  // and switch statusLine from .sh to .ts since bash isn't available
   if (isWindows && existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      let modified = false;
+
+      // Prefix hook commands with "bun"
       if (settings.hooks) {
-        let modified = false;
         for (const eventHooks of Object.values(settings.hooks)) {
           if (!Array.isArray(eventHooks)) continue;
           for (const matcher of eventHooks as any[]) {
@@ -479,7 +482,6 @@ export async function runConfiguration(
             for (const hook of matcher.hooks as any[]) {
               if (hook?.type === "command" && typeof hook.command === "string") {
                 const cmd = hook.command.trim();
-                // Prefix with "bun" if command ends in .ts and doesn't already start with "bun"
                 if (cmd.endsWith(".ts") && !cmd.startsWith("bun ")) {
                   hook.command = `bun ${cmd}`;
                   modified = true;
@@ -488,9 +490,19 @@ export async function runConfiguration(
             }
           }
         }
-        if (modified) {
-          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      }
+
+      // Switch statusLine from bash script to cross-platform TypeScript
+      if (settings.statusLine?.command) {
+        const slCmd = settings.statusLine.command;
+        if (slCmd.endsWith("statusline-command.sh")) {
+          settings.statusLine.command = `bun ${slCmd.replace(/statusline-command\.sh$/, "statusline-command.ts")}`;
+          modified = true;
         }
+      }
+
+      if (modified) {
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
       }
     } catch {
       // Non-fatal — hooks may still work if bun is in PATH and registered for .ts

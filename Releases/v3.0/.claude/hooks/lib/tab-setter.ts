@@ -11,6 +11,7 @@
 import { existsSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { tmpdir } from 'os';
 import { TAB_COLORS, PHASE_TAB_CONFIG, ACTIVE_TAB_BG, ACTIVE_TAB_FG, INACTIVE_TAB_FG, type TabState, type AlgorithmTabPhase } from './tab-constants';
 import { paiPath } from './paths';
 
@@ -23,7 +24,7 @@ const KITTY_SESSIONS_DIR = paiPath('MEMORY', 'STATE', 'kitty-sessions');
  * Resolution order:
  * 1. Process env vars (direct terminal context — always correct)
  * 2. Per-session file: kitty-sessions/{sessionId}.json (no shared state, no races)
- * 3. Default socket at /tmp/kitty-$USER (fallback for socket-only configs)
+ * 3. Default socket at {tmpdir}/kitty-$USER (fallback for socket-only configs)
  *
  * IMPORTANT: listenOn MUST be set for remote control to work safely.
  * Without it, kitten @ commands fall back to escape-sequence IPC which
@@ -52,7 +53,7 @@ function getKittyEnv(sessionId?: string): { listenOn: string | null; windowId: s
   // This prevents escape-sequence IPC when KITTY_LISTEN_ON isn't propagated
   // to subprocess contexts (the root cause of terminal garbage in #493).
   if (!listenOn) {
-    const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+    const defaultSocket = `${tmpdir()}/kitty-${process.env.USER}`;
     try {
       if (existsSync(defaultSocket)) {
         listenOn = `unix:${defaultSocket}`;
@@ -118,7 +119,7 @@ function cleanupStaleStateFiles(): void {
     if (files.length === 0) return;
 
     // Get live window IDs from kitty via socket (prevents escape sequence leaks)
-    const defaultSocket = `/tmp/kitty-${process.env.USER}`;
+    const defaultSocket = `${tmpdir()}/kitty-${process.env.USER}`;
     const socketPath = process.env.KITTY_LISTEN_ON || (existsSync(defaultSocket) ? `unix:${defaultSocket}` : null);
     if (!socketPath) return; // No socket — skip cleanup to avoid escape sequence IPC
     const liveOutput = execSync(`kitten @ --to="${socketPath}" ls 2>/dev/null | jq -r ".[].tabs[].windows[].id" 2>/dev/null`, {

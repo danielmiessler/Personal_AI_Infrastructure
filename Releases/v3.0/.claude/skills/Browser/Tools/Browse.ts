@@ -19,9 +19,11 @@
 
 import { PlaywrightBrowser } from '../index.ts'
 import { getIdentity } from '../../../hooks/lib/identity'
+import { getTempDir } from '../../../lib/platform'
+import { join } from 'path'
 
 const VOICE_SERVER = 'http://localhost:8888/notify/personality'
-const STATE_FILE = '/tmp/browser-session.json'
+const STATE_FILE = join(getTempDir(), 'browser-session.json')
 const DEFAULT_PORT = 9222
 const SESSION_TIMEOUT = 5000 // 5s to wait for session start
 const SETTINGS_PATH = `${process.env.HOME}/.claude/settings.json`
@@ -356,7 +358,7 @@ async function debugUrl(url: string): Promise<void> {
 
   // Take screenshot
   const timestamp = Date.now()
-  const screenshotPath = `/tmp/browse-${timestamp}.png`
+  const screenshotPath = join(getTempDir(), `browse-${timestamp}.png`)
   console.log(`PAI Browser Action: Taking screenshot`)
   await sessionCommand('screenshot', { path: screenshotPath })
 
@@ -474,7 +476,7 @@ async function showFailed(): Promise<void> {
 }
 
 async function takeScreenshot(path?: string): Promise<void> {
-  const screenshotPath = path || `/tmp/screenshot-${Date.now()}.png`
+  const screenshotPath = path || join(getTempDir(), `screenshot-${Date.now()}.png`)
   console.log(`PAI Browser Action: Taking screenshot`)
   await sessionCommand('screenshot', { path: screenshotPath })
   console.log(`PAI Browser Results: Screenshot saved to ${screenshotPath}`)

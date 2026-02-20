@@ -27,6 +27,8 @@
  */
 
 import { PlaywrightBrowser } from '../index.ts'
+import { getTempDir } from '../../../lib/platform'
+import { join } from 'path'
 
 const CONFIG = {
   port: parseInt(process.env.BROWSER_PORT || '9222'),
@@ -35,7 +37,7 @@ const CONFIG = {
     width: parseInt(process.env.BROWSER_WIDTH || '1920'),
     height: parseInt(process.env.BROWSER_HEIGHT || '1080')
   },
-  stateFile: '/tmp/browser-session.json',
+  stateFile: join(getTempDir(), 'browser-session.json'),
   idleTimeout: 30 * 60 * 1000 // 30 minutes
 }
 
@@ -280,7 +282,7 @@ const server = Bun.serve({
       // Screenshot
       if (url.pathname === '/screenshot' && method === 'POST') {
         const body = await req.json()
-        const path = body.path || '/tmp/screenshot.png'
+        const path = body.path || join(getTempDir(), 'screenshot.png')
         await browser.screenshot({
           path,
           fullPage: body.fullPage || false,

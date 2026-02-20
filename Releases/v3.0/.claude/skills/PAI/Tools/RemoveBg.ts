@@ -17,13 +17,14 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
+import { getHomeDir } from '../../../lib/platform';
 
 // ============================================================================
 // Environment Loading
 // ============================================================================
 
 async function loadEnv(): Promise<void> {
-  const envPath = process.env.PAI_CONFIG_DIR ? resolve(process.env.PAI_CONFIG_DIR, ".env") : resolve(process.env.HOME!, ".config/PAI/.env");
+  const envPath = process.env.PAI_CONFIG_DIR ? resolve(process.env.PAI_CONFIG_DIR, ".env") : resolve(getHomeDir(), ".config/PAI/.env");
   try {
     const envContent = await readFile(envPath, "utf-8");
     for (const line of envContent.split("\n")) {

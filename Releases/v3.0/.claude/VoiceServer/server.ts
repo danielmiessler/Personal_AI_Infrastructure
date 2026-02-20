@@ -19,6 +19,7 @@ import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { getTempFilePath } from '../lib/platform';
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -371,7 +372,7 @@ async function generateSpeech(
 
 // Play audio using afplay (macOS)
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+  const tempFile = getTempFilePath('voice', '.mp3');
 
   await Bun.write(tempFile, audioBuffer);
 

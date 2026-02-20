@@ -2,3 +2,101 @@ This file does nothing.
 
 # Read the PAI system for system understanding and initiation
 `read skills/PAI/SKILL.md`
+
+---
+
+# Windows 11 Support — Validation & Testing Steering Rules
+
+**Authority:** These rules govern ALL work on the Windows 11 support project (PRD-20260219-windows-11-support). They are mandatory and override default behavior.
+
+**PRD Location:** `../../.prd/PRD-20260219-windows-11-support.md`
+
+## 1. Forbidden Patterns (Hard Gates)
+
+After ANY code change related to Windows support, these patterns MUST NOT exist in v3.0 TypeScript files. Verify with grep before claiming completion.
+
+| Pattern | Grep Command | Allowed Count |
+|---------|-------------|---------------|
+| Bare `process.env.HOME!` without fallback | `grep -rn "process\.env\.HOME!" --include="*.ts"` | 0 |
+| Hardcoded `/tmp/` in TypeScript | `grep -rn '"/tmp/' --include="*.ts"` | 0 |
+| Hardcoded `/usr/bin/` or `/bin/` in spawn | `grep -rn "'/usr/bin/\|'/bin/" --include="*.ts"` | 0 |
+| `chmod` or `chown` without platform guard | `grep -rn "chmod\|chown" --include="*.ts"` then verify each has `process.platform` check | 0 unguarded |
+| `lsof` without platform guard | `grep -rn "lsof" --include="*.ts"` then verify each has platform check | 0 unguarded |
+| Hardcoded Windows paths (`C:\\`, `%APPDATA%`) | `grep -rn 'C:\\\\|%APPDATA%|%USERPROFILE%' --include="*.ts"` | 0 (use abstractions) |
+| `kill -9` without platform guard | `grep -rn "kill -9\|kill.*SIGTERM" --include="*.ts"` then verify | 0 unguarded |
+
+**Rule:** If ANY forbidden pattern count is non-zero and unguarded, the phase is NOT complete. Fix before proceeding.
+
+## 2. Per-File Validation Gate
+
+Before and after editing ANY file for Windows support:
+
+1. **Before:** Note the bad-pattern grep count for patterns this file touches
+2. **Edit:** Make the change
+3. **After — Grep:** Re-run the relevant forbidden pattern greps. Count must decrease or stay at zero.
+4. **After — Types:** Run `tsc --noEmit` (or `bun build --no-emit` if no tsconfig). No new type errors.
+5. **After — Tests:** Run tests affected by this file. All must pass.
+
+**Rule:** Never batch multiple files without running this gate between them. One file, one validation cycle.
+
+## 3. Per-Phase Validation Gate
+
+Before marking ANY phase complete in the PRD:
+
+1. **Full Pattern Audit:** Run ALL forbidden pattern greps from Section 1 against the entire v3.0 directory. Report exact counts.
+2. **Type Check:** Run full `tsc --noEmit` across the project. Zero errors.
+3. **Test Suite:** Run the project's full test suite. All tests pass.
+4. **Diff Review:** Review the complete `git diff` for this phase. Every change must either:
+   - Use the `platform.ts` abstraction (not inline platform checks), OR
+   - Be a platform guard (`if (process.platform !== 'win32')`) in a location where abstraction is overkill
+5. **PRD Update:** Update ISC checkboxes in PRD with specific evidence (grep output, test results, line numbers).
+6. **No Regressions:** Verify macOS/Linux code paths are unchanged or strictly additive.
+
+**Rule:** Present the full pattern audit counts and test results as evidence. "PASS" without evidence is a violation of these rules.
+
+## 4. Smoke Test Checkpoints (Require Justin's Windows Machine)
+
+| After Phase | What to Test | Why |
+|-------------|-------------|-----|
+| Phase 0 (platform.ts) | Import and call `platform.ts` functions on Windows | Validates foundation before building on it |
+| Phase 2 (hook guards) | Run all 20 hooks on Windows — none should crash | Validates graceful degradation |
+| Phase 5 (installer) | Run installer on Windows from scratch | Validates end-to-end installation |
+| Phase 7 (statusline) | Visual check of statusline in Windows Terminal | Validates user-facing output |
+
+**Rule:** Do NOT proceed past Phase 2 without a Windows smoke test confirming Phase 0-2 work. Building Phases 3-7 on an untested foundation is wasteful. Pause and request Justin's help with testing.
+
+## 5. Test Writing Requirements
+
+For every platform abstraction created:
+
+1. **Dual-platform unit tests:** Each function must have tests that mock `process.platform` as both `'darwin'` and `'win32'` and verify correct behavior on each.
+2. **Regression test file:** Create `platform-audit.test.ts` that greps for ALL forbidden patterns and fails if any survive. This test runs in CI and prevents future regressions.
+3. **No-op verification:** For features that gracefully degrade on Windows (e.g., Kitty tab colors), test that the no-op path executes without error and without side effects.
+
+## 6. Evidence Standards
+
+When marking an ISC criterion as PASS in the PRD:
+
+- **Grep criteria:** Cite the exact grep command and its output (count = 0)
+- **Test criteria:** Cite the test file, test name, and pass/fail output
+- **Visual criteria:** Attach or describe a screenshot from Windows Terminal
+- **Behavioral criteria:** Describe the specific action taken and observed result
+
+**Rule:** "Verified" or "looks good" is never acceptable evidence. State what you checked, what you found, and what the expected value was.
+
+## 7. Architectural Constraints
+
+1. **All platform logic flows through `platform.ts`** — No inline `process.platform` checks scattered across files. If you need to check the platform, add a function to `platform.ts` and call it.
+2. **Exception:** Simple boolean guards in hook files (`if (process.platform === 'win32') return;`) are acceptable for Phase 2 quick-wins only. These must be migrated to use platform.ts in Phase 3+.
+3. **No new dependencies** — Solve Windows support with Bun/TypeScript built-ins and OS-level commands. Do not add npm packages for platform detection, path handling, or process management.
+4. **Preserve the `hooks/lib/paths.ts` pattern** — This file is the reference implementation. New platform code should follow its conventions (`homedir()`, `tmpdir()`, env fallback chains).
+
+## 8. Course Correction Protocol
+
+If at any point during implementation:
+
+1. **A grep count goes UP instead of down** — STOP. You introduced a new forbidden pattern. Revert and fix.
+2. **Tests fail after a change** — STOP. Do not proceed to the next file. Fix the regression first.
+3. **You discover a platform dependency NOT in the PRD audit** — Add it to the PRD immediately (new ISC criterion + audit entry). Do not silently handle it.
+4. **A Phase 0-2 smoke test fails on Windows** — STOP all work. Diagnose the root cause. Update the platform.ts foundation before touching anything else.
+5. **You're unsure if a Windows API behaves as expected** — Do NOT guess. Use the Research skill or ask Justin. Wrong assumptions compound across phases.

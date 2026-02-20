@@ -9,6 +9,7 @@
 import { spawn } from "child_process";
 import { mkdirSync, rmSync, readdirSync, statSync } from "fs";
 import { join, basename, extname } from "path";
+import { getTempDir } from '../../../lib/platform';
 import OpenAI from "openai";
 import { createReadStream } from "fs";
 import { writeFile } from "fs/promises";
@@ -25,7 +26,7 @@ async function splitAudioFile(
   filePath: string,
   chunkSizeMB: number = 20
 ): Promise<{chunks: ChunkInfo[], tempDir: string}> {
-  const tempDir = `/tmp/transcript-${Date.now()}`;
+  const tempDir = join(getTempDir(), `transcript-${Date.now()}`);
   mkdirSync(tempDir, { recursive: true });
 
   const ext = extname(filePath);

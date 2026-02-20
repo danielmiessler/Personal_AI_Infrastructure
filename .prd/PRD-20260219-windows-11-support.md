@@ -28,7 +28,7 @@ children: []
 | Phase | Phase 5 COMPLETE — Installer Windows path |
 | Next action | Phase 6: Voice System |
 | Blocked by | Nothing |
-| Smoke test | **PASS** — Phase 0-5: all checks on native Windows 11 (2026-02-20) |
+| Smoke test | **PASS** — 103/103 checks on native Windows 11 via PowerShell-from-WSL2 (2026-02-20) |
 
 ## CONTEXT
 
@@ -673,3 +673,17 @@ Phase 0 (platform.ts)
   - All files compile cleanly. 50/50 tests pass.
 - Failing: None for Phase 5. Phases 6-7 pending.
 - Context for next iteration: Phase 5 installer guards complete. Smoke test on native Windows needed. Phase 6 (Voice System) is next.
+
+### Smoke Test — 2026-02-20 (Full Phase 0-5 Revalidation)
+- **Result: PASS — 103/103 checks on native Windows 11**
+- **Method:** PowerShell-from-WSL2 (`powershell.exe -Command "cd ... ; bun lib/smoke-test-windows.ts"`)
+- Runtime: Bun 1.3.9, Platform: win32/x64
+- 19 sections covering: OS detection, path resolution, command mapping, terminal detection, audio/notifications, service management, stdin utility, sanitizeSessionId, hook imports (10/10), terminal adapters (3/3), terminal factory, terminal size, process commands, signal handling, installer modules, Bun install path, shell alias, display messages
+- Key confirmations:
+  - `detectTerminal()` = `"windows-terminal"` (WT_SESSION detected)
+  - `createTerminalAdapter()` returns `WindowsTerminalAdapter`
+  - `WindowsTerminalAdapter.setTitle()` emits OSC escape (visible in output: `]0;smoke-test`)
+  - All 10 migrated hooks load without syntax errors
+  - `SecurityValidator.hook` runtime error (missing `yaml` package — not Windows-specific)
+  - All process commands map correctly: netstat, taskkill, PowerShell
+- **Foundation confirmed solid for Phase 6 (Voice System) and Phase 7 (Statusline)**

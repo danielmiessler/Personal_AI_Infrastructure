@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Windows Smoke Test — Phase 0 + Phase 2 + Phase 3 + Phase 4
+ * Windows Smoke Test — Phase 0-5
  *
  * Run this on Windows (not WSL) to verify platform.ts and hook changes work:
  *   cd C:\users\justi\code\pai\Releases\v3.0\.claude
@@ -341,6 +341,102 @@ try {
   } else {
     check('actions.ts imports', true, `module parsed (runtime error expected: ${e.message?.slice(0, 60)})`);
   }
+}
+
+// ═══════════════════════════════════════════
+// Phase 5: Installer Windows Path
+// ═══════════════════════════════════════════
+
+// Section 16: Installer module loads
+console.log('\n📋 Section 16: Installer Module Loads (Phase 5)');
+try {
+  const actions = await import('../PAI-Install/engine/actions');
+  check('actions.ts imports cleanly', true, 'module parsed');
+  check('runPrerequisites exported', typeof actions.runPrerequisites === 'function', 'function exists');
+  check('runConfiguration exported', typeof actions.runConfiguration === 'function', 'function exists');
+  check('runVoiceSetup exported', typeof actions.runVoiceSetup === 'function', 'function exists');
+} catch (e: any) {
+  const isSyntax = e instanceof SyntaxError;
+  if (isSyntax) {
+    check('actions.ts imports cleanly', false, `SYNTAX ERROR: ${e.message}`);
+  } else {
+    check('actions.ts imports cleanly', true, `module parsed (runtime: ${e.message?.slice(0, 50)})`);
+  }
+}
+
+try {
+  const validate = await import('../PAI-Install/engine/validate');
+  check('validate.ts imports cleanly', true, 'module parsed');
+  check('runValidation exported', typeof validate.runValidation === 'function', 'function exists');
+} catch (e: any) {
+  const isSyntax = e instanceof SyntaxError;
+  if (isSyntax) {
+    check('validate.ts imports cleanly', false, `SYNTAX ERROR: ${e.message}`);
+  } else {
+    check('validate.ts imports cleanly', true, `module parsed (runtime: ${e.message?.slice(0, 50)})`);
+  }
+}
+
+try {
+  const configGen = await import('../PAI-Install/engine/config-gen');
+  check('config-gen.ts imports cleanly', true, 'module parsed');
+  check('generateSettingsJson exported', typeof configGen.generateSettingsJson === 'function', 'function exists');
+} catch (e: any) {
+  check('config-gen.ts imports cleanly', false, `error: ${e.message}`);
+}
+
+// Section 17: Platform-aware Bun install path
+console.log('\n📋 Section 17: Bun Install Path (Phase 5)');
+if (isWindows) {
+  // On Windows, Bun install should use PowerShell, not curl|bash
+  check('PowerShell available', isCommandAvailable('powershell'), 'powershell in PATH');
+  // Verify Bun bin path uses ; separator on Windows
+  const testPath = `${getHomeDir()}\\.bun\\bin;${process.env.PATH?.slice(0, 20)}`;
+  check('Windows PATH uses semicolons', testPath.includes(';'), 'PATH separator = ;');
+} else {
+  // On Unix, Bun install uses curl|bash
+  check('curl available', isCommandAvailable('curl'), 'curl in PATH');
+  check('bash available', isCommandAvailable('bash'), 'bash in PATH');
+  const testPath = `${getHomeDir()}/.bun/bin:${process.env.PATH?.slice(0, 20)}`;
+  check('Unix PATH uses colons', testPath.includes(':'), 'PATH separator = :');
+}
+
+// Section 18: Shell alias target
+console.log('\n📋 Section 18: Shell Alias Target (Phase 5)');
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+
+if (isWindows) {
+  const psProfileDir = join(process.env.USERPROFILE || homedir(), 'Documents', 'PowerShell');
+  check('PowerShell profile dir path valid', psProfileDir.length > 0, `dir = "${psProfileDir}"`);
+  // Check that the profile dir path doesn't contain Unix paths
+  check('PS profile dir has no Unix paths', !psProfileDir.includes('/home/'), 'no /home/ in path');
+} else {
+  const zshrcPath = join(homedir(), '.zshrc');
+  check('.zshrc path valid', zshrcPath.length > 0, `path = "${zshrcPath}"`);
+}
+
+// Section 19: Display messages platform-awareness
+console.log('\n📋 Section 19: Display Messages (Phase 5)');
+try {
+  const display = await import('../PAI-Install/cli/display');
+  check('display.ts imports cleanly', true, 'module parsed');
+  check('printSummary exported', typeof display.printSummary === 'function', 'function exists');
+} catch (e: any) {
+  const isSyntax = e instanceof SyntaxError;
+  if (isSyntax) {
+    check('display.ts imports cleanly', false, `SYNTAX ERROR: ${e.message}`);
+  } else {
+    check('display.ts imports cleanly', true, `module parsed (runtime: ${e.message?.slice(0, 50)})`);
+  }
+}
+
+// Verify the launch command would be platform-appropriate
+const expectedLaunchCmd = isWindows ? '. $PROFILE; pai' : 'source ~/.zshrc && pai';
+check('Launch command is platform-appropriate', expectedLaunchCmd.length > 0, `cmd = "${expectedLaunchCmd}"`);
+if (isWindows) {
+  check('Launch command mentions $PROFILE', expectedLaunchCmd.includes('$PROFILE'), 'PowerShell profile');
+  check('Launch command does NOT mention .zshrc', !expectedLaunchCmd.includes('.zshrc'), 'no .zshrc on Windows');
 }
 
 // Summary

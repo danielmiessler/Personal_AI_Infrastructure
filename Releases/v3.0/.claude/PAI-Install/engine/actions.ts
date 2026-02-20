@@ -197,12 +197,20 @@ export async function runPrerequisites(
   // Bun should already be installed by bootstrap script, but verify
   if (!det.tools.bun.installed) {
     await emit({ event: "progress", step: "prerequisites", percent: 40, detail: "Installing Bun..." });
-    const result = tryExec("curl -fsSL https://bun.sh/install | bash", 60000);
-    if (result !== null) {
-      // Update PATH
-      const bunBin = join(homedir(), ".bun", "bin");
-      process.env.PATH = `${bunBin}:${process.env.PATH}`;
-      await emit({ event: "message", content: "Bun installed successfully." });
+    if (isWindows) {
+      const result = tryExec('powershell -Command "irm bun.sh/install.ps1 | iex"', 60000);
+      if (result !== null) {
+        const bunBin = join(homedir(), ".bun", "bin");
+        process.env.PATH = `${bunBin};${process.env.PATH}`;
+        await emit({ event: "message", content: "Bun installed successfully." });
+      }
+    } else {
+      const result = tryExec("curl -fsSL https://bun.sh/install | bash", 60000);
+      if (result !== null) {
+        const bunBin = join(homedir(), ".bun", "bin");
+        process.env.PATH = `${bunBin}:${process.env.PATH}`;
+        await emit({ event: "message", content: "Bun installed successfully." });
+      }
     }
   } else {
     await emit({ event: "progress", step: "prerequisites", percent: 50, detail: `Bun found: v${det.tools.bun.version}` });
@@ -458,6 +466,37 @@ export async function runConfiguration(
   }
   await emit({ event: "message", content: "settings.json generated." });
 
+  // On Windows, prefix hook .ts commands with "bun" since shebangs don't work
+  if (isWindows && existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      if (settings.hooks) {
+        let modified = false;
+        for (const eventHooks of Object.values(settings.hooks)) {
+          if (!Array.isArray(eventHooks)) continue;
+          for (const matcher of eventHooks as any[]) {
+            if (!matcher?.hooks) continue;
+            for (const hook of matcher.hooks as any[]) {
+              if (hook?.type === "command" && typeof hook.command === "string") {
+                const cmd = hook.command.trim();
+                // Prefix with "bun" if command ends in .ts and doesn't already start with "bun"
+                if (cmd.endsWith(".ts") && !cmd.startsWith("bun ")) {
+                  hook.command = `bun ${cmd}`;
+                  modified = true;
+                }
+              }
+            }
+          }
+        }
+        if (modified) {
+          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        }
+      }
+    } catch {
+      // Non-fatal — hooks may still work if bun is in PATH and registered for .ts
+    }
+  }
+
   // Update Algorithm LATEST version file (public repo may be behind)
   const latestPath = join(paiDir, "skills", "PAI", "Components", "Algorithm", "LATEST");
   const latestDir = join(paiDir, "skills", "PAI", "Components", "Algorithm");
@@ -571,50 +610,72 @@ export async function runConfiguration(
     }
   }
 
-  // Set up zsh alias
+  // Set up shell alias
   await emit({ event: "progress", step: "configuration", percent: 80, detail: "Setting up shell alias..." });
 
-  const zshrcPath = join(homedir(), ".zshrc");
-  const aliasLine = `alias pai='bun ${join(paiDir, "skills", "PAI", "Tools", "pai.ts")}'`;
+  const paiToolPath = join(paiDir, "skills", "PAI", "Tools", "pai.ts");
   const marker = "# PAI alias";
 
-  if (existsSync(zshrcPath)) {
-    let content = readFileSync(zshrcPath, "utf-8");
-    // Remove any existing pai alias (old CORE or PAI paths, any marker variant)
-    content = content.replace(/^#\s*(?:PAI|CORE)\s*alias.*\n.*alias pai=.*\n?/gm, "");
-    content = content.replace(/^alias pai=.*\n?/gm, "");
-    // Add fresh alias
-    content = content.trimEnd() + `\n\n${marker}\n${aliasLine}\n`;
-    writeFileSync(zshrcPath, content);
-  } else {
-    writeFileSync(zshrcPath, `${marker}\n${aliasLine}\n`);
-  }
+  if (isWindows) {
+    // PowerShell profile: create a `pai` function
+    const psProfileDir = join(process.env.USERPROFILE || homedir(), "Documents", "PowerShell");
+    const psProfilePath = join(psProfileDir, "Microsoft.PowerShell_profile.ps1");
+    const psAlias = `function pai { bun "${paiToolPath}" @args }`;
 
-  // Set up fish shell config (if fish is installed)
-  const fishConfigPath = join(homedir(), ".config", "fish", "config.fish");
-  const fishConfigDir = join(homedir(), ".config", "fish");
-  const paiToolPath = join(paiDir, "skills", "PAI", "Tools", "pai.ts");
-  const fishFunction = `# PAI alias\nfunction pai\n    bun ${paiToolPath} $argv\nend`;
-
-  if (existsSync(fishConfigDir)) {
-    if (existsSync(fishConfigPath)) {
-      let content = readFileSync(fishConfigPath, "utf-8");
-      // Remove old PAI/CORE fish functions
-      content = content.replace(/^#\s*(?:PAI|CORE)\s*alias\nfunction pai\n.*\nend\n?/gm, "");
-      content = content.replace(/^function pai\n.*\nend\n?/gm, "");
-      content = content.trimEnd() + `\n\n${fishFunction}\n`;
-      writeFileSync(fishConfigPath, content);
+    if (!existsSync(psProfileDir)) {
+      mkdirSync(psProfileDir, { recursive: true });
+    }
+    if (existsSync(psProfilePath)) {
+      let content = readFileSync(psProfilePath, "utf-8");
+      // Remove old PAI alias
+      content = content.replace(/^#\s*PAI alias\n.*function pai.*\n?/gm, "");
+      content = content.replace(/^function pai \{.*\}\n?/gm, "");
+      content = content.trimEnd() + `\n\n${marker}\n${psAlias}\n`;
+      writeFileSync(psProfilePath, content);
     } else {
-      writeFileSync(fishConfigPath, `${fishFunction}\n`);
+      writeFileSync(psProfilePath, `${marker}\n${psAlias}\n`);
+    }
+  } else {
+    // Unix: zsh alias
+    const zshrcPath = join(homedir(), ".zshrc");
+    const aliasLine = `alias pai='bun ${paiToolPath}'`;
+
+    if (existsSync(zshrcPath)) {
+      let content = readFileSync(zshrcPath, "utf-8");
+      content = content.replace(/^#\s*(?:PAI|CORE)\s*alias.*\n.*alias pai=.*\n?/gm, "");
+      content = content.replace(/^alias pai=.*\n?/gm, "");
+      content = content.trimEnd() + `\n\n${marker}\n${aliasLine}\n`;
+      writeFileSync(zshrcPath, content);
+    } else {
+      writeFileSync(zshrcPath, `${marker}\n${aliasLine}\n`);
+    }
+
+    // Fish shell config (if fish is installed)
+    const fishConfigPath = join(homedir(), ".config", "fish", "config.fish");
+    const fishConfigDir = join(homedir(), ".config", "fish");
+    const fishFunction = `# PAI alias\nfunction pai\n    bun ${paiToolPath} $argv\nend`;
+
+    if (existsSync(fishConfigDir)) {
+      if (existsSync(fishConfigPath)) {
+        let content = readFileSync(fishConfigPath, "utf-8");
+        content = content.replace(/^#\s*(?:PAI|CORE)\s*alias\nfunction pai\n.*\nend\n?/gm, "");
+        content = content.replace(/^function pai\n.*\nend\n?/gm, "");
+        content = content.trimEnd() + `\n\n${fishFunction}\n`;
+        writeFileSync(fishConfigPath, content);
+      } else {
+        writeFileSync(fishConfigPath, `${fishFunction}\n`);
+      }
     }
   }
 
-  // Fix permissions
-  await emit({ event: "progress", step: "configuration", percent: 90, detail: "Setting permissions..." });
-  try {
-    tryExec(`chmod -R 755 "${paiDir}"`, 10000);
-  } catch {
-    // Non-fatal
+  // Fix permissions (Unix only — Windows uses ACLs, not chmod)
+  if (!isWindows) {
+    await emit({ event: "progress", step: "configuration", percent: 90, detail: "Setting permissions..." });
+    try {
+      tryExec(`chmod -R 755 "${paiDir}"`, 10000);
+    } catch {
+      // Non-fatal
+    }
   }
 
   await emit({ event: "progress", step: "configuration", percent: 100, detail: "Configuration complete" });
@@ -659,9 +720,11 @@ async function stopVoiceServer(emit: EngineEventHandler): Promise<void> {
   }
 
   // Unload existing LaunchAgent if present (macOS only)
-  const plistPath = join(homedir(), "Library", "LaunchAgents", "com.pai.voice-server.plist");
-  if (existsSync(plistPath)) {
-    tryExec(`launchctl unload "${plistPath}" 2>/dev/null`, 5000);
+  if (!isWindows) {
+    const plistPath = join(homedir(), "Library", "LaunchAgents", "com.pai.voice-server.plist");
+    if (existsSync(plistPath)) {
+      tryExec(`launchctl unload "${plistPath}" 2>/dev/null`, 5000);
+    }
   }
 
   // Wait for it to actually stop
@@ -690,47 +753,49 @@ async function startVoiceServer(paiDir: string, emit: EngineEventHandler): Promi
   // Step 1: Stop any existing voice server (old or new)
   await stopVoiceServer(emit);
 
-  // Step 2: Install as LaunchAgent (auto-start on login)
-  // CRITICAL: Use async spawn instead of execSync to avoid blocking the event loop.
-  // execSync blocks ALL WebSocket connections for the duration of the script.
-  await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service..." });
-  if (existsSync(installScript)) {
-    try {
-      const installOk = await new Promise<boolean>((resolve) => {
-        const child = spawn("bash", [installScript], {
-          cwd: voiceServerDir,
-          stdio: ["pipe", "pipe", "pipe"],
+  // Step 2: Install as LaunchAgent (macOS) or bash scripts (Linux)
+  // On Windows, skip shell scripts entirely — fall through to bun server.ts (Step 4)
+  if (!isWindows) {
+    // CRITICAL: Use async spawn instead of execSync to avoid blocking the event loop.
+    // execSync blocks ALL WebSocket connections for the duration of the script.
+    await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service..." });
+    if (existsSync(installScript)) {
+      try {
+        const installOk = await new Promise<boolean>((resolve) => {
+          const child = spawn("bash", [installScript], {
+            cwd: voiceServerDir,
+            stdio: ["pipe", "pipe", "pipe"],
+          });
+          // Pipe "y\nn" — yes to reinstall, no to menu bar
+          child.stdin?.write("y\nn\n");
+          child.stdin?.end();
+          const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
+          child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
+          child.on("error", () => { clearTimeout(timer); resolve(false); });
         });
-        // Pipe "y\nn" — yes to reinstall, no to menu bar
-        child.stdin?.write("y\nn\n");
-        child.stdin?.end();
-        const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
-        child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
-        child.on("error", () => { clearTimeout(timer); resolve(false); });
-      });
-      if (installOk) {
-        for (let i = 0; i < 10; i++) {
-          await new Promise(r => setTimeout(r, 500));
-          if (await isVoiceServerRunning()) {
-            await emit({ event: "message", content: "Voice server installed and running." });
-            return true;
+        if (installOk) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            if (await isVoiceServerRunning()) {
+              await emit({ event: "message", content: "Voice server installed and running." });
+              return true;
+            }
           }
         }
+      } catch {
+        // Fall through to next step
       }
-    } catch {
-      // Fall through to next step
     }
-  }
 
-  // Step 3: Fallback — try start.sh if LaunchAgent install failed
-  if (existsSync(startScript)) {
-    await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
-    try {
-      await new Promise<void>((resolve) => {
-        const child = spawn("bash", [startScript], {
-          cwd: voiceServerDir,
-          stdio: "ignore",
-        });
+    // Step 3: Fallback — try start.sh if LaunchAgent install failed
+    if (existsSync(startScript)) {
+      await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
+      try {
+        await new Promise<void>((resolve) => {
+          const child = spawn("bash", [startScript], {
+            cwd: voiceServerDir,
+            stdio: "ignore",
+          });
         const timer = setTimeout(() => { child.kill(); resolve(); }, 15000);
         child.on("close", () => { clearTimeout(timer); resolve(); });
         child.on("error", () => { clearTimeout(timer); resolve(); });
@@ -746,8 +811,9 @@ async function startVoiceServer(paiDir: string, emit: EngineEventHandler): Promi
       }
     }
   }
+  } // end !isWindows — Steps 2-3 use bash scripts not available on Windows
 
-  // Step 4: Last resort — start server.ts directly in background
+  // Step 4: Start server.ts directly with bun (cross-platform)
   if (existsSync(serverTs)) {
     await emit({ event: "progress", step: "voice", percent: 30, detail: "Starting voice server directly..." });
     try {

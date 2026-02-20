@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import type { InstallState, ValidationCheck, InstallSummary } from "./types";
 import { homedir } from "os";
+import { isWindows } from "../../lib/platform";
 
 /**
  * Check if voice server is running via HTTP health check.
@@ -166,20 +167,41 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
     critical: false,
   });
 
-  // 8. Zsh alias configured
-  const zshrcPath = join(homedir(), ".zshrc");
+  // 8. Shell alias configured (platform-specific)
   let aliasConfigured = false;
-  if (existsSync(zshrcPath)) {
-    try {
-      const zshContent = readFileSync(zshrcPath, "utf-8");
-      aliasConfigured = zshContent.includes("# PAI alias") && zshContent.includes("alias pai=");
-    } catch {}
+  let aliasDetail = "";
+
+  if (isWindows) {
+    const psProfilePath = join(
+      process.env.USERPROFILE || homedir(),
+      "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"
+    );
+    if (existsSync(psProfilePath)) {
+      try {
+        const psContent = readFileSync(psProfilePath, "utf-8");
+        aliasConfigured = psContent.includes("# PAI alias") && psContent.includes("function pai");
+      } catch {}
+    }
+    aliasDetail = aliasConfigured
+      ? "Configured in PowerShell profile"
+      : "Not found — restart PowerShell or run: . $PROFILE";
+  } else {
+    const zshrcPath = join(homedir(), ".zshrc");
+    if (existsSync(zshrcPath)) {
+      try {
+        const zshContent = readFileSync(zshrcPath, "utf-8");
+        aliasConfigured = zshContent.includes("# PAI alias") && zshContent.includes("alias pai=");
+      } catch {}
+    }
+    aliasDetail = aliasConfigured
+      ? "Configured in .zshrc"
+      : "Not found — run: source ~/.zshrc";
   }
 
   checks.push({
     name: "Shell alias (pai)",
     passed: aliasConfigured,
-    detail: aliasConfigured ? "Configured in .zshrc" : "Not found — run: source ~/.zshrc",
+    detail: aliasDetail,
     critical: true,
   });
 

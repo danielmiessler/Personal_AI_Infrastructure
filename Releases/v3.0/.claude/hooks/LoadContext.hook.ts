@@ -520,7 +520,7 @@ async function main() {
     if (needsRebuild) {
       console.error('🔨 Rebuilding SKILL.md (components changed)...');
       try {
-        execSync('bun ~/.claude/skills/PAI/Tools/RebuildPAI.ts', {
+        execSync(`bun ${join(paiDir, 'skills/PAI/Tools/RebuildPAI.ts')}`, {
           cwd: paiDir,
           stdio: 'pipe',
           timeout: 5000

@@ -286,21 +286,21 @@ jobs:
           Get-ChildItem "$env:USERPROFILE\.claude\"
 
       - name: Test Claude CLI — Basic Hello
-        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        if: env.ANTHROPIC_API_KEY != ''
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude -p "Say hello in exactly 5 words" --max-turns 1 --model claude-sonnet-4-6 --output-format json
 
       - name: Test Claude CLI — Skill Discovery
-        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        if: env.ANTHROPIC_API_KEY != ''
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude -p "List 3 skills you have available. Just list names." --max-turns 1 --model claude-sonnet-4-6
 
       - name: Test Claude CLI — Algorithm Format
-        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        if: env.ANTHROPIC_API_KEY != ''
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |

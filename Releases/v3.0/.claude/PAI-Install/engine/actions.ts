@@ -7,7 +7,7 @@
 import { execSync, spawn } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlinkSync, unlinkSync, chmodSync, lstatSync } from "fs";
 import { homedir } from "os";
-import { join, basename } from "path";
+import { join, basename, resolve } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
 import { detectSystem, validateElevenLabsKey } from "./detect";
 import { generateSettingsJson } from "./config-gen";
@@ -323,7 +323,7 @@ export async function runIdentity(
     defaultProjects || "~/Projects"
   );
   if (projDir.trim()) {
-    state.collected.projectsDir = projDir.trim().replace(/^~/, homedir());
+    state.collected.projectsDir = resolve(projDir.trim().replace(/^~/, homedir()));
   }
 
   await emit({

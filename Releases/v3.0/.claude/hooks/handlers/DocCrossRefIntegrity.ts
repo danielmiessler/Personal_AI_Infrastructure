@@ -566,9 +566,9 @@ async function runInferenceAnalysis(
     const result = await inference({
       systemPrompt: INFERENCE_SYSTEM_PROMPT,
       userPrompt: `Analyze these source file changes and documentation sections for factual inaccuracies:\n\n${context}`,
-      level: 'fast',
+      level: 'standard',
       expectJson: true,
-      timeout: 15000,
+      timeout: 15000, // Sonnet needs more time but produces better quality
     });
 
     const elapsed = Date.now() - startTime;

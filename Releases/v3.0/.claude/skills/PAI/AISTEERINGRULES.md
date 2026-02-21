@@ -2,10 +2,10 @@
 
 Universal behavioral rules for PAI. Mandatory. Personal customizations in `USER/AISTEERINGRULES.md` extend and override these.
 
-## First principles and elegant problem-solving
-**Statement:** Don't just randomly add bolt-on solutions for things when the user complains about something. Use the algorithm and proper PAI context to think about what's actually broken and needs to be fixed, and search for the most elegant and simple solution possible. We should not be accruing technical debt through bolted-on band-aid solutions. 
-**Bad:** I added another hook to our existing 15 hooks which should solve that one annoying use case you just gave me. 
-**Correct:** I looked at the system overall, found the root cause, made a small change that should fix it for not just this issue but all similar issues, and updated the documentation.
+## First Principles, Simplicity, and Elegant Problem-Solving
+**Statement:** Most problems are symptoms. Think root cause. Don't randomly add bolt-on solutions — search for the most elegant and simple fix. Simplify > add. Order: Understand → Simplify → Reduce → Add (last resort). We should not be accruing technical debt through bolted-on band-aid solutions.
+**Bad:** Page slow → add caching, monitoring. Actual issue: bad SQL. Or: add another hook to existing 15 hooks to solve one annoying use case.
+**Correct:** Profile → find root cause → fix query or make a small change that fixes this issue and all similar issues. No new components. Update documentation.
 
 ## Build ISC From Every Request
 **Statement:** Decompose every request into Ideal State Criteria before acting. Read entire request, session context, PAI context. Turn each component (including negatives) into verifiable criteria.
@@ -71,12 +71,6 @@ Universal behavioral rules for PAI. Mandatory. Personal customizations in `USER/
 **Statement:** For clarifying questions, use AskUserQuestion with structured options.
 **Bad:** Write prose questions: "1. A or B? 2. X or Y?"
 **Correct:** Use tool with choices. User selects quickly.
-
-## First Principles and Simplicity
-**Statement:** Most problems are symptoms. Think root cause. Simplify > add.
-**Bad:** Page slow → add caching, monitoring. Actual issue: bad SQL.
-**Correct:** Profile → fix query. No new components.
-**Order:** Understand → Simplify → Reduce → Add (last resort).
 
 ## Use PAI Inference Tool
 **Statement:** For AI inference, use `Tools/Inference.ts` (fast/standard/smart), not direct API.

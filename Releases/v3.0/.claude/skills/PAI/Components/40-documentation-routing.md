@@ -33,7 +33,8 @@ Critical PAI documentation organized by domain. Load on-demand based on context.
 | **Delegation** | `SYSTEM/THEDELEGATIONSYSTEM.md` | Background work, parallelization |
 | **Browser Automation** | `SYSTEM/BROWSERAUTOMATION.md` | Playwright, screenshots, testing |
 | **CLI Architecture** | `SYSTEM/CLIFIRSTARCHITECTURE.md` | Command-line first principles |
-| **Notification System** | `SYSTEM/THENOTIFICATIONSYSTEM.md` | Voice, visual notifications |
+| **Voice Notifications** | `SYSTEM/THEVOICENOTIFICATIONSYSTEM.md` | Voice curls, ElevenLabs, algorithm phases | <!-- VOICE_ONLY -->
+| **Text Notifications** | `SYSTEM/THETEXTNOTIFICATIONSYSTEM.md` | Push (ntfy), external channel config |
 | **Tools Reference** | `SYSTEM/TOOLS.md` | Core tools inventory |
 
 **USER Context:** `USER/` contains personal data—identity, contacts, health, finances, projects. See `USER/README.md` for full index.

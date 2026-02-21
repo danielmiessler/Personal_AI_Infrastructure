@@ -823,9 +823,37 @@ async function startVoiceServer(paiDir: string, emit: EngineEventHandler): Promi
       }
     }
   }
-  } // end !isWindows — Steps 2-3 use bash scripts not available on Windows
+  } else {
+    // Windows: Use manage.ts install for Task Scheduler auto-start (equivalent to macOS LaunchAgent)
+    const manageTs = join(voiceServerDir, "manage.ts");
+    if (existsSync(manageTs)) {
+      await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service (Task Scheduler)..." });
+      try {
+        const installOk = await new Promise<boolean>((resolve) => {
+          const child = spawn("bun", ["run", manageTs, "install"], {
+            cwd: voiceServerDir,
+            stdio: ["pipe", "pipe", "pipe"],
+          });
+          const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
+          child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
+          child.on("error", () => { clearTimeout(timer); resolve(false); });
+        });
+        if (installOk) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            if (await isVoiceServerRunning()) {
+              await emit({ event: "message", content: "Voice server installed as Windows service and running." });
+              return true;
+            }
+          }
+        }
+      } catch {
+        // Fall through to Step 4 (direct start)
+      }
+    }
+  }
 
-  // Step 4: Start server.ts directly with bun (cross-platform)
+  // Step 4: Start server.ts directly with bun (cross-platform fallback)
   if (existsSync(serverTs)) {
     await emit({ event: "progress", step: "voice", percent: 30, detail: "Starting voice server directly..." });
     try {

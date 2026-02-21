@@ -247,6 +247,77 @@ export function bunRun(
   });
 }
 
+// ─── Skills & Handlers ──────────────────────────────────────────────────────
+
+/** Skills directory */
+export const SKILLS_DIR = join(V3_ROOT, 'skills');
+
+/** Handlers directory */
+export const HANDLERS_DIR = join(HOOKS_DIR, 'handlers');
+
+/** All handler files */
+export const ALL_HANDLERS = existsSync(HANDLERS_DIR)
+  ? readdirSync(HANDLERS_DIR).filter(f => f.endsWith('.ts')).sort()
+  : [];
+
+// ─── Hook Event Inputs ──────────────────────────────────────────────────────
+
+/** Standard SessionStart hook input */
+export const SESSION_START_INPUT = {
+  session_id: 'test-ci-00000000',
+  session_type: 'interactive',
+  event: 'init',
+  conversation: [],
+};
+
+/** Standard UserPromptSubmit hook input */
+export const USER_PROMPT_INPUT = {
+  session_id: 'test-ci-00000000',
+  event: 'user_prompt_submit',
+  user_prompt: 'Hello',
+  conversation: [{ role: 'user', content: 'Hello' }],
+};
+
+/** Standard PreToolUse hook input */
+export const PRE_TOOL_USE_INPUT = {
+  session_id: 'test-ci-00000000',
+  event: 'pre_tool_use',
+  tool_name: 'Bash',
+  tool_input: { command: 'echo test' },
+};
+
+/** Standard PostToolUse hook input */
+export const POST_TOOL_USE_INPUT = {
+  session_id: 'test-ci-00000000',
+  event: 'post_tool_use',
+  tool_name: 'Bash',
+  tool_result: 'test',
+};
+
+/** Standard SessionEnd hook input */
+export const SESSION_END_INPUT = {
+  session_id: 'test-ci-00000000',
+  event: 'session_end',
+  transcript_path: '',
+};
+
+/** Standard Stop hook input */
+export const STOP_INPUT = {
+  session_id: 'test-ci-00000000',
+  transcript_path: '',
+  hook_event_name: 'Stop',
+};
+
+/** Dummy API keys for skill invocation testing in CI */
+export const DUMMY_API_ENV = {
+  ANTHROPIC_API_KEY: 'sk-ant-dummy-ci-test-key',
+  OPENAI_API_KEY: 'sk-dummy-ci-test-key',
+  APIFY_TOKEN: 'apify_dummy_ci_token',
+  BRIGHTDATA_API_KEY: 'brightdata_dummy_ci_key',
+};
+
+// ─── Spawn Helpers ────────────────────────────────────────────────────────────
+
 /** Run a bun script file */
 export function bunRunFile(
   filePath: string,

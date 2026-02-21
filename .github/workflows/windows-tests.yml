@@ -130,16 +130,21 @@ jobs:
             Write-Error "manage.ts exited with code $LASTEXITCODE"
             exit 1
           }
-          if ($result -notmatch 'PAI Voice Server Manager') {
+          # Join array to string — PowerShell captures command output as an array
+          # of strings. -notmatch on arrays acts as a filter, not a boolean check.
+          $output = $result -join "`n"
+          if ($output -notmatch 'PAI Voice Server Manager') {
             Write-Error "manage.ts output missing expected header"
+            Write-Host "Actual output: $output"
             exit 1
           }
-          if ($result -notmatch 'Windows') {
+          if ($output -notmatch 'Windows') {
             Write-Error "manage.ts output missing Windows platform name"
+            Write-Host "Actual output: $output"
             exit 1
           }
           Write-Host "PASS: manage.ts CLI works on Windows"
-          Write-Host $result
+          Write-Host $output
 
       - name: Test directory structure creation on Windows
         run: |

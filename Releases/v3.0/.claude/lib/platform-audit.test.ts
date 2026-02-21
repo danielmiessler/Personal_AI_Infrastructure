@@ -27,8 +27,9 @@ const PLATFORM_TS = resolve(__dirname, 'platform.ts');
  */
 function countForbiddenMatches(pattern: string): number {
   try {
+    // Exclude tests/windows/ — test helpers intentionally contain detection patterns as regex literals
     const result = execSync(
-      `grep -rn ${pattern} --include="*.ts" "${V3_DIR}" | grep -v ".test.ts" | grep -v "CLAUDE.md" | grep -v "lib/platform.ts" | wc -l`,
+      `grep -rn ${pattern} --include="*.ts" "${V3_DIR}" | grep -v ".test.ts" | grep -v "CLAUDE.md" | grep -v "lib/platform.ts" | grep -v "tests/windows/" | wc -l`,
       { encoding: 'utf-8', timeout: 15000 }
     ).trim();
     return parseInt(result, 10) || 0;
@@ -42,8 +43,9 @@ function countForbiddenMatches(pattern: string): number {
  */
 function findForbiddenMatches(pattern: string): string[] {
   try {
+    // Exclude tests/windows/ — test helpers intentionally contain detection patterns as regex literals
     const result = execSync(
-      `grep -rn ${pattern} --include="*.ts" "${V3_DIR}" | grep -v ".test.ts" | grep -v "CLAUDE.md" | grep -v "lib/platform.ts"`,
+      `grep -rn ${pattern} --include="*.ts" "${V3_DIR}" | grep -v ".test.ts" | grep -v "CLAUDE.md" | grep -v "lib/platform.ts" | grep -v "tests/windows/"`,
       { encoding: 'utf-8', timeout: 15000 }
     ).trim();
     return result ? result.split('\n') : [];

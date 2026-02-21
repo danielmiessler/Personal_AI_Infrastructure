@@ -4,10 +4,10 @@
  * Each action takes state + event emitter, performs work, returns result.
  */
 
-import { execSync, spawn } from "child_process";
+import { execSync, spawn, spawnSync } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlinkSync, unlinkSync, chmodSync, lstatSync } from "fs";
 import { homedir } from "os";
-import { join, basename, resolve } from "path";
+import { join, basename, resolve, dirname } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
 import { detectSystem, validateElevenLabsKey } from "./detect";
 import { generateSettingsJson } from "./config-gen";
@@ -630,22 +630,47 @@ export async function runConfiguration(
 
   if (isWindows) {
     // PowerShell profile: create a `pai` function
-    const psProfileDir = join(process.env.USERPROFILE || homedir(), "Documents", "PowerShell");
-    const psProfilePath = join(psProfileDir, "Microsoft.PowerShell_profile.ps1");
+    // Query $PROFILE from both PS 5.1 and PS 7+ to handle all editions and OneDrive redirection
     const psAlias = `function pai { bun "${paiToolPath}" @args }`;
+    const profilePaths: string[] = [];
 
-    if (!existsSync(psProfileDir)) {
-      mkdirSync(psProfileDir, { recursive: true });
+    // Detect actual $PROFILE path from Windows PowerShell 5.1 (powershell.exe)
+    try {
+      const ps5 = spawnSync("powershell.exe", ["-NoProfile", "-Command", "Write-Host $PROFILE"], { timeout: 10000 });
+      const ps5Path = ps5.stdout?.toString().trim();
+      if (ps5Path && ps5Path.endsWith(".ps1")) profilePaths.push(ps5Path);
+    } catch { /* PS 5.1 not available */ }
+
+    // Detect actual $PROFILE path from PowerShell 7+ (pwsh.exe) if installed
+    try {
+      const ps7 = spawnSync("pwsh.exe", ["-NoProfile", "-Command", "Write-Host $PROFILE"], { timeout: 10000 });
+      const ps7Path = ps7.stdout?.toString().trim();
+      if (ps7Path && ps7Path.endsWith(".ps1") && !profilePaths.includes(ps7Path)) profilePaths.push(ps7Path);
+    } catch { /* PS 7+ not installed */ }
+
+    // Fallback: hardcoded paths for both editions (in case neither shell is accessible)
+    if (profilePaths.length === 0) {
+      const userHome = process.env.USERPROFILE || homedir();
+      profilePaths.push(join(userHome, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"));
+      profilePaths.push(join(userHome, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"));
     }
-    if (existsSync(psProfilePath)) {
-      let content = readFileSync(psProfilePath, "utf-8");
-      // Remove old PAI alias
-      content = content.replace(/^#\s*PAI alias\n.*function pai.*\n?/gm, "");
-      content = content.replace(/^function pai \{.*\}\n?/gm, "");
-      content = content.trimEnd() + `\n\n${marker}\n${psAlias}\n`;
-      writeFileSync(psProfilePath, content);
-    } else {
-      writeFileSync(psProfilePath, `${marker}\n${psAlias}\n`);
+
+    // Write pai function to all detected profiles
+    for (const psProfilePath of profilePaths) {
+      const psProfileDir = dirname(psProfilePath);
+      if (!existsSync(psProfileDir)) {
+        mkdirSync(psProfileDir, { recursive: true });
+      }
+      if (existsSync(psProfilePath)) {
+        let content = readFileSync(psProfilePath, "utf-8");
+        // Remove old PAI alias
+        content = content.replace(/^#\s*PAI alias\n.*function pai.*\n?/gm, "");
+        content = content.replace(/^function pai \{.*\}\n?/gm, "");
+        content = content.trimEnd() + `\n\n${marker}\n${psAlias}\n`;
+        writeFileSync(psProfilePath, content);
+      } else {
+        writeFileSync(psProfilePath, `${marker}\n${psAlias}\n`);
+      }
     }
   } else {
     // Unix: zsh alias

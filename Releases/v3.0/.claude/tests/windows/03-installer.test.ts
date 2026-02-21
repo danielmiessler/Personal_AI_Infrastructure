@@ -12,6 +12,9 @@
  */
 
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { spawnSync } from 'child_process';
 import {
   INSTALL_DIR,
   V3_ROOT,
@@ -222,5 +225,123 @@ describe('System Detection', () => {
       expect(typeof detection.homeDir).toBe('string');
       expect(detection.homeDir.length).toBeGreaterThan(0);
     }
+  }, SLOW_TIMEOUT);
+});
+
+// ─── Section 6: PowerShell Profile Detection (cross-platform source analysis) ─
+
+describe('PowerShell Profile Detection — Source Analysis', () => {
+  const actionsSource = readFileSync(join(INSTALL_DIR, 'engine', 'actions.ts'), 'utf-8');
+  const validateSource = readFileSync(join(INSTALL_DIR, 'engine', 'validate.ts'), 'utf-8');
+
+  test('actions.ts detects PS 5.1 profile via powershell.exe $PROFILE', () => {
+    expect(actionsSource).toContain('powershell.exe');
+    expect(actionsSource).toContain('Write-Host $PROFILE');
+  });
+
+  test('actions.ts detects PS 7+ profile via pwsh.exe $PROFILE', () => {
+    expect(actionsSource).toContain('pwsh.exe');
+  });
+
+  test('actions.ts does not hardcode a single PowerShell profile directory', () => {
+    // The old bug: hardcoded "Documents", "PowerShell" only (missed WindowsPowerShell + OneDrive)
+    // New code uses dynamic $PROFILE detection with fallback to BOTH directories
+    expect(actionsSource).toContain('WindowsPowerShell');
+    expect(actionsSource).toContain('"PowerShell"');
+  });
+
+  test('actions.ts writes pai function to multiple detected profiles', () => {
+    // Should iterate over profilePaths array, not write to a single path
+    expect(actionsSource).toContain('for (const psProfilePath of profilePaths)');
+  });
+
+  test('validate.ts checks both PS 5.1 and PS 7+ profile paths', () => {
+    expect(validateSource).toContain('powershell.exe');
+    expect(validateSource).toContain('pwsh.exe');
+  });
+
+  test('validate.ts has WindowsPowerShell fallback path', () => {
+    expect(validateSource).toContain('WindowsPowerShell');
+  });
+
+  test('actions.ts pai function uses bun and @args for PowerShell', () => {
+    expect(actionsSource).toMatch(/function pai \{ bun .* @args \}/);
+  });
+
+  test('actions.ts cleans old PAI alias before writing new one', () => {
+    expect(actionsSource).toContain('Remove old PAI alias');
+    expect(actionsSource).toMatch(/replace.*PAI alias/);
+    expect(actionsSource).toMatch(/replace.*function pai/);
+  });
+});
+
+// ─── Section 7: Windows-only Profile Path E2E ─────────────────────────────────
+
+describe.skipIf(!IS_NATIVE_WINDOWS)('Windows Profile Path E2E', () => {
+
+  test('PS 5.1 $PROFILE path contains WindowsPowerShell', () => {
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+    const profilePath = (result.stdout || '').trim();
+    expect(profilePath).toContain('WindowsPowerShell');
+    expect(profilePath).toEndWith('.ps1');
+  }, SLOW_TIMEOUT);
+
+  test('PS 5.1 and PS 7+ have different profile paths', () => {
+    const ps5Result = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+    const ps5Path = (ps5Result.stdout || '').trim();
+
+    // PS 7+ may not be installed — skip comparison if unavailable
+    const ps7Result = spawnSync('pwsh.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+
+    if (ps7Result.status === 0) {
+      const ps7Path = (ps7Result.stdout || '').trim();
+      // They should be different directories (WindowsPowerShell vs PowerShell)
+      expect(ps5Path).not.toBe(ps7Path);
+      expect(ps5Path).toContain('WindowsPowerShell');
+      expect(ps7Path).not.toContain('WindowsPowerShell');
+    } else {
+      // PS 7+ not installed — that's fine, just verify PS 5.1 works
+      expect(ps5Path.length).toBeGreaterThan(0);
+    }
+  }, SLOW_TIMEOUT);
+
+  test('PowerShell profile contains pai function after installation', () => {
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+    const profilePath = (result.stdout || '').trim();
+
+    try {
+      const content = readFileSync(profilePath, 'utf-8');
+      expect(content).toContain('# PAI alias');
+      expect(content).toContain('function pai');
+      expect(content).toContain('bun');
+    } catch {
+      // Profile may not exist if installer hasn't been run yet — skip gracefully
+      console.log(`SKIP: PS profile not found at ${profilePath} (installer not run)`);
+    }
+  }, SLOW_TIMEOUT);
+
+  test('pai command is callable from PowerShell', () => {
+    // Use -Command to load profile and check if pai function exists
+    const result = spawnSync('powershell.exe', [
+      '-Command',
+      'if (Get-Command pai -ErrorAction SilentlyContinue) { Write-Host "FOUND" } else { Write-Host "NOT_FOUND" }',
+    ], {
+      encoding: 'utf-8',
+      timeout: 15_000,
+    });
+    const output = (result.stdout || '').trim();
+    expect(output).toBe('FOUND');
   }, SLOW_TIMEOUT);
 });

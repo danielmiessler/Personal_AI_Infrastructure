@@ -4,6 +4,7 @@
  *
  * PURPOSE:
  * Prevents background agents / subagents from sending voice notifications.
+ * Also blocks all voice curls when voice is globally disabled.
  * Only the main terminal session (identified by having a kitty-sessions file)
  * is allowed to curl the voice server at localhost:8888.
  *
@@ -16,8 +17,9 @@
  *
  * DECISION LOGIC:
  * 1. Command doesn't contain "localhost:8888" → PASS (not a voice curl)
- * 2. Command contains "localhost:8888" AND is main session → PASS
- * 3. Command contains "localhost:8888" AND is NOT main session → BLOCK
+ * 2. Voice globally disabled (settings.json or PAI_VOICE_ENABLED=false) → BLOCK
+ * 3. Command contains "localhost:8888" AND is main session → PASS
+ * 4. Command contains "localhost:8888" AND is NOT main session → BLOCK
  *
  * PERFORMANCE: <5ms. Fast-path exit for non-voice commands.
  */
@@ -25,6 +27,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { isVoiceEnabled } from './lib/voice-config';
 
 interface HookInput {
   tool_name: string;
@@ -80,6 +83,15 @@ async function main() {
   // Fast path: not a voice curl → allow immediately
   if (!command.includes('localhost:8888')) {
     console.log(JSON.stringify({ continue: true }));
+    return;
+  }
+
+  // Voice globally disabled → block all voice curls silently
+  if (!isVoiceEnabled()) {
+    console.log(JSON.stringify({
+      decision: "block",
+      reason: "Voice is disabled (voice.enabled=false or PAI_VOICE_ENABLED=false). Set voice.enabled: true in settings.json to re-enable."
+    }));
     return;
   }
 

@@ -56,5 +56,9 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
       repoUrl: "https://github.com/danielmiessler/PAI",
       version: "3.0",
     },
+
+    voice: {
+      enabled: config.voiceEnabled ?? true,
+    },
   };
 }

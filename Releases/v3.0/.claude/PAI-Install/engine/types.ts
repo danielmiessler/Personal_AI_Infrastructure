@@ -84,6 +84,7 @@ export interface InstallState {
     aiName?: string;
     catchphrase?: string;
     projectsDir?: string;
+    voiceEnabled?: boolean;
     voiceType?: "female" | "male" | "custom";
     customVoiceId?: string;
   };
@@ -108,6 +109,7 @@ export interface PAIConfig {
   aiName: string;
   catchphrase: string;
   projectsDir?: string;
+  voiceEnabled?: boolean;
   voiceType?: string;
   voiceId?: string;
   paiDir: string;

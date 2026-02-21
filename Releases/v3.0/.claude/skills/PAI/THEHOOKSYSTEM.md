@@ -314,7 +314,7 @@ Claude Code supports the following hook events:
 ```
 
 **What They Do:**
-- `VoiceGate.hook.ts` - Blocks voice curl commands from background agents and subagents (only main sessions speak)
+- `VoiceGate.hook.ts` - Blocks voice curl commands from background agents/subagents (only main sessions speak) AND when voice is globally disabled via `settings.json voice.enabled` or `PAI_VOICE_ENABLED=false`
 - `SecurityValidator.hook.ts` - Validates operations against security patterns. Runs on **4 matchers**: Bash (dangerous commands), Edit (sensitive file protection), Write (sensitive file protection), Read (sensitive path access)
 - `SetQuestionTab.hook.ts` - Updates tab state to "awaiting input" when AskUserQuestion is invoked
 - `AgentExecutionGuard.hook.ts` - Validates agent spawning (Task tool) against execution policies
@@ -889,6 +889,39 @@ curl -X POST http://localhost:8888/notify \
 - Wrong voice_id → Silent failure (invalid ID)
 - Voice server offline → Hook continues (graceful failure)
 - No `🎯 COMPLETED:` line → No voice notification extracted
+
+---
+
+### Voice Enable / Disable
+
+Voice is **optional** and can be toggled at any time without reinstalling.
+
+**In `settings.json`** (persistent, survives restarts):
+```json
+{
+  "voice": {
+    "enabled": false
+  }
+}
+```
+Set to `true` to re-enable. The `voice.enabled` field is written automatically by the installer when you choose "No, text only" during the Voice Setup step.
+
+**Via environment variable** (takes precedence over settings.json):
+```bash
+export PAI_VOICE_ENABLED=false   # disable
+export PAI_VOICE_ENABLED=true    # enable
+```
+
+The environment variable is useful for temporarily silencing voice in a specific terminal session without modifying your config file.
+
+**How it works:**
+- `hooks/lib/voice-config.ts` exports `isVoiceEnabled()` — the single source of truth
+- `VoiceGate.hook.ts` (PreToolUse/Bash) blocks **all** `localhost:8888` curl commands when disabled, including Algorithm phase announcements
+- `VoiceNotification.ts` (Stop handler) skips TTS delivery when disabled
+- `UpdateTabTitle.hook.ts` (UserPromptSubmit) skips prompt-receipt voice when disabled
+- `AlgorithmTracker.hook.ts` (PostToolUse) skips rework voice notifications when disabled
+
+**Priority:** `PAI_VOICE_ENABLED` env var > `settings.json voice.enabled` > default (enabled)
 
 ---
 

@@ -772,6 +772,36 @@ export async function runVoiceSetup(
 ): Promise<void> {
   await emit({ event: "step_start", step: "voice" });
 
+  // ── Ask if the user wants voice at all ──
+  const wantsVoice = await getChoice("voice-global-enable", "Would you like to enable voice features? Your AI assistant can speak responses using text-to-speech.", [
+    { label: "Yes, enable voice", value: "yes", description: "AI will speak using ElevenLabs TTS (API key needed) or macOS fallback" },
+    { label: "No, text only", value: "no", description: "Silent mode — enable later via settings.json or PAI_VOICE_ENABLED env var" },
+  ]);
+
+  if (wantsVoice === "no") {
+    state.collected.voiceEnabled = false;
+
+    // Write voice.enabled: false to settings.json immediately
+    const paiDir = state.detection?.paiDir || join(homedir(), ".claude");
+    const settingsPath = join(paiDir, "settings.json");
+    if (existsSync(settingsPath)) {
+      try {
+        const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+        settings.voice = { enabled: false };
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      } catch { /* non-fatal */ }
+    }
+
+    await emit({
+      event: "message",
+      content: "Voice disabled. Re-enable anytime: set \"voice\": { \"enabled\": true } in ~/.claude/settings.json, or set PAI_VOICE_ENABLED=true in your environment.",
+    });
+    await emit({ event: "step_complete", step: "voice" });
+    return;
+  }
+
+  state.collected.voiceEnabled = true;
+
   // ── Collect ElevenLabs key if not already found ──
   if (!state.collected.elevenLabsKey) {
     await emit({ event: "progress", step: "voice", percent: 5, detail: "Searching for existing ElevenLabs key..." });
@@ -914,6 +944,8 @@ export async function runVoiceSetup(
           speed: 1.1,
         };
       }
+      // Write voice.enabled: true (user chose to enable voice)
+      settings.voice = { enabled: true };
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
       await emit({ event: "message", content: "Voice settings saved to settings.json." });
     } catch {

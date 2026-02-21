@@ -34,7 +34,7 @@ function collectTsFiles(dir: string, files: string[] = []): string[] {
         entry.name !== 'smoke-test-windows.ts' && // Test file that references patterns
         !fullPath.includes('tests/windows') &&     // This test suite (Unix paths)
         !fullPath.includes('tests\\windows') &&    // This test suite (Windows paths)
-        !fullPath.includes('VoiceServer')          // Voice system is deferred (macOS-only)
+        entry.name !== 'manage.ts'                  // Voice CLI uses platform-guarded launchctl/schtasks in execSync
       ) {
         files.push(fullPath);
       }

@@ -330,13 +330,22 @@ export function getAudioPlayCommand(filePath: string, volume?: number): { comman
   }
 
   if (isWindows) {
-    // PowerShell-based audio playback
+    // PowerShell WPF MediaPlayer — handles MP3 (SoundPlayer is WAV-only)
+    const vol = volume !== undefined ? volume : 1.0;
+    const ps = [
+      `Add-Type -AssemblyName PresentationCore`,
+      `$p = New-Object System.Windows.Media.MediaPlayer`,
+      `$p.Open([Uri]::new('${filePath.replace(/'/g, "''")}'))`,
+      `$p.Volume = ${vol}`,
+      `Start-Sleep -Milliseconds 300`,
+      `$p.Play()`,
+      `while(-not $p.NaturalDuration.HasTimeSpan){Start-Sleep -Milliseconds 100}`,
+      `Start-Sleep -Milliseconds ([math]::Ceiling($p.NaturalDuration.TimeSpan.TotalMilliseconds))`,
+      `$p.Close()`,
+    ].join('; ');
     return {
       command: 'powershell.exe',
-      args: [
-        '-NoProfile', '-Command',
-        `(New-Object System.Media.SoundPlayer '${filePath}').PlaySync()`,
-      ],
+      args: ['-NoProfile', '-sta', '-Command', ps],
     };
   }
 

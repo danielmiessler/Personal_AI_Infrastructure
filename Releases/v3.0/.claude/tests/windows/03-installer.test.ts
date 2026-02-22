@@ -332,8 +332,29 @@ describe.skipIf(!IS_NATIVE_WINDOWS)('Windows Profile Path E2E', () => {
     }
   }, SLOW_TIMEOUT);
 
-  test('pai command is callable from PowerShell', () => {
-    // Use -Command to load profile and check if pai function exists
+  test('pai command is callable from PowerShell (requires PAI installed)', () => {
+    // First verify a profile with the pai function actually exists
+    // (CI runners have clean Windows images with no PAI installed)
+    const profileResult = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+    const profilePath = (profileResult.stdout || '').trim();
+
+    let hasPaiFunction = false;
+    try {
+      const content = readFileSync(profilePath, 'utf-8');
+      hasPaiFunction = content.includes('function pai');
+    } catch {
+      // Profile doesn't exist — installer hasn't been run
+    }
+
+    if (!hasPaiFunction) {
+      console.log(`SKIP: pai function not in PS profile (installer not run on this machine)`);
+      return;
+    }
+
+    // Profile has pai function — verify it's callable
     const result = spawnSync('powershell.exe', [
       '-Command',
       'if (Get-Command pai -ErrorAction SilentlyContinue) { Write-Host "FOUND" } else { Write-Host "NOT_FOUND" }',

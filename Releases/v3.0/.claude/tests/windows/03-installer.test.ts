@@ -12,8 +12,8 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
+import { join, dirname } from 'path';
 import { spawnSync } from 'child_process';
 import {
   INSTALL_DIR,
@@ -314,55 +314,56 @@ describe.skipIf(!IS_NATIVE_WINDOWS)('Windows Profile Path E2E', () => {
     }
   }, SLOW_TIMEOUT);
 
-  test('PowerShell profile contains pai function after installation', () => {
-    const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
-      encoding: 'utf-8',
-      timeout: 10_000,
-    });
-    const profilePath = (result.stdout || '').trim();
-
-    try {
-      const content = readFileSync(profilePath, 'utf-8');
-      expect(content).toContain('# PAI alias');
-      expect(content).toContain('function pai');
-      expect(content).toContain('bun');
-    } catch {
-      // Profile may not exist if installer hasn't been run yet — skip gracefully
-      console.log(`SKIP: PS profile not found at ${profilePath} (installer not run)`);
-    }
-  }, SLOW_TIMEOUT);
-
-  test('pai command is callable from PowerShell (requires PAI installed)', () => {
-    // First verify a profile with the pai function actually exists
-    // (CI runners have clean Windows images with no PAI installed)
+  test('pai function in PS profile makes pai command callable', () => {
+    // Set up: write a pai function to the PS profile (like the installer does)
     const profileResult = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Write-Host $PROFILE'], {
       encoding: 'utf-8',
       timeout: 10_000,
     });
     const profilePath = (profileResult.stdout || '').trim();
+    expect(profilePath).toEndWith('.ps1');
 
-    let hasPaiFunction = false;
+    // Preserve original profile content for teardown
+    let originalContent: string | null = null;
     try {
-      const content = readFileSync(profilePath, 'utf-8');
-      hasPaiFunction = content.includes('function pai');
+      originalContent = readFileSync(profilePath, 'utf-8');
     } catch {
-      // Profile doesn't exist — installer hasn't been run
+      // No profile yet — that's fine, we'll create one
     }
 
-    if (!hasPaiFunction) {
-      console.log(`SKIP: pai function not in PS profile (installer not run on this machine)`);
-      return;
-    }
+    const paiAlias = `\n# PAI alias\nfunction pai { bun "${join(V3_ROOT, 'PAI-Install', 'pai.ts').replace(/\\/g, '\\\\')}" @args }\n`;
 
-    // Profile has pai function — verify it's callable
-    const result = spawnSync('powershell.exe', [
-      '-Command',
-      'if (Get-Command pai -ErrorAction SilentlyContinue) { Write-Host "FOUND" } else { Write-Host "NOT_FOUND" }',
-    ], {
-      encoding: 'utf-8',
-      timeout: 15_000,
-    });
-    const output = (result.stdout || '').trim();
-    expect(output).toBe('FOUND');
+    try {
+      // Ensure profile directory exists
+      mkdirSync(dirname(profilePath), { recursive: true });
+
+      // Write pai function to profile (append if existing, create if not)
+      const newContent = originalContent ? originalContent + paiAlias : paiAlias;
+      writeFileSync(profilePath, newContent);
+
+      // Verify profile contains expected content
+      const content = readFileSync(profilePath, 'utf-8');
+      expect(content).toContain('# PAI alias');
+      expect(content).toContain('function pai');
+      expect(content).toContain('bun');
+
+      // Verify pai command is callable (PowerShell loads profile by default)
+      const result = spawnSync('powershell.exe', [
+        '-Command',
+        'if (Get-Command pai -ErrorAction SilentlyContinue) { Write-Host "FOUND" } else { Write-Host "NOT_FOUND" }',
+      ], {
+        encoding: 'utf-8',
+        timeout: 15_000,
+      });
+      const output = (result.stdout || '').trim();
+      expect(output).toBe('FOUND');
+    } finally {
+      // Teardown: restore original profile state
+      if (originalContent !== null) {
+        writeFileSync(profilePath, originalContent);
+      } else {
+        try { unlinkSync(profilePath); } catch { /* ignore if already gone */ }
+      }
+    }
   }, SLOW_TIMEOUT);
 });

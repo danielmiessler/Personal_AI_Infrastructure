@@ -265,7 +265,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "$PAI_DIR/statusline-command.sh"
+    "command": "bun $PAI_DIR/statusline-command.ts"
   },
   "spinnerVerbs": {
     "mode": "replace",

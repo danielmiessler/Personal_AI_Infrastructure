@@ -111,7 +111,8 @@ const settingsPath = getSettingsPath();
     });
 
     if (result.stdout) {
-      console.log(result.stdout);
+      // Use stderr for user-visible output — Claude Code captures stdout for structured JSON data
+      process.stderr.write(result.stdout);
     }
 
     // Voice greeting removed — Banner.ts already displays the catchphrase visually.

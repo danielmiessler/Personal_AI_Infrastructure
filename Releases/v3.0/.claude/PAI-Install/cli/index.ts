@@ -21,6 +21,7 @@ import {
   runRepository,
   runConfiguration,
   runVoiceSetup,
+  checkCliTools,
 } from "../engine/actions";
 import { runValidation, generateSummary } from "../engine/validate";
 import {
@@ -210,6 +211,9 @@ export async function runCLI(): Promise<void> {
         printError("\nSome critical checks failed. Please review and fix the issues above.");
       }
     }
+
+    // ── CLI Tool Recommendations (informational, non-blocking) ──
+    await checkCliTools(state, emit);
 
     // ── Summary ──
     const summary = generateSummary(state);

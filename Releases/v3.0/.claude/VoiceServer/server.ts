@@ -527,6 +527,28 @@ async function sendNotification(
   return { voicePlayed, voiceError };
 }
 
+// ==========================================================================
+// Playback Queue — serializes audio so notifications never overlap
+// ==========================================================================
+
+// Promise chain ensures only one notification plays at a time.
+// New requests are accepted immediately by the HTTP server (non-blocking),
+// but audio output is sequential — no overlapping speech.
+let notificationQueue: Promise<void> = Promise.resolve();
+let queueDepth = 0;
+
+function enqueueNotification(fn: () => Promise<void>): void {
+  queueDepth++;
+  notificationQueue = notificationQueue
+    .then(fn)
+    .catch((error) => {
+      console.error("Queued notification failed (continuing queue):", error);
+    })
+    .finally(() => {
+      queueDepth--;
+    });
+}
+
 // Rate limiting
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 10;
@@ -591,22 +613,12 @@ const server = serve({
           throw new Error('Invalid voice_id');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID}, queue: ${queueDepth})`);
 
-        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume);
-
-        if (voiceEnabled && !result.voicePlayed && result.voiceError) {
-          return new Response(
-            JSON.stringify({ status: "error", message: `TTS failed: ${result.voiceError}`, notification_sent: true }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502
-            }
-          );
-        }
+        enqueueNotification(() => sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume).then(() => {}));
 
         return new Response(
-          JSON.stringify({ status: "success", message: "Notification sent" }),
+          JSON.stringify({ status: "success", message: "Notification queued", queue_depth: queueDepth }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200
@@ -631,12 +643,12 @@ const server = serve({
         const data = await req.json();
         const message = data.message || "Notification";
 
-        console.log(`🎭 Personality notification: "${message}"`);
+        console.log(`🎭 Personality notification: "${message}" (queue: ${queueDepth})`);
 
-        await sendNotification("PAI Notification", message, true, null);
+        enqueueNotification(() => sendNotification("PAI Notification", message, true, null).then(() => {}));
 
         return new Response(
-          JSON.stringify({ status: "success", message: "Personality notification sent" }),
+          JSON.stringify({ status: "success", message: "Notification queued", queue_depth: queueDepth }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200
@@ -660,12 +672,12 @@ const server = serve({
         const title = data.title || "PAI Assistant";
         const message = data.message || "Task completed";
 
-        console.log(`🤖 PAI notification: "${title}" - "${message}"`);
+        console.log(`🤖 PAI notification: "${title}" - "${message}" (queue: ${queueDepth})`);
 
-        await sendNotification(title, message, true, null);
+        enqueueNotification(() => sendNotification(title, message, true, null).then(() => {}));
 
         return new Response(
-          JSON.stringify({ status: "success", message: "PAI notification sent" }),
+          JSON.stringify({ status: "success", message: "Notification queued", queue_depth: queueDepth }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200
@@ -693,6 +705,7 @@ const server = serve({
           api_key_configured: !!ELEVENLABS_API_KEY,
           pronunciation_rules: pronunciationRules.length,
           configured_voices: Object.keys(voiceConfig.voices),
+          queue_depth: queueDepth,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

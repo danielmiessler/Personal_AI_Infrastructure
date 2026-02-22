@@ -19,6 +19,8 @@ import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { getTempFilePath, getAudioPlayCommand, getNotificationCommand } from '../lib/platform';
+import { unlinkSync } from 'fs';
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -255,11 +257,6 @@ const EMOTIONAL_PRESETS: Record<string, EmotionalOverlay> = {
   'urgent': { stability: 0.3, similarity_boost: 0.9 },
 };
 
-// Escape special characters for AppleScript
-function escapeForAppleScript(input: string): string {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
-
 // Extract emotional marker from message
 function extractEmotionalMarker(message: string): { cleaned: string; emotion?: string } {
   const emojiToEmotion: Record<string, string> = {
@@ -369,26 +366,33 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
-// Play audio using afplay (macOS)
+// Play audio using platform-appropriate player (afplay on macOS, WPF MediaPlayer on Windows)
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+  const tempFile = getTempFilePath('voice', '.mp3');
 
   await Bun.write(tempFile, audioBuffer);
 
+  const audioCmd = getAudioPlayCommand(tempFile, volume);
+  if (!audioCmd) {
+    try { unlinkSync(tempFile); } catch {}
+    throw new Error('No audio player available on this platform');
+  }
+
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    const proc = spawn(audioCmd.command, audioCmd.args);
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
+      try { unlinkSync(tempFile); } catch {}
       reject(error);
     });
 
     proc.on('exit', (code) => {
-      spawn('/bin/rm', [tempFile]);
+      try { unlinkSync(tempFile); } catch {}
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`Audio player exited with code ${code}`));
       }
     });
   });
@@ -419,7 +423,7 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
 // ==========================================================================
 
 /**
- * Send macOS notification with voice.
+ * Send desktop notification with voice (cross-platform).
  *
  * Voice settings resolution (3-tier):
  *   1. callerVoiceSettings provided → use directly (pass-through)
@@ -512,13 +516,13 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification (can be disabled via settings.json: notifications.desktop.enabled: false)
+  // Display desktop notification using platform-appropriate method
   if (voiceConfig.desktopNotifications) {
     try {
-      const escapedTitle = escapeForAppleScript(safeTitle);
-      const escapedMessage = escapeForAppleScript(safeMessage);
-      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+      const notifCmd = getNotificationCommand(safeTitle, safeMessage);
+      if (notifCmd) {
+        await spawnSafe(notifCmd.command, notifCmd.args);
+      }
     } catch (error) {
       console.error("Notification display error:", error);
     }

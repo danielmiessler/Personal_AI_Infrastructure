@@ -5,8 +5,10 @@
 
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { spawnSync } from "child_process";
 import type { InstallState, ValidationCheck, InstallSummary } from "./types";
 import { homedir } from "os";
+import { isWindows } from "../../lib/platform";
 
 /**
  * Check if voice server is running via HTTP health check.
@@ -166,20 +168,67 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
     critical: false,
   });
 
-  // 8. Zsh alias configured
-  const zshrcPath = join(homedir(), ".zshrc");
+  // 8. Shell alias configured (platform-specific)
   let aliasConfigured = false;
-  if (existsSync(zshrcPath)) {
+  let aliasDetail = "";
+
+  if (isWindows) {
+    // Check both PS 5.1 (WindowsPowerShell) and PS 7+ (PowerShell) profile paths
+    // Also handles OneDrive folder redirection by querying $PROFILE from each edition
+    const profilePaths: string[] = [];
+
+    // Detect actual $PROFILE from PS 5.1
     try {
-      const zshContent = readFileSync(zshrcPath, "utf-8");
-      aliasConfigured = zshContent.includes("# PAI alias") && zshContent.includes("alias pai=");
-    } catch {}
+      const ps5 = spawnSync("powershell.exe", ["-NoProfile", "-Command", "Write-Host $PROFILE"], { timeout: 10000 });
+      const ps5Path = ps5.stdout?.toString().trim();
+      if (ps5Path && ps5Path.endsWith(".ps1")) profilePaths.push(ps5Path);
+    } catch { /* PS 5.1 not available */ }
+
+    // Detect actual $PROFILE from PS 7+
+    try {
+      const ps7 = spawnSync("pwsh.exe", ["-NoProfile", "-Command", "Write-Host $PROFILE"], { timeout: 10000 });
+      const ps7Path = ps7.stdout?.toString().trim();
+      if (ps7Path && ps7Path.endsWith(".ps1") && !profilePaths.includes(ps7Path)) profilePaths.push(ps7Path);
+    } catch { /* PS 7+ not installed */ }
+
+    // Fallback: hardcoded paths for both editions
+    if (profilePaths.length === 0) {
+      const userHome = process.env.USERPROFILE || homedir();
+      profilePaths.push(join(userHome, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"));
+      profilePaths.push(join(userHome, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"));
+    }
+
+    for (const psProfilePath of profilePaths) {
+      if (existsSync(psProfilePath)) {
+        try {
+          const psContent = readFileSync(psProfilePath, "utf-8");
+          if (psContent.includes("# PAI alias") && psContent.includes("function pai")) {
+            aliasConfigured = true;
+            break;
+          }
+        } catch {}
+      }
+    }
+    aliasDetail = aliasConfigured
+      ? "Configured in PowerShell profile"
+      : "Not found — restart PowerShell or run: . $PROFILE";
+  } else {
+    const zshrcPath = join(homedir(), ".zshrc");
+    if (existsSync(zshrcPath)) {
+      try {
+        const zshContent = readFileSync(zshrcPath, "utf-8");
+        aliasConfigured = zshContent.includes("# PAI alias") && zshContent.includes("alias pai=");
+      } catch {}
+    }
+    aliasDetail = aliasConfigured
+      ? "Configured in .zshrc"
+      : "Not found — run: source ~/.zshrc";
   }
 
   checks.push({
     name: "Shell alias (pai)",
     passed: aliasConfigured,
-    detail: aliasConfigured ? "Configured in .zshrc" : "Not found — run: source ~/.zshrc",
+    detail: aliasDetail,
     critical: true,
   });
 

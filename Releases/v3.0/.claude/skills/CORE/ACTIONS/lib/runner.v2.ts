@@ -21,6 +21,7 @@ import type {
   LLMResponse,
 } from "./types.v2";
 import { validateSchema } from "./types.v2";
+import { paiPath } from '../../../../lib/platform';
 
 const ACTIONS_DIR = dirname(import.meta.dir);
 
@@ -29,7 +30,7 @@ const ACTIONS_DIR = dirname(import.meta.dir);
  */
 async function createLocalLLM(): Promise<ActionCapabilities["llm"]> {
   const inferenceModule = await import(
-    join(process.env.HOME!, ".claude/skills/PAI/Tools/Inference.ts")
+    paiPath("skills", "PAI", "Tools", "Inference.ts")
   );
   const { inference } = inferenceModule;
 

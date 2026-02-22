@@ -37,13 +37,14 @@
  */
 
 import { setTabState, readTabState, stripPrefix } from './lib/tab-setter';
+import { readStdinWithTimeout } from './lib/stdin';
 
 async function main() {
   try {
     // Extract session_id from stdin for correct tab targeting
     let sessionId: string | undefined;
     try {
-      const raw = await Bun.stdin.text();
+      const raw = await readStdinWithTimeout(1000);
       if (raw.trim()) {
         const parsed = JSON.parse(raw);
         sessionId = parsed.session_id;

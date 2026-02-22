@@ -1,0 +1,250 @@
+name: Windows Compatibility Tests
+
+on:
+  pull_request:
+    paths:
+      - 'Releases/v3.0/.claude/**'
+      - '.github/workflows/windows-tests.yml'
+  push:
+    branches:
+      - main
+      - 'feature/windows-*'
+    paths:
+      - 'Releases/v3.0/.claude/**'
+      - '.github/workflows/windows-tests.yml'
+  # Allow manual trigger for debugging
+  workflow_dispatch:
+
+jobs:
+  # ─── Windows Native Tests ──────────────────────────────────────────────
+  windows-tests:
+    name: Windows 11 Native Tests
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Verify Bun installation
+        run: |
+          bun --version
+          echo "Platform: $env:OS"
+
+      - name: Run Windows E2E test suite
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/ --timeout 30000
+
+      - name: Run existing platform tests
+        working-directory: Releases/v3.0/.claude
+        run: bun test lib/platform.test.ts lib/terminal.test.ts --timeout 30000
+
+      - name: Run forbidden pattern audit
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/07-forbidden-patterns.test.ts --timeout 60000
+
+  # ─── Windows Install E2E ─────────────────────────────────────────────
+  windows-install-e2e:
+    name: Windows Install E2E
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Verify environment
+        run: |
+          bun --version
+          git --version
+          echo "OS: $env:OS"
+          echo "Platform: win32"
+          echo "Home: $env:USERPROFILE"
+
+      - name: Run installer engine detection test
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/10-install-e2e.test.ts --timeout 60000
+
+      - name: Test installer detect module directly
+        working-directory: Releases/v3.0/.claude
+        run: |
+          bun -e "
+            const { detectSystem } = require('./PAI-Install/engine/detect');
+            const d = detectSystem();
+            console.log('Platform:', d.os.platform);
+            console.log('OS Name:', d.os.name);
+            console.log('Shell:', d.shell.name, d.shell.path);
+            console.log('Bun:', d.tools.bun.installed, d.tools.bun.version);
+            console.log('Git:', d.tools.git.installed, d.tools.git.version);
+            console.log('Home:', d.homeDir);
+            console.log('PAI Dir:', d.paiDir);
+            if (d.os.platform !== 'win32') {
+              console.error('FAIL: Expected win32 but got', d.os.platform);
+              process.exit(1);
+            }
+            console.log('PASS: Platform detection correct');
+          "
+
+      - name: Test configuration generation
+        working-directory: Releases/v3.0/.claude
+        run: |
+          bun -e "
+            const { generateSettingsJson } = require('./PAI-Install/engine/config-gen');
+            const os = require('os');
+            const path = require('path');
+            const config = generateSettingsJson({
+              principalName: 'CI-Test',
+              timezone: 'UTC',
+              aiName: 'TestAI',
+              catchphrase: 'Hello CI',
+              paiDir: path.join(os.tmpdir(), '.claude-ci-test'),
+              configDir: path.join(os.tmpdir(), '.config-ci-test'),
+            });
+            if (!config.principal || config.principal.name !== 'CI-Test') {
+              console.error('FAIL: Config generation incorrect');
+              process.exit(1);
+            }
+            console.log('PASS: Config generation correct');
+            console.log('Settings preview:', JSON.stringify(config.principal));
+          "
+
+      - name: Test manage.ts CLI help on Windows
+        working-directory: Releases/v3.0/.claude
+        run: |
+          $result = bun run VoiceServer/manage.ts 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "manage.ts exited with code $LASTEXITCODE"
+            exit 1
+          }
+          # Join array to string — PowerShell captures command output as an array
+          # of strings. -notmatch on arrays acts as a filter, not a boolean check.
+          $output = $result -join "`n"
+          if ($output -notmatch 'PAI Voice Server Manager') {
+            Write-Error "manage.ts output missing expected header"
+            Write-Host "Actual output: $output"
+            exit 1
+          }
+          if ($output -notmatch 'Windows') {
+            Write-Error "manage.ts output missing Windows platform name"
+            Write-Host "Actual output: $output"
+            exit 1
+          }
+          Write-Host "PASS: manage.ts CLI works on Windows"
+          Write-Host $output
+
+      - name: Test directory structure creation on Windows
+        run: |
+          $testDir = Join-Path $env:TEMP "pai-ci-install-test"
+          $dirs = @('MEMORY', 'MEMORY\STATE', 'MEMORY\WORK', 'hooks', 'skills', 'Plans')
+          foreach ($dir in $dirs) {
+            $fullPath = Join-Path $testDir $dir
+            New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+            if (-not (Test-Path $fullPath)) {
+              Write-Error "FAIL: Could not create $fullPath"
+              exit 1
+            }
+          }
+          # Test settings.json write/read
+          $settingsPath = Join-Path $testDir 'settings.json'
+          $config = @{ principal = @{ name = 'CI-Test' }; pai = @{ version = '3.0' } } | ConvertTo-Json
+          Set-Content -Path $settingsPath -Value $config
+          $read = Get-Content $settingsPath | ConvertFrom-Json
+          if ($read.principal.name -ne 'CI-Test') {
+            Write-Error "FAIL: Settings read-back mismatch"
+            exit 1
+          }
+          # Cleanup
+          Remove-Item -Recurse -Force $testDir
+          Write-Host "PASS: Directory structure creation works on Windows"
+
+      - name: Test platform.ts imports on Windows
+        working-directory: Releases/v3.0/.claude
+        run: |
+          bun -e "
+            const p = require('./lib/platform');
+            console.log('isWindows:', p.isWindows);
+            console.log('getPlatformName:', p.getPlatformName());
+            console.log('getDefaultShell:', p.getDefaultShell());
+            console.log('getHomeDir:', p.getHomeDir());
+            console.log('getTempDir:', p.getTempDir());
+            console.log('getAudioPlayCommand:', JSON.stringify(p.getAudioPlayCommand('test.mp3')));
+            console.log('getNotificationCommand:', JSON.stringify(p.getNotificationCommand('Test', 'Hello')));
+            console.log('getServiceManager:', p.getServiceManager());
+            if (!p.isWindows) {
+              console.error('FAIL: isWindows should be true');
+              process.exit(1);
+            }
+            if (p.getServiceManager() !== 'task-scheduler') {
+              console.error('FAIL: service manager should be task-scheduler');
+              process.exit(1);
+            }
+            console.log('PASS: platform.ts imports and functions work on Windows');
+          "
+
+  # ─── Cross-Platform Regression (Linux) ─────────────────────────────────
+  linux-regression:
+    name: Linux Regression Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run platform tests (verify no Linux breakage)
+        working-directory: Releases/v3.0/.claude
+        run: bun test lib/platform.test.ts lib/terminal.test.ts lib/platform-audit.test.ts --timeout 30000
+
+      - name: Run Windows test suite on Linux (cross-platform tests only)
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/ --timeout 30000
+
+      - name: Run forbidden pattern audit
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/07-forbidden-patterns.test.ts --timeout 60000
+
+  # ─── macOS Regression ──────────────────────────────────────────────────
+  macos-regression:
+    name: macOS Regression Check
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run platform tests (verify no macOS breakage)
+        working-directory: Releases/v3.0/.claude
+        run: bun test lib/platform.test.ts lib/terminal.test.ts lib/platform-audit.test.ts --timeout 30000
+
+      - name: Run cross-platform subset of Windows tests
+        working-directory: Releases/v3.0/.claude
+        run: bun test tests/windows/ --timeout 30000

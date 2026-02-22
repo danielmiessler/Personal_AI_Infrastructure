@@ -48,13 +48,14 @@ import { getIdentity, getPrincipal, getPrincipalName } from './lib/identity';
 import { getLearningCategory } from './lib/learning-utils';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../skills/PAI/Tools/FailureCapture';
+import { getPaiDir } from './lib/paths';
 
 // ── Algorithm Format Reminder (absorbed from AlgorithmEnforcement) ──
 // Output IMMEDIATELY before any async work — this is blocking stdout injection.
 // Read Algorithm version dynamically from LATEST file (never hardcode)
 const ALGO_VERSION = (() => {
   try {
-    const paiDir = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+    const paiDir = getPaiDir();
     return readFileSync(join(paiDir, 'skills', 'PAI', 'Components', 'Algorithm', 'LATEST'), 'utf-8').trim();
   } catch { return 'v?.?.?'; }
 })();
@@ -98,7 +99,7 @@ interface RatingEntry {
 
 // ── Shared Constants ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = getPaiDir();
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const TRENDING_SCRIPT = join(BASE_DIR, 'tools', 'TrendingAnalysis.ts');

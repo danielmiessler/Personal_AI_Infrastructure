@@ -219,7 +219,10 @@ export async function runCLI(): Promise<void> {
     clearState();
 
     print(`  ${c.green}${c.bold}Installation complete!${c.reset}`);
-    print(`  ${c.gray}Run ${c.bold}source ~/.zshrc && pai${c.reset}${c.gray} to launch PAI.${c.reset}`);
+    const launchCmd = process.platform === "win32"
+      ? `. $PROFILE; pai`
+      : `source ~/.zshrc && pai`;
+    print(`  ${c.gray}Run ${c.bold}${launchCmd}${c.reset}${c.gray} to launch PAI.${c.reset}`);
     print("");
 
     process.exit(0);

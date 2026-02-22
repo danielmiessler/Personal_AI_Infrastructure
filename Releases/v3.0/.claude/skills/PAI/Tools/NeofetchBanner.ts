@@ -18,8 +18,9 @@
 import { readdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import { getHomeDir } from '../../../lib/platform';
 
-const HOME = process.env.HOME!;
+const HOME = getHomeDir();
 const CLAUDE_DIR = join(HOME, ".claude");
 
 // ═══════════════════════════════════════════════════════════════════════

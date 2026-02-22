@@ -6,6 +6,7 @@
  * Hooks, permissions, and other config come from the release template.
  */
 
+import { resolve } from "path";
 import type { PAIConfig } from "./types";
 import { DEFAULT_VOICES } from "./types";
 
@@ -19,7 +20,7 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
   return {
     env: {
       PAI_DIR: config.paiDir,
-      ...(config.projectsDir ? { PROJECTS_DIR: config.projectsDir } : {}),
+      ...(config.projectsDir ? { PROJECTS_DIR: resolve(config.projectsDir) } : {}),
       PAI_CONFIG_DIR: config.configDir,
     },
 

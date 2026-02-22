@@ -14,6 +14,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getIdentity } from './identity';
+import { getTempDir } from '../../lib/platform';
 
 // ============================================================================
 // Types
@@ -109,7 +110,7 @@ export function getNotificationConfig(): NotificationConfig {
 // Session Timing
 // ============================================================================
 
-const SESSION_START_FILE = '/tmp/pai-session-start.txt';
+const SESSION_START_FILE = join(getTempDir(), 'pai-session-start.txt');
 
 export function recordSessionStart(): void {
   try { writeFileSync(SESSION_START_FILE, Date.now().toString()); } catch {}

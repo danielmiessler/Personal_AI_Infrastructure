@@ -69,6 +69,10 @@ DA_NAME="${DA_NAME:-Assistant}"
 PAI_VERSION=$(jq -r '.pai.version // "—"' "$SETTINGS_FILE" 2>/dev/null)
 PAI_VERSION="${PAI_VERSION:-—}"
 
+# Get user timezone from settings (for reset time display)
+USER_TZ=$(jq -r '.principal.timezone // empty' "$SETTINGS_FILE" 2>/dev/null)
+USER_TZ="${USER_TZ:-UTC}"
+
 # Get Algorithm version from LATEST file (single source of truth)
 ALGO_LATEST_FILE="$PAI_DIR/skills/PAI/Components/Algorithm/LATEST"
 if [ -f "$ALGO_LATEST_FILE" ]; then
@@ -648,9 +652,9 @@ try:
         dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
     else:
         dt = datetime.fromisoformat(ts + '+00:00')
-    # Convert to Pacific
+    # Convert to user timezone from settings.json
     from zoneinfo import ZoneInfo
-    local_dt = dt.astimezone(ZoneInfo('America/Los_Angeles'))
+    local_dt = dt.astimezone(ZoneInfo('$USER_TZ'))
     if '$fmt' == 'weekly':
         day = local_dt.strftime('%a')
         hour = local_dt.strftime('%H:%M')
@@ -920,7 +924,7 @@ def time_until(ts):
 def clock_time(ts, fmt):
     dt = parse_ts(ts)
     if not dt: return ''
-    local_dt = dt.astimezone(ZoneInfo('America/Los_Angeles'))
+    local_dt = dt.astimezone(ZoneInfo('$USER_TZ'))
     if fmt == 'weekly':
         return local_dt.strftime('%a %H:%M')
     return local_dt.strftime('%H:%M')

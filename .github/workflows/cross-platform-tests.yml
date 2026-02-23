@@ -302,9 +302,9 @@ jobs:
         if: env.CLAUDE_CODE_OAUTH_TOKEN == ''
         run: echo "SKIPPED — CLAUDE_CODE_OAUTH_TOKEN secret not configured"
 
-  # ─── Compaction Stress Test (manual trigger only — costs ~$2-5/platform) ────
-  # Kept for deep periodic verification. The claude-e2e job above runs
-  # pai-verification.ts on every push for ~$0.10-0.30 per platform.
+  # ─── Compaction Stress Test (manual trigger only — costs ~$1.50-3.00/platform) ─
+  # Tests FULL PAI scaffolding survival (all phases, ISC, voice, identity) using
+  # forced /compact cycles + stream-json verbose capture.
   compaction-stress-test:
     name: Compaction Stress (${{ matrix.os-label }})
     runs-on: ${{ matrix.os }}
@@ -363,8 +363,8 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           STRESS_TEST_MODEL: claude-sonnet-4-6
-          STRESS_FILL_PHASES: '3'
-          STRESS_FILL_TURNS: '4'
+          STRESS_COMPACT_CYCLES: '20'
+          STRESS_VERIFY_TURNS: '8'
         working-directory: Releases/v3.0/.claude
         run: bun run tests/cross-platform/stress-compaction.ts
 

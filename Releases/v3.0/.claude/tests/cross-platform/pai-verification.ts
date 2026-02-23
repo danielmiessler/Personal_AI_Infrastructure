@@ -106,7 +106,7 @@ interface RunResult {
 
 function runClaude(prompt: string): RunResult {
   const escapedPrompt = prompt.replace(/"/g, '\\"');
-  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS} --output-format stream-json`;
+  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS} --output-format stream-json --verbose`;
 
   console.log(`  $ claude -p "${prompt.slice(0, 60)}..." --max-turns ${MAX_TURNS} --model ${MODEL}`);
 

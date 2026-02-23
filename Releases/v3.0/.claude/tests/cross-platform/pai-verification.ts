@@ -8,9 +8,10 @@
  * Uses a generic prompt (no PAI-specific callouts) so passing proves
  * PAI context files genuinely loaded and influenced behavior.
  *
- * Captures raw streaming text (not JSON) because PAI's mandatory tool
- * calls (voice curls, TaskCreate) consume turns — the text output appears
- * interleaved with tool calls, not as a final text block.
+ * Uses --output-format stream-json to capture ALL assistant text
+ * including text written between tool calls. PAI's mandatory tool calls
+ * (voice curls, TaskCreate) mean the Algorithm header and phase text
+ * appear as intermediate text blocks, not in the final response.
  *
  * Prerequisites:
  *   - CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
@@ -96,13 +97,16 @@ function readIdentity(): { user: string; ai: string } {
   }
 }
 
-function runClaude(prompt: string): { text: string; exitCode: number | null } {
-  // No --output-format json: capture raw streaming text which includes all
-  // assistant output interleaved with tool calls. PAI's mandatory tool calls
-  // (voice curls, TaskCreate) mean the text appears across multiple turns,
-  // not in a single final block.
+interface RunResult {
+  text: string;
+  sessionId: string;
+  cost: number;
+  numTurns: number;
+}
+
+function runClaude(prompt: string): RunResult {
   const escapedPrompt = prompt.replace(/"/g, '\\"');
-  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS}`;
+  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS} --output-format stream-json`;
 
   console.log(`  $ claude -p "${prompt.slice(0, 60)}..." --max-turns ${MAX_TURNS} --model ${MODEL}`);
 
@@ -116,12 +120,66 @@ function runClaude(prompt: string): { text: string; exitCode: number | null } {
 
   if (result.error) {
     console.error(`  Spawn error: ${result.error.message}`);
-    return { text: '', exitCode: null };
+    return { text: '', sessionId: '', cost: 0, numTurns: 0 };
   }
 
-  // Combine stdout and stderr — some output may appear on stderr
-  const text = (result.stdout || '') + (result.stderr || '');
-  return { text, exitCode: result.status };
+  const stdout = result.stdout || '';
+
+  // Parse NDJSON stream — extract ALL text from assistant messages.
+  // stream-json outputs one JSON object per line. We look for text in:
+  // - assistant messages with content blocks
+  // - content_block_delta events (streaming text)
+  // - the final result object
+  const textParts: string[] = [];
+  let sessionId = '';
+  let cost = 0;
+  let numTurns = 0;
+
+  for (const line of stdout.split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const obj = JSON.parse(line);
+
+      // Assistant message with content blocks
+      if (obj.type === 'assistant' && obj.message?.content) {
+        for (const block of obj.message.content) {
+          if (block.type === 'text' && block.text) {
+            textParts.push(block.text);
+          }
+        }
+      }
+
+      // Content block delta (streaming)
+      if (obj.type === 'content_block_delta' && obj.delta?.text) {
+        textParts.push(obj.delta.text);
+      }
+
+      // Result message (final summary)
+      if (obj.type === 'result') {
+        sessionId = obj.session_id || '';
+        cost = obj.cost_usd || obj.total_cost || 0;
+        numTurns = obj.num_turns || 0;
+        if (obj.result) textParts.push(obj.result);
+      }
+    } catch {
+      // Not valid JSON — include raw text if substantial
+      if (line.trim().length > 10) {
+        textParts.push(line);
+      }
+    }
+  }
+
+  // Also include stderr in case text appears there
+  if (result.stderr) {
+    textParts.push(result.stderr);
+  }
+
+  return {
+    text: textParts.join('\n'),
+    sessionId,
+    cost,
+    numTurns,
+  };
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -162,14 +220,16 @@ function main() {
   // ── Run Claude ─────────────────────────────────────────────────────
 
   console.log('── Running PAI verification prompt ──');
-  const { text, exitCode } = runClaude(PROMPT);
+  const { text, sessionId, cost, numTurns } = runClaude(PROMPT);
 
-  console.log(`  Exit code: ${exitCode}`);
+  console.log(`  Session:   ${sessionId || '(not reported)'}`);
+  console.log(`  Turns:     ${numTurns}`);
+  console.log(`  Cost:      $${cost.toFixed(4)}`);
   console.log(`  Output:    ${text.length} chars`);
   console.log();
 
   if (text.length === 0) {
-    console.error('FATAL: Claude produced no output');
+    console.error('FATAL: Claude produced no output (stream-json returned no text)');
     process.exit(1);
   }
 
@@ -194,6 +254,7 @@ function main() {
   console.log('═══════════════════════════════════════════════════════');
   console.log(`  Markers:    ${passes}/${markers.length} detected`);
   console.log(`  Threshold:  ${MIN_PASS_COUNT} minimum`);
+  console.log(`  Cost:       $${cost.toFixed(4)}`);
   console.log('═══════════════════════════════════════════════════════');
 
   if (passes < MIN_PASS_COUNT) {

@@ -106,17 +106,23 @@ function checkSettingsIntegrity(): { clean: boolean; issues: string[] } {
 
   const content = readFileSync(SETTINGS_PATH, 'utf-8');
 
-  // Check for ${PAI_DIR} corruption (the known Windows failure mode)
-  if (content.includes('${PAI_DIR}')) {
-    issues.push('Contains literal ${PAI_DIR} — hook path corruption');
-  }
-
   try {
     const parsed = JSON.parse(content);
     if (!parsed.hooks) issues.push('Missing hooks section');
     if (!parsed.env) issues.push('Missing env section');
     if (!parsed.principal?.name) issues.push('Missing principal.name');
     if (!parsed.daidentity?.name) issues.push('Missing daidentity.name');
+
+    // Check for unresolved ${PAI_DIR} in env section values (the known Windows failure mode).
+    // Hook commands are SUPPOSED to use ${PAI_DIR} — Claude Code expands it from env at runtime.
+    // Only env section values having literal ${PAI_DIR} indicates template resolution failure.
+    if (parsed.env) {
+      for (const [key, val] of Object.entries(parsed.env)) {
+        if (typeof val === 'string' && val.includes('${PAI_DIR}')) {
+          issues.push(`env.${key} contains unresolved \${PAI_DIR}`);
+        }
+      }
+    }
   } catch (e: any) {
     issues.push(`Invalid JSON: ${e.message}`);
   }

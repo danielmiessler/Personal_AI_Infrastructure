@@ -15,7 +15,7 @@
  * - Amber/green phosphor CRT terminals
  */
 
-import { readdirSync, existsSync, readFileSync } from "fs";
+import { readdirSync, existsSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
 
@@ -326,7 +326,7 @@ function countSkills(): number {
   let count = 0;
   try {
     for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
-      if (entry.isDirectory() && existsSync(join(skillsDir, entry.name, "SKILL.md"))) count++;
+      if ((entry.isDirectory() || (entry.isSymbolicLink() && statSync(join(skillsDir, entry.name)).isDirectory())) && existsSync(join(skillsDir, entry.name, "SKILL.md"))) count++;
     }
   } catch {}
   return count;

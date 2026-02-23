@@ -1,0 +1,237 @@
+#!/usr/bin/env bun
+/**
+ * PAI Full Verification Test
+ *
+ * Single prompt, ~$0.10-0.30 per run. Proves PAI is FULLY operational by
+ * checking that all prescribed Algorithm artifacts appear in the output:
+ * header, all 7 phases, ISC, identity, voice line, capability audit.
+ *
+ * Replaces the old multi-step claude-e2e tests AND the expensive $2-5
+ * compaction stress test for standard CI verification.
+ *
+ * Prerequisites:
+ *   - CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+ *   - PAI installed at ~/.claude/ (via ci-setup-pai.ts)
+ *   - Claude CLI in PATH
+ */
+
+import { spawnSync } from 'child_process';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+// ─── Configuration ───────────────────────────────────────────────────────────
+
+const MODEL = process.env.PAI_TEST_MODEL || 'claude-sonnet-4-6';
+const MAX_TURNS = parseInt(process.env.PAI_TEST_MAX_TURNS || '3', 10);
+const PAI_DIR = join(homedir(), '.claude');
+const SETTINGS_PATH = join(PAI_DIR, 'settings.json');
+
+// The prompt: trivial task that forces full Algorithm execution
+const PROMPT = 'Use first principles to explain why 1+1=2. Keep it brief.';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Marker {
+  name: string;
+  pattern: RegExp;
+  critical: boolean; // true = CI fails if missing
+}
+
+interface ClaudeJsonOutput {
+  result: string;
+  session_id: string;
+  cost_usd: number;
+  num_turns: number;
+  is_error: boolean;
+}
+
+// ─── PAI Artifact Markers ────────────────────────────────────────────────────
+
+function buildMarkers(identity: { user: string; ai: string }): Marker[] {
+  return [
+    // Algorithm header
+    { name: 'Algorithm header (♻︎ PAI ALGORITHM)', pattern: /♻|PAI ALGORITHM/i, critical: true },
+
+    // All 7 phases
+    { name: 'Phase 1: OBSERVE', pattern: /OBSERVE.*1\/7|━.*OBSERVE/i, critical: true },
+    { name: 'Phase 2: THINK', pattern: /THINK.*2\/7|━.*THINK/i, critical: false },
+    { name: 'Phase 3: PLAN', pattern: /PLAN.*3\/7|━.*PLAN/i, critical: false },
+    { name: 'Phase 4: BUILD', pattern: /BUILD.*4\/7|━.*BUILD/i, critical: false },
+    { name: 'Phase 5: EXECUTE', pattern: /EXECUTE.*5\/7|━.*EXECUTE/i, critical: false },
+    { name: 'Phase 6: VERIFY', pattern: /VERIFY.*6\/7|━.*VERIFY/i, critical: false },
+    { name: 'Phase 7: LEARN', pattern: /LEARN.*7\/7|━.*LEARN/i, critical: false },
+
+    // Identity
+    { name: `User identity ("${identity.user}")`, pattern: new RegExp(identity.user, 'i'), critical: true },
+    { name: `AI identity ("${identity.ai}")`, pattern: new RegExp(identity.ai, 'i'), critical: true },
+
+    // Voice line
+    { name: `Voice line (🗣️ ${identity.ai})`, pattern: /🗣️/, critical: true },
+
+    // ISC / Ideal State Criteria
+    { name: 'Ideal State Criteria (ISC)', pattern: /ISC|Ideal State|TASK:/i, critical: true },
+
+    // Capability audit
+    { name: 'Capability audit', pattern: /CAPABILIT/i, critical: false },
+
+    // Reverse engineering (OBSERVE content)
+    { name: 'Reverse engineering', pattern: /explicitly said|implied|REVERSE ENGINEER/i, critical: false },
+
+    // Effort level
+    { name: 'Effort level', pattern: /EFFORT LEVEL|Instant|Fast|Standard|Extended/i, critical: false },
+  ];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function readIdentity(): { user: string; ai: string } {
+  try {
+    const settings = JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
+    return {
+      user: (settings.principal?.name || '').toLowerCase(),
+      ai: (settings.daidentity?.name || '').toLowerCase(),
+    };
+  } catch {
+    return { user: '', ai: '' };
+  }
+}
+
+function runClaude(prompt: string): ClaudeJsonOutput | null {
+  const args = ['-p', prompt, '--model', MODEL, '--max-turns', String(MAX_TURNS), '--output-format', 'json'];
+
+  console.log(`  $ claude -p "${prompt.slice(0, 60)}..." --max-turns ${MAX_TURNS} --model ${MODEL}`);
+
+  const result = spawnSync('claude', args, {
+    encoding: 'utf-8',
+    timeout: 300_000, // 5 min
+    env: process.env,
+    maxBuffer: 50 * 1024 * 1024,
+    shell: true,
+  });
+
+  if (result.error) {
+    console.error(`  Spawn error: ${result.error.message}`);
+    return null;
+  }
+
+  const stdout = result.stdout || '';
+  try {
+    return JSON.parse(stdout);
+  } catch { /* fall through */ }
+
+  // Multi-line JSON — take last valid
+  const lines = stdout.trim().split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try { return JSON.parse(lines[i]); } catch { /* next */ }
+  }
+
+  console.error(`  Could not parse JSON (${stdout.length} chars)`);
+  if (result.stderr) console.error(`  stderr: ${result.stderr.slice(0, 300)}`);
+  return null;
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+function main() {
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('  PAI Full Verification Test');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log(`  Platform:  ${process.platform} (${process.arch})`);
+  console.log(`  Model:     ${MODEL}`);
+  console.log(`  Max turns: ${MAX_TURNS}`);
+  console.log(`  PAI_DIR:   ${PAI_DIR}`);
+  console.log();
+
+  // ── Prerequisites ──────────────────────────────────────────────────
+
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    console.error('ERROR: Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set');
+    process.exit(1);
+  }
+  const authMethod = process.env.CLAUDE_CODE_OAUTH_TOKEN ? 'OAuth' : 'API Key';
+  console.log(`  Auth:      ${authMethod}`);
+
+  if (!existsSync(SETTINGS_PATH)) {
+    console.error(`ERROR: PAI not installed — ${SETTINGS_PATH} missing`);
+    process.exit(1);
+  }
+
+  const identity = readIdentity();
+  if (!identity.user || !identity.ai) {
+    console.error('ERROR: Could not read identity from settings.json');
+    process.exit(1);
+  }
+  console.log(`  User:      "${identity.user}"`);
+  console.log(`  AI:        "${identity.ai}"`);
+  console.log();
+
+  // ── Run Claude ─────────────────────────────────────────────────────
+
+  console.log('── Running PAI verification prompt ──');
+  const result = runClaude(PROMPT);
+
+  if (!result) {
+    console.error('FATAL: Claude produced no output');
+    process.exit(1);
+  }
+
+  if (result.is_error) {
+    console.error(`FATAL: Claude returned error: ${result.result?.slice(0, 200)}`);
+    process.exit(1);
+  }
+
+  console.log(`  Session:   ${result.session_id}`);
+  console.log(`  Turns:     ${result.num_turns}`);
+  console.log(`  Cost:      $${(result.cost_usd || 0).toFixed(4)}`);
+  console.log(`  Output:    ${(result.result || '').length} chars`);
+  console.log();
+
+  // ── Check Markers ──────────────────────────────────────────────────
+
+  console.log('── PAI Artifact Verification ──');
+  const markers = buildMarkers(identity);
+  const text = result.result || '';
+
+  let criticalFails = 0;
+  let warnings = 0;
+  let passes = 0;
+
+  for (const marker of markers) {
+    const found = marker.pattern.test(text);
+    const icon = found ? 'PASS' : marker.critical ? 'FAIL' : 'WARN';
+
+    if (found) {
+      passes++;
+    } else if (marker.critical) {
+      criticalFails++;
+    } else {
+      warnings++;
+    }
+
+    console.log(`  [${icon}] ${marker.name}`);
+  }
+
+  // ── Summary ────────────────────────────────────────────────────────
+
+  console.log();
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('  RESULTS');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log(`  Markers:           ${passes}/${markers.length} pass`);
+  console.log(`  Critical failures: ${criticalFails}`);
+  console.log(`  Warnings:          ${warnings}`);
+  console.log(`  Cost:              $${(result.cost_usd || 0).toFixed(4)}`);
+  console.log('═══════════════════════════════════════════════════════');
+
+  if (criticalFails > 0) {
+    console.error('\n  PAI VERIFICATION FAILED');
+    console.error('\n  ── Output excerpt (first 2000 chars) ──');
+    console.error(text.slice(0, 2000));
+    process.exit(1);
+  }
+
+  console.log('\n  PAI VERIFICATION PASSED');
+}
+
+main();

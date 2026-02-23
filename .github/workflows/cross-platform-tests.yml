@@ -289,41 +289,26 @@ jobs:
         working-directory: Releases/v3.0/.claude
         run: bun run tests/ci-setup-pai.ts --name CI-Tester --ai-name CI-JAI
 
-      - name: Test Claude CLI — Basic Hello
+      - name: PAI Full Verification (~$0.10-0.30)
         if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |
-          claude -p "Say hello in exactly 5 words" --max-turns 1 --model claude-sonnet-4-6 --output-format json
+          PAI_TEST_MODEL: claude-sonnet-4-6
+          PAI_TEST_MAX_TURNS: '3'
+        working-directory: Releases/v3.0/.claude
+        run: bun run tests/cross-platform/pai-verification.ts
 
-      - name: Test Claude CLI — Skill Discovery
-        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |
-          claude -p "List 3 skills you have available. Just list names." --max-turns 1 --model claude-sonnet-4-6
-
-      - name: Test Claude CLI — Algorithm Format
-        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
-        shell: bash
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |
-          OUTPUT=$(claude -p "Use first principles to analyze why 1+1=2. Keep it brief." --max-turns 2 --model claude-sonnet-4-6 2>&1)
-          echo "$OUTPUT"
-          # Verify PAI Algorithm format appears
-          if echo "$OUTPUT" | grep -qi "algorithm\|observe\|verify"; then
-            echo "PASS: Algorithm format detected in output"
-          else
-            echo "WARNING: Algorithm format not detected — may need more turns"
-          fi
+      - name: PAI verification skipped (no token)
+        if: env.CLAUDE_CODE_OAUTH_TOKEN == ''
+        run: echo "SKIPPED — CLAUDE_CODE_OAUTH_TOKEN secret not configured"
 
   # ─── Compaction Stress Test (manual trigger only — costs ~$2-5/platform) ────
+  # Kept for deep periodic verification. The claude-e2e job above runs
+  # pai-verification.ts on every push for ~$0.10-0.30 per platform.
   compaction-stress-test:
     name: Compaction Stress (${{ matrix.os-label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    # Only run on manual trigger — too expensive for every PR (~$2-5 per platform)
     if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false

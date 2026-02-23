@@ -164,7 +164,7 @@ describe('Audio File Path Resolution', () => {
 // ─── Section 4: Voice Notification Graceful Degradation ───────────────────────
 
 describe('Voice Notification — Graceful Degradation', () => {
-  test('curl to localhost:8888 fails gracefully when no server running', () => {
+  test('curl to localhost:8888 completes without hanging', () => {
     const result = spawnSync('curl', [
       '-s', '-f', '--connect-timeout', '2',
       '-X', 'POST',
@@ -175,10 +175,10 @@ describe('Voice Notification — Graceful Degradation', () => {
       encoding: 'utf-8',
       timeout: 10_000,
     });
-    // Should fail with connection refused — NOT hang forever
-    // Exit code 7 = connection refused, 22 = HTTP error, 28 = timeout
+    // Must not hang — either succeeds (server running) or fails gracefully
+    // Exit code 0 = server running, 7 = connection refused, 22 = HTTP error, 28 = timeout
     expect(result.status).not.toBeNull();
-    expect([7, 22, 28, 56]).toContain(result.status!);
+    expect([0, 7, 22, 28, 56]).toContain(result.status!);
   });
 
   test('getNotificationCommand returns valid command structure', async () => {

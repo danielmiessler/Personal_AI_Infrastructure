@@ -929,8 +929,8 @@ r5h = '$usage_5h_reset'
 r7d = '$usage_7d_reset'
 print(f\"reset_5h='{time_until(r5h)}'\")
 print(f\"reset_7d='{time_until(r7d)}'\")
-print(f\"clock_5h='{clock_time(r5h, \"hourly\")}'\")
-print(f\"clock_7d='{clock_time(r7d, \"weekly\")}'\")
+print(f\"clock_5h='{clock_time(r5h, 'hourly')}'\")
+print(f\"clock_7d='{clock_time(r7d, 'weekly')}'\")
 " 2>/dev/null)"
     reset_5h="${reset_5h:-—}"
     reset_7d="${reset_7d:-—}"

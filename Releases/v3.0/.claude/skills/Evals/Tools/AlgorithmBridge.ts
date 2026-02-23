@@ -159,7 +159,9 @@ export function formatForISC(result: AlgorithmEvalResult): string {
 export async function updateISCWithResult(result: AlgorithmEvalResult): Promise<void> {
   const status = result.passed ? 'DONE' : 'BLOCKED';
 
-  await $`bun run ~/.claude/skills/THEALGORITHM/Tools/ISCManager.ts update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
+  const paiDir = process.env.PAI_DIR || join(process.env.HOME!, ".claude");
+  const iscManager = join(paiDir, "skills", "THEALGORITHM", "Tools", "ISCManager.ts");
+  await $`bun run ${iscManager} update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
 }
 
 // CLI interface

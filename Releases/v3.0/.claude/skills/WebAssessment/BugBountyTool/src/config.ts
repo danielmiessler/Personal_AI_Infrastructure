@@ -1,4 +1,7 @@
 // Configuration for bug bounty tracker
+import { join } from "path";
+
+const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, ".claude");
 
 export const CONFIG = {
   // GitHub repository
@@ -16,12 +19,12 @@ export const CONFIG = {
     yeswehack: 'data/yeswehack_data.json',
   },
 
-  // Local paths
+  // Local paths (resolved at runtime via PAI_DIR)
   paths: {
-    root: '~/.claude/skills/hacking/bug-bounties',
-    state: '~/.claude/skills/hacking/bug-bounties/state.json',
-    cache: '~/.claude/skills/hacking/bug-bounties/cache',
-    logs: '~/.claude/skills/hacking/bug-bounties/logs',
+    root: join(BASE_DIR, "skills", "hacking", "bug-bounties"),
+    state: join(BASE_DIR, "skills", "hacking", "bug-bounties", "state.json"),
+    cache: join(BASE_DIR, "skills", "hacking", "bug-bounties", "cache"),
+    logs: join(BASE_DIR, "skills", "hacking", "bug-bounties", "logs"),
   },
 
   // GitHub API

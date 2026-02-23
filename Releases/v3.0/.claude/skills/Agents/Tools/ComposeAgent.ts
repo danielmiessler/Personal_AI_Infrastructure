@@ -29,15 +29,17 @@
 
 import { parseArgs } from "util";
 import { readFileSync, existsSync, readdirSync, unlinkSync, mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
 import { parse as parseYaml } from "yaml";
 import Handlebars from "handlebars";
 
 // Paths
 const HOME = process.env.HOME || "~";
-const BASE_TRAITS_PATH = `${HOME}/.claude/skills/Agents/Data/Traits.yaml`;
-const USER_TRAITS_PATH = `${HOME}/.claude/skills/PAI/USER/SKILLCUSTOMIZATIONS/Agents/Traits.yaml`;
-const TEMPLATE_PATH = `${HOME}/.claude/skills/Agents/Templates/DynamicAgent.hbs`;
-const CUSTOM_AGENTS_DIR = `${HOME}/.claude/custom-agents`;
+const BASE_DIR = process.env.PAI_DIR || join(HOME, ".claude");
+const BASE_TRAITS_PATH = join(BASE_DIR, "skills", "Agents", "Data", "Traits.yaml");
+const USER_TRAITS_PATH = join(BASE_DIR, "skills", "PAI", "USER", "SKILLCUSTOMIZATIONS", "Agents", "Traits.yaml");
+const TEMPLATE_PATH = join(BASE_DIR, "skills", "Agents", "Templates", "DynamicAgent.hbs");
+const CUSTOM_AGENTS_DIR = join(BASE_DIR, "custom-agents");
 
 // Types
 interface ProsodySettings {
@@ -510,7 +512,7 @@ function saveAgent(agent: ComposedAgent): string {
   mkdirSync(CUSTOM_AGENTS_DIR, { recursive: true });
 
   const slug = slugify(agent.name);
-  const filePath = `${CUSTOM_AGENTS_DIR}/${slug}.md`;
+  const filePath = join(CUSTOM_AGENTS_DIR, `${slug}.md`);
   const today = new Date().toISOString().split("T")[0];
 
   // Generate meaningful persona title from traits (e.g., "The Skeptical Security Expert")
@@ -809,7 +811,7 @@ function listSavedAgents(): void {
  */
 function loadAgent(name: string, traits: TraitsData, task?: string): ComposedAgent | null {
   const slug = slugify(name);
-  const filePath = `${CUSTOM_AGENTS_DIR}/${slug}.md`;
+  const filePath = join(CUSTOM_AGENTS_DIR, `${slug}.md`);
 
   if (!existsSync(filePath)) {
     console.error(`Error: Custom agent "${name}" not found at ${filePath}`);
@@ -838,7 +840,7 @@ function loadAgent(name: string, traits: TraitsData, task?: string): ComposedAge
  */
 function deleteAgent(name: string): boolean {
   const slug = slugify(name);
-  const filePath = `${CUSTOM_AGENTS_DIR}/${slug}.md`;
+  const filePath = join(CUSTOM_AGENTS_DIR, `${slug}.md`);
 
   if (!existsSync(filePath)) {
     console.error(`Error: Custom agent "${name}" not found at ${filePath}`);

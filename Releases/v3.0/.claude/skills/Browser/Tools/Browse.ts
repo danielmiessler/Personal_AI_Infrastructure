@@ -19,12 +19,13 @@
 
 import { PlaywrightBrowser } from '../index.ts'
 import { getIdentity } from '../../../hooks/lib/identity'
+import { join } from 'path'
 
 const VOICE_SERVER = 'http://localhost:8888/notify/personality'
 const STATE_FILE = '/tmp/browser-session.json'
 const DEFAULT_PORT = 9222
 const SESSION_TIMEOUT = 5000 // 5s to wait for session start
-const SETTINGS_PATH = `${process.env.HOME}/.claude/settings.json`
+const SETTINGS_PATH = join(process.env.PAI_DIR || join(process.env.HOME!, '.claude'), 'settings.json')
 
 // ============================================
 // SETTINGS

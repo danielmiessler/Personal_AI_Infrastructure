@@ -289,12 +289,12 @@ jobs:
         working-directory: Releases/v3.0/.claude
         run: bun run tests/ci-setup-pai.ts --name CI-Tester --ai-name CI-JAI
 
-      - name: PAI Full Verification (~$0.10-0.30)
+      - name: PAI Full Verification (~$0.10-0.50)
         if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PAI_TEST_MODEL: claude-sonnet-4-6
-          PAI_TEST_MAX_TURNS: '3'
+          PAI_TEST_MAX_TURNS: '8'
         working-directory: Releases/v3.0/.claude
         run: bun run tests/cross-platform/pai-verification.ts
 

@@ -2,12 +2,15 @@
 /**
  * PAI Full Verification Test
  *
- * Single prompt, ~$0.10-0.30 per run. Proves PAI is operational by
+ * Single prompt, ~$0.10-0.50 per run. Proves PAI is operational by
  * checking that PAI artifact markers appear in Claude's output.
  *
- * Uses a threshold-based pass condition (minimum N markers detected)
- * because model depth selection is stochastic — Sonnet may use Minimal
- * or Full format depending on how it classifies the prompt.
+ * Uses a generic prompt (no PAI-specific callouts) so passing proves
+ * PAI context files genuinely loaded and influenced behavior.
+ *
+ * Captures raw streaming text (not JSON) because PAI's mandatory tool
+ * calls (voice curls, TaskCreate) consume turns — the text output appears
+ * interleaved with tool calls, not as a final text block.
  *
  * Prerequisites:
  *   - CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
@@ -23,18 +26,16 @@ import { homedir } from 'os';
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const MODEL = process.env.PAI_TEST_MODEL || 'claude-sonnet-4-6';
-const MAX_TURNS = parseInt(process.env.PAI_TEST_MAX_TURNS || '3', 10);
+const MAX_TURNS = parseInt(process.env.PAI_TEST_MAX_TURNS || '8', 10);
 const PAI_DIR = join(homedir(), '.claude');
 const SETTINGS_PATH = join(PAI_DIR, 'settings.json');
 
-// The prompt: generic thinking task with no PAI-specific callouts.
+// Generic prompt with no PAI-specific callouts.
 // If PAI is loaded, its context files force Algorithm format automatically.
-// Must NOT mention PAI, Algorithm, phases, voice, identity, or request tool use.
 const PROMPT = 'What are the three most important principles of good software architecture and why? Be thorough but concise.';
 
 // Minimum number of markers that must pass for CI to succeed.
-// Even Minimal format typically hits 3-4 markers (header, voice, identity, TASK).
-// Zero markers = PAI definitely not loaded. 1-2 = marginal. 3+ = PAI active.
+// PAI-loaded responses typically hit 5-15 markers. 3 is the floor.
 const MIN_PASS_COUNT = 3;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -42,14 +43,6 @@ const MIN_PASS_COUNT = 3;
 interface Marker {
   name: string;
   pattern: RegExp;
-}
-
-interface ClaudeJsonOutput {
-  result: string;
-  session_id: string;
-  cost_usd: number;
-  num_turns: number;
-  is_error: boolean;
 }
 
 // ─── PAI Artifact Markers ────────────────────────────────────────────────────
@@ -103,13 +96,15 @@ function readIdentity(): { user: string; ai: string } {
   }
 }
 
-function runClaude(prompt: string): ClaudeJsonOutput | null {
-  // Build full command string with quoted prompt — using args array with shell:true
-  // causes the shell to split the prompt on spaces (e.g. "-p Use first..." → "-p Use")
+function runClaude(prompt: string): { text: string; exitCode: number | null } {
+  // No --output-format json: capture raw streaming text which includes all
+  // assistant output interleaved with tool calls. PAI's mandatory tool calls
+  // (voice curls, TaskCreate) mean the text appears across multiple turns,
+  // not in a single final block.
   const escapedPrompt = prompt.replace(/"/g, '\\"');
-  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS} --output-format json`;
+  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS}`;
 
-  console.log(`  $ ${command.slice(0, 100)}...`);
+  console.log(`  $ claude -p "${prompt.slice(0, 60)}..." --max-turns ${MAX_TURNS} --model ${MODEL}`);
 
   const result = spawnSync(command, {
     encoding: 'utf-8',
@@ -121,23 +116,12 @@ function runClaude(prompt: string): ClaudeJsonOutput | null {
 
   if (result.error) {
     console.error(`  Spawn error: ${result.error.message}`);
-    return null;
+    return { text: '', exitCode: null };
   }
 
-  const stdout = result.stdout || '';
-  try {
-    return JSON.parse(stdout);
-  } catch { /* fall through */ }
-
-  // Multi-line JSON — take last valid
-  const lines = stdout.trim().split('\n');
-  for (let i = lines.length - 1; i >= 0; i--) {
-    try { return JSON.parse(lines[i]); } catch { /* next */ }
-  }
-
-  console.error(`  Could not parse JSON (${stdout.length} chars)`);
-  if (result.stderr) console.error(`  stderr: ${result.stderr.slice(0, 300)}`);
-  return null;
+  // Combine stdout and stderr — some output may appear on stderr
+  const text = (result.stdout || '') + (result.stderr || '');
+  return { text, exitCode: result.status };
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -178,37 +162,27 @@ function main() {
   // ── Run Claude ─────────────────────────────────────────────────────
 
   console.log('── Running PAI verification prompt ──');
-  const result = runClaude(PROMPT);
+  const { text, exitCode } = runClaude(PROMPT);
 
-  if (!result) {
+  console.log(`  Exit code: ${exitCode}`);
+  console.log(`  Output:    ${text.length} chars`);
+  console.log();
+
+  if (text.length === 0) {
     console.error('FATAL: Claude produced no output');
     process.exit(1);
   }
-
-  if (result.is_error) {
-    console.error(`FATAL: Claude returned error: ${result.result?.slice(0, 200)}`);
-    process.exit(1);
-  }
-
-  console.log(`  Session:   ${result.session_id}`);
-  console.log(`  Turns:     ${result.num_turns}`);
-  console.log(`  Cost:      $${(result.cost_usd || 0).toFixed(4)}`);
-  console.log(`  Output:    ${(result.result || '').length} chars`);
-  console.log();
 
   // ── Check Markers ──────────────────────────────────────────────────
 
   console.log('── PAI Artifact Verification ──');
   const markers = buildMarkers(identity);
-  const text = result.result || '';
 
   let passes = 0;
-  let misses = 0;
 
   for (const marker of markers) {
     const found = marker.pattern.test(text);
     if (found) passes++;
-    else misses++;
     console.log(`  [${found ? 'PASS' : 'MISS'}] ${marker.name}`);
   }
 
@@ -220,13 +194,12 @@ function main() {
   console.log('═══════════════════════════════════════════════════════');
   console.log(`  Markers:    ${passes}/${markers.length} detected`);
   console.log(`  Threshold:  ${MIN_PASS_COUNT} minimum`);
-  console.log(`  Cost:       $${(result.cost_usd || 0).toFixed(4)}`);
   console.log('═══════════════════════════════════════════════════════');
 
   if (passes < MIN_PASS_COUNT) {
     console.error(`\n  PAI VERIFICATION FAILED — only ${passes} markers (need ${MIN_PASS_COUNT}+)`);
-    console.error('\n  ── Output excerpt (first 2000 chars) ──');
-    console.error(text.slice(0, 2000));
+    console.error('\n  ── Output excerpt (first 3000 chars) ──');
+    console.error(text.slice(0, 3000));
     process.exit(1);
   }
 

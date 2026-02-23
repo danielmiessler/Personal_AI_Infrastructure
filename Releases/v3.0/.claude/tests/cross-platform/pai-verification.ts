@@ -27,9 +27,10 @@ const MAX_TURNS = parseInt(process.env.PAI_TEST_MAX_TURNS || '3', 10);
 const PAI_DIR = join(homedir(), '.claude');
 const SETTINGS_PATH = join(PAI_DIR, 'settings.json');
 
-// The prompt: thinking-only task (no tool use) that triggers PAI Algorithm format.
-// Must NOT request file reads/tool use, or Claude burns turns on tools with no text output.
-const PROMPT = 'Using the full PAI Algorithm format with all phase headers, explain why 1+1=2 from first principles. Include your identity and voice line. Do not use any tools.';
+// The prompt: generic thinking task with no PAI-specific callouts.
+// If PAI is loaded, its context files force Algorithm format automatically.
+// Must NOT mention PAI, Algorithm, phases, voice, identity, or request tool use.
+const PROMPT = 'What are the three most important principles of good software architecture and why? Be thorough but concise.';
 
 // Minimum number of markers that must pass for CI to succeed.
 // Even Minimal format typically hits 3-4 markers (header, voice, identity, TASK).

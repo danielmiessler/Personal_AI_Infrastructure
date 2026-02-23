@@ -98,11 +98,14 @@ function readIdentity(): { user: string; ai: string } {
 }
 
 function runClaude(prompt: string): ClaudeJsonOutput | null {
-  const args = ['-p', prompt, '--model', MODEL, '--max-turns', String(MAX_TURNS), '--output-format', 'json'];
+  // Build full command string with quoted prompt — using args array with shell:true
+  // causes the shell to split the prompt on spaces (e.g. "-p Use first..." → "-p Use")
+  const escapedPrompt = prompt.replace(/"/g, '\\"');
+  const command = `claude -p "${escapedPrompt}" --model ${MODEL} --max-turns ${MAX_TURNS} --output-format json`;
 
-  console.log(`  $ claude -p "${prompt.slice(0, 60)}..." --max-turns ${MAX_TURNS} --model ${MODEL}`);
+  console.log(`  $ ${command.slice(0, 100)}...`);
 
-  const result = spawnSync('claude', args, {
+  const result = spawnSync(command, {
     encoding: 'utf-8',
     timeout: 300_000, // 5 min
     env: process.env,

@@ -5,10 +5,7 @@ Create a new skill following the canonical structure with proper TitleCase namin
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the CreateSkill workflow in the CreateSkill skill to create new skill"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the CreateSkill workflow in the CreateSkill skill to create new skill"
 ```
 
 Running the **CreateSkill** workflow in the **CreateSkill** skill to create new skill...
@@ -76,10 +73,7 @@ description: [What it does]. USE WHEN [intent triggers using OR]. [Additional ca
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running WORKFLOWNAME in SKILLNAME"}' \
-     > /dev/null 2>&1 &
+   ~/.claude/VoiceServer/pai-notify "Running WORKFLOWNAME in SKILLNAME"
    ```
 
 2. **Output text notification**:

@@ -5,10 +5,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the SearchAphorisms workflow in the Aphorisms skill to search quotes"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the SearchAphorisms workflow in the Aphorisms skill to search quotes"
 ```
 
 Running **SearchAphorisms** in **Aphorisms**...

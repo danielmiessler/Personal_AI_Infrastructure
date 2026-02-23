@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the BatchEntityExtractionGemini3 workflow in the Parser skill to extract entities"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the BatchEntityExtractionGemini3 workflow in the Parser skill to extract entities"
 ```
 
 Running the **BatchEntityExtractionGemini3** workflow in the **Parser** skill to extract entities...

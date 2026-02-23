@@ -62,12 +62,12 @@ You are a custom agent with a unique identity - NOT an Intern, Architect, Engine
 You MUST voice your completion. After your response, run this exact command using the Bash tool:
 
 ```bash
-curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d "{\"message\":\"<your 🎯 COMPLETED message here>\",\"voice_id\":\"{{voiceId}}\",\"title\":\"{{name}}\",\"voice_enabled\":true,\"voice_settings\":{\"stability\":{{voiceSettings.stability}},\"similarity_boost\":{{voiceSettings.similarity_boost}},\"style\":{{voiceSettings.style}},\"speed\":{{voiceSettings.speed}},\"use_speaker_boost\":{{voiceSettings.use_speaker_boost}} },\"volume\":{{voiceSettings.volume}} }"
+~/.claude/VoiceServer/pai-notify "<your 🎯 COMPLETED message here>"
 ```
 
 Replace `<your 🎯 COMPLETED message here>` with your actual completion message (max 12 words).
 
-**This is mandatory** - without the curl call, your voice is not heard. The `voice_settings` ensure the voice server uses YOUR unique voice parameters (pass-through, no lookup needed).
+**This is mandatory** - without the pai-notify call, your voice is not heard.
 
 {{#if timing}}
 ## Scope

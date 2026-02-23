@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the TechnicalCreativityGemini3 workflow in the BeCreative skill to generate technical solutions"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the TechnicalCreativityGemini3 workflow in the BeCreative skill to generate technical solutions"
 ```
 
 Running **TechnicalCreativityGemini3** in **BeCreative**...

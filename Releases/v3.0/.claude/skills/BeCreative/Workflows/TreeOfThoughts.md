@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the TreeOfThoughts workflow in the BeCreative skill to explore solution paths"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the TreeOfThoughts workflow in the BeCreative skill to explore solution paths"
 ```
 
 Running **TreeOfThoughts** in **BeCreative**...

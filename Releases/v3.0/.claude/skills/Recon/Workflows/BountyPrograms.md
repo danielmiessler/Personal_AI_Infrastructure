@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the BountyPrograms workflow in the Recon skill to find bounty programs"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the BountyPrograms workflow in the Recon skill to find bounty programs"
 ```
 
 Running the **BountyPrograms** workflow in the **Recon** skill to find bounty programs...

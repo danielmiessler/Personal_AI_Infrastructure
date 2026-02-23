@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the ResearchUpgrade workflow in the PAIUpgrade skill to research upgrades"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the ResearchUpgrade workflow in the PAIUpgrade skill to research upgrades"
 ```
 
 Running the **ResearchUpgrade** workflow in the **PAIUpgrade** skill to research upgrades...

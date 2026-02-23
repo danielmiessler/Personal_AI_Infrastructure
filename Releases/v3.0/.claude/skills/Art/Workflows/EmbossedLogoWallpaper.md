@@ -5,10 +5,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the EmbossedLogoWallpaper workflow in the Art skill to create wallpapers"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the EmbossedLogoWallpaper workflow in the Art skill to create wallpapers"
 ```
 
 Running **EmbossedLogoWallpaper** in **Art**...

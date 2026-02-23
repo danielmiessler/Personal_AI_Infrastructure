@@ -75,7 +75,8 @@ END WITH:
 For MINIMAL tasks (pure greetings, ratings): Use abbreviated format but STILL include header and voice line.
 </user-prompt-submit-hook>`;
 
-console.log(ALGORITHM_REMINDER);
+// NOTE: ALGORITHM_REMINDER is output inside main() after the paiMode gate check,
+// not at module level — see the outputAlgorithmReminder() call in main().
 
 // ── Shared Types ──
 
@@ -366,6 +367,9 @@ async function main() {
         process.exit(0);
       }
     } catch { /* settings unreadable — use default (always) */ }
+
+    // Output algorithm reminder AFTER the gate — must not run in pai-only vanilla sessions
+    console.log(ALGORITHM_REMINDER);
 
     console.error('[RatingCapture] Hook started');
     const input = await readStdinWithTimeout();

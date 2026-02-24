@@ -345,7 +345,7 @@ export function getAudioPlayCommand(filePath: string, volume?: number): { comman
     ].join('; ');
     return {
       command: 'powershell.exe',
-      args: ['-NoProfile', '-sta', '-Command', ps],
+      args: ['-NoProfile', '-WindowStyle', 'Hidden', '-sta', '-Command', ps],
     };
   }
 
@@ -385,7 +385,7 @@ export function getLocalTTSCommand(text: string, voiceName?: string): { command:
     ].filter(Boolean).join('; ');
     return {
       command: 'powershell.exe',
-      args: ['-NoProfile', '-Command', ps],
+      args: ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
     };
   }
 
@@ -417,7 +417,7 @@ export function getNotificationCommand(
     const ps = `[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; $xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); $text = $xml.GetElementsByTagName('text'); $text[0].AppendChild($xml.CreateTextNode('${title.replace(/'/g, "''")}')) | Out-Null; $text[1].AppendChild($xml.CreateTextNode('${message.replace(/'/g, "''")}')) | Out-Null; [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('PAI').Show([Windows.UI.Notifications.ToastNotification]::new($xml))`;
     return {
       command: 'powershell.exe',
-      args: ['-NoProfile', '-Command', ps],
+      args: ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
     };
   }
 

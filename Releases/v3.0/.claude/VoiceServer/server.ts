@@ -635,8 +635,9 @@ async function sendNotification(
     }
   }
 
-  // Display desktop notification using platform-appropriate method
-  if (voiceConfig.desktopNotifications) {
+  // Display desktop notification only as fallback when voice didn't play
+  // Voice IS the notification — toast is redundant noise when voice works
+  if (voiceConfig.desktopNotifications && !voicePlayed) {
     try {
       const notifCmd = getNotificationCommand(safeTitle, safeMessage);
       if (notifCmd) {

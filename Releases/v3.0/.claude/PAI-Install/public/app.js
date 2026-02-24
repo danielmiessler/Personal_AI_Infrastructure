@@ -250,6 +250,7 @@ function renderChoiceForm(requestId, prompt, choices) {
   // Voice server-based previews (Edge TTS neural, SAPI local)
   const serverVoicePreview = { 'edge-tts': 'edge-tts', 'sapi': 'sapi', 'native': 'native' };
   const isVoiceTypeRequest = requestId === 'voice-type' || requestId === 'voice-type-retry';
+  const isEdgeVoicePicker = requestId === 'edge-tts-voice';
 
   const group = document.createElement('div');
   group.className = 'choice-group';
@@ -272,13 +273,20 @@ function renderChoiceForm(requestId, prompt, choices) {
       btn.appendChild(descSpan);
     }
 
-    if (isVoiceTypeRequest && (voicePreviews[c.value] || serverVoicePreview[c.value])) {
+    // Show preview for voice type selection or Edge TTS voice picker
+    const showPreview = (isVoiceTypeRequest && (voicePreviews[c.value] || serverVoicePreview[c.value]))
+      || (isEdgeVoicePicker && c.value.includes('Neural'));
+
+    if (showPreview) {
       const preview = document.createElement('span');
       preview.className = 'preview-btn';
       preview.innerHTML = '&#9654; Preview';
       preview.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (serverVoicePreview[c.value]) {
+        if (isEdgeVoicePicker) {
+          // Pass the specific Edge TTS voice name for preview
+          playServerPreview('edge-tts', preview, c.value);
+        } else if (serverVoicePreview[c.value]) {
           playServerPreview(serverVoicePreview[c.value], preview);
         } else {
           playPreview(voicePreviews[c.value], preview);
@@ -308,17 +316,19 @@ function playPreview(src, btn) {
   currentAudio.onended = () => { btn.textContent = '▶ Preview'; currentAudio = null; };
 }
 
-function playServerPreview(voiceId, btn) {
+function playServerPreview(voiceId, btn, edgeTtsVoiceName) {
   btn.textContent = '⏳ Speaking...';
   const previewMessages = {
     'edge-tts': 'Hello! This is the Microsoft Edge neural voice. Natural sounding speech, completely free.',
     'sapi': 'Hello! This is the built-in system voice.',
     'native': 'Hello! This is your system voice preview.',
   };
+  const body = { voice_id: voiceId, message: previewMessages[voiceId] || previewMessages['edge-tts'] };
+  if (edgeTtsVoiceName) body.edge_tts_voice = edgeTtsVoiceName;
   fetch('http://localhost:8888/notify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ voice_id: voiceId, message: previewMessages[voiceId] || previewMessages['edge-tts'] }),
+    body: JSON.stringify(body),
   })
     .then(r => r.json())
     .then(data => {

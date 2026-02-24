@@ -1065,7 +1065,20 @@ export async function runVoiceSetup(
     const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", voiceChoices);
 
     if (voiceType === "edge-tts") {
+      // Show Edge TTS voice picker with curated US neural voices
+      const edgeVoiceChoices = [
+        { label: "Aria (Female)", value: "en-US-AriaNeural", description: "Warm and conversational — great default" },
+        { label: "Jenny (Female)", value: "en-US-JennyNeural", description: "Versatile, clear, and natural" },
+        { label: "Ava (Female)", value: "en-US-AvaNeural", description: "Professional and polished" },
+        { label: "Emma (Female)", value: "en-US-EmmaNeural", description: "Friendly and approachable" },
+        { label: "Andrew (Male)", value: "en-US-AndrewNeural", description: "Natural and clear" },
+        { label: "Brian (Male)", value: "en-US-BrianNeural", description: "Warm and articulate" },
+        { label: "Guy (Male)", value: "en-US-GuyNeural", description: "Casual and friendly" },
+        { label: "Christopher (Male)", value: "en-US-ChristopherNeural", description: "Authoritative and confident" },
+      ];
+      const edgeVoice = await getChoice("edge-tts-voice", "Choose an Edge TTS voice — click Preview to hear each one:", edgeVoiceChoices);
       selectedVoiceId = "edge-tts";
+      (state.collected as any).edgeTtsVoice = edgeVoice;
       state.collected.voiceType = "edge-tts" as any;
     } else if (voiceType === "sapi") {
       selectedVoiceId = "sapi";
@@ -1098,6 +1111,10 @@ export async function runVoiceSetup(
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
       if (settings.daidentity) {
         settings.daidentity.voiceId = selectedVoiceId;
+        // Save Edge TTS voice name if selected
+        if ((state.collected as any).edgeTtsVoice) {
+          settings.daidentity.edgeTtsVoice = (state.collected as any).edgeTtsVoice;
+        }
         settings.daidentity.voices = settings.daidentity.voices || {};
         settings.daidentity.voices.main = {
           voiceId: selectedVoiceId,

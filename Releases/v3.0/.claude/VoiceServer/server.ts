@@ -423,15 +423,24 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
 // Edge TTS — Free neural voices via Microsoft Edge Read Aloud API
 // ==========================================================================
 
-// Default neural voice — high quality, no API key needed
-const EDGE_TTS_VOICE = 'en-US-AriaNeural';
+// Default neural voice — configurable via settings.json daidentity.edgeTtsVoice
+const EDGE_TTS_DEFAULT = 'en-US-AriaNeural';
+const EDGE_TTS_VOICE: string = (() => {
+  try {
+    const s = JSON.parse(require('fs').readFileSync(
+      require('path').join(process.env.HOME || process.env.USERPROFILE || '', '.claude', 'settings.json'), 'utf-8'
+    ));
+    return s?.daidentity?.edgeTtsVoice || EDGE_TTS_DEFAULT;
+  } catch { return EDGE_TTS_DEFAULT; }
+})();
 
 /**
  * Generate and play speech using Edge TTS neural voices.
  * Falls back to null if network is unavailable (caller should try SAPI next).
  */
-async function edgeTtsSpeak(text: string, volume: number = 1.0): Promise<boolean> {
+async function edgeTtsSpeak(text: string, volume: number = 1.0, voiceOverride?: string): Promise<boolean> {
   const tts = new EdgeTTS();
+  const voice = voiceOverride || EDGE_TTS_VOICE;
 
   // Apply pronunciation replacements before sending to TTS
   const pronouncedText = applyPronunciations(text);
@@ -439,7 +448,7 @@ async function edgeTtsSpeak(text: string, volume: number = 1.0): Promise<boolean
     console.log(`📖 Pronunciation: "${text}" → "${pronouncedText}"`);
   }
 
-  await tts.synthesize(pronouncedText, EDGE_TTS_VOICE, {
+  await tts.synthesize(pronouncedText, voice, {
     rate: '+0%',
     volume: '+0%',
     pitch: '+0Hz',
@@ -502,6 +511,8 @@ async function sendNotification(
   voiceId: string | null = null,
   callerVoiceSettings?: Partial<ElevenLabsVoiceSettings> | null,
   callerVolume?: number | null,
+  _emotion?: string,
+  edgeTtsVoiceOverride?: string | null,
 ): Promise<{ voicePlayed: boolean; voiceError?: string }> {
   const titleValidation = validateInput(title);
   const messageValidation = validateInput(message);
@@ -601,8 +612,9 @@ async function sendNotification(
   } else if (voiceEnabled && (!ELEVENLABS_API_KEY || isNonElevenLabsVoice)) {
     // Edge TTS neural voice (free, no API key) → SAPI/say/espeak fallback
     try {
-      console.log(`🧠 Edge TTS neural voice (${EDGE_TTS_VOICE})`);
-      await edgeTtsSpeak(safeMessage);
+      const edgeVoice = edgeTtsVoiceOverride || EDGE_TTS_VOICE;
+      console.log(`🧠 Edge TTS neural voice (${edgeVoice})`);
+      await edgeTtsSpeak(safeMessage, 1.0, edgeTtsVoiceOverride || undefined);
       voicePlayed = true;
     } catch (edgeError: any) {
       console.warn(`⚠️  Edge TTS failed (${edgeError.message}), falling back to local TTS`);
@@ -699,14 +711,15 @@ const server = serve({
         const voiceId = data.voice_id || data.voice_name || null;
         const voiceSettings = data.voice_settings || null;
         const volume = data.volume ?? null;
+        const edgeTtsVoice = data.edge_tts_voice || null;
 
         if (voiceId && typeof voiceId !== 'string') {
           throw new Error('Invalid voice_id');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID}${edgeTtsVoice ? `, edgeTts: ${edgeTtsVoice}` : ''})`);
 
-        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume);
+        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume, undefined, edgeTtsVoice);
 
         if (voiceEnabled && !result.voicePlayed && result.voiceError) {
           return new Response(

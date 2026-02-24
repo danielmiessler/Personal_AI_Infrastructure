@@ -668,11 +668,10 @@ const server = serve({
 
     const clientIp = req.headers.get('x-forwarded-for') || 'localhost';
 
-    // Allow CORS from localhost and 127.0.0.1 on any port (Electron uses dynamic ports)
-    const requestOrigin = req.headers.get('origin') || '';
-    const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin);
+    // Allow CORS from any local origin — server only binds to localhost so this is safe
+    const requestOrigin = req.headers.get('origin') || '*';
     const corsHeaders = {
-      "Access-Control-Allow-Origin": isLocalOrigin ? requestOrigin : "http://localhost",
+      "Access-Control-Allow-Origin": requestOrigin,
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     };

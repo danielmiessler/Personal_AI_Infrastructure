@@ -21,6 +21,7 @@ import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { getTempFilePath, getAudioPlayCommand, getNotificationCommand, getLocalTTSCommand } from '../lib/platform';
 import { unlinkSync } from 'fs';
+import { EdgeTTS } from '@andresaya/edge-tts';
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -419,6 +420,67 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
 }
 
 // ==========================================================================
+// Edge TTS — Free neural voices via Microsoft Edge Read Aloud API
+// ==========================================================================
+
+// Default neural voice — high quality, no API key needed
+const EDGE_TTS_VOICE = 'en-US-AriaNeural';
+
+/**
+ * Generate and play speech using Edge TTS neural voices.
+ * Falls back to null if network is unavailable (caller should try SAPI next).
+ */
+async function edgeTtsSpeak(text: string, volume: number = 1.0): Promise<boolean> {
+  const tts = new EdgeTTS();
+
+  // Apply pronunciation replacements before sending to TTS
+  const pronouncedText = applyPronunciations(text);
+  if (pronouncedText !== text) {
+    console.log(`📖 Pronunciation: "${text}" → "${pronouncedText}"`);
+  }
+
+  await tts.synthesize(pronouncedText, EDGE_TTS_VOICE, {
+    rate: '+0%',
+    volume: '+0%',
+    pitch: '+0Hz',
+  });
+
+  const audioBuffer = tts.toBuffer();
+  if (!audioBuffer || audioBuffer.length === 0) {
+    throw new Error('Edge TTS returned empty audio');
+  }
+
+  // Write to temp file and play using platform audio player
+  const tempFile = getTempFilePath('edge-tts', '.mp3');
+  await Bun.write(tempFile, audioBuffer);
+
+  const audioCmd = getAudioPlayCommand(tempFile, volume);
+  if (!audioCmd) {
+    try { unlinkSync(tempFile); } catch {}
+    throw new Error('No audio player available on this platform');
+  }
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(audioCmd.command, audioCmd.args);
+
+    proc.on('error', (error) => {
+      console.error('Error playing edge-tts audio:', error);
+      try { unlinkSync(tempFile); } catch {}
+      reject(error);
+    });
+
+    proc.on('exit', (code) => {
+      try { unlinkSync(tempFile); } catch {}
+      if (code === 0) {
+        resolve(true);
+      } else {
+        reject(new Error(`Audio player exited with code ${code}`));
+      }
+    });
+  });
+}
+
+// ==========================================================================
 // Core: Send notification with 3-tier voice settings resolution
 // ==========================================================================
 
@@ -462,7 +524,14 @@ async function sendNotification(
   let voicePlayed = false;
   let voiceError: string | undefined;
 
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
+  const isNonElevenLabsVoice = ['native', 'edge-tts', 'sapi', 'none'].includes(voiceId || '');
+
+  if (voiceId === 'none') {
+    // Voice explicitly disabled
+    return { voicePlayed: false };
+  }
+
+  if (voiceEnabled && ELEVENLABS_API_KEY && !isNonElevenLabsVoice) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
 
@@ -514,20 +583,43 @@ async function sendNotification(
       console.error("Failed to generate/play speech:", error);
       voiceError = error.message || "TTS generation failed";
     }
-  } else if (voiceEnabled && !ELEVENLABS_API_KEY) {
-    // Local TTS fallback — Windows SAPI, macOS say, Linux espeak
+  } else if (voiceEnabled && voiceId === 'sapi') {
+    // Explicit SAPI/say/espeak — skip Edge TTS entirely
     try {
       const ttsCmd = getLocalTTSCommand(safeMessage);
       if (ttsCmd) {
-        console.log(`🗣️  Local TTS fallback (no ElevenLabs key)`);
+        console.log(`🗣️  Local TTS (SAPI/say/espeak)`);
         await spawnSafe(ttsCmd.command, ttsCmd.args);
         voicePlayed = true;
       } else {
         voiceError = "No local TTS available on this platform";
       }
     } catch (error: any) {
-      console.error("Local TTS fallback failed:", error);
+      console.error("Local TTS failed:", error);
       voiceError = error.message || "Local TTS failed";
+    }
+  } else if (voiceEnabled && (!ELEVENLABS_API_KEY || isNonElevenLabsVoice)) {
+    // Edge TTS neural voice (free, no API key) → SAPI/say/espeak fallback
+    try {
+      console.log(`🧠 Edge TTS neural voice (${EDGE_TTS_VOICE})`);
+      await edgeTtsSpeak(safeMessage);
+      voicePlayed = true;
+    } catch (edgeError: any) {
+      console.warn(`⚠️  Edge TTS failed (${edgeError.message}), falling back to local TTS`);
+      // Fallback to local SAPI/say/espeak
+      try {
+        const ttsCmd = getLocalTTSCommand(safeMessage);
+        if (ttsCmd) {
+          console.log(`🗣️  Local TTS fallback (SAPI/say/espeak)`);
+          await spawnSafe(ttsCmd.command, ttsCmd.args);
+          voicePlayed = true;
+        } else {
+          voiceError = "No local TTS available on this platform";
+        }
+      } catch (localError: any) {
+        console.error("Local TTS fallback also failed:", localError);
+        voiceError = localError.message || "All TTS methods failed";
+      }
     }
   }
 
@@ -576,8 +668,11 @@ const server = serve({
 
     const clientIp = req.headers.get('x-forwarded-for') || 'localhost';
 
+    // Allow CORS from localhost and 127.0.0.1 on any port (Electron uses dynamic ports)
+    const requestOrigin = req.headers.get('origin') || '';
+    const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin);
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "http://localhost",
+      "Access-Control-Allow-Origin": isLocalOrigin ? requestOrigin : "http://localhost",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     };
@@ -707,7 +802,7 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: "ElevenLabs",
+          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : "Edge TTS Neural",
           default_voice_id: DEFAULT_VOICE_ID,
           api_key_configured: !!ELEVENLABS_API_KEY,
           pronunciation_rules: pronunciationRules.length,
@@ -728,8 +823,9 @@ const server = serve({
 });
 
 console.log(`🚀 Voice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
+console.log(`🎙️  Primary: ${ELEVENLABS_API_KEY ? `ElevenLabs (voice: ${DEFAULT_VOICE_ID})` : `Edge TTS Neural (${EDGE_TTS_VOICE})`}`);
+console.log(`🧠 Fallback: Edge TTS → SAPI/say/espeak`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Not needed (Edge TTS is free)'}`);
 console.log(`📖 Pronunciations: ${pronunciationRules.length} rules loaded`);

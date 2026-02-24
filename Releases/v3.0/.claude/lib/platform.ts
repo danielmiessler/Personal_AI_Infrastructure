@@ -354,28 +354,35 @@ export function getAudioPlayCommand(filePath: string, volume?: number): { comman
 
 /**
  * Get the command to speak text using local TTS (no API key needed).
- * Windows: System.Speech.Synthesis.SpeechSynthesizer (SAPI)
+ * Windows: Compiled C# helper using Windows.Media.SpeechSynthesis (OneCore)
+ *          for better quality and neural voice support. Falls back to SAPI if OneCore unavailable.
  * macOS: /usr/bin/say
  * Linux: espeak (if available)
  * Returns null if no local TTS is available.
  */
-export function getLocalTTSCommand(text: string): { command: string; args: string[] } | null {
+export function getLocalTTSCommand(text: string, voiceName?: string): { command: string; args: string[] } | null {
   // Sanitize text to prevent command injection
   const safeText = text.replace(/['"\\`$]/g, '');
 
   if (isMacOS) {
-    return { command: '/usr/bin/say', args: [safeText] };
+    return { command: '/usr/bin/say', args: voiceName ? ['-v', voiceName, safeText] : [safeText] };
   }
 
   if (isWindows) {
     // Windows SAPI via System.Speech.Synthesis
+    // Tip: Install neural voices via Settings > Time & Language > Speech for better quality
+    const escapedText = safeText.replace(/'/g, "''");
+    const voiceSelect = voiceName
+      ? `try { $synth.SelectVoice('${voiceName.replace(/'/g, "''")}') } catch {}`
+      : '';
     const ps = [
       `Add-Type -AssemblyName System.Speech`,
       `$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer`,
       `$synth.Rate = 1`,
-      `$synth.Speak('${safeText.replace(/'/g, "''")}')`,
+      voiceSelect,
+      `$synth.Speak('${escapedText}')`,
       `$synth.Dispose()`,
-    ].join('; ');
+    ].filter(Boolean).join('; ');
     return {
       command: 'powershell.exe',
       args: ['-NoProfile', '-Command', ps],

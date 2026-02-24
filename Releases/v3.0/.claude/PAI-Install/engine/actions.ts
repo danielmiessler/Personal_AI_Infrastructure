@@ -11,7 +11,7 @@ import { join, basename, resolve, dirname } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
 import { detectSystem, validateElevenLabsKey } from "./detect";
 import { generateSettingsJson } from "./config-gen";
-import { isWindows, getKillCommand } from "../../lib/platform";
+import { isWindows, isMacOS, isLinux, getKillCommand } from "../../lib/platform";
 
 /**
  * Search existing .claude directories and config locations for a given env key.
@@ -944,6 +944,16 @@ export async function runVoiceSetup(
 ): Promise<void> {
   await emit({ event: "step_start", step: "voice" });
 
+  // Voice option labels (used in both initial and retry selection)
+  // Priority: 1) ElevenLabs, 2) Edge TTS Neural, 3) Windows Natural Voices, 4) SAPI/say, 5) None
+  const edgeTtsLabel = "Edge TTS Neural (Free)";
+  const edgeTtsDesc = "Microsoft Edge neural voices — high quality, no API key, requires internet";
+  const sapiLabel = isWindows ? "Windows Built-in (SAPI)" : isMacOS ? "macOS Built-in (say)" : "Linux Built-in (espeak)";
+  const sapiDesc = isWindows
+    ? "Basic Windows voices (David, Zira) — works offline, lower quality"
+    : isMacOS ? "Built-in macOS text-to-speech — works offline"
+    : "Built-in Linux espeak — works offline";
+
   // ── Collect ElevenLabs key if not already found ──
   if (!state.collected.elevenLabsKey) {
     await emit({ event: "progress", step: "voice", percent: 5, detail: "Searching for existing ElevenLabs key..." });
@@ -991,10 +1001,7 @@ export async function runVoiceSetup(
 
   const hasElevenLabsKey = !!state.collected.elevenLabsKey;
   if (!hasElevenLabsKey) {
-    const voiceFallback = isWindows
-      ? "No ElevenLabs key — voice server will use Windows text-to-speech (SAPI) as fallback. You can add a key later in ~/.config/PAI/.env"
-      : "No ElevenLabs key — voice server will use macOS text-to-speech as fallback. You can add a key later in ~/.config/PAI/.env";
-    await emit({ event: "message", content: voiceFallback });
+    await emit({ event: "message", content: "No ElevenLabs key — free neural voices via Edge TTS are available, or you can add a key later in ~/.config/PAI/.env" });
   }
 
   // ── Start voice server (works with or without ElevenLabs key) ──
@@ -1042,13 +1049,31 @@ export async function runVoiceSetup(
   if (!selectedVoiceId) {
     await emit({ event: "progress", step: "voice", percent: 45, detail: "Choose your Digital Assistant's voice..." });
 
-    const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", [
-      { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-      { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-      { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-    ]);
+    // Build voice choices based on available options (priority order)
+    const voiceChoices: Array<{ label: string; value: string; description: string }> = [];
+    if (hasElevenLabsKey) {
+      voiceChoices.push({ label: "Female (Rachel)", value: "female", description: "ElevenLabs premium — warm, articulate female voice" });
+      voiceChoices.push({ label: "Male (Adam)", value: "male", description: "ElevenLabs premium — clear, confident male voice" });
+    }
+    voiceChoices.push({ label: edgeTtsLabel, value: "edge-tts", description: edgeTtsDesc });
+    voiceChoices.push({ label: sapiLabel, value: "sapi", description: sapiDesc });
+    if (hasElevenLabsKey) {
+      voiceChoices.push({ label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" });
+    }
+    voiceChoices.push({ label: "No Voice", value: "none", description: "Disable voice entirely — text-only assistant" });
 
-    if (voiceType === "custom") {
+    const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", voiceChoices);
+
+    if (voiceType === "edge-tts") {
+      selectedVoiceId = "edge-tts";
+      state.collected.voiceType = "edge-tts" as any;
+    } else if (voiceType === "sapi") {
+      selectedVoiceId = "sapi";
+      state.collected.voiceType = "sapi" as any;
+    } else if (voiceType === "none") {
+      selectedVoiceId = "none";
+      state.collected.voiceType = "none" as any;
+    } else if (voiceType === "custom") {
       const customId = await getInput(
         "custom-voice-id",
         "Enter your ElevenLabs Voice ID:\nFind it at: elevenlabs.io/app/voice-library → Your voice → Voice ID",
@@ -1160,12 +1185,30 @@ export async function runVoiceSetup(
             voiceConfirmed = true;
           } else {
             // Let them pick again
-            const newVoice = await getChoice("voice-type-retry", "Choose a different voice:", [
-              { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-              { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-              { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-            ]);
-            if (newVoice === "custom") {
+            // Rebuild choices for retry (same priority order)
+            const retryChoices: Array<{ label: string; value: string; description: string }> = [];
+            if (hasElevenLabsKey) {
+              retryChoices.push({ label: "Female (Rachel)", value: "female", description: "ElevenLabs premium — warm, articulate female voice" });
+              retryChoices.push({ label: "Male (Adam)", value: "male", description: "ElevenLabs premium — clear, confident male voice" });
+            }
+            retryChoices.push({ label: edgeTtsLabel, value: "edge-tts", description: edgeTtsDesc });
+            retryChoices.push({ label: sapiLabel, value: "sapi", description: sapiDesc });
+            if (hasElevenLabsKey) {
+              retryChoices.push({ label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" });
+            }
+            retryChoices.push({ label: "No Voice", value: "none", description: "Disable voice entirely" });
+
+            const newVoice = await getChoice("voice-type-retry", "Choose a different voice:", retryChoices);
+            if (newVoice === "edge-tts") {
+              selectedVoiceId = "edge-tts";
+              state.collected.voiceType = "edge-tts" as any;
+            } else if (newVoice === "sapi") {
+              selectedVoiceId = "sapi";
+              state.collected.voiceType = "sapi" as any;
+            } else if (newVoice === "none") {
+              selectedVoiceId = "none";
+              state.collected.voiceType = "none" as any;
+            } else if (newVoice === "custom") {
               const newId = await getInput("custom-voice-id-retry", "Enter your ElevenLabs Voice ID:", "text", "e.g., s3TPKV1kjDlVtZbl4Ksh");
               selectedVoiceId = newId.trim() || selectedVoiceId;
               state.collected.voiceType = "custom";

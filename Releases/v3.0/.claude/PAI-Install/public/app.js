@@ -245,8 +245,10 @@ function renderChoiceForm(requestId, prompt, choices) {
 
   addMessage('assistant', prompt);
 
-  // Voice preview audio map — show previews for both initial and retry voice selection
+  // Voice preview — show previews for both initial and retry voice selection
   const voicePreviews = { female: '/assets/voice-female.mp3', male: '/assets/voice-male.mp3' };
+  // Voice server-based previews (Edge TTS neural, SAPI local)
+  const serverVoicePreview = { 'edge-tts': 'edge-tts', 'sapi': 'sapi', 'native': 'native' };
   const isVoiceTypeRequest = requestId === 'voice-type' || requestId === 'voice-type-retry';
 
   const group = document.createElement('div');
@@ -270,13 +272,17 @@ function renderChoiceForm(requestId, prompt, choices) {
       btn.appendChild(descSpan);
     }
 
-    if (voicePreviews[c.value] && isVoiceTypeRequest) {
+    if (isVoiceTypeRequest && (voicePreviews[c.value] || serverVoicePreview[c.value])) {
       const preview = document.createElement('span');
       preview.className = 'preview-btn';
       preview.innerHTML = '&#9654; Preview';
       preview.addEventListener('click', (e) => {
         e.stopPropagation();
-        playPreview(voicePreviews[c.value], preview);
+        if (serverVoicePreview[c.value]) {
+          playServerPreview(serverVoicePreview[c.value], preview);
+        } else {
+          playPreview(voicePreviews[c.value], preview);
+        }
       });
       btn.appendChild(preview);
     }
@@ -293,9 +299,35 @@ function playPreview(src, btn) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   currentAudio = new Audio(src);
   currentAudio.volume = 0.8;
-  currentAudio.play().catch(() => {});
+  currentAudio.play().catch((err) => {
+    console.error('Audio preview playback failed:', err.message, '| src:', src);
+    btn.textContent = '▶ Preview';
+    currentAudio = null;
+  });
   btn.textContent = '⏹ Playing';
   currentAudio.onended = () => { btn.textContent = '▶ Preview'; currentAudio = null; };
+}
+
+function playServerPreview(voiceId, btn) {
+  btn.textContent = '⏳ Speaking...';
+  const previewMessages = {
+    'edge-tts': 'Hello! This is the Microsoft Edge neural voice. Natural sounding speech, completely free.',
+    'sapi': 'Hello! This is the built-in system voice.',
+    'native': 'Hello! This is your system voice preview.',
+  };
+  fetch('http://localhost:8888/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voice_id: voiceId, message: previewMessages[voiceId] || previewMessages['edge-tts'] }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = data.status === 'success' ? '▶ Preview' : '⚠ Failed';
+    })
+    .catch(err => {
+      console.error('Voice preview failed:', err.message);
+      btn.textContent = '⚠ Failed';
+    });
 }
 
 function submitChoice(requestId, value, btn) {

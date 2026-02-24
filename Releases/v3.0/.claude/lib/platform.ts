@@ -353,6 +353,43 @@ export function getAudioPlayCommand(filePath: string, volume?: number): { comman
 }
 
 /**
+ * Get the command to speak text using local TTS (no API key needed).
+ * Windows: System.Speech.Synthesis.SpeechSynthesizer (SAPI)
+ * macOS: /usr/bin/say
+ * Linux: espeak (if available)
+ * Returns null if no local TTS is available.
+ */
+export function getLocalTTSCommand(text: string): { command: string; args: string[] } | null {
+  // Sanitize text to prevent command injection
+  const safeText = text.replace(/['"\\`$]/g, '');
+
+  if (isMacOS) {
+    return { command: '/usr/bin/say', args: [safeText] };
+  }
+
+  if (isWindows) {
+    // Windows SAPI via System.Speech.Synthesis
+    const ps = [
+      `Add-Type -AssemblyName System.Speech`,
+      `$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer`,
+      `$synth.Rate = 1`,
+      `$synth.Speak('${safeText.replace(/'/g, "''")}')`,
+      `$synth.Dispose()`,
+    ].join('; ');
+    return {
+      command: 'powershell.exe',
+      args: ['-NoProfile', '-Command', ps],
+    };
+  }
+
+  if (isLinux) {
+    return { command: 'espeak', args: [safeText] };
+  }
+
+  return null;
+}
+
+/**
  * Get the command to send a system notification.
  * Returns null if no notification method is available.
  */

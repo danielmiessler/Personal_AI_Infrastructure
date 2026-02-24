@@ -242,16 +242,34 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
  * Generate install summary from state.
  */
 export function generateSummary(state: InstallState): InstallSummary {
+  // Platform-aware voice fallback name
+  let voiceMode = "none";
+  if (state.collected.elevenLabsKey) {
+    voiceMode = "elevenlabs";
+  } else if (state.completedSteps.includes("voice")) {
+    voiceMode = isWindows ? "windows-sapi" : "macos-say";
+  }
+
+  // Platform-aware activation command
+  const activationCommand = isWindows
+    ? "pai"
+    : "source ~/.zshrc && pai";
+  const activationHint = isWindows
+    ? "Open a new PowerShell window and run this command to launch PAI."
+    : "This reloads your shell config and launches PAI for the first time.";
+
   return {
     paiVersion: "3.0",
     principalName: state.collected.principalName || "User",
     aiName: state.collected.aiName || "PAI",
     timezone: state.collected.timezone || "UTC",
     voiceEnabled: state.completedSteps.includes("voice"),
-    voiceMode: state.collected.elevenLabsKey ? "elevenlabs" : state.completedSteps.includes("voice") ? "macos-say" : "none",
+    voiceMode,
     catchphrase: state.collected.catchphrase || "",
     installType: state.installType || "fresh",
     completedSteps: state.completedSteps.length,
     totalSteps: 8,
+    activationCommand,
+    activationHint,
   };
 }

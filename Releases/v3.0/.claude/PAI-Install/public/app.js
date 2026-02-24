@@ -372,8 +372,8 @@ function renderSummary(summary) {
     <div class="summary-row"><span class="s-label">Install Type</span><span class="s-value">${summary.installType}</span></div>
     <div class="summary-action">
       <p>To activate PAI, open a terminal and run:</p>
-      <code>source ~/.zshrc && pai</code>
-      <p class="summary-hint">This reloads your shell config and launches PAI for the first time.</p>
+      <code>${summary.activationCommand || 'source ~/.zshrc && pai'}</code>
+      <p class="summary-hint">${summary.activationHint || 'This reloads your shell config and launches PAI for the first time.'}</p>
     </div>
   `;
   chat.appendChild(card);

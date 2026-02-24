@@ -114,13 +114,13 @@ function startServer(port) {
 
   serverProcess.stdout.on("data", (data) => {
     const text = data.toString();
-    process.stdout.write(data);
+    try { process.stdout.write(data); } catch {}
     try { fs.appendFileSync(LOG_FILE, text); } catch {}
   });
 
   serverProcess.stderr.on("data", (data) => {
     const text = data.toString();
-    process.stderr.write(data);
+    try { process.stderr.write(data); } catch {}
     try { fs.appendFileSync(LOG_FILE, `[STDERR] ${text}`); } catch {}
   });
 

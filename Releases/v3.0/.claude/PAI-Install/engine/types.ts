@@ -160,6 +160,8 @@ export interface InstallSummary {
   installType: "fresh" | "upgrade";
   completedSteps: number;
   totalSteps: number;
+  activationCommand: string;
+  activationHint: string;
 }
 
 // ─── Engine Events ───────────────────────────────────────────────

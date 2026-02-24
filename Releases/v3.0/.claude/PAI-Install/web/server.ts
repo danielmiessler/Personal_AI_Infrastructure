@@ -18,15 +18,22 @@ function serverLog(level: string, msg: string): void {
 }
 
 // Prevent unhandled errors from crashing the server
-// Guard against EPIPE cascade: if stderr pipe breaks, log to file only
+// Guard against EPIPE/EBADF cascade: if stdio pipe breaks, log to file only
 process.on("uncaughtException", (err) => {
-  if (err.message?.includes("EPIPE")) { stderrBroken = true; return; }
+  if (err.message?.includes("EPIPE") || err.message?.includes("EBADF")) { stderrBroken = true; return; }
   serverLog("FATAL", `Uncaught exception: ${err.message}\n${err.stack}`);
 });
 process.on("unhandledRejection", (err: any) => {
-  if (err?.message?.includes("EPIPE")) { stderrBroken = true; return; }
+  if (err?.message?.includes("EPIPE") || err?.message?.includes("EBADF")) { stderrBroken = true; return; }
   serverLog("FATAL", `Unhandled rejection: ${err?.message || err}\n${err?.stack || ""}`);
 });
+
+// Patch console.log/error to survive broken stdio pipes (EBADF/EPIPE)
+// When Electron's stdout pipe breaks, raw console calls would crash the server
+const _origLog = console.log;
+const _origError = console.error;
+console.log = (...args: any[]) => { try { _origLog(...args); } catch {} };
+console.error = (...args: any[]) => { try { _origError(...args); } catch {} };
 import { join, extname } from "path";
 import { handleWsMessage, addClient, removeClient } from "./routes";
 

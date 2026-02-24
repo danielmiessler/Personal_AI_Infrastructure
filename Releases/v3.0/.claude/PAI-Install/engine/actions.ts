@@ -991,7 +991,10 @@ export async function runVoiceSetup(
 
   const hasElevenLabsKey = !!state.collected.elevenLabsKey;
   if (!hasElevenLabsKey) {
-    await emit({ event: "message", content: "No ElevenLabs key — voice server will use macOS text-to-speech as fallback. You can add a key later in ~/.config/PAI/.env" });
+    const voiceFallback = isWindows
+      ? "No ElevenLabs key — voice server will use Windows text-to-speech (SAPI) as fallback. You can add a key later in ~/.config/PAI/.env"
+      : "No ElevenLabs key — voice server will use macOS text-to-speech as fallback. You can add a key later in ~/.config/PAI/.env";
+    await emit({ event: "message", content: voiceFallback });
   }
 
   // ── Start voice server (works with or without ElevenLabs key) ──

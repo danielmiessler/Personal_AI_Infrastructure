@@ -19,7 +19,7 @@ import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
-import { getTempFilePath, getAudioPlayCommand, getNotificationCommand } from '../lib/platform';
+import { getTempFilePath, getAudioPlayCommand, getNotificationCommand, getLocalTTSCommand } from '../lib/platform';
 import { unlinkSync } from 'fs';
 
 // Load .env from user home directory
@@ -38,8 +38,8 @@ const PORT = parseInt(process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 if (!ELEVENLABS_API_KEY) {
-  console.error('⚠️  ELEVENLABS_API_KEY not found in ~/.env');
-  console.error('Add: ELEVENLABS_API_KEY=your_key_here');
+  console.warn('⚠️  ELEVENLABS_API_KEY not found in ~/.env — using local TTS fallback');
+  console.warn('For premium voice: add ELEVENLABS_API_KEY=your_key_here to ~/.env');
 }
 
 // ==========================================================================
@@ -513,6 +513,21 @@ async function sendNotification(
     } catch (error: any) {
       console.error("Failed to generate/play speech:", error);
       voiceError = error.message || "TTS generation failed";
+    }
+  } else if (voiceEnabled && !ELEVENLABS_API_KEY) {
+    // Local TTS fallback — Windows SAPI, macOS say, Linux espeak
+    try {
+      const ttsCmd = getLocalTTSCommand(safeMessage);
+      if (ttsCmd) {
+        console.log(`🗣️  Local TTS fallback (no ElevenLabs key)`);
+        await spawnSafe(ttsCmd.command, ttsCmd.args);
+        voicePlayed = true;
+      } else {
+        voiceError = "No local TTS available on this platform";
+      }
+    } catch (error: any) {
+      console.error("Local TTS fallback failed:", error);
+      voiceError = error.message || "Local TTS failed";
     }
   }
 

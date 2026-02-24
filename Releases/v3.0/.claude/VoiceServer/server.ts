@@ -380,7 +380,7 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
   }
 
   return new Promise((resolve, reject) => {
-    const proc = spawn(audioCmd.command, audioCmd.args);
+    const proc = spawn(audioCmd.command, audioCmd.args, { windowsHide: true });
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
@@ -402,7 +402,7 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
 // Spawn a process safely
 function spawnSafe(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, args);
+    const proc = spawn(command, args, { windowsHide: true });
 
     proc.on('error', (error) => {
       console.error(`Error spawning ${command}:`, error);
@@ -461,7 +461,7 @@ async function edgeTtsSpeak(text: string, volume: number = 1.0): Promise<boolean
   }
 
   return new Promise((resolve, reject) => {
-    const proc = spawn(audioCmd.command, audioCmd.args);
+    const proc = spawn(audioCmd.command, audioCmd.args, { windowsHide: true });
 
     proc.on('error', (error) => {
       console.error('Error playing edge-tts audio:', error);

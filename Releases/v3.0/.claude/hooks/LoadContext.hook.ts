@@ -539,7 +539,7 @@ async function main() {
     if (!existsSync(skillIndexPath)) {
       console.error('🔍 skill-index.json missing — regenerating...');
       try {
-        execSync('bun ~/.claude/skills/PAI/Tools/GenerateSkillIndex.ts', {
+        execSync(`bun "${join(paiDir, 'skills/PAI/Tools/GenerateSkillIndex.ts')}"`, {
           cwd: paiDir,
           stdio: 'pipe',
           timeout: 5000

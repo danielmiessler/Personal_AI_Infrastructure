@@ -27,7 +27,7 @@ Core TypeScript utilities in `skills/PAI/Tools/`. Run with `bun ~/.claude/skills
 |------|---------|
 | `GetTranscript.ts` | Fetch YouTube video transcripts |
 | `ExtractTranscript.ts` | Extract and clean audio transcripts |
-| `Transcribe-bun.lock` | Lock file for audio transcription dependencies |
+| `TranscriptParser.ts` | Parse and structure raw transcript text into segments |
 | `PreviewMarkdown.ts` | Render markdown to terminal preview |
 | `Banner.ts` / `BannerNeofetch.ts` | Generate PAI startup banner variants |
 

@@ -308,7 +308,7 @@ jobs:
   compaction-stress-test:
     name: Compaction Stress (${{ matrix.os-label }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false

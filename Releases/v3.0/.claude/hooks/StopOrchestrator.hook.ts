@@ -30,6 +30,7 @@ import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { getPaiDir } from './lib/paths';
 
 interface HookInput {
   session_id: string;
@@ -43,7 +44,7 @@ interface HookInput {
  * One existsSync check. No regex. No transcript parsing.
  */
 function isMainSession(sessionId: string): boolean {
-  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const paiDir = getPaiDir();
   const kittySessionsDir = join(paiDir, 'MEMORY', 'STATE', 'kitty-sessions');
   if (!existsSync(kittySessionsDir)) return true; // Non-Kitty terminal: allow all sessions
   return existsSync(join(kittySessionsDir, `${sessionId}.json`));

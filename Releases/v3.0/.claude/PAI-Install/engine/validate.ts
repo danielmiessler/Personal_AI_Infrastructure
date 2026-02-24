@@ -199,15 +199,18 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
     }
 
     for (const psProfilePath of profilePaths) {
-      if (existsSync(psProfilePath)) {
-        try {
-          const psContent = readFileSync(psProfilePath, "utf-8");
-          if (psContent.includes("# PAI alias") && psContent.includes("function pai")) {
-            aliasConfigured = true;
-            break;
-          }
-        } catch {}
-      }
+      try {
+        // Read via PowerShell to bypass Controlled Folder Access blocking bun.exe
+        const readResult = spawnSync("powershell.exe", [
+          "-NoProfile", "-Command",
+          `if (Test-Path '${psProfilePath}') { Get-Content '${psProfilePath}' -Raw } else { '' }`
+        ], { timeout: 10000 });
+        const psContent = readResult.stdout?.toString() || "";
+        if (psContent.includes("# PAI alias") && psContent.includes("function pai")) {
+          aliasConfigured = true;
+          break;
+        }
+      } catch {}
     }
     aliasDetail = aliasConfigured
       ? "Configured in PowerShell profile"

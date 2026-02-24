@@ -656,20 +656,49 @@ export async function runConfiguration(
     }
 
     // Write pai function to all detected profiles
+    // Use PowerShell to write its own profile — bun.exe is blocked by
+    // Windows Defender Controlled Folder Access on OneDrive-synced Documents
     for (const psProfilePath of profilePaths) {
-      const psProfileDir = dirname(psProfilePath);
-      if (!existsSync(psProfileDir)) {
-        mkdirSync(psProfileDir, { recursive: true });
-      }
-      if (existsSync(psProfilePath)) {
-        let content = readFileSync(psProfilePath, "utf-8");
-        // Remove old PAI alias
-        content = content.replace(/^#\s*PAI alias\n.*function pai.*\n?/gm, "");
-        content = content.replace(/^function pai \{.*\}\n?/gm, "");
-        content = content.trimEnd() + `\n\n${marker}\n${psAlias}\n`;
-        writeFileSync(psProfilePath, content);
-      } else {
-        writeFileSync(psProfilePath, `${marker}\n${psAlias}\n`);
+      try {
+        // Build the content to write
+        let newContent: string;
+        const psProfileDir = dirname(psProfilePath);
+
+        // Create directory if needed (via PowerShell to bypass CFA)
+        if (!existsSync(psProfileDir)) {
+          spawnSync("powershell.exe", [
+            "-NoProfile", "-Command",
+            `New-Item -Path '${psProfileDir}' -ItemType Directory -Force | Out-Null`
+          ], { timeout: 10000 });
+        }
+
+        if (existsSync(psProfilePath)) {
+          // Read existing content via PowerShell (CFA may block bun reads too)
+          const readResult = spawnSync("powershell.exe", [
+            "-NoProfile", "-Command",
+            `if (Test-Path '${psProfilePath}') { Get-Content '${psProfilePath}' -Raw } else { '' }`
+          ], { timeout: 10000 });
+          let content = readResult.stdout?.toString() || "";
+          // Remove old PAI alias
+          content = content.replace(/^#\s*PAI alias\n.*function pai.*\n?/gm, "");
+          content = content.replace(/^function pai \{.*\}\n?/gm, "");
+          newContent = content.trimEnd() + `\n\n${marker}\n${psAlias}\n`;
+        } else {
+          newContent = `${marker}\n${psAlias}\n`;
+        }
+
+        // Write via PowerShell using .NET to avoid BOM issues
+        const escaped = newContent.replace(/'/g, "''");
+        spawnSync("powershell.exe", [
+          "-NoProfile", "-Command",
+          `[System.IO.File]::WriteAllText('${psProfilePath}', '${escaped}', [System.Text.UTF8Encoding]::new($false))`
+        ], { timeout: 10000 });
+      } catch (err: any) {
+        // Non-fatal: profile write failure shouldn't crash the installer
+        await emit({
+          event: "message",
+          content: `Note: Could not update PowerShell profile at ${psProfilePath}. You may need to add the PAI alias manually.`,
+        });
       }
     }
   } else {

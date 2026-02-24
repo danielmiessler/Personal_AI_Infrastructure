@@ -4,19 +4,33 @@
  * Serves static files and handles WebSocket communication.
  */
 
+import { existsSync, readFileSync, appendFileSync } from "fs";
+
+// ─── Crash-safe logging ─────────────────────────────────────────
+const LOG_FILE = join(import.meta.dir, "..", "_server-log.txt");
+let stderrBroken = false;
+function serverLog(level: string, msg: string): void {
+  const line = `[${new Date().toISOString()}] [${level}] ${msg}\n`;
+  if (!stderrBroken) {
+    try { process.stderr.write(line); } catch { stderrBroken = true; }
+  }
+  try { appendFileSync(LOG_FILE, line); } catch {}
+}
+
 // Prevent unhandled errors from crashing the server
+// Guard against EPIPE cascade: if stderr pipe breaks, log to file only
 process.on("uncaughtException", (err) => {
-  console.error("[PAI Installer] Uncaught exception:", err.message);
+  if (err.message?.includes("EPIPE")) { stderrBroken = true; return; }
+  serverLog("FATAL", `Uncaught exception: ${err.message}\n${err.stack}`);
 });
 process.on("unhandledRejection", (err: any) => {
-  console.error("[PAI Installer] Unhandled rejection:", err?.message || err);
+  if (err?.message?.includes("EPIPE")) { stderrBroken = true; return; }
+  serverLog("FATAL", `Unhandled rejection: ${err?.message || err}\n${err?.stack || ""}`);
 });
-
-import { existsSync, readFileSync } from "fs";
 import { join, extname } from "path";
 import { handleWsMessage, addClient, removeClient } from "./routes";
 
-const PORT = parseInt(process.env.PAI_INSTALL_PORT || "1337");
+const PORT = parseInt(process.env.PAI_INSTALL_PORT || "41337");
 const PUBLIC_DIR = join(import.meta.dir, "..", "public");
 
 // ─── MIME Types ──────────────────────────────────────────────────
@@ -118,6 +132,7 @@ const server = Bun.serve({
 
 resetInactivity();
 
+serverLog("INFO", `PAI Installer server running on http://127.0.0.1:${PORT}/`);
 console.log(`PAI Installer server running on http://127.0.0.1:${PORT}/`);
 
 export { server };

@@ -36,6 +36,7 @@ import { join, basename, dirname } from 'path';
 import { paiPath, getPaiDir } from '../lib/paths';
 import { inference } from '../../skills/PAI/Tools/Inference';
 import type { ParsedTranscript } from '../../skills/PAI/Tools/TranscriptParser';
+import { getVoiceId } from '../lib/identity';
 
 // ============================================================================
 // Types
@@ -363,7 +364,7 @@ async function notifyVoice(message: string): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
-      body: JSON.stringify({ message, voice_id: process.env.PAI_VOICE_ID || 'pNInz6obpgDQGcFmaJgB' }),
+      body: JSON.stringify({ message, voice_id: getVoiceId() }),
     });
     clearTimeout(timeout);
   } catch {

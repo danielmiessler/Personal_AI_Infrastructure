@@ -66,3 +66,11 @@ credentials/
 .claude/pai_updates/
 .claude/pai_backups/
 .claude/.pai-sync-history
+
+# Artifacts (screenshots, server logs)
+_screenshot.png
+**/_server-log.txt
+
+# Personal session artifacts (PRDs, plans)
+.prd/
+Plans/

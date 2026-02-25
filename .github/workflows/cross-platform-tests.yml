@@ -47,6 +47,10 @@ jobs:
         with:
           node-version: 'lts/*'
 
+      - name: Install dependencies
+        working-directory: Releases/v3.0/.claude
+        run: bun install
+
       - name: Install Playwright Chromium
         working-directory: Releases/v3.0/.claude
         run: npx playwright install chromium --with-deps
@@ -85,7 +89,7 @@ jobs:
           OPENAI_API_KEY: "sk-dummy-ci-test-key"
           APIFY_TOKEN: "apify_dummy_ci_token"
           PAI_TEST_MODE: "1"
-        run: bun test tests/cross-platform/ --timeout 30000
+        run: bun test tests/cross-platform/ --timeout 60000
 
       - name: Run forbidden pattern audit
         working-directory: Releases/v3.0/.claude

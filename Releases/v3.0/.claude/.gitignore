@@ -33,7 +33,5 @@ node_modules/
 *.cache
 *.log
 
-# Accidental npm/bun debris
-/package.json
+# Accidental npm debris
 /package-lock.json
-/bun.lock

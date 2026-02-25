@@ -47,6 +47,83 @@ function loadVariables(): Record<string, string> {
 }
 
 /**
+ * Check if voice is globally enabled in settings.json
+ */
+function isVoiceEnabled(): boolean {
+  try {
+    const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
+    return settings.daidentity?.voices?.enabled !== false;
+  } catch {
+    return true; // default enabled
+  }
+}
+
+/**
+ * Strip voice curl blocks and references when voice is disabled.
+ * Removes VERBATIM curl instruction blocks and adjusts gate text
+ * so the model never attempts voice curls.
+ */
+function stripVoiceCurls(content: string): string {
+  let result = content;
+
+  // Remove VERBATIM curl blocks: the instruction line + the curl command line + surrounding blank lines
+  result = result.replace(
+    /\n*\[VERBATIM[^\]]*\]\n`curl[^\n]*localhost:8888[^\n]*`\n*/g,
+    "\n"
+  );
+
+  // Remove the Voice Phase Announcements documentation section (## level heading)
+  result = result.replace(
+    /\n## Voice Phase Announcements[\s\S]*?(?=\n## |\n---)/,
+    ""
+  );
+
+  // Adjust OBSERVE gate text: remove voice curls from allowed-tool-call lists
+  result = result.replace(
+    "except TaskCreate, voice notification curls, and CONTEXT RECOVERY",
+    "except TaskCreate and CONTEXT RECOVERY"
+  );
+  result = result.replace(
+    "besides voice curls, CONTEXT RECOVERY, and WISDOM INJECTION",
+    "besides CONTEXT RECOVERY and WISDOM INJECTION"
+  );
+
+  // Remove full lines/sections mentioning voice curls (BEFORE generic word-level strip)
+  result = result.replace(
+    /- No voice curls \(curl to localhost:8888\)[^\n]*\n/g,
+    ""
+  );
+  result = result.replace(
+    /Each curl is marked[^\n]*\n/g,
+    ""
+  );
+  result = result.replace(
+    /\*\*Every phase gets its voice curl\.[^\n]*\n/g,
+    ""
+  );
+  result = result.replace(
+    /- Each gets its own voice curl announcement[^\n]*\n/g,
+    ""
+  );
+  result = result.replace(
+    /### Background Agent VOICE CURL Note\n+!!! NOTE:[^\n]*\n/g,
+    ""
+  );
+  result = result.replace(
+    "uses voice curls, performs capability audits",
+    "performs capability audits"
+  );
+
+  // Generic voice curl reference cleanup (after specific patterns handled)
+  result = result.replace(
+    /,?\s*voice curls,?/g,
+    ""
+  );
+
+  return result;
+}
+
+/**
  * Resolve template variables in content
  */
 function resolveVariables(content: string, variables: Record<string, string>): string {
@@ -120,6 +197,12 @@ for (const file of components) {
   // No extra newlines - components manage their own spacing
 }
 
+// Strip voice curls from output when voice is globally disabled
+const voiceEnabled = isVoiceEnabled();
+if (!voiceEnabled) {
+  output = stripVoiceCurls(output);
+}
+
 // Resolve template variables from settings.json
 const variables = loadVariables();
 output = resolveVariables(output, variables);
@@ -131,7 +214,8 @@ const resolvedCount = Object.entries(variables)
   .filter(([key]) => output.includes(key) === false)
   .length;
 
-console.log(`✅ Built SKILL.md from ${components.length} components:`);
+console.log(`✅ Built SKILL.md from ${components.length} components (voice: ${voiceEnabled ? "enabled" : "disabled — curls stripped"}):`);
+
 components.forEach((c, i) => {
   console.log(`   ${(i + 1).toString().padStart(2)}. ${c}`);
 });

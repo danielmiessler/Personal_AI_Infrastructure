@@ -133,10 +133,18 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
 
       // Parse JSON if requested
       if (options.expectJson) {
-        const jsonMatch = output.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+        // Try both object and array matches — use whichever parses successfully.
+        // The greedy object regex /\{[\s\S]*\}/ can capture invalid substrings
+        // when the LLM wraps a JSON array inside markdown or explanatory text
+        // that happens to contain braces. By trying both candidates and
+        // validating with JSON.parse, we handle arrays and objects reliably.
+        const objectMatch = output.match(/\{[\s\S]*\}/);
+        const arrayMatch = output.match(/\[[\s\S]*\]/);
+
+        for (const candidate of [objectMatch?.[0], arrayMatch?.[0]]) {
+          if (!candidate) continue;
           try {
-            const parsed = JSON.parse(jsonMatch[0]);
+            const parsed = JSON.parse(candidate);
             resolve({
               success: true,
               output,
@@ -145,21 +153,12 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
               level,
             });
             return;
-          } catch {
-            resolve({
-              success: false,
-              output,
-              error: 'Failed to parse JSON response',
-              latencyMs,
-              level,
-            });
-            return;
-          }
+          } catch { /* try next candidate */ }
         }
         resolve({
           success: false,
           output,
-          error: 'No JSON found in response',
+          error: 'Failed to parse JSON response',
           latencyMs,
           level,
         });

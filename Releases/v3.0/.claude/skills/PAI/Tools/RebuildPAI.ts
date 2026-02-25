@@ -32,6 +32,14 @@ function loadVariables(): Record<string, string> {
       "{PRINCIPAL.NAME}": settings.principal?.name || "User",
       "{PRINCIPAL.TIMEZONE}": settings.principal?.timezone || "UTC",
       "{DAIDENTITY.ALGORITHMVOICEID}": settings.daidentity?.voices?.algorithm?.voiceId || "",
+      // Phase notification texts (user-configurable, short defaults)
+      "{VOICE.NOTIFY.OBSERVE}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.observe || "Observe",
+      "{VOICE.NOTIFY.THINK}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.think || "Think",
+      "{VOICE.NOTIFY.PLAN}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.plan || "Plan",
+      "{VOICE.NOTIFY.BUILD}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.build || "Build",
+      "{VOICE.NOTIFY.EXECUTE}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.execute || "Execute",
+      "{VOICE.NOTIFY.VERIFY}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.verify || "Verify",
+      "{VOICE.NOTIFY.LEARN}": settings.daidentity?.voices?.algorithm?.phaseNotifications?.learn || "Learn",
     };
   } catch {
     console.warn("⚠️ Could not read settings.json, using defaults");
@@ -42,6 +50,13 @@ function loadVariables(): Record<string, string> {
       "{PRINCIPAL.NAME}": "User",
       "{PRINCIPAL.TIMEZONE}": "UTC",
       "{DAIDENTITY.ALGORITHMVOICEID}": "",
+      "{VOICE.NOTIFY.OBSERVE}": "Observe",
+      "{VOICE.NOTIFY.THINK}": "Think",
+      "{VOICE.NOTIFY.PLAN}": "Plan",
+      "{VOICE.NOTIFY.BUILD}": "Build",
+      "{VOICE.NOTIFY.EXECUTE}": "Execute",
+      "{VOICE.NOTIFY.VERIFY}": "Verify",
+      "{VOICE.NOTIFY.LEARN}": "Learn",
     };
   }
 }

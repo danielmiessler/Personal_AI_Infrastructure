@@ -214,7 +214,20 @@ async function main() {
 
     if (tool_result) {
       const m = tool_result.match(TASK_NUMBER);
-      if (m) taskNumber = m[1];
+      if (m) {
+        taskNumber = m[1];
+      } else {
+        // Broader fallback: any "#N" in the result
+        const fallback = tool_result.match(/#(\d+)/);
+        if (fallback) {
+          taskNumber = fallback[1];
+          process.stderr.write(`[AlgorithmTracker] taskId captured via fallback regex: #${taskNumber}\n`);
+        } else {
+          process.stderr.write(`[AlgorithmTracker] WARNING: taskId not captured from tool_result: ${tool_result.slice(0, 80)}\n`);
+        }
+      }
+    } else {
+      process.stderr.write(`[AlgorithmTracker] WARNING: TaskCreate tool_result was falsy\n`);
     }
     if (tool_input?.subject) criterion = parseCriterion(tool_input.subject);
     if (!criterion && tool_result) {

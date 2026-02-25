@@ -121,6 +121,6 @@ const settingsPath = getSettingsPath();
     process.exit(0);
   } catch (error) {
     console.error('StartupGreeting: Failed to display banner', error);
-    process.exit(1);
+    process.exit(0);
   }
 })();

@@ -99,12 +99,11 @@ context_remaining=${context_remaining:-100}
 total_input=${total_input:-0}
 total_output=${total_output:-0}
 
-# If used_percentage is 0 but we have token data, calculate manually
-# This handles cases where statusLine is called before percentage is populated
-if [ "$context_pct" = "0" ] && [ "$total_input" -gt 0 ]; then
-    total_tokens=$((total_input + total_output))
-    context_pct=$((total_tokens * 100 / context_max))
-fi
+# NOTE: Removed fallback that calculated context_pct from total_input + total_output
+# when used_percentage was 0. total_input/output_tokens are CUMULATIVE session totals
+# (like an odometer) — they can far exceed context_window_size. After /clear,
+# used_percentage is null (jq defaults to 0) but totals retain pre-clear values,
+# producing e.g. 531K/200K = 265% capped to 100%. See issue for full analysis.
 
 # Get Claude Code version
 if [ -n "$cc_version_json" ] && [ "$cc_version_json" != "unknown" ]; then

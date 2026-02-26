@@ -46,6 +46,23 @@ PHASE D: VERIFICATION (validation - last)
 └─ ✅ verification.skeptical_verifier → Task with skeptical,meticulous,adversarial traits
 ```
 
+## Agent Output Persistence
+
+**Agents producing >2KB of output MUST write results to files, not return strings.**
+
+When an agent's work produces substantial output (research findings, analysis, code generation), it should write to a file and return the file path + a brief summary. This prevents:
+- Context window bloat when agent results are inlined
+- Lost work when context compaction truncates large agent responses
+- Inability to reference agent output from other agents or later phases
+
+```
+RULE: Agent output > 2KB → write to MEMORY/Work/{session}/agent-{capability}-{row}.md
+      Return: file path + 1-paragraph summary (< 200 words)
+```
+
+Include this instruction in every agent prompt:
+> "Write your full findings to a file at the path provided. Return only the file path and a brief summary (under 200 words)."
+
 ## Spawning Agents by Capability
 
 ### Research Agents
@@ -54,7 +71,9 @@ PHASE D: VERIFICATION (validation - last)
 // For rows with research.* capability
 Task({
   description: "Research: [ISC row description]",
-  prompt: "[Row description] - find current best practices, cite sources",
+  prompt: `[Row description] - find current best practices, cite sources.
+    Write full findings to MEMORY/Work/{session}/research-{row}.md.
+    Return only the file path and a <200 word summary.`,
   subagent_type: "PerplexityResearcher", // or GeminiResearcher, GrokResearcher, etc.
   model: "sonnet",
   run_in_background: true // for parallel research
@@ -67,7 +86,9 @@ Task({
 // For rows with execution.* capability
 Task({
   description: "Execute: [ISC row description]",
-  prompt: "[Row description] - implement this requirement",
+  prompt: `[Row description] - implement this requirement.
+    If producing analysis or reports (>2KB), write to MEMORY/Work/{session}/execute-{row}.md.
+    Return file path + summary.`,
   subagent_type: "Engineer", // or Architect, Designer, etc.
   model: "sonnet" // or opus for Architect
 })

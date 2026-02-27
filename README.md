@@ -34,14 +34,14 @@
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Release v3.0](https://img.shields.io/badge/📦_Release-v3.0-8B5CF6?style=flat)](Releases/v3.0/)
+[![Release v4.0](https://img.shields.io/badge/📦_Release-v4.0-8B5CF6?style=flat)](Releases/v4.0/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/Personal_AI_Infrastructure/graphs/contributors)
 
 <!-- Tech Stack -->
 [![Built with Claude](https://img.shields.io/badge/Built_with-Claude-D4A574?style=flat&logo=anthropic&logoColor=white)](https://claude.ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-000000?style=flat&logo=bun&logoColor=white)](https://bun.sh)
-[![UL Community](https://img.shields.io/badge/UL_Community-5865F2?style=flat&logo=discord&logoColor=white)](https://danielmiessler.com/upgrade)
+[![Community](https://img.shields.io/badge/Community-5865F2?style=flat&logo=discord&logoColor=white)](https://danielmiessler.com/upgrade)
 
 <br/>
 
@@ -62,9 +62,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v3.0.0 Released** — The Algorithm Matures: Constraint Extraction, Build Drift Prevention, Persistent PRDs, and Parallel Loop Execution.
+> **PAI v4.0.0 Released** — Lean and Mean: 38 flat skill directories compressed into 12 hierarchical categories. Dead systems removed. Context footprint cut in half.
 >
-> **[Release notes →](Releases/v3.0/README.md)** | **[GitHub Release →](https://github.com/danielmiessler/Personal_AI_Infrastructure/releases/tag/v3.0.0)**
+> **[Release notes →](Releases/v4.0/README.md)**
 
 <div align="center">
 
@@ -339,10 +339,10 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v3.0
+cd Personal_AI_Infrastructure/Releases/v4.0
 
 # Copy the release and run the installer
-cp -r .claude ~/ && cd ~/.claude && bash PAI-Install/install.sh
+cp -r .claude ~/ && cd ~/.claude && bash install.sh
 ```
 
 **The installer will:**
@@ -417,7 +417,7 @@ Recovery is straightforward:
 
 **GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions)
 
-**UL Community Discord:** PAI is discussed in the [Unsupervised Learning community](https://danielmiessler.com/upgrade) along with other AI projects
+**Community Discord:** PAI is discussed in the [community Discord](https://danielmiessler.com/upgrade) along with other AI projects
 
 **Twitter/X:** [@danielmiessler](https://twitter.com/danielmiessler)
 
@@ -490,6 +490,16 @@ MIT License - see [LICENSE](LICENSE) for details.
 <summary><strong>📜 Update History</strong></summary>
 
 <br/>
+
+**v4.0.0 (2026-02-27) — Lean and Mean**
+- 38 flat skill directories → 12 hierarchical categories (-68% top-level dirs)
+- Dead systems removed: Components/, DocRebuild, RebuildSkill
+- CLAUDE.md template system with BuildCLAUDE.ts + SessionStart hook
+- Algorithm v3.5.0 (up from v1.4.0)
+- Comprehensive security sanitization (33+ files cleaned)
+- All version refs updated, Electron crash fix
+- 49 skills, 20 hooks, 177 workflows, 14 agents
+- [Release Notes](Releases/v4.0/README.md)
 
 **v3.0.0 (2026-02-15) — The Algorithm Matures**
 - Algorithm v1.4.0 with constraint extraction and build drift prevention

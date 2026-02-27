@@ -4,12 +4,12 @@
 
 # PAI v4.0.0 — Lean and Mean
 
-**49 skills, 177 workflows, 20 hooks — and 81% of the context window is free for your actual work.**
+**63 skills, 180 workflows, 21 hooks — and 81% of the context window is free for your actual work.**
 
-[![Skills](https://img.shields.io/badge/Skills-49-22C55E?style=flat)](../../skills/)
-[![Categories](https://img.shields.io/badge/Categories-12-3B82F6?style=flat)](../../skills/)
-[![Hooks](https://img.shields.io/badge/Hooks-20-F97316?style=flat)](../../hooks/)
-[![Workflows](https://img.shields.io/badge/Workflows-177-8B5CF6?style=flat)](../../skills/)
+[![Skills](https://img.shields.io/badge/Skills-63-22C55E?style=flat)](../../skills/)
+[![Categories](https://img.shields.io/badge/Categories-13-3B82F6?style=flat)](../../skills/)
+[![Hooks](https://img.shields.io/badge/Hooks-21-F97316?style=flat)](../../hooks/)
+[![Workflows](https://img.shields.io/badge/Workflows-180-8B5CF6?style=flat)](../../skills/)
 [![Algorithm](https://img.shields.io/badge/Algorithm-v3.5.0-D97706?style=flat)](../../PAI/Algorithm/)
 
 </div>
@@ -71,7 +71,6 @@ The single biggest change. Every skill was reorganized into a hierarchical categ
 | **Investigation** | OSINT, PrivateInvestigator, Recon | 3 dirs → 1 category |
 | **Scraping** | Apify, BrightData | 2 dirs → 1 category |
 | **Research** | Research, ExtractWisdom | 2 dirs → 1 category |
-| **Sales** | Sales, Hormozi | Preserved + consolidated |
 | **Telos** | Telos | Preserved |
 | **Agents** | Agents | Preserved |
 | **USMetrics** | USMetrics | Preserved |
@@ -154,10 +153,10 @@ Comprehensive audit with multiple agent sweeps:
 | Metric | v3.0 | v4.0 | Change |
 |--------|------|------|--------|
 | **Context at startup** | **~38%** | **~19%** | **-50% context footprint** |
-| Skill directories | 38 | 12 categories | -68% top-level dirs |
-| SKILL.md files | 41 | 49 | +8 (sub-skill routing) |
-| Workflows | 162 | 177 | +15 |
-| Hooks | 20 | 20 | Same |
+| Skill directories | 38 | 13 categories | -66% top-level dirs |
+| SKILL.md files | 41 | 63 | +22 (sub-skill routing) |
+| Workflows | 162 | 180 | +18 |
+| Hooks | 20 | 21 | +1 |
 | Agent templates | 13 | 14 | +1 |
 | Total files | 1,227 | 1,151 | -76 files |
 | Dead systems | 3 | 0 | Cleaned |

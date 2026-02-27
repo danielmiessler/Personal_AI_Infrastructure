@@ -498,7 +498,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - Algorithm v3.5.0 (up from v1.4.0)
 - Comprehensive security sanitization (33+ files cleaned)
 - All version refs updated, Electron crash fix
-- 49 skills, 20 hooks, 177 workflows, 14 agents
+- 63 skills, 21 hooks, 180 workflows, 14 agents
 - [Release Notes](Releases/v4.0/README.md)
 
 **v3.0.0 (2026-02-15) — The Algorithm Matures**

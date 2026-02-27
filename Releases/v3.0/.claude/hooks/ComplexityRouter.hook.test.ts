@@ -2,8 +2,9 @@
 /**
  * ComplexityRouter.hook.test.ts — Unit tests for ComplexityRouter
  *
- * Tests all three routing tiers (HAIKU, SONNET, OPUS) plus edge cases
- * and v1.1 accuracy improvements (negation, simplicity prefix, structural anchor).
+ * Tests all three routing tiers (HAIKU, SONNET, OPUS) plus edge cases,
+ * v1.1 accuracy improvements (negation, simplicity prefix, structural anchor),
+ * and v1.2 accuracy improvements (threshold raised to ≥3, scale signal tightened).
  *
  * Run: bun test Releases/v3.0/.claude/hooks/ComplexityRouter.hook.test.ts
  */
@@ -113,6 +114,16 @@ describe('SONNET tier — default (silent stdout)', () => {
     expect(stderr).toContain('SONNET tier');
   });
 
+  test('two Opus signals not enough for OPUS (v1.2 threshold ≥3) — stays SONNET', () => {
+    const { stdout, stderr, exitCode } = runHook(
+      'Create a deployment infrastructure strategy and implementation plan for the new platform'
+    );
+    expect(exitCode).toBe(0);
+    // 2 signals (infrastructure + planning/strategy) — not enough for v1.2 threshold
+    expect(stdout.trim()).toBe('');
+    expect(stderr).toContain('SONNET tier');
+  });
+
   test('bug fix request with context routes to SONNET', () => {
     const { stdout, exitCode } = runHook(
       'The user login is failing when the email has uppercase letters in it, can you find and fix this bug?'
@@ -124,8 +135,8 @@ describe('SONNET tier — default (silent stdout)', () => {
 
 // ── OPUS Tier ──
 
-describe('OPUS tier — high complexity (≥2 signals)', () => {
-  test('architecture + comprehensive routes to OPUS', () => {
+describe('OPUS tier — high complexity (≥3 signals)', () => {
+  test('architecture + comprehensive + refactor routes to OPUS', () => {
     const { stdout, exitCode } = runHook(
       'design a comprehensive architecture for the platform refactor'
     );
@@ -135,16 +146,16 @@ describe('OPUS tier — high complexity (≥2 signals)', () => {
     expect(stdout).toContain('Signals:');
   });
 
-  test('infrastructure + strategy routes to OPUS', () => {
+  test('infrastructure + strategy + comprehensive routes to OPUS', () => {
     const { stdout, exitCode } = runHook(
-      'Create a deployment infrastructure strategy and implementation plan for the new platform'
+      'Create a comprehensive infrastructure strategy and implementation plan for the platform migration'
     );
     expect(exitCode).toBe(0);
     expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
     expect(stdout).toContain('infrastructure');
   });
 
-  test('refactor + comprehensive routes to OPUS', () => {
+  test('refactor + comprehensive + schema design routes to OPUS', () => {
     const { stdout, exitCode } = runHook(
       'I need a comprehensive refactor of the authentication module with a new schema design'
     );
@@ -256,6 +267,65 @@ describe('v1.1 — Structural signals require domain anchor', () => {
   });
 });
 
+// ── v1.2 Accuracy Improvements ──
+
+describe('v1.2 — Threshold raised from ≥2 to ≥3 signals', () => {
+  test('architecture + infrastructure (2 signals) stays SONNET', () => {
+    const { stdout, stderr, exitCode } = runHook('design the infrastructure for the new service');
+    expect(exitCode).toBe(0);
+    // 2 signals (architecture + infrastructure) — below v1.2 threshold
+    expect(stdout.trim()).toBe('');
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('refactor + strategy (2 signals) stays SONNET', () => {
+    const { stdout, stderr, exitCode } = runHook('develop a migration strategy for the legacy codebase refactor');
+    expect(exitCode).toBe(0);
+    // 2 signals (refactor/migration + planning/strategy)
+    expect(stdout.trim()).toBe('');
+    expect(stderr).toContain('SONNET tier');
+  });
+});
+
+describe('v1.2 — Scale signal tightened (removed common false-positive words)', () => {
+  test('"thorough" alone does not trigger scale signal', () => {
+    const { stdout, stderr, exitCode } = runHook('do a thorough review of the PR changes');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe(''); // "thorough" no longer a scale signal
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"advanced" alone does not trigger scale signal', () => {
+    const { stdout, stderr, exitCode } = runHook('implement advanced caching for the API layer');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe(''); // "advanced" no longer a scale signal
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"extended" alone does not trigger scale signal', () => {
+    const { stdout, stderr, exitCode } = runHook('write extended tests for the auth service');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe(''); // "extended" no longer a scale signal
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"deep" alone does not trigger scale signal', () => {
+    const { stdout, stderr, exitCode } = runHook('do a deep dive into the database query performance');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe(''); // "deep" no longer a scale signal
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"comprehensive" still triggers scale signal (retained)', () => {
+    const { stdout, exitCode } = runHook(
+      'design a comprehensive architecture for the platform refactor'
+    );
+    expect(exitCode).toBe(0);
+    // "comprehensive" retained → contributes to ≥3 signal OPUS result
+    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
+  });
+});
+
 // ── Edge Cases ──
 
 describe('Edge cases — graceful error handling', () => {
@@ -298,9 +368,10 @@ describe('Edge cases — graceful error handling', () => {
     expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
   });
 
-  test('short prompt with complexity keywords routes to OPUS not HAIKU', () => {
-    const { stdout, exitCode } = runHook('architect the platform infrastructure framework');
+  test('short prompt with 3+ complexity keywords routes to OPUS not HAIKU', () => {
+    const { stdout, exitCode } = runHook('architect a comprehensive platform infrastructure ecosystem');
     expect(exitCode).toBe(0);
+    // architecture + scale/comprehensive + infrastructure = 3 signals → OPUS
     expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
     expect(stdout).not.toContain('SIMPLE task detected');
   });

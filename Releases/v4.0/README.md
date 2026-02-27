@@ -1,14 +1,15 @@
 <div align="center">
 
+![PAI v4.0 Statusline — 19% context at startup](pai-v4-statusline.png)
+
 # PAI v4.0.0 — Lean and Mean
 
-**38 flat directories compressed into 12 hierarchical categories. Dead systems removed. Context footprint cut in half.**
+**49 skills, 177 workflows, 20 hooks — and 81% of the context window is free for your actual work.**
 
 [![Skills](https://img.shields.io/badge/Skills-49-22C55E?style=flat)](../../skills/)
 [![Categories](https://img.shields.io/badge/Categories-12-3B82F6?style=flat)](../../skills/)
 [![Hooks](https://img.shields.io/badge/Hooks-20-F97316?style=flat)](../../hooks/)
 [![Workflows](https://img.shields.io/badge/Workflows-177-8B5CF6?style=flat)](../../skills/)
-[![Agents](https://img.shields.io/badge/Agents-14-EC4899?style=flat)](../../agents/)
 [![Algorithm](https://img.shields.io/badge/Algorithm-v3.5.0-D97706?style=flat)](../../PAI/Algorithm/)
 
 </div>
@@ -21,11 +22,7 @@ The entire point of v4.0 is **saving context tokens on every single turn**.
 
 AI agents have a fixed context window. Every token spent on system scaffolding — skill descriptions, routing tables, hook definitions — is a token *not* available for actual work. v3.0 loaded 38 separate skill descriptions into context on every turn. v4.0 loads 12.
 
-Here's what a live PAI v4.0 session looks like at startup — **19% context usage** with the full system loaded:
-
-![PAI v4.0 Statusline — 19% context at startup](pai-v4-statusline.png)
-
-> **49 skills, 177 workflows, 20 hooks, 14 agents — and 81% of the context window is free for your actual work.**
+That screenshot above is a live PAI v4.0 session at startup — **19% context usage** with the full system loaded. 38 flat directories compressed into 12 hierarchical categories. Dead systems removed. Context footprint cut in half.
 
 Every response is faster. Every complex task has more room to think. Every long session lasts longer before hitting the context wall. This is the change that makes everything else possible.
 

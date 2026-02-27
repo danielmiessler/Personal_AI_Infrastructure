@@ -15,6 +15,22 @@
 
 ---
 
+## Context is Everything
+
+The entire point of v4.0 is **saving context tokens on every single turn**.
+
+AI agents have a fixed context window. Every token spent on system scaffolding — skill descriptions, routing tables, hook definitions — is a token *not* available for actual work. v3.0 loaded 38 separate skill descriptions into context on every turn. v4.0 loads 12.
+
+Here's what a live PAI v4.0 session looks like at startup — **19% context usage** with the full system loaded:
+
+![PAI v4.0 Statusline — 19% context at startup](pai-v4-statusline.png)
+
+> **49 skills, 177 workflows, 20 hooks, 14 agents — and 81% of the context window is free for your actual work.**
+
+Every response is faster. Every complex task has more room to think. Every long session lasts longer before hitting the context wall. This is the change that makes everything else possible.
+
+---
+
 ## What Changed
 
 v3.0 made the Algorithm mechanically rigorous. But the system around it had grown unwieldy — 38 flat skill directories competing for context, dead build systems nobody used, stale version numbers scattered across dozens of files, and a Components/ directory that hadn't been functional in months.
@@ -140,6 +156,7 @@ Comprehensive audit with multiple agent sweeps:
 
 | Metric | v3.0 | v4.0 | Change |
 |--------|------|------|--------|
+| **Context at startup** | **~38%** | **~19%** | **-50% context footprint** |
 | Skill directories | 38 | 12 categories | -68% top-level dirs |
 | SKILL.md files | 41 | 49 | +8 (sub-skill routing) |
 | Workflows | 162 | 177 | +15 |

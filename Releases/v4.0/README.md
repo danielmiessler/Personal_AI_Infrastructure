@@ -18,17 +18,19 @@
 
 ## Context is Everything
 
-The entire point of v4.0 is **saving context tokens on every single turn**.
+The primary point of v4.0 is becoming **lean and mean**, and that primary means **massive reduction in context usage**.
 
-AI agents have a fixed context window. Every token spent on system scaffolding — skill descriptions, routing tables, hook definitions — is a token *not* available for actual work. v3.0 loaded 38 separate skill descriptions into context on every turn. v4.0 loads 12.
+Using CC's system itself has become heavier recently, and we wanted to look at how we could really reduce PAI's default context load.
 
-That screenshot above is a live PAI v4.0 session at startup — **19% context usage** with the full system loaded. 38 flat directories compressed into 12 hierarchical categories. Dead systems removed. Context footprint cut in half.
+So we basically re-architected PAI to be much more of a dynamic loading system. Super lean, and then expanding as needed.
 
-Every response is faster. Every complex task has more room to think. Every long session lasts longer before hitting the context wall. This is the change that makes everything else possible.
+This also means using NATIVE mode a lot more, for things that don't require the algorithm. So it's a lot more intelligent about that.
+
+Tons of other updates as well, all part of this efficiency theme.
 
 ---
 
-## What Changed
+## What All Changed
 
 v3.0 made the Algorithm mechanically rigorous. But the system around it had grown unwieldy — 38 flat skill directories competing for context, dead build systems nobody used, stale version numbers scattered across dozens of files, and a Components/ directory that hadn't been functional in months.
 

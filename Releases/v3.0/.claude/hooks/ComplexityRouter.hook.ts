@@ -1,4 +1,8 @@
 #!/usr/bin/env bun
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
 /**
  * ComplexityRouter.hook.ts - Auto Model Routing (Haiku ↔ Sonnet ↔ Opus)
  *
@@ -86,7 +90,7 @@ const OPUS_SIGNAL_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   // Architecture/Design
   { name: 'architecture', pattern: /\b(architect|design|redesign|blueprint|schema|system design|systems design)\b/i },
   // Scale keywords
-  { name: 'scale/comprehensive', pattern: /\b(comprehensive|advanced|deep|extended|complex|sophisticated|exhaustive|thorough)\b/i },
+  { name: 'scale/comprehensive', pattern: /\b(comprehensive|complex|sophisticated|exhaustive)\b/i },
   // Refactor/Migration
   { name: 'refactor/migration', pattern: /\b(refactor|migrate|migration|overhaul|restructure|rewrite|rearchitect)\b/i },
   // Infrastructure
@@ -97,6 +101,9 @@ const OPUS_SIGNAL_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   { name: 'complex-skill', pattern: /\b(council|red.?team|first.?principles?|be creative|world.?threat|swarm|agent.?team)\b/i },
   // Multi-system coordination
   { name: 'multi-system', pattern: /\b(integrat|orchestrat|coordinat|multiple systems?|end.?to.?end|full.?stack)\b/i },
+  // Length signal: >400 chars (checked separately)
+  // Sentence count signal: 4+ sentences (checked separately)
+  // Question count: 2+ questions (checked separately)
 ];
 
 // ── Signal Suppression Helpers (v1.1) ──
@@ -180,6 +187,18 @@ or task is simpler than signals suggest.
 </system-reminder>`);
 }
 
+// ── Routing Signal Writer ──
+
+function writeRoutingSignal(sessionId: string, tier: string, promptChars: number): void {
+  try {
+    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+    const stateDir = join(paiDir, 'MEMORY', 'STATE');
+    mkdirSync(stateDir, { recursive: true });
+    const signal = { timestamp: new Date().toISOString(), session_id: sessionId, tier, prompt_chars: promptChars };
+    writeFileSync(join(stateDir, `pending-route-${sessionId}.json`), JSON.stringify(signal));
+  } catch { /* non-blocking — hook still works if write fails */ }
+}
+
 // ── Stdin Reader ──
 
 async function readStdin(): Promise<string> {
@@ -217,20 +236,23 @@ async function main(): Promise<void> {
     if (isHaikuTier(prompt)) {
       console.error(`[ComplexityRouter] HAIKU tier — simple prompt detected (${prompt.length} chars)`);
       outputHaikuHint();
+      writeRoutingSignal(data.session_id, 'HAIKU', prompt.length);
       process.exit(0);
     }
 
     // ── Tier 3: OPUS (needs ≥2 signals) ──
     const opusAnalysis = analyzeOpusSignals(prompt);
-    if (opusAnalysis.signalCount >= 2) {
+    if (opusAnalysis.signalCount >= 3) {
       console.error(`[ComplexityRouter] OPUS tier — ${opusAnalysis.signalCount} signals: ${opusAnalysis.matchedSignals.join(', ')}`);
       outputOpusHint(opusAnalysis.matchedSignals);
+      writeRoutingSignal(data.session_id, 'OPUS', prompt.length);
       process.exit(0);
     }
 
     // ── Tier 2: SONNET (default — silent) ──
     console.error(`[ComplexityRouter] SONNET tier (default) — ${opusAnalysis.signalCount} opus signal(s), not enough for OPUS`);
     // No stdout output — Sonnet handles it directly
+    writeRoutingSignal(data.session_id, 'SONNET', prompt.length);
 
   } catch (err) {
     console.error(`[ComplexityRouter] Unexpected error: ${err}`);

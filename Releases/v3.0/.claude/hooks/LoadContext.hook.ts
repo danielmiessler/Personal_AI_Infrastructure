@@ -227,6 +227,25 @@ ${parts.join('\n')}
 `;
 }
 
+/**
+ * Load USER/TELOS/PROJECTS.md for deterministic project context injection.
+ * Addresses discussion #479: model was told to "read TELOS/*.md" via text
+ * instruction but often didn't. Programmatic injection is reliable.
+ * Only PROJECTS.md (~1KB) — not all 20 TELOS files (33KB).
+ */
+function loadTelosProjects(paiDir: string): string | null {
+  const projectsPath = join(paiDir, 'skills/PAI/USER/TELOS/PROJECTS.md');
+  if (!existsSync(projectsPath)) return null;
+  try {
+    const content = readFileSync(projectsPath, 'utf-8');
+    if (!content.trim()) return null;
+    return `\n## User Projects (from TELOS/PROJECTS.md)\n\n${content}`;
+  } catch (err) {
+    console.error(`⚠️ Failed to load TELOS/PROJECTS.md: ${err}`);
+    return null;
+  }
+}
+
 interface WorkSession {
   type: 'recent' | 'project';
   name: string;
@@ -570,6 +589,12 @@ async function main() {
       console.error('💕 Loaded relationship context');
     }
 
+    // Load TELOS/PROJECTS.md for deterministic project context (addresses #479)
+    const telosProjects = loadTelosProjects(paiDir);
+    if (telosProjects) {
+      console.error('📁 Loaded TELOS/PROJECTS.md (deterministic project context)');
+    }
+
     const message = `<system-reminder>
 PAI CONTEXT (Auto-loaded at Session Start)
 
@@ -591,6 +616,7 @@ The assistant's name is: **${DA_NAME}**
 
 ${contextContent}
 ${relationshipContext ? '\n---\n' + relationshipContext : ''}
+${telosProjects ? '\n---\n' + telosProjects : ''}
 ---
 
 This context is now active. Additional context loads dynamically as needed.

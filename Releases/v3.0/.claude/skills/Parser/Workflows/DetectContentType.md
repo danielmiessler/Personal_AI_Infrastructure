@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the DetectContentType workflow in the Parser skill to detect content"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the DetectContentType workflow in the Parser skill to detect content"
 ```
 
 Running the **DetectContentType** workflow in the **Parser** skill to detect content...

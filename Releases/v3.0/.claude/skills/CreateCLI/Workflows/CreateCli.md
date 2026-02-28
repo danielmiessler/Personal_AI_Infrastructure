@@ -10,10 +10,7 @@ purpose: Generate complete, production-ready TypeScript CLI from requirements
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the CreateCli workflow in the CreateCLI skill to generate new CLI"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the CreateCli workflow in the CreateCLI skill to generate new CLI"
 ```
 
 Running the **CreateCli** workflow in the **CreateCLI** skill to generate new CLI...

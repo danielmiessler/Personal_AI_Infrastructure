@@ -164,14 +164,8 @@ Send text to the voice server running on localhost for TTS using a configured vo
 
 **Usage:**
 ```bash
-# Single narration segment
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Your text here",
-    "voice_id": "$ELEVENLABS_VOICE_ID",
-    "title": "Voice Narrative"
-  }'
+# Single narration segment using pai-notify wrapper
+~/.claude/VoiceServer/pai-notify "Your text here"
 
 # Pause between segments
 sleep 2

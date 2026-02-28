@@ -39,7 +39,7 @@ if [ $? -eq 0 ]; then
     if curl -s -f -X GET http://localhost:8888/health > /dev/null 2>&1; then
         echo -e "${GREEN}OK Voice server started successfully${NC}"
         echo "  Port: 8888"
-        echo "  Test: curl -X POST http://localhost:8888/notify -H 'Content-Type: application/json' -d '{\"message\":\"Test\"}'"
+        echo "  Test: ~/.claude/VoiceServer/pai-notify \"Test\""
     else
         echo -e "${YELLOW}! Server started but not responding yet${NC}"
         echo "  Check logs: tail -f ~/Library/Logs/pai-voice-server.log"

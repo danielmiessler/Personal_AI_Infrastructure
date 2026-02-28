@@ -143,9 +143,7 @@ if curl -s -f -X GET http://localhost:8888/health > /dev/null 2>&1; then
 
     # Send test notification
     echo -e "${YELLOW}> Sending test notification...${NC}"
-    curl -s -X POST http://localhost:8888/notify \
-        -H "Content-Type: application/json" \
-        -d '{"message": "Voice server installed successfully"}' > /dev/null
+    ~/.claude/VoiceServer/pai-notify "Voice server installed successfully"
     echo -e "${GREEN}OK Test notification sent${NC}"
 else
     echo -e "${RED}X Voice server is not responding${NC}"
@@ -182,9 +180,7 @@ echo "  - Uninstall: ./uninstall.sh"
 
 echo
 echo -e "${BLUE}Test the server:${NC}"
-echo "  curl -X POST http://localhost:8888/notify \\"
-echo "    -H 'Content-Type: application/json' \\"
-echo "    -d '{\"message\": \"Hello from PAI\"}'"
+echo "  ~/.claude/VoiceServer/pai-notify \"Hello from PAI\""
 
 echo
 echo -e "${GREEN}The voice server will now start automatically when you log in.${NC}"

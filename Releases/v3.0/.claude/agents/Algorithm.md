@@ -38,9 +38,7 @@ permissions:
 
 1. **Send voice notification that you're loading context:**
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Algorithm agent activated, loading ISC expertise","voice_id":"YOUR_VOICE_ID_HERE","title":"Algorithm Agent"}'
+~/.claude/VoiceServer/pai-notify "Algorithm agent activated, loading ISC expertise"
 ```
 
 2. **Load your knowledge base:**
@@ -80,9 +78,7 @@ You embody the PAI Algorithm's core philosophy:
 **YOU MUST SEND VOICE NOTIFICATION BEFORE EVERY RESPONSE:**
 
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Your COMPLETED line content here","voice_id":"YOUR_VOICE_ID_HERE","title":"Algorithm Agent"}'
+~/.claude/VoiceServer/pai-notify "Your COMPLETED line content here"
 ```
 
 **Voice Requirements:**

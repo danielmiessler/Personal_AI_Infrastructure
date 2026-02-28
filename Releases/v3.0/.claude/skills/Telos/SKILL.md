@@ -9,10 +9,7 @@ description: Life OS and project analysis. USE WHEN TELOS, life goals, projects,
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the Telos skill to ACTION"}' \
-     > /dev/null 2>&1 &
+   ~/.claude/VoiceServer/pai-notify "Running the WORKFLOWNAME workflow in the Telos skill to ACTION"
    ```
 
 2. **Output text notification**:

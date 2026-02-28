@@ -5,10 +5,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the ListTraits workflow in the Agents skill to show traits"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the ListTraits workflow in the Agents skill to show traits"
 ```
 
 Running **ListTraits** in **Agents**...

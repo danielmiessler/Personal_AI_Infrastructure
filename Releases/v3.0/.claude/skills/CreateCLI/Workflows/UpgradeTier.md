@@ -10,10 +10,7 @@ purpose: Migrate CLI from Tier 1 (manual) to Tier 2 (Commander.js)
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the UpgradeTier workflow in the CreateCLI skill to upgrade CLI tier"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the UpgradeTier workflow in the CreateCLI skill to upgrade CLI tier"
 ```
 
 Running the **UpgradeTier** workflow in the **CreateCLI** skill to upgrade CLI tier...

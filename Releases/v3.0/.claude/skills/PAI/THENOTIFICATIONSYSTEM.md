@@ -14,10 +14,7 @@ This system provides:
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "[Doing what {PRINCIPAL.NAME} asked]"}' \
-     > /dev/null 2>&1 &
+   ~/.claude/VoiceServer/pai-notify "[Doing what {PRINCIPAL.NAME} asked]"
    ```
 
 2. **Output text notification**:
@@ -70,10 +67,7 @@ Executing the **WorkflowName** workflow within the **SkillName** skill...
 When executing an actual workflow file from a `Workflows/` directory:
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION", "voice_id": "{DAIDENTITY.VOICEID}", "title": "{DAIDENTITY.NAME}"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION"
 ```
 
 **Parameters:**
@@ -110,7 +104,7 @@ curl -s -X POST http://localhost:8888/notify \
 - Standard: Algorithm entry + VERIFY only (2 curls)
 - Extended+: Full 7-phase voice announcements
 
-**Voice curls are the phase announcements in the Algorithm template** — each phase has a `curl -s -X POST http://localhost:8888/notify` call that gets spoken. The effort level gates which curls fire, but all phases always execute.
+**Voice notifications are the phase announcements in the Algorithm template** — each phase has a `~/.claude/VoiceServer/pai-notify` call that gets spoken. The effort level gates which notifications fire, but all phases always execute.
 
 ---
 
@@ -138,10 +132,7 @@ For skills that have a `Workflows/` directory:
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION"}' \
-     > /dev/null 2>&1 &
+   ~/.claude/VoiceServer/pai-notify "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION"
    ```
 
 2. **Output text notification**:

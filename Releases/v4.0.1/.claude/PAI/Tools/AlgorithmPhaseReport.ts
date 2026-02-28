@@ -59,7 +59,9 @@ function readState(): AlgorithmState {
     if (!raw || raw === "{}") throw new Error("empty");
     return JSON.parse(raw);
   } catch (err) {
-    if (!(err instanceof Error && err.message === 'empty')) {
+    const isExpected = (err instanceof Error && err.message === 'empty') ||
+      (err && typeof err === 'object' && 'code' in err && (err as any).code === 'ENOENT');
+    if (!isExpected) {
       console.error(`[AlgorithmPhaseReport] Failed to read state from ${STATE_FILE}:`, err);
     }
     return {

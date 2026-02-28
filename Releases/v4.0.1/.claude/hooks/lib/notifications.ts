@@ -25,6 +25,10 @@ export function getSessionDurationMinutes(): number {
   try {
     if (existsSync(SESSION_START_FILE)) {
       const startTime = parseInt(readFileSync(SESSION_START_FILE, 'utf-8'));
+      if (isNaN(startTime)) {
+        console.error('[notifications] Session start file contains invalid data');
+        return 0;
+      }
       return (Date.now() - startTime) / 1000 / 60;
     }
   } catch (err) {

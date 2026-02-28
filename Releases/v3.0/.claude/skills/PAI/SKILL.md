@@ -323,7 +323,8 @@ ELSE:
   → All criteria in one PRD
 
 📄 **PRD CREATION:**
-[Create PRD file at ~/.claude/MEMORY/WORK/{session-slug}/PRD-{YYYYMMDD}-{slug}.md]
+⚠️ **PATH RULE: Write/Edit tools do NOT shell-expand `~`. ALWAYS resolve to absolute home path (e.g., `/home/user/.claude/` or `/Users/name/.claude/`) before writing files. Using literal `~` creates a rogue `~` directory in the CWD.**
+[Create PRD file at $HOME/.claude/MEMORY/WORK/{session-slug}/PRD-{YYYYMMDD}-{slug}.md — where $HOME is the absolute home directory path, NEVER literal `~`]
 [Write IDEAL STATE CRITERIA section matching TaskCreate entries]
 [Write CONTEXT section for loop mode self-containment]
 [If continuing work: Read existing PRD, rebuild working memory from ISC section]
@@ -700,7 +701,7 @@ Each entry: date, decision, rationale, alternatives considered.}
 | `parent` | string\|null | Parent PRD ID if this is a child PRD |
 | `children` | array | Child PRD IDs if decomposed |
 
-**Location:** Project `.prd/` directory if inside a project with `.git/`, else `~/.claude/MEMORY/WORK/{session-slug}/`
+**Location:** Project `.prd/` directory if inside a project with `.git/`, else `$HOME/.claude/MEMORY/WORK/{session-slug}/` (resolve `$HOME` to absolute path — NEVER use literal `~`)
 **Slug:** Task description lowercased, special chars stripped, spaces to hyphens, max 40 chars.
 
 ### Per-Phase PRD Behavior

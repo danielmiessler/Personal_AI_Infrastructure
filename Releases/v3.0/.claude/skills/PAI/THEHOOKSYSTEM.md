@@ -160,7 +160,7 @@ Claude Code supports the following hook events:
 - Explicit path: Pattern match first (no inference needed), writes to `ratings.jsonl`
 - Implicit path: Haiku inference for sentiment if no explicit match
 - Low ratings (<6) auto-capture as learning opportunities
-- Writes to `~/.claude/MEMORY/SIGNALS/ratings.jsonl`
+- Writes to `$HOME/.claude/MEMORY/SIGNALS/ratings.jsonl` (resolved via `paths.ts` at runtime)
 - Uses shared libraries: `hooks/lib/learning-utils.ts`, `hooks/lib/time.ts`
 - **Inference:** `import { inference } from '../skills/PAI/Tools/Inference'` → `inference({ level: 'fast', expectJson: true })`
 

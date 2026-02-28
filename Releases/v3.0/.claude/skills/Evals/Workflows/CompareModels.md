@@ -46,7 +46,7 @@ models:
 
 ### Step 3: Create Model Comparison Config
 
-Create `~/.claude/skills/Evals/UseCases/<name>/model-comparisons/<comparison-name>.yaml`:
+Create `$HOME/.claude/skills/Evals/UseCases/<name>/model-comparisons/<comparison-name>.yaml`:
 
 ```yaml
 model_comparison:

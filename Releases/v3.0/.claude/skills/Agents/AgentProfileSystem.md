@@ -181,7 +181,7 @@ bun run ~/.claude/skills/Agents/Tools/LoadAgentContext.ts Architect "Design new 
 
 To add a new agent type:
 
-1. Create `[AgentType]Context.md` in `~/.claude/skills/Agents/`
+1. Create `[AgentType]Context.md` in `$HOME/.claude/skills/Agents/`
 2. Follow the context file format above
 3. Reference relevant Skills (don't duplicate content)
 4. Specify model preference (opus/sonnet/haiku)

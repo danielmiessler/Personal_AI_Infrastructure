@@ -33,7 +33,7 @@ Ask the user:
 
 ### Step 2: Create Judge Config
 
-Create `~/.claude/skills/Evals/UseCases/<name>/judge-config.yaml`:
+Create `$HOME/.claude/skills/Evals/UseCases/<name>/judge-config.yaml`:
 
 ```yaml
 judge:

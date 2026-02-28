@@ -76,7 +76,7 @@ ls ~/.claude/skills/Evals/UseCases/<name>/prompts/
 
 ### Step 3: Create Comparison Config
 
-Create `~/.claude/skills/Evals/UseCases/<name>/comparisons/<comparison-name>.yaml`:
+Create `$HOME/.claude/skills/Evals/UseCases/<name>/comparisons/<comparison-name>.yaml`:
 
 ```yaml
 comparison:

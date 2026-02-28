@@ -120,6 +120,25 @@ rm -f ~/.claude/MEMORY/STATE/weather-cache.json
 
 ---
 
+## Non-Default `CLAUDE_CONFIG_DIR` Testing
+
+> **Temporary** — This script provides manual deployment for non-default config directories until the installer is updated to handle them natively.
+
+If you run PAI at a path other than `~/.claude` (via `CLAUDE_CONFIG_DIR`), the included `test-nondefault-install.sh` script copies the release, patches `settings.json` paths, and optionally creates a shell alias:
+
+```bash
+./test-nondefault-install.sh /path/to/target [alias-name]
+
+# Example:
+./test-nondefault-install.sh ~/my-pai pai-test
+source ~/.zshrc && pai-test
+
+# Clean up:
+./test-nondefault-install.sh --clean /path/to/target
+```
+
+---
+
 ## Upgrading from Older Versions
 
 See the [main README](../../README.md#upgrading-from-a-previous-version) for the general upgrade procedure. The installer auto-detects existing installations regardless of which version you're upgrading from.

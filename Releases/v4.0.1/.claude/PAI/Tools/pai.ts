@@ -20,6 +20,7 @@
 
 import { spawn, spawnSync } from "bun";
 import { getDAName, getIdentity } from "../../hooks/lib/identity";
+import { getPaiDir } from "../../hooks/lib/paths";
 import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync } from "fs";
 import { homedir } from "os";
 import { join, basename } from "path";
@@ -28,7 +29,7 @@ import { join, basename } from "path";
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = join(homedir(), ".claude");
+const CLAUDE_DIR = getPaiDir();
 const MCP_DIR = join(CLAUDE_DIR, "MCPs");
 const ACTIVE_MCP = join(CLAUDE_DIR, ".mcp.json");
 const BANNER_SCRIPT = join(CLAUDE_DIR, "PAI", "Tools", "Banner.ts");

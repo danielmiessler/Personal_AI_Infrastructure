@@ -14,8 +14,9 @@
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
+import { getPaiDir } from "../../hooks/lib/paths";
 
-const PAI_DIR = join(process.env.HOME!, ".claude");
+const PAI_DIR = getPaiDir();
 const TEMPLATE_PATH = join(PAI_DIR, "CLAUDE.md.template");
 const OUTPUT_PATH = join(PAI_DIR, "CLAUDE.md");
 const SETTINGS_PATH = join(PAI_DIR, "settings.json");

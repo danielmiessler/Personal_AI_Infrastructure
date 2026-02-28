@@ -20,6 +20,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getPaiDir } from '../../hooks/lib/paths';
 
 interface TestStep {
   step: string;
@@ -55,7 +56,8 @@ interface FeatureRegistry {
   };
 }
 
-const REGISTRY_DIR = join(process.env.HOME || '', '.claude', 'MEMORY', 'progress');
+const PAI_BASE = getPaiDir();
+const REGISTRY_DIR = join(PAI_BASE, 'MEMORY', 'progress');
 
 function getRegistryPath(project: string): string {
   return join(REGISTRY_DIR, `${project}-features.json`);

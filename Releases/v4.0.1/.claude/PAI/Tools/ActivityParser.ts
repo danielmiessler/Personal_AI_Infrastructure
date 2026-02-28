@@ -16,15 +16,19 @@
 import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import { getPaiDir } from "../../hooks/lib/paths";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = getPaiDir();
 const MEMORY_DIR = path.join(CLAUDE_DIR, "MEMORY");
-const USERNAME = process.env.USER || require("os").userInfo().username;
-const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", `-Users-${USERNAME}--claude`);  // Claude Code native storage
+// Derive the project slug dynamically from CLAUDE_DIR (matches SessionHarvester)
+const CWD_SLUG = CLAUDE_DIR.replace(/[\/\.]/g, "-");
+const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects", CWD_SLUG);  // Claude Code native storage
+const CLAUDE_DIR_NAME = path.basename(CLAUDE_DIR);  // e.g., ".claude" or ".claude-pai-4.0.1"
+const CLAUDE_DIR_MARKER = `/${CLAUDE_DIR_NAME}/`;    // For matching paths in session transcripts
 const SYSTEM_UPDATES_DIR = path.join(MEMORY_DIR, "PAISYSTEMUPDATES");  // Canonical system change history
 
 // ============================================================================
@@ -86,7 +90,7 @@ function shouldSkip(filePath: string): boolean {
 
 function categorizeFile(filePath: string): keyof ParsedActivity["categories"] | null {
   if (shouldSkip(filePath)) return null;
-  if (!filePath.includes("/.claude/")) return null;
+  if (!filePath.includes(CLAUDE_DIR_MARKER)) return null;
 
   if (PATTERNS.skills.test(filePath)) return "skills";
   if (PATTERNS.workflows.test(filePath)) return "workflows";
@@ -104,9 +108,9 @@ function extractSkillName(filePath: string): string | null {
 }
 
 function getRelativePath(filePath: string): string {
-  const claudeIndex = filePath.indexOf("/.claude/");
+  const claudeIndex = filePath.indexOf(CLAUDE_DIR_MARKER);
   if (claudeIndex === -1) return filePath;
-  return filePath.substring(claudeIndex + 9); // Skip "/.claude/"
+  return filePath.substring(claudeIndex + CLAUDE_DIR_MARKER.length);
 }
 
 // ============================================================================
@@ -136,6 +140,17 @@ interface ProjectsEntry {
  */
 function getTodaySessionFiles(): string[] {
   if (!fs.existsSync(PROJECTS_DIR)) {
+    const projectsRoot = path.join(CLAUDE_DIR, "projects");
+    let hint = "";
+    if (fs.existsSync(projectsRoot)) {
+      try {
+        const existing = fs.readdirSync(projectsRoot);
+        hint = ` Available: [${existing.join(", ")}]. Computed slug: ${CWD_SLUG}`;
+      } catch (err) {
+        hint = ` (could not list projects/: ${err})`;
+      }
+    }
+    console.error(`[ActivityParser] Projects directory not found: ${PROJECTS_DIR}.${hint}`);
     return [];
   }
 
@@ -163,12 +178,13 @@ async function parseEvents(sessionFilter?: string): Promise<ParsedActivity> {
   const sessionFiles = getTodaySessionFiles();
 
   if (sessionFiles.length === 0) {
-    console.error(`No session files found for today in: ${PROJECTS_DIR}`);
+    console.error(`[ActivityParser] No session files found for today in: ${PROJECTS_DIR}`);
     return emptyActivity(dateStr, sessionFilter || null);
   }
 
   // Parse all session files (or just the filtered one)
   const entries: ProjectsEntry[] = [];
+  let malformedLines = 0;
 
   for (const sessionFile of sessionFiles) {
     // If filtering by session, check filename matches
@@ -184,14 +200,19 @@ async function parseEvents(sessionFilter?: string): Promise<ParsedActivity> {
         const entry = JSON.parse(line) as ProjectsEntry;
         entries.push(entry);
       } catch {
-        // Skip malformed lines
+        malformedLines++;
       }
     }
+  }
+
+  if (malformedLines > 0 && entries.length === 0) {
+    console.error(`[ActivityParser] WARNING: All ${malformedLines} lines failed to parse. Is PROJECTS_DIR correct? Slug: ${CWD_SLUG}`);
   }
 
   // Extract file operations from tool_use entries
   const filesModified = new Set<string>();
   const filesCreated = new Set<string>();
+  let markerMissCount = 0;
 
   for (const entry of entries) {
     // Only process assistant messages with tool_use
@@ -203,19 +224,27 @@ async function parseEvents(sessionFilter?: string): Promise<ParsedActivity> {
       // Write tool = new files
       if (contentItem.name === "Write" && contentItem.input?.file_path) {
         const filePath = contentItem.input.file_path;
-        if (filePath.includes("/.claude/")) {
+        if (filePath.includes(CLAUDE_DIR_MARKER)) {
           filesCreated.add(filePath);
+        } else {
+          markerMissCount++;
         }
       }
 
       // Edit tool = modified files
       if (contentItem.name === "Edit" && contentItem.input?.file_path) {
         const filePath = contentItem.input.file_path;
-        if (filePath.includes("/.claude/")) {
+        if (filePath.includes(CLAUDE_DIR_MARKER)) {
           filesModified.add(filePath);
+        } else {
+          markerMissCount++;
         }
       }
     }
+  }
+
+  if (markerMissCount > 0 && filesCreated.size === 0 && filesModified.size === 0) {
+    console.error(`[ActivityParser] WARNING: ${markerMissCount} file paths did not match marker "${CLAUDE_DIR_MARKER}". PAI_DIR may not match session transcript paths.`);
   }
 
   // Remove from modified if also in created (it's just created)

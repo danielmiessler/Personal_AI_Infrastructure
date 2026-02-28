@@ -84,9 +84,8 @@ function writeState(state: AlgorithmState): void {
   try {
     mkdirSync(STATE_DIR, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-  } catch (err) {
-    console.error(`[AlgorithmPhaseReport] Failed to write state to ${STATE_FILE}:`, err);
-    throw err;
+  } catch {
+    // Silent on error — non-blocking
   }
 }
 
@@ -229,7 +228,6 @@ try {
   }
 
   writeState(state);
-} catch (err) {
-  console.error('[AlgorithmPhaseReport] Unexpected error:', err);
-  process.exit(1);
+} catch {
+  // Silent on error — non-blocking
 }

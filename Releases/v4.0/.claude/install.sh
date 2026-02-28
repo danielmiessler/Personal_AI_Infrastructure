@@ -139,6 +139,70 @@ else
   warn "Claude Code not found — will install during setup"
 fi
 
+# ─── Check/Install Plannotator ───────────────────────────
+# Plannotator provides visual plan review for Claude Code.
+# Non-critical: failure here does NOT block installation.
+if command -v plannotator &>/dev/null; then
+  success "Plannotator found: $(plannotator --version 2>&1 | head -1 || echo 'installed')"
+else
+  info "Installing Plannotator (visual plan review)..."
+
+  PLAN_OS=""
+  PLAN_ARCH=""
+  case "$OS" in
+    Darwin) PLAN_OS="darwin" ;;
+    Linux)  PLAN_OS="linux" ;;
+  esac
+  case "$ARCH" in
+    x86_64|amd64)  PLAN_ARCH="x64" ;;
+    arm64|aarch64) PLAN_ARCH="arm64" ;;
+  esac
+
+  if [ -n "$PLAN_OS" ] && [ -n "$PLAN_ARCH" ]; then
+    PLAN_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local}/bin"
+    PLAN_BINARY="plannotator-${PLAN_OS}-${PLAN_ARCH}"
+    PLAN_TAG=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/backnotprop/plannotator/releases/latest" 2>/dev/null | grep '"tag_name"' | cut -d'"' -f4)
+
+    if [ -n "$PLAN_TAG" ]; then
+      PLAN_URL="https://github.com/backnotprop/plannotator/releases/download/${PLAN_TAG}/${PLAN_BINARY}"
+      PLAN_SHA_URL="${PLAN_URL}.sha256"
+      PLAN_TMP=$(mktemp)
+
+      if curl -fsSL --connect-timeout 10 -o "$PLAN_TMP" "$PLAN_URL" 2>/dev/null; then
+        PLAN_EXPECTED=$(curl -fsSL --connect-timeout 5 "$PLAN_SHA_URL" 2>/dev/null | cut -d' ' -f1)
+        if [ -n "$PLAN_EXPECTED" ]; then
+          if [ "$OS" = "Darwin" ]; then
+            PLAN_ACTUAL=$(shasum -a 256 "$PLAN_TMP" | cut -d' ' -f1)
+          else
+            PLAN_ACTUAL=$(sha256sum "$PLAN_TMP" | cut -d' ' -f1)
+          fi
+
+          if [ "$PLAN_ACTUAL" = "$PLAN_EXPECTED" ]; then
+            mkdir -p "$PLAN_INSTALL_DIR"
+            mv "$PLAN_TMP" "$PLAN_INSTALL_DIR/plannotator"
+            chmod +x "$PLAN_INSTALL_DIR/plannotator"
+            export PATH="$PLAN_INSTALL_DIR:$PATH"
+            success "Plannotator ${PLAN_TAG} installed to ${PLAN_INSTALL_DIR}/plannotator"
+          else
+            warn "Plannotator checksum mismatch — skipping (can install later)"
+            rm -f "$PLAN_TMP"
+          fi
+        else
+          warn "Could not verify Plannotator checksum — skipping"
+          rm -f "$PLAN_TMP"
+        fi
+      else
+        warn "Could not download Plannotator — skipping (can install later)"
+        rm -f "$PLAN_TMP" 2>/dev/null
+      fi
+    else
+      warn "Could not fetch Plannotator release info — skipping"
+    fi
+  else
+    warn "Unsupported platform for Plannotator: $OS/$ARCH"
+  fi
+fi
+
 # ─── Launch Installer ────────────────────────────────────
 # Resolve PAI-Install directory (may be sibling or child of script location)
 INSTALLER_DIR=""

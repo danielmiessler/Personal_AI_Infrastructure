@@ -141,6 +141,7 @@ export function detectSystem(): DetectionResult {
         installed: tryExec("which brew") !== null,
         path: tryExec("which brew") || undefined,
       },
+      plannotator: detectTool("plannotator", "plannotator --version 2>&1"),
     },
     existing: detectExisting(home, paiDir, configDir),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

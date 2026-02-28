@@ -23,6 +23,7 @@ export interface DetectionResult {
     claude: { installed: boolean; version?: string; path?: string };
     node: { installed: boolean; version?: string; path?: string };
     brew: { installed: boolean; path?: string }; // macOS only
+    plannotator: { installed: boolean; version?: string; path?: string };
   };
   existing: {
     paiInstalled: boolean;

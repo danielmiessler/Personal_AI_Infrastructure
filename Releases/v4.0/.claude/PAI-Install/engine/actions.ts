@@ -109,6 +109,92 @@ function tryExec(cmd: string, timeout = 30000): string | null {
   }
 }
 
+/**
+ * Install the Plannotator binary from GitHub releases.
+ * Returns true if installation succeeded, false otherwise.
+ * Non-critical: failures are reported but do not block installation.
+ */
+async function installPlannotator(
+  platform: "darwin" | "linux",
+  arch: string,
+  emit: EngineEventHandler
+): Promise<boolean> {
+  const archMap: Record<string, string> = {
+    x64: "x64",
+    arm64: "arm64",
+    x86_64: "x64",
+    aarch64: "arm64",
+  };
+
+  const planArch = archMap[arch];
+  if (!planArch) {
+    await emit({ event: "message", content: `Unsupported architecture for Plannotator: ${arch}` });
+    return false;
+  }
+
+  const binaryName = `plannotator-${platform}-${planArch}`;
+  const installDir = join(process.env.XDG_DATA_HOME || join(homedir(), ".local"), "bin");
+
+  try {
+    // Fetch latest release tag
+    const tagOutput = tryExec(
+      `curl -fsSL --connect-timeout 10 "https://api.github.com/repos/backnotprop/plannotator/releases/latest" | grep '"tag_name"' | cut -d'"' -f4`,
+      15000
+    );
+    if (!tagOutput) return false;
+
+    const tag = tagOutput.trim();
+    const binaryUrl = `https://github.com/backnotprop/plannotator/releases/download/${tag}/${binaryName}`;
+    const checksumUrl = `${binaryUrl}.sha256`;
+
+    // Download binary
+    mkdirSync(installDir, { recursive: true });
+    const tmpPath = join(installDir, `.plannotator-download-${Date.now()}`);
+    const downloadResult = tryExec(
+      `curl -fsSL --connect-timeout 15 -o "${tmpPath}" "${binaryUrl}"`,
+      60000
+    );
+    if (downloadResult === null) {
+      tryExec(`rm -f "${tmpPath}"`);
+      return false;
+    }
+
+    // Verify SHA256 checksum
+    const expectedChecksum = tryExec(
+      `curl -fsSL --connect-timeout 10 "${checksumUrl}" | cut -d' ' -f1`,
+      15000
+    );
+    if (expectedChecksum) {
+      const checksumCmd = platform === "darwin"
+        ? `shasum -a 256 "${tmpPath}" | cut -d' ' -f1`
+        : `sha256sum "${tmpPath}" | cut -d' ' -f1`;
+      const actualChecksum = tryExec(checksumCmd);
+
+      if (actualChecksum !== expectedChecksum) {
+        await emit({ event: "message", content: "Plannotator checksum verification failed." });
+        tryExec(`rm -f "${tmpPath}"`);
+        return false;
+      }
+    }
+
+    // Install binary
+    const targetPath = join(installDir, "plannotator");
+    tryExec(`rm -f "${targetPath}"`);
+    tryExec(`mv "${tmpPath}" "${targetPath}"`);
+    chmodSync(targetPath, 0o755);
+
+    // Ensure install dir is in PATH for subsequent steps
+    if (!process.env.PATH?.includes(installDir)) {
+      process.env.PATH = `${installDir}:${process.env.PATH}`;
+    }
+
+    return true;
+  } catch {
+    tryExec(`rm -f "${installDir}/.plannotator-download-*"`);
+    return false;
+  }
+}
+
 // ─── Step 1: System Detection ────────────────────────────────────
 
 export async function runSystemDetect(
@@ -229,6 +315,23 @@ export async function runPrerequisites(
     }
   } else {
     await emit({ event: "progress", step: "prerequisites", percent: 80, detail: `Claude Code found: v${det.tools.claude.version}` });
+  }
+
+  // Install Plannotator if missing (non-critical)
+  if (!det.tools.plannotator.installed) {
+    await emit({ event: "progress", step: "prerequisites", percent: 85, detail: "Installing Plannotator..." });
+
+    const planInstalled = await installPlannotator(det.os.platform, det.os.arch, emit);
+    if (planInstalled) {
+      await emit({ event: "message", content: "Plannotator installed for visual plan review." });
+    } else {
+      await emit({
+        event: "message",
+        content: "Plannotator could not be installed automatically. Install later: curl -fsSL https://plannotator.ai/install.sh | bash",
+      });
+    }
+  } else {
+    await emit({ event: "progress", step: "prerequisites", percent: 90, detail: `Plannotator found: v${det.tools.plannotator.version}` });
   }
 
   await emit({ event: "progress", step: "prerequisites", percent: 100, detail: "All prerequisites ready" });
@@ -392,6 +495,7 @@ export async function runRepository(
     "hooks",
     "skills",
     "tasks",
+    "commands",
   ];
 
   for (const dir of requiredDirs) {
@@ -447,6 +551,21 @@ export async function runConfiguration(
       if (!existing.contextFiles) existing.contextFiles = config.contextFiles;
       if (!existing.plansDirectory) existing.plansDirectory = config.plansDirectory;
       // Never touch: hooks, statusLine, spinnerVerbs, contextFiles (if present)
+      // Ensure Plannotator PermissionRequest hook is present (for upgrades from pre-Plannotator versions)
+      if (existing.hooks && !existing.hooks.PermissionRequest) {
+        existing.hooks.PermissionRequest = [
+          {
+            matcher: "ExitPlanMode",
+            hooks: [
+              {
+                type: "command",
+                command: "plannotator",
+                timeout: 345600,
+              },
+            ],
+          },
+        ];
+      }
       writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
     } catch {
       // Existing file is corrupt — write fresh as fallback
@@ -524,6 +643,23 @@ export async function runConfiguration(
     writeFileSync(settingsPath, JSON.stringify(currentSettings, null, 2));
   } catch {
     // Non-fatal — banner will just show 0 until first session ends
+  }
+
+  // Install Plannotator slash commands
+  await emit({ event: "progress", step: "configuration", percent: 45, detail: "Setting up slash commands..." });
+  const commandsDir = join(paiDir, "commands");
+  if (!existsSync(commandsDir)) {
+    mkdirSync(commandsDir, { recursive: true });
+  }
+
+  const reviewCommandPath = join(commandsDir, "plannotator-review.md");
+  if (!existsSync(reviewCommandPath)) {
+    writeFileSync(reviewCommandPath, `---\ndescription: Open interactive code review for current changes\nallowed-tools: Bash(plannotator:*)\n---\n\n## Code Review Feedback\n\n!\`plannotator review\`\n\n## Your task\n\nAddress the code review feedback above. The user has reviewed your changes in the Plannotator UI and provided specific annotations and comments.\n`);
+  }
+
+  const annotateCommandPath = join(commandsDir, "plannotator-annotate.md");
+  if (!existsSync(annotateCommandPath)) {
+    writeFileSync(annotateCommandPath, `---\ndescription: Open interactive annotation UI for a markdown file\nallowed-tools: Bash(plannotator:*)\n---\n\n## Markdown Annotations\n\n!\`plannotator annotate $ARGUMENTS\`\n\n## Your task\n\nAddress the annotation feedback above. The user has reviewed the markdown file and provided specific annotations and comments.\n`);
   }
 
   // Create .env file for API keys

@@ -10,6 +10,7 @@ import { TrialRunner, formatEvalResults } from './TrialRunner.ts';
 import { TranscriptCapture, createTranscript } from './TranscriptCapture.ts';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
 import { parseArgs } from 'util';
 import { $ } from 'bun';
@@ -159,8 +160,19 @@ export function formatForISC(result: AlgorithmEvalResult): string {
 export async function updateISCWithResult(result: AlgorithmEvalResult): Promise<void> {
   const status = result.passed ? 'DONE' : 'BLOCKED';
 
-  const paiDir = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
-  await $`bun run ${paiDir}/skills/THEALGORITHM/Tools/ISCManager.ts update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
+  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const iscManagerPath = join(paiDir, 'skills/THEALGORITHM/Tools/ISCManager.ts');
+
+  if (!existsSync(iscManagerPath)) {
+    console.error(`[AlgorithmBridge] ISCManager not found at: ${iscManagerPath}. Is PAI_DIR set correctly?`);
+    return;
+  }
+
+  try {
+    await $`bun run ${iscManagerPath} update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
+  } catch (err) {
+    console.error(`[AlgorithmBridge] Failed to update ISC row ${result.isc_row}:`, err);
+  }
 }
 
 // CLI interface

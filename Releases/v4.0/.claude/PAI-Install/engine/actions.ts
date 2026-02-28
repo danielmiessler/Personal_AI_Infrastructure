@@ -577,8 +577,8 @@ export async function runConfiguration(
   await emit({ event: "message", content: "settings.json generated." });
 
   // Update Algorithm LATEST version file (public repo may be behind)
-  const latestPath = join(paiDir, "skills", "PAI", "Components", "Algorithm", "LATEST");
-  const latestDir = join(paiDir, "skills", "PAI", "Components", "Algorithm");
+  const latestPath = join(paiDir, "PAI", "Algorithm", "LATEST");
+  const latestDir = join(paiDir, "PAI", "Algorithm");
   if (existsSync(latestDir)) {
     try { writeFileSync(latestPath, "v3.5.0\n"); } catch {}
   }
@@ -613,7 +613,7 @@ export async function runConfiguration(
       existsSync(join(paiDir, "skills", name, "SKILL.md")));
     const hookCount = countFiles(join(paiDir, "hooks"), ".ts");
     const signalCount = countFiles(join(paiDir, "MEMORY", "LEARNING"), ".md");
-    const fileCount = countFiles(join(paiDir, "skills", "PAI", "USER"));
+    const fileCount = countFiles(join(paiDir, "PAI", "USER"));
     // Count workflows by scanning skill Tools directories for .ts files
     let workflowCount = 0;
     const skillsDir = join(paiDir, "skills");
@@ -710,7 +710,7 @@ export async function runConfiguration(
   await emit({ event: "progress", step: "configuration", percent: 80, detail: "Setting up shell alias..." });
 
   const zshrcPath = join(homedir(), ".zshrc");
-  const aliasLine = `alias pai='bun ${join(paiDir, "skills", "PAI", "Tools", "pai.ts")}'`;
+  const aliasLine = `alias pai='bun ${join(paiDir, "PAI", "Tools", "pai.ts")}'`;
   const marker = "# PAI alias";
 
   if (existsSync(zshrcPath)) {

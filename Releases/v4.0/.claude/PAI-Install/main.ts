@@ -11,7 +11,7 @@
 
 import { spawn, spawnSync, execSync } from "child_process";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 const args = process.argv.slice(2);
 const modeIdx = args.indexOf("--mode");
@@ -29,6 +29,24 @@ async function main() {
     await import("./web/server");
   } else {
     // Launch Electron GUI app — requires a display server
+    // WSL2: WSLg sets DISPLAY but Electron crashes with SIGILL
+    const isWSL =
+      process.platform === "linux" &&
+      (!!process.env.WSL_DISTRO_NAME ||
+        (existsSync("/proc/version") &&
+          readFileSync("/proc/version", "utf8")
+            .toLowerCase()
+            .includes("microsoft")));
+
+    if (isWSL) {
+      console.log(
+        "WSL2 detected — Electron GUI not supported, falling back to CLI mode.\n"
+      );
+      const { runCLI } = await import("./cli/index");
+      await runCLI();
+      return;
+    }
+
     if (
       process.platform === "linux" &&
       !process.env.DISPLAY &&

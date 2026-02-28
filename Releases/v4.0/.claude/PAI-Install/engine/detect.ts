@@ -90,7 +90,7 @@ function detectExisting(
   }
 
   // Check for existing PAI skill
-  if (existsSync(join(paiDir, "skills", "PAI", "SKILL.md"))) {
+  if (existsSync(join(paiDir, "PAI", "SKILL.md"))) {
     result.paiInstalled = true;
   }
 

@@ -63,7 +63,6 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { parse as parseYaml } from 'yaml';
 import { paiPath } from './lib/paths';
 
 // ========================================
@@ -180,8 +179,8 @@ interface PatternsConfig {
 // Pattern paths in priority order:
 // 1. PAI/USER/PAISECURITYSYSTEM/patterns.yaml (user's custom rules)
 // 2. PAI/PAISECURITYSYSTEM/patterns.example.yaml (default template)
-const USER_PATTERNS_PATH = paiPath('PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.yaml');
-const SYSTEM_PATTERNS_PATH = paiPath('PAI', 'PAISECURITYSYSTEM', 'patterns.example.yaml');
+const USER_PATTERNS_PATH = paiPath('PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.json');
+const SYSTEM_PATTERNS_PATH = paiPath('PAI', 'PAISECURITYSYSTEM', 'patterns.example.json');
 
 let patternsCache: PatternsConfig | null = null;
 let patternsSource: 'user' | 'system' | 'none' = 'none';
@@ -222,7 +221,7 @@ function loadPatterns(): PatternsConfig {
 
   try {
     const content = readFileSync(patternsPath, 'utf-8');
-    patternsCache = parseYaml(content) as PatternsConfig;
+    patternsCache = JSON.parse(content) as PatternsConfig;
     return patternsCache;
   } catch (error) {
     // Parse error - fail open

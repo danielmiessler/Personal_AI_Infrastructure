@@ -143,7 +143,8 @@ fi
 # Plannotator provides visual plan review for Claude Code.
 # Non-critical: failure here does NOT block installation.
 if command -v plannotator &>/dev/null; then
-  success "Plannotator found: $(plannotator --version 2>&1 | head -1 || echo 'installed')"
+  PLAN_VER=$(timeout 3 plannotator --version 2>/dev/null | head -1) || true
+  success "Plannotator found${PLAN_VER:+: $PLAN_VER}"
 else
   info "Installing Plannotator (visual plan review)..."
 
@@ -203,10 +204,21 @@ else
   fi
 fi
 
-# ─── Detect Display (headless → CLI fallback) ──────────
+# ─── Detect Display (headless / WSL2 → CLI fallback) ───
 INSTALL_MODE="gui"
 if [[ "$OS" == "Linux" ]]; then
-  if [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+  # WSL2 sets DISPLAY via WSLg but Electron crashes with SIGILL
+  IS_WSL=false
+  if [[ -n "${WSL_DISTRO_NAME:-}" ]]; then
+    IS_WSL=true
+  elif [[ -f /proc/version ]] && grep -qi "microsoft" /proc/version 2>/dev/null; then
+    IS_WSL=true
+  fi
+
+  if [[ "$IS_WSL" == "true" ]]; then
+    warn "WSL2 detected — Electron GUI not supported, using CLI installer"
+    INSTALL_MODE="cli"
+  elif [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
     warn "No display server detected — using CLI installer"
     INSTALL_MODE="cli"
   fi

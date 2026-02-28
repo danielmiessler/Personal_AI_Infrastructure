@@ -24,10 +24,10 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
     },
 
     contextFiles: [
-      "skills/PAI/SKILL.md",
-      "skills/PAI/AISTEERINGRULES.md",
-      "skills/PAI/USER/AISTEERINGRULES.md",
-      "skills/PAI/USER/DAIDENTITY.md",
+      "PAI/SKILL.md",
+      "PAI/AISTEERINGRULES.md",
+      "PAI/USER/AISTEERINGRULES.md",
+      "PAI/USER/DAIDENTITY.md",
     ],
 
     daidentity: {

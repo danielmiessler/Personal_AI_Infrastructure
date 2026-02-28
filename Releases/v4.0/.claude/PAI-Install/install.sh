@@ -139,10 +139,21 @@ else
   warn "Claude Code not found — will install during setup"
 fi
 
-# ─── Detect Display (headless → CLI fallback) ──────────
+# ─── Detect Display (headless / WSL2 → CLI fallback) ───
 INSTALL_MODE="gui"
 if [[ "$OS" == "Linux" ]]; then
-  if [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+  # WSL2 sets DISPLAY via WSLg but Electron crashes with SIGILL
+  IS_WSL=false
+  if [[ -n "${WSL_DISTRO_NAME:-}" ]]; then
+    IS_WSL=true
+  elif [[ -f /proc/version ]] && grep -qi "microsoft" /proc/version 2>/dev/null; then
+    IS_WSL=true
+  fi
+
+  if [[ "$IS_WSL" == "true" ]]; then
+    warn "WSL2 detected — Electron GUI not supported, using CLI installer"
+    INSTALL_MODE="cli"
+  elif [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
     warn "No display server detected — using CLI installer"
     INSTALL_MODE="cli"
   fi

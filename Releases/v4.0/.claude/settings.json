@@ -250,7 +250,7 @@
           {
             "type": "command",
             "command": "plannotator",
-            "timeout": 345600
+            "timeout": 7200
           }
         ]
       }

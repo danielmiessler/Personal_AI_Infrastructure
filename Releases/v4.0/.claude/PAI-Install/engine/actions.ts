@@ -159,38 +159,41 @@ async function installPlannotator(
       return false;
     }
 
-    // Verify SHA256 checksum
+    // Verify SHA256 checksum (mandatory — abort if checksum unavailable)
     const expectedChecksum = tryExec(
       `curl -fsSL --connect-timeout 10 "${checksumUrl}" | cut -d' ' -f1`,
       15000
     );
-    if (expectedChecksum) {
-      const checksumCmd = platform === "darwin"
-        ? `shasum -a 256 "${tmpPath}" | cut -d' ' -f1`
-        : `sha256sum "${tmpPath}" | cut -d' ' -f1`;
-      const actualChecksum = tryExec(checksumCmd);
-
-      if (actualChecksum !== expectedChecksum) {
-        await emit({ event: "message", content: "Plannotator checksum verification failed." });
-        tryExec(`rm -f "${tmpPath}"`);
-        return false;
-      }
+    if (!expectedChecksum) {
+      await emit({ event: "message", content: "Could not fetch Plannotator checksum — aborting install for security." });
+      tryExec(`rm -f "${tmpPath}"`);
+      return false;
     }
 
-    // Install binary
+    const checksumCmd = platform === "darwin"
+      ? `shasum -a 256 "${tmpPath}" | cut -d' ' -f1`
+      : `sha256sum "${tmpPath}" | cut -d' ' -f1`;
+    const actualChecksum = tryExec(checksumCmd);
+
+    if (actualChecksum !== expectedChecksum) {
+      await emit({ event: "message", content: "Plannotator checksum verification failed." });
+      tryExec(`rm -f "${tmpPath}"`);
+      return false;
+    }
+
+    // Install binary (mv -f is atomic, no rm needed)
     const targetPath = join(installDir, "plannotator");
-    tryExec(`rm -f "${targetPath}"`);
-    tryExec(`mv "${tmpPath}" "${targetPath}"`);
+    tryExec(`mv -f "${tmpPath}" "${targetPath}"`);
     chmodSync(targetPath, 0o755);
 
-    // Ensure install dir is in PATH for subsequent steps
+    // Add to PATH for this process (enables `which plannotator` in later install steps)
     if (!process.env.PATH?.includes(installDir)) {
       process.env.PATH = `${installDir}:${process.env.PATH}`;
     }
 
     return true;
   } catch {
-    tryExec(`rm -f "${installDir}/.plannotator-download-*"`);
+    tryExec(`find "${installDir}" -maxdepth 1 -name ".plannotator-download-*" -delete 2>/dev/null`);
     return false;
   }
 }
@@ -560,7 +563,7 @@ export async function runConfiguration(
               {
                 type: "command",
                 command: "plannotator",
-                timeout: 345600,
+                timeout: 7200,
               },
             ],
           },

@@ -34,7 +34,7 @@
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Release v4.0](https://img.shields.io/badge/📦_Release-v4.0-8B5CF6?style=flat)](Releases/v4.0/)
+[![Release v4.0.1](https://img.shields.io/badge/📦_Release-v4.0.1-8B5CF6?style=flat)](Releases/v4.0.1/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/Personal_AI_Infrastructure/graphs/contributors)
 
 <!-- Tech Stack -->
@@ -62,9 +62,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v4.0.0 Released** — Lean and Mean: 38 flat skill directories compressed into 12 hierarchical categories. Dead systems removed. Context footprint cut in half.
+> **PAI v4.0.1 Released** — Upgrade path documentation, configurable temperature units, FAQ fixes. Built on v4.0.0 Lean and Mean.
 >
-> **[Release notes →](Releases/v4.0/README.md)**
+> **[Release notes →](Releases/v4.0.1/README.md)** | **[v4.0.0 notes →](Releases/v4.0.0/README.md)**
 
 <div align="center">
 
@@ -336,10 +336,12 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 > [!CAUTION]
 > **Project in Active Development** — PAI is evolving rapidly. Expect breaking changes, restructuring, and frequent updates. We are working on stable and development branches, but currently it's all combined.
 
+### Fresh Install
+
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.0
+cd Personal_AI_Infrastructure/Releases/v4.0.1
 
 # Copy the release and run the installer
 cp -r .claude ~/ && cd ~/.claude && bash install.sh
@@ -347,12 +349,39 @@ cp -r .claude ~/ && cd ~/.claude && bash install.sh
 
 **The installer will:**
 - Detect your system and install prerequisites (Bun, Git, Claude Code)
-- Ask for your name, AI assistant name, and timezone
+- Ask for your name, AI assistant name, timezone, and temperature unit preference
 - Clone/configure the PAI repository into `~/.claude/`
 - Set up voice features with ElevenLabs (optional)
 - Configure your shell alias and verify the installation
 
 **After installation:** Run `source ~/.zshrc && pai` to launch PAI.
+
+### Upgrading from a Previous Version
+
+```bash
+# 1. Back up your current installation
+cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# 2. Clone and copy the new release over your installation
+git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/Releases/v4.0.1
+cp -r .claude ~/
+
+# 3. Run the installer (detects existing installation, preserves your data)
+cd ~/.claude && bash install.sh
+
+# 4. Rebuild your CLAUDE.md
+bun ~/.claude/PAI/Tools/BuildCLAUDE.ts
+```
+
+> [!TIP]
+> The installer **auto-detects** existing installations. It preserves your `USER/` files, merges `settings.json` (only updating installer-managed fields like identity and version), and never overwrites your hooks, statusline, or custom configuration.
+
+**Post-upgrade checklist:**
+- [ ] Verify your identity in `settings.json` (name, AI name, timezone)
+- [ ] Confirm the statusline displays correctly
+- [ ] Test voice notifications (if enabled)
+- [ ] Run a simple prompt to confirm PAI responds correctly
 
 ---
 
@@ -382,7 +411,7 @@ PAI is the complete system built on those primitives. It connects everything tog
 
 PAI is Claude Code native. We believe Claude Code's hook system, context management, and agentic capabilities make it the best platform for personal AI infrastructure, and PAI is designed to take full advantage of those features.
 
-That said, PAI's concepts (skills, memory, algorithms) are universal, and the code is TypeScript, Python, and Bash — so community members are welcome to adapt it for other platforms.
+That said, PAI's concepts (skills, memory, algorithms) are universal, and the code is TypeScript and Bash — so community members are welcome to adapt it for other platforms.
 
 ### How is this different from fabric?
 
@@ -394,10 +423,13 @@ PAI is infrastructure for *how your DA operates*—memory, skills, routing, cont
 
 Recovery is straightforward:
 
+- **Back up first** — Before any upgrade: `cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)`
+- **USER/ is safe** — Your customizations in `USER/` are never touched by the installer or upgrades
+- **Settings merge, not overwrite** — The installer only updates identity and version fields; your hooks, statusline, and custom config are preserved
 - **Git-backed** — Version control everything, roll back when needed
 - **History is preserved** — Your DA's memory survives mistakes
 - **DA can fix it** — Your DA helped build it, it can help repair it
-- **Re-install** — Run the installer again to reset to a clean state
+- **Re-install** — Run the installer again; it detects existing installations and merges intelligently
 
 ---
 
@@ -491,6 +523,12 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <br/>
 
+**v4.0.1 (2026-02-28) — Upgrade Path & Preferences**
+- Upgrade documentation with backup, merge, and post-upgrade checklist
+- Configurable temperature unit (Fahrenheit/Celsius) in statusline and installer
+- FAQ fixes: removed stale Python reference, improved recovery guidance
+- [Release Notes](Releases/v4.0.1/README.md)
+
 **v4.0.0 (2026-02-27) — Lean and Mean**
 - 38 flat skill directories → 12 hierarchical categories (-68% top-level dirs)
 - Dead systems removed: Components/, DocRebuild, RebuildSkill
@@ -499,7 +537,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - Comprehensive security sanitization (33+ files cleaned)
 - All version refs updated, Electron crash fix
 - 63 skills, 21 hooks, 180 workflows, 14 agents
-- [Release Notes](Releases/v4.0/README.md)
+- [Release Notes](Releases/v4.0.0/README.md)
 
 **v3.0.0 (2026-02-15) — The Algorithm Matures**
 - Algorithm v1.4.0 with constraint extraction and build drift prevention

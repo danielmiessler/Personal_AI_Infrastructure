@@ -121,6 +121,51 @@ function notifyVoice(message: string) {
   }).catch(() => {}); // Silently ignore errors
 }
 
+function extractSessionCwd(sessionId: string): string | null {
+  // Find session file in ~/.claude/projects/*/<sessionId>.jsonl
+  const projectsDir = join(CLAUDE_DIR, "projects");
+  if (!existsSync(projectsDir)) return null;
+
+  // Search through all project subdirectories
+  let subdirs: string[];
+  try {
+    subdirs = readdirSync(projectsDir);
+  } catch {
+    return null;
+  }
+
+  for (const subdir of subdirs) {
+    const sessionFile = join(projectsDir, subdir, `${sessionId}.jsonl`);
+    if (existsSync(sessionFile)) {
+      try {
+        // Stream line-by-line using Bun.file() to avoid loading entire JSONL into memory.
+        // Session files can grow large; we only need the first line with cwd.
+        const file = Bun.file(sessionFile);
+        const text = file.size > 1024 * 1024
+          ? readFileSync(sessionFile, "utf-8").slice(0, 64 * 1024) // For large files, only read first 64KB
+          : readFileSync(sessionFile, "utf-8");
+        const lines = text.split("\n");
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.sessionId === sessionId && data.cwd) {
+              return data.cwd;
+            }
+          } catch {
+            continue; // Skip malformed lines
+          }
+        }
+      } catch {
+        continue; // Skip if file can't be read
+      }
+    }
+  }
+
+  return null;
+}
+
 function displayBanner() {
   if (existsSync(BANNER_SCRIPT)) {
     spawnSync(["bun", BANNER_SCRIPT], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
@@ -390,7 +435,7 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: boolean; local?: boolean }) {
+async function cmdLaunch(options: { mcp?: string; resume?: boolean | string; skipPerms?: boolean; local?: boolean }) {
   displayBanner();
   const args = ["claude"];
 
@@ -406,10 +451,33 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
   // Use --dangerous flag explicitly if you really need to skip all permission checks.
   if (options.resume) {
     args.push("--resume");
-  }
+    // If resume is a string (session ID), pass it as the next argument
+    if (typeof options.resume === "string") {
+      args.push(options.resume);
 
-  // Change to PAI directory unless --local flag is set
-  if (!options.local) {
+      // When resuming by session ID, extract the original cwd from the session file
+      // and change to that directory so Claude Code can find the session
+      if (!options.local) {
+        const sessionCwd = extractSessionCwd(options.resume);
+        if (sessionCwd && existsSync(sessionCwd)) {
+          try {
+            log(`Resuming session from: ${sessionCwd}`, "📂");
+            process.chdir(sessionCwd);
+          } catch {
+            // Fallback if chdir fails (permissions, race condition, etc.)
+            process.chdir(CLAUDE_DIR);
+          }
+        } else {
+          // Fallback to CLAUDE_DIR if we can't find the session or directory is gone
+          process.chdir(CLAUDE_DIR);
+        }
+      }
+    } else if (!options.local) {
+      // Regular resume (no session ID): use CLAUDE_DIR
+      process.chdir(CLAUDE_DIR);
+    }
+  } else if (!options.local) {
+    // New session: use CLAUDE_DIR
     process.chdir(CLAUDE_DIR);
   }
 
@@ -572,6 +640,7 @@ USAGE:
   k -m <mcp>               Launch with specific MCP(s)
   k -m bd,ap               Launch with multiple MCPs
   k -r, --resume           Resume last session
+  k -r <session-id>        Resume specific session by ID
   k -l, --local            Stay in current directory (don't cd to ~/.claude)
 
 COMMANDS:
@@ -601,6 +670,7 @@ EXAMPLES:
   k -m bd                  Start with Bright Data
   k -m bd,ap,chrome        Start with multiple MCPs
   k -r                     Resume last session
+  k -r 285728b4-8814-40c4-b643-bb7a8e81859e  Resume specific session
   k mcp set research       Switch to research profile
   k update                 Update Claude Code
   k prompt "What time is it?"   One-shot prompt
@@ -624,7 +694,7 @@ async function main() {
 
   // Parse arguments
   let mcp: string | undefined;
-  let resume = false;
+  let resume: boolean | string = false;
   let skipPerms = true;
   let local = false;
   let command: string | undefined;
@@ -650,7 +720,14 @@ async function main() {
         break;
       case "-r":
       case "--resume":
-        resume = true;
+        // Check if next arg is a session ID (UUID format)
+        const resumeArg = args[i + 1];
+        if (resumeArg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resumeArg)) {
+          resume = resumeArg;
+          i++; // Skip the session ID in next iteration
+        } else {
+          resume = true;
+        }
         break;
       case "--safe":
         skipPerms = false;

@@ -18,6 +18,7 @@ import { serve } from "bun";
 import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
+import { getPaiDir } from "../hooks/lib/paths";
 import { existsSync, readFileSync } from "fs";
 
 // Load .env from user home directory
@@ -150,7 +151,7 @@ const FALLBACK_VOLUME = 1.0;
 
 // Load voice configuration from settings.json (cached at startup)
 function loadVoiceConfig(): LoadedVoiceConfig {
-  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const paiDir = getPaiDir();
   const settingsPath = join(paiDir, 'settings.json');
 
   try {

@@ -105,8 +105,12 @@ function getSessionFiles(options: { recent?: number; all?: boolean; sessionId?: 
     const projectsRoot = path.join(CLAUDE_DIR, "projects");
     let hint = "";
     if (fs.existsSync(projectsRoot)) {
-      const existing = fs.readdirSync(projectsRoot);
-      hint = ` Available: [${existing.join(", ")}]. Computed slug: ${CWD_SLUG}`;
+      try {
+        const existing = fs.readdirSync(projectsRoot);
+        hint = ` Available: [${existing.join(", ")}]. Computed slug: ${CWD_SLUG}`;
+      } catch (err) {
+        hint = ` (could not list projects/: ${err})`;
+      }
     }
     console.error(`[SessionHarvester] Projects directory not found: ${PROJECTS_DIR}.${hint}`);
     return [];

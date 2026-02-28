@@ -16,7 +16,9 @@ import { getPaiDir } from './paths';
 const SESSION_START_FILE = '/tmp/pai-session-start.txt';
 
 export function recordSessionStart(): void {
-  try { writeFileSync(SESSION_START_FILE, Date.now().toString()); } catch {}
+  try { writeFileSync(SESSION_START_FILE, Date.now().toString()); } catch (err) {
+    console.error(`[notifications] Failed to record session start: ${err}`);
+  }
 }
 
 export function getSessionDurationMinutes(): number {
@@ -25,7 +27,9 @@ export function getSessionDurationMinutes(): number {
       const startTime = parseInt(readFileSync(SESSION_START_FILE, 'utf-8'));
       return (Date.now() - startTime) / 1000 / 60;
     }
-  } catch {}
+  } catch (err) {
+    console.error(`[notifications] Failed to read session start time: ${err}`);
+  }
   return 0;
 }
 
@@ -55,7 +59,8 @@ function loadNtfyConfig(): { enabled: boolean; topic: string; server: string } {
       topic: ntfy?.topic ?? '',
       server: ntfy?.server ?? 'ntfy.sh',
     };
-  } catch {
+  } catch (err) {
+    console.error(`[notifications] Failed to load ntfy config: ${err}`);
     return { enabled: false, topic: '', server: 'ntfy.sh' };
   }
 }

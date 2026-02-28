@@ -59,7 +59,10 @@ function readState(): AlgorithmState {
     const raw = readFileSync(STATE_FILE, "utf-8").trim();
     if (!raw || raw === "{}") throw new Error("empty");
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    if (!(err instanceof Error && err.message === 'empty')) {
+      console.error(`[AlgorithmPhaseReport] Failed to read state from ${STATE_FILE}:`, err);
+    }
     return {
       active: false,
       sessionId: "",
@@ -80,8 +83,8 @@ function writeState(state: AlgorithmState): void {
   try {
     mkdirSync(STATE_DIR, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-  } catch {
-    // Silent on error — non-blocking
+  } catch (err) {
+    console.error(`[AlgorithmPhaseReport] Failed to write state to ${STATE_FILE}:`, err);
   }
 }
 
@@ -224,6 +227,6 @@ try {
   }
 
   writeState(state);
-} catch {
-  // Silent on error — non-blocking
+} catch (err) {
+  console.error('[AlgorithmPhaseReport] Unexpected error:', err);
 }

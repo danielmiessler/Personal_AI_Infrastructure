@@ -143,8 +143,12 @@ function getTodaySessionFiles(): string[] {
     const projectsRoot = path.join(CLAUDE_DIR, "projects");
     let hint = "";
     if (fs.existsSync(projectsRoot)) {
-      const existing = fs.readdirSync(projectsRoot);
-      hint = ` Available: [${existing.join(", ")}]. Computed slug: ${CWD_SLUG}`;
+      try {
+        const existing = fs.readdirSync(projectsRoot);
+        hint = ` Available: [${existing.join(", ")}]. Computed slug: ${CWD_SLUG}`;
+      } catch (err) {
+        hint = ` (could not list projects/: ${err})`;
+      }
     }
     console.error(`[ActivityParser] Projects directory not found: ${PROJECTS_DIR}.${hint}`);
     return [];
@@ -174,7 +178,7 @@ async function parseEvents(sessionFilter?: string): Promise<ParsedActivity> {
   const sessionFiles = getTodaySessionFiles();
 
   if (sessionFiles.length === 0) {
-    console.error(`No session files found for today in: ${PROJECTS_DIR}`);
+    console.error(`[ActivityParser] No session files found for today in: ${PROJECTS_DIR}`);
     return emptyActivity(dateStr, sessionFilter || null);
   }
 

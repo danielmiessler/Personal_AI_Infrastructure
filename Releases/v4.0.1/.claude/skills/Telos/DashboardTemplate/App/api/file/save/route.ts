@@ -53,7 +53,8 @@ export async function POST(request: Request) {
       message: `${filename} saved successfully`,
     })
   } catch (error) {
-    console.error("Error saving file:", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error("Error saving file:", errorMessage)
     return NextResponse.json(
       { error: "Failed to save file" },
       { status: 500 }

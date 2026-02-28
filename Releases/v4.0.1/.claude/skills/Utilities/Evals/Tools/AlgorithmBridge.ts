@@ -10,10 +10,10 @@ import { TrialRunner, formatEvalResults } from './TrialRunner.ts';
 import { TranscriptCapture, createTranscript } from './TranscriptCapture.ts';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
 import { parseArgs } from 'util';
 import { $ } from 'bun';
+import { getPaiDir } from '../../../../hooks/lib/paths';
 
 const EVALS_DIR = join(import.meta.dir, '..');
 const RESULTS_DIR = join(EVALS_DIR, 'Results');
@@ -160,7 +160,7 @@ export function formatForISC(result: AlgorithmEvalResult): string {
 export async function updateISCWithResult(result: AlgorithmEvalResult): Promise<void> {
   const status = result.passed ? 'DONE' : 'BLOCKED';
 
-  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const paiDir = getPaiDir();
   const iscManagerPath = join(paiDir, 'skills/THEALGORITHM/Tools/ISCManager.ts');
 
   if (!existsSync(iscManagerPath)) {

@@ -350,7 +350,10 @@ fetch_weather() {
         lon="${lon:-122.4194}"
 
         # Fetch from Open-Meteo (free, fast, no API key)
-        local weather_json=$(curl -s --max-time 3 "https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=celsius" 2>/dev/null)
+        local temp_unit="${TEMPERATURE_UNIT:-celsius}"
+	local temp_label="°C"
+	[ "$temp_unit" = "fahrenheit" ] && temp_label="°F"
+	local weather_json=$(curl -s --max-time 3 "https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=${temp_unit}" 2>/dev/null)
         if [ -n "$weather_json" ] && echo "$weather_json" | jq -e '.current' >/dev/null 2>&1; then
             local temp=$(echo "$weather_json" | jq -r '.current.temperature_2m' 2>/dev/null)
             local code=$(echo "$weather_json" | jq -r '.current.weather_code' 2>/dev/null)
@@ -367,7 +370,7 @@ fetch_weather() {
                 85|86) condition="Snow" ;;
                 95|96|99) condition="Storm" ;;
             esac
-            echo "${temp}°C ${condition}" > "$WEATHER_CACHE"
+            echo "${temp}${temp_label} ${condition}" > "$WEATHER_CACHE"
         fi
     fi
 

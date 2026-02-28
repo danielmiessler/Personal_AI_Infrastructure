@@ -2,6 +2,8 @@
 /**
  * Voice Server - Personal AI Voice notification server using ElevenLabs TTS
  *
+ * Platform support: macOS (afplay, osascript) and Linux (mpg123/mpv, notify-send).
+ *
  * Architecture: Pure pass-through. All voice config comes from settings.json.
  * The server has zero hardcoded voice parameters.
  *
@@ -15,10 +17,12 @@
  */
 
 import { serve } from "bun";
-import { spawn } from "child_process";
-import { homedir } from "os";
+import { spawn, execSync } from "child_process";
+import { homedir, platform } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+
+const PLATFORM = platform(); // 'darwin', 'linux', etc.
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -369,14 +373,56 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
-// Play audio using afplay (macOS)
+// Detect available audio player on Linux (checked once at startup)
+function detectLinuxAudioPlayer(): { command: string; args: (file: string, volume: number) => string[] } | null {
+  const players = [
+    {
+      command: 'mpg123',
+      args: (file: string, volume: number) => ['-q', '-f', String(Math.round(volume * 32768)), file],
+    },
+    {
+      command: 'mpv',
+      args: (file: string, volume: number) => ['--no-video', `--volume=${Math.round(volume * 100)}`, file],
+    },
+    {
+      command: 'aplay',
+      args: (file: string, _volume: number) => [file], // aplay doesn't support volume for mp3
+    },
+  ];
+
+  for (const player of players) {
+    try {
+      execSync(`which ${player.command}`, { stdio: 'ignore' });
+      console.log(`🔊 Linux audio player: ${player.command}`);
+      return player;
+    } catch {
+      // not found, try next
+    }
+  }
+  return null;
+}
+
+const linuxAudioPlayer = PLATFORM === 'linux' ? detectLinuxAudioPlayer() : null;
+
+// Play audio — macOS (afplay) or Linux (mpg123/mpv/aplay)
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
   await Bun.write(tempFile, audioBuffer);
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let proc;
+
+    if (PLATFORM === 'darwin') {
+      proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    } else if (PLATFORM === 'linux' && linuxAudioPlayer) {
+      proc = spawn(linuxAudioPlayer.command, linuxAudioPlayer.args(tempFile, volume));
+    } else {
+      console.warn(`⚠️  No audio player available on ${PLATFORM}`);
+      spawn('/bin/rm', [tempFile]);
+      resolve();
+      return;
+    }
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
@@ -388,7 +434,7 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`Audio player exited with code ${code}`));
       }
     });
   });
@@ -419,7 +465,7 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
 // ==========================================================================
 
 /**
- * Send macOS notification with voice.
+ * Send desktop notification with voice (macOS + Linux).
  *
  * Voice settings resolution (3-tier):
  *   1. callerVoiceSettings provided → use directly (pass-through)
@@ -512,13 +558,17 @@ async function sendNotification(
     }
   }
 
-  // Display macOS notification (can be disabled via settings.json: notifications.desktop.enabled: false)
+  // Display desktop notification — macOS (osascript) or Linux (notify-send)
   if (voiceConfig.desktopNotifications) {
     try {
-      const escapedTitle = escapeForAppleScript(safeTitle);
-      const escapedMessage = escapeForAppleScript(safeMessage);
-      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+      if (PLATFORM === 'darwin') {
+        const escapedTitle = escapeForAppleScript(safeTitle);
+        const escapedMessage = escapeForAppleScript(safeMessage);
+        const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+        await spawnSafe('/usr/bin/osascript', ['-e', script]);
+      } else if (PLATFORM === 'linux') {
+        await spawnSafe('notify-send', [safeTitle, safeMessage]);
+      }
     } catch (error) {
       console.error("Notification display error:", error);
     }
@@ -689,6 +739,8 @@ const server = serve({
           status: "healthy",
           port: PORT,
           voice_system: "ElevenLabs",
+          platform: PLATFORM,
+          audio_player: PLATFORM === 'darwin' ? 'afplay' : (linuxAudioPlayer?.command || 'none'),
           default_voice_id: DEFAULT_VOICE_ID,
           api_key_configured: !!ELEVENLABS_API_KEY,
           pronunciation_rules: pronunciationRules.length,
@@ -709,6 +761,7 @@ const server = serve({
 });
 
 console.log(`🚀 Voice Server running on port ${PORT}`);
+console.log(`💻 Platform: ${PLATFORM} (audio: ${PLATFORM === 'darwin' ? 'afplay' : (linuxAudioPlayer?.command || 'none')})`);
 console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);

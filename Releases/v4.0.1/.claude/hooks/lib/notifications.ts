@@ -17,7 +17,7 @@ const SESSION_START_FILE = '/tmp/pai-session-start.txt';
 
 export function recordSessionStart(): void {
   try { writeFileSync(SESSION_START_FILE, Date.now().toString()); } catch (err) {
-    console.error(`[notifications] Failed to record session start: ${err}`);
+    console.error('[notifications] Failed to record session start:', err);
   }
 }
 
@@ -28,7 +28,7 @@ export function getSessionDurationMinutes(): number {
       return (Date.now() - startTime) / 1000 / 60;
     }
   } catch (err) {
-    console.error(`[notifications] Failed to read session start time: ${err}`);
+    console.error('[notifications] Failed to read session start time:', err);
   }
   return 0;
 }
@@ -60,7 +60,7 @@ function loadNtfyConfig(): { enabled: boolean; topic: string; server: string } {
       server: ntfy?.server ?? 'ntfy.sh',
     };
   } catch (err) {
-    console.error(`[notifications] Failed to load ntfy config: ${err}`);
+    console.error('[notifications] Failed to load ntfy config:', err);
     return { enabled: false, topic: '', server: 'ntfy.sh' };
   }
 }
@@ -91,7 +91,7 @@ export async function sendPush(
     });
     return response.ok;
   } catch (err) {
-    console.error(`[notifications] Push notification failed: ${err}`);
+    console.error('[notifications] Push notification failed:', err);
     return false;
   }
 }

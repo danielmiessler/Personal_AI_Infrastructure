@@ -84,6 +84,7 @@ function writeState(state: AlgorithmState): void {
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
   } catch (err) {
     console.error(`[AlgorithmPhaseReport] Failed to write state to ${STATE_FILE}:`, err);
+    throw err;
   }
 }
 
@@ -228,4 +229,5 @@ try {
   writeState(state);
 } catch (err) {
   console.error('[AlgorithmPhaseReport] Unexpected error:', err);
+  process.exit(1);
 }

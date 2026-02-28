@@ -446,6 +446,10 @@ export async function runConfiguration(
       if (!existing.permissions) existing.permissions = config.permissions;
       if (!existing.contextFiles) existing.contextFiles = config.contextFiles;
       if (!existing.plansDirectory) existing.plansDirectory = config.plansDirectory;
+      // Fix tilde paths that Node/Bun fs APIs can't resolve (v3.0.0 shipped with ~/)
+      if (existing.plansDirectory?.startsWith('~')) {
+        existing.plansDirectory = existing.plansDirectory.replace(/^~/, homedir());
+      }
       // Never touch: hooks, statusLine, spinnerVerbs, contextFiles (if present)
       writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
     } catch {

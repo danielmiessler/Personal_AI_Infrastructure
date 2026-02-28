@@ -161,15 +161,15 @@ else
   if [ -n "$PLAN_OS" ] && [ -n "$PLAN_ARCH" ]; then
     PLAN_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local}/bin"
     PLAN_BINARY="plannotator-${PLAN_OS}-${PLAN_ARCH}"
-    PLAN_TAG=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/backnotprop/plannotator/releases/latest" 2>/dev/null | grep '"tag_name"' | cut -d'"' -f4)
+    PLAN_TAG=$(curl -fsSL --connect-timeout 5 --max-time 15 "https://api.github.com/repos/backnotprop/plannotator/releases/latest" 2>/dev/null | grep '"tag_name"' | cut -d'"' -f4)
 
     if [ -n "$PLAN_TAG" ]; then
       PLAN_URL="https://github.com/backnotprop/plannotator/releases/download/${PLAN_TAG}/${PLAN_BINARY}"
       PLAN_SHA_URL="${PLAN_URL}.sha256"
       PLAN_TMP=$(mktemp)
 
-      if curl -fsSL --connect-timeout 10 -o "$PLAN_TMP" "$PLAN_URL" 2>/dev/null; then
-        PLAN_EXPECTED=$(curl -fsSL --connect-timeout 5 "$PLAN_SHA_URL" 2>/dev/null | cut -d' ' -f1)
+      if curl -fsSL --connect-timeout 10 --max-time 120 -o "$PLAN_TMP" "$PLAN_URL" 2>/dev/null; then
+        PLAN_EXPECTED=$(curl -fsSL --connect-timeout 5 --max-time 10 "$PLAN_SHA_URL" 2>/dev/null | cut -d' ' -f1)
         if [ -n "$PLAN_EXPECTED" ]; then
           if [ "$OS" = "Darwin" ]; then
             PLAN_ACTUAL=$(shasum -a 256 "$PLAN_TMP" | cut -d' ' -f1)
@@ -203,6 +203,15 @@ else
   fi
 fi
 
+# ─── Detect Display (headless → CLI fallback) ──────────
+INSTALL_MODE="gui"
+if [[ "$OS" == "Linux" ]]; then
+  if [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+    warn "No display server detected — using CLI installer"
+    INSTALL_MODE="cli"
+  fi
+fi
+
 # ─── Launch Installer ────────────────────────────────────
 # Resolve PAI-Install directory (may be sibling or child of script location)
 INSTALLER_DIR=""
@@ -215,6 +224,6 @@ else
   exit 1
 fi
 
-info "Launching installer..."
+info "Launching installer (mode: $INSTALL_MODE)..."
 echo ""
-exec bun run "$INSTALLER_DIR/main.ts" --mode gui
+exec bun run "$INSTALLER_DIR/main.ts" --mode "$INSTALL_MODE"

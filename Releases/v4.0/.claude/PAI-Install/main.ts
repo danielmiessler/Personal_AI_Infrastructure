@@ -28,7 +28,18 @@ async function main() {
     // Start the HTTP + WebSocket server (Electron loads this)
     await import("./web/server");
   } else {
-    // Launch Electron GUI app
+    // Launch Electron GUI app — requires a display server
+    if (
+      process.platform === "linux" &&
+      !process.env.DISPLAY &&
+      !process.env.WAYLAND_DISPLAY
+    ) {
+      console.log("No display server detected — falling back to CLI mode.\n");
+      const { runCLI } = await import("./cli/index");
+      await runCLI();
+      return;
+    }
+
     const electronDir = join(ROOT, "electron");
     const electronPkg = join(electronDir, "node_modules", ".package-lock.json");
 

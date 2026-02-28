@@ -139,6 +139,15 @@ else
   warn "Claude Code not found — will install during setup"
 fi
 
+# ─── Detect Display (headless → CLI fallback) ──────────
+INSTALL_MODE="gui"
+if [[ "$OS" == "Linux" ]]; then
+  if [[ -z "${DISPLAY:-}" ]] && [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+    warn "No display server detected — using CLI installer"
+    INSTALL_MODE="cli"
+  fi
+fi
+
 # ─── Launch Installer ────────────────────────────────────
 # Resolve PAI-Install directory (may be sibling or child of script location)
 INSTALLER_DIR=""
@@ -151,6 +160,6 @@ else
   exit 1
 fi
 
-info "Launching installer..."
+info "Launching installer (mode: $INSTALL_MODE)..."
 echo ""
-exec bun run "$INSTALLER_DIR/main.ts" --mode gui
+exec bun run "$INSTALLER_DIR/main.ts" --mode "$INSTALL_MODE"

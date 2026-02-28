@@ -12,10 +12,9 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
-import { parseArgs } from "util";
+import { getPaiDir } from "../../hooks/lib/paths";
 
-const PAI_DIR = process.env.PAI_DIR || join(homedir(), ".claude");
+const PAI_DIR = getPaiDir();
 const STATE_DIR = join(PAI_DIR, "MEMORY", "STATE");
 const STATE_FILE = join(STATE_DIR, "algorithm-phase.json");
 

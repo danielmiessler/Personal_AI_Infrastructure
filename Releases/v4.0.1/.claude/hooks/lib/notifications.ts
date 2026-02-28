@@ -90,7 +90,8 @@ export async function sendPush(
       signal: AbortSignal.timeout(5000),
     });
     return response.ok;
-  } catch {
+  } catch (err) {
+    console.error(`[notifications] Push notification failed: ${err}`);
     return false;
   }
 }

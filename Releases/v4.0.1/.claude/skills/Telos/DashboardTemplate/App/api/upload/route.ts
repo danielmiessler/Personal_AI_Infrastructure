@@ -79,8 +79,7 @@ export async function POST(request: Request) {
       path: savePath,
     })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("Error in upload API:", errorMessage)
+    console.error("Error in upload API:", error)
     return NextResponse.json(
       { error: "Failed to upload file" },
       { status: 500 }

@@ -68,8 +68,7 @@ When answering questions:
 
     return NextResponse.json({ response: assistantMessage })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("Error in chat API:", errorMessage)
+    console.error("Error in chat API:", error)
     return NextResponse.json(
       { error: "Chat processing failed" },
       { status: 500 }

@@ -53,6 +53,7 @@ Running the **WorkflowName** workflow in the **Council** skill to ACTION...
 |---------|----------|
 | Full structured debate (3 rounds, visible transcript) | `Workflows/Debate.md` |
 | Quick consensus check (1 round, fast) | `Workflows/Quick.md` |
+| Resume interrupted session | `Workflows/Recovery.md` |
 | Pure adversarial analysis | RedTeam skill |
 
 ## Quick Reference
@@ -61,6 +62,7 @@ Running the **WorkflowName** workflow in the **Council** skill to ACTION...
 |----------|---------|--------|--------|
 | **DEBATE** | Full structured discussion | 3 | Complete transcript + synthesis |
 | **QUICK** | Fast perspective check | 1 | Initial positions only |
+| **RECOVERY** | Resume interrupted session | Remaining | Continue from last checkpoint |
 
 ## Context Files
 
@@ -76,6 +78,8 @@ Running the **WorkflowName** workflow in the **Council** skill to ACTION...
 
 **Speed:** Parallel execution within rounds, sequential between rounds. A 3-round debate of 4 agents = 12 agent calls but only 3 sequential waits. Complete in 30-90 seconds.
 
+**Resilience:** File-first output means session state survives context compaction and rate limits. See `Workflows/Recovery.md` for resuming interrupted sessions.
+
 ## Examples
 
 ```
@@ -87,6 +91,9 @@ Running the **WorkflowName** workflow in the **Council** skill to ACTION...
 
 "Council with security: Evaluate this auth approach"
 -> DEBATE with Security agent added
+
+"Council recovery: Resume session 20260202-143052-a1b2c3d4"
+-> RECOVERY workflow (partial rerun) -> Continue from checkpoint
 ```
 
 ## Integration
@@ -105,4 +112,4 @@ Running the **WorkflowName** workflow in the **Council** skill to ACTION...
 
 ---
 
-**Last Updated:** 2025-12-20
+**Last Updated:** 2026-02-18

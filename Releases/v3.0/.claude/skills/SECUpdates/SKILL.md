@@ -173,15 +173,18 @@ cat ~/.claude/skills/SECUpdates/State/last-check.json
 
 ### Step 2: Fetch Sources (Parallel)
 
-Launch parallel agents to fetch each source:
+Fetch all sources using direct parallel WebFetch calls (do NOT spawn agents via the Task tool — WebFetch is instant, agents add 10s+ overhead per source and can silently stall):
 
-| Agent | Source | Method |
-|-------|--------|--------|
-| Agent 1 | tldrsec.com | WebFetch latest newsletter |
-| Agent 2 | no.security | WebFetch recent posts |
-| Agent 3 | krebsonsecurity.com | WebFetch recent articles |
-| Agent 4 | thehackernews.com | WebFetch headlines |
-| Agent 5 | schneier.com | WebFetch recent posts |
+| Source | Method |
+|--------|--------|
+| tldrsec.com | WebFetch latest newsletter |
+| no.security | WebFetch recent posts |
+| krebsonsecurity.com | WebFetch recent articles |
+| thehackernews.com | WebFetch headlines |
+| schneier.com | WebFetch recent posts |
+| risky.biz | WebFetch recent episodes/news |
+
+**Implementation note:** Call WebFetch directly in batches of 2-3. Do not spawn agents via the Task tool for fetching — WebFetch returns in seconds while agent spawning adds 10-15 seconds per source and can hang indefinitely without visible output.
 
 ### Step 3: Parse & Categorize
 

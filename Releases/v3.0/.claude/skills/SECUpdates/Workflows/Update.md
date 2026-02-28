@@ -14,7 +14,9 @@ Determine the last check timestamp to filter for new content only.
 
 ### 2. Fetch Sources (Parallel)
 
-Launch parallel WebFetch requests to all sources:
+Fetch all sources using direct parallel WebFetch calls in batches of 2-3:
+
+> **Important:** Use the WebFetch tool directly — do NOT spawn agents via the Task tool for source fetching. Agent spawning adds 10-15 seconds of overhead per source and can silently hang, while direct WebFetch calls complete in 2-5 seconds each.
 
 ```
 Source 1: https://tldrsec.com

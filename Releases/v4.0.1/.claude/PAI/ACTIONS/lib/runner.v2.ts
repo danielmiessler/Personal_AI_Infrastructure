@@ -11,6 +11,7 @@
 
 import { readFile, readdir } from "fs/promises";
 import { join, dirname } from "path";
+import { getPaiDir } from '../../../hooks/lib/paths';
 import type {
   ActionManifest,
   ActionImplementation,
@@ -30,7 +31,7 @@ const USER_ACTIONS_DIR = join(ACTIONS_DIR, "..", "USER", "ACTIONS");
  */
 async function createLocalLLM(): Promise<ActionCapabilities["llm"]> {
   const inferenceModule = await import(
-    join(process.env.PAI_DIR || join(process.env.HOME!, ".claude"), "PAI/Tools/Inference.ts")
+    join(getPaiDir(), "PAI/Tools/Inference.ts")
   );
   const { inference } = inferenceModule;
 

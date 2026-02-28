@@ -37,8 +37,9 @@
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getPrincipal } from '../../../hooks/lib/identity';
+import { getPaiDir } from '../../../hooks/lib/paths';
 
-const PAI_BASE = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const PAI_BASE = getPaiDir();
 const TELOS_DIR = join(PAI_BASE, 'context', 'life', 'telos');
 const BACKUPS_DIR = join(TELOS_DIR, 'backups');
 const UPDATES_FILE = join(TELOS_DIR, 'updates.md');

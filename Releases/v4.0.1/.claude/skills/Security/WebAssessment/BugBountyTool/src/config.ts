@@ -1,9 +1,9 @@
 // Configuration for bug bounty tracker
 
-import { homedir } from 'os';
 import { join } from 'path';
+import { getPaiDir } from '../../../../../hooks/lib/paths';
 
-const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+const paiDir = getPaiDir();
 const bbRoot = join(paiDir, 'skills/hacking/bug-bounties');
 
 export const CONFIG = {

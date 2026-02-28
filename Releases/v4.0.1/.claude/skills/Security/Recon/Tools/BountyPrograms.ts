@@ -21,6 +21,7 @@
  */
 
 import { $ } from "bun";
+import { getPaiDir } from "../../../../hooks/lib/paths";
 
 interface BountyProgram {
   name: string;
@@ -46,7 +47,7 @@ interface BountyProgramsResult {
 const CHAOS_BOUNTY_URL = "https://raw.githubusercontent.com/projectdiscovery/public-bugbounty-programs/main/chaos-bugbounty-list.json";
 
 // Local cache path
-const PAI_BASE = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
+const PAI_BASE = getPaiDir();
 const CACHE_DIR = `${PAI_BASE}/skills/Security/Recon/Data`;
 const CACHE_FILE = `${CACHE_DIR}/BountyPrograms.json`;
 const CACHE_MAX_AGE_HOURS = 24;

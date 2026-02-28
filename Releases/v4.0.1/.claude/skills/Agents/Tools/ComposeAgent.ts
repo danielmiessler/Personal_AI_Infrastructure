@@ -31,10 +31,10 @@ import { parseArgs } from "util";
 import { readFileSync, existsSync, readdirSync, unlinkSync, mkdirSync, writeFileSync } from "fs";
 import { parse as parseYaml } from "yaml";
 import Handlebars from "handlebars";
+import { getPaiDir } from "../../../hooks/lib/paths";
 
 // Paths
-const HOME = process.env.HOME || "~";
-const PAI_BASE = process.env.PAI_DIR || `${HOME}/.claude`;
+const PAI_BASE = getPaiDir();
 const BASE_TRAITS_PATH = `${PAI_BASE}/skills/Agents/Data/Traits.yaml`;
 const USER_TRAITS_PATH = `${PAI_BASE}/PAI/USER/SKILLCUSTOMIZATIONS/Agents/Traits.yaml`;
 const TEMPLATE_PATH = `${PAI_BASE}/skills/Agents/Templates/DynamicAgent.hbs`;

@@ -19,12 +19,13 @@
 import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import { getPaiDir } from '../../hooks/lib/paths';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = process.env.PAI_DIR || path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = getPaiDir();
 const LEARNING_DIR = path.join(CLAUDE_DIR, "MEMORY", "LEARNING");
 const RATINGS_FILE = path.join(LEARNING_DIR, "SIGNALS", "ratings.jsonl");
 const SYNTHESIS_DIR = path.join(LEARNING_DIR, "SYNTHESIS");

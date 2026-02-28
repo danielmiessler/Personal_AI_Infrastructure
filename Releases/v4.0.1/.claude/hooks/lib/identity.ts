@@ -8,10 +8,9 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getPaiDir } from './paths';
 
-const HOME = process.env.HOME!;
-const PAI_DIR = process.env.PAI_DIR || join(HOME, '.claude');
-const SETTINGS_PATH = join(PAI_DIR, 'settings.json');
+const SETTINGS_PATH = join(getPaiDir(), 'settings.json');
 
 // Default identity (fallback if settings.json doesn't have identity section)
 const DEFAULT_IDENTITY = {

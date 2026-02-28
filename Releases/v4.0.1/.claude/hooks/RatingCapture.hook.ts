@@ -34,6 +34,7 @@ import { join } from 'path';
 import { inference } from '../PAI/Tools/Inference';
 import { getIdentity, getPrincipal, getPrincipalName } from './lib/identity';
 import { getLearningCategory } from './lib/learning-utils';
+import { getPaiDir } from './lib/paths';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../PAI/Tools/FailureCapture';
 
@@ -61,7 +62,7 @@ interface RatingEntry {
 
 // ── Shared Constants ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = getPaiDir();
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const TRENDING_SCRIPT = join(BASE_DIR, 'tools', 'TrendingAnalysis.ts');

@@ -16,8 +16,8 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
-import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
+import { getPaiDir } from '../../hooks/lib/paths';
 
 // Types
 interface CustomizationMetadata {
@@ -34,8 +34,7 @@ interface ExtendManifest {
 }
 
 // Constants
-const HOME = homedir();
-const PAI_BASE = process.env.PAI_DIR || join(HOME, '.claude');
+const PAI_BASE = getPaiDir();
 const CUSTOMIZATION_DIR = join(PAI_BASE, 'PAI', 'USER', 'SKILLCUSTOMIZATIONS');
 
 /**

@@ -27,7 +27,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { createHash } from 'crypto';
 import { join } from 'path';
-import { homedir } from 'os';
+import { getPaiDir } from '../../../../hooks/lib/paths';
 
 // Types
 interface Source {
@@ -78,8 +78,7 @@ interface State {
 }
 
 // Config
-const HOME = homedir();
-const PAI_BASE = process.env.PAI_DIR || join(HOME, '.claude');
+const PAI_BASE = getPaiDir();
 const SKILL_DIR = join(PAI_BASE, 'skills', 'PAIUpgrade');
 const STATE_DIR = join(SKILL_DIR, 'State');
 const STATE_FILE = join(STATE_DIR, 'last-check.json');

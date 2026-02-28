@@ -427,8 +427,9 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
     }
   }
 
-  summary += '\n💡 To resume project: `bun run ~/.claude/PAI/Tools/SessionProgress.ts resume <project>`\n';
-  summary += '💡 To complete project: `bun run ~/.claude/PAI/Tools/SessionProgress.ts complete <project>`\n';
+  const paiDirHint = process.env.PAI_DIR || '~/.claude';
+  summary += `\n💡 To resume project: \`bun run ${paiDirHint}/PAI/Tools/SessionProgress.ts resume <project>\`\n`;
+  summary += `💡 To complete project: \`bun run ${paiDirHint}/PAI/Tools/SessionProgress.ts complete <project>\`\n`;
 
   return summary;
 }

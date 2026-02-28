@@ -30,7 +30,7 @@ const USER_ACTIONS_DIR = join(ACTIONS_DIR, "..", "USER", "ACTIONS");
  */
 async function createLocalLLM(): Promise<ActionCapabilities["llm"]> {
   const inferenceModule = await import(
-    join(process.env.HOME!, ".claude/PAI/Tools/Inference.ts")
+    join(process.env.PAI_DIR || join(process.env.HOME!, ".claude"), "PAI/Tools/Inference.ts")
   );
   const { inference } = inferenceModule;
 

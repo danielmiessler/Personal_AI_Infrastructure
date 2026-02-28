@@ -150,7 +150,8 @@ const FALLBACK_VOLUME = 1.0;
 
 // Load voice configuration from settings.json (cached at startup)
 function loadVoiceConfig(): LoadedVoiceConfig {
-  const settingsPath = join(homedir(), '.claude', 'settings.json');
+  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const settingsPath = join(paiDir, 'settings.json');
 
   try {
     if (!existsSync(settingsPath)) {

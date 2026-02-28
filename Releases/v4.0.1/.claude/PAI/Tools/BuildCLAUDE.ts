@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 
-const PAI_DIR = join(process.env.HOME!, ".claude");
+const PAI_DIR = process.env.PAI_DIR || join(process.env.HOME!, ".claude");
 const TEMPLATE_PATH = join(PAI_DIR, "CLAUDE.md.template");
 const OUTPUT_PATH = join(PAI_DIR, "CLAUDE.md");
 const SETTINGS_PATH = join(PAI_DIR, "settings.json");

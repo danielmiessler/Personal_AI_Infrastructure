@@ -7,7 +7,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { getPaiDir } from './paths';
 
 // ============================================================================
 // Session Timing
@@ -43,8 +43,7 @@ export interface NotificationOptions {
 
 function loadNtfyConfig(): { enabled: boolean; topic: string; server: string } {
   try {
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const settingsPath = join(paiDir, 'settings.json');
+    const settingsPath = join(getPaiDir(), 'settings.json');
     if (!existsSync(settingsPath)) return { enabled: false, topic: '', server: 'ntfy.sh' };
 
     const raw = readFileSync(settingsPath, 'utf-8')

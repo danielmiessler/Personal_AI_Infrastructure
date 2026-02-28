@@ -79,7 +79,8 @@ interface State {
 
 // Config
 const HOME = homedir();
-const SKILL_DIR = join(HOME, '.claude', 'skills', 'PAIUpgrade');
+const PAI_BASE = process.env.PAI_DIR || join(HOME, '.claude');
+const SKILL_DIR = join(PAI_BASE, 'skills', 'PAIUpgrade');
 const STATE_DIR = join(SKILL_DIR, 'State');
 const STATE_FILE = join(STATE_DIR, 'last-check.json');
 const SOURCES_FILE = join(SKILL_DIR, 'sources.json');

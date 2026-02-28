@@ -17,7 +17,7 @@ export const STEPS: StepDefinition[] = [
   {
     id: "prerequisites",
     name: "Prerequisites",
-    description: "Install required tools: Git, Bun, Claude Code",
+    description: "Install required tools: Git, Bun, Claude Code, Plannotator",
     number: 2,
     required: true,
     dependsOn: ["system-detect"],

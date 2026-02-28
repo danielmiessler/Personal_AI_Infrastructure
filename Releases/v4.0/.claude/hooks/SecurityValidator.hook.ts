@@ -26,13 +26,13 @@
  * - User prompt: May trigger confirmation dialog for confirm-level operations
  *
  * INTER-HOOK RELATIONSHIPS:
- * - DEPENDS ON: patterns.yaml (security pattern definitions)
+ * - DEPENDS ON: patterns.json or patterns.yaml (security pattern definitions)
  * - COORDINATES WITH: None (standalone validation)
  * - MUST RUN BEFORE: Tool execution (blocking)
  * - MUST RUN AFTER: None
  *
  * ERROR HANDLING:
- * - Missing patterns.yaml: Uses default safe patterns
+ * - Missing patterns file: Uses default safe patterns
  * - Parse errors: Logs warning, allows operation (fail-open for usability)
  * - Logging failures: Silent (should not block operations)
  *
@@ -63,7 +63,6 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { parse as parseYaml } from 'yaml';
 import { paiPath } from './lib/paths';
 
 // ========================================
@@ -178,25 +177,37 @@ interface PatternsConfig {
 // ========================================
 
 // Pattern paths in priority order:
-// 1. PAI/USER/PAISECURITYSYSTEM/patterns.yaml (user's custom rules)
-// 2. PAI/PAISECURITYSYSTEM/patterns.example.yaml (default template)
-const USER_PATTERNS_PATH = paiPath('PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.yaml');
-const SYSTEM_PATTERNS_PATH = paiPath('PAI', 'PAISECURITYSYSTEM', 'patterns.example.yaml');
+// 1. PAI/USER/PAISECURITYSYSTEM/patterns.json (user's custom rules — preferred)
+// 2. PAI/USER/PAISECURITYSYSTEM/patterns.yaml (legacy — backward compat)
+// 3. PAI/PAISECURITYSYSTEM/patterns.example.json (default template)
+// 4. PAI/PAISECURITYSYSTEM/patterns.example.yaml (legacy default template)
+const USER_PATTERNS_JSON = paiPath('PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.json');
+const USER_PATTERNS_YAML = paiPath('PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.yaml');
+const SYSTEM_PATTERNS_JSON = paiPath('PAI', 'PAISECURITYSYSTEM', 'patterns.example.json');
+const SYSTEM_PATTERNS_YAML = paiPath('PAI', 'PAISECURITYSYSTEM', 'patterns.example.yaml');
 
 let patternsCache: PatternsConfig | null = null;
 let patternsSource: 'user' | 'system' | 'none' = 'none';
 
-function getPatternsPath(): string | null {
-  // Try USER patterns first (user's custom rules)
-  if (existsSync(USER_PATTERNS_PATH)) {
+function getPatternsPath(): { path: string; format: 'json' | 'yaml' } | null {
+  // Try USER patterns first (JSON preferred, YAML fallback)
+  if (existsSync(USER_PATTERNS_JSON)) {
     patternsSource = 'user';
-    return USER_PATTERNS_PATH;
+    return { path: USER_PATTERNS_JSON, format: 'json' };
+  }
+  if (existsSync(USER_PATTERNS_YAML)) {
+    patternsSource = 'user';
+    return { path: USER_PATTERNS_YAML, format: 'yaml' };
   }
 
-  // Fall back to SYSTEM patterns (default template)
-  if (existsSync(SYSTEM_PATTERNS_PATH)) {
+  // Fall back to SYSTEM patterns (JSON preferred, YAML fallback)
+  if (existsSync(SYSTEM_PATTERNS_JSON)) {
     patternsSource = 'system';
-    return SYSTEM_PATTERNS_PATH;
+    return { path: SYSTEM_PATTERNS_JSON, format: 'json' };
+  }
+  if (existsSync(SYSTEM_PATTERNS_YAML)) {
+    patternsSource = 'system';
+    return { path: SYSTEM_PATTERNS_YAML, format: 'yaml' };
   }
 
   // No patterns found
@@ -204,12 +215,27 @@ function getPatternsPath(): string | null {
   return null;
 }
 
+function parseYamlSimple(content: string): unknown {
+  // Minimal YAML parser for flat/nested key-value patterns files.
+  // Handles the subset used by security patterns: objects, arrays, strings.
+  // Falls back to JSON.parse if content looks like JSON.
+  if (content.trim().startsWith('{')) return JSON.parse(content);
+  try {
+    // Use Bun's built-in YAML support if available
+    const { parse } = require('yaml');
+    return parse(content);
+  } catch {
+    // If yaml package not available, try JSON as last resort
+    return JSON.parse(content);
+  }
+}
+
 function loadPatterns(): PatternsConfig {
   if (patternsCache) return patternsCache;
 
-  const patternsPath = getPatternsPath();
+  const result = getPatternsPath();
 
-  if (!patternsPath) {
+  if (!result) {
     // No patterns file - fail open (allow all)
     return {
       version: '0.0',
@@ -221,12 +247,14 @@ function loadPatterns(): PatternsConfig {
   }
 
   try {
-    const content = readFileSync(patternsPath, 'utf-8');
-    patternsCache = parseYaml(content) as PatternsConfig;
+    const content = readFileSync(result.path, 'utf-8');
+    patternsCache = (result.format === 'json'
+      ? JSON.parse(content)
+      : parseYamlSimple(content)) as PatternsConfig;
     return patternsCache;
   } catch (error) {
     // Parse error - fail open
-    console.error(`Failed to parse ${patternsSource} patterns.yaml:`, error);
+    console.error(`Failed to parse ${patternsSource} patterns (${result.format}):`, error);
     return {
       version: '0.0',
       philosophy: { mode: 'permissive', principle: 'Parse error - fail open' },

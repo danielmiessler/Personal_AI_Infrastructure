@@ -3,6 +3,7 @@
  * Verifies installation completeness after all steps run.
  */
 
+import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import type { InstallState, ValidationCheck, InstallSummary } from "./types";
@@ -106,7 +107,7 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
   }
 
   // 4. PAI skill present
-  const skillPath = join(paiDir, "skills", "PAI", "SKILL.md");
+  const skillPath = join(paiDir, "PAI", "SKILL.md");
   checks.push({
     name: "PAI core skill",
     passed: existsSync(skillPath),
@@ -181,6 +182,24 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
     passed: aliasConfigured,
     detail: aliasConfigured ? "Configured in .zshrc" : "Not found — run: source ~/.zshrc",
     critical: true,
+  });
+
+  // 9. Plannotator binary available
+  let plannotatorInstalled = false;
+  try {
+    const planPath = execSync("which plannotator", { timeout: 3000, stdio: ["pipe", "pipe", "pipe"] }).toString().trim();
+    plannotatorInstalled = !!planPath;
+  } catch {
+    plannotatorInstalled = existsSync(join(homedir(), ".local", "bin", "plannotator"));
+  }
+
+  checks.push({
+    name: "Plannotator",
+    passed: plannotatorInstalled,
+    detail: plannotatorInstalled
+      ? "Installed — visual plan review enabled"
+      : "Not found — install: curl -fsSL https://plannotator.ai/install.sh | bash",
+    critical: false,
   });
 
   return checks;

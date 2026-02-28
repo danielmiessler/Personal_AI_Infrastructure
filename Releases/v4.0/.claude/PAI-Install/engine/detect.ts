@@ -90,7 +90,7 @@ function detectExisting(
   }
 
   // Check for existing PAI skill
-  if (existsSync(join(paiDir, "skills", "PAI", "SKILL.md"))) {
+  if (existsSync(join(paiDir, "PAI", "SKILL.md"))) {
     result.paiInstalled = true;
   }
 
@@ -141,6 +141,7 @@ export function detectSystem(): DetectionResult {
         installed: tryExec("which brew") !== null,
         path: tryExec("which brew") || undefined,
       },
+      plannotator: detectTool("plannotator", "plannotator --version 2>&1"),
     },
     existing: detectExisting(home, paiDir, configDir),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

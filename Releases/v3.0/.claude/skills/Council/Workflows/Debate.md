@@ -17,6 +17,7 @@ Running the **Debate** workflow in the **Council** skill to run multi-agent deba
 
 - Topic or question to debate
 - Optional: Custom council members (default: architect, designer, engineer, researcher)
+- Optional: Output mode (`deliberative` or `patchlist`)
 
 ## Execution
 
@@ -50,6 +51,16 @@ Give your initial position on this topic from your specialized perspective.
 - You'll respond to other council members in Round 2
 
 Your perspective focuses on: [agent's domain]
+
+[If patchlist mode: append to prompt]
+Format your response using priority categories:
+**BLOCKING:** (issues that must be resolved)
+- B1: [issue] → [proposed change]
+**HIGH:** (significant improvements)
+- H1: [issue] → [proposed change]
+**MEDIUM/LOW:** (minor items)
+- M1: [issue]
+[End patchlist addition]
 ```
 
 **Agent domains:**
@@ -98,6 +109,16 @@ Now respond to the other council members:
 - 50-150 words
 
 The value is in genuine intellectual friction—engage with their actual arguments.
+
+[If patchlist mode: append to prompt]
+Format your response using priority categories:
+**BLOCKING:** (issues that must be resolved)
+- B1: [issue] → [proposed change]
+**HIGH:** (significant improvements)
+- H1: [issue] → [proposed change]
+**MEDIUM/LOW:** (minor items)
+- M1: [issue]
+[End patchlist addition]
 ```
 
 **Output:**
@@ -139,6 +160,16 @@ Final synthesis from your perspective:
 - 50-150 words
 
 Be honest about remaining disagreements—forced consensus is worse than acknowledged tension.
+
+[If patchlist mode: append to prompt]
+Format your final synthesis using priority categories:
+**BLOCKING:** (unresolved critical issues from the debate)
+- B1: [issue] → [proposed resolution]
+**HIGH:** (important items with emerging consensus)
+- H1: [issue] → [proposed resolution]
+**MEDIUM/LOW:** (minor items)
+- M1: [issue]
+[End patchlist addition]
 ```
 
 **Output:**
@@ -206,6 +237,29 @@ If user specifies custom members, adjust accordingly:
 - Synthesis: ~5 seconds
 
 **Total: 30-90 seconds for full debate**
+
+## Output Modes
+
+### Deliberative (default)
+Standard conversational format. Use for architectural debates, design decisions, exploratory discussions.
+
+### Patchlist
+Structured format for specification reviews. Invoke with: `"Council (patchlist): Review..."`
+
+In patchlist mode, instruct agents to structure responses as:
+
+```markdown
+**BLOCKING:**
+- B1: [issue] → [proposed change]
+
+**HIGH:**
+- H1: [issue] → [proposed change]
+
+**MEDIUM/LOW:**
+- M1: [issue]
+```
+
+This produces actionable, prioritized output rather than conversational prose. Useful for document reviews, spec audits, and code review sessions.
 
 ## Done
 

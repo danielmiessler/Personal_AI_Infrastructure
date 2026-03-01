@@ -153,4 +153,13 @@ fi
 
 info "Launching installer..."
 echo ""
-exec bun run "$INSTALLER_DIR/main.ts" --mode gui
+
+# Auto-detect headless/SSH environments and fall back to CLI mode
+if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ] && [ "$(uname)" != "Darwin" ]; then
+    INSTALL_MODE="cli"
+    info "Headless environment detected — using CLI installer."
+else
+    INSTALL_MODE="gui"
+fi
+
+exec bun run "$INSTALLER_DIR/main.ts" --mode "$INSTALL_MODE"

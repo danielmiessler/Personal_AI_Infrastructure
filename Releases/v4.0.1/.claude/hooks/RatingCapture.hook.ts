@@ -21,7 +21,6 @@
  * SIDE EFFECTS:
  * - Writes to: MEMORY/LEARNING/SIGNALS/ratings.jsonl
  * - Writes to: MEMORY/LEARNING/<category>/<YYYY-MM>/*.md (for low ratings)
- * - Triggers: TrendingAnalysis.ts update (fire-and-forget)
  * - API call: Haiku inference for implicit sentiment (fast/cheap)
  *
  * PERFORMANCE:
@@ -53,7 +52,7 @@ interface RatingEntry {
   rating: number;
   session_id: string;
   comment?: string;
-  source?: 'implicit';
+  source?: 'implicit' | 'explicit';
   sentiment_summary?: string;
   confidence?: number;
   response_preview?: string;  // Truncated last response that was rated (from cache)
@@ -64,7 +63,6 @@ interface RatingEntry {
 const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
-const TRENDING_SCRIPT = join(BASE_DIR, 'tools', 'TrendingAnalysis.ts');
 const LAST_RESPONSE_CACHE = join(BASE_DIR, 'MEMORY', 'STATE', 'last-response.txt');
 const MIN_PROMPT_LENGTH = 3;
 const MIN_CONFIDENCE = 0.5;
@@ -306,15 +304,6 @@ function writeRating(entry: RatingEntry): void {
   console.error(`[RatingCapture] Wrote ${source} rating ${entry.rating} to ${RATINGS_FILE}`);
 }
 
-// ── Shared: Trigger Trending Analysis ──
-
-function triggerTrending(): void {
-  if (existsSync(TRENDING_SCRIPT)) {
-    Bun.spawn(['bun', TRENDING_SCRIPT, '--force'], { stdout: 'ignore', stderr: 'ignore' });
-    console.error('[RatingCapture] Triggered TrendingAnalysis update');
-  }
-}
-
 // ── Shared: Capture Low Rating Learning ──
 
 function captureLowRatingLearning(
@@ -395,12 +384,13 @@ async function main() {
         timestamp: getISOTimestamp(),
         rating: explicitResult.rating,
         session_id: data.session_id,
+        source: 'explicit' as const,
       };
       if (explicitResult.comment) entry.comment = explicitResult.comment;
       if (cachedResponse) entry.response_preview = cachedResponse.slice(0, 500);
 
       writeRating(entry);
-      triggerTrending();
+
 
       if (explicitResult.rating < 5) {
         // Read cached last response (written by LastResponseCache.hook.ts on previous Stop event)
@@ -475,7 +465,7 @@ async function main() {
           confidence: 0.95,
           ...(cachedResponse ? { response_preview: cachedResponse.slice(0, 500) } : {}),
         });
-        triggerTrending();
+  
         process.exit(0);
       }
     }
@@ -516,7 +506,7 @@ async function main() {
       if (implicitCachedResponse) entry.response_preview = implicitCachedResponse.slice(0, 500);
 
       writeRating(entry);
-      triggerTrending();
+
 
       if (sentiment.rating < 5) {
         captureLowRatingLearning(
@@ -550,7 +540,7 @@ async function main() {
         sentiment_summary: `INFERENCE_FAILED: "${failedPromptPreview}"`,
         confidence: 0,
       });
-      triggerTrending();
+
     }
 
     process.exit(0);

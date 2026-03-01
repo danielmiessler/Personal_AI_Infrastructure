@@ -584,23 +584,25 @@ export async function runConfiguration(
     }
   }
 
-  // Set up zsh alias
+  // Set up shell alias (detect bash/zsh/fish)
   await emit({ event: "progress", step: "configuration", percent: 80, detail: "Setting up shell alias..." });
 
-  const zshrcPath = join(homedir(), ".zshrc");
-  const aliasLine = `alias pai='bun ${join(paiDir, "skills", "PAI", "Tools", "pai.ts")}'`;
+  const userShell = process.env.SHELL || "/bin/zsh";
+  const rcFile = userShell.includes("bash") ? ".bashrc" : userShell.includes("fish") ? ".config/fish/config.fish" : ".zshrc";
+  const rcPath = join(homedir(), rcFile);
+  const aliasLine = `alias pai='bun ${join(paiDir, "PAI", "Tools", "pai.ts")}'`;
   const marker = "# PAI alias";
 
-  if (existsSync(zshrcPath)) {
-    let content = readFileSync(zshrcPath, "utf-8");
+  if (existsSync(rcPath)) {
+    let content = readFileSync(rcPath, "utf-8");
     // Remove any existing pai alias (old CORE or PAI paths, any marker variant)
     content = content.replace(/^#\s*(?:PAI|CORE)\s*alias.*\n.*alias pai=.*\n?/gm, "");
     content = content.replace(/^alias pai=.*\n?/gm, "");
     // Add fresh alias
     content = content.trimEnd() + `\n\n${marker}\n${aliasLine}\n`;
-    writeFileSync(zshrcPath, content);
+    writeFileSync(rcPath, content);
   } else {
-    writeFileSync(zshrcPath, `${marker}\n${aliasLine}\n`);
+    writeFileSync(rcPath, `${marker}\n${aliasLine}\n`);
   }
 
   // Fix permissions

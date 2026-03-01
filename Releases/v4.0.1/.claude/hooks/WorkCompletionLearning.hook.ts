@@ -104,6 +104,7 @@ function parseYaml(content: string): WorkMeta {
   let currentKey = '';
   let inArray = false;
   let arrayKey = '';
+  let lineageSubKey = '';
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -113,9 +114,8 @@ function parseYaml(content: string): WorkMeta {
     if (trimmed.startsWith('- ') && inArray) {
       const value = trimmed.slice(2).replace(/^["']|["']$/g, '');
       if (arrayKey === 'lineage') {
-        // Nested array in lineage
-        const lastKey = Object.keys(meta.lineage).pop();
-        if (lastKey) meta.lineage[lastKey].push(value);
+        // Nested array in lineage — use tracked sub-key
+        if (lineageSubKey) meta.lineage[lineageSubKey].push(value);
       } else {
         meta[arrayKey].push(value);
       }
@@ -145,6 +145,7 @@ function parseYaml(content: string): WorkMeta {
         if (meta.lineage && ['tools_used', 'files_changed', 'agents_spawned'].includes(key)) {
           meta.lineage[key] = [];
           arrayKey = 'lineage';
+          lineageSubKey = key;
           inArray = true;
         } else {
           meta[key] = [];

@@ -501,8 +501,11 @@ async function sendNotification(
   if (voiceEnabled && VOICE_ENABLED_GLOBAL) {
     try {
       if (TTS_PROVIDER === 'openai-compatible') {
-        // Kokoro / OpenAI-compatible path — voice_id in request body used as Kokoro voice name
-        const kokoroVoice = voiceId || TTS_VOICE;
+        // Kokoro / OpenAI-compatible path — voice_id in request body used as Kokoro voice name.
+        // Validate it looks like a Kokoro voice (e.g. "am_liam", "bf_emma") — silently ignore
+        // ElevenLabs placeholders like "YOUR_VOICE_ID_HERE" or opaque ElevenLabs IDs.
+        const isValidKokoroVoice = (v: string | null) => !!v && /^[a-z]{2}_[a-z]/.test(v);
+        const kokoroVoice = isValidKokoroVoice(voiceId) ? voiceId! : TTS_VOICE;
         console.log(`🎙️  Generating speech via Kokoro (voice: ${kokoroVoice})`);
         const audioBuffer = await generateSpeechOpenAI(safeMessage, kokoroVoice);
         await playAudio(audioBuffer, callerVolume ?? FALLBACK_VOLUME);

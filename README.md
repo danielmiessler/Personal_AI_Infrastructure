@@ -347,6 +347,8 @@ cd Personal_AI_Infrastructure/Releases/v4.0.1
 cp -r .claude ~/ && cd ~/.claude && bash install.sh
 ```
 
+> **Windows users:** The automated installer targets macOS and Linux. See **[Windows Compatibility Guide](Releases/v3.0/WINDOWS_COMPATIBILITY.md)** for manual installation steps and known issues.
+
 **The installer will:**
 - Detect your system and install prerequisites (Bun, Git, Claude Code)
 - Ask for your name, AI assistant name, timezone, and temperature unit preference

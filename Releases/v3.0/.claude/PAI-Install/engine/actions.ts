@@ -101,6 +101,58 @@ function findExistingVoiceConfig(): { voiceId: string; aiName: string; source: s
   return null;
 }
 
+/**
+ * Resolve ${PAI_DIR} and $PAI_DIR references in hook command strings.
+ * Claude Code does NOT expand env vars in hook command strings — it only
+ * expands them in .mcp.json. On macOS/Linux the shell expands them, but
+ * on Windows (cmd.exe) ${VAR} syntax is not recognized. This function
+ * makes hook commands work on Windows by resolving the paths at
+ * install time. On macOS/Linux this is a no-op (shell expansion works).
+ *
+ * Also prepends "bun" to .ts hook commands if not already present,
+ * since Windows won't execute TypeScript files directly.
+ */
+function resolveHookPaths(settings: Record<string, any>, paiDir: string): void {
+  // On macOS/Linux, the shell expands ${PAI_DIR} at runtime from the env var.
+  // Only Windows needs install-time resolution (cmd.exe doesn't expand ${VAR}).
+  if (process.platform !== "win32") return;
+
+  const hookSections = settings.hooks;
+  if (!hookSections || typeof hookSections !== "object") return;
+
+  for (const eventType of Object.values(hookSections) as any[]) {
+    if (!Array.isArray(eventType)) continue;
+    for (const group of eventType) {
+      const hooks = group.hooks || [group];
+      for (const hook of hooks) {
+        if (hook.command && typeof hook.command === "string") {
+          // Replace ${PAI_DIR} and $PAI_DIR with actual path (forward slashes for cross-runtime compat)
+          const normalizedDir = paiDir.replace(/\\/g, "/");
+          hook.command = hook.command
+            .replace(/\$\{PAI_DIR\}/g, normalizedDir)
+            .replace(/\$PAI_DIR\b/g, normalizedDir);
+
+          // On Windows, shebangs don't work — .ts commands need explicit "bun" prefix
+          if (process.platform === "win32") {
+            const trimmed = hook.command.trim();
+            if (trimmed.includes(".ts") && !trimmed.startsWith("bun ")) {
+              hook.command = `bun ${hook.command}`;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Also resolve $PAI_DIR in statusLine command if present
+  if (settings.statusLine?.command && typeof settings.statusLine.command === "string") {
+    const normalizedDir = paiDir.replace(/\\/g, "/");
+    settings.statusLine.command = settings.statusLine.command
+      .replace(/\$\{PAI_DIR\}/g, normalizedDir)
+      .replace(/\$PAI_DIR\b/g, normalizedDir);
+  }
+}
+
 function tryExec(cmd: string, timeout = 30000): string | null {
   try {
     return execSync(cmd, { timeout, stdio: ["pipe", "pipe", "pipe"] }).toString().trim();
@@ -447,6 +499,8 @@ export async function runConfiguration(
       if (!existing.contextFiles) existing.contextFiles = config.contextFiles;
       if (!existing.plansDirectory) existing.plansDirectory = config.plansDirectory;
       // Never touch: hooks, statusLine, spinnerVerbs, contextFiles (if present)
+      // Resolve ${PAI_DIR} in hook commands for Windows compatibility
+      resolveHookPaths(existing, paiDir);
       writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
     } catch {
       // Existing file is corrupt — write fresh as fallback

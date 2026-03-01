@@ -74,6 +74,18 @@ ARCH="$(uname -m)"
 case "$OS" in
   Darwin) info "Platform: macOS ($ARCH)" ;;
   Linux)  info "Platform: Linux ($ARCH)" ;;
+  MINGW*|MSYS*|CYGWIN*)
+    warn "Windows detected ($OS)"
+    echo ""
+    echo -e "  ${BLUE}The automated installer does not yet support Windows.${RESET}"
+    echo -e "  ${BLUE}See the Windows compatibility guide for manual installation:${RESET}"
+    echo ""
+    echo -e "  ${GREEN}→ Releases/v3.0/WINDOWS_COMPATIBILITY.md${RESET}"
+    echo -e "  ${GRAY}  or: https://github.com/danielmiessler/PAI/blob/main/Releases/v3.0/WINDOWS_COMPATIBILITY.md${RESET}"
+    echo ""
+    echo -e "  ${GRAY}Related issues: #440, #543, #385${RESET}"
+    exit 1
+    ;;
   *)      error "Unsupported platform: $OS"; exit 1 ;;
 esac
 

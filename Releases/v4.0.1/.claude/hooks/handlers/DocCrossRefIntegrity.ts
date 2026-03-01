@@ -35,6 +35,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { paiPath, getPaiDir } from '../lib/paths';
+import { getIdentity } from '../lib/identity';
 import { inference } from '../../PAI/Tools/Inference';
 import type { ParsedTranscript } from '../../PAI/Tools/TranscriptParser';
 
@@ -363,7 +364,7 @@ async function notifyVoice(message: string): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(3000),
-      body: JSON.stringify({ message, voice_id: 'fTtv3eikoepIosk8dTZ5' }),
+      body: JSON.stringify({ message, voice_id: getIdentity().mainDAVoiceID }),
     });
   } catch {
     // Voice server may not be running — silent fail
@@ -832,13 +833,18 @@ export async function handleDocCrossRefIntegrity(
 
   // Step 6: Inference-powered semantic analysis
   // Run inference to catch what grep can't: semantic drift in descriptions
-  console.error(`${TAG} === Running inference analysis ===`);
-  const inferenceEdits = await runInferenceAnalysis(modifiedFiles, docsToCheck);
-  if (inferenceEdits.length > 0) {
-    const inferenceApplied = applyInferenceEdits(inferenceEdits);
-    updatesApplied.push(...inferenceApplied);
+  // Skip if no drift found — saves ~15s of inference per response
+  if (allDrift.length > 0) {
+    console.error(`${TAG} === Running inference analysis ===`);
+    const inferenceEdits = await runInferenceAnalysis(modifiedFiles, docsToCheck);
+    if (inferenceEdits.length > 0) {
+      const inferenceApplied = applyInferenceEdits(inferenceEdits);
+      updatesApplied.push(...inferenceApplied);
+    } else {
+      console.error(`${TAG} [INFERENCE] No semantic corrections needed`);
+    }
   } else {
-    console.error(`${TAG} [INFERENCE] No semantic corrections needed`);
+    console.error(`${TAG} [INFERENCE] Skipped — no drift detected`);
   }
 
   // Step 7: Save drift report (renumbered for inference step)

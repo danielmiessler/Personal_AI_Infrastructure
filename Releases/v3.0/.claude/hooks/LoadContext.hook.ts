@@ -534,6 +534,23 @@ async function main() {
       console.error('✅ SKILL.md up-to-date (skipped rebuild)');
     }
 
+    // Self-healing: Ensure skill-index.json exists for skill discovery
+    const skillIndexPath = join(paiDir, 'skills', 'skill-index.json');
+    if (!existsSync(skillIndexPath)) {
+      console.error('🔍 skill-index.json missing — regenerating...');
+      try {
+        execSync(`bun "${join(paiDir, 'skills/PAI/Tools/GenerateSkillIndex.ts')}"`, {
+          cwd: paiDir,
+          stdio: 'pipe',
+          timeout: 5000
+        });
+        console.error('✅ skill-index.json regenerated');
+      } catch (err) {
+        console.error(`⚠️ Failed to regenerate skill-index.json: ${err}`);
+        console.error('⚠️ Continuing without skill index...');
+      }
+    }
+
     console.error('📚 Reading PAI core context...');
 
     // Load settings.json to get contextFiles array

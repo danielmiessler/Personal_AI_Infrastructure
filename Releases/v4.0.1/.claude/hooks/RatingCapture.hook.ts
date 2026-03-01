@@ -392,7 +392,6 @@ async function main() {
 
       writeRating(entry);
 
-
       if (explicitResult.rating < 5) {
         // Read cached last response (written by LastResponseCache.hook.ts on previous Stop event)
         const responseContext = getLastResponse();
@@ -466,7 +465,6 @@ async function main() {
           confidence: 0.95,
           ...(cachedResponse ? { response_preview: cachedResponse.slice(0, 500) } : {}),
         });
-  
         process.exit(0);
       }
     }
@@ -508,7 +506,6 @@ async function main() {
 
       writeRating(entry);
 
-
       if (sentiment.rating < 5) {
         captureLowRatingLearning(
           sentiment.rating,
@@ -541,7 +538,6 @@ async function main() {
         sentiment_summary: `INFERENCE_FAILED: "${failedPromptPreview}"`,
         confidence: 0,
       });
-
     }
 
     process.exit(0);

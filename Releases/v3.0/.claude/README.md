@@ -36,6 +36,6 @@ The `pai` command displays the PAI banner, announces your AI's startup catchphra
 
 ## Documentation
 
-- **[INSTALL.md](INSTALL.md)** — Detailed installation guide
+- **[PAI-Install/README.md](PAI-Install/README.md)** — Detailed installation guide
 - **[skills/PAI/SKILL.md](skills/PAI/SKILL.md)** — Full system documentation
 - **[github.com/danielmiessler/PAI](https://github.com/danielmiessler/PAI)** — Source repository

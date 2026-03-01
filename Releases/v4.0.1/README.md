@@ -8,7 +8,7 @@
 [![Categories](https://img.shields.io/badge/Categories-13-3B82F6?style=flat)](../../skills/)
 [![Hooks](https://img.shields.io/badge/Hooks-21-F97316?style=flat)](../../hooks/)
 [![Workflows](https://img.shields.io/badge/Workflows-180-8B5CF6?style=flat)](../../skills/)
-[![Algorithm](https://img.shields.io/badge/Algorithm-v3.5.0-D97706?style=flat)](../../PAI/Algorithm/)
+[![Algorithm](https://img.shields.io/badge/Algorithm-v3.6.0-D97706?style=flat)](../../PAI/Algorithm/)
 
 </div>
 

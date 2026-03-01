@@ -22,7 +22,7 @@ set -o pipefail
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
 
-PAI_DIR="${PAI_DIR:-$HOME/.claude}"
+PAI_DIR="${PAI_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}"
 SETTINGS_FILE="$PAI_DIR/settings.json"
 RATINGS_FILE="$PAI_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
 TREND_CACHE="$PAI_DIR/MEMORY/STATE/trending-cache.json"
@@ -41,6 +41,10 @@ WEATHER_CACHE_TTL=900    # 15 minutes
 GIT_CACHE_TTL=5          # 5 seconds (fast refresh, but avoids repeated scans)
 COUNTS_CACHE_TTL=30      # 30 seconds (file counts rarely change mid-session)
 USAGE_CACHE_TTL=60       # 60 seconds (API recommends ≤1 poll/minute)
+
+# User timezone from settings.json (fallback to UTC)
+USER_TZ=$(jq -r '.principal.timezone // "UTC"' "$SETTINGS_FILE" 2>/dev/null)
+USER_TZ="${USER_TZ:-UTC}"
 
 # Additional cache files for expensive operations
 GIT_CACHE="$PAI_DIR/MEMORY/STATE/git-status-cache.sh"
@@ -328,9 +332,58 @@ COUNTSEOF
     [ -f "$USAGE_CACHE" ] && cache_age=$(($(date +%s) - $(get_mtime "$USAGE_CACHE")))
 
     if [ "$cache_age" -gt "$USAGE_CACHE_TTL" ]; then
-        # Extract OAuth token from macOS Keychain
-        keychain_data=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
-        token=$(echo "$keychain_data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('claudeAiOauth',{}).get('accessToken',''))" 2>/dev/null)
+        # Find a working OAuth token from macOS Keychain
+        # Claude Code stores credentials in workspace-specific entries (suffixed with hash)
+        # as well as a generic entry. Try all, use the first valid one.
+        token=""
+        # Sort reverse: workspace-specific entries (with -hash suffix) come before generic
+        for kc_entry in $(security dump-keychain 2>/dev/null | grep -o '"Claude Code-credentials[^"]*"' | tr -d '"' | sort -ur); do
+            entry_data=$(security find-generic-password -s "$kc_entry" -w 2>/dev/null)
+            [ -z "$entry_data" ] && continue
+            entry_token=$(echo "$entry_data" | python3 -c "
+import sys,json,time
+d=json.load(sys.stdin)
+o=d.get('claudeAiOauth',{})
+exp=o.get('expiresAt',0)
+if exp>1e12: exp=exp/1000
+if exp>time.time(): print(o.get('accessToken',''))
+" 2>/dev/null)
+            if [ -n "$entry_token" ]; then
+                token="$entry_token"
+                break
+            fi
+        done
+
+        # If no valid token found, try refreshing the generic entry
+        if [ -z "$token" ]; then
+            keychain_data=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+            refresh_token=$(echo "$keychain_data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('claudeAiOauth',{}).get('refreshToken',''))" 2>/dev/null)
+            if [ -n "$refresh_token" ]; then
+                refresh_result=$(curl -s --max-time 5 -X POST \
+                    "https://console.anthropic.com/v1/oauth/token" \
+                    -H "Content-Type: application/x-www-form-urlencoded" \
+                    -d "grant_type=refresh_token&client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&refresh_token=${refresh_token}" 2>/dev/null)
+                new_access=$(echo "$refresh_result" | jq -r '.access_token // empty' 2>/dev/null)
+                if [ -n "$new_access" ]; then
+                    token="$new_access"
+                    # Write refreshed credentials back to keychain
+                    updated_keychain=$(echo "$keychain_data" | python3 -c "
+import sys,json,time
+d=json.load(sys.stdin)
+r=json.loads('''$refresh_result''')
+o=d['claudeAiOauth']
+o['accessToken']=r['access_token']
+if 'refresh_token' in r: o['refreshToken']=r['refresh_token']
+o['expiresAt']=int((time.time()+r.get('expires_in',28800))*1000)
+print(json.dumps(d))
+" 2>/dev/null)
+                    if [ -n "$updated_keychain" ]; then
+                        security delete-generic-password -s "Claude Code-credentials" >/dev/null 2>&1
+                        security add-generic-password -s "Claude Code-credentials" -a "" -w "$updated_keychain" >/dev/null 2>&1
+                    fi
+                fi
+            fi
+        fi
 
         if [ -n "$token" ]; then
             usage_json=$(curl -s --max-time 3 \
@@ -650,7 +703,7 @@ try:
         dt = datetime.fromisoformat(ts + '+00:00')
     # Convert to Pacific
     from zoneinfo import ZoneInfo
-    local_dt = dt.astimezone(ZoneInfo('America/Los_Angeles'))
+    local_dt = dt.astimezone(ZoneInfo('$USER_TZ'))
     if '$fmt' == 'weekly':
         day = local_dt.strftime('%a')
         hour = local_dt.strftime('%H:%M')
@@ -920,7 +973,7 @@ def time_until(ts):
 def clock_time(ts, fmt):
     dt = parse_ts(ts)
     if not dt: return ''
-    local_dt = dt.astimezone(ZoneInfo('America/Los_Angeles'))
+    local_dt = dt.astimezone(ZoneInfo('$USER_TZ'))
     if fmt == 'weekly':
         return local_dt.strftime('%a %H:%M')
     return local_dt.strftime('%H:%M')

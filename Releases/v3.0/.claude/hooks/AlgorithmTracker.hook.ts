@@ -24,6 +24,8 @@ import type { AlgorithmCriterion, AlgorithmPhase, AlgorithmState } from './lib/a
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { setPhaseTab } from './lib/tab-setter';
+import { readStdinWithTimeout } from './lib/stdin';
+import { getPaiDir } from './lib/paths';
 
 // ── Phase Detection from Voice Curls ──
 
@@ -91,7 +93,7 @@ function parseCriterion(text: string): { id: string; description: string } | nul
 
 // ── Session Activation (replaces SessionReactivator) ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = getPaiDir();
 
 function getSessionName(sid: string): string {
   try {
@@ -143,16 +145,7 @@ async function main() {
 
   let input: any;
   try {
-    const reader = Bun.stdin.stream().getReader();
-    let raw = '';
-    const read = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        raw += new TextDecoder().decode(value, { stream: true });
-      }
-    })();
-    await Promise.race([read, new Promise<void>(r => setTimeout(r, 200))]);
+    const raw = await readStdinWithTimeout(200);
     if (!raw.trim()) return;
     input = JSON.parse(raw);
   } catch { return; }

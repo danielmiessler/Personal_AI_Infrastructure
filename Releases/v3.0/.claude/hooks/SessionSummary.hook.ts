@@ -52,8 +52,10 @@ import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
+import { readStdinWithTimeout } from './lib/stdin';
+import { sanitizeSessionId, getPaiDir } from './lib/paths';
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = getPaiDir();
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');
@@ -121,20 +123,17 @@ function clearSessionWork(sessionId?: string): void {
 
 async function main() {
   try {
-    // Read input from stdin with timeout — SessionEnd hooks may receive
-    // empty or slow stdin. Proceed regardless since state is read from disk.
+    // Read input from stdin with timeout (process.stdin for Windows/MSYS compat)
+    // SessionEnd hooks may receive empty or slow stdin. Proceed regardless.
     let sessionId: string | undefined;
     try {
-      const input = await Promise.race([
-        Bun.stdin.text(),
-        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
-      ]);
+      const input = await readStdinWithTimeout(3000);
       if (input && input.trim()) {
         const parsed = JSON.parse(input);
-        sessionId = parsed.session_id;
+        sessionId = parsed.session_id ? sanitizeSessionId(parsed.session_id) : undefined;
       }
     } catch {
-      // Timeout or parse error — proceed without session_id
+      // Parse error — proceed without session_id
     }
 
     // Mark work as complete and clear state

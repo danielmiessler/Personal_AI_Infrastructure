@@ -78,7 +78,7 @@ This is the main command you'll use. It takes three parameters:
 - Content to add (the actual text)
 - Description of the change (for the changelog)
 
-!`FILE="$1"; CONTENT="$2"; DESCRIPTION="$3"; bun ~/.claude/commands/update-telos.ts "$FILE" "$CONTENT" "$DESCRIPTION"`
+!`FILE="$1"; CONTENT="$2"; DESCRIPTION="$3"; bun ~/.claude/skills/Telos/Tools/UpdateTelos.ts "$FILE" "$CONTENT" "$DESCRIPTION"`
 
 ## List Valid TELOS Files
 !`echo "Valid TELOS files:

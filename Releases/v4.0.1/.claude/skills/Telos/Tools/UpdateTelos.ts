@@ -34,12 +34,12 @@
  * - WRONG.md - Things I was wrong about
  */
 
-import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { getPrincipal } from '../../../hooks/lib/identity';
 
-const TELOS_DIR = join(process.env.HOME!, '.claude', 'context', 'life', 'telos');
-const BACKUPS_DIR = join(TELOS_DIR, 'backups');
+const TELOS_DIR = join(process.env.HOME!, '.claude', 'PAI', 'USER', 'TELOS');
+const BACKUPS_DIR = join(TELOS_DIR, 'Backups');
 const UPDATES_FILE = join(TELOS_DIR, 'updates.md');
 
 // Valid TELOS files
@@ -103,33 +103,42 @@ async function main() {
 
   const targetFile = join(TELOS_DIR, filename);
 
-  // Check if file exists
-  if (!existsSync(targetFile)) {
-    console.error(`❌ File does not exist: ${targetFile}`);
-    process.exit(1);
-  }
+  // Ensure TELOS and Backups directories exist
+  mkdirSync(TELOS_DIR, { recursive: true });
+  mkdirSync(BACKUPS_DIR, { recursive: true });
 
-  // Step 1: Create timestamped backup
+  // Step 1: Create timestamped backup (skip if file is new)
   const timestamp = getPacificTimestamp();
   const backupFilename = filename.replace('.md', `-${timestamp}.md`);
   const backupPath = join(BACKUPS_DIR, backupFilename);
+  const isNewFile = !existsSync(targetFile);
 
-  try {
-    copyFileSync(targetFile, backupPath);
-    console.log(`✅ Backup created: ${backupFilename}`);
-  } catch (error) {
-    console.error(`❌ Failed to create backup: ${error}`);
-    process.exit(1);
+  if (!isNewFile) {
+    try {
+      copyFileSync(targetFile, backupPath);
+      console.log(`✅ Backup created: ${backupFilename}`);
+    } catch (error) {
+      console.error(`❌ Failed to create backup: ${error}`);
+      process.exit(1);
+    }
+  } else {
+    console.log(`📄 Creating new TELOS file: ${filename}`);
   }
 
-  // Step 2: Update the target file (append content)
+  // Step 2: Update the target file (append content, or create with header)
   try {
-    const currentContent = readFileSync(targetFile, 'utf-8');
-    const updatedContent = currentContent.trimEnd() + '\n' + content + '\n';
-    writeFileSync(targetFile, updatedContent, 'utf-8');
-    console.log(`✅ Updated: ${filename}`);
+    if (isNewFile) {
+      const title = filename.replace('.md', '');
+      const header = `# ${title}\n\n`;
+      writeFileSync(targetFile, header + content + '\n', 'utf-8');
+    } else {
+      const currentContent = readFileSync(targetFile, 'utf-8');
+      const updatedContent = currentContent.trimEnd() + '\n' + content + '\n';
+      writeFileSync(targetFile, updatedContent, 'utf-8');
+    }
+    console.log(`✅ ${isNewFile ? 'Created' : 'Updated'}: ${filename}`);
   } catch (error) {
-    console.error(`❌ Failed to update file: ${error}`);
+    console.error(`❌ Failed to ${isNewFile ? 'create' : 'update'} file: ${error}`);
     process.exit(1);
   }
 
@@ -140,11 +149,16 @@ async function main() {
 ## ${logTimestamp}
 
 - **File Modified**: ${filename}
-- **Change Type**: Content Addition
+- **Change Type**: ${isNewFile ? 'File Creation' : 'Content Addition'}
 - **Description**: ${changeDescription}
-- **Backup Location**: \`backups/${backupFilename}\`
+${!isNewFile ? `- **Backup Location**: \`Backups/${backupFilename}\`` : ''}
 
 `;
+
+    // Create updates.md if it doesn't exist
+    if (!existsSync(UPDATES_FILE)) {
+      writeFileSync(UPDATES_FILE, '# TELOS Change Log\n\nAll changes to TELOS files are recorded here.\n\n## Future Changes\nDocument all changes below this line.\n', 'utf-8');
+    }
 
     const updatesContent = readFileSync(UPDATES_FILE, 'utf-8');
 

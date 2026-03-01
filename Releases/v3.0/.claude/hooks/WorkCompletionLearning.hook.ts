@@ -55,7 +55,7 @@ import { join, dirname } from 'path';
 import { getISOTimestamp, getPSTDate } from './lib/time';
 import { getLearningCategory } from './lib/learning-utils';
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
 const STATE_DIR = join(MEMORY_DIR, 'STATE');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');

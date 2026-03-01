@@ -20,6 +20,31 @@ const OUTPUT_FILE = join(PAI_DIR, "SKILL.md");
 const SETTINGS_PATH = join(HOME, ".claude/settings.json");
 
 /**
+ * Read voice.enabled from settings.json (default: true)
+ */
+function isVoiceEnabled(): boolean {
+  try {
+    const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
+    if (settings.voice?.enabled === false) return false;
+  } catch {
+    // Silently fall through to default
+  }
+  return true;
+}
+
+/**
+ * Strip lines marked <!-- VOICE_ONLY --> when voice is disabled.
+ * Handles both table rows (| ... | <!-- VOICE_ONLY -->) and standalone lines.
+ */
+function applyVoiceFilter(content: string, voiceEnabled: boolean): string {
+  if (voiceEnabled) return content;
+  return content
+    .split("\n")
+    .filter(line => !line.includes("<!-- VOICE_ONLY -->"))
+    .join("\n");
+}
+
+/**
  * Load identity variables from settings.json for template resolution
  */
 function loadVariables(): Record<string, string> {
@@ -94,6 +119,12 @@ if (components.length === 0) {
   process.exit(1);
 }
 
+// Read voice setting once up front
+const voiceEnabled = isVoiceEnabled();
+if (!voiceEnabled) {
+  console.log("🔇 Voice disabled — stripping VOICE_ONLY content from SKILL.md");
+}
+
 // Assemble content
 let output = "";
 const timestamp = getTimestamp();
@@ -101,6 +132,9 @@ const algorithmContent = loadAlgorithm();
 
 for (const file of components) {
   let content = readFileSync(join(COMPONENTS_DIR, file), "utf-8");
+
+  // Strip voice-only lines when voice is disabled
+  content = applyVoiceFilter(content, voiceEnabled);
 
   // Inject timestamp into frontmatter component
   if (file === "00-frontmatter.md") {
@@ -139,4 +173,5 @@ console.log(`\n🔄 Resolved ${Object.keys(variables).length} template variables
 for (const [key, value] of Object.entries(variables)) {
   console.log(`   ${key} → ${value}`);
 }
-console.log(`\n📄 Output: ${OUTPUT_FILE}`);
+console.log(`\n🔊 Voice: ${voiceEnabled ? "enabled (VOICE_ONLY content included)" : "disabled (VOICE_ONLY content stripped)"}`);
+console.log(`📄 Output: ${OUTPUT_FILE}`);

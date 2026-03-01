@@ -15,6 +15,7 @@ import { paiPath } from '../lib/paths';
 import { getIdentity, type VoicePersonality } from '../lib/identity';
 import { getISOTimestamp } from '../lib/time';
 import { isValidVoiceCompletion, getVoiceFallback } from '../lib/output-validators';
+import { isVoiceEnabled } from '../lib/voice-config';
 import type { ParsedTranscript } from '../../skills/PAI/Tools/TranscriptParser';
 
 const DA_IDENTITY = getIdentity();
@@ -144,6 +145,9 @@ async function sendNotification(payload: ElevenLabsNotificationPayload, sessionI
  * Uses ElevenLabs TTS via the voice server.
  */
 export async function handleVoice(parsed: ParsedTranscript, sessionId: string): Promise<void> {
+  // Respect global voice enable/disable setting
+  if (!isVoiceEnabled()) return;
+
   let voiceCompletion = parsed.voiceCompletion;
 
   // Validate voice completion

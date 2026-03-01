@@ -24,6 +24,7 @@ import type { AlgorithmCriterion, AlgorithmPhase, AlgorithmState } from './lib/a
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { setPhaseTab } from './lib/tab-setter';
+import { isVoiceEnabled } from './lib/voice-config';
 
 // ── Phase Detection from Voice Curls ──
 
@@ -185,17 +186,19 @@ async function main() {
       if (isReworkTransition) {
         const postState = readState(session_id);
         const reworkNum = postState?.reworkCount ?? 1;
-        try {
-          // Non-blocking voice notification for rework
-          fetch('http://localhost:8888/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: `Re-entering algorithm. Rework iteration ${reworkNum}.`,
-              voice_id: process.env.PAI_VOICE_ID || 'pNInz6obpgDQGcFmaJgB',
-            }),
-          }).catch(() => {});
-        } catch {}
+        if (isVoiceEnabled()) {
+          try {
+            // Non-blocking voice notification for rework
+            fetch('http://localhost:8888/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: `Re-entering algorithm. Rework iteration ${reworkNum}.`,
+                voice_id: process.env.PAI_VOICE_ID || 'pNInz6obpgDQGcFmaJgB',
+              }),
+            }).catch(() => {});
+          } catch {}
+        }
         process.stderr.write(`[AlgorithmTracker] REWORK detected — iteration ${reworkNum}\n`);
       }
 

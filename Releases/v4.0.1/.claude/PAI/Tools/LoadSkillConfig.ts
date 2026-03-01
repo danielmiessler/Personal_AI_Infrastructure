@@ -16,8 +16,8 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
-import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
+import { getPaiDir } from '../../hooks/lib/paths';
 
 // Types
 interface CustomizationMetadata {
@@ -34,8 +34,8 @@ interface ExtendManifest {
 }
 
 // Constants
-const HOME = homedir();
-const CUSTOMIZATION_DIR = join(HOME, '.claude', 'PAI', 'USER', 'SKILLCUSTOMIZATIONS');
+const PAI_BASE = getPaiDir();
+const CUSTOMIZATION_DIR = join(PAI_BASE, 'PAI', 'USER', 'SKILLCUSTOMIZATIONS');
 
 /**
  * Deep merge two objects recursively

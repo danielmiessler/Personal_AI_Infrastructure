@@ -20,12 +20,13 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { getLearningCategory, isLearningCapture } from "../../hooks/lib/learning-utils";
+import { getPaiDir } from "../../hooks/lib/paths";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = getPaiDir();
 // Derive the project slug dynamically from CLAUDE_DIR (works on macOS and Linux)
 // macOS: ${HOME}/.claude → -Users-username--claude
 // Linux: /home/username/.claude → -home-username--claude
@@ -101,7 +102,17 @@ interface HarvestedLearning {
 
 function getSessionFiles(options: { recent?: number; all?: boolean; sessionId?: string }): string[] {
   if (!fs.existsSync(PROJECTS_DIR)) {
-    console.error(`Projects directory not found: ${PROJECTS_DIR}`);
+    const projectsRoot = path.join(CLAUDE_DIR, "projects");
+    let hint = "";
+    if (fs.existsSync(projectsRoot)) {
+      try {
+        const existing = fs.readdirSync(projectsRoot);
+        hint = ` Available: [${existing.join(", ")}]. Computed slug: ${CWD_SLUG}`;
+      } catch (err) {
+        hint = ` (could not list projects/: ${err})`;
+      }
+    }
+    console.error(`[SessionHarvester] Projects directory not found: ${PROJECTS_DIR}.${hint}`);
     return [];
   }
 
@@ -166,6 +177,7 @@ function harvestLearnings(sessionPath: string): HarvestedLearning[] {
   const lines = content.split('\n').filter(line => line.trim());
 
   let previousContext = '';
+  let malformedLines = 0;
 
   for (const line of lines) {
     try {
@@ -230,8 +242,12 @@ function harvestLearnings(sessionPath: string): HarvestedLearning[] {
         previousContext = textContent;
       }
     } catch {
-      // Skip malformed lines
+      malformedLines++;
     }
+  }
+
+  if (malformedLines > 0 && learnings.length === 0) {
+    console.error(`[SessionHarvester] WARNING: All ${malformedLines} lines in ${path.basename(sessionPath)} failed to parse. Is PROJECTS_DIR correct? Slug: ${CWD_SLUG}`);
   }
 
   return learnings;

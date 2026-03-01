@@ -648,25 +648,28 @@ const server = serve({
 
         console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
 
-        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume);
-
-        if (voiceEnabled && !result.voicePlayed && result.voiceError) {
-          return new Response(
-            JSON.stringify({ status: "error", message: `TTS failed: ${result.voiceError}`, notification_sent: true }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502
-            }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ status: "success", message: "Notification sent" }),
+        // Return 202 immediately — don't block the hook waiting for TTS + playback.
+        // Audio generates and plays in background; hook exits fast so Claude Code UI
+        // returns control to the user without waiting for audio to finish.
+        const accepted = new Response(
+          JSON.stringify({ status: "accepted", message: "Notification queued" }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200
+            status: 202
           }
         );
+
+        sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume)
+          .then(result => {
+            if (voiceEnabled && !result.voicePlayed && result.voiceError) {
+              console.error(`[Notify] TTS error: ${result.voiceError}`);
+            } else if (result.voicePlayed) {
+              console.log(`✅ Audio complete`);
+            }
+          })
+          .catch(err => console.error('[Notify] Background error:', err));
+
+        return accepted;
       } catch (error: any) {
         console.error("Notification error:", error);
         return new Response(

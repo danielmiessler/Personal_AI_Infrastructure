@@ -355,12 +355,30 @@ export function criteriaAdd(sessionId: string, criterion: AlgorithmCriterion): v
 
 /**
  * Called when TaskUpdate changes a criterion's status.
+ *
+ * Matching strategy (in order):
+ * 1. Primary: match by stored taskId (set during TaskCreate)
+ * 2. Fallback: match by array index (taskId "1" → criteria[0], etc.)
+ *    Claude Code task IDs are sequential 1-based, criteria are added in order.
+ *    When fallback matches, backfill taskId for future updates.
  */
 export function criteriaUpdate(sessionId: string, taskId: string, status: AlgorithmCriterion['status']): void {
   const state = readState(sessionId);
   if (!state) return;
 
-  const criterion = state.criteria.find(c => c.taskId === taskId);
+  // Primary: match by stored taskId
+  let criterion = state.criteria.find(c => c.taskId === taskId);
+
+  // Fallback: match by array position (1-indexed taskId → 0-indexed array)
+  if (!criterion) {
+    const idx = parseInt(taskId, 10) - 1;
+    if (!isNaN(idx) && idx >= 0 && idx < state.criteria.length) {
+      criterion = state.criteria[idx];
+      criterion.taskId = taskId; // Backfill for future updates
+      process.stderr.write(`[AlgorithmTracker] criteriaUpdate fallback: task #${taskId} → ${criterion.id} (backfilled taskId)\n`);
+    }
+  }
+
   if (!criterion) return;
 
   criterion.status = status;

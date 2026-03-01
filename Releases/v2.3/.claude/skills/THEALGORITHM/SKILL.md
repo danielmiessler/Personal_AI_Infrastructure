@@ -205,6 +205,19 @@ bun run ~/.claude/skills/THEALGORITHM/Tools/CapabilitySelector.ts --row "Researc
 bun run ~/.claude/skills/THEALGORITHM/Tools/ISCManager.ts capability --row 1 -c research.perplexity
 ```
 
+### ISC Persistence Gate (REQUIRED before agents)
+
+**HARD GATE: ISC MUST be persisted to disk before any Task() agent spawn.**
+
+Before entering EXECUTE, verify the ISC file exists on disk (`MEMORY/Work/{session}/ISC.md`) with all current rows written. If context compaction occurs mid-session, in-memory ISC (TaskCreate) is lost — the disk file is the recovery contract. Agents spawned without a disk-persisted ISC cannot be coordinated or resumed.
+
+```bash
+# Verify ISC is on disk before spawning agents
+bun run ~/.claude/skills/THEALGORITHM/Tools/ISCManager.ts show -o markdown > /dev/null
+```
+
+If ISC file does not exist or is empty → BLOCKED. Write ISC to disk first, then proceed.
+
 ### Step 4: ORCHESTRATED EXECUTION
 
 Execute in phases based on capability assignments:

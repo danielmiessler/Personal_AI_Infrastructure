@@ -410,6 +410,8 @@ learning_count="$learnings_count"
 # ─────────────────────────────────────────────────────────────────────────────
 # Hooks don't inherit terminal context. Try multiple methods.
 
+_width_cache="/tmp/pai-term-width-${KITTY_WINDOW_ID:-default}"
+
 detect_terminal_width() {
     local width=""
 
@@ -426,10 +428,25 @@ detect_terminal_width() {
     # Tier 3: tput fallback
     [ -z "$width" ] || [ "$width" = "0" ] && width=$(tput cols 2>/dev/null)
 
-    # Tier 4: Environment variable
-    [ -z "$width" ] || [ "$width" = "0" ] && width=${COLUMNS:-80}
+    # If we got a real width, cache it for subprocess re-renders
+    if [ -n "$width" ] && [ "$width" != "0" ] && [ "$width" -gt 0 ] 2>/dev/null; then
+        echo "$width" > "$_width_cache" 2>/dev/null
+        echo "$width"
+        return
+    fi
 
-    echo "$width"
+    # Tier 4: Read cached width from previous successful detection
+    if [ -f "$_width_cache" ]; then
+        local cached
+        cached=$(cat "$_width_cache" 2>/dev/null)
+        if [ "$cached" -gt 0 ] 2>/dev/null; then
+            echo "$cached"
+            return
+        fi
+    fi
+
+    # Tier 5: Environment variable / default
+    echo "${COLUMNS:-80}"
 }
 
 term_width=$(detect_terminal_width)

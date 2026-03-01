@@ -532,7 +532,7 @@ Dynamic context loaded. Core identity, rules, and format are in CLAUDE.md.
     process.exit(0);
   } catch (error) {
     console.error('❌ Error in LoadContext hook:', error);
-    process.exit(1);
+    process.exit(0); // Non-fatal — don't block session startup
   }
 }
 

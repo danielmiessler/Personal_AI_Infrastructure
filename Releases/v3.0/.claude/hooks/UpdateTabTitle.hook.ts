@@ -215,8 +215,8 @@ async function main() {
     // Only speak inference result (a proper sentence). If inference failed,
     // stay silent — silence is better than speaking prompt word fragments.
     const voiceContent = inferredTitle;
-    if (voiceContent) {
-      const identity = getIdentity();
+    const identity = getIdentity();
+    if (voiceContent && identity.voiceEnabled) {
       try {
         await fetch('http://localhost:8888/notify', {
           method: 'POST',

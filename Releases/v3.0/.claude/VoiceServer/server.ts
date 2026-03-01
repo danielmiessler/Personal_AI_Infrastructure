@@ -19,6 +19,8 @@ import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { wsManager } from "./ws-manager";
+import { AUTH_TOKEN, validateToken, logToken } from "./auth";
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -504,9 +506,18 @@ async function sendNotification(
       console.log(`🎙️  Generating speech (voice: ${voice}, speed: ${resolvedSettings.speed}, stability: ${resolvedSettings.stability}, boost: ${resolvedSettings.similarity_boost}, style: ${resolvedSettings.style}, volume: ${resolvedVolume})`);
 
       const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings);
-      await playAudio(audioBuffer, resolvedVolume);
-      voicePlayed = true;
-    } catch (error: any) {
+
+      // WebSocket-first dispatch: send to remote players if connected, otherwise play locally
+      if (wsManager.hasClients()) {
+        console.log(`📡 Broadcasting audio to ${wsManager.clientCount()} WebSocket client(s)`);
+        await wsManager.broadcastNotification(safeMessage, safeTitle);
+        await wsManager.broadcastAudio(audioBuffer);
+        voicePlayed = true;
+      } else {
+        await playAudio(audioBuffer, resolvedVolume);
+        voicePlayed = true;
+      }
+    } catch (error) {
       console.error("Failed to generate/play speech:", error);
       voiceError = error.message || "TTS generation failed";
     }
@@ -554,6 +565,28 @@ const server = serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
+
+    // WebSocket upgrade for /ws endpoint
+    if (url.pathname === "/ws") {
+      const token = url.searchParams.get('token');
+
+      if (!validateToken(token)) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      // Upgrade to WebSocket
+      const success = server.upgrade(req, {
+        data: {
+          clientId: `client-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        },
+      });
+
+      if (success) {
+        return undefined; // Do not return a Response
+      }
+
+      return new Response("WebSocket upgrade failed", { status: 500 });
+    }
 
     const clientIp = req.headers.get('x-forwarded-for') || 'localhost';
 
@@ -701,10 +734,61 @@ const server = serve({
       );
     }
 
+    // WebSocket status endpoint
+    if (url.pathname === "/ws/status") {
+      return new Response(
+        JSON.stringify({
+          connected_clients: wsManager.clientCount(),
+          audio_routing: wsManager.hasClients() ? "websocket" : "local",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200
+        }
+      );
+    }
+
+    // Serve the browser audio player
+    if (url.pathname === "/player") {
+      try {
+        const playerPath = join(import.meta.dir, 'static', 'player.html');
+        const playerHtml = await Bun.file(playerPath).text();
+        return new Response(playerHtml, {
+          headers: { "Content-Type": "text/html" },
+          status: 200
+        });
+      } catch (error) {
+        return new Response("Player HTML not found", { status: 404 });
+      }
+    }
+
     return new Response("Voice Server - POST to /notify, /notify/personality, or /pai", {
       headers: corsHeaders,
       status: 200
     });
+  },
+
+  // WebSocket handlers
+  websocket: {
+    open(ws) {
+      wsManager.connect(ws);
+    },
+
+    message(ws, message) {
+      // Handle keepalive pings from client
+      if (message === "ping") {
+        ws.send(JSON.stringify({ type: "pong" }));
+      }
+    },
+
+    close(ws) {
+      wsManager.disconnect(ws);
+    },
+
+    error(ws, error) {
+      console.error("WebSocket error:", error);
+      wsManager.disconnect(ws);
+    },
   },
 });
 
@@ -714,3 +798,6 @@ console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
 console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
 console.log(`📖 Pronunciations: ${pronunciationRules.length} rules loaded`);
+console.log('');
+logToken();
+console.log(`🎧 Browser Player: http://localhost:${PORT}/player?token=${AUTH_TOKEN}`);

@@ -136,6 +136,10 @@ interface LoadedVoiceConfig {
   voices: Record<string, VoiceEntry>;     // keyed by name ("main", "algorithm")
   voicesByVoiceId: Record<string, VoiceEntry>;  // keyed by voiceId for lookup
   desktopNotifications: boolean;  // whether to show macOS notification banners
+  // Kokoro / OpenAI-compatible TTS
+  ttsProvider: string;   // "elevenlabs" | "openai-compatible"
+  ttsBaseUrl: string;    // e.g. "http://your-kokoro-host:8880"
+  ttsVoice: string;      // e.g. "am_liam"
 }
 
 // Last-resort defaults if settings.json is entirely missing or unparseable
@@ -155,7 +159,7 @@ function loadVoiceConfig(): LoadedVoiceConfig {
   try {
     if (!existsSync(settingsPath)) {
       console.warn('⚠️  settings.json not found — using fallback voice defaults');
-      return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true };
+      return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true, ttsProvider: 'elevenlabs', ttsBaseUrl: 'http://localhost:8880', ttsVoice: 'am_michael' };
     }
 
     const content = readFileSync(settingsPath, 'utf-8');
@@ -163,6 +167,12 @@ function loadVoiceConfig(): LoadedVoiceConfig {
     const daidentity = settings.daidentity || {};
     const voicesSection = daidentity.voices || {};
     const desktopNotifications = settings.notifications?.desktop?.enabled !== false;
+
+    // Kokoro / OpenAI-compatible TTS provider config
+    const oaiTts = daidentity.openaiCompatibleTts || {};
+    const ttsProvider = daidentity.ttsProvider || process.env.TTS_PROVIDER || 'elevenlabs';
+    const ttsBaseUrl = oaiTts.baseUrl || process.env.TTS_BASE_URL || 'http://localhost:8880';
+    const ttsVoice = oaiTts.voice || process.env.TTS_VOICE || 'am_michael';
 
     // Build lookup maps
     const voices: Record<string, VoiceEntry> = {};
@@ -195,16 +205,22 @@ function loadVoiceConfig(): LoadedVoiceConfig {
       console.log(`   ${name}: ${entry.voiceName || entry.voiceId} (speed: ${entry.speed}, stability: ${entry.stability})`);
     }
 
-    return { defaultVoiceId, voices, voicesByVoiceId, desktopNotifications };
+    return { defaultVoiceId, voices, voicesByVoiceId, desktopNotifications, ttsProvider, ttsBaseUrl, ttsVoice };
   } catch (error) {
     console.error('⚠️  Failed to load settings.json voice config:', error);
-    return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true };
+    return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true, ttsProvider: 'elevenlabs', ttsBaseUrl: 'http://localhost:8880', ttsVoice: 'am_michael' };
   }
 }
 
 // Load config at startup
 const voiceConfig = loadVoiceConfig();
 const DEFAULT_VOICE_ID = voiceConfig.defaultVoiceId || process.env.ELEVENLABS_VOICE_ID || "{YOUR_ELEVENLABS_VOICE_ID}";
+
+// Active TTS provider (from settings.json daidentity.ttsProvider)
+const TTS_PROVIDER = voiceConfig.ttsProvider;       // "elevenlabs" | "openai-compatible"
+const TTS_BASE_URL = voiceConfig.ttsBaseUrl;        // Kokoro base URL
+const TTS_VOICE    = voiceConfig.ttsVoice;          // Kokoro default voice
+const VOICE_ENABLED_GLOBAL = process.env.VOICE_ENABLED !== 'false';
 
 // Look up a voice entry by voice ID
 function lookupVoiceByVoiceId(voiceId: string): VoiceEntry | null {
@@ -369,6 +385,30 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
+// Generate speech using OpenAI-compatible TTS (Kokoro, etc.)
+async function generateSpeechOpenAI(text: string, voice?: string): Promise<ArrayBuffer> {
+  const pronouncedText = applyPronunciations(text);
+  if (pronouncedText !== text) {
+    console.log(`📖 Pronunciation: "${text}" → "${pronouncedText}"`);
+  }
+
+  const useVoice = voice || TTS_VOICE;
+  const url = `${TTS_BASE_URL}/v1/audio/speech`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'kokoro', input: pronouncedText, voice: useVoice }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Kokoro TTS error: ${response.status} - ${errorText}`);
+  }
+
+  return await response.arrayBuffer();
+}
+
 // Play audio using afplay (macOS)
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
@@ -454,58 +494,70 @@ async function sendNotification(
   const { cleaned, emotion } = extractEmotionalMarker(safeMessage);
   safeMessage = cleaned;
 
-  // Generate and play voice using ElevenLabs
+  // Generate and play voice — routes to Kokoro or ElevenLabs based on ttsProvider
   let voicePlayed = false;
   let voiceError: string | undefined;
 
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
+  if (voiceEnabled && VOICE_ENABLED_GLOBAL) {
     try {
-      const voice = voiceId || DEFAULT_VOICE_ID;
+      if (TTS_PROVIDER === 'openai-compatible') {
+        // Kokoro / OpenAI-compatible path — voice_id in request body used as Kokoro voice name
+        const kokoroVoice = voiceId || TTS_VOICE;
+        console.log(`🎙️  Generating speech via Kokoro (voice: ${kokoroVoice})`);
+        const audioBuffer = await generateSpeechOpenAI(safeMessage, kokoroVoice);
+        await playAudio(audioBuffer, callerVolume ?? FALLBACK_VOLUME);
+        voicePlayed = true;
+      } else if (ELEVENLABS_API_KEY) {
+        // ElevenLabs path — full 3-tier voice settings resolution
+        const voice = voiceId || DEFAULT_VOICE_ID;
 
-      // 3-tier voice settings resolution
-      let resolvedSettings: ElevenLabsVoiceSettings;
-      let resolvedVolume: number;
+        // 3-tier voice settings resolution
+        let resolvedSettings: ElevenLabsVoiceSettings;
+        let resolvedVolume: number;
 
-      if (callerVoiceSettings && Object.keys(callerVoiceSettings).length > 0) {
-        // Tier 1: Caller provided explicit voice_settings → pass through
-        resolvedSettings = {
-          stability: callerVoiceSettings.stability ?? FALLBACK_VOICE_SETTINGS.stability,
-          similarity_boost: callerVoiceSettings.similarity_boost ?? FALLBACK_VOICE_SETTINGS.similarity_boost,
-          style: callerVoiceSettings.style ?? FALLBACK_VOICE_SETTINGS.style,
-          speed: callerVoiceSettings.speed ?? FALLBACK_VOICE_SETTINGS.speed,
-          use_speaker_boost: callerVoiceSettings.use_speaker_boost ?? FALLBACK_VOICE_SETTINGS.use_speaker_boost,
-        };
-        resolvedVolume = callerVolume ?? FALLBACK_VOLUME;
-        console.log(`🔗 Voice settings: pass-through from caller`);
-      } else {
-        // Tier 2/3: Look up by voiceId, fall back to main
-        const voiceEntry = lookupVoiceByVoiceId(voice) || voiceConfig.voices.main;
-        if (voiceEntry) {
-          resolvedSettings = voiceEntryToSettings(voiceEntry);
-          resolvedVolume = callerVolume ?? voiceEntry.volume ?? FALLBACK_VOLUME;
-          console.log(`📋 Voice settings: from settings.json (${voiceEntry.voiceName || voice})`);
-        } else {
-          resolvedSettings = { ...FALLBACK_VOICE_SETTINGS };
+        if (callerVoiceSettings && Object.keys(callerVoiceSettings).length > 0) {
+          // Tier 1: Caller provided explicit voice_settings → pass through
+          resolvedSettings = {
+            stability: callerVoiceSettings.stability ?? FALLBACK_VOICE_SETTINGS.stability,
+            similarity_boost: callerVoiceSettings.similarity_boost ?? FALLBACK_VOICE_SETTINGS.similarity_boost,
+            style: callerVoiceSettings.style ?? FALLBACK_VOICE_SETTINGS.style,
+            speed: callerVoiceSettings.speed ?? FALLBACK_VOICE_SETTINGS.speed,
+            use_speaker_boost: callerVoiceSettings.use_speaker_boost ?? FALLBACK_VOICE_SETTINGS.use_speaker_boost,
+          };
           resolvedVolume = callerVolume ?? FALLBACK_VOLUME;
-          console.log(`⚠️  Voice settings: fallback defaults (no config found for ${voice})`);
+          console.log(`🔗 Voice settings: pass-through from caller`);
+        } else {
+          // Tier 2/3: Look up by voiceId, fall back to main
+          const voiceEntry = lookupVoiceByVoiceId(voice) || voiceConfig.voices.main;
+          if (voiceEntry) {
+            resolvedSettings = voiceEntryToSettings(voiceEntry);
+            resolvedVolume = callerVolume ?? voiceEntry.volume ?? FALLBACK_VOLUME;
+            console.log(`📋 Voice settings: from settings.json (${voiceEntry.voiceName || voice})`);
+          } else {
+            resolvedSettings = { ...FALLBACK_VOICE_SETTINGS };
+            resolvedVolume = callerVolume ?? FALLBACK_VOLUME;
+            console.log(`⚠️  Voice settings: fallback defaults (no config found for ${voice})`);
+          }
         }
+
+        // Emotional preset overlay — modifies stability + similarity_boost only
+        if (emotion && EMOTIONAL_PRESETS[emotion]) {
+          resolvedSettings = {
+            ...resolvedSettings,
+            stability: EMOTIONAL_PRESETS[emotion].stability,
+            similarity_boost: EMOTIONAL_PRESETS[emotion].similarity_boost,
+          };
+          console.log(`🎭 Emotion overlay: ${emotion}`);
+        }
+
+        console.log(`🎙️  Generating speech via ElevenLabs (voice: ${voice}, speed: ${resolvedSettings.speed}, stability: ${resolvedSettings.stability}, boost: ${resolvedSettings.similarity_boost}, style: ${resolvedSettings.style}, volume: ${resolvedVolume})`);
+
+        const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings);
+        await playAudio(audioBuffer, resolvedVolume);
+        voicePlayed = true;
+      } else {
+        voiceError = 'No TTS provider configured (set ttsProvider in settings.json or ELEVENLABS_API_KEY in .env)';
       }
-
-      // Emotional preset overlay — modifies stability + similarity_boost only
-      if (emotion && EMOTIONAL_PRESETS[emotion]) {
-        resolvedSettings = {
-          ...resolvedSettings,
-          stability: EMOTIONAL_PRESETS[emotion].stability,
-          similarity_boost: EMOTIONAL_PRESETS[emotion].similarity_boost,
-        };
-        console.log(`🎭 Emotion overlay: ${emotion}`);
-      }
-
-      console.log(`🎙️  Generating speech (voice: ${voice}, speed: ${resolvedSettings.speed}, stability: ${resolvedSettings.stability}, boost: ${resolvedSettings.similarity_boost}, style: ${resolvedSettings.style}, volume: ${resolvedVolume})`);
-
-      const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings);
-      await playAudio(audioBuffer, resolvedVolume);
-      voicePlayed = true;
     } catch (error: any) {
       console.error("Failed to generate/play speech:", error);
       voiceError = error.message || "TTS generation failed";
@@ -688,9 +740,12 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: "ElevenLabs",
-          default_voice_id: DEFAULT_VOICE_ID,
-          api_key_configured: !!ELEVENLABS_API_KEY,
+          voice_system: TTS_PROVIDER === 'openai-compatible' ? 'Kokoro (OpenAI-compatible)' : 'ElevenLabs',
+          tts_provider: TTS_PROVIDER,
+          ...(TTS_PROVIDER === 'openai-compatible'
+            ? { kokoro_base_url: TTS_BASE_URL, kokoro_voice: TTS_VOICE }
+            : { default_voice_id: DEFAULT_VOICE_ID, api_key_configured: !!ELEVENLABS_API_KEY }),
+          voice_enabled_global: VOICE_ENABLED_GLOBAL,
           pronunciation_rules: pronunciationRules.length,
           configured_voices: Object.keys(voiceConfig.voices),
         }),
@@ -709,8 +764,13 @@ const server = serve({
 });
 
 console.log(`🚀 Voice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
+if (TTS_PROVIDER === 'openai-compatible') {
+  console.log(`🎙️  Using Kokoro TTS (${TTS_BASE_URL}, voice: ${TTS_VOICE})`);
+} else {
+  console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
+  console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+}
+console.log(`🔊 Voice global: ${VOICE_ENABLED_GLOBAL ? 'enabled' : 'MUTED (set VOICE_ENABLED=true to unmute)'}`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
 console.log(`📖 Pronunciations: ${pronunciationRules.length} rules loaded`);

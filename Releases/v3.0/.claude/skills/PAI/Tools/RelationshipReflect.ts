@@ -28,8 +28,9 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { getPaiDir } from '../../../hooks/lib/paths';
 
-const PAI_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const PAI_DIR = getPaiDir();
 
 interface RelationshipNote {
   type: 'W' | 'B' | 'O';

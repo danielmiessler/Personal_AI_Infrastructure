@@ -41,11 +41,12 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { resolve, basename, join, dirname } from "path";
 import { spawnSync, spawn } from "child_process";
 import { randomUUID } from "crypto";
+import { getPaiDir, paiPath } from "../../../hooks/lib/paths";
 
 // ─── Paths ───────────────────────────────────────────────────────────────────
 
 const HOME = process.env.HOME || "~";
-const BASE_DIR = process.env.PAI_DIR || join(HOME, ".claude");
+const BASE_DIR = getPaiDir();
 const ALGORITHMS_DIR = join(BASE_DIR, "MEMORY", "STATE", "algorithms");
 const SESSION_NAMES_PATH = join(BASE_DIR, "MEMORY", "STATE", "session-names.json");
 const PROJECTS_DIR = process.env.PROJECTS_DIR || join(HOME, "Projects");

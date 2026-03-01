@@ -35,9 +35,10 @@
 
 import { readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
+import { getPaiDir } from "../../../hooks/lib/paths";
 
 const HOME = process.env.HOME!;
-const PAI_DIR = process.env.PAI_DIR || join(HOME, ".claude");
+const PAI_DIR = getPaiDir();
 
 interface Counts {
   skills: number;

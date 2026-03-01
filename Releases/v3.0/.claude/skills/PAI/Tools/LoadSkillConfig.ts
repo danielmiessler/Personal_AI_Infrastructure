@@ -14,7 +14,7 @@
  *   bun ~/.claude/skills/PAI/Tools/LoadSkillConfig.ts <skill-dir> <filename>
  */
 
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, basename } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
@@ -231,7 +231,7 @@ export function listCustomizedSkills(): string[] {
 
   const dirs = readdirSync(CUSTOMIZATION_DIR, { withFileTypes: true });
   return dirs
-    .filter(d => d.isDirectory())
+    .filter(d => d.isDirectory() || (d.isSymbolicLink() && statSync(join(CUSTOMIZATION_DIR, d.name)).isDirectory()))
     .map(d => d.name)
     .filter(name => hasCustomizations(name));
 }

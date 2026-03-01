@@ -487,7 +487,7 @@ async function main() {
           try {
             for (const entry of readdirSync(dir, { withFileTypes: true })) {
               const fullPath = join(dir, entry.name);
-              if (entry.isDirectory()) {
+              if (entry.isDirectory() || (entry.isSymbolicLink() && require('fs').statSync(fullPath).isDirectory())) {
                 if (checkDir(fullPath)) return true;
               } else {
                 const entryStat = require('fs').statSync(fullPath);

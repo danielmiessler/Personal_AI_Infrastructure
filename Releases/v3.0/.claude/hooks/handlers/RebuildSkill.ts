@@ -24,7 +24,8 @@ import { join } from 'path';
 import { spawn } from 'child_process';
 
 export async function handleRebuildSkill(): Promise<void> {
-  const CORE_DIR = join(process.env.HOME!, '.claude/skills/PAI');
+  const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+  const CORE_DIR = join(BASE_DIR, 'skills/PAI');
   const COMPONENTS_DIR = join(CORE_DIR, 'Components');
   const SKILL_MD = join(CORE_DIR, 'SKILL.md');
   const BUILD_SCRIPT = join(CORE_DIR, 'Tools/RebuildPAI.ts');
@@ -69,7 +70,7 @@ function rebuild(buildScript: string): Promise<void> {
     }, 10000);
 
     const child = spawn('bun', [buildScript], {
-      cwd: join(process.env.HOME!, '.claude/skills/PAI'),
+      cwd: CORE_DIR,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

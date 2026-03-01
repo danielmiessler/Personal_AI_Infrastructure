@@ -16,12 +16,12 @@ export const CONFIG = {
     yeswehack: 'data/yeswehack_data.json',
   },
 
-  // Local paths
+  // Local paths (resolved at runtime via PAI_DIR)
   paths: {
-    root: '~/.claude/skills/hacking/bug-bounties',
-    state: '~/.claude/skills/hacking/bug-bounties/state.json',
-    cache: '~/.claude/skills/hacking/bug-bounties/cache',
-    logs: '~/.claude/skills/hacking/bug-bounties/logs',
+    root: `${process.env.PAI_DIR || (process.env.HOME + '/.claude')}/skills/hacking/bug-bounties`,
+    state: `${process.env.PAI_DIR || (process.env.HOME + '/.claude')}/skills/hacking/bug-bounties/state.json`,
+    cache: `${process.env.PAI_DIR || (process.env.HOME + '/.claude')}/skills/hacking/bug-bounties/cache`,
+    logs: `${process.env.PAI_DIR || (process.env.HOME + '/.claude')}/skills/hacking/bug-bounties/logs`,
   },
 
   // GitHub API

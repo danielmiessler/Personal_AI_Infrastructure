@@ -714,12 +714,12 @@ calc_bar_width() {
             ;;
         mini)
             prefix_len=12   # "◉ CONTEXT: "
-            suffix_len=5    # " XXX%"
+            suffix_len=17   # " XX% │ XXXk/XXXk"
             bucket_size=2
             ;;
         normal)
             prefix_len=12   # "◉ CONTEXT: "
-            suffix_len=5    # " XXX%"
+            suffix_len=17   # " XX% │ XXXk/XXXk"
             bucket_size=1   # no spacing for dense display
             ;;
     esac
@@ -840,6 +840,9 @@ else
     display_pct="$raw_pct"
 fi
 
+# Calculate used tokens in K for display
+used_k=$((raw_pct * context_max / 100 / 1000))
+
 # Color based on scaled percentage (same thresholds work for scaled 0-100%)
 if [ "$display_pct" -ge 80 ]; then
     pct_color="$ROSE"                  # Red: 80%+ - getting full
@@ -865,11 +868,11 @@ case "$MODE" in
         ;;
     mini)
         bar=$(render_context_bar $bar_width $display_pct)
-        printf "${CTX_PRIMARY}◉${RESET} ${CTX_SECONDARY}CONTEXT:${RESET} ${bar} ${pct_color}${display_pct}%%${RESET}\n"
+        printf "${CTX_PRIMARY}◉${RESET} ${CTX_SECONDARY}CONTEXT:${RESET} ${bar} ${pct_color}${display_pct}%%${RESET} ${SLATE_600}│${RESET} ${CTX_SECONDARY}${used_k}k/${max_k}k${RESET}\n"
         ;;
     normal)
         bar=$(render_context_bar $bar_width $display_pct)
-        printf "${CTX_PRIMARY}◉${RESET} ${CTX_SECONDARY}CONTEXT:${RESET} ${bar} ${pct_color}${display_pct}%%${RESET}\n"
+        printf "${CTX_PRIMARY}◉${RESET} ${CTX_SECONDARY}CONTEXT:${RESET} ${bar} ${pct_color}${display_pct}%%${RESET} ${SLATE_600}│${RESET} ${CTX_SECONDARY}${used_k}k/${max_k}k${RESET}\n"
         ;;
 esac
 printf "${SLATE_600}────────────────────────────────────────────────────────────────────────${RESET}\n"

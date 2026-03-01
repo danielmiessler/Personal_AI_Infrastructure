@@ -48,7 +48,7 @@ const HOME = process.env.HOME || "~";
 const BASE_DIR = process.env.PAI_DIR || join(HOME, ".claude");
 const ALGORITHMS_DIR = join(BASE_DIR, "MEMORY", "STATE", "algorithms");
 const SESSION_NAMES_PATH = join(BASE_DIR, "MEMORY", "STATE", "session-names.json");
-const PROJECTS_DIR = process.env.PROJECTS_DIR || join(HOME, "Projects");
+const PROJECTS_DIR = process.env.PROJECTS_DIR || join(HOME, "projects");
 const VOICE_URL = "http://localhost:8888/notify";
 const VOICE_ID = "fTtv3eikoepIosk8dTZ5";
 
@@ -546,48 +546,24 @@ function partitionCriteria(criteriaInfo: CriteriaInfo, agentCount: number): Agen
   const failing = criteriaInfo.criteria.filter(c => c.status === "failing");
   if (failing.length === 0) return [];
 
-  // Extract domain prefix from ISC ID: ISC-TIER-1 → "TIER", ISC-A-1 → "A", ISC-CLI-3 → "CLI"
-  function getDomain(id: string): string {
-    // Match ISC-{DOMAIN}-{N} pattern — domain is everything between first ISC- and last -N
-    const match = id.match(/^ISC-(.+)-\d+$/);
-    return match ? match[1] : id;
-  }
-
-  // Group failing criteria by domain prefix
-  const domainGroups = new Map<string, Array<{ id: string; description: string }>>();
-  for (const c of failing) {
-    const domain = getDomain(c.id);
-    if (!domainGroups.has(domain)) domainGroups.set(domain, []);
-    domainGroups.get(domain)!.push({ id: c.id, description: c.description });
-  }
-
-  // Sort domain groups by size (largest first) for greedy load-balancing
-  const sortedDomains = [...domainGroups.entries()].sort((a, b) => b[1].length - a[1].length);
-
-  // Cap agents at number of domain groups (each domain stays together)
-  const effectiveAgentCount = Math.min(agentCount, sortedDomains.length);
+  // 1:1 mapping — each agent gets exactly one criterion.
+  // The domain-grouping approach assigned multiple criteria per agent, but
+  // runParallelIteration/buildWorkerPrompt only processes criteriaDetails[0],
+  // silently dropping additional criteria. Use strict 1:1 to match the
+  // single-criterion worker contract.
+  const effectiveCount = Math.min(agentCount, failing.length);
   const agents: AgentAssignment[] = [];
-  for (let i = 0; i < effectiveAgentCount; i++) {
-    agents.push({ agentId: i + 1, criteriaIds: [], criteriaDetails: [] });
+
+  for (let i = 0; i < effectiveCount; i++) {
+    const c = failing[i];
+    agents.push({
+      agentId: i + 1,
+      criteriaIds: [c.id],
+      criteriaDetails: [{ id: c.id, description: c.description }],
+    });
   }
 
-  // Greedy load-balancing: assign each domain group to the agent with fewest criteria
-  for (const [, groupCriteria] of sortedDomains) {
-    // Find agent with the fewest criteria assigned
-    let minAgent = agents[0];
-    for (const agent of agents) {
-      if (agent.criteriaIds.length < minAgent.criteriaIds.length) {
-        minAgent = agent;
-      }
-    }
-    for (const c of groupCriteria) {
-      minAgent.criteriaIds.push(c.id);
-      minAgent.criteriaDetails.push(c);
-    }
-  }
-
-  // Filter out agents with no criteria assigned (shouldn't happen, but safety)
-  return agents.filter(a => a.criteriaIds.length > 0);
+  return agents;
 }
 
 // ─── Parallel Agent Prompt ──────────────────────────────────────────────────
@@ -1385,6 +1361,10 @@ async function resumeLoop(prdPath: string): Promise<void> {
 function stopLoop(prdPath: string): void {
   const absPath = resolve(prdPath);
   const { frontmatter } = readPRD(absPath);
+  if (frontmatter.loopStatus === "completed" || frontmatter.loopStatus === "failed") {
+    console.log(`Loop already ${frontmatter.loopStatus} on ${frontmatter.id} — not modifying.`);
+    return;
+  }
   updateFrontmatter(absPath, { loopStatus: "stopped" });
   voiceNotify(`Loop stopped on ${frontmatter.id}.`);
   console.log(`\x1b[31m\u25A0 Stopped\x1b[0m Loop on ${frontmatter.id}`);

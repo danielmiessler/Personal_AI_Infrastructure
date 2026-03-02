@@ -445,6 +445,18 @@ async function main() {
       process.exit(0);
     }
 
+    // Read session_id from stdin (SessionStart hooks receive JSON with session_id)
+    let sessionId = 'unknown';
+    try {
+      const stdinData = readFileSync(0, 'utf-8');
+      if (stdinData && stdinData.trim()) {
+        const parsed = JSON.parse(stdinData);
+        if (parsed.session_id) sessionId = parsed.session_id;
+      }
+    } catch {
+      // stdin may not be available — proceed with 'unknown'
+    }
+
     const paiDir = getPaiDir();
 
     // Tab reset is handled by KittyEnvPersist.hook.ts (runs before this hook)
@@ -503,6 +515,9 @@ async function main() {
     if (relationshipContext || learningContext) {
       const message = `<system-reminder>
 PAI Dynamic Context (Auto-loaded at Session Start)
+
+🔑 SESSION ID: ${sessionId}
+📁 SESSION STATE: MEMORY/STATE/current-work-${sessionId}.json
 ${relationshipContext ?? ''}${learningContext ? '\n---\n' + learningContext : ''}
 ---
 Dynamic context loaded. Core identity, rules, and format are in CLAUDE.md.

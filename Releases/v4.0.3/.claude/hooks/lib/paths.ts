@@ -53,23 +53,3 @@ export function paiPath(...segments: string[]): string {
   return join(getPaiDir(), ...segments);
 }
 
-/**
- * Get the hooks directory
- */
-export function getHooksDir(): string {
-  return paiPath('hooks');
-}
-
-/**
- * Get the skills directory
- */
-export function getSkillsDir(): string {
-  return paiPath('skills');
-}
-
-/**
- * Get the MEMORY directory
- */
-export function getMemoryDir(): string {
-  return paiPath('MEMORY');
-}

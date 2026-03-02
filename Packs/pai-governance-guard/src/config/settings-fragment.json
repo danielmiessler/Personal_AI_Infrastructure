@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run ${GOVERNANCE_HOOK_PATH:-~/.pai/hooks/GovernanceGuard.hook.ts}",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

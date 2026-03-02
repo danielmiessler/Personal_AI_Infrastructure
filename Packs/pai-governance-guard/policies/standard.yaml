@@ -1,0 +1,87 @@
+version: "1.0"
+name: standard
+description: "Deny-default with explicit allows for common development operations."
+default_decision: deny
+
+rules:
+  - id: allow-read
+    action_type: read
+    decision: approve
+    reason: "Read operations are safe"
+
+  - id: allow-write-src
+    action_type: write
+    target: "**/src/**"
+    decision: approve
+    reason: "Writing to source directories allowed"
+
+  - id: allow-write-tests
+    action_type: write
+    target: "**/tests/**"
+    decision: approve
+    reason: "Writing to test directories allowed"
+
+  - id: allow-write-test
+    action_type: write
+    target: "**/test/**"
+    decision: approve
+    reason: "Writing to test directories allowed"
+
+  - id: allow-execute-test
+    tool_name: "^Bash$"
+    action_type: execute
+    target: "npm test*"
+    decision: approve
+    reason: "Test execution allowed"
+
+  - id: allow-execute-build
+    tool_name: "^Bash$"
+    action_type: execute
+    target: "npm run build*"
+    decision: approve
+    reason: "Build execution allowed"
+
+  - id: allow-execute-lint
+    tool_name: "^Bash$"
+    action_type: execute
+    target: "npm run lint*"
+    decision: approve
+    reason: "Lint execution allowed"
+
+  - id: block-destructive
+    action_type: destructive
+    decision: deny
+    reason: "Destructive operations denied by policy"
+
+  - id: block-credentials
+    action_type: credential
+    decision: deny
+    reason: "Credential access denied by policy"
+
+  - id: escalate-network
+    action_type: network
+    decision: escalate
+    reason: "Network operations require confirmation"
+
+  - id: escalate-execute
+    action_type: execute
+    decision: escalate
+    reason: "Execution requires confirmation"
+
+  - id: escalate-write
+    action_type: write
+    decision: escalate
+    reason: "Write to non-standard path requires confirmation"
+
+  - id: escalate-unknown
+    action_type: unknown
+    decision: escalate
+    reason: "Unknown action types require confirmation"
+
+box_policy:
+  requireDefiniteTrue: true
+  requireNoObstructions: true
+
+diamond_policy:
+  allowIfDefiniteFalse: false
+  maxSeverity: warn

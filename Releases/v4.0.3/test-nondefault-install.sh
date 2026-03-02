@@ -240,13 +240,29 @@ if [[ $ERRORS -gt 0 ]]; then
   echo "   WARNING: $ERRORS files missing."
 fi
 
-# ── Step 6: Shell alias ─────────────────────────────────────────────────────
+# ── Step 7: Test BuildCLAUDE.ts ──────────────────────────────────────────
+echo "7. Testing BuildCLAUDE.ts template resolution..."
+if [[ -f "$TARGET/CLAUDE.md.template" ]]; then
+  BUILD_OUTPUT=$(PAI_DIR="$TARGET" bun "$TARGET/PAI/Tools/BuildCLAUDE.ts" 2>&1) || true
+  if echo "$BUILD_OUTPUT" | grep -q "No CLAUDE.md.template found"; then
+    echo "   FAIL — BuildCLAUDE.ts could not find template (getPaiDir not resolving?)"
+    ERRORS=$((ERRORS + 1))
+  elif echo "$BUILD_OUTPUT" | grep -q "already current\|Generated"; then
+    echo "   OK — BuildCLAUDE.ts resolved template correctly"
+  else
+    echo "   WARN — Unexpected output: $BUILD_OUTPUT"
+  fi
+else
+  echo "   SKIP — No CLAUDE.md.template in target"
+fi
+
+# ── Step 8: Shell alias ─────────────────────────────────────────────────────
 ALIAS_CMD="CLAUDE_CONFIG_DIR=$TARGET PAI_DIR=$TARGET bun $TARGET/PAI/Tools/pai.ts"
 ZSHRC="$HOME/.zshrc"
 
 if [[ -n "$ALIAS_NAME" ]]; then
   ALIAS_LINE="alias $ALIAS_NAME='$ALIAS_CMD'"
-  echo "7. Setting up shell alias '$ALIAS_NAME'..."
+  echo "8. Setting up shell alias '$ALIAS_NAME'..."
 
   if grep -q "^alias $ALIAS_NAME=" "$ZSHRC" 2>/dev/null; then
     # Update existing alias in place
@@ -261,7 +277,7 @@ if [[ -n "$ALIAS_NAME" ]]; then
   fi
   echo "   Run 'source ~/.zshrc' or open a new terminal to use it."
 else
-  echo "7. No alias name given — skipping shell alias."
+  echo "8. No alias name given — skipping shell alias."
 fi
 
 # ── Done ────────────────────────────────────────────────────────────────────
@@ -284,5 +300,6 @@ echo "  - Hooks fire without errors (check statusline)"
 echo "  - Session start notification works"
 echo "  - No hook doubling (each hook should fire once)"
 echo "  - Settings identity shows correct name"
+echo "  - BuildCLAUDE.ts resolves template (no 'No CLAUDE.md.template found')"
 echo ""
 echo "To clean up:  $0 --clean $TARGET"

@@ -100,7 +100,8 @@ function detectExisting(
     try {
       const envContent = readFileSync(envPath, "utf-8");
       result.elevenLabsKeyFound = envContent.includes("ELEVENLABS_API_KEY=");
-      result.hasApiKeys = result.elevenLabsKeyFound;
+      const googleKeyFound = envContent.includes("GOOGLE_CLOUD_API_KEY=") || envContent.includes("GOOGLE_API_KEY=");
+      result.hasApiKeys = result.elevenLabsKeyFound || googleKeyFound;
     } catch {
       // Permission denied or other error
     }
@@ -162,6 +163,24 @@ export async function validateElevenLabsKey(key: string): Promise<{ valid: boole
 
     if (res.ok) return { valid: true };
     return { valid: false, error: `HTTP ${res.status}` };
+  } catch (e: any) {
+    return { valid: false, error: e.message || "Network error" };
+  }
+}
+
+/**
+ * Validate a Google Cloud API key by listing available TTS voices.
+ */
+export async function validateGoogleCloudKey(key: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `https://texttospeech.googleapis.com/v1/voices?key=${key}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+
+    if (res.ok) return { valid: true };
+    const body = await res.text().catch(() => "");
+    return { valid: false, error: `HTTP ${res.status}${body ? `: ${body.slice(0, 100)}` : ""}` };
   } catch (e: any) {
     return { valid: false, error: e.message || "Network error" };
   }

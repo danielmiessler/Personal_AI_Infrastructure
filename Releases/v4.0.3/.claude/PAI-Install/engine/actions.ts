@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlin
 import { homedir } from "os";
 import { join, basename } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
-import { detectSystem, validateElevenLabsKey } from "./detect";
+import { detectSystem, validateElevenLabsKey, validateGoogleCloudKey } from "./detect";
 import { generateSettingsJson } from "./config-gen";
 
 /**
@@ -861,30 +861,87 @@ export async function runVoiceSetup(
 ): Promise<void> {
   await emit({ event: "step_start", step: "voice" });
 
-  // ── Collect ElevenLabs key if not already found ──
-  if (!state.collected.elevenLabsKey) {
-    await emit({ event: "progress", step: "voice", percent: 5, detail: "Searching for existing ElevenLabs key..." });
-    let elevenLabsKey = findExistingEnvKey("ELEVENLABS_API_KEY");
+  const paiDir = state.detection?.paiDir || join(homedir(), ".claude");
+  const settingsPath = join(paiDir, "settings.json");
 
-    if (elevenLabsKey) {
-      await emit({ event: "message", content: "Found existing ElevenLabs API key. Validating..." });
-      const result = await validateElevenLabsKey(elevenLabsKey);
+  // ── Choose TTS provider ──
+  await emit({ event: "progress", step: "voice", percent: 5, detail: "Choose your TTS provider..." });
+
+  const providerChoice = await getChoice("tts-provider", "Voice requires a TTS provider. Choose one:", [
+    { label: "ElevenLabs", value: "elevenlabs", description: "High-quality AI voices (10K free chars/month, paid plans available)" },
+    { label: "Google Cloud TTS", value: "google-cloud", description: "Neural2/WaveNet voices (4M free chars/month Standard, 1M WaveNet)" },
+    { label: "Skip voice for now", value: "skip", description: "You can configure voice later in settings.json" },
+  ]);
+
+  if (providerChoice === "skip") {
+    state.collected.ttsProvider = undefined;
+    await emit({ event: "message", content: "Voice skipped. You can add a TTS provider later in ~/.claude/settings.json" });
+    await emit({ event: "step_complete", step: "voice" });
+    return;
+  }
+
+  state.collected.ttsProvider = providerChoice as "elevenlabs" | "google-cloud";
+
+  // ── Collect API key for chosen provider ──
+  let hasApiKey = false;
+
+  if (providerChoice === "google-cloud") {
+    // ── Google Cloud TTS key collection ──
+    await emit({ event: "progress", step: "voice", percent: 10, detail: "Searching for existing Google Cloud key..." });
+    let googleKey = findExistingEnvKey("GOOGLE_CLOUD_API_KEY") || findExistingEnvKey("GOOGLE_API_KEY");
+
+    if (googleKey) {
+      await emit({ event: "message", content: "Found existing Google Cloud API key. Validating..." });
+      const result = await validateGoogleCloudKey(googleKey);
       if (result.valid) {
-        state.collected.elevenLabsKey = elevenLabsKey;
-        await emit({ event: "message", content: "Existing ElevenLabs API key is valid." });
+        state.collected.googleCloudKey = googleKey;
+        await emit({ event: "message", content: "Existing Google Cloud API key is valid." });
       } else {
         await emit({ event: "message", content: `Existing key invalid: ${result.error}.` });
-        elevenLabsKey = "";
+        googleKey = "";
       }
     }
 
-    if (!elevenLabsKey) {
-      const wantsVoice = await getChoice("voice-enable", "Voice requires an ElevenLabs API key. Get one free at elevenlabs.io", [
-        { label: "I have a key", value: "yes" },
-        { label: "Skip voice for now", value: "skip" },
-      ]);
+    if (!googleKey) {
+      const key = await getInput(
+        "google-cloud-key",
+        "Enter your Google Cloud API key:\nEnable the Text-to-Speech API at console.cloud.google.com",
+        "key",
+        "AIza..."
+      );
 
-      if (wantsVoice === "yes") {
+      if (key.trim()) {
+        await emit({ event: "progress", step: "voice", percent: 15, detail: "Validating Google Cloud key..." });
+        const result = await validateGoogleCloudKey(key.trim());
+        if (result.valid) {
+          state.collected.googleCloudKey = key.trim();
+          await emit({ event: "message", content: "Google Cloud API key verified." });
+        } else {
+          await emit({ event: "message", content: `Key validation failed: ${result.error}. Voice may not work until a valid key is provided.` });
+        }
+      }
+    }
+
+    hasApiKey = !!state.collected.googleCloudKey;
+  } else {
+    // ── ElevenLabs key collection (existing flow) ──
+    if (!state.collected.elevenLabsKey) {
+      await emit({ event: "progress", step: "voice", percent: 10, detail: "Searching for existing ElevenLabs key..." });
+      let elevenLabsKey = findExistingEnvKey("ELEVENLABS_API_KEY");
+
+      if (elevenLabsKey) {
+        await emit({ event: "message", content: "Found existing ElevenLabs API key. Validating..." });
+        const result = await validateElevenLabsKey(elevenLabsKey);
+        if (result.valid) {
+          state.collected.elevenLabsKey = elevenLabsKey;
+          await emit({ event: "message", content: "Existing ElevenLabs API key is valid." });
+        } else {
+          await emit({ event: "message", content: `Existing key invalid: ${result.error}.` });
+          elevenLabsKey = "";
+        }
+      }
+
+      if (!elevenLabsKey) {
         const key = await getInput(
           "elevenlabs-key",
           "Enter your ElevenLabs API key:",
@@ -899,109 +956,122 @@ export async function runVoiceSetup(
             state.collected.elevenLabsKey = key.trim();
             await emit({ event: "message", content: "ElevenLabs API key verified." });
           } else {
-            await emit({ event: "message", content: `Key validation failed: ${result.error}. Skipping voice setup.` });
+            await emit({ event: "message", content: `Key validation failed: ${result.error}. Voice may not work until a valid key is provided.` });
           }
         }
       }
     }
+
+    hasApiKey = !!state.collected.elevenLabsKey;
   }
 
-  const hasElevenLabsKey = !!state.collected.elevenLabsKey;
-  if (!hasElevenLabsKey) {
-    await emit({ event: "message", content: "No ElevenLabs key — voice server will use macOS text-to-speech as fallback. You can add a key later in ~/.config/PAI/.env" });
+  if (!hasApiKey) {
+    await emit({ event: "message", content: `No ${providerChoice === "google-cloud" ? "Google Cloud" : "ElevenLabs"} key — voice will need manual configuration. Add the key to ~/.config/PAI/.env` });
   }
 
-  // ── Start voice server (works with or without ElevenLabs key) ──
-  const paiDir = state.detection?.paiDir || join(homedir(), ".claude");
+  // ── Start voice server ──
   await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
   const voiceServerReady = await startVoiceServer(paiDir, emit);
 
-  // ── Digital Assistant Voice selection ──
-  await emit({ event: "progress", step: "voice", percent: 40, detail: "Checking for existing voice configuration..." });
+  // ── Voice selection (ElevenLabs only — Google Cloud uses Neural2-D default) ──
+  let selectedVoiceId = "";
 
-  const voiceIds: Record<string, string> = {
-    male: "pNInz6obpgDQGcFmaJgB",
-    female: "21m00Tcm4TlvDq8ikWAM",
-  };
-
-  let selectedVoiceId: string;
-
-  // Check for existing voice config from previous installations
-  const existingVoice = findExistingVoiceConfig();
-
-  if (existingVoice) {
-    const sourceLabel = existingVoice.aiName
-      ? `${existingVoice.aiName}'s voice (${existingVoice.voiceId.substring(0, 8)}...)`
-      : `Voice ID ${existingVoice.voiceId.substring(0, 8)}...`;
-    await emit({ event: "message", content: `Found existing voice configuration from ~/${existingVoice.source}` });
-
-    const useExisting = await getChoice("voice-existing", `Your DA was using: ${sourceLabel}. Use the same voice?`, [
-      { label: "Yes, keep this voice", value: "keep", description: `Voice ID: ${existingVoice.voiceId}` },
-      { label: "No, pick a new voice", value: "new", description: "Choose from presets or enter a custom ID" },
-    ]);
-
-    if (useExisting === "keep") {
-      selectedVoiceId = existingVoice.voiceId;
-      state.collected.voiceType = "custom";
-      state.collected.customVoiceId = selectedVoiceId;
-    } else {
-      // Fall through to voice selection below
-      selectedVoiceId = "";
-    }
+  if (providerChoice === "google-cloud") {
+    // Google Cloud: use default Neural2-D voice, configurable later in settings.json
+    selectedVoiceId = ""; // Not applicable for Google Cloud
+    await emit({ event: "message", content: "Google Cloud TTS will use Neural2-D voice (en-US). Configurable in settings.json → daidentity.googleCloudVoice" });
   } else {
-    selectedVoiceId = "";
-  }
+    // ElevenLabs: existing voice selection flow
+    await emit({ event: "progress", step: "voice", percent: 40, detail: "Checking for existing voice configuration..." });
 
-  // Voice selection (if not using existing)
-  if (!selectedVoiceId) {
-    await emit({ event: "progress", step: "voice", percent: 45, detail: "Choose your Digital Assistant's voice..." });
+    const voiceIds: Record<string, string> = {
+      male: "pNInz6obpgDQGcFmaJgB",
+      female: "21m00Tcm4TlvDq8ikWAM",
+    };
 
-    const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", [
-      { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-      { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-      { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-    ]);
+    // Check for existing voice config from previous installations
+    const existingVoice = findExistingVoiceConfig();
 
-    if (voiceType === "custom") {
-      const customId = await getInput(
-        "custom-voice-id",
-        "Enter your ElevenLabs Voice ID:\nFind it at: elevenlabs.io/app/voice-library → Your voice → Voice ID",
-        "text",
-        "e.g., s3TPKV1kjDlVtZbl4Ksh"
-      );
-      selectedVoiceId = customId.trim() || voiceIds.female;
-      state.collected.voiceType = "custom";
-      state.collected.customVoiceId = selectedVoiceId;
-    } else {
-      selectedVoiceId = voiceIds[voiceType] || voiceIds.female;
-      state.collected.voiceType = voiceType as any;
+    if (existingVoice) {
+      const sourceLabel = existingVoice.aiName
+        ? `${existingVoice.aiName}'s voice (${existingVoice.voiceId.substring(0, 8)}...)`
+        : `Voice ID ${existingVoice.voiceId.substring(0, 8)}...`;
+      await emit({ event: "message", content: `Found existing voice configuration from ~/${existingVoice.source}` });
+
+      const useExisting = await getChoice("voice-existing", `Your DA was using: ${sourceLabel}. Use the same voice?`, [
+        { label: "Yes, keep this voice", value: "keep", description: `Voice ID: ${existingVoice.voiceId}` },
+        { label: "No, pick a new voice", value: "new", description: "Choose from presets or enter a custom ID" },
+      ]);
+
+      if (useExisting === "keep") {
+        selectedVoiceId = existingVoice.voiceId;
+        state.collected.voiceType = "custom";
+        state.collected.customVoiceId = selectedVoiceId;
+      }
+    }
+
+    // Voice selection (if not using existing)
+    if (!selectedVoiceId) {
+      await emit({ event: "progress", step: "voice", percent: 45, detail: "Choose your Digital Assistant's voice..." });
+
+      const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", [
+        { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
+        { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
+        { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
+      ]);
+
+      if (voiceType === "custom") {
+        const customId = await getInput(
+          "custom-voice-id",
+          "Enter your ElevenLabs Voice ID:\nFind it at: elevenlabs.io/app/voice-library → Your voice → Voice ID",
+          "text",
+          "e.g., s3TPKV1kjDlVtZbl4Ksh"
+        );
+        selectedVoiceId = customId.trim() || voiceIds.female;
+        state.collected.voiceType = "custom";
+        state.collected.customVoiceId = selectedVoiceId;
+      } else {
+        selectedVoiceId = voiceIds[voiceType] || voiceIds.female;
+        state.collected.voiceType = voiceType as any;
+      }
     }
   }
 
-  // ── Update settings.json with voice ID ──
+  // ── Update settings.json with voice + provider config ──
   await emit({ event: "progress", step: "voice", percent: 60, detail: "Saving voice configuration..." });
-  const settingsPath = join(paiDir, "settings.json");
 
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
       if (settings.daidentity) {
-        settings.daidentity.voiceId = selectedVoiceId;
-        settings.daidentity.voices = settings.daidentity.voices || {};
-        settings.daidentity.voices.main = {
-          voiceId: selectedVoiceId,
-          stability: 0.35,
-          similarityBoost: 0.80,
-          style: 0.90,
-          speed: 1.1,
-        };
-        settings.daidentity.voices.algorithm = {
-          voiceId: selectedVoiceId,
-          stability: 0.35,
-          similarityBoost: 0.80,
-          style: 0.90,
-          speed: 1.1,
-        };
+        settings.daidentity.ttsProvider = providerChoice;
+
+        if (providerChoice === "google-cloud") {
+          settings.daidentity.googleCloudVoice = {
+            languageCode: "en-US",
+            voiceName: "en-US-Neural2-D",
+            voiceType: "NEURAL2",
+            speakingRate: 1.0,
+            pitch: 0.0,
+          };
+        } else {
+          settings.daidentity.voiceId = selectedVoiceId;
+          settings.daidentity.voices = settings.daidentity.voices || {};
+          settings.daidentity.voices.main = {
+            voiceId: selectedVoiceId,
+            stability: 0.35,
+            similarityBoost: 0.80,
+            style: 0.90,
+            speed: 1.1,
+          };
+          settings.daidentity.voices.algorithm = {
+            voiceId: selectedVoiceId,
+            stability: 0.35,
+            similarityBoost: 0.80,
+            style: 0.90,
+            speed: 1.1,
+          };
+        }
       }
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
       await emit({ event: "message", content: "Voice settings saved to settings.json." });
@@ -1010,17 +1080,26 @@ export async function runVoiceSetup(
     }
   }
 
-  // ── Save ElevenLabs key to .env (if provided) ──
-  if (hasElevenLabsKey) {
+  // ── Save API key to .env ──
+  if (hasApiKey) {
     const configDir = state.detection?.configDir || join(homedir(), ".config", "PAI");
     const envPath = join(configDir, ".env");
     if (!existsSync(configDir)) mkdirSync(configDir, { recursive: true });
 
     let envContent = existsSync(envPath) ? readFileSync(envPath, "utf-8") : "";
-    if (envContent.includes("ELEVENLABS_API_KEY=")) {
-      envContent = envContent.replace(/ELEVENLABS_API_KEY=.*/, `ELEVENLABS_API_KEY=${state.collected.elevenLabsKey}`);
-    } else {
-      envContent = envContent.trim() + `\nELEVENLABS_API_KEY=${state.collected.elevenLabsKey}\n`;
+
+    if (providerChoice === "google-cloud" && state.collected.googleCloudKey) {
+      if (envContent.includes("GOOGLE_CLOUD_API_KEY=")) {
+        envContent = envContent.replace(/GOOGLE_CLOUD_API_KEY=.*/, `GOOGLE_CLOUD_API_KEY=${state.collected.googleCloudKey}`);
+      } else {
+        envContent = envContent.trim() + `\nGOOGLE_CLOUD_API_KEY=${state.collected.googleCloudKey}\n`;
+      }
+    } else if (state.collected.elevenLabsKey) {
+      if (envContent.includes("ELEVENLABS_API_KEY=")) {
+        envContent = envContent.replace(/ELEVENLABS_API_KEY=.*/, `ELEVENLABS_API_KEY=${state.collected.elevenLabsKey}`);
+      } else {
+        envContent = envContent.trim() + `\nELEVENLABS_API_KEY=${state.collected.elevenLabsKey}\n`;
+      }
     }
     writeFileSync(envPath, envContent.trim() + "\n", { mode: 0o600 });
 
@@ -1048,32 +1127,38 @@ export async function runVoiceSetup(
       try {
         const aiName = state.collected.aiName || "PAI";
         const userName = state.collected.principalName || "there";
+
+        // Build test payload based on provider
+        const testPayload: Record<string, any> = {
+          message: `Hello ${userName}, this is ${aiName}. My voice system is online and ready to assist you.`,
+        };
+        if (providerChoice === "elevenlabs" && selectedVoiceId) {
+          testPayload.voice_id = selectedVoiceId;
+          testPayload.voice_settings = { stability: 0.35, similarity_boost: 0.80, style: 0.90, speed: 1.1, use_speaker_boost: true };
+        }
+
         const testRes = await fetch("http://localhost:8888/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Hello ${userName}, this is ${aiName}. My voice system is online and ready to assist you.`,
-            voice_id: selectedVoiceId,
-            voice_settings: { stability: 0.35, similarity_boost: 0.80, style: 0.90, speed: 1.1, use_speaker_boost: true },
-          }),
-          signal: AbortSignal.timeout(10000),
+          body: JSON.stringify(testPayload),
+          signal: AbortSignal.timeout(15000),
         });
         if (testRes.ok) {
           await emit({ event: "message", content: `Voice test sent — listen for ${aiName} speaking...`, speak: false });
 
           // Ask user to confirm they heard it and like it
-          const confirm = await getChoice("voice-confirm", "Did you hear the voice? Does it sound good?", [
+          const confirmChoices = [
             { label: "Sounds great!", value: "yes" },
-            { label: "Pick a different voice", value: "change" },
+            ...(providerChoice === "elevenlabs" ? [{ label: "Pick a different voice", value: "change" }] : []),
             { label: "Skip voice for now", value: "skip" },
-          ]);
+          ];
+          const confirm = await getChoice("voice-confirm", "Did you hear the voice? Does it sound good?", confirmChoices);
 
-          if (confirm === "yes") {
-            voiceConfirmed = true;
-          } else if (confirm === "skip") {
+          if (confirm === "yes" || confirm === "skip") {
             voiceConfirmed = true;
           } else {
-            // Let them pick again
+            // ElevenLabs: let them pick again
+            const voiceIds: Record<string, string> = { male: "pNInz6obpgDQGcFmaJgB", female: "21m00Tcm4TlvDq8ikWAM" };
             const newVoice = await getChoice("voice-type-retry", "Choose a different voice:", [
               { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
               { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
@@ -1107,9 +1192,11 @@ export async function runVoiceSetup(
     }
   }
 
-  const voiceLabel = state.collected.voiceType === "custom"
-    ? `Custom voice (${selectedVoiceId.substring(0, 8)}...)`
-    : state.collected.voiceType || "default";
-  await emit({ event: "message", content: `Digital Assistant voice configured: ${voiceLabel}` });
+  const voiceLabel = providerChoice === "google-cloud"
+    ? "Google Cloud TTS (Neural2-D)"
+    : state.collected.voiceType === "custom"
+      ? `Custom voice (${selectedVoiceId.substring(0, 8)}...)`
+      : state.collected.voiceType || "default";
+  await emit({ event: "message", content: `Digital Assistant voice configured: ${voiceLabel} (${providerChoice})` });
   await emit({ event: "step_complete", step: "voice" });
 }

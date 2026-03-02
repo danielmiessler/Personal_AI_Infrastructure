@@ -22,11 +22,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_SOURCE="$SCRIPT_DIR/.claude"
 
-# Runtime artifacts and user data to preserve (never overwrite or delete)
-# These are Claude Code internals or user-generated content that don't come from the release
-SKIP_DIRS=".claude.json history.jsonl cache debug backups plugins mcp-needs-auth-cache.json projects todos teams tasks file-history shell-snapshots commands .DS_Store"
-# User data that should survive upgrades
-PRESERVE_DIRS="MEMORY .env agents skills"
 
 # ── Usage ───────────────────────────────────────────────────────────────────
 usage() {
@@ -93,28 +88,8 @@ echo "   Backed up to: $BACKUP"
 # ── Step 2: Copy release files ──────────────────────────────────────────────
 echo "2. Copying new release files..."
 
-# Build exclusion args for both runtime artifacts and user data
-EXCLUDE_ARGS=()
-for skip in $SKIP_DIRS $PRESERVE_DIRS; do
-  EXCLUDE_ARGS+=(-name "$skip" -prune -o)
-done
-
-# Remove stale files in target that don't exist in source (like rsync --delete)
-# but only for files that aren't in preserved directories
-STALE_COUNT=0
-while IFS= read -r rel_path; do
-  if [[ ! -e "$REPO_SOURCE/$rel_path" ]]; then
-    rm -f "$TARGET/$rel_path"
-    STALE_COUNT=$((STALE_COUNT + 1))
-  fi
-done < <(cd "$TARGET" && find . "${EXCLUDE_ARGS[@]}" -type f -print | sed 's|^\./||')
-if [[ $STALE_COUNT -gt 0 ]]; then
-  echo "   Removed $STALE_COUNT stale files not in new release"
-fi
-
-# Copy source files, skipping runtime artifacts and user data
-FILE_COUNT=0
-(cd "$REPO_SOURCE" && find . "${EXCLUDE_ARGS[@]}" -type f -print) | sed 's|^\./||' | while IFS= read -r rel_path; do
+# Copy source files (overlay — never delete existing files)
+(cd "$REPO_SOURCE" && find . -type f -print) | sed 's|^\./||' | while IFS= read -r rel_path; do
   src="$REPO_SOURCE/$rel_path"
   dst="$TARGET/$rel_path"
   dst_dir="$(dirname "$dst")"

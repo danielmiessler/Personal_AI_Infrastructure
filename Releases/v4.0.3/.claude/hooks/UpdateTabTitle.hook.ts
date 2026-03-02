@@ -220,7 +220,9 @@ async function main() {
     const voiceContent = voiceSummary || (quickTitle && isValidWorkingTitle(quickTitle) ? quickTitle : null);
     if (voiceContent) {
       const identity = getIdentity();
-      try {
+      if (!identity.voiceEnabled) {
+        console.error('[UpdateTabTitle] Voice OFF (disabled in settings)');
+      } else try {
         await fetch('http://localhost:8888/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

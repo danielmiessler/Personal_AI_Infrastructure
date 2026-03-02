@@ -97,6 +97,14 @@ export function build(): { rebuilt: boolean; reason?: string } {
     content = content.replaceAll(key, value);
   }
 
+  // Strip voice curl instructions when voice is globally disabled
+  const settings = existsSync(SETTINGS_PATH)
+    ? JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"))
+    : {};
+  if (settings.daidentity?.voices?.enabled === false) {
+    content = content.replace(/\*\*Voice:\*\* `curl[^`]*`\n?/g, '');
+  }
+
   // Check if output already matches
   if (existsSync(OUTPUT_PATH)) {
     const existing = readFileSync(OUTPUT_PATH, "utf-8");

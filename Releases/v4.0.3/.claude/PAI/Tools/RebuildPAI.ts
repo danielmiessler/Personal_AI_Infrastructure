@@ -124,6 +124,15 @@ for (const file of components) {
 const variables = loadVariables();
 output = resolveVariables(output, variables);
 
+// Strip voice instructions when voice is globally disabled
+try {
+  const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
+  if (settings.daidentity?.voices?.enabled === false) {
+    output = output.replace(/\*\*Voice:\*\* `curl[^`]*`\n?/g, '');
+    output = output.replace(/## Voice Announcements[\s\S]*?(?=\n## )/g, '');
+  }
+} catch { /* settings unavailable — leave voice intact */ }
+
 // Write output
 writeFileSync(OUTPUT_FILE, output);
 

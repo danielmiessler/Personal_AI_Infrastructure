@@ -913,6 +913,7 @@
     "displayName": "{DAIDENTITY.NAME}",
     "color": "#3B82F6",
     "voices": {
+      "enabled": true,
       "main": {
         "_docs": "Primary DA voice - stability 0.85 for consistent output, style 0.3 for minimal variation",
         "voiceId": "{YOUR_ELEVENLABS_VOICE_ID}",

@@ -18,6 +18,7 @@
 
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleVoice } from './handlers/VoiceNotification';
+import { getIdentity } from './lib/identity';
 
 /**
  * Voice gate: only main terminal sessions get voice.
@@ -37,6 +38,12 @@ async function main() {
   // Voice gate: skip subagent sessions
   if (!isMainSession()) {
     console.error('[VoiceCompletion] Voice OFF (not main session)');
+    process.exit(0);
+  }
+
+  // Voice gate: skip when globally disabled via daidentity.voices.enabled
+  if (!getIdentity().voiceEnabled) {
+    console.error('[VoiceCompletion] Voice OFF (disabled in settings)');
     process.exit(0);
   }
 

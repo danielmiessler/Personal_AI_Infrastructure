@@ -5,9 +5,13 @@
 
 import { serve } from "bun";
 import { spawn } from "child_process";
-import { homedir } from "os";
+import { homedir, platform } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+
+// Platform detection for cross-platform audio and notification support
+const IS_MACOS = platform() === 'darwin';
+const IS_LINUX = platform() === 'linux';
 
 // Load .env from ~/.claude directory
 const envPath = join(homedir(), '.claude', '.env');
@@ -274,18 +278,43 @@ function getVolumeSetting(requestVolume?: number): number {
   return 1.0; // Default to full volume
 }
 
-// Play audio using afplay (macOS)
+// Speak text directly using espeak-ng (no API, no credits, instant offline fallback)
+async function speakWithEspeak(text: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('espeak-ng', ['-s', '150', '-v', 'en', text]);
+    proc.on('error', reject);
+    proc.on('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`espeak-ng exited with code ${code}`));
+    });
+  });
+}
+
+// Play audio using platform-appropriate player (macOS: afplay, Linux: auto-detect)
 async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
-  // Write audio to temp file
   await Bun.write(tempFile, audioBuffer);
 
   const volume = getVolumeSetting(requestVolume);
 
   return new Promise((resolve, reject) => {
-    // afplay -v takes a value from 0.0 to 1.0
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let proc;
+
+    if (IS_MACOS) {
+      proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    } else if (IS_LINUX) {
+      const player = findLinuxPlayer();
+      if (!player) {
+        reject(new Error('No audio player found. Install gstreamer1.0-tools, mpv, or pulseaudio-utils'));
+        return;
+      }
+      const args = getLinuxPlayerArgs(player, tempFile, volume);
+      proc = spawn(player, args);
+    } else {
+      reject(new Error(`Unsupported platform: ${platform()}`));
+      return;
+    }
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
@@ -293,16 +322,42 @@ async function playAudio(audioBuffer: ArrayBuffer, requestVolume?: number): Prom
     });
 
     proc.on('exit', (code) => {
-      // Clean up temp file
       spawn('/bin/rm', [tempFile]);
-
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`Audio player exited with code ${code}`));
       }
     });
   });
+}
+
+// Find the best available Linux audio player
+function findLinuxPlayer(): string | null {
+  const candidates = ['gst-play-1.0', 'mpv', 'ffplay', 'paplay'];
+  for (const cmd of candidates) {
+    try {
+      const result = Bun.spawnSync(['which', cmd]);
+      if (result.exitCode === 0) return cmd;
+    } catch { /* not found, try next */ }
+  }
+  return null;
+}
+
+// Get appropriate args for each Linux audio player
+function getLinuxPlayerArgs(player: string, file: string, volume: number): string[] {
+  switch (player) {
+    case 'gst-play-1.0':
+      return ['--volume', volume.toString(), file];
+    case 'mpv':
+      return ['--no-video', '--no-terminal', `--volume=${Math.round(volume * 100)}`, file];
+    case 'ffplay':
+      return ['-nodisp', '-autoexit', '-volume', Math.round(volume * 100).toString(), file];
+    case 'paplay':
+      return ['--volume', Math.round(volume * 65536).toString(), file];
+    default:
+      return [file];
+  }
 }
 
 // Spawn a process safely
@@ -325,7 +380,7 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
   });
 }
 
-// Send macOS notification with voice
+// Send desktop notification with voice (cross-platform: macOS + Linux)
 async function sendNotification(
   title: string,
   message: string,
@@ -333,7 +388,6 @@ async function sendNotification(
   voiceId: string | null = null,
   requestProsody?: Partial<ProsodySettings>
 ) {
-  // Validate and sanitize inputs
   const titleValidation = validateInput(title);
   const messageValidation = validateInput(message);
 
@@ -345,28 +399,36 @@ async function sendNotification(
     throw new Error(`Invalid message: ${messageValidation.error}`);
   }
 
-  // Use pre-sanitized values from validation
   const safeTitle = titleValidation.sanitized!;
   let safeMessage = stripMarkers(messageValidation.sanitized!);
 
-  // Generate and play voice using ElevenLabs
+  // Display desktop notification FIRST (immediate, non-blocking)
+  try {
+    if (IS_MACOS) {
+      const escapedTitle = escapeForAppleScript(safeTitle);
+      const escapedMessage = escapeForAppleScript(safeMessage);
+      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
+      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+    } else if (IS_LINUX) {
+      await spawnSafe('notify-send', [safeTitle, safeMessage, '--app-name=PAI']);
+    }
+  } catch (error) {
+    console.error("Notification display error:", error);
+  }
+
+  // Generate and play voice after (blocking, waits for audio to finish)
   if (voiceEnabled && ELEVENLABS_API_KEY) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
 
-      // Get voice configuration (personality settings)
       const voiceConfig = getVoiceConfig(voice);
 
-      // Build prosody: request > voice config > DA config > defaults
       let prosody: Partial<ProsodySettings> = {};
 
-      // First try voice config from AGENTPERSONALITIES.md
       if (voiceConfig) {
         if (voiceConfig.prosody) {
-          // New format: nested prosody object
           prosody = voiceConfig.prosody;
         } else {
-          // Legacy format: flat fields
           prosody = {
             stability: voiceConfig.stability,
             similarity_boost: voiceConfig.similarity_boost,
@@ -377,12 +439,10 @@ async function sendNotification(
         }
         console.log(`👤 Voice: ${voiceConfig.description}`);
       } else if (voice === DEFAULT_VOICE_ID && daVoiceProsody) {
-        // Using DA's default voice - use prosody from settings.json
         prosody = daVoiceProsody;
-        console.log(`👤 Voice: DA default (Kai)`);
+        console.log(`👤 Voice: DA default`);
       }
 
-      // Request prosody overrides config prosody
       if (requestProsody) {
         prosody = { ...prosody, ...requestProsody };
         console.log(`🎛️  Using request prosody overrides`);
@@ -393,21 +453,21 @@ async function sendNotification(
       console.log(`🎙️  Generating speech (voice: ${voice}, stability: ${settings.stability}, style: ${settings.style}, speed: ${settings.speed}, volume: ${volume ?? 1.0})`);
 
       const spokenMessage = applyPronunciations(safeMessage);
-        const audioBuffer = await generateSpeech(spokenMessage, voice, prosody);
+      const audioBuffer = await generateSpeech(spokenMessage, voice, prosody);
       await playAudio(audioBuffer, volume);
-    } catch (error) {
-      console.error("Failed to generate/play speech:", error);
+    } catch (error: any) {
+      console.error("ElevenLabs TTS failed:", error.message);
+      // Fallback to espeak-ng on Linux (handles quota exceeded, no API key, etc.)
+      if (IS_LINUX) {
+        try {
+          console.log('🔊 Falling back to espeak-ng...');
+          await speakWithEspeak(safeMessage);
+          console.log('✅ espeak-ng fallback succeeded');
+        } catch (espeakError) {
+          console.error("espeak-ng fallback also failed:", espeakError);
+        }
+      }
     }
-  }
-
-  // Display macOS notification - escape for AppleScript
-  try {
-    const escapedTitle = escapeForAppleScript(safeTitle);
-    const escapedMessage = escapeForAppleScript(safeMessage);
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-    await spawnSafe('/usr/bin/osascript', ['-e', script]);
-  } catch (error) {
-    console.error("Notification display error:", error);
   }
 }
 

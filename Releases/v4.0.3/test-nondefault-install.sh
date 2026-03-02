@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-nondefault-install.sh — Deploy PAI v4.0.1 to a non-default CLAUDE_CONFIG_DIR for manual testing
+# test-nondefault-install.sh — Deploy PAI v4.0.3 to a non-default CLAUDE_CONFIG_DIR for manual testing
 #
 # Usage:
 #   ./test-nondefault-install.sh /path/to/target [alias-name]
@@ -18,7 +18,7 @@ usage() {
   echo "Usage: $0 <target-directory> [alias-name]"
   echo "       $0 --clean <target-directory>"
   echo ""
-  echo "Deploys PAI v4.0.1 to a non-default CLAUDE_CONFIG_DIR for testing."
+  echo "Deploys PAI v4.0.3 to a non-default CLAUDE_CONFIG_DIR for testing."
   echo "  alias-name   If given, adds/updates a shell alias in ~/.zshrc"
   echo "  --clean      Remove the test install at the given path"
   exit 1
@@ -54,7 +54,7 @@ if $CLEAN; then
   ZSHRC="$HOME/.zshrc"
   if [[ -n "$ALIAS_NAME" ]]; then
     if grep -q "^alias $ALIAS_NAME=" "$ZSHRC" 2>/dev/null; then
-      sed -i '' "/^# PAI v4.0.1 non-default install test$/d; /^alias $ALIAS_NAME=/d" "$ZSHRC"
+      sed -i '' "/^# PAI v4.0.3 non-default install test$/d; /^alias $ALIAS_NAME=/d" "$ZSHRC"
       echo "Removed alias '$ALIAS_NAME' from $ZSHRC"
     fi
   else
@@ -62,7 +62,7 @@ if $CLEAN; then
     MATCHED=$(grep -n "^alias .*='.*$TARGET.*'" "$ZSHRC" 2>/dev/null | head -1)
     if [[ -n "$MATCHED" ]]; then
       FOUND_ALIAS=$(echo "$MATCHED" | sed "s/.*alias \([^=]*\)=.*/\1/")
-      sed -i '' "/^# PAI v4.0.1 non-default install test$/d; /^alias ${FOUND_ALIAS}=.*$(sed 's|/|\\/|g' <<< "$TARGET").*'/d" "$ZSHRC"
+      sed -i '' "/^# PAI v4.0.3 non-default install test$/d; /^alias ${FOUND_ALIAS}=.*$(sed 's|/|\\/|g' <<< "$TARGET").*'/d" "$ZSHRC"
       echo "Removed alias '$FOUND_ALIAS' from $ZSHRC"
     fi
   fi
@@ -85,7 +85,7 @@ if [[ "$TARGET" == "$REAL_CLAUDE" ]]; then
 fi
 
 echo "═══════════════════════════════════════════════════════════"
-echo " PAI v4.0.1 — Non-Default Install Test"
+echo " PAI v4.0.3 — Non-Default Install Test"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 echo "  Source:  $REPO_SOURCE"
@@ -255,7 +255,7 @@ if [[ -n "$ALIAS_NAME" ]]; then
   else
     # Append new alias
     echo "" >> "$ZSHRC"
-    echo "# PAI v4.0.1 non-default install test" >> "$ZSHRC"
+    echo "# PAI v4.0.3 non-default install test" >> "$ZSHRC"
     echo "$ALIAS_LINE" >> "$ZSHRC"
     echo "   Added alias to $ZSHRC"
   fi

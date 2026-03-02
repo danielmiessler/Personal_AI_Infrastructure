@@ -23,9 +23,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_SOURCE="$SCRIPT_DIR/.claude"
 
 # Runtime artifacts and user data to preserve (never overwrite or delete)
-SKIP_DIRS=".claude.json history.jsonl cache debug backups plugins mcp-needs-auth-cache.json projects todos teams tasks"
+# These are Claude Code internals or user-generated content that don't come from the release
+SKIP_DIRS=".claude.json history.jsonl cache debug backups plugins mcp-needs-auth-cache.json projects todos teams tasks file-history shell-snapshots commands .DS_Store"
 # User data that should survive upgrades
-PRESERVE_DIRS="MEMORY .env agents"
+PRESERVE_DIRS="MEMORY .env agents skills"
 
 # ── Usage ───────────────────────────────────────────────────────────────────
 usage() {

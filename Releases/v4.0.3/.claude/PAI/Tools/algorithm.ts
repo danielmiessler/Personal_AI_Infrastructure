@@ -350,7 +350,9 @@ function updateFrontmatter(path: string, updates: Record<string, unknown>): void
 
   for (const [key, value] of Object.entries(updates)) {
     const strVal = value === null ? "null" : String(value);
-    const regex = new RegExp(`^(${key}):.*$`, "m");
+    // Escape regex metacharacters in key to prevent injection
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`^(${escapedKey}):.*$`, "m");
     if (regex.test(yamlBlock)) {
       yamlBlock = yamlBlock.replace(regex, `${key}: ${strVal}`);
     } else {
@@ -1438,6 +1440,11 @@ async function resumeLoop(prdPath: string): Promise<void> {
 function stopLoop(prdPath: string): void {
   const absPath = resolve(prdPath);
   const { frontmatter } = readPRD(absPath);
+  // Guard: don't overwrite terminal states (matches pauseLoop's pattern)
+  if (frontmatter.loopStatus === "completed" || frontmatter.loopStatus === "failed") {
+    console.log(`Loop already ${frontmatter.loopStatus} on ${frontmatter.id} — not modifying.`);
+    return;
+  }
   updateFrontmatter(absPath, { loopStatus: "stopped" });
   voiceNotify(`Loop stopped on ${frontmatter.id}.`);
   console.log(`\x1b[31m\u25A0 Stopped\x1b[0m Loop on ${frontmatter.id}`);

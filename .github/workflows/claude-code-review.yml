@@ -32,6 +32,7 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code Review
+          if: github.event.pull_request.head.repo.full_name == github.repository
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:

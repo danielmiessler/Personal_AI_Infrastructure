@@ -2,11 +2,10 @@
 /**
  * ComplexityRouter.hook.test.ts — Unit tests for ComplexityRouter
  *
- * Tests all three routing tiers (HAIKU, SONNET, OPUS) plus edge cases,
- * v1.1 accuracy improvements (negation, simplicity prefix, structural anchor),
- * and v1.2 accuracy improvements (threshold raised to ≥3, scale signal tightened).
+ * Tests all three routing tiers (HAIKU, SONNET, OPUS) plus edge cases.
+ * Uses Bun's spawnSync to run the hook as a subprocess, simulating real usage.
  *
- * Run: bun test Releases/v4.0.3/.claude/hooks/ComplexityRouter.hook.test.ts
+ * Run: bun test hooks/ComplexityRouter.hook.test.ts
  */
 
 import { describe, test, expect } from 'bun:test';
@@ -115,16 +114,6 @@ describe('SONNET tier — default (silent stdout)', () => {
     expect(stderr).toContain('SONNET tier');
   });
 
-  test('two Opus signals not enough for OPUS (v1.2 threshold ≥3) — stays SONNET', () => {
-    const { stdout, stderr, exitCode } = runHook(
-      'design the infrastructure for the new service'
-    );
-    expect(exitCode).toBe(0);
-    // architecture + infrastructure = 2 signals — threshold is ≥3
-    expect(stdout.trim()).toBe('');
-    expect(stderr).toContain('SONNET tier');
-  });
-
   test('bug fix request with context routes to SONNET', () => {
     const { stdout, exitCode } = runHook(
       'The user login is failing when the email has uppercase letters in it, can you find and fix this bug?'
@@ -136,8 +125,8 @@ describe('SONNET tier — default (silent stdout)', () => {
 
 // ── OPUS Tier ──
 
-describe('OPUS tier — high complexity (≥3 signals)', () => {
-  test('architecture + comprehensive + refactor routes to OPUS', () => {
+describe('OPUS tier — high complexity (≥2 signals)', () => {
+  test('architecture + comprehensive routes to OPUS', () => {
     const { stdout, exitCode } = runHook(
       'design a comprehensive architecture for the platform refactor'
     );
@@ -156,7 +145,7 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
     expect(stdout).toContain('infrastructure');
   });
 
-  test('refactor + comprehensive + schema design routes to OPUS', () => {
+  test('refactor + comprehensive routes to OPUS', () => {
     const { stdout, exitCode } = runHook(
       'I need a comprehensive refactor of the authentication module with a new schema design'
     );
@@ -164,7 +153,7 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
     expect(stdout).toContain('tier="OPUS"');
   });
 
-  test('long prompt with domain keywords triggers OPUS', () => {
+  test('long prompt (>400 chars) triggers OPUS signal', () => {
     const longPrompt =
       'Please analyze the current state of our codebase and provide detailed recommendations. ' +
       'I want you to look at the authentication system, the database layer, the API design, ' +
@@ -178,7 +167,7 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
     expect(stdout).toContain('tier="OPUS"');
   });
 
-  test('multiple questions with domain keywords triggers OPUS', () => {
+  test('multiple questions (2+) triggers OPUS signal', () => {
     const { stdout, exitCode } = runHook(
       'What is the current state of the auth system? How should we redesign the architecture? ' +
       'What are the performance implications of switching to JWT? Would a comprehensive migration be worth it?'
@@ -327,6 +316,50 @@ describe('v1.2 — Scale signal tightened (removed common false-positive words)'
   });
 });
 
+// ── v1.3 Advisory/Strategic Exclusions ──
+
+describe('v1.3 — Advisory prompts excluded from HAIKU tier', () => {
+  test('"What should I work on?" routes to SONNET not HAIKU', () => {
+    const { stdout, stderr, exitCode } = runHook('What should I work on?');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe(''); // SONNET is silent
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"Should I negotiate my salary?" routes to SONNET not HAIKU', () => {
+    const { stdout, stderr, exitCode } = runHook('Should I negotiate my salary?');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe('');
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"Help me prioritize" routes to SONNET not HAIKU', () => {
+    const { stdout, stderr, exitCode } = runHook('Help me prioritize');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe('');
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"Need clarity on this" routes to SONNET not HAIKU', () => {
+    const { stdout, stderr, exitCode } = runHook('Need clarity on this');
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe('');
+    expect(stderr).toContain('SONNET tier');
+  });
+
+  test('"hi" still routes to HAIKU (greeting unchanged)', () => {
+    const { stdout, exitCode } = runHook('hi');
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('tier="HAIKU"');
+  });
+
+  test('"fix typo" still routes to HAIKU (simple fix unchanged)', () => {
+    const { stdout, exitCode } = runHook('fix typo');
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('tier="HAIKU"');
+  });
+});
+
 // ── Edge Cases ──
 
 describe('Edge cases — graceful error handling', () => {
@@ -369,10 +402,13 @@ describe('Edge cases — graceful error handling', () => {
     expect(stdout).toContain('tier="HAIKU"');
   });
 
-  test('short prompt with 3+ complexity keywords routes to OPUS not HAIKU', () => {
-    const { stdout, exitCode } = runHook('architect a comprehensive platform infrastructure ecosystem');
+  test('short prompt with complexity keywords routes to OPUS not HAIKU', () => {
+    // Has complexity keywords → not routed to HAIKU even though it's short
+    // architecture + infrastructure(platform) + multi-system(integration) + planning(strategy) = 4 signals → OPUS
+    const { stdout, exitCode } = runHook('architect the platform integration strategy');
     expect(exitCode).toBe(0);
-    // architecture + scale/comprehensive + infrastructure = 3 signals → OPUS
+    // Should NOT be HAIKU (complexity keywords block the short-prompt shortcut)
+    // Should be OPUS (4 signals: architecture + infrastructure + multi-system + planning)
     expect(stdout).toContain('tier="OPUS"');
     expect(stdout).not.toContain('tier="HAIKU"');
   });

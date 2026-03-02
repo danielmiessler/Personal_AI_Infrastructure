@@ -58,7 +58,7 @@ function isHaikuTier(prompt: string): boolean {
   // Very short prompt (< 40 chars)
   if (trimmed.length < 40) {
     // But not if it has complexity signals
-    const hasComplexity = /\b(architect|design|comprehensive|refactor|migrate|infrastructure|PRD|strategy|roadmap|framework|platform|ecosystem|orchestrat|integrat)\b/i.test(trimmed);
+    const hasComplexity = /\b(architect|design|comprehensive|refactor|migrate|infrastructure|PRD|strategy|roadmap|framework|platform|ecosystem|orchestrat|integrat|negotiate|salary|career|prioritize|clarity|guidance|advice|decision|tradeoff|balance|should)\b/i.test(trimmed);
     if (!hasComplexity) return true;
   }
 
@@ -173,7 +173,7 @@ RELAY MODE ACTIVE — run BEFORE any Algorithm phases or OBSERVE:
 2. Otherwise — RELAY PROTOCOL (no exceptions):
    a. Emit the ♻️ header and TASK line immediately.
    b. Your FIRST and ONLY tool call: Task(subagent_type="general-purpose", model="haiku", prompt=[the user's exact message])
-   c. Return the sub-agent output verbatim.
+   c. After the tool call completes, print the sub-agent's full output as plain text in your own response (do NOT leave it only inside the collapsed tool result block).
    d. No ISC. No OBSERVE. No phases. No capability audit.
    e. End with: 🗣️ SoushAI: [one-line spoken summary]
 </complexity-router>

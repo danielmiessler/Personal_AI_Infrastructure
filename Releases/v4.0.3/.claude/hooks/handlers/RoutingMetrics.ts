@@ -10,7 +10,7 @@
  * - Sub-agent Stop (isMainSession=false): writes subagent-tokens-{sessionId}.json
  * - Main session Stop (isMainSession=true): harvests sub-agent signals and includes in entry
  *
- * TRIGGER: Stop hook (via StopOrchestrator)
+ * TRIGGER: Stop hook (via RoutingMetrics.hook.ts)
  *
  * INPUT:
  * - MEMORY/STATE/pending-route-{session_id}.json  (written by ComplexityRouter)
@@ -22,7 +22,7 @@
  * - MEMORY/STATE/subagent-tokens-{sessionId}.json  (sub-agent cycles only)
  *
  * ERROR HANDLING:
- * - Entire body wrapped in try/catch — never throws to StopOrchestrator
+ * - Entire body wrapped in try/catch — never throws to caller
  * - Non-blocking: returns early if no pending-route file (no routing decision this cycle)
  */
 
@@ -45,6 +45,7 @@ interface RoutingSignal {
   session_id: string;
   tier: string;
   prompt_chars: number;
+  relay_fired?: boolean;
 }
 
 interface TokenUsage {
@@ -79,6 +80,7 @@ interface MetricsEntry {
   input_tokens: number;
   output_tokens: number;
   cache_read_input_tokens: number;
+  relay_fired?: boolean;
   // Phase 2: sub-agent fields (optional — additive, backwards compatible)
   sub_input_tokens?: number;
   sub_output_tokens?: number;
@@ -88,16 +90,21 @@ interface MetricsEntry {
 
 /**
  * Scan transcript JSONL lines in reverse to find the last assistant message with usage data.
+ *
+ * Two-pass approach to prevent haiku sub-agent responses in the parent transcript
+ * from being mistaken as the main session's usage:
+ * - Pass 1: prefer the last assistant message where model contains 'sonnet' or 'opus'
+ * - Pass 2: fall back to the last assistant message of any model
  */
 function extractLastUsage(transcriptPath: string): TokenUsage | null {
   try {
     const content = readFileSync(transcriptPath, 'utf-8');
     const lines = content.split('\n').filter(l => l.trim());
 
-    // Scan in reverse order — most recent assistant message first
-    for (let i = lines.length - 1; i >= 0; i--) {
+    /** Extract TokenUsage from a single JSONL line, or null if not an assistant message. */
+    function parseLine(line: string): TokenUsage | null {
       try {
-        const entry = JSON.parse(lines[i]);
+        const entry = JSON.parse(line);
 
         // Format: { type: "assistant", message: { role: "assistant", usage: {...}, model: "..." } }
         if (entry.type === 'assistant' && entry.message?.role === 'assistant') {
@@ -125,6 +132,21 @@ function extractLastUsage(transcriptPath: string): TokenUsage | null {
       } catch {
         // Skip malformed lines
       }
+      return null;
+    }
+
+    // Pass 1: prefer main session models (sonnet or opus) — avoids haiku sub-agent pollution
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const usage = parseLine(lines[i]);
+      if (usage && (usage.model.includes('sonnet') || usage.model.includes('opus'))) {
+        return usage;
+      }
+    }
+
+    // Pass 2: fall back to last assistant message of any model
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const usage = parseLine(lines[i]);
+      if (usage) return usage;
     }
   } catch (error) {
     console.error(`${TAG} Failed to read transcript: ${error}`);
@@ -263,6 +285,7 @@ export async function handleRoutingMetrics(
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
       cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+      relay_fired: signal.relay_fired ?? false,
       ...(hasSubAgents && {
         sub_input_tokens: subAgentData.input,
         sub_output_tokens: subAgentData.output,
@@ -278,6 +301,6 @@ export async function handleRoutingMetrics(
     console.error(`${TAG} Appended metrics: tier=${entry.tier}, model=${entry.model}, in=${entry.input_tokens}, out=${entry.output_tokens}${subInfo}`);
   } catch (error) {
     console.error(`${TAG} Unexpected error: ${error}`);
-    // Never throw — handler failures are isolated by StopOrchestrator's Promise.allSettled
+    // Never throw — RoutingMetrics.hook.ts catches all errors at the outer level
   }
 }

@@ -6,7 +6,7 @@
  * v1.1 accuracy improvements (negation, simplicity prefix, structural anchor),
  * and v1.2 accuracy improvements (threshold raised to ≥3, scale signal tightened).
  *
- * Run: bun test Releases/v3.0/.claude/hooks/ComplexityRouter.hook.test.ts
+ * Run: bun test Releases/v4.0.3/.claude/hooks/ComplexityRouter.hook.test.ts
  */
 
 import { describe, test, expect } from 'bun:test';
@@ -36,50 +36,51 @@ describe('HAIKU tier — simple prompts', () => {
   test('greeting "hi" routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('hi');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
+    expect(stdout).toContain('action="RELAY"');
     expect(stdout).toContain('model="haiku"');
   });
 
   test('greeting "hello there" routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('hello there');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('acknowledgment "ok" routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('ok');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('acknowledgment "thanks" routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('thanks');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('rating "8" routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('8');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('rating "10" routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('10');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('single word routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('continue');
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('short prompt under 40 chars routes to HAIKU', () => {
     const { stdout, exitCode } = runHook('fix the button'); // 14 chars
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 });
 
@@ -116,10 +117,10 @@ describe('SONNET tier — default (silent stdout)', () => {
 
   test('two Opus signals not enough for OPUS (v1.2 threshold ≥3) — stays SONNET', () => {
     const { stdout, stderr, exitCode } = runHook(
-      'Create a deployment infrastructure strategy and implementation plan for the new platform'
+      'design the infrastructure for the new service'
     );
     expect(exitCode).toBe(0);
-    // 2 signals (infrastructure + planning/strategy) — not enough for v1.2 threshold
+    // architecture + infrastructure = 2 signals — threshold is ≥3
     expect(stdout.trim()).toBe('');
     expect(stderr).toContain('SONNET tier');
   });
@@ -141,17 +142,17 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
       'design a comprehensive architecture for the platform refactor'
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
-    expect(stdout).toContain('MODEL ROUTING ACTIVE');
+    expect(stdout).toContain('tier="OPUS"');
+    expect(stdout).toContain('action="ELEVATE"');
     expect(stdout).toContain('Signals:');
   });
 
   test('infrastructure + strategy + comprehensive routes to OPUS', () => {
     const { stdout, exitCode } = runHook(
-      'Create a comprehensive infrastructure strategy and implementation plan for the platform migration'
+      'Create a comprehensive infrastructure strategy and implementation plan for the new platform'
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
+    expect(stdout).toContain('tier="OPUS"');
     expect(stdout).toContain('infrastructure');
   });
 
@@ -160,7 +161,7 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
       'I need a comprehensive refactor of the authentication module with a new schema design'
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
+    expect(stdout).toContain('tier="OPUS"');
   });
 
   test('long prompt with domain keywords triggers OPUS', () => {
@@ -174,7 +175,7 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
 
     const { stdout, exitCode } = runHook(longPrompt);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
+    expect(stdout).toContain('tier="OPUS"');
   });
 
   test('multiple questions with domain keywords triggers OPUS', () => {
@@ -183,16 +184,16 @@ describe('OPUS tier — high complexity (≥3 signals)', () => {
       'What are the performance implications of switching to JWT? Would a comprehensive migration be worth it?'
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
+    expect(stdout).toContain('tier="OPUS"');
   });
 
-  test('OPUS hint contains Sonnet/Opus routing guidance', () => {
+  test('OPUS hint contains ELEVATE routing guidance', () => {
     const { stdout, exitCode } = runHook(
       'design a comprehensive architecture for the platform refactor'
     );
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('Sonnet orchestrates');
-    expect(stdout).toContain('Task(model="opus")');
+    expect(stdout).toContain('action="ELEVATE"');
+    expect(stdout).toContain('Deep or Comprehensive effort level');
   });
 });
 
@@ -271,9 +272,9 @@ describe('v1.1 — Structural signals require domain anchor', () => {
 
 describe('v1.2 — Threshold raised from ≥2 to ≥3 signals', () => {
   test('architecture + infrastructure (2 signals) stays SONNET', () => {
-    const { stdout, stderr, exitCode } = runHook('design the infrastructure for the new service');
+    const { stdout, stderr, exitCode } = runHook('design the infrastructure for the microservices');
     expect(exitCode).toBe(0);
-    // 2 signals (architecture + infrastructure) — below v1.2 threshold
+    // 2 signals (architecture/design + infrastructure) — threshold is ≥3
     expect(stdout.trim()).toBe('');
     expect(stderr).toContain('SONNET tier');
   });
@@ -289,7 +290,7 @@ describe('v1.2 — Threshold raised from ≥2 to ≥3 signals', () => {
 
 describe('v1.2 — Scale signal tightened (removed common false-positive words)', () => {
   test('"thorough" alone does not trigger scale signal', () => {
-    const { stdout, stderr, exitCode } = runHook('do a thorough review of the PR changes');
+    const { stdout, stderr, exitCode } = runHook('do a thorough review of the pull request changes');
     expect(exitCode).toBe(0);
     expect(stdout.trim()).toBe(''); // "thorough" no longer a scale signal
     expect(stderr).toContain('SONNET tier');
@@ -321,8 +322,8 @@ describe('v1.2 — Scale signal tightened (removed common false-positive words)'
       'design a comprehensive architecture for the platform refactor'
     );
     expect(exitCode).toBe(0);
-    // "comprehensive" retained → contributes to ≥3 signal OPUS result
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
+    // "comprehensive" retained + architecture + refactor/platform = 3+ signals → OPUS
+    expect(stdout).toContain('tier="OPUS"');
   });
 });
 
@@ -365,14 +366,14 @@ describe('Edge cases — graceful error handling', () => {
     });
     const stdout = new TextDecoder().decode(proc.stdout);
     expect(proc.exitCode).toBe(0);
-    expect(stdout).toContain('COMPLEXITY ROUTER: SIMPLE task detected');
+    expect(stdout).toContain('tier="HAIKU"');
   });
 
   test('short prompt with 3+ complexity keywords routes to OPUS not HAIKU', () => {
     const { stdout, exitCode } = runHook('architect a comprehensive platform infrastructure ecosystem');
     expect(exitCode).toBe(0);
     // architecture + scale/comprehensive + infrastructure = 3 signals → OPUS
-    expect(stdout).toContain('COMPLEXITY ROUTER: HIGH complexity detected');
-    expect(stdout).not.toContain('SIMPLE task detected');
+    expect(stdout).toContain('tier="OPUS"');
+    expect(stdout).not.toContain('tier="HAIKU"');
   });
 });

@@ -27,7 +27,6 @@ import { handleTabState } from './handlers/TabState';
 import { handleRebuildSkill } from './handlers/RebuildSkill';
 import { handleAlgorithmEnrichment } from './handlers/AlgorithmEnrichment';
 import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
-import { handleRoutingMetrics } from './handlers/RoutingMetrics';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -108,9 +107,8 @@ async function main() {
     handleRebuildSkill(),
     handleAlgorithmEnrichment(parsed, hookInput.session_id),
     handleDocCrossRefIntegrity(parsed, hookInput),
-    handleRoutingMetrics(hookInput.transcript_path, hookInput.session_id),
   ];
-  const handlerNames = ['TabState', 'RebuildSkill', 'AlgorithmEnrichment', 'DocCrossRefIntegrity', 'RoutingMetrics'];
+  const handlerNames = ['TabState', 'RebuildSkill', 'AlgorithmEnrichment', 'DocCrossRefIntegrity'];
 
   if (voiceEnabled) {
     handlers.unshift(handleVoice(parsed, hookInput.session_id));

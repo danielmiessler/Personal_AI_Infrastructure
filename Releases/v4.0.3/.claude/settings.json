@@ -199,6 +199,10 @@
           {
             "type": "command",
             "command": "${PAI_DIR}/hooks/SessionAutoName.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "${PAI_DIR}/hooks/ComplexityRouter.hook.ts"
           }
         ]
       }
@@ -239,6 +243,10 @@
           {
             "type": "command",
             "command": "${PAI_DIR}/hooks/DocIntegrity.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "${PAI_DIR}/hooks/RoutingMetrics.hook.ts"
           }
         ]
       }

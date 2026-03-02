@@ -167,34 +167,40 @@ function analyzeOpusSignals(prompt: string): OpusAnalysis {
 
 function outputHaikuHint(): void {
   console.log(`<system-reminder>
-🔀 COMPLEXITY ROUTER: SIMPLE task detected.
-→ Spawn Task(model="haiku") for this work — fast and cheap.
-→ Skip if task turns out more complex than it appears.
+<complexity-router tier="HAIKU" action="RELAY">
+RELAY MODE ACTIVE — run BEFORE any Algorithm phases or OBSERVE:
+1. If context contains a <command-name> tag (skill invocation): skip relay, proceed normally with full Algorithm.
+2. Otherwise — RELAY PROTOCOL (no exceptions):
+   a. Emit the ♻️ header and TASK line immediately.
+   b. Your FIRST and ONLY tool call: Task(subagent_type="general-purpose", model="haiku", prompt=[the user's exact message])
+   c. Return the sub-agent output verbatim.
+   d. No ISC. No OBSERVE. No phases. No capability audit.
+   e. End with: 🗣️ SoushAI: [one-line spoken summary]
+</complexity-router>
 </system-reminder>`);
 }
 
 function outputOpusHint(matchedSignals: string[]): void {
   console.log(`<system-reminder>
-🔀 COMPLEXITY ROUTER: HIGH complexity detected.
+<complexity-router tier="OPUS" action="ELEVATE">
+HIGH COMPLEXITY DETECTED — elevate effort level:
 Signals: ${matchedSignals.join(', ')}
 
-MODEL ROUTING ACTIVE:
-→ Sonnet orchestrates: OBSERVE, VERIFY, LEARN (cheap coordination)
-→ Spawn Task(model="opus") for: THINK, BUILD, EXECUTE (heavy reasoning)
-
-Skip routing if: already on Opus, Instant/Fast effort level,
-or task is simpler than signals suggest.
+→ Treat this as Deep or Comprehensive effort level in the Algorithm.
+→ Run full Algorithm phases at maximum quality and depth.
+→ Do NOT downgrade to Fast or Standard — complexity signals demand full treatment.
+</complexity-router>
 </system-reminder>`);
 }
 
 // ── Routing Signal Writer ──
 
-function writeRoutingSignal(sessionId: string, tier: string, promptChars: number): void {
+function writeRoutingSignal(sessionId: string, tier: string, promptChars: number, relayFired: boolean = false): void {
   try {
     const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
     const stateDir = join(paiDir, 'MEMORY', 'STATE');
     mkdirSync(stateDir, { recursive: true });
-    const signal = { timestamp: new Date().toISOString(), session_id: sessionId, tier, prompt_chars: promptChars };
+    const signal = { timestamp: new Date().toISOString(), session_id: sessionId, tier, prompt_chars: promptChars, relay_fired: relayFired };
     writeFileSync(join(stateDir, `pending-route-${sessionId}.json`), JSON.stringify(signal));
   } catch { /* non-blocking — hook still works if write fails */ }
 }
@@ -236,7 +242,7 @@ async function main(): Promise<void> {
     if (isHaikuTier(prompt)) {
       console.error(`[ComplexityRouter] HAIKU tier — simple prompt detected (${prompt.length} chars)`);
       outputHaikuHint();
-      writeRoutingSignal(data.session_id, 'HAIKU', prompt.length);
+      writeRoutingSignal(data.session_id, 'HAIKU', prompt.length, true);
       process.exit(0);
     }
 

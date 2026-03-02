@@ -6,8 +6,8 @@
  * Phase 2: Sub-agent overhead display (when sub_* fields present in JSONL)
  *
  * Usage:
- *   bun skills/PAI/Tools/RoutingStats.ts
- *   bun skills/PAI/Tools/RoutingStats.ts --json
+ *   bun PAI/Tools/RoutingStats.ts
+ *   bun PAI/Tools/RoutingStats.ts --json
  */
 
 import { readFileSync, existsSync } from 'fs';
@@ -39,6 +39,7 @@ interface MetricsEntry {
   input_tokens: number;
   output_tokens: number;
   cache_read_input_tokens: number;
+  relay_fired?: boolean;
   // Phase 2: sub-agent fields (optional — additive, old entries remain valid)
   sub_input_tokens?: number;
   sub_output_tokens?: number;
@@ -52,6 +53,7 @@ interface TierStats {
   total_output: number;
   total_cache: number;
   modelCounts: Record<string, number>;
+  relay_fired_count: number;
 }
 
 // ── Tier rank for adherence icon logic ──
@@ -139,9 +141,9 @@ function renderReport(entries: MetricsEntry[]): void {
 
   // Aggregate by tier
   const stats: Record<string, TierStats> = {
-    HAIKU:  { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {} },
-    SONNET: { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {} },
-    OPUS:   { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {} },
+    HAIKU:  { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {}, relay_fired_count: 0 },
+    SONNET: { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {}, relay_fired_count: 0 },
+    OPUS:   { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {}, relay_fired_count: 0 },
   };
 
   let actualCost = 0;
@@ -155,7 +157,7 @@ function renderReport(entries: MetricsEntry[]): void {
   for (const entry of entries) {
     const tier = (entry.tier?.toUpperCase() || 'SONNET') as string;
     if (!stats[tier]) {
-      stats[tier] = { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {} };
+      stats[tier] = { count: 0, total_input: 0, total_output: 0, total_cache: 0, modelCounts: {}, relay_fired_count: 0 };
     }
 
     const s = stats[tier];
@@ -164,14 +166,16 @@ function renderReport(entries: MetricsEntry[]): void {
     s.total_output += entry.output_tokens ?? 0;
     s.total_cache += entry.cache_read_input_tokens ?? 0;
 
+    if (entry.relay_fired) s.relay_fired_count++;
+
     const model = entry.model || 'unknown';
     s.modelCounts[model] = (s.modelCounts[model] ?? 0) + 1;
 
     actualCost += computeCost(entry);
     baselineCost += computeBaselineCost(entry);
 
-    // Adherence: model tier matches router's tier recommendation
-    if (modelToTier(model) === tier) adherentCount++;
+    // Adherence: model tier matches router recommendation, OR relay fired (Sonnet coordinated → Haiku ran)
+    if (entry.relay_fired || modelToTier(model) === tier) adherentCount++;
 
     // Sub-agent data (Phase 2 — optional fields)
     if (entry.sub_input_tokens != null) {
@@ -214,21 +218,37 @@ function renderReport(entries: MetricsEntry[]): void {
       byModelTier[mt] = (byModelTier[mt] ?? 0) + cnt;
     }
 
-    // Display: expected tier first, then others
-    const parts: string[] = [];
-    for (const mt of ['HAIKU', 'SONNET', 'OPUS'] as Tier[]) {
-      const cnt = byModelTier[mt] ?? 0;
-      if (cnt === 0) continue;
-      let icon: string;
-      if (mt === tier) {
-        icon = '✓';
-      } else {
-        // Higher rank = more expensive model used (⚠), lower rank = cheaper used (↓)
-        icon = (TIER_RANK[mt] ?? 1) > (TIER_RANK[tier] ?? 1) ? '⚠' : '↓';
+    if (tier === 'HAIKU') {
+      // Special display: separate direct haiku, relay-fired sonnet, and non-relay sonnet
+      const directHaiku = byModelTier['HAIKU'] ?? 0;
+      const relayFired = s.relay_fired_count;
+      const sonnetDirect = Math.max(0, (byModelTier['SONNET'] ?? 0) - relayFired);
+      const opusDirect = byModelTier['OPUS'] ?? 0;
+
+      const parts: string[] = [];
+      if (directHaiku > 0) parts.push(`→ ${'haiku'.padEnd(6)} ${directHaiku}/${s.count} ✓`);
+      if (relayFired > 0)   parts.push(`→ ${'relay'.padEnd(6)} ${relayFired}/${s.count} ✓`);
+      if (sonnetDirect > 0) parts.push(`→ ${'sonnet'.padEnd(6)} ${sonnetDirect}/${s.count} ⚠`);
+      if (opusDirect > 0)   parts.push(`→ ${'opus'.padEnd(6)} ${opusDirect}/${s.count} ⚠`);
+      if (parts.length === 0) parts.push('→ (no data)');
+      console.log(`  ${tier.padEnd(7)} ${parts.join('   ')}`);
+    } else {
+      // Standard display for SONNET and OPUS tiers
+      const parts: string[] = [];
+      for (const mt of ['HAIKU', 'SONNET', 'OPUS'] as Tier[]) {
+        const cnt = byModelTier[mt] ?? 0;
+        if (cnt === 0) continue;
+        let icon: string;
+        if (mt === tier) {
+          icon = '✓';
+        } else {
+          // Higher rank = more expensive model used (⚠), lower rank = cheaper used (↓)
+          icon = (TIER_RANK[mt] ?? 1) > (TIER_RANK[tier] ?? 1) ? '⚠' : '↓';
+        }
+        parts.push(`→ ${(TIER_SHORT[mt] ?? mt.toLowerCase()).padEnd(6)} ${cnt}/${s.count} ${icon}`);
       }
-      parts.push(`→ ${(TIER_SHORT[mt] ?? mt.toLowerCase()).padEnd(6)} ${cnt}/${s.count} ${icon}`);
+      console.log(`  ${tier.padEnd(7)} ${parts.join('   ')}`);
     }
-    console.log(`  ${tier.padEnd(7)} ${parts.join('   ')}`);
   }
   console.log('');
   console.log(`  Overall adherence: ${adherentCount}/${total} (${adherencePct}%)  ← key router health metric`);

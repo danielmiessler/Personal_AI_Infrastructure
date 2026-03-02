@@ -7,7 +7,7 @@ Runs the RoutingStats tool and presents token consumption data with interpretati
 ### 1. Run RoutingStats
 
 ```bash
-bun ~/.claude/skills/PAI/Tools/RoutingStats.ts
+bun ~/.claude/PAI/Tools/RoutingStats.ts
 ```
 
 ### 2. Handle "No Data Yet"
@@ -29,10 +29,22 @@ Show the RoutingStats output verbatim, then append a **SoushAI Insight** block:
 
 **SoushAI Insight:**
 
-**If estimated savings > 0%:**
-> Haiku and Sonnet routing is driving real cost reduction. The highest-volume tier
-> is your biggest savings lever — if Haiku handles most simple prompts, you're
-> paying ~$0.25/$1.25/M instead of $3/$15/M for Sonnet.
+**If adherence < 60%:**
+> The router is classifying prompts correctly but hints aren't being followed —
+> the algorithm needs to actually spawn `Task(model="haiku")` for Haiku-tier
+> prompts. The savings are potential; adherence turns them into reality.
+
+**If adherence ≥ 60% and estimated savings > 0%:**
+> Routing is working: Haiku and Sonnet tiers are holding, driving real cost
+> reduction. The highest-volume tier is your biggest savings lever. Cache reads
+> are now included in the cost calculation — prior "savings" figures were
+> understated.
+
+**If Opus avg input tokens are low (< 1000):**
+> Opus top-level tokens being low doesn't mean Opus routing is cheap. When the
+> Algorithm spawns agents at Opus tier, those tokens live in sub-agent transcripts
+> and are invisible to the parent session. Sub-agent overhead is the real Opus
+> cost story.
 
 **If estimated savings ≤ 0% (or Opus usage is high):**
 > Opus routing is expensive — $15/$75/M vs Sonnet's $3/$15/M. Even small Opus

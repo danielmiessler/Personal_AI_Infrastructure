@@ -191,7 +191,7 @@ Extended+:
 
 ## ISC Rules
 
-**System of record: Claude Code task system.** All ISC via `TaskCreate`/`TaskList`/`TaskUpdate`. Task system is sole source of truth — no text-based tracking.
+**System of record: PRD.md.** All ISC written as `- [ ] ISC-N: criterion` checkboxes in the PRD's `## Criteria` section using Write/Edit tools. PRD.md in `MEMORY/WORK/{slug}/` is the single source of truth — aligned with Algorithm's PRD-first design.
 
 **Every criterion:** 8-16 words, state not action, binary testable, one concern.
 

@@ -369,17 +369,43 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
-// Play audio using afplay (macOS)
+// Play audio (macOS uses afplay, Linux auto-detects aplay/ffplay)
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
   await Bun.write(tempFile, audioBuffer);
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let command = '';
+    let args: string[] = [];
+
+    // Platform-specific logic for audio playback
+    if (process.platform === 'darwin') {
+      command = '/usr/bin/afplay';
+      args = ['-v', volume.toString(), tempFile];
+    } else if (process.platform === 'linux') {
+      // Find a suitable audio player on Linux
+      if (Bun.spawnSync(['which', 'aplay']).success) {
+        command = 'aplay';
+        args = ['-q', tempFile];
+      } else if (Bun.spawnSync(['which', 'ffplay']).success) {
+        command = 'ffplay';
+        args = ['-nodisp', '-autoexit', '-volume', Math.floor(volume * 100).toString(), tempFile];
+      } else {
+        console.warn('⚠️  No audio player found on Linux (aplay/ffplay). Skipping playback.');
+        spawn('/bin/rm', [tempFile]);
+        return resolve();
+      }
+    } else {
+      console.warn(`⚠️  Unsupported platform: ${process.platform}. Skipping playback.`);
+      spawn('/bin/rm', [tempFile]);
+      return resolve();
+    }
+
+    const proc = spawn(command, args);
 
     proc.on('error', (error) => {
-      console.error('Error playing audio:', error);
+      console.error(`Error playing audio with ${command}:`, error);
       reject(error);
     });
 
@@ -388,7 +414,7 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`${command} exited with code ${code}`));
       }
     });
   });

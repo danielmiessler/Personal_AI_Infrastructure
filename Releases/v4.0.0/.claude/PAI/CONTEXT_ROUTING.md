@@ -15,12 +15,10 @@ Load context on-demand by reading the file at the path listed. Only load what th
 | Delegation system | `PAI/THEDELEGATIONSYSTEM.md` |
 | Security system | `PAI/PAISECURITYSYSTEM/` |
 | Notification system | `PAI/THENOTIFICATIONSYSTEM.md` |
-| Browser automation | `PAI/BROWSERAUTOMATION.md` |
 | CLI architecture | `PAI/CLIFIRSTARCHITECTURE.md` |
 | Tools reference | `PAI/TOOLS.md` |
 | Actions & pipelines | `PAI/ACTIONS.md`, `PAI/PIPELINES.md` |
 | Flows | `PAI/FLOWS.md` |
-| Deployment | `PAI/DEPLOYMENT.md` |
 | Behavioral rules | `PAI/AISTEERINGRULES.md` |
 | PRD format spec | `PAI/PRDFORMAT.md` |
 

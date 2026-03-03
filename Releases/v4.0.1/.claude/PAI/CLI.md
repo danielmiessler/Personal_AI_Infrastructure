@@ -389,7 +389,6 @@ pai actions
 | Actions | `ACTIONS.md` | Action creation, structure, capabilities |
 | Pipelines | `PIPELINES.md` | Pipeline YAML format, composition |
 | Flows | `FLOWS.md` | Cron scheduling, sources, destinations |
-| Deployment | `DEPLOYMENT.md` | End-to-end Cloudflare Workers deployment |
 | Arbol Overview | `ARBOLSYSTEM.md` | Architecture overview |
 
 ---

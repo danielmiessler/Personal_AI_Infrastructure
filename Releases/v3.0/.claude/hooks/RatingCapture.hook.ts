@@ -216,6 +216,19 @@ interface SentimentResult {
   detailed_context: string;
 }
 
+/**
+ * Safely slices a string, ensuring it doesn't split a UTF-16 surrogate pair.
+ * If the cut boundary lands on a high surrogate, the incomplete pair is dropped.
+ */
+function safeSlice(str: string, maxLen: number): string {
+  if (!str || str.length <= maxLen) return str;
+  const code = str.charCodeAt(maxLen - 1);
+  if (code >= 0xD800 && code <= 0xDBFF) {
+    return str.slice(0, maxLen - 1);
+  }
+  return str.slice(0, maxLen);
+}
+
 function getRecentContext(transcriptPath: string, maxTurns: number = 3): string {
   try {
     if (!transcriptPath || !existsSync(transcriptPath)) return '';
@@ -235,7 +248,7 @@ function getRecentContext(transcriptPath: string, maxTurns: number = 3): string 
           } else if (Array.isArray(entry.message.content)) {
             text = entry.message.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join(' ');
           }
-          if (text.trim()) turns.push({ role: 'User', text: text.slice(0, 200) });
+          if (text.trim()) turns.push({ role: 'User', text: safeSlice(text, 200) });
         }
         if (entry.type === 'assistant' && entry.message?.content) {
           const text = typeof entry.message.content === 'string'
@@ -245,7 +258,7 @@ function getRecentContext(transcriptPath: string, maxTurns: number = 3): string 
               : '';
           if (text) {
             const summaryMatch = text.match(/SUMMARY:\s*([^\n]+)/i);
-            turns.push({ role: 'Assistant', text: summaryMatch ? summaryMatch[1] : text.slice(0, 150) });
+            turns.push({ role: 'Assistant', text: summaryMatch ? summaryMatch[1] : safeSlice(text, 150) });
           }
         }
       } catch {}
@@ -400,7 +413,7 @@ async function main() {
               } catch {}
             }
             const summaryMatch = lastAssistant.match(/SUMMARY:\s*([^\n]+)/i);
-            responseContext = summaryMatch ? summaryMatch[1].trim() : lastAssistant.slice(0, 500);
+            responseContext = summaryMatch ? summaryMatch[1].trim() : safeSlice(lastAssistant, 500);
           }
         } catch {}
 

@@ -136,6 +136,7 @@ interface LoadedVoiceConfig {
   voices: Record<string, VoiceEntry>;     // keyed by name ("main", "algorithm")
   voicesByVoiceId: Record<string, VoiceEntry>;  // keyed by voiceId for lookup
   desktopNotifications: boolean;  // whether to show macOS notification banners
+  requireHeadphones: boolean;     // when true, voice only plays through external audio output
 }
 
 // Last-resort defaults if settings.json is entirely missing or unparseable
@@ -155,7 +156,7 @@ function loadVoiceConfig(): LoadedVoiceConfig {
   try {
     if (!existsSync(settingsPath)) {
       console.warn('⚠️  settings.json not found — using fallback voice defaults');
-      return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true };
+      return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true, requireHeadphones: false };
     }
 
     const content = readFileSync(settingsPath, 'utf-8');
@@ -163,6 +164,8 @@ function loadVoiceConfig(): LoadedVoiceConfig {
     const daidentity = settings.daidentity || {};
     const voicesSection = daidentity.voices || {};
     const desktopNotifications = settings.notifications?.desktop?.enabled !== false;
+    // Opt-in: voice only plays when external audio output (headphones, BT, USB) is detected
+    const requireHeadphones = settings.voice?.requireHeadphones === true;
 
     // Build lookup maps
     const voices: Record<string, VoiceEntry> = {};
@@ -195,10 +198,14 @@ function loadVoiceConfig(): LoadedVoiceConfig {
       console.log(`   ${name}: ${entry.voiceName || entry.voiceId} (speed: ${entry.speed}, stability: ${entry.stability})`);
     }
 
-    return { defaultVoiceId, voices, voicesByVoiceId, desktopNotifications };
+    if (requireHeadphones) {
+      console.log(`🎧 requireHeadphones: ON — voice will only play through external audio output`);
+    }
+
+    return { defaultVoiceId, voices, voicesByVoiceId, desktopNotifications, requireHeadphones };
   } catch (error) {
     console.error('⚠️  Failed to load settings.json voice config:', error);
-    return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true };
+    return { defaultVoiceId: '', voices: {}, voicesByVoiceId: {}, desktopNotifications: true, requireHeadphones: false };
   }
 }
 
@@ -415,6 +422,58 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
 }
 
 // ==========================================================================
+// Headphone Detection — macOS only
+// ==========================================================================
+// Queries system_profiler SPAudioDataType -json to determine if the default
+// output device is built-in (laptop speakers) or external (headphones, BT,
+// USB DAC, HDMI, etc). Cached for 30 seconds since system_profiler takes
+// 140-250ms. Fails open — if detection fails, voice plays anyway (this is
+// a convenience feature, not a security gate).
+// TODO: Linux equivalent — see issue #855 and PR #872
+
+let headphoneCache: { isExternal: boolean; timestamp: number } | null = null;
+const HEADPHONE_CACHE_TTL = 30_000;
+
+async function isExternalAudioOutput(): Promise<boolean> {
+  const now = Date.now();
+  if (headphoneCache && (now - headphoneCache.timestamp) < HEADPHONE_CACHE_TTL) {
+    return headphoneCache.isExternal;
+  }
+
+  try {
+    const proc = Bun.spawn(['/usr/sbin/system_profiler', 'SPAudioDataType', '-json'], {
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+
+    // 3-second timeout to prevent hangs
+    const timeout = setTimeout(() => proc.kill(), 3000);
+    const output = await new Response(proc.stdout).text();
+    clearTimeout(timeout);
+
+    const data = JSON.parse(output);
+    const devices = data?.SPAudioDataType ?? [];
+
+    // Find default output device
+    const defaultOutput = devices.find((d: any) =>
+      d.coreaudio_default_audio_output_device === 'spaudio_yes'
+    );
+
+    const transport = defaultOutput?.coreaudio_device_transport ?? '';
+    const isExternal = transport !== 'coreaudio_device_type_builtin';
+
+    headphoneCache = { isExternal, timestamp: now };
+    console.log(`🎧 Audio output: ${transport} (${isExternal ? 'external' : 'built-in speakers'})`);
+    return isExternal;
+  } catch (error: unknown) {
+    // Fail-open: if detection fails, allow voice (convenience feature, not security gate)
+    console.error('⚠️  Headphone detection failed — allowing voice:', error);
+    headphoneCache = { isExternal: true, timestamp: now };
+    return true;
+  }
+}
+
+// ==========================================================================
 // Core: Send notification with 3-tier voice settings resolution
 // ==========================================================================
 
@@ -457,6 +516,15 @@ async function sendNotification(
   // Generate and play voice using ElevenLabs
   let voicePlayed = false;
   let voiceError: string | undefined;
+
+  // Headphone gate: when requireHeadphones is on, skip voice if output is built-in speakers
+  if (voiceEnabled && voiceConfig.requireHeadphones) {
+    const externalAudio = await isExternalAudioOutput();
+    if (!externalAudio) {
+      console.log(`🔇 Voice skipped — requireHeadphones is on and output is built-in speakers`);
+      voiceEnabled = false;
+    }
+  }
 
   if (voiceEnabled && ELEVENLABS_API_KEY) {
     try {
@@ -693,6 +761,7 @@ const server = serve({
           api_key_configured: !!ELEVENLABS_API_KEY,
           pronunciation_rules: pronunciationRules.length,
           configured_voices: Object.keys(voiceConfig.voices),
+          require_headphones: voiceConfig.requireHeadphones,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

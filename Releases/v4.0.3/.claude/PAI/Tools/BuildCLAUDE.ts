@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 
 const PAI_DIR = join(process.env.HOME!, ".claude");
+const VERSION_PATH = join(PAI_DIR, "VERSION");
 const TEMPLATE_PATH = join(PAI_DIR, "CLAUDE.md.template");
 const OUTPUT_PATH = join(PAI_DIR, "CLAUDE.md");
 const SETTINGS_PATH = join(PAI_DIR, "settings.json");
@@ -30,6 +31,17 @@ function getAlgorithmVersion(): string {
     return "v3.7.0";
   }
   return readFileSync(LATEST_PATH, "utf-8").trim();
+}
+
+function getPAIVersionFromFile(): string {
+  try {
+    if (existsSync(VERSION_PATH)) {
+      return readFileSync(VERSION_PATH, "utf-8").trim();
+    }
+  } catch {
+    /* fall through */
+  }
+  return "4.0.3";
 }
 
 // ─── Load variables from settings.json ───
@@ -47,7 +59,7 @@ function loadVariables(): Record<string, string> {
     "{DAIDENTITY.DISPLAYNAME}": settings.daidentity?.displayName || "Assistant",
     "{PRINCIPAL.NAME}": settings.principal?.name || "User",
     "{PRINCIPAL.TIMEZONE}": settings.principal?.timezone || "UTC",
-    "{{PAI_VERSION}}": settings.pai?.version || "4.0.3",
+    "{{PAI_VERSION}}": settings.pai?.version || getPAIVersionFromFile(),
     "{{ALGO_VERSION}}": algoVersion,
     "{{ALGO_PATH}}": `PAI/Algorithm/${algoVersion}.md`,
   };

@@ -506,9 +506,28 @@ async function sendNotification(
       const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings);
       await playAudio(audioBuffer, resolvedVolume);
       voicePlayed = true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "TTS generation failed";
       console.error("Failed to generate/play speech:", error);
-      voiceError = error.message || "TTS generation failed";
+      voiceError = msg;
+    }
+  }
+
+  // Fallback: macOS native voice when ElevenLabs is unavailable or failed
+  // Uses /usr/bin/say (available on all macOS versions). Pronunciation rules
+  // from pronunciations.json are applied so custom terms sound correct.
+  // TODO: Linux equivalent — see issue #855 and PR #872 for cross-platform audio
+  if (voiceEnabled && !voicePlayed) {
+    try {
+      const pronouncedText = applyPronunciations(safeMessage);
+      console.log(`🗣️  Falling back to macOS say`);
+      await spawnSafe('/usr/bin/say', [pronouncedText]);
+      voicePlayed = true;
+      voiceError = undefined;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "macOS say failed";
+      console.error("macOS say fallback failed:", error);
+      if (!voiceError) voiceError = msg;
     }
   }
 

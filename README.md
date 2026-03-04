@@ -138,7 +138,7 @@ The key difference: **PAI learns from feedback**. Every interaction makes it bet
 
 PAI is a Personalized AI Platform designed to magnify your capabilities.
 
-It's designed for humans most of all, but can be used by teams, companies, or Federations of Planets desiring to be better versions of themselves.
+It's designed for humans most of all, but can be used by teams, companies, or Federations of Planets that want to become better versions of themselves.
 
 The scale of the entity doesn't matter: It's a system for understanding, articulating, and realizing its principal's goals using a full-featured Agentic AI Platform.
 

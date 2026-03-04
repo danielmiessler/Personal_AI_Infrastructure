@@ -25,6 +25,34 @@ import { homedir } from "os";
 import { join, basename } from "path";
 
 // ============================================================================
+// Sandbox-safe environment for child processes
+// ============================================================================
+// Inside macOS Seatbelt sandbox (e.g., nono), bun's C-level environ is empty,
+// so spawnSync can't resolve binaries via PATH. Passing env explicitly fixes this.
+// Outside sandbox, this is equivalent to { ...process.env } (no behavior change).
+// See: https://github.com/oven-sh/bun/issues/27802
+
+function getSandboxEnv(): Record<string, string> {
+  const env: Record<string, string> = { ...process.env } as Record<string, string>;
+  if (!env.HOME) env.HOME = homedir();
+  if (!env.PATH) {
+    env.PATH = [
+      join(homedir(), ".bun/bin"),
+      join(homedir(), ".local/bin"),
+      "/opt/homebrew/bin",
+      "/opt/homebrew/sbin",
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      "/usr/sbin",
+      "/sbin",
+    ].join(":");
+  }
+  return env;
+}
+const SANDBOX_ENV = getSandboxEnv();
+
+// ============================================================================
 // Configuration
 // ============================================================================
 
@@ -123,12 +151,12 @@ function notifyVoice(message: string) {
 
 function displayBanner() {
   if (existsSync(BANNER_SCRIPT)) {
-    spawnSync(["bun", BANNER_SCRIPT], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+    spawnSync(["bun", BANNER_SCRIPT], { stdin: "inherit", stdout: "inherit", stderr: "inherit", env: SANDBOX_ENV });
   }
 }
 
 function getCurrentVersion(): string | null {
-  const result = spawnSync(["claude", "--version"]);
+  const result = spawnSync(["claude", "--version"], { env: SANDBOX_ENV });
   const output = result.stdout.toString();
   const match = output.match(/([0-9]+\.[0-9]+\.[0-9]+)/);
   return match ? match[1] : null;
@@ -184,7 +212,7 @@ function getCurrentProfile(): string | null {
     if (stats.isSymbolicLink()) {
       const target = readFileSync(ACTIVE_MCP, "utf-8");
       // For symlink, we need the real target name
-      const realpath = Bun.spawnSync(["readlink", ACTIVE_MCP]).stdout.toString().trim();
+      const realpath = Bun.spawnSync(["readlink", ACTIVE_MCP], { env: SANDBOX_ENV }).stdout.toString().trim();
       return basename(realpath).replace(".mcp.json", "");
     }
     return "custom";
@@ -314,7 +342,7 @@ function setWallpaper(filename: string): boolean {
 
   // Set Kitty background
   try {
-    const kittyResult = spawnSync(["kitty", "@", "set-background-image", fullPath]);
+    const kittyResult = spawnSync(["kitty", "@", "set-background-image", fullPath], { env: SANDBOX_ENV });
     if (kittyResult.exitCode === 0) {
       log("Kitty background set", "✅");
     } else {
@@ -328,7 +356,7 @@ function setWallpaper(filename: string): boolean {
   // Set macOS desktop background
   try {
     const script = `tell application "System Events" to tell every desktop to set picture to "${fullPath}"`;
-    const macResult = spawnSync(["osascript", "-e", script]);
+    const macResult = spawnSync(["osascript", "-e", script], { env: SANDBOX_ENV });
     if (macResult.exitCode === 0) {
       log("macOS desktop set", "✅");
     } else {
@@ -423,7 +451,7 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
   // Launch Claude
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
-    env: { ...process.env },
+    env: SANDBOX_ENV,
   });
 
   // Wait for Claude to exit
@@ -455,7 +483,7 @@ async function cmdUpdate() {
 
   // Step 1: Update Bun
   log("Step 1/2: Updating Bun...", "📦");
-  const bunResult = spawnSync(["brew", "upgrade", "bun"]);
+  const bunResult = spawnSync(["brew", "upgrade", "bun"], { env: SANDBOX_ENV });
   if (bunResult.exitCode !== 0) {
     log("Bun update skipped (may already be latest)", "⚠️");
   } else {
@@ -464,7 +492,7 @@ async function cmdUpdate() {
 
   // Step 2: Update Claude Code
   log("Step 2/2: Installing latest Claude Code...", "🤖");
-  const claudeResult = spawnSync(["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
+  const claudeResult = spawnSync(["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"], { env: SANDBOX_ENV });
   if (claudeResult.exitCode !== 0) {
     error("Claude Code installation failed");
   }
@@ -560,7 +588,7 @@ async function cmdPrompt(prompt: string) {
 
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
-    env: { ...process.env },
+    env: SANDBOX_ENV,
   });
 
   const exitCode = await proc.exited;

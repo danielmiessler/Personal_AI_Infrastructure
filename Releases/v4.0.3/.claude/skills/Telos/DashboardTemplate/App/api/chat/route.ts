@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server"
 import { getTelosContext } from "@/lib/telos-data"
-import { spawn } from "child_process"
+import { join } from "path"
+import { homedir } from "os"
+
+// Dynamic import resolved at runtime — avoids ARG_MAX risk from passing
+// large prompts as subprocess CLI arguments (see issue #905).
+// inference() pipes user prompts via stdin internally, handling any size.
+async function getInference() {
+  const modulePath = join(homedir(), '.claude', 'PAI', 'Tools', 'Inference.ts')
+  const mod = await import(modulePath)
+  return mod.inference as typeof import("../../../../PAI/Tools/Inference").inference
+}
 
 export async function POST(request: Request) {
   try {
@@ -27,38 +37,19 @@ When answering questions:
 - If information isn't in the TELOS data, say so clearly
 - Keep responses concise but informative`
 
-    // Use Inference tool instead of direct API
-    const inferenceResult = await new Promise<{ success: boolean; output?: string; error?: string }>((resolve) => {
-      const homeDir = process.env.HOME || ''
-      const proc = spawn('bun', ['run', `${homeDir}/.claude/PAI/Tools/Inference.ts`, '--level', 'fast', systemPrompt, message], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-
-      let stdout = ''
-      let stderr = ''
-
-      proc.stdout.on('data', (data) => { stdout += data.toString() })
-      proc.stderr.on('data', (data) => { stderr += data.toString() })
-
-      proc.on('close', (code) => {
-        if (code !== 0) {
-          resolve({ success: false, error: stderr || `Process exited with code ${code}` })
-        } else {
-          resolve({ success: true, output: stdout.trim() })
-        }
-      })
-
-      proc.on('error', (err) => {
-        resolve({ success: false, error: err.message })
-      })
+    const inference = await getInference()
+    const result = await inference({
+      systemPrompt,
+      userPrompt: message,
+      level: 'fast',
     })
 
-    if (!inferenceResult.success) {
-      console.error("Inference Error:", inferenceResult.error)
-      throw new Error(`Inference failed: ${inferenceResult.error}`)
+    if (!result.success) {
+      console.error("Inference Error:", result.error)
+      throw new Error(`Inference failed: ${result.error}`)
     }
 
-    const assistantMessage = inferenceResult.output
+    const assistantMessage = result.output
 
     if (!assistantMessage) {
       throw new Error("No response from inference")

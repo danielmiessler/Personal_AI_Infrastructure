@@ -155,11 +155,12 @@ info "Launching installer..."
 echo ""
 
 # Auto-detect headless/SSH environments and fall back to CLI mode
-if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ] && [ "$(uname)" != "Darwin" ]; then
-    INSTALL_MODE="cli"
-    info "Headless environment detected — using CLI installer."
-else
+# Use ${VAR:-} to avoid unbound variable errors under set -u
+INSTALL_MODE="cli"
+if [[ -n "${DISPLAY:-}" ]] || [[ -n "${WAYLAND_DISPLAY:-}" ]] || [[ "$(uname)" == "Darwin" ]]; then
     INSTALL_MODE="gui"
+else
+    info "No display detected — using CLI installer"
 fi
 
 exec bun run "$INSTALLER_DIR/main.ts" --mode "$INSTALL_MODE"

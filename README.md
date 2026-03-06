@@ -62,7 +62,7 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v4.1.0 Released** — Architecture improvements: Algorithm v3.8.0 with cognitive scaffolding, consolidated terminal hooks, mode classification, post-compaction recovery, path portability, and slimmed runtime docs.
+> **PAI v4.1.0 Released** — Algorithm v3.8.0 with cognitive scaffolding (ISC quality gates, constraint extraction, confidence tags), hook consolidation, ModeClassifier, PostCompactRecovery, path portability, TELOS digest, and slimmed runtime docs.
 >
 > **[Release notes →](Releases/v4.1.0/README.md)** | **[All releases →](Releases/)**
 
@@ -524,13 +524,15 @@ MIT License - see [LICENSE](LICENSE) for details.
 <br/>
 
 **v4.1.0 (2026-03-06) — Architecture Improvements**
-- Algorithm v3.8.0: cognitive scaffolding, QG2-QG7, session-safe recovery, Standard PRD skip
-- 4 terminal hooks consolidated into TerminalState.hook.ts; voice changed to fire-and-forget
-- ModeClassifier hook: deterministic pre-classification prevents NATIVE mode over-selection
-- PostCompactRecovery hook: re-injects identity + Algorithm rules after context compaction
-- Path portability: 22 files updated to use paiPath() instead of hardcoded ~/.claude
-- SKILLSYSTEM.md and THEHOOKSYSTEM.md slimmed; full docs moved to PAI/dev/
-- TELOS/DIGEST.md added to always-loaded context
+- Algorithm v3.8.0: cognitive scaffolding (self-interrogation, constraint extraction, confidence tags, priority classification, ISC coverage map, quality gates QG1-QG7), Standard tier skips PRD, session-safe context recovery, voice curls fire-and-forget, core split into ISC-Methodology/CapabilitySelection/Examples files
+- Hook consolidation: 4 terminal hooks → TerminalState.hook.ts, voice fetch non-blocking
+- ModeClassifier hook: deterministic regex pre-classification prevents 91% NATIVE attractor bias
+- PostCompactRecovery hook: re-injects identity + Algorithm state after context compaction
+- Path portability: 22 TS files use paiPath() instead of hardcoded join(homedir(), '.claude')
+- TELOS Digest template added to loadAtStartup
+- SKILLSYSTEM.md and THEHOOKSYSTEM.md slimmed to ~80 lines each; full content in PAI/dev/
+- MEMORYSYSTEM migration history extracted to MEMORY-CHANGELOG.md
+- CLAUDE.md: MINIMAL format simplified
 - [Release Notes](Releases/v4.1.0/README.md)
 
 **v4.0.3 (2026-03-01) — Community PR Patch**

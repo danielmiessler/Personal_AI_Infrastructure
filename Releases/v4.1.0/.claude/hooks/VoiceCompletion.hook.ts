@@ -18,6 +18,7 @@
 
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleVoice } from './handlers/VoiceNotification';
+import { isVoiceEnabled } from './lib/voice';
 
 /**
  * Voice gate: only main terminal sessions get voice.
@@ -33,6 +34,12 @@ function isMainSession(): boolean {
 async function main() {
   const input = await readHookInput();
   if (!input) { process.exit(0); }
+
+  // Voice gate: skip if voice disabled globally
+  if (!isVoiceEnabled()) {
+    console.error('[VoiceCompletion] Voice OFF (voice.enabled is false)');
+    process.exit(0);
+  }
 
   // Voice gate: skip subagent sessions
   if (!isMainSession()) {

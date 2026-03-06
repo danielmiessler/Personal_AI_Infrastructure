@@ -62,6 +62,17 @@
     ],
     "defaultMode": "default"
   },
+  "voice": {
+    "enabled": false,
+    "_docs": "Set to true to enable TTS voice announcements via VoiceServer (requires ElevenLabs key + VoiceServer running on localhost:8888)"
+  },
+  "memory": {
+    "retention": {
+      "eventsMaxSizeMB": 100,
+      "stateMaxAgeDays": 30,
+      "_docs": "events.jsonl rotated when exceeding eventsMaxSizeMB. MEMORY/STATE session files deleted after stateMaxAgeDays. Cleanup runs once per day at session end."
+    }
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [],
   "hooks": {
@@ -191,6 +202,10 @@
           {
             "type": "command",
             "command": "${PAI_DIR}/hooks/ModeClassifier.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "${PAI_DIR}/hooks/PromptAnalysis.hook.ts"
           },
           {
             "type": "command",

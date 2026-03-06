@@ -24,6 +24,7 @@ import { getIdentity, getDAName } from './lib/identity';
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleTabState } from './handlers/TabState';
 import { paiPath } from './lib/paths';
+import { announce } from './lib/voice';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -179,25 +180,32 @@ async function handleUserPromptSubmit(data: UserPromptInput): Promise<void> {
   const thinkingTitle = quickTitle || getWorkingFallback();
   setTabState({ title: `🧠 ${prefix}${thinkingTitle}`, state: 'thinking', sessionId: data.session_id });
 
-  // Phase 2: Inference for validated title + voice summary
-  const { voice: voiceSummary, title: inferredTitle } = await summarizePrompt(prompt);
+  // Phase 2: Check shared PromptAnalysis result first, fall back to own inference
+  let inferredTitle: string | null = null;
+  let voiceSummary: string | null = null;
+  try {
+    const { readAnalysisResult } = await import('./PromptAnalysis.hook');
+    const shared = readAnalysisResult(data.session_id);
+    if (shared?.tab_title) {
+      inferredTitle = shared.tab_title;
+      voiceSummary = shared.tab_title;
+      console.error(`[TerminalState] Using shared PromptAnalysis tab_title: "${inferredTitle}"`);
+    }
+  } catch {}
+
+  // Fall back to own inference if no shared result
+  if (!inferredTitle) {
+    const result = await summarizePrompt(prompt);
+    voiceSummary = result.voice;
+    inferredTitle = result.title;
+  }
   const finalTitle = inferredTitle || (quickTitle && isValidWorkingTitle(quickTitle) ? quickTitle : getWorkingFallback());
   setTabState({ title: `⚙️ ${prefix}${finalTitle}`, state: 'working', sessionId: data.session_id });
 
-  // Voice feedback — fire-and-forget, no await
+  // Voice feedback — fire-and-forget, no await (gated by voice.enabled)
   const voiceContent = voiceSummary || (quickTitle && isValidWorkingTitle(quickTitle) ? quickTitle : null);
   if (voiceContent) {
-    const identity = getIdentity();
-    fetch('http://localhost:8888/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: voiceContent.replace(/\.$/, ''),
-        voice_id: identity.mainDAVoiceID,
-        voice_enabled: true,
-      }),
-      signal: AbortSignal.timeout(2000),
-    }).catch(() => {});
+    announce(voiceContent.replace(/\.$/, ''), { voiceId: getIdentity().mainDAVoiceID });
     console.error(`[TerminalState] Voice queued: "${voiceContent}"`);
   } else {
     console.error(`[TerminalState] No meaningful voice content, skipping`);

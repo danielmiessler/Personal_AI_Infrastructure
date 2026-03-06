@@ -359,6 +359,9 @@ function checkHookCounts(docsToCheck: string[], actualCount: number): DriftItem[
 // ============================================================================
 
 async function notifyVoice(message: string): Promise<void> {
+  const { isVoiceEnabled } = await import('../lib/voice');
+  if (!isVoiceEnabled()) return;
+
   try {
     await fetch('http://localhost:8888/notify', {
       method: 'POST',

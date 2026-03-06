@@ -177,12 +177,112 @@ async function main() {
       console.error(`[SessionCleanup] Cleaned up kitty session: ${sessionId}`);
     }
 
+    // ── Memory retention cleanup (daily-gated) ──
+    runRetentionCleanup();
+
     console.error('[SessionCleanup] Session ended, work marked complete');
     process.exit(0);
   } catch (error) {
     // Silent failure - don't disrupt workflow
     console.error(`[SessionCleanup] SessionEnd hook error: ${error}`);
     process.exit(0);
+  }
+}
+
+/**
+ * Run retention cleanup at most once per 24 hours.
+ * Rotates oversized events.jsonl and deletes stale state files.
+ */
+function runRetentionCleanup(): void {
+  const LAST_CLEANUP_PATH = join(STATE_DIR, 'last-cleanup.json');
+  const ONE_DAY_MS = 86_400_000;
+
+  try {
+    // Check if we've run cleanup recently
+    if (existsSync(LAST_CLEANUP_PATH)) {
+      const lastCleanup = JSON.parse(readFileSync(LAST_CLEANUP_PATH, 'utf-8'));
+      if (Date.now() - lastCleanup.timestamp < ONE_DAY_MS) return;
+    }
+
+    // Read retention config from settings.json
+    let eventsMaxSizeMB = 100;
+    let stateMaxAgeDays = 30;
+    try {
+      const settingsPath = join(paiPath(), 'settings.json');
+      if (existsSync(settingsPath)) {
+        const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+        eventsMaxSizeMB = settings.memory?.retention?.eventsMaxSizeMB ?? 100;
+        stateMaxAgeDays = settings.memory?.retention?.stateMaxAgeDays ?? 30;
+      }
+    } catch {}
+
+    const maxAgeMs = stateMaxAgeDays * ONE_DAY_MS;
+    const now = Date.now();
+    let cleaned = 0;
+
+    // 1. Rotate events.jsonl if oversized
+    const eventsPath = join(MEMORY_DIR, 'LEARNING', 'SIGNALS', 'events.jsonl');
+    try {
+      if (existsSync(eventsPath)) {
+        const { statSync, renameSync } = require('fs');
+        const stat = statSync(eventsPath);
+        const sizeMB = stat.size / (1024 * 1024);
+        if (sizeMB > eventsMaxSizeMB) {
+          const archiveName = `events.${new Date().toISOString().slice(0, 10)}.jsonl`;
+          const archivePath = join(MEMORY_DIR, 'LEARNING', 'SIGNALS', archiveName);
+          renameSync(eventsPath, archivePath);
+          writeFileSync(eventsPath, '', 'utf-8');
+          console.error(`[SessionCleanup] Rotated events.jsonl (${sizeMB.toFixed(1)}MB) → ${archiveName}`);
+          cleaned++;
+        }
+      }
+    } catch (e) {
+      console.error(`[SessionCleanup] events.jsonl rotation failed: ${e}`);
+    }
+
+    // 2. Delete stale algorithm state files
+    const algosDir = join(STATE_DIR, 'algorithms');
+    try {
+      if (existsSync(algosDir)) {
+        const { readdirSync, statSync: statSync2, unlinkSync: unlinkSync2 } = require('fs');
+        for (const file of readdirSync(algosDir)) {
+          const filePath = join(algosDir, file);
+          try {
+            const stat = statSync2(filePath);
+            if (now - stat.mtimeMs > maxAgeMs) {
+              unlinkSync2(filePath);
+              cleaned++;
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 3. Delete stale prompt-analysis files
+    const analysisDir = join(STATE_DIR, 'prompt-analysis');
+    try {
+      if (existsSync(analysisDir)) {
+        const { readdirSync, statSync: statSync3, unlinkSync: unlinkSync3 } = require('fs');
+        for (const file of readdirSync(analysisDir)) {
+          const filePath = join(analysisDir, file);
+          try {
+            const stat = statSync3(filePath);
+            if (now - stat.mtimeMs > maxAgeMs) {
+              unlinkSync3(filePath);
+              cleaned++;
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // Record cleanup timestamp
+    writeFileSync(LAST_CLEANUP_PATH, JSON.stringify({ timestamp: now }), 'utf-8');
+    if (cleaned > 0) {
+      console.error(`[SessionCleanup] Retention cleanup: ${cleaned} items cleaned`);
+    }
+  } catch (e) {
+    console.error(`[SessionCleanup] Retention cleanup failed: ${e}`);
   }
 }
 

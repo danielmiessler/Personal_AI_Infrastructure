@@ -26,8 +26,16 @@ async function main() {
   // Minimal: greetings, ratings (1-10), short acknowledgments
   const isMinimal = /^(hi|hello|hey|thanks|thank you|ok|okay|done|got it|sure|yes|no|yep|nope|\d+[\s\-:]*)$/i.test(prompt);
 
-  // Algorithm: action verbs indicating substantial multi-step work
-  const isAlgorithm = /\b(build|create|implement|fix|debug|refactor|analyze|write|design|review|plan|add|update|migrate|convert|optimize|investigate|research|develop|configure|deploy|install|test|audit|generate|scaffold|integrate|setup|set up)\b/i.test(prompt);
+  // ALGORITHM requires BOTH gates to pass:
+  // Gate 1: action verb present
+  const hasActionVerb = /\b(build|create|implement|fix|debug|refactor|analyze|write|design|review|plan|add|update|remove|set|migrate|convert|optimize|investigate|research|develop|configure|deploy|install|test|audit|generate|scaffold|integrate|setup|set up)\b/i.test(prompt);
+
+  // Gate 2: technical object present OR multi-step complexity
+  const hasTechnicalObject = /\b(code|file|function|class|method|api|endpoint|database|schema|config|hook|script|test|build|deploy|server|component|module|service|bug|error|feature|algorithm|query|migration|route|middleware|model|controller|template|pipeline|workflow|repo|branch|commit|container|package|dependency|type|interface|struct)\b/i.test(prompt);
+  const words = prompt.trim().split(/\s+/);
+  const isComplex = words.length > 30 || /\b(and then|also|step|first|second|finally|\d+\))\b/i.test(prompt);
+
+  const isAlgorithm = hasActionVerb && (hasTechnicalObject || isComplex);
 
   const mode = isMinimal ? 'MINIMAL' : isAlgorithm ? 'ALGORITHM' : 'NATIVE';
 

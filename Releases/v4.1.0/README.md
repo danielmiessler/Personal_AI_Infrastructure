@@ -95,6 +95,22 @@ Migration history (7 versions) moved from `MEMORYSYSTEM.md` to `PAI/MEMORY-CHANG
 
 ---
 
+## v4.1.0 Improvements (2026-03-06)
+
+Post-release quality pass addressing 10 failing verification items:
+
+- **Voice disabled-by-default** — all voice calls gated behind `voice.enabled` config flag
+- **ModeClassifier dual-gate** — two-gate system (verb + tech object) eliminates false positives
+- **Batched inference** — new `PromptAnalysis.hook.ts` batches tab title + session name into single Haiku call (~50% reduction)
+- **Spinner extraction** — 424 verbs + 202 tips extracted to `config/` for contributor maintenance
+- **Test suite** — 37 tests across ModeClassifier, PostCompactRecovery, and PromptAnalysis
+- **Memory retention** — daily-gated cleanup for events.jsonl rotation and stale state files
+- **Path fix** — `identity.ts` uses `paiPath()` instead of hardcoded `$HOME/.claude`
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+---
+
 ## Installation
 
 Copy `.claude/` to your home directory. Run `install.sh` for guided setup.

@@ -34,7 +34,7 @@
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Release v4.0.3](https://img.shields.io/badge/📦_Release-v4.0.3-8B5CF6?style=flat)](Releases/v4.0.3/)
+[![Release v4.1.0](https://img.shields.io/badge/📦_Release-v4.1.0-8B5CF6?style=flat)](Releases/v4.1.0/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/Personal_AI_Infrastructure/graphs/contributors)
 
 <!-- Tech Stack -->
@@ -62,9 +62,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v4.0.3 Released** — 3 patch updates since v4.0.0 with 30+ community-contributed fixes: Linux compatibility, JSON parsing, installer improvements, portability, and upgrade migration.
+> **PAI v4.1.0 Released** — Algorithm v3.8.0 with cognitive scaffolding (ISC quality gates, constraint extraction, confidence tags), hook consolidation, ModeClassifier, PostCompactRecovery, path portability, TELOS digest, and slimmed runtime docs.
 >
-> **[Release notes →](Releases/v4.0.3/README.md)** | **[All releases →](Releases/)**
+> **[Release notes →](Releases/v4.1.0/README.md)** | **[All releases →](Releases/)**
 
 <div align="center">
 
@@ -341,7 +341,7 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.0.3
+cd Personal_AI_Infrastructure/Releases/v4.1.0
 
 # Copy the release and run the installer
 cp -r .claude ~/ && cd ~/.claude && bash install.sh
@@ -364,7 +364,7 @@ cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)
 
 # 2. Clone and copy the new release over your installation
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.0.3
+cd Personal_AI_Infrastructure/Releases/v4.1.0
 cp -r .claude ~/
 
 # 3. Run the installer (detects existing installation, preserves your data)
@@ -522,6 +522,18 @@ MIT License - see [LICENSE](LICENSE) for details.
 <summary><strong>📜 Update History</strong></summary>
 
 <br/>
+
+**v4.1.0 (2026-03-06) — Architecture Improvements**
+- Algorithm v3.8.0: cognitive scaffolding (self-interrogation, constraint extraction, confidence tags, priority classification, ISC coverage map, quality gates QG1-QG7), Standard tier skips PRD, session-safe context recovery, voice curls fire-and-forget, core split into ISC-Methodology/CapabilitySelection/Examples files
+- Hook consolidation: 4 terminal hooks → TerminalState.hook.ts, voice fetch non-blocking
+- ModeClassifier hook: deterministic regex pre-classification prevents 91% NATIVE attractor bias
+- PostCompactRecovery hook: re-injects identity + Algorithm state after context compaction
+- Path portability: 22 TS files use paiPath() instead of hardcoded join(homedir(), '.claude')
+- TELOS Digest template added to loadAtStartup
+- SKILLSYSTEM.md and THEHOOKSYSTEM.md slimmed to ~80 lines each; full content in PAI/dev/
+- MEMORYSYSTEM migration history extracted to MEMORY-CHANGELOG.md
+- CLAUDE.md: MINIMAL format simplified
+- [Release Notes](Releases/v4.1.0/README.md)
 
 **v4.0.3 (2026-03-01) — Community PR Patch**
 - JSON array parsing fix in Inference.ts

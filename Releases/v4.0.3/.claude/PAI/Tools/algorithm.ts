@@ -58,15 +58,14 @@ const VOICE_ID = "fTtv3eikoepIosk8dTZ5";
 interface PRDFrontmatter {
   prd: boolean;
   id: string;
-  status: string;
+  phase: string;
   mode: string;
   effort_level: string;
   iteration: number;
   maxIterations: number;
   loopStatus: string | null;
-  last_phase: string | null;
   failing_criteria: string[];
-  verification_summary: string;
+  progress: string;
   [key: string]: unknown;
 }
 
@@ -324,15 +323,14 @@ function readPRD(path: string): { frontmatter: PRDFrontmatter; content: string; 
     frontmatter: {
       prd: fm.prd === true,
       id: (fm.id as string) || "unknown",
-      status: (fm.status as string) || "DRAFT",
+      phase: (fm.phase as string) || (fm.status as string) || "observe",
       mode: (fm.mode as string) || "interactive",
       effort_level: (fm.effort_level as string) || (fm.sla_tier as string) || "Standard",
       iteration: (fm.iteration as number) || 0,
       maxIterations: (fm.maxIterations as number) || 128,
       loopStatus: (fm.loopStatus as string) || null,
-      last_phase: (fm.last_phase as string) || null,
       failing_criteria: Array.isArray(fm.failing_criteria) ? fm.failing_criteria as string[] : [],
-      verification_summary: (fm.verification_summary as string) || "0/0",
+      progress: (fm.progress as string) || (fm.verification_summary as string) || "0/0",
       ...fm,
     },
     content,
@@ -486,8 +484,8 @@ function buildIterationPrompt(prdPath: string, iteration: number, maxIterations:
     const { frontmatter, content } = readPRD(prdPath);
     mode = frontmatter.mode || "loop";
     effortLevel = frontmatter.effort_level || "Standard";
-    lastPhase = frontmatter.last_phase || "unknown";
-    verificationSummary = frontmatter.verification_summary || "0/0";
+    lastPhase = frontmatter.phase || "unknown";
+    verificationSummary = frontmatter.progress || "0/0";
 
     const criteria = countCriteria(content);
     if (criteria.failingIds.length > 0) {
@@ -531,7 +529,7 @@ Instructions:
    - Check off criteria that now pass: \`- [ ]\` → \`- [x]\`
    - Uncheck any criteria that regressed: \`- [x]\` → \`- [ ]\`
    - Update the STATUS table with current progress
-   - Update frontmatter: verification_summary, failing_criteria, last_phase, updated
+   - Update frontmatter: progress, failing_criteria, phase, updated
    - Append a CHANGELOG entry for this iteration:
      ### Iteration {N} — {date}
      - **Phase reached:** VERIFY
@@ -720,11 +718,11 @@ async function runParallelIteration(
 
   // Update frontmatter with consolidated results
   updateFrontmatter(prdPath, {
-    verification_summary: `"${postCriteria.passing}/${postCriteria.total}"`,
+    progress: `"${postCriteria.passing}/${postCriteria.total}"`,
     failing_criteria: postCriteria.failingIds.length > 0
       ? `[${postCriteria.failingIds.join(", ")}]`
       : "[]",
-    last_phase: "VERIFY",
+    phase: "verify",
     updated: new Date().toISOString().split("T")[0],
   });
 
@@ -769,7 +767,7 @@ function buildInteractivePrompt(prdPath: string): string {
   try {
     const { frontmatter, content } = readPRD(prdPath);
     title = extractPRDTitle(content);
-    verificationSummary = frontmatter.verification_summary || "0/0";
+    verificationSummary = frontmatter.progress || "0/0";
 
     const criteria = countCriteria(content);
     if (criteria.failingIds.length > 0) {
@@ -1091,7 +1089,7 @@ async function runLoop(prdPath: string, maxOverride?: number, agentCount: number
       const pct = postCriteria.total > 0 ? Math.round((postCriteria.passing / postCriteria.total) * 100) : 0;
       console.log(`  \x1b[1mIteration ${newIteration} Summary:\x1b[0m \x1b[32m+${gained}\x1b[0m | ${postCriteria.passing}/${postCriteria.total} passing (${pct}%) | ${iterElapsed}s`);
       if (postCriteria.passing >= postCriteria.total) {
-        updateFrontmatter(absPath, { status: "COMPLETE" });
+        updateFrontmatter(absPath, { phase: "complete" });
       }
 
       // Append CHANGELOG entry to PRD
@@ -1100,7 +1098,7 @@ async function runLoop(prdPath: string, maxOverride?: number, agentCount: number
       // Plateau detection: if last 3 iterations had zero progress, exit BLOCKED
       if (state.loopHistory && detectPlateau(state.loopHistory, 3)) {
         console.log(`\x1b[33m  Plateau detected — no progress in last 3 iterations\x1b[0m`);
-        updateFrontmatter(absPath, { status: "BLOCKED", loopStatus: "completed" });
+        updateFrontmatter(absPath, { phase: "blocked", loopStatus: "completed" });
       }
 
       console.log("");
@@ -1194,7 +1192,7 @@ async function runLoop(prdPath: string, maxOverride?: number, agentCount: number
     // Plateau detection: if last 3 iterations had zero progress, exit BLOCKED
     if (state.loopHistory && detectPlateau(state.loopHistory, 3)) {
       console.log(`\x1b[33m  Plateau detected — no progress in last 3 iterations\x1b[0m`);
-      updateFrontmatter(absPath, { status: "BLOCKED", loopStatus: "completed" });
+      updateFrontmatter(absPath, { phase: "blocked", loopStatus: "completed" });
     }
 
     // Brief pause between iterations

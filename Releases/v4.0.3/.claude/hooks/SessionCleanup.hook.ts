@@ -19,7 +19,7 @@
  * - exit(0): Always (non-blocking)
  *
  * SIDE EFFECTS:
- * - Updates: MEMORY/WORK/<dir>/PRD.md or META.yaml (status: COMPLETED)
+ * - Updates: MEMORY/WORK/<dir>/PRD.md (phase: complete) or META.yaml (status: COMPLETED)
  * - Deletes: MEMORY/STATE/current-work.json (clears session state)
  * - Resets: Kitty tab title and color to defaults
  * - Cleans: session-names.json entry (prevents ghost entries)
@@ -96,7 +96,7 @@ function clearSessionWork(sessionId?: string): void {
       // Primary: update PRD.md frontmatter (consolidated format)
       if (existsSync(prdPath)) {
         let prdContent = readFileSync(prdPath, 'utf-8');
-        prdContent = prdContent.replace(/^status: ACTIVE$/m, 'status: COMPLETED');
+        prdContent = prdContent.replace(/^phase: \w+$/m, 'phase: complete');
         prdContent = prdContent.replace(/^completed_at: null$/m, `completed_at: "${getISOTimestamp()}"`);
         writeFileSync(prdPath, prdContent, 'utf-8');
         marked = true;

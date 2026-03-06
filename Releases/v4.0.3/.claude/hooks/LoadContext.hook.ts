@@ -254,7 +254,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
         // v4.0: Read from PRD.md frontmatter
         try {
           const prdHead = readFileSync(prdPath, 'utf-8').substring(0, 600);
-          const statusMatch = prdHead.match(/^status:\s*"?(\w+)"?/m);
+          const statusMatch = prdHead.match(/^phase:\s*"?(\w+)"?/m);
           const titleMatch = prdHead.match(/^title:\s*"?(.+?)"?\s*$/m);
           const sessionIdMatch = prdHead.match(/^session_id:\s*"?(.+?)"?\s*$/m);
           if (statusMatch) status = statusMatch[1];
@@ -278,7 +278,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
 
       try {
 
-        if (status === 'COMPLETED') continue;
+        if (status === 'COMPLETED' || status === 'complete') continue;
         if (rawTitle.toLowerCase().startsWith('tasknotification') || rawTitle.length < 10) continue;
         if (sessionId && seenSessionIds.has(sessionId)) continue;
         if (sessionId) seenSessionIds.add(sessionId);
@@ -300,8 +300,8 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           if (prdFile) {
             const prdContent = readFileSync(prdFile, 'utf-8');
             const prdIdMatch = prdContent.match(/^id:\s*(.+)$/m);
-            const prdStatusMatch = prdContent.match(/^status:\s*(.+)$/m);
-            const prdVerifyMatch = prdContent.match(/^verification_summary:\s*"?(.+?)"?$/m);
+            const prdStatusMatch = prdContent.match(/^phase:\s*(.+)$/m);
+            const prdVerifyMatch = prdContent.match(/^progress:\s*"?(.+?)"?$/m);
             prd = {
               id: prdIdMatch?.[1]?.trim() || 'PRD',
               status: prdStatusMatch?.[1]?.trim() || 'UNKNOWN',

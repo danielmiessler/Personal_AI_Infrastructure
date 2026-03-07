@@ -80,6 +80,22 @@ Layer 3: Apify MCP (RAG browser, Actor ecosystem)
 
 ## Layer 1: Built-in Tools
 
+### Pre-fetch: Markdown Content Negotiation (Cloudflare)
+
+Before calling WebFetch, attempt a lightweight curl probe requesting native markdown via Cloudflare's [Markdown for Agents](https://blog.cloudflare.com/markdown-for-agents/) feature. Sites behind Cloudflare (Pro+) that have enabled this feature serve server-side converted markdown via `Accept: text/markdown`. Non-Cloudflare sites simply ignore the header -- zero downside.
+
+```bash
+curl -sL -H "Accept: text/markdown" "[URL]" | head -5
+```
+
+- If body starts with YAML frontmatter (`---`) or markdown heading (`# `) instead of `<!DOCTYPE`/`<html` → use body directly (skip WebFetch)
+- Also check `Content-Type: text/markdown` header and `x-markdown-tokens` header
+- Note: Cloudflare may currently report `content-type: text/html` even when body is markdown -- always check body format
+- If body is HTML → proceed to WebFetch as normal
+- ~80% fewer tokens, server-side conversion is more accurate, ~1-3 seconds, free
+
+Same pattern as the pre-check in FourTierScrape.
+
 ### WebFetch Tool
 
 **Best for:** Simple HTML pages, public content, one-off fetches

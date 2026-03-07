@@ -21,10 +21,10 @@ async function main() {
   if (!input) process.exit(0);
 
   const prompt = ((input as any).prompt || '').trim();
-  if (!prompt || prompt.length < 2) process.exit(0);
 
   // Minimal: greetings, ratings (1-10), short acknowledgments
   const isMinimal = /^(hi|hello|hey|thanks|thank you|ok|okay|done|got it|sure|yes|no|yep|nope|\d+[\s\-:]*)$/i.test(prompt);
+  if (!isMinimal && (!prompt || prompt.length < 2)) process.exit(0);
 
   // ALGORITHM requires BOTH gates to pass:
   // Gate 1: action verb present
@@ -33,7 +33,7 @@ async function main() {
   // Gate 2: technical object present OR multi-step complexity
   const hasTechnicalObject = /\b(code|file|function|class|method|api|endpoint|database|schema|config|hook|script|test|build|deploy|server|component|module|service|bug|error|feature|algorithm|query|migration|route|middleware|model|controller|template|pipeline|workflow|repo|branch|commit|container|package|dependency|type|interface|struct)\b/i.test(prompt);
   const words = prompt.trim().split(/\s+/);
-  const isComplex = words.length > 30 || /\b(and then|also|step|first|second|finally|\d+\))\b/i.test(prompt);
+  const isComplex = words.length > 30 || /\b(and then|also|step|first|second|finally)\b|\d+\)/i.test(prompt);
 
   const isAlgorithm = hasActionVerb && (hasTechnicalObject || isComplex);
 

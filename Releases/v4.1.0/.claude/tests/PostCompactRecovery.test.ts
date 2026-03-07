@@ -4,10 +4,12 @@
  * Validates that the recovery block injected after compaction contains
  * required identity and behavioral context.
  *
- * Run: bun test tests/PostCompactRecovery.test.ts
+ * Run: npx tsx --test tests/PostCompactRecovery.test.ts
+ *   or: bun test tests/PostCompactRecovery.test.ts
  */
 
-import { test, expect, describe } from 'bun:test';
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
 
 // Simulate the recovery block generation (core logic from PostCompactRecovery.hook.ts)
 function generateRecoveryBlock(opts: {
@@ -43,7 +45,7 @@ describe('PostCompactRecovery', () => {
       principalName: 'TestUser',
       timezone: 'America/Los_Angeles',
     });
-    expect(block).toContain('You are TestDA');
+    assert.ok(block.includes('You are TestDA'));
   });
 
   test('recovery block contains principal name', () => {
@@ -52,7 +54,7 @@ describe('PostCompactRecovery', () => {
       principalName: 'TestUser',
       timezone: 'America/Los_Angeles',
     });
-    expect(block).toContain('Principal: TestUser');
+    assert.ok(block.includes('**Principal:** TestUser'));
   });
 
   test('recovery block contains algorithm version', () => {
@@ -61,7 +63,7 @@ describe('PostCompactRecovery', () => {
       principalName: 'TestUser',
       timezone: 'UTC',
     });
-    expect(block).toContain('v3.8.0');
+    assert.ok(block.includes('v3.8.0'));
   });
 
   test('recovery block contains all three modes', () => {
@@ -70,9 +72,9 @@ describe('PostCompactRecovery', () => {
       principalName: 'TestUser',
       timezone: 'UTC',
     });
-    expect(block).toContain('ALGORITHM');
-    expect(block).toContain('NATIVE');
-    expect(block).toContain('MINIMAL');
+    assert.ok(block.includes('ALGORITHM'));
+    assert.ok(block.includes('NATIVE'));
+    assert.ok(block.includes('MINIMAL'));
   });
 
   test('recovery block includes algorithm state when provided', () => {
@@ -82,9 +84,9 @@ describe('PostCompactRecovery', () => {
       timezone: 'UTC',
       algorithmState: { phase: 'execute', effort: 'extended', prd_path: 'MEMORY/WORK/test/PRD.md' },
     });
-    expect(block).toContain('Phase: EXECUTE');
-    expect(block).toContain('Effort: extended');
-    expect(block).toContain('PRD: MEMORY/WORK/test/PRD.md');
+    assert.ok(block.includes('Phase: EXECUTE'));
+    assert.ok(block.includes('Effort: extended'));
+    assert.ok(block.includes('PRD: MEMORY/WORK/test/PRD.md'));
   });
 
   test('recovery block omits algorithm state when not provided', () => {
@@ -93,7 +95,7 @@ describe('PostCompactRecovery', () => {
       principalName: 'TestUser',
       timezone: 'UTC',
     });
-    expect(block).not.toContain('Current Algorithm state');
+    assert.ok(!block.includes('Current Algorithm state'));
   });
 
   test('output would be valid hook JSON', () => {
@@ -104,8 +106,8 @@ describe('PostCompactRecovery', () => {
     });
     const hookOutput = JSON.stringify({ additionalContext: block });
     const parsed = JSON.parse(hookOutput);
-    expect(parsed).toHaveProperty('additionalContext');
-    expect(typeof parsed.additionalContext).toBe('string');
-    expect(parsed.additionalContext.length).toBeGreaterThan(50);
+    assert.ok('additionalContext' in parsed);
+    assert.strictEqual(typeof parsed.additionalContext, 'string');
+    assert.ok(parsed.additionalContext.length > 50);
   });
 });

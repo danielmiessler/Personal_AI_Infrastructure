@@ -5,96 +5,99 @@
  *   Gate 1: action verb present
  *   Gate 2: technical object present OR multi-step complexity
  *
- * Run: bun test tests/ModeClassifier.test.ts
+ * Run: npx tsx --test tests/ModeClassifier.test.ts
+ *   or: bun test tests/ModeClassifier.test.ts
  */
 
-import { test, expect, describe } from 'bun:test';
+import { test, describe } from 'node:test';
+import { strictEqual } from 'node:assert';
 
 // Extract classification logic from ModeClassifier.hook.ts
 // (duplicated here to test without stdin/stdout hook harness)
 function classify(prompt: string): 'MINIMAL' | 'ALGORITHM' | 'NATIVE' {
   const trimmed = prompt.trim();
-  if (!trimmed || trimmed.length < 2) return 'NATIVE';
 
   const isMinimal = /^(hi|hello|hey|thanks|thank you|ok|okay|done|got it|sure|yes|no|yep|nope|\d+[\s\-:]*)$/i.test(trimmed);
+  if (isMinimal) return 'MINIMAL';
+  if (!trimmed || trimmed.length < 2) return 'NATIVE';
 
   const hasActionVerb = /\b(build|create|implement|fix|debug|refactor|analyze|write|design|review|plan|add|update|remove|set|migrate|convert|optimize|investigate|research|develop|configure|deploy|install|test|audit|generate|scaffold|integrate|setup|set up)\b/i.test(trimmed);
 
   const hasTechnicalObject = /\b(code|file|function|class|method|api|endpoint|database|schema|config|hook|script|test|build|deploy|server|component|module|service|bug|error|feature|algorithm|query|migration|route|middleware|model|controller|template|pipeline|workflow|repo|branch|commit|container|package|dependency|type|interface|struct)\b/i.test(trimmed);
   const words = trimmed.split(/\s+/);
-  const isComplex = words.length > 30 || /\b(and then|also|step|first|second|finally|\d+\))\b/i.test(trimmed);
+  const isComplex = words.length > 30 || /\b(and then|also|step|first|second|finally)\b|\d+\)/i.test(trimmed);
 
   const isAlgorithm = hasActionVerb && (hasTechnicalObject || isComplex);
 
-  return isMinimal ? 'MINIMAL' : isAlgorithm ? 'ALGORITHM' : 'NATIVE';
+  return isAlgorithm ? 'ALGORITHM' : 'NATIVE';
 }
 
 describe('ModeClassifier', () => {
   // ── MINIMAL cases ──
   describe('MINIMAL', () => {
-    test('rating number → MINIMAL', () => expect(classify('7')).toBe('MINIMAL'));
-    test('rating with dash → MINIMAL', () => expect(classify('8 -')).toBe('MINIMAL'));
-    test('greeting → MINIMAL', () => expect(classify('hello')).toBe('MINIMAL'));
-    test('thanks → MINIMAL', () => expect(classify('thanks')).toBe('MINIMAL'));
-    test('yes → MINIMAL', () => expect(classify('yes')).toBe('MINIMAL'));
-    test('ok → MINIMAL', () => expect(classify('ok')).toBe('MINIMAL'));
+    test('rating number → MINIMAL', () => strictEqual(classify('7'), 'MINIMAL'));
+    test('rating with dash → MINIMAL', () => strictEqual(classify('8 -'), 'MINIMAL'));
+    test('greeting → MINIMAL', () => strictEqual(classify('hello'), 'MINIMAL'));
+    test('thanks → MINIMAL', () => strictEqual(classify('thanks'), 'MINIMAL'));
+    test('yes → MINIMAL', () => strictEqual(classify('yes'), 'MINIMAL'));
+    test('ok → MINIMAL', () => strictEqual(classify('ok'), 'MINIMAL'));
   });
 
   // ── ALGORITHM cases (verb + technical object) ──
   describe('ALGORITHM', () => {
     test('build REST API → ALGORITHM', () =>
-      expect(classify('build a REST API endpoint')).toBe('ALGORITHM'));
+      strictEqual(classify('build a REST API endpoint'), 'ALGORITHM'));
     test('fix auth bug → ALGORITHM', () =>
-      expect(classify('fix the authentication bug')).toBe('ALGORITHM'));
+      strictEqual(classify('fix the authentication bug'), 'ALGORITHM'));
     test('write unit tests → ALGORITHM', () =>
-      expect(classify('write unit tests for the auth module')).toBe('ALGORITHM'));
+      strictEqual(classify('write unit tests for the auth module'), 'ALGORITHM'));
     test('add middleware → ALGORITHM', () =>
-      expect(classify('add authentication middleware to the API')).toBe('ALGORITHM'));
+      strictEqual(classify('add authentication middleware to the API'), 'ALGORITHM'));
     test('update database schema → ALGORITHM', () =>
-      expect(classify('update the database schema migration')).toBe('ALGORITHM'));
+      strictEqual(classify('update the database schema migration'), 'ALGORITHM'));
     test('refactor component → ALGORITHM', () =>
-      expect(classify('refactor the login component')).toBe('ALGORITHM'));
+      strictEqual(classify('refactor the login component'), 'ALGORITHM'));
     test('deploy server → ALGORITHM', () =>
-      expect(classify('deploy the voice server update')).toBe('ALGORITHM'));
+      strictEqual(classify('deploy the voice server update'), 'ALGORITHM'));
     test('debug pipeline → ALGORITHM', () =>
-      expect(classify('debug the build pipeline error')).toBe('ALGORITHM'));
+      strictEqual(classify('debug the build pipeline error'), 'ALGORITHM'));
     test('set config → ALGORITHM', () =>
-      expect(classify('set the config values for production')).toBe('ALGORITHM'));
+      strictEqual(classify('set the config values for production'), 'ALGORITHM'));
     test('remove deprecated function → ALGORITHM', () =>
-      expect(classify('remove the deprecated function from the module')).toBe('ALGORITHM'));
+      strictEqual(classify('remove the deprecated function from the module'), 'ALGORITHM'));
   });
 
   // ── ALGORITHM via complexity gate (long prompt, no tech object) ──
   describe('ALGORITHM (complexity gate)', () => {
     test('long multi-step prompt → ALGORITHM', () => {
       const longPrompt = 'implement ' + 'this is a very detailed request '.repeat(5);
-      expect(classify(longPrompt)).toBe('ALGORITHM');
+      strictEqual(classify(longPrompt), 'ALGORITHM');
     });
     test('numbered steps → ALGORITHM', () =>
-      expect(classify('create 1) the layout 2) the navigation 3) the footer')).toBe('ALGORITHM'));
+      strictEqual(classify('create 1) the layout 2) the navigation 3) the footer'), 'ALGORITHM'));
   });
 
   // ── NATIVE cases (verb but NO technical object/complexity) ──
   describe('NATIVE (false positive prevention)', () => {
     test('write back to them → NATIVE', () =>
-      expect(classify('write back to them that I agree')).toBe('NATIVE'));
+      strictEqual(classify('write back to them that I agree'), 'NATIVE'));
     test('update my status → NATIVE', () =>
-      expect(classify('update my status')).toBe('NATIVE'));
+      strictEqual(classify('update my status'), 'NATIVE'));
     test('add a comma here → NATIVE', () =>
-      expect(classify('add a comma here')).toBe('NATIVE'));
+      strictEqual(classify('add a comma here'), 'NATIVE'));
     test('review the document I sent → NATIVE', () =>
-      expect(classify('review the document I sent yesterday')).toBe('NATIVE'));
+      strictEqual(classify('review the document I sent yesterday'), 'NATIVE'));
     test('set a reminder → NATIVE', () =>
-      expect(classify('set a reminder for tomorrow')).toBe('NATIVE'));
+      strictEqual(classify('set a reminder for tomorrow'), 'NATIVE'));
   });
 
   // ── NATIVE cases (questions, general) ──
   describe('NATIVE (general)', () => {
     test('question → NATIVE', () =>
-      expect(classify('what is the difference between X and Y')).toBe('NATIVE'));
+      strictEqual(classify('what is the difference between X and Y'), 'NATIVE'));
     test('opinion request → NATIVE', () =>
-      expect(classify('what do you think about this approach')).toBe('NATIVE'));
+      strictEqual(classify('what do you think about this approach'), 'NATIVE'));
     test('explain something → NATIVE', () =>
-      expect(classify('can you explain how this works')).toBe('NATIVE'));
+      strictEqual(classify('can you explain how this works'), 'NATIVE'));
   });
 });

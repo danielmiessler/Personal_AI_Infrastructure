@@ -54,6 +54,14 @@ Created the project's first tests:
 - `tests/ModeClassifier.test.ts` — 25 test cases covering ALGORITHM, NATIVE, and edge cases
 - `tests/PostCompactRecovery.test.ts` — 7 tests for recovery block content and structure
 
+Run from `Releases/v4.1.0/`:
+```bash
+bun test ./.claude/tests/ModeClassifier.test.ts
+bun test ./.claude/tests/PostCompactRecovery.test.ts
+```
+
+Note: the `./` prefix is required — without it bun treats the argument as a test name filter rather than a file path.
+
 ### Memory retention
 
 Added automatic cleanup with a daily frequency gate:

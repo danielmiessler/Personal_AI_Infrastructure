@@ -205,10 +205,6 @@
           },
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/PromptAnalysis.hook.ts"
-          },
-          {
-            "type": "command",
             "command": "${PAI_DIR}/hooks/RatingCapture.hook.ts"
           },
           {

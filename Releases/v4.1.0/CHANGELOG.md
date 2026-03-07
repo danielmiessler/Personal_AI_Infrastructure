@@ -31,14 +31,11 @@ The original single regex caused false positives (e.g. "write back to them" → 
 
 Both gates must pass for ALGORITHM classification. This eliminates conversational false positives while preserving correct routing for technical prompts.
 
-### Batched inference: PromptAnalysis hook
+### Note: PromptAnalysis hook not included
 
-Previously, three separate Haiku calls fired on every `UserPromptSubmit` (tab title, sentiment, session name). Created `hooks/PromptAnalysis.hook.ts` to batch tab title + session name into a single call.
+A `PromptAnalysis.hook.ts` was prototyped to batch tab title + session name into a single Haiku call. It was removed after investigation confirmed that **Claude Code runs all hooks in the same event group in parallel** — making shared-file coordination between hooks within the same event impossible. The hook would have added a third concurrent Haiku call per prompt with no benefit.
 
-- Writes result to `MEMORY/STATE/prompt-analysis/{session_id}.json`
-- Registered second in `UserPromptSubmit` (after ModeClassifier)
-- `TerminalState.hook.ts` and `SessionAutoName.hook.ts` updated to read the shared result with fallback to their own inference
-- ~50% inference reduction (2 calls instead of 3); sentiment analysis not batched because it requires transcript context
+The actual inference count is already minimal: 1 Haiku per prompt (TerminalState tab title) + 1 background Sonnet per session (SessionAutoName name quality, non-blocking). A future refactor could fold session name into TerminalState's existing call once Claude Code supports sequential hook execution ([issue #21533](https://github.com/anthropics/claude-code/issues/21533)).
 
 ### Spinner extraction to config/
 
@@ -56,7 +53,6 @@ Created the project's first tests:
 
 - `tests/ModeClassifier.test.ts` — 25 test cases covering ALGORITHM, NATIVE, and edge cases
 - `tests/PostCompactRecovery.test.ts` — 7 tests for recovery block content and structure
-- `tests/PromptAnalysis.test.ts` — 5 tests for batched inference output format
 
 ### Memory retention
 
@@ -74,15 +70,13 @@ Replaced hardcoded `join(HOME, '.claude/settings.json')` with `paiPath()` import
 
 ## Files changed
 
-**New files (8):**
+**New files (6):**
 - `hooks/lib/voice.ts`
-- `hooks/PromptAnalysis.hook.ts`
 - `config/spinner-verbs.json`
 - `config/spinner-tips.json`
 - `config/README.md`
 - `tests/ModeClassifier.test.ts`
 - `tests/PostCompactRecovery.test.ts`
-- `tests/PromptAnalysis.test.ts`
 
 **Modified files (10):**
 - `PAI/Algorithm/v3.8.0.md`

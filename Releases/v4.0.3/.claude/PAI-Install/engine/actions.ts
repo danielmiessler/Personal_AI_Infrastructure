@@ -488,6 +488,7 @@ export async function runRepository(
     "MEMORY/WORK",
     "MEMORY/RELATIONSHIP",
     "MEMORY/VOICE",
+    "MEMORY/RESEARCH",
     "Plans",
     "hooks",
     "skills",

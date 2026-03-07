@@ -157,6 +157,15 @@
             "command": "${PAI_DIR}/hooks/PRDSync.hook.ts"
           }
         ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PAI_DIR}/hooks/ResearchCapture.hook.ts"
+          }
+        ]
       }
     ],
     "SessionEnd": [

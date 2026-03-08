@@ -180,25 +180,8 @@ async function handleUserPromptSubmit(data: UserPromptInput): Promise<void> {
   const thinkingTitle = quickTitle || getWorkingFallback();
   setTabState({ title: `🧠 ${prefix}${thinkingTitle}`, state: 'thinking', sessionId: data.session_id });
 
-  // Phase 2: Check shared PromptAnalysis result first, fall back to own inference
-  let inferredTitle: string | null = null;
-  let voiceSummary: string | null = null;
-  try {
-    const { readAnalysisResult } = await import('./PromptAnalysis.hook');
-    const shared = readAnalysisResult(data.session_id);
-    if (shared?.tab_title) {
-      inferredTitle = shared.tab_title;
-      voiceSummary = shared.tab_title;
-      console.error(`[TerminalState] Using shared PromptAnalysis tab_title: "${inferredTitle}"`);
-    }
-  } catch {}
-
-  // Fall back to own inference if no shared result
-  if (!inferredTitle) {
-    const result = await summarizePrompt(prompt);
-    voiceSummary = result.voice;
-    inferredTitle = result.title;
-  }
+  // Phase 2: Inference for validated title + voice summary
+  const { voice: voiceSummary, title: inferredTitle } = await summarizePrompt(prompt);
   const finalTitle = inferredTitle || (quickTitle && isValidWorkingTitle(quickTitle) ? quickTitle : getWorkingFallback());
   setTabState({ title: `⚙️ ${prefix}${finalTitle}`, state: 'working', sessionId: data.session_id });
 

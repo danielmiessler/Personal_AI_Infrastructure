@@ -33,7 +33,7 @@
  * - Typical execution: <50ms
  */
 
-import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
+import { writeFileSync, existsSync, readFileSync, unlinkSync, statSync, renameSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
@@ -224,7 +224,6 @@ function runRetentionCleanup(): void {
     const eventsPath = join(MEMORY_DIR, 'LEARNING', 'SIGNALS', 'events.jsonl');
     try {
       if (existsSync(eventsPath)) {
-        const { statSync, renameSync } = require('fs');
         const stat = statSync(eventsPath);
         const sizeMB = stat.size / (1024 * 1024);
         if (sizeMB > eventsMaxSizeMB) {
@@ -244,31 +243,12 @@ function runRetentionCleanup(): void {
     const algosDir = join(STATE_DIR, 'algorithms');
     try {
       if (existsSync(algosDir)) {
-        const { readdirSync, statSync: statSync2, unlinkSync: unlinkSync2 } = require('fs');
         for (const file of readdirSync(algosDir)) {
           const filePath = join(algosDir, file);
           try {
-            const stat = statSync2(filePath);
+            const stat = statSync(filePath);
             if (now - stat.mtimeMs > maxAgeMs) {
-              unlinkSync2(filePath);
-              cleaned++;
-            }
-          } catch {}
-        }
-      }
-    } catch {}
-
-    // 3. Delete stale prompt-analysis files
-    const analysisDir = join(STATE_DIR, 'prompt-analysis');
-    try {
-      if (existsSync(analysisDir)) {
-        const { readdirSync, statSync: statSync3, unlinkSync: unlinkSync3 } = require('fs');
-        for (const file of readdirSync(analysisDir)) {
-          const filePath = join(analysisDir, file);
-          try {
-            const stat = statSync3(filePath);
-            if (now - stat.mtimeMs > maxAgeMs) {
-              unlinkSync3(filePath);
+              unlinkSync(filePath);
               cleaned++;
             }
           } catch {}

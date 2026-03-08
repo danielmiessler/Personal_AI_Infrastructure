@@ -460,23 +460,6 @@ async function main() {
       process.exit(0);
     }
 
-    // Check shared PromptAnalysis result first (batched inference)
-    try {
-      const { readAnalysisResult } = await import('./PromptAnalysis.hook');
-      const shared = readAnalysisResult(sessionId);
-      if (shared?.session_name) {
-        const words = shared.session_name.split(/\s+/).slice(0, 4);
-        const label = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-        if (words.length === 4 && words.every(w => w.length >= 3)) {
-          storeName(sessionId, label, 'prompt-analysis');
-          const sessionMode = isNativeMode(rawPrompt) ? 'native' : 'starting';
-          upsertSession(sessionId, label, prompt.slice(0, 120), sessionMode);
-          console.error(`[SessionAutoName] Used shared PromptAnalysis session_name: "${label}"`);
-          process.exit(0);
-        }
-      }
-    } catch {}
-
     const fallback = extractFallbackName(prompt);
     if (fallback) {
       storeName(sessionId, fallback, 'deterministic');

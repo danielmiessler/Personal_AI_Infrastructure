@@ -1,113 +1,81 @@
 /**
  * PostCompactRecovery.test.ts — Output shape validation for compact recovery hook
  *
- * Validates that the recovery block injected after compaction contains
- * required identity and behavioral context.
+ * Imports buildRecoveryBlock() directly from hooks/lib/recovery-block.ts so
+ * tests always reflect actual hook behavior — no logic drift from duplication.
  *
- * Run: npx tsx --test tests/PostCompactRecovery.test.ts
- *   or: bun test tests/PostCompactRecovery.test.ts
+ * Run: bun test ./.claude/tests/PostCompactRecovery.test.ts
  */
 
-import { test, describe } from 'node:test';
-import assert from 'node:assert/strict';
-
-// Simulate the recovery block generation (core logic from PostCompactRecovery.hook.ts)
-function generateRecoveryBlock(opts: {
-  daName: string;
-  principalName: string;
-  timezone: string;
-  algorithmState?: { phase: string; effort: string; prd_path: string };
-}): string {
-  let algorithmStateStr = '';
-  if (opts.algorithmState) {
-    algorithmStateStr = `\n**Current Algorithm state:** Phase: ${opts.algorithmState.phase.toUpperCase()} | Effort: ${opts.algorithmState.effort} | PRD: ${opts.algorithmState.prd_path}`;
-  }
-
-  return `## POST-COMPACTION CONTEXT RECOVERY
-
-**You are ${opts.daName}**, a Personal AI Infrastructure assistant.
-**Principal:** ${opts.principalName} | Timezone: ${opts.timezone}
-**Algorithm version:** v3.8.0${algorithmStateStr}
-
-**Response format (MANDATORY — restore after compaction):**
-Every response MUST use exactly one mode:
-- **ALGORITHM** — for multi-step, complex work (load PAI/Algorithm/v3.8.0.md and follow it)
-- **NATIVE** — for simple single-step tasks
-- **MINIMAL** — for greetings, ratings, acknowledgments
-
-No freeform output. The format IS the context.`;
-}
+import { test, expect, describe } from 'bun:test';
+import { buildRecoveryBlock } from '../hooks/lib/recovery-block';
 
 describe('PostCompactRecovery', () => {
-  test('recovery block contains DA name', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'America/Los_Angeles',
-    });
-    assert.ok(block.includes('You are TestDA'));
-  });
 
-  test('recovery block contains principal name', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'America/Los_Angeles',
-    });
-    assert.ok(block.includes('**Principal:** TestUser'));
-  });
+  // ── Required header and identity ──
+  test('recovery block has correct header',
+    () => expect(buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'UTC' }))
+      .toContain('## POST-COMPACTION CONTEXT RECOVERY'));
 
-  test('recovery block contains algorithm version', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'UTC',
-    });
-    assert.ok(block.includes('v3.8.0'));
-  });
+  test('recovery block contains DA name',
+    () => expect(buildRecoveryBlock({ daName: 'TestDA', principalName: 'User', timezone: 'UTC' }))
+      .toContain('You are TestDA'));
 
+  test('recovery block contains principal name',
+    () => expect(buildRecoveryBlock({ daName: 'DA', principalName: 'TestUser', timezone: 'UTC' }))
+      .toContain('**Principal:** TestUser'));
+
+  test('recovery block contains timezone',
+    () => expect(buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'America/Los_Angeles' }))
+      .toContain('America/Los_Angeles'));
+
+  test('recovery block contains algorithm version',
+    () => expect(buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'UTC' }))
+      .toContain('v3.8.0'));
+
+  // ── Mode format ──
   test('recovery block contains all three modes', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'UTC',
-    });
-    assert.ok(block.includes('ALGORITHM'));
-    assert.ok(block.includes('NATIVE'));
-    assert.ok(block.includes('MINIMAL'));
+    const block = buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'UTC' });
+    expect(block).toContain('ALGORITHM');
+    expect(block).toContain('NATIVE');
+    expect(block).toContain('MINIMAL');
   });
 
-  test('recovery block includes algorithm state when provided', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'UTC',
+  // ── Behavioral rules ──
+  test('recovery block contains behavioral rules section',
+    () => expect(buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'UTC' }))
+      .toContain('Critical behavioral rules restored after compaction'));
+
+  // ── Algorithm state (optional) ──
+  test('includes algorithm state when provided', () => {
+    const block = buildRecoveryBlock({
+      daName: 'DA', principalName: 'User', timezone: 'UTC',
       algorithmState: { phase: 'execute', effort: 'extended', prd_path: 'MEMORY/WORK/test/PRD.md' },
     });
-    assert.ok(block.includes('Phase: EXECUTE'));
-    assert.ok(block.includes('Effort: extended'));
-    assert.ok(block.includes('PRD: MEMORY/WORK/test/PRD.md'));
+    expect(block).toContain('Phase: EXECUTE');
+    expect(block).toContain('Effort: extended');
+    expect(block).toContain('PRD: MEMORY/WORK/test/PRD.md');
   });
 
-  test('recovery block omits algorithm state when not provided', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'UTC',
+  test('omits algorithm state when not provided',
+    () => expect(buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'UTC' }))
+      .not.toContain('Current Algorithm state'));
+
+  test('phase is uppercased in algorithm state', () => {
+    const block = buildRecoveryBlock({
+      daName: 'DA', principalName: 'User', timezone: 'UTC',
+      algorithmState: { phase: 'observe', effort: 'standard', prd_path: 'MEMORY/WORK/x/PRD.md' },
     });
-    assert.ok(!block.includes('Current Algorithm state'));
+    expect(block).toContain('Phase: OBSERVE');
+    expect(block).not.toContain('Phase: observe');
   });
 
-  test('output would be valid hook JSON', () => {
-    const block = generateRecoveryBlock({
-      daName: 'TestDA',
-      principalName: 'TestUser',
-      timezone: 'UTC',
-    });
-    const hookOutput = JSON.stringify({ additionalContext: block });
-    const parsed = JSON.parse(hookOutput);
-    assert.ok('additionalContext' in parsed);
-    assert.strictEqual(typeof parsed.additionalContext, 'string');
-    assert.ok(parsed.additionalContext.length > 50);
+  // ── Hook output shape ──
+  test('output is valid hook JSON with additionalContext', () => {
+    const block = buildRecoveryBlock({ daName: 'DA', principalName: 'User', timezone: 'UTC' });
+    const parsed = JSON.parse(JSON.stringify({ additionalContext: block }));
+    expect(parsed).toHaveProperty('additionalContext');
+    expect(typeof parsed.additionalContext).toBe('string');
+    expect(parsed.additionalContext.length).toBeGreaterThan(100);
   });
 });

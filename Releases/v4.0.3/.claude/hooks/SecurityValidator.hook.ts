@@ -32,8 +32,8 @@
  * - MUST RUN AFTER: None
  *
  * ERROR HANDLING:
- * - Missing patterns.yaml: Uses default safe patterns
- * - Parse errors: Logs warning, allows operation (fail-open for usability)
+ * - Missing patterns.yaml: Uses embedded safe defaults (catastrophic ops blocked)
+ * - Parse errors: Logs warning, falls back to embedded safe defaults
  * - Logging failures: Silent (should not block operations)
  *
  * PERFORMANCE:
@@ -204,20 +204,75 @@ function getPatternsPath(): string | null {
   return null;
 }
 
+// ========================================
+// Embedded Safe Defaults
+// ========================================
+
+/**
+ * Hardcoded catastrophic-operation patterns used when no patterns.yaml or
+ * patterns.example.yaml is found. Without this, a missing config silently
+ * disables all protection — the hook runs on every tool call but blocks nothing.
+ *
+ * v4.0.3 ships neither PAISECURITYSYSTEM/ directories nor patterns files,
+ * and the installer does not create them, so every fresh install hits this path.
+ */
+function getEmbeddedDefaults(): PatternsConfig {
+  return {
+    version: '0.0-embedded',
+    philosophy: { mode: 'safe_functional', principle: 'Embedded defaults - external config unavailable' },
+    bash: {
+      trusted: [],
+      blocked: [
+        { pattern: 'rm\\s+-rf\\s+/', reason: 'Filesystem destruction' },
+        { pattern: 'rm\\s+-rf\\s+~', reason: 'Home directory destruction' },
+        { pattern: 'sudo\\s+rm\\s+-rf\\s+/', reason: 'Filesystem destruction with sudo' },
+        { pattern: 'sudo\\s+rm\\s+-rf\\s+~', reason: 'Home directory destruction with sudo' },
+        { pattern: 'diskutil\\s+eraseDisk', reason: 'Disk destruction' },
+        { pattern: 'diskutil\\s+zeroDisk', reason: 'Disk destruction' },
+        { pattern: 'diskutil\\s+partitionDisk', reason: 'Disk partitioning' },
+        { pattern: 'diskutil\\s+apfs\\s+deleteContainer', reason: 'APFS container deletion' },
+        { pattern: 'diskutil\\s+apfs\\s+eraseVolume', reason: 'Volume destruction' },
+        { pattern: 'dd\\s+if=/dev/zero', reason: 'Disk overwrite' },
+        { pattern: 'mkfs\\.', reason: 'Filesystem format' },
+        { pattern: 'gh\\s+repo\\s+delete', reason: 'Repository deletion' },
+      ],
+      confirm: [
+        { pattern: 'git\\s+push\\s+--force', reason: 'Force push can overwrite remote history' },
+        { pattern: 'git\\s+push\\s+-f\\b', reason: 'Force push can overwrite remote history' },
+        { pattern: 'git\\s+reset\\s+--hard', reason: 'Hard reset discards uncommitted changes' },
+      ],
+      alert: [
+        { pattern: 'curl.*\\|.*sh', reason: 'Piping remote content to shell' },
+        { pattern: 'curl.*\\|.*bash', reason: 'Piping remote content to shell' },
+      ],
+    },
+    paths: {
+      zeroAccess: [
+        '~/.ssh/id_*',
+        '~/.ssh/config',
+        '~/.gnupg/**',
+        '~/.aws/credentials',
+        '~/.config/gh/hosts.yml',
+      ],
+      readOnly: [],
+      confirmWrite: [],
+      noDelete: [],
+    },
+    projects: {}
+  };
+}
+
 function loadPatterns(): PatternsConfig {
   if (patternsCache) return patternsCache;
 
   const patternsPath = getPatternsPath();
 
   if (!patternsPath) {
-    // No patterns file - fail open (allow all)
-    return {
-      version: '0.0',
-      philosophy: { mode: 'permissive', principle: 'No patterns loaded - fail open' },
-      bash: { trusted: [], blocked: [], confirm: [], alert: [] },
-      paths: { zeroAccess: [], readOnly: [], confirmWrite: [], noDelete: [] },
-      projects: {}
-    };
+    // No patterns file found - use embedded safe defaults
+    console.error('[PAI SECURITY] No patterns.yaml found. Using embedded safe defaults.');
+    const defaults = getEmbeddedDefaults();
+    patternsCache = defaults;
+    return defaults;
   }
 
   try {
@@ -225,15 +280,12 @@ function loadPatterns(): PatternsConfig {
     patternsCache = parseYaml(content) as PatternsConfig;
     return patternsCache;
   } catch (error) {
-    // Parse error - fail open
-    console.error(`Failed to parse ${patternsSource} patterns.yaml:`, error);
-    return {
-      version: '0.0',
-      philosophy: { mode: 'permissive', principle: 'Parse error - fail open' },
-      bash: { trusted: [], blocked: [], confirm: [], alert: [] },
-      paths: { zeroAccess: [], readOnly: [], confirmWrite: [], noDelete: [] },
-      projects: {}
-    };
+    // Parse error - fall back to embedded defaults rather than empty config
+    console.error(`[PAI SECURITY] Failed to parse ${patternsSource} patterns.yaml:`, error);
+    console.error('[PAI SECURITY] Falling back to embedded safe defaults.');
+    const defaults = getEmbeddedDefaults();
+    patternsCache = defaults;
+    return defaults;
   }
 }
 

@@ -24,7 +24,6 @@ import { getIdentity, getDAName } from './lib/identity';
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleTabState } from './handlers/TabState';
 import { paiPath } from './lib/paths';
-import { announce } from './lib/voice';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -184,15 +183,6 @@ async function handleUserPromptSubmit(data: UserPromptInput): Promise<void> {
   const { voice: voiceSummary, title: inferredTitle } = await summarizePrompt(prompt);
   const finalTitle = inferredTitle || (quickTitle && isValidWorkingTitle(quickTitle) ? quickTitle : getWorkingFallback());
   setTabState({ title: `⚙️ ${prefix}${finalTitle}`, state: 'working', sessionId: data.session_id });
-
-  // Voice feedback — fire-and-forget, no await (gated by voice.enabled)
-  const voiceContent = voiceSummary || (quickTitle && isValidWorkingTitle(quickTitle) ? quickTitle : null);
-  if (voiceContent) {
-    announce(voiceContent.replace(/\.$/, ''), { voiceId: getIdentity().mainDAVoiceID });
-    console.error(`[TerminalState] Voice queued: "${voiceContent}"`);
-  } else {
-    console.error(`[TerminalState] No meaningful voice content, skipping`);
-  }
 
   console.error(`[TerminalState] UserPromptSubmit: "${finalTitle}"`);
 }

@@ -164,16 +164,6 @@ function validateConfig(path: string): ValidationCheck[] {
         severity: 'error',
       });
 
-      // Voice ID (optional)
-      const hasVoice = settings.daidentity?.mainDAVoiceID;
-      checks.push({
-        name: 'Voice ID configured',
-        category: 'config',
-        passed: !!hasVoice,
-        message: hasVoice ? 'Configured' : 'Not configured (voice disabled)',
-        severity: 'info',
-      });
-
       // PAI version
       const hasVersion = settings.paiVersion;
       checks.push({

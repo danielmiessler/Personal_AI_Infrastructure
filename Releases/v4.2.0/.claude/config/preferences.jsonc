@@ -32,13 +32,6 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
 
-  // Voice/TTS configuration
-  "voice": {
-    // Set to true to enable TTS voice announcements via VoiceServer
-    // Requires: ElevenLabs API key + VoiceServer running on localhost:8888
-    "enabled": false
-  },
-
   // Memory and session retention policies
   "memory": {
     "retention": {

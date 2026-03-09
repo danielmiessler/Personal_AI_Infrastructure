@@ -8,9 +8,6 @@
     "PAI_CONFIG_DIR": "${HOME}/.config/PAI",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "voice": {
-    "enabled": false
-  },
   "memory": {
     "retention": {
       "eventsMaxSizeMB": 100,
@@ -160,12 +157,7 @@
   },
   "principal": {
     "name": "{PRINCIPAL.NAME}",
-    "timezone": "{YOUR_TIMEZONE}",
-    "voiceClone": {
-      "voiceId": "{YOUR_VOICE_CLONE_ID}",
-      "voiceName": "{PRINCIPAL.NAME}",
-      "provider": "elevenlabs"
-    }
+    "timezone": "{YOUR_TIMEZONE}"
   },
   "statusLine": {
     "type": "command",
@@ -355,10 +347,6 @@
           {
             "type": "command",
             "command": "${PAI_DIR}/hooks/TerminalState.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/VoiceCompletion.hook.ts"
           },
           {
             "type": "command",
@@ -1033,8 +1021,6 @@
       "v4.0 eliminated packs. The release IS the .claude/ directory — install by copying directly.",
       "PRD frontmatter has 8 fields: task, slug, effort, phase, progress, mode, started, updated.",
       "PRD body has 4 sections: Context, Criteria (ISC checkboxes), Decisions, Verification.",
-      "Voice announcements at Algorithm entry and every phase transition via localhost:8888/notify.",
-      "Only the primary agent makes voice curls. Subagents and teammates skip voice entirely.",
       "PRDSync.hook.ts fires on Write/Edit of PRD.md and syncs frontmatter to work.json for the dashboard.",
       "Context compaction at phase boundaries prevents context rot — the #1 cause of late-phase failures."
     ]

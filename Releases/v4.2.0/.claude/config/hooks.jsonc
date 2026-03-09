@@ -128,8 +128,6 @@
           { "type": "command", "command": "${PAI_DIR}/hooks/LastResponseCache.hook.ts" },
           // Update terminal state after response completes
           { "type": "command", "command": "${PAI_DIR}/hooks/TerminalState.hook.ts" },
-          // Voice completion announcement (if voice enabled)
-          { "type": "command", "command": "${PAI_DIR}/hooks/VoiceCompletion.hook.ts" },
           // Validate documentation cross-references
           { "type": "command", "command": "${PAI_DIR}/hooks/DocIntegrity.hook.ts" }
         ]

@@ -12,8 +12,8 @@ export interface ExtractedContent {
   settings: {
     raw: any | null;
     principal: { name?: string; timezone?: string } | null;
-    daidentity: { name?: string; mainDAVoiceID?: string } | null;
-    apiKeys: { elevenlabs?: string; anthropic?: string } | null;
+    daidentity: { name?: string } | null;
+    apiKeys: { anthropic?: string } | null;
   };
   userContent: {
     path: string;
@@ -162,7 +162,6 @@ function extractSettings(path: string): ExtractedContent['settings'] {
     if (settings.daidentity) {
       result.daidentity = {
         name: settings.daidentity.name,
-        mainDAVoiceID: settings.daidentity.mainDAVoiceID,
       };
     }
 
@@ -326,12 +325,6 @@ export function formatExtractedContent(content: ExtractedContent): string {
   }
   if (content.settings.daidentity?.name) {
     lines.push(`  AI Identity: ${content.settings.daidentity.name}`);
-  }
-  if (content.settings.daidentity?.mainDAVoiceID) {
-    lines.push(`  Voice ID: ${content.settings.daidentity.mainDAVoiceID.substring(0, 8)}...`);
-  }
-  if (content.settings.apiKeys?.elevenlabs) {
-    lines.push('  ElevenLabs API: Configured');
   }
 
   if (content.userContent.files.length > 0) {

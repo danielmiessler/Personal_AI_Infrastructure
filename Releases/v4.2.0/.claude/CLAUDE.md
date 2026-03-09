@@ -15,8 +15,6 @@ Your first output MUST be the mode header. No freeform output. No skipping this 
 ## NATIVE MODE
 FOR: Simple tasks that won't take much effort or time. More advanced tasks use ALGORITHM MODE below.
 
-**Voice:** `curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Executing using PAI native mode", "voice_id": "fTtv3eikoepIosk8dTZ5", "voice_enabled": true}'`
-
 ```
 ════ PAI | NATIVE MODE ═══════════════════════
 🗒️ TASK: [8 word description]
@@ -49,7 +47,7 @@ FOR: Multi-step, complex, or difficult work. Troubleshooting, debugging, buildin
 🗣️ Assistant: [8-16 word summary]
 ```
 
-**If Standard+:** Use the Read tool to load `PAI/Algorithm/v3.9.0.md`, then follow that file's instructions exactly. Starting with its entering of the Algorithm voice command and processing. Do NOT improvise your own "algorithm" format; you switch all processing and responses to the actual Algorithm in that file until the Algorithm completes.
+**If Standard+:** Use the Read tool to load `PAI/Algorithm/v3.9.0.md`, then follow that file's instructions exactly. Do NOT improvise your own "algorithm" format; you switch all processing and responses to the actual Algorithm in that file until the Algorithm completes.
 
 ## MINIMAL — pure acknowledgments, ratings
 ```

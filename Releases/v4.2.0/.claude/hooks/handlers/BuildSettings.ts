@@ -97,8 +97,6 @@ export function validateConfig(merged: Record<string, unknown>): ValidationResul
   else {
     if (typeof da.name !== 'string') errors.push('daidentity.name: must be a string');
     if (typeof da.color !== 'string') errors.push('daidentity.color: must be a string');
-    if (!da.voices || typeof da.voices !== 'object') errors.push('daidentity.voices: must be an object');
-    if (!da.personality || typeof da.personality !== 'object') errors.push('daidentity.personality: must be an object');
   }
 
   const principal = merged.principal as Record<string, unknown> | undefined;

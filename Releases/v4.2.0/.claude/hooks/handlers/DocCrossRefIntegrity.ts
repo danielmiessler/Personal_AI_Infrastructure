@@ -36,7 +36,6 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { atomicWriteJSON } from '../lib/atomic';
 import { join, basename, dirname } from 'path';
 import { paiPath, getPaiDir } from '../lib/paths';
-import { getIdentity } from '../lib/identity';
 import { inference } from '../../PAI/Tools/Inference';
 import type { ParsedTranscript } from '../../PAI/Tools/TranscriptParser';
 
@@ -355,25 +354,6 @@ function checkHookCounts(docsToCheck: string[], actualCount: number): DriftItem[
   return drift;
 }
 
-// ============================================================================
-// Voice Notification (fire-and-forget)
-// ============================================================================
-
-async function notifyVoice(message: string): Promise<void> {
-  const { isVoiceEnabled } = await import('../lib/voice');
-  if (!isVoiceEnabled()) return;
-
-  try {
-    await fetch('http://localhost:8888/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(3000),
-      body: JSON.stringify({ message, voice_id: getIdentity().mainDAVoiceID }),
-    });
-  } catch {
-    // Voice server may not be running — silent fail
-  }
-}
 
 // ============================================================================
 // Review Queue (for drift items that need human judgment)
@@ -901,6 +881,6 @@ export async function handleDocCrossRefIntegrity(
 
     const docNames = Array.from(affectedDocs).slice(0, 3).join(', ') || 'system';
     const reason = hasHookChanges ? 'hook system changes' : hasDocChanges ? 'system documentation changes' : 'system file changes';
-    await notifyVoice(`Updated ${docNames} documentation after detecting ${reason}.`);
+    console.error(`[DocCrossRef] Updated ${docNames} documentation after detecting ${reason}.`);
   }
 }

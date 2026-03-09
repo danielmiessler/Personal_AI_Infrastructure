@@ -29,7 +29,6 @@ export interface DetectionResult {
     paiVersion?: string;
     settingsPath?: string;
     hasApiKeys: boolean;
-    elevenLabsKeyFound: boolean;
     backupPaths: string[];
   };
   timezone: string;
@@ -47,14 +46,13 @@ export type StepId =
   | "identity"
   | "repository"
   | "configuration"
-  | "voice"
   | "validation";
 
 export interface StepDefinition {
   id: StepId;
   name: string;
   description: string;
-  number: number; // 1-8
+  number: number; // 1-7
   required: boolean;
   dependsOn: StepId[];
   condition?: (state: InstallState) => boolean; // skip if false
@@ -78,15 +76,12 @@ export interface InstallState {
 
   // Collected data
   collected: {
-    elevenLabsKey?: string;
     principalName?: string;
     timezone?: string;
     aiName?: string;
     catchphrase?: string;
     projectsDir?: string;
     temperatureUnit?: "fahrenheit" | "celsius";
-    voiceType?: "female" | "male" | "custom";
-    customVoiceId?: string;
   };
 
   // Results
@@ -110,8 +105,6 @@ export interface PAIConfig {
   catchphrase: string;
   projectsDir?: string;
   temperatureUnit?: "fahrenheit" | "celsius";
-  voiceType?: string;
-  voiceId?: string;
   paiDir: string;
   configDir: string;
 }
@@ -123,11 +116,10 @@ export type ServerMessage =
   | { type: "connected"; port: number }
   | { type: "step_update"; step: StepId; status: StepStatus; detail?: string }
   | { type: "detection_result"; data: DetectionResult }
-  | { type: "message"; role: "assistant" | "system"; content: string; speak?: boolean }
+  | { type: "message"; role: "assistant" | "system"; content: string }
   | { type: "input_request"; id: string; prompt: string; inputType: "text" | "password" | "key"; placeholder?: string }
   | { type: "choice_request"; id: string; prompt: string; choices: { label: string; value: string; description?: string }[] }
   | { type: "progress"; step: StepId; percent: number; detail: string }
-  | { type: "voice_enabled"; enabled: boolean; mode: "elevenlabs" | "browser" | "none" }
   | { type: "install_complete"; success: boolean; summary: InstallSummary }
   | { type: "validation_result"; checks: ValidationCheck[] }
   | { type: "error"; message: string; step?: StepId };
@@ -139,8 +131,7 @@ export type ClientMessage =
   | { type: "user_choice"; requestId: string; value: string }
   | { type: "mode_select"; mode: "cli" | "web" }
   | { type: "start_install"; config?: Partial<InstallState["collected"]> }
-  | { type: "go_to_step"; step: StepId }
-  | { type: "voice_toggle"; enabled: boolean };
+  | { type: "go_to_step"; step: StepId };
 
 // ─── Validation ──────────────────────────────────────────────────
 
@@ -156,8 +147,6 @@ export interface InstallSummary {
   principalName: string;
   aiName: string;
   timezone: string;
-  voiceEnabled: boolean;
-  voiceMode: string;
   catchphrase: string;
   installType: "fresh" | "upgrade";
   completedSteps: number;
@@ -172,7 +161,7 @@ export type EngineEvent =
   | { event: "step_error"; step: StepId; error: string }
   | { event: "step_skip"; step: StepId; reason: string }
   | { event: "progress"; step: StepId; percent: number; detail: string }
-  | { event: "message"; content: string; speak?: boolean }
+  | { event: "message"; content: string }
   | { event: "input_needed"; id: string; prompt: string; type: "text" | "password" | "key"; placeholder?: string }
   | { event: "choice_needed"; id: string; prompt: string; choices: { label: string; value: string; description?: string }[] }
   | { event: "complete"; summary: InstallSummary }
@@ -180,17 +169,10 @@ export type EngineEvent =
 
 export type EngineEventHandler = (event: EngineEvent) => void | Promise<void>;
 
-// ─── Voice ───────────────────────────────────────────────────────
-
 // ─── Release Versions (single source of truth) ─────────────────
 // Update these when cutting a new PAI release.
 // The installer reads these constants — no other file should hardcode versions.
 
-export const PAI_VERSION = "4.0.3";
-export const ALGORITHM_VERSION = "3.7.0";
+export const PAI_VERSION = "4.3.0";
+export const ALGORITHM_VERSION = "3.9.0";
 export const INSTALLER_VERSION = "4.0";
-
-export const DEFAULT_VOICES = {
-  male: "pNInz6obpgDQGcFmaJgB", // Adam
-  female: "21m00Tcm4TlvDq8ikWAM", // Rachel
-} as const;

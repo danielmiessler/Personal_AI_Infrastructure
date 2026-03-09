@@ -54,6 +54,27 @@ function readJSON(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
 
+/** Expand ${VAR} and $VAR references in string values using process.env. */
+function expandEnvVars(value: string): string {
+  return value
+    .replace(/\$\{(\w+)\}/g, (_, name) => process.env[name] ?? '')
+    .replace(/\$(\w+)/g, (_, name) => process.env[name] ?? '');
+}
+
+/** Recursively expand env var references in all string values of an object. */
+function expandEnvInObject(obj: unknown): unknown {
+  if (typeof obj === 'string') return expandEnvVars(obj);
+  if (Array.isArray(obj)) return obj.map(expandEnvInObject);
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      result[k] = expandEnvInObject(v);
+    }
+    return result;
+  }
+  return obj;
+}
+
 /** Return the mtime of a file, or 0 if it doesn't exist. */
 function mtime(path: string): number {
   return existsSync(path) ? statSync(path).mtimeMs : 0;
@@ -175,12 +196,16 @@ export function buildSettings(paiDir = DEFAULT_PAI_DIR): Record<string, unknown>
     }
   }
 
+  // Expand ${HOME}, ${PAI_DIR}, etc. in hooks and env values
+  const expandedHooks = expandEnvInObject(hooks) as Record<string, unknown>;
+  const expandedPrefs = expandEnvInObject(prefs) as Record<string, unknown>;
+
   // Assemble in canonical field order (matching original settings.json)
   const merged: Record<string, unknown> = {
     $schema: 'https://json.schemastore.org/claude-code-settings.json',
 
-    // From preferences.jsonc
-    ...prefs,
+    // From preferences.jsonc (with env vars expanded)
+    ...expandedPrefs,
 
     // From permissions.jsonc
     ...permissions,
@@ -188,8 +213,8 @@ export function buildSettings(paiDir = DEFAULT_PAI_DIR): Record<string, unknown>
     // From identity.jsonc
     ...identity,
 
-    // From hooks.jsonc
-    ...hooks,
+    // From hooks.jsonc (with env vars expanded)
+    ...expandedHooks,
 
     // From notifications.jsonc
     ...notifications,

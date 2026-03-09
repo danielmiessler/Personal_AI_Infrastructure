@@ -11,8 +11,6 @@
  * - Stop:           Reset tab to completed state after response
  * - PreToolUse (AskUserQuestion): Set tab to question/teal state
  *
- * VOICE: Fire-and-forget (no await) to prevent blocking session startup.
- * Task completion voice is separate (VoiceCompletion.hook.ts).
  */
 
 import { writeFileSync, mkdirSync, existsSync } from 'fs';

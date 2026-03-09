@@ -627,7 +627,6 @@ ${contextSection || "Read the PRD CONTEXT section for details."}
 RULES — READ CAREFULLY:
 - You are a WORKER, not the Algorithm. Do NOT run the Algorithm format.
 - Do NOT create ISC criteria (TaskCreate). The criteria already exist.
-- Do NOT execute voice curls (curl to localhost:8888).
 - Do NOT write to the PRD file at all. No updateFrontmatter, no writeFileSync, no Edit/Write on the PRD path. The parent orchestrator handles ALL PRD updates (frontmatter AND checkboxes).
 - Do NOT touch other criteria — ONLY yours.
 

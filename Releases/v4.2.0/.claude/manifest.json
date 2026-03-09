@@ -259,11 +259,6 @@
       "size": 4637
     },
     {
-      "path": "hooks/lib/voice.ts",
-      "sha256": "f352d059a6885a5807317620821aec0bb6732fe24eacfb809efcb2a4e66a73f6",
-      "size": 1635
-    },
-    {
       "path": "hooks/LoadContext.hook.ts",
       "sha256": "6901ba2aab7b42ba3a631cde8f44b799dbe6eaa9a3bc47f0f5a5f5fd2774b666",
       "size": 18076
@@ -332,11 +327,6 @@
       "path": "hooks/UpdateCounts.hook.ts",
       "sha256": "7e2587d800334b9de8af2091aa6fb211c745d4835c98439500263733794fbe28",
       "size": 623
-    },
-    {
-      "path": "hooks/VoiceCompletion.hook.ts",
-      "sha256": "744c50f920c807929df15e50f9ca6303b1557441b8bdd01c80187802d75b0417",
-      "size": 1833
     },
     {
       "path": "hooks/WorkCompletionLearning.hook.ts",

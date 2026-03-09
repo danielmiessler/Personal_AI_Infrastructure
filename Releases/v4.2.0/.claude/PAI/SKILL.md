@@ -48,8 +48,7 @@ Problem-solving = transitioning CURRENT STATE → IDEAL STATE. This requires ver
 4. **PRDs auto-sync.** PRDWriteback syncs ISC to disk each response. Disk = cross-session contract, wins conflicts.
 5. **Direct tools before agents.** Grep/Glob/Read for lookup (<2s). Agents only for multi-step work (5+ files). Context recovery = direct tools only.
 6. **No silent stalls.** Commands complete quickly or run in background. No chains, no `sleep`. Show progress if >16s.
-7. **Voice curls at every phase.** Inline with 5000ms timeout. Background agents skip voice curls.
-8. **Format always present.** Full/Iteration/Minimal — never raw output.
+7. **Format always present.** Full/Iteration/Minimal — never raw output.
 
 ## Zero-Delay Output
 
@@ -238,12 +237,11 @@ More ISC = finer verification = better hill-climbing. When in doubt, more criter
 
 🗒️ TASK: [8 word description]
 
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the PAI Algorithm Observe phase"}'`
 
 ━━━ 👁️ OBSERVE ━━━ 1/7
 ```
 
-**Thinking-only.** No tool calls except TaskCreate, voice curls, context recovery (Grep/Glob/Read, ≤34s).
+**Thinking-only.** No tool calls except TaskCreate, context recovery (Grep/Glob/Read, ≤34s).
 
 **Stream progressively:**
 
@@ -270,7 +268,6 @@ Walk the Full Capability Registry (25 capabilities, Sections A-F) and assign USE
 **Quality Gate → OPEN or BLOCKED.**
 
 ```
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the Think phase"}'`
 
 ━━━ 🧠 THINK ━━━ 2/7
 ```
@@ -286,7 +283,6 @@ Walk the Full Capability Registry (25 capabilities, Sections A-F) and assign USE
 Extended+: Rehearse verification for each CRITICAL criterion.
 
 ```
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the Plan phase"}'`
 
 ━━━ 📋 PLAN ━━━ 3/7
 ```
@@ -299,7 +295,6 @@ Extended+: Rehearse verification for each CRITICAL criterion.
 - Quality Gate re-check.
 
 ```
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the Build phase"}'`
 
 ━━━ 🔨 BUILD ━━━ 4/7
 ```
@@ -309,7 +304,6 @@ Extended+: Rehearse verification for each CRITICAL criterion.
 - Create artifacts. Log work and observations to PRD.
 
 ```
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the Execute phase"}'`
 
 ━━━ ⚡ EXECUTE ━━━ 5/7
 ```
@@ -320,7 +314,6 @@ Extended+: Rehearse verification for each CRITICAL criterion.
 - Log work and observations to PRD.
 
 ```
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the Verify phase."}'`
 
 ━━━ ✅ VERIFY ━━━ 6/7
 ```
@@ -337,7 +330,6 @@ Extended+: Rehearse verification for each CRITICAL criterion.
 - Clear ISC/VERIFICATION TaskList.
 
 ```
-`curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"voice_id":"fTtv3eikoepIosk8dTZ5","message": "Entering the Learn phase"}'`
 
 ━━━ 📚 LEARN ━━━ 7/7
 ```
@@ -384,12 +376,12 @@ Created in PLAN via `generatePRDTemplate()`. PRDWriteback syncs ISC to disk each
 
 **Loop mode** (`bun algorithm.ts -m loop -p PRD.md -n 128`): Works 1 criterion per iteration, re-verifies all, appends CHANGELOG. Exits: ALL_PASS, MANUAL_ONLY, PLATEAU (no progress in 4 iterations).
 
-**Parallel workers** (`-a N`): One criterion per worker, minimal work, no Algorithm format/voice curls — parent reconciles.
+**Parallel workers** (`-a N`): One criterion per worker, minimal work, no Algorithm format — parent reconciles.
 
 ## Red Lines
 
 - **Mandatory output format.** Every response MUST use exactly one output format from CLAUDE.md Execution Modes (ALGORITHM, NATIVE, ITERATION, or MINIMAL). No freeform output. No exceptions.
-- **No tool calls in OBSERVE** except TaskCreate, voice curls, context recovery.
+- **No tool calls in OBSERVE** except TaskCreate, context recovery.
 - **No agents for instant ops.** Grep/Glob/Read if <2s.
 - **No silent stalls.** Complete quickly or background with progress.
 - **No capability theater.** Every USE skill must have a `Skill` or `Task` tool call AND a reason. Text-only output is NOT invocation.

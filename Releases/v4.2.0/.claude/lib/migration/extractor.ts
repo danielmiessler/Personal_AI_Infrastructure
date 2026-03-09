@@ -167,7 +167,6 @@ function extractSettings(path: string): ExtractedContent['settings'] {
 
     // Extract API keys (check multiple possible locations)
     result.apiKeys = {
-      elevenlabs: settings.apiKeys?.elevenlabs || settings.elevenLabsApiKey,
       anthropic: settings.apiKeys?.anthropic || settings.anthropicApiKey,
     };
   } catch (e) {

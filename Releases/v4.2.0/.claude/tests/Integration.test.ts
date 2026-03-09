@@ -124,36 +124,42 @@ describe("Hook: payload-schema validation", () => {
       hook_event_name: "UserPromptSubmit",
       session_id: "abc123",
       prompt: "Fix the login bug",
-      transcript_path: "/tmp/transcript.jsonl",
     };
-    expect(validatePayload("UserPromptSubmit", payload)).not.toBeNull();
+    const result = validatePayload(payload);
+    expect(result.valid).toBe(true);
+    expect(result.missing).toHaveLength(0);
   });
 
-  it("returns null for missing required field (session_id)", async () => {
+  it("marks payload invalid when required field (session_id) is missing", async () => {
     const { validatePayload } = await import(schemaPath);
     const payload = {
       hook_event_name: "UserPromptSubmit",
       prompt: "Fix the login bug",
       // session_id intentionally omitted
     };
-    expect(validatePayload("UserPromptSubmit", payload)).toBeNull();
+    const result = validatePayload(payload);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("session_id");
   });
 
   it("passes unknown event types through (fail-open design)", async () => {
     const { validatePayload } = await import(schemaPath);
     const payload = { hook_event_name: "FutureEvent", session_id: "abc" };
-    // Unknown events should pass through rather than block
-    expect(validatePayload("FutureEvent", payload)).not.toBeNull();
+    const result = validatePayload(payload);
+    expect(result.valid).toBe(true);
   });
 
-  it("validates Stop payload with optional fields", async () => {
+  it("validates Stop payload with all required fields", async () => {
     const { validatePayload } = await import(schemaPath);
     const payload = {
       hook_event_name: "Stop",
       session_id: "abc123",
+      transcript_path: "/tmp/transcript.jsonl",
       stop_hook_active: false,
     };
-    expect(validatePayload("Stop", payload)).not.toBeNull();
+    const result = validatePayload(payload);
+    expect(result.valid).toBe(true);
+    expect(result.missing).toHaveLength(0);
   });
 
   it("validates PreToolUse payload", async () => {
@@ -164,7 +170,9 @@ describe("Hook: payload-schema validation", () => {
       tool_name: "Bash",
       tool_input: { command: "ls" },
     };
-    expect(validatePayload("PreToolUse", payload)).not.toBeNull();
+    const result = validatePayload(payload);
+    expect(result.valid).toBe(true);
+    expect(result.missing).toHaveLength(0);
   });
 });
 

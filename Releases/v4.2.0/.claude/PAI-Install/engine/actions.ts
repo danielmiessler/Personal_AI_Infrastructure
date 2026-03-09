@@ -7,10 +7,10 @@
 import { execSync, spawn } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlinkSync, unlinkSync, chmodSync, lstatSync, cpSync, rmSync } from "fs";
 import { homedir } from "os";
-import { join, basename } from "path";
+import { join } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
 import { PAI_VERSION, ALGORITHM_VERSION } from "./types";
-import { detectSystem, validateElevenLabsKey } from "./detect";
+import { detectSystem } from "./detect";
 import { generateSettingsJson } from "./config-gen";
 
 /**
@@ -56,50 +56,6 @@ function findExistingEnvKey(keyName: string): string {
 
   // Also check current environment
   return process.env[keyName] || "";
-}
-
-/**
- * Search existing .claude directories for settings.json voice configuration.
- * Returns { voiceId, aiName, source } if found, or null.
- */
-function findExistingVoiceConfig(): { voiceId: string; aiName: string; source: string } | null {
-  const home = homedir();
-  const candidates: string[] = [];
-
-  // Primary location first
-  candidates.push(join(home, ".claude", "settings.json"));
-
-  // Scan all .claude* directories (backups, renamed, etc.)
-  try {
-    const homeEntries = readdirSync(home);
-    for (const entry of homeEntries) {
-      if (entry.startsWith(".claude") && entry !== ".claude") {
-        candidates.push(join(home, entry, "settings.json"));
-      }
-    }
-  } catch {
-    // Ignore permission errors
-  }
-
-  for (const settingsPath of candidates) {
-    try {
-      if (!existsSync(settingsPath)) continue;
-      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
-      const voiceId = settings.daidentity?.voices?.main?.voiceId
-        || settings.daidentity?.voiceId;
-      if (voiceId && !/^\{.+\}$/.test(voiceId)) {
-        const dirName = basename(join(settingsPath, ".."));
-        return {
-          voiceId,
-          aiName: settings.daidentity?.name || "",
-          source: dirName,
-        };
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
-  return null;
 }
 
 function tryExec(cmd: string, timeout = 30000): string | null {
@@ -324,7 +280,7 @@ export async function runPrerequisites(
   await emit({ event: "step_complete", step: "prerequisites" });
 }
 
-// ─── Step 3: API Keys (passthrough — key collection moved to Voice Setup) ──
+// ─── Step 3: API Keys ───────────────────────────────────────────
 
 export async function runApiKeys(
   state: InstallState,
@@ -332,10 +288,8 @@ export async function runApiKeys(
   _getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>,
   _getChoice: (id: string, prompt: string, choices: { label: string; value: string }[]) => Promise<string>
 ): Promise<void> {
-  // ElevenLabs key collection is now handled in the Voice Setup step
-  // This step auto-completes to keep the step numbering consistent
   await emit({ event: "step_start", step: "api-keys" });
-  await emit({ event: "message", content: "API keys will be collected during Voice Setup." });
+  await emit({ event: "message", content: "No API keys required for this installation." });
   await emit({ event: "step_complete", step: "api-keys" });
 }
 
@@ -487,7 +441,6 @@ export async function runRepository(
     "MEMORY/LEARNING",
     "MEMORY/WORK",
     "MEMORY/RELATIONSHIP",
-    "MEMORY/VOICE",
     "Plans",
     "hooks",
     "skills",
@@ -530,8 +483,6 @@ export async function runConfiguration(
     catchphrase: state.collected.catchphrase || "Ready to go",
     projectsDir: state.collected.projectsDir,
     temperatureUnit: state.collected.temperatureUnit,
-    voiceType: state.collected.voiceType,
-    voiceId: state.collected.customVoiceId,
     paiDir,
     configDir,
   });
@@ -637,31 +588,18 @@ export async function runConfiguration(
     // Non-fatal — banner will just show 0 until first session ends
   }
 
-  // Create .env file for API keys
-  await emit({ event: "progress", step: "configuration", percent: 50, detail: "Setting up API keys..." });
+  // Create config directory and symlinks for .env (hooks read ~/.claude/.env)
+  await emit({ event: "progress", step: "configuration", percent: 50, detail: "Setting up config directory..." });
 
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
   }
 
   const envPath = join(configDir, ".env");
-  let envContent = "";
 
-  if (state.collected.elevenLabsKey) {
-    envContent += `ELEVENLABS_API_KEY=${state.collected.elevenLabsKey}\n`;
-  }
-
-  if (envContent) {
-    writeFileSync(envPath, envContent, { mode: 0o600 });
-    await emit({ event: "message", content: "API keys saved securely." });
-  }
-
-  // Create symlinks so all consumers can find the .env
-  // Voice server reads ~/.env, hooks read ~/.claude/.env
   if (existsSync(envPath)) {
     const symlinkPaths = [
-      join(paiDir, ".env"),         // ~/.claude/.env
-      join(homedir(), ".env"),      // ~/.env (voice server reads this)
+      join(paiDir, ".env"),         // ~/.claude/.env (hooks read this)
     ];
     for (const symlinkPath of symlinkPaths) {
       try {
@@ -714,407 +652,3 @@ export async function runConfiguration(
   await emit({ event: "step_complete", step: "configuration" });
 }
 
-// ─── Voice Server Management ────────────────────────────────────
-
-async function isVoiceServerRunning(): Promise<boolean> {
-  try {
-    const res = await fetch("http://localhost:8888/health", { signal: AbortSignal.timeout(2000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function stopVoiceServer(emit: EngineEventHandler): Promise<void> {
-  if (!(await isVoiceServerRunning())) return;
-
-  await emit({ event: "progress", step: "voice", percent: 15, detail: "Stopping existing voice server..." });
-
-  // Try graceful shutdown via the server's own endpoint
-  try {
-    await fetch("http://localhost:8888/shutdown", { method: "POST", signal: AbortSignal.timeout(3000) });
-  } catch {
-    // No shutdown endpoint — kill by port
-  }
-
-  // Kill the process LISTENING on port 8888 (not clients connected to it — that would kill us!)
-  tryExec(`lsof -ti:8888 -sTCP:LISTEN | xargs kill -9 2>/dev/null`, 5000);
-
-  // Unload existing LaunchAgent if present
-  const plistPath = join(homedir(), "Library", "LaunchAgents", "com.pai.voice-server.plist");
-  if (existsSync(plistPath)) {
-    tryExec(`launchctl unload "${plistPath}" 2>/dev/null`, 5000);
-  }
-
-  // Wait for it to actually stop
-  for (let i = 0; i < 6; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    if (!(await isVoiceServerRunning())) {
-      await emit({ event: "message", content: "Existing voice server stopped." });
-      return;
-    }
-  }
-}
-
-async function startVoiceServer(paiDir: string, emit: EngineEventHandler): Promise<boolean> {
-  const voiceServerDir = join(paiDir, "VoiceServer");
-  const stopScript = join(voiceServerDir, "stop.sh");
-  const installScript = join(voiceServerDir, "install.sh");
-  const startScript = join(voiceServerDir, "start.sh");
-  const serverTs = join(voiceServerDir, "server.ts");
-
-  // Check if VoiceServer directory exists
-  if (!existsSync(voiceServerDir)) {
-    await emit({ event: "message", content: "Voice server not found in installation." });
-    return false;
-  }
-
-  // Step 1: Stop any existing voice server (old or new)
-  await stopVoiceServer(emit);
-
-  // Step 2: Install as LaunchAgent (auto-start on login)
-  // CRITICAL: Use async spawn instead of execSync to avoid blocking the event loop.
-  // execSync blocks ALL WebSocket connections for the duration of the script.
-  await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service..." });
-  if (existsSync(installScript)) {
-    try {
-      const installOk = await new Promise<boolean>((resolve) => {
-        const child = spawn("bash", [installScript], {
-          cwd: voiceServerDir,
-          stdio: ["pipe", "pipe", "pipe"],
-        });
-        // Pipe "y\nn" — yes to reinstall, no to menu bar
-        child.stdin?.write("y\nn\n");
-        child.stdin?.end();
-        const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
-        child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
-        child.on("error", () => { clearTimeout(timer); resolve(false); });
-      });
-      if (installOk) {
-        for (let i = 0; i < 10; i++) {
-          await new Promise(r => setTimeout(r, 500));
-          if (await isVoiceServerRunning()) {
-            await emit({ event: "message", content: "Voice server installed and running." });
-            return true;
-          }
-        }
-      }
-    } catch {
-      // Fall through to next step
-    }
-  }
-
-  // Step 3: Fallback — try start.sh if LaunchAgent install failed
-  if (existsSync(startScript)) {
-    await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
-    try {
-      await new Promise<void>((resolve) => {
-        const child = spawn("bash", [startScript], {
-          cwd: voiceServerDir,
-          stdio: "ignore",
-        });
-        const timer = setTimeout(() => { child.kill(); resolve(); }, 15000);
-        child.on("close", () => { clearTimeout(timer); resolve(); });
-        child.on("error", () => { clearTimeout(timer); resolve(); });
-      });
-    } catch {
-      // Fall through
-    }
-    for (let i = 0; i < 10; i++) {
-      await new Promise(r => setTimeout(r, 500));
-      if (await isVoiceServerRunning()) {
-        await emit({ event: "message", content: "Voice server started." });
-        return true;
-      }
-    }
-  }
-
-  // Step 4: Last resort — start server.ts directly in background
-  if (existsSync(serverTs)) {
-    await emit({ event: "progress", step: "voice", percent: 30, detail: "Starting voice server directly..." });
-    try {
-      const child = spawn("bun", ["run", serverTs], {
-        cwd: voiceServerDir,
-        detached: true,
-        stdio: "ignore",
-      });
-      child.unref();
-
-      for (let i = 0; i < 10; i++) {
-        await new Promise(r => setTimeout(r, 500));
-        if (await isVoiceServerRunning()) {
-          await emit({ event: "message", content: "Voice server started directly." });
-          return true;
-        }
-      }
-    } catch {
-      // Fall through
-    }
-  }
-
-  await emit({ event: "message", content: "Could not start voice server. Voice will be configured but TTS test skipped." });
-  return false;
-}
-
-// ─── Step 7: Voice Setup ─────────────────────────────────────────
-
-export async function runVoiceSetup(
-  state: InstallState,
-  emit: EngineEventHandler,
-  getChoice: (id: string, prompt: string, choices: { label: string; value: string; description?: string }[]) => Promise<string>,
-  getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>
-): Promise<void> {
-  await emit({ event: "step_start", step: "voice" });
-
-  // ── Collect ElevenLabs key if not already found ──
-  if (!state.collected.elevenLabsKey) {
-    await emit({ event: "progress", step: "voice", percent: 5, detail: "Searching for existing ElevenLabs key..." });
-    let elevenLabsKey = findExistingEnvKey("ELEVENLABS_API_KEY");
-
-    if (elevenLabsKey) {
-      await emit({ event: "message", content: "Found existing ElevenLabs API key. Validating..." });
-      const result = await validateElevenLabsKey(elevenLabsKey);
-      if (result.valid) {
-        state.collected.elevenLabsKey = elevenLabsKey;
-        await emit({ event: "message", content: "Existing ElevenLabs API key is valid." });
-      } else {
-        await emit({ event: "message", content: `Existing key invalid: ${result.error}.` });
-        elevenLabsKey = "";
-      }
-    }
-
-    if (!elevenLabsKey) {
-      const wantsVoice = await getChoice("voice-enable", "Voice requires an ElevenLabs API key. Get one free at elevenlabs.io", [
-        { label: "I have a key", value: "yes" },
-        { label: "Skip voice for now", value: "skip" },
-      ]);
-
-      if (wantsVoice === "yes") {
-        const key = await getInput(
-          "elevenlabs-key",
-          "Enter your ElevenLabs API key:",
-          "key",
-          "sk_..."
-        );
-
-        if (key.trim()) {
-          await emit({ event: "progress", step: "voice", percent: 15, detail: "Validating ElevenLabs key..." });
-          const result = await validateElevenLabsKey(key.trim());
-          if (result.valid) {
-            state.collected.elevenLabsKey = key.trim();
-            await emit({ event: "message", content: "ElevenLabs API key verified." });
-          } else {
-            await emit({ event: "message", content: `Key validation failed: ${result.error}. Skipping voice setup.` });
-          }
-        }
-      }
-    }
-  }
-
-  const hasElevenLabsKey = !!state.collected.elevenLabsKey;
-  if (!hasElevenLabsKey) {
-    await emit({ event: "message", content: "No ElevenLabs key — voice server will use macOS text-to-speech as fallback. You can add a key later in ~/.config/PAI/.env" });
-  }
-
-  // ── Start voice server (works with or without ElevenLabs key) ──
-  const paiDir = state.detection?.paiDir || join(homedir(), ".claude");
-  await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
-  const voiceServerReady = await startVoiceServer(paiDir, emit);
-
-  // ── Digital Assistant Voice selection ──
-  await emit({ event: "progress", step: "voice", percent: 40, detail: "Checking for existing voice configuration..." });
-
-  const voiceIds: Record<string, string> = {
-    male: "pNInz6obpgDQGcFmaJgB",
-    female: "21m00Tcm4TlvDq8ikWAM",
-  };
-
-  let selectedVoiceId: string;
-
-  // Check for existing voice config from previous installations
-  const existingVoice = findExistingVoiceConfig();
-
-  if (existingVoice) {
-    const sourceLabel = existingVoice.aiName
-      ? `${existingVoice.aiName}'s voice (${existingVoice.voiceId.substring(0, 8)}...)`
-      : `Voice ID ${existingVoice.voiceId.substring(0, 8)}...`;
-    await emit({ event: "message", content: `Found existing voice configuration from ~/${existingVoice.source}` });
-
-    const useExisting = await getChoice("voice-existing", `Your DA was using: ${sourceLabel}. Use the same voice?`, [
-      { label: "Yes, keep this voice", value: "keep", description: `Voice ID: ${existingVoice.voiceId}` },
-      { label: "No, pick a new voice", value: "new", description: "Choose from presets or enter a custom ID" },
-    ]);
-
-    if (useExisting === "keep") {
-      selectedVoiceId = existingVoice.voiceId;
-      state.collected.voiceType = "custom";
-      state.collected.customVoiceId = selectedVoiceId;
-    } else {
-      // Fall through to voice selection below
-      selectedVoiceId = "";
-    }
-  } else {
-    selectedVoiceId = "";
-  }
-
-  // Voice selection (if not using existing)
-  if (!selectedVoiceId) {
-    await emit({ event: "progress", step: "voice", percent: 45, detail: "Choose your Digital Assistant's voice..." });
-
-    const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", [
-      { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-      { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-      { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-    ]);
-
-    if (voiceType === "custom") {
-      const customId = await getInput(
-        "custom-voice-id",
-        "Enter your ElevenLabs Voice ID:\nFind it at: elevenlabs.io/app/voice-library → Your voice → Voice ID",
-        "text",
-        "e.g., s3TPKV1kjDlVtZbl4Ksh"
-      );
-      selectedVoiceId = customId.trim() || voiceIds.female;
-      state.collected.voiceType = "custom";
-      state.collected.customVoiceId = selectedVoiceId;
-    } else {
-      selectedVoiceId = voiceIds[voiceType] || voiceIds.female;
-      state.collected.voiceType = voiceType as any;
-    }
-  }
-
-  // ── Update settings.json with voice ID ──
-  await emit({ event: "progress", step: "voice", percent: 60, detail: "Saving voice configuration..." });
-  const settingsPath = join(paiDir, "settings.json");
-
-  if (existsSync(settingsPath)) {
-    try {
-      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
-      if (settings.daidentity) {
-        settings.daidentity.voiceId = selectedVoiceId;
-        settings.daidentity.voices = settings.daidentity.voices || {};
-        settings.daidentity.voices.main = {
-          voiceId: selectedVoiceId,
-          stability: 0.35,
-          similarityBoost: 0.80,
-          style: 0.90,
-          speed: 1.1,
-        };
-        settings.daidentity.voices.algorithm = {
-          voiceId: selectedVoiceId,
-          stability: 0.35,
-          similarityBoost: 0.80,
-          style: 0.90,
-          speed: 1.1,
-        };
-      }
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-      await emit({ event: "message", content: "Voice settings saved to settings.json." });
-    } catch {
-      // Non-fatal
-    }
-  }
-
-  // ── Save ElevenLabs key to .env (if provided) ──
-  if (hasElevenLabsKey) {
-    const configDir = state.detection?.configDir || join(homedir(), ".config", "PAI");
-    const envPath = join(configDir, ".env");
-    if (!existsSync(configDir)) mkdirSync(configDir, { recursive: true });
-
-    let envContent = existsSync(envPath) ? readFileSync(envPath, "utf-8") : "";
-    if (envContent.includes("ELEVENLABS_API_KEY=")) {
-      envContent = envContent.replace(/ELEVENLABS_API_KEY=.*/, `ELEVENLABS_API_KEY=${state.collected.elevenLabsKey}`);
-    } else {
-      envContent = envContent.trim() + `\nELEVENLABS_API_KEY=${state.collected.elevenLabsKey}\n`;
-    }
-    writeFileSync(envPath, envContent.trim() + "\n", { mode: 0o600 });
-
-    // Ensure symlinks exist at both ~/.claude/.env and ~/.env
-    const symlinkTargets = [
-      join(paiDir, ".env"),
-      join(homedir(), ".env"),
-    ];
-    for (const sp of symlinkTargets) {
-      try {
-        if (existsSync(sp)) {
-          if (lstatSync(sp).isSymbolicLink()) unlinkSync(sp);
-          else continue;
-        }
-        symlinkSync(envPath, sp);
-      } catch { /* non-fatal */ }
-    }
-  }
-
-  // ── Test TTS and confirm with user ──
-  if (voiceServerReady) {
-    let voiceConfirmed = false;
-    while (!voiceConfirmed) {
-      await emit({ event: "progress", step: "voice", percent: 80, detail: "Testing voice output..." });
-      try {
-        const aiName = state.collected.aiName || "PAI";
-        const userName = state.collected.principalName || "there";
-        const testRes = await fetch("http://localhost:8888/notify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Hello ${userName}, this is ${aiName}. My voice system is online and ready to assist you.`,
-            voice_id: selectedVoiceId,
-            voice_settings: { stability: 0.35, similarity_boost: 0.80, style: 0.90, speed: 1.1, use_speaker_boost: true },
-          }),
-          signal: AbortSignal.timeout(10000),
-        });
-        if (testRes.ok) {
-          await emit({ event: "message", content: `Voice test sent — listen for ${aiName} speaking...`, speak: false });
-
-          // Ask user to confirm they heard it and like it
-          const confirm = await getChoice("voice-confirm", "Did you hear the voice? Does it sound good?", [
-            { label: "Sounds great!", value: "yes" },
-            { label: "Pick a different voice", value: "change" },
-            { label: "Skip voice for now", value: "skip" },
-          ]);
-
-          if (confirm === "yes") {
-            voiceConfirmed = true;
-          } else if (confirm === "skip") {
-            voiceConfirmed = true;
-          } else {
-            // Let them pick again
-            const newVoice = await getChoice("voice-type-retry", "Choose a different voice:", [
-              { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-              { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-              { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-            ]);
-            if (newVoice === "custom") {
-              const newId = await getInput("custom-voice-id-retry", "Enter your ElevenLabs Voice ID:", "text", "e.g., s3TPKV1kjDlVtZbl4Ksh");
-              selectedVoiceId = newId.trim() || selectedVoiceId;
-              state.collected.voiceType = "custom";
-              state.collected.customVoiceId = selectedVoiceId;
-            } else {
-              selectedVoiceId = voiceIds[newVoice] || voiceIds.female;
-              state.collected.voiceType = newVoice as any;
-            }
-            // Update settings.json with new choice before re-testing
-            try {
-              const s = JSON.parse(readFileSync(settingsPath, "utf-8"));
-              if (s.daidentity?.voices?.main) s.daidentity.voices.main.voiceId = selectedVoiceId;
-              if (s.daidentity?.voices?.algorithm) s.daidentity.voices.algorithm.voiceId = selectedVoiceId;
-              writeFileSync(settingsPath, JSON.stringify(s, null, 2));
-            } catch { /* non-fatal */ }
-          }
-        } else {
-          await emit({ event: "message", content: "Voice test returned an error. Voice may need manual configuration." });
-          voiceConfirmed = true;
-        }
-      } catch {
-        await emit({ event: "message", content: "Voice test timed out. Server may still be initializing." });
-        voiceConfirmed = true;
-      }
-    }
-  }
-
-  const voiceLabel = state.collected.voiceType === "custom"
-    ? `Custom voice (${selectedVoiceId.substring(0, 8)}...)`
-    : state.collected.voiceType || "default";
-  await emit({ event: "message", content: `Digital Assistant voice configured: ${voiceLabel}` });
-  await emit({ event: "step_complete", step: "voice" });
-}

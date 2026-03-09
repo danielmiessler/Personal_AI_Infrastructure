@@ -45,8 +45,8 @@ export interface ParsedTranscript {
   lastMessage: string;
   /** Full text from current response turn (all assistant blocks combined) */
   currentResponseText: string;
-  /** Voice completion text (for TTS) */
-  voiceCompletion: string;
+  /** Completion summary text (from 🗣️ line, used for tab title) */
+  completionSummary: string;
   /** Plain completion text (for tab title) */
   plainCompletion: string;
   /** Structured sections extracted from response */
@@ -185,7 +185,7 @@ export function getLastAssistantMessage(transcriptPath: string): string {
 // ============================================================================
 
 /**
- * Extract voice completion line for TTS.
+ * Extract completion summary from the 🗣️ line (used for tab title).
  * Uses LAST match to avoid capturing mentions in analysis text.
  */
 export function extractVoiceCompletion(text: string): string {
@@ -361,7 +361,7 @@ export function parseTranscript(transcriptPath: string): ParsedTranscript {
       raw,
       lastMessage,
       currentResponseText,
-      voiceCompletion: extractVoiceCompletion(currentResponseText),
+      completionSummary: extractVoiceCompletion(currentResponseText),
       plainCompletion: extractCompletionPlain(currentResponseText),
       structured: extractStructuredSections(currentResponseText),
       responseState: detectResponseState(lastMessage, raw),
@@ -372,7 +372,7 @@ export function parseTranscript(transcriptPath: string): ParsedTranscript {
       raw: '',
       lastMessage: '',
       currentResponseText: '',
-      voiceCompletion: '',
+      completionSummary: '',
       plainCompletion: '',
       structured: {},
       responseState: 'completed',
@@ -404,7 +404,7 @@ Options:
   const parsed = parseTranscript(transcriptPath);
 
   if (args.includes('--voice')) {
-    console.log(parsed.voiceCompletion);
+    console.log(parsed.completionSummary);
   } else if (args.includes('--plain')) {
     console.log(parsed.plainCompletion);
   } else if (args.includes('--structured')) {

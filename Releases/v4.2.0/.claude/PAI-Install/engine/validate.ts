@@ -10,21 +10,9 @@ import { PAI_VERSION } from "./types";
 import { homedir } from "os";
 
 /**
- * Check if voice server is running via HTTP health check.
- */
-async function checkVoiceServerHealth(): Promise<boolean> {
-  try {
-    const res = await fetch("http://localhost:8888/health", { signal: AbortSignal.timeout(2000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Run all validation checks against the current state.
  */
-export async function runValidation(state: InstallState): Promise<ValidationCheck[]> {
+export function runValidation(state: InstallState): ValidationCheck[] {
   const paiDir = state.detection?.paiDir || join(homedir(), ".claude");
   const configDir = state.detection?.configDir || join(homedir(), ".config", "PAI");
   const checks: ValidationCheck[] = [];
@@ -115,59 +103,7 @@ export async function runValidation(state: InstallState): Promise<ValidationChec
     critical: false,
   });
 
-  // 5. ElevenLabs key stored — check all three possible locations
-  const envPaths = [
-    join(configDir, ".env"),
-    join(paiDir, ".env"),
-    join(homedir(), ".env"),
-  ];
-  let elevenLabsKeyStored = false;
-  let elevenLabsKeyLocation = "";
-  for (const ep of envPaths) {
-    if (existsSync(ep)) {
-      try {
-        const envContent = readFileSync(ep, "utf-8");
-        if (envContent.includes("ELEVENLABS_API_KEY=") &&
-            !envContent.includes("ELEVENLABS_API_KEY=\n")) {
-          elevenLabsKeyStored = true;
-          elevenLabsKeyLocation = ep;
-          break;
-        }
-      } catch {}
-    }
-  }
-
-  checks.push({
-    name: "ElevenLabs API key",
-    passed: elevenLabsKeyStored,
-    detail: elevenLabsKeyStored ? `Stored in ${elevenLabsKeyLocation}` : state.collected.elevenLabsKey ? "Collected but not saved" : "Not configured",
-    critical: false,
-  });
-
-  // 6. DA voice configured in settings (nested under voices.main.voiceId)
-  const voiceId = settings?.daidentity?.voices?.main?.voiceId;
-  const voiceIdConfigured = !!voiceId;
-
-  checks.push({
-    name: "DA voice ID",
-    passed: voiceIdConfigured,
-    detail: voiceIdConfigured ? `Voice ID: ${voiceId.substring(0, 8)}...` : "Not configured",
-    critical: false,
-  });
-
-  // 7. Voice server reachable (live HTTP health check)
-  const voiceServerHealthy = await checkVoiceServerHealth();
-
-  checks.push({
-    name: "Voice server",
-    passed: voiceServerHealthy,
-    detail: voiceServerHealthy
-      ? "Running (localhost:8888)"
-      : "Not reachable — start voice server",
-    critical: false,
-  });
-
-  // 8. Zsh alias configured
+  // 5. Zsh alias configured
   const zshrcPath = join(homedir(), ".zshrc");
   let aliasConfigured = false;
   if (existsSync(zshrcPath)) {
@@ -196,11 +132,9 @@ export function generateSummary(state: InstallState): InstallSummary {
     principalName: state.collected.principalName || "User",
     aiName: state.collected.aiName || "PAI",
     timezone: state.collected.timezone || "UTC",
-    voiceEnabled: state.completedSteps.includes("voice"),
-    voiceMode: state.collected.elevenLabsKey ? "elevenlabs" : state.completedSteps.includes("voice") ? "macos-say" : "none",
     catchphrase: state.collected.catchphrase || "",
     installType: state.installType || "fresh",
     completedSteps: state.completedSteps.length,
-    totalSteps: 8,
+    totalSteps: 7,
   };
 }

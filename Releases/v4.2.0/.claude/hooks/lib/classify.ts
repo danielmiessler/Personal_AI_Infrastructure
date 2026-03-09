@@ -25,7 +25,8 @@ export function classify(prompt: string): Mode {
   const hasActionVerb = /\b(build|create|implement|fix|debug|refactor|analyze|write|design|review|plan|add|update|remove|set|migrate|convert|optimize|investigate|research|develop|configure|deploy|install|test|audit|generate|scaffold|integrate|setup|set up)\b/i.test(trimmed);
 
   // Gate 2: technical object present OR multi-step complexity
-  const hasTechnicalObject = /\b(code|file|function|class|method|api|endpoint|database|schema|config|hook|script|test|build|deploy|server|component|module|service|bug|error|feature|algorithm|query|migration|route|middleware|model|controller|template|pipeline|workflow|repo|branch|commit|container|package|dependency|type|interface|struct)\b/i.test(trimmed);
+  // Note: s? handles common plurals (hooks, tests, logs, etc.)
+  const hasTechnicalObject = /\b(codes?|files?|functions?|class(es)?|methods?|api|endpoints?|databases?|schemas?|configs?|hooks?|scripts?|tests?|builds?|deploys?|servers?|components?|modules?|services?|bugs?|errors?|features?|algorithms?|quer(y|ies)|migrations?|routes?|middleware|models?|controllers?|templates?|pipelines?|workflows?|repo|branch(es)?|commits?|containers?|packages?|dependenc(y|ies)|types?|interfaces?|structs?|system|apps?|application|auth|authentication|authorization|modes?|themes?|styles?|layouts?|pages?|views?|screens?|forms?|buttons?|widgets?|dashboards?|animations?|logic|data|state|cach(e|es)|logs?|performance|security|permissions?|roles?|users?|sessions?|tokens?|keys?|certs?|env|variables?|settings?|options?|flags?|cli|upgrade|memory|leak|integration)\b/i.test(trimmed);
   const words = trimmed.split(/\s+/);
   const isComplex = words.length > 30 || /\b(and then|also|step|first|second|finally)\b|\d+\)/i.test(trimmed);
 

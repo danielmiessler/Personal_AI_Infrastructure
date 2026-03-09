@@ -1,0 +1,74 @@
+name: Validate Release Manifest
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '.claude/**'
+      - '.claude/manifest.json'
+  push:
+    branches: [main, master]
+    paths:
+      - '.claude/**'
+      - '.claude/manifest.json'
+
+jobs:
+  validate-manifest:
+    name: Manifest integrity check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check manifest.json is valid JSON
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('.claude/manifest.json', 'utf-8'));
+            console.log('✓ manifest.json is valid JSON');
+            console.log('  version:', manifest.version);
+            console.log('  files:', manifest.files?.length ?? 0);
+          "
+
+      - name: Check all manifest files exist
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('.claude/manifest.json', 'utf-8'));
+            const missing = [];
+            for (const entry of manifest.files ?? []) {
+              const full = '.claude/' + entry.path;
+              if (!fs.existsSync(full)) {
+                missing.push(full);
+              }
+            }
+            if (missing.length > 0) {
+              console.error('✗ Missing files listed in manifest.json:');
+              missing.forEach(f => console.error('  -', f));
+              process.exit(1);
+            }
+            console.log('✓ All', manifest.files.length, 'manifest files exist on disk');
+          "
+
+      - name: Check manifest version matches types.ts
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('.claude/manifest.json', 'utf-8'));
+            const types = fs.readFileSync('.claude/PAI-Install/engine/types.ts', 'utf-8');
+            const match = types.match(/PAI_VERSION\s*=\s*[\"']([^\"']+)[\"']/);
+            if (!match) {
+              console.warn('⚠ Could not extract PAI_VERSION from types.ts — skipping version check');
+              process.exit(0);
+            }
+            const typesVersion = match[1];
+            if (manifest.version !== typesVersion) {
+              console.error('✗ Version mismatch:');
+              console.error('  manifest.json:', manifest.version);
+              console.error('  types.ts PAI_VERSION:', typesVersion);
+              console.error('');
+              console.error('  Run: bun .claude/lib/generate-manifest.ts');
+              process.exit(1);
+            }
+            console.log('✓ Manifest version matches types.ts:', manifest.version);
+          "

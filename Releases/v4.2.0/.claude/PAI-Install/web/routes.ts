@@ -4,7 +4,7 @@
  */
 
 import type { InstallState, EngineEvent, ServerMessage, ClientMessage } from "../engine/types";
-import { detectSystem, validateElevenLabsKey } from "../engine/detect";
+import { detectSystem } from "../engine/detect";
 import {
   runSystemDetect,
   runPrerequisites,
@@ -12,7 +12,6 @@ import {
   runIdentity,
   runRepository,
   runConfiguration,
-  runVoiceSetup,
 } from "../engine/actions";
 import { runValidation, generateSummary } from "../engine/validate";
 import {
@@ -211,27 +210,12 @@ async function startInstallation(): Promise<void> {
     if (!installState.completedSteps.includes("configuration")) {
       await runConfiguration(installState, emit);
       completeStep(installState, "configuration");
-      installState.currentStep = "voice";
-    }
-
-    // Step 7: Voice (handles key collection + voice selection + server test)
-    if (!installState.completedSteps.includes("voice") && !installState.skippedSteps.includes("voice")) {
-      try {
-        await runVoiceSetup(installState, emit, requestChoice, requestInput);
-        if (!installState.skippedSteps.includes("voice")) {
-          completeStep(installState, "voice");
-        }
-      } catch (voiceErr: any) {
-        broadcast({ type: "error", message: `Voice setup error: ${voiceErr?.message || "Unknown error"}` });
-        broadcast({ type: "message", role: "assistant", content: "Voice setup encountered an error. Continuing with installation..." });
-        skipStep(installState, "voice", voiceErr?.message || "error");
-      }
       installState.currentStep = "validation";
     }
 
-    // Step 8: Validation
+    // Step 7: Validation
     broadcast({ type: "step_update", step: "validation", status: "active" });
-    const checks = await runValidation(installState);
+    const checks = runValidation(installState);
     broadcast({ type: "validation_result", checks });
     completeStep(installState, "validation");
     broadcast({ type: "step_update", step: "validation", status: "completed" });

@@ -548,14 +548,6 @@ name: "${agent.name}"
 description: "${description.replace(/"/g, '\\"')}"
 model: opus
 color: "${agent.color}"
-voiceId: "${agent.voiceId}"
-voice:
-  stability: ${agent.voiceSettings.stability}
-  similarity_boost: ${agent.voiceSettings.similarity_boost}
-  style: ${agent.voiceSettings.style}
-  speed: ${agent.voiceSettings.speed}
-  use_speaker_boost: ${agent.voiceSettings.use_speaker_boost}
-  volume: ${agent.voiceSettings.volume}
 persona:
   name: "${agent.name}"
   title: "${personaTitle.replace(/"/g, '\\"')}"
@@ -633,7 +625,6 @@ function buildSavedAgentBody(
 
 **Real Name**: ${agent.name}
 **Character Archetype**: "${personaTitle}"
-**Voice Settings**: Stability ${vs.stability}, Similarity Boost ${vs.similarity_boost}, Speed ${vs.speed}
 
 ${expertiseBlock ? `## Domain Expertise\n\n${expertiseBlock}\n` : ""}
 ## Personality
@@ -643,42 +634,6 @@ ${personalityBlock}
 ## Working Approach
 
 ${approachBlock}
-
----
-
-# 🚨 MANDATORY STARTUP SEQUENCE - DO THIS FIRST 🚨
-
-**BEFORE ANY WORK, YOU MUST:**
-
-1. **Send voice notification that you're loading:**
-\`\`\`bash
-curl -X POST http://localhost:8888/notify \\
-  -H "Content-Type: application/json" \\
-  -d '{"message":"${agent.name} loading and ready to work","voice_id":"${agent.voiceId}","title":"${agent.name}"}'
-\`\`\`
-
-2. **Then proceed with your task**
-
-**This is NON-NEGOTIABLE. Announce yourself first.**
-
----
-
-## 🎯 MANDATORY VOICE NOTIFICATION SYSTEM
-
-**YOU MUST SEND VOICE NOTIFICATION BEFORE EVERY RESPONSE:**
-
-\`\`\`bash
-curl -X POST http://localhost:8888/notify \\
-  -H "Content-Type: application/json" \\
-  -d '{"message":"Your COMPLETED line content here","voice_id":"${agent.voiceId}","title":"${agent.name}"}'
-\`\`\`
-
-**Voice Requirements:**
-- Your voice_id is: \`${agent.voiceId}\`
-- Message should be your 🎯 COMPLETED line (8-16 words optimal)
-- Must be grammatically correct and speakable
-- Send BEFORE writing your response
-- DO NOT SKIP - {PRINCIPAL.NAME} needs to hear you speak
 
 ---
 

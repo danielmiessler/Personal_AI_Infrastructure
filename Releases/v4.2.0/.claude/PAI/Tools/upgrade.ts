@@ -109,8 +109,12 @@ export function checkDependencies(): DepCheckResult {
   }
 
   // Claude Code
-  const claudeResult = spawnSync(['claude', '--version'], { stderr: 'pipe' });
-  if (claudeResult.exitCode !== 0) {
+  try {
+    const claudeResult = spawnSync(['claude', '--version'], { stderr: 'pipe' });
+    if (claudeResult.exitCode !== 0) {
+      warnings.push('Claude Code CLI not found — install from https://claude.ai/code');
+    }
+  } catch {
     warnings.push('Claude Code CLI not found — install from https://claude.ai/code');
   }
 

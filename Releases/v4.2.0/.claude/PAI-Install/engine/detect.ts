@@ -71,7 +71,6 @@ function detectExisting(
   const result: DetectionResult["existing"] = {
     paiInstalled: false,
     hasApiKeys: false,
-    elevenLabsKeyFound: false,
     backupPaths: [],
   };
 
@@ -99,8 +98,9 @@ function detectExisting(
   if (existsSync(envPath)) {
     try {
       const envContent = readFileSync(envPath, "utf-8");
-      result.elevenLabsKeyFound = envContent.includes("ELEVENLABS_API_KEY=");
-      result.hasApiKeys = result.elevenLabsKeyFound;
+      result.hasApiKeys = envContent.split("\n").some(
+        line => line.includes("=") && !line.startsWith("#") && line.split("=")[1]?.trim()
+      );
     } catch {
       // Permission denied or other error
     }
@@ -150,19 +150,3 @@ export function detectSystem(): DetectionResult {
   };
 }
 
-/**
- * Validate an ElevenLabs API key.
- */
-export async function validateElevenLabsKey(key: string): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const res = await fetch("https://api.elevenlabs.io/v1/user", {
-      headers: { "xi-api-key": key },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (res.ok) return { valid: true };
-    return { valid: false, error: `HTTP ${res.status}` };
-  } catch (e: any) {
-    return { valid: false, error: e.message || "Network error" };
-  }
-}

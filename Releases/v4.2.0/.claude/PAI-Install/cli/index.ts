@@ -20,7 +20,6 @@ import {
   runIdentity,
   runRepository,
   runConfiguration,
-  runVoiceSetup,
 } from "../engine/actions";
 import { runValidation, generateSummary } from "../engine/validate";
 import {
@@ -134,7 +133,7 @@ export async function runCLI(): Promise<void> {
     // ── Step 1: System Detection ──
     if (!state.completedSteps.includes("system-detect")) {
       const step = STEPS[0];
-      printStep(step.number, 8, step.name);
+      printStep(step.number, 7, step.name);
       const detection = await runSystemDetect(state, emit);
       printDetection(detection);
       completeStep(state, "system-detect");
@@ -144,7 +143,7 @@ export async function runCLI(): Promise<void> {
     // ── Step 2: Prerequisites ──
     if (!state.completedSteps.includes("prerequisites")) {
       const step = STEPS[1];
-      printStep(step.number, 8, step.name);
+      printStep(step.number, 7, step.name);
       await runPrerequisites(state, emit);
       completeStep(state, "prerequisites");
       state.currentStep = "api-keys";
@@ -153,7 +152,7 @@ export async function runCLI(): Promise<void> {
     // ── Step 3: API Keys ──
     if (!state.completedSteps.includes("api-keys")) {
       const step = STEPS[2];
-      printStep(step.number, 8, step.name);
+      printStep(step.number, 7, step.name);
       await runApiKeys(state, emit, getInput, getChoice);
       completeStep(state, "api-keys");
       state.currentStep = "identity";
@@ -162,7 +161,7 @@ export async function runCLI(): Promise<void> {
     // ── Step 4: Identity ──
     if (!state.completedSteps.includes("identity")) {
       const step = STEPS[3];
-      printStep(step.number, 8, step.name);
+      printStep(step.number, 7, step.name);
       await runIdentity(state, emit, getInput);
       completeStep(state, "identity");
       state.currentStep = "repository";
@@ -171,7 +170,7 @@ export async function runCLI(): Promise<void> {
     // ── Step 5: Repository ──
     if (!state.completedSteps.includes("repository")) {
       const step = STEPS[4];
-      printStep(step.number, 8, step.name);
+      printStep(step.number, 7, step.name);
       await runRepository(state, emit);
       completeStep(state, "repository");
       state.currentStep = "configuration";
@@ -180,27 +179,18 @@ export async function runCLI(): Promise<void> {
     // ── Step 6: Configuration ──
     if (!state.completedSteps.includes("configuration")) {
       const step = STEPS[5];
-      printStep(step.number, 8, step.name);
+      printStep(step.number, 7, step.name);
       await runConfiguration(state, emit);
       completeStep(state, "configuration");
-      state.currentStep = "voice";
-    }
-
-    // ── Step 7: Voice ──
-    if (!state.completedSteps.includes("voice") && !state.skippedSteps.includes("voice")) {
-      const step = STEPS[6];
-      printStep(step.number, 8, step.name);
-      await runVoiceSetup(state, emit, getChoice, getInput);
-      completeStep(state, "voice");
       state.currentStep = "validation";
     }
 
-    // ── Step 8: Validation ──
+    // ── Step 7: Validation ──
     if (!state.completedSteps.includes("validation")) {
-      const step = STEPS[7];
-      printStep(step.number, 8, step.name);
+      const step = STEPS[6];
+      printStep(step.number, 7, step.name);
 
-      const checks = await runValidation(state);
+      const checks = runValidation(state);
       printValidation(checks);
 
       const allCritical = checks.filter((c) => c.critical).every((c) => c.passed);

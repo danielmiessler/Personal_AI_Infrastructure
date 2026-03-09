@@ -1,0 +1,47 @@
+// PAI Notification Configuration
+// Controls multi-channel notification routing for long tasks, errors, and security events.
+// Credentials are loaded from environment variables — never hardcode values here.
+//
+// Run `bun ~/.claude/hooks/handlers/BuildSettings.ts` after editing to
+// regenerate settings.json.
+
+{
+  "notifications": {
+    // ntfy.sh push notifications (mobile + desktop)
+    "ntfy": {
+      "enabled": true,
+      // Topic name — set NTFY_TOPIC in your shell environment
+      "topic": "${NTFY_TOPIC}",
+      "server": "ntfy.sh"
+    },
+
+    // Discord webhook notifications
+    "discord": {
+      "enabled": true,
+      // Webhook URL — set DISCORD_WEBHOOK in your shell environment
+      "webhook": "${DISCORD_WEBHOOK}"
+    },
+
+    // Twilio SMS notifications
+    "twilio": {
+      "enabled": true,
+      // Destination phone number — set TWILIO_TO_NUMBER in your shell environment
+      "toNumber": "${TWILIO_TO_NUMBER}"
+    },
+
+    // Task duration threshold for "long task" notifications
+    "thresholds": {
+      "longTaskMinutes": 5
+    },
+
+    // Channel routing by event type
+    // Empty array = no notification; add channel names to route to that channel
+    "routing": {
+      "taskComplete": [],
+      "longTask": ["ntfy"],
+      "backgroundAgent": ["ntfy"],
+      "error": ["ntfy", "discord"],
+      "security": ["ntfy", "discord"]
+    }
+  }
+}

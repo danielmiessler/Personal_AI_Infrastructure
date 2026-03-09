@@ -33,6 +33,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
+import { atomicWriteJSON } from '../lib/atomic';
 import { join, basename, dirname } from 'path';
 import { paiPath, getPaiDir } from '../lib/paths';
 import { getIdentity } from '../lib/identity';
@@ -411,7 +412,7 @@ function addToReviewQueue(driftItems: DriftItem[]): void {
 
   const dir = dirname(REVIEW_QUEUE_FILE);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(REVIEW_QUEUE_FILE, JSON.stringify(queue, null, 2));
+  atomicWriteJSON(REVIEW_QUEUE_FILE, queue);
   console.error(`${TAG} Added ${newItems.length} item(s) to review queue: ${REVIEW_QUEUE_FILE}`);
 }
 
@@ -860,7 +861,7 @@ export async function handleDocCrossRefIntegrity(
   };
 
   try {
-    writeFileSync(DRIFT_STATE_FILE, JSON.stringify(report, null, 2));
+    atomicWriteJSON(DRIFT_STATE_FILE, report);
     console.error(`${TAG} Drift report saved to ${DRIFT_STATE_FILE}`);
   } catch (error) {
     console.error(`${TAG} Failed to save drift report:`, error);

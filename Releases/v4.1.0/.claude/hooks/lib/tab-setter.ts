@@ -9,6 +9,7 @@
  */
 
 import { existsSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, readFileSync } from 'fs';
+import { atomicWriteJSON } from './atomic';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { TAB_COLORS, PHASE_TAB_CONFIG, ACTIVE_TAB_BG, ACTIVE_TAB_FG, INACTIVE_TAB_FG, type TabState, type AlgorithmTabPhase } from './tab-constants';
@@ -201,7 +202,7 @@ export function setTabState(opts: SetTabOptions): void {
         timestamp: new Date().toISOString(),
       };
       if (previousTitle) stateData.previousTitle = previousTitle;
-      writeFileSync(join(TAB_TITLES_DIR, `${windowId}.json`), JSON.stringify(stateData), 'utf-8');
+      atomicWriteJSON(join(TAB_TITLES_DIR, `${windowId}.json`), stateData);
     }
   } catch { /* silent */ }
 
@@ -351,12 +352,12 @@ export function setPhaseTab(phase: AlgorithmTabPhase, sessionId: string, summary
 
   try {
     if (!existsSync(TAB_TITLES_DIR)) mkdirSync(TAB_TITLES_DIR, { recursive: true });
-    writeFileSync(join(TAB_TITLES_DIR, `${windowId}.json`), JSON.stringify({
+    atomicWriteJSON(join(TAB_TITLES_DIR, `${windowId}.json`), {
       title,
       inactiveBg: config.inactiveBg,
       state: phase === 'COMPLETE' ? 'completed' : 'working',
       phase,
       timestamp: new Date().toISOString(),
-    }), 'utf-8');
+    });
   } catch { /* silent */ }
 }

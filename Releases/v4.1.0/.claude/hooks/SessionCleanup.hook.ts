@@ -34,6 +34,7 @@
  */
 
 import { writeFileSync, existsSync, readFileSync, unlinkSync, statSync, renameSync, readdirSync } from 'fs';
+import { atomicWriteJSON } from './lib/atomic';
 import { join } from 'path';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
@@ -129,7 +130,7 @@ function clearSessionWork(sessionId?: string): void {
           const names = JSON.parse(readFileSync(snPath, 'utf-8'));
           if (names[sid]) {
             delete names[sid];
-            writeFileSync(snPath, JSON.stringify(names, null, 2), 'utf-8');
+            atomicWriteJSON(snPath, names);
             console.error(`[SessionCleanup] Removed session ${sid} from session-names.json`);
           }
         }
@@ -257,7 +258,7 @@ function runRetentionCleanup(): void {
     } catch {}
 
     // Record cleanup timestamp
-    writeFileSync(LAST_CLEANUP_PATH, JSON.stringify({ timestamp: now }), 'utf-8');
+    atomicWriteJSON(LAST_CLEANUP_PATH, { timestamp: now });
     if (cleaned > 0) {
       console.error(`[SessionCleanup] Retention cleanup: ${cleaned} items cleaned`);
     }

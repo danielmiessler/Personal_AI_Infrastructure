@@ -16,7 +16,8 @@
  * - Single source of truth in settings.json
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
+import { atomicWriteJSON } from '../lib/atomic';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { getPaiDir, getSettingsPath, paiPath } from '../lib/paths';
@@ -241,7 +242,7 @@ async function refreshUsageCache(paiDir: string): Promise<void> {
       }
     }
 
-    writeFileSync(usageCachePath, JSON.stringify(data, null, 2) + '\n');
+    atomicWriteJSON(usageCachePath, data);
     console.error(`[UpdateCounts] Usage cache refreshed: 5H=${(data.five_hour as any)?.utilization}% 7D=${(data.seven_day as any)?.utilization}%`);
   } catch {
     // Non-fatal — status line falls back to stale cache
@@ -279,7 +280,7 @@ export async function handleUpdateCounts(): Promise<void> {
     } catch {}
 
     // Write back
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+    atomicWriteJSON(settingsPath, settings);
     console.error(`[UpdateCounts] Updated: SK:${counts.skills} WF:${counts.workflows} HK:${counts.hooks} SIG:${counts.signals} F:${counts.files} W:${counts.work} SESS:${counts.sessions} RES:${counts.research} RAT:${counts.ratings}`);
   } catch (error) {
     console.error('[UpdateCounts] Failed to update counts:', error);

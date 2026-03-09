@@ -17,13 +17,22 @@
  * OUTPUT:
  * - stdout: JSON decision object
  *   - {"continue": true} → Allow operation
- *   - {"decision": "ask", "message": "..."} → Prompt user for confirmation
+ *   (Note: confirm-level operations now hard-block via exit(2), see below)
  * - exit(0): Normal completion (with decision)
  * - exit(2): Hard block (catastrophic operation prevented)
  *
  * SIDE EFFECTS:
  * - Writes to: MEMORY/SECURITY/YYYY/MM/security-{summary}-{timestamp}.jsonl
- * - User prompt: May trigger confirmation dialog for confirm-level operations
+ * - Confirm operations: Hard-blocked via exit(2) — see BUG FIX note below
+ *
+ * BUG FIX (2026-03-09):
+ * Claude Code PreToolUse hooks only recognize two stdout formats:
+ *   - {"continue": true} to allow the operation
+ *   - exit code 2 to hard block the operation
+ * The previously used {"decision": "ask"} format is NOT recognized by
+ * Claude Code and silently passes through, allowing operations that
+ * should require confirmation to execute without any user prompt.
+ * Confirm-level operations now use exit(2) to hard-block instead.
  *
  * INTER-HOOK RELATIONSHIPS:
  * - DEPENDS ON: patterns.yaml (security pattern definitions)
@@ -177,10 +186,10 @@ interface PatternsConfig {
 // ========================================
 
 // Pattern paths in priority order:
-// 1. skills/PAI/USER/PAISECURITYSYSTEM/patterns.yaml (user's custom rules)
-// 2. skills/PAI/PAISECURITYSYSTEM/patterns.example.yaml (default template)
-const USER_PATTERNS_PATH = paiPath('skills', 'PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.yaml');
-const SYSTEM_PATTERNS_PATH = paiPath('skills', 'PAI', 'PAISECURITYSYSTEM', 'patterns.example.yaml');
+// 1. PAI/USER/PAISECURITYSYSTEM/patterns.yaml (user's custom rules)
+// 2. PAI/PAISECURITYSYSTEM/patterns.example.yaml (default template)
+const USER_PATTERNS_PATH = paiPath('PAI', 'USER', 'PAISECURITYSYSTEM', 'patterns.yaml');
+const SYSTEM_PATTERNS_PATH = paiPath('PAI', 'PAISECURITYSYSTEM', 'patterns.example.yaml');
 
 let patternsCache: PatternsConfig | null = null;
 let patternsSource: 'user' | 'system' | 'none' = 'none';
@@ -427,12 +436,12 @@ function handleBash(input: HookInput): void {
         category: 'bash_command',
         target: command.slice(0, 500),
         reason: result.reason,
-        action_taken: 'Prompted user for confirmation'
+        action_taken: 'Hard block - exit 2 (confirm-level)'
       });
-      console.log(JSON.stringify({
-        decision: 'ask',
-        message: `[PAI SECURITY] ⚠️ ${result.reason}\n\nCommand: ${command.slice(0, 200)}\n\nProceed?`
-      }));
+      console.error(`[PAI SECURITY] BLOCKED (confirm): ${result.reason}`);
+      console.error(`Command: ${command.slice(0, 200)}`);
+      console.error(`This operation requires confirmation. Run it manually outside Claude Code.`);
+      process.exit(2);
       break;
 
     case 'alert':
@@ -494,12 +503,12 @@ function handleEdit(input: HookInput): void {
         category: 'path_access',
         target: filePath,
         reason: result.reason,
-        action_taken: 'Prompted user for confirmation'
+        action_taken: 'Hard block - exit 2 (confirm-level)'
       });
-      console.log(JSON.stringify({
-        decision: 'ask',
-        message: `[PAI SECURITY] ⚠️ ${result.reason}\n\nPath: ${filePath}\n\nProceed?`
-      }));
+      console.error(`[PAI SECURITY] BLOCKED (confirm): ${result.reason}`);
+      console.error(`Path: ${filePath}`);
+      console.error(`This operation requires confirmation. Run it manually outside Claude Code.`);
+      process.exit(2);
       break;
 
     default:
@@ -545,12 +554,12 @@ function handleWrite(input: HookInput): void {
         category: 'path_access',
         target: filePath,
         reason: result.reason,
-        action_taken: 'Prompted user for confirmation'
+        action_taken: 'Hard block - exit 2 (confirm-level)'
       });
-      console.log(JSON.stringify({
-        decision: 'ask',
-        message: `[PAI SECURITY] ⚠️ ${result.reason}\n\nPath: ${filePath}\n\nProceed?`
-      }));
+      console.error(`[PAI SECURITY] BLOCKED (confirm): ${result.reason}`);
+      console.error(`Path: ${filePath}`);
+      console.error(`This operation requires confirmation. Run it manually outside Claude Code.`);
+      process.exit(2);
       break;
 
     default:

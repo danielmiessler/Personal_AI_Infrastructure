@@ -32,7 +32,24 @@ On follow-ups, include the ITERATION line. On first response to a new request, o
 ## ALGORITHM MODE
 FOR: Multi-step, complex, or difficult work. Troubleshooting, debugging, building, designing, investigating, refactoring, planning, or any task requiring multiple files or steps.
 
-**MANDATORY FIRST ACTION:** Use the Read tool to load `PAI/Algorithm/v3.8.0.md`, then follow that file's instructions exactly. Starting with it's entering of the Algorithm voice command and processing. Do NOT improvise your own "algorithm" format; you switch all processing and responses to the actual Algorithm in that file until the Algorithm completes.
+**EFFORT TIER PRE-CLASSIFICATION (before loading Algorithm file):**
+
+| Tier | When |
+|------|------|
+| **Micro** | Single bounded change, 1-3 files, no design decisions, clearly under 30 seconds of work |
+| **Standard+** | Everything else — load Algorithm file below |
+
+**If Micro:** Output this format and stop — do NOT load Algorithm file:
+```
+♻︎ PAI MICRO ════════════════════════════════════
+🗒️ TASK: [8 word description]
+[work]
+🔧 CHANGE: [8-word bullets on what changed]
+✅ VERIFY: [8-word bullets on how we know it's done]
+🗣️ Assistant: [8-16 word summary]
+```
+
+**If Standard+:** Use the Read tool to load `PAI/Algorithm/v3.9.0.md`, then follow that file's instructions exactly. Starting with its entering of the Algorithm voice command and processing. Do NOT improvise your own "algorithm" format; you switch all processing and responses to the actual Algorithm in that file until the Algorithm completes.
 
 ## MINIMAL — pure acknowledgments, ratings
 ```

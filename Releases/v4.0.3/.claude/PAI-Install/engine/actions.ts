@@ -344,7 +344,8 @@ export async function runApiKeys(
 export async function runIdentity(
   state: InstallState,
   emit: EngineEventHandler,
-  getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>
+  getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>,
+  getChoice?: (id: string, prompt: string, choices: { label: string; value: string; description?: string }[]) => Promise<string>
 ): Promise<void> {
   await emit({ event: "step_start", step: "identity" });
 
@@ -415,6 +416,27 @@ export async function runIdentity(
   );
   if (projDir.trim()) {
     state.collected.projectsDir = projDir.trim().replace(/^~/, homedir());
+  }
+
+  // PAI activation mode
+  if (getChoice) {
+    const paiModeChoice = await getChoice(
+      "pai-mode",
+      "When should PAI context be active?",
+      [
+        {
+          label: "Always (all claude sessions)",
+          value: "always",
+          description: "Default — PAI loads for every `claude` session",
+        },
+        {
+          label: "Only with `pai` command",
+          value: "pai-only",
+          description: "Use `pai` for full PAI sessions, `claude` for vanilla Claude",
+        },
+      ]
+    );
+    state.collected.paiMode = paiModeChoice as "always" | "pai-only";
   }
 
   await emit({
@@ -530,6 +552,7 @@ export async function runConfiguration(
     catchphrase: state.collected.catchphrase || "Ready to go",
     projectsDir: state.collected.projectsDir,
     temperatureUnit: state.collected.temperatureUnit,
+    paiMode: state.collected.paiMode,
     voiceType: state.collected.voiceType,
     voiceId: state.collected.customVoiceId,
     paiDir,

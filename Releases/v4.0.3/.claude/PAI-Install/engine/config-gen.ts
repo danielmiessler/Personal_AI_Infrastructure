@@ -23,12 +23,16 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
       PAI_CONFIG_DIR: config.configDir,
     },
 
-    contextFiles: [
-      "skills/PAI/SKILL.md",
-      "skills/PAI/AISTEERINGRULES.md",
-      "skills/PAI/USER/AISTEERINGRULES.md",
-      "skills/PAI/USER/DAIDENTITY.md",
-    ],
+    ...(config.paiMode !== "pai-only" ? {
+      contextFiles: [
+        "skills/PAI/SKILL.md",
+        "skills/PAI/AISTEERINGRULES.md",
+        "skills/PAI/USER/AISTEERINGRULES.md",
+        "skills/PAI/USER/DAIDENTITY.md",
+      ],
+    } : {
+      contextFiles: [],
+    }),
 
     daidentity: {
       name: config.aiName,
@@ -60,6 +64,7 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
       repoUrl: "https://github.com/danielmiessler/PAI",
       version: PAI_VERSION,
       algorithmVersion: ALGORITHM_VERSION,
+      paiMode: config.paiMode ?? "always",
     },
   };
 }

@@ -85,6 +85,7 @@ export interface InstallState {
     catchphrase?: string;
     projectsDir?: string;
     temperatureUnit?: "fahrenheit" | "celsius";
+    paiMode?: "always" | "pai-only";
     voiceType?: "female" | "male" | "custom";
     customVoiceId?: string;
   };
@@ -110,6 +111,7 @@ export interface PAIConfig {
   catchphrase: string;
   projectsDir?: string;
   temperatureUnit?: "fahrenheit" | "celsius";
+  paiMode?: "always" | "pai-only";
   voiceType?: string;
   voiceId?: string;
   paiDir: string;

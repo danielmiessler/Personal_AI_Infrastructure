@@ -34,7 +34,7 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { getPaiDir } from './lib/paths';
+import { getPaiDir, getSettingsPath } from './lib/paths';
 import { recordSessionStart } from './lib/notifications';
 import { loadLearningDigest, loadWisdomFrames, loadFailurePatterns, loadSignalTrends } from './lib/learning-readback';
 
@@ -444,6 +444,15 @@ async function main() {
       console.error('🤖 Subagent session - skipping context loading');
       process.exit(0);
     }
+
+    // Respect pai.paiMode setting: "pai-only" requires PAI_MODE env var (set by `pai` command)
+    try {
+      const settings = JSON.parse(readFileSync(getSettingsPath(), 'utf-8'));
+      if (settings.pai?.paiMode === 'pai-only' && !process.env.PAI_MODE) {
+        console.error('💡 PAI mode is "pai-only" — run `pai` for full PAI context, `claude` for vanilla Claude');
+        process.exit(0);
+      }
+    } catch { /* settings unreadable — use default (always) */ }
 
     const paiDir = getPaiDir();
 

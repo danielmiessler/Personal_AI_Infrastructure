@@ -31,6 +31,9 @@
  * - <5ms execution (pure string match, no I/O)
  */
 
+import { readFileSync } from 'fs';
+import { getSettingsPath } from './lib/paths';
+
 // Skills that are known to false-positive due to list position bias.
 // These get BLOCKED unless explicitly requested via /keybindings-help
 const BLOCKED_SKILLS = ['keybindings-help'];
@@ -55,6 +58,19 @@ async function readStdin(timeout = 1000): Promise<string> {
 
 async function main() {
   try {
+    // Respect pai.paiMode setting: block all skills in pai-only mode unless PAI_MODE is set
+    try {
+      const settings = JSON.parse(readFileSync(getSettingsPath(), 'utf-8'));
+      if (settings.pai?.paiMode === 'pai-only' && !process.env.PAI_MODE) {
+        const decision = {
+          decision: "block",
+          reason: "PAI skills are only available in PAI mode. Launch with the `pai` command to use skills."
+        };
+        console.log(JSON.stringify(decision));
+        process.exit(0);
+      }
+    } catch { /* settings unreadable — use default (always) */ }
+
     const input = await readStdin();
     if (!input) {
       process.exit(0);

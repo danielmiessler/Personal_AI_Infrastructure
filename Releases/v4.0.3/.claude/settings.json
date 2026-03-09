@@ -967,7 +967,8 @@
   "pai": {
     "repoUrl": "github.com/danielmiessler/PAI",
     "version": "4.0.3",
-    "algorithmVersion": "3.7.0"
+    "algorithmVersion": "3.7.0",
+    "paiMode": "always"
   },
   "preferences": {
     "temperatureUnit": "fahrenheit"

@@ -7,6 +7,7 @@
  */
 
 import { parseTranscript, type ParsedTranscript } from '../../PAI/Tools/TranscriptParser';
+import { validatePayload } from './payload-schema';
 
 export interface HookInput {
   session_id: string;
@@ -17,7 +18,8 @@ export interface HookInput {
 
 /**
  * Read and parse JSON from stdin with a 500ms timeout.
- * Returns null if stdin is empty or malformed.
+ * Validates the parsed payload against the known hook event schemas.
+ * Returns null if stdin is empty, malformed, or missing required fields.
  */
 export async function readHookInput(): Promise<HookInput | null> {
   try {
@@ -39,9 +41,20 @@ export async function readHookInput(): Promise<HookInput | null> {
 
     await Promise.race([readPromise, timeoutPromise]);
 
-    if (input.trim()) {
-      return JSON.parse(input) as HookInput;
+    if (!input.trim()) return null;
+
+    const parsed = JSON.parse(input);
+    const result = validatePayload(parsed);
+
+    for (const w of result.warnings) {
+      console.error(`[hook-io] Payload warning: ${w}`);
     }
+    if (!result.valid) {
+      console.error(`[hook-io] Invalid payload — missing required fields: ${result.missing.join(', ')}`);
+      return null;
+    }
+
+    return parsed as HookInput;
   } catch (error) {
     console.error('[hook-io] Error reading stdin:', error);
   }

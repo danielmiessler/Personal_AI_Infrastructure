@@ -34,7 +34,7 @@
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Release v4.3.1](https://img.shields.io/badge/📦_Release-v4.3.1-8B5CF6?style=flat)](Releases/v4.3.1/)
+[![Release v4.4.0](https://img.shields.io/badge/📦_Release-v4.4.0-8B5CF6?style=flat)](Releases/v4.4.0/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/Personal_AI_Infrastructure/graphs/contributors)
 
 <!-- Tech Stack -->
@@ -62,9 +62,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v4.3.1 Released** — Voice system removed (ElevenLabs/localhost:8888 eliminated), BuildSettings.ts env-var expansion at build time, hook execute-bit fixes, algorithm v3.9.0, and full doc cleanup.
+> **PAI v4.4.0 Released** — Voice system removed (ElevenLabs/localhost:8888 eliminated), BuildSettings.ts env-var expansion at build time, hook execute-bit fixes, algorithm v3.9.0, and full doc cleanup.
 >
-> **[Release notes →](Releases/v4.3.1/CHANGELOG.md)** | **[All releases →](Releases/)**
+> **[Release notes →](Releases/v4.4.0/CHANGELOG.md)** | **[All releases →](Releases/)**
 
 <div align="center">
 
@@ -341,7 +341,7 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.3.1
+cd Personal_AI_Infrastructure/Releases/v4.4.0
 
 # Copy the release and run the installer
 cp -r .claude ~/ && cd ~/.claude && bash install.sh
@@ -363,7 +363,7 @@ cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)
 
 # 2. Clone and copy the new release over your installation
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.3.1
+cd Personal_AI_Infrastructure/Releases/v4.4.0
 cp -r .claude ~/
 
 # 3. Run the installer (detects existing installation, preserves your data)
@@ -521,13 +521,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <br/>
 
-**v4.3.1 (2026-03-09) — Voice Removal & Install Hardening**
+**v4.4.0 (2026-03-10) — Voice Removal & Install Hardening**
 - Voice/TTS system fully removed: ElevenLabs, VoiceCompletion.hook.ts, voice.ts lib, all localhost:8888 curls eliminated from CLAUDE.md.template, SKILL.md, Algorithm v3.5.0/v3.7.0, spinner-tips.json, manifest.json
 - BuildSettings.ts: env vars (${HOME}, ${PAI_DIR}) now expanded at build time so settings.json contains real absolute paths — fixes hook failures on fresh installs
 - Hook execute-bit fix: all .hook.ts files now have chmod +x applied during install
 - Algorithm v3.9.0 active (was pointing to v3.7.0)
 - Doc cleanup: THENOTIFICATIONSYSTEM.md, PAIAGENTSYSTEM.md, THEDELEGATIONSYSTEM.md, DOCUMENTATIONINDEX.md all updated to remove voice references
-- [Release Notes](Releases/v4.3.1/CHANGELOG.md)
+- [Release Notes](Releases/v4.4.0/CHANGELOG.md)
 
 **v4.1.0 (2026-03-06) — Architecture Improvements**
 - Algorithm v3.8.0: cognitive scaffolding (self-interrogation, constraint extraction, confidence tags, priority classification, ISC coverage map, quality gates QG1-QG7), Standard tier skips PRD, session-safe context recovery, core split into ISC-Methodology/CapabilitySelection/Examples files

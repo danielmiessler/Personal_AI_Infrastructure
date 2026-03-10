@@ -1,0 +1,78 @@
+// PAI Permission Configuration
+// Controls which Claude Code tools are allowed, denied, or require confirmation.
+// Pattern: "ToolName(argument-pattern:*)" for argument-specific matching.
+//
+// Run `bun ~/.claude/hooks/handlers/BuildSettings.ts` after editing to
+// regenerate settings.json.
+
+{
+  "permissions": {
+    // Fully permitted — no confirmation needed
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
+      "LS",
+      "WebFetch",
+      "WebSearch",
+      "NotebookRead",
+      "NotebookEdit",
+      "TodoWrite",
+      "ExitPlanMode",
+      "Task",
+      "Skill",
+      "mcp__*"
+    ],
+
+    // Fully denied — blocked unconditionally
+    "deny": [],
+
+    // Require explicit confirmation before executing
+    "ask": [
+      // Destructive filesystem operations
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /:*)",
+      "Bash(sudo rm -rf /)",
+      "Bash(sudo rm -rf /:*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf ~/.claude)",
+      "Bash(rm -rf ~/.claude:*)",
+
+      // Disk operations
+      "Bash(diskutil eraseDisk:*)",
+      "Bash(diskutil zeroDisk:*)",
+      "Bash(diskutil partitionDisk:*)",
+      "Bash(diskutil apfs deleteContainer:*)",
+      "Bash(diskutil apfs eraseVolume:*)",
+      "Bash(dd if=/dev/zero:*)",
+      "Bash(mkfs:*)",
+
+      // Dangerous git/GitHub operations
+      "Bash(gh repo delete:*)",
+      "Bash(gh repo edit --visibility public:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin --force:*)",
+      "Bash(git push origin -f:*)",
+
+      // Sensitive file reads
+      "Read(~/.ssh/id_*)",
+      "Read(~/.ssh/*.pem)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.gnupg/private*)",
+
+      // Config file writes — protect against accidental overwrite
+      "Write(~/.claude/settings.json)",
+      "Edit(~/.claude/settings.json)",
+      "Write(~/.ssh/*)",
+      "Edit(~/.ssh/*)"
+    ],
+
+    "defaultMode": "default"
+  }
+}

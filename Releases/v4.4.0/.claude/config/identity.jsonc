@@ -1,0 +1,31 @@
+// PAI Identity Configuration
+// Configures the Digital Assistant (DA) and Principal (user) identities.
+// These control how the AI presents itself and how it refers to you.
+//
+// Run `bun ~/.claude/hooks/handlers/BuildSettings.ts` after editing to
+// regenerate settings.json.
+
+{
+  // Digital Assistant identity
+  "daidentity": {
+    // Display name used in all greetings and self-references
+    "name": "{DAIDENTITY.NAME}",
+    "fullName": "{DAIDENTITY.NAME}",
+    "displayName": "{DAIDENTITY.NAME}",
+
+    // Theme color (hex) — used in status line and UI elements
+    "color": "#3B82F6",
+
+    // Message displayed on session start
+    "startupCatchphrase": "{name} here, ready to go"
+  },
+
+  // Principal (user) identity
+  "principal": {
+    // Your name — used in tips, content, and personalizations
+    "name": "{PRINCIPAL.NAME}",
+
+    // Your timezone for scheduling and time-aware features
+    "timezone": "{YOUR_TIMEZONE}"
+  }
+}

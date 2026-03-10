@@ -1,0 +1,117 @@
+// PAI Preferences Configuration
+// Environment variables, system preferences, tech stack, and runtime settings.
+// Identity → identity.jsonc | Hooks → hooks.jsonc | Permissions → permissions.jsonc
+// Notifications → notifications.jsonc | Everything else → here.
+//
+// Run `bun ~/.claude/hooks/handlers/BuildSettings.ts` after editing to
+// regenerate settings.json.
+
+{
+  // Environment variables injected into all hooks and tools at runtime
+  "env": {
+    // Root directory for the PAI installation (~/.claude)
+    // Skills, hooks, memory, and config all live here
+    "PAI_DIR": "${HOME}/.claude",
+
+    // Base directory for projects
+    // Use ${PROJECTS_DIR}/PAI for PAI repo, ${PROJECTS_DIR}/fabric for fabric, etc.
+    "PROJECTS_DIR": "${HOME}/Projects",
+
+    // Maximum tokens for Claude responses
+    // Higher values allow longer outputs — consider cost implications
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "80000",
+
+    // Default timeout for bash commands (in milliseconds)
+    // 600000 = 10 minutes — long enough for most build operations
+    "BASH_DEFAULT_TIMEOUT_MS": "600000",
+
+    // Writable config directory for PAI runtime state (separate from ~/.claude)
+    "PAI_CONFIG_DIR": "${HOME}/.config/PAI",
+
+    // Enable experimental multi-agent team support
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+
+  // Memory and session retention policies
+  "memory": {
+    "retention": {
+      // events.jsonl is rotated when it exceeds this size
+      "eventsMaxSizeMB": 100,
+      // MEMORY/STATE session files are deleted after this many days
+      // Cleanup runs once per day at session end (SessionCleanup.hook.ts)
+      "stateMaxAgeDays": 30
+    }
+  },
+
+  // PAI version information
+  "pai": {
+    "repoUrl": "github.com/danielmiessler/PAI",
+    "version": "4.3.1",
+    "algorithmVersion": "3.9.0"
+  },
+
+  // User preferences
+  "preferences": {
+    "temperatureUnit": "fahrenheit"
+  },
+
+  // Context window display settings
+  "contextDisplay": {
+    // Trigger autocompaction at this context percentage
+    // 83% leaves a 17% buffer to avoid hard context limits
+    "compactionThreshold": 83
+  },
+
+  // Tech stack — used in code generation and tool recommendations
+  "techStack": {
+    "browser": "Dia",
+    "terminal": "Kitty",
+    "packageManager": "bun",
+    "pythonPackageManager": "uv",
+    "language": "TypeScript",
+    "devServerPort": 5173
+  },
+
+  // MCP (Model Context Protocol) server connections
+  "mcpServers": {
+    "cloudflare": {
+      "url": "https://mcp.cloudflare.com/mcp"
+    }
+  },
+
+  // Enable all project-level MCP servers from .mcp.json files
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [],
+
+  // Agent collaboration mode — in-process for same-machine teams
+  "teammateMode": "in-process",
+
+  // Maximum output tokens for this session
+  "max_tokens": 16000,
+
+  // Directory for storing Plans/ files
+  "plansDirectory": "Plans/",
+
+  // Files force-loaded into session context at startup by LoadContext.hook.ts
+  // Paths are relative to PAI_DIR. Injected as <system-reminder> blocks.
+  "loadAtStartup": {
+    "files": [
+      "PAI/AISTEERINGRULES.md",
+      "PAI/USER/AISTEERINGRULES.md",
+      "PAI/USER/PROJECTS/PROJECTS.md",
+      "PAI/USER/TELOS/DIGEST.md"
+    ]
+  },
+
+  // Dynamic context sections injected by LoadContext.hook.ts at session start
+  // Set any value to false to disable that section
+  "dynamicContext": {
+    "relationshipContext": true,
+    "learningReadback": true,
+    "activeWorkSummary": true
+  },
+
+  // v4.0: contextFiles is empty — core context is in CLAUDE.md (loaded natively).
+  // Dynamic context (relationship, learning, work) injected by LoadContext.hook.ts.
+  "contextFiles": []
+}

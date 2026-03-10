@@ -57,7 +57,6 @@ These override default behavior. If the directory does not exist, proceed with s
 Route to the appropriate workflow based on the request.
 
   - Remove background from image → `Workflows/RemoveBackground.md`
-  - Brand wallpaper with logo integration → `Workflows/BrandWallpaper.md`
   - YouTube thumbnail checklist → `Workflows/YouTubeThumbnailChecklist.md`
   - Blog header or editorial illustration → `Workflows/Essay.md`
   - D3.js interactive chart or dashboard → `Workflows/D3Dashboards.md`
@@ -75,7 +74,6 @@ Route to the appropriate workflow based on the request.
   - Stat card or big number visual → `Workflows/Stats.md`
   - Comic or sequential panels → `Workflows/Comics.md`
   - YouTube thumbnail (with existing assets) → `Workflows/YouTubeThumbnailChecklist.md`
-  - Ad-hoc YouTube thumbnail (generate from content) → `Workflows/AdHocYouTubeThumbnail.md`
   - PAI pack icon → `Workflows/CreatePAIPackIcon.md`
 
 ---

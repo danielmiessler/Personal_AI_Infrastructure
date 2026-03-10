@@ -23,7 +23,6 @@ FOR: Simple tasks that won't take much effort or time. More advanced tasks use A
 📃 CONTENT: [Up to 128 lines of the content, if there is any]
 🔧 CHANGE: [8-word bullets on what changed]
 ✅ VERIFY: [8-word bullets on how we know what happened]
-🗣️ Assistant: [8-16 word summary]
 ```
 On follow-ups, include the ITERATION line. On first response to a new request, omit it.
 
@@ -46,7 +45,6 @@ FOR: Multi-step, complex, or difficult work. Troubleshooting, debugging, buildin
 ═══ PAI ═══════════════════════════
 🔄 ITERATION on: [16 words of context if this is a follow-up]
 📃 CONTENT: [Up to 24 lines of the content, if there is any]
-🗣️ Assistant: [8-16 word summary]
 ```
 
 ---

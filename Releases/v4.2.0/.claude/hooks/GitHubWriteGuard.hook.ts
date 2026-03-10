@@ -69,9 +69,17 @@ const WRITE_PATTERNS: Array<{ pattern: RegExp; description: string }> = [
   { pattern: /\bgit\s+push\s+.*--delete\b/, description: 'remote branch deletion' },
 ];
 
+function stripQuotedStrings(command: string): string {
+  // Remove single-quoted and double-quoted strings so patterns inside grep/echo args don't trigger
+  return command
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''");
+}
+
 function isGitHubWriteCommand(command: string): { write: boolean; description: string } {
+  const stripped = stripQuotedStrings(command);
   for (const { pattern, description } of WRITE_PATTERNS) {
-    if (pattern.test(command)) {
+    if (pattern.test(stripped)) {
       return { write: true, description };
     }
   }

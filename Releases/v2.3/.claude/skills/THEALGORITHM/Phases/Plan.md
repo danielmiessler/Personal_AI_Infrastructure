@@ -80,9 +80,21 @@ bun run ~/.claude/skills/Agents/Tools/AgentFactory.ts \
   --traits "analytical,systematic,meticulous"
 ```
 
+## ISC Persistence Gate
+
+**HARD GATE: ISC MUST be on disk before any agent spawns in EXECUTE.**
+
+Context compaction can destroy in-memory ISC (TaskCreate) mid-session. The ISC file on disk is the recovery contract — without it, spawned agents cannot be coordinated or resumed after compaction.
+
+Before exiting PLAN:
+1. Verify ISC file exists at `MEMORY/Work/{session}/ISC.md`
+2. Confirm all current rows are written (count matches TaskList)
+3. If file missing or stale → write it now, before proceeding
+
 ## Exit Criteria
 
 - All dependencies identified
 - Parallel rows marked
 - Execution sequence clear
+- **ISC persisted to disk** (gate verified)
 - Ready for BUILD phase

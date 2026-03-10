@@ -64,7 +64,7 @@
 > [!IMPORTANT]
 > **PAI v4.3.1 Released** — Voice system removed (ElevenLabs/localhost:8888 eliminated), BuildSettings.ts env-var expansion at build time, hook execute-bit fixes, algorithm v3.9.0, and full doc cleanup.
 >
-> **[Release notes →](Releases/v4.2.0/CHANGELOG.md)** | **[All releases →](Releases/)**
+> **[Release notes →](Releases/v4.3.1/CHANGELOG.md)** | **[All releases →](Releases/)**
 
 <div align="center">
 
@@ -527,7 +527,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - Hook execute-bit fix: all .hook.ts files now have chmod +x applied during install
 - Algorithm v3.9.0 active (was pointing to v3.7.0)
 - Doc cleanup: THENOTIFICATIONSYSTEM.md, PAIAGENTSYSTEM.md, THEDELEGATIONSYSTEM.md, DOCUMENTATIONINDEX.md all updated to remove voice references
-- [Release Notes](Releases/v4.2.0/CHANGELOG.md)
+- [Release Notes](Releases/v4.3.1/CHANGELOG.md)
 
 **v4.1.0 (2026-03-06) — Architecture Improvements**
 - Algorithm v3.8.0: cognitive scaffolding (self-interrogation, constraint extraction, confidence tags, priority classification, ISC coverage map, quality gates QG1-QG7), Standard tier skips PRD, session-safe context recovery, core split into ISC-Methodology/CapabilitySelection/Examples files

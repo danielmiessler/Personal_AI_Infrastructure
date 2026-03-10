@@ -17,7 +17,6 @@ This provides access to:
 - Stack preferences (TypeScript>Python, bun>npm, uv>pip)
 - Security rules and repository safety protocols
 - Response format requirements (structured emoji format)
-- Voice IDs for agent routing (ElevenLabs)
 - Personal preferences and operating instructions
 
 To test local web applications, write native Python Playwright scripts.

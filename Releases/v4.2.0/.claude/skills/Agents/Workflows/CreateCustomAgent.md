@@ -5,9 +5,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the CreateCustomAgent workflow in the Agents skill to create agents"}' \
   > /dev/null 2>&1 &
 ```
 
@@ -60,14 +57,12 @@ bun run ~/.claude/skills/Agents/Tools/ComposeAgent.ts \
   --output json
 ```
 
-### Step 3: Extract Prompt, Voice ID, and Color from Each
+### Step 3: Extract Prompt and Color from Each
 
 ComposeAgent returns JSON with:
 ```json
 {
   "name": "Research Enthusiastic Explorer",
-  "voice": "Jeremy",
-  "voice_id": "bVMeCyTHy58xNoL34h3p",
   "color": "#FF6B35",
   "traits": ["research", "enthusiastic", "exploratory"],
   "prompt": "# Dynamic Agent: Research Enthusiastic Explorer\n\nYou are a specialized agent..."
@@ -104,25 +99,7 @@ Task({
 })
 ```
 
-**Note:** Store the voice_id from ComposeAgent output - you'll need it to voice the agent's results.
-
-### Step 5: Agent Voice Output
-
-**Agents voice their own completion.** The DynamicAgent template instructs each agent to call the voice server with their unique voice_id after completing their task.
-
-Each agent's prompt includes:
-- Their assigned voice_id from ComposeAgent
-- Instructions to call `curl -X POST http://localhost:8888/notify` with their voice_id
-- The requirement to voice their `🎯 COMPLETED:` message
-
-**Fallback:** If an agent fails to voice itself, you can manually voice their result:
-```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"<COMPLETED line content>","voice_id":"<agent_voice_id>","title":"<agent_name>","voice_enabled":true}'
-```
-
-### Step 6: Spotcheck (Optional but Recommended)
+### Step 5: Spotcheck (Optional but Recommended)
 
 After all agents complete, launch one more to verify consistency:
 
@@ -184,29 +161,24 @@ If `--timing` is omitted, agents get no scope section (backward compatible).
 ```bash
 # Agent 1 - Climate Science Enthusiast
 bun run ComposeAgent.ts --traits "research,enthusiastic,thorough" --task "Analyze climate data patterns" --output json
-# Returns: voice="Jeremy", voice_id="bVMeCyTHy58xNoL34h3p"
 
 # Agent 2 - Skeptical Data Analyst
 bun run ComposeAgent.ts --traits "data,skeptical,systematic" --task "Analyze climate data patterns" --output json
-# Returns: voice="{PRINCIPAL.NAME}", voice_id="onwK4e9ZLuTAKqWW03F9"
 
 # Agent 3 - Creative Pattern Finder
 bun run ComposeAgent.ts --traits "data,creative,exploratory" --task "Analyze climate data patterns" --output json
-# Returns: voice="Freya", voice_id="jsCqWAovK2LkecY7zXl4"
 
 # Agent 4 - Meticulous Validator
 bun run ComposeAgent.ts --traits "research,meticulous,comparative" --task "Analyze climate data patterns" --output json
-# Returns: voice="Charlotte", voice_id="XB0fDUnXU5powFXDhCwa"
 
 # Agent 5 - Synthesizing Strategist
 bun run ComposeAgent.ts --traits "research,analytical,synthesizing" --task "Analyze climate data patterns" --output json
-# Returns: voice="Charlotte", voice_id="XB0fDUnXU5powFXDhCwa"
 
 # Launch all 5 in parallel (single message, 5 Task calls)
-# Each agent has unique personality and voice
+# Each agent has unique personality and color
 ```
 
-**Result:** 5 distinct agents with different analytical approaches and unique voices analyzing the data from different perspectives.
+**Result:** 5 distinct agents with different analytical approaches and unique personalities analyzing the data from different perspectives.
 
 ## Common Mistakes to Avoid
 

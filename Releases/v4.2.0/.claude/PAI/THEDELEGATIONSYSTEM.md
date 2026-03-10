@@ -85,7 +85,7 @@ Use the Agents skill to compose task-specific agents with unique traits, voices,
 
 | User Says | What to Use | Why |
 |-------------|-------------|-----|
-| "**custom agents**", "spin up **custom** agents" | **ComposeAgent** → `general-purpose` | Unique prompts, unique voices |
+| "**custom agents**", "spin up **custom** agents" | **ComposeAgent** → `general-purpose` | Unique prompts, unique personalities |
 | "spin up agents", "bunch of agents", "launch agents" | **ComposeAgent** → `general-purpose` | Task-specific agents with proper expertise |
 | "research X", "investigate Y" | **Research skill** | Dedicated researcher agents |
 | Code implementation tasks | **Engineer** agent | Specialized for TDD/code |
@@ -93,9 +93,8 @@ Use the Agents skill to compose task-specific agents with unique traits, voices,
 
 **For ALL parallel work:**
 1. Invoke the Agents skill → ComposeAgent for EACH agent with appropriate traits
-2. Use DIFFERENT trait combinations to get unique voices and expertise
+2. Use DIFFERENT trait combinations to get unique personalities and expertise
 3. Launch with the full ComposeAgent-generated prompt as `subagent_type: "general-purpose"`
-4. Each agent gets a personality-matched ElevenLabs voice
 
 **For research specifically:** Use the Research skill, which has dedicated researcher agents (ClaudeResearcher, GeminiResearcher, etc.)
 

@@ -23,10 +23,7 @@ description: Compose CUSTOM agents from Base Traits + Voice + Specialization for
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the Agents skill to ACTION"}' \
-     > /dev/null 2>&1 &
+        > /dev/null 2>&1 &
    ```
 
 2. **Output text notification**:
@@ -59,59 +56,9 @@ Create your customizations at:
 ~/.claude/PAI/USER/SKILLCUSTOMIZATIONS/Agents/
 ├── Traits.yaml       # Your traits, voices, prosody settings
 ├── NamedAgents.md    # Your named agent backstories (optional)
-└── VoiceConfig.json  # Voice server configuration (optional)
+└── Traits.yaml       # User trait overrides (optional)
 ```
 
-## Voice Prosody Settings
-
-Each voice can have prosody settings that control how it sounds. These are passed to ElevenLabs API.
-
-### Prosody Parameters
-
-| Parameter | Range | Default | Effect |
-|-----------|-------|---------|--------|
-| `stability` | 0.0-1.0 | 0.5 | Low = expressive/varied, High = consistent/monotone |
-| `similarity_boost` | 0.0-1.0 | 0.75 | Voice identity preservation |
-| `style` | 0.0-1.0 | 0.0 | Style exaggeration (higher = more dramatic) |
-| `speed` | 0.7-1.2 | 1.0 | Speech rate |
-| `use_speaker_boost` | boolean | true | Enhanced clarity (adds latency) |
-
-### Example Voice Configuration
-
-In your `USER/SKILLCUSTOMIZATIONS/Agents/Traits.yaml`:
-
-```yaml
-voice_mappings:
-  voice_registry:
-    # Add a new voice with full prosody settings
-    MyCustomVoice:
-      voice_id: "your-elevenlabs-voice-id"
-      characteristics: ["energetic", "warm", "professional"]
-      description: "Custom voice for enthusiastic agents"
-      prosody:
-        stability: 0.40
-        similarity_boost: 0.75
-        style: 0.30
-        speed: 1.05
-        use_speaker_boost: true
-
-    # Override prosody for an existing base voice
-    {PRINCIPAL.NAME}:
-      prosody:
-        stability: 0.65
-        style: 0.10
-        speed: 0.92
-```
-
-### Personality → Prosody Guidelines
-
-| Personality | stability | style | speed | Rationale |
-|-------------|-----------|-------|-------|-----------|
-| Skeptical | 0.60 | 0.10 | 0.95 | Measured, precise |
-| Enthusiastic | 0.35 | 0.40 | 1.10 | High energy |
-| Analytical | 0.65 | 0.08 | 0.95 | Clear, structured |
-| Bold | 0.45 | 0.35 | 1.05 | Confident, dynamic |
-| Cautious | 0.70 | 0.05 | 0.90 | Careful, deliberate |
 
 
 ## Overview
@@ -179,15 +126,8 @@ bun run ~/.claude/skills/Agents/Tools/ComposeAgent.ts --output json
 ```json
 {
   "name": "Security Expert Skeptical Thorough",
-  "voice": "{PRINCIPAL.NAME}",
-  "voice_id": "onwK4e9ZLuTAKqWW03F9",
-  "voice_settings": {
-    "stability": 0.70,
-    "similarity_boost": 0.85,
-    "style": 0.05,
-    "speed": 0.95,
-    "use_speaker_boost": true
-  },
+  "color": "#4A90D9",
+  "traits": ["security", "skeptical", "thorough"],
   "prompt": "..."
 }
 ```

@@ -16,9 +16,8 @@ The PAI hook system is an event-driven automation infrastructure built on Claude
 
 **Core Capabilities:**
 - **Session Management** - Auto-load context, capture summaries, manage state
-- **Voice Notifications** - Text-to-speech announcements for task completions
 - **History Capture** - Automatic work/learning documentation to `~/.claude/MEMORY/`
-- **Multi-Agent Support** - Agent-specific hooks with voice routing
+- **Multi-Agent Support** - Agent-specific hooks with coordinated execution
 - **Tab Titles** - Dynamic terminal tab updates with task context
 - **Unified Event Stream** - All hooks emit structured events to `events.jsonl` for real-time observability
 
@@ -159,7 +158,7 @@ Claude Code supports the following hook events:
 **UpdateTabTitle.hook.ts** - Tab Title + Working State
 - Updates Kitty terminal tab title with task summary + `…` suffix
 - Sets tab to **orange background** (working state)
-- Announces via voice server with context-appropriate gerund
+- Outputs context-appropriate gerund as text notification
 - See `TERMINALTABS.md` for full state system documentation
 - **Inference:** `import { inference } from '../PAI/Tools/Inference'` → `inference({ level: 'fast' })`
 
@@ -378,7 +377,6 @@ Hooks have access to all environment variables from `~/.claude/settings.json` `"
     "fullName": "Personal AI",
     "displayName": "PAI",
     "color": "#3B82F6",
-    "voiceId": "{YourElevenLabsVoiceId}"
   },
   "principal": {
     "name": "{YourName}",
@@ -454,38 +452,7 @@ All hooks receive JSON data on stdin:
 
 ## Common Patterns
 
-### 1. Voice Notifications
-
-**Pattern:** Extract completion message → Send to voice server
-
-```typescript
-// handlers/VoiceNotification.ts pattern
-import { getIdentity } from './lib/identity';
-
-const identity = getIdentity();
-const completionMessage = extractCompletionMessage(lastMessage);
-
-const payload = {
-  title: identity.name,
-  message: completionMessage,
-  voice_enabled: true,
-  voice_id: identity.voiceId  // From settings.json
-};
-
-await fetch('http://localhost:8888/notify', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(payload)
-});
-```
-
-**Agent-Specific Voices:**
-Configure voice IDs via `settings.json` daidentity section or environment variables.
-Each agent can have a unique ElevenLabs voice configured. See the Agents skill for voice registry.
-
----
-
-### 2. History Capture (UOCS Pattern)
+### 1. History Capture (UOCS Pattern)
 
 **Pattern:** Parse structured response → Save to appropriate history directory
 
@@ -821,29 +788,6 @@ setTimeout(() => {
 
 ---
 
-### Voice Notifications Not Working
-
-**Check:**
-1. Is voice server running? `curl http://localhost:8888/health`
-2. Is voice_id correct? See `PAI/SKILL.md` for mappings
-3. Is message format correct? `{"message":"...", "voice_id":"...", "title":"..."}`
-4. Is ElevenLabs API key in `${PAI_DIR}/.env`?
-
-**Debug:**
-```bash
-# Test voice server directly
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Test message","voice_id":"[YOUR_VOICE_ID]","title":"Test"}'
-```
-
-**Common Issues:**
-- Wrong voice_id → Silent failure (invalid ID)
-- Voice server offline → Hook continues (graceful failure)
-- No `🎯 COMPLETED:` line → No voice notification extracted
-
----
-
 ### Work Not Capturing
 
 **Check:**
@@ -1146,11 +1090,6 @@ Completed:      Green  #022800  (task done)
 Awaiting:  ?    Teal   #0D4F4F  (needs input)
 Error:     !    Orange #B35A00  (problem detected)
 Active Tab: Always Dark Blue #002B80 (state colors = inactive only)
-
-VOICE SERVER:
-URL: http://localhost:8888/notify
-Payload: {"message":"...", "voice_id":"...", "title":"..."}
-Configure voice IDs in individual agent files (`agents/*.md` persona frontmatter)
 
 ```
 

@@ -3,9 +3,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the PeopleLookup workflow in the OSINT skill to research individuals"}' \
   > /dev/null 2>&1 &
 ```
 

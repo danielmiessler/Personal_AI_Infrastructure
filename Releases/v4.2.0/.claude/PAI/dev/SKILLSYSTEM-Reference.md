@@ -117,7 +117,6 @@ These define user-specific preferences. If the directory does not exist, proceed
 ├── Agents/                      # Agents skill customizations
 │   ├── EXTEND.yaml              # Extension manifest
 │   ├── PREFERENCES.md           # Named agent summary
-│   └── VoiceConfig.json         # ElevenLabs voice mappings
 ├── FrontendDesign/              # FrontendDesign customizations
 │   ├── EXTEND.yaml              # Extension manifest
 │   └── PREFERENCES.md           # Design tokens, palette
@@ -239,10 +238,7 @@ science_cycle_time: meso
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION"}' \
-     > /dev/null 2>&1 &
+        > /dev/null 2>&1 &
    ```
 
 2. **Output text notification**:
@@ -598,10 +594,7 @@ Complete blog workflow.
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running WORKFLOWNAME in Blogging"}' \
-     > /dev/null 2>&1 &
+        > /dev/null 2>&1 &
    ```
 
 2. **Output text notification**:

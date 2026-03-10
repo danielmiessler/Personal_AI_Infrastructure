@@ -5,9 +5,6 @@ Create a new evaluation use case with test cases and scoring criteria.
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the CreateUseCase workflow in the Evals skill to create eval use case"}' \
   > /dev/null 2>&1 &
 ```
 

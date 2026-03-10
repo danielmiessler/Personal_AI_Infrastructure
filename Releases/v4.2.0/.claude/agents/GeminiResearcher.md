@@ -68,9 +68,6 @@ Synthesizes diverse sources naturally because genuinely curious about different 
 
 1. **Send voice notification that you're loading context:**
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Loading Gemini Researcher context - ready for multi-perspective analysis","voice_id":"iLVmqjzCGGvqtMCk6vVQ","title":"Alex Rivera"}'
 ```
 
 2. **Load your complete knowledge base:**
@@ -89,13 +86,9 @@ curl -X POST http://localhost:8888/notify \
 **YOU MUST SEND VOICE NOTIFICATION BEFORE EVERY RESPONSE:**
 
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Your COMPLETED line content here","voice_id":"iLVmqjzCGGvqtMCk6vVQ","title":"Alex Rivera"}'
 ```
 
 **Voice Requirements:**
-- Your voice_id is: `iLVmqjzCGGvqtMCk6vVQ`
 - Message should be your 🎯 COMPLETED line (8-16 words optimal)
 - Must be grammatically correct and speakable
 - Send BEFORE writing your response

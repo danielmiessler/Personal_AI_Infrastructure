@@ -38,29 +38,13 @@ The installer runs 8 steps in dependency order:
 | 4 | **Identity** | Prompts for your name, AI assistant name, timezone, and a personal catchphrase |
 | 5 | **PAI Repository** | Clones the PAI repo to `~/.claude/` (or updates if already present) |
 | 6 | **Configuration** | Generates `settings.json`, `.env`, directory structure, `pai` shell alias, and patches version files |
-| 7 | **DA Voice** | Collects ElevenLabs API key, selects voice type (Female/Male/Custom), installs and tests voice server |
-| 8 | **Validation** | Verifies directory structure, settings file, API keys, voice server, shell alias — reports pass/fail for each |
-
-### Voice Setup
-
-The voice step handles the complete Digital Assistant voice configuration:
-
-1. Collects or auto-discovers your ElevenLabs API key (checks `~/.config/PAI/.env`)
-2. Validates the key against the ElevenLabs API
-3. Presents voice selection: **Female** (Rachel), **Male** (Adam), or **Custom Voice ID**
-4. Includes audio previews so you can hear each voice before choosing
-5. Installs the Qwen3 voice server as a LaunchAgent (auto-starts on login)
-6. Tests TTS with a personalized greeting using your name and AI name
-
-Voice is optional — skip the ElevenLabs key and the installer continues without voice features.
+| 7 | **Validation** | Verifies directory structure, settings file, API keys, shell alias — reports pass/fail for each |
 
 ### Graceful Degradation
 
 The installer is designed to recover from partial failures:
 
-- No ElevenLabs key → voice features skipped, everything else works
 - No existing PAI → fresh install (vs. upgrade if detected)
-- Voice server install fails → configuration saved, TTS test skipped
 - Claude Code not installed → attempts installation, continues if it fails
 - Port conflicts → configurable via `PAI_INSTALL_PORT` environment variable
 
@@ -175,8 +159,8 @@ Client                          Server
   │                               │
   │←──────── choice_request ──────┤  ("Select voice type")
   ├── user_choice ───────────────→│
-  │←──────────── progress ────────┤  (voice server install: 40%)
-  │←──────────── step_update ─────┤  (voice → completed)
+  │←──────────── progress ────────┤  (configuration: 40%)
+  │←──────────── step_update ─────┤  (configuration → completed)
   │                               │
   │←──── validation_result ───────┤  (all checks)
   │←──── install_complete ────────┤  (summary card)
@@ -275,7 +259,7 @@ This reloads your shell config (activates the `pai` alias) and launches PAI for 
 |-------|----------|
 | `bun: command not found` | Run `curl -fsSL https://bun.sh/install \| bash` then restart terminal |
 | Port 1337 in use | Set `PAI_INSTALL_PORT=8080` before running install.sh |
-| ElevenLabs key invalid | Verify at elevenlabs.io — ensure no trailing spaces, key starts with `xi-` or `sk_` |
+| Settings not generated | Run `bun ~/.claude/hooks/handlers/BuildSettings.ts` to regenerate `settings.json` |
 | Permission denied | Run `chmod -R 755 ~/.claude` |
 | `pai` command not found | Run `source ~/.zshrc` to reload shell config |
 | Voice server won't start | Check port 8888 is free: `lsof -ti:8888`. Kill any process using it. |
@@ -309,7 +293,7 @@ bun run PAI-Install/main.ts --mode gui
 
 - **No framework dependencies** — Frontend is vanilla JavaScript. No React, no build step.
 - **Bun-native server** — Uses `Bun.serve()` for HTTP and WebSocket in one process.
-- **Async voice server management** — Voice server install/start uses async `spawn` (not `execSync`) to avoid blocking the event loop and killing WebSocket connections.
+- **Async process management** — Install steps use async `spawn` (not `execSync`) to avoid blocking the event loop and killing WebSocket connections.
 - **Safe process cleanup** — Port cleanup uses `lsof -sTCP:LISTEN` to kill only the listening process, not client connections.
 - **Template-based settings** — Installer merges user fields into the release template rather than generating a complete settings.json from scratch.
 
@@ -319,7 +303,6 @@ bun run PAI-Install/main.ts --mode gui
 
 - **macOS and Linux only** — Windows is not supported
 - **Internet connection required** — Downloads tools, clones repository, validates API keys
-- **Voice requires ElevenLabs** — Voice synthesis is optional but needs an ElevenLabs API key
 - **Single-user** — Installs to `~/.claude/` for the current user only
 - **Electron optional** — If Electron fails to install, use `--mode web` as fallback
 

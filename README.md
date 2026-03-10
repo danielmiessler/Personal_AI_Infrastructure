@@ -34,7 +34,7 @@
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Release v4.1.0](https://img.shields.io/badge/📦_Release-v4.1.0-8B5CF6?style=flat)](Releases/v4.1.0/)
+[![Release v4.3.1](https://img.shields.io/badge/📦_Release-v4.3.1-8B5CF6?style=flat)](Releases/v4.3.1/)
 [![Contributors](https://img.shields.io/github/contributors/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/Personal_AI_Infrastructure/graphs/contributors)
 
 <!-- Tech Stack -->
@@ -62,9 +62,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v4.1.0 Released** — Algorithm v3.8.0 with cognitive scaffolding (ISC quality gates, constraint extraction, confidence tags), hook consolidation, ModeClassifier, PostCompactRecovery, path portability, TELOS digest, and slimmed runtime docs.
+> **PAI v4.3.1 Released** — Voice system removed (ElevenLabs/localhost:8888 eliminated), BuildSettings.ts env-var expansion at build time, hook execute-bit fixes, algorithm v3.9.0, and full doc cleanup.
 >
-> **[Release notes →](Releases/v4.1.0/README.md)** | **[All releases →](Releases/)**
+> **[Release notes →](Releases/v4.2.0/CHANGELOG.md)** | **[All releases →](Releases/)**
 
 <div align="center">
 
@@ -193,7 +193,7 @@ These principles guide how PAI systems are designed and built. **[Full breakdown
 | 11 | **Goal → Code → CLI → Prompts → Agents** | The decision hierarchy: clarify goal, then code, then CLI, then prompts, then agents. |
 | 12 | **Skill Management** | Modular capabilities that route intelligently based on context. |
 | 13 | **Memory System** | Everything worth knowing gets captured. History feeds future context. |
-| 14 | **Agent Personalities** | Different work needs different approaches. Specialized agents with unique voices. |
+| 14 | **Agent Personalities** | Different work needs different approaches. Specialized agents with unique personalities and expertise. |
 | 15 | **Science as Meta-Loop** | Hypothesis → Experiment → Measure → Iterate. |
 | 16 | **Permission to Fail** | Explicit permission to say "I don't know" prevents hallucinations. |
 
@@ -277,7 +277,7 @@ Focused on continuous learning. Every interaction generates signals—ratings, s
 
 ### Hook System
 
-Responds to lifecycle events—session start, tool use, task completion, and more. 8 event types enable voice notifications, automatic context loading, session capture, security validation, and observability.
+Responds to lifecycle events—session start, tool use, task completion, and more. 8 event types enable automatic context loading, push notifications, session capture, security validation, and observability.
 
 ---
 
@@ -315,9 +315,9 @@ Keeps you informed without being intrusive. Push notifications via ntfy for mobi
   <img src="./images/pai-component-9-voice-system.png" alt="Voice System" width="700">
 </p>
 
-### Voice System
+### Notification System (Push & External)
 
-Powered by ElevenLabs TTS. Hear task completions, session summaries, and important updates spoken aloud. Prosody enhancement makes speech sound natural. Your AI has a voice.
+Mobile push via ntfy.sh, Discord webhook integration, and duration-aware routing that escalates for long-running tasks. Fire-and-forget design means notifications never block your workflow. Voice TTS was removed in v4.3.0.
 
 ---
 
@@ -341,7 +341,7 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 ```bash
 # Clone the repo
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.1.0
+cd Personal_AI_Infrastructure/Releases/v4.3.1
 
 # Copy the release and run the installer
 cp -r .claude ~/ && cd ~/.claude && bash install.sh
@@ -351,7 +351,6 @@ cp -r .claude ~/ && cd ~/.claude && bash install.sh
 - Detect your system and install prerequisites (Bun, Git, Claude Code)
 - Ask for your name, AI assistant name, timezone, and temperature unit preference
 - Clone/configure the PAI repository into `~/.claude/`
-- Set up voice features with ElevenLabs (optional)
 - Configure your shell alias and verify the installation
 
 **After installation:** Run `source ~/.zshrc && pai` to launch PAI.
@@ -364,7 +363,7 @@ cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)
 
 # 2. Clone and copy the new release over your installation
 git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
-cd Personal_AI_Infrastructure/Releases/v4.1.0
+cd Personal_AI_Infrastructure/Releases/v4.3.1
 cp -r .claude ~/
 
 # 3. Run the installer (detects existing installation, preserves your data)
@@ -380,7 +379,6 @@ bun ~/.claude/PAI/Tools/BuildCLAUDE.ts
 **Post-upgrade checklist:**
 - [ ] Verify your identity in `settings.json` (name, AI name, timezone)
 - [ ] Confirm the statusline displays correctly
-- [ ] Test voice notifications (if enabled)
 - [ ] Run a simple prompt to confirm PAI responds correctly
 
 ---
@@ -523,8 +521,16 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <br/>
 
+**v4.3.1 (2026-03-09) — Voice Removal & Install Hardening**
+- Voice/TTS system fully removed: ElevenLabs, VoiceCompletion.hook.ts, voice.ts lib, all localhost:8888 curls eliminated from CLAUDE.md.template, SKILL.md, Algorithm v3.5.0/v3.7.0, spinner-tips.json, manifest.json
+- BuildSettings.ts: env vars (${HOME}, ${PAI_DIR}) now expanded at build time so settings.json contains real absolute paths — fixes hook failures on fresh installs
+- Hook execute-bit fix: all .hook.ts files now have chmod +x applied during install
+- Algorithm v3.9.0 active (was pointing to v3.7.0)
+- Doc cleanup: THENOTIFICATIONSYSTEM.md, PAIAGENTSYSTEM.md, THEDELEGATIONSYSTEM.md, DOCUMENTATIONINDEX.md all updated to remove voice references
+- [Release Notes](Releases/v4.2.0/CHANGELOG.md)
+
 **v4.1.0 (2026-03-06) — Architecture Improvements**
-- Algorithm v3.8.0: cognitive scaffolding (self-interrogation, constraint extraction, confidence tags, priority classification, ISC coverage map, quality gates QG1-QG7), Standard tier skips PRD, session-safe context recovery, voice curls fire-and-forget, core split into ISC-Methodology/CapabilitySelection/Examples files
+- Algorithm v3.8.0: cognitive scaffolding (self-interrogation, constraint extraction, confidence tags, priority classification, ISC coverage map, quality gates QG1-QG7), Standard tier skips PRD, session-safe context recovery, core split into ISC-Methodology/CapabilitySelection/Examples files
 - Hook consolidation: 4 terminal hooks → TerminalState.hook.ts, voice fetch non-blocking
 - ModeClassifier hook: deterministic regex pre-classification prevents 91% NATIVE attractor bias
 - PostCompactRecovery hook: re-injects identity + Algorithm state after context compaction

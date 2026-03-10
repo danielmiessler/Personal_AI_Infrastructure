@@ -173,6 +173,6 @@ export type EngineEventHandler = (event: EngineEvent) => void | Promise<void>;
 // Update these when cutting a new PAI release.
 // The installer reads these constants — no other file should hardcode versions.
 
-export const PAI_VERSION = "4.3.0";
+export const PAI_VERSION = "4.3.1";
 export const ALGORITHM_VERSION = "3.9.0";
 export const INSTALLER_VERSION = "4.0";

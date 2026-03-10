@@ -8,11 +8,11 @@
 
 PAI has three agent systems that serve different purposes. Confusing them causes routing failures.
 
-| System | What It Is | When to Use | Has Unique Voice? |
-|--------|-----------|-------------|-------------------|
-| **Task Tool Subagent Types** | Pre-built agents in Claude Code (Architect, Designer, Engineer, Explore, etc.) | Internal workflow use ONLY | No |
-| **Named Agents** | Persistent identities with backstories and ElevenLabs voices (Serena, Marcus, Rook, etc.) | Recurring work, voice output, relationships | Yes |
-| **Custom Agents** | Dynamic agents composed via ComposeAgent from traits | When user says "custom agents" | Yes (trait-mapped) |
+| System | What It Is | When to Use |
+|--------|-----------|-------------|
+| **Task Tool Subagent Types** | Pre-built agents in Claude Code (Architect, Designer, Engineer, Explore, etc.) | Internal workflow use ONLY |
+| **Named Agents** | Persistent identities with backstories and unique personalities (Serena, Marcus, Rook, etc.) | Recurring work, specialized expertise, relationships |
+| **Custom Agents** | Dynamic agents composed via ComposeAgent from traits | When user says "custom agents" |
 
 ---
 
@@ -55,9 +55,8 @@ When user requests custom agents:
 
 1. **Invoke Agents skill** via `Skill("Agents")` or follow CreateCustomAgent workflow
 2. **Run ComposeAgent** for EACH agent with DIFFERENT trait combinations
-3. **Extract prompt and voice_id** from ComposeAgent output
+3. **Extract prompt** from ComposeAgent output
 4. **Launch agents** with Task tool using the composed prompts
-5. **Voice results** using each agent's unique voice_id
 
 ```bash
 # Example: 3 custom research agents
@@ -92,15 +91,15 @@ These are pre-built agents in the Claude Code Task tool. They are for **internal
 
 ## Named Agents (Persistent Identities)
 
-Named agents have rich backstories, personality traits, and mapped ElevenLabs voices. They provide relationship continuity across sessions.
+Named agents have rich backstories and personality traits. They provide relationship continuity across sessions.
 
-| Agent | Role | Voice | Use For |
-|-------|------|-------|---------|
-| Serena Blackwood | Architect | Premium UK Female | Long-term architecture decisions |
-| Marcus Webb | Engineer | Premium Male | Strategic technical leadership |
-| Rook Blackburn | Pentester | Enhanced UK Male | Security testing with personality |
-| Ava Sterling | Claude Researcher | Premium US Female | Strategic research |
-| Alex Rivera | Gemini Researcher | Multi-perspective | Comprehensive analysis |
+| Agent | Role | Personality | Use For |
+|-------|------|-------------|---------|
+| Serena Blackwood | Architect | Methodical, systems-focused | Long-term architecture decisions |
+| Marcus Webb | Engineer | Strategic, pragmatic | Strategic technical leadership |
+| Rook Blackburn | Pentester | Adversarial, thorough | Security testing with personality |
+| Ava Sterling | Claude Researcher | Investigative, precise | Strategic research |
+| Alex Rivera | Gemini Researcher | Multi-perspective, broad | Comprehensive analysis |
 
 **Full backstories and voice settings:** Individual `agents/*.md` files (persona frontmatter + body)
 
@@ -108,7 +107,7 @@ Named agents have rich backstories, personality traits, and mapped ElevenLabs vo
 
 ## Custom Agents (Dynamic Composition)
 
-Custom agents are composed on-the-fly from traits using ComposeAgent. Each unique trait combination maps to a different ElevenLabs voice.
+Custom agents are composed on-the-fly from traits using ComposeAgent. Each unique trait combination produces a distinct personality and expertise profile.
 
 ### Trait Categories
 
@@ -121,16 +120,7 @@ Custom agents are composed on-the-fly from traits using ComposeAgent. Each uniqu
 **Approach** (work style):
 `thorough`, `rapid`, `systematic`, `exploratory`, `comparative`, `synthesizing`, `adversarial`, `consultative`
 
-### Voice Mapping Examples
-
-| Trait Combo | Voice | Why |
-|-------------|-------|-----|
-| contrarian + skeptical | Clyde (gravelly) | Challenging intensity |
-| enthusiastic + creative | Jeremy (energetic) | High-energy creativity |
-| security + adversarial | Callum (edgy) | Hacker character |
-| analytical + meticulous | Charlotte (sophisticated) | Precision analysis |
-
-**Full trait definitions and voice mappings:** `skills/Agents/Data/Traits.yaml`
+**Full trait definitions:** `skills/Agents/Data/Traits.yaml`
 
 ---
 

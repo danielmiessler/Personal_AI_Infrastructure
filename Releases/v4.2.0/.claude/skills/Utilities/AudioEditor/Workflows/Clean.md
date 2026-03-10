@@ -5,9 +5,6 @@ Clean, edit, and polish audio files by removing filler words, stutters, false st
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the Clean workflow in the AudioEditor skill to clean audio"}' \
   > /dev/null 2>&1 &
 ```
 

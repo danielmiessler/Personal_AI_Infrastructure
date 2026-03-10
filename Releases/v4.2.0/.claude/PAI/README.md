@@ -25,7 +25,7 @@ PAI is a general problem-solving system that magnifies human capabilities. It ru
 ## Core Subsystems
 
 ### The Algorithm (`PAI/Algorithm/`)
-The 7-phase execution engine: Observe, Think, Plan, Build, Execute, Verify, Learn. Transitions from CURRENT STATE to IDEAL STATE via verifiable criteria (ISC). Current version: v3.7.0.
+The 7-phase execution engine: Observe, Think, Plan, Build, Execute, Verify, Learn. Transitions from CURRENT STATE to IDEAL STATE via verifiable criteria (ISC). Current version: v3.9.0.
 
 ### Skills (`SKILLSYSTEM.md`)
 12 hierarchical categories with 49 total skills in `~/.claude/skills/`, each with a `SKILL.md` defining triggers, workflows, and tools. Skills are the primary capability unit.
@@ -51,7 +51,7 @@ TypeScript utilities in `PAI/Tools/`: `BuildCLAUDE.ts` (generate CLAUDE.md from 
 Hook-based security: `SecurityValidator.hook.ts` guards Bash, Edit, Write, Read. Path validation, command injection prevention, secret scanning.
 
 ### Notifications (`THENOTIFICATIONSYSTEM.md`)
-Multi-channel: ntfy, Discord, Twilio. Voice announcements via ElevenLabs at localhost:8888.
+Multi-channel: ntfy, Discord. Push notifications for mobile alerts and long-running task completion.
 
 ### Configuration (`settings.json`)
 Single source of truth: identity (daidentity, principal), environment, permissions, hooks, notifications, status line, spinner verbs, counts, startup file loading (`loadAtStartup`), dynamic context toggles (`dynamicContext`).

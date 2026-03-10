@@ -21,16 +21,6 @@ description: ""             # One-line functional description
 model: opus                 # opus | sonnet | haiku
 color: ""                   # Hex color for terminal output (e.g., "#9B59B6")
 
-# === Voice Profile (matches settings.json daidentity.voices schema) ===
-voiceId: ""                 # ElevenLabs voice ID
-voice:
-  stability: 0.50           # 0.0-1.0 — Low = expressive/varied, High = consistent
-  similarity_boost: 0.75    # 0.0-1.0 — Voice identity preservation
-  style: 0.00               # 0.0-1.0 — Style exaggeration (higher = more dramatic)
-  speed: 1.00               # 0.7-1.2 — Speech rate
-  use_speaker_boost: true   # Enhanced clarity (adds latency)
-  volume: 0.80              # 0.0-2.0 — Playback volume
-
 # === Persona (Character Identity) ===
 persona:
   name: ""                  # Full character name (e.g., "Vera Sterling")
@@ -134,9 +124,6 @@ How the voice embodies the character.]
 
 1. Send voice notification:
 \`\`\`bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"[Agent name] activated, loading context","voice_id":"{voiceId}","title":"{persona.name}","voice_settings":{"stability":{voice.stability},"similarity_boost":{voice.similarity_boost},"style":{voice.style},"speed":{voice.speed},"use_speaker_boost":{voice.use_speaker_boost}},"volume":{voice.volume}}'
 \`\`\`
 
 2. Load knowledge base:
@@ -146,9 +133,6 @@ curl -s -X POST http://localhost:8888/notify \
 
 Every response must include a voice curl:
 \`\`\`bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"[completion message]","voice_id":"{voiceId}","title":"{persona.name}","voice_settings":{"stability":{voice.stability},"similarity_boost":{voice.similarity_boost},"style":{voice.style},"speed":{voice.speed},"use_speaker_boost":{voice.use_speaker_boost}},"volume":{voice.volume}}'
 \`\`\`
 
 ## Output Format

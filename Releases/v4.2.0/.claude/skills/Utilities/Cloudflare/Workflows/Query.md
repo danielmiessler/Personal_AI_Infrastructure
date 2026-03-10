@@ -5,9 +5,6 @@ Query Cloudflare account state via Code Mode MCP — list workers, check KV data
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the Query workflow in the Cloudflare skill to inspect Cloudflare state"}' \
   > /dev/null 2>&1 &
 ```
 

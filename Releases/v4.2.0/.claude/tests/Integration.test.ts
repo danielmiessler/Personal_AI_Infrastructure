@@ -1,5 +1,5 @@
 /**
- * Integration Tests — PAI v4.3.0
+ * Integration Tests — PAI v4.3.1
  *
  * These tests simulate real Claude Code session behavior: hook firing,
  * payload routing, state file outcomes, concurrent execution, and the
@@ -407,11 +407,11 @@ describe("Upgrade CLI: end-to-end flow", () => {
     // Source needs hooks/ and PAI/Tools/ to pass validation
     mkdirSync(join(sourceFixture.dir, "hooks"), { recursive: true });
     mkdirSync(join(sourceFixture.dir, "PAI", "Tools"), { recursive: true });
-    writeFileSync(join(sourceFixture.dir, "CLAUDE.md"), "# PAI 4.3.0");
+    writeFileSync(join(sourceFixture.dir, "CLAUDE.md"), "# PAI 4.3.1");
 
     // Create a minimal manifest.json
     const manifest = {
-      version: "4.3.0",
+      version: "4.3.1",
       files: [
         { path: "CLAUDE.md", sha256: "abc123" },
         { path: "settings.json", sha256: "def456" },

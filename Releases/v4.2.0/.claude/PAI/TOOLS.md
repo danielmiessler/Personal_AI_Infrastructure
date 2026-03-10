@@ -156,48 +156,6 @@ bun ~/.claude/PAI/Tools/GetTranscript.ts "https://www.youtube.com/watch?v=VIDEO_
 
 ---
 
-## Voice Server API - Generate Voice Narration
-
-**Location:** Voice server at `http://localhost:8888/notify`
-
-Send text to the voice server running on localhost for TTS using a configured voice clone.
-
-**Usage:**
-```bash
-# Single narration segment
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Your text here",
-    "voice_id": "$ELEVENLABS_VOICE_ID",
-    "title": "Voice Narrative"
-  }'
-
-# Pause between segments
-sleep 2
-```
-
-**Voice Configuration:**
-- **Voice ID:** Set via `ELEVENLABS_VOICE_ID` environment variable
-- **Stability:** 0.55 (natural variation in storytelling)
-- **Similarity Boost:** 0.85 (maintains authentic sound)
-- **Server:** `http://localhost:8888/notify`
-- **Max Segment:** 450 characters
-- **Pause Between:** 2 seconds
-
-**When to Use:**
-- "read this to me"
-- "voice narrative"
-- "speak this"
-- "narrate this"
-- "perform this"
-
-**Technical Details:**
-- Voice server must be running (`~/.claude/skills/VoiceServer/`)
-- Segments longer than 450 chars should be split
-- Natural 2-second pauses between segments for storytelling flow
-- Uses ElevenLabs API under the hood
-
 ---
 
 ## extract-transcript.py - Transcribe Audio/Video Files

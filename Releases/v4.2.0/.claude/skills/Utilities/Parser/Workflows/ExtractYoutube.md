@@ -3,9 +3,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the ExtractYoutube workflow in the Parser skill to parse videos"}' \
   > /dev/null 2>&1 &
 ```
 

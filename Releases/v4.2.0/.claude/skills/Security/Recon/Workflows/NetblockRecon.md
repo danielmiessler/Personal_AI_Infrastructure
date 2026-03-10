@@ -3,9 +3,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the NetblockRecon workflow in the Recon skill to scan network blocks"}' \
   > /dev/null 2>&1 &
 ```
 

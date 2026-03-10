@@ -1,31 +1,23 @@
 # The Notification System
 
-**Voice notifications for PAI workflows and task execution.**
+**Text and push notifications for PAI workflows and task execution.**
 
 This system provides:
-- Voice feedback when workflows start
+- Text feedback when workflows start
+- Push/external notifications for long-running tasks and background agents
 - Consistent user experience across all skills
 
 ---
 
 ## Task Start Announcements
 
-**When STARTING a task, do BOTH:**
+**When STARTING a task, output a text notification:**
 
-1. **Send voice notification**:
-   ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "[Doing what {PRINCIPAL.NAME} asked]"}' \
-     > /dev/null 2>&1 &
-   ```
+```
+[Doing what {PRINCIPAL.NAME} asked]...
+```
 
-2. **Output text notification**:
-   ```
-   [Doing what {PRINCIPAL.NAME} asked]...
-   ```
-
-**Skip curl for conversational responses** (greetings, acknowledgments, simple Q&A). The 🎯 COMPLETED line already drives voice output—adding curl creates redundant voice messages.
+**Skip for conversational responses** (greetings, acknowledgments, simple Q&A).
 
 ---
 
@@ -65,104 +57,6 @@ Executing the **WorkflowName** workflow within the **SkillName** skill...
 - If it's not listed in a skill's Workflow Routing, DON'T use "Executing" format
 - For non-workflow tasks, use context-appropriate gerund
 
-### The curl Pattern (Workflow-Based Skills Only)
-
-When executing an actual workflow file from a `Workflows/` directory:
-
-```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION", "voice_id": "{DAIDENTITY.VOICEID}", "title": "{DAIDENTITY.NAME}"}' \
-  > /dev/null 2>&1 &
-```
-
-**Parameters:**
-- `message` - The spoken text (workflow and skill name)
-- `voice_id` - ElevenLabs voice ID (default: {DAIDENTITY.NAME}'s voice)
-- `title` - Display name for the notification
-
----
-
-## Effort Level in Voice Notifications
-
-**Voice phase announcements are inline curls in the Algorithm template** (defined in CLAUDE.md), not hooks. Each Algorithm phase has a `curl -s -X POST http://localhost:8888/notify` call that gets spoken. The effort level determines which curls fire:
-
-| Effort | Budget | Voice Curls |
-|--------|--------|-------------|
-| Standard | <2min | OBSERVE + VERIFY curls only |
-| Extended | <8min | All phase curls |
-| Advanced | <16min | All phase curls |
-| Deep | <32min | All phase curls |
-| Comprehensive | <120min | All phase curls |
-
-**Task completion voice** is handled by `StopOrchestrator.hook.ts` → `handlers/VoiceNotification.ts`, which extracts the `🗣️` line from the response and POSTs to the voice server.
-
----
-
-## Voice IDs
-
-| Agent | Voice ID | Notes |
-|-------|----------|-------|
-| **{DAIDENTITY.NAME}** (default) | `{DAIDENTITY.VOICEID}` | Use for most workflows |
-| **Priya** (Artist) | `ZF6FPAbjXT4488VcRRnw` | Art skill workflows |
-
-**Full voice registry:** `~/.claude/skills/Agents/SKILL.md` (see Named Agents) and `~/.claude/settings.json` (daidentity.voiceId)
-
----
-
-## Copy-Paste Templates
-
-### Template A: Skills WITH Workflows
-
-For skills that have a `Workflows/` directory:
-
-```markdown
-## Voice Notification
-
-**When executing a workflow, do BOTH:**
-
-1. **Send voice notification**:
-   ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the SKILLNAME skill to ACTION"}' \
-     > /dev/null 2>&1 &
-   ```
-
-2. **Output text notification**:
-   ```
-   Running the **WorkflowName** workflow in the **SkillName** skill to ACTION...
-   ```
-```
-
-Replace `WORKFLOWNAME`, `SKILLNAME`, and `ACTION` with actual values when executing. ACTION should be under 6 words describing what the workflow does.
-
-### Template B: Skills WITHOUT Workflows
-
-For skills that handle requests directly (no `Workflows/` directory), **do NOT include a Voice Notification section**. These skills just describe what they're doing naturally in their responses.
-
-If you need to indicate this explicitly:
-
-```markdown
-## Task Handling
-
-This skill handles requests directly without workflows. When executing, simply describe what you're doing:
-- "Let me [action]..."
-- "I'll [action]..."
-```
-
----
-
-## Why Direct curl (Not Shell Script)
-
-Direct curl is:
-- **More reliable** - No script execution dependencies
-- **Faster** - No shell script overhead
-- **Visible** - The command is explicit in the skill file
-- **Debuggable** - Easy to test in isolation
-
-The backgrounded `&` and redirected output (`> /dev/null 2>&1`) ensure the curl doesn't block workflow execution.
-
 ---
 
 ## When to Skip Notifications
@@ -180,7 +74,7 @@ The backgrounded `&` and redirected output (`> /dev/null 2>&1`) ensure the curl 
 
 ## External Notifications (Push, Discord)
 
-**Beyond voice notifications, PAI supports external notification channels:**
+**Beyond text notifications, PAI supports external notification channels:**
 
 ### Available Channels
 
@@ -196,11 +90,11 @@ Notifications are automatically routed based on event type:
 
 | Event | Default Channels | Trigger |
 |-------|------------------|---------|
-| `taskComplete` | Voice only | Normal task completion |
-| `longTask` | Voice + ntfy | Task duration > 5 minutes |
+| `taskComplete` | Desktop | Normal task completion |
+| `longTask` | ntfy | Task duration > 5 minutes |
 | `backgroundAgent` | ntfy | Background agent completes |
-| `error` | Voice + ntfy | Error in response |
-| `security` | Voice + ntfy + Discord | Security alert |
+| `error` | ntfy | Error in response |
+| `security` | ntfy + Discord | Security alert |
 
 ### Configuration
 
@@ -291,7 +185,7 @@ await sendDiscord("Message", { title: "Title", color: 0x00ff00 });
 
 ## Event Log Channel (events.jsonl)
 
-In addition to the voice, push, and Discord channels above, PAI hooks emit structured events to `${PAI_DIR}/MEMORY/STATE/events.jsonl`. This is an append-only JSONL file where each line is a typed event (e.g., `algorithm.phase`, `work.created`, `rating.captured`, `voice.sent`). It serves as a unified observability channel that any process can consume by tailing or watching the file.
+In addition to the push and Discord channels above, PAI hooks emit structured events to `${PAI_DIR}/MEMORY/STATE/events.jsonl`. This is an append-only JSONL file where each line is a typed event (e.g., `algorithm.phase`, `work.created`, `rating.captured`). It serves as a unified observability channel that any process can consume by tailing or watching the file.
 
 Events are emitted via `appendEvent()` from `${PAI_DIR}/hooks/lib/event-emitter.ts`, which is synchronous and fire-and-forget. The event type system is defined in `${PAI_DIR}/hooks/lib/event-types.ts` as a TypeScript discriminated union covering 22 event interfaces. This channel is additive -- it does not replace any of the notification channels above, and hooks emit events alongside their existing state writes and notifications.
 

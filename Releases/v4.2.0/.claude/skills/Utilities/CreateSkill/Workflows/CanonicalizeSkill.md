@@ -5,9 +5,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the CanonicalizeSkill workflow in the CreateSkill skill to restructure skill"}' \
   > /dev/null 2>&1 &
 ```
 

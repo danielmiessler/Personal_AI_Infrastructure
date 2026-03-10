@@ -5,9 +5,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the Visualize workflow in the Art skill to create visualizations"}' \
   > /dev/null 2>&1 &
 ```
 

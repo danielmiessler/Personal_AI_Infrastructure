@@ -5,9 +5,6 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the RemoveBackground workflow in the Art skill to remove image backgrounds"}' \
   > /dev/null 2>&1 &
 ```
 

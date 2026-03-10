@@ -69,9 +69,6 @@ This skill orchestrates multiple PAI capabilities:
 
 Before any workflow execution:
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running WORKFLOW_NAME in the World Threat Model Harness", "voice_id": "fTtv3eikoepIosk8dTZ5"}'
 ```
 
 ## Customization Check

@@ -439,6 +439,7 @@ Recovery is straightforward:
 |---------|-------------|
 | **Local Model Support** | Run PAI with local models (Ollama, llama.cpp) for privacy and cost control |
 | **Granular Model Routing** | Route different tasks to different models based on complexity |
+| **Private User Sync** | Version-control and sync personal PAI artifacts (memories, private skills, USER/ config) to a dedicated private GitHub repo — completely isolated from the public PAI upstream |
 | **Remote Access** | Access your PAI from anywhere—mobile, web, other devices |
 | **Outbound Phone Calling** | Voice capabilities for outbound calls |
 | **External Notifications** | Robust notification system for Email, Discord, Telegram, Slack |

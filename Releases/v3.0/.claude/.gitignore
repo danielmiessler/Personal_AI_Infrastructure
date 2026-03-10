@@ -33,7 +33,11 @@ node_modules/
 *.cache
 *.log
 
-# Accidental npm/bun debris
-/package.json
+# Accidental npm debris
 /package-lock.json
-/bun.lock
+
+# Local debugging/diagnostic tools (not for upstream)
+Tools/happy-session-monitor.ps1
+Tools/happy-session-tracer.ps1
+Tools/watch-happy-sessions.sh
+lib/CHRISGLICK-PR-RECOMMENDATION.md

@@ -11,39 +11,43 @@
 
 # Personal AI Infrastructure
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=24&pause=1000&color=60A5FA&center=true&vCenter=true&width=600&lines=Everyone+needs+access+to+the+best+AI.;AI+should+magnify+everyone.;Your+personal+AI+stack.)](https://github.com/danielmiessler/PAI)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=24&pause=1000&color=60A5FA&center=true&vCenter=true&width=600&lines=Everyone+needs+access+to+the+best+AI.;AI+should+magnify+everyone.;Your+personal+AI+stack.)](https://github.com/danielmiessler/Personal_AI_Infrastructure)
 
 <br/>
 
 <!-- Social Proof -->
-![Stars](https://img.shields.io/github/stars/danielmiessler/PAI?style=social)
-![Forks](https://img.shields.io/github/forks/danielmiessler/PAI?style=social)
-![Watchers](https://img.shields.io/github/watchers/danielmiessler/PAI?style=social)
+![Stars](https://img.shields.io/github/stars/danielmiessler/Personal_AI_Infrastructure?style=social)
+![Forks](https://img.shields.io/github/forks/danielmiessler/Personal_AI_Infrastructure?style=social)
+![Watchers](https://img.shields.io/github/watchers/danielmiessler/Personal_AI_Infrastructure?style=social)
 
 <!-- Project Health -->
-![Release](https://img.shields.io/github/v/release/danielmiessler/PAI?style=flat&logo=github&color=8B5CF6)
-![Last Commit](https://img.shields.io/github/last-commit/danielmiessler/PAI?style=flat&logo=git&color=22C55E)
-![Open Issues](https://img.shields.io/github/issues/danielmiessler/PAI?style=flat&logo=github&color=F97316)
-![Open PRs](https://img.shields.io/github/issues-pr/danielmiessler/PAI?style=flat&logo=github&color=EC4899)
-![License](https://img.shields.io/github/license/danielmiessler/PAI?style=flat&color=60A5FA)
+![Release](https://img.shields.io/github/v/release/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=github&color=8B5CF6)
+![Last Commit](https://img.shields.io/github/last-commit/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=git&color=22C55E)
+![Open Issues](https://img.shields.io/github/issues/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=github&color=F97316)
+![Open PRs](https://img.shields.io/github/issues-pr/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=github&color=EC4899)
+![License](https://img.shields.io/github/license/danielmiessler/Personal_AI_Infrastructure?style=flat&color=60A5FA)
+
+<!-- Metrics -->
+![Discussions](https://img.shields.io/github/discussions/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=github&label=Discussions&color=EAB308)
+![Commit Activity](https://img.shields.io/github/commit-activity/m/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=git&label=Commits%2Fmo&color=F59E0B)
+![Repo Size](https://img.shields.io/github/repo-size/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=database&label=Repo%20Size&color=D97706)
 
 <!-- Content -->
 [![Get Started](https://img.shields.io/badge/🚀_Get_Started-Install-22C55E?style=flat)](#-installation)
-[![Packs](https://img.shields.io/badge/📦_Packs-23-8B5CF6?style=flat)](Packs/)
-[![Bundles](https://img.shields.io/badge/🎁_Bundles-1-F97316?style=flat)](Bundles/)
-[![Contributors](https://img.shields.io/github/contributors/danielmiessler/PAI?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/PAI/graphs/contributors)
+[![Release v4.0.3](https://img.shields.io/badge/📦_Release-v4.0.3-8B5CF6?style=flat)](Releases/v4.0.3/)
+[![Contributors](https://img.shields.io/github/contributors/danielmiessler/Personal_AI_Infrastructure?style=flat&logo=githubsponsors&logoColor=white&label=Contributors&color=EC4899)](https://github.com/danielmiessler/Personal_AI_Infrastructure/graphs/contributors)
 
 <!-- Tech Stack -->
 [![Built with Claude](https://img.shields.io/badge/Built_with-Claude-D4A574?style=flat&logo=anthropic&logoColor=white)](https://claude.ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-000000?style=flat&logo=bun&logoColor=white)](https://bun.sh)
-[![UL Community](https://img.shields.io/badge/UL_Community-5865F2?style=flat&logo=discord&logoColor=white)](https://danielmiessler.com/upgrade)
+[![Community](https://img.shields.io/badge/Community-5865F2?style=flat&logo=discord&logoColor=white)](https://danielmiessler.com/upgrade)
 
 <br/>
 
 **Overview:** [Purpose](#the-purpose-of-this-project) · [What is PAI?](#what-is-pai) · [New to AI?](#new-to-this-start-here) · [Principles](#the-pai-principles) · [Primitives](#pai-primitives)
 
-**Get Started:** [Installation](#-installation) · [Packs](#-packs) · [Bundles](#-bundles)
+**Get Started:** [Installation](#-installation) · [Releases](Releases/)
 
 **Resources:** [FAQ](#-faq) · [Roadmap](#-roadmap) · [Community](#-community) · [Contributing](#-contributing)
 
@@ -58,9 +62,9 @@
 </div>
 
 > [!IMPORTANT]
-> **PAI v2.3.0 Released** — Complete `.claude/` directories with continuous learning are back.
+> **PAI v4.0.3 Released** — 3 patch updates since v4.0.0 with 30+ community-contributed fixes: Linux compatibility, JSON parsing, installer improvements, portability, and upgrade migration.
 >
-> **[Release notes →](Releases/v2.3/README.md)** | **[GitHub Release →](https://github.com/danielmiessler/PAI/releases/tag/v2.3.0)**
+> **[Release notes →](Releases/v4.0.3/README.md)** | **[All releases →](Releases/)**
 
 <div align="center">
 
@@ -105,7 +109,7 @@ ChatGPT, Claude, Gemini—you ask something, it answers, and then it forgets eve
 
 ### Agentic Platforms
 
-Tools like Claude Code, Cursor, and Windsurf. The AI can actually *do* things—write code, browse the web, edit files, run commands.
+Tools like Claude Code. The AI can actually *do* things—write code, browse the web, edit files, run commands.
 
 **The pattern:** Ask → Use tools → Get result
 
@@ -293,7 +297,7 @@ Defines system and user-level security policies by default. You don't have to ru
 
 ### AI-Based Installation
 
-Your AI assistant reads the packs, understands your system, and installs everything for you. No manual configuration, no guessing—the AI handles it.
+The GUI installer handles everything—prerequisites, configuration, and setup. No manual configuration, no guessing.
 
 ---
 
@@ -332,170 +336,52 @@ Rich tab titles and pane management. Dynamic status lines show learning signals,
 > [!CAUTION]
 > **Project in Active Development** — PAI is evolving rapidly. Expect breaking changes, restructuring, and frequent updates. We are working on stable and development branches, but currently it's all combined.
 
-### Which Install Path Should I Use?
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Do you want a complete, working PAI system right now?          │
-│                                                                 │
-│     YES ──────────► Option 1: Full Release Install              │
-│                     (Complete .claude/ directory, ~5 min)       │
-│                                                                 │
-│     NO, I want to customize or learn the system                 │
-│         │                                                       │
-│         ├──► Option 2: Bundle + Packs (Build it yourself)       │
-│         │    (Skeleton structure, then install packs manually)  │
-│         │                                                       │
-│         └──► Option 3: Individual Packs (Cherry-pick)           │
-│              (Install only specific capabilities you need)      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Option 1: Full Release Install (Recommended)
-
-> **This is the fastest path to a working PAI system.** You get a complete, pre-configured `.claude/` directory with all infrastructure packs already installed.
+### Fresh Install
 
 ```bash
 # Clone the repo
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Releases/v2.3
+git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/Releases/v4.0.3
 
-# Back up your existing Claude Code configuration (if any)
-[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+# Copy the release and run the installer
+cp -r .claude ~/ && cd ~/.claude && bash install.sh
+```
 
-# Copy the complete PAI installation
+**The installer will:**
+- Detect your system and install prerequisites (Bun, Git, Claude Code)
+- Ask for your name, AI assistant name, timezone, and temperature unit preference
+- Clone/configure the PAI repository into `~/.claude/`
+- Set up voice features with ElevenLabs (optional)
+- Configure your shell alias and verify the installation
+
+**After installation:** Run `source ~/.zshrc && pai` to launch PAI.
+
+### Upgrading from a Previous Version
+
+```bash
+# 1. Back up your current installation
+cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)
+
+# 2. Clone and copy the new release over your installation
+git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/Releases/v4.0.3
 cp -r .claude ~/
 
-# Run the configuration wizard
-cd ~/.claude && bun run install.ts --setup
+# 3. Run the installer (detects existing installation, preserves your data)
+cd ~/.claude && bash install.sh
+
+# 4. Rebuild your CLAUDE.md
+bun ~/.claude/PAI/Tools/BuildCLAUDE.ts
 ```
 
-**The wizard will:**
-- Ask for your name, DA name, and timezone
-- Configure environment variables (works with both bash and zsh)
-- Set up voice preferences (optional)
-- Verify the installation
+> [!TIP]
+> The installer **auto-detects** existing installations. It preserves your `USER/` files, merges `settings.json` (only updating installer-managed fields like identity and version), and never overwrites your hooks, statusline, or custom configuration.
 
-**After installation:** Restart Claude Code to activate hooks.
-
-[**Full Release documentation →**](Releases/v2.3/README.md)
-
----
-
-### Option 2: Bundle + Manual Pack Installation
-
-> **For users who want to understand the system** as they build it, or need a customized setup.
-
-> [!WARNING]
-> The Bundle wizard creates a **skeleton directory structure only**. You must then install each pack manually in the correct order for a working system.
-
-```bash
-# Clone the repo
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Bundles/Official
-
-# Run the interactive wizard (creates skeleton structure)
-bun run install.ts
-```
-
-**After the wizard completes, you MUST install packs in this order:**
-
-| Order | Pack | Command |
-|-------|------|---------|
-| 1 | pai-hook-system | "Install the pack at PAI/Packs/pai-hook-system/" |
-| 2 | pai-core-install | "Install the pack at PAI/Packs/pai-core-install/" |
-| 3 | pai-statusline | "Install the pack at PAI/Packs/pai-statusline/" |
-| 4+ | Any skill packs | Install as needed |
-
-[**Bundle documentation →**](Bundles/Official/README.md)
-
----
-
-### Option 3: Individual Pack Installation
-
-Install individual packs by giving them to your DA:
-
-1. **Browse packs** - Find a pack you want in [Packs/](Packs/)
-2. **Give it to your DA** - Provide the pack directory path
-3. **Ask your DA to install it:**
-
-```
-Install this pack into my system. Use PAI_DIR="~/.claude"
-and DA="MyAI". Set up the hooks, save the code, and verify it works.
-```
-
-### Option 4: Browse and Cherry-Pick
-
-Packs are self-contained. You can:
-- Read the code directly in the pack
-- Copy specific functions or workflows
-- Adapt the approach to your own system
-- Use it as reference documentation
-
-**No forced structure. No mandatory setup. Take what's useful, leave the rest.**
-
----
-
-## 📦 Packs
-
-PAI capabilities are distributed as **Packs**—self-contained, AI-installable modules that add specific capabilities to your system.
-
-Each pack includes everything needed: code, workflows, installation instructions, and verification tests. Your DA reads the pack and installs it into your system—no manual copying required.
-
-### Infrastructure Packs
-
-| Pack | Description |
-|------|-------------|
-| [**pai-core-install**](Packs/pai-core-install/) | Core skills, identity, MEMORY system, and response format |
-| [**pai-hook-system**](Packs/pai-hook-system/) | Event-driven automation and security validation |
-| [**pai-voice-system**](Packs/pai-voice-system/) | Voice notifications with ElevenLabs TTS |
-| [**pai-observability-server**](Packs/pai-observability-server/) | Real-time agent monitoring dashboard |
-| [**pai-statusline**](Packs/pai-statusline/) | 4-mode responsive status line with learning signals |
-
-### Skill Packs
-
-| Pack | Description |
-|------|-------------|
-| [**pai-agents-skill**](Packs/pai-agents-skill/) | Dynamic agent composition with personality mapping |
-| [**pai-algorithm-skill**](Packs/pai-algorithm-skill/) | ISC management, effort classification |
-| [**pai-annualreports-skill**](Packs/pai-annualreports-skill/) | Annual security report aggregation |
-| [**pai-art-skill**](Packs/pai-art-skill/) | Visual content generation |
-| [**pai-brightdata-skill**](Packs/pai-brightdata-skill/) | Progressive URL scraping |
-| [**pai-browser-skill**](Packs/pai-browser-skill/) | Browser automation with Playwright |
-| [**pai-council-skill**](Packs/pai-council-skill/) | Multi-agent debate system |
-| [**pai-createcli-skill**](Packs/pai-createcli-skill/) | Generate TypeScript CLI tools |
-| [**pai-createskill-skill**](Packs/pai-createskill-skill/) | Create and validate PAI skills |
-| [**pai-firstprinciples-skill**](Packs/pai-firstprinciples-skill/) | First principles analysis |
-| [**pai-osint-skill**](Packs/pai-osint-skill/) | Open source intelligence gathering |
-| [**pai-privateinvestigator-skill**](Packs/pai-privateinvestigator-skill/) | Ethical people-finding |
-| [**pai-prompting-skill**](Packs/pai-prompting-skill/) | Meta-prompting system |
-| [**pai-recon-skill**](Packs/pai-recon-skill/) | Security reconnaissance |
-| [**pai-redteam-skill**](Packs/pai-redteam-skill/) | Adversarial analysis with 32 agents |
-| [**pai-research-skill**](Packs/pai-research-skill/) | Multi-source research |
-| [**pai-system-skill**](Packs/pai-system-skill/) | System maintenance and integrity checks |
-| [**pai-telos-skill**](Packs/pai-telos-skill/) | Life OS and deep goal capture |
-
-> **23 packs total** — 5 infrastructure + 18 skills. All extracted from production PAI systems.
-
----
-
-## 📦 Bundles
-
-**Bundles** are curated collections of packs designed to work together.
-
-| Bundle | Description | Packs |
-|--------|-------------|-------|
-| [**PAI Bundle**](Bundles/Official/) | The official PAI bundle - complete personal AI infrastructure | 5 |
-
-**Quick install:**
-```bash
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Bundles/Official && bun run install.ts
-```
-
-[**Learn more about bundles →**](Bundles/)
+**Post-upgrade checklist:**
+- [ ] Verify your identity in `settings.json` (name, AI name, timezone)
+- [ ] Confirm the statusline displays correctly
+- [ ] Test voice notifications (if enabled)
+- [ ] Run a simple prompt to confirm PAI responds correctly
 
 ---
 
@@ -503,9 +389,9 @@ cd PAI/Bundles/Official && bun run install.ts
 
 ### How is PAI different from just using Claude Code?
 
-PAI isn't a replacement for Claude Code—it's what you build *on top of it*. Claude Code gives you an AI that can read files, write code, and execute commands. But it's generic. It doesn't know your goals, your preferred workflows, your history, or your specific context.
+PAI is built natively on Claude Code and designed to stay that way. We chose Claude Code because its hook system, context management, and agentic architecture are the best foundation available for personal AI infrastructure.
 
-PAI provides the scaffolding to make that generic AI *yours*:
+PAI isn't a replacement for Claude Code — it's the layer on top that makes Claude Code *yours*:
 
 - **Persistent memory** — Your DA remembers past sessions, decisions, and learnings
 - **Custom skills** — Specialized capabilities for the things you do most
@@ -515,30 +401,17 @@ PAI provides the scaffolding to make that generic AI *yours*:
 
 Think of it this way: Claude Code is the engine. PAI is everything else that makes it *your* car.
 
-### Do I need to install everything?
+### What's the difference between PAI and Claude Code's built-in features?
 
-No. PAI v2 is modular by design:
+Claude Code provides powerful primitives — hooks, slash commands, MCP servers, context files. These are individual building blocks.
 
-- **Packs are independent** — Install one, install ten, install none
-- **Start small** — Begin with the Hook System, add more when you need it
-- **No dependencies on the whole** — Each pack declares its dependencies explicitly
-- **Incremental adoption** — Use PAI alongside your existing setup
-
-The best way to start: pick ONE pack that solves a problem you have today.
-
-### What's the difference between PAI and Anthropic's plugin system?
-
-Anthropic's plugin system (Skills, slash commands, MCP servers) provides discrete functionality—individual tools your DA can use.
-
-**Anthropic's plugins** = Individual pieces of functionality that don't understand overall context
-
-**PAI** = A complete system where everything understands the context—your goals, your workflows, how pieces work together
-
-The plugin system offers building blocks. PAI offers a complete system.
+PAI is the complete system built on those primitives. It connects everything together: your goals inform your skills, your skills generate memory, your memory improves future responses. PAI turns Claude Code's building blocks into a coherent personal AI platform.
 
 ### Is PAI only for Claude Code?
 
-No. PAI packs are designed to be platform-agnostic. While the examples use Claude Code, the packs work with OpenCode, Cursor, Windsurf, and custom systems. The code is TypeScript, Python, and Bash—the concepts are universal.
+PAI is Claude Code native. We believe Claude Code's hook system, context management, and agentic capabilities make it the best platform for personal AI infrastructure, and PAI is designed to take full advantage of those features.
+
+That said, PAI's concepts (skills, memory, algorithms) are universal, and the code is TypeScript and Bash — so community members are welcome to adapt it for other platforms.
 
 ### How is this different from fabric?
 
@@ -548,12 +421,15 @@ PAI is infrastructure for *how your DA operates*—memory, skills, routing, cont
 
 ### What if I break something?
 
-The modular design makes recovery easy:
+Recovery is straightforward:
 
-- **Packs are isolated** — Breaking one doesn't affect others
-- **History is preserved** — Your DA's memory survives mistakes
+- **Back up first** — Before any upgrade: `cp -r ~/.claude ~/.claude-backup-$(date +%Y%m%d)`
+- **USER/ is safe** — Your customizations in `USER/` are never touched by the installer or upgrades
+- **Settings merge, not overwrite** — The installer only updates identity and version fields; your hooks, statusline, and custom config are preserved
 - **Git-backed** — Version control everything, roll back when needed
+- **History is preserved** — Your DA's memory survives mistakes
 - **DA can fix it** — Your DA helped build it, it can help repair it
+- **Re-install** — Run the installer again; it detects existing installations and merges intelligently
 
 ---
 
@@ -571,9 +447,9 @@ The modular design makes recovery easy:
 
 ## 🌐 Community
 
-**GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/PAI/discussions)
+**GitHub Discussions:** [Join the conversation](https://github.com/danielmiessler/Personal_AI_Infrastructure/discussions)
 
-**UL Community Discord:** PAI is discussed in the [Unsupervised Learning community](https://danielmiessler.com/upgrade) along with other AI projects
+**Community Discord:** PAI is discussed in the [community Discord](https://danielmiessler.com/upgrade) along with other AI projects
 
 **Twitter/X:** [@danielmiessler](https://twitter.com/danielmiessler)
 
@@ -581,11 +457,11 @@ The modular design makes recovery easy:
 
 ### Star History
 
-<a href="https://star-history.com/#danielmiessler/PAI&Date">
+<a href="https://star-history.com/#danielmiessler/Personal_AI_Infrastructure&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=danielmiessler/PAI&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=danielmiessler/PAI&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=danielmiessler/PAI&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=danielmiessler/Personal_AI_Infrastructure&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=danielmiessler/Personal_AI_Infrastructure&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=danielmiessler/Personal_AI_Infrastructure&type=Date" />
  </picture>
 </a>
 
@@ -593,16 +469,12 @@ The modular design makes recovery easy:
 
 ## 🤝 Contributing
 
-### Submit a Pack
+We welcome contributions! See our [GitHub Issues](https://github.com/danielmiessler/Personal_AI_Infrastructure/issues) for open tasks.
 
 1. **Fork the repository**
-2. **Create your pack** using [PAIPackTemplate.md](Tools/PAIPackTemplate.md)
-3. **Test it** — Install in a fresh system with AI assistance
+2. **Make your changes** — Bug fixes, new skills, documentation improvements
+3. **Test thoroughly** — Install in a fresh system to verify
 4. **Submit a PR** with examples and testing evidence
-
-Packs are reviewed for completeness, code quality, security, and usefulness. Most packs reviewed within 7 days.
-
-**Pack authors maintain their packs** — respond to issues, fix bugs, consider feature requests.
 
 ---
 
@@ -651,6 +523,57 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <br/>
 
+**v4.0.3 (2026-03-01) — Community PR Patch**
+- JSON array parsing fix in Inference.ts
+- 29 dead references removed from CONTEXT_ROUTING.md
+- WorldThreatModelHarness PAI_DIR portability
+- User context migration for v2.5/v3.0 upgraders
+- [Release Notes](Releases/v4.0.3/README.md)
+
+**v4.0.2 (2026-03-01) — Bug Fix Patch**
+- 13 surgical fixes: Linux compatibility, installer, statusline, hooks
+- Cross-platform OAuth token extraction, GNU coreutils tr fix
+- Inference guard (~15s savings), lineage tracking, dead code removal
+- [Release Notes](Releases/v4.0.2/README.md)
+
+**v4.0.1 (2026-02-28) — Upgrade Path & Preferences**
+- Upgrade documentation with backup, merge, and post-upgrade checklist
+- Configurable temperature unit (Fahrenheit/Celsius) in statusline and installer
+- FAQ fixes: removed stale Python reference, improved recovery guidance
+- [Release Notes](Releases/v4.0.1/README.md)
+
+**v4.0.0 (2026-02-27) — Lean and Mean**
+- 38 flat skill directories → 12 hierarchical categories (-68% top-level dirs)
+- Dead systems removed: Components/, DocRebuild, RebuildSkill
+- CLAUDE.md template system with BuildCLAUDE.ts + SessionStart hook
+- Algorithm v3.5.0 (up from v1.4.0)
+- Comprehensive security sanitization (33+ files cleaned)
+- All version refs updated, Electron crash fix
+- 63 skills, 21 hooks, 180 workflows, 14 agents
+- [Release Notes](Releases/v4.0.0/README.md)
+
+**v3.0.0 (2026-02-15) — The Algorithm Matures**
+- Algorithm v1.4.0 with constraint extraction and build drift prevention
+- Persistent PRDs and parallel loop execution
+- Full installer with GUI wizard
+- 10 new skills, agent teams/swarm, voice personality system
+- 38 skills, 20 hooks, 162 workflows
+- [Release Notes](Releases/v3.0/README.md)
+
+**v2.5.0 (2026-01-30) — Think Deeper, Execute Faster**
+- Two-Pass Capability Selection: Hook hints validated against ISC in THINK phase
+- Thinking Tools with Justify-Exclusion: Opt-OUT, not opt-IN for Council, RedTeam, FirstPrinciples, etc.
+- Parallel-by-Default Execution: Independent tasks run concurrently via parallel agent spawning
+- 28 skills, 17 hooks, 356 workflows
+- [Release Notes](Releases/v2.5/README.md)
+
+**v2.4.0 (2026-01-23) — The Algorithm**
+- Universal problem-solving system with ISC (Ideal State Criteria) tracking
+- 29 skills, 15 hooks, 331 workflows
+- Euphoric Surprise as the outcome metric
+- Enhanced security with AllowList enforcement
+- [Release Notes](Releases/v2.4/README.md)
+
 **v2.3.0 (2026-01-15) — Full Releases Return**
 - Complete `.claude/` directory releases with continuous learning
 - Explicit and implicit rating capture
@@ -659,19 +582,14 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [Release Notes](Releases/v2.3/README.md)
 
 **v2.1.1 (2026-01-09) — MEMORY System Migration**
-- History system merged into pai-core-install as MEMORY System
+- History system merged into core as MEMORY System
 
-**v2.1.0 (2025-12-31) — Directory-Based Pack Structure**
-- All packs migrated from single files to directory structure
-- Source code now in real files instead of embedded markdown
+**v2.1.0 (2025-12-31) — Modular Architecture**
+- Source code in real files instead of embedded markdown
 
-**v2.0.1 (2025-12-30) — Pack Expansion**
-- Added Prompting and Agents skills
-- Standardized authentication to single `.env` location
-
-**v2.0.0 (2025-12-28) — PAI Packs System Launch**
-- Transitioned from monolithic to modular pack architecture
-- Platform-agnostic design
+**v2.0.0 (2025-12-28) — PAI v2 Launch**
+- Modular architecture with independent skills
+- Claude Code native design
 
 </details>
 

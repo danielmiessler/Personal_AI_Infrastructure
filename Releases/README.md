@@ -8,132 +8,150 @@
 
 ---
 
-<div align="center">
+## What Are Releases?
 
-## Latest Release: v2.3.0
+Releases are **complete `.claude/` directories** ready to drop into your home folder. Each release contains everything you need: skills, hooks, workflows, memory structure, and configuration.
 
-[![PAI v2.3](https://img.shields.io/badge/PAI-v2.3.0-8B5CF6?style=for-the-badge&logo=github)](v2.3/)
+This is the fastest way to get PAI running. Copy the directory, run the wizard, restart Claude Code.
 
-**Complete `.claude/` directory with continuous learning built in**
-
-20 Skills | 11 Agents | 14 Hooks | Sentiment Capture | Memory System
-
-[**Get Started with v2.3 →**](v2.3/)
-
-</div>
+> **Note:** The `.claude` directory is hidden by default on macOS/Linux. Use `ls -la` to see it.
 
 ---
 
-This is the PAI releases directory, which deals with a different type of install from PAI Packs or Bundles. 
+## Available Releases
 
- PAI releases are designed to give you a full working state after a very short install wizard by giving you a functional .claude directory. 
+### v4.0.3 — Community PR Patch (Current)
 
----
+4 community-contributed fixes from open PRs.
 
-## Understanding Release Contents
+- Inference: JSON parsing now handles arrays `[]` alongside objects `{}`
+- Documentation: removed 29 dead references from CONTEXT_ROUTING.md
+- Portability: WorldThreatModelHarness uses `$PAI_DIR` instead of hardcoded path
+- Installer: migrates user context from v2.5/v3.0 paths on upgrade
 
-Each versioned release (e.g., `v2.3/`) contains:
-
-```
-v2.3/
-├── .claude/          # Hidden directory - the complete PAI installation
-├── Packs/            # Individual packs for modular installation
-└── README.md         # This file (version-specific instructions)
-```
-
-> **Note:** The `.claude` directory starts with a period, making it hidden by default on macOS/Linux. Use `ls -la` to see it, or enable "Show hidden files" in your file manager.
+**[Get v4.0.3 →](v4.0.3/)**
 
 ---
 
-## Two Installation Methods
+### v4.0.2 — Bug Fix Patch
 
-PAI offers two ways to install:
+13 surgical fixes — no new features, no breaking changes.
 
-### Method 1: Release Install (Complete Installation) ⭐ RECOMMENDED
+- Linux compatibility: cross-platform OAuth token extraction, GNU coreutils `tr` fix
+- Installer: correct alias path, shell detection (bash/fish/zsh), headless CLI fallback
+- Statusline: width cache, algorithmVersion field, cross-platform OAuth
+- Hooks: inference guard (~15s savings), lineage tracking, dead code removal, exit codes, voice config
 
-**Best for:** First-time users, fresh setups, or when you want the full PAI experience immediately.
+**[Get v4.0.2 →](v4.0.2/)**
 
-> [!TIP]
-> This is the **fastest path to a working PAI system**. You get a complete, pre-configured `.claude/` directory.
+---
 
-**Step-by-step:**
+### v4.0.1 — Upgrade Path & Preferences
+
+Patch release addressing community feedback on upgrade difficulties and missing preferences.
+
+- Upgrade path documentation with backup, merge, and post-upgrade checklist
+- Configurable temperature unit (Fahrenheit/Celsius) in statusline
+- Installer prompts for temperature preference during setup
+- Statusline fixes: dynamic timezone, context fallback, startup estimate, f-string syntax (PRs #762, #780, #806)
+- FAQ fixes (removed stale Python reference, improved recovery guidance)
+
+**[Get v4.0.1 →](v4.0.1/)**
+
+---
+
+### v4.0.0 — Lean and Mean
+
+38 flat skill directories compressed into 12 hierarchical categories. Dead systems removed. Context footprint cut in half.
+
+- 63 Skills, 21 Hooks, 180 Workflows
+- Algorithm v3.5.0
+- CLAUDE.md template system with BuildCLAUDE.ts + SessionStart hook
+- Comprehensive security sanitization (33+ files cleaned)
+- ~19% context at startup (down from ~38%)
+
+**[Get v4.0.0 →](v4.0.0/)**
+
+---
+
+### v3.0.0 — The Algorithm Matures
+
+The Algorithm reaches v1.4.0 with constraint extraction, build drift prevention, persistent PRDs, and parallel loop execution.
+
+- 38 Skills, 20 Hooks, 162 Workflows
+- Algorithm v1.4.0
+- Full installer with GUI wizard
+- 10 new skills
+- Agent teams/swarm
+- Voice personality system
+- PRD system
+
+**[Get v3.0 →](v3.0/)**
+
+---
+
+### v2.5.0 — Think Deeper, Execute Faster
+
+The Algorithm learns metacognition—thinking about how it thinks—and parallel execution.
+
+- 28 Skills, 17 Hooks, 356 Workflows
+- Two-pass capability selection with ISC validation
+- Thinking tools with justify-exclusion principle
+- Parallel-by-default execution for independent tasks
+- 7 named composition patterns for capability orchestration
+
+**[Get v2.5 →](v2.5/)**
+
+---
+
+### v2.4.0 — The Algorithm
+
+Our first attempt at a general problem solver built into PAI to pursue Euphoric Surprise.
+
+- 29 Skills, 15 Hooks, 331 Workflows
+- 7-phase problem-solving with ISC tracking
+- Improved installation wizard
+- Voice notifications via ElevenLabs
+
+**[Get v2.4 →](v2.4/)**
+
+---
+
+### v2.3.0 — Continuous Learning
+
+The release that introduced persistent learning and sentiment capture.
+
+- 20 Skills, session continuity
+- Implicit/explicit rating capture
+- Memory system with WORK, STATE, LEARNING directories
+
+**[Get v2.3 →](v2.3/)**
+
+---
+
+## Installation
 
 ```bash
-# 1. Clone the repo (if you haven't already)
-git clone https://github.com/danielmiessler/PAI.git
-cd PAI/Releases/v2.3
+# 1. Clone the repo
+git clone https://github.com/danielmiessler/Personal_AI_Infrastructure.git
+cd Personal_AI_Infrastructure/Releases/v4.0.3
 
-# 2. Back up your existing Claude Code configuration (if any)
-[ -d ~/.claude ] && mv ~/.claude ~/.claude-backup-$(date +%Y%m%d)
-
-# 3. Copy the complete PAI installation to your home directory
-cp -r .claude ~/
-
-# 4. Run the configuration wizard
-cd ~/.claude && bun run install.ts --setup
-
-# 5. Restart Claude Code to activate hooks
+# 2. Copy the release and run the installer
+cp -r .claude ~/ && cd ~/.claude && bash install.sh
 ```
 
-**The wizard will ask for:**
-- Your name (for personalization)
-- Your DA's name (default: Kai)
-- Your timezone (for date/time awareness)
-- Voice preferences (optional, requires ElevenLabs API key)
+The wizard asks for your name, AI name, timezone, temperature unit, and optional voice preferences.
 
-**Shell support:** The wizard works with both **zsh** and **bash**. It auto-detects your shell and writes environment variables to the correct config file (`.zshrc` or `.bashrc`).
-
-**Result:** Complete PAI installation with all skills, hooks, memory system, and default configuration.
-
-**After installation:** If you have existing AI context (from ChatGPT, previous Claude conversations, etc.), use your new PAI system to help organize that content into the appropriate directories (MEMORY/, USER/, skills/).
+See the [main README](../README.md#upgrading-from-a-previous-version) for upgrade instructions.
 
 ---
-
-### Method 2: Pack Install (Modular Installation)
-
-**Best for:** Users who already have a PAI or other agent harness system set up, want selective installation, or prefer AI-guided setup.
-
-**What happens:**
-1. Your existing AI assistant (Claude Code, Cursor, etc.) reads the pack's INSTALL.md
-2. The AI guides you through an interactive installation wizard
-3. Packs install intelligently based on what you already have
-4. Dependencies are checked and installed in the correct order
-
-**How to do it:**
-1. Open your AI coding assistant
-2. Point it to a pack directory: "Install the pack at `/path/to/packs/pai-core-install`"
-3. Follow the interactive prompts
-4. Repeat for each pack you want
-
-**Result:** Modular PAI installation with just the components you need.
 
 ## Troubleshooting
 
-### "I can't see the .claude directory"
+**Can't see .claude directory?** It's hidden. Use `ls -la ~/` or press `Cmd+Shift+.` in Finder.
 
-It's hidden. Use:
-```bash
-ls -la ~/ | grep claude
-```
-
-Or show hidden files in Finder: `Cmd + Shift + .`
-
-### "Hooks aren't firing"
-
-Restart Claude Code after installation. Hooks load at session start.
-
-### "Pack says missing dependency"
-
-Install packs in order. `pai-hook-system` first, then `pai-core-install`, then others.
+**Hooks not firing?** Restart Claude Code after installation.
 
 ---
 
-## Version History
-
-| Version | Date | Notes |
-|---------|------|-------|
-| v2.3 | 2026-01 | Current release |
-
----
-
-**Questions?** See the main [PAI README](../README.md) or [INSTALL.md](../INSTALL.md).
+**Questions?** See the main [PAI README](../README.md).

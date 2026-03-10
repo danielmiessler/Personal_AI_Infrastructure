@@ -69,17 +69,22 @@ const WRITE_PATTERNS: Array<{ pattern: RegExp; description: string }> = [
   { pattern: /\bgit\s+push\s+.*--delete\b/, description: 'remote branch deletion' },
 ];
 
-function stripQuotedStrings(command: string): string {
-  // Remove single-quoted and double-quoted strings so patterns inside grep/echo args don't trigger
+function extractCommandInvocations(command: string): string {
+  // Split on shell operators to isolate individual command invocations,
+  // then take only the first 4 tokens of each segment (enough to match
+  // "git push --force origin" or "gh pr create" etc.).
+  // This prevents heredoc bodies, grep patterns, and commit messages
+  // from being matched even when they contain write-command strings as text.
   return command
-    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
-    .replace(/'(?:[^'\\]|\\.)*'/g, "''");
+    .split(/&&|\|\||;|\|/)
+    .map(seg => seg.trim().split(/\s+/).slice(0, 4).join(' '))
+    .join(' ');
 }
 
 function isGitHubWriteCommand(command: string): { write: boolean; description: string } {
-  const stripped = stripQuotedStrings(command);
+  const invocations = extractCommandInvocations(command);
   for (const { pattern, description } of WRITE_PATTERNS) {
-    if (pattern.test(stripped)) {
+    if (pattern.test(invocations)) {
       return { write: true, description };
     }
   }

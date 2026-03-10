@@ -27,7 +27,6 @@ The CapabilityRecommender hook uses AI inference to classify depth. Its classifi
 
 🔧 CHANGE: [What you're doing differently]
 ✅ VERIFY: [Evidence it worked]
-🗣️ {DAIDENTITY.NAME}: [Result summary]
 ```
 
 **Default:** FULL. MINIMAL is rare — only pure social interaction with zero task content. Short prompts can demand FULL depth. The word "just" does not reduce depth.
@@ -338,9 +337,6 @@ Extended+: Rehearse verification for each CRITICAL criterion.
 - Write JSONL to `MEMORY/LEARNING/REFLECTIONS/algorithm-reflections.jsonl`.
 - PRD: append session entry, update status.
 - Wisdom Frame if genuine insight.
-- Voice summary.
-
-`🗣️ {DAIDENTITY.NAME}: [12-24 word spoken summary]`
 
 ## Response Formats
 
@@ -356,7 +352,6 @@ CRITICAL: ALWAYS use this format, even for short interactions.
 🗒️ OUTPUT: [Main output if there was an artifact result]
 🔧 CHANGE: [What's different]
 ✅ VERIFY: [Evidence]
-🗣️ {DAIDENTITY.NAME}: [Result]
 ```
 
 **Minimal** (greetings, ratings, acknowledgments):
@@ -365,7 +360,6 @@ CRITICAL: ALWAYS use this format, even for short interactions.
    Task: [6 words]
    Effort: [INSTANT|FAST|STANDARD|EXTENDED|ADVANCED|DEEP|COMPREHENSIVE]
 📋 SUMMARY: [bullets]
-🗣️ {DAIDENTITY.NAME}: [summary]
 ```
 
 ## PRD Persistence

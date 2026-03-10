@@ -13,6 +13,7 @@
 import { parseTranscript } from '../skills/PAI/Tools/TranscriptParser';
 import { handleSystemIntegrity } from './handlers/SystemIntegrity';
 import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
+import { readStdinWithTimeout } from './lib/stdin';
 
 interface HookInput {
   session_id: string;
@@ -22,18 +23,7 @@ interface HookInput {
 
 async function readStdin(): Promise<HookInput | null> {
   try {
-    const decoder = new TextDecoder();
-    const reader = Bun.stdin.stream().getReader();
-    let input = '';
-    const timeout = new Promise<void>(r => setTimeout(r, 500));
-    const read = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        input += decoder.decode(value, { stream: true });
-      }
-    })();
-    await Promise.race([read, timeout]);
+    const input = await readStdinWithTimeout(500);
     if (input.trim()) return JSON.parse(input) as HookInput;
   } catch {}
   return null;

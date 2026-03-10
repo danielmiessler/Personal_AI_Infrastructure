@@ -65,6 +65,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
 import { paiPath } from './lib/paths';
+import { readStdinWithTimeout } from './lib/stdin';
 
 // ========================================
 // Security Event Logging
@@ -600,37 +601,14 @@ async function main(): Promise<void> {
   let input: HookInput;
 
   try {
-    // Streaming stdin read with hard timeout.
-    // Bun.stdin.text() can hang forever if stdin never closes (known Bun issue).
-    // Use streaming reader + setTimeout that forces process.exit on timeout.
-    const reader = Bun.stdin.stream().getReader();
-    let raw = '';
-    const readLoop = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        raw += new TextDecoder().decode(value, { stream: true });
-      }
-    })();
+    const text = await readStdinWithTimeout(100);
 
-    // Hard timeout: if stdin doesn't close in 200ms, exit the process.
-    // setTimeout keeps the event loop alive, so we use process.exit to force cleanup.
-    const timeout = setTimeout(() => {
-      if (!raw.trim()) {
-        console.log(JSON.stringify({ continue: true }));
-        process.exit(0);
-      }
-    }, 200);
-
-    await Promise.race([readLoop, new Promise<void>(r => setTimeout(r, 200))]);
-    clearTimeout(timeout);
-
-    if (!raw.trim()) {
+    if (!text.trim()) {
       console.log(JSON.stringify({ continue: true }));
       return;
     }
 
-    input = JSON.parse(raw);
+    input = JSON.parse(text);
   } catch {
     // Parse error or timeout - fail open
     console.log(JSON.stringify({ continue: true }));

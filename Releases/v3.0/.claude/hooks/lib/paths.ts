@@ -73,3 +73,14 @@ export function getSkillsDir(): string {
 export function getMemoryDir(): string {
   return paiPath('MEMORY');
 }
+
+/**
+ * Sanitize a session_id to prevent path traversal attacks.
+ * Session IDs from Claude Code are UUIDs (hex + hyphens), but stdin input
+ * could be tampered with. Strip anything that's not alphanumeric or hyphen.
+ *
+ * Security: prevents ../../ traversal in join() calls that construct file paths.
+ */
+export function sanitizeSessionId(sessionId: string): string {
+  return sessionId.replace(/[^a-zA-Z0-9\-]/g, '');
+}

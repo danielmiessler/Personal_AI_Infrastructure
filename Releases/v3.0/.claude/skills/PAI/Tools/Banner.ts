@@ -11,8 +11,9 @@
 import { readdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import { getHomeDir } from '../../../lib/platform';
 
-const HOME = process.env.HOME!;
+const HOME = getHomeDir();
 const CLAUDE_DIR = join(HOME, ".claude");
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -125,11 +126,16 @@ function getStats(): SystemStats {
     repoUrl = settings.pai?.repoUrl || repoUrl;
   } catch {}
 
-  // Read algorithm version from LATEST file (single source of truth)
+  // Read algorithm version from LATEST file — primary path with legacy fallback
   try {
-    const latestPath = join(CLAUDE_DIR, "skills/PAI/Components/Algorithm/LATEST");
-    const latestContent = readFileSync(latestPath, "utf-8").trim();
-    // Extract version number (handles "v0.2" or "0.2" format)
+    const algoPrimary = join(CLAUDE_DIR, "PAI", "Algorithm", "LATEST");
+    const algoLegacy = join(CLAUDE_DIR, "skills", "PAI", "Components", "Algorithm", "LATEST");
+    let latestContent: string;
+    try {
+      latestContent = readFileSync(algoPrimary, "utf-8").trim();
+    } catch {
+      latestContent = readFileSync(algoLegacy, "utf-8").trim();
+    }
     algorithmVersion = latestContent.replace(/^v/i, "");
   } catch {}
 

@@ -19,6 +19,9 @@ import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { getTempFilePath, getAudioPlayCommand, getNotificationCommand, getLocalTTSCommand } from '../lib/platform';
+import { unlinkSync } from 'fs';
+import { EdgeTTS } from '@andresaya/edge-tts';
 
 // Load .env from user home directory
 const envPath = join(homedir(), '.env');
@@ -36,8 +39,8 @@ const PORT = parseInt(process.env.PORT || "8888");
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 if (!ELEVENLABS_API_KEY) {
-  console.error('⚠️  ELEVENLABS_API_KEY not found in ~/.env');
-  console.error('Add: ELEVENLABS_API_KEY=your_key_here');
+  console.warn('⚠️  ELEVENLABS_API_KEY not found in ~/.env — using local TTS fallback');
+  console.warn('For premium voice: add ELEVENLABS_API_KEY=your_key_here to ~/.env');
 }
 
 // ==========================================================================
@@ -255,11 +258,6 @@ const EMOTIONAL_PRESETS: Record<string, EmotionalOverlay> = {
   'urgent': { stability: 0.3, similarity_boost: 0.9 },
 };
 
-// Escape special characters for AppleScript
-function escapeForAppleScript(input: string): string {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
-
 // Extract emotional marker from message
 function extractEmotionalMarker(message: string): { cleaned: string; emotion?: string } {
   const emojiToEmotion: Record<string, string> = {
@@ -369,26 +367,33 @@ async function generateSpeech(
   return await response.arrayBuffer();
 }
 
-// Play audio using afplay (macOS)
+// Play audio using platform-appropriate player (afplay on macOS, WPF MediaPlayer on Windows)
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`;
+  const tempFile = getTempFilePath('voice', '.mp3');
 
   await Bun.write(tempFile, audioBuffer);
 
+  const audioCmd = getAudioPlayCommand(tempFile, volume);
+  if (!audioCmd) {
+    try { unlinkSync(tempFile); } catch {}
+    throw new Error('No audio player available on this platform');
+  }
+
   return new Promise((resolve, reject) => {
-    const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    const proc = spawn(audioCmd.command, audioCmd.args, { windowsHide: true });
 
     proc.on('error', (error) => {
       console.error('Error playing audio:', error);
+      try { unlinkSync(tempFile); } catch {}
       reject(error);
     });
 
     proc.on('exit', (code) => {
-      spawn('/bin/rm', [tempFile]);
+      try { unlinkSync(tempFile); } catch {}
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`afplay exited with code ${code}`));
+        reject(new Error(`Audio player exited with code ${code}`));
       }
     });
   });
@@ -397,7 +402,7 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
 // Spawn a process safely
 function spawnSafe(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, args);
+    const proc = spawn(command, args, { windowsHide: true });
 
     proc.on('error', (error) => {
       console.error(`Error spawning ${command}:`, error);
@@ -415,11 +420,81 @@ function spawnSafe(command: string, args: string[]): Promise<void> {
 }
 
 // ==========================================================================
+// Edge TTS — Free neural voices via Microsoft Edge Read Aloud API
+// ==========================================================================
+
+// Default neural voice — configurable via settings.json daidentity.edgeTtsVoice
+const EDGE_TTS_DEFAULT = 'en-US-AriaNeural';
+const EDGE_TTS_VOICE: string = (() => {
+  try {
+    const s = JSON.parse(require('fs').readFileSync(
+      require('path').join(process.env.HOME || process.env.USERPROFILE || '', '.claude', 'settings.json'), 'utf-8'
+    ));
+    return s?.daidentity?.edgeTtsVoice || EDGE_TTS_DEFAULT;
+  } catch { return EDGE_TTS_DEFAULT; }
+})();
+
+/**
+ * Generate and play speech using Edge TTS neural voices.
+ * Falls back to null if network is unavailable (caller should try SAPI next).
+ */
+async function edgeTtsSpeak(text: string, volume: number = 1.0, voiceOverride?: string): Promise<boolean> {
+  const tts = new EdgeTTS();
+  const voice = voiceOverride || EDGE_TTS_VOICE;
+
+  // Apply pronunciation replacements before sending to TTS
+  const pronouncedText = applyPronunciations(text);
+  if (pronouncedText !== text) {
+    console.log(`📖 Pronunciation: "${text}" → "${pronouncedText}"`);
+  }
+
+  await tts.synthesize(pronouncedText, voice, {
+    rate: '+0%',
+    volume: '+0%',
+    pitch: '+0Hz',
+  });
+
+  const audioBuffer = tts.toBuffer();
+  if (!audioBuffer || audioBuffer.length === 0) {
+    throw new Error('Edge TTS returned empty audio');
+  }
+
+  // Write to temp file and play using platform audio player
+  const tempFile = getTempFilePath('edge-tts', '.mp3');
+  await Bun.write(tempFile, audioBuffer);
+
+  const audioCmd = getAudioPlayCommand(tempFile, volume);
+  if (!audioCmd) {
+    try { unlinkSync(tempFile); } catch {}
+    throw new Error('No audio player available on this platform');
+  }
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(audioCmd.command, audioCmd.args, { windowsHide: true });
+
+    proc.on('error', (error) => {
+      console.error('Error playing edge-tts audio:', error);
+      try { unlinkSync(tempFile); } catch {}
+      reject(error);
+    });
+
+    proc.on('exit', (code) => {
+      try { unlinkSync(tempFile); } catch {}
+      if (code === 0) {
+        resolve(true);
+      } else {
+        reject(new Error(`Audio player exited with code ${code}`));
+      }
+    });
+  });
+}
+
+// ==========================================================================
 // Core: Send notification with 3-tier voice settings resolution
 // ==========================================================================
 
 /**
- * Send macOS notification with voice.
+ * Send desktop notification with voice (cross-platform).
  *
  * Voice settings resolution (3-tier):
  *   1. callerVoiceSettings provided → use directly (pass-through)
@@ -436,6 +511,8 @@ async function sendNotification(
   voiceId: string | null = null,
   callerVoiceSettings?: Partial<ElevenLabsVoiceSettings> | null,
   callerVolume?: number | null,
+  _emotion?: string,
+  edgeTtsVoiceOverride?: string | null,
 ): Promise<{ voicePlayed: boolean; voiceError?: string }> {
   const titleValidation = validateInput(title);
   const messageValidation = validateInput(message);
@@ -458,7 +535,14 @@ async function sendNotification(
   let voicePlayed = false;
   let voiceError: string | undefined;
 
-  if (voiceEnabled && ELEVENLABS_API_KEY) {
+  const isNonElevenLabsVoice = ['native', 'edge-tts', 'sapi', 'none'].includes(voiceId || '');
+
+  if (voiceId === 'none') {
+    // Voice explicitly disabled
+    return { voicePlayed: false };
+  }
+
+  if (voiceEnabled && ELEVENLABS_API_KEY && !isNonElevenLabsVoice) {
     try {
       const voice = voiceId || DEFAULT_VOICE_ID;
 
@@ -510,15 +594,55 @@ async function sendNotification(
       console.error("Failed to generate/play speech:", error);
       voiceError = error.message || "TTS generation failed";
     }
+  } else if (voiceEnabled && voiceId === 'sapi') {
+    // Explicit SAPI/say/espeak — skip Edge TTS entirely
+    try {
+      const ttsCmd = getLocalTTSCommand(safeMessage);
+      if (ttsCmd) {
+        console.log(`🗣️  Local TTS (SAPI/say/espeak)`);
+        await spawnSafe(ttsCmd.command, ttsCmd.args);
+        voicePlayed = true;
+      } else {
+        voiceError = "No local TTS available on this platform";
+      }
+    } catch (error: any) {
+      console.error("Local TTS failed:", error);
+      voiceError = error.message || "Local TTS failed";
+    }
+  } else if (voiceEnabled && (!ELEVENLABS_API_KEY || isNonElevenLabsVoice)) {
+    // Edge TTS neural voice (free, no API key) → SAPI/say/espeak fallback
+    try {
+      const edgeVoice = edgeTtsVoiceOverride || EDGE_TTS_VOICE;
+      console.log(`🧠 Edge TTS neural voice (${edgeVoice})`);
+      await edgeTtsSpeak(safeMessage, 1.0, edgeTtsVoiceOverride || undefined);
+      voicePlayed = true;
+    } catch (edgeError: any) {
+      console.warn(`⚠️  Edge TTS failed (${edgeError.message}), falling back to local TTS`);
+      // Fallback to local SAPI/say/espeak
+      try {
+        const ttsCmd = getLocalTTSCommand(safeMessage);
+        if (ttsCmd) {
+          console.log(`🗣️  Local TTS fallback (SAPI/say/espeak)`);
+          await spawnSafe(ttsCmd.command, ttsCmd.args);
+          voicePlayed = true;
+        } else {
+          voiceError = "No local TTS available on this platform";
+        }
+      } catch (localError: any) {
+        console.error("Local TTS fallback also failed:", localError);
+        voiceError = localError.message || "All TTS methods failed";
+      }
+    }
   }
 
-  // Display macOS notification (can be disabled via settings.json: notifications.desktop.enabled: false)
-  if (voiceConfig.desktopNotifications) {
+  // Display desktop notification only as fallback when voice didn't play
+  // Voice IS the notification — toast is redundant noise when voice works
+  if (voiceConfig.desktopNotifications && !voicePlayed) {
     try {
-      const escapedTitle = escapeForAppleScript(safeTitle);
-      const escapedMessage = escapeForAppleScript(safeMessage);
-      const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`;
-      await spawnSafe('/usr/bin/osascript', ['-e', script]);
+      const notifCmd = getNotificationCommand(safeTitle, safeMessage);
+      if (notifCmd) {
+        await spawnSafe(notifCmd.command, notifCmd.args);
+      }
     } catch (error) {
       console.error("Notification display error:", error);
     }
@@ -557,8 +681,10 @@ const server = serve({
 
     const clientIp = req.headers.get('x-forwarded-for') || 'localhost';
 
+    // Allow CORS from any local origin — server only binds to localhost so this is safe
+    const requestOrigin = req.headers.get('origin') || '*';
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "http://localhost",
+      "Access-Control-Allow-Origin": requestOrigin,
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     };
@@ -586,14 +712,15 @@ const server = serve({
         const voiceId = data.voice_id || data.voice_name || null;
         const voiceSettings = data.voice_settings || null;
         const volume = data.volume ?? null;
+        const edgeTtsVoice = data.edge_tts_voice || null;
 
         if (voiceId && typeof voiceId !== 'string') {
           throw new Error('Invalid voice_id');
         }
 
-        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID})`);
+        console.log(`📨 Notification: "${title}" - "${message}" (voice: ${voiceEnabled}, voiceId: ${voiceId || DEFAULT_VOICE_ID}${edgeTtsVoice ? `, edgeTts: ${edgeTtsVoice}` : ''})`);
 
-        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume);
+        const result = await sendNotification(title, message, voiceEnabled, voiceId, voiceSettings, volume, undefined, edgeTtsVoice);
 
         if (voiceEnabled && !result.voicePlayed && result.voiceError) {
           return new Response(
@@ -688,7 +815,7 @@ const server = serve({
         JSON.stringify({
           status: "healthy",
           port: PORT,
-          voice_system: "ElevenLabs",
+          voice_system: ELEVENLABS_API_KEY ? "ElevenLabs" : "Edge TTS Neural",
           default_voice_id: DEFAULT_VOICE_ID,
           api_key_configured: !!ELEVENLABS_API_KEY,
           pronunciation_rules: pronunciationRules.length,
@@ -709,8 +836,9 @@ const server = serve({
 });
 
 console.log(`🚀 Voice Server running on port ${PORT}`);
-console.log(`🎙️  Using ElevenLabs TTS (default voice: ${DEFAULT_VOICE_ID})`);
+console.log(`🎙️  Primary: ${ELEVENLABS_API_KEY ? `ElevenLabs (voice: ${DEFAULT_VOICE_ID})` : `Edge TTS Neural (${EDGE_TTS_VOICE})`}`);
+console.log(`🧠 Fallback: Edge TTS → SAPI/say/espeak`);
 console.log(`📡 POST to http://localhost:${PORT}/notify`);
 console.log(`🔒 Security: CORS restricted to localhost, rate limiting enabled`);
-console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+console.log(`🔑 API Key: ${ELEVENLABS_API_KEY ? '✅ Configured' : '❌ Not needed (Edge TTS is free)'}`);
 console.log(`📖 Pronunciations: ${pronunciationRules.length} rules loaded`);

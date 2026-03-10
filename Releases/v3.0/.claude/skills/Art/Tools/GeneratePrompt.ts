@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { paiPath } from '../../../lib/platform';
 
 // ============================================================================
 // Types
@@ -67,10 +68,7 @@ interface PromptOutput {
 // Constants
 // ============================================================================
 
-const ART_AESTHETIC_PATH = resolve(
-  process.env.HOME!,
-  ".claude/skills/PAI/Aesthetic.md"
-);
+const ART_AESTHETIC_PATH = paiPath("skills", "PAI", "Aesthetic.md");
 
 const COLOR_HEX_MAP: Record<TokyoNightColor, string> = {
   "Electric Blue": "#7aa2f7",

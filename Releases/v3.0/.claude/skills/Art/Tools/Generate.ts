@@ -7,7 +7,7 @@
  * Follows llcli pattern for deterministic, composable CLI design.
  *
  * Usage:
- *   generate --model nano-banana-pro --prompt "..." --size 16:9 --output /tmp/image.png
+ *   generate --model nano-banana-pro --prompt "..." --size 16:9 --output ./image.png
  *
  * @see ~/.claude/skills/art/README.md
  */
@@ -17,6 +17,7 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { writeFile, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
+import { getPaiDir } from '../../../lib/platform';
 
 // ============================================================================
 // Environment Loading
@@ -27,7 +28,7 @@ import { extname, resolve } from "node:path";
  * This ensures API keys are available regardless of how the CLI is invoked
  */
 async function loadEnv(): Promise<void> {
-  const paiDir = process.env.PAI_DIR || resolve(process.env.HOME!, '.claude');
+  const paiDir = getPaiDir();
   const envPath = resolve(paiDir, '.env');
   try {
     const envContent = await readFile(envPath, 'utf-8');
@@ -210,7 +211,7 @@ OPTIONS:
                              Gemini (nano-banana-pro): 1K, 2K, 4K (resolution); aspect ratio inferred from context or defaults to 16:9
   --aspect-ratio <ratio>     Aspect ratio for Gemini nano-banana-pro (default: 16:9)
                              Options: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
-  --output <path>            Output file path (default: /tmp/ul-image.png)
+  --output <path>            Output file path (default: ~/Downloads/ul-image.png)
   --reference-image <path>   Reference image for style/character consistency (Nano Banana Pro only)
                              Can specify MULTIPLE times for improved consistency
                              Accepts: PNG, JPEG, WebP images
@@ -240,18 +241,18 @@ EXAMPLES:
   generate --model nano-banana --prompt "Abstract editorial illustration..." --size 16:9
 
   # Generate square image with Flux
-  generate --model flux --prompt "Minimal geometric art..." --size 1:1 --output /tmp/header.png
+  generate --model flux --prompt "Minimal geometric art..." --size 1:1 --output ./header.png
 
   # Generate portrait with GPT-image-1
   generate --model gpt-image-1 --prompt "Editorial cover..." --size 1024x1536
 
   # Generate 3 creative variations (for testing model variability)
-  generate --model gpt-image-1 --prompt "..." --creative-variations 3 --output /tmp/essay.png
-  # Outputs: /tmp/essay-v1.png, /tmp/essay-v2.png, /tmp/essay-v3.png
+  generate --model gpt-image-1 --prompt "..." --creative-variations 3 --output ./essay.png
+  # Outputs: ./essay-v1.png, ./essay-v2.png, ./essay-v3.png
 
   # Single reference image for style guidance (Nano Banana Pro only)
   generate --model nano-banana-pro --prompt "Tokyo Night themed illustration..." \\
-    --reference-image /tmp/style-reference.png --size 2K --aspect-ratio 16:9
+    --reference-image ./style-reference.png --size 2K --aspect-ratio 16:9
 
   # MULTIPLE reference images for character consistency (Nano Banana Pro only)
   generate --model nano-banana-pro --prompt "Person from references at a party..." \\

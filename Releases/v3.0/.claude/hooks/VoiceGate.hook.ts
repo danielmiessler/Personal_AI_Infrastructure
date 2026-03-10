@@ -25,6 +25,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { readStdinWithTimeout } from './lib/stdin';
 
 interface HookInput {
   tool_name: string;
@@ -55,16 +56,7 @@ function isMainSession(sessionId: string): boolean {
 async function main() {
   let input: HookInput;
   try {
-    const reader = Bun.stdin.stream().getReader();
-    let raw = '';
-    const read = (async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        raw += new TextDecoder().decode(value, { stream: true });
-      }
-    })();
-    await Promise.race([read, new Promise<void>(r => setTimeout(r, 200))]);
+    const raw = await readStdinWithTimeout(200);
     if (!raw.trim()) {
       console.log(JSON.stringify({ continue: true }));
       return;

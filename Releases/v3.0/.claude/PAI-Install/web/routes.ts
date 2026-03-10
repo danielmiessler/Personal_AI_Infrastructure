@@ -85,6 +85,7 @@ async function requestInput(
   type: "text" | "password" | "key",
   placeholder?: string
 ): Promise<string> {
+  console.log(`[input] Requesting: ${id} ("${prompt.substring(0, 50)}")`);
   return new Promise<string>((resolve) => {
     pendingRequests.set(id, { resolve });
     broadcast({ type: "input_request", id, prompt, inputType: type, placeholder });
@@ -128,6 +129,7 @@ export function handleWsMessage(ws: any, raw: string): void {
       break;
 
     case "user_input": {
+      console.log(`[input] Received answer for: ${msg.requestId}`);
       const pending = pendingRequests.get(msg.requestId);
       if (pending) {
         pending.resolve(msg.value);
@@ -167,12 +169,14 @@ async function startInstallation(): Promise<void> {
   // Always start fresh — GUI should not silently resume stale state
   if (hasSavedState()) clearState();
   installState = createFreshState("web");
+  console.log("[install] Starting fresh installation");
 
   const emit = createWsEmitter();
 
   try {
     // Step 1: System Detection
     if (!installState.completedSteps.includes("system-detect")) {
+      console.log("[install] Step 1: System Detection");
       await runSystemDetect(installState, emit);
       broadcast({ type: "detection_result", data: installState.detection! });
       completeStep(installState, "system-detect");
@@ -181,6 +185,7 @@ async function startInstallation(): Promise<void> {
 
     // Step 2: Prerequisites
     if (!installState.completedSteps.includes("prerequisites")) {
+      console.log("[install] Step 2: Prerequisites");
       await runPrerequisites(installState, emit);
       completeStep(installState, "prerequisites");
       installState.currentStep = "api-keys";
@@ -188,6 +193,7 @@ async function startInstallation(): Promise<void> {
 
     // Step 3: API Keys
     if (!installState.completedSteps.includes("api-keys")) {
+      console.log("[install] Step 3: API Keys");
       await runApiKeys(installState, emit, requestInput, requestChoice);
       completeStep(installState, "api-keys");
       installState.currentStep = "identity";
@@ -195,7 +201,9 @@ async function startInstallation(): Promise<void> {
 
     // Step 4: Identity
     if (!installState.completedSteps.includes("identity")) {
+      console.log("[install] Step 4: Identity — entering runIdentity");
       await runIdentity(installState, emit, requestInput);
+      console.log("[install] Step 4: Identity — completed");
       completeStep(installState, "identity");
       installState.currentStep = "repository";
     }

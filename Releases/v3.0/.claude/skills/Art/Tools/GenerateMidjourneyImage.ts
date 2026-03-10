@@ -7,7 +7,7 @@
  * Follows llcli pattern for deterministic, composable CLI design.
  *
  * Usage:
- *   generate-midjourney-image --prompt "..." --aspect-ratio 16:9 --output /tmp/image.png
+ *   generate-midjourney-image --prompt "..." --aspect-ratio 16:9 --output ./image.png
  *
  * @see ~/.claude/skills/art/SKILL.md
  */
@@ -15,7 +15,8 @@
 import { DiscordBotClient } from '../lib/discord-bot.js';
 import { MidjourneyClient, MidjourneyError } from '../lib/midjourney-client.js';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { getPaiDir, getTempDir } from '../../../lib/platform';
 
 // ============================================================================
 // Environment Loading
@@ -26,7 +27,7 @@ import { resolve } from 'node:path';
  * This ensures API keys are available regardless of how the CLI is invoked
  */
 async function loadEnv(): Promise<void> {
-  const paiDir = process.env.PAI_DIR || resolve(process.env.HOME!, '.claude');
+  const paiDir = getPaiDir();
   const envPath = resolve(paiDir, '.env');
   try {
     const envContent = await readFile(envPath, 'utf-8');
@@ -79,7 +80,7 @@ const DEFAULTS = {
   stylize: parseInt(process.env.MIDJOURNEY_DEFAULT_STYLIZE || '100'),
   quality: parseInt(process.env.MIDJOURNEY_DEFAULT_QUALITY || '1'),
   tile: false,
-  output: '/tmp/midjourney-image.png',
+  output: join(getTempDir(), 'midjourney-image.png'),
   timeout: 120,
 };
 
@@ -163,14 +164,14 @@ EXAMPLES:
   generate-midjourney-image \\
     --prompt "abstract flowing data streams, minimal shapes, Tokyo Night colors" \\
     --aspect-ratio 16:9 \\
-    --output /tmp/header.png
+    --output ./header.png
 
   # High quality square image
   generate-midjourney-image \\
     --prompt "geometric network visualization, abstract tech concept" \\
     --aspect-ratio 1:1 \\
     --quality 2 \\
-    --output /tmp/square.png
+    --output ./square.png
 
   # Creative with high stylization
   generate-midjourney-image \\

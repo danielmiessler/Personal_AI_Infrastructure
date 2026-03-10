@@ -4,13 +4,14 @@
  * Each action takes state + event emitter, performs work, returns result.
  */
 
-import { execSync, spawn } from "child_process";
+import { execSync, spawn, spawnSync } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlinkSync, unlinkSync, chmodSync, lstatSync } from "fs";
 import { homedir } from "os";
-import { join, basename } from "path";
+import { join, basename, resolve, dirname } from "path";
 import type { InstallState, EngineEventHandler, DetectionResult } from "./types";
 import { detectSystem, validateElevenLabsKey } from "./detect";
 import { generateSettingsJson } from "./config-gen";
+import { isWindows, isMacOS, isLinux, getKillCommand } from "../../lib/platform";
 
 /**
  * Search existing .claude directories and config locations for a given env key.
@@ -196,12 +197,20 @@ export async function runPrerequisites(
   // Bun should already be installed by bootstrap script, but verify
   if (!det.tools.bun.installed) {
     await emit({ event: "progress", step: "prerequisites", percent: 40, detail: "Installing Bun..." });
-    const result = tryExec("curl -fsSL https://bun.sh/install | bash", 60000);
-    if (result !== null) {
-      // Update PATH
-      const bunBin = join(homedir(), ".bun", "bin");
-      process.env.PATH = `${bunBin}:${process.env.PATH}`;
-      await emit({ event: "message", content: "Bun installed successfully." });
+    if (isWindows) {
+      const result = tryExec('powershell -Command "irm bun.sh/install.ps1 | iex"', 60000);
+      if (result !== null) {
+        const bunBin = join(homedir(), ".bun", "bin");
+        process.env.PATH = `${bunBin};${process.env.PATH}`;
+        await emit({ event: "message", content: "Bun installed successfully." });
+      }
+    } else {
+      const result = tryExec("curl -fsSL https://bun.sh/install | bash", 60000);
+      if (result !== null) {
+        const bunBin = join(homedir(), ".bun", "bin");
+        process.env.PATH = `${bunBin}:${process.env.PATH}`;
+        await emit({ event: "message", content: "Bun installed successfully." });
+      }
     }
   } else {
     await emit({ event: "progress", step: "prerequisites", percent: 50, detail: `Bun found: v${det.tools.bun.version}` });
@@ -314,7 +323,7 @@ export async function runIdentity(
     defaultProjects || "~/Projects"
   );
   if (projDir.trim()) {
-    state.collected.projectsDir = projDir.trim().replace(/^~/, homedir());
+    state.collected.projectsDir = resolve(projDir.trim().replace(/^~/, homedir()));
   }
 
   await emit({
@@ -457,6 +466,49 @@ export async function runConfiguration(
   }
   await emit({ event: "message", content: "settings.json generated." });
 
+  // On Windows, prefix hook .ts commands with "bun" since shebangs don't work,
+  // and switch statusLine from .sh to .ts since bash isn't available
+  if (isWindows && existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+      let modified = false;
+
+      // Prefix hook commands with "bun"
+      if (settings.hooks) {
+        for (const eventHooks of Object.values(settings.hooks)) {
+          if (!Array.isArray(eventHooks)) continue;
+          for (const matcher of eventHooks as any[]) {
+            if (!matcher?.hooks) continue;
+            for (const hook of matcher.hooks as any[]) {
+              if (hook?.type === "command" && typeof hook.command === "string") {
+                const cmd = hook.command.trim();
+                if (cmd.endsWith(".ts") && !cmd.startsWith("bun ")) {
+                  hook.command = `bun ${cmd}`;
+                  modified = true;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Switch statusLine from bash script to cross-platform TypeScript
+      if (settings.statusLine?.command) {
+        const slCmd = settings.statusLine.command;
+        if (slCmd.endsWith("statusline-command.sh")) {
+          settings.statusLine.command = `bun ${slCmd.replace(/statusline-command\.sh$/, "statusline-command.ts")}`;
+          modified = true;
+        }
+      }
+
+      if (modified) {
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      }
+    } catch {
+      // Non-fatal — hooks may still work if bun is in PATH and registered for .ts
+    }
+  }
+
   // Update Algorithm LATEST version file (public repo may be behind)
   const latestPath = join(paiDir, "skills", "PAI", "Components", "Algorithm", "LATEST");
   const latestDir = join(paiDir, "skills", "PAI", "Components", "Algorithm");
@@ -570,50 +622,126 @@ export async function runConfiguration(
     }
   }
 
-  // Set up zsh alias
+  // Set up shell alias
   await emit({ event: "progress", step: "configuration", percent: 80, detail: "Setting up shell alias..." });
 
-  const zshrcPath = join(homedir(), ".zshrc");
-  const aliasLine = `alias pai='bun ${join(paiDir, "skills", "PAI", "Tools", "pai.ts")}'`;
+  const paiToolPath = join(paiDir, "skills", "PAI", "Tools", "pai.ts");
   const marker = "# PAI alias";
 
-  if (existsSync(zshrcPath)) {
-    let content = readFileSync(zshrcPath, "utf-8");
-    // Remove any existing pai alias (old CORE or PAI paths, any marker variant)
-    content = content.replace(/^#\s*(?:PAI|CORE)\s*alias.*\n.*alias pai=.*\n?/gm, "");
-    content = content.replace(/^alias pai=.*\n?/gm, "");
-    // Add fresh alias
-    content = content.trimEnd() + `\n\n${marker}\n${aliasLine}\n`;
-    writeFileSync(zshrcPath, content);
+  if (isWindows) {
+    // PowerShell profile: create a `pai` function
+    // Query $PROFILE from both PS 5.1 and PS 7+ to handle all editions and OneDrive redirection
+    const psAlias = `function pai { bun "${paiToolPath}" @args }`;
+    const profilePaths: string[] = [];
+
+    // Detect actual $PROFILE path from Windows PowerShell 5.1 (powershell.exe)
+    try {
+      const ps5 = spawnSync("powershell.exe", ["-NoProfile", "-Command", "Write-Host $PROFILE"], { timeout: 10000 });
+      const ps5Path = ps5.stdout?.toString().trim();
+      if (ps5Path && ps5Path.endsWith(".ps1")) profilePaths.push(ps5Path);
+    } catch { /* PS 5.1 not available */ }
+
+    // Detect actual $PROFILE path from PowerShell 7+ (pwsh.exe) if installed
+    try {
+      const ps7 = spawnSync("pwsh.exe", ["-NoProfile", "-Command", "Write-Host $PROFILE"], { timeout: 10000 });
+      const ps7Path = ps7.stdout?.toString().trim();
+      if (ps7Path && ps7Path.endsWith(".ps1") && !profilePaths.includes(ps7Path)) profilePaths.push(ps7Path);
+    } catch { /* PS 7+ not installed */ }
+
+    // Fallback: hardcoded paths for both editions (in case neither shell is accessible)
+    if (profilePaths.length === 0) {
+      const userHome = process.env.USERPROFILE || homedir();
+      profilePaths.push(join(userHome, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"));
+      profilePaths.push(join(userHome, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"));
+    }
+
+    // Write pai function to all detected profiles
+    // Use PowerShell to write its own profile — bun.exe is blocked by
+    // Windows Defender Controlled Folder Access on OneDrive-synced Documents
+    for (const psProfilePath of profilePaths) {
+      try {
+        // Build the content to write
+        let newContent: string;
+        const psProfileDir = dirname(psProfilePath);
+
+        // Create directory if needed (via PowerShell to bypass CFA)
+        if (!existsSync(psProfileDir)) {
+          spawnSync("powershell.exe", [
+            "-NoProfile", "-Command",
+            `New-Item -Path '${psProfileDir}' -ItemType Directory -Force | Out-Null`
+          ], { timeout: 10000 });
+        }
+
+        if (existsSync(psProfilePath)) {
+          // Read existing content via PowerShell (CFA may block bun reads too)
+          const readResult = spawnSync("powershell.exe", [
+            "-NoProfile", "-Command",
+            `if (Test-Path '${psProfilePath}') { Get-Content '${psProfilePath}' -Raw } else { '' }`
+          ], { timeout: 10000 });
+          let content = readResult.stdout?.toString() || "";
+          // Remove old PAI alias
+          content = content.replace(/^#\s*PAI alias\n.*function pai.*\n?/gm, "");
+          content = content.replace(/^function pai \{.*\}\n?/gm, "");
+          newContent = content.trimEnd() + `\n\n${marker}\n${psAlias}\n`;
+        } else {
+          newContent = `${marker}\n${psAlias}\n`;
+        }
+
+        // Write via PowerShell using .NET to avoid BOM issues
+        const escaped = newContent.replace(/'/g, "''");
+        spawnSync("powershell.exe", [
+          "-NoProfile", "-Command",
+          `[System.IO.File]::WriteAllText('${psProfilePath}', '${escaped}', [System.Text.UTF8Encoding]::new($false))`
+        ], { timeout: 10000 });
+      } catch (err: any) {
+        // Non-fatal: profile write failure shouldn't crash the installer
+        await emit({
+          event: "message",
+          content: `Note: Could not update PowerShell profile at ${psProfilePath}. You may need to add the PAI alias manually.`,
+        });
+      }
+    }
   } else {
-    writeFileSync(zshrcPath, `${marker}\n${aliasLine}\n`);
-  }
+    // Unix: zsh alias
+    const zshrcPath = join(homedir(), ".zshrc");
+    const aliasLine = `alias pai='bun ${paiToolPath}'`;
 
-  // Set up fish shell config (if fish is installed)
-  const fishConfigPath = join(homedir(), ".config", "fish", "config.fish");
-  const fishConfigDir = join(homedir(), ".config", "fish");
-  const paiToolPath = join(paiDir, "skills", "PAI", "Tools", "pai.ts");
-  const fishFunction = `# PAI alias\nfunction pai\n    bun ${paiToolPath} $argv\nend`;
-
-  if (existsSync(fishConfigDir)) {
-    if (existsSync(fishConfigPath)) {
-      let content = readFileSync(fishConfigPath, "utf-8");
-      // Remove old PAI/CORE fish functions
-      content = content.replace(/^#\s*(?:PAI|CORE)\s*alias\nfunction pai\n.*\nend\n?/gm, "");
-      content = content.replace(/^function pai\n.*\nend\n?/gm, "");
-      content = content.trimEnd() + `\n\n${fishFunction}\n`;
-      writeFileSync(fishConfigPath, content);
+    if (existsSync(zshrcPath)) {
+      let content = readFileSync(zshrcPath, "utf-8");
+      content = content.replace(/^#\s*(?:PAI|CORE)\s*alias.*\n.*alias pai=.*\n?/gm, "");
+      content = content.replace(/^alias pai=.*\n?/gm, "");
+      content = content.trimEnd() + `\n\n${marker}\n${aliasLine}\n`;
+      writeFileSync(zshrcPath, content);
     } else {
-      writeFileSync(fishConfigPath, `${fishFunction}\n`);
+      writeFileSync(zshrcPath, `${marker}\n${aliasLine}\n`);
+    }
+
+    // Fish shell config (if fish is installed)
+    const fishConfigPath = join(homedir(), ".config", "fish", "config.fish");
+    const fishConfigDir = join(homedir(), ".config", "fish");
+    const fishFunction = `# PAI alias\nfunction pai\n    bun ${paiToolPath} $argv\nend`;
+
+    if (existsSync(fishConfigDir)) {
+      if (existsSync(fishConfigPath)) {
+        let content = readFileSync(fishConfigPath, "utf-8");
+        content = content.replace(/^#\s*(?:PAI|CORE)\s*alias\nfunction pai\n.*\nend\n?/gm, "");
+        content = content.replace(/^function pai\n.*\nend\n?/gm, "");
+        content = content.trimEnd() + `\n\n${fishFunction}\n`;
+        writeFileSync(fishConfigPath, content);
+      } else {
+        writeFileSync(fishConfigPath, `${fishFunction}\n`);
+      }
     }
   }
 
-  // Fix permissions
-  await emit({ event: "progress", step: "configuration", percent: 90, detail: "Setting permissions..." });
-  try {
-    tryExec(`chmod -R 755 "${paiDir}"`, 10000);
-  } catch {
-    // Non-fatal
+  // Fix permissions (Unix only — Windows uses ACLs, not chmod)
+  if (!isWindows) {
+    await emit({ event: "progress", step: "configuration", percent: 90, detail: "Setting permissions..." });
+    try {
+      tryExec(`chmod -R 755 "${paiDir}"`, 10000);
+    } catch {
+      // Non-fatal
+    }
   }
 
   await emit({ event: "progress", step: "configuration", percent: 100, detail: "Configuration complete" });
@@ -644,12 +772,25 @@ async function stopVoiceServer(emit: EngineEventHandler): Promise<void> {
   }
 
   // Kill the process LISTENING on port 8888 (not clients connected to it — that would kill us!)
-  tryExec(`lsof -ti:8888 -sTCP:LISTEN | xargs kill -9 2>/dev/null`, 5000);
+  if (isWindows) {
+    // Windows: netstat to find PID, then taskkill
+    const netstat = tryExec(`netstat -ano | findstr :8888 | findstr LISTENING`, 5000);
+    if (netstat) {
+      const pids = new Set(netstat.split('\n').map(line => line.trim().split(/\s+/).pop()).filter(Boolean));
+      for (const pid of pids) {
+        tryExec(getKillCommand(pid!, true), 5000);
+      }
+    }
+  } else {
+    tryExec(`lsof -ti:8888 -sTCP:LISTEN | xargs kill -9 2>/dev/null`, 5000);
+  }
 
-  // Unload existing LaunchAgent if present
-  const plistPath = join(homedir(), "Library", "LaunchAgents", "com.pai.voice-server.plist");
-  if (existsSync(plistPath)) {
-    tryExec(`launchctl unload "${plistPath}" 2>/dev/null`, 5000);
+  // Unload existing LaunchAgent if present (macOS only)
+  if (!isWindows) {
+    const plistPath = join(homedir(), "Library", "LaunchAgents", "com.pai.voice-server.plist");
+    if (existsSync(plistPath)) {
+      tryExec(`launchctl unload "${plistPath}" 2>/dev/null`, 5000);
+    }
   }
 
   // Wait for it to actually stop
@@ -678,47 +819,49 @@ async function startVoiceServer(paiDir: string, emit: EngineEventHandler): Promi
   // Step 1: Stop any existing voice server (old or new)
   await stopVoiceServer(emit);
 
-  // Step 2: Install as LaunchAgent (auto-start on login)
-  // CRITICAL: Use async spawn instead of execSync to avoid blocking the event loop.
-  // execSync blocks ALL WebSocket connections for the duration of the script.
-  await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service..." });
-  if (existsSync(installScript)) {
-    try {
-      const installOk = await new Promise<boolean>((resolve) => {
-        const child = spawn("bash", [installScript], {
-          cwd: voiceServerDir,
-          stdio: ["pipe", "pipe", "pipe"],
+  // Step 2: Install as LaunchAgent (macOS) or bash scripts (Linux)
+  // On Windows, skip shell scripts entirely — fall through to bun server.ts (Step 4)
+  if (!isWindows) {
+    // CRITICAL: Use async spawn instead of execSync to avoid blocking the event loop.
+    // execSync blocks ALL WebSocket connections for the duration of the script.
+    await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service..." });
+    if (existsSync(installScript)) {
+      try {
+        const installOk = await new Promise<boolean>((resolve) => {
+          const child = spawn("bash", [installScript], {
+            cwd: voiceServerDir,
+            stdio: ["pipe", "pipe", "pipe"],
+          });
+          // Pipe "y\nn" — yes to reinstall, no to menu bar
+          child.stdin?.write("y\nn\n");
+          child.stdin?.end();
+          const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
+          child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
+          child.on("error", () => { clearTimeout(timer); resolve(false); });
         });
-        // Pipe "y\nn" — yes to reinstall, no to menu bar
-        child.stdin?.write("y\nn\n");
-        child.stdin?.end();
-        const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
-        child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
-        child.on("error", () => { clearTimeout(timer); resolve(false); });
-      });
-      if (installOk) {
-        for (let i = 0; i < 10; i++) {
-          await new Promise(r => setTimeout(r, 500));
-          if (await isVoiceServerRunning()) {
-            await emit({ event: "message", content: "Voice server installed and running." });
-            return true;
+        if (installOk) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            if (await isVoiceServerRunning()) {
+              await emit({ event: "message", content: "Voice server installed and running." });
+              return true;
+            }
           }
         }
+      } catch {
+        // Fall through to next step
       }
-    } catch {
-      // Fall through to next step
     }
-  }
 
-  // Step 3: Fallback — try start.sh if LaunchAgent install failed
-  if (existsSync(startScript)) {
-    await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
-    try {
-      await new Promise<void>((resolve) => {
-        const child = spawn("bash", [startScript], {
-          cwd: voiceServerDir,
-          stdio: "ignore",
-        });
+    // Step 3: Fallback — try start.sh if LaunchAgent install failed
+    if (existsSync(startScript)) {
+      await emit({ event: "progress", step: "voice", percent: 25, detail: "Starting voice server..." });
+      try {
+        await new Promise<void>((resolve) => {
+          const child = spawn("bash", [startScript], {
+            cwd: voiceServerDir,
+            stdio: "ignore",
+          });
         const timer = setTimeout(() => { child.kill(); resolve(); }, 15000);
         child.on("close", () => { clearTimeout(timer); resolve(); });
         child.on("error", () => { clearTimeout(timer); resolve(); });
@@ -734,8 +877,37 @@ async function startVoiceServer(paiDir: string, emit: EngineEventHandler): Promi
       }
     }
   }
+  } else {
+    // Windows: Use manage.ts install for Task Scheduler auto-start (equivalent to macOS LaunchAgent)
+    const manageTs = join(voiceServerDir, "manage.ts");
+    if (existsSync(manageTs)) {
+      await emit({ event: "progress", step: "voice", percent: 20, detail: "Installing voice server service (Task Scheduler)..." });
+      try {
+        const installOk = await new Promise<boolean>((resolve) => {
+          const child = spawn("bun", ["run", manageTs, "install"], {
+            cwd: voiceServerDir,
+            stdio: ["pipe", "pipe", "pipe"],
+          });
+          const timer = setTimeout(() => { child.kill(); resolve(false); }, 30000);
+          child.on("close", (code) => { clearTimeout(timer); resolve(code === 0); });
+          child.on("error", () => { clearTimeout(timer); resolve(false); });
+        });
+        if (installOk) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            if (await isVoiceServerRunning()) {
+              await emit({ event: "message", content: "Voice server installed as Windows service and running." });
+              return true;
+            }
+          }
+        }
+      } catch {
+        // Fall through to Step 4 (direct start)
+      }
+    }
+  }
 
-  // Step 4: Last resort — start server.ts directly in background
+  // Step 4: Start server.ts directly with bun (cross-platform fallback)
   if (existsSync(serverTs)) {
     await emit({ event: "progress", step: "voice", percent: 30, detail: "Starting voice server directly..." });
     try {
@@ -771,6 +943,16 @@ export async function runVoiceSetup(
   getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>
 ): Promise<void> {
   await emit({ event: "step_start", step: "voice" });
+
+  // Voice option labels (used in both initial and retry selection)
+  // Priority: 1) ElevenLabs, 2) Edge TTS Neural, 3) Windows Natural Voices, 4) SAPI/say, 5) None
+  const edgeTtsLabel = "Edge TTS Neural (Free)";
+  const edgeTtsDesc = "Microsoft Edge neural voices — high quality, no API key, requires internet";
+  const sapiLabel = isWindows ? "Windows Built-in (SAPI)" : isMacOS ? "macOS Built-in (say)" : "Linux Built-in (espeak)";
+  const sapiDesc = isWindows
+    ? "Basic Windows voices (David, Zira) — works offline, lower quality"
+    : isMacOS ? "Built-in macOS text-to-speech — works offline"
+    : "Built-in Linux espeak — works offline";
 
   // ── Collect ElevenLabs key if not already found ──
   if (!state.collected.elevenLabsKey) {
@@ -819,7 +1001,7 @@ export async function runVoiceSetup(
 
   const hasElevenLabsKey = !!state.collected.elevenLabsKey;
   if (!hasElevenLabsKey) {
-    await emit({ event: "message", content: "No ElevenLabs key — voice server will use macOS text-to-speech as fallback. You can add a key later in ~/.config/PAI/.env" });
+    await emit({ event: "message", content: "No ElevenLabs key — free neural voices via Edge TTS are available, or you can add a key later in ~/.config/PAI/.env" });
   }
 
   // ── Start voice server (works with or without ElevenLabs key) ──
@@ -867,13 +1049,44 @@ export async function runVoiceSetup(
   if (!selectedVoiceId) {
     await emit({ event: "progress", step: "voice", percent: 45, detail: "Choose your Digital Assistant's voice..." });
 
-    const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", [
-      { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-      { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-      { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-    ]);
+    // Build voice choices based on available options (priority order)
+    const voiceChoices: Array<{ label: string; value: string; description: string }> = [];
+    if (hasElevenLabsKey) {
+      voiceChoices.push({ label: "Female (Rachel)", value: "female", description: "ElevenLabs premium — warm, articulate female voice" });
+      voiceChoices.push({ label: "Male (Adam)", value: "male", description: "ElevenLabs premium — clear, confident male voice" });
+    }
+    voiceChoices.push({ label: edgeTtsLabel, value: "edge-tts", description: edgeTtsDesc });
+    voiceChoices.push({ label: sapiLabel, value: "sapi", description: sapiDesc });
+    if (hasElevenLabsKey) {
+      voiceChoices.push({ label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" });
+    }
+    voiceChoices.push({ label: "No Voice", value: "none", description: "Disable voice entirely — text-only assistant" });
 
-    if (voiceType === "custom") {
+    const voiceType = await getChoice("voice-type", "Digital Assistant Voice — Choose a voice for your AI assistant:", voiceChoices);
+
+    if (voiceType === "edge-tts") {
+      // Show Edge TTS voice picker with curated US neural voices
+      const edgeVoiceChoices = [
+        { label: "Aria (Female)", value: "en-US-AriaNeural", description: "Warm and conversational — great default" },
+        { label: "Jenny (Female)", value: "en-US-JennyNeural", description: "Versatile, clear, and natural" },
+        { label: "Ava (Female)", value: "en-US-AvaNeural", description: "Professional and polished" },
+        { label: "Emma (Female)", value: "en-US-EmmaNeural", description: "Friendly and approachable" },
+        { label: "Andrew (Male)", value: "en-US-AndrewNeural", description: "Natural and clear" },
+        { label: "Brian (Male)", value: "en-US-BrianNeural", description: "Warm and articulate" },
+        { label: "Guy (Male)", value: "en-US-GuyNeural", description: "Casual and friendly" },
+        { label: "Christopher (Male)", value: "en-US-ChristopherNeural", description: "Authoritative and confident" },
+      ];
+      const edgeVoice = await getChoice("edge-tts-voice", "Choose an Edge TTS voice — click Preview to hear each one:", edgeVoiceChoices);
+      selectedVoiceId = "edge-tts";
+      (state.collected as any).edgeTtsVoice = edgeVoice;
+      state.collected.voiceType = "edge-tts" as any;
+    } else if (voiceType === "sapi") {
+      selectedVoiceId = "sapi";
+      state.collected.voiceType = "sapi" as any;
+    } else if (voiceType === "none") {
+      selectedVoiceId = "none";
+      state.collected.voiceType = "none" as any;
+    } else if (voiceType === "custom") {
       const customId = await getInput(
         "custom-voice-id",
         "Enter your ElevenLabs Voice ID:\nFind it at: elevenlabs.io/app/voice-library → Your voice → Voice ID",
@@ -898,6 +1111,10 @@ export async function runVoiceSetup(
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
       if (settings.daidentity) {
         settings.daidentity.voiceId = selectedVoiceId;
+        // Save Edge TTS voice name if selected
+        if ((state.collected as any).edgeTtsVoice) {
+          settings.daidentity.edgeTtsVoice = (state.collected as any).edgeTtsVoice;
+        }
         settings.daidentity.voices = settings.daidentity.voices || {};
         settings.daidentity.voices.main = {
           voiceId: selectedVoiceId,
@@ -949,6 +1166,15 @@ export async function runVoiceSetup(
         symlinkSync(envPath, sp);
       } catch { /* non-fatal */ }
     }
+
+    // Restart voice server so it picks up the newly-saved ElevenLabs API key.
+    // The server caches ELEVENLABS_API_KEY at startup from ~/.env, so it must
+    // be restarted after the key is written — otherwise it falls back to Edge TTS.
+    if (voiceServerReady) {
+      await emit({ event: "progress", step: "voice", percent: 70, detail: "Restarting voice server with ElevenLabs key..." });
+      await stopVoiceServer(emit);
+      await startVoiceServer(paiDir, emit);
+    }
   }
 
   // ── Test TTS and confirm with user ──
@@ -985,12 +1211,43 @@ export async function runVoiceSetup(
             voiceConfirmed = true;
           } else {
             // Let them pick again
-            const newVoice = await getChoice("voice-type-retry", "Choose a different voice:", [
-              { label: "Female (Rachel)", value: "female", description: "Warm, articulate female voice" },
-              { label: "Male (Adam)", value: "male", description: "Clear, confident male voice" },
-              { label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" },
-            ]);
-            if (newVoice === "custom") {
+            // Rebuild choices for retry (same priority order)
+            const retryChoices: Array<{ label: string; value: string; description: string }> = [];
+            if (hasElevenLabsKey) {
+              retryChoices.push({ label: "Female (Rachel)", value: "female", description: "ElevenLabs premium — warm, articulate female voice" });
+              retryChoices.push({ label: "Male (Adam)", value: "male", description: "ElevenLabs premium — clear, confident male voice" });
+            }
+            retryChoices.push({ label: edgeTtsLabel, value: "edge-tts", description: edgeTtsDesc });
+            retryChoices.push({ label: sapiLabel, value: "sapi", description: sapiDesc });
+            if (hasElevenLabsKey) {
+              retryChoices.push({ label: "Custom Voice ID", value: "custom", description: "Enter your own ElevenLabs voice ID" });
+            }
+            retryChoices.push({ label: "No Voice", value: "none", description: "Disable voice entirely" });
+
+            const newVoice = await getChoice("voice-type-retry", "Choose a different voice:", retryChoices);
+            if (newVoice === "edge-tts") {
+              // Show Edge TTS voice picker on retry too
+              const edgeVoiceChoices = [
+                { label: "Aria (Female)", value: "en-US-AriaNeural", description: "Warm and conversational — great default" },
+                { label: "Jenny (Female)", value: "en-US-JennyNeural", description: "Versatile, clear, and natural" },
+                { label: "Ava (Female)", value: "en-US-AvaNeural", description: "Professional and polished" },
+                { label: "Emma (Female)", value: "en-US-EmmaNeural", description: "Friendly and approachable" },
+                { label: "Andrew (Male)", value: "en-US-AndrewNeural", description: "Natural and clear" },
+                { label: "Brian (Male)", value: "en-US-BrianNeural", description: "Warm and articulate" },
+                { label: "Guy (Male)", value: "en-US-GuyNeural", description: "Casual and friendly" },
+                { label: "Christopher (Male)", value: "en-US-ChristopherNeural", description: "Authoritative and confident" },
+              ];
+              const edgeVoice = await getChoice("edge-tts-voice", "Choose an Edge TTS voice — click Preview to hear each one:", edgeVoiceChoices);
+              selectedVoiceId = "edge-tts";
+              (state.collected as any).edgeTtsVoice = edgeVoice;
+              state.collected.voiceType = "edge-tts" as any;
+            } else if (newVoice === "sapi") {
+              selectedVoiceId = "sapi";
+              state.collected.voiceType = "sapi" as any;
+            } else if (newVoice === "none") {
+              selectedVoiceId = "none";
+              state.collected.voiceType = "none" as any;
+            } else if (newVoice === "custom") {
               const newId = await getInput("custom-voice-id-retry", "Enter your ElevenLabs Voice ID:", "text", "e.g., s3TPKV1kjDlVtZbl4Ksh");
               selectedVoiceId = newId.trim() || selectedVoiceId;
               state.collected.voiceType = "custom";

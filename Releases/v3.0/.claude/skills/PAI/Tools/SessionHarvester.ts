@@ -20,12 +20,13 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { getLearningCategory, isLearningCapture } from "../../../hooks/lib/learning-utils";
+import { getPaiDir } from '../../../lib/platform';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = getPaiDir();
 // Derive the project slug dynamically from CLAUDE_DIR (works on macOS and Linux)
 // macOS: /Users/daniel/.claude → -Users-daniel--claude
 // Linux: /home/daniel/.claude → -home-daniel--claude

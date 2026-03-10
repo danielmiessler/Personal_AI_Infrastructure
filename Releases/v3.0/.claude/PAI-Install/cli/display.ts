@@ -159,7 +159,9 @@ export function printSummary(summary: InstallSummary): void {
   print(`${c.navy}║${c.reset}  Install Type: ${c.white}${summary.installType}${c.reset}${" ".repeat(Math.max(0, 33 - summary.installType.length))}${c.navy}║${c.reset}`);
   print(`${c.navy}╠══════════════════════════════════════════════════╣${c.reset}`);
   print(`${c.navy}║${c.reset}                                                  ${c.navy}║${c.reset}`);
-  print(`${c.navy}║${c.reset}  ${c.lightBlue}Run: ${c.bold}source ~/.zshrc && pai${c.reset}                      ${c.navy}║${c.reset}`);
+  const launchCmd = process.platform === "win32" ? ". $PROFILE; pai" : "source ~/.zshrc && pai";
+  const pad = " ".repeat(Math.max(0, 43 - launchCmd.length));
+  print(`${c.navy}║${c.reset}  ${c.lightBlue}Run: ${c.bold}${launchCmd}${c.reset}${pad}${c.navy}║${c.reset}`);
   print(`${c.navy}║${c.reset}                                                  ${c.navy}║${c.reset}`);
   print(`${c.navy}╚══════════════════════════════════════════════════╝${c.reset}`);
   print("");

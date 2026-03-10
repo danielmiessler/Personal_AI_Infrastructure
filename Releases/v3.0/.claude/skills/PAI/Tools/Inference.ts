@@ -104,7 +104,7 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
 
     // Handle timeout
     const timeoutId = setTimeout(() => {
-      proc.kill('SIGTERM');
+      proc.kill('SIGTERM'); // Cross-platform: Bun sends TerminateProcess on Windows
       resolve({
         success: false,
         output: '',

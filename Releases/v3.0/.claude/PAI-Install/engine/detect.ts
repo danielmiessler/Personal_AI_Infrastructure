@@ -21,7 +21,9 @@ function tryExec(cmd: string): string | null {
 }
 
 function detectOS(): DetectionResult["os"] {
-  const platform = process.platform === "darwin" ? "darwin" : "linux";
+  const platform: DetectionResult["os"]["platform"] =
+    process.platform === "darwin" ? "darwin" :
+    process.platform === "win32" ? "win32" : "linux";
   const arch = process.arch;
 
   let version = "";
@@ -31,6 +33,11 @@ function detectOS(): DetectionResult["os"] {
     const swVers = tryExec("sw_vers -productVersion");
     version = swVers || "";
     name = `macOS ${version}`;
+  } else if (platform === "win32") {
+    const ver = tryExec('powershell -NoProfile -Command "[System.Environment]::OSVersion.Version.ToString()"');
+    version = ver || "";
+    const build = tryExec('powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).Caption"');
+    name = build || `Windows ${version}`;
   } else {
     const release = tryExec("cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d= -f2 | tr -d '\"'");
     name = release || "Linux";
@@ -41,6 +48,13 @@ function detectOS(): DetectionResult["os"] {
 }
 
 function detectShell(): DetectionResult["shell"] {
+  if (process.platform === "win32") {
+    // Windows: detect PowerShell
+    const psPath = tryExec('where powershell.exe') || 'powershell.exe';
+    const psVersion = tryExec('powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"') || "";
+    return { name: "powershell", version: psVersion, path: psPath.split("\n")[0] };
+  }
+
   const shellPath = process.env.SHELL || "/bin/sh";
   const shellName = shellPath.split("/").pop() || "sh";
   const version = tryExec(`${shellPath} --version 2>&1 | head -1`) || "";
@@ -52,7 +66,10 @@ function detectTool(
   name: string,
   versionCmd: string
 ): { installed: boolean; version?: string; path?: string } {
-  const path = tryExec(`which ${name}`);
+  const whichCmd = process.platform === "win32" ? "where" : "which";
+  const foundPath = tryExec(`${whichCmd} ${name}`);
+  // `where` on Windows may return multiple lines; take the first
+  const path = foundPath?.split("\n")[0]?.trim() || null;
   if (!path) return { installed: false };
 
   const versionOutput = tryExec(versionCmd);
@@ -138,8 +155,8 @@ export function detectSystem(): DetectionResult {
       claude: detectTool("claude", "claude --version 2>&1"),
       node: detectTool("node", "node --version"),
       brew: {
-        installed: tryExec("which brew") !== null,
-        path: tryExec("which brew") || undefined,
+        installed: process.platform !== "win32" && tryExec("which brew") !== null,
+        path: process.platform !== "win32" ? (tryExec("which brew") || undefined) : undefined,
       },
     },
     existing: detectExisting(home, paiDir, configDir),

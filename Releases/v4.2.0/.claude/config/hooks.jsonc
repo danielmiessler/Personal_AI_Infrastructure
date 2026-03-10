@@ -1,0 +1,139 @@
+// PAI Hook Configuration
+// Registers hook handlers for all Claude Code lifecycle events.
+// All paths use ${PAI_DIR} which resolves to ~/.claude at runtime.
+//
+// Run `bun ~/.claude/hooks/handlers/BuildSettings.ts` after editing to
+// regenerate settings.json.
+
+{
+  // Status line command — shown in terminal title/status bar
+  "statusLine": {
+    "type": "command",
+    "command": "$PAI_DIR/statusline-command.sh"
+  },
+
+  // Hook registrations by lifecycle event
+  "hooks": {
+    // PreToolUse — runs before each tool invocation
+    "PreToolUse": [
+      {
+        // Security validation for filesystem-mutating tools
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/SecurityValidator.hook.ts" }]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/SecurityValidator.hook.ts" }]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/SecurityValidator.hook.ts" }]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/SecurityValidator.hook.ts" }]
+      },
+      {
+        // Terminal state tracking for interactive prompts
+        "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/TerminalState.hook.ts" }]
+      },
+      {
+        // Agent spawn guard — validates agent parameters before execution
+        "matcher": "Task",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/AgentExecutionGuard.hook.ts" }]
+      },
+      {
+        // Skill invocation guard — validates skill calls
+        "matcher": "Skill",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/SkillGuard.hook.ts" }]
+      }
+    ],
+
+    // PostToolUse — runs after each tool invocation
+    "PostToolUse": [
+      {
+        // Restore terminal state after interactive prompt resolves
+        "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/QuestionAnswered.hook.ts" }]
+      },
+      {
+        // Sync PRD frontmatter to work.json when PRD files are written
+        "matcher": "Write",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/PRDSync.hook.ts" }]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [{ "type": "command", "command": "${PAI_DIR}/hooks/PRDSync.hook.ts" }]
+      }
+    ],
+
+    // SessionEnd — runs when the session terminates
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${PAI_DIR}/hooks/WorkCompletionLearning.hook.ts" },
+          { "type": "command", "command": "${PAI_DIR}/hooks/SessionCleanup.hook.ts" },
+          { "type": "command", "command": "${PAI_DIR}/hooks/RelationshipMemory.hook.ts" },
+          { "type": "command", "command": "${PAI_DIR}/hooks/UpdateCounts.hook.ts" },
+          { "type": "command", "command": "${PAI_DIR}/hooks/IntegrityCheck.hook.ts" }
+        ]
+      }
+    ],
+
+    // UserPromptSubmit — runs on every user message
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          // Classify effort tier and inject context modifications
+          { "type": "command", "command": "${PAI_DIR}/hooks/ModeClassifier.hook.ts" },
+          // Capture 1–10 ratings from prompt patterns
+          { "type": "command", "command": "${PAI_DIR}/hooks/RatingCapture.hook.ts" },
+          // Track terminal state for proper output rendering
+          { "type": "command", "command": "${PAI_DIR}/hooks/TerminalState.hook.ts" },
+          // Auto-generate four-word session names
+          { "type": "command", "command": "${PAI_DIR}/hooks/SessionAutoName.hook.ts" }
+        ]
+      }
+    ],
+
+    // SessionStart — runs when a new session begins
+    "SessionStart": [
+      {
+        "hooks": [
+          // Initialize terminal state tracking
+          { "type": "command", "command": "${PAI_DIR}/hooks/TerminalState.hook.ts" },
+          // Inject relationship, learning, and work context
+          { "type": "command", "command": "${PAI_DIR}/hooks/LoadContext.hook.ts" },
+          // Rebuild CLAUDE.md if algorithm version or DA name changed
+          { "type": "command", "command": "bun ${PAI_DIR}/hooks/handlers/BuildCLAUDE.ts" },
+          // Rebuild settings.json from config/*.jsonc if any config file is newer
+          { "type": "command", "command": "bun ${PAI_DIR}/hooks/handlers/BuildSettings.ts" }
+        ]
+      },
+      {
+        // Post-compaction recovery — re-inject context after context window compaction
+        "matcher": "compact",
+        "hooks": [
+          { "type": "command", "command": "${PAI_DIR}/hooks/PostCompactRecovery.hook.ts" }
+        ]
+      }
+    ],
+
+    // Stop — runs when the AI finishes a response
+    "Stop": [
+      {
+        "hooks": [
+          // Cache the last response for quick reference
+          { "type": "command", "command": "${PAI_DIR}/hooks/LastResponseCache.hook.ts" },
+          // Update terminal state after response completes
+          { "type": "command", "command": "${PAI_DIR}/hooks/TerminalState.hook.ts" },
+          // Voice completion announcement (if voice enabled)
+          { "type": "command", "command": "${PAI_DIR}/hooks/VoiceCompletion.hook.ts" },
+          // Validate documentation cross-references
+          { "type": "command", "command": "${PAI_DIR}/hooks/DocIntegrity.hook.ts" }
+        ]
+      }
+    ]
+  }
+}

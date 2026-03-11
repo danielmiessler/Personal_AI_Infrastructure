@@ -12,6 +12,8 @@
  *   pai -r / --resume    Resume last session
  *   pai --local          Stay in current directory (don't cd to ~/.claude)
  *   pai update           Update Claude Code
+ *   pai algo status      Show Algorithm version info
+ *   pai algo update      Update Algorithm to latest
  *   pai version          Show version info
  *   pai profiles         List available profiles
  *   pai mcp list         List available MCPs
@@ -20,7 +22,7 @@
 
 import { spawn, spawnSync } from "bun";
 import { getDAName, getIdentity } from "../../../hooks/lib/identity";
-import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { join, basename } from "path";
 
@@ -473,6 +475,130 @@ async function cmdUpdate() {
   }
 }
 
+// ============================================================================
+// Algorithm Management
+// ============================================================================
+
+const ALGORITHM_DIR = join(CLAUDE_DIR, "skills/PAI/Components/Algorithm");
+const ALGO_LATEST_FILE = join(ALGORITHM_DIR, "LATEST");
+const ALGO_UPSTREAM_REPO = "danielmiessler/Personal_AI_Infrastructure";
+const ALGO_UPSTREAM_PATH = "Releases/v3.0/.claude/skills/PAI/Components/Algorithm";
+const ALGO_UPDATE_STATE = join(CLAUDE_DIR, "MEMORY/STATE/algorithm-update.json");
+
+function getLocalAlgoVersion(): string {
+  try {
+    return readFileSync(ALGO_LATEST_FILE, "utf-8").trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+async function getUpstreamAlgoVersion(): Promise<string> {
+  try {
+    const proc = spawnSync(["gh", "api", `repos/${ALGO_UPSTREAM_REPO}/contents/${ALGO_UPSTREAM_PATH}/LATEST`, "--jq", ".content"]);
+    if (proc.exitCode !== 0) return "unknown";
+    const output = new TextDecoder().decode(proc.stdout as Buffer).trim();
+    return atob(output).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+async function downloadAlgoVersion(version: string): Promise<boolean> {
+  try {
+    const proc = spawnSync(["gh", "api", `repos/${ALGO_UPSTREAM_REPO}/contents/${ALGO_UPSTREAM_PATH}/${version}.md`, "--jq", ".content"]);
+    if (proc.exitCode !== 0) return false;
+    const output = new TextDecoder().decode(proc.stdout as Buffer).trim();
+    const content = atob(output);
+    const target = join(ALGORITHM_DIR, `${version}.md`);
+    writeFileSync(target, content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function cmdAlgoStatus() {
+  log("Checking Algorithm versions...", "🔍");
+
+  const local = getLocalAlgoVersion();
+  console.log(`Local:    ${local}`);
+
+  const upstream = await getUpstreamAlgoVersion();
+  if (upstream !== "unknown") {
+    console.log(`Upstream: ${upstream}`);
+    if (local === upstream) {
+      log("Algorithm is up to date", "✅");
+    } else {
+      log(`Update available: ${local} → ${upstream}`, "⚠️");
+    }
+  } else {
+    log("Could not fetch upstream version (check gh auth)", "⚠️");
+  }
+}
+
+async function cmdAlgoUpdate() {
+  log("Checking for Algorithm updates...", "🔍");
+
+  const local = getLocalAlgoVersion();
+  const upstream = await getUpstreamAlgoVersion();
+
+  console.log(`Local:    ${local}`);
+  if (upstream !== "unknown") {
+    console.log(`Upstream: ${upstream}`);
+  }
+
+  if (upstream === "unknown") {
+    error("Could not fetch upstream version. Check 'gh auth status'.");
+    return;
+  }
+
+  if (local === upstream) {
+    log("Already up to date", "✅");
+    return;
+  }
+
+  // Step 1: Download the new version file if missing
+  const versionFile = join(ALGORITHM_DIR, `${upstream}.md`);
+  if (!existsSync(versionFile)) {
+    log(`Step 1/3: Downloading ${upstream}...`, "📥");
+    const ok = await downloadAlgoVersion(upstream);
+    if (!ok) {
+      error(`Failed to download ${upstream}.md from upstream`);
+      return;
+    }
+    log(`Downloaded ${upstream}.md`, "✅");
+  } else {
+    log(`Step 1/3: ${upstream}.md already exists locally`, "✅");
+  }
+
+  // Step 2: Update LATEST pointer
+  log(`Step 2/3: Updating LATEST → ${upstream}...`, "📝");
+  writeFileSync(ALGO_LATEST_FILE, upstream + "\n");
+  log("LATEST updated", "✅");
+
+  // Step 3: Rebuild SKILL.md
+  log("Step 3/3: Rebuilding PAI SKILL.md...", "🔨");
+  const rebuildPath = join(CLAUDE_DIR, "skills/PAI/Tools/RebuildPAI.ts");
+  const rebuild = spawnSync(["bun", rebuildPath]);
+  if (rebuild.exitCode !== 0) {
+    log("RebuildPAI had warnings (check output)", "⚠️");
+  } else {
+    log("SKILL.md rebuilt", "✅");
+  }
+
+  // Clear update state file so banner/statusline stop showing indicator
+  const stateDir = join(CLAUDE_DIR, "MEMORY/STATE");
+  if (!existsSync(stateDir)) mkdirSync(stateDir, { recursive: true });
+  writeFileSync(ALGO_UPDATE_STATE, JSON.stringify({
+    available: false,
+    checkedAt: new Date().toISOString(),
+  }));
+
+  log(`Algorithm updated: ${local} → ${upstream}`, "🎉");
+  console.log("Restart your session to use the new Algorithm version.");
+}
+
 async function cmdVersion() {
   log("Checking versions...", "🔍");
 
@@ -576,6 +702,8 @@ USAGE:
 
 COMMANDS:
   k update                 Update Claude Code to latest version
+  k algo status            Show Algorithm version and update availability
+  k algo update            Update Algorithm to latest upstream version
   k version, -v            Show version information
   k profiles               List available MCP profiles
   k mcp list               List all available MCPs
@@ -603,6 +731,8 @@ EXAMPLES:
   k -r                     Resume last session
   k mcp set research       Switch to research profile
   k update                 Update Claude Code
+  k algo status             Check Algorithm version
+  k algo update             Update Algorithm to latest
   k prompt "What time is it?"   One-shot prompt
   k -w                     List available wallpapers
   k -w circuit-board       Switch wallpaper (Kitty + macOS)
@@ -672,6 +802,11 @@ async function main() {
       case "update":
         command = "update";
         break;
+      case "algo":
+      case "algorithm":
+        command = "algo";
+        subCommand = args[++i];
+        break;
       case "profiles":
         command = "profiles";
         break;
@@ -710,6 +845,15 @@ async function main() {
       break;
     case "update":
       await cmdUpdate();
+      break;
+    case "algo":
+      if (subCommand === "update") {
+        await cmdAlgoUpdate();
+      } else if (subCommand === "status") {
+        await cmdAlgoStatus();
+      } else {
+        error("Usage: k algo status | k algo update");
+      }
       break;
     case "profiles":
       cmdProfiles();

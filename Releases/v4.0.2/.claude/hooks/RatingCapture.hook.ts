@@ -154,13 +154,20 @@ Write 100-256 words covering:
 
 This context will be used retroactively to improve ${ASSISTANT_NAME}, so include enough detail that someone reading it months later can understand exactly what went wrong or right.
 
-RATING SCALE:
+RATING SCALE (every rating requires EVIDENCE of sentiment):
 - 1-2: Strong frustration, anger, disappointment with ${ASSISTANT_NAME}
-- 3-4: Mild frustration, dissatisfaction
-- 5: Neutral (no strong sentiment)
-- 6-7: Satisfaction, approval
-- 8-9: Strong approval, impressed
-- 10: Extraordinary enthusiasm, blown away
+- 3-4: Mild frustration, dissatisfaction, corrections
+- 5-6: Mild satisfaction, things going okay, acceptance
+- 7-8: Clear satisfaction, approval, impressed
+- 9-10: Extraordinary enthusiasm, blown away
+
+CRITICAL — null vs 5 (these are COMPLETELY DIFFERENT):
+- null = "This message contains NO sentiment toward ${ASSISTANT_NAME}."
+  Examples: commands, questions, technical requests, context-sharing, notifications
+- 5 = "This message contains MILD POSITIVE sentiment — ${PRINCIPAL_NAME} is satisfied but not enthusiastic."
+  Rating 5 REQUIRES evidence of mild satisfaction. "Okay", "fine" after good work = 5. A bare command with zero emotional content = null.
+
+DEFAULT TO null. Only assign a numeric rating when you can point to specific words or tone indicating sentiment toward ${ASSISTANT_NAME}'s work. When in doubt, return null.
 
 CRITICAL DISTINCTIONS:
 - Profanity can indicate EITHER frustration OR excitement
@@ -191,13 +198,18 @@ Implied POSITIVE (rate 6-8, never null):
 - ENGAGED FOLLOW-UPS: "What about X?" (exploring, not correcting) → 6
 - MOVING FORWARD: Accepting output and immediately giving next task → 6
 
-RULE: If ${PRINCIPAL_NAME}'s message is a RESPONSE to ${ASSISTANT_NAME}'s work (check CONTEXT), it almost always carries sentiment. Pure neutral is RARE in responses. Default to detecting signal, not returning null.
-
-WHEN TO RETURN null FOR RATING:
+WHEN TO RETURN null FOR RATING (this is the DEFAULT):
 - Neutral technical questions ("Can you check the logs?")
-- Simple commands ("Do it", "Yes", "Continue")
-- No emotional indicators present
+- Simple commands ("Do it", "Yes", "Continue", "Go ahead")
+- Task descriptions with no emotional content
+- No emotional indicators toward ${ASSISTANT_NAME}
 - Emotion unrelated to ${ASSISTANT_NAME}'s work
+- System notifications, task completions, context sharing
+
+WHEN TO ASSIGN A RATING (requires positive evidence):
+- Only when you can identify SPECIFIC words or tone indicating sentiment
+- Responses that contain emotional reaction to ${ASSISTANT_NAME}'s work
+- Corrections, praise, frustration, satisfaction — all require evidence
 
 EXAMPLES:
 ${PRINCIPAL_NAME}: "What the fuck, why did you delete my file?"
@@ -527,20 +539,10 @@ async function main() {
         }
       }
     } catch (err) {
-      // BUG FIX: Log failures visibly — write a marker entry so inference failures show up in the data
+      // Log failures but DO NOT write fake rating — inference failure ≠ neutral sentiment
       console.error(`[RatingCapture] Sentiment error: ${err}`);
       const failedPromptPreview = prompt.trim().slice(0, 80);
       console.error(`[RatingCapture] FAILED for prompt: "${failedPromptPreview}"`);
-      // Write a visible failure marker so we can track inference reliability
-      writeRating({
-        timestamp: getISOTimestamp(),
-        rating: 5,
-        session_id: data.session_id,
-        source: 'implicit',
-        sentiment_summary: `INFERENCE_FAILED: "${failedPromptPreview}"`,
-        confidence: 0,
-      });
-
     }
 
     process.exit(0);

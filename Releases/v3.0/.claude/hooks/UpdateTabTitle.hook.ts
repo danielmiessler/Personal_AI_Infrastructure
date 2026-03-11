@@ -32,6 +32,7 @@ import { inference } from '../skills/PAI/Tools/Inference';
 import { isValidWorkingTitle, getWorkingFallback } from './lib/output-validators';
 import { setTabState, getSessionOneWord } from './lib/tab-setter';
 import { getIdentity } from './lib/identity';
+import { isVoiceEnabled } from './lib/voice-config';
 
 interface HookInput {
   session_id: string;
@@ -215,7 +216,7 @@ async function main() {
     // Only speak inference result (a proper sentence). If inference failed,
     // stay silent — silence is better than speaking prompt word fragments.
     const voiceContent = inferredTitle;
-    if (voiceContent) {
+    if (voiceContent && isVoiceEnabled()) {
       const identity = getIdentity();
       try {
         await fetch('http://localhost:8888/notify', {
@@ -232,7 +233,7 @@ async function main() {
       } catch {
         console.error(`[UpdateTabTitle] Voice failed (server down or timeout)`);
       }
-    } else {
+    } else if (!voiceContent) {
       console.error(`[UpdateTabTitle] No meaningful voice content, skipping`);
     }
 

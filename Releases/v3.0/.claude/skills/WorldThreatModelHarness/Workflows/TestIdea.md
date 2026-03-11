@@ -39,9 +39,7 @@ If models older than 30 days: warn user but proceed.
 ### Step 1: Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Testing your idea against all eleven world threat models at TIER tier", "voice_id": "YOUR_VOICE_ID_HERE"}'
+~/.claude/VoiceServer/pai-notify "Testing your idea against all eleven world threat models at TIER tier"
 ```
 
 ### Step 2: Extract and Decompose the Idea
@@ -105,9 +103,7 @@ Use the template in `OutputFormat.md` (loaded from skill root). Ensure:
 ### Step 5: Voice Summary
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Analysis complete. SUMMARY_OF_EXECUTIVE_VERDICT", "voice_id": "YOUR_VOICE_ID_HERE"}'
+~/.claude/VoiceServer/pai-notify "Analysis complete. SUMMARY_OF_EXECUTIVE_VERDICT"
 ```
 
 ## Output Format

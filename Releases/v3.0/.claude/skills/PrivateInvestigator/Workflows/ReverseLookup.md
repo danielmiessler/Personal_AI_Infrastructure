@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the ReverseLookup workflow in the PrivateInvestigator skill to trace identifiers"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the ReverseLookup workflow in the PrivateInvestigator skill to trace identifiers"
 ```
 
 Running the **ReverseLookup** workflow in the **PrivateInvestigator** skill to trace identifiers...

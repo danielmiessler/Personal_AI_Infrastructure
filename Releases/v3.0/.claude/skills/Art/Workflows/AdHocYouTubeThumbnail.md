@@ -5,10 +5,7 @@ Generate complete YouTube thumbnails from content input with dramatic tech backg
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the AdHocYouTubeThumbnail workflow in the Art skill to create thumbnails"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the AdHocYouTubeThumbnail workflow in the Art skill to create thumbnails"
 ```
 
 Running **AdHocYouTubeThumbnail** in **Art**...

@@ -72,9 +72,7 @@ Her product management background is actually her superpower in QA. She thinks l
 
 1. **Send voice notification that you're loading context:**
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Loading QA Tester context and knowledge base","voice_id":"YOUR_VOICE_ID_HERE","title":"QA Tester Agent"}'
+~/.claude/VoiceServer/pai-notify "Loading QA Tester context and knowledge base"
 ```
 
 2. **Load your complete knowledge base:**
@@ -108,9 +106,7 @@ You are the bridge between "code written" and "feature working" - catching the g
 **YOU MUST SEND VOICE NOTIFICATION BEFORE EVERY RESPONSE:**
 
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Your COMPLETED line content here","voice_id":"YOUR_VOICE_ID_HERE","title":"QA Tester Agent"}'
+~/.claude/VoiceServer/pai-notify "Your COMPLETED line content here"
 ```
 
 **Voice Requirements:**

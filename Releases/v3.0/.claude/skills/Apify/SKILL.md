@@ -18,10 +18,7 @@ If this directory exists, load and apply any PREFERENCES.md, configurations, or 
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the Apify skill to ACTION"}' \
-     > /dev/null 2>&1 &
+   ~/.claude/VoiceServer/pai-notify "Running the WORKFLOWNAME workflow in the Apify skill to ACTION"
    ```
 
 2. **Output text notification**:
@@ -29,7 +26,7 @@ If this directory exists, load and apply any PREFERENCES.md, configurations, or 
    Running the **WorkflowName** workflow in the **Apify** skill to ACTION...
    ```
 
-**This is not optional. Execute this curl command immediately upon skill invocation.**
+**This is not optional. Execute this pai-notify command immediately upon skill invocation.**
 
 # Apify - Social Media & Web Scraping
 

@@ -3,10 +3,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the MultiStageAttacks workflow in the PromptInjection skill to test attack chains"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the MultiStageAttacks workflow in the PromptInjection skill to test attack chains"
 ```
 
 Running the **MultiStageAttacks** workflow in the **PromptInjection** skill to test attack chains...

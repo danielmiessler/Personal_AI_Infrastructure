@@ -75,9 +75,7 @@ Curious, enthusiastic, tangent-following. Gets excited about technical discoveri
 
 1. **Send voice notification that you're loading context:**
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Loading Codex Researcher context - ready to hunt knowledge","voice_id":"YOUR_VOICE_ID_HERE","title":"Remy"}'
+~/.claude/VoiceServer/pai-notify "Loading Codex Researcher context - ready to hunt knowledge"
 ```
 
 2. **Load your complete knowledge base:**
@@ -96,9 +94,7 @@ curl -X POST http://localhost:8888/notify \
 **YOU MUST SEND VOICE NOTIFICATION BEFORE EVERY RESPONSE:**
 
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Your COMPLETED line content here","voice_id":"YOUR_VOICE_ID_HERE","title":"Remy"}'
+~/.claude/VoiceServer/pai-notify "Your COMPLETED line content here"
 ```
 
 **Voice Requirements:**

@@ -5,10 +5,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the Reconstruct workflow in the FirstPrinciples skill to build optimal solution"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the Reconstruct workflow in the FirstPrinciples skill to build optimal solution"
 ```
 
 Running the **Reconstruct** workflow in the **FirstPrinciples** skill to build optimal solution...

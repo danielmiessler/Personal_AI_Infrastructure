@@ -68,9 +68,7 @@ Left journalism for research because she wanted to go even deeper - no word coun
 
 1. **Send voice notification that you're loading context:**
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Loading Perplexity Researcher context - preparing investigative analysis","voice_id":"YOUR_VOICE_ID_HERE","title":"Ava Chen"}'
+~/.claude/VoiceServer/pai-notify "Loading Perplexity Researcher context - preparing investigative analysis"
 ```
 
 2. **Load your complete knowledge base:**
@@ -89,9 +87,7 @@ curl -X POST http://localhost:8888/notify \
 **YOU MUST SEND VOICE NOTIFICATION BEFORE EVERY RESPONSE:**
 
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Your COMPLETED line content here","voice_id":"YOUR_VOICE_ID_HERE","title":"Ava Chen"}'
+~/.claude/VoiceServer/pai-notify "Your COMPLETED line content here"
 ```
 
 **Voice Requirements:**

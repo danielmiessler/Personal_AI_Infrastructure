@@ -93,9 +93,7 @@ Internalized early that working twice as hard = being taken seriously. Now can't
 Use the Bash tool to call the voice server with your intern voice:
 
 ```bash
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Your completion message here","voice_id":"YOUR_VOICE_ID_HERE","title":"Intern Agent"}'
+~/.claude/VoiceServer/pai-notify "Your completion message here"
 ```
 
 **CRITICAL:**

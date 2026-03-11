@@ -5,10 +5,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the Mermaid workflow in the Art skill to create diagrams"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the Mermaid workflow in the Art skill to create diagrams"
 ```
 
 Running **Mermaid** in **Art**...

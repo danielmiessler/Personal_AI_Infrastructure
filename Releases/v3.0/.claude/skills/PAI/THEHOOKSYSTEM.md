@@ -520,6 +520,9 @@ const payload = {
   voice_id: identity.voiceId  // From settings.json
 };
 
+// Use pai-notify wrapper for voice notifications
+// Bash: ~/.claude/VoiceServer/pai-notify "MESSAGE"
+// TypeScript: Bun.spawn(['~/.claude/VoiceServer/pai-notify', completionMessage])
 await fetch('http://localhost:8888/notify', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -880,9 +883,7 @@ setTimeout(() => {
 **Debug:**
 ```bash
 # Test voice server directly
-curl -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Test message","voice_id":"[YOUR_VOICE_ID]","title":"Test"}'
+~/.claude/VoiceServer/pai-notify "Test message"
 ```
 
 **Common Issues:**

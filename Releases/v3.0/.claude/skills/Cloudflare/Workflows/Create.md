@@ -5,10 +5,7 @@ Deploy a new Cloudflare Worker or MCP server.
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the Create workflow in the Cloudflare skill to deploy a new worker"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the Create workflow in the Cloudflare skill to deploy a new worker"
 ```
 
 Running the **Create** workflow in the **Cloudflare** skill to deploy a new worker...

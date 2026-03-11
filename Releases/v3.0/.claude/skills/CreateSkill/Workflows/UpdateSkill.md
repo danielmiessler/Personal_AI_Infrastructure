@@ -5,10 +5,7 @@
 ## Voice Notification
 
 ```bash
-curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the UpdateSkill workflow in the CreateSkill skill to modify existing skill"}' \
-  > /dev/null 2>&1 &
+~/.claude/VoiceServer/pai-notify "Running the UpdateSkill workflow in the CreateSkill skill to modify existing skill"
 ```
 
 Running the **UpdateSkill** workflow in the **CreateSkill** skill to modify existing skill...

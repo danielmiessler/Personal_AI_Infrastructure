@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# pai-notify - Production voice notification wrapper
+# Version: 2.0.0 (Security Hardened)
+#
+# Usage: pai-notify "message" [voice_id]
+#
+# Environment variables:
+#   PAI_VOICE_ID     - Default voice ID (optional)
+#   PAI_NOTIFY_URL   - Notification endpoint (default: localhost:8888)
+#
+# Toggle: ~/.claude/.voice-enabled (set to "false" to disable, use `voicenotif` alias)
+
+pai_notify() {
+  local msg="${1:-}"
+  local voice="${2:-${PAI_VOICE_ID:-fTtv3eikoepIosk8dTZ5}}"
+  local endpoint="${PAI_NOTIFY_URL:-http://localhost:8888/notify}"
+  local toggle_file="${HOME}/.claude/.voice-enabled"
+
+  # Empty message = no-op
+  [[ -z "$msg" ]] && return 0
+
+  # Check if voice is disabled (file exists and contains "false")
+  if [[ -f "$toggle_file" ]] && [[ "$(cat "$toggle_file" 2>/dev/null)" == "false" ]]; then
+    return 0  # Silent exit when disabled
+  fi
+
+  # SECURITY: Use jq for safe JSON construction (prevents injection)
+  local payload
+  payload=$(jq -n --arg m "$msg" --arg v "$voice" \
+    '{message:$m,voice_id:$v}') || return 0
+
+  # OBSERVABILITY: Log to stderr before fire-and-forget
+  echo "[pai-notify] $msg" >&2
+
+  # RESILIENCE: 2-second timeout, background execution, never fail
+  curl -s -m 2 -X POST "$endpoint" \
+    -H "Content-Type: application/json" \
+    -d "$payload" >/dev/null 2>&1 &
+
+  return 0  # Never block, never fail the caller
+}
+
+# Allow both sourcing and direct execution
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  pai_notify "$@"
+fi

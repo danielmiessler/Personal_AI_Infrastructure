@@ -9,10 +9,7 @@ description: Dynamic agent composition and management system. USE WHEN user says
 
 1. **Send voice notification**:
    ```bash
-   curl -s -X POST http://localhost:8888/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the Agents skill to ACTION"}' \
-     > /dev/null 2>&1 &
+   ~/.claude/VoiceServer/pai-notify "Running the WORKFLOWNAME workflow in the Agents skill to ACTION"
    ```
 
 2. **Output text notification**:

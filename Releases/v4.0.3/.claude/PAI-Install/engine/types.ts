@@ -183,10 +183,25 @@ export type EngineEventHandler = (event: EngineEvent) => void | Promise<void>;
 // ─── Voice ───────────────────────────────────────────────────────
 
 // ─── Release Versions (single source of truth) ─────────────────
-// Update these when cutting a new PAI release.
-// The installer reads these constants — no other file should hardcode versions.
+// VERSION file at .claude/VERSION is the canonical source. Update it when cutting a release.
+// Fallback to constant if file is missing (e.g. during development).
 
-export const PAI_VERSION = "4.0.3";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
+
+function getPAIVersionFromFile(): string {
+  try {
+    const versionPath = join(import.meta.dir, "..", "..", "VERSION");
+    if (existsSync(versionPath)) {
+      return readFileSync(versionPath, "utf-8").trim();
+    }
+  } catch {
+    /* fall through */
+  }
+  return "4.0.3";
+}
+
+export const PAI_VERSION = getPAIVersionFromFile();
 export const ALGORITHM_VERSION = "3.7.0";
 export const INSTALLER_VERSION = "4.0";
 

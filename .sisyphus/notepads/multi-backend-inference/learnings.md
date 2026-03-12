@@ -242,3 +242,12 @@ LITELLM_MASTER_KEY=
   - `.sisyphus/evidence/task-7-no-external-deps.txt`
   - `.sisyphus/evidence/task-7-fallback-preserved.txt`
 
+
+## 2026-03-12 Task: 9
+
+- Documented the multi-backend inference system in INFERENCE.md.
+- Structured the doc with Overview, Quick Start, Configuration Reference, Backends, Routing, and Troubleshooting.
+- Captured the LiteLLM-to-Ollama/Groq/GitHub architecture diagram.
+- Detailed all 7 primary configuration fields from settings.json.
+- Ensured a professional technical tone consistent with existing PAI documentation.
+- Hardest to explain was the fallback behavior vs. the health check timeout - kept it clear and user-focused.

@@ -972,6 +972,39 @@
   "preferences": {
     "temperatureUnit": "fahrenheit"
   },
+  "inference": {
+    "_docs": "Multi-backend inference configuration. When 'enabled' is true, inference() dispatches through LiteLLM proxy instead of Claude CLI. Claude CLI remains the fallback when LiteLLM is unreachable.",
+    "enabled": false,
+    "litellm": {
+      "api_base": "http://localhost:4000",
+      "api_key": "",
+      "health_timeout_ms": 3000
+    },
+    "backends": {
+      "ollama": {
+        "fast": "ollama/phi4",
+        "standard": "ollama/qwen2.5-coder",
+        "smart": "ollama/phi4"
+      },
+      "groq": {
+        "fast": "groq/llama-3.1-8b",
+        "standard": "groq/llama-3.3-70b",
+        "smart": "groq/llama-3.3-70b"
+      },
+      "github": {
+        "fast": "github/gpt-4o-mini",
+        "standard": "github/gpt-4o",
+        "smart": "github/gpt-4o"
+      }
+    },
+    "default_backend": "ollama",
+    "routing": {
+      "_docs": "Maps InferenceLevel to a preferred backend. Overrides default_backend per level.",
+      "fast": "groq",
+      "standard": "ollama",
+      "smart": "github"
+    }
+  },
   "contextDisplay": {
     "compactionThreshold": 83,
     "_docs": "Autocompact buffer is 16.5%% of context window."

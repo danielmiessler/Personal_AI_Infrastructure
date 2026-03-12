@@ -122,9 +122,15 @@ if [[ -f "$PAI_DIR/install.sh" ]] && grep -q "PAI-Install" "$PAI_DIR/install.sh"
   echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/install.sh${RESET} ${GRAY}(PAI installer entry-point)${RESET}"
 fi
 
-# CLAUDE.md — only if it matches PAI's shipped content
-if [[ -f "$PAI_DIR/CLAUDE.md" ]] && grep -q "SKILL.md\|This file does nothing" "$PAI_DIR/CLAUDE.md" 2>/dev/null; then
-  echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/CLAUDE.md${RESET} ${GRAY}(PAI-shipped, unmodified)${RESET}"
+# CLAUDE.md — classify as PAI-owned, empty, or user-modified
+if [[ -f "$PAI_DIR/CLAUDE.md" ]]; then
+  if grep -q "SKILL.md\|This file does nothing\|read skills/PAI" "$PAI_DIR/CLAUDE.md" 2>/dev/null; then
+    echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/CLAUDE.md${RESET} ${GRAY}(contains PAI content — will be removed)${RESET}"
+  elif [[ ! -s "$PAI_DIR/CLAUDE.md" ]] || [[ -z "$(tr -d '[:space:]' < "$PAI_DIR/CLAUDE.md")" ]]; then
+    echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/CLAUDE.md${RESET} ${GRAY}(empty — likely created by PAI, will be removed)${RESET}"
+  else
+    echo -e "  ${YELLOW}•${RESET} ${SILVER}~/.claude/CLAUDE.md${RESET} ${GRAY}(contains user content — will be left alone)${RESET}"
+  fi
 fi
 
 echo -e "  ${RED}•${RESET} ${SILVER}PAI keys in settings.json${RESET} ${GRAY}(principal, daidentity, pai, counts, statusLine)${RESET}"
@@ -324,12 +330,15 @@ else
   skip "~/.claude/install.sh (not PAI's or not present)"
 fi
 
-# CLAUDE.md — only remove if it contains PAI marker text (unmodified by user)
-if [[ -f "$PAI_DIR/CLAUDE.md" ]] && \
-   grep -q "SKILL.md\|This file does nothing" "$PAI_DIR/CLAUDE.md" 2>/dev/null; then
-  rm -f "$PAI_DIR/CLAUDE.md"; removed "~/.claude/CLAUDE.md (PAI-shipped)"
+# CLAUDE.md — three-way check: PAI content / empty / user content
+if [[ ! -f "$PAI_DIR/CLAUDE.md" ]]; then
+  skip "~/.claude/CLAUDE.md"
+elif grep -q "SKILL.md\|This file does nothing\|read skills/PAI" "$PAI_DIR/CLAUDE.md" 2>/dev/null; then
+  rm -f "$PAI_DIR/CLAUDE.md"; removed "~/.claude/CLAUDE.md (PAI content)"
+elif [[ ! -s "$PAI_DIR/CLAUDE.md" ]] || [[ -z "$(tr -d '[:space:]' < "$PAI_DIR/CLAUDE.md")" ]]; then
+  rm -f "$PAI_DIR/CLAUDE.md"; removed "~/.claude/CLAUDE.md (empty, PAI-created)"
 else
-  skip "~/.claude/CLAUDE.md (not PAI's or user-modified — leaving it)"
+  warn "~/.claude/CLAUDE.md contains user content — leaving it alone"
 fi
 
 # ════════════════════════════════════════════════════════

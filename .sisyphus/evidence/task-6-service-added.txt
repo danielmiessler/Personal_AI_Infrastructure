@@ -1,0 +1,7 @@
+  litellm:
+    command:
+      - --config
+--
+    image: ghcr.io/berriai/litellm:main-stable
+    networks:
+      overlay: null

@@ -1,0 +1,3 @@
+=== QA Scenario 1: .env.example contains LiteLLM keys ===
+3
+✓ PASS: Found 3+ key definitions

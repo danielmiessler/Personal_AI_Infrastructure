@@ -1,0 +1,4 @@
+=== QA Scenario 2: .env has empty placeholders ===
+GROQ_API_KEY=
+GITHUB_API_KEY=
+✓ PASS: Both grep commands succeeded

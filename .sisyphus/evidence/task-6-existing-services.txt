@@ -1,0 +1,6 @@
+      ollama:
+  ollama:
+  open-webui:
+      OLLAMA_BASE_URL: http://ollama:11434
+    image: ghcr.io/open-webui/open-webui:main
+      open-webui:

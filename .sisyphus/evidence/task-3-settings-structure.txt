@@ -1,0 +1,3 @@
+enabled: false
+backends: ollama,groq,github
+routing: fast,standard,smart

@@ -63,6 +63,16 @@ PAI_AGENTS=(
   QATester.md
 )
 
+# PAI's known skill directory names (shipped in the v3.0 release)
+PAI_SKILLS=(
+  Agents AnnualReports Aphorisms Apify Art BeCreative BrightData
+  Browser Cloudflare CORE Council CreateCLI CreateSkill Documents
+  Evals ExtractWisdom Fabric FirstPrinciples IterativeDepth OSINT
+  PAI PAIUpgrade Parser PrivateInvestigator Prompting PromptInjection
+  Recon RedTeam Remotion Research Sales Science SECUpdates Telos
+  USMetrics WebAssessment WorldThreatModelHarness WriteStory
+)
+
 # ─── Banner ──────────────────────────────────────────────
 echo ""
 echo -e "${STEEL}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${RESET}"
@@ -77,7 +87,7 @@ echo ""
 
 # ─── Preview ─────────────────────────────────────────────
 echo -e "  ${BOLD}PAI-exclusive directories${RESET} ${GRAY}(will be removed):${RESET}"
-for d in skills VoiceServer PAI-Install; do
+for d in VoiceServer PAI-Install; do
   [[ -d "$PAI_DIR/$d" ]] && echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/$d/${RESET}"
 done
 [[ -f "$PAI_DIR/statusline-command.sh" ]] && \
@@ -89,12 +99,21 @@ done
 echo ""
 
 echo -e "  ${BOLD}PAI files in shared directories${RESET} ${GRAY}(removed by name, other files kept):${RESET}"
+
+_pai_skill_count=0
+for skill in "${PAI_SKILLS[@]}"; do
+  [[ -d "$PAI_DIR/skills/$skill" ]] && (( _pai_skill_count++ )) || true
+done
+(( _pai_skill_count > 0 )) && \
+  echo -e "  ${RED}•${RESET} ${SILVER}${_pai_skill_count} PAI skill dirs${RESET} ${GRAY}from ~/.claude/skills/ (user-installed skills kept)${RESET}"
+
 _pai_agent_count=0
 for agent in "${PAI_AGENTS[@]}"; do
   [[ -f "$PAI_DIR/agents/$agent" ]] && (( _pai_agent_count++ )) || true
 done
 (( _pai_agent_count > 0 )) && \
   echo -e "  ${RED}•${RESET} ${SILVER}${_pai_agent_count} PAI agent files${RESET} ${GRAY}from ~/.claude/agents/ (other agents kept)${RESET}"
+
 [[ -d "$PAI_DIR/lib/migration" ]] && \
   echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/lib/migration/${RESET} ${GRAY}(PAI migration tools)${RESET}"
 
@@ -116,14 +135,12 @@ echo -e "  ${BOLD}Backed up first, then offered for removal${RESET} ${GRAY}(may 
 for d in MEMORY plans hooks tasks teams; do
   [[ -d "$PAI_DIR/$d" ]] && echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/$d/${RESET}"
 done
-[[ -d "$PAI_DIR/plugins" ]] && \
-  echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/plugins/${RESET} ${GRAY}(PAI marketplace — may have user-installed plugins)${RESET}"
 [[ -d "$CONFIG_DIR" ]] && \
   echo -e "  ${BLUE}•${RESET} ${SILVER}~/.config/PAI/${RESET} ${GRAY}(API keys)${RESET}"
 echo ""
-echo -e "  ${GRAY}${BOLD}Not touched:${RESET} ${GRAY}projects/, todos/, .credentials.json, history.jsonl,${RESET}"
-echo -e "  ${GRAY}statsig/, agents/ (remaining), lib/ (remaining), cache/, debug/,${RESET}"
-echo -e "  ${GRAY}telemetry/, and all other Claude Code files.${RESET}"
+echo -e "  ${GRAY}${BOLD}Not touched:${RESET} ${GRAY}projects/, todos/, plugins/, .credentials.json, history.jsonl,${RESET}"
+echo -e "  ${GRAY}statsig/, agents/ (remaining), skills/ (remaining), lib/ (remaining),${RESET}"
+echo -e "  ${GRAY}cache/, debug/, telemetry/, and all other Claude Code files.${RESET}"
 echo ""
 
 if ! confirm "Proceed with uninstall?"; then
@@ -140,7 +157,7 @@ mkdir -p "$BACKUP_DIR"
 info "Backup directory: $BACKUP_DIR"
 
 # Back up everything that might contain mixed/user content
-for d in MEMORY plans hooks tasks teams plugins; do
+for d in MEMORY plans hooks tasks teams; do
   if [[ -d "$PAI_DIR/$d" ]]; then
     cp -r "$PAI_DIR/$d" "$BACKUP_DIR/$d"
     backed "~/.claude/$d/"
@@ -269,7 +286,7 @@ fi
 # ════════════════════════════════════════════════════════
 step "PAI-Exclusive Directories"
 
-for d in skills VoiceServer PAI-Install; do
+for d in VoiceServer PAI-Install; do
   if [[ -d "$PAI_DIR/$d" ]]; then
     rm -rf "${PAI_DIR:?}/$d"; removed "~/.claude/$d/"
   else
@@ -316,7 +333,32 @@ else
 fi
 
 # ════════════════════════════════════════════════════════
-# Step 8: PAI Agent Files (removed by name, not directory)
+# Step 8: PAI Skill Directories (removed by name, not directory)
+# ════════════════════════════════════════════════════════
+step "PAI Skill Directories (~/.claude/skills/)"
+
+_removed_skills=0
+for skill in "${PAI_SKILLS[@]}"; do
+  if [[ -d "$PAI_DIR/skills/$skill" ]]; then
+    rm -rf "${PAI_DIR:?}/skills/$skill"
+    (( _removed_skills++ )) || true
+  fi
+done
+
+if (( _removed_skills > 0 )); then
+  success "Removed ${_removed_skills} PAI skill directories from ~/.claude/skills/"
+  if [[ -d "$PAI_DIR/skills" ]] && [[ -z "$(ls -A "$PAI_DIR/skills" 2>/dev/null)" ]]; then
+    rmdir "$PAI_DIR/skills"; removed "~/.claude/skills/ (now empty)"
+  else
+    remaining=$(ls "$PAI_DIR/skills/" 2>/dev/null | wc -l | tr -d ' ')
+    info "~/.claude/skills/ kept — ${remaining} non-PAI skill(s) remain"
+  fi
+else
+  skip "PAI skill directories (none found)"
+fi
+
+# ════════════════════════════════════════════════════════
+# Step 9: PAI Agent Files (removed by name, not directory)
 # ════════════════════════════════════════════════════════
 step "PAI Agent Files (~/.claude/agents/)"
 
@@ -345,7 +387,7 @@ else
 fi
 
 # ════════════════════════════════════════════════════════
-# Step 9: PAI lib/migration
+# Step 10: PAI lib/migration
 # ════════════════════════════════════════════════════════
 step "PAI Migration Tools (~/.claude/lib/)"
 
@@ -362,7 +404,7 @@ else
 fi
 
 # ════════════════════════════════════════════════════════
-# Step 10: Strip PAI Keys from settings.json
+# Step 11: Strip PAI Keys from settings.json
 # ════════════════════════════════════════════════════════
 step "Cleaning settings.json"
 
@@ -409,7 +451,7 @@ else
 fi
 
 # ════════════════════════════════════════════════════════
-# Step 11: User Data Directories (backed up, confirm each)
+# Step 12: User Data Directories (backed up, confirm each)
 # ════════════════════════════════════════════════════════
 step "User Data Directories"
 
@@ -421,8 +463,7 @@ for entry in \
   "plans:Your project plans" \
   "tasks:Your task history" \
   "hooks:PAI-installed hooks (check backup for any custom hooks you added)" \
-  "teams:PAI team configurations" \
-  "plugins:PAI plugin marketplace (check backup for any plugins you installed)"
+  "teams:PAI team configurations"
 do
   d="${entry%%:*}"; desc="${entry#*:}"
   if [[ -d "$PAI_DIR/$d" ]]; then
@@ -435,7 +476,7 @@ do
 done
 
 # ════════════════════════════════════════════════════════
-# Step 12: ~/.config/PAI (API Keys)
+# Step 13: ~/.config/PAI (API Keys)
 # ════════════════════════════════════════════════════════
 step "PAI Config (~/.config/PAI)"
 

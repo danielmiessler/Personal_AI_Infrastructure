@@ -63,6 +63,17 @@ PAI_AGENTS=(
   QATester.md
 )
 
+# PAI's known hook filenames (shipped in the v3.0 release)
+PAI_HOOKS=(
+  AgentExecutionGuard.hook.ts AlgorithmTracker.hook.ts AutoWorkCreation.hook.ts
+  CheckVersion.hook.ts IntegrityCheck.hook.ts LoadContext.hook.ts
+  QuestionAnswered.hook.ts RatingCapture.hook.ts README.md
+  RelationshipMemory.hook.ts SecurityValidator.hook.ts SessionAutoName.hook.ts
+  SessionSummary.hook.ts SetQuestionTab.hook.ts SkillGuard.hook.ts
+  StartupGreeting.hook.ts StopOrchestrator.hook.ts UpdateCounts.hook.ts
+  UpdateTabTitle.hook.ts VoiceGate.hook.ts WorkCompletionLearning.hook.ts
+)
+
 # PAI's known skill directory names (shipped in the v3.0 release)
 PAI_SKILLS=(
   Agents AnnualReports Aphorisms Apify Art BeCreative BrightData
@@ -137,12 +148,25 @@ echo -e "  ${RED}•${RESET} ${SILVER}PAI keys in settings.json${RESET} ${GRAY}(
 echo -e "  ${RED}•${RESET} ${SILVER}PAI alias${RESET} ${GRAY}in ~/.zshrc and fish config${RESET}"
 echo ""
 
-echo -e "  ${BOLD}Backed up first, then offered for removal${RESET} ${GRAY}(may contain your data):${RESET}"
-for d in MEMORY plans hooks tasks teams; do
-  [[ -d "$PAI_DIR/$d" ]] && echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/$d/${RESET}"
-done
-[[ -d "$CONFIG_DIR" ]] && \
-  echo -e "  ${BLUE}•${RESET} ${SILVER}~/.config/PAI/${RESET} ${GRAY}(API keys)${RESET}"
+echo -e "  ${BOLD}Fine-grained removal (PAI files removed, user content offered separately):${RESET}"
+if [[ -d "$PAI_DIR/hooks" ]]; then
+  _pai_hook_count=0
+  for hf in "${PAI_HOOKS[@]}"; do
+    [[ -f "$PAI_DIR/hooks/$hf" ]] && (( _pai_hook_count++ )) || true
+  done
+  _total_hooks=$(find "$PAI_DIR/hooks" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  _user_hooks=$(( _total_hooks - _pai_hook_count ))
+  echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/hooks/${RESET} ${GRAY}— ${_pai_hook_count} PAI hooks + handlers/ + lib/ removed; ${_user_hooks} user-added file(s) kept${RESET}"
+fi
+if [[ -d "$PAI_DIR/MEMORY" ]]; then
+  echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/MEMORY/README.md${RESET} ${GRAY}(PAI-shipped docs)${RESET}"
+  echo -e "  ${RED}•${RESET} ${SILVER}~/.claude/MEMORY/STATE/${RESET} ${GRAY}(PAI runtime caches — auto-removed)${RESET}"
+  echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/MEMORY/LEARNING, WORK, RELATIONSHIP, SECURITY, VOICE${RESET} ${GRAY}(your data — offered individually)${RESET}"
+fi
+[[ -d "$PAI_DIR/plans" ]]  && echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/plans/${RESET}  ${GRAY}(your plan files — offered for removal)${RESET}"
+[[ -d "$PAI_DIR/tasks" ]]  && echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/tasks/${RESET}  ${GRAY}(PAI task tracking data — offered for removal)${RESET}"
+[[ -d "$PAI_DIR/teams" ]]  && echo -e "  ${BLUE}•${RESET} ${SILVER}~/.claude/teams/${RESET}  ${GRAY}(PAI team data — offered for removal)${RESET}"
+[[ -d "$CONFIG_DIR" ]]     && echo -e "  ${BLUE}•${RESET} ${SILVER}~/.config/PAI/${RESET}    ${GRAY}(API keys — offered for removal)${RESET}"
 echo ""
 echo -e "  ${GRAY}${BOLD}Not touched:${RESET} ${GRAY}projects/, todos/, plugins/, .credentials.json, history.jsonl,${RESET}"
 echo -e "  ${GRAY}statsig/, agents/ (remaining), skills/ (remaining), lib/ (remaining),${RESET}"
@@ -460,32 +484,119 @@ else
 fi
 
 # ════════════════════════════════════════════════════════
-# Step 12: User Data Directories (backed up, confirm each)
+# Step 12: hooks/ — remove PAI-named files, keep user additions
 # ════════════════════════════════════════════════════════
-step "User Data Directories"
+step "PAI Hook Files (~/.claude/hooks/)"
 
-echo -e "  ${GRAY}These were created by PAI but may contain your personal data.${RESET}"
-echo -e "  ${GRAY}Already backed up to: $BACKUP_DIR${RESET}\n"
-
-for entry in \
-  "MEMORY:Your AI memory and learning files" \
-  "plans:Your project plans" \
-  "tasks:Your task history" \
-  "hooks:PAI-installed hooks (check backup for any custom hooks you added)" \
-  "teams:PAI team configurations"
-do
-  d="${entry%%:*}"; desc="${entry#*:}"
-  if [[ -d "$PAI_DIR/$d" ]]; then
-    if confirm "Remove ~/.claude/$d/? ($desc)"; then
-      rm -rf "${PAI_DIR:?}/$d"; removed "~/.claude/$d/"
-    else
-      warn "Kept ~/.claude/$d/ — backup also at $BACKUP_DIR/$d/"
+if [[ -d "$PAI_DIR/hooks" ]]; then
+  echo -e "  ${GRAY}Already backed up to: $BACKUP_DIR/hooks/${RESET}"
+  _removed_hooks=0
+  for hf in "${PAI_HOOKS[@]}"; do
+    if [[ -f "$PAI_DIR/hooks/$hf" ]]; then
+      rm -f "$PAI_DIR/hooks/$hf"
+      (( _removed_hooks++ )) || true
     fi
+  done
+  # Remove PAI's subdirectories entirely (100% PAI-owned)
+  for subdir in handlers lib; do
+    if [[ -d "$PAI_DIR/hooks/$subdir" ]]; then
+      rm -rf "$PAI_DIR/hooks/$subdir"
+      removed "~/.claude/hooks/$subdir/"
+    fi
+  done
+  (( _removed_hooks > 0 )) && success "Removed ${_removed_hooks} PAI hook files from ~/.claude/hooks/"
+  _remaining_hooks=$(find "$PAI_DIR/hooks" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$_remaining_hooks" -gt 0 ]]; then
+    info "~/.claude/hooks/ kept — ${_remaining_hooks} non-PAI file(s) remain"
+  elif [[ -z "$(ls -A "$PAI_DIR/hooks" 2>/dev/null)" ]]; then
+    rmdir "$PAI_DIR/hooks" 2>/dev/null && removed "~/.claude/hooks/ (now empty)" || true
+  fi
+else
+  skip "~/.claude/hooks/"
+fi
+
+# ════════════════════════════════════════════════════════
+# Step 13: MEMORY/ — remove PAI files, offer user data
+# ════════════════════════════════════════════════════════
+step "PAI Memory (~/.claude/MEMORY/)"
+
+if [[ -d "$PAI_DIR/MEMORY" ]]; then
+  echo -e "  ${GRAY}Already backed up to: $BACKUP_DIR/MEMORY/${RESET}\n"
+
+  # Remove PAI-shipped README (content check)
+  if [[ -f "$PAI_DIR/MEMORY/README.md" ]] && \
+     grep -qi "personal ai\|pai\|memory system" "$PAI_DIR/MEMORY/README.md" 2>/dev/null; then
+    rm -f "$PAI_DIR/MEMORY/README.md"
+    removed "~/.claude/MEMORY/README.md (PAI-shipped)"
+  fi
+
+  # Auto-remove STATE/ — PAI runtime caches (ephemeral, not personal data)
+  if [[ -d "$PAI_DIR/MEMORY/STATE" ]]; then
+    rm -rf "$PAI_DIR/MEMORY/STATE"
+    removed "~/.claude/MEMORY/STATE/ (PAI runtime caches)"
+  fi
+
+  # Offer each user data subdir individually
+  for subdir in LEARNING WORK RELATIONSHIP SECURITY VOICE; do
+    if [[ -d "$PAI_DIR/MEMORY/$subdir" ]]; then
+      _count=$(find "$PAI_DIR/MEMORY/$subdir" -type f 2>/dev/null | wc -l | tr -d ' ')
+      if confirm "Remove ~/.claude/MEMORY/$subdir/? (${_count} file(s) — your personal AI memory)"; then
+        rm -rf "$PAI_DIR/MEMORY/$subdir"
+        removed "~/.claude/MEMORY/$subdir/"
+      else
+        warn "Kept ~/.claude/MEMORY/$subdir/"
+      fi
+    fi
+  done
+
+  # Remove MEMORY/ itself if now empty
+  if [[ -z "$(ls -A "$PAI_DIR/MEMORY" 2>/dev/null)" ]]; then
+    rmdir "$PAI_DIR/MEMORY" && removed "~/.claude/MEMORY/ (now empty)" || true
+  fi
+else
+  skip "~/.claude/MEMORY/"
+fi
+
+# ════════════════════════════════════════════════════════
+# Step 14: plans/ — user-created plan files
+# ════════════════════════════════════════════════════════
+step "Project Plans (~/.claude/plans/)"
+
+if [[ -d "$PAI_DIR/plans" ]]; then
+  _count=$(find "$PAI_DIR/plans" -type f 2>/dev/null | wc -l | tr -d ' ')
+  echo -e "  ${GRAY}Contains ${_count} user-created plan file(s) — already backed up.${RESET}"
+  if confirm "Remove ~/.claude/plans/?"; then
+    rm -rf "${PAI_DIR:?}/plans"
+    removed "~/.claude/plans/"
+  else
+    warn "Kept ~/.claude/plans/ — backup at $BACKUP_DIR/plans/"
+  fi
+else
+  skip "~/.claude/plans/"
+fi
+
+# ════════════════════════════════════════════════════════
+# Step 15: tasks/ and teams/ — PAI runtime tracking data
+# ════════════════════════════════════════════════════════
+step "PAI Runtime Data (~/.claude/tasks/ and ~/.claude/teams/)"
+
+for d in tasks teams; do
+  if [[ -d "$PAI_DIR/$d" ]]; then
+    _count=$(ls "$PAI_DIR/$d" 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "  ${GRAY}~/.claude/$d/ contains ${_count} item(s) — already backed up.${RESET}"
+    if confirm "Remove ~/.claude/$d/?"; then
+      rm -rf "${PAI_DIR:?}/$d"
+      removed "~/.claude/$d/"
+    else
+      warn "Kept ~/.claude/$d/ — backup at $BACKUP_DIR/$d/"
+    fi
+  else
+    skip "~/.claude/$d/"
   fi
 done
 
 # ════════════════════════════════════════════════════════
-# Step 13: ~/.config/PAI (API Keys)
+# Step 16: ~/.config/PAI (API Keys)
 # ════════════════════════════════════════════════════════
 step "PAI Config (~/.config/PAI)"
 

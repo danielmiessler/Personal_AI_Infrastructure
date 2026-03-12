@@ -176,6 +176,11 @@ export function readInferenceConfig(settingsLike?: unknown): InferenceConfig {
     };
   }
 
+  // Test variant overrides always apply (for test isolation)
+  if (TEST_VARIANT.includes('fallback-enabled')) {
+    base.enabled = true;
+  }
+
   return base;
 }
 

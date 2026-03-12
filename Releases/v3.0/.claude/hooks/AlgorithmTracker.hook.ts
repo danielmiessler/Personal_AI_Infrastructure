@@ -24,6 +24,7 @@ import type { AlgorithmCriterion, AlgorithmPhase, AlgorithmState } from './lib/a
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { setPhaseTab } from './lib/tab-setter';
+import { isPaiModeActive } from './lib/paths';
 
 // ── Phase Detection from Voice Curls ──
 
@@ -138,6 +139,8 @@ function ensureSessionActive(sessionId: string): void {
 // ── Main ──
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
+
   // Output continue immediately — never block
   console.log(JSON.stringify({ continue: true }));
 

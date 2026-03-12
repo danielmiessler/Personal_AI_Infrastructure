@@ -13,6 +13,7 @@
 import { parseTranscript } from '../skills/PAI/Tools/TranscriptParser';
 import { handleSystemIntegrity } from './handlers/SystemIntegrity';
 import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
+import { isPaiModeActive } from './lib/paths';
 
 interface HookInput {
   session_id: string;
@@ -40,6 +41,7 @@ async function readStdin(): Promise<HookInput | null> {
 }
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
   const hookInput = await readStdin();
   if (!hookInput?.transcript_path) { process.exit(0); }
 

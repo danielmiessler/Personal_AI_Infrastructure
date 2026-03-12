@@ -18,6 +18,7 @@
 
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleVoice } from './handlers/VoiceNotification';
+import { isPaiModeActive } from './lib/paths';
 
 /**
  * Voice gate: only main terminal sessions get voice.
@@ -31,6 +32,7 @@ function isMainSession(): boolean {
 }
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
   const input = await readHookInput();
   if (!input) { process.exit(0); }
 

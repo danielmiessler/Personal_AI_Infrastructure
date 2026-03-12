@@ -9,6 +9,7 @@
  *   const paiDir = getPaiDir(); // Always returns expanded absolute path
  */
 
+import { readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -72,4 +73,19 @@ export function getSkillsDir(): string {
  */
 export function getMemoryDir(): string {
   return paiPath('MEMORY');
+}
+
+/**
+ * Check whether PAI mode is active for this session.
+ * In "pai-only" mode, PAI hooks/context require the PAI_MODE env var (set by the `pai` command).
+ * Returns false when running as vanilla `claude` in pai-only mode — hooks should exit 0.
+ */
+export function isPaiModeActive(): boolean {
+  if (process.env.PAI_MODE) return true;
+  try {
+    const settings = JSON.parse(readFileSync(getSettingsPath(), 'utf-8'));
+    return settings.pai?.paiMode !== 'pai-only';
+  } catch {
+    return true; // settings unreadable — default to always active
+  }
 }

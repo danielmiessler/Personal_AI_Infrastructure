@@ -49,11 +49,11 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
 
-import { getPaiDir, getSettingsPath } from './lib/paths';
+import { getPaiDir, isPaiModeActive } from './lib/paths';
 import { persistKittySession } from './lib/tab-setter';
 
 const paiDir = getPaiDir();
-const settingsPath = getSettingsPath();
+const settingsPath = join(paiDir, 'settings.json');
 
 (async () => {
   try {
@@ -68,10 +68,7 @@ const settingsPath = getSettingsPath();
       process.exit(0);
     }
 
-    // Respect pai.paiMode setting: "pai-only" requires PAI_MODE env var (set by `pai` command)
-    if (settings.pai?.paiMode === 'pai-only' && !process.env.PAI_MODE) {
-      process.exit(0);
-    }
+    if (!isPaiModeActive()) process.exit(0);
 
     // Read session_id from stdin (Claude Code passes hook input as JSON)
     let sessionId: string | null = null;

@@ -25,6 +25,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { isPaiModeActive } from './lib/paths';
 
 interface HookInput {
   tool_name: string;
@@ -53,6 +54,8 @@ function isMainSession(sessionId: string): boolean {
 }
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
+
   let input: HookInput;
   try {
     const reader = Bun.stdin.stream().getReader();

@@ -30,6 +30,7 @@ import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { isPaiModeActive } from './lib/paths';
 
 interface HookInput {
   session_id: string;
@@ -79,6 +80,8 @@ async function readStdin(): Promise<HookInput | null> {
 }
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
+
   const hookInput = await readStdin();
 
   if (!hookInput || !hookInput.transcript_path) {

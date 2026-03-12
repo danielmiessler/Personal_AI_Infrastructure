@@ -25,14 +25,12 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
 
     // Only auto-load PAI context files for all sessions when paiMode is "always".
     // In "pai-only" mode, context loads exclusively via the `pai` command (PAI_MODE env var).
-    ...(config.paiMode !== "pai-only" ? {
-      contextFiles: [
-        "skills/PAI/SKILL.md",
-        "skills/PAI/AISTEERINGRULES.md",
-        "skills/PAI/USER/AISTEERINGRULES.md",
-        "skills/PAI/USER/DAIDENTITY.md",
-      ],
-    } : {}),
+    contextFiles: config.paiMode !== "pai-only" ? [
+      "skills/PAI/SKILL.md",
+      "skills/PAI/AISTEERINGRULES.md",
+      "skills/PAI/USER/AISTEERINGRULES.md",
+      "skills/PAI/USER/DAIDENTITY.md",
+    ] : [],
 
     daidentity: {
       name: config.aiName,

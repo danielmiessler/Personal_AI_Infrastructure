@@ -32,6 +32,7 @@ import { inference } from '../skills/PAI/Tools/Inference';
 import { isValidWorkingTitle, getWorkingFallback } from './lib/output-validators';
 import { setTabState, getSessionOneWord } from './lib/tab-setter';
 import { getIdentity } from './lib/identity';
+import { isPaiModeActive } from './lib/paths';
 
 interface HookInput {
   session_id: string;
@@ -188,6 +189,8 @@ async function summarizePrompt(prompt: string): Promise<string | null> {
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
     const prompt = data.prompt || '';

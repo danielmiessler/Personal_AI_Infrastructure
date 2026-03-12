@@ -32,6 +32,8 @@ interface HookInput {
   };
 }
 
+import { isPaiModeActive } from './lib/paths';
+
 // Agent types that are typically fast/inline and don't need background
 const FAST_AGENT_TYPES = ['Explore'];
 
@@ -50,6 +52,8 @@ async function readStdin(timeout = 1000): Promise<string> {
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     const input = await readStdin();
     if (!input) {
       process.exit(0);

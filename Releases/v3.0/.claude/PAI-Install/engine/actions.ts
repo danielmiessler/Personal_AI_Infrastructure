@@ -463,11 +463,12 @@ export async function runConfiguration(
       existing.principal = { ...existing.principal, ...config.principal };
       existing.daidentity = { ...existing.daidentity, ...config.daidentity };
       existing.pai = { ...existing.pai, ...config.pai };
-      // Only set permissions/contextFiles/plansDirectory if not already present
+      // Only set permissions/plansDirectory if not already present
       if (!existing.permissions) existing.permissions = config.permissions;
-      if (!existing.contextFiles) existing.contextFiles = config.contextFiles;
       if (!existing.plansDirectory) existing.plansDirectory = config.plansDirectory;
-      // Never touch: hooks, statusLine, spinnerVerbs, contextFiles (if present)
+      // Always sync contextFiles to match paiMode — empty in pai-only, full list in always
+      existing.contextFiles = config.contextFiles;
+      // Never touch: hooks, statusLine, spinnerVerbs
       writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
     } catch {
       // Existing file is corrupt — write fresh as fallback
@@ -477,6 +478,13 @@ export async function runConfiguration(
     writeFileSync(settingsPath, JSON.stringify(config, null, 2));
   }
   await emit({ event: "message", content: "settings.json generated." });
+
+  // In pai-only mode, strip PAI instructions from CLAUDE.md so vanilla `claude` sessions
+  // are unaffected. PAI context loads only when launched via the `pai` command.
+  if (config.pai?.paiMode === "pai-only") {
+    const claudeMdPath = join(paiDir, "CLAUDE.md");
+    try { writeFileSync(claudeMdPath, "This file does nothing.\n"); } catch {}
+  }
 
   // Update Algorithm LATEST version file (public repo may be behind)
   const latestPath = join(paiDir, "skills", "PAI", "Components", "Algorithm", "LATEST");

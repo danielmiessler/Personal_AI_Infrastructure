@@ -12,8 +12,10 @@
  */
 
 import { handleUpdateCounts } from './handlers/UpdateCounts';
+import { isPaiModeActive } from './lib/paths';
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
   try {
     await handleUpdateCounts();
   } catch (err) {

@@ -25,8 +25,8 @@ By default, inference is disabled, and PAI uses the Claude CLI directly. Enablin
     ```
 2.  **Configure API Keys**: Add your provider keys to `~/workspace/ollama/.env`.
     ```bash
-    GROQ_API_KEY=gsk_...
-    GITHUB_API_KEY=ghp_...
+    GROQ_API_KEY=your_groq_api_key_here
+    GITHUB_API_KEY=your_github_token_here
     ```
 3.  **Enable Inference**: Set `inference.enabled` to `true` in `~/.claude/PAI/settings.json`.
 4.  **Test Connection**: Run a simple prompt in PAI. If LiteLLM is unreachable, PAI automatically falls back to the Claude CLI.

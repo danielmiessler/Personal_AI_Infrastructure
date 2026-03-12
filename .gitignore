@@ -13,6 +13,7 @@ Library
 .env.local
 .env.*.local
 *.env
+.sisyphus/
 
 # API keys and secrets
 *.pem

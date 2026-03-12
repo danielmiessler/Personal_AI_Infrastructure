@@ -982,9 +982,9 @@
     },
     "backends": {
       "ollama": {
-        "fast": "ollama/phi4",
-        "standard": "ollama/qwen2.5-coder",
-        "smart": "ollama/phi4"
+        "fast": "ollama_chat/phi4",
+        "standard": "ollama_chat/qwen2.5-coder",
+        "smart": "ollama_chat/phi4"
       },
       "groq": {
         "fast": "groq/llama-3.1-8b",

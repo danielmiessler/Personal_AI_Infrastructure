@@ -1,0 +1,8 @@
+{
+  "name": "pai-claude",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "test:inference": "bun test PAI/Tools/__tests__/Inference.test.ts"
+  }
+}

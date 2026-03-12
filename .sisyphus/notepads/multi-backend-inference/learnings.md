@@ -226,3 +226,19 @@ LITELLM_MASTER_KEY=
 - Used RED-phase contract-first tests to pin expected multi-backend behavior before implementation.
 - Spawn mocking uses event-emitter style callbacks to simulate close/error and stdout/stderr streams safely.
 - Environment gap: Bun/TypeScript LSP unavailable in runner, so execution evidence captures tool-missing state for follow-up in orchestrator environment.
+## 2026-03-12 Task: 7
+
+- Implemented multi-backend inference dispatch in `PAI/Tools/Inference.ts` with three new functions: `readInferenceConfig`, `resolveModel`, and `dispatchLiteLLM`.
+- Kept `InferenceOptions`, `InferenceResult`, `LEVEL_CONFIG`, and `inference()` signature unchanged; Claude CLI spawn path remains intact as fallback.
+- `readInferenceConfig()` now supports runtime settings loading from `~/.claude/settings.json` and deterministic merge-with-default behavior, including malformed timeout normalization.
+- `resolveModel()` honors routing first, then default backend, with deterministic fallback to `ollama` when configured backend is missing, and clear errors when no model can be resolved.
+- `dispatchLiteLLM()` sends OpenAI chat completions payload, conditionally applies Bearer auth header, uses `AbortSignal.timeout`, validates non-2xx/malformed responses, and returns extracted content.
+- `inference()` now attempts LiteLLM first when config is enabled, preserves existing JSON extraction semantics, and falls back to Claude CLI on LiteLLM failure with error-path logging.
+- Test result: `bun test PAI/Tools/__tests__/Inference.test.ts` => 21 pass, 0 fail.
+- QA evidence captured:
+  - `.sisyphus/evidence/task-7-all-tests-pass.txt`
+  - `.sisyphus/evidence/task-7-interface-unchanged.txt`
+  - `.sisyphus/evidence/task-7-result-interface.txt`
+  - `.sisyphus/evidence/task-7-no-external-deps.txt`
+  - `.sisyphus/evidence/task-7-fallback-preserved.txt`
+

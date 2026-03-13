@@ -26,6 +26,7 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync, symlinkSync, unlink
 import { join } from 'path';
 import { getPSTComponents, getISOTimestamp } from './lib/time';
 import { generatePRDTemplate, generatePRDFilename } from './lib/prd-template';
+import { getPaiDir } from './lib/paths';
 interface HookInput {
   session_id: string;
   prompt?: string;
@@ -49,7 +50,7 @@ interface PromptClassification {
   is_new_topic: boolean;
 }
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = getPaiDir();
 const WORK_DIR = join(BASE_DIR, 'MEMORY', 'WORK');
 const STATE_DIR = join(BASE_DIR, 'MEMORY', 'STATE');
 // Session-scoped state files prevent parallel sessions from overwriting each other

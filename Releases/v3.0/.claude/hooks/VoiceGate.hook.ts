@@ -25,6 +25,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { getPaiDir } from './lib/paths';
 
 interface HookInput {
   tool_name: string;
@@ -46,7 +47,7 @@ function isMainSession(sessionId: string): boolean {
   }
 
   // Kitty detection via session files (backward-compatible)
-  const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
+  const paiDir = getPaiDir();
   const kittySessionsDir = join(paiDir, 'MEMORY', 'STATE', 'kitty-sessions');
   if (!existsSync(kittySessionsDir)) return true; // No session tracking dir → allow
   return existsSync(join(kittySessionsDir, `${sessionId}.json`));

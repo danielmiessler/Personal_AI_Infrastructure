@@ -11,13 +11,13 @@
 
 import { readdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { getPaiDir, paiPath, getSettingsPath } from "../../../hooks/lib/paths";
 
-const HOME = process.env.HOME!;
-const PAI_DIR = join(HOME, ".claude/skills/PAI");
-const COMPONENTS_DIR = join(PAI_DIR, "Components");
+const PAI_SKILL_DIR = paiPath("skills", "PAI");
+const COMPONENTS_DIR = join(PAI_SKILL_DIR, "Components");
 const ALGORITHM_DIR = join(COMPONENTS_DIR, "Algorithm");
-const OUTPUT_FILE = join(PAI_DIR, "SKILL.md");
-const SETTINGS_PATH = join(HOME, ".claude/settings.json");
+const OUTPUT_FILE = join(PAI_SKILL_DIR, "SKILL.md");
+const SETTINGS_PATH = getSettingsPath();
 
 /**
  * Load identity variables from settings.json for template resolution

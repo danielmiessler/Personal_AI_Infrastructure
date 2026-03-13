@@ -64,7 +64,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
-import { paiPath } from './lib/paths';
+import { paiPath, expandPath } from './lib/paths';
 
 // ========================================
 // Security Event Logging
@@ -269,14 +269,6 @@ function matchesPattern(command: string, pattern: string): boolean {
     // Invalid regex - try literal match
     return command.toLowerCase().includes(pattern.toLowerCase());
   }
-}
-
-function expandPath(path: string): string {
-  // Expand ~ to home directory
-  if (path.startsWith('~')) {
-    return path.replace('~', homedir());
-  }
-  return path;
 }
 
 function matchesPathPattern(filePath: string, pattern: string): boolean {

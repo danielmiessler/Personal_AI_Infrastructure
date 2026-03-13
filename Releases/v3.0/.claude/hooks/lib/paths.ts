@@ -13,16 +13,15 @@ import { homedir } from 'os';
 import { join } from 'path';
 
 /**
- * Expand shell variables in a path string
- * Supports: $HOME, ${HOME}, ~
+ * Expand shell-style variables in a path string.
+ * Supports: ~, $VAR, ${VAR} (any env var, not just HOME).
+ * Tilde is only expanded at the start of the string (matching shell behavior).
  */
 export function expandPath(path: string): string {
-  const home = homedir();
-
   return path
-    .replace(/^\$HOME(?=\/|$)/, home)
-    .replace(/^\$\{HOME\}(?=\/|$)/, home)
-    .replace(/^~(?=\/|$)/, home);
+    .replace(/^~(?=\/|$)/, homedir())
+    .replace(/\$\{(\w+)\}/g, (_, v) => process.env[v] ?? '')
+    .replace(/\$(\w+)/g, (_, v) => process.env[v] ?? '');
 }
 
 /**

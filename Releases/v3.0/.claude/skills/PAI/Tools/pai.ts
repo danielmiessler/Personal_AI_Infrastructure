@@ -2,16 +2,16 @@
 /**
  * pai - Personal AI CLI Tool
  *
- * Comprehensive CLI for managing Claude Code with dynamic MCP loading,
+ * Comprehensive CLI for managing PAI sessions with dynamic MCP loading,
  * updates, version checking, and profile management.
  *
  * Usage:
- *   pai                  Launch Claude (default profile)
+ *   pai                  Launch PAI (default profile)
  *   pai -m bd            Launch with Bright Data MCP
  *   pai -m bd,ap         Launch with multiple MCPs
  *   pai -r / --resume    Resume last session
  *   pai --local          Stay in current directory (don't cd to ~/.claude)
- *   pai update           Update Claude Code
+ *   pai update           Update PAI engine
  *   pai version          Show version info
  *   pai profiles         List available profiles
  *   pai mcp list         List available MCPs
@@ -28,10 +28,10 @@ import { join, basename } from "path";
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = join(homedir(), ".claude");
-const MCP_DIR = join(CLAUDE_DIR, "MCPs");
-const ACTIVE_MCP = join(CLAUDE_DIR, ".mcp.json");
-const BANNER_SCRIPT = join(CLAUDE_DIR, "skills", "PAI", "Tools", "Banner.ts");
+const PAI_DIR = join(homedir(), ".claude");
+const MCP_DIR = join(PAI_DIR, "MCPs");
+const ACTIVE_MCP = join(PAI_DIR, ".mcp.json");
+const BANNER_SCRIPT = join(PAI_DIR, "skills", "PAI", "Tools", "Banner.ts");
 const VOICE_SERVER = "http://localhost:8888/notify/personality";
 const WALLPAPER_DIR = join(homedir(), "Projects", "Wallpaper");
 // Note: RAW archiving removed - Claude Code handles its own cleanup (30-day retention in projects/)
@@ -229,7 +229,7 @@ function setMcpProfile(profile: string) {
   // Create symlink
   symlinkSync(profileFile, ACTIVE_MCP);
   log(`Switched to '${profile}' profile`, "✅");
-  log("Restart Claude Code to apply", "⚠️");
+  log("Restart PAI to apply", "⚠️");
 }
 
 function setMcpCustom(mcpNames: string[]) {
@@ -390,7 +390,14 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: boolean; local?: boolean }) {
+async function cmdLaunch(options: {
+  mcp?: string;
+  resume?: boolean;
+  skipPerms?: boolean;
+  local?: boolean;
+  worktree?: string | boolean;
+  tmux?: boolean | string;
+}) {
   displayBanner();
   const args = ["claude"];
 
@@ -408,15 +415,30 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
     args.push("--resume");
   }
 
+  if (options.worktree) {
+    args.push("--worktree");
+    if (typeof options.worktree === "string") {
+      args.push(options.worktree);
+    }
+  }
+
+  if (options.tmux) {
+    if (typeof options.tmux === "string") {
+      args.push(`--tmux=${options.tmux}`);
+    } else {
+      args.push("--tmux");
+    }
+  }
+
   // Change to PAI directory unless --local flag is set
   if (!options.local) {
-    process.chdir(CLAUDE_DIR);
+    process.chdir(PAI_DIR);
   }
 
   // Voice notification (using focused marker for calmer tone)
   notifyVoice(`[🎯 focused] ${getDAName()} here, ready to go.`);
 
-  // Launch Claude
+  // Launch PAI
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
     env: { ...process.env },
@@ -447,7 +469,7 @@ async function cmdUpdate() {
     return;
   }
 
-  log("Updating Claude Code...", "🔄");
+  log("Updating PAI engine...", "🔄");
 
   // Step 1: Update Bun
   log("Step 1/2: Updating Bun...", "📦");
@@ -458,13 +480,13 @@ async function cmdUpdate() {
     log("Bun updated", "✅");
   }
 
-  // Step 2: Update Claude Code
-  log("Step 2/2: Installing latest Claude Code...", "🤖");
-  const claudeResult = spawnSync(["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
-  if (claudeResult.exitCode !== 0) {
-    error("Claude Code installation failed");
+  // Step 2: Update PAI engine
+  log("Step 2/2: Installing latest PAI engine...", "🤖");
+  const installResult = spawnSync(["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
+  if (installResult.exitCode !== 0) {
+    error("PAI engine installation failed");
   }
-  log("Claude Code updated", "✅");
+  log("PAI engine updated", "✅");
 
   // Show final version
   const newVersion = getCurrentVersion();
@@ -552,7 +574,7 @@ async function cmdPrompt(prompt: string) {
   // NOTE: No --dangerously-skip-permissions - rely on settings.json permissions
   const args = ["claude", "-p", prompt];
 
-  process.chdir(CLAUDE_DIR);
+  process.chdir(PAI_DIR);
 
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
@@ -568,14 +590,16 @@ function cmdHelp() {
 pai - Personal AI CLI Tool (v2.0.0)
 
 USAGE:
-  k                        Launch Claude (no MCPs, max performance)
+  k                        Launch PAI (no MCPs, max performance)
   k -m <mcp>               Launch with specific MCP(s)
   k -m bd,ap               Launch with multiple MCPs
   k -r, --resume           Resume last session
   k -l, --local            Stay in current directory (don't cd to ~/.claude)
+  k --wt, --worktree [name]  Launch in isolated git worktree
+  k --tmux                 Create tmux session (with --wt)
 
 COMMANDS:
-  k update                 Update Claude Code to latest version
+  k update                 Update PAI engine to latest version
   k version, -v            Show version information
   k profiles               List available MCP profiles
   k mcp list               List all available MCPs
@@ -606,6 +630,9 @@ EXAMPLES:
   k prompt "What time is it?"   One-shot prompt
   k -w                     List available wallpapers
   k -w circuit-board       Switch wallpaper (Kitty + macOS)
+  k --wt                   Start in auto-named worktree
+  k --wt feature-auth      Start in worktree named "feature-auth"
+  k --wt feature-auth --tmux  Start worktree in tmux session
 `);
 }
 
@@ -632,6 +659,8 @@ async function main() {
   let subArg: string | undefined;
   let promptText: string | undefined;
   let wallpaperArgs: string[] = [];
+  let worktree: string | boolean | undefined;
+  let tmux: string | boolean | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -692,8 +721,23 @@ async function main() {
         wallpaperArgs = args.slice(i + 1);
         i = args.length; // Exit loop
         break;
+      case "--wt":
+      case "--worktree": {
+        const wtNext = args[i + 1];
+        if (wtNext && !wtNext.startsWith("-")) {
+          worktree = args[++i];
+        } else {
+          worktree = true;
+        }
+        break;
+      }
+      case "--tmux":
+        tmux = true;
+        break;
       default:
-        if (!arg.startsWith("-")) {
+        if (arg.startsWith("--tmux=")) {
+          tmux = arg.split("=")[1];
+        } else if (!arg.startsWith("-")) {
           // Might be an unknown command
           error(`Unknown command: ${arg}. Use 'k help' for usage.`);
         }
@@ -734,7 +778,7 @@ async function main() {
       break;
     default:
       // Launch with options
-      await cmdLaunch({ mcp, resume, skipPerms, local });
+      await cmdLaunch({ mcp, resume, skipPerms, local, worktree, tmux });
   }
 }
 

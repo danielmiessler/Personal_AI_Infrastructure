@@ -15,41 +15,6 @@ keywords: [work-recall, session-search, context-recovery, PRD, slash-command, re
 
 > Instant recall of prior work sessions by topic — never lose context between sessions again.
 
-> **Installation:** This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using `INSTALL.md`.
-
----
-
-## Installation Prompt
-
-You are receiving a PAI Pack — a modular upgrade for AI agent systems.
-
-**What is PAI?** See: [PAI Project Overview](../../README.md#what-is-pai)
-
-**What is a Pack?** See: [Pack System](../README.md)
-
-This pack adds **work recall** to your Claude Code setup. It installs two slash commands (`/W` and `/work`) that let you instantly search across all prior work sessions by topic. Type `/W authentication` and your AI searches PRDs, git history, session names, and work directories to bring you up to speed in seconds.
-
-**Why you want this:**
-- **Context loss between sessions** is the #1 productivity killer with AI assistants
-- You've done work before — your AI should remember it
-- No more manually grepping through files to find "that thing we did last week"
-
-Please follow the installation instructions in `INSTALL.md` to integrate this pack.
-
----
-
-## What's Included
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| Primary command | `src/commands/W.md` | `/W` slash command — short form for quick access |
-| Alias command | `src/commands/work.md` | `/work` slash command — descriptive form |
-
-**Summary:**
-- **Files created:** 2
-- **Hooks registered:** 0
-- **Dependencies:** None (works standalone, enhanced by PAI MEMORY structure)
-
 ---
 
 ## The Problem
@@ -67,7 +32,7 @@ The fundamental issue: your AI infrastructure generates valuable work artifacts 
 
 ## The Solution
 
-The Work Command adds two slash commands (`/W` and `/work`) that search across **five data sources** in parallel:
+The Work Command adds two slash commands (`/w` and `/work`) that search across **five data sources** in parallel:
 
 1. **Session Registry** (`work.json`) — Structured metadata for all tracked sessions
 2. **Work Directories** (`MEMORY/WORK/`) — Full PRD files with context, criteria, decisions
@@ -76,6 +41,28 @@ The Work Command adds two slash commands (`/W` and `/work`) that search across *
 5. **PRD Content** — Full-text search across all PRD bodies
 
 The command synthesizes results into an actionable summary sorted by recency, then reads the most recent matching PRD in full so the AI can immediately continue where you left off.
+
+---
+
+## Installation
+
+This pack is designed for AI-assisted installation. Give this directory to your AI and ask it to install using `INSTALL.md`.
+
+**What is PAI?** See the [PAI Project Overview](https://github.com/danielmiessler/Personal_AI_Infrastructure#what-is-pai).
+
+---
+
+## What's Included
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Primary command | `src/commands/w.md` | `/w` slash command — short form for quick access |
+| Alias command | `src/commands/work.md` | `/work` slash command — descriptive form |
+
+**Summary:**
+- **Files created:** 2
+- **Hooks registered:** 0
+- **Dependencies:** None (works standalone, enhanced by PAI MEMORY structure)
 
 ---
 
@@ -96,10 +83,10 @@ Work recall searches five complementary data sources simultaneously — session 
 
 | Trigger | What Happens |
 |---------|--------------|
-| `/W authentication` | Searches all 5 sources for "authentication", presents structured results |
+| `/w authentication` | Searches all 5 sources for "authentication", presents structured results |
 | `/work dashboard` | Same search using the longer alias |
-| `/W deploy` | Finds all sessions related to deployment work |
-| `/W helios` | Finds project-specific sessions by name |
+| `/w deploy` | Finds all sessions related to deployment work |
+| `/w helios` | Finds project-specific sessions by name |
 
 The command accepts any topic as a free-text argument. Matching is case-insensitive and partial — searching "auth" will match "authentication", "auth-middleware", etc.
 
@@ -110,7 +97,7 @@ The command accepts any topic as a free-text argument. Matching is case-insensit
 ### Finding Prior Work
 
 ```
-User: /W authentication
+User: /w authentication
 
 AI responds:
 ═══ WORK RECALL: authentication ══════════════════
@@ -146,7 +133,7 @@ in auth middleware. Ready to continue — what would you like to work on?"
 ### No Results
 
 ```
-User: /W quantum-computing
+User: /w quantum-computing
 
 AI responds:
 ═══ WORK RECALL: quantum-computing ══════════════════
@@ -191,15 +178,15 @@ If you use a different directory structure for your work tracking, you can edit 
 
 | Customization | File | Impact |
 |--------------|------|--------|
-| Change work registry path | `W.md` / `work.md` | Searches your custom work.json location |
-| Change work directory path | `W.md` / `work.md` | Searches your custom PRD directory |
-| Add additional search sources | `W.md` / `work.md` | Extends search to cover more data |
+| Change work registry path | `w.md` / `work.md` | Searches your custom work.json location |
+| Change work directory path | `w.md` / `work.md` | Searches your custom PRD directory |
+| Add additional search sources | `w.md` / `work.md` | Extends search to cover more data |
 
 ---
 
 ## Credits
 
-- **Original concept:** Daniel Miessler — developed as part of the PAI (Personal AI Infrastructure) system
+- **Original concept:** Daniel Miessler — developed as part of the [PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) system
 - **Inspired by:** The frustration of losing context between AI sessions
 
 ---
@@ -222,7 +209,7 @@ If you use a different directory structure for your work tracking, you can edit 
 
 ### 1.0.0 - 2026-03-13
 - Initial release
-- Two commands: `/W` (short) and `/work` (descriptive)
+- Two commands: `/w` (short) and `/work` (descriptive)
 - Five parallel search sources
 - Structured output format with recency sorting
 - Graceful degradation when data sources are missing

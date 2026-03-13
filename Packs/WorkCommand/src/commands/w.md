@@ -1,5 +1,5 @@
 ---
-name: W
+name: w
 description: Search all prior work by topic to recall context and resume sessions. Use when wanting to find, recall, or continue previous work on any topic.
 argument-hint: [topic]
 ---

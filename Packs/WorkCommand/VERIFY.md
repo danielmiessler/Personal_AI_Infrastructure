@@ -10,7 +10,7 @@
 
 ```bash
 CLAUDE_DIR="$HOME/.claude"
-[ -f "$CLAUDE_DIR/commands/W.md" ] && echo "OK W.md" || echo "MISSING W.md"
+[ -f "$CLAUDE_DIR/commands/w.md" ] && echo "OK w.md" || echo "MISSING w.md"
 [ -f "$CLAUDE_DIR/commands/work.md" ] && echo "OK work.md" || echo "MISSING work.md"
 ```
 
@@ -20,7 +20,7 @@ CLAUDE_DIR="$HOME/.claude"
 
 ```bash
 CLAUDE_DIR="$HOME/.claude"
-for cmd in W.md work.md; do
+for cmd in w.md work.md; do
   if [ -f "$CLAUDE_DIR/commands/$cmd" ]; then
     head -1 "$CLAUDE_DIR/commands/$cmd" | grep -q "^---" && echo "OK $cmd frontmatter" || echo "ERROR $cmd missing frontmatter"
     grep -q "^name:" "$CLAUDE_DIR/commands/$cmd" && echo "OK $cmd has name field" || echo "ERROR $cmd missing name field"
@@ -36,12 +36,12 @@ done
 
 ```bash
 CLAUDE_DIR="$HOME/.claude"
-for cmd in W.md work.md; do
+for cmd in w.md work.md; do
   if [ -f "$CLAUDE_DIR/commands/$cmd" ]; then
     echo "Checking $cmd content..."
     grep -q "WORK RECALL" "$CLAUDE_DIR/commands/$cmd" && echo "  OK Has work recall header" || echo "  ERROR Missing work recall header"
     grep -q "work.json" "$CLAUDE_DIR/commands/$cmd" && echo "  OK References session registry" || echo "  ERROR Missing session registry search"
-    grep -q "MEMORY/WORK" "$CLAUDE_DIR/commands/$cmd" && echo "  OK References work directories" || echo "  ERROR Missing work directory search"
+    grep -q "MEMORY/wORK" "$CLAUDE_DIR/commands/$cmd" && echo "  OK References work directories" || echo "  ERROR Missing work directory search"
     grep -q "git.*log" "$CLAUDE_DIR/commands/$cmd" && echo "  OK References git history" || echo "  ERROR Missing git history search"
     grep -q "session-names" "$CLAUDE_DIR/commands/$cmd" && echo "  OK References session names" || echo "  ERROR Missing session name search"
     grep -q "PRD.md" "$CLAUDE_DIR/commands/$cmd" && echo "  OK References PRD files" || echo "  ERROR Missing PRD search"
@@ -63,7 +63,7 @@ CLAUDE_DIR="$HOME/.claude"
 
 echo "Data sources:"
 [ -f "$CLAUDE_DIR/MEMORY/STATE/work.json" ] && echo "  AVAILABLE work.json (session registry)" || echo "  UNAVAILABLE work.json (install PAI for this)"
-[ -d "$CLAUDE_DIR/MEMORY/WORK" ] && echo "  AVAILABLE MEMORY/WORK (PRD directory)" || echo "  UNAVAILABLE MEMORY/WORK (install PAI for this)"
+[ -d "$CLAUDE_DIR/MEMORY/wORK" ] && echo "  AVAILABLE MEMORY/wORK (PRD directory)" || echo "  UNAVAILABLE MEMORY/wORK (install PAI for this)"
 [ -f "$CLAUDE_DIR/MEMORY/STATE/session-names.json" ] && echo "  AVAILABLE session-names.json" || echo "  UNAVAILABLE session-names.json (install PAI for this)"
 [ -d "$CLAUDE_DIR/.git" ] && echo "  AVAILABLE git history" || echo "  UNAVAILABLE git history"
 ```
@@ -78,14 +78,14 @@ Mark each item as complete:
 ## Work Command Installation Verification
 
 ### Files
-- [ ] At least one command file installed (W.md or work.md)
+- [ ] At least one command file installed (w.md or work.md)
 - [ ] Command file(s) have valid YAML frontmatter
 - [ ] Command file(s) contain all 5 search source sections
 - [ ] Command file(s) contain output format template
 - [ ] Command file(s) contain post-results instructions
 
 ### Functional (manual test)
-- [ ] Typing /W [topic] in Claude Code triggers the command
+- [ ] Typing /w [topic] in Claude Code triggers the command
 - [ ] Typing /work [topic] in Claude Code triggers the command (if installed)
 - [ ] Command returns structured output or "no matches found"
 ```
@@ -97,7 +97,7 @@ Mark each item as complete:
 After installation, restart Claude Code and run:
 
 ```
-/W test
+/w test
 ```
 
 **Expected behavior:**
@@ -114,5 +114,5 @@ If the command isn't recognized, ensure you restarted Claude Code after installa
 When all file checks pass:
 
 1. **Confirm to user:** "Work Command installation verified successfully"
-2. **Recommend:** "Try it now: `/W` followed by any topic you've worked on"
+2. **Recommend:** "Try it now: `/w` followed by any topic you've worked on"
 3. **Note:** "Restart Claude Code if the commands aren't recognized yet"

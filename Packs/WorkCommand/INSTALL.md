@@ -10,7 +10,7 @@
 
 1. **AskUserQuestion** - For user decisions and confirmations
 2. **TodoWrite** - For progress tracking
-3. **Bash/Read/Write** - For actual installation
+3. **Bash/Read/write** - For actual installation
 4. **VERIFY.md** - For final validation
 
 ### Welcome Message
@@ -20,7 +20,7 @@ Before starting, greet the user:
 "I'm installing Work Command v1.0.0 — instant recall of prior work sessions by topic.
 
 This pack adds two slash commands:
-- /W [topic] — short form for quick access
+- /w [topic] — short form for quick access
 - /work [topic] — descriptive form
 
 Let me analyze your system and guide you through installation."
@@ -47,11 +47,11 @@ else
   echo "INFO Commands directory does not exist (will be created)"
 fi
 
-# Check for existing W.md or work.md commands
-if [ -f "$CLAUDE_DIR/commands/W.md" ]; then
-  echo "WARNING Existing /W command found at: $CLAUDE_DIR/commands/W.md"
+# Check for existing w.md or work.md commands
+if [ -f "$CLAUDE_DIR/commands/w.md" ]; then
+  echo "WARNING Existing /w command found at: $CLAUDE_DIR/commands/w.md"
 else
-  echo "OK No existing /W command (clean install)"
+  echo "OK No existing /w command (clean install)"
 fi
 
 if [ -f "$CLAUDE_DIR/commands/work.md" ]; then
@@ -61,10 +61,10 @@ else
 fi
 
 # Check for PAI MEMORY structure (optional, enhances results)
-if [ -d "$CLAUDE_DIR/MEMORY/WORK" ]; then
-  echo "OK PAI MEMORY/WORK directory exists (full functionality available)"
+if [ -d "$CLAUDE_DIR/MEMORY/wORK" ]; then
+  echo "OK PAI MEMORY/wORK directory exists (full functionality available)"
 else
-  echo "INFO PAI MEMORY/WORK not found (command will work but may return fewer results)"
+  echo "INFO PAI MEMORY/wORK not found (command will work but may return fewer results)"
 fi
 
 if [ -f "$CLAUDE_DIR/MEMORY/STATE/work.json" ]; then
@@ -93,7 +93,7 @@ Tell the user what you found:
 ```
 "Here's what I found on your system:
 - Commands directory: [exists / will be created]
-- Existing /W command: [found — will ask about conflict / not found]
+- Existing /w command: [found — will ask about conflict / not found]
 - Existing /work command: [found — will ask about conflict / not found]
 - PAI MEMORY structure: [found (full functionality) / not found (basic functionality)]
 - Git repository: [found / not found]
@@ -112,12 +112,12 @@ https://github.com/danielmiessler/Personal_AI_Infrastructure"
 
 ### Question 1: Conflict Resolution (if existing commands found)
 
-**Only ask if existing /W or /work command detected:**
+**Only ask if existing /w or /work command detected:**
 
 ```json
 {
   "header": "Conflict — Existing Command",
-  "question": "An existing /W or /work command was found. How should I proceed?",
+  "question": "An existing /w or /work command was found. How should I proceed?",
   "multiSelect": false,
   "options": [
     {"label": "Backup and Replace (Recommended)", "description": "Creates timestamped backup of existing command, then installs new version"},
@@ -135,8 +135,8 @@ https://github.com/danielmiessler/Personal_AI_Infrastructure"
   "question": "Which command names would you like to install?",
   "multiSelect": false,
   "options": [
-    {"label": "Both /W and /work (Recommended)", "description": "/W for quick access, /work for discoverability"},
-    {"label": "Only /W", "description": "Short form only"},
+    {"label": "Both /w and /work (Recommended)", "description": "/w for quick access, /work for discoverability"},
+    {"label": "Only /w", "description": "Short form only"},
     {"label": "Only /work", "description": "Descriptive form only"}
   ]
 }
@@ -160,7 +160,7 @@ https://github.com/danielmiessler/Personal_AI_Infrastructure"
 **If user chose "Show me what will change":**
 ```
 "Files to be created:
-- ~/.claude/commands/W.md (slash command definition)
+- ~/.claude/commands/w.md (slash command definition)
 - ~/.claude/commands/work.md (slash command definition, same content)
 
 No other files will be modified. No hooks, no configuration changes."
@@ -180,7 +180,7 @@ BACKUP_DIR="$CLAUDE_DIR/Backups/work-command-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
 # Backup existing commands
-[ -f "$CLAUDE_DIR/commands/W.md" ] && cp "$CLAUDE_DIR/commands/W.md" "$BACKUP_DIR/W.md" && echo "Backed up W.md"
+[ -f "$CLAUDE_DIR/commands/w.md" ] && cp "$CLAUDE_DIR/commands/w.md" "$BACKUP_DIR/w.md" && echo "Backed up w.md"
 [ -f "$CLAUDE_DIR/commands/work.md" ] && cp "$CLAUDE_DIR/commands/work.md" "$BACKUP_DIR/work.md" && echo "Backed up work.md"
 
 echo "Backup created at: $BACKUP_DIR"
@@ -219,21 +219,21 @@ mkdir -p "$CLAUDE_DIR/commands"
 
 **Copy files based on user's command selection:**
 
-**For "Both /W and /work" (default):**
+**For "Both /w and /work" (default):**
 ```bash
 PACK_DIR="$(pwd)"
 CLAUDE_DIR="$HOME/.claude"
-cp "$PACK_DIR/src/commands/W.md" "$CLAUDE_DIR/commands/W.md"
+cp "$PACK_DIR/src/commands/w.md" "$CLAUDE_DIR/commands/w.md"
 cp "$PACK_DIR/src/commands/work.md" "$CLAUDE_DIR/commands/work.md"
-echo "Installed /W and /work commands"
+echo "Installed /w and /work commands"
 ```
 
-**For "Only /W":**
+**For "Only /w":**
 ```bash
 PACK_DIR="$(pwd)"
 CLAUDE_DIR="$HOME/.claude"
-cp "$PACK_DIR/src/commands/W.md" "$CLAUDE_DIR/commands/W.md"
-echo "Installed /W command"
+cp "$PACK_DIR/src/commands/w.md" "$CLAUDE_DIR/commands/w.md"
+echo "Installed /w command"
 ```
 
 **For "Only /work":**
@@ -261,13 +261,13 @@ echo "=== Work Command Verification ==="
 
 # Check command files exist
 echo "Checking command files..."
-[ -f "$CLAUDE_DIR/commands/W.md" ] && echo "OK /W command installed" || echo "SKIP /W not installed (user chose /work only)"
-[ -f "$CLAUDE_DIR/commands/work.md" ] && echo "OK /work command installed" || echo "SKIP /work not installed (user chose /W only)"
+[ -f "$CLAUDE_DIR/commands/w.md" ] && echo "OK /w command installed" || echo "SKIP /w not installed (user chose /work only)"
+[ -f "$CLAUDE_DIR/commands/work.md" ] && echo "OK /work command installed" || echo "SKIP /work not installed (user chose /w only)"
 
 # Check frontmatter is valid
 echo "Checking frontmatter..."
-if [ -f "$CLAUDE_DIR/commands/W.md" ]; then
-  head -1 "$CLAUDE_DIR/commands/W.md" | grep -q "^---" && echo "OK W.md has valid frontmatter" || echo "ERROR W.md missing frontmatter"
+if [ -f "$CLAUDE_DIR/commands/w.md" ]; then
+  head -1 "$CLAUDE_DIR/commands/w.md" | grep -q "^---" && echo "OK w.md has valid frontmatter" || echo "ERROR w.md missing frontmatter"
 fi
 if [ -f "$CLAUDE_DIR/commands/work.md" ]; then
   head -1 "$CLAUDE_DIR/commands/work.md" | grep -q "^---" && echo "OK work.md has valid frontmatter" || echo "ERROR work.md missing frontmatter"
@@ -275,16 +275,16 @@ fi
 
 # Check file contents are complete
 echo "Checking file contents..."
-if [ -f "$CLAUDE_DIR/commands/W.md" ]; then
-  grep -q "WORK RECALL" "$CLAUDE_DIR/commands/W.md" && echo "OK W.md contains work recall template" || echo "ERROR W.md incomplete"
-  grep -q "work.json" "$CLAUDE_DIR/commands/W.md" && echo "OK W.md references session registry" || echo "ERROR W.md missing search sources"
+if [ -f "$CLAUDE_DIR/commands/w.md" ]; then
+  grep -q "WORK RECALL" "$CLAUDE_DIR/commands/w.md" && echo "OK w.md contains work recall template" || echo "ERROR w.md incomplete"
+  grep -q "work.json" "$CLAUDE_DIR/commands/w.md" && echo "OK w.md references session registry" || echo "ERROR w.md missing search sources"
 fi
 
 # Check data sources (informational, not blocking)
 echo ""
 echo "Data source availability (informational):"
 [ -f "$CLAUDE_DIR/MEMORY/STATE/work.json" ] && echo "  OK work.json — session registry available" || echo "  INFO work.json — not found (install PAI for this feature)"
-[ -d "$CLAUDE_DIR/MEMORY/WORK" ] && echo "  OK MEMORY/WORK — PRD directory available" || echo "  INFO MEMORY/WORK — not found (install PAI for this feature)"
+[ -d "$CLAUDE_DIR/MEMORY/wORK" ] && echo "  OK MEMORY/wORK — PRD directory available" || echo "  INFO MEMORY/wORK — not found (install PAI for this feature)"
 [ -f "$CLAUDE_DIR/MEMORY/STATE/session-names.json" ] && echo "  OK session-names.json — session names available" || echo "  INFO session-names.json — not found (install PAI for this feature)"
 [ -d "$CLAUDE_DIR/.git" ] && echo "  OK .git — git history available" || echo "  INFO .git — not found (git history search unavailable)"
 
@@ -304,14 +304,14 @@ echo "=== Verification Complete ==="
 "Work Command v1.0.0 installed successfully!
 
 What's available:
-- /W [topic] — quick search for prior work
+- /w [topic] — quick search for prior work
 - /work [topic] — same command, descriptive name
 
-Try it now: Type '/W' followed by any topic you've worked on before.
+Try it now: Type '/w' followed by any topic you've worked on before.
 
-Example: /W authentication
-Example: /W dashboard
-Example: /W deploy
+Example: /w authentication
+Example: /w dashboard
+Example: /w deploy
 
 Note: Results improve the more you use PAI's work tracking system (PRDs, session names, git commits)."
 ```
@@ -327,7 +327,7 @@ Right now, the commands will search git history only.
 For full functionality (PRD search, session registry, work directories), install PAI:
 https://github.com/danielmiessler/Personal_AI_Infrastructure
 
-Try it now: /W [any topic]"
+Try it now: /w [any topic]"
 ```
 
 ### On Failure
@@ -366,7 +366,7 @@ The Work Command searches data created by PAI's Algorithm (PRDs, session metadat
 
 | File | Purpose |
 |------|---------|
-| `src/commands/W.md` | Primary slash command — short form `/W` |
+| `src/commands/w.md` | Primary slash command — short form `/w` |
 | `src/commands/work.md` | Alias slash command — descriptive form `/work` |
 
 Both files contain identical logic. The only difference is the `name` field in the frontmatter (`W` vs `work`), which determines the slash command name in Claude Code.
@@ -378,17 +378,17 @@ Both files contain identical logic. The only difference is the `name` field in t
 ### From Claude Code
 
 ```
-/W authentication
-/W dashboard redesign
-/W deploy
+/w authentication
+/w dashboard redesign
+/w deploy
 /work security audit
 /work blog publishing
 ```
 
 ### How It Works
 
-When you type `/W [topic]`, Claude Code:
-1. Loads the command template from `~/.claude/commands/W.md`
+When you type `/w [topic]`, Claude Code:
+1. Loads the command template from `~/.claude/commands/w.md`
 2. Substitutes `$ARGUMENTS` with your topic
 3. The AI executes the five parallel searches defined in the template
 4. Results are presented in a structured format
@@ -398,7 +398,7 @@ When you type `/W [topic]`, Claude Code:
 
 If you have PAI installed, the Work Command becomes significantly more powerful:
 - **work.json** provides structured session metadata
-- **MEMORY/WORK/*/PRD.md** provides full context, criteria, and decisions
+- **MEMORY/wORK/*/PRD.md** provides full context, criteria, and decisions
 - **session-names.json** provides human-readable session names
 - **Git history** provides commit-level detail
 

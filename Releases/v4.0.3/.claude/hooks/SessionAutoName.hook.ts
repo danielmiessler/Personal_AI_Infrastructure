@@ -37,7 +37,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmdirSync, renameSync, statSync } from 'fs';
 import { dirname } from 'path';
 import { spawn as nodeSpawn } from 'child_process';
-import { paiPath } from './lib/paths';
+import { paiPath, isPaiModeActive } from './lib/paths';
 import { inference } from '../PAI/Tools/Inference';
 import { updateSessionNameInWorkJson, upsertSession } from './lib/prd-utils';
 
@@ -434,6 +434,8 @@ async function main() {
     }
     process.exit(0);
   }
+
+  if (!isPaiModeActive()) process.exit(0);
 
   // ── Normal hook mode (called by Claude Code on UserPromptSubmit) ──
   const hookInput = await readStdin();

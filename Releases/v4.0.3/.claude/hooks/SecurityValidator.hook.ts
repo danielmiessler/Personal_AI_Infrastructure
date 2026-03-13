@@ -64,7 +64,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
-import { paiPath } from './lib/paths';
+import { paiPath, isPaiModeActive } from './lib/paths';
 
 // ========================================
 // Security Event Logging
@@ -551,6 +551,8 @@ function handleRead(input: HookInput): void {
 // ========================================
 
 async function main(): Promise<void> {
+  if (!isPaiModeActive()) process.exit(0);
+
   let input: HookInput;
 
   try {

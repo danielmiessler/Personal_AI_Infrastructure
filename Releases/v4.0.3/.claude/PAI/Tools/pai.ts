@@ -420,10 +420,10 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
   // Voice notification (using focused marker for calmer tone)
   notifyVoice(`[🎯 focused] ${getDAName()} here, ready to go.`);
 
-  // Launch Claude
+  // Launch Claude with PAI_MODE=1 so hooks activate even in "pai-only" mode
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
-    env: { ...process.env },
+    env: { ...process.env, PAI_MODE: "1" },
   });
 
   // Wait for Claude to exit
@@ -560,7 +560,7 @@ async function cmdPrompt(prompt: string) {
 
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
-    env: { ...process.env },
+    env: { ...process.env, PAI_MODE: "1" },
   });
 
   const exitCode = await proc.exited;

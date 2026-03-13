@@ -255,7 +255,8 @@ export async function runApiKeys(
 export async function runIdentity(
   state: InstallState,
   emit: EngineEventHandler,
-  getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>
+  getInput: (id: string, prompt: string, type: "text" | "password" | "key", placeholder?: string) => Promise<string>,
+  getChoice: (id: string, prompt: string, choices: { label: string; value: string; description?: string }[]) => Promise<string>
 ): Promise<void> {
   await emit({ event: "step_start", step: "identity" });
 
@@ -316,6 +317,25 @@ export async function runIdentity(
   if (projDir.trim()) {
     state.collected.projectsDir = projDir.trim().replace(/^~/, homedir());
   }
+
+  // PAI activation mode
+  const paiModeChoice = await getChoice(
+    "pai-mode",
+    "When should PAI context be active?",
+    [
+      {
+        label: "Always (all claude sessions)",
+        value: "always",
+        description: "Default — PAI loads for every `claude` session",
+      },
+      {
+        label: "Only with `pai` command",
+        value: "pai-only",
+        description: "Use `pai` for full PAI sessions, `claude` for vanilla Claude",
+      },
+    ]
+  );
+  state.collected.paiMode = paiModeChoice as "always" | "pai-only";
 
   await emit({
     event: "message",
@@ -426,6 +446,7 @@ export async function runConfiguration(
     projectsDir: state.collected.projectsDir,
     voiceType: state.collected.voiceType,
     voiceId: state.collected.customVoiceId,
+    paiMode: state.collected.paiMode,
     paiDir,
     configDir,
   });
@@ -442,11 +463,12 @@ export async function runConfiguration(
       existing.principal = { ...existing.principal, ...config.principal };
       existing.daidentity = { ...existing.daidentity, ...config.daidentity };
       existing.pai = { ...existing.pai, ...config.pai };
-      // Only set permissions/contextFiles/plansDirectory if not already present
+      // Only set permissions/plansDirectory if not already present
       if (!existing.permissions) existing.permissions = config.permissions;
-      if (!existing.contextFiles) existing.contextFiles = config.contextFiles;
       if (!existing.plansDirectory) existing.plansDirectory = config.plansDirectory;
-      // Never touch: hooks, statusLine, spinnerVerbs, contextFiles (if present)
+      // Always sync contextFiles to match paiMode — empty in pai-only, full list in always
+      existing.contextFiles = config.contextFiles;
+      // Never touch: hooks, statusLine, spinnerVerbs
       writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
     } catch {
       // Existing file is corrupt — write fresh as fallback
@@ -456,6 +478,13 @@ export async function runConfiguration(
     writeFileSync(settingsPath, JSON.stringify(config, null, 2));
   }
   await emit({ event: "message", content: "settings.json generated." });
+
+  // In pai-only mode, strip PAI instructions from CLAUDE.md so vanilla `claude` sessions
+  // are unaffected. PAI context loads only when launched via the `pai` command.
+  if (config.pai?.paiMode === "pai-only") {
+    const claudeMdPath = join(paiDir, "CLAUDE.md");
+    try { writeFileSync(claudeMdPath, "This file does nothing.\n"); } catch {}
+  }
 
   // Update Algorithm LATEST version file (public repo may be behind)
   const latestPath = join(paiDir, "skills", "PAI", "Components", "Algorithm", "LATEST");

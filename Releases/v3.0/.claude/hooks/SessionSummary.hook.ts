@@ -52,6 +52,7 @@ import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
+import { isPaiModeActive } from './lib/paths';
 
 const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
@@ -121,6 +122,8 @@ function clearSessionWork(sessionId?: string): void {
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     // Read input from stdin with timeout — SessionEnd hooks may receive
     // empty or slow stdin. Proceed regardless since state is read from disk.
     let sessionId: string | undefined;

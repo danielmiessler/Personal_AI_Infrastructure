@@ -37,9 +37,12 @@
  */
 
 import { setTabState, readTabState, stripPrefix } from './lib/tab-setter';
+import { isPaiModeActive } from './lib/paths';
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     // Extract session_id from stdin for correct tab targeting
     let sessionId: string | undefined;
     try {

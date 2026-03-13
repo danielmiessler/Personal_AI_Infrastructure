@@ -68,8 +68,12 @@ async function readStdin(timeout = 1000): Promise<string> {
   });
 }
 
+import { isPaiModeActive } from './lib/paths';
+
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     const input = await readStdin();
     if (!input) {
       process.exit(0);

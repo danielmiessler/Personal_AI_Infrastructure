@@ -23,12 +23,14 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
       PAI_CONFIG_DIR: config.configDir,
     },
 
-    contextFiles: [
+    // Only auto-load PAI context files for all sessions when paiMode is "always".
+    // In "pai-only" mode, context loads exclusively via the `pai` command (PAI_MODE env var).
+    contextFiles: config.paiMode !== "pai-only" ? [
       "skills/PAI/SKILL.md",
       "skills/PAI/AISTEERINGRULES.md",
       "skills/PAI/USER/AISTEERINGRULES.md",
       "skills/PAI/USER/DAIDENTITY.md",
-    ],
+    ] : [],
 
     daidentity: {
       name: config.aiName,
@@ -55,6 +57,7 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
     pai: {
       repoUrl: "https://github.com/danielmiessler/PAI",
       version: "3.0",
+      paiMode: config.paiMode ?? "always",
     },
   };
 }

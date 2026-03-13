@@ -32,6 +32,7 @@ import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } fr
 import { join } from 'path';
 import { inference } from '../PAI/Tools/Inference';
 import { getIdentity, getPrincipal, getPrincipalName } from './lib/identity';
+import { isPaiModeActive } from './lib/paths';
 import { getLearningCategory } from './lib/learning-utils';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../PAI/Tools/FailureCapture';
@@ -369,6 +370,8 @@ This response was rated ${rating}/10 by ${getPrincipalName()}. Use this as an im
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     console.error('[RatingCapture] Hook started');
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);

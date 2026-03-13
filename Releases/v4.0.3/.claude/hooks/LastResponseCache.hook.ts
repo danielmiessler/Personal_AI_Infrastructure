@@ -15,8 +15,10 @@ import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { isPaiModeActive } from './lib/paths';
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
   const input = await readHookInput();
   if (!input) { process.exit(0); }
 

@@ -46,6 +46,7 @@
 
 import { setTabState, readTabState } from './lib/tab-setter';
 import { isValidQuestionTitle, getQuestionFallback } from './lib/output-validators';
+import { isPaiModeActive } from './lib/paths';
 
 const FALLBACK_TITLE = getQuestionFallback();
 
@@ -91,6 +92,8 @@ function extractSummary(input: any): string {
 }
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
+
   let summary = FALLBACK_TITLE;
   let sessionId: string | undefined;
 

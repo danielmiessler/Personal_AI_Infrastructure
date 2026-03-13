@@ -12,7 +12,7 @@
 
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
-import { getPaiDir } from './lib/paths';
+import { getPaiDir, isPaiModeActive } from './lib/paths';
 import { setTabState, readTabState } from './lib/tab-setter';
 import { getDAName } from './lib/identity';
 
@@ -23,6 +23,7 @@ const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
 const isSubagent = claudeProjectDir.includes('/.claude/Agents/') ||
                   process.env.CLAUDE_AGENT_TYPE !== undefined;
 if (isSubagent) process.exit(0);
+if (!isPaiModeActive()) process.exit(0);
 
 // Persist Kitty environment for hooks that run later without terminal context
 const kittyListenOn = process.env.KITTY_LISTEN_ON;

@@ -30,7 +30,7 @@
 
 import { writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
-import { getPaiDir } from './lib/paths';
+import { getPaiDir, isPaiModeActive } from './lib/paths';
 import { getPSTComponents } from './lib/time';
 import { getDAName, getPrincipalName } from './lib/identity';
 import { parseTranscript } from '../PAI/Tools/TranscriptParser';
@@ -236,6 +236,7 @@ function initDailyFile(filepath: string): void {
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
     console.error('[RelationshipMemory] Hook started');
 
     const input = await readStdinWithTimeout();

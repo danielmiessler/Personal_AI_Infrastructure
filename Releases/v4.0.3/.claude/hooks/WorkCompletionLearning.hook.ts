@@ -53,6 +53,7 @@ import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { getISOTimestamp, getPSTDate } from './lib/time';
 import { getLearningCategory } from './lib/learning-utils';
+import { isPaiModeActive } from './lib/paths';
 
 const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
@@ -254,6 +255,8 @@ ${idealContent || 'Not specified'}
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     // Read input from stdin with timeout — SessionEnd hooks may receive
     // empty or slow stdin. Proceed regardless since state is read from disk.
     let sessionId: string | undefined;

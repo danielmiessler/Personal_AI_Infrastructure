@@ -24,6 +24,13 @@ set -o pipefail
 
 PAI_DIR="${PAI_DIR:-$HOME/.claude}"
 SETTINGS_FILE="$PAI_DIR/settings.json"
+
+# Gate: if paiMode is "pai-only", only run when launched via the `pai` command
+_PAI_MODE_SETTING=$(jq -r '.pai.paiMode // "always"' "$SETTINGS_FILE" 2>/dev/null)
+if [ "$_PAI_MODE_SETTING" = "pai-only" ] && [ -z "$PAI_MODE" ]; then
+  exit 0
+fi
+unset _PAI_MODE_SETTING
 RATINGS_FILE="$PAI_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
 TREND_CACHE="$PAI_DIR/MEMORY/STATE/trending-cache.json"
 MODEL_CACHE="$PAI_DIR/MEMORY/STATE/model-cache.txt"

@@ -19,6 +19,9 @@ import {
 } from './lib/prd-utils';
 import { setPhaseTab } from './lib/tab-setter';
 import type { AlgorithmTabPhase } from './lib/tab-constants';
+import { isPaiModeActive } from './lib/paths';
+
+if (!isPaiModeActive()) process.exit(0);
 
 let input: any;
 try {

@@ -86,6 +86,7 @@ export interface InstallState {
     projectsDir?: string;
     voiceType?: "female" | "male" | "custom";
     customVoiceId?: string;
+    paiMode?: "always" | "pai-only";
   };
 
   // Results
@@ -110,6 +111,7 @@ export interface PAIConfig {
   projectsDir?: string;
   voiceType?: string;
   voiceId?: string;
+  paiMode?: "always" | "pai-only";
   paiDir: string;
   configDir: string;
 }

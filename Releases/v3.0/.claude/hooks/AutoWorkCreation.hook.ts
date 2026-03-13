@@ -26,6 +26,7 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync, symlinkSync, unlink
 import { join } from 'path';
 import { getPSTComponents, getISOTimestamp } from './lib/time';
 import { generatePRDTemplate, generatePRDFilename } from './lib/prd-template';
+import { isPaiModeActive } from './lib/paths';
 interface HookInput {
   session_id: string;
   prompt?: string;
@@ -270,6 +271,8 @@ function classifyPrompt(prompt: string, hasExistingSession: boolean): PromptClas
 
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     const input = await readStdinWithTimeout();
     const data: HookInput = JSON.parse(input);
     const prompt = data.prompt || data.user_prompt || '';

@@ -41,7 +41,7 @@
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
-import { getPaiDir } from './lib/paths';
+import { getPaiDir, isPaiModeActive } from './lib/paths';
 import { recordSessionStart } from './lib/notifications';
 import { setTabState, readTabState } from './lib/tab-setter';
 import { getDAName } from './lib/identity';
@@ -458,6 +458,12 @@ async function main() {
     if (isSubagent) {
       // Subagent sessions don't need PAI context loading
       console.error('🤖 Subagent session - skipping PAI context loading');
+      process.exit(0);
+    }
+
+    // Respect pai.paiMode setting: "pai-only" requires PAI_MODE env var (set by `pai` command)
+    if (!isPaiModeActive()) {
+      console.error('💡 PAI mode is "pai-only" — run `pai` for full PAI context, `claude` for vanilla Claude');
       process.exit(0);
     }
 

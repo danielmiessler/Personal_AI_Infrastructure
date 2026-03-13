@@ -27,7 +27,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import { paiPath } from './lib/paths';
+import { paiPath, isPaiModeActive } from './lib/paths';
 import { inference } from '../skills/PAI/Tools/Inference';
 
 interface HookInput {
@@ -232,6 +232,8 @@ async function readStdin(): Promise<HookInput | null> {
 }
 
 async function main() {
+  if (!isPaiModeActive()) process.exit(0);
+
   const hookInput = await readStdin();
 
   if (!hookInput?.session_id) {

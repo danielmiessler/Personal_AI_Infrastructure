@@ -64,8 +64,12 @@ async function getLatestVersion(): Promise<string> {
   }
 }
 
+import { isPaiModeActive } from './lib/paths';
+
 async function main() {
   try {
+    if (!isPaiModeActive()) process.exit(0);
+
     // Skip for subagents
     const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
     const isSubagent = claudeProjectDir.includes('/.claude/Agents/') ||

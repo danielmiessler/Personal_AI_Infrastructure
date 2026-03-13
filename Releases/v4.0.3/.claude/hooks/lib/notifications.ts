@@ -7,7 +7,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
+import { getPaiDir } from './paths';
 
 // ============================================================================
 // Session Timing
@@ -16,16 +16,24 @@ import { homedir } from 'os';
 const SESSION_START_FILE = '/tmp/pai-session-start.txt';
 
 export function recordSessionStart(): void {
-  try { writeFileSync(SESSION_START_FILE, Date.now().toString()); } catch {}
+  try { writeFileSync(SESSION_START_FILE, Date.now().toString()); } catch (err) {
+    console.error('[notifications] Failed to record session start:', err);
+  }
 }
 
 export function getSessionDurationMinutes(): number {
   try {
     if (existsSync(SESSION_START_FILE)) {
       const startTime = parseInt(readFileSync(SESSION_START_FILE, 'utf-8'));
+      if (isNaN(startTime)) {
+        console.error('[notifications] Session start file contains invalid data');
+        return 0;
+      }
       return (Date.now() - startTime) / 1000 / 60;
     }
-  } catch {}
+  } catch (err) {
+    console.error('[notifications] Failed to read session start time:', err);
+  }
   return 0;
 }
 
@@ -43,8 +51,7 @@ export interface NotificationOptions {
 
 function loadNtfyConfig(): { enabled: boolean; topic: string; server: string } {
   try {
-    const paiDir = process.env.PAI_DIR || join(homedir(), '.claude');
-    const settingsPath = join(paiDir, 'settings.json');
+    const settingsPath = join(getPaiDir(), 'settings.json');
     if (!existsSync(settingsPath)) return { enabled: false, topic: '', server: 'ntfy.sh' };
 
     const raw = readFileSync(settingsPath, 'utf-8')
@@ -56,7 +63,8 @@ function loadNtfyConfig(): { enabled: boolean; topic: string; server: string } {
       topic: ntfy?.topic ?? '',
       server: ntfy?.server ?? 'ntfy.sh',
     };
-  } catch {
+  } catch (err) {
+    console.error('[notifications] Failed to load ntfy config:', err);
     return { enabled: false, topic: '', server: 'ntfy.sh' };
   }
 }
@@ -86,7 +94,8 @@ export async function sendPush(
       signal: AbortSignal.timeout(5000),
     });
     return response.ok;
-  } catch {
+  } catch (err) {
+    console.error('[notifications] Push notification failed:', err);
     return false;
   }
 }

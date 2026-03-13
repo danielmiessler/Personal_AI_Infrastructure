@@ -12,10 +12,10 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
-import { parseArgs } from "util";
+import { getPaiDir } from "../../hooks/lib/paths";
 
-const STATE_DIR = join(homedir(), ".claude", "MEMORY", "STATE");
+const PAI_DIR = getPaiDir();
+const STATE_DIR = join(PAI_DIR, "MEMORY", "STATE");
 const STATE_FILE = join(STATE_DIR, "algorithm-phase.json");
 
 interface AlgorithmState {
@@ -58,7 +58,12 @@ function readState(): AlgorithmState {
     const raw = readFileSync(STATE_FILE, "utf-8").trim();
     if (!raw || raw === "{}") throw new Error("empty");
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    const isExpected = (err instanceof Error && err.message === 'empty') ||
+      (err && typeof err === 'object' && 'code' in err && (err as any).code === 'ENOENT');
+    if (!isExpected) {
+      console.error(`[AlgorithmPhaseReport] Failed to read state from ${STATE_FILE}:`, err);
+    }
     return {
       active: false,
       sessionId: "",

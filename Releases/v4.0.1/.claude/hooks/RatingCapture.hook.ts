@@ -33,6 +33,7 @@ import { join } from 'path';
 import { inference } from '../PAI/Tools/Inference';
 import { getIdentity, getPrincipal, getPrincipalName } from './lib/identity';
 import { getLearningCategory } from './lib/learning-utils';
+import { getPaiDir } from './lib/paths';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../PAI/Tools/FailureCapture';
 
@@ -60,7 +61,7 @@ interface RatingEntry {
 
 // ── Shared Constants ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = getPaiDir();
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const LAST_RESPONSE_CACHE = join(BASE_DIR, 'MEMORY', 'STATE', 'last-response.txt');
@@ -391,7 +392,6 @@ async function main() {
 
       writeRating(entry);
 
-
       if (explicitResult.rating < 5) {
         // Read cached last response (written by LastResponseCache.hook.ts on previous Stop event)
         const responseContext = getLastResponse();
@@ -465,7 +465,6 @@ async function main() {
           confidence: 0.95,
           ...(cachedResponse ? { response_preview: cachedResponse.slice(0, 500) } : {}),
         });
-  
         process.exit(0);
       }
     }
@@ -507,7 +506,6 @@ async function main() {
 
       writeRating(entry);
 
-
       if (sentiment.rating < 5) {
         captureLowRatingLearning(
           sentiment.rating,
@@ -540,7 +538,6 @@ async function main() {
         sentiment_summary: `INFERENCE_FAILED: "${failedPromptPreview}"`,
         confidence: 0,
       });
-
     }
 
     process.exit(0);

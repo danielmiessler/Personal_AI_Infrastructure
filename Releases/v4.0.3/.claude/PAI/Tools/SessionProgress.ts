@@ -11,6 +11,7 @@
 
 import { existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { getPaiDir } from '../../hooks/lib/paths';
 
 interface Decision {
   timestamp: string;
@@ -44,7 +45,8 @@ interface SessionProgress {
 }
 
 // Progress files are now in STATE/progress/ (consolidated from MEMORY/PROGRESS/)
-const PROGRESS_DIR = join(process.env.HOME || '', '.claude', 'MEMORY', 'STATE', 'progress');
+const PAI_BASE = getPaiDir();
+const PROGRESS_DIR = join(PAI_BASE, 'MEMORY', 'STATE', 'progress');
 
 function getProgressPath(project: string): string {
   return join(PROGRESS_DIR, `${project}-progress.json`);

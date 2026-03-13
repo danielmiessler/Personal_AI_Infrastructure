@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { getTelosContext } from "@/lib/telos-data"
 import { spawn } from "child_process"
+import { homedir } from "os"
+import { join } from "path"
 
 export async function POST(request: Request) {
   try {
@@ -29,8 +31,8 @@ When answering questions:
 
     // Use Inference tool instead of direct API
     const inferenceResult = await new Promise<{ success: boolean; output?: string; error?: string }>((resolve) => {
-      const homeDir = process.env.HOME || ''
-      const proc = spawn('bun', ['run', `${homeDir}/.claude/PAI/Tools/Inference.ts`, '--level', 'fast', systemPrompt, message], {
+      const paiDir = process.env.PAI_DIR || join(homedir(), '.claude')
+      const proc = spawn('bun', ['run', join(paiDir, 'PAI/Tools/Inference.ts'), '--level', 'fast', systemPrompt, message], {
         stdio: ['ignore', 'pipe', 'pipe'],
       })
 
@@ -68,7 +70,7 @@ When answering questions:
   } catch (error) {
     console.error("Error in chat API:", error)
     return NextResponse.json(
-      { error: "Failed to process request" },
+      { error: "Chat processing failed" },
       { status: 500 }
     )
   }

@@ -17,6 +17,7 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { writeFile, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
+import { getPaiDir } from "../../../../hooks/lib/paths";
 
 // ============================================================================
 // Environment Loading
@@ -27,7 +28,7 @@ import { extname, resolve } from "node:path";
  * This ensures API keys are available regardless of how the CLI is invoked
  */
 async function loadEnv(): Promise<void> {
-  const paiDir = process.env.PAI_DIR || resolve(process.env.HOME!, '.claude');
+  const paiDir = getPaiDir();
   const envPath = resolve(paiDir, '.env');
   try {
     const envContent = await readFile(envPath, 'utf-8');
@@ -188,7 +189,7 @@ async function detectMimeType(filePath: string): Promise<string> {
 // ============================================================================
 
 // PAI directory for documentation paths
-const PAI_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
+const PAI_DIR = getPaiDir();
 
 function showHelp(): void {
   console.log(`

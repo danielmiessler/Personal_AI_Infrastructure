@@ -13,9 +13,9 @@
 import { readdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import { getPaiDir } from "../../hooks/lib/paths";
 
-const HOME = process.env.HOME!;
-const CLAUDE_DIR = join(HOME, ".claude");
+const CLAUDE_DIR = getPaiDir();
 
 // ═══════════════════════════════════════════════════════════════════════
 // Terminal Width Detection

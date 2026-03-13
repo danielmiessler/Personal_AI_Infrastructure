@@ -74,7 +74,7 @@ function loadSettings(paiDir: string): Settings {
     try {
       return JSON.parse(readFileSync(settingsPath, 'utf-8'));
     } catch (err) {
-      console.error(`⚠️ Failed to parse settings.json: ${err}`);
+      console.error('[LoadContext] Failed to parse settings.json:', err);
     }
   }
   return {};
@@ -100,7 +100,7 @@ function loadStartupFiles(paiDir: string, settings: Settings): string | null {
       parts.push(content);
       console.error(`📄 Force-loaded: ${relPath} (${content.length} chars)`);
     } catch (err) {
-      console.error(`⚠️ loadAtStartup: failed to read ${relPath}: ${err}`);
+      console.error(`[LoadContext] loadAtStartup: failed to read ${relPath}:`, err);
     }
   }
 
@@ -139,7 +139,7 @@ function loadRelationshipContext(paiDir: string): string | null {
         parts.push(highConfidence.slice(0, 6).join('\n'));
       }
     } catch (err) {
-      console.error(`⚠️ Failed to load opinions: ${err}`);
+      console.error('[LoadContext] Failed to load opinions:', err);
     }
   }
 
@@ -170,7 +170,9 @@ function loadRelationshipContext(paiDir: string): string | null {
           recentNotes.push(`*${formatDate(date)}:*`);
           recentNotes.push(...notes);
         }
-      } catch {}
+      } catch (err) {
+        console.error(`[LoadContext] Failed to read relationship note ${notePath}:`, err);
+      }
     }
   }
 
@@ -217,7 +219,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
     if (existsSync(namesPath)) {
       sessionNames = JSON.parse(readFileSync(namesPath, 'utf-8'));
     }
-  } catch { /* ignore parse errors */ }
+  } catch (err) { console.error('[LoadContext] Failed to parse session-names.json:', err); }
 
   const sessions: WorkSession[] = [];
   const now = Date.now();
@@ -260,7 +262,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           if (statusMatch) status = statusMatch[1];
           if (titleMatch) rawTitle = titleMatch[1];
           if (sessionIdMatch) sessionId = sessionIdMatch[1]?.trim();
-        } catch { /* skip */ }
+        } catch (err) { console.error(`[LoadContext] Failed to parse PRD.md in ${dirName}:`, err); }
       } else if (existsSync(metaPath)) {
         // Legacy: Read from META.yaml
         try {
@@ -271,7 +273,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           if (statusMatch) status = statusMatch[1];
           if (titleMatch) rawTitle = titleMatch[1];
           if (sessionIdMatch) sessionId = sessionIdMatch[1]?.trim();
-        } catch { /* skip */ }
+        } catch (err) { console.error(`[LoadContext] Failed to parse META.yaml in ${dirName}:`, err); }
       } else {
         continue; // No PRD.md or META.yaml — skip
       }
@@ -308,7 +310,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
               progress: prdVerifyMatch?.[1]?.trim() || '0/0'
             };
           }
-        } catch { /* no PRDs */ }
+        } catch (err) { console.error(`[LoadContext] Failed to read PRD files in ${dirName}:`, err); }
 
         sessions.push({
           type: 'recent',
@@ -319,10 +321,10 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           stale: false,
           prd
         });
-      } catch { /* skip malformed */ }
+      } catch (err) { console.error(`[LoadContext] Failed to process session dir ${dirName}:`, err); }
     }
   } catch (err) {
-    console.error(`⚠️ Error scanning WORK dirs: ${err}`);
+    console.error('[LoadContext] Error scanning WORK dirs:', err);
   }
 
   return sessions;
@@ -372,10 +374,10 @@ function getProjectProgress(paiDir: string): WorkSession[] {
           handoff_notes: progress.handoff_notes,
           next_steps: progress.next_steps
         });
-      } catch { /* skip malformed */ }
+      } catch (err) { console.error(`[LoadContext] Failed to parse progress file ${file}:`, err); }
     }
   } catch (err) {
-    console.error(`⚠️ Error reading progress files: ${err}`);
+    console.error('[LoadContext] Error reading progress files:', err);
   }
 
   return sessions;
@@ -427,8 +429,9 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
     }
   }
 
-  summary += '\n💡 To resume project: `bun run ~/.claude/PAI/Tools/SessionProgress.ts resume <project>`\n';
-  summary += '💡 To complete project: `bun run ~/.claude/PAI/Tools/SessionProgress.ts complete <project>`\n';
+  const paiDirHint = process.env.PAI_DIR || '~/.claude';
+  summary += `\n💡 To resume project: \`bun run ${paiDirHint}/PAI/Tools/SessionProgress.ts resume <project>\`\n`;
+  summary += `💡 To complete project: \`bun run ${paiDirHint}/PAI/Tools/SessionProgress.ts complete <project>\`\n`;
 
   return summary;
 }

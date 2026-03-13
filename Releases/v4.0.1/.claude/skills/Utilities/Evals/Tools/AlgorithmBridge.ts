@@ -13,6 +13,7 @@ import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
 import { parseArgs } from 'util';
 import { $ } from 'bun';
+import { getPaiDir } from '../../../../hooks/lib/paths';
 
 const EVALS_DIR = join(import.meta.dir, '..');
 const RESULTS_DIR = join(EVALS_DIR, 'Results');
@@ -159,7 +160,19 @@ export function formatForISC(result: AlgorithmEvalResult): string {
 export async function updateISCWithResult(result: AlgorithmEvalResult): Promise<void> {
   const status = result.passed ? 'DONE' : 'BLOCKED';
 
-  await $`bun run ~/.claude/skills/THEALGORITHM/Tools/ISCManager.ts update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
+  const paiDir = getPaiDir();
+  const iscManagerPath = join(paiDir, 'skills/THEALGORITHM/Tools/ISCManager.ts');
+
+  if (!existsSync(iscManagerPath)) {
+    console.error(`[AlgorithmBridge] ISCManager not found at: ${iscManagerPath}. Is PAI_DIR set correctly?`);
+    return;
+  }
+
+  try {
+    await $`bun run ${iscManagerPath} update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
+  } catch (err) {
+    console.error(`[AlgorithmBridge] Failed to update ISC row ${result.isc_row}:`, err);
+  }
 }
 
 // CLI interface

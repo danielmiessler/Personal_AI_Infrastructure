@@ -1,0 +1,4 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Blocks ancestor traversal when PAI is installed at a non-default CLAUDE_CONFIG_DIR. Without this, Claude Code walks up to ~/ and loads ~/.claude/settings.json as project settings, doubling all hooks."
+}

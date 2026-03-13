@@ -1,0 +1,127 @@
+# PAI Security Patterns — Default Template
+#
+# SecurityValidator.hook.ts loads patterns in this order:
+#   1. PAI/USER/PAISECURITYSYSTEM/patterns.yaml  (your custom rules)
+#   2. PAI/PAISECURITYSYSTEM/patterns.example.yaml  (this file — defaults)
+#
+# To customize: copy this file to PAI/USER/PAISECURITYSYSTEM/patterns.yaml
+# and modify to match your environment and security requirements.
+#
+# Without a patterns file, SecurityValidator is completely fail-open
+# (all operations allowed) — adding patterns activates security enforcement.
+#
+# Pattern syntax: YAML-escaped regex (double-escape backslashes)
+# Example: "rm\\s+-rf" matches "rm -rf" with any whitespace
+
+version: "1.0"
+
+philosophy:
+  mode: "defensive"
+  principle: "Block catastrophic, confirm destructive, alert suspicious, allow everything else"
+
+bash:
+  # Trusted: fast-path allow, no logging (reduces noise)
+  trusted:
+    - pattern: "^(ls|cat|head|tail|echo|pwd|whoami|date|wc|file|which|type)\\b"
+      reason: "Safe read-only commands"
+    - pattern: "^git\\s+(status|log|diff|branch|remote|show|tag)"
+      reason: "Git read operations"
+    - pattern: "^(npm|yarn|pnpm|bun)\\s+(test|run|exec|list|info)"
+      reason: "Package manager read/run operations"
+    - pattern: "^(python|node|bun|deno|ruby)\\s+"
+      reason: "Script execution (validated by file access)"
+    - pattern: "^grep|^rg|^find|^fd\\s"
+      reason: "Search commands"
+
+  # Blocked: hard block, exit(2) — catastrophic operations
+  blocked:
+    - pattern: "rm\\s+-rf\\s+/"
+      reason: "Filesystem destruction: rm -rf /"
+    - pattern: "rm\\s+-rf\\s+~"
+      reason: "Home directory destruction"
+    - pattern: "rm\\s+-rf\\s+\\*"
+      reason: "Wildcard deletion from current directory"
+    - pattern: "mkfs\\."
+      reason: "Filesystem format"
+    - pattern: "dd\\s+.*of=/dev/"
+      reason: "Direct disk write"
+    - pattern: ":(){ :|:& };:"
+      reason: "Fork bomb"
+    - pattern: "chmod\\s+777\\s+/etc/"
+      reason: "Dangerous permission change on /etc"
+    - pattern: "curl.*\\|\\s*(bash|sh|zsh)"
+      reason: "Pipe from internet to shell"
+    - pattern: "wget.*\\|\\s*(bash|sh|zsh)"
+      reason: "Pipe download to shell"
+    - pattern: "\\beval\\b.*\\$\\("
+      reason: "Dynamic eval of command substitution"
+
+  # Confirm: prompt user before executing
+  confirm:
+    - pattern: "git\\s+push\\s+--force"
+      reason: "Force push can lose remote commits"
+    - pattern: "git\\s+push\\s+-f\\b"
+      reason: "Force push (short flag)"
+    - pattern: "git\\s+reset\\s+--hard"
+      reason: "Hard reset discards uncommitted changes"
+    - pattern: "git\\s+clean\\s+-fd"
+      reason: "Removes untracked files and directories"
+    - pattern: "DROP\\s+TABLE|DROP\\s+DATABASE"
+      reason: "Database destruction"
+    - pattern: "TRUNCATE\\s+TABLE"
+      reason: "Table data deletion"
+    - pattern: "rm\\s+-rf\\s+\\S+"
+      reason: "Recursive force delete"
+    - pattern: "docker\\s+(system|volume)\\s+prune"
+      reason: "Docker cleanup removes stopped containers/volumes"
+
+  # Alert: log but allow — suspicious but not dangerous
+  alert:
+    - pattern: "sudo\\s+"
+      reason: "Elevated privileges requested"
+    - pattern: "chmod\\s+[0-7]+"
+      reason: "Permission change"
+    - pattern: "chown\\s+"
+      reason: "Ownership change"
+    - pattern: "\\bkill\\s+-9\\b"
+      reason: "Force kill process"
+    - pattern: "\\bnohup\\b"
+      reason: "Background process (survives shell exit)"
+
+paths:
+  # zeroAccess: cannot read or write — secrets and credentials
+  zeroAccess:
+    - "~/.ssh/id_*"
+    - "~/.ssh/id_rsa"
+    - "~/.ssh/id_ed25519"
+    - "~/.ssh/config"
+    - "~/.aws/credentials"
+    - "~/.aws/config"
+    - "~/.gnupg/private-keys*"
+    - "~/.config/gh/hosts.yml"
+    - "~/.netrc"
+    - "**/.env.local"
+    - "**/.env.production"
+
+  # readOnly: can read, cannot write
+  readOnly:
+    - "/etc/passwd"
+    - "/etc/shadow"
+    - "/etc/hosts"
+    - "/etc/sudoers"
+
+  # confirmWrite: can read, writing requires confirmation
+  confirmWrite:
+    - "~/.bashrc"
+    - "~/.zshrc"
+    - "~/.profile"
+    - "~/.gitconfig"
+    - "~/.claude/settings.json"
+
+  # noDelete: can read and write, cannot delete
+  noDelete:
+    - "~/.claude/CLAUDE.md"
+    - "~/.claude/settings.json"
+    - "~/.claude/hooks/"
+
+projects: {}

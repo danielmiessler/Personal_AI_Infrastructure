@@ -38,6 +38,7 @@ const HOME = homedir();
  * Standard locations to check for PAI installations
  */
 export const STANDARD_LOCATIONS = [
+  ...(process.env.PAI_DIR ? [process.env.PAI_DIR] : []),
   join(HOME, '.claude'),
   join(HOME, '.claude-BACKUP'),
   join(HOME, '.claude-old'),

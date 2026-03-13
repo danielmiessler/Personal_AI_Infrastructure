@@ -44,9 +44,8 @@ const OutputSchema = z.object({
 type Input = z.infer<typeof InputSchema>;
 type Output = z.infer<typeof OutputSchema>;
 
-// TODO: Configure broadcast tool path for your installation
-// const BROADCAST_TOOL = `${process.env.HOME}/.claude/skills/Broadcast/Tools/Broadcast.ts`;
-const BROADCAST_TOOL = `${process.env.HOME}/.claude/skills/Broadcast/Tools/Broadcast.ts`;
+const BASE_DIR = process.env.PAI_DIR || `${process.env.HOME}/.claude`;
+const BROADCAST_TOOL = `${BASE_DIR}/skills/Broadcast/Tools/Broadcast.ts`;
 
 // Platform character limits
 const LIMITS: Record<string, number> = {

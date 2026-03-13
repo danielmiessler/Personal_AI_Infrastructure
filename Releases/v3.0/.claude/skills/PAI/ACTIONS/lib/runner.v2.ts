@@ -29,8 +29,9 @@ const USER_ACTIONS_DIR = join(ACTIONS_DIR, "..", "USER", "ACTIONS");
  * Local LLM provider using PAI's Inference tool
  */
 async function createLocalLLM(): Promise<ActionCapabilities["llm"]> {
+  const paiDir = process.env.PAI_DIR || join(process.env.HOME!, ".claude");
   const inferenceModule = await import(
-    join(process.env.HOME!, ".claude/skills/PAI/Tools/Inference.ts")
+    join(paiDir, "skills/PAI/Tools/Inference.ts")
   );
   const { inference } = inferenceModule;
 

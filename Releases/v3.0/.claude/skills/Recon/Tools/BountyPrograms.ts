@@ -46,8 +46,10 @@ interface BountyProgramsResult {
 const CHAOS_BOUNTY_URL = "https://raw.githubusercontent.com/projectdiscovery/public-bugbounty-programs/main/chaos-bugbounty-list.json";
 
 // Local cache path
-const CACHE_DIR = `${process.env.HOME}/.claude/skills/Recon/Data`;
-const CACHE_FILE = `${CACHE_DIR}/BountyPrograms.json`;
+import { join } from "path";
+const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, ".claude");
+const CACHE_DIR = join(BASE_DIR, "skills", "Recon", "Data");
+const CACHE_FILE = join(CACHE_DIR, "BountyPrograms.json");
 const CACHE_MAX_AGE_HOURS = 24;
 
 interface ChaosProgram {

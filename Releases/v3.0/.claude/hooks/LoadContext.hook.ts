@@ -442,8 +442,8 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
     }
   }
 
-  summary += '\n💡 To resume project: `bun run ~/.claude/skills/PAI/Tools/SessionProgress.ts resume <project>`\n';
-  summary += '💡 To complete project: `bun run ~/.claude/skills/PAI/Tools/SessionProgress.ts complete <project>`\n';
+  summary += `\n💡 To resume project: \`bun run ${join(paiDir, 'skills/PAI/Tools/SessionProgress.ts')} resume <project>\`\n`;
+  summary += `💡 To complete project: \`bun run ${join(paiDir, 'skills/PAI/Tools/SessionProgress.ts')} complete <project>\`\n`;
 
   return summary;
 }
@@ -520,7 +520,7 @@ async function main() {
     if (needsRebuild) {
       console.error('🔨 Rebuilding SKILL.md (components changed)...');
       try {
-        execSync('bun ~/.claude/skills/PAI/Tools/RebuildPAI.ts', {
+        execSync(`bun ${join(paiDir, 'skills/PAI/Tools/RebuildPAI.ts')}`, {
           cwd: paiDir,
           stdio: 'pipe',
           timeout: 5000

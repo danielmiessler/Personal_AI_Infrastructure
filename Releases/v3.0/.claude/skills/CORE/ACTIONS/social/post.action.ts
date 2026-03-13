@@ -15,6 +15,7 @@
 import { defineAction, z, type ActionContext } from "../lib/types";
 import { $ } from "bun";
 import { existsSync } from "fs";
+import { join } from "path";
 
 const PostResultSchema = z.object({
   platform: z.string(),
@@ -44,9 +45,8 @@ const OutputSchema = z.object({
 type Input = z.infer<typeof InputSchema>;
 type Output = z.infer<typeof OutputSchema>;
 
-// TODO: Configure broadcast tool path for your installation
-// const BROADCAST_TOOL = `${process.env.HOME}/.claude/skills/Broadcast/Tools/Broadcast.ts`;
-const BROADCAST_TOOL = `${process.env.HOME}/.claude/skills/Broadcast/Tools/Broadcast.ts`;
+const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, ".claude");
+const BROADCAST_TOOL = join(BASE_DIR, "skills", "Broadcast", "Tools", "Broadcast.ts");
 
 // Platform character limits
 const LIMITS: Record<string, number> = {

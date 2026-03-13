@@ -9,7 +9,7 @@
  * ============================================================================
  */
 
-import { readFile, readdir } from "fs/promises";
+import { readFile, readdir, stat } from "fs/promises";
 import { join, dirname } from "path";
 import type {
   ActionManifest,
@@ -260,7 +260,8 @@ export async function listActionsV2(): Promise<ActionManifest[]> {
     try {
       const entries = await readdir(baseDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (!entry.isDirectory() || entry.name === "lib") continue;
+        const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (await stat(join(baseDir, entry.name))).isDirectory());
+        if (!isDir || entry.name === "lib") continue;
 
         if (entry.name.startsWith("A_")) {
           if (seen.has(entry.name)) continue;
@@ -274,7 +275,8 @@ export async function listActionsV2(): Promise<ActionManifest[]> {
           try {
             const items = await readdir(catPath, { withFileTypes: true });
             for (const item of items) {
-              if (!item.isDirectory()) continue;
+              const itemIsDir = item.isDirectory() || (item.isSymbolicLink() && (await stat(join(catPath, item.name))).isDirectory());
+              if (!itemIsDir) continue;
               const key = `${entry.name}/${item.name}`;
               if (seen.has(key)) continue;
               try {

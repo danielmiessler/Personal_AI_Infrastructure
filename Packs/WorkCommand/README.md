@@ -32,15 +32,21 @@ The fundamental issue: your AI infrastructure generates valuable work artifacts 
 
 ## The Solution
 
-The Work Command adds two slash commands (`/w` and `/work`) that search across **five data sources** in parallel:
+The Work Command adds two slash commands (`/w` and `/work`) that automatically detect your environment and search the right data sources.
 
-1. **Session Registry** (`work.json`) — Structured metadata for all tracked sessions
-2. **Work Directories** (`MEMORY/WORK/`) — Full PRD files with context, criteria, decisions
-3. **Git History** — Commit messages mentioning the topic
-4. **Session Names** — Human-readable session name cache
-5. **PRD Content** — Full-text search across all PRD bodies
+**Any Claude Code install (vanilla):**
+1. **Conversation History** (`history.jsonl`) — Every prior prompt you've sent, with timestamps and project context
+2. **Git History** — Commit messages in the current project mentioning the topic
+3. **Project Memory** — Auto-memory files saved across all your projects
 
-The command synthesizes results into an actionable summary sorted by recency, then reads the most recent matching PRD in full so the AI can immediately continue where you left off.
+**PAI-enhanced installs (additional sources):**
+4. **Session Registry** (`work.json`) — Structured metadata for all tracked sessions
+5. **Work Directories** (`MEMORY/WORK/`) — Full PRD files with context, criteria, decisions
+6. **Session Names** — Human-readable session name cache
+7. **PRD Content** — Full-text search across all PRD bodies
+8. **PAI Git History** — Commits in the PAI infrastructure repo
+
+The command synthesizes results into an actionable summary sorted by recency, then loads the most relevant context so your AI can immediately continue where you left off.
 
 ---
 
@@ -70,12 +76,12 @@ This pack is designed for AI-assisted installation. Give this directory to your 
 
 This sounds similar to `git log --grep` which also searches past work. What makes this approach different?
 
-Work recall searches five complementary data sources simultaneously — session metadata, PRD content, git history, session names, and work directories. A git grep only finds commit messages. Work recall finds the full decision context, criteria status, and progress state, then synthesizes it into an immediately actionable summary. Your AI reads the actual PRDs and is ready to continue.
+Work recall searches up to eight data sources simultaneously — conversation history, git commits, project memory, session metadata, PRD content, session names, and work directories. A git grep only finds commit messages. Work recall finds everything: what you asked, what was decided, what the criteria were, and where it left off. It works on any Claude Code install out of the box, and gets richer if you have PAI installed.
 
-- Five parallel searches cover more than git alone
-- PRD context includes decisions and criteria status
+- Works on vanilla Claude Code — no PAI required
+- Auto-detects environment and searches available sources
 - Output is structured for instant AI context loading
-- Graceful degradation when some sources are missing
+- PAI users get additional PRD and session registry search
 
 ---
 

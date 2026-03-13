@@ -41,6 +41,47 @@ if (!ELEVENLABS_API_KEY) {
 }
 
 // ==========================================================================
+// Audio Device Probe — detect at startup whether afplay can actually play audio.
+// If the default output device is unavailable (virtual device, no speakers,
+// or running under launchd without an audio session), afplay hangs indefinitely.
+// We detect this once and skip all voice playback when audio is unavailable.
+// ==========================================================================
+
+const AUDIO_PROBE_TIMEOUT_MS = 3_000;
+let audioAvailable = false;
+
+async function probeAudioDevice(): Promise<boolean> {
+  const testFile = '/System/Library/Sounds/Tink.aiff';
+  if (!existsSync(testFile)) return false;
+
+  return new Promise((resolve) => {
+    const proc = spawn('/usr/bin/afplay', ['-v', '0.01', testFile]);
+    const timer = setTimeout(() => {
+      proc.kill();
+      resolve(false);
+    }, AUDIO_PROBE_TIMEOUT_MS);
+
+    proc.on('exit', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+
+    proc.on('error', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
+// Run probe at startup
+audioAvailable = await probeAudioDevice();
+if (audioAvailable) {
+  console.log('🔊 Audio probe: output device available');
+} else {
+  console.log('🔇 Audio probe: no usable output device — voice playback disabled');
+}
+
+// ==========================================================================
 // Pronunciation System
 // ==========================================================================
 
@@ -370,25 +411,52 @@ async function generateSpeech(
 }
 
 // Play audio using afplay (macOS)
+// Includes a timeout to prevent hanging when afplay can't access the audio device
+// (e.g., when running under launchd without an audio session).
+const AFPLAY_TIMEOUT_MS = 10_000; // 10s — most clips are 1-3s; timeout catches hung audio device
+
 async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
+  if (!audioAvailable) {
+    console.log('🔇 Skipping playback (no audio device)');
+    return;
+  }
+
   const tempFile = `/tmp/voice-${Date.now()}.mp3`;
 
   await Bun.write(tempFile, audioBuffer);
 
   return new Promise((resolve, reject) => {
     const proc = spawn('/usr/bin/afplay', ['-v', volume.toString(), tempFile]);
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        proc.kill();
+        spawn('/bin/rm', [tempFile]);
+        reject(new Error(`afplay timed out after ${AFPLAY_TIMEOUT_MS / 1000}s (likely no audio session)`));
+      }
+    }, AFPLAY_TIMEOUT_MS);
 
     proc.on('error', (error) => {
-      console.error('Error playing audio:', error);
-      reject(error);
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        console.error('Error playing audio:', error);
+        reject(error);
+      }
     });
 
     proc.on('exit', (code) => {
-      spawn('/bin/rm', [tempFile]);
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`afplay exited with code ${code}`));
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        spawn('/bin/rm', [tempFile]);
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`afplay exited with code ${code}`));
+        }
       }
     });
   });

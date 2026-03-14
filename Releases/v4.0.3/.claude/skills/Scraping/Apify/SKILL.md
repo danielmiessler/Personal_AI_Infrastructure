@@ -40,8 +40,6 @@ This skill is a **file-based MCP** - a code-first API wrapper that replaces toke
 
 **Why file-based?** Filter data in code BEFORE returning to model context = 97.5% token savings.
 
-**Architecture:** See `~/.claude/PAI/DOCUMENTATION/FileBasedMCPs.md`
-
 ## 🎯 Overview
 
 Direct TypeScript access to the 9 most popular Apify actors without MCP overhead. Filter and transform data in code BEFORE it reaches the model context.

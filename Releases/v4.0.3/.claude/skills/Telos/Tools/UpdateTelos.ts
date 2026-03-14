@@ -38,9 +38,9 @@ import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getPrincipal } from '../../../hooks/lib/identity';
 
-const TELOS_DIR = join(process.env.HOME!, '.claude', 'context', 'life', 'telos');
-const BACKUPS_DIR = join(TELOS_DIR, 'backups');
-const UPDATES_FILE = join(TELOS_DIR, 'updates.md');
+const TELOS_DIR = join(process.env.HOME!, '.claude', 'PAI', 'USER', 'TELOS');
+const BACKUPS_DIR = join(TELOS_DIR, 'Backups');
+const UPDATES_FILE = join(TELOS_DIR, 'Updates.md');
 
 // Valid TELOS files
 const VALID_FILES = [

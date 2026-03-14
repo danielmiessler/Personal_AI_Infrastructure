@@ -137,7 +137,7 @@ prd: true
 id: ${id}
 title: "${curatedTitle.replace(/"/g, '\\"')}"
 session_id: "${opts.sessionId || 'unknown'}"
-status: ACTIVE
+phase: observe
 mode: ${mode}
 effort_level: ${effort}
 created: ${today}
@@ -146,9 +146,8 @@ completed_at: null
 iteration: 0
 maxIterations: 128
 loopStatus: null
-last_phase: null
+progress: "0/0"
 failing_criteria: []
-verification_summary: "0/0"
 parent: null
 children: []
 ---

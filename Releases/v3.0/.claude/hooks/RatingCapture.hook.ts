@@ -54,7 +54,7 @@ import { captureFailure } from '../skills/PAI/Tools/FailureCapture';
 // Read Algorithm version dynamically from LATEST file (never hardcode)
 const ALGO_VERSION = (() => {
   try {
-    const paiDir = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+    const paiDir = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
     return readFileSync(join(paiDir, 'skills', 'PAI', 'Components', 'Algorithm', 'LATEST'), 'utf-8').trim();
   } catch { return 'v?.?.?'; }
 })();
@@ -98,7 +98,7 @@ interface RatingEntry {
 
 // ── Shared Constants ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const TRENDING_SCRIPT = join(BASE_DIR, 'tools', 'TrendingAnalysis.ts');

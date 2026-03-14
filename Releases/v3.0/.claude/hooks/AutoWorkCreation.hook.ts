@@ -49,7 +49,7 @@ interface PromptClassification {
   is_new_topic: boolean;
 }
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
 const WORK_DIR = join(BASE_DIR, 'MEMORY', 'WORK');
 const STATE_DIR = join(BASE_DIR, 'MEMORY', 'STATE');
 // Session-scoped state files prevent parallel sessions from overwriting each other

@@ -131,7 +131,7 @@ export interface AlgorithmState {
 
 // ── Paths ──
 
-const BASE_DIR = process.env.PAI_DIR || join(process.env.HOME!, '.claude');
+const BASE_DIR = process.env.PAI_DIR || join((process.env.HOME || process.env.USERPROFILE || require('os').homedir()), '.claude');
 const ALGORITHMS_DIR = join(BASE_DIR, 'MEMORY', 'STATE', 'algorithms');
 const SESSION_NAMES_PATH = join(BASE_DIR, 'MEMORY', 'STATE', 'session-names.json');
 

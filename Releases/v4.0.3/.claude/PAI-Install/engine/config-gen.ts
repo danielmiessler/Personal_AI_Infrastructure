@@ -35,6 +35,10 @@ export function generateSettingsJson(config: PAIConfig): Record<string, any> {
       fullName: `${config.aiName} — Personal AI`,
       displayName: config.aiName.toUpperCase(),
       color: "#3B82F6",
+      ...(config.ttsProvider ? { ttsProvider: config.ttsProvider } : {}),
+      ...(config.ttsProvider === "google-cloud" && config.googleCloudVoice
+        ? { googleCloudVoice: config.googleCloudVoice }
+        : {}),
       voices: {
         main: {
           voiceId,

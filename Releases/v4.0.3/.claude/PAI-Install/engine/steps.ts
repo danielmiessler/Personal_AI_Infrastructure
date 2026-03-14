@@ -25,7 +25,7 @@ export const STEPS: StepDefinition[] = [
   {
     id: "api-keys",
     name: "API Keys",
-    description: "Find or collect ElevenLabs API key for voice features",
+    description: "Find or collect API keys for voice features",
     number: 3,
     required: true,
     dependsOn: ["prerequisites"],
@@ -57,7 +57,7 @@ export const STEPS: StepDefinition[] = [
   {
     id: "voice",
     name: "Digital Assistant Voice",
-    description: "Configure ElevenLabs key, select voice, start voice server, and test",
+    description: "Choose TTS provider, configure API key, select voice, and test",
     number: 7,
     required: true,
     dependsOn: ["configuration"],

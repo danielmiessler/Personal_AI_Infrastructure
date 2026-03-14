@@ -79,6 +79,8 @@ export interface InstallState {
   // Collected data
   collected: {
     elevenLabsKey?: string;
+    googleCloudKey?: string;
+    ttsProvider?: "elevenlabs" | "google-cloud";
     principalName?: string;
     timezone?: string;
     aiName?: string;
@@ -112,6 +114,14 @@ export interface PAIConfig {
   temperatureUnit?: "fahrenheit" | "celsius";
   voiceType?: string;
   voiceId?: string;
+  ttsProvider?: "elevenlabs" | "google-cloud";
+  googleCloudVoice?: {
+    languageCode: string;
+    voiceName: string;
+    voiceType: string;
+    speakingRate: number;
+    pitch: number;
+  };
   paiDir: string;
   configDir: string;
 }
@@ -127,7 +137,7 @@ export type ServerMessage =
   | { type: "input_request"; id: string; prompt: string; inputType: "text" | "password" | "key"; placeholder?: string }
   | { type: "choice_request"; id: string; prompt: string; choices: { label: string; value: string; description?: string }[] }
   | { type: "progress"; step: StepId; percent: number; detail: string }
-  | { type: "voice_enabled"; enabled: boolean; mode: "elevenlabs" | "browser" | "none" }
+  | { type: "voice_enabled"; enabled: boolean; mode: "elevenlabs" | "google-cloud" | "browser" | "none" }
   | { type: "install_complete"; success: boolean; summary: InstallSummary }
   | { type: "validation_result"; checks: ValidationCheck[] }
   | { type: "error"; message: string; step?: StepId };

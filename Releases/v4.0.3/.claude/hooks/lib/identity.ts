@@ -57,6 +57,7 @@ export interface Identity {
   displayName: string;
   mainDAVoiceID: string;
   color: string;
+  voiceEnabled: boolean;
   voice?: VoiceProsody;
   personality?: VoicePersonality;
 }
@@ -117,6 +118,7 @@ export function getIdentity(): Identity {
     displayName: daidentity.displayName || daidentity.name || envDA || DEFAULT_IDENTITY.displayName,
     mainDAVoiceID: voiceConfig?.voiceId || (daidentity as any).voiceId || daidentity.mainDAVoiceID || DEFAULT_IDENTITY.mainDAVoiceID,
     color: daidentity.color || DEFAULT_IDENTITY.color,
+    voiceEnabled: voices.enabled !== false,
     voice: voiceConfig as VoiceProsody | undefined,
     personality: (daidentity as any).personality as VoicePersonality | undefined,
   };

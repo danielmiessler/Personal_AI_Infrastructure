@@ -412,6 +412,12 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
     args.push("--resume");
   }
 
+  // Read model from environment variable (e.g. CLAUDE_MODEL=gpt-oss:20b for Ollama)
+  const model = process.env.CLAUDE_MODEL;
+  if (model) {
+    args.push("--model", model);
+  }
+
   // Change to PAI directory unless --local flag is set
   if (!options.local) {
     process.chdir(CLAUDE_DIR);

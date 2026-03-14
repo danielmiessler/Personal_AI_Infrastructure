@@ -282,6 +282,31 @@ export async function runPrerequisites(
     await emit({ event: "progress", step: "prerequisites", percent: 20, detail: `Git found: v${det.tools.git.version}` });
   }
 
+  // Check for unzip — required by bun installer but missing on minimal Linux installs
+  // Fixes: https://github.com/danielmiessler/Personal_AI_Infrastructure/issues/856
+  if (!det.tools.bun.installed && det.os.platform === "linux") {
+    const hasUnzip = tryExec("which unzip", 5000);
+    if (hasUnzip === null) {
+      await emit({ event: "progress", step: "prerequisites", percent: 35, detail: "Installing unzip (required by Bun)..." });
+
+      // Try common package managers
+      const installed =
+        tryExec("sudo apt-get install -y unzip 2>/dev/null", 30000) !== null ||
+        tryExec("sudo dnf install -y unzip 2>/dev/null", 30000) !== null ||
+        tryExec("sudo yum install -y unzip 2>/dev/null", 30000) !== null ||
+        tryExec("sudo pacman -S --noconfirm unzip 2>/dev/null", 30000) !== null;
+
+      if (installed) {
+        await emit({ event: "message", content: "unzip installed successfully." });
+      } else {
+        await emit({
+          event: "message",
+          content: "⚠️  Could not install 'unzip' automatically. Bun requires it.\n   Please install manually: sudo apt install unzip (Debian/Ubuntu) or sudo dnf install unzip (Fedora/RHEL)",
+        });
+      }
+    }
+  }
+
   // Bun should already be installed by bootstrap script, but verify
   if (!det.tools.bun.installed) {
     await emit({ event: "progress", step: "prerequisites", percent: 40, detail: "Installing Bun..." });

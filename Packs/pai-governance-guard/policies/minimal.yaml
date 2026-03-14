@@ -1,0 +1,25 @@
+version: "1.0"
+name: minimal
+description: "Blocks destructive and credential access. Allows everything else."
+default_decision: approve
+
+rules:
+  - id: block-destructive
+    action_type: destructive
+    decision: deny
+    reason: "Destructive operations require manual approval"
+
+  - id: block-credentials
+    action_type: credential
+    decision: deny
+    reason: "Credential access blocked by governance policy"
+
+  - id: escalate-network
+    action_type: network
+    decision: escalate
+    reason: "Network operations require confirmation"
+
+  - id: escalate-unknown
+    action_type: unknown
+    decision: escalate
+    reason: "Unknown action types require confirmation"

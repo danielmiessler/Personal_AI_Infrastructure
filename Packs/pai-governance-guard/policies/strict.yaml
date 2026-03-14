@@ -1,0 +1,48 @@
+version: "1.0"
+name: strict
+description: "Read-only operations only. Everything else denied."
+default_decision: deny
+
+rules:
+  - id: allow-read
+    action_type: read
+    decision: approve
+    reason: "Read operations permitted"
+
+  - id: deny-write
+    action_type: write
+    decision: deny
+    reason: "Write operations denied in strict mode"
+
+  - id: deny-execute
+    action_type: execute
+    decision: deny
+    reason: "Execution denied in strict mode"
+
+  - id: deny-network
+    action_type: network
+    decision: deny
+    reason: "Network access denied in strict mode"
+
+  - id: deny-destructive
+    action_type: destructive
+    decision: deny
+    reason: "Destructive operations denied in strict mode"
+
+  - id: deny-credentials
+    action_type: credential
+    decision: deny
+    reason: "Credential access denied in strict mode"
+
+  - id: deny-unknown
+    action_type: unknown
+    decision: deny
+    reason: "Unknown operations denied in strict mode"
+
+box_policy:
+  requireDefiniteTrue: true
+  requireNoObstructions: true
+  maxSeverity: info
+
+diamond_policy:
+  maxSeverity: info

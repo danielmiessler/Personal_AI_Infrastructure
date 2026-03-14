@@ -371,6 +371,8 @@ cd ~/.claude && ./PAI-Install/install.sh
 # 5. Restart Claude Code to activate hooks
 ```
 
+> **Windows:** See **[WINDOWS_COMPATIBILITY.md](WINDOWS_COMPATIBILITY.md)** for manual installation steps.
+
 ### The Installer Will Handle
 
 | Step | Purpose |

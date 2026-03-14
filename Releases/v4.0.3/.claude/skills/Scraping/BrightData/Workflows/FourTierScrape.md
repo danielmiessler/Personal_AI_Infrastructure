@@ -32,6 +32,31 @@ Running **FourTierScrape** in **BrightData**...
 
 ## Workflow Steps
 
+### Pre-check: Markdown Content Negotiation (Cloudflare)
+
+Before entering the tier chain, attempt a lightweight curl probe requesting native markdown via Cloudflare's [Markdown for Agents](https://blog.cloudflare.com/markdown-for-agents/) feature. Sites behind Cloudflare (Pro+) that have enabled this feature serve server-side converted markdown via `Accept: text/markdown` content negotiation. Non-Cloudflare sites simply ignore the header and return HTML -- zero downside to trying.
+
+```bash
+curl -sL -H "Accept: text/markdown" "[URL]" | head -5
+```
+
+**Detection (check in order):**
+1. `Content-Type` header contains `text/markdown` → success (fast path)
+2. `x-markdown-tokens` header present → success
+3. Body starts with YAML frontmatter (`---`) or markdown heading (`# `) instead of `<!DOCTYPE`/`<html` → success (fallback -- Cloudflare's CDN currently may report `content-type: text/html` even when body is markdown)
+
+**If markdown detected** → use body directly, skip to Output. Capture `x-markdown-tokens` header for token count metadata.
+
+**If HTML or error** → proceed to Tier 1 as normal.
+
+**Why this helps:**
+- ~80% fewer tokens than HTML-to-markdown conversion ([Cloudflare's own benchmark](https://blog.cloudflare.com/markdown-for-agents/))
+- Server-side conversion is more accurate than client-side HTML parsing
+- Faster than WebFetch (no AI processing of response), free, ~1-3 seconds
+- Zero downside: non-Cloudflare sites just return HTML as usual
+
+---
+
 ### Step 1: Tier 1 - WebFetch (Fast & Simple)
 
 **Description:** Attempt to fetch URL using Claude Code's built-in WebFetch tool
@@ -66,7 +91,7 @@ Use WebFetch tool with:
 **Actions:**
 ```bash
 curl -L -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-  -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8" \
+  -H "Accept: text/markdown, text/html;q=0.9, application/xhtml+xml;q=0.8, */*;q=0.7" \
   -H "Accept-Language: en-US,en;q=0.9" \
   -H "Accept-Encoding: gzip, deflate, br" \
   -H "DNT: 1" \
@@ -224,6 +249,12 @@ Successfully retrieved content from [URL] using Tier [1/2/3/4]
 
 ```
 START
+  ↓
+Pre-check: Markdown Content Negotiation (curl + Accept: text/markdown)
+  ↓
+Markdown body? → Yes → Return markdown ✓
+  ↓
+  No (HTML or error)
   ↓
 Attempt Tier 1 (WebFetch)
   ↓

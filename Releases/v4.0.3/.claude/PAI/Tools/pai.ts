@@ -19,7 +19,7 @@
  */
 
 import { spawn, spawnSync } from "bun";
-import { getDAName, getIdentity } from "../../hooks/lib/identity";
+import { getDAName, getIdentity, getSettings } from "../../hooks/lib/identity";
 import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync } from "fs";
 import { homedir } from "os";
 import { join, basename } from "path";
@@ -417,8 +417,12 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; skipPerms?: 
     process.chdir(CLAUDE_DIR);
   }
 
-  // Voice notification (using focused marker for calmer tone)
-  notifyVoice(`[🎯 focused] ${getDAName()} here, ready to go.`);
+  // Voice notification — speak the startup catchphrase
+  const settings = getSettings();
+  const daName = getDAName();
+  const rawCatchphrase = settings.daidentity?.startupCatchphrase || `${daName} here, ready to go.`;
+  const catchphrase = rawCatchphrase.replace(/\{name\}/gi, daName);
+  notifyVoice(catchphrase);
 
   // Launch Claude
   const proc = spawn(args, {

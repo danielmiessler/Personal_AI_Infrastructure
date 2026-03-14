@@ -620,6 +620,87 @@ export async function runConfiguration(
   await emit({ event: "step_complete", step: "configuration" });
 }
 
+// ─── CLI Tool Recommendations ───────────────────────────────────
+
+interface CliToolInfo {
+  command: string;
+  name: string;
+  brewName: string;
+  cargoName: string;
+  description: string;
+}
+
+const RECOMMENDED_CLI_TOOLS: CliToolInfo[] = [
+  { command: "fd", name: "fd", brewName: "fd", cargoName: "fd-find", description: "Fast file finder (replaces find)" },
+  { command: "rg", name: "ripgrep", brewName: "ripgrep", cargoName: "ripgrep", description: "Fast recursive search (replaces grep)" },
+  { command: "bat", name: "bat", brewName: "bat", cargoName: "bat", description: "Syntax-highlighted cat" },
+  { command: "eza", name: "eza", brewName: "eza", cargoName: "eza", description: "Modern ls replacement" },
+  { command: "dust", name: "dust", brewName: "dust", cargoName: "du-dust", description: "Intuitive disk usage (replaces du)" },
+];
+
+/**
+ * Check for recommended Rust-based CLI tools and report status.
+ * Non-blocking — informs only, never auto-installs.
+ * These tools are recommended by PAI's AI Steering Rules for faster
+ * file operations (fd, rg) and better developer experience (bat, eza, dust).
+ */
+export async function checkCliTools(
+  state: InstallState,
+  emit: EngineEventHandler
+): Promise<void> {
+  const det = state.detection;
+  if (!det) return;
+
+  const found: CliToolInfo[] = [];
+  const missing: CliToolInfo[] = [];
+
+  for (const tool of RECOMMENDED_CLI_TOOLS) {
+    const result = tryExec(`command -v ${tool.command}`);
+    if (result) {
+      found.push(tool);
+    } else {
+      missing.push(tool);
+    }
+  }
+
+  // Build status report
+  const lines: string[] = [];
+  lines.push("Recommended CLI tools (Rust-based, fast alternatives to POSIX utilities):\n");
+
+  for (const tool of found) {
+    lines.push(`  ✓ ${tool.name} — ${tool.description}`);
+  }
+  for (const tool of missing) {
+    lines.push(`  ✗ ${tool.name} — ${tool.description}`);
+  }
+
+  if (missing.length > 0) {
+    lines.push("");
+    const names = missing.map((t) => t.brewName).join(" ");
+    const cargoNames = missing.map((t) => t.cargoName).join(" ");
+
+    if (det.os.platform === "darwin" && det.tools.brew.installed) {
+      lines.push(`  Install missing tools: brew install ${names}`);
+    } else if (det.os.platform === "darwin") {
+      lines.push(`  Install Homebrew first (brew.sh), then: brew install ${names}`);
+    } else {
+      // Linux — suggest cargo as a reliable cross-distro fallback
+      const aptCheck = tryExec("command -v apt-get");
+      if (aptCheck) {
+        lines.push(`  Install missing tools: sudo apt-get install -y ${names}`);
+        lines.push(`  Or via Cargo:          cargo install ${cargoNames}`);
+      } else {
+        lines.push(`  Install missing tools: cargo install ${cargoNames}`);
+      }
+    }
+    lines.push("  These are optional but improve PAI's file operations and statusline.");
+  } else {
+    lines.push("\n  All recommended CLI tools are installed.");
+  }
+
+  await emit({ event: "message", content: lines.join("\n") });
+}
+
 // ─── Voice Server Management ────────────────────────────────────
 
 async function isVoiceServerRunning(): Promise<boolean> {

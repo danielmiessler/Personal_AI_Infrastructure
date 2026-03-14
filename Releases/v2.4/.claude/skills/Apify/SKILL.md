@@ -41,7 +41,6 @@ This skill is a **file-based MCP** - a code-first API wrapper that replaces toke
 
 **Why file-based?** Filter data in code BEFORE returning to model context = 97.5% token savings.
 
-**Architecture:** See `~/.claude/skills/CORE/SYSTEM/DOCUMENTATION/FileBasedMCPs.md`
 
 ## 🎯 Overview
 

@@ -74,7 +74,14 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
     // nested-session guard (hooks run inside Claude Code's environment).
     const env = { ...process.env };
     delete env.ANTHROPIC_API_KEY;
-    delete env.CLAUDECODE;
+    // Strip all Claude Code env vars to prevent subprocess hang (fixes #931).
+    // Claude Code 2.1.71+ sets CLAUDE_CODE_* vars beyond CLAUDECODE
+    // that cause `claude --print` to hang silently.
+    for (const key of Object.keys(env)) {
+      if (key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_')) {
+        delete env[key];
+      }
+    }
 
     const args = [
       '--print',

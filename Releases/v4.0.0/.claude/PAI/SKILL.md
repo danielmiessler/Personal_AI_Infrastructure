@@ -463,7 +463,6 @@ Critical PAI documentation organized by domain. Load on-demand based on context.
 | **Hook System** | `SYSTEM/THEHOOKSYSTEM.md` | Event hooks, patterns, implementation |
 | **Agent System** | `SYSTEM/PAIAGENTSYSTEM.md` | Agent types, spawning, delegation |
 | **Delegation** | `SYSTEM/THEDELEGATIONSYSTEM.md` | Background work, parallelization |
-| **Browser Automation** | `SYSTEM/BROWSERAUTOMATION.md` | Playwright, screenshots, testing |
 | **CLI Architecture** | `SYSTEM/CLIFIRSTARCHITECTURE.md` | Command-line first principles |
 | **Notification System** | `SYSTEM/THENOTIFICATIONSYSTEM.md` | Voice, visual notifications |
 | **Tools Reference** | `SYSTEM/TOOLS.md` | Core tools inventory |

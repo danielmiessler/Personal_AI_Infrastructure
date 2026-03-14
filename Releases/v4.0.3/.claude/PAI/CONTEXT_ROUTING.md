@@ -21,11 +21,11 @@ Load context on-demand by reading the file at the path listed. Only load what th
 | Behavioral rules | `PAI/AISTEERINGRULES.md` |
 | PRD format spec | `PAI/PRDFORMAT.md` |
 
-## {PRINCIPAL.NAME} — Personal Context
+## User — Personal Context
 
 | Topic | Path |
 |-------|------|
 | All USER context index | `PAI/USER/README.md` |
-| Projects | `PAI/USER/PROJECTS/README.md` |
+| Projects | `PAI/USER/TELOS/PROJECTS.md` |
 | Business context | `PAI/USER/BUSINESS/README.md` |
 | Telos (life goals) | `PAI/USER/TELOS/README.md` |

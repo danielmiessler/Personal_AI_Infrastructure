@@ -68,6 +68,19 @@ const MIN_PROMPT_LENGTH = 3;
 const MIN_CONFIDENCE = 0.5;
 
 /**
+ * Safely slices a string, ensuring it doesn't split a UTF-16 surrogate pair.
+ * If the cut boundary lands on a high surrogate, the incomplete pair is dropped.
+ */
+function safeSlice(str: string, maxLen: number): string {
+  if (!str || str.length <= maxLen) return str;
+  const code = str.charCodeAt(maxLen - 1);
+  if (code >= 0xD800 && code <= 0xDBFF) {
+    return str.slice(0, maxLen - 1);
+  }
+  return str.slice(0, maxLen);
+}
+
+/**
  * Read cached last response written by LastResponseCache.hook.ts.
  * Stop fires before next UserPromptSubmit, so cache is always fresh.
  */
@@ -254,7 +267,7 @@ function getRecentContext(transcriptPath: string, maxTurns: number = 3): string 
           } else if (Array.isArray(entry.message.content)) {
             text = entry.message.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join(' ');
           }
-          if (text.trim()) turns.push({ role: 'User', text: text.slice(0, 200) });
+          if (text.trim()) turns.push({ role: 'User', text: safeSlice(text, 200) });
         }
         if (entry.type === 'assistant' && entry.message?.content) {
           const text = typeof entry.message.content === 'string'
@@ -264,7 +277,7 @@ function getRecentContext(transcriptPath: string, maxTurns: number = 3): string 
               : '';
           if (text) {
             const summaryMatch = text.match(/SUMMARY:\s*([^\n]+)/i);
-            turns.push({ role: 'Assistant', text: summaryMatch ? summaryMatch[1] : text.slice(0, 150) });
+            turns.push({ role: 'Assistant', text: summaryMatch ? summaryMatch[1] : safeSlice(text, 150) });
           }
         }
       } catch {}
@@ -387,7 +400,7 @@ async function main() {
         source: 'explicit' as const,
       };
       if (explicitResult.comment) entry.comment = explicitResult.comment;
-      if (cachedResponse) entry.response_preview = cachedResponse.slice(0, 500);
+      if (cachedResponse) entry.response_preview = safeSlice(cachedResponse, 500);
 
       writeRating(entry);
 
@@ -463,7 +476,7 @@ async function main() {
           source: 'implicit',
           sentiment_summary: `Direct praise: "${prompt.trim()}"`,
           confidence: 0.95,
-          ...(cachedResponse ? { response_preview: cachedResponse.slice(0, 500) } : {}),
+          ...(cachedResponse ? { response_preview: safeSlice(cachedResponse, 500) } : {}),
         });
   
         process.exit(0);
@@ -503,7 +516,7 @@ async function main() {
         sentiment_summary: sentiment.summary,
         confidence: sentiment.confidence,
       };
-      if (implicitCachedResponse) entry.response_preview = implicitCachedResponse.slice(0, 500);
+      if (implicitCachedResponse) entry.response_preview = safeSlice(implicitCachedResponse, 500);
 
       writeRating(entry);
 
@@ -529,7 +542,7 @@ async function main() {
     } catch (err) {
       // BUG FIX: Log failures visibly — write a marker entry so inference failures show up in the data
       console.error(`[RatingCapture] Sentiment error: ${err}`);
-      const failedPromptPreview = prompt.trim().slice(0, 80);
+      const failedPromptPreview = safeSlice(prompt.trim(), 80);
       console.error(`[RatingCapture] FAILED for prompt: "${failedPromptPreview}"`);
       // Write a visible failure marker so we can track inference reliability
       writeRating({

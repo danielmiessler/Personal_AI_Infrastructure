@@ -75,9 +75,14 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
     const env = { ...process.env };
     delete env.ANTHROPIC_API_KEY;
     delete env.CLAUDECODE;
+    // Strip all CLAUDE_CODE_* env vars to prevent subprocess hang (CC 2.1.71+)
+    for (const key of Object.keys(env)) {
+      if (key.startsWith('CLAUDE_CODE_')) delete env[key];
+    }
 
     const args = [
       '--print',
+      '--no-session-persistence',
       '--model', config.model,
       '--tools', '',  // Disable tools for faster response
       '--output-format', 'text',

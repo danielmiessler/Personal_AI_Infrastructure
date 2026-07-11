@@ -292,6 +292,13 @@ fi
 # DA name comes from the DA_NAME env var (harness-exported), default Assistant
 DA_NAME="${DA_NAME:-Assistant}"
 
+# Voice mute indicator: 🔊 audible / 🔇 muted, read live from voice-mute.json (cheap grep, no jq).
+VOICE_GLYPH="🔊"
+if [ -f "$HOME/.claude/LIFEOS/PULSE/state/voice-mute.json" ] && \
+   grep -q '"muted"[[:space:]]*:[[:space:]]*true' "$HOME/.claude/LIFEOS/PULSE/state/voice-mute.json" 2>/dev/null; then
+    VOICE_GLYPH="🔇"
+fi
+
 # Get user timezone from settings (for reset time display)
 USER_TZ="${USER_TZ:-UTC}"
 
@@ -1632,7 +1639,7 @@ if [ "$MODE" != "normal" ]; then
             ;;
         mini)
             # Line 1: branding + location/time
-            printf "${SLATE_600}──${RESET} ${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}──${RESET} ${LIFEOS_CITY}${location_city}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_WEATHER}${weather_str}${RESET}
+            printf "${SLATE_600}──${RESET} ${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${VOICE_GLYPH} ${SLATE_600}──${RESET} ${LIFEOS_CITY}${location_city}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_WEATHER}${weather_str}${RESET}
 "
             # Line 2: context bar (compact)
             _bar_w=20
@@ -1674,13 +1681,13 @@ _hdr_loc_plain="${_hdr_loc_plain}${location_city}"
 _hdr_ascent=""
 [ -n "$ascent_chip" ] && _hdr_ascent=" ${SLATE_600}│${RESET} ${ascent_chip}"
 if [ -n "$session_display" ]; then
-    printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_SESSION}${session_display}${RESET}${_hdr_ascent}\n"
+    printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${VOICE_GLYPH} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_SESSION}${session_display}${RESET}${_hdr_ascent}\n"
 else
     _hdr_left="LifeOS │ ${_hdr_loc_plain}  ${current_time}  ${weather_str} "
     _hdr_fill=$((content_width - ${#_hdr_left}))
     [ "$_hdr_fill" -lt 2 ] && _hdr_fill=2
     _hdr_dashes=$(_repeat_chars "$_hdr_fill" "─")
-    printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}${_hdr_dashes}${RESET}\n"
+    printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${VOICE_GLYPH} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}${_hdr_dashes}${RESET}\n"
 fi
 printf "${SLATE_600}%s${RESET}\n" "$SEP_DASHED"
 

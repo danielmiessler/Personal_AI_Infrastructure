@@ -20,6 +20,68 @@ import { log } from "../lib"
 import { disambiguateHomographs } from "../lib/homographs"
 import { homedir } from "node:os";
 
+// ── Live mute gate ──
+// Read on every notification so an external toggle (e.g. a keyboard shortcut)
+// takes effect with no restart. Muting silences TTS audio only, desktop
+// notifications still show. Fail-open: a missing/corrupt state file = not muted.
+// Written by TOOLS/VoiceMute.ts; surfaced in the statusline as 🔇 / 🔊.
+const VOICE_MUTE_FILE = join(process.env.HOME ?? "", ".claude", "LIFEOS", "PULSE", "state", "voice-mute.json")
+
+function isVoiceMuted(): boolean {
+  try {
+    return JSON.parse(readFileSync(VOICE_MUTE_FILE, "utf-8"))?.muted === true
+  } catch {
+    return false
+  }
+}
+
+// ── Kokoro local-TTS backend ──
+// Used when LIFEOS_VOICE_BACKEND=kokoro: a fully-local, private alternative to the
+// cloud ElevenLabs path (no API key, no data leaves the machine). POSTs to a
+// Kokoro daemon on localhost that synthesizes + plays the audio and returns 200 on
+// completion. The daemon is not a resident service: it is lazy-spawned here on the
+// first utterance and exits itself after an idle timeout (see kokoro_daemon.ts).
+// See DOCUMENTATION/Notifications/KokoroVoiceBackend.md for setup.
+const KOKORO_SPAWN_TIMEOUT_MS = 30_000 // first-ever run also downloads the model, so be generous
+
+async function kokoroSpeakOnce(message: string, port: string): Promise<Response> {
+  const voiceName = process.env.LIFEOS_KOKORO_VOICE || "af_bella"
+  return fetch(`http://127.0.0.1:${port}/speak`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: message, voice: voiceName }),
+  })
+}
+
+async function ensureKokoroDaemon(port: string): Promise<void> {
+  const health = `http://127.0.0.1:${port}/health`
+  if (await fetch(health).then((r) => r.ok).catch(() => false)) return
+  const daemonPath = join(import.meta.dir, "kokoro_daemon.ts")
+  const child = spawn(process.execPath, [daemonPath], {
+    detached: true,
+    stdio: "ignore",
+    env: process.env,
+  })
+  child.unref()
+  const deadline = Date.now() + KOKORO_SPAWN_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    if (await fetch(health).then((r) => r.ok).catch(() => false)) return
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error("kokoro daemon did not become healthy (is kokoro-js installed? see KokoroVoiceBackend.md)")
+}
+
+async function playKokoroVoice(message: string): Promise<void> {
+  const port = process.env.LIFEOS_KOKORO_PORT || "7791"
+  let res = await kokoroSpeakOnce(message, port).catch(() => undefined)
+  if (!res) {
+    // Daemon not running — lazy-start it, then retry the utterance once.
+    await ensureKokoroDaemon(port)
+    res = await kokoroSpeakOnce(message, port)
+  }
+  if (!res.ok) throw new Error(`kokoro daemon returned ${res.status}: ${await res.text().catch(() => "")}`)
+}
+
 // ── Public Config Interface ──
 
 export interface VoiceConfig {
@@ -528,7 +590,21 @@ async function sendNotification(
   let voicePlayed = false
   let voiceError: string | undefined
 
-  if (voiceEnabled && moduleConfig.elevenlabs_api_key) {
+  // Live mute gate: silences TTS while still returning normally so callers and
+  // desktop notifications are unaffected.
+  const muted = voiceEnabled && isVoiceMuted()
+  if (muted) log("info", "Voice: muted (voice-mute.json), skipping TTS")
+
+  // Kokoro local backend takes priority when selected; ElevenLabs is the fallback.
+  if (voiceEnabled && !muted && process.env.LIFEOS_VOICE_BACKEND === "kokoro") {
+    try {
+      await playKokoroVoice(safeMessage)
+      voicePlayed = true
+    } catch (err) {
+      voiceError = err instanceof Error ? err.message : String(err)
+      log("error", "Voice: Kokoro backend failed", { error: voiceError })
+    }
+  } else if (voiceEnabled && !muted && moduleConfig.elevenlabs_api_key) {
     try {
       const voice = voiceId || defaultVoiceId
 

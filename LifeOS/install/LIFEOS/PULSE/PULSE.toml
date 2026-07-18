@@ -19,6 +19,24 @@ enabled = true
 # Requires ELEVENLABS_API_KEY. Set false to keep text replies but suppress voice notes.
 voice_summaries = true
 
+[discord]
+# Interactive Discord bot — polls a channel and answers via the Claude Agent
+# SDK, mirroring the Telegram module. Distinct from [notifications.discord]
+# below, which is a one-way outbound webhook used by notification routing.
+#
+# Default-disabled: a fresh install has no bot token or channel. To enable,
+# set DISCORD_BOT_TOKEN in Pulse's environment (never inline the token here —
+# this file is public template), set channel_id, and flip enabled.
+#
+# bot_token is expanded from the environment by lib.ts parseConfigToml().
+enabled = false
+bot_token = "${DISCORD_BOT_TOKEN}"
+channel_id = ""
+poll_interval_ms = 5000
+sdk_timeout_ms = 120000
+ollama_url = "http://localhost:11434"
+ollama_model = "qwen3-coder-next"
+
 [imessage]
 enabled = false
 
@@ -36,6 +54,12 @@ topic = "${NTFY_TOPIC}"
 server = "ntfy.sh"
 
 [notifications.discord]
+# Outbound notification webhook, referenced by [notifications.routing] below.
+# Separate from the interactive [discord] bot module above.
+# NOTE: ${DISCORD_WEBHOOK} now resolves from the environment (lib.ts
+# parseConfigToml), but no dispatcher consumes this section yet — lib.ts
+# dispatchSingle() implements voice/telegram/email/ntfy/log only. Until a
+# discord case is added there, routing entries naming "discord" are inert.
 enabled = true
 webhook = "${DISCORD_WEBHOOK}"
 

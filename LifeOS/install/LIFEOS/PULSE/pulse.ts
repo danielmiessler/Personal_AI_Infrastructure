@@ -77,6 +77,7 @@ let voiceModule: any = null
 let observabilityModule: any = null
 let wikiModule: any = null
 let telegramModule: any = null
+let discordModule: any = null
 let siriModule: any = null
 let imessageModule: any = null
 let assistantModule: any = null
@@ -125,6 +126,13 @@ async function loadModules(config: PulseConfig) {
       telegramModule = await import("./modules/telegram")
     } catch (err) {
       log("warn", "Telegram module not available", { error: String(err) })
+    }
+  }
+  if (config.discord?.enabled) {
+    try {
+      discordModule = await import("./modules/discord/index")
+    } catch (err) {
+      log("warn", "Discord module not available", { error: String(err) })
     }
   }
   if (config.imessage?.enabled) {
@@ -287,6 +295,7 @@ interface PulseConfig {
   tls?: { enabled: boolean; cert: string; key: string } // unused — TLS removed
   voice?: { enabled: boolean; [key: string]: unknown }
   telegram?: { enabled: boolean; [key: string]: unknown }
+  discord?: { enabled: boolean; bot_token?: string; channel_id?: string; [key: string]: unknown }
   imessage?: { enabled: boolean; [key: string]: unknown }
   observability?: { enabled: boolean; dashboard_dir?: string; [key: string]: unknown }
   hooks?: { enabled: boolean; blocked_skills?: string[] }
@@ -337,6 +346,7 @@ async function loadPulseConfig(): Promise<PulseConfig> {
     tls: (parsed.tls as PulseConfig["tls"]) ?? undefined,
     voice: (parsed.voice as PulseConfig["voice"]) ?? { enabled: true },
     telegram: (parsed.telegram as PulseConfig["telegram"]) ?? { enabled: false },
+    discord: (parsed.discord as PulseConfig["discord"]) ?? { enabled: false },
     imessage: (parsed.imessage as PulseConfig["imessage"]) ?? { enabled: false },
     observability: (parsed.observability as PulseConfig["observability"]) ?? { enabled: true },
     performance: (parsed.performance as PulseConfig["performance"]) ?? { enabled: true },
@@ -449,6 +459,11 @@ function buildHealthResponse(state: DaemonState, config: PulseConfig): Response 
     subsystems.telegram = telegramModule.telegramHealth()
   }
 
+  // Discord
+  if (discordModule && config.discord?.enabled) {
+    subsystems.discord = discordModule.discordHealth()
+  }
+
   // iMessage
   if (imessageModule && config.imessage?.enabled) {
     subsystems.imessage = imessageModule.imessageHealth()
@@ -537,6 +552,7 @@ async function main() {
       hooks: config.hooks?.enabled !== false,
       observability: config.observability?.enabled !== false,
       telegram: config.telegram?.enabled ?? false,
+      discord: config.discord?.enabled ?? false,
       imessage: config.imessage?.enabled ?? false,
       syslog: config.syslog?.enabled ?? false,
       da: config.da?.enabled ?? false,
@@ -714,6 +730,13 @@ async function main() {
         if (resp) return resp
       }
 
+      // Discord routes: /api/discord/*  (outbound send into the bot's channel)
+      if (discordModule && pathname.startsWith("/api/discord")) {
+        const subPath = pathname.replace(/^\/api\/discord/, "")
+        const discordBody = req.method === "POST" ? await req.json().catch(() => ({})) : {}
+        return discordModule.handleRequest(subPath, discordBody)
+      }
+
       // Syslog routes: /api/syslog/*
       if (syslogModule && pathname.startsWith("/api/syslog")) {
         const subPath = pathname.replace(/^\/api\/syslog/, "")
@@ -865,6 +888,19 @@ async function main() {
     log("info", "Telegram module started (supervised)")
   }
 
+  // Gate on a resolved token before entering supervise(). A subsystem that
+  // returns without throwing is treated as a clean exit and restarted every
+  // 10s, so starting Discord with an unset DISCORD_BOT_TOKEN would turn a
+  // config mistake into an endless restart loop. Check once, log once.
+  if (discordModule && config.discord?.enabled) {
+    if (config.discord.bot_token) {
+      supervise("discord", () => discordModule.startDiscord(config.discord), isShuttingDown)
+      log("info", "Discord module started (supervised)")
+    } else {
+      log("warn", "Discord enabled but bot_token is empty — set DISCORD_BOT_TOKEN in Pulse's environment. Module not started.")
+    }
+  }
+
   if (imessageModule && config.imessage?.enabled) {
     supervise("imessage", () => imessageModule.startIMessage(config.imessage), isShuttingDown)
     log("info", "iMessage module started (supervised)")
@@ -966,6 +1002,7 @@ async function main() {
   // ── Cleanup ──
   server.stop()
   if (telegramModule) telegramModule.stopTelegram?.()
+  if (discordModule) discordModule.stopDiscord?.()
   if (imessageModule) imessageModule.stopIMessage?.()
   if (assistantModule) assistantModule.stopAssistant?.()
   if (syslogModule) await syslogModule.stop?.()

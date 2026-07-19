@@ -8,7 +8,16 @@
  * The deterministic layer detects WHAT changed. The inference layer understands
  * HOW docs need updating — generating surgical edit pairs, never full rewrites.
  *
- * TRIGGER: Stop hook (via DocIntegrity.hook.ts)
+ * TRIGGER: SessionEnd (via DocIntegrity.hook.ts)
+ *
+ * TEARDOWN BUDGET (2026-07-19): the harness kills the whole hook at 30s and
+ * reports only "Hook cancelled" — the hook cannot self-report, because its
+ * fatal path exits 0 and every handler call is individually try/caught.
+ * Measured worst case before this change: up to 15s inference (a spawned
+ * `claude` subprocess) + a deliberate 3s sleep + a 3s voice fetch = ~21s,
+ * BEFORE RebuildArchSummary's then-unbounded generator subprocess even
+ * started. The inference layer is therefore OFF on the SessionEnd path.
+ * Set DOCINTEGRITY_INFERENCE=1 to opt back in for a manual run.
  *
  * PATTERN TYPES CHECKED (deterministic):
  * 1. Hook file references (*.hook.ts) - diff against disk
@@ -797,17 +806,27 @@ export async function handleDocCrossRefIntegrity(
     }
   }
 
-  // Step 6: Inference-powered semantic analysis
-  // Run inference to catch what grep can't: semantic drift in descriptions.
-  // Always runs when system files are modified — deterministic checks only catch
-  // broken refs/counts, not semantic drift (e.g., "this hook does X" when it now does Y).
-  console.error(`${TAG} === Running inference analysis ===`);
-  const inferenceEdits = await runInferenceAnalysis(modifiedFiles, docsToCheck);
-  if (inferenceEdits.length > 0) {
-    const inferenceApplied = applyInferenceEdits(inferenceEdits);
-    updatesApplied.push(...inferenceApplied);
+  // Step 6: Inference-powered semantic analysis — NOT on teardown.
+  // Catches what grep can't (a doc saying "this hook does X" when it now does Y),
+  // but it spawns a `claude` subprocess capped at 15s, which is half the harness's
+  // 30s kill window for the whole hook. On SessionEnd the session is already
+  // ending, so a semantic correction bought at the cost of losing the entire
+  // deterministic pass — which is the part that actually fixes broken refs and
+  // counts — is a bad trade. Opt in explicitly for a manual run.
+  const inferenceEnabled =
+    hookInput.hook_event_name !== 'SessionEnd' || process.env.DOCINTEGRITY_INFERENCE === '1';
+
+  if (!inferenceEnabled) {
+    console.error(`${TAG} [INFERENCE] Skipped on SessionEnd (teardown budget). Set DOCINTEGRITY_INFERENCE=1 to force.`);
   } else {
-    console.error(`${TAG} [INFERENCE] No semantic corrections needed`);
+    console.error(`${TAG} === Running inference analysis ===`);
+    const inferenceEdits = await runInferenceAnalysis(modifiedFiles, docsToCheck);
+    if (inferenceEdits.length > 0) {
+      const inferenceApplied = applyInferenceEdits(inferenceEdits);
+      updatesApplied.push(...inferenceApplied);
+    } else {
+      console.error(`${TAG} [INFERENCE] No semantic corrections needed`);
+    }
   }
 
   // Step 7: Summary
@@ -827,8 +846,13 @@ export async function handleDocCrossRefIntegrity(
   // Step 10: Voice notification — ONLY when actual documentation edits were applied
   // No voice for "queued for review" or "in sync" — that's noise
   if (updatesApplied.length > 0) {
-    // Delay 3s so the main 🗣️ {{DA_NAME}} voice line plays first
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // The 3s delay below exists to let the main 🗣️ voice line play first. On
+    // SessionEnd there is no main voice line to sequence against — the session
+    // is ending — so it was 3 seconds of a 30s teardown budget spent ordering
+    // audio nobody is waiting for. Sequence only where sequencing is real.
+    if (hookInput.hook_event_name !== 'SessionEnd') {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
 
     const affectedDocs = new Set<string>();
     for (const update of updatesApplied) {

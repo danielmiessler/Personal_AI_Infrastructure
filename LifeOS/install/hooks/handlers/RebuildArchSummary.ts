@@ -94,25 +94,45 @@ export async function handleRebuildArchSummary(): Promise<void> {
   }
 }
 
+/**
+ * Wall-clock ceiling for the generator subprocess.
+ *
+ * This runs LAST on the SessionEnd path, after the cross-ref handler. The
+ * harness kills the whole hook at 30s and reports only "Hook cancelled" — the
+ * hook cannot self-report, so an unbounded child here surfaced as an
+ * unexplained cancellation rather than as a slow generator. Bounded so the
+ * failure is legible and the remaining budget is never consumed silently.
+ */
+const REBUILD_TIMEOUT_MS = 8000;
+
 async function rebuild(generator: string, cwd: string): Promise<void> {
   return new Promise((resolve) => {
     const proc = spawn("bun", [generator, "generate"], { cwd, stdio: "pipe" });
 
     let stderr = "";
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; clearTimeout(timer); resolve(); } };
+
+    const timer = setTimeout(() => {
+      console.error(`[RebuildArchSummary] Generator exceeded ${REBUILD_TIMEOUT_MS}ms — killed. Summary left unchanged.`);
+      try { proc.kill("SIGKILL"); } catch { /* already gone */ }
+      finish();
+    }, REBUILD_TIMEOUT_MS);
+
     proc.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
 
     proc.on("close", (code) => {
       if (code === 0) {
         console.error("[RebuildArchSummary] Regenerated DOCUMENTATION/ARCHITECTURE_SUMMARY.md");
-      } else {
+      } else if (!settled) {
         console.error(`[RebuildArchSummary] Regeneration failed (exit ${code}): ${stderr.trim()}`);
       }
-      resolve();
+      finish();
     });
 
     proc.on("error", (err) => {
       console.error("[RebuildArchSummary] Spawn error:", err);
-      resolve();
+      finish();
     });
   });
 }

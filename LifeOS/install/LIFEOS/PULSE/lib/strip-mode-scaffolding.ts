@@ -9,10 +9,10 @@
  *
  * Two layers defend the chat surface:
  *
- *   Layer 1 (prevention) — hooks/TheRouter.hook.ts emits a channel-specific
- *   directive (TELEGRAM_DIRECTIVE / IMESSAGE_DIRECTIVE) instead of the MODE
- *   banner when LIFEOS_NOTIFICATION_CHANNEL identifies a remote channel. The
- *   model never sees "MODE: ALGORITHM" so doesn't reach for the template.
+ *   Layer 1 (prevention) — each channel bridge (modules/telegram.ts,
+ *   modules/imessage.ts) appends a channel-specific directive
+ *   (TELEGRAM_DIRECTIVE / IMESSAGE_DIRECTIVE) to the session's system prompt,
+ *   telling the model this surface uses plain prose, not the mode templates.
  *
  *   Layer 2 (egress) — THIS file. Even with prevention in place the model can
  *   leak markers (CLAUDE.md mode-template rules survive context compaction

@@ -529,7 +529,7 @@ Five states with distinct colors: Inference (purple), Working (orange), Complete
 | `LIFEOS/DOCUMENTATION/Tools/Tools.md` | CLI utilities reference: Inference.ts (low/medium/high/max), ActivityParser, and others |
 | `LIFEOS/DOCUMENTATION/Observability/ObservabilitySystem.md` | Full Pulse API reference (~40 endpoints) under "API Reference" section |
 | `LIFEOS/DOCUMENTATION/Work/WorkSystem.md` | Work System architecture — four capture surfaces → private GitHub repo → Pulse + TASKLIST + agent claim, single config under `USER/WORK/` |
-| `LIFEOS/DOCUMENTATION/Router/RouterSystem.md` | The Router — prompt→posture decision layer (classify → route-effort → select-model → dispatch); four-level `EFFORT_MODEL` abstraction, classifier contract, tier→level policy, cross-vendor egress ceilings |
+| `LIFEOS/DOCUMENTATION/Router/RouterSystem.md` | The Router (RETIRED 2026-07-11, history only) — the former prompt→posture decision layer; four-level `EFFORT_MODEL` abstraction, classifier contract, tier→level policy, cross-vendor egress ceilings |
 
 ---
 

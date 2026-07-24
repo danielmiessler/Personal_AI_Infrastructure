@@ -11,7 +11,7 @@
  * - low:    quick tasks, simple generation, basic classification
  * - medium: balanced reasoning, typical analysis
  * - high:   deep reasoning, strategic decisions, complex analysis
- * - max:    keystone decisions — Algorithm E4/E5 dispatch (max=Fable, 2026-07-01; the TheRouter classifier moved to 'high' the same day)
+ * - max:    keystone decisions — Algorithm E4/E5 dispatch (max=Fable, 2026-07-01; the since-retired TheRouter classifier moved to 'high' the same day, then retired entirely 2026-07-11)
  *
  * USAGE:
  *   bun Inference.ts --level low <system_prompt> <user_prompt>
@@ -84,9 +84,9 @@ export interface InferenceOptions {
   imagePaths?: string[];
   /** Optional cap (ms) for the max→high fallback attempt. Bounds the fallback
    * for a max-level caller under a hook ceiling (the fable attempt + opus
-   * fallback must fit inside it). The TheRouter classifier FORMERLY set this;
-   * it now runs at `high` directly (2026-07-01), so no caller sets it today —
-   * retained for any future hook-bound max caller. Callers WITHOUT a hook
+   * fallback must fit inside it). The TheRouter classifier FORMERLY set this
+   * (moved to `high` 2026-07-01, retired entirely 2026-07-11), so no caller
+   * sets it today — retained for any future hook-bound max caller. Callers WITHOUT a hook
    * ceiling (e.g. a fixed-timeout max caller) omit it, so the fallback inherits
    * the full `timeout` and degrades gracefully instead of a too-tight retry. */
   fallbackTimeoutMs?: number;
@@ -125,9 +125,9 @@ const LEVEL_CONFIG: Record<InferenceLevel, { model: string; defaultTimeout: numb
   medium: { model: modelForEffort('medium'), defaultTimeout: 30000, effort: LEVEL_TO_HARNESS_EFFORT.medium },
   high: { model: modelForEffort('high'), defaultTimeout: 90000, effort: LEVEL_TO_HARNESS_EFFORT.high },
   // max powers Algorithm E4/E5 +
-  // Core-System dispatch. max is Fable (2026-07-01). The TheRouter classifier
-  // moved OFF max to 'high' the same day — it fires on every prompt, so the
-  // per-prompt keystone stays on cheap/fast Opus. Pinned ID (not alias): the
+  // Core-System dispatch. max is Fable (2026-07-01). The since-retired
+  // TheRouter classifier moved OFF max to 'high' the same day (it fired on
+  // every prompt; retired entirely 2026-07-11). Pinned ID (not alias): the
   // top-rung CLI alias is unverified from a nested-session-blocked context.
   // inference() adds a max→high fallback below (now fable→opus, a real degrade).
   // Reasoning effort caps at `high` (LEVEL_TO_HARNESS_EFFORT.max resolves to high,
@@ -464,10 +464,11 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
     : EFFORT_MODEL.medium !== EFFORT_MODEL.max ? 'medium'
     : 'low';
   console.error(`[Inference] max-level model failed (${first.error}); falling back to ${modelForEffort(fallbackLevel)} (level=${fallbackLevel}, distinct from max)`);
-  // The retry uses `fallbackTimeoutMs` when the caller set one — only the
-  // TheRouter classifier does, because its hook has a hard ceiling and the max
-  // attempt + fallback must fit inside it. Callers without a ceiling omit
-  // it, so the fallback inherits the full `timeout` and degrades gracefully.
+  // The retry uses `fallbackTimeoutMs` when the caller set one — historically
+  // only the TheRouter classifier did (retired 2026-07-11), because its hook
+  // had a hard ceiling the max attempt + fallback had to fit inside. No live
+  // caller sets it; without it the fallback inherits the full `timeout` and
+  // degrades gracefully.
   const fallbackTimeout = options.fallbackTimeoutMs ?? options.timeout ?? config.defaultTimeout;
   return inferenceAttempt({ ...normalized, timeout: fallbackTimeout }, modelForEffort(fallbackLevel));
 }

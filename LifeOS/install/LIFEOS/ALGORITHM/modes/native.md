@@ -36,7 +36,7 @@ Even though no ISA is created, NATIVE response runs record session metadata to `
 
 ## When NATIVE response mode is selected
 
-TheRouter classifier rules (from `TheRouter.hook.ts`):
+TheRouter classifier rules (from `TheRouter.hook.ts`, retired 2026-07-11 — kept as the working definition of NATIVE-shaped work):
 
 - Fact lookup with one tool call.
 - Single-line edit on a named file.
@@ -53,7 +53,7 @@ The discriminator is whether the **ideal state is pre-articulable in one line**.
 
 **A short, clearly-stated *question* is not NATIVE by virtue of being short.** Route by the ANSWER, not the question: if a good answer would be *retrieved* (facts to look up and assemble) it's NATIVE; if it must be *constructed* by analytical synthesis against external/contested evidence, its correctness not checkable at a glance — a hard science / philosophy / technical question whose answer doesn't exist until you build it — it's ALGORITHM (E3 default, E4 across contested fields). The test is VERIFIABILITY, not synthesis: opinion/advice/personal-judgment questions ("should I learn Rust or Go", "why do I procrastinate") stay NATIVE even though they synthesize — the reader can weigh the take at a glance. A one-line question is not a one-line answer. This is the canonical NATIVE→ALGORITHM misroute.
 
-Under-escalation is the failure mode the TheRouter was built to prevent. When in doubt between NATIVE and ALGORITHM E3, the classifier picks ALGORITHM E3.
+Under-escalation is the failure mode the since-retired TheRouter classifier was built to prevent. When in doubt between NATIVE and ALGORITHM E3, pick ALGORITHM E3.
 
 ## ISA frontmatter (not used)
 

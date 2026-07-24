@@ -38,7 +38,7 @@ If none apply, skip property testing — use `bun-test` example form for the ISC
 | 7 | **Model-based** | code matches trivial reference impl | `parseFrontmatter ≡ jsYaml.load + body-split` |
 | 8 | **Metamorphic** | "if input grows, output should grow" | density-score is monotone in evidence count |
 | 9 | **State-machine** | any legal sequence preserves invariants | ISA phase machine never goes backward except via Resume |
-| 10 | **Oracle** | result matches trusted alternative | TheRouter classifier vs deterministic rule table |
+| 10 | **Oracle** | result matches trusted alternative | `reconcile-isa` intent parser vs hand-labeled fixture table |
 
 ## Candidate detection — ten questions
 

@@ -176,7 +176,7 @@ async function processMessage(
 
 ## IMESSAGE_DIRECTIVE (OVERRIDES CLAUDE.md mode-template rule)
 
-TheRouter injects an IMESSAGE_DIRECTIVE in this turn's additionalContext. That directive replaces the constitutional "every response uses MINIMAL/NATIVE/ALGORITHM template" rule for this surface — terminal modes are terminal-only; iMessage uses plain conversational prose.
+This IMESSAGE_DIRECTIVE — part of your system prompt, appended by the Pulse iMessage bridge — replaces the constitutional "every response uses MINIMAL/NATIVE/ALGORITHM template" rule for this surface — terminal modes are terminal-only; iMessage uses plain conversational prose.
 
 DO NOT emit ANY of these:
 - Mode banner labels: bare "MINIMAL", "NATIVE", "ALGORITHM" on a line of their own

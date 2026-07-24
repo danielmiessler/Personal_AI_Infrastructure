@@ -344,9 +344,9 @@ export function setTabState(opts: SetTabOptions): void {
  * Set ONLY the leading mode/tier token ("N" | "E1".."E5") on the current tab,
  * preserving the working description, and clearing any stale completion state.
  *
- * This is the authoritative mode-token writer, called by TheRouter the moment
- * it classifies the turn — so the tab projects the real {mode,tier} decision
- * instead of PromptProcessing's shadow-classifier guess. It is deliberately a
+ * NO LIVE CALLER since 2026-07-11: this was the authoritative mode-token
+ * writer for the per-prompt classifier (TheRouter.hook.ts, retired entirely —
+ * no successor stamps a fresh token; see TerminalTabs.md). It is deliberately a
  * distinct primitive from setTabState (which takes a full title) and setPhaseTab
  * (which needs an Algorithm phase): here we mutate ONLY the token, keep the
  * description, and drop a prior turn's `✅ done` so it can't linger into live work.

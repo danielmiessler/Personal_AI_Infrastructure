@@ -1174,13 +1174,13 @@ export function upsertSession(sessionUUID: string, sessionName: string, task: st
 
       // Track mode transition if mode changed.
       // 2026-05-24 (realtime-phase-tracking): one-way upgrade for `algorithm`.
-      // When TheRouter's classifier already declared this session as
-      // currentMode='algorithm', PromptProcessing's local `isNativeMode` regex
-      // must NOT silently downgrade it back to 'native' a tick later. The
-      // classifier is authoritative; this guard preserves its decision.
-      // 2026-07-01: the LEGITIMATE algorithm→native downgrade is recorded by
-      // TheRouter (the authoritative classifier) via markSessionNative() —
-      // this guard only blocks PromptProcessing's WEAK regex, never the classifier.
+      // Once a session is currentMode='algorithm', PromptProcessing's weak
+      // `isNativeMode` regex must NOT silently downgrade it back to 'native'
+      // a tick later. The guard originally protected the per-prompt
+      // classifier's decision (TheRouter, retired 2026-07-11); its legitimate
+      // algorithm→native downgrade path (markSessionNative, called by that
+      // classifier) retired with it, so today NO path downgrades an
+      // algorithm session — the upgrade is strictly one-way.
       const prevMode = session.currentMode || (session.mode === 'starting' ? 'algorithm' : 'native');
       const isDowngradeFromAlgorithm = prevMode === 'algorithm' && resolvedMode === 'native';
       if (prevMode !== resolvedMode && !isDowngradeFromAlgorithm) {
@@ -1250,37 +1250,19 @@ export function upsertSession(sessionUUID: string, sessionName: string, task: st
 export const upsertNativeSession = upsertSession;
 
 /**
- * Mark a session as algorithm-starting in work.json. Called by
- * TheRouter.hook.ts the instant the classifier emits MODE=ALGORITHM, so
- * the Pulse dashboard shows the session as an algorithm session BEFORE the
- * model receives the prompt — no "phase: native" wrong-display window.
- *
- * Behavior:
- *   - If a row exists for this UUID:
- *       - currentMode='algorithm' AND not phase='complete' → no-op (idempotent)
- *       - otherwise: upgrade currentMode→'algorithm', mode→'starting',
- *         and phase→'starting' (only when phase was 'native' — never stomps
- *         a real algorithm phase like 'observe' from a resumed session)
- *   - If no row exists: create a fresh `${datePrefix}_starting-${prefix}` slug
- *     with currentMode='algorithm', mode='starting', phase='starting'
- *
- * Side-effect: writes work.json atomically via writeRegistry.
- * Best-effort: failures must not break the TheRouter classification path.
- */
-/**
- * Authoritatively record a session switching BACK to native (algorithm→native),
- * updating `currentMode` + pushing a `modeHistory` transition so the Pulse
+ * Record a session switching BACK to native (algorithm→native), updating
+ * `currentMode` + pushing a `modeHistory` transition so the Pulse
  * Agents/Lattice dashboard re-lanes the session to the native view and the
- * ModeTimeline shows the switch. Called by TheRouter (the authoritative
- * classifier) on NATIVE turns.
+ * ModeTimeline shows the switch.
  *
- * This is the DOWNGRADE path that `upsertSession` deliberately refuses: that
- * guard exists to stop PromptProcessing's WEAK 8-verb regex from clobbering the
- * classifier's decision a tick later. TheRouter's classifier is authoritative,
- * so it IS allowed to record the return to native. `currentMode` is what every
- * dashboard `inferMode`/`resolveMode` reads FIRST, so this alone re-categorizes
- * the session without touching `phase`/`mode` — safe to resume the algorithm later
- * (markAlgorithmStarting re-upgrades). Idempotent; failure-silent.
+ * NO LIVE CALLER since 2026-07-11: this was the DOWNGRADE path exercised by
+ * the per-prompt classifier (TheRouter.hook.ts) on NATIVE turns — the one
+ * writer `upsertSession`'s one-way guard deliberately deferred to. The
+ * classifier was retired entirely (no successor), so nothing performs the
+ * algorithm→native downgrade today. `currentMode` is what every dashboard
+ * `inferMode`/`resolveMode` reads FIRST, so this alone re-categorizes the
+ * session without touching `phase`/`mode` (markAlgorithmStarting re-upgrades).
+ * Idempotent; failure-silent.
  */
 export function markSessionNative(sessionUUID: string): void {
   if (!sessionUUID) return;
@@ -1314,10 +1296,30 @@ export function markSessionNative(sessionUUID: string): void {
   } catch { /* silent — dashboard mode is best-effort */ }
 }
 
+/**
+ * Mark a session as algorithm-starting in work.json.
+ *
+ * NO LIVE CALLER since 2026-07-11: the per-prompt classifier
+ * (TheRouter.hook.ts) called this the instant it emitted MODE=ALGORITHM, so
+ * the Pulse dashboard showed the session as an algorithm session BEFORE the
+ * model received the prompt. The classifier was retired entirely (no
+ * successor); the first AlgoPhase.ts/ISASync write now sets the phase.
+ *
+ * Behavior:
+ *   - If a row exists for this UUID:
+ *       - currentMode='algorithm' AND not phase='complete' → no-op (idempotent)
+ *       - otherwise: upgrade currentMode→'algorithm', mode→'starting',
+ *         and phase→'starting' (only when phase was 'native' — never stomps
+ *         a real algorithm phase like 'observe' from a resumed session)
+ *   - If no row exists: create a fresh `${datePrefix}_starting-${prefix}` slug
+ *     with currentMode='algorithm', mode='starting', phase='starting'
+ *
+ * Side-effect: writes work.json atomically via writeRegistry.
+ */
 export function markAlgorithmStarting(sessionUUID: string, taskHint: string, tier?: number): void {
   if (!sessionUUID) return;
   // Resolved tier ("E1".."E5") persisted onto the row so the Pulse Agents/Lattice
-  // page shows the correct tier the instant TheRouter classifies — before any
+  // page shows the correct tier the instant the caller classifies — before any
   // ISA exists. Undefined tier leaves the existing effort untouched.
   const effortStr = (typeof tier === 'number' && tier >= 1 && tier <= 5) ? `E${tier}` : undefined;
   try {

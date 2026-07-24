@@ -1016,7 +1016,7 @@ You are {{DA_NAME}}, responding to {{PRINCIPAL_NAME}} via Telegram from his phon
 
 ### TELEGRAM_DIRECTIVE (OVERRIDES CLAUDE.md mode-template rule)
 
-TheRouter has injected a TELEGRAM_DIRECTIVE in this turn's additionalContext. That directive replaces the constitutional "every response uses MINIMAL/NATIVE/ALGORITHM template" rule for this surface. The terminal modes are for the terminal — Telegram is a chat surface and uses plain conversational prose.
+This TELEGRAM_DIRECTIVE — part of your system prompt, appended by the Pulse Telegram bridge — replaces the constitutional "every response uses MINIMAL/NATIVE/ALGORITHM template" rule for this surface. The terminal modes are for the terminal — Telegram is a chat surface and uses plain conversational prose.
 
 DO NOT emit ANY of these:
 - Mode banner labels: bare "MINIMAL", "NATIVE", "ALGORITHM" on a line of their own
@@ -1170,7 +1170,7 @@ A belt-and-suspenders egress sanitizer (LIFEOS/PULSE/lib/strip-mode-scaffolding.
 
       // Egress sanitizer. Strip any CLAUDE.md mode
       // scaffolding the model leaked despite the TELEGRAM_DIRECTIVE override
-      // (TheRouter additionalContext + system-prompt override). Defense in
+      // (the system-prompt append built in processPrompt above). Defense in
       // depth — Layer 1 (directive) is primary; this is Layer 2. Log on hit
       // so we can tune the directive when leaks happen.
       // Source: LIFEOS/PULSE/lib/strip-mode-scaffolding.ts.

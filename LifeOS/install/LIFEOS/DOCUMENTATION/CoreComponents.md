@@ -127,4 +127,4 @@ Privacy and safety are enforced, not assumed. Deterministic gates keep private d
 
 ## How they fit together
 
-Current-state-to-ideal-state is the **why**, and Euphoric Surprise is the **bar** it aims for. The Algorithm is the **engine** that runs it. Skills, hooks, and the router are the **machinery** that make each run capable, safe, and correctly-scoped. Pulse, spinner verbs, and tooltips are how you **see and feel** it. Memory, agents, voice, learning, and security are the **foundation** underneath. Together they're the whole of what makes LifeOS work.
+Current-state-to-ideal-state is the **why**, and Euphoric Surprise is the **bar** it aims for. The Algorithm is the **engine** that runs it. Skills and hooks are the **machinery** that make each run capable, safe, and correctly-scoped. Pulse, spinner verbs, and tooltips are how you **see and feel** it. Memory, agents, voice, learning, and security are the **foundation** underneath. Together they're the whole of what makes LifeOS work.

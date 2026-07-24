@@ -16,10 +16,10 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * TRIGGER: UserPromptSubmit
  *
- * NOTE: Mode/tier classification is NOT handled here — that lives in
- * TheRouter.hook.ts (which runs on the same UserPromptSubmit event,
- * before this hook, and emits MODE/TIER to additionalContext via
- * hookSpecificOutput). Satisfaction/rating capture is handled by the
+ * NOTE: No per-prompt mode/tier classifier exists (TheRouter.hook.ts was
+ * retired entirely 2026-07-11, no successor). The lightweight isNativeMode()
+ * check below is the only live mode signal — its result lands in work.json's
+ * currentMode via upsertSession. Satisfaction/rating capture is handled by the
  * dedicated SatisfactionCapture.hook.ts. This hook does only:
  * tab title + session naming.
  *
@@ -843,11 +843,12 @@ async function main() {
       isMinimalInteraction ? 'minimal' :
       !isNativeMode(prompt) ? 'algorithm' : 'native';
 
-    // The tab's mode/tier token is OWNED by TheRouter (the authoritative
-    // classifier), not derived here. PromptProcessing used to stamp "N" from its
-    // own 8-verb isNativeMode() shadow-classifier, which diverged from TheRouter
-    // and showed "N" on ALGORITHM turns. Now PromptProcessing only sets the working
-    // DESCRIPTION and recovers whatever token TheRouter stamped (see stampWorkingTab).
+    // detectedCurrentMode is the ONLY live mode classification in the system:
+    // the per-prompt classifier (TheRouter) was retired 2026-07-11 with no
+    // successor, so this isNativeMode() result is what upsertSession persists
+    // into work.json currentMode/modeHistory — the field Pulse dashboards read
+    // first. The tab mode-token, by contrast, is legacy: nothing stamps a fresh
+    // one; stampWorkingTab only recovers a token already on the tab.
 
     // ── Slash-command / skill invocation: name deterministically from the command ──
     // A command name (e.g. "/Upgrade") can never satisfy the natural-language
@@ -930,10 +931,11 @@ async function main() {
       if (algoIteration) {
         setPhaseTab(priorPhase as AlgorithmTabPhase, sessionId, rawTitle, priorToken!);
       } else {
-        // Do NOT self-classify the mode token — TheRouter owns it. Recover the
-        // token already on the tab, but ONLY when the tab shows live work; a stale
-        // completion/idle token from the prior turn is dropped so it can't leak into
-        // this turn (TheRouter stamps the authoritative token ~concurrently).
+        // Do NOT self-classify the mode token. Recover the token already on
+        // the tab, but ONLY when the tab shows live work; a stale
+        // completion/idle token from the prior turn is dropped so it can't leak
+        // into this turn. (No live writer stamps fresh tokens — the classifier
+        // that did was retired 2026-07-11; recovery preserves whatever remains.)
         const cur = readTabState(sessionId);
         const liveToken = cur && cur.state !== 'completed' && cur.state !== 'idle'
           ? (extractModeToken(cur.title) || undefined)

@@ -72,7 +72,7 @@ The principal chose **replace the terminal layer only**. Here is the exact cut l
 - `hooks/handlers/TabState.ts` — the Stop-time final-state detector.
 - `hooks/lib/tab-setter.ts` — the `kitten @ set-tab-*` calls, `setModeToken`, `setPhaseTab`.
 
-These drive Kitty tab **color / icon / title** to show agent state (working / completed / awaiting / error) plus the `N` / `E1..E5` mode-token owned by `TheRouter.hook.ts`. Under cmux the same signals map to surface-level equivalents: `rename-tab` for the title+token, `trigger-flash` for attention, `workspace-action` / `themes` for color-by-state.
+These drive Kitty tab **color / icon / title** to show agent state (working / completed / awaiting / error) plus the legacy `N` / `E1..E5` mode-token (its writer, the TheRouter classifier, was retired 2026-07-11 — nothing stamps fresh tokens; `E{tier}` painting now comes from ISA frontmatter via `setPhaseTab`). Under cmux the same signals map to surface-level equivalents: `rename-tab` for the title+token, `trigger-flash` for attention, `workspace-action` / `themes` for color-by-state.
 
 **What stays, untouched:**
 
@@ -80,9 +80,9 @@ These drive Kitty tab **color / icon / title** to show agent state (working / co
 - Voice (`/notify` → {{DA_NAME}} TTS).
 - Algorithm phase logic, ISA phase tracking (the *decision* of what phase we're in).
 - Model routing, memory, learning capture.
-- `TheRouter.hook.ts` as the single authority for the mode/tier token — it keeps owning the *decision*; only the paint target moves.
+- Tab-content *decisions* (what phase/tier/description to show) — only the paint target moves. (This section predates the 2026-07-11 TheRouter retirement; the mode-token authority it assumed is gone, so the cutover design needs a refresh before execution.)
 
-**Why the cutover must be staged.** The Kitty hooks work today and are wired through a subtle single-authority contract: `TheRouter` owns the token, `PromptProcessing` owns the description, `AlgoPhase` + `ISASync` own the phase, each preserving the other's field. Ripping that out and repointing four hooks at an immature, poll-only, Mac-only target in one move is how you get a session with no visible state and no idea which layer broke. The safe path keeps both painters alive — Kitty and cmux writing in parallel — until the cmux path is proven across working, completed, awaiting, error, and every phase transition. Then Kitty is removed. A hook that paints state is cheap to run twice and expensive to get wrong once.
+**Why the cutover must be staged.** The Kitty hooks work today and are wired through a subtle single-authority contract: `PromptProcessing` owns the description, `AlgoPhase` + `ISASync` own the phase, each preserving the other's field (the token authority, formerly the TheRouter classifier, retired 2026-07-11). Ripping that out and repointing four hooks at an immature, poll-only, Mac-only target in one move is how you get a session with no visible state and no idea which layer broke. The safe path keeps both painters alive — Kitty and cmux writing in parallel — until the cmux path is proven across working, completed, awaiting, error, and every phase transition. Then Kitty is removed. A hook that paints state is cheap to run twice and expensive to get wrong once.
 
 ## Phased rollout
 

@@ -58,8 +58,6 @@ Run the four-signal detector on the prompt:
 
 **Multi-literal:** if multiple candidates ("do X and Y by Z"), **first wins as `principal_stated_goal:`**; others demote to derived Constraints with `derived_from: principal_stated_goal compound` annotation.
 
-**Classifier handshake:** `TheRouter.hook.ts` may emit `GOAL_SIGNAL: <1|2|3|4|none>` in additionalContext. Trust as hint, re-validate via the detector above.
-
 When detection fires + min-content passes, write the four frontmatter fields:
 
 ```yaml
@@ -89,7 +87,7 @@ One rule, replacing the deleted v6.x density-formula machinery: **could I be wro
 If materially ambiguous — the goal supports ≥2 interpretations leading to materially different builds, or required content can't be scaffolded without speculation — ask up to 3 targeted questions (E3+) or prepend the ambiguity flag (E1/E2): `⚠️ Picking X over Y because R; redirect if wrong.` Literal whole-response `proceed` accepts reasoned defaults.
 
 **Skip conditions (do not run the check):**
-- `INTERVIEW_ELIGIBLE: false` in the most recent `TheRouter.hook.ts` additionalContext block (the hook decided this is fast-path work). Line absent — e.g. a continuation prompt where the hook didn't re-fire — → infer eligibility from the running tier: `true` iff tier ≥ E3. This handoff is explicit text-passing; no shared state, no subprocess IPC. The model is the carrier.
+- Interview eligibility inferred from the running tier: eligible iff tier ≥ E3. (No per-prompt hook emits an eligibility signal — the classifier that once did was retired 2026-07-11; tier inference is the only path.)
 - The scaffold call has `ephemeral_feature` set (ephemeral mode operates on an already-scaffolded master).
 
 **Record the outcome in frontmatter** — `context_sufficient: true|false` and `interview_invoked: true|false` (the only two keys v7 ISAs carry for this check; the v6.x density/divergence/acknowledgment ceremony keys are deleted).

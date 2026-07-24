@@ -211,6 +211,10 @@ LifeOS is built in the open, and the community's pull requests, forensic bug rep
 <a href="https://github.com/jnpkr"><img src="https://avatars.githubusercontent.com/u/1964102?v=4&s=64" width="48" height="48" alt="jnpkr" title="jnpkr"></a>
 <a href="https://github.com/IJASolutions"><img src="https://avatars.githubusercontent.com/u/246399781?v=4&s=64" width="48" height="48" alt="IJASolutions" title="IJASolutions"></a>
 <a href="https://github.com/emory"><img src="https://avatars.githubusercontent.com/u/660055?v=4&s=64" width="48" height="48" alt="emory" title="emory"></a>
+<a href="https://github.com/elhoim"><img src="https://avatars.githubusercontent.com/u/178521?v=4&s=64" width="48" height="48" alt="elhoim" title="elhoim"></a>
+<a href="https://github.com/vibecrypto"><img src="https://avatars.githubusercontent.com/u/291395314?v=4&s=64" width="48" height="48" alt="vibecrypto" title="vibecrypto"></a>
+<a href="https://github.com/dactylmedia"><img src="https://avatars.githubusercontent.com/u/148711391?v=4&s=64" width="48" height="48" alt="dactylmedia" title="dactylmedia"></a>
+<a href="https://github.com/xmasyx"><img src="https://avatars.githubusercontent.com/u/16624475?v=4&s=64" width="48" height="48" alt="xmasyx" title="xmasyx"></a>
 <a href="https://github.com/maxolasersquad"><img src="https://avatars.githubusercontent.com/u/177150?v=4&s=64" width="48" height="48" alt="maxolasersquad" title="maxolasersquad"></a>
 </p>
 

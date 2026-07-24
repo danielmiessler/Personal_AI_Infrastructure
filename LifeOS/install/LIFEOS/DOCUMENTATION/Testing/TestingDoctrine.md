@@ -78,6 +78,8 @@ Mirror the source path, not co-locate. Map:
 
 Snapshot files at `test/<surface>/__snapshots__/<name>.test.ts.snap`.
 
+**Subsystem-package clause.** A directory-tool with its own `package.json` (`LIFEOS/TOOLS/<tool>/`) keeps its suite in-package at `<tool>/test/` with a `package.json` `test` script — the suite travels with the deployable package. The parallel `~/.claude/test/` tree governs the repo-root surface (hooks, skills, single-file tools).
+
 ### 3. Every test file is independently runnable.
 
 `bun test test/hooks/Foo.hook.test.ts` works in isolation. No file depends on another file's globals or setup. If shared setup is needed, it goes in `test/preload.ts` and is loaded via bunfig.
@@ -311,7 +313,7 @@ Phases 2–5 are tracked separately as PROJECTS.md entries; they're not part of 
 
 ## Anti-patterns (do not do)
 
-- ❌ Co-locating test files next to source (`hooks/<Hook>.hook.test.ts` next to `hooks/<Hook>.hook.ts`). Bun does not do this and the parallel `test/` tree scales better.
+- ❌ Co-locating test files next to source (`hooks/<Hook>.hook.test.ts` next to `hooks/<Hook>.hook.ts`). Bun does not do this and the parallel `test/` tree scales better. (Repo-root surface only; subsystem packages keep in-package suites per Rule 2.)
 - ❌ Adding Jest, Vitest, Mocha, AVA, ts-node, ts-jest, sinon, jest-mock to LifeOS's `package.json`. CONSTITUTIONAL FAILURE.
 - ❌ Setting a global `coverageThreshold = 1.0`. Gamification trap; incentivizes shallow tests.
 - ❌ Adding a `--retry 3` flag to any test invocation in CI. Banned.

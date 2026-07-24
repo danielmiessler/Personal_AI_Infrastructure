@@ -6,6 +6,9 @@ This manifest categorizes all LifeOS skills present in `LifeOS/install/skills/` 
 
 These skills are fully compatible with Hermes and install into `$HERMES_HOME/skills/` as a unified skill body:
 
+- **Algorithm** — 7-phase execution loop (OBSERVE→LEARN), effort tiers E1-E5, and ISC quality gates
+- **Amber** — Idea capture and preservation loop (capture→preserve→grade→route→resurface) backed by Hindsight
+- **Conduit** — Current-state sensing via deterministic Windows polling and daily rollup into Hindsight
 - **ISA** — Information Structure Architecture & workspace state manager
 - **Telos** — Life direction, core values, and mission alignment system
 - **WorldThreatModel** — 11 time-horizon macro forecast and vulnerability matrix

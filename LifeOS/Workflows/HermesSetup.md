@@ -18,10 +18,11 @@ Wires LifeOS into Hermes. Runs when installing or migrating LifeOS on a Hermes a
 - Copy `install/LIFEOS/HERMES_CONSTITUTION.md` to a Hermes-loadable location (e.g. `$HERMES_HOME/constitutions/LIFEOS_HERMES_CONSTITUTION.md`).
 - Ensure Hermes agent launcher is configured to load this file as `ephemeral_system_prompt`.
 
-### 4. Install Unified LifeOS Skills
-- Install portable LifeOS skills from `install/skills/` into `$HERMES_HOME/skills/`.
-- Deploy as one unified body without splitting into separate runtime subfolders.
-- Exclude macOS/Claude-specific skills (`Art`, `Daemon`, `Interceptor`, `Remotion`) as detailed in `install/SKILL_MANIFEST.md`.
+### 4. Import Unified LifeOS Skills
+- Run `bun Tools/ImportSkills.ts` (or `bun Tools/ImportSkills.ts --dry-run` for a preview of the import plan before writing).
+- Verify: `hermes skills list` shows the imported LifeOS skills.
+- Report: "Imported N skills into Hermes. Skipped M Claude/macOS-specific skills. Run `hermes skills list` to verify."
+- The script deploys portable skills from `install/skills/` as one unified body into `$HERMES_HOME/skills/`, normalizes names to lowercase-kebab, skips `_ALLCAPS` private skills and Claude/macOS-specific skills (`Art`, `Daemon`, `Interceptor`, `Remotion`) per `install/SKILL_MANIFEST.md`.
 
 ### 5. Wire Canonical TELOS Source Pointer
 - Prompt the principal for their canonical TELOS folder path (e.g. `E:/Dropbox/ARON BIJL MSC/TELOS/`).
@@ -35,6 +36,7 @@ Wires LifeOS into Hermes. Runs when installing or migrating LifeOS on a Hermes a
 
 ### 7. Verification
 Run verification checks:
+0. Post-import skill verification: Run `hermes skills list` and confirm the newly imported LifeOS skills appear. Run `hermes skills check` to verify no conflicts. Run `/reload-skills` in an active Hermes session to load the new skill body. Test with `/skill ISA` or `/skill Algorithm`.
 1. `hermes skills list` — verify all portable LifeOS skills are registered in Hermes.
 2. Constitution load check — verify `HERMES_CONSTITUTION.md` parses and loads cleanly as `ephemeral_system_prompt`.
 3. TELOS path resolution — verify the path in `TELOS_SOURCE.md` exists and is readable.

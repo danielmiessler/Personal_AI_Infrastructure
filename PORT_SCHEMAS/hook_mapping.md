@@ -37,3 +37,6 @@ This document maps all legacy LifeOS hooks (from `LifeOS/install/hooks/` and `ho
 | `UpdateCounts.hook.ts` | `SessionEnd` | N/A | No | Claude Code status bar banner metadata (Claude-only) |
 | `FormatGate.hook.ts` | (Unregistered / legacy) | N/A | No | Legacy unregistered formatting filter |
 | `DriftReminder.hook.ts` | (Unregistered / legacy) | Hermes constitution | No | Replaced by constitutional prompt adherence |
+| `com.lifeos.amberroute` | `launchd` every 30min | Hermes cron `amber-route` every 30min | Yes | Grades unrouted Amber captures against TELOS via Hindsight recall+retain, routes to destinations |
+| `com.lifeos.conduit` | `launchd` every 120s | Hermes cron `conduit-capture` every 2min | Yes | Runs `capture.py` to poll current-state signals (appFocus/git/hermesSession) into events.jsonl |
+| `com.lifeos.conduit.insight` | `launchd` every 1h | Hermes cron `conduit-rollup` daily | Yes | Runs `rollup.py` for deterministic daily record, retains into Hindsight |

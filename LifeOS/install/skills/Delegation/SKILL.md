@@ -22,11 +22,11 @@ Doing independent work serially wastes wall-clock; throwing a heavyweight model 
 
 Hermes uses its own model routing (config'd in `delegation.*`); describe the tier by capability, not a hardcoded name.
 
-| Task shape | Tier | LifeOS equivalent |
-|-----------|------|-------------------|
-| Deep reasoning, complex architecture, adversarial verification | **Strongest available model** | `opus` |
-| Standard implementation, most coding, focused analysis | **Mid-tier model** | `sonnet` |
-| Simple lookups, file reads, classification, parallel grunt work | **Cheapest capable model** | `haiku` |
+| Task Type | Capability Tier | Model |
+|---|---:|---:|---|
+| Deep reasoning, complex architecture, adversarial verification | **Strongest available** | `gpt-5.6-luna` / `gpt-5.6-terra` / `gpt-5.6-sol` |
+| Standard implementation, most coding, focused analysis | **Mid-tier** | `gpt-5.4` |
+| Simple lookups, file reads, classification, parallel grunt work | **Cheapest capable** | `gpt-4-mini` |
 
 Set the model per dispatch via `delegate_task(..., model=...)`. Unspecified inherits the session/`config.yaml` default. See `AgentReference.md` for the `delegation.*` config keys.
 

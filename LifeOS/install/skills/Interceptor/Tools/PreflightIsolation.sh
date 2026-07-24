@@ -16,10 +16,12 @@
 #      Default/working pattern. This is the new guarantee — "connected" was the
 #      old check; "target is provably not a working profile" is the contract now.
 #
-#   4. Extension freshness (graceful): compare the pinned Extension copy's
-#      PINNED_FROM.txt against the upstream dist IF present. Mismatch → fail with
-#      re-pin remediation. Upstream absent → WARN and continue (do not hard-fail
-#      on a missing reference).
+#   4. Extension present, then fresh. Absent Extension/ → hard fail (browser
+#      control cannot work without it, and the freshness check below cannot see
+#      this case: it is guarded on PINNED_FROM.txt, which is gone too). Then,
+#      graceful: compare the pinned copy's PINNED_FROM.txt against the upstream
+#      dist IF present. Mismatch → fail with re-pin remediation. Upstream absent
+#      → WARN and continue (do not hard-fail on a missing reference).
 #
 # There is NO fallback path. A missing/stale pinned context is a hard stop with
 # remediation, never an auto-route to Default. The old "fall back to the first
@@ -32,8 +34,9 @@
 #   fi
 #
 # Exit codes: 0 cleared; 2 binary missing; 3 version-parse fail; 4 version too low;
-# 5 no contexts connected; 6 pinned context not connected (UUID rot); 7 target is a
-# Default/working profile (deny); 8 test-context unset in preferences.
+# 5 no contexts connected; 6 pinned context not connected (UUID rot) OR pinned
+# Extension stale; 7 target is a Default/working profile (deny); 8 test-context
+# unset in preferences; 9 no pinned Extension at all.
 
 set -euo pipefail
 
@@ -231,6 +234,43 @@ PINNED_FROM="$EXT_DIR/PINNED_FROM.txt"
 UPSTREAM_DIST="${INTERCEPTOR_SRC:-$HOME/Projects/interceptor}/extension/dist"
 UPSTREAM_MANIFEST="$UPSTREAM_DIST/manifest.json"
 
+# Relativize a $HOME-rooted path to ~ for display. Same helper (and same reason)
+# as Tools/Pin.sh: do NOT use ${x/#$HOME/~} — bash 5.2+ tilde-expands the
+# replacement back to an absolute /Users/<name> path, so the substitution prints
+# the very thing it is meant to hide. Verified: bash 3.2 -> "~/...", bash 5.3 ->
+# "/Users/<name>/...", and `#!/usr/bin/env bash` picks up 5.x when one is on PATH.
+rel_home() { case "$1" in "$HOME"/*) printf '~%s' "${1#"$HOME"}";; *) printf '%s' "$1";; esac; }
+EXT_DIR_DISP="$(rel_home "$EXT_DIR")"
+UPSTREAM_DIST_DISP="$(rel_home "$UPSTREAM_DIST")"
+PIN_SH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/Pin.sh"
+
+# 4a. Extension present at all? The freshness comparison below is guarded on
+# PINNED_FROM.txt existing, so a WHOLLY MISSING Extension/ takes the
+# warn-and-continue branch and preflight exits 0 — it detects a STALE pin but
+# never an ABSENT one. Chrome keeps an already-loaded unpacked extension alive
+# from memory after its directory disappears, so the gap stays invisible until
+# the next Chrome restart, then presents as unrelated runner/injection errors.
+if [ ! -f "$EXT_DIR/manifest.json" ]; then
+    cat >&2 <<EOF
+[PreflightIsolation] FAIL: no pinned Extension at $EXT_DIR_DISP
+
+WHY THIS MATTERS:
+  Browser control needs the unpacked extension loaded from this directory. It is
+  a local pin of the built extension and is deliberately NOT shipped with the
+  skill, so anything that replaces the skill directory removes it with no
+  replacement. Chrome may still be running a copy from memory right now; that
+  copy does not survive a restart.
+
+REMEDIATION:
+  1. Re-pin:  bash "$(rel_home "$PIN_SH")"
+     (needs the built extension at $UPSTREAM_DIST_DISP; override with INTERCEPTOR_SRC)
+  2. In the test profile: chrome://extensions/ -> Load Unpacked
+       from $EXT_DIR_DISP
+  3. Re-run this preflight.
+EOF
+    exit 9
+fi
+
 if [ -f "$PINNED_FROM" ] && [ -f "$UPSTREAM_MANIFEST" ]; then
     pinned_version="$(grep -i '^Manifest version:' "$PINNED_FROM" | sed -E 's/.*: *//' | tr -d ' ')"
     upstream_version="$(grep '"version"' "$UPSTREAM_MANIFEST" | head -1 | sed -E 's/.*"version" *: *"([^"]+)".*/\1/')"
@@ -256,7 +296,7 @@ else
     # Warn, do not hard-fail on a missing reference.
     printf '[PreflightIsolation] WARN: cannot verify extension freshness ' >&2
     printf '(upstream dist %s absent or PINNED_FROM.txt missing). Proceeding.\n' \
-        "${UPSTREAM_DIST/#$HOME/~}" >&2
+        "$UPSTREAM_DIST_DISP" >&2
 fi
 
 # --- All checks passed ---

@@ -23,6 +23,13 @@
 
 import { existsSync, readFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { parseMemoryContent, read as memoryRead, BEGIN_MARKER, END_MARKER } from "./MemoryWriter";
+
+// CLI script, not a library: the checks below run at module top level and end
+// in process.exit. Spawn it (MemoryHealthGate does); never import it.
+if (!import.meta.main) {
+  throw new Error("MemoryHealthCheck.ts is a CLI script with top-level side effects — spawn it via bun, never import it.");
+}
 
 const HOME = process.env.HOME || "";
 const CLAUDE = join(HOME, ".claude");
@@ -246,13 +253,63 @@ else add("principal-memory-present", "ok", "PRINCIPAL_MEMORY.md present.");
 if (!existsSync(DA_MEM)) add("da-memory-missing", "critical", "DA_MEMORY.md missing.");
 else add("da-memory-present", "ok", "DA_MEMORY.md present.");
 
+// CHECK 7.5: marker structural sanity — exactly one BEGIN and one END, in order.
+// The 2026-07 corruption (END-before-BEGIN + a duplicate-END stack growing +1
+// per write) blinded every strict reader to 0 entries while cap-pressure kept
+// reporting green headroom. Structural damage must be a red signal; the next
+// canonical MemoryWriter write heals it.
+for (const [label, path] of [["principal", PRINCIPAL_MEM], ["da", DA_MEM]] as const) {
+  if (!existsSync(path)) continue;
+  try {
+    const lines = readFileSync(path, "utf-8").split("\n").map(l => l.trim());
+    const begins = lines.filter(l => l === BEGIN_MARKER).length;
+    const ends = lines.filter(l => l === END_MARKER).length;
+    const ordered = lines.indexOf(BEGIN_MARKER) !== -1 && lines.indexOf(BEGIN_MARKER) < lines.indexOf(END_MARKER);
+    if (begins !== 1 || ends !== 1 || !ordered) {
+      add(`marker-corrupt:${label}`, "critical",
+        `${label} memory marker structure corrupt (${begins} BEGIN / ${ends} END${ordered ? "" : ", disordered"}) — awaiting canonical-write heal.`,
+        { begins, ends });
+    } else {
+      add(`marker-ok:${label}`, "ok", `${label} memory marker pair canonical.`);
+    }
+  } catch (e) {
+    // A health probe must record its own failure, never kill the run and
+    // leave the previous healthy row standing.
+    add(`marker-check-error:${label}`, "critical", `${label} marker-sanity check failed to read the file: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+// CHECK 7.6: pending silent loss — on-disk entries the writer-side read()
+// excludes as invalid (over-length / marker-content / bad prefix). The
+// reviewer's set-overwrite submits read() output, so anything reported here
+// is erased by its next curation write; nag until the entry is repaired.
+for (const [label, path] of [["principal", PRINCIPAL_MEM], ["da", DA_MEM]] as const) {
+  if (!existsSync(path)) continue;
+  let r: ReturnType<typeof memoryRead>;
+  try {
+    r = memoryRead(path);
+  } catch (e) {
+    add(`pending-loss-check-error:${label}`, "critical", `${label} pending-loss check failed to read the file: ${e instanceof Error ? e.message : String(e)}`);
+    continue;
+  }
+  if (!("dropped_invalid" in r)) continue;
+  if (r.dropped_invalid.length > 0) {
+    add(`pending-silent-loss:${label}`, "warn",
+      `${label} memory: ${r.dropped_invalid.length} on-disk entr${r.dropped_invalid.length === 1 ? "y" : "ies"} invalid to read() — the next curation write erases them: ${r.dropped_invalid.map(d => `[${d.reason}] ${d.entry.slice(0, 60)}…`).join(" · ")}`,
+      { count: r.dropped_invalid.length });
+  } else {
+    add(`no-pending-loss:${label}`, "ok", `${label} memory: read() accepts all on-disk entries.`);
+  }
+}
+
 // CHECK 8: cap-pressure — the exact failure class that sat silent for two weeks.
 // A file AT cap can't accept new memory; near-cap means the next curation must
 // consolidate or it jams. (Eviction now works, so this is a warning not a freeze.)
 function entryCount(path: string): number {
   if (!existsSync(path)) return 0;
-  const m = readFileSync(path, "utf-8").match(/<!-- BEGIN ENTRIES -->([\s\S]*?)<!-- END ENTRIES -->/);
-  return m ? m[1].split("\n").map(l => l.trim()).filter(l => l.length > 0).length : 0;
+  // Shared lenient parser — the old lazy regex matched the first (empty)
+  // BEGIN→END pair on corrupted files and reported 0/48 headroom, green.
+  return parseMemoryContent(readFileSync(path, "utf-8")).entries.length;
 }
 for (const [label, path] of [["principal", PRINCIPAL_MEM], ["da", DA_MEM]] as const) {
   const n = entryCount(path);

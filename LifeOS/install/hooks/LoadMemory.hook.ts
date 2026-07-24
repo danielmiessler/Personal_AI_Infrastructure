@@ -23,13 +23,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
+import { parseMemoryContent } from "../LIFEOS/TOOLS/MemoryWriter";
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
 const PRINCIPAL_MEMORY = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/PRINCIPAL/PRINCIPAL_MEMORY.md");
 const DA_MEMORY = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/DIGITAL_ASSISTANT/DA_MEMORY.md");
-
-const ENTRIES_START = "<!-- BEGIN ENTRIES -->";
-const ENTRIES_END = "<!-- END ENTRIES -->";
 
 interface MemoryRead {
   entries: string[];
@@ -48,18 +46,10 @@ function isSubagentInvocation(): boolean {
 function readMemory(path: string): MemoryRead {
   if (!existsSync(path)) return { entries: [], count: 0, charsUsed: 0 };
   try {
-    const raw = readFileSync(path, "utf8");
-    const startIdx = raw.indexOf(ENTRIES_START);
-    const endIdx = raw.indexOf(ENTRIES_END);
-    if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
-      return { entries: [], count: 0, charsUsed: 0 };
-    }
-    const block = raw.slice(startIdx + ENTRIES_START.length, endIdx).trim();
-    if (!block) return { entries: [], count: 0, charsUsed: 0 };
-    const entries = block
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    // Shared lenient parser (MemoryWriter owns it) — never a second local
+    // marker-parsing implementation. The old strict indexOf slice here went
+    // silently blind (0 entries) on marker-corrupted files for weeks.
+    const { entries } = parseMemoryContent(readFileSync(path, "utf8"));
     const charsUsed = entries.reduce((sum, e) => sum + e.length, 0);
     return { entries, count: entries.length, charsUsed };
   } catch {

@@ -28,6 +28,7 @@ import {
   statSync,
 } from "node:fs";
 import { join } from "node:path";
+import { parseMemoryContent } from "../../TOOLS/MemoryWriter";
 
 const HOME = process.env.HOME || "";
 const CLAUDE = join(HOME, ".claude");
@@ -109,13 +110,9 @@ function safeReadJsonLines(path: string, lastN: number = 50): any[] {
 function readMemoryFile(path: string): { entries: string[]; count: number; charsUsed: number } {
   if (!existsSync(path)) return { entries: [], count: 0, charsUsed: 0 };
   try {
-    const raw = readFileSync(path, "utf-8");
-    const start = raw.indexOf("<!-- BEGIN ENTRIES -->");
-    const end = raw.indexOf("<!-- END ENTRIES -->");
-    if (start === -1 || end === -1 || end < start) return { entries: [], count: 0, charsUsed: 0 };
-    const block = raw.slice(start + "<!-- BEGIN ENTRIES -->".length, end).trim();
-    if (!block) return { entries: [], count: 0, charsUsed: 0 };
-    const entries = block.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    // Shared lenient parser (MemoryWriter owns it) — the old strict indexOf
+    // slice showed an empty panel on marker-corrupted files.
+    const { entries } = parseMemoryContent(readFileSync(path, "utf-8"));
     const charsUsed = entries.reduce((s, e) => s + e.length, 0);
     return { entries, count: entries.length, charsUsed };
   } catch {

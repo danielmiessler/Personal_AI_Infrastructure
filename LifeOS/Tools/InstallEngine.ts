@@ -150,6 +150,26 @@ export function detectHarness(home: string): HarnessInfo {
 }
 
 /**
+ * Resolve the skills directory for a given harness. Hermes loads skills from
+ * `~/.hermes/skills` (or `$HERMES_HOME/skills` when HERMES_HOME is set); every
+ * Claude-shaped harness follows the `~/.claude/skills` convention (honoring
+ * CLAUDE_CONFIG_DIR when present). Read-only — computes a path, touches nothing.
+ */
+export function getHarnessSkillsDir(harnessName: Harness, home: string): string {
+  if (harnessName === "hermes") {
+    const root = process.env.HERMES_HOME || join(home, ".hermes");
+    return join(root, "skills");
+  }
+  const root = process.env.CLAUDE_CONFIG_DIR || join(home, ".claude");
+  return join(root, "skills");
+}
+
+/** True when the detected harness is Hermes. */
+export function isHermes(harness: HarnessInfo): boolean {
+  return harness.name === "hermes";
+}
+
+/**
  * Dev-tree refusal marker. The private maintenance skill (`skills/_LIFEOS`) exists
  * ONLY in the author's source repo — never in a public install (release tooling
  * strips all `_ALLCAPS` skills). Its presence means "this is the live source;

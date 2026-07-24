@@ -341,58 +341,6 @@ export function setTabState(opts: SetTabOptions): void {
 }
 
 /**
- * Set ONLY the leading mode/tier token ("N" | "E1".."E5") on the current tab,
- * preserving the working description, and clearing any stale completion state.
- *
- * This is the authoritative mode-token writer, called by TheRouter the moment
- * it classifies the turn — so the tab projects the real {mode,tier} decision
- * instead of PromptProcessing's shadow-classifier guess. It is deliberately a
- * distinct primitive from setTabState (which takes a full title) and setPhaseTab
- * (which needs an Algorithm phase): here we mutate ONLY the token, keep the
- * description, and drop a prior turn's `✅ done` so it can't linger into live work.
- *
- * - `token`: "N" for NATIVE turns, "E1".."E5" for ALGORITHM. (MINIMAL passes no call.)
- * - `fallbackDesc`: used only when the current title is absent or a stale completion
- *   (whose description we intentionally drop). Normally PromptProcessing's ~50ms
- *   deterministic stamp has already set a live working description we preserve.
- *
- * Silent no-op when no kitty socket/session resolves (setTabState handles that).
- * Never writes stdout — safe to call from a hook that emits JSON on stdout.
- */
-const LIVE_ALGO_PHASES = new Set(['OBSERVE', 'THINK', 'PLAN', 'BUILD', 'EXECUTE', 'VERIFY', 'LEARN']);
-
-export function setModeToken(sessionId: string | undefined, token: string, fallbackDesc?: string): void {
-  if (!token) return;
-  try {
-    const cur = readTabState(sessionId);
-    const wasCompleted = !!cur && (cur.state === 'completed' || cur.state === 'idle' || /✅/.test(cur.title || ''));
-
-    // Mid-run follow-up on an ALGORITHM turn: the tab is already showing a live
-    // phase (e.g. "E4 👁️ desc"). Preserve the phase icon + phase field, swapping
-    // ONLY the tier token — delegate to setPhaseTab. Without this, re-stamping the
-    // token every turn would revert 👁️→⚙️ and drop the phase (the documented
-    // "orange gear wiped the phase tab" regression). Only for E-tier tokens: a
-    // NATIVE ('N') follow-up after an algorithm turn SHOULD clear the phase → falls
-    // through to the neutral stamp below.
-    if (cur && !wasCompleted && cur.phase && LIVE_ALGO_PHASES.has(cur.phase) && /^E[1-5]$/.test(token)) {
-      const carriedDesc = stripPrefix(cur.title);
-      setPhaseTab(cur.phase as AlgorithmTabPhase, sessionId!, carriedDesc || undefined, token);
-      return;
-    }
-
-    // Preserve a LIVE working description; drop a stale completion's text.
-    let desc = cur && !wasCompleted ? stripPrefix(cur.title) : '';
-    if (!desc) desc = (fallbackDesc && fallbackDesc.trim()) || getSessionOneWord(sessionId || '') || 'working…';
-    const state: TabState = token === 'N' ? 'native' : 'working';
-    // Neutral working gear at turn start (pre-phase); phase icons (👁️📋…) arrive from
-    // setPhaseTab. Title already carries the token, so don't also pass modeToken.
-    setTabState({ title: `${token} ⚙️ ${desc}`, state, sessionId });
-  } catch (err) {
-    console.error('[tab-setter] setModeToken failed:', err);
-  }
-}
-
-/**
  * Read per-window state file. Returns null if not found or invalid.
  */
 export function readTabState(sessionId?: string): { title: string; state: TabState; previousTitle?: string; phase?: string } | null {

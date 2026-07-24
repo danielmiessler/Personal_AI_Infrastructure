@@ -40,6 +40,8 @@ For substantial work, apply the seven phases as appropriate:
 
 The phases are a reasoning and execution contract, not a requirement to emit phase banners on every turn.
 
+**Algorithm skill.** For substantial work requiring the full seven-phase loop, load the Algorithm skill (`/skill Algorithm`). It owns the procedure — phase transitions, effort-tier floors, ISC quality gates, and the verification doctrine. This constitution provides the invariants; the skill provides the procedure.
+
 ## 4. ISA discipline
 
 Use an ISA when “done” needs articulation, construction, or verification. Keep the master ISA as the source of truth. Criteria must be atomic, falsifiable, and independently verifiable. Do not claim completion merely because an implementation exists.

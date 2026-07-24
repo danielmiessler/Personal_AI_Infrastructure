@@ -20,6 +20,15 @@
  *    delete path), then reports the ACTUAL rollback outcome (partial failures named).
  *  - all deletes go through safeRemove (isPreserved + path-escape, case-insensitive).
  *
+ * ONE DELIBERATE EXCEPTION to the payload-distrust stance above: the post-deploy
+ * re-pin step EXECUTES a payload-shipped script (skills/Interceptor/Tools/Pin.sh,
+ * which after deploy is the payload's copy). This is not a new trust boundary in
+ * practice — an upgraded install is about to run the payload's hooks, tools, and
+ * skills anyway — but it IS script execution, so it is opt-out by construction:
+ * it runs only when that skill was actually replaced AND the operator's local
+ * interceptor build exists, is announced in the dry-run plan before --apply, and
+ * sits outside the rollback-guarded block so it can never trigger a rollback.
+ *
  * Known limitations (documented, low-risk): safeRemove's path-escape guard is
  * lexical (does not resolve a symlinked config-root ancestor); "backup precedes
  * delete" is enforced by main()'s call order, not an invariant inside safeRemove.
@@ -34,6 +43,7 @@
 import { existsSync, readdirSync, lstatSync, rmSync, mkdirSync, copyFileSync, cpSync, readFileSync, writeFileSync } from "node:fs";
 import { join, sep, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
+import { execFileSync } from "node:child_process";
 
 const ensureParentDir = (p: string) => mkdirSync(dirname(p), { recursive: true });
 const errCode = (e: unknown): string | undefined => (e as { code?: string })?.code;
@@ -149,6 +159,42 @@ export function planUpgrade(configRoot: string, payloadRoot: string): Plan {
   warnings.push("Config reconciliation is a MANUAL post-step (by design — it depends on YOUR customizations): (1) run the payload's InstallHooks.ts to wire new hooks; (2) fold new CLAUDE.md/settings structure in by hand; (3) re-apply any edits to replaced SYSTEM files from the backup dir.");
   warnings.push("Deployed components with their own dependencies or a build step (e.g. LIFEOS/PULSE) need `bun install` + their build re-run AFTER deploy — this tool copies source, not node_modules or built output. A component with a new dependency or an unbuilt frontend will fail (e.g. HTTP 503) until then.");
   return { configRoot, payloadRoot, clear, deployRoots, warnings };
+}
+
+// ── Post-deploy: re-pin the Interceptor browser extension ────────────────────
+// The payload ships skills/Interceptor but NOT its built Extension/ — a ~15MB
+// local pin of ~/Projects/interceptor/extension/dist produced by the skill's own
+// Tools/Pin.sh. Clearing that skill wholesale therefore deletes the extension
+// with no payload replacement, and the loss is quiet: Chrome keeps an already-
+// loaded unpacked extension running from memory after its directory disappears,
+// so browser verification keeps working until the next Chrome restart and then
+// fails as an unrelated-looking runner error. Pin.sh re-derives the pin from the
+// operator's local build, so recovery is deterministic when that build exists.
+//
+// Decision is pure (planRepin) and the side effect is isolated (runRepin) so the
+// interesting half is testable without shelling out.
+export type RepinPlan = { act: boolean; reason: string; script: string; src: string };
+
+export function planRepin(configRoot: string, clear: string[], interceptorSrc?: string): RepinPlan {
+  const script = join(configRoot, "skills", "Interceptor", "Tools", "Pin.sh");
+  const src = join(interceptorSrc || join(homedir(), "Projects", "interceptor"), "extension", "dist");
+  const p = (act: boolean, reason: string) => ({ act, reason, script, src });
+  if (!clear.includes("skills/Interceptor")) return p(false, "skills/Interceptor not being replaced — extension untouched");
+  if (!existsSync(script)) return p(false, `Pin.sh absent (${script}) — payload no longer ships it; re-pin by hand`);
+  if (!existsSync(src)) return p(false, `interceptor build dir absent (${src}) — set INTERCEPTOR_SRC or rebuild, then run Pin.sh by hand`);
+  return p(true, "extension was cleared with the skill — re-pinning from the local build");
+}
+
+/** Runs Pin.sh via execFile (argument array, never a shell string). Never throws: a
+ *  failed re-pin must not fail an otherwise-successful upgrade — it is reported instead. */
+export function runRepin(plan: RepinPlan): { ok: boolean; output: string } {
+  try {
+    const out = execFileSync("/bin/bash", [plan.script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return { ok: true, output: String(out).trim() };
+  } catch (e) {
+    const err = e as { stderr?: unknown; message?: string };
+    return { ok: false, output: String(err?.stderr || err?.message || e).trim() };
+  }
 }
 
 // ── Preflight ────────────────────────────────────────────────────────────────
@@ -473,6 +519,9 @@ function main() {
   console.log(`\nPRESERVED (never touched): USER, MEMORY, ARBOL, .env*, CLAUDE.md, settings*.json, private skills/_*, harness dirs, and any entry the payload does NOT ship.`);
   console.log(`\nWARNINGS:`); plan.warnings.forEach((w) => console.log("  ⚠ " + w));
 
+  const repin = planRepin(configRoot, plan.clear, process.env.INTERCEPTOR_SRC);
+  console.log(`\nPOST-DEPLOY re-pin (Interceptor extension): ${repin.act ? "WILL RUN" : "skip"} — ${repin.reason}`);
+
   let splitPlan: SplitPlan | undefined;
   if (splitClaudeMd) {
     splitPlan = planClaudeSplit(configRoot, payloadRoot);
@@ -519,6 +568,16 @@ function main() {
       failed.map((f) => `      • ${f}`).join("\n") + `\n    Backup: ${backupDir}`);
     console.error(`  rollback complete — SYSTEM zones restored to pre-run state. Backup kept at ${backupDir}.`);
     process.exit(1);
+  }
+
+  // Post-deploy re-pin. Deliberately AFTER the rollback-guarded block: a re-pin
+  // failure is not an upgrade failure, so it must not reach that catch.
+  if (repin.act) {
+    console.log(`[post] re-pinning Interceptor extension from ${repin.src}…`);
+    const r = runRepin(repin);
+    console.log(r.ok ? `      ${r.output}` : `      ⚠ re-pin FAILED (upgrade itself is fine): ${r.output}\n      → run ${repin.script} by hand, then Load Unpacked in chrome://extensions/.`);
+  } else if (plan.clear.includes("skills/Interceptor")) {
+    console.log(`[post] ⚠ Interceptor extension NOT re-pinned — ${repin.reason}`);
   }
 
   console.log(`\nDONE. Backup: ${backupDir}`);

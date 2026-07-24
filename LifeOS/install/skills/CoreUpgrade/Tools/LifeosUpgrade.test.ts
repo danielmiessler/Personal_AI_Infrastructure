@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import {
   isPreserved, computeClearList, planUpgrade, copyMissing, preflight, payloadHas,
   parseArgs, safeRemove, scopedBackup, rollback, snapshotDeployTargets, extractCustomizations,
-  planClaudeSplit, applyClaudeSplit, undoClaudeSplit,
+  planClaudeSplit, applyClaudeSplit, undoClaudeSplit, planRepin,
 } from "./LifeosUpgrade";
 
 // TR6: every tmp root is tracked and removed after the suite — no orphaned temp trees.
@@ -371,4 +371,56 @@ test("split + rollback compose: deploy failure restores CLAUDE.md, removes GLOBA
   expect(readFileSync(join(root, "LIFEOS/TOOLS/orig.ts"), "utf8")).toBe("ORIG");          // SYSTEM restored
   expect(existsSync(join(root, "LIFEOS/TOOLS/new.ts"))).toBe(false);                      // deploy remnant gone
   rmSync(bak, { recursive: true, force: true });
+});
+
+// ── planRepin: the Interceptor extension is a payload-shipped skill's UNSHIPPED artifact ──
+// Regression guard: a wholesale clear of skills/Interceptor removes its pinned
+// Extension/ build, which the payload does not ship and cannot restore.
+
+function repinTree(opts: { pin?: boolean; src?: boolean }) {
+  const root = tmp("lu-rp-"), srcRoot = tmp("lu-rps-");
+  if (opts.pin) {
+    mkdirSync(join(root, "skills/Interceptor/Tools"), { recursive: true });
+    writeFileSync(join(root, "skills/Interceptor/Tools/Pin.sh"), "#!/usr/bin/env bash\ntrue\n");
+  }
+  if (opts.src) mkdirSync(join(srcRoot, "extension/dist"), { recursive: true });
+  return { root, srcRoot };
+}
+
+test("planRepin: acts only when Interceptor was cleared AND both Pin.sh and the build exist", () => {
+  const { root, srcRoot } = repinTree({ pin: true, src: true });
+  const p = planRepin(root, ["LIFEOS/TOOLS", "skills/Interceptor"], srcRoot);
+  expect(p.act).toBe(true);
+  expect(p.script).toBe(join(root, "skills/Interceptor/Tools/Pin.sh"));
+  expect(p.src).toBe(join(srcRoot, "extension/dist"));
+});
+
+test("planRepin: no-ops when Interceptor is not in the clear list (nothing was deleted)", () => {
+  const { root, srcRoot } = repinTree({ pin: true, src: true });
+  const p = planRepin(root, ["LIFEOS/TOOLS"], srcRoot);
+  expect(p.act).toBe(false);
+  expect(p.reason).toContain("not being replaced");
+});
+
+test("planRepin: declines with actionable reason when the local build dir is absent", () => {
+  const { root, srcRoot } = repinTree({ pin: true, src: false });
+  const p = planRepin(root, ["skills/Interceptor"], srcRoot);
+  expect(p.act).toBe(false);
+  expect(p.reason).toContain("INTERCEPTOR_SRC");
+});
+
+test("planRepin: declines when the payload stopped shipping Pin.sh", () => {
+  const { root, srcRoot } = repinTree({ pin: false, src: true });
+  const p = planRepin(root, ["skills/Interceptor"], srcRoot);
+  expect(p.act).toBe(false);
+  expect(p.reason).toContain("Pin.sh absent");
+});
+
+test("planRepin: is pure — it never creates or mutates anything on disk", () => {
+  const { root, srcRoot } = repinTree({ pin: true, src: true });
+  const before = readdirSync(root).sort();
+  planRepin(root, ["skills/Interceptor"], srcRoot);
+  planRepin(root, [], srcRoot);
+  expect(readdirSync(root).sort()).toEqual(before);
+  expect(existsSync(join(root, "skills/Interceptor/Extension"))).toBe(false);
 });

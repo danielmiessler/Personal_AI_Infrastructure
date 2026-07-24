@@ -30,7 +30,8 @@ These skills are fully compatible with Hermes and install into `$HERMES_HOME/ski
 - **SystemsThinking** — Dynamic systems modeling and leverage point identification
 - **CreateSkill** — Automated skill creation and packaging engine
 - **CreateCLI** — Command-line tool scaffold generator
-- **Delegation** — Subagent task distribution and result synthesis
+- **Config** — Hermes-native config layering (constitution → config.yaml → SOUL.md → TELOS → skills); replaces the LifeOS system/user settings merge
+- **Delegation** — Subagent task distribution and result synthesis via `delegate_task`, model-tier matching, and verified fan-out
 - **Evals** — System and output evaluation framework
 - **Prompting** — Advanced prompt engineering techniques
 - **Science** — Hypothesis testing and empirical methodology

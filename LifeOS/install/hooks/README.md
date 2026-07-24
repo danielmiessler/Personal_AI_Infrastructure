@@ -76,8 +76,7 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │                                                                     │
 │  Stop ──┬──► LastResponseCache  (cache for SatisfactionCapture)     │
 │         ├──► ResponseTabReset   (Kitty tab reset)                   │
-│         ├──► VoiceCompletion    (TTS voice line)                    │
-│         └──► DocIntegrity       (cross-refs + arch summary regen)   │
+│         └──► VoiceCompletion    (TTS voice line)                    │
 │                                                                     │
 │  StopFailure ──► StopFailureHandler (API error logging + voice)     │
 │  PostCompact ──► RestoreContext (re-inject context post-compaction) │
@@ -91,6 +90,7 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │               ├──► SessionCleanup (work completion + state clear)   │
 │               ├──► RelationshipMemory (relationship notes)          │
 │               ├──► UpdateCounts (settings.json counts + cache)      │
+│               ├──► DocIntegrity (cross-refs + arch summary regen)   │
 │               └──► IntegrityCheck (system file change detection)    │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -107,13 +107,13 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 | `PreToolUse` | Before a tool executes | Command rewrite, skill/agent enforcement, UI state |
 | `PostToolUse` | After a tool executes | ISA sync, checkpoint commit, observability, external content tagging |
 | `PostToolUseFailure` | Tool execution fails | Error tracking, debugging observability |
-| `Stop` | Claude responds | Voice feedback, tab updates, doc integrity |
+| `Stop` | Claude responds | Voice feedback, tab updates |
 | `StopFailure` | Turn ends due to API error | Error logging, voice notification |
 | `PreCompact` / `PostCompact` | Around compaction | Handover note out, context restoration in |
 | `TaskCreated` | Subagent creates a task | Rate-limit + quality gate |
 | `ConfigChange` | settings.json modified | Security audit trail |
 | `InstructionsLoaded` | CLAUDE.md and rules files load | SHA-256 baseline audit |
-| `SessionEnd` | Session terminates | Summary, learning, GitHub sync, counts, relationship memory |
+| `SessionEnd` | Session terminates | Summary, learning, GitHub sync, counts, relationship memory, doc integrity |
 
 ### Event Payload Structure
 
@@ -205,7 +205,6 @@ interface StopPayload extends BasePayload {
 | `LastResponseCache.hook.ts` | Cache last response for SatisfactionCapture bridge | No | None |
 | `ResponseTabReset.hook.ts` | Reset Kitty tab title/color after response | No | Kitty terminal |
 | `VoiceCompletion.hook.ts` | Send 🗣️ voice line to TTS server | No | Voice Server |
-| `DocIntegrity.hook.ts` | Cross-ref + semantic drift checks + arch summary regen | No | Inference API, handlers/ |
 
 ### StopFailure Hooks
 
@@ -253,6 +252,7 @@ Outputs: `subagent-events.jsonl` (start + stop events), correlated by `session_i
 | `SessionCleanup.hook.ts` | Mark work complete + clear state | No | `MEMORY/WORK/`, `MEMORY/STATE/work.json` |
 | `RelationshipMemory.hook.ts` | Capture relationship notes (W/B/O markers) | No | `MEMORY/RELATIONSHIP/` |
 | `UpdateCounts.hook.ts` | Update settings.json counts (skills/hooks/...) + Anthropic usage cache | No | `settings.json`, Anthropic API |
+| `DocIntegrity.hook.ts` | Cross-ref + semantic drift checks + arch summary regen | No | Inference API, handlers/ |
 | `IntegrityCheck.hook.ts` | System file change detection → spawn IntegrityMaintenance | No | `MEMORY/STATE/integrity-state.json`, handlers/ |
 
 ---
@@ -289,7 +289,6 @@ Stop:
   LastResponseCache  →  writes MEMORY/STATE/last-response.txt
   ResponseTabReset   →  Kitty tab → completion state
   VoiceCompletion    →  🗣️ line → TTS
-  DocIntegrity       →  cross-ref scan + arch summary regen
 
 [Next user prompt arrives]
 

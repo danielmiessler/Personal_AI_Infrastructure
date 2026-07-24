@@ -4,7 +4,7 @@
  * IntegrityCheck.hook.ts - LifeOS Integrity Check (SessionEnd)
  *
  * Runs system integrity check — detects LifeOS system file changes, spawns background maintenance.
- * Doc cross-ref integrity is handled by DocIntegrity.hook.ts (Stop event) to avoid double execution.
+ * Doc cross-ref integrity is handled by DocIntegrity.hook.ts (SessionEnd event) to avoid double execution.
  *
  * TRIGGER: SessionEnd
  * PERFORMANCE: ~50ms (single transcript parse, one handler call). Non-blocking.

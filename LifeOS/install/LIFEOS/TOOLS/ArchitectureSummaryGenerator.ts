@@ -158,7 +158,7 @@ const PIPELINE_ROUTER: Record<string, { what: string; doc: string }> = {
   "Config": { what: "settings.json, CLAUDE.md, system prompt; release tooling stages public artifacts", doc: "Config/ConfigSystem.md" },
   "Notifications": { what: "Voice notifications via Pulse to ElevenLabs, logged to VOICE events", doc: "Notifications/NotificationSystem.md" },
   "Telegram Dynamic Voice": { what: "Per-turn Telegram pipeline: identity-injected replies plus voice bubbles", doc: "Pulse/PulseSystem.md" },
-  "Doc Integrity": { what: "Stop-hook cross-reference checks; regenerates this summary from the master doc", doc: "Hooks/HookSystem.md" },
+  "Doc Integrity": { what: "SessionEnd cross-reference checks; regenerates this summary from the master doc", doc: "Hooks/HookSystem.md" },
   "Bunker": { what: "Universal application harness — canonical repo ~/Projects/bunker; app state-of-record bunker.isa.md; Pulse /bunker tab", doc: "LifeosSystemArchitecture.md" },
 };
 

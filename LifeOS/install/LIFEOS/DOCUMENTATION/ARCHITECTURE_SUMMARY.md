@@ -37,7 +37,7 @@ One line per pipeline. Full wiring, file inventories, and incident notes: master
 | **Config** | settings.json, CLAUDE.md, system prompt; release tooling stages public artifacts | `LIFEOS/DOCUMENTATION/Config/ConfigSystem.md` |
 | **Notifications** | Voice notifications via Pulse to ElevenLabs, logged to VOICE events | `LIFEOS/DOCUMENTATION/Notifications/NotificationSystem.md` |
 | **Telegram Dynamic Voice** | Per-turn Telegram pipeline: identity-injected replies plus voice bubbles | `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` |
-| **Doc Integrity** | Stop-hook cross-reference checks; regenerates this summary from the master doc | `LIFEOS/DOCUMENTATION/Hooks/HookSystem.md` |
+| **Doc Integrity** | SessionEnd cross-reference checks; regenerates this summary from the master doc | `LIFEOS/DOCUMENTATION/Hooks/HookSystem.md` |
 
 ## Cross-References
 

@@ -580,7 +580,7 @@ Content from USER/ and WORK/ must NEVER appear outside of them or in the public 
 
 ## Pipeline Topology
 
-System file inventory by pipeline. When you modify a file, trace its pipeline to find downstream docs that need updating. The `DocIntegrity.hook.ts` (Stop) automates cross-reference checks and the `ArchitectureSummaryGenerator.ts` regenerates the summary when the master doc changes.
+System file inventory by pipeline. When you modify a file, trace its pipeline to find downstream docs that need updating. The `DocIntegrity.hook.ts` (SessionEnd) automates cross-reference checks and the `ArchitectureSummaryGenerator.ts` regenerates the summary when the master doc changes.
 
 | Pipeline | Key Files |
 |----------|-----------|
@@ -597,7 +597,7 @@ System file inventory by pipeline. When you modify a file, trace its pipeline to
 | **Config** | `settings.json`, `CLAUDE.md`, `LIFEOS_SYSTEM_PROMPT.md` (directly edited) → release tooling clones the live tree, deletes private zones, overlays public templates + USER scaffold into staging, runs gates, then emits the shippable `LifeOS/` skill (`EmitSkill.ts`) from that staging |
 | **Notifications** | `Pulse/pulse.ts` voice handler → ElevenLabs API → `MEMORY/VOICE/voice-events.jsonl` |
 | **Telegram Dynamic Voice** | `Pulse/modules/telegram.ts` per-turn pipeline: `buildLifeosContextBlock()` injects `USER/DIGITAL_ASSISTANT/DA_IDENTITY.md` + `USER/PRINCIPAL/PRINCIPAL_IDENTITY.md` + `USER/TELOS/PRINCIPAL_TELOS.md` + "Open Sessions to Resume" from `USER/PROJECTS.md` into SDK system prompt (cached 60s with per-file mtime invalidation) → SDK turn produces text reply streamed via `editMessageText` → `sendVoiceSummary()` fires fire-and-forget after text ships: `summarizeForVoice()` calls `LIFEOS/TOOLS/Inference.ts level: "medium"` (sonnet-tier, 10s outer race, fallback first-sentence) → `synthesizeKaiVoice()` POSTs ElevenLabs `output_format=opus_48000_64` → `bot.api.sendVoice(InputFile)` ships OGG/Opus as a voice-bubble. Voice ID resolved from `settings.json daidentity.voices.main.voiceId` (matches VoiceServer), public ElevenLabs `21m00Tcm4TlvDq8ikWAM` ("Rachel") fallback for fresh installs. 60-minute idle-session boundary: `lastMessageAt`/`threadStartedAt` clear `lastSessionId` and filter `conversationStore.getHistory()` by timestamp so episodic bursts thread together but a fresh post-idle message ships without "Previous conversation:" injection. Useless-fallback guard skips ElevenLabs when fallback summary <6 words against a ≥25-word reply. Channel-separate from CLI `/notify`: VoiceServer untouched. `PULSE/lib/conversation.ts` `getHistory()` returns `ConversationMessage[]` (timestamp field surfaced) — minimal additive change to support the timestamp filter. |
-| **Doc Integrity** | `hooks/DocIntegrity.hook.ts` (Stop) → `hooks/handlers/DocCrossRefIntegrity.ts` + `hooks/handlers/RebuildArchSummary.ts` → `Tools/ArchitectureSummaryGenerator.ts` |
+| **Doc Integrity** | `hooks/DocIntegrity.hook.ts` (SessionEnd) → `hooks/handlers/DocCrossRefIntegrity.ts` + `hooks/handlers/RebuildArchSummary.ts` → `Tools/ArchitectureSummaryGenerator.ts` |
 
 ## System Self-Management
 

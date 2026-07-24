@@ -8,7 +8,7 @@
  * DOCUMENTATION/ARCHITECTURE_SUMMARY.md, invokes Tools/ArchitectureSummaryGenerator.ts to
  * regenerate it.
  *
- * TRIGGER: called from DocIntegrity.hook.ts on Stop.
+ * TRIGGER: called from DocIntegrity.hook.ts on SessionEnd.
  *
  * DESIGN:
  * - No Components dir tracking (deprecated pipeline removed in v5.0).

@@ -8,7 +8,7 @@
  * The deterministic layer detects WHAT changed. The inference layer understands
  * HOW docs need updating — generating surgical edit pairs, never full rewrites.
  *
- * TRIGGER: Stop hook (via DocIntegrity.hook.ts)
+ * TRIGGER: SessionEnd (via DocIntegrity.hook.ts)
  *
  * PATTERN TYPES CHECKED (deterministic):
  * 1. Hook file references (*.hook.ts) - diff against disk

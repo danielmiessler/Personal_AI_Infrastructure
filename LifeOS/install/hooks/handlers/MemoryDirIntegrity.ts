@@ -11,7 +11,7 @@
  *
  * "reserved"-status rows are allowed to be empty or absent.
  *
- * TRIGGER: Stop hook (called from DocIntegrity.hook.ts)
+ * TRIGGER: SessionEnd (called from DocIntegrity.hook.ts)
  *
  * READS:
  *   LIFEOS/DOCUMENTATION/Memory/MemorySystem.md (Directory Inventory table)

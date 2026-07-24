@@ -138,9 +138,12 @@ enabled = true
 [[job]]
 name = "memory-consolidation"
 schedule = "0 3 * * *"
-type = "claude"
-prompt = "Run learning consolidation: execute `bun run ~/.claude/LIFEOS/TOOLS/SessionHarvester.ts --recent 20` then `bun run ~/.claude/LIFEOS/TOOLS/LearningPatternSynthesis.ts --week`. Summarize what was learned and any patterns found."
-model = "sonnet"
+# Deterministic tools, no LLM needed. Must be a script job: `type = "claude"`
+# spawns the CLI with `--tools ""` (see PULSE/lib.ts), so an agent asked to
+# *execute* these commands can't — it narrates and exits, logging "completed"
+# in a few seconds while running nothing.
+type = "script"
+command = "bun run ~/.claude/LIFEOS/TOOLS/SessionHarvester.ts --recent 20 && bun run ~/.claude/LIFEOS/TOOLS/LearningPatternSynthesis.ts --week"
 output = "log"
 enabled = true
 

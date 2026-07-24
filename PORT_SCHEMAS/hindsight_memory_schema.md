@@ -123,8 +123,18 @@ These belong in Hermes session/workspace/logging, not memory.
 
 ---
 
-## 7. Open Decisions
+## 7. Identity Mapping (LifeOS → Hermes)
 
-1. Auto-retain reflection outputs, or require agent validation first?
-2. Episodic learning TTL/decay policy, or rely on Hindsight relevance scoring?
-3. Subagent bank access: read/write `user_{user_id}` with `source:subagent` tag, or temporary sub-bank merged on completion?
+### DA_IDENTITY.md → SOUL.md
+LifeOS stores agent identity in `USER/DIGITAL_ASSISTANT/DA_IDENTITY.md` (loaded at session start via CLAUDE.md `@` import). The Hermes-native equivalent is `$HERMES_HOME/SOUL.md` — always loaded when present, independent of cwd, sets agent identity (not project rules).
+
+- **LifeOS source**: `LifeOS/install/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md` (template — "INTERVIEW REQUIRED")
+- **Hermes target**: `$HERMES_HOME/SOUL.md` (updated with HAL's actual identity, personality, voice, relationship, autonomy, and writing rules)
+- **Status**: Done. SOUL.md rewritten from the minimal default to a full identity grounded in Aron's actual preferences and the LifeOS DA_IDENTITY template structure.
+
+### PRINCIPAL_IDENTITY.md → Hindsight
+LifeOS stores principal identity in `USER/PRINCIPAL/PRINCIPAL_IDENTITY.md` (template — "INTERVIEW REQUIRED"). The Hermes-native equivalent is Hindsight retain under `cat:identity` + `cat:telos`.
+
+- **LifeOS source**: `LifeOS/install/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md` (template)
+- **Hermes target**: Hindsight, tags `["cat:telos", "cat:identity", "durability:core", "source:dropbox_telos"]`
+- **Status**: Done. Real identity (mission, goals, beliefs, frames, status) retained from Dropbox TELOS.

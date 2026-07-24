@@ -82,12 +82,11 @@ Creates the personal config tree from templates and links it in. This is empty s
 
 This is the one place harnesses genuinely differ. Show the exact change and get a yes.
 
-- **Claude Code** — run `bun Tools/InstallHooks.ts` (merges the hook set into `settings.json`, backing it up first) and `bun Tools/ActivateImports.ts` (turns on the identity context imports). This is what lights up the always-on behavior: the LifeOS response format, the memory loop, and per-turn context injection.
+- **Claude Code** — run `bun Tools/InstallHooks.ts` (merges the hook set into `settings.json`, backing it up first) and `bun Tools/ActivateImports.ts` (turns on the identity context imports). This remains the Claude-specific integration path.
 
-- **Any other harness (Cursor / Cline / Codex / Gemini / other)** — LifeOS's always-on behavior is enforced by Claude Code *hooks*, which are a Claude Code mechanism. They don't auto-wire on other harnesses **yet**. So instead:
-  1. Write an `AGENTS.md` (or the harness's own context file — e.g. `.cursor/rules`) that points the harness at the LifeOS tree, so it loads the LifeOS context every session.
-  2. Tell your human, plainly and honestly: *"On <harness>, the always-on hooks aren't wired yet. You get the skill, your USER data, Pulse, and context loading every session, and you run Setup and Interview on request. Full always-on behavior is on the roadmap for this harness."*
-  3. **Do not** write Claude hook files or a Claude `settings.json` `hooks` block into a non-Claude harness — it would sit there inert and do nothing.
+- **Hermes** — load `install/LIFEOS/HERMES_CONSTITUTION.md` through Hermes' `ephemeral_system_prompt` initialization parameter. Keep Hindsight, LCM, the cognitive graph, Hermes skills, cron, and Hermes lifecycle/tool middleware as the native runtime layers. Do **not** write Claude hook files or a Claude `settings.json` `hooks` block into Hermes.
+
+- **Any other harness (Cursor / Cline / Codex / Gemini / other)** — LifeOS's always-on behavior is harness-specific. Write an `AGENTS.md` (or the harness's own context file) that points the harness at the LifeOS tree, and state clearly which lifecycle integration is and is not available. Never write inert Claude hook configuration into another harness.
 
 ### 7. Wire the launch command — HOW LifeOS actually turns on (WITH PERMISSION)
 
@@ -101,7 +100,9 @@ The payload ships the launcher — `install/LIFEOS/TOOLS/lifeos.ts` — which sp
   ```
   fish: `alias lifeos "bun <configRoot>/LIFEOS/TOOLS/lifeos.ts -s <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"; funcsave lifeos`. After this, **`lifeos` launches Claude WITH the constitution**; plain `claude` stays vanilla (which is fine — the user opts in by launching `lifeos`).
 
-- **Any other harness** — use that harness's own system-prompt flag against the same file. e.g. pi: `pi --append-system-prompt <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md`. If a harness has no system-prompt flag, load `LIFEOS_SYSTEM_PROMPT.md` through its context file (AGENTS.md / rules) as the closest equivalent, and tell your human plainly that the constitution is loading as context, not as a true system-prompt layer.
+- **Hermes** — pass `install/LIFEOS/HERMES_CONSTITUTION.md` as Hermes' `ephemeral_system_prompt` during agent initialization. It is runtime-only and must not be saved into trajectories or memory.
+
+- **Any other harness** — use that harness's own system-prompt flag against the adapted Hermes constitution when supported. If a harness has no system-prompt facility, load it through the harness context file as a documented degraded equivalent.
 
 If your human declines the shell edit, give them the one-line launch command to run by hand so the constitution still loads:
 ```
@@ -155,8 +156,9 @@ Run the **Setup** workflow (`Workflows/Setup.md`) to finish integration and veri
 | Harness / OS | Skill + USER data + Pulse | Always-on behavior (response format, memory loop, context injection) |
 |---|---|---|
 | **Claude Code — macOS / Linux** | ✅ | ✅ full (native hooks) |
-| **Claude Code — Windows** | ✅ (copy fallback where symlinks need admin) | ✅ full |
-| **Cursor / Cline / Codex / Gemini / other** | ✅ | ⚠️ context loads every session via `AGENTS.md`; workflows run on request; always-on hooks not wired yet (roadmap) |
+| **Claude Code — Windows** | ✅ (copy fallback where symlinks need admin) | ✅ full Claude integration |
+| **Hermes** | ✅ | ✅ constitution via ephemeral system prompt; Hindsight/LCM/cognitive graph/skills via Hermes-native layers; Claude hooks not used |
+| **Cursor / Cline / Codex / Gemini / other** | ✅ | ⚠️ context/system-prompt integration is harness-specific; no inert Claude hooks |
 | **Chat-only assistants (no files / no commands)** | ❌ | ❌ — install stops at the capability gate |
 
 Full-doctrine features additionally depend on the external tools in step 8.5 (codex, browser, Cloudflare, ElevenLabs). Without one, the dependent feature runs degraded **and says so** — it never silently pretends. The Doctor table is the live source of truth for what's on.

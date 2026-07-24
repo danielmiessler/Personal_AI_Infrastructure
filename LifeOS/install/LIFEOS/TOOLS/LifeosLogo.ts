@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 
 /**
- * LifeOS Logo - Figlet-style A + I
+ * LifeosLogo.ts — print the LifeOS wordmark as ANSI-colored ASCII art.
  *
- * Classic ASCII art style like figlet/toilet
- * - A blocky "A" where the P is hidden through color
- * - P portion (left leg + top + crossbar) = purple
- * - Right leg of A (below crossbar) = blue
- * - I next to it in cyan
+ * Figlet-style blocky "AI" wordmark: a blocky "A" with the "P" hidden through
+ * color (purple left leg/top/crossbar, blue right leg) beside a cyan "I".
+ * Also exports printLogo()/getLogo() for reuse by other tools.
+ *
+ * Usage: bun LifeosLogo.ts   # print the logo to stdout
  */
 
 const rgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;

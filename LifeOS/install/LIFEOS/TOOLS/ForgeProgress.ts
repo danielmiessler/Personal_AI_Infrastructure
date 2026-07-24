@@ -1,4 +1,22 @@
 #!/usr/bin/env bun
+/**
+ * ForgeProgress.ts — run a Forge (codex exec) agent with live progress streamed to Pulse
+ *
+ * Spawns the `codex` CLI as a child process, tails its JSONL stdout into a
+ * per-slug events file (keeping a small ring buffer of the latest entries),
+ * polls that buffer to a Pulse notify endpoint for live progress, enforces a
+ * timeout with signal-based teardown, and prints a single final verdict line
+ * (success | error | timeout) as JSON on stdout. Exits non-zero on anything
+ * but success. Also exported as `default async main(argv)` for programmatic use.
+ *
+ * Usage:
+ *   bun ForgeProgress.ts --slug <slug> --prompt "<task>" [flags]
+ *   echo "<task>" | bun ForgeProgress.ts --slug <slug>        # prompt via stdin
+ *
+ * Flags (defaults): --model gpt-5.6-sol · --reasoning-effort high ·
+ *   --sandbox workspace-write · --timeout-ms 300000 ·
+ *   --pulse-url http://localhost:31337/notify
+ */
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { accessSync, constants, createWriteStream, existsSync, type WriteStream } from "node:fs";

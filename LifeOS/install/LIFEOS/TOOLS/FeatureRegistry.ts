@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Feature Registry CLI
+ * FeatureRegistry.ts — JSON feature-tracking registry for complex multi-feature tasks
  *
  * JSON-based feature tracking for complex multi-feature tasks.
  * Based on Anthropic's agent harness patterns - JSON is more robust

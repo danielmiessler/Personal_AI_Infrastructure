@@ -1,8 +1,14 @@
 #!/usr/bin/env bun
 
 /**
- * Banner - Tokyo Night Theme
- * Deep blue-black with soft neon accents
+ * BannerTokyo.ts — gallery of six Tokyo Night banner designs
+ *
+ * Deep blue-black with soft neon accents. Design-exploration prototype, not
+ * wired to the CLI launcher (which renders Banner.ts). Running it prints all
+ * six designs in sequence; takes no arguments.
+ *
+ * Usage:
+ *   bun BannerTokyo.ts   # print every Tokyo Night design
  */
 
 const RESET = "\x1b[0m";

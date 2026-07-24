@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * DA Growth Viewer — CLI tool
+ * DAGrowth.ts — view the primary DA's diary, opinions, growth events, and summary
  *
  * View diary entries, opinions, growth events, and summary for the primary DA.
  *
@@ -10,6 +10,8 @@
  *   bun LIFEOS/TOOLS/DAGrowth.ts opinions        # Current opinions
  *   bun LIFEOS/TOOLS/DAGrowth.ts growth          # Growth event log
  *   bun LIFEOS/TOOLS/DAGrowth.ts summary         # Overview
+ *
+ * @see ~/.claude/LIFEOS/DOCUMENTATION/Pulse/DaSubsystem.md
  */
 
 import { join } from "path"

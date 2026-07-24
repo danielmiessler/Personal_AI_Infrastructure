@@ -9,7 +9,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 /**
  * PangramScore.ts — score text for AI-detectability via the Pangram API.
  *
- * Use it as a voice-eval probe: feed in my (or anyone's) writing and get back
+ * Use it as a voice-eval probe: feed in anyone's writing and get back
  * how much of it reads as AI-generated. Lower fraction_ai = sounds more human.
  *
  * Two-step async flow (from the official docs, June 2026):
@@ -22,6 +22,12 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * Key: PANGRAM_API_KEY in ~/.claude/.env (not present yet — add it before running).
  * Override the endpoint with PANGRAM_API_URL if Pangram moves it.
+ *
+ * Usage:
+ *   bun PangramScore.ts "text to score"
+ *   bun PangramScore.ts --file path/to/sample.md
+ *   echo "text" | bun PangramScore.ts
+ *   ... add --json for the raw response
  */
 
 import { readFileSync, appendFileSync, mkdirSync } from "node:fs";

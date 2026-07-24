@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
 /**
- * ExtractTranscript.ts
+ * ExtractTranscript.ts — transcribe audio/video files via the OpenAI Whisper API
  *
  * CLI tool for extracting transcripts from audio/video files using OpenAI Whisper API
- * Part of LifeOS's extracttranscript skill
+ * Companion to SplitAndTranscribe.ts in the transcription toolchain
  *
  * Usage:
  *   bun ExtractTranscript.ts <file-or-folder> [options]

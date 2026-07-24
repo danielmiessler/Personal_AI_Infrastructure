@@ -1,8 +1,10 @@
 #!/usr/bin/env bun
 
 /**
- * BannerMatrix - Matrix Digital Rain LifeOS Banner
- * Neofetch-style layout with The Matrix aesthetic
+ * BannerMatrix.ts — Matrix "digital rain" LifeOS launch banner (alternative theme)
+ *
+ * Neofetch-style layout with The Matrix aesthetic. Alternative theme prototype:
+ * the CLI launcher renders Banner.ts, not this file. Run directly to preview.
  *
  * Design:
  *   LEFT:  LifeOS logo emerging from Matrix rain (Katakana cascade)
@@ -15,6 +17,11 @@
  *   - Binary/hex scattered
  *   - Glitch effects
  *   - Hacker terminal feel
+ *
+ * Usage:
+ *   bun BannerMatrix.ts                                  # render for the current terminal width
+ *   bun BannerMatrix.ts --mode=<nano|micro|mini|normal>  # force a display mode
+ *   bun BannerMatrix.ts --test                           # render every mode
  */
 
 import { readdirSync, existsSync, readFileSync } from "fs";

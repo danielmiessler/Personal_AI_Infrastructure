@@ -11,6 +11,8 @@
  * CLI:
  *   bun GenerateKnowledgeSchemaDoc.ts            # write the doc
  *   bun GenerateKnowledgeSchemaDoc.ts --stdout   # print, don't write
+ *
+ * @see ~/.claude/LIFEOS/DOCUMENTATION/Memory/MemorySystem.md
  */
 
 import { writeFileSync } from "node:fs";

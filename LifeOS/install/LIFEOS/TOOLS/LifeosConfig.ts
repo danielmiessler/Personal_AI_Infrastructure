@@ -15,6 +15,11 @@
  *   - PULSE.user.toml already in user-config dir as precedent.
  *
  * See: LIFEOS/DOCUMENTATION/SystemUserBoundary.md § "The four allowed access patterns".
+ *
+ * Usage: bun LifeosConfig.ts   # print the resolved, validated config as JSON
+ * Consumed by: Banner tools, PULSE (pulse.ts, telegram), hooks/lib/identity,
+ *   HealthSnapshot.ts, GenerateTelosSummary.ts, and other system modules that
+ *   compose paths or read identity/voice/integration values.
  */
 
 import { existsSync, statSync } from "node:fs";

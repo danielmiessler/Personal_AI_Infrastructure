@@ -3,6 +3,8 @@
 #
 # v2 — matches existing Pi skills by frontmatter `name:` field rather than
 # regex on dir name. Avoids the ALLCAPS/ArXiv duplicate problem in v1.
+#
+# Usage: ./PiSync.sh   (or: bash PiSync.sh)   # takes no arguments
 
 set -euo pipefail
 

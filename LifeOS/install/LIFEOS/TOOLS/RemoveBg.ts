@@ -1,15 +1,19 @@
 #!/usr/bin/env bun
 
 /**
- * remove-bg - Background Removal CLI
+ * RemoveBg.ts — remove image backgrounds with local rembg (no API).
  *
- * Remove backgrounds from images using local rembg.
- * Part of the Images skill for LifeOS system.
+ * Cuts the background from PNG/JPG/JPEG/WebP images using a local rembg binary
+ * (resolved from $REMBG_BIN or ~/.local/bin/rembg). Always writes PNG (alpha
+ * channel required); routes every cut through a temp file so it never truncates
+ * its own source. Overwrites in place, writes to a named output, or batches.
  *
  * Usage:
- *   remove-bg input.png                    # Overwrites original
- *   remove-bg input.png output.png         # Saves to new file
- *   remove-bg file1.png file2.png file3.png # Batch process
+ *   bun RemoveBg.ts input.png                     # overwrite original
+ *   bun RemoveBg.ts input.jpg output.png          # write to a new file
+ *   bun RemoveBg.ts file1.png file2.png file3.png # batch process
+ *
+ * @see ~/.claude/skills/Art/SKILL.md
  */
 
 import { resolve, extname } from "node:path";

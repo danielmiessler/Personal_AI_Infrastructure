@@ -1,7 +1,13 @@
 #!/usr/bin/env bun
 
 /**
- * Banner Prototypes - Testing different cyberpunk designs
+ * BannerPrototypes.ts — gallery of six experimental cyberpunk banner designs
+ *
+ * Design-exploration prototype, not wired to the CLI launcher (which renders
+ * Banner.ts). Running it prints all six designs in sequence; takes no arguments.
+ *
+ * Usage:
+ *   bun BannerPrototypes.ts   # print every prototype design
  */
 
 const RESET = "\x1b[0m";

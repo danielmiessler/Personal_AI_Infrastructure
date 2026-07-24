@@ -13,6 +13,8 @@
  * - Structural compression preserving causal links (M→G→P→S chains)
  * - ~60 lines targeting signal density over completeness (Nyx's constraint)
  * - Staleness detection via timestamp (Vex's TTL requirement)
+ *
+ * @see ~/.claude/LIFEOS/DOCUMENTATION/Freshness/FreshnessSystem.md
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';

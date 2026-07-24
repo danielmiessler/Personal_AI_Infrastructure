@@ -1,9 +1,14 @@
 #!/usr/bin/env bun
 
 /**
- * split-and-transcribe.ts
+ * SplitAndTranscribe.ts — split a large audio file into chunks and transcribe with Whisper.
  *
- * Helper to split large audio files and transcribe them
+ * Splits an audio file into ~20MB segments with ffmpeg (to stay under the
+ * OpenAI 25MB limit), transcribes each chunk via the Whisper API, merges the
+ * results, and cleans up the temp chunks. Requires OPENAI_API_KEY.
+ * Also exports splitAndTranscribe() for programmatic use.
+ *
+ * Usage: bun SplitAndTranscribe.ts <file> [format]   # format: txt (default) | json | srt | vtt
  */
 
 import { spawn } from "child_process";

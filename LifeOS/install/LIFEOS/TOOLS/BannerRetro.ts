@@ -1,7 +1,10 @@
 #!/usr/bin/env bun
 
 /**
- * BannerRetro - Retro BBS/DOS Terminal Banner for LifeOS
+ * BannerRetro.ts — retro BBS/DOS-terminal LifeOS launch banner (alternative theme)
+ *
+ * Alternative theme prototype: the CLI launcher renders Banner.ts, not this
+ * file. Run directly to preview.
  *
  * Neofetch-style layout with classic ASCII art aesthetic:
  * - LEFT: Isometric LifeOS cube using classic ASCII characters
@@ -13,6 +16,11 @@
  * - BBS door games and ANSI art
  * - DOS-era interface aesthetics
  * - Amber/green phosphor CRT terminals
+ *
+ * Usage:
+ *   bun BannerRetro.ts                               # render (default retro mode)
+ *   bun BannerRetro.ts --mode=<retro|ascii|compact>  # force a mode
+ *   bun BannerRetro.ts --test                        # render every mode
  */
 
 import { readdirSync, existsSync, readFileSync } from "fs";

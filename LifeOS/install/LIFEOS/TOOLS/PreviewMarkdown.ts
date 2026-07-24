@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Preview a markdown file in the browser
+ * PreviewMarkdown.ts — render a Markdown file to HTML and open it in the browser.
+ *
+ * Reads the given Markdown file, renders it to a self-contained HTML page
+ * (marked + DOMPurify sanitize), writes it to a temp dir, and opens it in the
+ * system browser. Prints the resulting file:// URL as JSON.
+ *
  * Usage: bun PreviewMarkdown.ts <path-to-markdown>
  */
 

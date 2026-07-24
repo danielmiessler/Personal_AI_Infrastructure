@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * MemoryGraph — a first-class graph layer over the WHOLE LifeOS memory system.
+ * MemoryGraph.ts — a first-class graph layer over the WHOLE LifeOS memory system.
  *
  * Supersedes KnowledgeGraph.ts (KNOWLEDGE-only, console-text, no clustering).
  * Ingests every memory silo as nodes, builds DECLARED edges (related / wikilink /
@@ -21,6 +21,8 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * so the trustworthy baseline ships first. Inference is a later, validated layer.
  *
  * Privacy: 100% local. Zero network calls.
+ *
+ * Usage: bun MemoryGraph.ts <command>
  *
  * Commands:
  *   build      Rebuild the graph cache (graph.json) + PATTERNS.md

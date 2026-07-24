@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * current-work-dir.ts
+ * current-work-dir.ts — print the absolute work directory of the active LifeOS session
  *
  * Prints the work directory (absolute path) of the principal's current active
  * LifeOS session, resolved against the canonical session registry at

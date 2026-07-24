@@ -1,12 +1,21 @@
 #!/usr/bin/env bun
 /**
- * Session Progress CLI
+ * SessionProgress.ts — manage session-continuity files for multi-session work.
  *
- * Manages session continuity files for multi-session work.
- * Based on Anthropic's claude-progress.txt pattern.
+ * Creates and updates per-project progress files (objectives, decisions,
+ * completed work, blockers, handoff notes, next steps) so a later session can
+ * resume with full context. Based on the claude-progress.txt pattern.
  *
  * Usage:
- *   bun run ~/.claude/LIFEOS/TOOLS/SessionProgress.ts <command> [options]
+ *   bun SessionProgress.ts create <project> [objectives...]
+ *   bun SessionProgress.ts decision <project> <decision> <rationale>
+ *   bun SessionProgress.ts work <project> <description> [artifacts...]
+ *   bun SessionProgress.ts blocker <project> <blocker> [resolution]
+ *   bun SessionProgress.ts next <project> <step1> <step2>...
+ *   bun SessionProgress.ts handoff <project> <notes>
+ *   bun SessionProgress.ts resume <project>
+ *   bun SessionProgress.ts list
+ *   bun SessionProgress.ts complete <project>
  */
 
 import { existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';

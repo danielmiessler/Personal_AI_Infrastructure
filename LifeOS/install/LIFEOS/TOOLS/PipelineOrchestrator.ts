@@ -1,16 +1,15 @@
 #!/usr/bin/env bun
 /**
- * ============================================================================
- * LifeOS Pipeline Orchestrator - Run Pipelines with Monitoring
- * ============================================================================
+ * PipelineOrchestrator.ts — run LifeOS pipelines and report progress to the monitor.
  *
- * Runs pipelines and reports progress to the PipelineMonitor.
+ * Loads a pipeline definition from ../PIPELINES, executes each step (actions
+ * resolved from ../ACTIONS), and POSTs start/update/finish events to the
+ * PipelineMonitor at $MONITOR_URL (default http://localhost:8765). Runs
+ * silently when the monitor is unreachable.
  *
- * USAGE:
+ * Usage:
  *   bun PipelineOrchestrator.ts run <pipeline> [--input '<json>'] [--agent <name>]
- *   bun PipelineOrchestrator.ts demo   # Run demo with multiple pipelines
- *
- * ============================================================================
+ *   bun PipelineOrchestrator.ts demo   # run demo with multiple pipelines
  */
 
 import { readFile } from "fs/promises";

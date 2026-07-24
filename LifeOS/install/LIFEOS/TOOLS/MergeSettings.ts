@@ -1,12 +1,23 @@
 #!/usr/bin/env bun
 
 /**
+ * MergeSettings.ts — deep-merge system settings JSON with a user overlay.
+ *
  * Deep-merges a system settings JSON value with a user overlay.
  * Objects merge recursively while preserving system key order.
  * New user-only object keys are appended after system keys at each level.
  * Scalars and arrays replace by default, with user values winning conflicts.
  * Arrays can opt into append via { "__merge": "append", "values": [...] }.
  * Merge annotations are consumed and never emitted in the output.
+ *
+ * Usage:
+ *   bun MergeSettings.ts --system SYSTEM --user USER --output OUTPUT
+ *   bun MergeSettings.ts --system SYSTEM --user USER --check EXISTING
+ *
+ * Consumed by: SettingsBackport.ts (imports mergeSettings, deepEqual,
+ *   parseJsonFileOrThrow, MERGE_SNAPSHOT_PATH).
+ *
+ * @see ~/.claude/LIFEOS/DOCUMENTATION/Config/ConfigSystem.md
  */
 
 import { readFile, writeFile } from "node:fs/promises";

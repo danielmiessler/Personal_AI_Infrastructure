@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+// gmail.ts — direct Gmail API client (count/ids/archive/fetch/send) over an OAuth refresh token
+//
 // Direct Gmail API client using OAuth refresh token.
 // Usage:
 //   gmail.ts count "<q>"                           # inbox-size estimate for query

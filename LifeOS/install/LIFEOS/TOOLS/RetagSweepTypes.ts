@@ -11,6 +11,10 @@
  * Type:queue) are left untouched.
  *
  * Dry-run by default. `--apply` mutates via `gh issue edit`.
+ *
+ * Usage:
+ *   bun RetagSweepTypes.ts           # dry-run: print the planned label changes
+ *   bun RetagSweepTypes.ts --apply   # apply the changes via `gh issue edit`
  */
 import { classifyType } from "./WorkSweep";
 import { loadWorkConfig } from "../../hooks/lib/work-config";

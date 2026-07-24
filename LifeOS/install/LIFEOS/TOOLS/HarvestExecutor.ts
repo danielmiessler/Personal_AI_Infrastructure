@@ -1,11 +1,17 @@
 #!/usr/bin/env bun
 /**
- * HarvestExecutor
+ * HarvestExecutor.ts — execute Arbol-routed harvest actions into the local memory stores.
  *
  * Executes routed harvest actions from the Arbol harvest API against the local
  * LifeOS knowledge and learning stores. The tool is intentionally conservative:
  * it backfills from existing notes when possible, never fabricates related
  * links, and records per-item execution state in a sidecar file.
+ *
+ * Usage:
+ *   bun HarvestExecutor.ts [--dry-run] [--item <id>] [--limit <n>] [--force]
+ *   bun HarvestExecutor.ts --help
+ *
+ * @see ~/.claude/skills/Harvest/SKILL.md
  */
 
 import { parseArgs } from "node:util";

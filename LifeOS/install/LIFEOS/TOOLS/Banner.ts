@@ -1,10 +1,16 @@
 #!/usr/bin/env bun
 
 /**
- * LifeOS Banner - Responsive Neofetch-style launch banner (Navy theme)
+ * Banner.ts — responsive neofetch-style LifeOS launch banner (Navy theme)
+ *
  * Routes by terminal width: full (85+) → medium (70+) → compact (55+) →
- * minimal (45+) → ultra-compact (<45). Force a variant with --design=<name>,
- * render all variants with --test.
+ * minimal (45+) → ultra-compact (<45). This is the banner the CLI launcher
+ * renders at startup.
+ *
+ * Usage:
+ *   bun Banner.ts                  # render for the current terminal width
+ *   bun Banner.ts --design=<name>  # force a specific width variant
+ *   bun Banner.ts --test           # render every variant
  */
 
 import { existsSync, readFileSync } from "fs";

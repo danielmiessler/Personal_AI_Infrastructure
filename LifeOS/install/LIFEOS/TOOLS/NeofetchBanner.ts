@@ -1,7 +1,10 @@
 #!/usr/bin/env bun
 
 /**
- * NeofetchBanner - LifeOS System Banner in Neofetch Style
+ * NeofetchBanner.ts — neofetch-style LifeOS system banner, Tokyo Night palette (alternative theme)
+ *
+ * Alternative theme prototype: the CLI launcher renders Banner.ts, not this
+ * file. Run directly to preview.
  *
  * Layout:
  *   LEFT:   Isometric LifeOS cube logo (ASCII/Braille art)
@@ -13,6 +16,11 @@
  *   - Binary streams
  *   - Targeting reticle elements
  *   - Neon glow feel
+ *
+ * Usage:
+ *   bun NeofetchBanner.ts            # render (auto full/compact by terminal width)
+ *   bun NeofetchBanner.ts --compact  # force compact layout
+ *   bun NeofetchBanner.ts --test     # render compact and normal
  */
 
 import { readdirSync, existsSync, readFileSync } from "fs";

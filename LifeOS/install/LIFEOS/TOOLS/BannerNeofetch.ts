@@ -1,13 +1,21 @@
 #!/usr/bin/env bun
 
 /**
- * BannerNeofetch - Modern Neofetch-Style LifeOS Banner
+ * BannerNeofetch.ts — modern neofetch-style LifeOS launch banner (alternative theme)
+ *
+ * Alternative theme prototype: the CLI launcher renders Banner.ts, not this
+ * file. Run directly to preview.
  *
  * LEFT SIDE: High-resolution 3D isometric cube using Braille + block elements
  * RIGHT SIDE: Modern stats with emoji icons, progress bars, color-coded values
  * BOTTOM SECTION: Gradient header, quote, sparkline histogram, LifeOS block art
  *
  * Aesthetic: Modern tech startup (gh, npm, vercel) with gradient colors (blue->purple->cyan)
+ *
+ * Usage:
+ *   bun BannerNeofetch.ts            # render full layout
+ *   bun BannerNeofetch.ts --compact  # compact layout (alias -c)
+ *   bun BannerNeofetch.ts --test     # render both layouts
  */
 
 import { readdirSync, existsSync, readFileSync } from "fs";

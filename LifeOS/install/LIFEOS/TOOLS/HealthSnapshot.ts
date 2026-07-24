@@ -1,4 +1,17 @@
 #!/usr/bin/env bun
+/**
+ * HealthSnapshot.ts — ingest health JSON drops from the iCloud inbox into dated Markdown snapshots.
+ *
+ * Reads JSON files from the iCloud health inbox, renders each into a
+ * TELOS/HEALTH/snapshots/YYYY-MM-DD.md metric table, and moves the source into
+ * the processed folder. Snapshot paths resolve through LifeosConfig so a
+ * relocated user dir keeps working.
+ *
+ * Usage:
+ *   bun HealthSnapshot.ts ingest   # process every .json in the inbox into snapshots
+ *   bun HealthSnapshot.ts sample   # drop a sample snapshot into the inbox to test
+ *   bun HealthSnapshot.ts status   # show inbox count, latest snapshot, paths
+ */
 import { readdir, readFile, writeFile, rename, mkdir } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"

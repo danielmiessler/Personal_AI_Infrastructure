@@ -10,7 +10,7 @@
  * deterministically verifiable without an LLM:
  *   1. Banner `════ LifeOS` is the first visible line.
  *   2. `🗣️` closer is the last visible line.
- *   3. When a <pai-memory-delta> arrived this turn, a `🧠 MEMORY:` line exists.
+ *   3. When a <lifeos-memory-delta> arrived this turn, a `🧠 MEMORY:` line exists.
  *   4. No more than 2 em-dashes in prose (code/blockquote stripped).
  *
  * OBSERVATION-ONLY (2026-07-12): this gate does NOT block. A Stop hook fires
@@ -75,15 +75,21 @@ const CLOSER = /🗣️/;
 const MEMORY_LINE = /🧠\s*MEMORY\s*:/;
 
 /**
- * Did a <pai-memory-delta> block arrive on THIS turn? Scan only the transcript
+ * Did a <lifeos-memory-delta> block arrive on THIS turn? Scan only the transcript
  * tail after the last user-role marker so a delta from a prior turn can't force
  * a false block. Bias: when uncertain, do NOT require the line (fail-open).
+ *
+ * COUPLING: the tag name must match MemoryDeltaSurface.hook.ts's emitted block
+ * AND the system prompt's 🧠 MEMORY contract (LIFEOS_SYSTEM_PROMPT.md). If this
+ * gate ever gains blocking teeth, a rename desync becomes a user-visible
+ * failure - change all three surfaces in one commit. The legacy pai- tag
+ * stays accepted for sessions started before the rename.
  */
 export function memoryDeltaThisTurn(rawTranscript: string): boolean {
   if (!rawTranscript) return false;
   const lastUser = rawTranscript.lastIndexOf('"role":"user"');
   const region = lastUser >= 0 ? rawTranscript.slice(lastUser) : rawTranscript.slice(-8000);
-  return region.includes("pai-memory-delta");
+  return region.includes("lifeos-memory-delta") || region.includes("pai-memory-delta");
 }
 
 /**
@@ -101,7 +107,7 @@ export function checkFormat(message: string, opts: { memoryDelta: boolean }): Fo
     return { code: "no-closer", detail: "last visible line is not the 🗣️ closer" };
   }
   if (opts.memoryDelta && !MEMORY_LINE.test(message)) {
-    return { code: "missing-memory-line", detail: "a pai-memory-delta arrived this turn but no 🧠 MEMORY: line was rendered" };
+    return { code: "missing-memory-line", detail: "a lifeos-memory-delta arrived this turn but no 🧠 MEMORY: line was rendered" };
   }
   const emdashes = (stripNonProse(message).match(/—/g) || []).length;
   if (emdashes > 2) {

@@ -9,8 +9,8 @@
  * and concatenates output. Order matches the old registration order:
  *
  *   1. MemoryReviewTrigger.run()  — cadence tick (state only, no output)
- *   2. LoadMemory.run()           — <pai-memory> hot-layer injection
- *   3. MemoryDeltaSurface.run()   — <pai-memory-health>? + <pai-memory-delta>
+ *   2. LoadMemory.run()           — <lifeos-memory> hot-layer injection
+ *   3. MemoryDeltaSurface.run()   — <lifeos-memory-health>? + <lifeos-memory-delta>
  *
  * Subagent skip: checked ONCE here (the sub-hooks' own shims keep their checks
  * for standalone runs). Failure mode: any sub-hook error is caught inside its
@@ -27,7 +27,7 @@ import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
 
 // ── Hot-layer injection gate (2026-07-11, context-window cleanup #1) ─────────
-// The <pai-memory> block is ~1.5K tokens; injecting it EVERY prompt duplicated
+// The <lifeos-memory> block is ~1.5K tokens; injecting it EVERY prompt duplicated
 // it dozens of times per session. Policy: inject on a session's FIRST prompt,
 // whenever the memory files' content actually CHANGED, or after REFRESH_TURNS
 // prompts without an injection (compaction backstop — a post-compact window

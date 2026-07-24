@@ -5,7 +5,7 @@
  * loop VISIBLE in every response, Hermes-style.
  *
  * ALWAYS-ON (2026-06-11 redesign, principal-directed): every primary-session
- * prompt gets a `<pai-memory-delta>` block with one verbatim 🧠 MEMORY line:
+ * prompt gets a `<lifeos-memory-delta>` block with one verbatim 🧠 MEMORY line:
  *
  *   - DELTA form (loop wrote since last surfaced turn):
  *     🧠 MEMORY: +3 learned · −1 dropped — "principal: …", "self: …" · C 5/8 fresh
@@ -168,7 +168,7 @@ function criticalHealthLine(): string | null {
   }
 }
 
-/** Returns the <pai-memory-health>? + <pai-memory-delta> blocks, or null. Pure — no exit. */
+/** Returns the <lifeos-memory-health>? + <lifeos-memory-delta> blocks, or null. Pure — no exit. */
 export function run(): string | null {
   let out = "";
   try {
@@ -210,10 +210,10 @@ export function run(): string | null {
     const healthLine = criticalHealthLine();
     if (healthLine) {
       out +=
-        `<pai-memory-health>\n` +
+        `<lifeos-memory-health>\n` +
         `Memory subsystem health is CRITICAL. Surface this line VERBATIM in your response so it cannot be ignored:\n` +
         `${healthLine}\n` +
-        `</pai-memory-health>\n`;
+        `</lifeos-memory-health>\n`;
     }
 
     // ── Compose the always-on line ──
@@ -248,10 +248,10 @@ export function run(): string | null {
     if (line.length > LINE_HARD_CAP) line = line.slice(0, LINE_HARD_CAP - 1) + "…";
 
     out +=
-      `<pai-memory-delta>\n` +
+      `<lifeos-memory-delta>\n` +
       `Memory status from the autonomic loop (computed deterministically by MemoryDeltaSurface.hook.ts). Render this line VERBATIM in your response as the 🧠 MEMORY line of the output format, exactly once. Do not recompute or rephrase it:\n` +
       `${line}\n` +
-      `</pai-memory-delta>\n`;
+      `</lifeos-memory-delta>\n`;
     return out;
   } catch (e) {
     process.stderr.write(`MemoryDeltaSurface error: ${(e as Error)?.message || String(e)}\n`);

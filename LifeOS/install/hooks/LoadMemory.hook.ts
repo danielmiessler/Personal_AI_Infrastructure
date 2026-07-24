@@ -65,7 +65,7 @@ function renderBlock(title: string, mem: MemoryRead, capEntries = 48, capChars =
   return `${header}\n${mem.entries.join("\n")}`;
 }
 
-/** Returns the <pai-memory> context block, or null on error. Pure — no exit. */
+/** Returns the <lifeos-memory> context block, or null on error. Pure — no exit. */
 export function run(): string | null {
   try {
     const principal = readMemory(PRINCIPAL_MEMORY);
@@ -74,7 +74,7 @@ export function run(): string | null {
     const principalBlock = renderBlock("PRINCIPAL MEMORY", principal);
     const daBlock = renderBlock("DA MEMORY", da);
 
-    return `<pai-memory>\n${principalBlock}\n\n${daBlock}\n</pai-memory>\n`;
+    return `<lifeos-memory>\n${principalBlock}\n\n${daBlock}\n</lifeos-memory>\n`;
   } catch (e) {
     process.stderr.write(`LoadMemory error: ${(e as Error)?.message || String(e)}\n`);
     return null;

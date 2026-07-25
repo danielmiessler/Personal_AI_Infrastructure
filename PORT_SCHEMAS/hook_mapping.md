@@ -48,3 +48,12 @@ This document maps all legacy LifeOS hooks (from `LifeOS/install/hooks/` and `ho
 | `SystemFileGuard.hook.ts` | `PreToolUse (Write, Edit, MultiEdit)` | Hermes tool approval + path protection | Yes | Already covered as a sub-component of `PreToolGuard.hook.ts` above; the LifeOS system/user write-time guard maps to Hermes tool gating + the constitution's "confirm scope/destination/reversibility" invariant. See the **Config** skill (five-layer layering) for the boundary it enforces. |
 | `MergeSettings.ts` | `SessionStart` (LifeOS settings merge driver) | — | No | Not ported. Hermes reads `config.yaml` natively; there is no `settings.system.json` + `settings.user.json` → generated `settings.json` merge. The **Config** skill documents the Hermes-native layering that replaces it. |
 | Delegation model injection (`AgentInvocation.hook.ts`, retired 2026-07-11) | `PreToolUse (Agent)` | Hermes delegation config (`delegation.*` in `config.yaml`) | No | The LifeOS hook that injected per-agent model choice is retired. On Hermes, subagent model/provider/effort/concurrency come from `delegation.*` config and per-dispatch `delegate_task(..., model=...)`. See the **Delegation** skill + `AgentReference.md`. (Distinct from the `AgentInvocation.hook.ts` lifecycle-events row above, which maps spawn/completion events.) |
+
+## ISA & Freshness additions
+
+| Component | Trigger | Hermes-native | Port? | Notes |
+|---|---|---|---|---|
+| `ISASync.hook.ts` render trigger | `PostToolUse (phase:complete → ISARender)` | Manual `/render-isa` or `python Tools/render.py` | No | The Claude completion-gate auto-render is not ported. Hermes uses explicit invocation. ISA.md is authoritative; the mirror is derived. |
+| `ISARenderOnStop.hook.ts` | `Stop` (batch HTML render on turn-end) | — | No | Not ported. No Hermes equivalent for automatic turn-end HTML re-render. The mirror fires on manual invocation only. |
+| `TelosFreshness.ts` | `SessionStart` / CLI / Pulse routes | `Freshness/Tools/check.py` + Freshness skill | Yes | A-F grading ported to Python stdlib. Reads TELOS Dropbox file mtimes + SOUL.md. No Pulse routes — JSON/text output. |
+| `FreshnessCache.ts` | Statusline cache (Pulse `/api/freshness/summary`) | — | No | Not ported. Hermes has no persistent terminal statusline. Freshness is queried on demand via the skill or `check.py`. |

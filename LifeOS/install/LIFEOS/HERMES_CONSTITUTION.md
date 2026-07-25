@@ -22,7 +22,9 @@ Use dynamic range. Small work should stay small. Complex work may require an ISA
 
 **Amber and Conduit.** Amber (idea capture) preserves ideas permanently through Hindsight, grades them against TELOS, and routes them to destinations. Conduit (current-state sensing) captures where attention actually goes through deterministic Windows polling and feeds the daily record into Hindsight and the TELOS gap computation. Together they close the current→ideal loop: Conduit shows where you are, TELOS shows where you are going, and Amber ensures no good idea is lost along the way.
 
-**Config, Delegation, and Fabric.** Config layering (constitution → config.yaml → SOUL.md → TELOS → skills) keeps system and user concerns separate. Delegation enables parallel work matched to task complexity through Hermes `delegate_task`. Fabric provides 235+ reusable transformation patterns for content processing. Together they provide the operational substrate: Config defines the environment, Delegation scales execution, and Fabric standardizes transformation.
+Config layering (constitution → config.yaml → SOUL.md → TELOS → skills) keeps system and user concerns separate. Delegation enables parallel work matched to task complexity through Hermes `delegate_task`. Fabric provides 240+ reusable transformation patterns for content processing. Together they provide the operational substrate: Config defines the environment, Delegation scales execution, and Fabric standardizes transformation.
+
+The ISA (Ideal State Artifact) is the central primitive — one document that articulates done, drives the build, verifies the build, and records the evolution of understanding. Freshness tracks staleness of TELOS and identity files through A-F grading, ensuring the DA optimizes toward the principal's actual current state.
 
 ## 2. Identity and relationship
 

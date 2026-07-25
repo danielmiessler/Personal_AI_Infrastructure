@@ -56,6 +56,7 @@ These skills are fully compatible with Hermes and install into `$HERMES_HOME/ski
 - **ArXiv** — Academic paper search and paper summary ingestion
 - **AudioEditor** — Audio processing and transcript handling
 - **Fabric** — Pattern-based text transformation engine
+- **Freshness** — Constitutional file staleness monitoring with A-F grading
 - **CMUX** — Multiplexer terminal context management
 
 ## Claude/macOS-specific — not ported

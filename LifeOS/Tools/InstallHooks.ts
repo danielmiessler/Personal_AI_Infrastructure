@@ -15,8 +15,9 @@
  */
 
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
-import { detectDevTree, mergeHooks } from "./InstallEngine";
+import { detectDevTree, detectHarness, isHermes, mergeHooks } from "./InstallEngine";
 
 interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
 
@@ -48,6 +49,17 @@ function countFilesRec(dir: string): number {
 
 function main(): void {
   const { configRoot, skillRoot, apply, allowDev } = parseArgs();
+
+  const harness = detectHarness(process.env.HOME || homedir());
+  if (isHermes(harness)) {
+    // Hermes does not use Claude settings.json hooks.
+    // LifeOS hooks are replaced by Hermes-native equivalents.
+    // See PORT_SCHEMAS/hook_mapping.md for the full mapping.
+    console.log("Hermes detected — skipping Claude settings.json hook install.");
+    console.log("Hook mapping: PORT_SCHEMAS/hook_mapping.md");
+    console.log(JSON.stringify({ ok: true, harness: "hermes", note: "hooks replaced by Hermes-native equivalents" }, null, 2));
+    return;
+  }
 
   if (detectDevTree(configRoot) && !allowDev) {
     console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a LifeOS source tree (skills/_LIFEOS present) — refusing to mutate. Use --allow-dev only in a sandbox.` }, null, 2));

@@ -30,6 +30,7 @@ Both are served from the skill's own single sources of truth — `INSTALL.md` at
 | Trigger | Workflow |
 |---------|----------|
 | `setup`, `/lifeos-setup`, "install LifeOS", "integrate into my harness" | `Workflows/Setup.md` |
+| `hermes-setup`, "install LifeOS on Hermes" | `Workflows/HermesSetup.md` |
 | `interview`, "onboard me", "run the interview", TELOS capture | `Workflows/Interview.md` |
 | `update`, "update LifeOS", after a version bump | `Workflows/Update.md` |
 | `uninstall`, "remove LifeOS" | `Workflows/Uninstall.md` |

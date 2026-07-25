@@ -5,31 +5,19 @@ description: "Execute any of 240+ specialized prompt patterns natively across Ex
 effort: medium
 ---
 
-## Customization
+## Hermes Adaptation
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Fabric/`
+This is the Hermes-native port of the Fabric skill. The pattern-execution model — read a pattern's `system.md` and apply it directly, no CLI round-trip — is preserved unchanged; it is the load-bearing part. Only paths and tool references are adapted:
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+| LifeOS / Claude | Hermes-native |
+|-----------------|---------------|
+| `~/.claude/skills/Fabric/Patterns/` | `$HERMES_HOME/skills/Fabric/Patterns/` (repo source: `LifeOS/install/skills/Fabric/Patterns/`) |
+| Voice-notify via `curl localhost:31337/notify` | Hermes TTS plugin (no in-skill curl block) |
+| `fabric -U` pattern update | `git pull` on the LifeOS repo — patterns ship with the repo (see UpdatePatterns) |
+| Execution-log append to `~/.claude/LIFEOS/MEMORY/` | Not ported — Hermes uses Hindsight + native telemetry |
+| `_HARVEST` auto-harvest side-effect | Route to the **Amber** skill's capture contract (Hindsight-backed) |
 
-## Voice Notification
-
-**When executing a workflow, do BOTH:**
-
-1. **Send voice notification**:
-   ```bash
-   curl -s -X POST http://localhost:31337/notify \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Running the WORKFLOWNAME workflow in the Fabric skill to ACTION"}' \
-     > /dev/null 2>&1 &
-   ```
-
-2. **Output text notification**:
-   ```
-   Running the **WorkflowName** workflow in the **Fabric** skill to ACTION...
-   ```
-
-**Full documentation:** `~/.claude/LIFEOS/DOCUMENTATION/Notifications/NotificationSystem.md`
+The `fabric` CLI is still optional, used only for YouTube transcript (`-y`) and URL fallback (`-u`) when native fetch fails.
 
 # Fabric
 
@@ -45,7 +33,7 @@ Good prompts are scattered, hard to remember, and easy to rewrite badly from scr
 
 A prompt pattern system providing 240+ specialized patterns for content analysis, extraction, summarization, threat modeling, and transformation.
 
-**Patterns Location:** `Patterns/`
+**Patterns Location:** `Patterns/` (relative to this skill — `$HERMES_HOME/skills/Fabric/Patterns/` at runtime, `LifeOS/install/skills/Fabric/Patterns/` in the repo)
 
 ---
 
@@ -202,13 +190,11 @@ Each pattern's `system.md` contains the full prompt that defines:
 - **`fabric -y URL` for YouTube extraction — don't scrape YouTube pages.** fabric handles transcript extraction natively.
 - **Pattern names are exact.** `extract_wisdom` not `extractwisdom`. Check `fabric --list` if unsure.
 - **Long content may exceed pattern context limits.** For very long inputs, chunk the content or use a summarize pattern first.
+- **Pattern update is `git pull`, not `fabric -U`.** Patterns ship with the LifeOS repo on Hermes; the UpdatePatterns workflow pulls the repo rather than syncing from `~/.config/fabric/`.
+- **The auto-harvest side-effect routes to Amber, not `_HARVEST`.** On Hermes, capture is Hindsight-backed via the Amber skill's capture contract — do not shell out to a LifeOS harvest CLI.
 
-## Execution Log
+## Cross-References
 
-After completing any workflow, append a single JSONL entry:
-
-```bash
-echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","skill":"Fabric","workflow":"WORKFLOW_USED","input":"8_WORD_SUMMARY","status":"ok|error","duration_s":SECONDS}' >> ~/.claude/LIFEOS/MEMORY/SKILLS/execution.jsonl
-```
-
-Replace `WORKFLOW_USED` with the workflow executed, `8_WORD_SUMMARY` with a brief input description, and `SECONDS` with approximate wall-clock time. Log `status: "error"` if the workflow failed.
+- Pattern quick-reference (categories, counts, decision guide): `PatternReference.md`
+- Capture side-effect destination: **Amber** skill
+- Path/config layering: **Config** skill (`$HERMES_HOME/skills/`)

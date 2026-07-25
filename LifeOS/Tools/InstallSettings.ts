@@ -21,8 +21,9 @@
  */
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
-import { detectDevTree } from "./InstallEngine";
+import { detectDevTree, detectHarness, isHermes } from "./InstallEngine";
 
 interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
 
@@ -66,6 +67,16 @@ function expandEnvBlock(settings: Record<string, unknown>, home: string): number
 
 const args = parseArgs();
 const home = process.env.HOME || "";
+
+// Hermes manages settings through its own config.yaml + SOUL.md — it has no
+// Claude settings.json. Skip the merge entirely when running under Hermes.
+const harness = detectHarness(home || homedir());
+if (isHermes(harness)) {
+  console.log("Hermes detected — settings are managed through Hermes config.yaml and SOUL.md");
+  console.log(JSON.stringify({ ok: true, harness: "hermes", note: "settings via Hermes config" }, null, 2));
+  process.exit(0);
+}
+
 const templatePath = join(args.skillRoot, "install", "settings.system.json");
 const targetPath = join(args.configRoot, "settings.json");
 

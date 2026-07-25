@@ -209,6 +209,35 @@ A fresh-context agent operates against the ephemeral file alone. At completion, 
 
 ---
 
+## ISA Hierarchy (advanced — load only when needed)
+
+Almost every ISA is a single file. Split into a tree **only** for genuinely large builds (>100 ISCs across multiple subsystems). **0 of 472 archived LifeOS ISAs use hierarchy** — treat this as rare, and present it as advanced doctrine, not core procedure.
+
+- **Linking.** `parent: <slug>` / `children: [<slug>, …]` frontmatter connect ISAs into a tree. Both are omitted for a standalone single-ISA task (the common case).
+- **Constraint inheritance.** A child inherits every ancestor `## Constraints`; a child ISC may never violate an inherited Constraint. Overriding one is a parent-level renegotiation logged in the *parent's* `## Decisions` — never a silent child override.
+- **`## Dependencies`.** One machine-readable line each — `requires: <slug> — <contract>`. OBSERVE loads these ISAs into context before scaffolding criteria.
+- **`## Bridge Criteria`.** Cross-ISA integration ISCs (`Bridge:` prefix), each with `anchors_to: cross: <slug>` in Test Strategy, verified across the seam as a distinct VERIFY pass after leaf criteria.
+- **Blast-radius detection.** Before BUILD, a change to any linked ISA surfaces the downstream ISCs that need re-verification. Detection is automated; resolution stays human.
+- **When NOT to split.** Keep one file until it becomes illegible. Most things are one ISA; splitting early buys ceremony, not clarity.
+
+Frontmatter schema and full section spec: `LifeOS/install/LIFEOS/DOCUMENTATION/Isa/IsaFormat.md`; skimmable version in `FormatReference.md` (sibling).
+
+## Fog — Honest Incompleteness
+
+Not every in-scope question is sharp enough to be a claim at OBSERVE. **Forcing a speculative ISC when the question is still dim is the exact failure fog exists to prevent** — this applies to any ISA, not just large ones.
+
+- **`## Not yet specified`** holds the in-scope questions too dim to be ISCs yet — named, not answered.
+- **Graduation test:** can you state the question precisely — *not answer it, state it*? If yes, it can graduate to an ISC. If you can't even phrase it, it stays fog.
+- Fog graduates as the work sharpens an entry: it becomes an ISC, or it dies in `## Decisions`. Fog is a staging area, never a resting place.
+- The **Coverage Gate is assessed at close, not at scaffold** — an ISA is allowed to carry fog through most of its life.
+
+## HTML Mirror
+
+`ISA.html` is a derived, branded view of `ISA.md`, produced by a deterministic Python renderer (`Tools/render.py`) — **zero tokens, no model, offline-first**. ISA.md is always authoritative; the mirror is regenerated from it, never edited directly.
+
+- **Trigger:** manually — `/render-isa` or `python Tools/render.py <slug-or-path>`.
+- **No auto-trigger in Hermes:** the Claude completion-gate / Stop hooks that auto-fired the render are not ported. Regenerate the mirror when you want a fresh view.
+
 ## Relationship to the Algorithm
 
 The Algorithm at OBSERVE invokes this skill to scaffold or read an ISA. The skill does not run the Algorithm — it owns the artifact the Algorithm operates on.

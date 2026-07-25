@@ -10,8 +10,10 @@
  *   bun ActivateImports.ts [--config-root <dir>] [--apply] [--allow-dev]
  */
 
-import { join } from "node:path";
-import { activateImports, detectDevTree } from "./InstallEngine";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { activateImports, detectDevTree, detectHarness, isHermes } from "./InstallEngine";
 
 function main(): void {
   const a = process.argv.slice(2);
@@ -27,6 +29,34 @@ function main(): void {
   if (detectDevTree(configRoot) && !allowDev) {
     console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a source tree — refusing to edit CLAUDE.md.` }, null, 2));
     process.exit(2);
+  }
+
+  // Hermes has no CLAUDE.md @-import mechanism. Instead, LifeOS ships an
+  // install/HERMES.md that Hermes auto-loads. Place a copy under $HERMES_HOME
+  // (skipping the CLAUDE.md activation entirely) so identity/context load there.
+  const harness = detectHarness(process.env.HOME || homedir());
+  if (isHermes(harness)) {
+    const hermesHome = process.env.HERMES_HOME || join(process.env.HOME || homedir(), ".hermes");
+    const skillRoot = join(import.meta.dir, "..");
+    const sourceHermesMd = join(skillRoot, "install", "HERMES.md");
+    const destHermesMd = join(hermesHome, "LifeOS", "install", "HERMES.md");
+    const sourceExists = existsSync(sourceHermesMd);
+    const destExists = existsSync(destHermesMd);
+    let wrote = false;
+    if (sourceExists && !destExists && apply) {
+      mkdirSync(dirname(destHermesMd), { recursive: true });
+      copyFileSync(sourceHermesMd, destHermesMd);
+      wrote = true;
+    }
+    const note = !sourceExists
+      ? "source HERMES.md missing in skill dir"
+      : destExists
+        ? "HERMES.md already present at $HERMES_HOME"
+        : wrote
+          ? "Hermes detected — wrote LifeOS/install/HERMES.md for auto-loading"
+          : "Hermes detected — would write LifeOS/install/HERMES.md for auto-loading (dry-run)";
+    console.log(JSON.stringify({ ok: sourceExists, harness: "hermes", written: wrote, dest: destHermesMd, note }, null, 2));
+    process.exit(sourceExists ? 0 : 1);
   }
 
   const claudeMd = join(configRoot, "CLAUDE.md");

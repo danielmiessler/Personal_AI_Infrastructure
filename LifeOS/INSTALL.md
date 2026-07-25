@@ -84,7 +84,12 @@ This is the one place harnesses genuinely differ. Show the exact change and get 
 
 - **Claude Code** — run `bun Tools/InstallHooks.ts` (merges the hook set into `settings.json`, backing it up first) and `bun Tools/ActivateImports.ts` (turns on the identity context imports). This remains the Claude-specific integration path.
 
-- **Hermes** — load `install/LIFEOS/HERMES_CONSTITUTION.md` through Hermes' `ephemeral_system_prompt` initialization parameter. Keep Hindsight, LCM, the cognitive graph, Hermes skills, cron, and Hermes lifecycle/tool middleware as the native runtime layers. Do **not** write Claude hook files or a Claude `settings.json` `hooks` block into Hermes.
+- **Hermes** — the HermesSetup workflow handles everything:
+  1. Load the constitution as ephemeral_system_prompt
+  2. Install portable skills into $HERMES_HOME/skills/
+  3. Wire TELOS from the principal-supplied path
+  4. Verify with hermes skills list + Hindsight health check
+  See LifeOS/Workflows/HermesSetup.md for the full procedure.
 
 - **Any other harness (Cursor / Cline / Codex / Gemini / other)** — LifeOS's always-on behavior is harness-specific. Write an `AGENTS.md` (or the harness's own context file) that points the harness at the LifeOS tree, and state clearly which lifecycle integration is and is not available. Never write inert Claude hook configuration into another harness.
 

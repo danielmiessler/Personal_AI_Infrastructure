@@ -2,7 +2,9 @@
 version: 1.5.19
 ---
 
-# LifeOS ISA Format Specification v2.13.0 (Algorithm v6.25.0)
+# LifeOS ISA Format Specification v2.14.0 (Algorithm v6.25.0)
+
+> **v2.14.0 — a sanctioned home for remaining work.** The body grows from fourteen sections to **fifteen**: `## Remaining Work` (after Verification) holds the work an ISA knows about and is not doing in this run, one checkbox line each. Two semantics carry the section. First, **recording an item there is a complete disposition** — it does not also require a card or a tracker row. Second, an ISA's backlog is the **union** of its unchecked ISCs and its unchecked Remaining Work items, so "what does this still owe" is computable from the artifact alone. Companion doctrine: the **hand-off test** decides the exceptions — another tree, blocked on someone else, or picked up on its own schedule earns a card; everything else, and anything you are unsure about, is an ISA line. Conditional-required at E4/E5: mandatory when the ISA reaches `phase: complete` owing work, omitted when it owes none. **No Algorithm change** — this is a format addition; the parenthetical pairing above is unchanged from v2.13.0.
 
 > **v2.13.0 (Algorithm v6.25.0) — ISA scale + a real deletion.** The body grows from twelve sections to **fourteen**: `## Dependencies` (after Constraints) declares cross-ISA needs machine-readably; `## Bridge Criteria` (after Criteria) holds cross-ISA integration ISCs verified at VERIFY across the seam. New optional frontmatter `parent:` / `children:` links ISAs into a tree with **constraint inheritance** (a child cannot violate an ancestor Constraint). **The hard numeric ISC count floors (≥16/≥32/≥128/≥256) are DELETED** and replaced by the **Coverage Gate** — every subsystem named in Vision/Goal has a container ISC decomposed via the Splitting Test to single-probe leaves; coverage is the gate, count never is. Full doctrine in Algorithm v6.25.0 § *ISA Hierarchy & Cross-ISA Integration* and § *ISC Quality System*. The harness executor (`isa run`, reads `## Test Strategy`) is the paired build, tracked separately.
 
@@ -288,7 +290,7 @@ algorithm_config:
 
 ## Body Sections (v2.7)
 
-**Twelve sections in fixed order.** Each appears only when populated — never create empty placeholder sections (Bitter Pill discipline preserved). The Tier Completeness Gate determines which sections are required at which effort tier.
+**Fifteen sections in fixed order.** Each appears only when populated — never create empty placeholder sections (Bitter Pill discipline preserved). The Tier Completeness Gate determines which sections are required at which effort tier.
 
 | # | Section | Purpose | Written At |
 |---|---------|---------|------------|
@@ -306,8 +308,9 @@ algorithm_config:
 | 12 | `## Decisions` | Timestamped log including dead ends; `refined:` prefix | any phase |
 | 13 | `## Changelog` | Conjecture / refuted-by / learned / criterion-now entries | LEARN |
 | 14 | `## Verification` | Evidence per ISC (leaf + bridge) | VERIFY |
+| 15 | `## Remaining Work` | **NEW v2.14.0** — work this ISA knows about and is not doing in this run, one checkbox line each. Recording an item here is a **complete disposition**. Omit when the ISA closes owing nothing. | VERIFY → LEARN |
 
-(Optimize mode adds `## Experiments` between Test Strategy and Features. `## Dependencies` and `## Bridge Criteria` appear only when the ISA participates in a hierarchy — a single-ISA task omits both, exactly like any other empty section.)
+(Optimize mode adds `## Experiments` between Test Strategy and Features. `## Dependencies` and `## Bridge Criteria` appear only when the ISA participates in a hierarchy — a single-ISA task omits both, exactly like any other empty section. `## Remaining Work` appears only when the ISA closes owing something.)
 
 ### Tier Completeness Gate (HARD at every tier, NEW v2.7)
 
@@ -316,10 +319,10 @@ algorithm_config:
 | **E1** | Goal, Criteria |
 | **E2** | Problem, Goal, Criteria, Test Strategy |
 | **E3** | Problem, Vision, Out of Scope, Constraints, Goal, Criteria, Features, Test Strategy |
-| **E4** | All fourteen* |
-| **E5** | All fourteen* + active Interview workflow run before BUILD |
+| **E4** | All fifteen* |
+| **E5** | All fifteen* + active Interview workflow run before BUILD |
 
-\* `## Dependencies` and `## Bridge Criteria` are **conditional-required**: mandatory when the ISA has any `parent:`/`children:`/cross-ISA relationship, omitted (like any empty section) for a standalone single-ISA task. A hierarchical ISA that omits them fails the gate; a standalone one that omits them passes.
+\* `## Dependencies`, `## Bridge Criteria`, and `## Remaining Work` are **conditional-required**: the first two are mandatory when the ISA has any `parent:`/`children:`/cross-ISA relationship, omitted (like any empty section) for a standalone single-ISA task; `## Remaining Work` is mandatory when the ISA reaches `phase: complete` owing work, omitted when it owes none. An ISA that omits a section its condition demands fails the gate; one whose condition doesn't apply passes.
 
 Project ISA override: any `<project>/ISA.md` requires E3+ structure regardless of task tier. Enforced by `Skill("ISA", "check completeness")`.
 
@@ -510,6 +513,73 @@ Evidence for each criterion. Written during VERIFY phase.
 - ISC-2: `bun test` passes, 14/14 tests green
 - ISC-3: Confirmed no PII in output via rg
 ```
+
+### ## Remaining Work (NEW v2.14.0)
+
+Work this ISA knows about and is **not** doing in this run. Written at VERIFY, finalized at LEARN.
+
+Every ISA that runs long enough discovers work it will not finish. Before v2.14.0 the format had
+no place to put it: fourteen sections, none of which holds future work. So it went into a
+per-instance invented heading that no reader — human or machine — could rely on, or it left the
+ISA entirely and became a task in whatever tracker the principal runs. The second path is worse
+than it looks: it turns "I noticed something" into "I must now file, title, tag, and route a
+card," and a system that charges that much for noticing gets fewer things noticed.
+
+```markdown
+## Remaining Work
+
+- [ ] Digest section for stale ISAs — deferred, the digest module is mid-refactor in another run.
+- [ ] Property tests for the merge function — ISC-7 covers it by example; universal form is owed.
+- [ ] Upstream PR for the section spec — gated on the principal ratifying the built design.
+```
+
+**An item recorded here is completely dispositioned.** It does not also require a card, an issue,
+or a row in a tracker. This is the whole point of the section: one line, written where the context
+already is, is a *sufficient* answer to "what about X?" A format that accepts the line and still
+demands a card has not removed any work — it has added a section.
+
+**Backlog is the union of two things**, and a reader computing "what does this ISA still owe"
+must take both:
+
+1. unchecked ISCs in `## Criteria` (and `## Bridge Criteria`), and
+2. unchecked items in `## Remaining Work`.
+
+Unchecked ISCs stay where they are — the ID-Stability Rule forbids moving or renumbering them, and
+a criterion that migrates into a prose list stops being a criterion. `## Remaining Work` is for
+work that was never an ISC of this run.
+
+**Deferred is not dropped.** A dropped criterion becomes a tombstone under the ID-Stability Rule
+(`- [ ] ISC-N: [DROPPED — see Decisions]`) and the reason goes in `## Decisions`. A deferred item
+becomes a `## Remaining Work` line and stays live. The distinction is whether anyone still intends
+to do it.
+
+**Closing gate.** An ISA reaching `phase: complete` with unchecked ISCs must either tombstone them
+or account for them here. Silent abandonment — a complete ISA with unexplained empty checkboxes —
+is the failure this section exists to make impossible.
+
+#### When an item needs a card instead
+
+`## Remaining Work` is the default home. An item earns its own card, issue, or tracker row only
+when it fails the **hand-off test** — when it is genuinely someone or something else's to pick up:
+
+- it belongs to **another tree** (a different repo, project, or subsystem);
+- it is **blocked on someone else** — an external dependency, another person, another run;
+- it will be **picked up on its own schedule**, not as part of this work.
+
+Otherwise it is an ISA line. **When unsure, it is an ISA line** — the asymmetry is deliberate: a
+line that should have been a card is found by anyone reading the ISA, while a card that should
+have been a line is a permanent tax on a thought.
+
+When an item does earn a card, the `## Remaining Work` line stays and names it, so the ISA remains
+a complete account of what it owes:
+
+```markdown
+- [ ] Migrate the legacy importer — owned by the data-platform repo, tracked as #4127.
+```
+
+This is the companion half of the doctrine. The section without the hand-off test yields ISAs that
+quietly absorb work belonging to other trees; the hand-off test without the section yields a card
+for every stray thought. Neither is useful alone.
 
 ## File Location
 

@@ -20,8 +20,11 @@ from datetime import datetime
 from pathlib import Path
 
 # ── Paths ──
-SKILL_ROOT = Path(__file__).resolve().parents[3]  # LifeOS/install/skills/ISA/Tools → LifeOS/
-TEMPLATE_DIR = SKILL_ROOT / "install" / "LIFEOS" / "TOOLS" / "ISARender"
+# render.py is at LifeOS/install/skills/ISA/Tools/render.py
+# Templates live at LifeOS/install/LIFEOS/TOOLS/ISARender/
+# parents: [Tools, ISA, skills, install, LifeOS] → parents[3] = install
+SKILL_ROOT = Path(__file__).resolve().parents[3]  # LifeOS/install
+TEMPLATE_DIR = SKILL_ROOT / "LIFEOS" / "TOOLS" / "ISARender"
 TEMPLATE_HTML = TEMPLATE_DIR / "template.html"
 TEMPLATE_CSS = TEMPLATE_DIR / "template.css"
 
@@ -68,22 +71,25 @@ def parse_sections(body: str) -> dict[str, str]:
 
 
 def parse_iscs(criteria_text: str) -> list[dict]:
-    """Parse ISC rows from the Criteria section."""
+    """Parse ISC rows from the Criteria section.
+
+    Supported checkbox states: [ ] pending, [x] passed, [-] tombstone.
+    """
     iscs: list[dict] = []
     for line in criteria_text.split("\n"):
-        m = re.match(r"- \[([ x])\] (ISC-\d+(?:\.\d+)?):\s*(.*)", line)
+        m = re.match(r"- \[([ x-])\] (ISC-\d+(?:\.\d+)?):\s*(.*)", line)
         if not m:
             continue
-        checked = m.group(1) == "x"
+        box = m.group(1)
         isc_id = m.group(2)
         text = m.group(3).strip()
 
-        # Detect tombstone
-        if text.startswith("[DROPPED"):
+        # Tombstone: checkbox is '-' OR text starts with [DROPPED
+        if box == "-" or text.startswith("[DROPPED"):
             iscs.append({"id": isc_id, "text": text, "checked": False, "kind": "tombstone"})
             continue
 
-        # Detect kind
+        checked = box == "x"
         kind = "normal"
         if text.startswith("Anti:"):
             kind = "anti"
@@ -254,19 +260,75 @@ def render(isa_path: Path) -> str:
     css = TEMPLATE_CSS.read_text(encoding="utf-8") if TEMPLATE_CSS.exists() else ""
     template = TEMPLATE_HTML.read_text(encoding="utf-8") if TEMPLATE_HTML.exists() else "<html><body>{{SECTIONS}}</body></html>"
 
-    # Build content
-    title = fm.get("task", isa_path.stem)
-    hero = fm.get("principal_stated_goal", "")
-    phase_bar = build_phase_bar(fm)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+
+    # Build template values
+    task = fm.get("task", isa_path.stem)
+    slug_val = fm.get("slug", "")
+    phase = fm.get("phase", "observe").upper()
+    effort = fm.get("effort", "standard")
+    updated = fm.get("updated", now)
+    hero_goal = fm.get("principal_stated_goal", "")
+    mode = fm.get("mode", "")
+
+    # Phase bar
+    phases = ["OBSERVE", "THINK", "PLAN", "BUILD", "EXECUTE", "VERIFY", "LEARN", "COMPLETE"]
+    pills = []
+    for p in phases:
+        active = " active" if p == phase else ""
+        pills.append(f'<span class="phase-slot{active}">{p}</span>')
+    phase_bar = " → ".join(pills)
+
+    # Hero badges
+    badges = []
+    if phase:
+        badges.append(f'<span class="badge-phase">{phase}</span>')
+    if effort:
+        badges.append(f'<span class="badge-effort">{effort}</span>')
+    if mode:
+        badges.append(f'<span class="badge-mode">{mode}</span>')
+    hero_badges = " ".join(badges)
+
+    # Progress rail (classes match template.css: .rail, .fill, .text, .num)
+    checked = sum(1 for i in iscs if i["checked"] and i["kind"] != "tombstone")
+    total = sum(1 for i in iscs if i["kind"] != "tombstone")
+    pct = round(checked / total * 100) if total else 0
+    progress_rail = (
+        f'<div class="progress-rail">'
+        f'<div class="rail"><div class="fill" style="width:{pct}%"></div></div>'
+        f'<div class="text"><span class="num">{checked}</span>/{total}</div>'
+        f"</div>"
+    )
+
+    # TOC
+    toc_items = []
+    for name in SECTIONS:
+        if name in sections:
+            slug = name.lower().replace(" ", "-")
+            toc_items.append(f'<li><a href="#section-{slug}">{name}</a></li>')
+    toc = "\n".join(toc_items)
+
+    # Sections HTML
     sections_html = build_sections_html(sections, iscs)
 
     # Fill template
     html = template
-    html = html.replace("{{TITLE}}", title)
+    html = html.replace("{{TITLE}}", task)
+    html = html.replace("{{TASK}}", task)
     html = html.replace("{{CSS}}", f"<style>{css}</style>")
-    html = html.replace("{{HERO_CALLOUT}}", f'<div class="hero-callout">{hero}</div>' if hero else "")
+    html = html.replace("{{BRAND_LOGO_B64}}", "")
+    html = html.replace("{{EFFORT_DISPLAY}}", effort)
+    html = html.replace("{{SLUG}}", slug_val)
+    html = html.replace("{{UPDATED}}", updated)
+    html = html.replace("{{HERO_BADGES}}", hero_badges)
+    html = html.replace("{{PROGRESS_RAIL}}", progress_rail)
+    html = html.replace("{{HERO_CALLOUT}}", f'<div class="hero-callout">{hero_goal}</div>' if hero_goal else "")
     html = html.replace("{{PHASE_BAR}}", phase_bar)
+    html = html.replace("{{TOC}}", toc)
+    html = html.replace("{{WARNINGS}}", "")
     html = html.replace("{{SECTIONS}}", sections_html)
+    html = html.replace("{{FOOTER_LEFT}}", slug_val)
+    html = html.replace("{{RENDERED_AT}}", now)
 
     return html
 

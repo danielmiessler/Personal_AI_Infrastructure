@@ -162,6 +162,90 @@ const CAPS: CapSpec[] = [
     fixCmd: 'install Google Chrome (or Brave), then re-run: bun LIFEOS/TOOLS/Doctor.ts',
   },
   {
+    id: 'ripgrep',
+    title: 'Fast filesystem search (ripgrep)',
+    powers: 'ContextSearch queries, work sweeps, and the model-drift scan',
+    ttlHours: 24 * 7,
+    configured: () => true, // shipped code shells out to `rg`; absence is broken, not unconfigured
+    probeOffline: async () =>
+      which('rg')
+        ? { ok: true, detail: 'rg on PATH' }
+        : { ok: false, detail: 'rg not on PATH — tools that shell out to it will fail' },
+    fixCmd: 'brew install ripgrep  (Linux: sudo apt-get install ripgrep)',
+  },
+  {
+    id: 'imagemagick',
+    title: 'Image inspection (ImageMagick)',
+    powers: "Interceptor's blank-frame guard, measured zoom, and Art composition",
+    ttlHours: 24 * 7,
+    configured: () => true, // the capture guard and Art both shell out to `magick`
+    probeOffline: async () =>
+      which('magick')
+        ? { ok: true, detail: 'magick on PATH' }
+        : { ok: false, detail: 'magick not on PATH — the blank-frame guard skips and captures go unchecked' },
+    fixCmd: 'brew install imagemagick  (Linux: sudo apt-get install imagemagick)',
+  },
+  {
+    id: 'gh',
+    title: 'Work system of record (GitHub CLI)',
+    powers: 'work capture, sweeps, commitments, and the Pulse Work tab',
+    ttlHours: 24 * 7,
+    configured: () => true, // WorkSweep/CommitmentSweep/Pulse spawn `gh` with no fallback
+    probeOffline: async () =>
+      which('gh')
+        ? { ok: true, detail: 'gh on PATH' }
+        : { ok: false, detail: 'gh not on PATH — work capture and sweeps cannot reach the work repo' },
+    fixCmd: 'brew install gh && gh auth login  (Linux: see cli.github.com)',
+  },
+  {
+    id: 'ffmpeg',
+    title: 'Audio/video processing (ffmpeg)',
+    powers: 'AudioEditor, transcript splitting, Conveyor renders, Interceptor zoom fallback',
+    ttlHours: 24 * 7,
+    configured: () => true, // SplitAndTranscribe and AudioEditor spawn `ffmpeg` directly
+    probeOffline: async () =>
+      which('ffmpeg')
+        ? { ok: true, detail: 'ffmpeg on PATH' }
+        : { ok: false, detail: 'ffmpeg not on PATH — audio/video tools will fail at spawn' },
+    fixCmd: 'brew install ffmpeg  (Linux: sudo apt-get install ffmpeg)',
+  },
+  {
+    id: 'ytdlp',
+    title: 'YouTube ingestion (yt-dlp)',
+    powers: "the Feed YouTube source and the Upgrade skill's channel scan",
+    ttlHours: 24 * 7,
+    configured: () => true,
+    probeOffline: async () =>
+      which('yt-dlp')
+        ? { ok: true, detail: 'yt-dlp on PATH' }
+        : { ok: false, detail: 'yt-dlp not on PATH — YouTube transcript and channel steps are skipped' },
+    fixCmd: 'brew install yt-dlp  (Linux: sudo apt-get install yt-dlp)',
+  },
+  {
+    id: 'fabric',
+    title: 'Prompt patterns (fabric)',
+    powers: "the Fabric skill's pattern library and YouTube transcript fetch",
+    ttlHours: 24 * 7,
+    configured: () => true,
+    probeOffline: async () =>
+      which('fabric')
+        ? { ok: true, detail: 'fabric on PATH' }
+        : { ok: false, detail: 'fabric not on PATH — pattern runs fall back to native prompting' },
+    fixCmd: 'see github.com/danielmiessler/fabric for install',
+  },
+  {
+    id: 'jq',
+    title: 'JSON in shell hooks (jq)',
+    powers: 'hook-side JSON parsing, including the command-compression rewrite',
+    ttlHours: 24 * 7,
+    configured: () => true,
+    probeOffline: async () =>
+      which('jq')
+        ? { ok: true, detail: 'jq on PATH' }
+        : { ok: false, detail: 'jq not on PATH — shell hooks that parse JSON skip silently' },
+    fixCmd: 'brew install jq  (Linux: sudo apt-get install jq)',
+  },
+  {
     id: 'cloudflare',
     title: 'Scheduled cloud flows (Cloudflare/wrangler)',
     powers: 'Arbol scheduled flows and Worker deploys',

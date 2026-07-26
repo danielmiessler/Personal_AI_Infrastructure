@@ -296,7 +296,10 @@ function isAttackerWritableSource(toolName: string): boolean {
   // ToolSchemaLoaded hook event) is an upstream Claude Code feature request.
   if (toolName === "ToolSearch") return true;
   if (!toolName.startsWith("mcp__")) return false;
-  return /gmail|mail|drive|calendar|inbox/i.test(toolName);
+  // dropbox joins the list for the same reason drive is on it: file content
+  // pulled from a sync service is third-party-authored text that a stranger
+  // can put there (shared folders, file requests).
+  return /gmail|mail|drive|calendar|inbox|dropbox/i.test(toolName);
 }
 
 function annotate(input: { tool_name?: string; tool_response?: unknown }): void {

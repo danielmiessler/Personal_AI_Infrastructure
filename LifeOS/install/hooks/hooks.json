@@ -62,17 +62,7 @@
         ]
       },
       {
-        "matcher": "WebFetch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/Safety.hook.ts",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "WebSearch",
+        "matcher": "WebFetch|WebSearch|ToolSearch|mcp__.*([Mm]ail|[Dd]rive|[Cc]alendar|[Ii]nbox|[Dd]ropbox)",
         "hooks": [
           {
             "type": "command",

@@ -104,6 +104,8 @@ Anything else — direct `Read('LIFEOS/USER/...')`, hardcoded voice IDs in modul
 
 ## Two-repo sync (post-Phase-G.1, 2026-05-22)
 
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 The USER tree is its own private git repo: `~/.config/LIFEOS/USER/` → the user's `<your-username>/<your-user-data-repo>` (PRIVATE GitHub). The SYSTEM tree is `~/.claude/` → the user's `<your-username>/.claude` (PRIVATE GitHub). A pre-push hook at `~/.claude/.git/hooks/pre-push` (1836 bytes) auto-commits and pushes the USER repo before every `git push` from `~/.claude/`, so the two repos stay in sync structurally. A workflow ("update the kai repo" / "push both repos") wraps this with four boundary gates: (G1) USER-zone leak check on pending `~/.claude` changes, (G2) `DenyListCheck.ts` must return 0 real-leaks, (G3) both remotes confirmed private via `gh api`, (G4) post-push HEAD verification on both repos. **Pre-flight refuses to proceed if the public LifeOS repo appears in either remote** — this workflow is explicit private-only. Public LifeOS release goes through the shadow-release pipeline (`skills/_LIFEOS/Tools/ShadowRelease.ts`) with the separate 14-gate sanitization; the shipped distribution unit is the single `LifeOS/` skill emitted from that staging tree, not the `.claude/` clone.
 
 ## Enforcement layers

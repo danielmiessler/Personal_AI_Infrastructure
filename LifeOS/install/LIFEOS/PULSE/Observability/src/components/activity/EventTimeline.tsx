@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import type { HookEvent } from "@/hooks/useAgentEvents";
 import type { TimeRange } from "@/hooks/useChartData";
 import EventRow from "./EventRow";
 import IntensityBar from "./IntensityBar";
-import { Box } from "lucide-react";
+import { Box, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 
 interface EventTimelineProps {
   events: HookEvent[];
@@ -25,17 +25,20 @@ export default function EventTimeline({
   onSetTimeRange,
 }: EventTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // "desc" = most recent first (the default when Actions opens); "asc" = oldest first.
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
   const sortedEvents = useMemo(() => {
-    return events.slice().reverse();
-  }, [events]);
+    const arr = events.slice().sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    return sortOrder === "desc" ? arr.reverse() : arr;
+  }, [events, sortOrder]);
 
-  // Auto-scroll to top on new events
+  // Auto-scroll to top on new events — only meaningful when newest is at the top.
   useEffect(() => {
-    if (scrollRef.current) {
+    if (sortOrder === "desc" && scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
-  }, [events.length]);
+  }, [events.length, sortOrder]);
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
@@ -60,7 +63,26 @@ export default function EventTimeline({
           <span className="w-20">Tool</span>
           <span className="flex-1">Details</span>
         </div>
-        <span className="w-16 text-right">Time</span>
+        <div className="w-24 flex items-center justify-end gap-1">
+          <span>Time</span>
+          <button
+            type="button"
+            onClick={() => setSortOrder((o) => (o === "desc" ? "asc" : "desc"))}
+            title={
+              sortOrder === "desc"
+                ? "Most recent first — click for oldest first"
+                : "Oldest first — click for most recent first"
+            }
+            aria-label="Toggle sort order"
+            className="p-0.5 rounded hover:bg-white/[0.06] text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+          >
+            {sortOrder === "desc" ? (
+              <ArrowDownWideNarrow size={13} />
+            ) : (
+              <ArrowUpWideNarrow size={13} />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Scrollable Event List */}

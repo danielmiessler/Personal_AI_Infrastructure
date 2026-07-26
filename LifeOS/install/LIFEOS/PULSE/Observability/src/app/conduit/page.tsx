@@ -75,6 +75,24 @@ export default function ConduitPage() {
   const [sources, setSources] = useState<SourcesReport | null>(null);
   const [insight, setInsight] = useState<Insight | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [building, setBuilding] = useState(false);
+  const [buildMsg, setBuildMsg] = useState<string | null>(null);
+
+  async function runBuildInsights() {
+    setBuilding(true);
+    setBuildMsg(null);
+    try {
+      const res = await fetch("/api/conduit/build", { method: "POST" });
+      const data = await res.json().catch(() => ({ ok: res.ok }));
+      setBuildMsg(data.ok ? "Insights rebuilt." : "Build failed — see server log.");
+      const fresh = await fetch("/api/conduit/insight").then((r) => r.json());
+      setInsight(fresh);
+    } catch (e) {
+      setBuildMsg("Build error: " + String(e));
+    } finally {
+      setBuilding(false);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/conduit/today").then((r) => r.json()).then(setToday).catch((e) => setError(String(e)));
@@ -136,9 +154,21 @@ export default function ConduitPage() {
                   </div>
                 ) : (
                   !insight.available && (
-                    <div className="text-xs text-ink-3">
-                      The insight job runs on the hour. Run it now:{" "}
-                      <code className="text-ink-2 mono">bun Conduit/BuildInsight.ts</code>
+                    <div className="text-xs text-ink-3 space-y-2">
+                      <div>The insight job runs on the hour. Build it now:</div>
+                      <button
+                        type="button"
+                        onClick={runBuildInsights}
+                        disabled={building}
+                        className="px-3 py-1.5 rounded-md bg-white/[0.06] hover:bg-white/[0.1] text-ink-1 text-xs font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {building ? "Building…" : "Build insights now"}
+                      </button>
+                      {buildMsg && <div className="text-ink-2">{buildMsg}</div>}
+                      <div>
+                        Or from a terminal:{" "}
+                        <code className="text-ink-2 mono">bun ~/.claude/LIFEOS/PULSE/Conduit/BuildInsight.ts</code>
+                      </div>
                     </div>
                   )
                 )}

@@ -65,6 +65,8 @@ Everything that can drop an idea into Amber. Each is real unless marked `roadmap
 | # | Input | Trigger | LifeOS component | Status |
 |---|-------|---------|------------------|--------|
 | 1 | **Summarize hotkey** | browser hotkey on any page | Arbol `arbol-a-summarize` (`LIFEOS/USER/CUSTOMIZATIONS/ARBOL/summarize/`) | live |
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 | 2 | **Bookmarks → idea-issues** | bookmark sweep (`tb`) | `skills/_X/Tools/bookmark-issue.ts` → `Type:queue` work issues | live |
 | 3 | **Bookmarks → summarize (cloud)** | hourly cron | `ARBOL/Workers/_F_X_BOOKMARKS_SUMMARIZE` → summarize binding → sheet | live |
 | 4 | **Harvest → Knowledge** | `/ha` on a URL/video/text | `skills/_HARVEST` → `_F_HARVEST` → `_A_HARVEST_CLASSIFY` → `HarvestExecutor.ts` | live |

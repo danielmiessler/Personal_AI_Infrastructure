@@ -629,7 +629,7 @@ COMMANDS:
   k mcp set <profile>      Set MCP profile permanently
   k prompt "<text>"        One-shot prompt execution
   k -w, --wallpaper        List/switch wallpapers (Kitty + macOS)
-  k help, -h               Show this help
+  lifeos help, -h          Show this help
 
 MCP SHORTCUTS:
   bd, brightdata           Bright Data scraping
@@ -748,7 +748,7 @@ async function main() {
       default:
         if (!arg.startsWith("-")) {
           // Might be an unknown command
-          error(`Unknown command: ${arg}. Use 'k help' for usage.`);
+          error(`Unknown command: ${arg}. Use 'lifeos help' for usage.`);
         }
     }
   }

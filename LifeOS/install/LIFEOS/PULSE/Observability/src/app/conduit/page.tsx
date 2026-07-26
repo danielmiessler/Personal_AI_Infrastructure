@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Radar, Circle, GitCommit, Cpu, MonitorSmartphone, Sparkles } from "lucide-react";
+import { Radar, Circle, GitCommit, Cpu, MonitorSmartphone, Sparkles, Github } from "lucide-react";
 import { PageShell, PageHeader, Panel, PanelHeader, StatTile, EmptyState } from "@/components/ui/chrome";
 
 /**
@@ -50,6 +50,7 @@ const sourceIcon: Record<string, React.ReactNode> = {
   appFocus: <MonitorSmartphone className="w-4 h-4" />,
   git: <GitCommit className="w-4 h-4" />,
   claudeSession: <Cpu className="w-4 h-4" />,
+  github: <Github className="w-4 h-4" />,
 };
 
 // Cool→warm cycle for content-type bars, drawn from the life-dimension tokens.

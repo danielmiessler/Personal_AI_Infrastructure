@@ -112,6 +112,8 @@ sendVoiceSummary(ctx, fullText) — fire-and-forget IIFE
 
 - `modules/telegram.ts` ships **zero** principal-identifiable literals (no chat IDs, no bot tokens, no principal-specific names). `DenyListCheck` reports 0 real-leaks.
 - Voice ID is read from `settings.json` at module import, not hardcoded — so no `{{...}}` placeholder needs install-time resolution; the setup-time template substitution doesn't need to know about this module.
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 - USER bootstrap templates for the four context-block sources exist at `skills/_LIFEOS/RELEASE_TEMPLATES/USER/{DIGITAL_ASSISTANT/DA_IDENTITY.md, PRINCIPAL/PRINCIPAL_IDENTITY.md, TELOS/PRINCIPAL_TELOS.md, PROJECTS.md}` — a fresh install runs functional from day one, even before `/interview` populates the principal's real content.
 
 ### Adjacent gotchas

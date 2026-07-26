@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * lifeos — the LifeOS launcher CLI (aliased as `k`)
+ * lifeos — the LifeOS launcher CLI
  *
  * Comprehensive CLI for managing Claude Code with dynamic MCP loading,
  * updates, version checking, and profile management.

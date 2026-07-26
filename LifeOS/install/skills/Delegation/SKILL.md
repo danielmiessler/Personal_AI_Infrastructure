@@ -224,6 +224,12 @@ The tier delegation floors set a *minimum* fan-out. This gate sets the *ceiling*
 
 **Every inline brief and Workflow subagent prompt articulates the ideal state, not the procedure.** State WHAT a done result looks like (as testable outcomes), the CONSTRAINTS, and the TOOLS available — then trust the agent to find HOW. A brief that choreographs the agent's reasoning ("first search, then extract, then verify, then synthesize") is BPE-violating scaffolding: it caps a capable agent and rots as models improve. This is the highest-volume prompting surface in the system (subagent briefs are written constantly at runtime), so the discipline matters most here. Keep the four keep-classes — safety-gate, verified-gotcha, tool-contract, output-format-contract — and delete the choreography. Prefer stating the coverage OUTCOME over a hardcoded fan-out count ("trust a match only when 3+ independent sources align", not "spawn exactly 15 agents"). Full standard: `skills/Prompting/Standards.md` § Ideal-State Prompting.
 
+## Workflow Routing
+
+| Trigger | Workflow |
+|---------|----------|
+| "survive disconnect", "outlive the session", "run detached", "keep running after I log off", "long-running local process", "drive a TUI that has no API", "reattach later" | `Workflows/Persist.md` |
+
 ## Anti-Patterns (Don't Do These)
 
 - Don't delegate what Grep/Glob/Read can do in <2 seconds
@@ -240,6 +246,8 @@ The tier delegation floors set a *minimum* fan-out. This gate sets the *ceiling*
 - **3+ independent workstreams warrant delegation.** For 1-2 tasks, direct work is faster than team coordination overhead.
 - **Agent teams share a task list.** Use TaskCreate/TaskUpdate for coordination, not ad-hoc messages.
 - **Teams overkill for single-file tasks.** (Mar 2026 reflection: "one agent that can both read code and write JSX is better than three specialists who can't coordinate")
+- **Split-pane teammates are a setting, not a tool to build.** `teammateMode` accepts `in-process` (the default since v2.1.179), `auto`, `tmux`, `iterm2`. `auto` picks tmux when the leader is *already running inside tmux*, then iTerm2 with the `it2` CLI, then falls back to in-process — so a headless leader with no attached terminal gets in-process no matter what tmux is installed. Teammates inherit the lead's permission mode at spawn (including `--dangerously-skip-permissions`) and their prompts bubble up to the lead. Reach for `Workflows/Persist.md` only for what this does not cover: detached work that must outlive the session, non-Claude processes, and TUIs with no API.
+- **An agent started by typing `claude ...` into a terminal pane is a sibling process, not a teammate.** No subagent registry entry, no concurrency-cap accounting, screen text instead of a result object, and whatever permission flags its own invocation carried. That is the real cost of driving agents by keystroke, and it is why `Persist.md` is scoped to processes rather than agents.
 - **Forked subagents inherit the full main-thread conversation + share its prompt cache** (Anthropic CC v2.1.133+, enabled via `CLAUDE_CODE_FORK_SUBAGENT=1` env or agent frontmatter `context: fork`). Use forked subagents for **nuance-dependent work**: design variations, follow-on research, anything that depends on context the main thread already established. **DO NOT FORK for code review** — a forked reviewer defends its own code (R Amjad: "biased toward defending own code"). For convergence questions, run one fork + one non-fork in parallel and look at where they disagree.
 
 ## Examples

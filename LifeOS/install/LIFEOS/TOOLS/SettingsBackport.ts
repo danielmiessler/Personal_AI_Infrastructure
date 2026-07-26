@@ -31,11 +31,11 @@
  *   bun SettingsBackport.ts --dry-run  # report drift, write nothing
  */
 
-import { writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { mergeSettings, deepEqual, parseJsonFileOrThrow, MERGE_SNAPSHOT_PATH } from "./MergeSettings";
+import { atomicWriteText } from "../PULSE/lib/atomic-write";
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
 const SYSTEM_PATH = path.join(CLAUDE_DIR, "settings.system.json");
@@ -158,7 +158,9 @@ async function run(dryRun: boolean): Promise<number> {
   for (const d of changes) {
     deepSet(user, d.segments, d.value);
   }
-  await writeFile(USER_PATH, `${JSON.stringify(user, null, 2)}\n`, "utf8");
+  // Atomic: settings.user.json is a merge SOURCE — truncating it takes out the
+  // next MergeSettings run too, not just this one.
+  atomicWriteText(USER_PATH, `${JSON.stringify(user, null, 2)}\n`);
   console.log(`wrote ${changes.length} change(s) to ${USER_PATH}`);
 
   // Verify per backported path: each value must survive the merge (overlay

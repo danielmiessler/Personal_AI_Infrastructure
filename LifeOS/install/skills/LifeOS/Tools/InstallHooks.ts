@@ -14,9 +14,10 @@
  *   (dry-run by default — reports added/skipped without writing)
  */
 
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { detectDevTree, mergeHooks } from "./InstallEngine";
+import { atomicWriteText } from "../../../LIFEOS/PULSE/lib/atomic-write";
 
 interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
 
@@ -93,7 +94,7 @@ function main(): void {
     copyFileSync(settingsPath, backup);
   }
   settings.hooks = merged;
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+  atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
   // Deploy the hook scripts next to the merged settings (RC2): recursive copy of
   // the whole payload hooks/ tree (*.hook.ts|sh + lib/**) into <configRoot>/hooks/.

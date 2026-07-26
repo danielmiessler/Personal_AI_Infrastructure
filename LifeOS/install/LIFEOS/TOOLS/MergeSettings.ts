@@ -9,10 +9,11 @@
  * Merge annotations are consumed and never emitted in the output.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { atomicWriteText } from "../PULSE/lib/atomic-write";
 
 /**
  * Snapshot of the last merge output, written alongside every successful
@@ -545,8 +546,11 @@ async function runCli(argv: string[]): Promise<number> {
     const outputJson = validateRoundTripOrThrow(merged);
 
     if (options.mode.kind === "output") {
+      // Atomic: this runs async at SessionStart under a 15s hook timeout, so a
+      // kill mid-write must not leave settings.json truncated — that drops every
+      // hook, permission rule and env var on the next launch.
       try {
-        await writeFile(options.mode.path, outputJson, "utf8");
+        atomicWriteText(options.mode.path, outputJson);
       } catch (error) {
         throw new Error(
           `Failed to write merged settings to ${options.mode.path}: ${formatErrorMessage(error)}`,
@@ -557,7 +561,7 @@ async function runCli(argv: string[]): Promise<number> {
       // Best-effort: a failed snapshot write must never fail the merge itself
       // (backport skips safely when the snapshot is missing/stale).
       try {
-        await writeFile(MERGE_SNAPSHOT_PATH, outputJson, "utf8");
+        atomicWriteText(MERGE_SNAPSHOT_PATH, outputJson);
       } catch {
         process.stderr.write(`⚠️  could not write merge snapshot to ${MERGE_SNAPSHOT_PATH}\n`);
       }

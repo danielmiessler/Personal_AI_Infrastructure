@@ -31,8 +31,9 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * Zero deps, zero throws — config breakage degrades to disabled state.
  */
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "fs";
+import { existsSync, readFileSync, chmodSync } from "fs";
 import { join } from "path";
+import { atomicWriteText } from "../../LIFEOS/PULSE/lib/atomic-write";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -168,7 +169,7 @@ export function loadWorkConfig(): WorkConfig {
               `gh repo view ${parsed.repo} --json visibility,isPrivate`,
           },
         };
-        writeFileSync(REPO_JSON_PATH, JSON.stringify(updated, null, 2) + "\n");
+        atomicWriteText(REPO_JSON_PATH, JSON.stringify(updated, null, 2) + "\n");
         chmodSync(REPO_JSON_PATH, 0o600);
         parsed = updated;
         revalidatedThisLoad = true;

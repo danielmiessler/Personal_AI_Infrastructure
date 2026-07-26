@@ -15,10 +15,11 @@
  *   bun LIFEOS/TOOLS/SyncIdentityToSettings.ts          # silent unless changed
  *   bun LIFEOS/TOOLS/SyncIdentityToSettings.ts --verbose
  */
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { paiUserDir } from './LifeosConfig';
+import { atomicWriteText } from '../PULSE/lib/atomic-write';
 
 const HOME = homedir();
 const PRINCIPAL_PATH = join(paiUserDir(), 'PRINCIPAL/PRINCIPAL_IDENTITY.md');
@@ -87,7 +88,7 @@ if (!changed) {
 
 settings.preferences = merged;
 const out = JSON.stringify(settings, null, 2) + '\n';
-writeFileSync(SETTINGS_PATH, out);
+atomicWriteText(SETTINGS_PATH, out);
 
 const summary = Object.entries(camelPrefs)
   .map(([k, v]) => `${k}=${v}`)

@@ -33,9 +33,10 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { copyMissing, detectDevTree } from "./InstallEngine";
+import { atomicWriteText } from "../../../LIFEOS/PULSE/lib/atomic-write";
 
 // Enhancement components are the à-la-carte half of setup. The "LifeOS Core"
 // (skills + system prompt + base settings + CLAUDE.md) is installed by Setup's
@@ -190,7 +191,7 @@ function deployStatusline(ctx: Ctx): ComponentResult {
     if (!alreadyWired) {
       backup(settingsPath);
       settings.statusLine = { type: "command", command, refreshInterval: 1 };
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     }
     r.applied = !alreadyWired;
     const reread = JSON.parse(readFileSync(settingsPath, "utf-8"));
@@ -239,7 +240,7 @@ function deploySettingsKey(component: Component, key: string, ctx: Ctx): Compone
     if (!already) {
       backup(settingsPath);
       settings[key] = enh[key];
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     }
     r.applied = !already;
     const reread = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf-8")) : {};

@@ -5,7 +5,7 @@
  * Capture stores SPANS and METADATA, never keystrokes or content.
  */
 
-export type ConduitEventType = "app-focus" | "git-commit" | "claude-session";
+export type ConduitEventType = "app-focus" | "git-commit" | "claude-session" | "github-pr";
 
 /** One captured signal. Appended as a single JSONL line. */
 export interface ConduitEvent {

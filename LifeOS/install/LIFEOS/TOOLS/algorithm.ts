@@ -57,6 +57,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, append
 import { resolve, basename, join, dirname } from "path";
 import { spawnSync, spawn } from "child_process";
 import { resolveClaudeBin } from "./Inference";  // absolute claude path — ENOENT-safe under launchd/cron (PR #1460, author asdf8675309)
+import { judgeCriterion, parseWorkerOutput, iscResultContract, iscRegressionContract, type IscVerdict } from "./IscResult";
 import { randomUUID } from "crypto";
 import { generateISATemplate } from "../../../.claude/hooks/lib/isa-template";
 
@@ -829,10 +830,17 @@ YOUR WORKFLOW:
 4. Run the verification method (the Verify: part after the pipe).
 5. After your fix, also verify ALL OTHER criteria in the ISA to catch regressions from your change.
    For each criterion, run its Verify: method and report the result.
-6. Print your primary result: "RESULT: ${criterion.id} PASS" or "RESULT: ${criterion.id} FAIL: <reason>"
-   Then print regression check results: "REGRESSION_CHECK: ISC-XX PASS" or "REGRESSION_CHECK: ISC-XX FAIL"
-7. Do NOT edit the ISA file. The parent reads your stdout and updates the ISA.
-8. That's it. Exit when done.`;
+6. Print your primary result as ONE line, starting at column 0, in exactly this form —
+   no indentation, no bullet, no quotes, no backticks, no bold:
+     ${iscResultContract(criterion.id)}
+   Replace PASS|FAIL with exactly one of PASS or FAIL. Include reason= only on FAIL.
+   Print a PASS line ONLY if you ran the verification method and observed it succeed.
+   That line is the ONLY evidence the parent accepts — prose saying you passed counts
+   for nothing, and a run that prints both PASS and FAIL for your criterion is a FAIL.
+7. Then print one line per OTHER criterion you regression-checked, same rules:
+     ${iscRegressionContract()}
+8. Do NOT edit the ISA file. The parent reads your stdout and updates the ISA.
+9. That's it. Exit when done — exit non-zero only if you genuinely failed to run.`;
 }
 
 // ─── Parallel Iteration Runner ──────────────────────────────────────────────
@@ -875,15 +883,24 @@ async function runParallelIteration(
   console.log(`\x1b[90m  ⏱ Agents finished in ${elapsed}s\x1b[0m`);
   console.log("");
 
-  // Parse agent stdout for RESULT lines — agents report pass/fail via stdout only
+  // Parse agent stdout for structured ISC_RESULT verdicts. Substring matching is not
+  // enough: a failing agent's prose can contain its own id next to the word PASS.
+  // See IscResult.ts for the contract and the fail-closed rules.
+  // A regression FAIL from ANY agent vetoes that criterion for the whole iteration —
+  // one agent's fix can break the criterion another agent claims to have passed.
+  const regressionVetoes = new Set<string>();
+  for (const { stdout } of results) {
+    for (const id of parseWorkerOutput(stdout).regressionFailed) regressionVetoes.add(id);
+  }
+
+  const verdicts = new Map<number, IscVerdict | "REGRESSED">();
   const passedIds: string[] = [];
-  for (const { assignment, stdout } of results) {
+  for (const { assignment, stdout, exitCode } of results) {
     const cId = assignment.criteriaIds[0];
-    // Look for "RESULT: ISC-xxx PASS" in agent output
-    if (stdout.includes(`RESULT: ${cId} PASS`) || stdout.includes(`${cId} PASS`)) {
-      passedIds.push(cId);
-    }
-    // Also check if agent edited the ISA despite instructions (fallback detection)
+    const judged = judgeCriterion(cId, { stdout, exitCode });
+    const verdict = judged === "PASS" && regressionVetoes.has(cId) ? "REGRESSED" : judged;
+    verdicts.set(assignment.agentId, verdict);
+    if (verdict === "PASS") passedIds.push(cId);
   }
 
   // Parent updates ISA checkboxes sequentially — no concurrent writes
@@ -915,19 +932,20 @@ async function runParallelIteration(
 
   // ── Per-agent results ──
   console.log(`  \x1b[1mAgent Results:\x1b[0m`);
-  for (const { assignment, exitCode } of results) {
+  for (const { assignment } of results) {
     const cId = assignment.criteriaIds[0];
     const detail = assignment.criteriaDetails[0];
     const desc = detail.description.length > 40 ? detail.description.slice(0, 37) + "..." : detail.description;
-    const criterion = postCriteria.criteria.find(c => c.id === cId);
-    const passed = criterion?.status === "passing";
-    if (exitCode !== 0) {
-      console.log(`  \x1b[31m  Agent ${assignment.agentId} ✗ CRASHED\x1b[0m  ${cId}: ${desc}`);
-    } else if (passed) {
-      console.log(`  \x1b[32m  Agent ${assignment.agentId} ✓ PASS\x1b[0m    ${cId}: ${desc}`);
-    } else {
-      console.log(`  \x1b[33m  Agent ${assignment.agentId} ✗ FAIL\x1b[0m    ${cId}: ${desc}`);
-    }
+    const verdict = verdicts.get(assignment.agentId) ?? "NO_SIGNAL";
+    const passed = verdict === "PASS";
+    // Anything short of a clean PASS is shown as-is — NO_SIGNAL and AMBIGUOUS are
+    // distinct from a reported FAIL and the operator needs to tell them apart.
+    const color = passed ? "\x1b[32m" : verdict === "FAIL" || verdict === "NO_SIGNAL" ? "\x1b[33m" : "\x1b[31m";
+    const label = `${passed ? "✓" : "✗"} ${verdict}`.padEnd(11);
+    console.log(`  ${color}  Agent ${assignment.agentId} ${label}\x1b[0m ${cId}: ${desc}`);
+  }
+  if (regressionVetoes.size > 0) {
+    console.log(`  \x1b[31m  Regression checks failed: ${[...regressionVetoes].join(", ")}\x1b[0m`);
   }
   console.log("");
 

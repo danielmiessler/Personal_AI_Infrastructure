@@ -29,6 +29,24 @@ Run it whenever anything feels off. Every ❌ line carries its own fix command. 
 - **Auth:** none.
 - **Verify:** `Doctor.ts` → interceptor ✅ (skill present + browser found).
 
+## ripgrep — fast filesystem search
+
+**Powers:** ContextSearch queries, the work sweep, and the model-drift scan. LifeOS treats the filesystem as its index instead of a vector store, so shipped tools shell out to `rg` directly.
+
+- **Install:** `brew install ripgrep` (Linux: `sudo apt-get install ripgrep`)
+- **Auth:** none.
+- **Verify:** `Doctor.ts` → ripgrep ✅
+- **Note:** the built-in `Grep` tool is already ripgrep-backed and works regardless; this is for the tools that spawn `rg` themselves.
+
+## ImageMagick — image inspection
+
+**Powers:** Interceptor's blank-frame guard, its measured zoom, and Art's composition steps.
+
+- **Install:** `brew install imagemagick` (Linux: `sudo apt-get install imagemagick`)
+- **Auth:** none.
+- **Verify:** `Doctor.ts` → imagemagick ✅
+- **Note:** without it, `Capture.sh` still returns a screenshot but prints `BLANK-FRAME GUARD SKIPPED` — the capture is then unchecked for a black or blank frame, so don't cite it as pixel-verified without looking at it yourself.
+
 ## Cloudflare / wrangler — scheduled cloud flows
 
 **Powers:** the "runs while you sleep" layer (Arbol) and Worker deploys.

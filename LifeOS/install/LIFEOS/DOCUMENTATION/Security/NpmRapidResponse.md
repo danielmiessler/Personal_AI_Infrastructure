@@ -77,6 +77,8 @@ bun install --frozen-lockfile
 - npm token (if any) — `npm token list`, revoke, regenerate
 - GitHub PAT (any token used in CI on the host) — `gh auth refresh`
 - AWS / GCP / Azure on dev hosts where install ran during worm window
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 - See `~/.claude/skills/_INCIDENT_RESPONSE/SKILL.md` for the full rotation protocol
 
 ## Hardening levers (one per attack surface)

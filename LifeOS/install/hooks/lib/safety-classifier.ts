@@ -90,6 +90,13 @@ export const CREDENTIAL_PATHS: readonly RegExp[] = [
   /\.aws\/credentials\b/,
   /\.gnupg\/(private-keys|secring)/,
   /(^|\s|=|@|"|')([~\$\{\}\/A-Za-z0-9._-]+\/)?\.env(\.[a-zA-Z0-9_-]+)?(\s|$|"|')/,
+  // procfs reaches the same secrets the entries above guard: `environ` is the
+  // process environment (API keys, tokens), `mem`/`maps` are its address space.
+  // `cat` is in SEARCH_TOOLS, so without this `cat /proc/self/environ` takes the
+  // read-only-command allow at classifyCommand() and prints every secret in the
+  // environment without a prompt. Covers literal pids, `self`, and the shell
+  // forms that reach the same file (`$$`, `$PID`, `${PID}`).
+  /\/proc\/(?:self|\d+|\$\$|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?)\/(?:environ|mem|maps|cmdline)\b/,
 ];
 
 export const READ_ONLY_COMMAND_PATTERNS: readonly RegExp[] = [

@@ -623,6 +623,7 @@ USAGE:
 
 COMMANDS:
   k update                 Update Claude Code to latest version
+  k doctor                 Run the LifeOS capability check (Doctor.ts)
   k version, -v            Show version information
   k profiles               List available MCP profiles
   k mcp list               List all available MCPs
@@ -659,6 +660,18 @@ EXAMPLES:
 // Main
 // ============================================================================
 
+async function cmdDoctor(extraArgs: string[]): Promise<void> {
+  // Delegate to the standalone Doctor.ts capability checker. This makes the
+  // `lifeos doctor` invocation the statusline/Doctor.ts advise actually work.
+  const doctorPath = `${import.meta.dir}/Doctor.ts`;
+  const result = spawnSync(["bun", doctorPath, ...extraArgs], {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  process.exit(result.exitCode ?? 0);
+}
+
 async function main() {
   const args = process.argv.slice(2);
 
@@ -679,6 +692,7 @@ async function main() {
   let subArg: string | undefined;
   let promptText: string | undefined;
   let wallpaperArgs: string[] = [];
+  let doctorArgs: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -728,6 +742,11 @@ async function main() {
       case "profiles":
         command = "profiles";
         break;
+      case "doctor":
+        command = "doctor";
+        doctorArgs = args.slice(i + 1);
+        i = args.length; // forward remaining args to Doctor.ts
+        break;
       case "mcp":
         command = "mcp";
         subCommand = args[++i];
@@ -766,6 +785,9 @@ async function main() {
       break;
     case "profiles":
       cmdProfiles();
+      break;
+    case "doctor":
+      await cmdDoctor(doctorArgs);
       break;
     case "mcp":
       if (subCommand === "list") {

@@ -16,6 +16,7 @@
 import { capture as captureAppFocus } from "./adapters/appFocus.ts";
 import { capture as captureClaude } from "./adapters/claudeSession.ts";
 import { capture as captureGit } from "./adapters/git.ts";
+import { capture as captureGithub } from "./adapters/github.ts";
 import { DEFAULT_CONFIG, loadConfig } from "./config.ts";
 import { CONFIG_PATH, DATA_ROOT } from "./paths.ts";
 import { buildDailyRecord, renderMarkdown, writeDailyRecord } from "./rollup.ts";
@@ -34,6 +35,7 @@ function runCapture(): number {
     [config.sources.appFocus, () => captureAppFocus(config)],
     [config.sources.git, () => captureGit(config)],
     [config.sources.claudeSession, () => captureClaude()],
+    [config.sources.github, () => captureGithub(config)],
   ];
   for (const [enabled, run] of runners) {
     if (!enabled) continue;

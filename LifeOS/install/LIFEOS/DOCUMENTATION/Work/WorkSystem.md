@@ -176,7 +176,7 @@ A `<da-name>-can-take` label serves as the queue marker for "the DA should pick 
 |-------|----------|----------|-------------------|
 | **System code (public)** | `~/.claude/LIFEOS/PULSE/`, `~/.claude/LIFEOS/TOOLS/`, generic capture hooks under `~/.claude/hooks/` | Modules, CLIs, generic hooks | YES — scrubbed, public-clean |
 | **Private components** | `~/.claude/skills/_ULWORK/`, `~/.claude/hooks/ULWorkSync.hook.ts` | Underscore-private skill + principal-specific SessionEnd capture hook (target the private UL work repo) | NO — rsync-excluded from the public release payload, same as any underscore-prefixed private skill |
-| **User config** | `~/.claude/LIFEOS/USER/WORK/` | `labels.yml`, `config.yaml`, `work_repo.json`, `README.md` | NO — USER zone, excluded by containment |
+| **User config** | `~/.claude/LIFEOS/USER/WORK/` | `labels.yml`, `config.yaml`, `work_repo.json` (these three are created by the work-system setup — `SetWorkRepo.ts --bootstrap`, see below; only `README.md` ships by default), `README.md` | NO — USER zone, excluded by containment |
 | **Templates for new users** | `~/.claude/skills/_LIFEOS/RELEASE_TEMPLATES/WORK_REPO/` | README template, TASKLIST starter, .github/labels.yml, ISSUE_TEMPLATE, workflows | YES — placeholder substitution at user-setup time (planned, not yet built) |
 | **Live repo** | The configured private GitHub repo | Issues, TASKLIST.md, README, SOPs, CHANGELOG | NO — user's private property |
 

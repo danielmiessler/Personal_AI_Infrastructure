@@ -197,6 +197,8 @@ Loop mode displays a live progress dashboard:
 
 ---
 
+> **Private component — not in the public release.** The `~/.claude/LIFEOS/ARBOL/` CLI tree is per-machine and does not ship publicly; these paths will not exist on a public install. The only Arbol surface that ships is the `USER/CUSTOMIZATIONS/ARBOL/` scaffold.
+
 ## The Arbol CLI (pai)
 
 **Location:** `~/.claude/LIFEOS/ARBOL/Actions/lifeos.ts`

@@ -6,16 +6,16 @@
  * updates, version checking, and profile management.
  *
  * Usage:
- *   k                  Launch Claude (default profile)
- *   k -m bd            Launch with Bright Data MCP
- *   k -m bd,ap         Launch with multiple MCPs
- *   k -r / --resume    Resume a session (picker, or pass a session ID)
- *   k --local          Stay in current directory (don't cd to ~/.claude)
- *   k update           Update Claude Code
- *   k version          Show version info
- *   k profiles         List available profiles
- *   k mcp list         List available MCPs
- *   k mcp set <profile>  Set MCP profile
+ *   lifeos             Launch Claude (default profile)
+ *   lifeos -m bd       Launch with Bright Data MCP
+ *   lifeos -m bd,ap    Launch with multiple MCPs
+ *   lifeos -r / --resume  Resume a session (picker, or pass a session ID)
+ *   lifeos --local     Stay in current directory (don't cd to ~/.claude)
+ *   lifeos update      Update Claude Code
+ *   lifeos version     Show version info
+ *   lifeos profiles    List available profiles
+ *   lifeos mcp list    List available MCPs
+ *   lifeos mcp set <profile>  Set MCP profile
  */
 
 import { spawn, spawnSync } from "bun";
@@ -611,24 +611,24 @@ async function cmdPrompt(prompt: string) {
 
 function cmdHelp() {
   console.log(`
-lifeos — LifeOS launcher CLI (v2.1.0)
+lifeos — LifeOS launcher CLI (v2.2.0)
 
 USAGE:
-  k                        Launch Claude (no MCPs, max performance)
-  k -m <mcp>               Launch with specific MCP(s)
-  k -m bd,ap               Launch with multiple MCPs
-  k -r, --resume [id]      Resume a session (interactive picker, or a specific session ID)
-  k -s, --system-prompt    System prompt file to append (default: LIFEOS_SYSTEM_PROMPT.md)
-  k -l, --local            Stay in current directory (don't cd to ~/.claude)
+  lifeos                   Launch Claude (no MCPs, max performance)
+  lifeos -m <mcp>          Launch with specific MCP(s)
+  lifeos -m bd,ap          Launch with multiple MCPs
+  lifeos -r, --resume [id]  Resume a session (interactive picker, or a specific session ID)
+  lifeos -s, --system-prompt  System prompt file to append (default: LIFEOS_SYSTEM_PROMPT.md)
+  lifeos -l, --local       Stay in current directory (don't cd to ~/.claude)
 
 COMMANDS:
-  k update                 Update Claude Code to latest version
-  k version, -v            Show version information
-  k profiles               List available MCP profiles
-  k mcp list               List all available MCPs
-  k mcp set <profile>      Set MCP profile permanently
-  k prompt "<text>"        One-shot prompt execution
-  k -w, --wallpaper        List/switch wallpapers (Kitty + macOS)
+  lifeos update            Update Claude Code to latest version
+  lifeos version, -v       Show version information
+  lifeos profiles          List available MCP profiles
+  lifeos mcp list          List all available MCPs
+  lifeos mcp set <profile>  Set MCP profile permanently
+  lifeos prompt "<text>"   One-shot prompt execution
+  lifeos -w, --wallpaper   List/switch wallpapers (Kitty + macOS)
   lifeos help, -h          Show this help
 
 MCP SHORTCUTS:
@@ -643,15 +643,15 @@ MCP SHORTCUTS:
   none                     No MCPs
 
 EXAMPLES:
-  k                        Start with current profile
-  k -m bd                  Start with Bright Data
-  k -m bd,ap               Start with multiple MCPs
-  k -r                     Resume a session (picker), or 'k -r <id>' for a specific one
-  k mcp set research       Switch to research profile
-  k update                 Update Claude Code
-  k prompt "What time is it?"   One-shot prompt
-  k -w                     List available wallpapers
-  k -w circuit-board       Switch wallpaper (Kitty + macOS)
+  lifeos                   Start with current profile
+  lifeos -m bd             Start with Bright Data
+  lifeos -m bd,ap          Start with multiple MCPs
+  lifeos -r                Resume a session (picker), or 'lifeos -r <id>' for a specific one
+  lifeos mcp set research  Switch to research profile
+  lifeos update            Update Claude Code
+  lifeos prompt "What time is it?"  One-shot prompt
+  lifeos -w                List available wallpapers
+  lifeos -w circuit-board  Switch wallpaper (Kitty + macOS)
 `);
 }
 

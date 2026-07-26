@@ -18,9 +18,24 @@ export interface ConduitConfig {
     appFocus: boolean;
     git: boolean;
     claudeSession: boolean;
+    /** GitHub activity (remote commits + PRs authored by you). Off by default. */
+    github: boolean;
   };
   /** Absolute repo paths watched for new commits. Empty by default. */
   repos: string[];
+  /**
+   * GitHub login whose commit/PR activity the github source captures. Empty →
+   * the adapter resolves it from `gh api user` (the authenticated account).
+   */
+  githubUser?: string;
+  /**
+   * Optional GH_CONFIG_DIR for the `gh` calls the github source makes — set this
+   * when the account that owns the GitHub auth differs from the OS user running
+   * Conduit (e.g. a service account). Empty → ambient `gh` auth.
+   */
+  githubConfigDir?: string;
+  /** Path to the `gh` binary. Empty → resolve `gh` from PATH. */
+  githubCliPath?: string;
   /** Days of raw event logs retained after rollup. */
   retentionDays: number;
 }
@@ -28,7 +43,7 @@ export interface ConduitConfig {
 export const DEFAULT_CONFIG: ConduitConfig = {
   enabled: true,
   pollIntervalSec: 120,
-  sources: { appFocus: true, git: true, claudeSession: true },
+  sources: { appFocus: true, git: true, claudeSession: true, github: false },
   repos: [],
   retentionDays: 30,
 };
@@ -47,8 +62,12 @@ export function clampConfig(raw: Partial<ConduitConfig>): ConduitConfig {
       appFocus: raw.sources?.appFocus !== false,
       git: raw.sources?.git !== false,
       claudeSession: raw.sources?.claudeSession !== false,
+      github: raw.sources?.github === true, // opt-in: off unless explicitly enabled
     },
     repos: Array.isArray(raw.repos) ? raw.repos.filter((r) => typeof r === "string") : [],
+    githubUser: typeof raw.githubUser === "string" && raw.githubUser.trim() ? raw.githubUser.trim() : undefined,
+    githubConfigDir: typeof raw.githubConfigDir === "string" && raw.githubConfigDir.trim() ? raw.githubConfigDir.trim() : undefined,
+    githubCliPath: typeof raw.githubCliPath === "string" && raw.githubCliPath.trim() ? raw.githubCliPath.trim() : undefined,
     retentionDays: Math.max(0, Math.floor(num(raw.retentionDays, DEFAULT_CONFIG.retentionDays))),
   };
 }

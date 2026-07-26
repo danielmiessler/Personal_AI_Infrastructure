@@ -132,6 +132,30 @@ command = "bun run checks/airgradient-poll.ts"
 output = "log"
 enabled = true
 
+# ── Conduit (sensory capture) ──
+# Cross-platform scheduling via Pulse's own cron heartbeat — no OS-level daemon
+# (launchd/systemd) required, so Conduit works on Linux and macOS alike. These
+# replace the macOS-only launchd installers (Conduit/InstallConduit*.ts), which
+# never ran on Linux. capture is a cheap deterministic poll; the hourly insight
+# read uses the lowest inference rung (haiku, via Inference.ts — subscription
+# billing, resolves `claude` explicitly so Pulse's minimal PATH is a non-issue).
+
+[[job]]
+name = "conduit-capture"
+schedule = "*/2 * * * *"
+type = "script"
+command = "bun run Conduit/conduit.ts capture"
+output = "log"
+enabled = true
+
+[[job]]
+name = "conduit-insight"
+schedule = "0 * * * *"
+type = "script"
+command = "bun run Conduit/BuildInsight.ts"
+output = "log"
+enabled = true
+
 # NOTE: cost-tracker moved to LIFEOS/USER/CONFIG/PULSE.user.toml on 2026-05-03 —
 # scans {{PRINCIPAL_NAME}}-specific call-site fingerprint, doesn't belong in public template.
 

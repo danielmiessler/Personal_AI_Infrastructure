@@ -676,7 +676,7 @@ async function main() {
       }
 
       // Voice routes: /notify, /notify/personality, /voice
-      if (voiceModule && (pathname === "/notify" || pathname === "/notify/personality" || pathname === "/voice")) {
+      if (voiceModule && (pathname === "/notify" || pathname === "/notify/personality" || pathname === "/voice" || pathname === "/voice/health")) {
         const resp = await voiceModule.handleVoiceRequest(req, pathname)
         if (resp) return resp
       }

@@ -193,6 +193,8 @@ Actions declare dependencies in `action.json` under `requires`. The runner injec
 | `A_EXTRACT_TRANSCRIPT` | `arbol-a-extract-transcript` | Sandbox |
 | `A_SEND_EMAIL` | `arbol-a-send-email` | Custom |
 
+> **Private component — not in the public release.** The `~/.claude/LIFEOS/ARBOL/` tree (Actions, Pipelines, runner) is per-machine and does not ship publicly; these paths will not exist on a public install. The public Arbol surface is the `USER/CUSTOMIZATIONS/ARBOL/` scaffold.
+
 ### Running Actions
 
 **Local:**

@@ -138,12 +138,31 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 
 function formatTime(timestamp?: number): string {
   if (!timestamp) return "";
-  return new Date(timestamp).toLocaleTimeString("en-GB", {
+  const d = new Date(timestamp);
+  const time = d.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
   });
+  // Prepend the date when the event is not from today, so cross-day events
+  // stay unambiguous in the Time column.
+  const now = new Date();
+  const isToday =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (isToday) return time;
+  // Non-today: zero-padded day + 3-letter month (e.g. "03 Jul"). Across a year
+  // boundary, also show the year (e.g. "31 Dec 2025 07:31:22").
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const date = d.toLocaleDateString(
+    "en-GB",
+    sameYear
+      ? { day: "2-digit", month: "short" }
+      : { day: "2-digit", month: "short", year: "numeric" },
+  );
+  return `${date} ${time}`;
 }
 
 function getToolInfo(event: HookEvent): { tool: string; detail?: string } | null {

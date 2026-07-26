@@ -151,6 +151,7 @@ These output patterns are **FAILURES**:
 - **Check ALL sources in parallel** — Anthropic blog, changelog, YouTube channels, GitHub releases. Don't check sequentially.
 - **Upgrades must not break existing skills or workflows.** Verify backward compatibility before applying.
 - **Full upgrade check can take 5-7 minutes.** Use `run_in_background: true` for the outer agent.
+- **Keep the `claude-code-guide` spawn to three areas or fewer.** That agent runs on a small-context model (haiku, 200k). Asking one spawn to cover the whole API surface makes it fan out a batch of doc fetches whose results exceed the window on the next request, and it dies with `Prompt is too long` about ten seconds in — returning nothing, while the sibling `Explore` agents in the same batch all succeed. The prompt length is not the problem; the tool-result volume is. Split the surface across parallel spawns and tell it to look things up rather than pull whole pages. If one dies anyway, fall back to the `claude-code/CHANGELOG.md` raw URL in `sources.json`. *(2026-07-26.)*
 
 ## Execution Log
 

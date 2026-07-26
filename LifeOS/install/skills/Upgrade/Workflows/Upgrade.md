@@ -114,7 +114,13 @@ Return within 90s; reduce per_page to 3 if slow.
 
 Spawn `Agent(subagent_type="claude-code-guide", run_in_background: true)`:
 
-Verify LifeOS's Claude Code references against the latest API surface. Check: hook event types, slash commands, agent/subagent types, settings.json fields, MCP integration, Agent SDK, Claude API. For each area, return current features, recent additions, deprecated items, and LifeOS staleness risk (LOW/MEDIUM/HIGH). Focus on changes affecting hooks, skills, or Algorithm. Return within 90s.
+Verify LifeOS's Claude Code references against the latest API surface. For each area, return current features, recent additions, deprecated items, and LifeOS staleness risk (LOW/MEDIUM/HIGH). Focus on changes affecting hooks, skills, or Algorithm. Return within 90s.
+
+**Ask for at most three areas per spawn, and say to look things up rather than pull whole pages.** `claude-code-guide` runs on a small-context model (haiku, 200k), so it is the tool-result volume that kills it, not the prompt. A single spawn covering the full surface — hook events, settings fields, slash commands, SKILL.md frontmatter, subagent frontmatter, MCP, Agent SDK, Claude API — makes it fan out a batch of doc fetches whose combined results exceed the window on the very next request, and the agent dies with `Prompt is too long` about ten seconds in, before returning anything. Observed 2026-07-26.
+
+Split the surface across parallel spawns instead — e.g. one for hooks + settings + subagent frontmatter, one for skills + slash commands + MCP, one for Agent SDK + Claude API. Losing one spawn then costs one slice rather than the whole freshness check.
+
+If a spawn does die this way, the changelog is the fallback: `WebFetch` the `claude-code/CHANGELOG.md` raw URL already listed in `sources.json` and read the version range directly.
 
 Output feeds Step 5 (Filter and Score) as source type `Claude Code Guide` and is cross-referenced against current LifeOS files for staleness.
 

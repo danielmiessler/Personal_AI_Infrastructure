@@ -67,6 +67,7 @@ import {
 } from "./MemoryTypes";
 
 import { setEntries as memoryWriterSetEntries, read as memoryWriterRead } from "./MemoryWriter";
+import { acquire as acquireLock, logLockEvent } from "./MemoryLock";
 import { getTier } from "./MutationTier";
 import { getRelevantContext, type RelevantResultItem } from "./MemoryRetriever";
 import { mintId, slugFromPath, SCHEMA_VERSION } from "./KnowledgeSchema";
@@ -128,17 +129,35 @@ function logTierBWrite(filePath: string, bytes: number, type: MemoryTypeName): v
 
 // ── Append-write primitive for Tier B types ──
 
-function appendToTierBFile(filePath: string, content: string): { ok: true; bytes: number } | AddError {
+/**
+ * A Tier B append that cannot proceed used to return EWRITE_FAILED to a caller
+ * that mostly ignores it — silent memory loss. Every failure now also lands in
+ * MEMORY/OBSERVABILITY/memory-locks.jsonl and on stderr before it is returned.
+ */
+function failTierBWrite(filePath: string, message: string, underlying?: unknown): AddError {
+  logLockEvent({
+    event: "write_failed",
+    label: "MemorySystem",
+    message,
+    file: filePath.replace(CLAUDE_ROOT + "/", ""),
+  });
+  return { ok: false, code: "EWRITE_FAILED", message, underlying };
+}
+
+/** Exported for `test/tools/MemorySystem.test.ts`; not part of the public API. */
+export function appendToTierBFile(filePath: string, content: string): { ok: true; bytes: number } | AddError {
   const lockPath = `${filePath}.lock`;
-  let fd: number | null = null;
   try {
     mkdirSync(dirname(filePath), { recursive: true });
-    fd = openSync(lockPath, "wx");
   } catch (e: any) {
-    if (e?.code === "EEXIST") {
-      return { ok: false, code: "EWRITE_FAILED", message: `Lock held: ${lockPath}` };
-    }
-    return { ok: false, code: "EWRITE_FAILED", message: `Failed to acquire lock: ${e?.message}` };
+    return failTierBWrite(filePath, `Failed to create note directory: ${e?.message}`, e);
+  }
+
+  // Crash-safe: MemoryLock recovers a lock whose holder is provably gone, so a
+  // hook subprocess killed mid-write can't jam this note forever.
+  const lock = acquireLock(lockPath, { label: "MemorySystem" });
+  if (!lock.ok) {
+    return failTierBWrite(filePath, lock.message);
   }
 
   try {
@@ -155,10 +174,9 @@ function appendToTierBFile(filePath: string, content: string): { ok: true; bytes
 
     return { ok: true, bytes: Buffer.byteLength(content, "utf8") };
   } catch (e: any) {
-    return { ok: false, code: "EWRITE_FAILED", message: `Append failed: ${e?.message}`, underlying: e };
+    return failTierBWrite(filePath, `Append failed: ${e?.message}`, e);
   } finally {
-    try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
-    try { unlinkSync(lockPath); } catch { /* ignore */ }
+    lock.release();
   }
 }
 

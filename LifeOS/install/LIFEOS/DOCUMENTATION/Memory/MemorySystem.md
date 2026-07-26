@@ -1,5 +1,5 @@
 ---
-version: 1.5.19
+version: 1.5.20
 ---
 
 # Memory System
@@ -127,6 +127,7 @@ Defined in `LIFEOS/TOOLS/MutationTier.ts` — code-only allowlist, default-deny 
 - **`LIFEOS/TOOLS/MemoryTypes.ts`** — type registry. Resolvers for storage path per item.
 - **`LIFEOS/TOOLS/MemoryWriter.ts`** — set-overwrite primitive for Tier A memory files. Atomic rename, lock sidecar, prefix soft-convention, dedupe, cap enforcement.
 - **`LIFEOS/TOOLS/MemorySystem.ts`** — the single public API. `add(item)` routes by type; `find(query, options)` returns BM25 top-K.
+- **`LIFEOS/TOOLS/MemoryLock.ts`** — crash-safe per-note write lock. Stamps pid + host into the lockfile; a contender breaks the lock when `kill(pid, 0)` proves the holder is gone, falls back to a `LOCK_STALE_MS` age rule when liveness is unverifiable, and respects a live holder. Recovery and refusal both append to `MEMORY/OBSERVABILITY/memory-locks.jsonl` and print to stderr.
 - **`LIFEOS/TOOLS/MemoryRetriever.ts`** — BM25 retriever over the typed-item corpus including the two hot-layer memory files. Pure-function, no LLM call, ~30ms over 500+ notes.
 - **`LIFEOS/TOOLS/MemoryReviewer.ts`** — the autonomic centerpiece. Single-pass orchestrator: locate most-recent harness transcript, extract last N exchanges, call `Inference.ts` (Sonnet, env-scrubbed subscription billing, `--tools ""`), parse `{items:[...]}` JSON, route each typed item through `MemorySystem.add()`.
 - **`LIFEOS/TOOLS/MutationTier.ts`** — tier classifier. Pure function, no config file (code-only allowlist).

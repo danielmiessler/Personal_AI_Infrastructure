@@ -28,9 +28,9 @@
  * token, so filtering here keeps the scan precise. Tune ALLOWLIST/STOPWORDS with
  * --show-tokens.
  */
-import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 
 const HOME = process.env.HOME || homedir();
@@ -198,6 +198,7 @@ function main(): void {
     note: "Salted hashes of distinctive private tokens. No plaintext. Salt in .env (never ships).",
     hashes,
   };
+  mkdirSync(dirname(OUT_PATH), { recursive: true }); // self-create output dir (e.g. skills/_LIFEOS absent on a fresh/partial install)
   writeFileSync(OUT_PATH, JSON.stringify(payload, null, 0) + "\n");
   console.log(`[DeriveDenyHashes] wrote ${hashes.length} salted hashes -> ${OUT_PATH} (no plaintext)`);
 }

@@ -116,8 +116,29 @@ export function todayRecordPublic(): DailyRecord {
   return todayRecord()
 }
 
+/** Run BuildInsight.ts on demand (the "Build insights now" button). Spawns the
+ *  standalone script — same as the hourly launchd job — and returns its output. */
+async function buildInsightNow(): Promise<Response> {
+  const script = join(import.meta.dir, "..", "Conduit", "BuildInsight.ts")
+  try {
+    const proc = Bun.spawn(["bun", script], { stdout: "pipe", stderr: "pipe" })
+    const [out, err, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ])
+    return Response.json(
+      { ok: code === 0, output: ((out || "") + (err || "")).slice(-1500) },
+      { status: code === 0 ? 200 : 500 },
+    )
+  } catch (e) {
+    return Response.json({ ok: false, output: String(e) }, { status: 500 })
+  }
+}
+
 export async function handleRequest(req: Request, pathname: string): Promise<Response | null> {
   const sub = pathname.replace(/^\/api\/conduit/, "") || "/"
+  if (sub === "/build" && req.method === "POST") return buildInsightNow()
   if (sub === "/" || sub === "/today") return Response.json(todayRecord())
   if (sub === "/recent") {
     const days = Math.max(1, Math.min(90, Number(new URL(req.url).searchParams.get("days")) || 7))

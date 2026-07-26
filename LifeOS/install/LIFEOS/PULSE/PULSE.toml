@@ -193,6 +193,39 @@ command = "bun run checks/life-morning-brief.ts"
 output = "voice"
 enabled = true
 
+# ── Data-freshness daemons ──
+# Ported from the macOS-only launchd installers
+# (TOOLS/Install{DerivedSync,UsageAggregator,WorkSweep}.ts) onto Pulse's own cron
+# heartbeat so they run on Linux too — the same cross-platform move as the Conduit
+# jobs above. All are bun scripts (cwd = PULSE/, hence the ../TOOLS paths); Pulse's
+# missing-script preflight + failure ceiling disable any that can't run on a given
+# install. NOTE for macOS: if you also bootstrapped the launchd agents, disable one
+# path to avoid double-scheduling (the jobs are idempotent, but still).
+
+[[job]]
+name = "derived-sync"
+schedule = "*/30 * * * *"
+type = "script"
+command = "bun run ../TOOLS/DerivedSync.ts"
+output = "log"
+enabled = true
+
+[[job]]
+name = "usage-aggregator"
+schedule = "30 3 * * *"
+type = "script"
+command = "bun run ../TOOLS/UsageAggregator.ts"
+output = "log"
+enabled = true
+
+[[job]]
+name = "work-sweep"
+schedule = "0 * * * *"
+type = "script"
+command = "bun run ../TOOLS/WorkSweep.ts"
+output = "log"
+enabled = true
+
 # ── Migration note (2026-05-03) ──
 # All personal/{{PRINCIPAL_NAME}}-specific jobs (cost-tracker, monitor-*, lifelog-digest,
 # apple-health-ingest, local-intelligence-refresh, update-pai-state, the

@@ -4,6 +4,7 @@ version: 1.0.16
 description: "Evolutionary ideation engine — loop-controlled multi-cycle idea generation through phases of dreaming, cross-domain stealing, recombination, fitness testing, selection, and Lamarckian meta-learning, producing ranked novel solution candidates with provenance. USE WHEN ideate, id8, novel ideas, evolve ideas, dream up solutions, innovate, breakthrough ideas, idea evolution, multi-cycle creativity, need genuinely new approaches. NOT FOR quick single-pass brainstorming (use BeCreative)."
 effort: high
 context: fork
+background: false
 ---
 
 ## Customization

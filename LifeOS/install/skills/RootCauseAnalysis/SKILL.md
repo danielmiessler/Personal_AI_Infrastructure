@@ -4,6 +4,7 @@ version: 1.0.5
 description: "Structured incident investigation using Five Whys, Fishbone, blameless Postmortem, Fault Tree, Kepner-Tregoe, and FMEA — traces failures to systemic root causes rather than blaming humans. USE WHEN root cause, RCA, 5 whys, fishbone, postmortem, incident analysis, fault tree, why does this keep failing, blameless, recurring bug. NOT FOR systemic loops (use SystemsThinking)."
 effort: high
 context: fork
+background: false
 ---
 
 ## Customization

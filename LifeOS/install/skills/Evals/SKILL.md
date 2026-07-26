@@ -4,6 +4,7 @@ version: 1.2.17
 description: "AI agent evaluation framework with three grader types (code-based, model-based, human) and pass@k/pass^k scoring over agent transcripts, tool-call sequences, and multi-turn conversations; covers capability and regression evals. USE WHEN eval, evaluate, benchmark, regression test, compare models, create judge, test agent, pass@k, scenario simulation. NOT FOR scientific method framing (use Science)."
 effort: high
 context: fork
+background: false
 ---
 
 ## Customization

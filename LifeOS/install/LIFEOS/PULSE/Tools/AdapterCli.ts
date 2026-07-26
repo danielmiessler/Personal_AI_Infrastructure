@@ -19,7 +19,15 @@ if (!manifest) {
   process.exit(1);
 }
 
-const result = await runAdapter(manifest, { force });
+// Top-level await: an escaping rejection would kill the process with a bare
+// stack and skip the index refresh below. Name the page and exit cleanly.
+let result;
+try {
+  result = await runAdapter(manifest, { force });
+} catch (err) {
+  console.error(`error: adapter "${manifest.id}" crashed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+  process.exit(1);
+}
 
 // Refresh _index.json so the Pulse v2 sidebar reflects the new state.
 const all = loadAllManifests();

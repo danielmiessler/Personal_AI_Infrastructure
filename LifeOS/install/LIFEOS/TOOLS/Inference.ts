@@ -44,6 +44,7 @@ import { spawn } from "child_process";
 import { appendFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { modelForEffort, pinnedModelForEffort, EFFORT_MODEL, LEVEL_TO_HARNESS_EFFORT, type EffortLevel, type HarnessEffort } from './models';
 
 /**
  * Resolve the claude binary explicitly. launchd jobs run with a minimal PATH
@@ -57,10 +58,16 @@ export function resolveClaudeBin(): string {  // exported for algorithm.ts (PR #
   return existsSync(fallback) ? fallback : "claude";
 }
 
-/** The four run levels — mirrors models.ts EffortLevel. */
-export type InferenceLevel = 'low' | 'medium' | 'high' | 'max';
+/** The run levels — IS models.ts EffortLevel, not a copy of it. Declaring the
+ * names twice is what let the 2026-06-10 rename break callers silently: a
+ * consumer typed against a stale copy still type-checked. Aliasing binds this
+ * surface to the single source of truth, so a level renamed in models.ts
+ * breaks every stale call site at the type level instead of at runtime. */
+export type InferenceLevel = EffortLevel;
 
-const VALID_LEVELS: readonly InferenceLevel[] = ['low', 'medium', 'high', 'max'] as const;
+/** Derived from EFFORT_MODEL's keys — the runtime validator follows the same
+ * source of truth as the type, so the two can never disagree. */
+const VALID_LEVELS: readonly InferenceLevel[] = Object.keys(EFFORT_MODEL) as InferenceLevel[];
 
 /** Validate a level name. Throws on anything outside the four canonical
  * names — including the pre-2026-06-10 legacy names (fast/standard/smart),
@@ -69,7 +76,7 @@ const VALID_LEVELS: readonly InferenceLevel[] = ['low', 'medium', 'high', 'max']
 export function normalizeLevel(level: string | undefined): InferenceLevel {
   if (!level) return 'medium';
   if ((VALID_LEVELS as readonly string[]).includes(level)) return level as InferenceLevel;
-  throw new Error(`[Inference] unknown level '${level}' — use low | medium | high | max (legacy fast/standard/smart names were removed 2026-06-10)`);
+  throw new Error(`[Inference] unknown level '${level}' — use ${VALID_LEVELS.join(' | ')} (legacy fast/standard/smart names were removed 2026-06-10)`);
 }
 
 export interface InferenceOptions {
@@ -111,8 +118,6 @@ export interface InferenceResult {
    * MEMORY/OBSERVABILITY/model-verification.jsonl. */
   modelDowngraded?: boolean;
 }
-
-import { modelForEffort, pinnedModelForEffort, EFFORT_MODEL, LEVEL_TO_HARNESS_EFFORT, type EffortLevel, type HarnessEffort } from './models';
 
 // Level configurations — models resolve via models.ts EFFORT_MODEL (the single
 // edit point on a lineup change). No model names appear here. `effort` is the
@@ -490,10 +495,10 @@ async function main() {
       expectJson = true;
     } else if (args[i] === '--level' && args[i + 1]) {
       const requestedLevel = args[i + 1].toLowerCase();
-      if (['low', 'medium', 'high', 'max'].includes(requestedLevel)) {
+      if ((VALID_LEVELS as readonly string[]).includes(requestedLevel)) {
         level = requestedLevel as InferenceLevel;
       } else {
-        console.error(`Invalid level: ${args[i + 1]}. Use low, medium, high, or max. (Legacy fast/standard/smart were removed 2026-06-10.)`);
+        console.error(`Invalid level: ${args[i + 1]}. Use ${VALID_LEVELS.join(', ')}. (Legacy fast/standard/smart were removed 2026-06-10.)`);
         process.exit(1);
       }
       i++;

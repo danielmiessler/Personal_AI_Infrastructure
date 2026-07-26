@@ -112,6 +112,8 @@ Safety:
 
 ## Label taxonomy
 
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 The canonical label list lives at `USER/WORK/labels.yml` and gets pushed to the configured repo by `bun ~/.claude/skills/_ULWORK/Tools/BootstrapLabels.ts`. Additive — never deletes existing labels.
 
 | Family | Members | Purpose |

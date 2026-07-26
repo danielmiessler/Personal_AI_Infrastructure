@@ -6,12 +6,16 @@
  * Reads DA_IDENTITY.md for worker identity.
  * Generates PULSE.toml, .env, and installs launchd service.
  *
- * Usage: bun run setup.ts
+ * Usage: bun run setup.ts [--force]
  * Goal: under 30 minutes from bare machine to working worker.
+ *
+ * Config writes are create-only. Re-running against a configured install
+ * leaves PULSE.toml and the launch agent alone; --force replaces them, but
+ * announces it first and copies the old file aside with a timestamp.
  */
 
 import { join, resolve } from "path"
-import { existsSync, mkdirSync } from "fs"
+import { copyFileSync, existsSync, mkdirSync } from "fs"
 
 const HOME = process.env.HOME ?? "~"
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
@@ -43,6 +47,52 @@ function ok(text: string): void {
 
 function warn(text: string): void {
   console.log(`  [!!] ${text}`)
+}
+
+// ── Config write guard ──
+//
+// Provisioning must never destroy an existing install. PULSE.toml is the
+// daemon's config of record — modules, ports, notification routing, the DA
+// block, every cron job — and most installs are not git repos, so a clobber
+// is unrecoverable. Every config write goes through writeConfigPreserving:
+// create when absent, leave alone when present, replace only under an
+// explicit --force, announced up front and after a timestamped copy-aside.
+// This is the same check the .env branch has always done.
+
+export type ConfigWriteOutcome = "created" | "preserved" | "overwritten"
+
+export interface ConfigWriteResult {
+  outcome: ConfigWriteOutcome
+  /** Set only when an existing file was replaced under --force. */
+  backupPath?: string
+}
+
+/** `<file>.backup-<iso>` — the copy-aside naming the other install tools use. */
+export function backupPathFor(path: string, now: Date = new Date()): string {
+  return `${path}.backup-${now.toISOString().replace(/[:.]/g, "-")}`
+}
+
+export async function writeConfigPreserving(
+  path: string,
+  contents: string,
+  opts: {
+    force?: boolean
+    /** Called before anything on disk changes, so the user sees it coming. */
+    onOverwrite?: (info: { path: string; backupPath: string }) => void
+  } = {},
+): Promise<ConfigWriteResult> {
+  if (!existsSync(path)) {
+    await Bun.write(path, contents)
+    return { outcome: "created" }
+  }
+
+  if (!opts.force) return { outcome: "preserved" }
+
+  const backupPath = backupPathFor(path)
+  opts.onOverwrite?.({ path, backupPath })
+  copyFileSync(path, backupPath)
+  await Bun.write(path, contents)
+  return { outcome: "overwritten", backupPath }
 }
 
 // ── Step 1: Read Identity ──
@@ -154,7 +204,7 @@ async function setupTelegram(workerName: string): Promise<{ botToken: string; ch
 
 // ── Step 4: Generate Config Files ──
 
-async function generateConfigs(opts: {
+export async function generateConfigs(opts: {
   name: string
   description: string
   appId: string
@@ -164,6 +214,7 @@ async function generateConfigs(opts: {
   botToken: string
   chatId: string
   specialization: string[]
+  force?: boolean
 }): Promise<void> {
   heading("Step 4: Generating Config Files")
 
@@ -213,8 +264,22 @@ output = "telegram"
 enabled = true
 `
 
-  await Bun.write(join(PULSE_DIR, "PULSE.toml"), pulseToml)
-  ok("PULSE.toml written")
+  const pulseTomlPath = join(PULSE_DIR, "PULSE.toml")
+  const written = await writeConfigPreserving(pulseTomlPath, pulseToml, {
+    force: opts.force,
+    onOverwrite: ({ backupPath }) =>
+      warn(`--force: replacing PULSE.toml — copying the current one to ${backupPath}`),
+  })
+
+  if (written.outcome === "created") {
+    ok("PULSE.toml written")
+  } else if (written.outcome === "overwritten") {
+    ok(`PULSE.toml replaced (backup: ${written.backupPath})`)
+  } else {
+    warn("PULSE.toml already exists — left untouched. Your daemon config is the record.")
+    warn("Merge the worker block below by hand, or re-run with --force to replace it (backed up first).")
+    console.log(`\n${"─".repeat(50)}\n${pulseToml}${"─".repeat(50)}`)
+  }
 
   // .env
   const envLines = [
@@ -339,7 +404,7 @@ async function setupLocalHTTPS(): Promise<void> {
 
 // ── Step 6: Install launchd Service ──
 
-async function installService(): Promise<void> {
+async function installService(force = false): Promise<void> {
   heading("Step 6: Installing launchd Service")
 
   // Create directories
@@ -361,13 +426,24 @@ async function installService(): Promise<void> {
   // file is deny-list clean; the installed copy is per-user materialized.
   const template = await Bun.file(plistSrc).text()
   const materialized = template.replaceAll("__HOME__", HOME)
-  await Bun.write(plistDst, materialized)
+  const written = await writeConfigPreserving(plistDst, materialized, {
+    force,
+    onOverwrite: ({ backupPath }) =>
+      warn(`--force: replacing the launch agent — copying the current one to ${backupPath}`),
+  })
   const proc = Bun.spawn(["launchctl", "load", plistDst], {
     stdout: "pipe",
     stderr: "pipe",
   })
   await proc.exited
-  ok("launchd service installed")
+
+  if (written.outcome === "created") {
+    ok("launchd service installed")
+  } else if (written.outcome === "overwritten") {
+    ok(`launchd service reinstalled (backup: ${written.backupPath})`)
+  } else {
+    ok("launch agent already installed — left untouched (any local edits kept)")
+  }
 }
 
 // ── Step 7: Health Check ──
@@ -414,6 +490,11 @@ ${"═".repeat(50)}
 ${"═".repeat(50)}`)
 
   const startTime = Date.now()
+  const force = process.argv.includes("--force")
+  if (force) {
+    warn("--force: an existing PULSE.toml and launch agent will be REPLACED.")
+    warn("Each one is copied to <file>.backup-<timestamp> before it is touched.")
+  }
 
   const identity = await readIdentity()
 
@@ -428,10 +509,11 @@ ${"═".repeat(50)}`)
     ...github,
     ...telegram,
     specialization,
+    force,
   })
 
   await setupLocalHTTPS()
-  await installService()
+  await installService(force)
   await healthCheck()
 
   const elapsed = Math.round((Date.now() - startTime) / 1000)
@@ -452,7 +534,10 @@ ${"═".repeat(50)}
 `)
 }
 
-main().catch((err) => {
-  console.error(`Setup failed: ${err}`)
-  process.exit(1)
-})
+// Guarded so tests can import the config-write helpers without provisioning.
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(`Setup failed: ${err}`)
+    process.exit(1)
+  })
+}

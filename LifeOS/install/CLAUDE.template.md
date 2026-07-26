@@ -4,7 +4,7 @@
 > Canonical thesis: `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`. Everyone running LifeOS names their own DA. LifeOS targets AS3 on the LifeOS Maturity Model, with lineage from "The Real Internet of Things" (2016).
 
 @LIFEOS/DOCUMENTATION/ARCHITECTURE_SUMMARY.md
-# Identity @-imports below are activated by the agentic `/lifeos-setup` (via `Tools/ActivateImports.ts`) once the principal scaffolds USER files.
+# Identity @-imports below are activated by the agentic `/lifeos-setup` (via `skills/LifeOS/Tools/ActivateImports.ts`) once the principal scaffolds USER files.
 # Claude Code does not follow transitive @-imports, so each must be listed here directly.
 # @LIFEOS/USER/TELOS/PRINCIPAL_TELOS.md
 # @LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md
@@ -16,7 +16,7 @@
 
 Constitutional rules, the unified response format, verification doctrine, hard prohibitions, security protocol, and operational rules all live in the system prompt: `LIFEOS/LIFEOS_SYSTEM_PROMPT.md`. When this file and the system prompt disagree, the system prompt wins.
 
-This file is the **routing table** — it tells you where everything lives. The only mandatory startup `@`-import shipped with public LifeOS is `ARCHITECTURE_SUMMARY`. The five identity files (`PRINCIPAL_TELOS`, `PRINCIPAL_IDENTITY`, `DA_IDENTITY`, `PROJECTS`, `OPERATIONAL_RULES`) are commented out above — the agentic `/lifeos-setup` (via `Tools/ActivateImports.ts`) uncomments them once the principal's USER scaffold is populated. Claude Code does not follow transitive `@`-imports from inside imported files, so each identity file must be listed here at top level. Everything below is **on-demand** lookup. Paths are relative to `~/.claude/` unless noted.
+This file is the **routing table** — it tells you where everything lives. The only mandatory startup `@`-import shipped with public LifeOS is `ARCHITECTURE_SUMMARY`. The five identity files (`PRINCIPAL_TELOS`, `PRINCIPAL_IDENTITY`, `DA_IDENTITY`, `PROJECTS`, `OPERATIONAL_RULES`) are commented out above — the agentic `/lifeos-setup` (via `skills/LifeOS/Tools/ActivateImports.ts`) uncomments them once the principal's USER scaffold is populated. Claude Code does not follow transitive `@`-imports from inside imported files, so each identity file must be listed here at top level. Everything below is **on-demand** lookup. Paths are relative to `~/.claude/` unless noted.
 
 ## LifeOS System (paths under `LIFEOS/DOCUMENTATION/` unless noted)
 
@@ -54,6 +54,13 @@ This file is the **routing table** — it tells you where everything lives. The 
 - AI writing patterns (system-level reference) — `Writing/AIWritingPatterns.md`
 - Browser automation — `Skill("Interceptor")` (real Chrome, mandatory for verification)
 - Claude Code knowledge — `Agent(subagent_type="claude-code-guide")`
+- Amber — `Amber/AmberSystem.md`
+- Conduit — `Conduit/ConduitSystem.md`
+- Router — `Router/RouterSystem.md`
+- Background services — `Services/BackgroundServices.md`
+- Spinner — `Spinner/SpinnerSystem.md`
+- Core components — `CoreComponents.md`
+- Brand assets — `BrandAssets.md`
 
 ## Principal — Identity & Voice (paths under `LIFEOS/USER/`)
 

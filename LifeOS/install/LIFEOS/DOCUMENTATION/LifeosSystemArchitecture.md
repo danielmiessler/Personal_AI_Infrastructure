@@ -217,6 +217,8 @@ The LifeOS live tree and the public release are structurally identical modulo a 
 **Three enforcement layers:**
 1. **Write-time** — `hooks/SystemFileGuard.hook.ts` (PreToolUse) blocks writes to SYSTEM files when content matches deny-list patterns. Fail-safe-open on hook errors. 19/19 tests pass. Primary defense.
 2. **PR-time** (Phase H, deferred) — GitHub Actions runs `DenyListCheck.ts` on every PR against the public repo.
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 3. **Release-time** — `skills/_LIFEOS/Tools/ShadowRelease.ts` runs 14 gates (G1–G14: zone deletion, identity grep, CF ID grep, trufflehog, .env strays, private tokens, ref integrity, private-skill refs, username-path leak, staging boot, dashboard leak, template-only USER/MEMORY, hidden-file leakage, critical-artifact presence). Backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
 
 **Two-repo sync** — `~/.claude/.git/hooks/pre-push` auto-commits and pushes `~/.config/LIFEOS/USER/` to the user's private USER-data repo before each push from `~/.claude/`. The two repos stay in sync structurally. A private "kai update" / "push both repos" workflow wraps this with 4 boundary gates (USER-zone leak check, DenyListCheck, both-remotes-private confirmation, post-push HEAD verification).

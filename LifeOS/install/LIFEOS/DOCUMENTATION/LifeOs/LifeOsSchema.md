@@ -10,6 +10,8 @@ version: 1.0.4
 
 **Status:** Draft v1.0 · 2026-04-16
 **Applies to:** `LIFEOS/USER/` in every LifeOS installation
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 **Companion docs:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` (the why), `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` (the dashboard), `skills/_LIFEOS/RELEASE_TEMPLATES/USER/` (the starter scaffold)
 
 ---

@@ -510,6 +510,8 @@ An append-only JSONL file where hooks emit structured, typed events alongside th
 - `LIFEOS/TOOLS/ComputeGap.ts` → `gap-history.jsonl`
 - `LIFEOS/PULSE/Performance/cost-aggregator.ts` → `session-costs.jsonl`
 - `LIFEOS/PULSE/modules/syslog.ts` → `unifi-syslog.jsonl`
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 - `skills/_HOMESECURITY/Tools/HomeSensorDetector.ts` → `home-sensor.jsonl`, `perimeter.jsonl`
 - `skills/_NETWORK/Tools/Speedtest.ts` → `speedtest.jsonl`
 

@@ -9,7 +9,7 @@ version: 1.0.10
 **The DA subsystem formalizes how LifeOS instantiates, manages, and evolves a Digital Assistant. It turns DA_IDENTITY from a flat markdown file into a living schema with interview-based creation, heartbeat-driven proactivity, natural-language scheduling, identity growth, and multi-DA awareness.**
 
 **Version:** 1.0 (Design)
-**Location:** Integrated into Pulse (`modules/da.ts`) + LIFEOS/USER/DA/
+**Location:** Shipped as a private module at `Assistant/module.ts` (stripped from the public release per #1419; `pulse.ts` existence-checks it and omits the `/assistant` routes when absent) + LIFEOS/USER/DA/. Note: an earlier design targeted `modules/da.ts`; the implemented path is `Assistant/module.ts`, matching `PulseSystem.md`.
 **Status:** Architecture complete, pending implementation
 
 ---

@@ -47,8 +47,8 @@ This file is the **routing table** — it tells you where everything lives. The 
 - Freshness convention (`pai-freshness-v1`) — `Freshness/FreshnessSystem.md`
 - Terminal tabs — `Pulse/TerminalTabs.md`
 - Tools reference — `Tools/Tools.md`
-- ISA — `ISA/IsaSystem.md`
-- ISA format spec — `ISA/IsaFormat.md`
+- ISA — `Isa/IsaSystem.md`
+- ISA format spec — `Isa/IsaFormat.md`
 - Testing doctrine — `Testing/TestingDoctrine.md`
 - System/user boundary — `SystemUserBoundary.md` (which files are SYSTEM, which are USER, how the boundary is enforced)
 - AI writing patterns (system-level reference) — `Writing/AIWritingPatterns.md`

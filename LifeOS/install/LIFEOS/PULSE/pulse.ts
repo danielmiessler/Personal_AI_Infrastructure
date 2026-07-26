@@ -98,6 +98,7 @@ let usageModule: any = null
 let bunkerModule: any = null
 let contentModule: any = null
 let doctorModule: any = null
+let securityModule: any = null
 
 async function loadModules(config: PulseConfig) {
   if (config.voice?.enabled !== false) {
@@ -277,6 +278,18 @@ async function loadModules(config: PulseConfig) {
     if (doctorModule.start) await doctorModule.start()
   } catch (err) {
     log("warn", "Doctor module not available", { error: String(err) })
+  }
+  // Security — read-only System→Security page surface. GET /api/security
+  // only: L3 shapes read live from hooks/lib/safety-classifier.ts, L2 rules
+  // read live from settings.json, L1 is a static explainer, plus
+  // permission-cache/decisions telemetry if present. No mutation routes —
+  // observability.ts's existing POST /api/security/patterns → 410 Gone
+  // tombstone is untouched.
+  try {
+    securityModule = await import("./modules/security")
+    if (securityModule.start) await securityModule.start()
+  } catch (err) {
+    log("warn", "Security module not available", { error: String(err) })
   }
 }
 
@@ -764,6 +777,15 @@ async function main() {
       // Memory API: /api/memory[/state|/health|/runs]
       if (memoryModule && pathname.startsWith("/api/memory")) {
         const resp = await memoryModule.handleRequest(req, pathname)
+        if (resp) return resp
+      }
+
+      // Security API: GET /api/security only (read-only). Anything else
+      // under /api/security/* (e.g. the deprecated /patterns mutation path)
+      // falls through unhandled here to observability.ts's existing 410
+      // Gone tombstone in its /api/* catch-all below.
+      if (securityModule && (pathname === "/api/security" || pathname === "/api/security/")) {
+        const resp = await securityModule.handleRequest(req, pathname)
         if (resp) return resp
       }
 

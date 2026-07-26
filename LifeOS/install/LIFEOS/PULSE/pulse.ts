@@ -188,6 +188,7 @@ async function loadModules(config: PulseConfig) {
   if (config.telos?.enabled !== false) {
     try {
       telosModule = await import("./modules/telos")
+      if (telosModule.start) await telosModule.start()
     } catch (err) {
       log("warn", "Telos freshness module not available", { error: String(err) })
     }

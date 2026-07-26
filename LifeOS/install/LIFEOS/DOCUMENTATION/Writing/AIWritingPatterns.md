@@ -360,4 +360,6 @@ When writing about AI writing patterns (blog posts, tutorials, documentation lik
 - **Voice guide:** `LIFEOS/USER/PRINCIPAL/WRITINGSTYLE.md` — how {{PRINCIPAL_NAME}} sounds
 - **Analytical voice:**  — how {{DA_NAME}} sounds in analysis
 - **Rhetorical figures:** `LIFEOS/USER/PRINCIPAL/WRITINGSTYLE.md` — techniques for memorable lines
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 - **Audit skill:** `skills/_WRITING/SKILL.md` — workflow for detect/rewrite modes

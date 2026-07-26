@@ -35,7 +35,7 @@ Each subsystem runs in its own crash-isolated loop within the single Pulse proce
 | **Telegram** | grammY polling bot — per-turn LifeOS memory injection, claude-agent-sdk session, dynamic Sonnet-summarize → ElevenLabs voice-summary reply, 60-min idle-session boundary. See "Telegram Voice Pipeline" below. | `modules/telegram.ts` |
 | **iMessage** | SQLite polling bot with claude-agent-sdk sessions (absorbed from the iMessage bot, disabled by default) | `modules/imessage.ts` |
 | **Worker** | GitHub Issues work polling for LifeOS Workers (optional) | `checks/github-work.ts` |
-| **Assistant** | Digital Assistant identity, heartbeat, scheduling, growth | `Assistant/module.ts` |
+| **Assistant** | Digital Assistant identity, heartbeat, scheduling, growth. **Private module** — stripped from the public release (#1419); `pulse.ts` skips it and the `/assistant` API routes are absent on public installs (the static `/assistant` page still renders). | `Assistant/module.ts` |
 | **UserIndex** | LifeOS USER/ indexer — parses frontmatter + collections into typed JSON; fs.watch live refresh; powers `/life` dashboard + Daemon publish feed | `modules/user-index.ts` |
 | **Doctor** | Read-only System Health surface (2026-07-12, #1461). Serves `GET /api/doctor` → `{ manifest, heartbeat, reconcile }` from the advisory caches written by `LIFEOS/TOOLS/Doctor.ts`; shells `Doctor.ts --reconcile` (30s cache). Holds zero truth of its own. Rendered by `SystemHealthPanel.tsx` on the **System → Hooks** page: capability states + fix commands, doctor heartbeat age (red past 7 days — a dead checker must be loud), and hook reconciliation. Diagnostic register, no scores. | `modules/doctor.ts` |
 

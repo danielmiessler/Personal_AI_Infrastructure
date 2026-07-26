@@ -34,7 +34,7 @@ Spend follows the work, discovered from the task and its evidence gates — neve
 |---|---|---|
 | System prompt | Constitution: modes, output contracts, security, verification doctrine | `LIFEOS/LIFEOS_SYSTEM_PROMPT.md` |
 | Dynamic context | CLAUDE.md routing table, @-imports, hook-injected session context | `DOCUMENTATION/Config/ConfigSystem.md` |
-| The Algorithm file | The done-claims — what a completed run must satisfy | `ALGORITHM/v${LATEST}.md` (resolve `ALGORITHM/LATEST`; currently 8.1.0) |
+| The Algorithm file | The done-claims — what a completed run must satisfy | `ALGORITHM/v${LATEST}.md` (resolve `ALGORITHM/LATEST`; currently 8.4.0) |
 | ISA | The artifact: done as falsifiable claims | `DOCUMENTATION/Isa/IsaSystem.md` + `IsaFormat.md` |
 | Hooks | Mechanical enforcement (the teeth that don't decay) | `DOCUMENTATION/Hooks/HookSystem.md` |
 | Pulse | The instruments | `DOCUMENTATION/Pulse/PulseSystem.md` |

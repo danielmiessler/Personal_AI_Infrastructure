@@ -7,6 +7,8 @@ version: 1.1.9
 > Containment zones draw the Life OS boundary at release time (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`): the OS ships; the life never does.
 
 **Status:** Authoritative. Contributors and future DA sessions read this before adding a new file.
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_ULWORK/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+
 **Enforcement:** `skills/_LIFEOS/Tools/ShadowRelease.ts` G1-G14 gates (release-time only). All enforcement is one-shot at release-build; there is no runtime hook. The 2026-05-06 simplification removed the prospective `ContainmentGuard.hook.ts` and consolidated enforcement to a single release-build pass.
 **Zone inventory (authoritative):** `hooks/lib/containment-zones.ts` — the source of truth ShadowRelease imports.
 **Last updated:** 2026-05-10

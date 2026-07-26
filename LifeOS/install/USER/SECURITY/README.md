@@ -2,55 +2,34 @@
 provenance: template
 ---
 
-# SECURITY — Pattern Rules and Permission Cache
+# SECURITY (user directory)
 
-This directory holds the rules that gate every Bash, Write, Edit, and Read
-operation. The `SecurityPipeline.hook.ts` (PreToolUse) reads `PATTERNS.yaml`
-on every tool call and **fails closed** if the file is missing or corrupt.
-Treat this directory as load-bearing.
+> **This directory is no longer load-bearing.** The pattern-rule engine it used to
+> describe (`PATTERNS.yaml`, `SecurityPipeline.hook.ts`, the per-call inspectors)
+> was **deliberately removed on 2026-05-06** as a category error — a regex layer
+> trying to do a job the model already does. Nothing here gates tool calls anymore.
 
-## Files
+## Where security actually lives now
 
-| File | What it does |
-|------|---------------|
-| `PATTERNS.yaml` | Block / alert / trusted regex rules for Bash and path access. **Required.** |
-| `SECURITY_RULES.md` | Free-form policy doc — readable rules the LLM can quote when it asks for permission. Optional. |
-| `permission-cache.yaml` | Auto-managed by `Safety.hook.ts` (PermissionRequest path). Caches sha-keyed "allow" decisions per (tool, body). Don't edit by hand. |
+The canonical, current documentation is:
 
-## Customization
+**`LIFEOS/DOCUMENTATION/Security/README.md`** — read that, not this.
 
-The shipped `PATTERNS.yaml` is a generic safe default — it blocks
-catastrophic operations (recursive `rm /`, disk wipes, repository
-deletion, exfiltration of known credential prefixes) and alerts on
-suspicious patterns (curl-pipe-shell, force-push, drop database, etc.).
+The model is three layers, none of which live in this directory:
 
-To adapt it to your environment, edit the three sections:
+| Layer | Where | What it does |
+|-------|-------|--------------|
+| **L1 — Constitutional rule** | system prompt (`LIFEOS_SYSTEM_PROMPT.md`) | The model treats external content as data, refuses embedded instructions, reports injection attempts. This is the actual defense. |
+| **L2 — Native `permissions.deny` / `ask`** | `settings.json` | Claude Code's own engine blocks/prompts on irrecoverable ops before any model decision. |
+| **L3 — `Safety.hook.ts`** | `hooks/Safety.hook.ts` + `hooks/lib/safety-classifier.ts` | Tags external content as data on ingress; runs a shape classifier to auto-allow safe tool calls. Visibility and friction-reduction, not a rule engine. |
 
-- **`bash.trusted`** — patterns that should bypass all checks. Add tools
-  you use constantly that the alert rules would otherwise log noisily.
-- **`bash.blocked`** — patterns that must never execute. These are
-  silently denied; nothing prompts the user.
-- **`bash.alert`** — patterns that are allowed but logged for audit.
-- **`paths.zeroAccess` / `alertAccess` / `confirmAccess`** — file-path
-  rules. Read by the path inspector when a tool tries to touch a file.
+## How to change what's allowed or blocked
 
-After editing, the next Bash call uses the new rules — no daemon restart
-needed (the inspector re-reads on every call).
-
-## Failure mode
-
-If `PATTERNS.yaml` is missing, malformed, or you accidentally delete the
-zero-access list, every Bash tool call returns:
-
-```
-[LifeOS SECURITY] 🚨 BLOCKED: CRITICAL: Security patterns file missing — fail-closed
-```
-
-Restore the file (the public default lives at `Templates/USER/SECURITY/`
-inside the `<your-release-skill>` skill, or pull a copy from a backup `.claude*` dir).
+Edit **`settings.json`** directly — the `permissions.deny` and `permissions.ask`
+arrays. There is no `PATTERNS.yaml` to edit, and no separate rules file. To see the
+live posture at a glance, open the Pulse dashboard's **System → Security** page.
 
 ## Privacy
 
-Nothing in this directory ships in a public LifeOS release. The release
-builder overlays a generic public default scaffold; your customized rules
-stay on your machine.
+Nothing in this directory ships in a public LifeOS release; the `/USER` tree stays
+on your machine.

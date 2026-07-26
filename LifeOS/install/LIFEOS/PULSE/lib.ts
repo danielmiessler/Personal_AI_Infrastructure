@@ -35,6 +35,13 @@ export interface Job {
    * - "user":   from LIFEOS/USER/CONFIG/PULSE.user.toml (private, stripped at release)
    */
   _source?: JobSource
+  /**
+   * Why this job's schedule was rejected, if it was. Set by loadConfig() when
+   * validateCron() refuses the expression. A job carrying this is force-
+   * disabled and never evaluated by the scheduler — it stays in the list so
+   * the dashboard can show the operator what needs fixing.
+   */
+  scheduleError?: string
 }
 
 export interface DaemonConfig {
@@ -130,56 +137,148 @@ export async function loadConfig(daemonDir: string): Promise<DaemonConfig> {
     if (!userOverrideNames.has(usr.name)) merged.push(usr)
   }
 
-  return { jobs: merged }
+  return { jobs: merged.map(checkSchedule) }
+}
+
+// Schedules are validated once, here, as the config is read — not on every
+// scheduler tick. One bad expression disables exactly one job; the rest of
+// the config keeps running. Silently dropping the job would be worse than the
+// crash it replaces, so the reason, the job name and the expression are all
+// logged, and the reason rides along on the job for the dashboard.
+function checkSchedule(job: Job): Job {
+  const problem = validateCron(job.schedule)
+  if (!problem) return job
+
+  log("error", `Disabling cron job ${job.name}: invalid schedule "${job.schedule}" — ${problem}`, {
+    job: job.name,
+    schedule: job.schedule,
+    reason: problem,
+    source: job._source,
+    subsystem: "cron",
+  })
+  return { ...job, enabled: false, scheduleError: problem }
 }
 
 // ── Cron Matching (from Monitor/cron/scheduler.ts) ──
+//
+// The parser is total: every expression either produces fields or an Error
+// naming what is wrong with it. It never spins. Two user typos used to take
+// the whole daemon down instead of skipping one job:
+//
+//   "0 9 * *"     — four fields. The throw escaped the scheduler loop into
+//                   main().catch → process.exit(1), and the supervisors
+//                   restart on a 30s throttle, so a typo became a crash cycle.
+//   "*/0 * * * *" — zero step. `for (i = start; i <= end; i += 0)` never
+//                   advanced while the values array grew without bound: event
+//                   loop blocked, process OOM'd.
+//
+// Callers should prefer validateCron() at config-read time; matchesCron()
+// still throws so a schedule that slipped through is loud rather than silent.
 
 interface CronField {
   type: "any" | "values"
   values: number[]
 }
 
-function parseField(field: string, min: number, max: number): CronField {
+interface CronFieldSpec {
+  name: string
+  min: number
+  max: number
+}
+
+const CRON_FIELD_SPECS: CronFieldSpec[] = [
+  { name: "minute", min: 0, max: 59 },
+  { name: "hour", min: 0, max: 23 },
+  { name: "day-of-month", min: 1, max: 31 },
+  { name: "month", min: 1, max: 12 },
+  { name: "day-of-week", min: 0, max: 6 },
+]
+
+// An expression that enumerates every legal value of every field is ~356
+// chars. The cap rejects pathological input (long comma-separated lists of
+// ranges expand roughly 12x) and leaves anything a person would write alone.
+const MAX_CRON_LENGTH = 512
+
+// One comma-separated term: "*", "N", or "N-M", each optionally "/STEP".
+// Anything else — names like MON, negative numbers, empty terms, stray
+// characters — fails here rather than becoming a silent NaN that can never match.
+const CRON_TERM = /^(\*|\d+(?:-\d+)?)(?:\/(\d+))?$/
+
+function parseField(field: string, spec: CronFieldSpec): CronField {
   if (field === "*") return { type: "any", values: [] }
 
-  if (field.includes("/")) {
-    const [range, stepStr] = field.split("/")
-    const step = parseInt(stepStr, 10)
-    const values: number[] = []
-    let start = min, end = max
-    if (range !== "*") {
-      const [s, e] = range.split("-").map(Number)
-      start = s
-      if (e !== undefined) end = e
+  const values: number[] = []
+
+  for (const term of field.split(",")) {
+    const matched = CRON_TERM.exec(term)
+    if (!matched) throw new Error(`${spec.name} field: cannot parse "${term}"`)
+
+    const [, base, stepStr] = matched
+    const step = stepStr === undefined ? 1 : Number(stepStr)
+    if (step < 1) throw new Error(`${spec.name} field: step must be 1 or more in "${term}"`)
+
+    let start = spec.min
+    let end = spec.max
+    if (base !== "*") {
+      const [from, to] = base.split("-").map(Number)
+      start = from
+      // A bare number with a step has always meant "from N to the end of the
+      // field" here ("5/10" → 5, 15, 25, …); a bare number alone is just itself.
+      if (to !== undefined) end = to
+      else if (stepStr === undefined) end = from
     }
+
+    if (start < spec.min || start > spec.max || end < spec.min || end > spec.max) {
+      throw new Error(`${spec.name} field: "${term}" is outside ${spec.min}-${spec.max}`)
+    }
+    if (start > end) throw new Error(`${spec.name} field: range "${term}" starts after it ends`)
+
     for (let i = start; i <= end; i += step) values.push(i)
-    return { type: "values", values }
   }
 
-  if (field.includes(",")) return { type: "values", values: field.split(",").map(Number) }
+  return { type: "values", values }
+}
 
-  if (field.includes("-")) {
-    const [start, end] = field.split("-").map(Number)
-    const values: number[] = []
-    for (let i = start; i <= end; i++) values.push(i)
-    return { type: "values", values }
+function parseCron(expression: string): CronField[] {
+  if (typeof expression !== "string" || expression.trim() === "") {
+    throw new Error("schedule is empty")
+  }
+  if (expression.length > MAX_CRON_LENGTH) {
+    throw new Error(`too long (${expression.length} chars, limit ${MAX_CRON_LENGTH})`)
   }
 
-  return { type: "values", values: [parseInt(field, 10)] }
+  const parts = expression.trim().split(/\s+/)
+  if (parts.length !== CRON_FIELD_SPECS.length) {
+    throw new Error(
+      `need 5 fields (minute hour day-of-month month day-of-week), got ${parts.length}`,
+    )
+  }
+
+  return CRON_FIELD_SPECS.map((spec, i) => parseField(parts[i], spec))
+}
+
+/**
+ * Check an expression without evaluating it. Returns null when it is usable,
+ * or a human-readable reason when it is not. Never throws, never loops — this
+ * is the function config loading and any future job-editing API should use.
+ */
+export function validateCron(expression: string): string | null {
+  try {
+    parseCron(expression)
+    return null
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err)
+  }
 }
 
 export function matchesCron(expression: string, date: Date): boolean {
-  const parts = expression.trim().split(/\s+/)
-  if (parts.length !== 5) throw new Error(`Invalid cron (need 5 fields): "${expression}"`)
+  let fields: CronField[]
+  try {
+    fields = parseCron(expression)
+  } catch (err) {
+    throw new Error(`Invalid cron "${expression}": ${err instanceof Error ? err.message : String(err)}`)
+  }
 
-  const fields = [
-    parseField(parts[0], 0, 59),
-    parseField(parts[1], 0, 23),
-    parseField(parts[2], 1, 31),
-    parseField(parts[3], 1, 12),
-    parseField(parts[4], 0, 6),
-  ]
   const actuals = [date.getMinutes(), date.getHours(), date.getDate(), date.getMonth() + 1, date.getDay()]
 
   return fields.every((f, i) => f.type === "any" || f.values.includes(actuals[i]))

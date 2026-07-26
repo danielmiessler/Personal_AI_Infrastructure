@@ -384,7 +384,12 @@ function msUntilNextDue(jobs: PulseConfig["jobs"], state: DaemonState): number {
     const future = new Date(now.getTime() + offset * 60_000)
     for (const job of jobs) {
       if (!job.enabled) continue
-      if (matchesCron(job.schedule, future)) return offset * 60_000
+      try {
+        if (matchesCron(job.schedule, future)) return offset * 60_000
+      } catch {
+        // An unusable schedule is never due. Already reported by name at load
+        // time; sleeping is not the place to report it again every tick.
+      }
     }
   }
   return MAX_SLEEP_MS
@@ -888,6 +893,12 @@ async function main() {
     }
   }
 
+  // Backstop for the same class of failure in the schedule itself. loadConfig()
+  // already disables jobs whose cron expression doesn't validate; if one still
+  // reaches the loop, it is skipped with one message instead of throwing out of
+  // the loop into main().catch → exit(1) → supervised restart every 30s.
+  const badScheduleJobs = new Set<string>()
+
   while (!shuttingDown) {
     const tickStart = Date.now()
     const now = new Date()
@@ -895,11 +906,24 @@ async function main() {
     for (const job of config.jobs) {
       if (!job.enabled) continue
       if (missingScriptJobs.has(job.name)) continue
+      if (badScheduleJobs.has(job.name)) continue
       if (shuttingDown) break
 
       const jobState = state.jobs[job.name]
 
-      if (!isDue(job.schedule, now, jobState?.lastRun)) continue
+      let due: boolean
+      try {
+        due = isDue(job.schedule, now, jobState?.lastRun)
+      } catch (err) {
+        badScheduleJobs.add(job.name)
+        log("error", `Disabling cron job ${job.name}: unusable schedule`, {
+          schedule: job.schedule,
+          error: String(err),
+          subsystem: "cron",
+        })
+        continue
+      }
+      if (!due) continue
 
       if ((jobState?.consecutiveFailures ?? 0) >= MAX_FAILURES) {
         log("warn", `Skipping ${job.name}: ${jobState!.consecutiveFailures} consecutive failures`, {

@@ -38,6 +38,24 @@ Each subsystem runs in its own crash-isolated loop within the single Pulse proce
 | **Assistant** | Digital Assistant identity, heartbeat, scheduling, growth | `Assistant/module.ts` |
 | **UserIndex** | LifeOS USER/ indexer — parses frontmatter + collections into typed JSON; fs.watch live refresh; powers `/life` dashboard + Daemon publish feed | `modules/user-index.ts` |
 | **Doctor** | Read-only System Health surface (2026-07-12, #1461). Serves `GET /api/doctor` → `{ manifest, heartbeat, reconcile }` from the advisory caches written by `LIFEOS/TOOLS/Doctor.ts`; shells `Doctor.ts --reconcile` (30s cache). Holds zero truth of its own. Rendered by `SystemHealthPanel.tsx` on the **System → Hooks** page: capability states + fix commands, doctor heartbeat age (red past 7 days — a dead checker must be loud), and hook reconciliation. Diagnostic register, no scores. | `modules/doctor.ts` |
+| **Assets** | Read-only unified inventory over the USER asset tree | `modules/assets.ts` |
+| **Books** | Read-only surface over `USER/BOOKS` | `modules/books.ts` |
+| **Bunker** | Feeds the Pulse `/bunker` tab (per-machine repo; empty when absent) | `modules/bunker.ts` |
+| **Conduit** | Read-only dashboard surface over Conduit's data | `modules/conduit.ts` |
+| **Content** | Feeds the Pulse `/content` tab (Conveyor board) | `modules/content.ts` |
+| **Hypotheses** | API for the proactive-deriver review queue | `modules/hypotheses.ts` |
+| **LocalIntelligence** | Read-only civic-intelligence surface (`/local`) | `modules/local-intelligence.ts` |
+| **Memory** | Exposes the autonomic-memory subsystem state | `modules/memory.ts` |
+| **MenuBar** | Aggregator — the single payload behind the Pulse menu bar | `modules/menubar.ts` |
+| **Projects** | Read-only surface over `USER/PROJECTS` | `modules/projects.ts` |
+| **Security** | Read-only surface over the LifeOS security posture (`/security`) | `modules/security.ts` |
+| **Siri** | Siri → DA voice-turn endpoint (bearer-authed) | `modules/siri.ts` |
+| **Syslog** | Syslog receiver | `modules/syslog.ts` |
+| **Telos** | TELOS freshness surface | `modules/telos.ts` |
+| **Usage** | Read-only surface over Anthropic subscription + usage | `modules/usage.ts` |
+| **Wiki** | Wiki surface | `modules/wiki.ts` |
+| **Work** | Agent-visible Kanban over GitHub Issues | `modules/work.ts` |
+| **ExampleModule** | Template/reference module | `modules/example-module.ts` |
 
 ---
 

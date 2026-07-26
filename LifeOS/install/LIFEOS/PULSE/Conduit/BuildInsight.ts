@@ -56,8 +56,10 @@ function summarize(events: ConduitEvent[]): { text: string; since: string | null
   const appMin = new Map<string, number>();
   const subjects: string[] = [];
   const slugs = new Set<string>();
+  const prTitles: string[] = [];
   let commits = 0;
   let sessions = 0;
+  let prs = 0;
   let since: string | null = null;
 
   for (const e of events) {
@@ -73,6 +75,10 @@ function summarize(events: ConduitEvent[]): { text: string; since: string | null
       sessions++;
       const s = e.detail?.lastSlug;
       if (typeof s === "string") slugs.add(s);
+    } else if (e.type === "github-pr") {
+      prs++;
+      const t = e.detail?.title;
+      if (typeof t === "string" && t && prTitles.length < MAX_SUBJECTS) prTitles.push(t);
     }
   }
 
@@ -85,6 +91,7 @@ function summarize(events: ConduitEvent[]): { text: string; since: string | null
     `Foreground apps today (minutes): ${apps.join(", ") || "(none)"}`,
     `LifeOS coding sessions: ${sessions}${slugs.size ? `; recent slugs: ${[...slugs].slice(0, MAX_SLUGS).join(", ")}` : ""}`,
     `Git commits: ${commits}${subjects.length ? `; subjects: ${subjects.join(" | ")}` : ""}`,
+    `Pull requests: ${prs}${prTitles.length ? `; titles: ${prTitles.join(" | ")}` : ""}`,
   ].join("\n");
 
   return { text, since };

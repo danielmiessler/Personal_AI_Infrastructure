@@ -132,7 +132,7 @@ sendVoiceSummary(ctx, fullText) — fire-and-forget IIFE
 
 ## Architecture
 
-Pulse is a single Bun process managed by launchd on port 31337. On startup, it initializes all enabled subsystem modules (voice, hooks, observability, telegram, imessage), starts the HTTP server, launches the menu bar app, then enters the cron heartbeat loop. It reads job definitions from `PULSE.toml`, evaluates cron schedules, executes due jobs (either shell scripts or Claude CLI invocations), and routes output through internal dispatch (voice is now an in-process function call, not a separate HTTP request). There is no queue, no AI triage layer, no channel abstraction -- just run jobs and route output.
+Pulse is a single Bun process managed by launchd on port 31337 (on macOS; on Linux the equivalent manager is the shipped systemd unit `com.lifeos.pulse.service`, `ExecStart=… run pulse.ts`). On startup, it initializes all enabled subsystem modules (voice, hooks, observability, telegram, imessage), starts the HTTP server, launches the menu bar app, then enters the cron heartbeat loop. It reads job definitions from `PULSE.toml`, evaluates cron schedules, executes due jobs (either shell scripts or Claude CLI invocations), and routes output through internal dispatch (voice is now an in-process function call, not a separate HTTP request). There is no queue, no AI triage layer, no channel abstraction -- just run jobs and route output.
 
 ```
 launchd (com.lifeos.pulse)

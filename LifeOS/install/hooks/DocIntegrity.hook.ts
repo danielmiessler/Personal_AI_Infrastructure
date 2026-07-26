@@ -19,6 +19,7 @@ import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
 import { handleRebuildArchSummary } from './handlers/RebuildArchSummary';
 import { handleMemoryDirIntegrity } from './handlers/MemoryDirIntegrity';
+import { handleRebuildKnowledgeSchema } from './handlers/RebuildKnowledgeSchema';
 
 async function main() {
   const input = await readHookInput();
@@ -57,6 +58,12 @@ async function main() {
     await handleMemoryDirIntegrity();
   } catch (err) {
     console.error('[DocIntegrity] Memory-dir handler failed:', err);
+  }
+
+  try {
+    await handleRebuildKnowledgeSchema();
+  } catch (err) {
+    console.error('[DocIntegrity] Knowledge-schema regen failed:', err);
   }
 
   process.exit(0);

@@ -26,7 +26,7 @@ import { spawn } from "node:child_process";
 import { dirname, resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
 
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
 const STATE_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/review-state.json");
 const CONFIG_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/CONFIG/memory-review.json");
 const FIRE_LOG_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/reviewer-fires.jsonl");

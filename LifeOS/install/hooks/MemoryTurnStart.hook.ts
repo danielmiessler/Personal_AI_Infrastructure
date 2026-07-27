@@ -33,7 +33,7 @@ import { homedir } from "node:os";
 // prompts without an injection (compaction backstop — a post-compact window
 // must re-see memory within a bounded number of turns). The 🧠 delta line and
 // the cadence tick remain every-turn: the visible contract is unchanged.
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
 const STATE_DIR = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/STATE/memory-inject");
 const PRINCIPAL_MEMORY = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/PRINCIPAL/PRINCIPAL_MEMORY.md");
 const DA_MEMORY = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/DIGITAL_ASSISTANT/DA_MEMORY.md");

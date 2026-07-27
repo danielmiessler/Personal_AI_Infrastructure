@@ -23,8 +23,8 @@ import { spawn } from 'child_process';
 import { homedir } from 'os';
 import { join, dirname } from 'path';
 
-const STATE_DIR = join(homedir(), '.claude/LIFEOS/MEMORY/STATE/isa-render-debounce');
-const ISA_RENDER = join(homedir(), '.claude/LIFEOS/TOOLS/ISARender.ts');
+const STATE_DIR = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY/STATE/isa-render-debounce');
+const ISA_RENDER = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'TOOLS/ISARender.ts');
 
 /**
  * Has this ISA reached completion at least once? This is the real gate the
@@ -109,7 +109,7 @@ try { unlinkSync(stateFile); } catch {}
 if (rendered.length || skipped.length) {
   try {
     const { appendFileSync, mkdirSync } = require('fs');
-    const logDir = join(homedir(), '.claude/LIFEOS/MEMORY/OBSERVABILITY');
+    const logDir = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY/OBSERVABILITY');
     mkdirSync(logDir, { recursive: true });
     appendFileSync(join(logDir, 'isa-render.jsonl'),
       JSON.stringify({

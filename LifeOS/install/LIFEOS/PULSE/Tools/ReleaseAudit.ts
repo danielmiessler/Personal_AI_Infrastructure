@@ -34,7 +34,7 @@ function loadProhibitedStrings(): string[] {
   const candidates = [
     process.env.LIFEOS_RELEASE_AUDIT_STRINGS,
     join(homedir(), ".config/LIFEOS/USER/CONFIG/release-audit-strings.json"),
-    join(homedir(), ".claude/LIFEOS/USER/CONFIG/release-audit-strings.json"),
+    join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "USER/CONFIG/release-audit-strings.json"),
   ].filter(Boolean) as string[];
   for (const p of candidates) {
     try {

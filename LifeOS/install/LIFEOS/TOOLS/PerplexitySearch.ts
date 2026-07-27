@@ -48,7 +48,7 @@ const colors = {
 function loadEnv(): Record<string, string> {
   const envPath = process.env.LIFEOS_CONFIG_DIR
     ? join(process.env.LIFEOS_CONFIG_DIR, '.env')
-    : join(homedir(), '.claude', '.env')
+    : join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), '.env')
   const env: Record<string, string> = {}
   try {
     const content = readFileSync(envPath, 'utf-8')

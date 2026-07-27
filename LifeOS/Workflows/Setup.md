@@ -9,6 +9,10 @@ curl -s -X POST http://localhost:31337/notify -H "Content-Type: application/json
   -d '{"message": "Running the Setup workflow in the LifeOS skill to integrate LifeOS into your system"}' > /dev/null 2>&1 &
 ```
 
+## Project-scoped installs
+
+Every Tool in this workflow (`InstallSettings`, `DeployCore`, `ScaffoldUser`, `LinkUser`, `InstallHooks`, `DeployComponents`, `ActivateImports`) resolves its target root through `CLAUDE_CONFIG_DIR` (general harness-config paths) and `LIFEOS_DIR`/`LIFEOS_CONFIG_DIR` (the LIFEOS-specific subtree) — or the equivalent `--config-root`/`--config-dir` flags — falling back to the global harness dir (e.g. `~/.claude`) only when unset. If your human wants LifeOS confined to one project instead of every session, set these to a path inside that project before running any step below, and pass the same flags through consistently across all of them. No step in this workflow needs a different invocation to support this — it's the same install, just rooted elsewhere.
+
 ## Two-tier model
 
 Deployment is **two tiers**, and the install presents them that way:

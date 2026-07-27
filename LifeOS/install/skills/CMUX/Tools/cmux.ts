@@ -657,7 +657,8 @@ function isHostConfig(value: unknown): value is HostConfig {
 }
 
 function loadFleetConfig(): HostConfig[] | JsonObject {
-  const configPath = join(homedir(), ".claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/CMUX/fleet.json");
+  const lifeosRoot = process.env.LIFEOS_DIR || join(homedir(), ".claude/LIFEOS");
+  const configPath = join(lifeosRoot, "USER/CUSTOMIZATIONS/SKILLS/CMUX/fleet.json");
   if (!existsSync(configPath)) {
     return {
       ok: false,

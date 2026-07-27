@@ -35,7 +35,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { DISPATCH_EXECUTES_FABLE } from "./models";
 
-const CLAUDE_DIR = join(homedir(), ".claude");
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const STATE_FILE = join(CLAUDE_DIR, "LIFEOS", "MEMORY", "STATE", "carrier-probe.json");
 const OBS_FILE = join(CLAUDE_DIR, "LIFEOS", "MEMORY", "OBSERVABILITY", "model-verification.jsonl");
 const MAX_AGE_DAYS = 30;

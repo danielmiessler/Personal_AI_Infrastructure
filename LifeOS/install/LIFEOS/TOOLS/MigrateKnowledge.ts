@@ -33,7 +33,7 @@ import {
   DIR_TO_TYPE, slugFromPath, type CanonicalType,
 } from "./KnowledgeSchema";
 
-const KNOWLEDGE_DIR = pathResolve(homedir(), ".claude/LIFEOS/MEMORY/KNOWLEDGE");
+const KNOWLEDGE_DIR = pathResolve(process.env.LIFEOS_DIR || pathResolve(homedir(), ".claude/LIFEOS"), "MEMORY/KNOWLEDGE");
 const DIRS = ["People", "Companies", "Ideas", "Research", "Blogs"] as const;
 
 interface NoteOutcome {

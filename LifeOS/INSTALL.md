@@ -20,6 +20,8 @@ Prefer a terminal? There's a shell shortcut for Claude Code on macOS/Linux:
 curl -fsSL https://ourlifeos.ai/install.sh | bash
 ```
 
+**Want LifeOS scoped to one project instead of every session?** By default LifeOS installs into your harness's global config dir (e.g. `~/.claude`), so its skills/hooks/agents are available everywhere. To confine it to a single project instead — so it only activates when your harness runs from that project's directory — set `CLAUDE_CONFIG_DIR` (and `LIFEOS_DIR` / `LIFEOS_CONFIG_DIR` for the LIFEOS-specific subtree) to a path inside that project, e.g. `<project>/.claude`, before running the install Tools (or pass the equivalent `--config-root`/`--config-dir` flags each Tool accepts). Everything under this document and `Workflows/Setup.md` works identically either way — every install Tool resolves its target through these same env vars, defaulting to the global harness dir only when they're unset.
+
 Everything below is written for the AI doing the install.
 
 ---

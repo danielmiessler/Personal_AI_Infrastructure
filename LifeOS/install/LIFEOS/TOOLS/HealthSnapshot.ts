@@ -11,7 +11,7 @@ const PROCESSED = join(homedir(), "Library/Mobile Documents/com~apple~CloudDocs/
 // a relocated LIFEOS_USER_DIR Just Works.
 const SNAPSHOTS = ((): string => {
   try { return join(loadLifeosConfig().paths.userDir, "TELOS/HEALTH/snapshots") }
-  catch { return join(homedir(), ".claude/LIFEOS/USER/TELOS/HEALTH/snapshots") }
+  catch { return join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "USER/TELOS/HEALTH/snapshots") }
 })()
 
 type HealthSnapshot = {

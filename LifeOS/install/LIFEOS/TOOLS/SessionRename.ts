@@ -41,7 +41,7 @@ import { homedir } from "node:os";
 // tmp+rename implementation; that was the one writer outside writeRegistry.
 import { readRegistry, writeRegistry } from "../../hooks/lib/isa-utils";
 
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
 const SESSION_NAMES_JSON = pathJoin(CLAUDE_ROOT, "LIFEOS/MEMORY/STATE/session-names.json");
 
 interface WorkSession {

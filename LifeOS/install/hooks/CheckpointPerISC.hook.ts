@@ -30,7 +30,7 @@ import { parseFrontmatter, parseCriteriaList, ARTIFACT_FILENAME, LEGACY_ARTIFACT
 // '#' comments and blank
 // lines are ignored. Tilde and $HOME prefixes are expanded as a quality-of-
 // life feature so users can write `~/Projects/foo` instead of the long form.
-const ALLOWLIST_PATH = join(homedir(), '.claude', 'checkpoint-repos.txt');
+const ALLOWLIST_PATH = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'checkpoint-repos.txt');
 const GIT_TIMEOUT_MS = 5000;
 
 interface CheckpointState {

@@ -159,8 +159,9 @@ export function formatForISC(result: AlgorithmEvalResult): string {
  */
 export async function updateISCWithResult(result: AlgorithmEvalResult): Promise<void> {
   const status = result.passed ? 'DONE' : 'BLOCKED';
+  const skillsRoot = process.env.CLAUDE_CONFIG_DIR ? `${process.env.CLAUDE_CONFIG_DIR}/skills` : '~/.claude/skills';
 
-  await $`bun run ~/.claude/skills/THEALGORITHM/Tools/ISCManager.ts update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
+  await $`bun run ${skillsRoot}/THEALGORITHM/Tools/ISCManager.ts update --row ${result.isc_row} --status ${status} --note "${formatForISC(result)}"`.quiet();
 }
 
 // CLI interface

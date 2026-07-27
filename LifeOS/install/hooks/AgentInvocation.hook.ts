@@ -60,7 +60,7 @@ function resolveDispatch(subagentType: string, inputModel?: string): { model: st
   if (CROSS_VENDOR[cvKey]) return { model: CROSS_VENDOR[cvKey], level: 'cross-vendor' };
   if (inputModel) return { model: inputModel, level: levelForModel(inputModel) };
   try {
-    const fm = readFileSync(join(homedir(), '.claude', 'agents', `${subagentType}.md`), 'utf-8').slice(0, 4000);
+    const fm = readFileSync(join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'agents', `${subagentType}.md`), 'utf-8').slice(0, 4000);
     const m = fm.match(/^model:\s*(\S+)/m);
     if (m) return { model: m[1], level: `${levelForModel(m[1])}-pin` };
   } catch { /* no agent file — built-in type */ }

@@ -36,7 +36,7 @@ case "$LIFEOS_DIR" in
     *'$HOME'*|*'${HOME}'*|*'~'*) echo "LifeOS"; exit 0 ;;
 esac
 
-CLAUDE_HOME="$HOME/.claude"
+CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS_FILE="$CLAUDE_HOME/settings.json"
 RATINGS_FILE="$LIFEOS_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
 MODEL_CACHE="$LIFEOS_DIR/MEMORY/STATE/model-cache.txt"
@@ -85,7 +85,7 @@ USER_TZ="${USER_TZ:-UTC}"
 LIFEOS_VERSION=""
 for _pai_v_path in \
     "$LIFEOS_DIR/VERSION" \
-    "$HOME/.claude/LIFEOS/VERSION" \
+    "${LIFEOS_DIR:-$HOME/.claude/LIFEOS}/VERSION" \
     "/Users/$(id -un 2>/dev/null)/.claude/LIFEOS/VERSION" \
     "$(eval echo ~"$(id -un 2>/dev/null)")/.claude/LIFEOS/VERSION"; do
     if [ -n "$_pai_v_path" ] && [ -f "$_pai_v_path" ]; then
@@ -101,7 +101,7 @@ LIFEOS_VERSION="${LIFEOS_VERSION:-—}"
 ALGO_VERSION=""
 for _algo_path in \
     "$LIFEOS_DIR/ALGORITHM/LATEST" \
-    "$HOME/.claude/LIFEOS/ALGORITHM/LATEST" \
+    "${LIFEOS_DIR:-$HOME/.claude/LIFEOS}/ALGORITHM/LATEST" \
     "/Users/$(id -un 2>/dev/null)/.claude/LIFEOS/ALGORITHM/LATEST" \
     "$(eval echo ~"$(id -un 2>/dev/null)")/.claude/LIFEOS/ALGORITHM/LATEST"; do
     if [ -n "$_algo_path" ] && [ -f "$_algo_path" ]; then
@@ -134,7 +134,7 @@ USAGE_HARD_EXPIRY=21600  # P5: 6h. Show last-known-good (dimmed + stale badge) u
 # Source .env for API keys. Canonical location is $HOME/.claude/.env (which is
 # typically a symlink to $HOME/.config/LIFEOS/.env). The historical $HOME/.claude/LIFEOS/.env
 # path is wrong and has been removed everywhere else — do not reintroduce it.
-[ -f "$HOME/.claude/.env" ] && source "$HOME/.claude/.env"
+[ -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.env" ] && source "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.env"
 
 # Cross-platform file mtime (seconds since epoch). Detect stat flavor once;
 # probing both variants on every mtime check is expensive on macOS.
@@ -729,7 +729,7 @@ if [ "$MODE" != "nano" ]; then
 
     # Hook count flows through GetCounts.ts — same source banner uses. --single hooks
     # short-circuits all other walks (~20ms). Don't reintroduce inline jq here.
-    _hooks_cnt=$(bun "$HOME/.claude/LIFEOS/TOOLS/GetCounts.ts" --single hooks 2>/dev/null || echo 0)
+    _hooks_cnt=$(bun "$LIFEOS_DIR/TOOLS/GetCounts.ts" --single hooks 2>/dev/null || echo 0)
 
     _ratings_cnt=0
     [ -f "$RATINGS_FILE" ] && _ratings_cnt=$(wc -l < "$RATINGS_FILE" 2>/dev/null | tr -d ' ')
@@ -800,7 +800,7 @@ if [ "$MODE" = "normal" ]; then
                 if [ "$(uname -s)" = "Darwin" ]; then
                     cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
                 else
-                    cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
+                    cred_json=$(cat "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json" 2>/dev/null)
                 fi
                 token=$(echo "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
 

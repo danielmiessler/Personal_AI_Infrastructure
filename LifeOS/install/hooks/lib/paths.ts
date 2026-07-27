@@ -69,6 +69,16 @@ export function getClaudeDir(): string {
     return expandPath(pluginRoot);
   }
 
+  // Project-scoped installs (non-default --config-root at install time) export
+  // CLAUDE_CONFIG_DIR — the same variable InstallHooks/InstallSettings/Conduit's
+  // paths.ts already honor. Without this, a project-scoped install still reads/
+  // writes ~/.claude from every hook that goes through this function.
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+
+  if (configDir) {
+    return expandPath(configDir);
+  }
+
   return join(homedir(), '.claude');
 }
 

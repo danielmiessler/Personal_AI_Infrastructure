@@ -34,7 +34,7 @@ import {
 } from "./MemoryTypes";
 import { read as readMemory } from "./MemoryWriter";
 
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
 const LIFEOS_DIR = pathJoin(CLAUDE_ROOT, "LIFEOS");
 const IDEAS_DIR = pathJoin(LIFEOS_DIR, "MEMORY", "IDEAS");
 const KNOWLEDGE_DIR = pathJoin(LIFEOS_DIR, "MEMORY", "KNOWLEDGE");

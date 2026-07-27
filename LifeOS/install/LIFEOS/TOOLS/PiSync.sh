@@ -6,11 +6,11 @@
 
 set -euo pipefail
 
-LifeOS=~/.claude
+LifeOS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 PI=~/.pi/agent
 
 [ -d "$PI" ] || { echo "✗ ~/.pi/agent missing"; exit 1; }
-[ -d "$LifeOS/LIFEOS" ] || { echo "✗ ~/.claude/LIFEOS missing"; exit 1; }
+[ -d "$LifeOS/LIFEOS" ] || { echo "✗ $LifeOS/LIFEOS missing"; exit 1; }
 
 echo "→ PiSync v2"
 

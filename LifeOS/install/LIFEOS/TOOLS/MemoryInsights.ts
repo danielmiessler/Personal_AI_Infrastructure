@@ -24,7 +24,7 @@ import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
 import { getDAName } from "../../hooks/lib/identity"
 
-const ROOT = pathResolve(homedir(), ".claude");
+const ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
 const OBS = pathResolve(ROOT, "LIFEOS/MEMORY/OBSERVABILITY");
 const PRINCIPAL_MEM = pathResolve(ROOT, "LIFEOS/USER/PRINCIPAL/PRINCIPAL_MEMORY.md");
 const DA_MEM = pathResolve(ROOT, "LIFEOS/USER/DIGITAL_ASSISTANT/DA_MEMORY.md");

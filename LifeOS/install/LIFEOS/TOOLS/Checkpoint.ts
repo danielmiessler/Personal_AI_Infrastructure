@@ -21,8 +21,8 @@ import { parseCriteriaList } from '../../hooks/lib/isa-utils';
 // so the ContainmentGuard write restriction does not apply. Parser must match
 // the hook's parser exactly: skip blanks and '#' lines, expand tilde / $HOME
 // prefixes, treat the rest as absolute repo paths.
-const ALLOWLIST_PATH = join(homedir(), '.claude', 'checkpoint-repos.txt');
-const WORK_DIR = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'WORK');
+const ALLOWLIST_PATH = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'checkpoint-repos.txt');
+const WORK_DIR = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY', 'WORK');
 
 function expandPath(p: string): string {
   let s = p.trim();

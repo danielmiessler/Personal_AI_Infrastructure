@@ -73,7 +73,7 @@ import { mintId, slugFromPath, SCHEMA_VERSION } from "./KnowledgeSchema";
 
 // ── Constants ──
 
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
 
 // ── Result types ──
 

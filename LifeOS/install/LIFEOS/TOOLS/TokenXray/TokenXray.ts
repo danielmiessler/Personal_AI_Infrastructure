@@ -105,11 +105,11 @@ function* readJsonl(path: string): IterableIterator<Record<string, unknown>> {
 }
 
 function mainLogs(): string[] {
-  return glob(join(homedir(), ".claude/projects/*/*.jsonl"));
+  return glob(join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "projects/*/*.jsonl"));
 }
 
 function sideLogs(): string[] {
-  return glob(join(homedir(), ".claude/projects/*/*/subagents/*.jsonl"));
+  return glob(join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "projects/*/*/subagents/*.jsonl"));
 }
 
 function fmtNum(n: number, w = 0): string {
@@ -228,7 +228,7 @@ interface ApiCostSnapshot {
 }
 
 function loadLatestApiCostSnapshot(): ApiCostSnapshot | null {
-  const path = join(homedir(), ".claude/LIFEOS/MEMORY/OBSERVABILITY/anthropic-cost.jsonl");
+  const path = join(process.env.LIFEOS_DIR || join(homedir(), ".claude/LIFEOS"), "MEMORY/OBSERVABILITY/anthropic-cost.jsonl");
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");

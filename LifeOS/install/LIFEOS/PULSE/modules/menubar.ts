@@ -20,7 +20,7 @@ import { join } from "node:path"
 const MODULE_NAME = "menubar"
 const state = { running: false, startedAt: null as Date | null }
 
-const CLAUDE = join(homedir(), ".claude")
+const CLAUDE = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude")
 const LIFEOS = join(CLAUDE, "LIFEOS")
 const OBS = join(LIFEOS, "MEMORY", "OBSERVABILITY")
 const STATE_DIR = join(LIFEOS, "PULSE", "state")

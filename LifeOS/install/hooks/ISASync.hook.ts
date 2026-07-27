@@ -104,7 +104,7 @@ async function main() {
   //    constantly remaking the HTML file."
   if (newPhase === 'COMPLETE' && oldPhase !== 'COMPLETE' && fm.slug) {
     try {
-      const isaRender = join(homedir(), '.claude/LIFEOS/TOOLS/ISARender.ts');
+      const isaRender = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'TOOLS/ISARender.ts');
       const proc = spawn('bun', [isaRender, isaPath], {
         detached: true,
         stdio: 'ignore',
@@ -121,7 +121,7 @@ async function main() {
   // pre-completion edits never trigger renders even though they show up here.
   if (input.session_id) {
     try {
-      const stateDir = join(homedir(), '.claude/LIFEOS/MEMORY/STATE/isa-render-debounce');
+      const stateDir = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY/STATE/isa-render-debounce');
       const stateFile = join(stateDir, `${input.session_id}.json`);
       const { mkdirSync, writeFileSync } = require('fs');
       mkdirSync(stateDir, { recursive: true });

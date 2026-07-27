@@ -21,7 +21,7 @@ import {
   RELATION_VOCAB, SOURCE_KINDS, STATUS_VALUES, SCHEMA_VERSION,
 } from "./KnowledgeSchema";
 
-const OUT = pathResolve(homedir(), ".claude/LIFEOS/MEMORY/KNOWLEDGE/_schema.md");
+const OUT = pathResolve(process.env.LIFEOS_DIR || pathResolve(homedir(), ".claude/LIFEOS"), "MEMORY/KNOWLEDGE/_schema.md");
 
 function render(): string {
   const L: string[] = [];

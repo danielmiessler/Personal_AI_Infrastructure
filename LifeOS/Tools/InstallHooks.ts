@@ -59,7 +59,13 @@ function main(): void {
     console.log(JSON.stringify({ ok: false, error: `payload hooks.json not found at ${hooksJsonPath}` }, null, 2));
     process.exit(1);
   }
-  const incoming = JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {};
+  let hooksJsonRaw = readFileSync(hooksJsonPath, "utf-8");
+  // hooks.json ships commands hardcoded to "$HOME/.claude/..." (hooks/, LIFEOS/TOOLS,
+  // LIFEOS/USER/CONFIG, settings.json) — rewrite the whole prefix to the actual
+  // configRoot so a non-default --config-root (e.g. a project-scoped install)
+  // doesn't wire commands pointing at files that were never placed there.
+  hooksJsonRaw = hooksJsonRaw.split("$HOME/.claude").join(configRoot);
+  const incoming = JSON.parse(hooksJsonRaw)?.hooks ?? {};
 
   // The hook SCRIPTS (*.hook.ts|sh + lib/**) live beside hooks.json in the payload.
   // Merging hooks.json into settings.json wires commands that point at these files,

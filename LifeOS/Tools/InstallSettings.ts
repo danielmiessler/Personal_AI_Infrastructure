@@ -51,13 +51,21 @@ export function expandLeadingHome(value: string, home: string): string {
   return value;
 }
 
-function expandEnvBlock(settings: Record<string, unknown>, home: string): number {
+function expandEnvBlock(settings: Record<string, unknown>, home: string, configRoot: string): number {
   const env = settings.env;
   if (!env || typeof env !== "object") return 0;
+  const defaultConfigRoot = join(home, ".claude");
   let n = 0;
   for (const [k, v] of Object.entries(env as Record<string, unknown>)) {
     if (typeof v === "string") {
-      const expanded = expandLeadingHome(v, home);
+      // Template values under $HOME/.claude belong under configRoot, not the real
+      // home, when a non-default --config-root is in play (e.g. project-scoped).
+      let expanded = v;
+      if (configRoot !== defaultConfigRoot && v.startsWith("$HOME/.claude")) {
+        expanded = configRoot + v.slice("$HOME/.claude".length);
+      } else {
+        expanded = expandLeadingHome(v, home);
+      }
       if (expanded !== v) { (env as Record<string, unknown>)[k] = expanded; n++; }
     }
   }
@@ -79,7 +87,7 @@ if (!existsSync(templatePath)) {
 }
 
 const template = JSON.parse(readFileSync(templatePath, "utf8")) as Record<string, unknown>;
-const expandedCount = expandEnvBlock(template, home);
+const expandedCount = expandEnvBlock(template, home, args.configRoot);
 
 const report: Record<string, unknown> = { ok: true, apply: args.apply, target: targetPath, envValuesExpanded: expandedCount };
 

@@ -156,6 +156,26 @@ export function parseProposalReply(text: string): ProposalReply {
   return { kind, id };
 }
 
+/**
+ * Stamp the target's frontmatter after a proposal lands in its body.
+ *
+ * Without this the file's header keeps claiming `provenance: template` and whatever
+ * `last_updated` it shipped with, while the body carries principal-authored rules —
+ * so the freshness signal reads a mutated file as untouched, and ReleaseAudit's
+ * "only template may ship" gate reads principal content as shippable.
+ *
+ * Lazy-required and swallowed on purpose: the rule reaching the file is the outcome
+ * that matters, and a stamping failure must never cost the caller that write.
+ */
+function stampTarget(targetFile: string): void {
+  try {
+    const mod = require("../../TOOLS/TelosFreshness") as typeof import("../../TOOLS/TelosFreshness");
+    mod.stampContextWrite(targetFile, "memory-reviewer");
+  } catch {
+    // best-effort — see doc above
+  }
+}
+
 export function applyProposalEdit(targetFile: string, editText: string): { ok: true } | { ok: false; reason: string } {
   if (!existsSync(targetFile)) return { ok: false, reason: `target file missing: ${targetFile}` };
   try {
@@ -172,6 +192,7 @@ export function applyProposalEdit(targetFile: string, editText: string): { ok: t
     const tmp = `${targetFile}.tmp`;
     writeFileSync(tmp, next, "utf8");
     renameSync(tmp, targetFile);
+    stampTarget(targetFile);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: (e as Error)?.message ?? String(e) };

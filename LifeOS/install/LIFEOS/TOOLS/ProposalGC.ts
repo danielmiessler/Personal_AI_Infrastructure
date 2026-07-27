@@ -220,13 +220,34 @@ function main() {
   }
 
   if (apply) {
-    for (const w of writes) { const tmp = `${w.path}.tmp`; writeFileSync(tmp, w.content, "utf8"); renameSync(tmp, w.path); }
+    for (const w of writes) {
+      const tmp = `${w.path}.tmp`;
+      writeFileSync(tmp, w.content, "utf8");
+      renameSync(tmp, w.path);
+      stampTarget(w.path);
+    }
     try {
       appendLog({ ts: new Date().toISOString(), applied: true, removed: all.length, byReason: countBy(all) });
     } catch {}
     console.log(`\n✅ applied — removed ${all.length} redundant entries across ${writes.length} file(s). Commit to persist.`);
   } else if (all.length) {
     console.log(`\n${all.length} entries would be removed. Re-run with --apply to heal.`);
+  }
+}
+
+/**
+ * Stamp a healed file's frontmatter so the header stops contradicting the body.
+ * A GC pass is still a programmatic write to an always-loaded context file: it must
+ * move `last_updated`, and a file the memory loop is maintaining is not a pristine
+ * template, so `provenance: template` flips too. Best-effort — a stamping failure
+ * must not undo a heal that already landed on disk.
+ */
+function stampTarget(absPath: string): void {
+  try {
+    const mod = require("./TelosFreshness") as typeof import("./TelosFreshness");
+    mod.stampContextWrite(absPath, "proposal-gc");
+  } catch {
+    // best-effort — see doc above
   }
 }
 

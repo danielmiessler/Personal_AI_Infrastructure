@@ -680,6 +680,61 @@ export function bumpReviewedTimestamp(filePath: string, by: string = "user"): { 
   return { changed: true };
 }
 
+/**
+ * Stamp a context file after a PROGRAMMATIC write — the memory reviewer applying a
+ * proposal, ProposalGC removing one, any automated appender to an always-loaded file.
+ *
+ * Does two things in one read-modify-write:
+ *   1. `last_updated` / `last_updated_by` → now / `by` (the freshness write clock).
+ *   2. `provenance: template` → `customized`, and ONLY that transition.
+ *
+ * Why (2) matters: `PULSE/Tools/ReleaseAudit.ts` treats `provenance: template` as the
+ * ship permit for anything under `LIFEOS/USER/` — "only template may ship". A file the
+ * memory loop has written principal content into is no longer a template, and saying so
+ * in the header is what keeps the release audit honest. The key is never invented: a file
+ * that carries no `provenance` keeps none, because the audit's missing-key case is already
+ * a violation and inventing one would paper over it.
+ *
+ * `last_reviewed` is deliberately untouched — only a principal review bumps that
+ * (see `bumpReviewedTimestamp`), and a machine write is not a review.
+ *
+ * Best-effort by contract: returns `{ changed: false }` rather than throwing, so a
+ * stamping failure can never cost the caller the write it just made.
+ */
+export function stampContextWrite(
+  filePath: string,
+  by: string,
+): { changed: boolean; provenanceFlipped: boolean } {
+  try {
+    if (!existsSync(filePath)) return { changed: false, provenanceFlipped: false };
+
+    const raw = readFileSync(filePath, "utf-8");
+    let next = bumpFileFrontmatter(raw, new Date().toISOString(), by);
+
+    let provenanceFlipped = false;
+    const end = next.indexOf("\n---\n", 4);
+    if (next.startsWith("---\n") && end !== -1) {
+      const fmBlock = next.slice(4, end);
+      if (/^provenance:\s*template\s*$/m.test(fmBlock)) {
+        next =
+          "---\n" +
+          fmBlock.replace(/^provenance:\s*template\s*$/m, "provenance: customized") +
+          "\n---\n" +
+          next.slice(end + 5);
+        provenanceFlipped = true;
+      }
+    }
+
+    if (next === raw) return { changed: false, provenanceFlipped: false };
+    writeFileSync(filePath, next);
+    refreshFreshnessCache();
+    return { changed: true, provenanceFlipped };
+  } catch {
+    // Never fail a caller's write because the header could not be stamped.
+    return { changed: false, provenanceFlipped: false };
+  }
+}
+
 // ─── CLI ──────────────────────────────────────────────────────────────────
 
 function formatHuman(f: TelosFreshness): string {
@@ -712,8 +767,110 @@ function formatHuman(f: TelosFreshness): string {
   return lines.join("\n");
 }
 
+/**
+ * `--selftest` — probes for stampContextWrite. Uses temp fixtures only; never
+ * touches a real context file.
+ */
+function selftest(): number {
+  const { mkdtempSync, rmSync } = require("fs") as typeof import("fs");
+  const { tmpdir } = require("os") as typeof import("os");
+  const dir = mkdtempSync(join(tmpdir(), "lifeos-stamp-"));
+  let failures = 0;
+
+  const check = (name: string, pass: boolean, detail = "") => {
+    console.log(`${pass ? "  ✓" : "  ✗"} ${name}${pass ? "" : ` — ${detail}`}`);
+    if (!pass) failures++;
+  };
+
+  const fixture = (name: string, body: string): string => {
+    const p = join(dir, name);
+    writeFileSync(p, body);
+    return p;
+  };
+
+  try {
+    // 1. Template file: bumps the clock AND flips provenance.
+    const tpl = fixture(
+      "template.md",
+      "---\nprovenance: template\nlast_updated: 1970-01-01T00:00:00Z\nlast_updated_by: template\nconvention: pai-freshness-v1\n---\n\n# Body\n\n- a rule\n",
+    );
+    const r1 = stampContextWrite(tpl, "memory-reviewer");
+    const t1 = readFileSync(tpl, "utf-8");
+    check("template: reports changed", r1.changed);
+    check("template: reports provenanceFlipped", r1.provenanceFlipped);
+    check("template: provenance → customized", /^provenance: customized$/m.test(t1), t1.slice(0, 160));
+    check("template: last_updated is no longer epoch", !t1.includes("1970-01-01"));
+    check("template: last_updated_by recorded", /^last_updated_by: memory-reviewer$/m.test(t1));
+    check("template: convention key preserved", /^convention: pai-freshness-v1$/m.test(t1));
+    check("template: body bytes untouched", t1.endsWith("\n# Body\n\n- a rule\n"), JSON.stringify(t1.slice(-40)));
+    check("template: no last_reviewed invented", !/last_reviewed/.test(t1));
+
+    // 2. Already-customized file: clock bumps, provenance left alone.
+    const cust = fixture(
+      "customized.md",
+      "---\nprovenance: customized\nlast_updated: 2020-01-01T00:00:00Z\n---\n\nbody\n",
+    );
+    const r2 = stampContextWrite(cust, "proposal-gc");
+    const t2 = readFileSync(cust, "utf-8");
+    check("customized: not re-flipped", !r2.provenanceFlipped);
+    check("customized: still customized", /^provenance: customized$/m.test(t2));
+    check("customized: clock bumped", !t2.includes("2020-01-01"));
+
+    // 3. `mixed` provenance is not a template — must survive untouched.
+    const mixed = fixture("mixed.md", "---\nprovenance: mixed\nlast_updated: 2020-01-01T00:00:00Z\n---\n\nbody\n");
+    stampContextWrite(mixed, "proposal-gc");
+    check("mixed: provenance preserved", /^provenance: mixed$/m.test(readFileSync(mixed, "utf-8")));
+
+    // 4. No provenance key → none invented.
+    const noProv = fixture("noprov.md", "---\nlast_updated: 2020-01-01T00:00:00Z\n---\n\nbody\n");
+    const r4 = stampContextWrite(noProv, "proposal-gc");
+    const t4 = readFileSync(noProv, "utf-8");
+    check("no-provenance: key not invented", !/provenance/.test(t4));
+    check("no-provenance: clock still bumped", r4.changed && !t4.includes("2020-01-01"));
+
+    // 5. last_reviewed is a principal-review field — a machine write must not move it.
+    const reviewed = fixture(
+      "reviewed.md",
+      "---\nprovenance: template\nlast_updated: 1970-01-01T00:00:00Z\nlast_reviewed: 2026-01-01T00:00:00Z\nlast_reviewed_by: user\n---\n\nbody\n",
+    );
+    stampContextWrite(reviewed, "memory-reviewer");
+    const t5 = readFileSync(reviewed, "utf-8");
+    check("last_reviewed preserved verbatim", /^last_reviewed: 2026-01-01T00:00:00Z$/m.test(t5));
+    check("last_reviewed_by preserved verbatim", /^last_reviewed_by: user$/m.test(t5));
+
+    // 6. Anti-1: a bad path returns false instead of throwing.
+    let threw = false;
+    let r6 = { changed: true, provenanceFlipped: true };
+    try {
+      r6 = stampContextWrite(join(dir, "does-not-exist.md"), "proposal-gc");
+    } catch {
+      threw = true;
+    }
+    check("missing file: does not throw", !threw);
+    check("missing file: reports unchanged", !r6.changed);
+
+    // 7. Malformed frontmatter (no closing delimiter) must not throw either.
+    const bad = fixture("bad.md", "---\nprovenance: template\nno closing delimiter\n");
+    let threw7 = false;
+    try {
+      stampContextWrite(bad, "proposal-gc");
+    } catch {
+      threw7 = true;
+    }
+    check("malformed frontmatter: does not throw", !threw7);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  console.log(failures === 0 ? "\n✅ stampContextWrite selftest passed" : `\n❌ ${failures} check(s) failed`);
+  return failures === 0 ? 0 : 1;
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
+  if (args.includes("--selftest")) {
+    process.exit(selftest());
+  }
   const bumpIdx = args.indexOf("--bump");
   if (bumpIdx !== -1) {
     const slug = args[bumpIdx + 1];

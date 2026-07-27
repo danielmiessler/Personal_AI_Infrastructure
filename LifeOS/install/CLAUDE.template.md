@@ -16,7 +16,9 @@
 
 Constitutional rules, the unified response format, verification doctrine, hard prohibitions, security protocol, and operational rules all live in the system prompt: `LIFEOS/LIFEOS_SYSTEM_PROMPT.md`. When this file and the system prompt disagree, the system prompt wins.
 
-This file is the **routing table** — it tells you where everything lives. The only mandatory startup `@`-import shipped with public LifeOS is `ARCHITECTURE_SUMMARY`. The five identity files (`PRINCIPAL_TELOS`, `PRINCIPAL_IDENTITY`, `DA_IDENTITY`, `PROJECTS`, `OPERATIONAL_RULES`) are commented out above — the agentic `/lifeos-setup` (via `Tools/ActivateImports.ts`) uncomments them once the principal's USER scaffold is populated. Claude Code does not follow transitive `@`-imports from inside imported files, so each identity file must be listed here at top level. Everything below is **on-demand** lookup. Paths are relative to `~/.claude/` unless noted.
+This file is the **routing table** — it tells you where everything lives. The only mandatory startup `@`-import shipped with public LifeOS is `ARCHITECTURE_SUMMARY`. The five identity files (`PRINCIPAL_TELOS`, `PRINCIPAL_IDENTITY`, `DA_IDENTITY`, `PROJECTS`, `OPERATIONAL_RULES`) are commented out above — the agentic `/lifeos-setup` (via `Tools/ActivateImports.ts`) uncomments them once the principal's USER scaffold is populated. Claude Code does not follow transitive `@`-imports from inside imported files, so each identity file must be listed here at top level. Everything below is **on-demand** lookup. Paths are relative to your resolved config root — check the `CLAUDE_CONFIG_DIR` / `LIFEOS_DIR` environment variables first (a project-scoped install sets these), otherwise `~/.claude/`.
+
+> **A literal `~/.claude/...` in ANY doc (this file, DOCUMENTATION/, or any skill's SKILL.md/Workflows/) is an illustrative example, not a fact about this install.** Resolve the real root first — `echo $CLAUDE_CONFIG_DIR $LIFEOS_DIR` or check `settings.json`'s `env` block — and substitute before running any command. A project-scoped install never actually lives at the literal `~/.claude/` path shown in examples.
 
 ## LifeOS System (paths under `LIFEOS/DOCUMENTATION/` unless noted)
 
@@ -81,7 +83,7 @@ Populated during `/lifeos-setup`. Typical layout:
 - Finances — `FINANCES/`
 - Integration configs — `INTEGRATIONS/*.yaml`
 - Work system — `WORK/config.yaml`
-- Secrets — `~/.claude/.env` (canonical; see OPERATIONAL_RULES.md)
+- Secrets — `.env` in your resolved config root (`$CLAUDE_CONFIG_DIR/.env` if set, else `~/.claude/.env`; canonical; see OPERATIONAL_RULES.md)
 
 ## Project-Specific Rules
 

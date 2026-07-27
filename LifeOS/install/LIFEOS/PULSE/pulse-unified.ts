@@ -21,10 +21,11 @@ import { parse } from "smol-toml"
 // ── Load .env before anything else ──
 
 const HOME = process.env.HOME ?? "~"
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude")
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS")
 const PULSE_DIR = join(LIFEOS_DIR, "PULSE")
 
-const envPath = join(HOME, ".claude", ".env")
+const envPath = join(CLAUDE_CONFIG_DIR, ".env")
 try {
   const envContent = readFileSync(envPath, "utf-8")
   for (const line of envContent.split("\n")) {

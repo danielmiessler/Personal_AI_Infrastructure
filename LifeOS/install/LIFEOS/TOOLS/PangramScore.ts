@@ -35,7 +35,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const ENV_PATH = `${process.env.HOME}/.claude/.env`;
+const ENV_PATH = `${process.env.CLAUDE_CONFIG_DIR || `${process.env.HOME}/.claude`}/.env`;
 
 // Run-record: proof the detector actually executed on a specific text. The
 // WritingGate Stop hook reads this so its pass condition is "Pangram ran on

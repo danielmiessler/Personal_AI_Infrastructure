@@ -38,7 +38,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 const HOME = homedir();
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const WORK_DIR = join(LIFEOS_DIR, "MEMORY", "WORK");
 const FINDINGS_LOG = join(LIFEOS_DIR, "MEMORY", "VERIFICATION", "grok-findings.jsonl");
 const API_URL = "https://api.x.ai/v1/chat/completions";
@@ -109,7 +109,7 @@ interface AuditResponse {
 function loadEnv(): Record<string, string> {
   const envPath = process.env.LIFEOS_CONFIG_DIR
     ? join(process.env.LIFEOS_CONFIG_DIR, ".env")
-    : join(HOME, ".claude", ".env");
+    : join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env");
   const env: Record<string, string> = {};
   try {
     for (const line of readFileSync(envPath, "utf-8").split("\n")) {

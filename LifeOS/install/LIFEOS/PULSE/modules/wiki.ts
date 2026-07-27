@@ -35,13 +35,14 @@ import MiniSearch from "minisearch"
 // Path Construction
 
 const HOME = process.env.HOME ?? "~"
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS")
 const DOCUMENTATION_DIR = join(LIFEOS_DIR, "DOCUMENTATION")
 const KNOWLEDGE_DIR = join(LIFEOS_DIR, "MEMORY", "KNOWLEDGE")
 const ALGORITHM_DIR = join(LIFEOS_DIR, "ALGORITHM")
-const SKILLS_DIR = join(HOME, ".claude", "skills")
-const HOOKS_DIR = join(HOME, ".claude", "hooks")
-const SETTINGS_PATH = join(HOME, ".claude", "settings.json")
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude")
+const SKILLS_DIR = join(CLAUDE_CONFIG_DIR, "skills")
+const HOOKS_DIR = join(CLAUDE_CONFIG_DIR, "hooks")
+const SETTINGS_PATH = join(CLAUDE_CONFIG_DIR, "settings.json")
 const ARBOL_WORKERS_DIR = join(LIFEOS_DIR, "USER", "CUSTOMIZATIONS", "ARBOL", "Workers")
 
 const SYSTEM_PROMPT_PATH = join(LIFEOS_DIR, "LIFEOS_SYSTEM_PROMPT.md")

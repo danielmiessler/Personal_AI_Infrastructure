@@ -85,7 +85,7 @@ function resolveTargetPath(target: string): string {
   }
   if (target === "memory/feedback") {
     // Feedback memories live outside LifeOS dir in projects/${HARNESS_USER_DIR}/memory/
-    return join(HOME, ".claude", "projects", "${HARNESS_USER_DIR}", "memory");
+    return join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "projects", "${HARNESS_USER_DIR}", "memory");
   }
   return join(LIFEOS_DIR, target);
 }

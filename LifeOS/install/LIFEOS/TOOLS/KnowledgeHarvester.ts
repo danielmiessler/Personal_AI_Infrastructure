@@ -58,7 +58,7 @@ const RESEARCH_DIR = path.join(MEMORY_DIR, "RESEARCH");
 const HARVEST_QUEUE_DIR = path.join(KNOWLEDGE_DIR, "_harvest-queue");
 const ARCHIVE_DIR = path.join(KNOWLEDGE_DIR, "_archive");
 
-const PROJECTS_DIR = path.join(HOME, ".claude", "projects");
+const PROJECTS_DIR = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(HOME, ".claude"), "projects");
 
 /**
  * Auto-memory dirs — multi-instance aware (#1170).

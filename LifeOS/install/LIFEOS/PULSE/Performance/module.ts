@@ -14,7 +14,7 @@ import { join } from "path"
 import { existsSync, readFileSync } from "fs"
 
 const HOME = process.env.HOME ?? ""
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS")
 const MEMORY_DIR = join(LIFEOS_DIR, "MEMORY")
 const SESSION_COSTS_PATH = join(MEMORY_DIR, "OBSERVABILITY", "session-costs.jsonl")
 const TOOL_FAILURES_PATH = join(MEMORY_DIR, "OBSERVABILITY", "tool-failures.jsonl")

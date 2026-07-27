@@ -6,7 +6,7 @@ import { join, basename } from "node:path";
 import { homedir } from "node:os";
 
 const HOME = homedir();
-const LIFEOS_DIR = join(HOME, ".claude");
+const LIFEOS_DIR = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 const STATE_DIR = join(LIFEOS_DIR, "LIFEOS", "MEMORY", "STATE");
 const WORK_DIR = join(LIFEOS_DIR, "LIFEOS", "MEMORY", "WORK");
 // Claude Code names each project dir by its absolute path with "/" and "." mapped to "-",

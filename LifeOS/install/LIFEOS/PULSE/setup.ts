@@ -14,7 +14,7 @@ import { join, resolve } from "path"
 import { existsSync, mkdirSync } from "fs"
 
 const HOME = process.env.HOME ?? "~"
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS")
 const PULSE_DIR = join(LIFEOS_DIR, "PULSE")
 
 // ── Helpers ──

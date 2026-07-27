@@ -14,7 +14,7 @@ import * as path from "path";
 import { inference } from "./Inference";
 
 const HOME = process.env.HOME!;
-const LIFEOS_DIR = path.join(HOME, ".claude", "LIFEOS");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || path.join(HOME, ".claude", "LIFEOS");
 const MEMORY_DIR = path.join(LIFEOS_DIR, "MEMORY");
 const KNOWLEDGE_DIR = path.join(MEMORY_DIR, "KNOWLEDGE");
 const LEARNING_DIR = path.join(MEMORY_DIR, "LEARNING");

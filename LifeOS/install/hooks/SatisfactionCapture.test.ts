@@ -51,6 +51,35 @@ const cases: Case[] = [
     expected: null,
   },
 
+  // ── Bare digit + long prose is a list item, not a rating ──
+  // "-" is an accepted rating separator, so these are shape-identical to "8 - nice"
+  // and only comment length tells them apart.
+  {
+    label: 'bare digit + "-" + long instruction is not a rating',
+    input: "2 - config.md -- add the do-not-edit header, and also copy the file somewhere outside the install directory first",
+    expected: null,
+  },
+  {
+    label: 'bare digit + "-" + multi-item instruction is not a rating',
+    input: "1 - we don't have the premium licence tier.  2 - the zone is set to office IPs, the datacenter IP and my home IP.  Run those checks",
+    expected: null,
+  },
+  {
+    label: 'bare digit + prose referencing other items is not a rating',
+    input: "4 and 5 -- both look like things we already moved into a private directory earlier, so they can go",
+    expected: null,
+  },
+  {
+    label: 'unambiguous N/10 form is NOT length-capped',
+    input: "8/10 really solid work here, especially the part where you caught the edge case before it shipped",
+    expected: { rating: 8, comment: 'really solid work here, especially the part where you caught the edge case before it shipped' },
+  },
+  {
+    label: 'unambiguous word form is NOT length-capped',
+    input: "eight really solid work here, especially the part where you caught the edge case before it shipped",
+    expected: { rating: 8, comment: 'really solid work here, especially the part where you caught the edge case before it shipped' },
+  },
+
   // ── Legitimate rating forms must keep working, byte-identically ──
   { label: 'bare digit', input: '8', expected: { rating: 8 } },
   { label: 'bare ten', input: '10', expected: { rating: 10 } },

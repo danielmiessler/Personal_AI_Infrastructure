@@ -75,6 +75,11 @@ const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const LAST_RESPONSE_CACHE = join(BASE_DIR, 'MEMORY', 'STATE', 'last-response.txt');
 const MIN_PROMPT_LENGTH = 3;
 
+// Longest trailing comment accepted after a BARE leading digit ("8 nice", "8 - nice").
+// Real rating comments are a few words; a long tail means prose that merely starts
+// with a digit. Does not apply to "N/10" or word forms — those are unambiguous.
+const MAX_BARE_DIGIT_COMMENT = 80;
+
 // Sentence-starters that mean a leading number is describing work, not rating it
 // (e.g. "2/10 items done", "3 of the files"). Shared by the fraction and generic parsers.
 const SENTENCE_STARTERS = /^(items?|things?|steps?|files?|lines?|bugs?|issues?|errors?|times?|minutes?|hours?|days?|seconds?|percent|%|th\b|st\b|nd\b|rd\b|of\b|in\b|at\b|to\b|the\b|a\b|an\b)/i;
@@ -151,6 +156,14 @@ export function parseExplicitRating(prompt: string): { rating: number; comment?:
   if (afterNumber.length > 0 && /^[/.)\]\dA-Za-z]/.test(afterNumber)) return null;
 
   if (rest && SENTENCE_STARTERS.test(rest)) return null;
+
+  // A bare leading digit is the weakest rating evidence in this function — it is
+  // also exactly how a numbered list item starts, and "-" is an accepted rating
+  // separator, so "2 - add the header, but also back the file up first" is
+  // indistinguishable from "8 - nice" by shape alone. Length separates them:
+  // real rating comments are a few words. The "N/10" and word forms above are
+  // unambiguous rating syntax and are deliberately NOT capped.
+  if (rest && rest.length > MAX_BARE_DIGIT_COMMENT) return null;
 
   return { rating, comment: rest };
 }

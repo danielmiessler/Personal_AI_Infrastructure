@@ -6,6 +6,7 @@
 import { BaseGrader, registerGrader, type GraderContext } from '../Base.ts';
 import type { GraderConfig, GraderResult, LLMRubricParams } from '../../Types/index.ts';
 import { inference, type InferenceLevel } from '../../../../LIFEOS/TOOLS/Inference.ts';
+import { CURRENT, EFFORT_MODEL } from '../../../../LIFEOS/TOOLS/models.ts';
 import { readFileSync, existsSync } from 'fs';
 
 export class LLMRubricGrader extends BaseGrader {
@@ -24,14 +25,22 @@ export class LLMRubricGrader extends BaseGrader {
 
     const scale = params.scale ?? '1-5';
     // Map model preference to inference level (default to medium/Sonnet)
-    const levelMap: Record<string, InferenceLevel> = {
-      'claude-haiku-4-5-20251001': 'low',
+    // Superseded judge IDs, kept so existing eval configs keep resolving.
+    const legacyLevels: Record<string, InferenceLevel> = {
       'claude-sonnet-4-6': 'medium',
       'claude-opus-4-8': 'high',
       'claude-opus-4-6': 'high',
       'claude-sonnet-4-20250514': 'medium',
       'claude-opus-4-20250514': 'high',
-      'claude-fable-5': 'max',
+    };
+    // Current lineup is DERIVED from the model registry rather than restated:
+    // models.ts is the single edit point on a release, so a bump cannot strand
+    // a current model here and silently demote its judge to the default.
+    const levelMap: Record<string, InferenceLevel> = {
+      ...legacyLevels,
+      ...Object.fromEntries(
+        Object.entries(EFFORT_MODEL).map(([level, tier]) => [CURRENT[tier], level as InferenceLevel]),
+      ),
     };
     const level: InferenceLevel = levelMap[params.judge_model ?? ''] ?? 'medium';
 

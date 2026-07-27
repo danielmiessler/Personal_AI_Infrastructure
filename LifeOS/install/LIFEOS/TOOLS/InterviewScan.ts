@@ -98,7 +98,7 @@ const REGISTRY: RegistryTarget[] = [
     prompts: ["Main DA voice — pick from ElevenLabs library, or stick with default Rachel (21m00Tcm4TlvDq8ikWAM)?",
               "Algorithm voice (used for phase transitions) — default Adam (pNInz6obpgDQGcFmaJgB) is fine?",
               "Want voice notifications on by default? (default: yes)"] },
-  { phase: 0, path: join(HOME, ".claude", ".env"), name: ".env/credentials", category: "setup", leverage: 10,
+  { phase: 0, path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env"), name: ".env/credentials", category: "setup", leverage: 10,
     prompts: ["ANTHROPIC_API_KEY — required for inference. Paste here (will write to .env, won't echo back)?",
               "ELEVENLABS_API_KEY — required for voice notifications. Skip if you don't want voice.",
               "GH_TOKEN — optional, only if you want the work pipeline. Skip if not using GitHub issues.",

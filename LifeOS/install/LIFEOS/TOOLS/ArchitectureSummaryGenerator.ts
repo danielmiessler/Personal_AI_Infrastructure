@@ -274,7 +274,7 @@ function cmdCheck(): void {
 
   const sourceMtime = getMtime(ARCH_SOURCE);
   const summaryMtime = getMtime(SUMMARY_OUTPUT);
-  const claudeMdMtime = getMtime(path.join(HOME, ".claude", "CLAUDE.md"));
+  const claudeMdMtime = getMtime(path.join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "CLAUDE.md"));
 
   if (sourceMtime > summaryMtime || claudeMdMtime > summaryMtime) {
     console.log("STALE: Source files are newer than summary");

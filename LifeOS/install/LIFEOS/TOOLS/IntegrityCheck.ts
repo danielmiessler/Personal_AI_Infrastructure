@@ -35,7 +35,7 @@ import { join } from 'path';
 import { execFileSync } from 'child_process';
 
 const HOME = process.env.HOME || '';
-const CLAUDE_DIR = join(HOME, '.claude');
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(HOME, '.claude');
 const LIFEOS_DIR = join(CLAUDE_DIR, 'LIFEOS');
 const TOOLS_DIR = join(LIFEOS_DIR, 'TOOLS');
 const DOC_DIR = join(LIFEOS_DIR, 'DOCUMENTATION');

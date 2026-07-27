@@ -32,7 +32,7 @@ export interface ToolCall {
 const HOME = homedir();
 
 export const TRUSTED_PREFIXES: readonly string[] = [
-  resolve(HOME, ".claude"),
+  process.env.CLAUDE_CONFIG_DIR || resolve(HOME, ".claude"),
   resolve(HOME, "Projects"),
   resolve(HOME, "LocalProjects"),
   resolve(HOME, "Downloads"),

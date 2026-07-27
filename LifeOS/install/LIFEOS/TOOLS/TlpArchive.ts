@@ -16,7 +16,7 @@ import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 const HOME = process.env.HOME!;
-const KNOWLEDGE_DIR = join(HOME, ".claude/LIFEOS/MEMORY/KNOWLEDGE/Blogs");
+const KNOWLEDGE_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude/LIFEOS"), "MEMORY/KNOWLEDGE/Blogs");
 const URL_FILE = "/tmp/tlp-urls.txt";
 const FAILED_FILE = "/tmp/tlp-failed.txt";
 const SUCCESS_FILE = "/tmp/tlp-success.txt";

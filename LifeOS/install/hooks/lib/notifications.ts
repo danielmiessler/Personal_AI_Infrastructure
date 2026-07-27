@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 const HOME = process.env.HOME!;
-const PULSE_TOML_PATH = join(HOME, '.claude/LIFEOS/PULSE/PULSE.toml');
+const PULSE_TOML_PATH = join(process.env.LIFEOS_DIR || join(HOME, '.claude/LIFEOS'), 'PULSE/PULSE.toml');
 
 // ============================================================================
 // Session Timing

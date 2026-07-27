@@ -6,8 +6,8 @@ import type { PageData } from "../Schema/PulseSchema";
 import { PageDataSchema } from "../Schema/PulseSchema";
 
 const HOME = process.env.HOME!;
-const FIX_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Fixtures");
-const OUT_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Snapshots");
+const FIX_DIR = resolve(process.env.LIFEOS_DIR || resolve(HOME, ".claude", "LIFEOS"), "PULSE", "Schema", "Fixtures");
+const OUT_DIR = resolve(process.env.LIFEOS_DIR || resolve(HOME, ".claude", "LIFEOS"), "PULSE", "Schema", "Snapshots");
 mkdirSync(OUT_DIR, { recursive: true });
 
 const fixtures = readdirSync(FIX_DIR).filter((f) => f.endsWith(".json") && !f.startsWith("invalid"));

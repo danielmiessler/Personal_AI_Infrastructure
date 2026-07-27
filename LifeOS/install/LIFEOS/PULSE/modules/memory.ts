@@ -30,7 +30,7 @@ import {
 import { join } from "node:path";
 
 const HOME = process.env.HOME || "";
-const CLAUDE = join(HOME, ".claude");
+const CLAUDE = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 const OBS_DIR = join(CLAUDE, "LIFEOS/MEMORY/OBSERVABILITY");
 
 const REVIEW_STATE = join(OBS_DIR, "review-state.json");

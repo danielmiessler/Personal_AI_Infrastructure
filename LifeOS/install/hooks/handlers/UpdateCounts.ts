@@ -39,7 +39,7 @@ async function refreshUsageCache(paiDir: string): Promise<void> {
         { encoding: 'utf-8', timeout: 3000 }
       ).trim();
     } else {
-      const credPath = join(process.env.HOME || '', '.claude', '.credentials.json');
+      const credPath = join(process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME || '', '.claude'), '.credentials.json');
       credJson = readFileSync(credPath, 'utf-8').trim();
     }
 

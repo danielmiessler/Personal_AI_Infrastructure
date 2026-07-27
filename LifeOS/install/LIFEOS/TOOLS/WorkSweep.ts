@@ -615,7 +615,7 @@ async function main(): Promise<void> {
   // Final step: regenerate the TASKLIST.md and push (best-effort, never blocks)
   if (!dryRun) {
     const proc = Bun.spawn(
-      ["bun", join(HOME, ".claude", "skills", "_ULWORK", "Tools", "RegenerateTasklist.ts"), "--commit-push"],
+      ["bun", join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills", "_ULWORK", "Tools", "RegenerateTasklist.ts"), "--commit-push"],
       { stdout: "inherit", stderr: "inherit", timeout: 30000 },
     );
     await proc.exited;

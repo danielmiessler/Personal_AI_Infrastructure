@@ -352,7 +352,7 @@ MORE INFO:
  *   --workflow=<bad-name>   → exit 1 listing valid workflow names.
  */
 function enforceWorkflowDiscipline(parsed: Partial<CLIArgs>): void {
-  const workflowsDir = `${process.env.HOME}/.claude/skills/Art/Workflows`;
+  const workflowsDir = `${process.env.CLAUDE_CONFIG_DIR || `${process.env.HOME}/.claude`}/skills/Art/Workflows`;
   let availableWorkflows: string[] = [];
   try {
     // readdirSync via Bun.readdirSync isn't a thing; use Node fs sync via dynamic

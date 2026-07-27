@@ -89,7 +89,7 @@ const REGISTRY: Record<string, SourceSpec[]> = {
     { name: "skills/", path: join(HOME, ".claude", "skills"), expand: true },
   ],
   agents: [
-    { name: "agents/", path: join(HOME, ".claude", "agents"), expand: true },
+    { name: "agents/", path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "agents"), expand: true },
   ],
   docs: [
     { name: "DOCUMENTATION/", path: join(LIFEOS_DIR, "DOCUMENTATION"), expand: true },

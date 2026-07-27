@@ -129,11 +129,11 @@ async function fetchApiSpend(): Promise<{ month_used_usd: number | null; source:
 
 // Paths we scan (source-of-truth for LifeOS-local billing risk)
 const SCAN_ROOTS = [
-  join(HOME, ".claude", "LIFEOS", "PULSE"),
-  join(HOME, ".claude", "LIFEOS", "TOOLS"),
-  join(HOME, ".claude", "LIFEOS", "USER"),
-  join(HOME, ".claude", "skills"),
-  join(HOME, ".claude", "hooks"),
+  join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE"),
+  join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "TOOLS"),
+  join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "USER"),
+  join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills"),
+  join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "hooks"),
 ];
 
 // Paths to exclude from scan

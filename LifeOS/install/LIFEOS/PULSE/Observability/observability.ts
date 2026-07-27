@@ -156,7 +156,7 @@ function getDashboardDir(): string {
   const dir = config.dashboard_dir ?? DEFAULT_DASHBOARD_DIR
   // Resolve relative paths against Pulse directory
   if (!dir.startsWith("/")) {
-    return join(HOME, ".claude", "LIFEOS", "PULSE", dir)
+    return join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", dir)
   }
   return dir
 }

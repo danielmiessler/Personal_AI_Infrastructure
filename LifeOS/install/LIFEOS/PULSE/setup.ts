@@ -235,7 +235,7 @@ enabled = true
     ``,
   ]
 
-  const envPath = join(HOME, ".claude", ".env")
+  const envPath = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env")
   if (existsSync(envPath)) {
     warn(`.env already exists — appending worker config`)
     const existing = await Bun.file(envPath).text()
@@ -444,7 +444,7 @@ ${"═".repeat(50)}
   Time: ${Math.floor(elapsed / 60)}m ${elapsed % 60}s
 
   Next steps:
-  - Verify ANTHROPIC_API_KEY is set in ${join(HOME, ".claude", ".env")}
+  - Verify ANTHROPIC_API_KEY is set in ${join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env")}
   - Create a test issue with label "status:ready" in one of your repos
   - Watch: tail -f ${join(PULSE_DIR, "logs", "pulse-stdout.log")}
   - Status: ${join(PULSE_DIR, "manage.sh")} status

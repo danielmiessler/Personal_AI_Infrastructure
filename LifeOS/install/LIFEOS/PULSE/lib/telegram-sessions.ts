@@ -19,7 +19,7 @@ import { join } from "path"
 import { mkdirSync } from "fs"
 
 const HOME = process.env.HOME ?? ""
-const DB_DIR = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "telegram")
+const DB_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", "state", "telegram")
 const DB_PATH = join(DB_DIR, "sessions.db")
 
 // Compaction threshold — after this many turns, we'll compact the session

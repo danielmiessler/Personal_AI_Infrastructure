@@ -143,7 +143,7 @@ function countSkills(): number {
  * count — only what Claude Code will actually fire.
  */
 function countHooks(): number {
-  const settingsPath = join(HOME, ".claude", "settings.json");
+  const settingsPath = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "settings.json");
   try {
     const fs = require('fs');
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));

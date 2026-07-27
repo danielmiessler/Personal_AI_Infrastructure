@@ -67,9 +67,9 @@ export interface TelegramConfig {
 // ── Constants ──
 
 const HOME = process.env.HOME ?? ""
-const CWD = join(HOME, ".claude")
-const STATE_DIR = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "telegram")
-const LOGS_DIR = join(HOME, ".claude", "LIFEOS", "PULSE", "logs", "telegram")
+const CWD = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude")
+const STATE_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", "state", "telegram")
+const LOGS_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", "logs", "telegram")
 const STALE_ACK_CACHE_DIR = join(STATE_DIR, "ack-cache")
 const MAX_TELEGRAM_LENGTH = 4096
 const CURSOR = " ▌"

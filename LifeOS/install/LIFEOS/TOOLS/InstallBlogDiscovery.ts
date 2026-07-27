@@ -17,7 +17,7 @@ import { join } from "path";
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
 const HOME = process.env.HOME || "";
-const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.blogdiscovery.plist.template");
+const TEMPLATE_PATH = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "TOOLS", "com.lifeos.blogdiscovery.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.blogdiscovery.plist");
 const LABEL = "com.lifeos.blogdiscovery";

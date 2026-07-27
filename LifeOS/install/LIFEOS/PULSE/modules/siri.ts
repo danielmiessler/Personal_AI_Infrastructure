@@ -20,7 +20,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk"
 import { buildLifeosContextBlock } from "./telegram"
 
-const CWD = `${process.env.HOME}/.claude`
+const CWD = process.env.CLAUDE_CONFIG_DIR || `${process.env.HOME}/.claude`
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 60 min — same thread boundary as Telegram
 const SDK_TIMEOUT_MS = 50_000 // Shortcuts' Get Contents of URL times out ~60s; stay under it
 const MAX_TURNS = 10 // speed over depth — this is a spoken exchange, not a work session

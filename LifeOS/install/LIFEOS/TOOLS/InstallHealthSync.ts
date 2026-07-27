@@ -30,7 +30,7 @@ type LaunchctlResult = {
 };
 
 const HOME = process.env.HOME || "";
-const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.healthsync.plist.template");
+const TEMPLATE_PATH = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "TOOLS", "com.lifeos.healthsync.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.healthsync.plist");
 const LABEL = "com.lifeos.healthsync";

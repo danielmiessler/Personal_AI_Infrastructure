@@ -395,7 +395,7 @@ function readExistingDaemon(): Record<string, unknown> {
   const daemonPath = join(USER_DAEMON_DIR, "daemon.md");
   if (!existsSync(daemonPath)) {
     // Fall back to old location
-    const oldPath = join(HOME, ".claude", "skills", "_DAEMON", "Mcp", "daemon.md");
+    const oldPath = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills", "_DAEMON", "Mcp", "daemon.md");
     if (!existsSync(oldPath)) return {};
     return parseDaemonMd(readFileSync(oldPath, "utf-8"));
   }

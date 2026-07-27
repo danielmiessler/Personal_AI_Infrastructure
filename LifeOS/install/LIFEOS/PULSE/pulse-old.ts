@@ -12,7 +12,7 @@ import { readFileSync } from "fs"
 
 // ── Load .env before anything else ──
 
-const envPath = join(process.env.HOME ?? "~", ".claude", ".env")
+const envPath = join(process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME ?? "~", ".claude"), ".env")
 try {
   const envContent = readFileSync(envPath, "utf-8")
   for (const line of envContent.split("\n")) {
@@ -46,7 +46,7 @@ import {
 
 // ── Constants ──
 
-const PULSE_DIR = join(process.env.HOME ?? "~", ".claude", "LIFEOS", "PULSE")
+const PULSE_DIR = join(process.env.LIFEOS_DIR || join(process.env.HOME ?? "~", ".claude", "LIFEOS"), "PULSE")
 const STATE_PATH = join(PULSE_DIR, "state", "state.json")
 const PID_PATH = join(PULSE_DIR, "state", "pulse.pid")
 const HOOK_PORT = parseInt(process.env.HOOK_SERVER_PORT || "8686", 10)

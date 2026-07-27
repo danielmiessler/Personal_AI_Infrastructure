@@ -19,7 +19,7 @@ import { join } from "path";
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
 const HOME = process.env.HOME || "";
-const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.conveyor-watcher.plist.template");
+const TEMPLATE_PATH = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "TOOLS", "com.lifeos.conveyor-watcher.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.conveyor-watcher.plist");
 const LABEL = "com.lifeos.conveyor-watcher";

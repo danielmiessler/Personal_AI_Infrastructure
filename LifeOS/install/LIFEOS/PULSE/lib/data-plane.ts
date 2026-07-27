@@ -5,7 +5,7 @@ import { atomicWriteJSON } from "./atomic-write";
 import type { PageData, PageMeta, Provenance } from "../Schema/PulseSchema";
 
 const HOME = process.env.HOME!;
-export const PULSE_DATA_DIR = resolve(HOME, ".claude", "LIFEOS", "MEMORY", "PULSE_DATA");
+export const PULSE_DATA_DIR = resolve(process.env.LIFEOS_DIR || resolve(HOME, ".claude", "LIFEOS"), "MEMORY", "PULSE_DATA");
 
 export interface DataPlaneFile {
   schemaVersion: string;

@@ -16,7 +16,7 @@ import { spawnSync } from "child_process";
 import { paiUserDir } from "./LifeosConfig";
 
 const HOME = process.env.HOME!;
-const CLAUDE_DIR = join(HOME, ".claude");
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 
 // ═══════════════════════════════════════════════════════════════════════
 // Terminal Width Detection

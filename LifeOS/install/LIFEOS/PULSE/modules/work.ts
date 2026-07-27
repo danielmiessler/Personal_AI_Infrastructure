@@ -160,7 +160,7 @@ function extractSlug(title: string): string | undefined {
 // issues; the workload is bounded and the files are small.
 function extractPrincipalGoal(slug: string | undefined): string | undefined {
   if (!slug) return undefined;
-  const isaPath = join(HOME, ".claude", "LIFEOS", "MEMORY", "WORK", slug, "ISA.md");
+  const isaPath = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "MEMORY", "WORK", slug, "ISA.md");
   if (!existsSync(isaPath)) return undefined;
   try {
     const content = readFileSync(isaPath, "utf-8");

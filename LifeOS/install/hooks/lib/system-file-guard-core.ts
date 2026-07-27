@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { isContained, isPatternAllowlisted, relativeToClaudeRoot } from "./containment-zones";
 
 const HOME = process.env.HOME ?? homedir();
-const CLAUDE_ROOT = join(HOME, ".claude");
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 const DEFAULT_DENY_LIST_PATH = join(CLAUDE_ROOT, "skills/_LIFEOS/DENY_LIST.txt");
 const DEFAULT_HASHES_PATH = join(CLAUDE_ROOT, "skills/_LIFEOS/DENY_HASHES.json");
 const DEFAULT_ENV_PATH = join(CLAUDE_ROOT, ".env");

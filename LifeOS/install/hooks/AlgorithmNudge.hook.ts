@@ -49,7 +49,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
-const PAI = join(process.env.HOME || '', '.claude');
+const PAI = process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME || '', '.claude');
 const WORK_JSON = join(PAI, 'LIFEOS', 'MEMORY', 'STATE', 'work.json');
 const STATE_DIR = join(PAI, 'LIFEOS', 'MEMORY', 'STATE', 'isa-nudge');
 const SKILLS_DIR = join(PAI, 'skills');

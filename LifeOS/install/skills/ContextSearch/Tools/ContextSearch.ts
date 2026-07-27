@@ -352,7 +352,7 @@ async function searchIsaBodies(tokens: string[], since: Date | null, until: Date
 async function searchJsonl(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
   if (tokens.length === 0 || !existsSync(JSONL_DIR)) return [];
   const realDir = JSONL_DIR;
-  if (!realDir.startsWith(join(HOME, ".claude", "Projects", PROJECT_SLUG))) return [];
+  if (!realDir.startsWith(join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "Projects", PROJECT_SLUG))) return [];
   const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const out = await ripgrep(pattern, realDir, ["--glob", "*.jsonl", "-c"]);
   const byFile = new Map<string, { hits: number; path: string }>();

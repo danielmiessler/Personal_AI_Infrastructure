@@ -17,7 +17,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const HOME = homedir();
-const CLAUDE = join(HOME, ".claude");
+const CLAUDE = process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude");
 const LIFEOS = join(CLAUDE, "LIFEOS");
 const TOOLS = join(LIFEOS, "TOOLS");
 const PULSE = join(LIFEOS, "PULSE");

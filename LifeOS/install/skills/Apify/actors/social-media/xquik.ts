@@ -58,6 +58,9 @@ export interface XquikTweetScraperInput {
   fieldStyle?: 'legacy' | 'camelCase' | 'snake_case'
   includeSearchTerms?: boolean
   includeRaw?: boolean
+  includeArticles?: boolean
+  includeOriginalTweet?: boolean
+  includeUnavailableFields?: boolean
   respectProfileSubpages?: boolean
   [key: string]: unknown
 }
@@ -67,6 +70,7 @@ export interface XquikFollowerScraperInput {
   targets?: Array<string | { url: string }>
   twitterHandles?: string[]
   userIds?: string[]
+  twitterUserIds?: string[]
   listIds?: string[]
   communityIds?: string[]
   relation?: XquikFollowerRelation
@@ -74,12 +78,20 @@ export interface XquikFollowerScraperInput {
   maxItems?: number
   maxItemsPerTarget?: number
   outputMode?: 'compact' | 'full' | 'raw'
+  includeRaw?: boolean
+  includeUnavailableFields?: boolean
+  includeUnavailableUsers?: boolean
   includeTargetMetadata?: boolean
+  dedupeAcrossTargets?: boolean
   dedupeMode?: 'none' | 'first' | 'merge'
   overlapMode?: boolean
   minFollowers?: number
+  maxFollowers?: number
   minFollowing?: number
+  maxFollowing?: number
   minStatuses?: number
+  maxStatuses?: number
+  minAccountAgeDays?: number
   verifiedOnly?: boolean
   verifiedType?: 'blue' | 'business' | 'government' | 'none'
   usernameContains?: string
@@ -93,6 +105,25 @@ export interface XquikFollowerScraperInput {
 export type XquikTweetDatasetRow = Record<string, unknown>
 export type XquikFollowerDatasetRow = Record<string, unknown>
 
+interface XquikActorRun {
+  id: string
+  status: string
+  defaultDatasetId: string
+}
+
+interface XquikDataset {
+  listItems(options: { limit: number }): Promise<unknown[]>
+}
+
+export interface XquikActorClient {
+  callActor(
+    actorId: string,
+    input: Record<string, unknown>,
+    options?: ActorRunOptions
+  ): Promise<XquikActorRun>
+  getDataset(datasetId: string): XquikDataset
+}
+
 /**
  * Run Xquik's X Tweet Scraper with its native input schema.
  *
@@ -101,10 +132,12 @@ export type XquikFollowerDatasetRow = Record<string, unknown>
  */
 export async function runXquikTweetScraper(
   input: XquikTweetScraperInput,
-  options?: ActorRunOptions
+  options?: ActorRunOptions,
+  client: XquikActorClient = new Apify()
 ): Promise<XquikTweetDatasetRow[]> {
   validateXStartUrls(input.startUrls)
   return runXquikActor<XquikTweetDatasetRow>(
+    client,
     XQUIK_TWEET_ACTOR,
     input,
     input.maxItems,
@@ -120,10 +153,13 @@ export async function runXquikTweetScraper(
  */
 export async function runXquikFollowerScraper(
   input: XquikFollowerScraperInput,
-  options?: ActorRunOptions
+  options?: ActorRunOptions,
+  client: XquikActorClient = new Apify()
 ): Promise<XquikFollowerDatasetRow[]> {
   validateXStartUrls(input.startUrls)
+  validateXStartUrls(input.targets)
   return runXquikActor<XquikFollowerDatasetRow>(
+    client,
     XQUIK_FOLLOWER_ACTOR,
     input,
     input.maxItems,
@@ -132,13 +168,13 @@ export async function runXquikFollowerScraper(
 }
 
 async function runXquikActor<T extends Record<string, unknown>>(
+  client: XquikActorClient,
   actorId: string,
   input: Record<string, unknown>,
   maxItems: number | undefined,
   options: ActorRunOptions | undefined
 ): Promise<T[]> {
-  const apify = new Apify()
-  const run = await apify.callActor(actorId, input, options)
+  const run = await client.callActor(actorId, input, options)
 
   if (run.status !== 'SUCCEEDED') {
     throw new Error(
@@ -146,7 +182,7 @@ async function runXquikActor<T extends Record<string, unknown>>(
     )
   }
 
-  const dataset = apify.getDataset(run.defaultDatasetId)
+  const dataset = client.getDataset(run.defaultDatasetId)
   const items = await dataset.listItems({
     limit: maxItems ?? 1000
   })

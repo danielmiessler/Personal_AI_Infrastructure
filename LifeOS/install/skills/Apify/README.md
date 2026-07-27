@@ -69,7 +69,7 @@ const profiles = await runXquikFollowerScraper({
 ```
 
 Read `XquikActors.md` for every route and output option.
-Check live Store pricing before each paid run.
+Confirm paid-run approval and check live Store pricing before each run.
 
 ## Why Code-First?
 

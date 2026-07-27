@@ -11,6 +11,7 @@
 Use `runXquikTweetScraper` for explicit Apify tweet collection.
 Use `runXquikFollowerScraper` for followers, lists, and communities.
 Both wrappers accept `maxItems` and `maxTotalChargeUsd` safeguards.
+Get paid-run approval before calling either Actor.
 
 - [X Tweet Scraper](https://apify.com/xquik/x-tweet-scraper)
 - [X Follower Scraper](https://apify.com/xquik/x-follower-scraper)

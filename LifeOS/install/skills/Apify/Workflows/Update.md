@@ -49,6 +49,7 @@ Review commonly used actors for updates:
 | Actor | Purpose | Check For |
 |-------|---------|-----------|
 | apify/instagram-scraper | Instagram posts/profiles | Schema changes |
+| apidojo/twitter-scraper-lite | Existing X integration | API changes |
 | xquik/x-tweet-scraper | X tweets, search, lists, and conversations | Schema changes |
 | xquik/x-follower-scraper | X relations, lists, communities, and overlap | Schema changes |
 | apify/google-maps-scraper | Business data | New fields |
@@ -76,6 +77,7 @@ Maintain list of tested actors:
 | Actor | Last Tested | Status |
 |-------|-------------|--------|
 | instagram-scraper | 2026-01 | Working |
+| twitter-scraper-lite | 2026-01 | Working |
 | xquik/x-tweet-scraper | Check live metadata | Verify before paid run |
 | xquik/x-follower-scraper | Check live metadata | Verify before paid run |
 | google-maps | 2026-01 | Working |

@@ -7,7 +7,7 @@
  * - TikTok (90k users)
  * - YouTube (40k users)
  * - Facebook (35k users)
- * - Twitter/X via Xquik Tweet and Follower Actors
+ * - Twitter/X (existing Actor plus Xquik Tweet and Follower Actors)
  */
 
 export * from './instagram'

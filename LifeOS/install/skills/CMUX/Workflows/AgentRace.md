@@ -1,5 +1,7 @@
 # AgentRace
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Race N agents at the same problem in one workspace, first to solve wins, close the rest. The needle-in-haystack hotfix pattern: when you don't know which approach lands, launch several and keep the winner.
 
 ## When

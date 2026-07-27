@@ -1,5 +1,7 @@
 # Harvest Workflow
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 **Goal:** Turn one piece of content into a ranked, honest list of what LifeOS should take from it, then preserve the source in the Knowledge Archive. System adoption is report-only; KB ingestion always happens.
 
 ## Step 1 — Detect input type

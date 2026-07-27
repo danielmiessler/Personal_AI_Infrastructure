@@ -7,6 +7,8 @@ license: public
 
 # Harvest
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Take one piece of content and ask a single question: **is there anything in here worth pulling into LifeOS?** Read it, hold every candidate idea against what the system already is and already has, and report what is worth adopting, where it maps, and how we would use it. System adoption is report-only — changing the system is a separate, approved step. Then, always as the final step, ingest the content into the Knowledge Archive via the `_HARVEST` pipeline so the source itself is preserved.
 
 ## Workflow Routing

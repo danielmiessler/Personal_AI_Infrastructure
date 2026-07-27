@@ -9,6 +9,8 @@ version: 1.0.3
 
 # Work System
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > The Work System is the hill-climb's ledger (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`). Every captured unit of work is a step taken toward ideal state, and the TELOS sweep is the loop closing on itself: an active goal with no open issue is a declared ideal state with no next move — exactly the gap the OS exists to surface.
 
 > The Work System turns every meaningful unit of work the principal does — Algorithm sessions, NATIVE work that touched files, explicit reminders, periodic check-ins on stale projects, TELOS goals without a next action — into a labeled GitHub issue in one configured private repo. The repo is the system of record. The Pulse Work tab, the auto-regenerated TASKLIST.md, and the agent claim flow are all readers.

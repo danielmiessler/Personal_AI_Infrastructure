@@ -1,5 +1,7 @@
 # IntegrateIntoApp
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > **Prefer Path 2 first.** If `/design-sync` is available, use `Workflows/NativeDesignSync.md` to keep design and code in lockstep natively. This Interceptor-bundle integration flow (Path 3) is the fallback for working from the web canvas and is unproven (the `interceptor-test` profile isn't logged into claude.ai). See SKILL.md → Prerequisites. (If your prototype source is already a generated code directory, the audit/diff/verify steps below still apply regardless of how it was produced.)
 
 Land a Claude Design prototype INTO an existing application as a framework-aware diff, not a greenfield scaffold.

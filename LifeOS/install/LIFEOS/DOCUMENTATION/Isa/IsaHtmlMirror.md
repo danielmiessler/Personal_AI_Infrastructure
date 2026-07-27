@@ -7,6 +7,8 @@ version: 1.0.15
 
 # ISA HTML Mirror
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 The ISA is the canonical articulation of "done" for any Algorithm run. It lives as `ISA.md` markdown in a working directory the principal does not normally look at. The **HTML Mirror** is a deterministic, zero-token, branded sibling — `ISA.html` next to every `ISA.md` — produced by a fast CLI on completion events and refreshed in-place by Interceptor.
 
 ## Canonical Theme — UL Technical v1.0.0 (2026-05-13)

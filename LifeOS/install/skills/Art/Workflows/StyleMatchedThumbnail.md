@@ -1,5 +1,7 @@
 # StyleMatchedThumbnail Workflow
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Build a pro YouTube thumbnail that matches a reference's text style, places a **real** expression-matched photo of the creator on one third, sits it over a topic background, and looks hand-made — not like AI slop.
 
 **Why this exists:** the legacy `AdHocYouTubeThumbnail` path generated a *fresh fake face* every run and composited text with broken geometry (trim-then-guess offsets, border-then-squash). On a channel whose audience knows the creator's real face, a synthesized face is the loudest slop tell. This workflow flips two things: the face is a **real photo selected by expression**, and the text is composited with a **deterministic, measured** engine (`ThumbnailText.ts`). The background is the only generated element, and it's generated to *blend dark* so the keyed real photo sits on it cleanly.

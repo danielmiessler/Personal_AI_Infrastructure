@@ -6,6 +6,8 @@ description: "Drives cmux as an agent cockpit to boot, race, and monitor visible
 
 # CMUX
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Make cmux the cockpit for every agent — LifeOS's own and your hands-on coding teams. One command boots a named, color-identified workspace of agents you can *see, prompt, and steer*, because an agent you can't see is an agent you can't improve. {{DA_NAME}} drives them through cmux's real send/read/open-close loop; a poll-based monitor speaks up when they finish.
 
 Everything routes through one wrapper: `bun ~/.claude/skills/CMUX/Tools/cmux.ts <subcommand>`. It auto-launches the cmux app — but cmux's socket is **default-deny**, so driving it needs auth (see the first Gotcha).

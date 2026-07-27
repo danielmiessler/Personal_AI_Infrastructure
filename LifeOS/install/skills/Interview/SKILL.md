@@ -7,6 +7,8 @@ disable-model-invocation: true
 
 # Interview — constitutional-context peer conversation
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 ## What It Does
 
 Interview reads your constitutional files — TELOS, identity, projects, system prompt, architecture — checks their freshness, surfaces the stalest items, and drives a contextual peer conversation to refresh them. On a populated system it runs a context check-in; on a fresh install it falls back to first-time setup.

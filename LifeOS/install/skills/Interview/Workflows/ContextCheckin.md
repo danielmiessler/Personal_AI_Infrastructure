@@ -1,5 +1,7 @@
 # ContextCheckin — full constitutional-context peer conversation
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 **Purpose:** Open `/interview` by reading the freshness signal across every constitutional context file (TELOS plus the six other files that load at session start), surface the most-stale items as one of the most important things to look at, and drive a contextual peer conversation grounded in what's actually written. This is the default workflow on a populated system.
 
 For fresh installs (DA name still "LifeOS", placeholder identity, sample-row PROJECTS), route to **Phase0Setup** instead.

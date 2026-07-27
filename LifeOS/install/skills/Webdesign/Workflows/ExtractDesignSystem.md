@@ -1,5 +1,7 @@
 # ExtractDesignSystem
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > **Prefer Path 2 first.** `/design-sync` (pull direction) is the native, first-party way to import a codebase's real design system into Claude Design — use `Workflows/NativeDesignSync.md` when the command is available. This Interceptor-driven extraction (Path 3) is the fallback for working from the web canvas and is unproven (the `interceptor-test` profile isn't logged into claude.ai). See SKILL.md → Prerequisites.
 
 Codebase / brand assets → design tokens Claude Design uses on every subsequent generation.

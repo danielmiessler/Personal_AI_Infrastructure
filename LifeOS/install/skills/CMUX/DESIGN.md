@@ -1,5 +1,7 @@
 # CMUX — migration + integration design
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 ## Verdict
 
 Switching to cmux gets us one thing Kitty never gave us: **programmatic control of the terminal itself** — send text into any pane, read the screen back, open and close surfaces, all over a socket. That turns a wall of terminals into an agent cockpit we can script. The cost is real but bounded: cmux is Mac-only, young, and has no event stream, so every "notification" is a poll loop we own. The recommended path is **replace the terminal layer only** — swap Kitty tab-state for cmux surface-state — and leave Pulse, voice, the Algorithm, and memory exactly where they are. Do it in phases, keep the Kitty hooks live until the cmux path is proven, and never rip out a working hook on a hunch.

@@ -1,5 +1,7 @@
 # Phase0Setup — first-run install bootstrap
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 **Purpose:** On a fresh LifeOS install (or one where the bootstrap was never finished), walk the six setup targets that make Pulse work end-to-end: DA identity, Principal identity, voice IDs, credentials, first project, work repo. Once Phase 0 is done on a system, this workflow auto-skips and `/interview` routes to **TelosCheckin** instead.
 
 A fresh LifeOS install ships with placeholder identity ("LifeOS" / "User"), generic voice IDs, an empty `.env`, a sample-row PROJECTS table, and a templated `WORK.REPO` that points nowhere. Until Phase 0 runs, Pulse boots with the wrong DA name, voice notifications use the default Rachel voice, the Assistant module's diary writes to a non-existent DA directory, and the work pipeline crashes on the missing repo.

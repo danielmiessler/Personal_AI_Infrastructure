@@ -1,5 +1,7 @@
 # Ad-hoc YouTube Thumbnail Workflow
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Generate complete YouTube thumbnails from content input with dramatic tech backgrounds and AI-generated headshots.
 
 ## Voice Notification

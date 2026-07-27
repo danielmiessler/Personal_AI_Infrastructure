@@ -6,6 +6,8 @@ description: Prompt engineering standards based on Anthropic's Claude 4.x best p
 
 # Prompt Engineering Standards
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 **Foundation:** Based on Anthropic's Claude 4.x Best Practices (November 2025), context engineering principles, and the Fabric system. Validated by empirical research across 1,500+ academic papers and production systems.
 
 **Philosophy:** Universal principles of semantic clarity and structure that work regardless of model implementation, with specific optimizations for Claude 4.x behavioral patterns.

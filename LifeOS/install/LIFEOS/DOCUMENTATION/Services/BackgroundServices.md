@@ -8,6 +8,8 @@ generator: LIFEOS/TOOLS/Services.ts (run `bun Services.ts doc` to regenerate the
 
 # LifeOS Background Services
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > **Every recurring Mac service LifeOS runs, in one place — what it is, how often it fires, and how to install it. One tool controls them all: `LIFEOS/TOOLS/Services.ts`.** Before this doc, the install story was scattered across a dozen `Install*.ts` scripts, Pulse `manage.sh` files, and hand-installed launchd jobs, with nothing that listed what was actually running. This is the fix.
 
 ## The one-shot

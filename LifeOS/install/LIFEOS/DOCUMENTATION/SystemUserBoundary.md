@@ -8,6 +8,8 @@ version: 1.1.4
 
 # System / User Boundary
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > This boundary is the thesis's deepest structural commitment (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`): LifeOS the OS is universal and public; the life it runs is singular and private. The four zones below are how one repo can be everyone's Life OS without ever containing anyone's life.
 
 > The structural contract that makes the LifeOS live tree publishable by construction rather than by scrub.

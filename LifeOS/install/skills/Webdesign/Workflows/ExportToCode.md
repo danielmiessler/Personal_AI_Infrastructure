@@ -1,5 +1,7 @@
 # ExportToCode
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > **Prefer Path 2 first.** If `/design-sync` is available, use `Workflows/NativeDesignSync.md` to move the design into code — it's the first-party, deterministic path. This bundle-export workflow (Path 3) is the fallback for when you're working from the web canvas and is unproven (the `interceptor-test` profile isn't logged into claude.ai). See SKILL.md → Prerequisites.
 
 Claude Design handoff bundle → production code via the `frontend-design` plugin.

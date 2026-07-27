@@ -9,6 +9,8 @@ context: fork
 
 # Knowledge Skill
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 ## What It Does
 
 Manage the LifeOS Knowledge Archive — a curated, typed graph of notes across four entity domains: People, Companies, Ideas, and Research. Operations cover search, add, harvest, develop, ingest, contradiction-finding, graph traversal, compressed retrieval, and mining recent conversations for memory candidates. Every note ships with typed `related:` cross-links, so the archive is a connected graph, not a pile of files.

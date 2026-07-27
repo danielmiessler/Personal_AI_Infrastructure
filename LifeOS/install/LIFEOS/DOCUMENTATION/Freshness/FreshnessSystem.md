@@ -4,6 +4,8 @@ version: 1.2.3
 
 # Freshness System
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > Freshness protects the loop's inputs. The LifeOS (`LifeOs/LifeOsThesis.md`) hill-climbs against its picture of your current state and your TELOS — if those files silently age, the OS optimizes toward a person who no longer exists. The convention below makes constitutional staleness visible before it becomes drift.
 
 Every file that loads into the DA's context at session start carries a known recency. This is the freshness convention — `pai-freshness-v1`. It exists because constitutional context that drifts silently is worse than missing context: the model behaves with confidence on stale ground and the principal can't tell.

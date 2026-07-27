@@ -4,6 +4,8 @@ version: 1.5.19
 
 # Memory System
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > In Life OS terms (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`), memory is how the OS knows your **current state**. The hill-climb is only as good as the system's picture of where you actually are — what you're working on, what failed, who you know, what you learned. Every capture pipeline below exists to sharpen that picture so the gap to ideal state is measured against reality, not guesses.
 
 **LifeOS's file-system-based memory. Everything we know, everything we've learned, everything we've researched, everything we're working on.**

@@ -6,6 +6,8 @@ description: Renders the current session's output (analysis, research, red team,
 
 # HTML
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Turns whatever the session just produced into one self-contained, designed HTML file and publishes it as an Artifact. Deterministic split: the model's only job is distilling the session output into a typed content JSON and picking a design register; `Tools/Render.ts` owns every layout, typography, and color decision.
 
 ## Voice Notification

@@ -1,5 +1,7 @@
 # Monitor
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 Poll a workspace's surfaces, classify each agent's state (idle / working / done / awaiting-input), and fire {{DA_NAME}} voice the moment one finishes or needs you. The observe-to-improve loop.
 
 ## Why

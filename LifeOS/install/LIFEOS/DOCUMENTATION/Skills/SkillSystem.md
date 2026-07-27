@@ -9,6 +9,8 @@ version: 1.5.1
 
 # Custom Skill System
 
+> **Path note:** Any `~/.claude/...` path in this doc's examples is illustrative, not a fact about your install. This system may be installed project-scoped (`CLAUDE_CONFIG_DIR`/`LIFEOS_DIR` pointed at a project folder) rather than at the literal global path shown — resolve the actual root (check those env vars, or `CLAUDE.md`) before running any command literally.
+
 > Skills are the Life OS's action surface. The thesis (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`) puts it directly: "Skills expand so the DA can take more actions to close the gap." Every skill added is a new class of move the DA can make in the current→ideal-state hill-climb; the structure rules below exist so those moves stay discoverable, composable, and safe to ship.
 
 **This document is the authoritative definition of the required structure for every LifeOS skill; all skill creation — including CreateSkill's — conforms to it. "Canonicalize a skill" = restructure to match this exact format, including TitleCase naming. A skill that doesn't follow it is not properly configured and will not work correctly.**

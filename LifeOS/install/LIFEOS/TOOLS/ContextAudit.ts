@@ -207,9 +207,9 @@ function normalizeReference(raw: string): string | null {
 
   if (value.startsWith("LIFEOS/")) return join(CLAUDE_DIR, value);
   if (value.startsWith("~/.claude/LIFEOS/")) return join(HOME, value.slice(2));
-  if (value.startsWith(`${HOME}/.claude/LIFEOS/`)) return value;
-  // Project-scoped install: LIFEOS_DIR (above) already resolves process.env.LIFEOS_DIR
-  // when set, so a reference already rooted there is already absolute.
+  // LIFEOS_DIR (above) already resolves process.env.LIFEOS_DIR when set, defaulting
+  // to `${HOME}/.claude/LIFEOS` otherwise — this one check covers both the global
+  // default and a project-scoped install; no separate literal-HOME branch needed.
   if (value.startsWith(`${LIFEOS_DIR}/`)) return value;
   const configDir = process.env.CLAUDE_CONFIG_DIR;
   if (configDir && value.startsWith(`${configDir}/LIFEOS/`)) return value;

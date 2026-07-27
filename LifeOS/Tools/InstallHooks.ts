@@ -64,7 +64,15 @@ function main(): void {
   // LIFEOS/USER/CONFIG, settings.json) — rewrite the whole prefix to the actual
   // configRoot so a non-default --config-root (e.g. a project-scoped install)
   // doesn't wire commands pointing at files that were never placed there.
-  hooksJsonRaw = hooksJsonRaw.split("$HOME/.claude").join(configRoot);
+  // Only when configRoot actually differs from the default: the literal "$HOME/..."
+  // form is intentionally portable (shell-expanded at hook-execution time), so a
+  // plain global install must keep shipping it byte-identical to before this fix —
+  // baking in a resolved absolute path here would break syncing settings.json
+  // across machines/users, which the default install never asked for.
+  const defaultConfigRoot = join(process.env.HOME || "", ".claude");
+  if (configRoot !== defaultConfigRoot) {
+    hooksJsonRaw = hooksJsonRaw.split("$HOME/.claude").join(configRoot);
+  }
   const incoming = JSON.parse(hooksJsonRaw)?.hooks ?? {};
 
   // The hook SCRIPTS (*.hook.ts|sh + lib/**) live beside hooks.json in the payload.

@@ -6,34 +6,14 @@
  */
 
 import { ApifyClient } from 'apify-client'
+import type {
+  ActorRun as ApifyActorRun,
+  ActorStoreList
+} from 'apify-client'
+import type { ActorRunOptions } from './types'
 
-export interface Actor {
-  id: string
-  name: string
-  username: string
-  title: string
-  description?: string
-  createdAt?: string
-  modifiedAt?: string
-  stats?: {
-    totalRuns?: number
-    lastRunStartedAt?: string
-  }
-}
-
-export interface ActorRun {
-  id: string
-  actorId: string
-  status: 'READY' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED-OUT' | 'ABORTED'
-  startedAt: string
-  finishedAt?: string
-  defaultDatasetId: string
-  defaultKeyValueStoreId: string
-  buildNumber?: string
-  exitCode?: number
-  containerUrl?: string
-  output?: any
-}
+export type Actor = ActorStoreList
+export type ActorRun = ApifyActorRun
 
 export interface DatasetOptions {
   offset?: number
@@ -58,9 +38,6 @@ export class Apify {
   /**
    * Search for actors by keyword
    *
-   * Fetches actors and filters client-side by query (name, title, description).
-   * For better performance with many actors, consider listing all and caching.
-   *
    * @param query - Search query (actor name, description, etc.)
    * @param options - Search options
    * @returns Array of matching actors
@@ -69,30 +46,13 @@ export class Apify {
     limit?: number
     offset?: number
   }): Promise<Actor[]> {
-    // Fetch more actors than needed to ensure we get enough matches
-    const fetchLimit = Math.max((options?.limit ?? 10) * 3, 30)
-
-    const { items } = await this.client.actors().list({
-      limit: fetchLimit,
+    const { items } = await this.client.store().list({
+      search: query,
+      limit: options?.limit ?? 10,
       offset: options?.offset ?? 0
     })
 
-    // Filter client-side by query
-    // Match if ANY word in query appears in actor fields
-    const queryWords = query.toLowerCase().split(/\s+/)
-    const filtered = items.filter((actor: any) => {
-      const name = (actor.name || '').toLowerCase()
-      const title = (actor.title || '').toLowerCase()
-      const description = (actor.description || '').toLowerCase()
-      const username = (actor.username || '').toLowerCase()
-      const searchText = `${name} ${title} ${description} ${username}`
-
-      // Match if any query word is found
-      return queryWords.some(word => searchText.includes(word))
-    })
-
-    // Return requested number of matches
-    return filtered.slice(0, options?.limit ?? 10) as Actor[]
+    return items
   }
 
   /**
@@ -100,25 +60,23 @@ export class Apify {
    *
    * @param actorId - Actor ID or "username/actor-name"
    * @param input - Actor input configuration
-   * @param options - Runtime options (memory, timeout)
+   * @param options - Runtime and charge-limit options
    * @returns Actor run information
    */
   async callActor(
     actorId: string,
     input: any,
-    options?: {
-      memory?: number    // Memory in MB (128, 256, 512, 1024, etc.)
-      timeout?: number   // Timeout in seconds
-      build?: string     // Build number or tag
-    }
+    options?: ActorRunOptions
   ): Promise<ActorRun> {
     const run = await this.client.actor(actorId).call(input, {
       memory: options?.memory,
       timeout: options?.timeout,
-      build: options?.build
+      build: options?.build,
+      waitSecs: options?.waitSecs,
+      maxTotalChargeUsd: options?.maxTotalChargeUsd
     })
 
-    return run as ActorRun
+    return run
   }
 
   /**
@@ -139,7 +97,10 @@ export class Apify {
    */
   async getRun(runId: string): Promise<ActorRun> {
     const run = await this.client.run(runId).get()
-    return run as ActorRun
+    if (!run) {
+      throw new Error(`Actor run ${runId} not found. Verify the run ID.`)
+    }
+    return run
   }
 
   /**
@@ -158,7 +119,7 @@ export class Apify {
     const run = await this.client.run(runId).waitForFinish({
       waitSecs: options?.waitSecs
     })
-    return run as ActorRun
+    return run
   }
 }
 

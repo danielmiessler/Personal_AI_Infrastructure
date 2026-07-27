@@ -116,6 +116,10 @@ export interface ActorRunOptions {
   timeout?: number
   /** Build tag or number to use */
   build?: string
+  /** Maximum time to wait for the Actor call to finish */
+  waitSecs?: number
+  /** Maximum charge for pay-per-event Actor runs */
+  maxTotalChargeUsd?: number
 }
 
 /**

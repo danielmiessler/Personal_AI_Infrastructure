@@ -6,6 +6,17 @@
 
 ## Integration with LifeOS Skills
 
+### Xquik Actor Integration
+
+Use `runXquikTweetScraper` for explicit Apify tweet collection.
+Use `runXquikFollowerScraper` for followers, lists, and communities.
+Both wrappers accept `maxItems` and `maxTotalChargeUsd` safeguards.
+
+- [X Tweet Scraper](https://apify.com/xquik/x-tweet-scraper)
+- [X Follower Scraper](https://apify.com/xquik/x-follower-scraper)
+
+Routine X operations still route through `_X` first.
+
 ### Social Skill Integration
 
 
@@ -231,4 +242,6 @@ A: Use `debug-tweet-structure.ts` to inspect raw data, check console output.
 - ✅ 4 production-ready scripts
 - ✅ Comprehensive documentation
 
-**This is now the standard for all Twitter operations in LifeOS.**
+Use these wrappers for explicit Apify, bulk, and fallback X operations.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.

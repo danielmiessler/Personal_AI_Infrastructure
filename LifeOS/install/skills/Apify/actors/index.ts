@@ -5,7 +5,7 @@
  * Filter data in code BEFORE returning to model context for massive token savings.
  *
  * Categories:
- * - Social Media: Instagram, LinkedIn, TikTok, YouTube, Facebook
+ * - Social Media: Instagram, LinkedIn, TikTok, YouTube, Facebook, Twitter/X
  * - Business: Google Maps (lead generation)
  * - E-commerce: Amazon
  * - Web: General-purpose web scraper

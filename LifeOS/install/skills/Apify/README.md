@@ -33,6 +33,44 @@ const relevant = items
 console.log(relevant) // Only 10 items vs 100+ unfiltered
 ```
 
+## Xquik X Actors
+
+Use [Xquik's X Tweet Scraper](https://apify.com/xquik/x-tweet-scraper)
+for URLs, IDs, searches, timelines, lists, and conversation routes.
+
+```typescript
+import { runXquikTweetScraper } from './actors'
+
+const tweets = await runXquikTweetScraper({
+  searchTerms: ['from:OpenAI API'],
+  maxItems: 100,
+  outputVariant: 'rich',
+  outputPreset: 'flat'
+}, {
+  maxTotalChargeUsd: 0.50
+})
+```
+
+Use [Xquik's X Follower Scraper](https://apify.com/xquik/x-follower-scraper)
+for followers, following, verified followers, lists, and communities.
+
+```typescript
+import { runXquikFollowerScraper } from './actors'
+
+const profiles = await runXquikFollowerScraper({
+  twitterHandles: ['OpenAI', 'AnthropicAI'],
+  relation: 'followers',
+  maxItems: 100,
+  includeTargetMetadata: true,
+  dedupeMode: 'merge'
+}, {
+  maxTotalChargeUsd: 0.50
+})
+```
+
+Read `XquikActors.md` for every route and output option.
+Check live Store pricing before each paid run.
+
 ## Why Code-First?
 
 **Token Comparison:**
@@ -101,6 +139,8 @@ const run = await apify.callActor("apify/instagram-scraper", {
 - `options.memory` - Memory in MB (128, 256, 512, 1024, 2048, etc.)
 - `options.timeout` - Timeout in seconds
 - `options.build` - Build number or tag
+- `options.waitSecs` - Maximum time to wait for completion
+- `options.maxTotalChargeUsd` - Maximum pay-per-event run charge
 
 **Returns:** ActorRun object with run details and `defaultDatasetId`
 
@@ -113,20 +153,20 @@ const dataset = await apify.getDataset(run.defaultDatasetId)
 
 **Returns:** ApifyDataset instance
 
-#### `getRun(actorId, runId)`
+#### `getRun(runId)`
 Get run status.
 
 ```typescript
-const run = await apify.getRun(actorId, runId)
+const run = await apify.getRun(runId)
 ```
 
 **Returns:** ActorRun object with current status
 
-#### `waitForRun(actorId, runId, options?)`
+#### `waitForRun(runId, options?)`
 Wait for run to finish.
 
 ```typescript
-const finalRun = await apify.waitForRun(actorId, runId, {
+const finalRun = await apify.waitForRun(runId, {
   waitSecs: 120
 })
 ```
@@ -279,8 +319,6 @@ console.log(topPosts)
 # Required
 APIFY_TOKEN=apify_api_xxxxx...
 
-# Optional (uses defaults if not set)
-APIFY_API_BASE_URL=https://api.apify.com/v2
 ```
 
 Get your token from: https://console.apify.com/account/integrations
@@ -298,9 +336,9 @@ import { Actor, ActorRun, DatasetOptions } from '~/.claude/filesystem-mcps/apify
 ```typescript
 try {
   const run = await apify.callActor(actorId, input)
-  await apify.waitForRun(actorId, run.id)
+  await apify.waitForRun(run.id)
 
-  const finalRun = await apify.getRun(actorId, run.id)
+  const finalRun = await apify.getRun(run.id)
 
   if (finalRun.status !== 'SUCCEEDED') {
     console.error('Actor run failed:', finalRun.status)
@@ -366,3 +404,5 @@ console.log('Code tokens:', estimateTokens(filtered)) // ~500
 - Actor Store: https://apify.com/store
 - API Docs: https://docs.apify.com/api/v2
 - Parent README: `~/.claude/`
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.

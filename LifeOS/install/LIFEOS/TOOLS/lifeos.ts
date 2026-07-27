@@ -28,12 +28,24 @@ import { join, basename } from "path";
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+const DEFAULT_CLAUDE_DIR = join(homedir(), ".claude");
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || DEFAULT_CLAUDE_DIR;
 const MCP_DIR = join(CLAUDE_DIR, "MCPs");
 const ACTIVE_MCP = join(CLAUDE_DIR, ".mcp.json");
 const BANNER_SCRIPT = join(process.env.LIFEOS_DIR || join(CLAUDE_DIR, "LIFEOS"), "TOOLS", "Banner.ts");
 const VOICE_SERVER = "http://localhost:31337/notify/personality";
 const WALLPAPER_DIR = join(homedir(), "Projects", "Wallpaper");
+
+// Change to CLAUDE_DIR only for the legacy global default. A project-scoped
+// install (CLAUDE_CONFIG_DIR pointed at <project>/.claude) must never be
+// silently chdir'd into — that would land the session inside .claude/ itself,
+// breaking the harness's own project-root detection for whatever directory
+// the caller actually invoked this from.
+function chdirToClaudeHomeIfDefault(): void {
+  if (CLAUDE_DIR === DEFAULT_CLAUDE_DIR) {
+    process.chdir(CLAUDE_DIR);
+  }
+}
 // Note: RAW archiving removed - Claude Code handles its own cleanup (30-day retention in projects/)
 
 // MCP shorthand mappings
@@ -434,7 +446,7 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
 
   // Change to LifeOS directory unless --local flag is set
   if (!options.local) {
-    process.chdir(CLAUDE_DIR);
+    chdirToClaudeHomeIfDefault();
   }
 
   // Voice notification (using focused marker for calmer tone).
@@ -595,7 +607,7 @@ async function cmdPrompt(prompt: string) {
     args.push("--append-system-prompt-file", systemPromptFile);
   }
 
-  process.chdir(CLAUDE_DIR);
+  chdirToClaudeHomeIfDefault();
 
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
   delete env.ANTHROPIC_API_KEY;

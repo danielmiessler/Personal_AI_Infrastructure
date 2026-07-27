@@ -65,6 +65,8 @@ Your AI reads the install page and walks the setup, asking permission before it 
 curl -fsSL https://ourlifeos.ai/install.sh | bash
 ```
 
+**Want LifeOS scoped to one project instead of every session?** Set `CLAUDE_CONFIG_DIR` (and `LIFEOS_DIR`) to a path inside that project before installing — see [INSTALL.md](LifeOS/INSTALL.md#project-scoped-installs) for the full mechanism.
+
 Either path needs a capable AI coding harness — we build and run on [Claude Code](https://docs.claude.com/claude-code) — and [bun](https://bun.sh).
 
 ## Core Components

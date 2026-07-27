@@ -109,7 +109,7 @@ const WORD_NUMBERS: Record<string, number> = {
 
 // ── Explicit Rating Detection ──
 
-function parseExplicitRating(prompt: string): { rating: number; comment?: string } | null {
+export function parseExplicitRating(prompt: string): { rating: number; comment?: string } | null {
   const trimmed = prompt.trim();
 
   // Check word-form ratings first (e.g., "ten", "Eight")
@@ -140,8 +140,15 @@ function parseExplicitRating(prompt: string): { rating: number; comment?: string
 
   if (rating < 1 || rating > 10) return null;
 
+  // ")" and "]" right after the digit mark a numbered list ("1) do this,
+  // 2) do that"), not a rating. Prefer a missed rating to a false positive:
+  // a miss loses one data point, whereas rating <= 3 writes a permanent
+  // failure capture and a satisfaction-ledger row that never happened.
+  // Not covered: whitespace before the delimiter ("1 ) item") still parses
+  // as a rating — tightening that would also catch "8 . nice", so it is
+  // left alone rather than widened past this one concern.
   const afterNumber = trimmed.slice(match[1].length);
-  if (afterNumber.length > 0 && /^[/.\dA-Za-z]/.test(afterNumber)) return null;
+  if (afterNumber.length > 0 && /^[/.)\]\dA-Za-z]/.test(afterNumber)) return null;
 
   if (rest && SENTENCE_STARTERS.test(rest)) return null;
 

@@ -1,5 +1,5 @@
 ---
-version: 1.2.5
+version: 1.2.6
 ---
 
 # LifeOS Configuration
@@ -80,6 +80,12 @@ The two trees are physically separate git repos:
 4. Post-push HEAD verification on both repos
 
 **Pre-flight refuses to proceed if the public LifeOS repo appears in either remote** — the workflow is explicitly for the two PRIVATE repos only. Public LifeOS release goes through the separate shadow-release pipeline with the 14 ShadowRelease gates.
+
+### The unattended path (`BackupUserData.ts`)
+
+The `pre-push` hook above only fires when the principal pushes the SYSTEM tree, and it presupposes `~/.claude` is itself a git repo, which not every install has. `LIFEOS/TOOLS/BackupUserData.ts` is the trigger-independent half: a scheduled job that commits and pushes the USER tree whenever it changed, and no-ops when it didn't. It carries the same boundary gates in tool form (remote confirmed `PRIVATE` on every run, failing closed on any other answer; distribution-repo remotes rejected; staged files scanned for secrets before commit; post-push HEAD comparison) plus an exclusive lock so it can't race itself or a manual push. One JSONL line per run lands in `MEMORY/OBSERVABILITY/user-backup.jsonl`.
+
+**Scheduling is Linux-only.** The tool is platform-neutral, but the shipped schedule is a Linux user crontab and that is the only scheduler it has been verified on. On macOS, wrap the same command in a `launchd` agent instead. Full contract, restore procedure, and known limits: `LIFEOS/TOOLS/BackupUserData.README.md`.
 
 ## Public releases
 

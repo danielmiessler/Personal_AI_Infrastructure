@@ -353,7 +353,7 @@ function AnthropicTab({ data }: { data: AnthropicData | null }) {
     return (
       <div className="p-8 text-ink-3">
         No ledger entries yet. CostTracker cron runs hourly — next entry at :00.
-        Run manually: <code className="mono">bun ~/.claude/LIFEOS/TOOLS/CostTracker.ts log</code>
+        Run manually: <code className="mono">bun LIFEOS/TOOLS/CostTracker.ts log</code>
       </div>
     );
 
@@ -503,19 +503,19 @@ function AnthropicTab({ data }: { data: AnthropicData | null }) {
         <div className="text-xs text-ink-3 space-y-1">
           <div>
             <span className="mono" style={{ color: "var(--money)" }}>
-              bun ~/.claude/LIFEOS/TOOLS/CostTracker.ts status
+              bun LIFEOS/TOOLS/CostTracker.ts status
             </span>{" "}
             — human-readable snapshot
           </div>
           <div>
             <span className="mono" style={{ color: "var(--money)" }}>
-              bun ~/.claude/LIFEOS/TOOLS/CostTracker.ts scan
+              bun LIFEOS/TOOLS/CostTracker.ts scan
             </span>{" "}
             — re-run static scan
           </div>
           <div>
             <span className="mono" style={{ color: "var(--money)" }}>
-              bun ~/.claude/LIFEOS/TOOLS/CostTracker.ts baseline
+              bun LIFEOS/TOOLS/CostTracker.ts baseline
             </span>{" "}
             — lock a new known-good snapshot
           </div>

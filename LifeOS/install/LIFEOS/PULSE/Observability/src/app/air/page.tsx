@@ -312,7 +312,7 @@ export default function AirPage() {
             <div className="p-4 text-center text-sm text-ink-2">
               No monitors in cache yet. Run{" "}
               <code className="px-2 py-0.5 rounded mono bg-surface-1 text-ink-1">
-                bun ~/.claude/LIFEOS/PULSE/checks/airgradient-poll.ts
+                bun LIFEOS/PULSE/checks/airgradient-poll.ts
               </code>{" "}
               to prime, or wait for the next 5-minute poll.
             </div>

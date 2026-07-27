@@ -262,7 +262,7 @@ function KnowledgeLanding({ data }: { data: WikiIndex }) {
         {isFreshInstall && (
           <EmptyStateGuide
             section="Knowledge Archive"
-            description="Curated notes on people, companies, ideas, and research — the graph of what you've learned. Notes live under ~/.claude/LIFEOS/MEMORY/KNOWLEDGE/People|Companies|Ideas|Research/."
+            description="Curated notes on people, companies, ideas, and research — the graph of what you've learned. Notes live under LIFEOS/MEMORY/KNOWLEDGE/People|Companies|Ideas|Research/."
             daPromptExample="help me start my knowledge archive"
           />
         )}

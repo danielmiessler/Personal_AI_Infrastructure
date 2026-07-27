@@ -393,7 +393,7 @@ export default function AssistantPage() {
           <div className="space-y-6">
             <Section title="Scheduled Tasks · Claude Code" icon={Terminal} dimension="freedom">
               <div className="text-xs mono mb-1 text-ink-2">
-                Claude Code harness · <code className="mono">claude triggers list</code> (not under ~/.claude/LIFEOS/)
+                Claude Code harness · <code className="mono">claude triggers list</code> (not under LIFEOS/)
               </div>
               <div className="text-xs mb-3 text-ink-3">
                 Built into Claude Code — triggers and active <code className="mono bg-surface-1 px-1.5 py-px rounded">/loop</code> sessions managed by the harness, not by Pulse. Pulse polls every 60s.
@@ -465,8 +465,8 @@ export default function AssistantPage() {
               }
             >
               <div className="text-xs mono mb-1 space-y-0.5 text-ink-2">
-                <div>~/.claude/LIFEOS/PULSE/PULSE.toml <span className="text-ink-3">(system · ships with LifeOS, never written by this UI)</span></div>
-                <div>~/.claude/LIFEOS/USER/CONFIG/PULSE.user.toml <span style={{ color: "var(--creative)" }}>(user · all edits/deletes from this UI write here)</span></div>
+                <div>LIFEOS/PULSE/PULSE.toml <span className="text-ink-3">(system · ships with LifeOS, never written by this UI)</span></div>
+                <div>LIFEOS/USER/CONFIG/PULSE.user.toml <span style={{ color: "var(--creative)" }}>(user · all edits/deletes from this UI write here)</span></div>
               </div>
               <div className="text-xs mb-3 text-ink-3">
                 LifeOS&apos;s scheduling system — runs inside Pulse on this machine. Click any row to see full detail and edit interval / command / output.

@@ -64,7 +64,7 @@ export default function TemplateOnboarding() {
                 <FolderOpen className="w-3.5 h-3.5 text-blue-300 shrink-0" />
                 Or edit
                 <code className="px-1.5 py-0.5 rounded bg-surface-3 text-blue-200 text-xs font-mono">
-                  ~/.claude/LIFEOS/USER/
+                  LIFEOS/USER/
                 </code>
                 directly.
               </span>

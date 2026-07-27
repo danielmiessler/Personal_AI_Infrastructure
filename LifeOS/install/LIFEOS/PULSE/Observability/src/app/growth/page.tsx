@@ -194,7 +194,7 @@ function NotConnected({ icon: Icon, accent, label, envVar, note }: { icon: Lucid
       </div>
       <div className="text-sm text-ink-2">Not connected</div>
       <div className="text-xs text-ink-3 mt-1">
-        {note} Set <code style={{ color: accent }}>{envVar}</code> in <code>~/.claude/.env</code>.
+        {note} Set <code style={{ color: accent }}>{envVar}</code> in your LifeOS <code>.env</code>.
       </div>
     </Panel>
   );
@@ -258,7 +258,7 @@ export default function GrowthPage() {
       ) : (
         <Panel style={{ borderLeft: `3px solid ${RED}` }}>
           <h2 className="font-medium" style={{ color: RED }}>Newsletter not connected</h2>
-          <p className="text-sm text-ink-2">Set BEEHIIV_API_KEY and BEEHIIV_PUB_ID in ~/.claude/.env.</p>
+          <p className="text-sm text-ink-2">Set BEEHIIV_API_KEY and BEEHIIV_PUB_ID in your LifeOS .env.</p>
         </Panel>
       )}
 

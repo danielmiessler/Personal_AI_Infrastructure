@@ -50,7 +50,9 @@ function install(): void {
   mkdirSync(STATE_DIR, { recursive: true });
 
   const raw = readFileSync(TEMPLATE, "utf8");
-  const materialized = raw.replaceAll("__HOME__", HOME);
+  const materialized = raw
+    .replaceAll("__HOME__/.claude/LIFEOS", process.env.LIFEOS_DIR || `${HOME}/.claude/LIFEOS`)
+    .replaceAll("__HOME__", HOME);
   writeFileSync(TARGET, materialized, { mode: 0o644 });
   console.log(`[InstallCommitmentSweep] wrote ${TARGET}`);
 

@@ -59,6 +59,7 @@ async function install(): Promise<void> {
   console.log(`[InstallConveyorWatcher] detected bun at ${bunPath}`);
   const template = readFileSync(TEMPLATE_PATH, "utf-8");
   const materialized = template
+    .replace(/\{\{HOME\}\}\/\.claude\/LIFEOS/g, process.env.LIFEOS_DIR || `${HOME}/.claude/LIFEOS`)
     .replace(/\{\{HOME\}\}/g, HOME)
     .replace(/\{\{BUN\}\}/g, bunPath)
     .replace(/\{\{BUN_DIR\}\}/g, bunDir);

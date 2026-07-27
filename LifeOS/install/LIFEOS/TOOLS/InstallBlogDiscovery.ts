@@ -44,6 +44,7 @@ async function install(): Promise<void> {
   const bunPath = await detectBun(); const bunDir = bunPath.replace(/\/bun$/, "");
   console.log(`[InstallBlogDiscovery] detected bun at ${bunPath}`);
   const materialized = readFileSync(TEMPLATE_PATH, "utf-8")
+    .replace(/\{\{HOME\}\}\/\.claude\/LIFEOS/g, process.env.LIFEOS_DIR || `${HOME}/.claude/LIFEOS`)
     .replace(/\{\{HOME\}\}/g, HOME).replace(/\{\{BUN\}\}/g, bunPath).replace(/\{\{BUN_DIR\}\}/g, bunDir);
   if (!existsSync(LAUNCH_AGENTS_DIR)) mkdirSync(LAUNCH_AGENTS_DIR, { recursive: true });
   const u = await uid();

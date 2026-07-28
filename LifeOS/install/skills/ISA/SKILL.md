@@ -1,7 +1,7 @@
 ---
 name: ISA
 version: 1.0.13
-description: "Owns the Ideal State Artifact — the primitive holding a project or task's articulated ideal state; scaffolds, interviews, scores completeness, reconciles feature excerpts to master, seeds from a repo, and appends decisions/changelog/verification across a locked fourteen-section order. USE WHEN ISA, ISC, ideal state, ideal state criteria, project specification, hill-climb, articulating done. NOT FOR creating new skills (use CreateSkill)."
+description: "Owns the Ideal State Artifact — the primitive holding a project or task's articulated ideal state; scaffolds, interviews, scores completeness, reconciles feature excerpts to master, seeds from a repo, and appends decisions/changelog/verification across a locked fourteen-section order. USE WHEN ISA, ISC, PRD, ideal state, ideal state criteria, design doc, design architecture, project specification, hill-climb, articulating done. NOT FOR creating new skills (use CreateSkill)."
 effort: medium
 ---
 

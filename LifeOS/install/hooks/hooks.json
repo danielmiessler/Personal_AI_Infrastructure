@@ -212,6 +212,16 @@
             "timeout": 8
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [

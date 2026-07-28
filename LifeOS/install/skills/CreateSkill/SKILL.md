@@ -425,7 +425,7 @@ Skills can include hooks that activate only when invoked, remaining effective fo
 
 ## Versioning
 
-Every skill carries its own `version:` semver in SKILL.md frontmatter (`MAJOR.MINOR.PATCH`), independent of the OS version and of other skills. A new skill scaffolds at `version: 1.0.0`. A skill change is ALSO an OS change — `skills/` is part of the core-file surface the LifeOS version system watches — so editing a skill moves both the skill's own version AND (rolled up) the canonical `LIFEOS/VERSION`. The two lines are separate: the skill's `version:` is its own lineage; `LIFEOS/VERSION` is the umbrella. CreateSkill never edits `LIFEOS/VERSION` itself.
+Every skill carries its own `version:` semver in SKILL.md frontmatter (`Major.Feature.Patch`), independent of the OS version and of other skills. A new skill scaffolds at `version: 1.0.0`. A skill change is ALSO an OS change — `skills/` is part of the core-file surface the LifeOS version system watches — so editing a skill moves both the skill's own version AND (rolled up) the canonical `LIFEOS/VERSION`. The two lines are separate: the skill's `version:` is its own lineage; `LIFEOS/VERSION` is the umbrella. CreateSkill never edits `LIFEOS/VERSION` itself.
 
 Classify the change so the bump level is right (the SAME rubric applies to the per-skill bump and the roll-up):
 

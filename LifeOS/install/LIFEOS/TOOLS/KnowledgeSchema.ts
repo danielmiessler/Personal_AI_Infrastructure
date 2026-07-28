@@ -488,7 +488,14 @@ export function validate(parsed: ParsedNote, _slug: string, dirType: CanonicalTy
 
   // per-type required (present AND non-empty)
   const effType = ((CANONICAL_TYPES as readonly string[]).includes(t ?? "") ? t : dirType) as CanonicalType;
+  // `source_kind: internal` means the note has no external origin — it IS the
+  // primary artifact (a LifeOS corpus, a design decision, an own-prose capture).
+  // Demanding a source_url of it asks for a URL that cannot exist, so the
+  // source_* requirements are waived for internal notes. Externally-sourced
+  // notes still must carry their provenance.
+  const isInternal = deq(get("source_kind")) === "internal";
   for (const key of PER_TYPE_REQUIRED[effType] ?? []) {
+    if (isInternal && key.startsWith("source_")) continue;
     if (missingOrEmpty(key)) v.push({ key, problem: `required for type ${effType}` });
   }
 

@@ -69,6 +69,8 @@ function render(): string {
     L.push(`| \`${t}\` | ${extra.length ? extra.map((k) => `\`${k}\``).join(", ") : "— (envelope only)"} |`);
   }
   L.push("");
+  L.push("**Waived for internal notes.** A note with `source_kind: internal` has no external origin — it *is* the primary artifact (an own-prose capture, a design decision, a corpus this system built). Demanding a `source_url` of it asks for a URL that cannot exist, so `source_*` requirements above are skipped when `source_kind` is `internal`. Externally-sourced notes still must carry their provenance.");
+  L.push("");
   L.push("A note missing an optional per-type source field (e.g. a research note with no `source_url`) is **envelope-conformant but incomplete** — Lint reports it as an enrichment gap, not a schema failure.");
   L.push("");
 

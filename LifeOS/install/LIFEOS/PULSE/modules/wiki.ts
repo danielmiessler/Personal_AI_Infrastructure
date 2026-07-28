@@ -485,7 +485,13 @@ const pendingPaths: Set<string> = new Set()
 function startWatchers(): void {
   stopWatchers()
 
-  const watchPaths = [LIFEOS_DIR]
+  // Watch only the roots the reindexer consumes. Watching all of LIFEOS_DIR is
+  // both too broad and too narrow: too broad because it pulls in MEMORY/, the
+  // busiest subtree in an install (constant .jsonl appends) and the place where
+  // non-regular files appear — a unix socket there kills a recursive watcher
+  // outright; too narrow because skills/ and hooks/ live under ~/.claude, not
+  // under LIFEOS/, so changes there were never actually watched.
+  const watchPaths = [DOCUMENTATION_DIR, KNOWLEDGE_DIR, ALGORITHM_DIR]
 
   for (const watchPath of watchPaths) {
     if (!existsSync(watchPath)) continue
@@ -497,6 +503,18 @@ function startWatchers(): void {
         if (filenameText.endsWith(".md")) {
           scheduleReindex(join(watchPath, filenameText))
         }
+      })
+
+      // A recursive watch walks every node beneath its root, including ones that
+      // cannot be opened: unix sockets, FIFOs, dead symlinks, unreadable dirs.
+      // Those surface as an ASYNC 'error' event on the watcher, which the catch
+      // below cannot see — unhandled, it terminates the process. Under a
+      // supervisor Pulse then crash-loops for as long as the node exists, and
+      // because the walk happens during startup it presents as "Pulse won't
+      // start" rather than "one file is unwatchable". Watching is best-effort by
+      // design, so degrade to that instead of dying.
+      watcher.on("error", (err: unknown) => {
+        console.warn(`[wiki] watcher error on ${watchPath} (continuing without it): ${String(err)}`)
       })
 
       watchers.push(watcher)

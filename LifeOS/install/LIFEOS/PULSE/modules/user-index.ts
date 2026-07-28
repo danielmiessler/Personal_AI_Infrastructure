@@ -570,6 +570,13 @@ export async function start(): Promise<void> {
       if (!filename || !filename.endsWith(".md")) return
       reindexDebounced(`${event}:${filename}`)
     })
+    // Same async-error gap as the wiki watcher: an unopenable node under USER_DIR
+    // (socket, FIFO, dead symlink) emits 'error' asynchronously, which the catch
+    // below cannot see, and unhandled it takes the process down. The initial scan
+    // has already built the index, so log and carry on without live updates.
+    state.watcher.on("error", (err: unknown) => {
+      console.warn(`[${MODULE_NAME}] Watcher error (continuing without it):`, err)
+    })
     console.log(`[${MODULE_NAME}] Watching ${USER_DIR}`)
   } catch (err) {
     console.warn(`[${MODULE_NAME}] Watch failed, polling disabled:`, err)

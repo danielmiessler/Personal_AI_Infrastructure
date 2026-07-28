@@ -20,6 +20,7 @@ import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
 import { handleRebuildArchSummary } from './handlers/RebuildArchSummary';
 import { handleMemoryDirIntegrity } from './handlers/MemoryDirIntegrity';
 import { handleRebuildKnowledgeSchema } from './handlers/RebuildKnowledgeSchema';
+import { handleKnowledgeConformance } from './handlers/KnowledgeConformance';
 
 async function main() {
   const input = await readHookInput();
@@ -64,6 +65,12 @@ async function main() {
     await handleRebuildKnowledgeSchema();
   } catch (err) {
     console.error('[DocIntegrity] Knowledge-schema regen failed:', err);
+  }
+
+  try {
+    await handleKnowledgeConformance();
+  } catch (err) {
+    console.error('[DocIntegrity] Knowledge-conformance check failed:', err);
   }
 
   process.exit(0);

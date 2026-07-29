@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Menu, X, Cpu, Eye, EyeOff } from "lucide-react";
+import { Menu, X, Cpu, Eye, EyeOff, Smartphone } from "lucide-react";
 import { useObserverMode } from "@/contexts/ObserverModeContext";
 import { TabFreshnessPill } from "@/components/TabFreshnessPill";
 // Nav manifest is shared with the command palette — single source of truth.
@@ -13,11 +13,15 @@ import { TabFreshnessPill } from "@/components/TabFreshnessPill";
 // meta view of the system working on itself, never part of the scrolling row.
 // SYSTEM is the mode-switch into the machine plane (lands on systemHome).
 import { tier1Nav, systemNav, metaNav, systemHome } from "@/lib/palette/nav-manifest";
+import { MOBILE_PREFIX, MOBILE_UI_ENABLED, toMobilePath, writeUiPref } from "@/lib/mobile/config";
 
 const systemPaths = [...systemNav.map((i) => i.href), "/system"];
 
 export default function AppHeader() {
   const pathname = usePathname();
+  // The mobile plane brings its own chrome (MobileShell). Two headers at once
+  // is the only way these interfaces can collide, so this is the guard.
+  const inMobilePlane = pathname === MOBILE_PREFIX || pathname.startsWith(`${MOBILE_PREFIX}/`);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const { observerMode, toggleObserverMode } = useObserverMode();
@@ -28,6 +32,11 @@ export default function AppHeader() {
   // Next's streamed metadata commit can land AFTER this effect on initial load and reset the
   // title to the layout default, so re-assert via a short-lived observer until it settles.
   useEffect(() => {
+    // On /m the mobile shell owns the title. This observer used to keep
+    // re-asserting "Pulse | M" over it — the early return below stops the
+    // header RENDERING on /m, but hooks still run. (Caught in-browser
+    // 2026-07-29: document.title read "Pulse | M" on every mobile page.)
+    if (inMobilePlane) return;
     const seg = pathname.split("/")[1] ?? "";
     const page = seg === "" ? "Home" : seg === "telos" ? "TELOS" : seg.charAt(0).toUpperCase() + seg.slice(1);
     const want = `Pulse | ${page}`;
@@ -59,6 +68,14 @@ export default function AppHeader() {
   const fontStyle = { fontFamily: "'concourse-t3', sans-serif" };
   const agentsItem = metaNav[0];
   const AgentsIcon = agentsItem.icon;
+
+  // Every hook above runs unconditionally; the plane check gates only render.
+  if (inMobilePlane) return null;
+
+  const goMobile = () => {
+    writeUiPref("mobile");
+    window.location.href = toMobilePath(pathname);
+  };
 
   return (
     <header
@@ -149,6 +166,15 @@ export default function AppHeader() {
                 {observerMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline" style={fontStyle}>OBSERVER</span>
               </button>
+              {MOBILE_UI_ENABLED && (
+                <button
+                  onClick={goMobile}
+                  className="flex items-center justify-center w-9 h-9 rounded-md text-ink-3 hover:text-ink-1 hover:bg-white/5 transition-colors"
+                  title="Switch to the mobile interface"
+                >
+                  <Smartphone className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
                 className="flex md:hidden items-center justify-center w-10 h-10 rounded-lg text-ink-3 hover:text-ink-1 hover:bg-white/5 transition-colors"

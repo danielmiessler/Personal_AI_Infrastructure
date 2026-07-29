@@ -6,8 +6,16 @@
  * and pills come from here. Colors come exclusively from the design
  * tokens in globals.css (surface/line/ink/dim/status) — no component
  * in this file, and no consumer of it, hardcodes a palette.
+ *
+ * Density (2026-07-29): each primitive reads DensityContext and tightens
+ * itself at "compact". Only the mobile shell provides that value, so every
+ * desktop route — which renders with no provider above it — gets the
+ * default "comfortable" branch and is unchanged. This is what lets one
+ * component tree serve both interfaces instead of two page trees drifting
+ * apart.
  */
 
+import { useCompact } from "@/contexts/DensityContext";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode, CSSProperties } from "react";
@@ -80,11 +88,18 @@ export function PageShell({
   fullBleed?: boolean;
   className?: string;
 }) {
+  const compact = useCompact();
   if (fullBleed) {
     return <div className={cn("flex flex-col flex-1 min-h-0", className)}>{children}</div>;
   }
   return (
-    <div className={cn("max-w-[1600px] mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-6", className)}>
+    <div
+      className={cn(
+        "max-w-[1600px] mx-auto w-full flex flex-col",
+        compact ? "px-3 py-3.5 gap-3.5" : "px-4 sm:px-6 py-6 gap-6",
+        className
+      )}
+    >
       {children}
     </div>
   );
@@ -105,14 +120,25 @@ export function PageHeader({
   actions?: ReactNode;
   className?: string;
 }) {
+  const compact = useCompact();
   return (
-    <div className={cn("flex flex-wrap items-end justify-between gap-x-6 gap-y-3", className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-end justify-between",
+        compact ? "gap-x-3 gap-y-2" : "gap-x-6 gap-y-3",
+        className
+      )}
+    >
       <div className="min-w-0">
-        <h1 className="flex items-center gap-3 text-ink-1">
-          {Icon && <Icon className="w-6 h-6 text-ink-3 shrink-0" />}
+        <h1 className={cn("flex items-center text-ink-1", compact ? "gap-2" : "gap-3")}>
+          {Icon && <Icon className={cn("text-ink-3 shrink-0", compact ? "w-5 h-5" : "w-6 h-6")} />}
           {title}
         </h1>
-        {subtitle && <p className="mt-0.5 text-sm text-ink-2">{subtitle}</p>}
+        {subtitle && (
+          <p className={cn("mt-0.5 text-ink-2", compact ? "text-[13px] leading-snug" : "text-sm")}>
+            {subtitle}
+          </p>
+        )}
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>
@@ -150,10 +176,12 @@ export function Panel({
         },
       }
     : {};
+  const compact = useCompact();
   return (
     <Tag
       className={cn(
-        "bg-surface-2 border border-line-2 rounded-xl p-5",
+        "bg-surface-2 border border-line-2",
+        compact ? "rounded-lg p-3.5" : "rounded-xl p-5",
         hover && "transition-colors duration-200 hover:bg-surface-3 hover:border-line-3",
         onClick && "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--accent-blue)]",
         className
@@ -182,8 +210,9 @@ export function PanelHeader({
   actions?: ReactNode;
   className?: string;
 }) {
+  const compact = useCompact();
   return (
-    <div className={cn("flex items-center gap-2 mb-3", className)}>
+    <div className={cn("flex items-center gap-2", compact ? "mb-2" : "mb-3", className)}>
       {Icon && <Icon className="w-4 h-4 text-ink-3 shrink-0" />}
       <span
         className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-3"
@@ -217,15 +246,26 @@ export function StatTile({
   sub?: ReactNode;
   className?: string;
 }) {
+  const compact = useCompact();
   return (
-    <Panel className={cn("p-4 flex flex-col gap-1.5", className)}>
-      <div className="flex items-center gap-2">
-        {Icon && <Icon className="w-4 h-4 text-ink-3 shrink-0" />}
-        <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-3">{label}</span>
+    <Panel className={cn("flex flex-col", compact ? "!p-3 gap-1" : "p-4 gap-1.5", className)}>
+      <div className={cn("flex items-center", compact ? "gap-1.5" : "gap-2")}>
+        {Icon && <Icon className={cn("text-ink-3 shrink-0", compact ? "w-3.5 h-3.5" : "w-4 h-4")} />}
+        <span
+          className={cn(
+            "font-semibold uppercase tracking-[0.12em] text-ink-3 truncate",
+            compact ? "text-[10.5px]" : "text-[12px]"
+          )}
+        >
+          {label}
+        </span>
       </div>
       <div className="flex items-baseline gap-1.5">
         <span
-          className="text-[28px] leading-none font-semibold mono"
+          className={cn(
+            "leading-none font-semibold mono",
+            compact ? "text-[21px]" : "text-[28px]"
+          )}
           style={dim ? { color: DIM_COLOR[dim] } : { color: "var(--ink-1)" }}
         >
           {value}
@@ -262,8 +302,17 @@ export function TabBar<T extends string>({
   right?: ReactNode;
   className?: string;
 }) {
+  const compact = useCompact();
   return (
-    <div className={cn("flex items-center gap-1.5 flex-wrap", className)}>
+    // On a phone a wrapping tab row becomes three stacked lines of chrome
+    // before any content shows, so compact scrolls the row sideways instead.
+    <div
+      className={cn(
+        "flex items-center gap-1.5",
+        compact ? "flex-nowrap overflow-x-auto -mx-3 px-3 pb-0.5 [scrollbar-width:none]" : "flex-wrap",
+        className
+      )}
+    >
       {tabs.map(({ id, label, icon: Icon, dim = "blue", hint }) => {
         const isActive = active === id;
         return (
@@ -271,7 +320,10 @@ export function TabBar<T extends string>({
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium cursor-pointer transition-colors duration-150"
+            className={cn(
+              "flex items-center gap-1.5 rounded-full font-medium cursor-pointer transition-colors duration-150",
+              compact ? "shrink-0 px-3 py-1.5 text-[12.5px]" : "px-3.5 py-1.5 text-[13px]"
+            )}
             style={{
               ...dimStyle(dim, isActive),
               ...(isActive ? { color: "var(--ink-1)" } : {}),
@@ -301,10 +353,15 @@ export function Pill({
   className?: string;
   title?: string;
 }) {
+  const compact = useCompact();
   return (
     <span
       title={title}
-      className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-medium", className)}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full font-medium",
+        compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-0.5 text-[12px]",
+        className
+      )}
       style={dimStyle(dim, true)}
     >
       {children}
@@ -325,8 +382,15 @@ export function EmptyState({
   hint?: ReactNode;
   className?: string;
 }) {
+  const compact = useCompact();
   return (
-    <div className={cn("flex flex-col items-center justify-center text-center gap-2 py-12", className)}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center text-center gap-2",
+        compact ? "py-8" : "py-12",
+        className
+      )}
+    >
       {Icon && <Icon className="w-8 h-8 text-ink-3" />}
       <div className="text-ink-2">{title}</div>
       {hint && <div className="text-[13px] text-ink-3 max-w-md">{hint}</div>}

@@ -8,21 +8,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import EmptyStateGuide from "@/components/EmptyStateGuide";
 import { type Telos, type Goal } from "./data";
-import { Hero } from "./hero";
-import {
-  Problems,
-  MissionGoals,
-  Metrics,
-  ChallengeStrategy,
-  Team,
-  Budget,
-  Recommendations,
-  Preferences,
-} from "./sections";
-import { Stranded } from "./stranded";
+// Section components are no longer imported here — the registry owns the list
+// and the prop wiring for both interfaces.
 import { SectionNav } from "./section-nav";
-import { SubTabs } from "./subtabs";
-import { What } from "./what";
+import { TelosSectionStack } from "./section-registry";
 import { GoalModal } from "./modal";
 import { TraceModal } from "./trace";
 import { useTweaks, TweakPanel } from "./tweaks";
@@ -373,26 +362,24 @@ function App() {
         )}
         {view === "tree"  && <TreeView {...common} />}
         {view === "graph" && <GraphView {...common} />}
+        {/* Same order, same props as before — now read from the registry that
+            the mobile interface renders one-at-a-time from, so the two can't
+            disagree about what TELOS is made of. */}
         {view === "columns" && (
-          <>
-            <Hero telos={telos} tone={tweaks.vals.narrativeTone} showIds={showIds} onTrace={trace} openFile={openFile} isPersonalized={isPersonalized} />
-            <Problems {...common} />
-            <MissionGoals
-              {...common}
-              missionId={mission}
-              onMission={setMission}
-              onOpenGoal={(g) => openItem(g.id)}
-            />
-            <Metrics {...common} />
-            <ChallengeStrategy {...common} onOpenGoal={(g) => openItem(g.id)} />
-            <What telos={telos} showIds={showIds} onOpenItem={openItem} />
-            <Team {...common} />
-            <Budget {...common} />
-            <Recommendations {...common} />
-            <Stranded telos={telos} showIds={showIds} openFile={openFile} />
-            <SubTabs telos={telos} openFile={openFile} />
-            <Preferences telos={telos} openFile={openFile} />
-          </>
+          <TelosSectionStack
+            ctx={{
+              telos,
+              showIds,
+              tone: tweaks.vals.narrativeTone,
+              isPersonalized,
+              missionId: mission,
+              onMission: setMission,
+              onTrace: trace,
+              onOpenGoal: (g) => openItem(g.id),
+              onOpenItem: openItem,
+              openFile,
+            }}
+          />
         )}
         <footer className="ftr">
           <span>LifeOS · Life Operating System</span>

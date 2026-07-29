@@ -56,6 +56,14 @@ async function uid(): Promise<string> {
   return r.out.trim();
 }
 
+async function username(): Promise<string> {
+  // Prefer `id -un` over process.env.USER — USER isn't guaranteed to be set
+  // in every invoking environment (e.g. some non-interactive shells), and an
+  // empty string would make `loginctl enable-linger ""` fail silently.
+  const r = await run(["id", "-un"]);
+  return r.out.trim();
+}
+
 async function detectBun(): Promise<string> {
   // Detect bun via `which bun` — survives different install paths (homebrew, ~/.bun, asdf).
   const r = await run(["which", "bun"]);
@@ -153,7 +161,7 @@ async function installLinux(): Promise<void> {
   await run(["systemctl", "--user", "daemon-reload"]);
 
   // Survive logout/reboot, same requirement PULSE/manage.sh documents for com.lifeos.pulse.
-  await run(["loginctl", "enable-linger", process.env.USER || ""]);
+  await run(["loginctl", "enable-linger", await username()]);
 
   const r = await run(["systemctl", "--user", "enable", "--now", TIMER_UNIT]);
   if (!r.ok) {

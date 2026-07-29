@@ -169,6 +169,39 @@ describe("TELOS sections are one list, two surfaces", () => {
   });
 });
 
+describe("plane switching preserves what identifies the thing you are looking at", () => {
+  // Regression guard. A tapped Knowledge entry links to
+  // `/knowledge?category=research&slug=…`; the redirect used to rebuild that as
+  // `/m/knowledge`, dropping the query, so the note silently became the index.
+  // Reported as "I cannot see an entry".
+  test("toMobilePath / toDesktopPath keep query and hash", async () => {
+    const { toMobilePath, toDesktopPath } = await import("../src/lib/mobile/config");
+    expect(toMobilePath("/knowledge?category=research&slug=x")).toBe("/m/knowledge?category=research&slug=x");
+    expect(toMobilePath("/?a=1")).toBe("/m?a=1");
+    expect(toMobilePath("/telos/item?id=G0#notes")).toBe("/m/telos/item?id=G0#notes");
+    expect(toDesktopPath("/m/knowledge?category=research&slug=x")).toBe("/knowledge?category=research&slug=x");
+    expect(toDesktopPath("/m?a=1")).toBe("/?a=1");
+    // Plain paths must be untouched.
+    expect(toMobilePath("/work")).toBe("/m/work");
+    expect(toDesktopPath("/m/work")).toBe("/work");
+    expect(toDesktopPath("/work")).toBe("/work");
+  });
+
+  test("the generated route list drives link rewriting and includes hand-written routes", async () => {
+    const { MOBILE_ROUTES } = await import("../src/lib/mobile/routes.generated");
+    const { isMobileablePath } = await import("../src/lib/mobile/config");
+    // "" (home) and "telos" are HAND_WRITTEN, so the generator does not emit
+    // their page files and must add them to the list explicitly.
+    expect(MOBILE_ROUTES).toContain("");
+    expect(MOBILE_ROUTES).toContain("telos");
+    expect(MOBILE_ROUTES).toContain("knowledge");
+    // A path with a mobile route is rewritten; one without is left alone so it
+    // reaches a working desktop page instead of a 404.
+    expect(isMobileablePath("/knowledge?slug=x", MOBILE_ROUTES)).toBe(true);
+    expect(isMobileablePath("/definitely-not-a-route", MOBILE_ROUTES)).toBe(false);
+  });
+});
+
 describe("mobile layer stays a presentation layer", () => {
   test("no data fetching is re-implemented on the mobile side", () => {
     const offenders = handWritten.filter((f) => /fetch\(\s*["'`]\/api\//.test(readFileSync(f, "utf-8")));

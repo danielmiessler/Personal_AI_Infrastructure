@@ -42,15 +42,42 @@ export function writeUiPref(pref: UiPref | null): void {
   }
 }
 
-/** "/work" -> "/m/work"; "/" -> "/m". */
-export function toMobilePath(desktopPath: string): string {
-  const clean = desktopPath.replace(/\/+$/, "");
-  return clean === "" || clean === "/" ? MOBILE_PREFIX : `${MOBILE_PREFIX}${clean}`;
+/**
+ * Split a URL-ish string into its path and everything after it.
+ *
+ * The query string is load-bearing, not decoration: Knowledge, Docs and TELOS
+ * all identify the thing you are looking at with `?slug=` / `?id=`. Dropping it
+ * during a plane switch silently returns you to the index, which reads as "the
+ * entry won't open". That was a real bug — a tapped Knowledge entry linked to
+ * `/knowledge?category=research&slug=…`, the redirect rebuilt it as `/m/knowledge`,
+ * and the note vanished.
+ */
+function splitPath(url: string): { path: string; rest: string } {
+  const cut = url.search(/[?#]/);
+  return cut === -1 ? { path: url, rest: "" } : { path: url.slice(0, cut), rest: url.slice(cut) };
 }
 
-/** "/m/work" -> "/work"; "/m" -> "/". */
+/** "/work" -> "/m/work"; "/" -> "/m"; query and hash preserved. */
+export function toMobilePath(desktopPath: string): string {
+  const { path, rest } = splitPath(desktopPath);
+  const clean = path.replace(/\/+$/, "");
+  const base = clean === "" || clean === "/" ? MOBILE_PREFIX : `${MOBILE_PREFIX}${clean}`;
+  return base + rest;
+}
+
+/** "/m/work" -> "/work"; "/m" -> "/"; query and hash preserved. */
 export function toDesktopPath(mobilePath: string): string {
-  if (!mobilePath.startsWith(MOBILE_PREFIX)) return mobilePath;
-  const rest = mobilePath.slice(MOBILE_PREFIX.length).replace(/\/+$/, "");
-  return rest === "" ? "/" : rest;
+  const { path, rest } = splitPath(mobilePath);
+  if (!path.startsWith(MOBILE_PREFIX)) return mobilePath;
+  const tail = path.slice(MOBILE_PREFIX.length).replace(/\/+$/, "");
+  return (tail === "" ? "/" : tail) + rest;
+}
+
+/** True when this desktop path has a mobile route, so a link can be rewritten
+ *  rather than followed out of the mobile plane. Callers pass the route list;
+ *  this module stays free of the route registry. */
+export function isMobileablePath(path: string, knownRoutes: readonly string[]): boolean {
+  const { path: p } = splitPath(path);
+  const key = p.replace(/^\//, "").replace(/\/+$/, "");
+  return knownRoutes.includes(key);
 }

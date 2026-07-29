@@ -25,15 +25,18 @@ import { moreGroups, thumbBarItems, pageTitle } from "@/lib/mobile/nav";
 import {
   MOBILE_PREFIX,
   MOBILE_UI_ENABLED,
+  isMobileablePath,
   toDesktopPath,
   toMobilePath,
   writeUiPref,
 } from "@/lib/mobile/config";
+import { MOBILE_ROUTES } from "@/lib/mobile/routes.generated";
 
 const CAPS = { fontFamily: "'concourse-t3', sans-serif" } as const;
 
 export default function MobileShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const { observerMode, toggleObserverMode } = useObserverMode();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,9 +56,50 @@ export default function MobileShell({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   // Browser-tab naming, matching the desktop header's convention.
+  //
+  // The observer is not belt-and-braces, it is required. On a full page load
+  // Next commits its streamed metadata AFTER this effect and resets the title
+  // to the layout default, so every /m route read "Pulse | Home". A
+  // client-side navigation wins the race and hid the bug from an earlier
+  // check. AppHeader carries the same short-lived observer for the same
+  // reason; this is that fix, applied to the mobile shell.
   useEffect(() => {
-    document.title = `Pulse | ${title}`;
+    const want = `Pulse | ${title}`;
+    const assert = () => { if (document.title !== want) document.title = want; };
+    assert();
+    const obs = new MutationObserver(assert);
+    obs.observe(document.head, { childList: true, characterData: true, subtree: true });
+    const settle = setTimeout(() => obs.disconnect(), 3000);
+    return () => { obs.disconnect(); clearTimeout(settle); };
   }, [title]);
+
+  // Keep in-page links inside the mobile plane.
+  //
+  // The mobile interface renders the desktop's own components, so their links
+  // are desktop-absolute: a Knowledge entry links to
+  // `/knowledge?category=…&slug=…`. Following that leaves /m, and the
+  // viewport redirect then bounces back to `/m/knowledge` — which is how a
+  // tapped entry silently became the index again. Rewriting the click keeps
+  // the query intact and avoids a round trip through the desktop page.
+  //
+  // Only rewritten when the target actually has a mobile route; anything else
+  // is left alone so it reaches a working desktop page rather than a 404.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as Element | null)?.closest?.("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || !href.startsWith("/") || href.startsWith("//")) return;
+      if (href.startsWith(`${MOBILE_PREFIX}/`) || href === MOBILE_PREFIX) return;
+      if (anchor.getAttribute("target") === "_blank") return;
+      if (!isMobileablePath(href, MOBILE_ROUTES)) return;
+      e.preventDefault();
+      router.push(toMobilePath(href));
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [router]);
 
   // Lock the page behind the sheet so the sheet scrolls, not the page under it.
   useEffect(() => {

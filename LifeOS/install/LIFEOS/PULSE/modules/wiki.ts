@@ -48,6 +48,45 @@ const SYSTEM_PROMPT_PATH = join(LIFEOS_DIR, "LIFEOS_SYSTEM_PROMPT.md")
 const KNOWLEDGE_DOMAINS = ["People", "Companies", "Ideas", "Blogs", "Books", "Research"] as const
 type KnowledgeDomain = (typeof KNOWLEDGE_DOMAINS)[number]
 
+/**
+ * The one Knowledge domain table: on-disk directory, the category string the
+ * index stores, and the tree label.
+ *
+ * This existed as three separate hardcoded copies — one in
+ * indexKnowledgeArchive, one in the tree builder, one in handleKnowledgeNote —
+ * and the third had drifted: `research` was missing from it. The effect was
+ * that all 669 Research notes indexed fine, appeared in the tree, and were
+ * counted in the stats, but opening any one of them returned
+ * `404 Invalid knowledge domain "research"`. On both interfaces. Every
+ * consumer below now derives from this table so a new domain cannot be
+ * half-added again.
+ */
+const KNOWLEDGE_DOMAIN_TABLE: ReadonlyArray<{
+  dir: KnowledgeDomain
+  category: string
+  label: string
+}> = [
+  { dir: "People", category: "person", label: "People" },
+  { dir: "Companies", category: "company", label: "Companies" },
+  { dir: "Ideas", category: "idea", label: "Ideas" },
+  { dir: "Blogs", category: "blog", label: "Blogs" },
+  { dir: "Books", category: "book", label: "Books" },
+  { dir: "Research", category: "research", label: "Research" },
+]
+
+/**
+ * Accepts whatever a link actually carries: the category the index emits
+ * ("research", "person"), the directory name ("Research", "People"), and any
+ * casing of either. Links in the wild use the category; bookmarks and
+ * hand-typed URLs use the directory name.
+ */
+const KNOWLEDGE_DOMAIN_LOOKUP: Record<string, string> = Object.fromEntries(
+  KNOWLEDGE_DOMAIN_TABLE.flatMap(({ dir, category }) => [
+    [dir.toLowerCase(), category],
+    [category.toLowerCase(), category],
+  ]),
+)
+
 // Types
 
 interface WikiPage {
@@ -356,14 +395,9 @@ function indexSystemDocs(): void {
 // Knowledge Indexing
 
 function indexKnowledgeArchive(): void {
-  const domainToCategory: Record<KnowledgeDomain, string> = {
-    People: "person",
-    Companies: "company",
-    Ideas: "idea",
-    Blogs: "blog",
-    Books: "book",
-    Research: "research",
-  }
+  const domainToCategory = Object.fromEntries(
+    KNOWLEDGE_DOMAIN_TABLE.map(({ dir, category }) => [dir, category]),
+  ) as Record<KnowledgeDomain, string>
 
   for (const domain of KNOWLEDGE_DOMAINS) {
     const domainDir = join(KNOWLEDGE_DIR, domain)
@@ -629,14 +663,7 @@ function buildTree(): TreeNode[] {
 
   tree.push(systemNode)
 
-  const domainMap: Array<{ category: string; label: string }> = [
-    { category: "person", label: "People" },
-    { category: "company", label: "Companies" },
-    { category: "idea", label: "Ideas" },
-    { category: "blog", label: "Blogs" },
-    { category: "book", label: "Books" },
-    { category: "research", label: "Research" },
-  ]
+  const domainMap = KNOWLEDGE_DOMAIN_TABLE.map(({ category, label }) => ({ category, label }))
 
   for (const { category, label } of domainMap) {
     const pages = [...pageIndex.values()].filter((page) => page.category === category)
@@ -762,20 +789,9 @@ function handleDoc(slug: string): Response {
 }
 
 function handleKnowledgeNote(domain: string, slug: string): Response {
-  const validDomains: Record<string, string> = {
-    people: "person",
-    companies: "company",
-    ideas: "idea",
-    blogs: "blog",
-    books: "book",
-    person: "person",
-    company: "company",
-    idea: "idea",
-    blog: "blog",
-    book: "book",
-  }
-
-  const category = validDomains[domain.toLowerCase()]
+  // Derived from KNOWLEDGE_DOMAIN_TABLE, not restated. The restated copy is
+  // what dropped `research` and made 669 notes unopenable.
+  const category = KNOWLEDGE_DOMAIN_LOOKUP[domain.toLowerCase()]
   if (!category) return notFound(`Invalid knowledge domain "${domain}"`)
 
   const page = pageIndex.get(slug)

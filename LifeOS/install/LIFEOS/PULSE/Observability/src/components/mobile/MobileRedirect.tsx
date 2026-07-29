@@ -41,7 +41,9 @@ export default function MobileRedirect() {
     if (readUiPref() === "desktop") return;
     if (window.innerWidth >= MOBILE_BREAKPOINT) return;
 
-    window.location.replace(toMobilePath(pathname));
+    // Carry the query and hash across. `pathname` alone would drop `?slug=`,
+    // which is how a tapped Knowledge entry used to land back on the index.
+    window.location.replace(toMobilePath(pathname + window.location.search + window.location.hash));
   }, [pathname]);
 
   return null;

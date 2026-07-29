@@ -14,6 +14,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
+import * as systemd from "./lib/SystemdUser";
 
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
@@ -105,8 +106,37 @@ async function status(): Promise<void> {
   console.log(r.out);
 }
 
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive. Every line above is the launchd path and is unchanged;
+ * on darwin nothing in this section executes. Translation rules and the
+ * reason this is a shared helper rather than per-job unit templates are
+ * documented in lib/SystemdUser.ts.
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  const bunPath = await systemd.which("bun");
+  if (!bunPath) throw new Error("bun not found in PATH - install bun first");
+  return {
+    label: LABEL,
+    description: "LifeOS codex update",
+    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "CodexUpdate.ts")],
+    logPath: join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "com.lifeos.codexupdate.log"),
+    workingDirectory: join(HOME, ".claude"),
+    schedule: { kind: "calendar", hour: 4, minute: 0 },
+  };
+}
+
+async function linuxMain(arg: string | undefined): Promise<void> {
+  const spec = await linuxSpec();
+  const log = (m: string) => console.log(`[InstallCodexUpdate] ${m}`);
+  if (arg === "--uninstall") { await systemd.uninstall(spec, log); return; }
+  if (arg === "--status") { if (!(await systemd.status(spec, log))) process.exit(1); return; }
+  if (!(await systemd.install(spec, log))) process.exit(1);
+}
+
 async function main(): Promise<void> {
   const arg = process.argv[2];
+  if (systemd.isLinux()) return linuxMain(arg);
   if (arg === "--uninstall") return uninstall();
   if (arg === "--status") return status();
   return install();

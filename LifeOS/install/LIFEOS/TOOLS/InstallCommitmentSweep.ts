@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import * as systemd from "./lib/SystemdUser";
 
 const HOME = process.env.HOME || "";
 const TEMPLATE = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.commitmentsweep.plist.template");
@@ -75,8 +76,43 @@ function install(): void {
   }
 }
 
-function main() {
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive. Every line above is the launchd path and is unchanged;
+ * on darwin nothing in this section executes. Translation rules and the
+ * reason this is a shared helper rather than per-job unit templates are
+ * documented in lib/SystemdUser.ts.
+ *
+ * This installer is the one that differs from its siblings: it is synchronous,
+ * dispatches on `args.includes(...)`, and has no `--status`. `main` becomes
+ * async so the linux branch can be awaited; the darwin calls below it stay
+ * synchronous and run in exactly the same order as before. `--status` is
+ * answered on linux only, because there is no launchd equivalent here to match.
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  const bunPath = await systemd.which("bun");
+  if (!bunPath) throw new Error("bun not found in PATH - install bun first");
+  return {
+    label: LABEL,
+    description: "LifeOS commitment sweep",
+    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "CommitmentSweep.ts")],
+    logPath: join(STATE_DIR, "com.lifeos.commitmentsweep.log"),
+    workingDirectory: join(HOME, ".claude"),
+    schedule: { kind: "calendar", hour: 7, minute: 0 },
+  };
+}
+
+async function linuxMain(args: string[]): Promise<void> {
+  const spec = await linuxSpec();
+  const log = (m: string) => console.log(`[InstallCommitmentSweep] ${m}`);
+  if (args.includes("--uninstall")) { await systemd.uninstall(spec, log); return; }
+  if (args.includes("--status")) { if (!(await systemd.status(spec, log))) process.exit(1); return; }
+  if (!(await systemd.install(spec, log))) process.exit(1);
+}
+
+async function main() {
   const args = process.argv.slice(2);
+  if (systemd.isLinux()) return linuxMain(args);
   if (args.includes("--uninstall")) {
     uninstall();
     process.exit(0);

@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, realpathSync } from "fs";
 import { join } from "path";
+import * as systemd from "./lib/SystemdUser";
 
 type SpawnProcess = {
   stdout: ReadableStream<Uint8Array> | null;
@@ -142,8 +143,50 @@ async function status(): Promise<void> {
   console.log(r.out);
 }
 
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive. Every line above is the launchd path and is unchanged;
+ * on darwin nothing in this section executes. Translation rules and the
+ * reason this is a shared helper rather than per-job unit templates are
+ * documented in lib/SystemdUser.ts.
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  const bunPath = await systemd.which("bun");
+  if (!bunPath) throw new Error("bun not found in PATH - install bun first");
+  const USER_DIR_FOR_WATCH = join(HOME, ".claude", "LIFEOS", "USER");
+  return {
+    label: LABEL,
+    description: "LifeOS derived-file sync",
+    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "DerivedSync.ts")],
+    logPath: join(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY", "derived-sync-systemd.log"),
+    workingDirectory: join(HOME, ".claude"),
+    schedule: {
+      kind: "watch",
+      // Mirrors the plist's WatchPaths array exactly.
+      paths: [
+        USER_DIR_FOR_WATCH,
+        join(USER_DIR_FOR_WATCH, "TELOS"),
+        join(USER_DIR_FOR_WATCH, "TELOS", "IDEAL_STATE"),
+        join(USER_DIR_FOR_WATCH, "TELOS", "CURRENT_STATE"),
+        join(USER_DIR_FOR_WATCH, "PRINCIPAL"),
+        join(USER_DIR_FOR_WATCH, "DIGITAL_ASSISTANT"),
+        join(USER_DIR_FOR_WATCH, "CONFIG"),
+      ].filter((p) => existsSync(p)),
+    },
+  };
+}
+
+async function linuxMain(arg: string | undefined): Promise<void> {
+  const spec = await linuxSpec();
+  const log = (m: string) => console.log(`[InstallDerivedSync] ${m}`);
+  if (arg === "--uninstall") { await systemd.uninstall(spec, log); return; }
+  if (arg === "--status") { if (!(await systemd.status(spec, log))) process.exit(1); return; }
+  if (!(await systemd.install(spec, log))) process.exit(1);
+}
+
 async function main(): Promise<void> {
   const arg = process.argv[2];
+  if (systemd.isLinux()) return linuxMain(arg);
   if (arg === "--uninstall") return uninstall();
   if (arg === "--status") return status();
   return install();

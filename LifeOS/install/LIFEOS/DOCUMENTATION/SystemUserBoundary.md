@@ -74,6 +74,7 @@ The boundary itself — the documented contract by which SYSTEM code reads USER 
 | `~/.claude/LIFEOS/USER/CONFIG/settings.user.json` | INTERFACE — user settings overlay (after Phase B) |
 | `~/.claude/LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md` | INTERFACE — user-specific operational rules (after Phase C); @-imported directly from `~/.claude/CLAUDE.md` since CC does not follow transitive @-imports |
 | `~/.claude/LIFEOS/USER/INTEGRATIONS/*.yaml` | INTERFACE — typed config for integrations (homebridge, unifi, airgradient, work-system, etc.) |
+| `~/.claude/LIFEOS/USER/CONFIG/locales/<lang>.json` | INTERFACE — user-supplied translations for Work System auto-filed issue text (key set ships in SYSTEM via `hooks/lib/work-strings.ts`'s `EN` bundle; values are USER data, key-level fallback to `EN`) |
 
 ### RUNTIME-STATE
 

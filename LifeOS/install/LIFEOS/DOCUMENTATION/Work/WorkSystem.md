@@ -213,6 +213,7 @@ A new LifeOS user runs `bun ~/.claude/skills/_ULWORK/Tools/SetWorkRepo.ts --boot
 | `WORK.CAPTURE_NATIVE` | `config.yaml` | true | Enable NATIVE-mode capture in SessionEnd hook |
 | `WORK.CAPTURE_SWEEP` | `config.yaml` | true | Enable periodic sweep |
 | `WORK.PROJECT_PROPERTY` | `config.yaml` | (project→Property map) | Maps ISA `project:` value to `Property:*` label |
+| `WORK.ISSUE_LANGUAGE` | `config.yaml` | `en` | Locale for auto-filed issue body text (see § Localization below) |
 | Sweep `--max-create N` | CLI flag | 50 | Cap issue creation per sweep run |
 | Sweep `--since Nh` | CLI flag | 24 | Scan window for session catch-up |
 | Launchd `StartInterval` | plist | 3600 | Sweep cadence (seconds) |
@@ -228,15 +229,63 @@ A new LifeOS user runs `bun ~/.claude/skills/_ULWORK/Tools/SetWorkRepo.ts --boot
 | `hooks/ULWorkSync.hook.ts` | SessionEnd capture (ALGORITHM + NATIVE-with-artifacts) |
 | `hooks/ReminderRouter.hook.ts` | UserPromptSubmit capture (explicit triggers) |
 | `hooks/lib/work-config.ts` | Single loader for repo, columns, switches, project map |
+| `hooks/lib/work-strings.ts` | Locale bundle + `t()` for auto-filed issue text (see § Localization) |
 | `LIFEOS/TOOLS/WorkSweep.ts` | Periodic sweep — four sub-sweeps + TASKLIST regen |
+| `LIFEOS/TOOLS/InitWorkLocale.ts` | Scaffold/audit `USER/CONFIG/locales/<lang>.json` |
 | `LIFEOS/TOOLS/com.lifeos.worksweep.plist.template` | launchd plist template |
 | `LIFEOS/TOOLS/InstallWorkSweep.ts` | Materializes template, bootstraps launchd job |
 | `LIFEOS/PULSE/modules/work.ts` | Pulse kanban renderer with source badges |
 | `skills/_ULWORK/Tools/BootstrapLabels.ts` | Seeds canonical labels into the configured repo |
 | `skills/_ULWORK/Tools/RegenerateTasklist.ts` | Rebuilds TASKLIST.md from live issues |
 | `skills/_ULWORK/Tools/SetWorkRepo.ts` | Repo identity setup (existing) — `--bootstrap` extension planned |
+| `USER/CONFIG/locales/<lang>.json` | User-supplied translations for auto-filed issue text (INTERFACE) |
 | `MEMORY/OBSERVABILITY/worksweep.jsonl` | One JSON line per sweep run |
 | `MEMORY/STATE/com.lifeos.worksweep.log` | launchd stdout/stderr capture |
+
+## Localization
+
+Every string the Work System writes into an issue **body** goes through
+`hooks/lib/work-strings.ts`'s `t(lang, key, vars)`. Labels (`Type:*`, `Status:*`,
+`Priority:*`, `Property:*`, `Agent:*`) and the bracketed title prefixes
+(`[Goal]`, `[Sweep]`, `[Project-Check]`, `[BPE]`, `[Native]`, `[Reminder]`,
+`[Research]`, `[Queue]`) are classification tokens, not prose — dedup logic and
+the Pulse kanban badge depend on them, so they are **never** translated and stay
+English regardless of `WORK.ISSUE_LANGUAGE`.
+
+**Add a language** (no code change required):
+
+```bash
+bun ~/.claude/LIFEOS/TOOLS/InitWorkLocale.ts <lang>            # scaffold, e.g. "ja", "de", "pt-BR"
+# … translate the values you want in USER/CONFIG/locales/<lang>.json …
+bun ~/.claude/LIFEOS/TOOLS/InitWorkLocale.ts <lang> --check    # confirm no missing/extra keys
+```
+
+Then set `WORK.ISSUE_LANGUAGE: <lang>` in `USER/WORK/config.yaml`. Unset (or
+`en`) reproduces today's output exactly — the built-in `EN` bundle in
+`work-strings.ts` is a byte-for-byte port of the strings that used to be
+hardcoded inline.
+
+**Key-level fallback**: a locale file only needs to cover the keys it has a
+translation for. Any key missing from the file — or the whole file missing,
+unreadable, or malformed JSON — falls back to `EN` for that key. `t()` never
+throws; a broken locale file degrades output quality, never hook execution.
+
+**Known limitations, apply to every non-English locale alike (not a
+Japanese-specific gap):**
+- Reminder trigger phrases (`remind me to …`, `research the …`) and relative-date
+  parsing (`tomorrow`, `next friday`) in `hooks/ReminderRouter.hook.ts` are
+  English-only. A non-English request still produces a translated issue body if
+  it uses one of the English trigger phrases as the "verb," e.g.
+  `remind me to <anything, any language> tomorrow` — the trigger match and the
+  `Due:` date both still work; only the body language and the free-text subject
+  change.
+- `classifyType()` in `WorkSweep.ts` keys off English task-text keywords; a
+  non-English ISA task falls back to `Type:queue`.
+- Interpolation is `{name}` literal substitution only — no plural rules. A
+  locale with more than two plural forms (Russian, Polish, Arabic, …) should
+  phrase around the count (e.g. "N 日" reads naturally in Japanese without any
+  plural handling; an English-style "N day(s)" workaround may be needed for
+  other locales) rather than expect grammatical agreement.
 
 ## Cross-references
 

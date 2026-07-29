@@ -25,6 +25,7 @@ import { getDAName } from "./lib/identity"
 import { createHash } from "crypto";
 import { join, dirname } from "path";
 import { loadWorkConfig } from "./lib/work-config";
+import { t as tr } from "./lib/work-strings";
 
 const HOME = process.env.HOME || "";
 const STATE_PATH = join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "reminder-router-seen.json");
@@ -153,27 +154,31 @@ function markRouted(sessionId: string, promptHash: string): void {
 
 // ── Issue creation ──────────────────────────────────────────────────────────
 
-function buildIssue(match: RouteMatch, prompt: string): { title: string; body: string; labels: string[] } {
+function buildIssue(match: RouteMatch, prompt: string, lang: string): { title: string; body: string; labels: string[] } {
+  // titlePrefix and the "Kind:" label value are classification tokens (dedup /
+  // filtering rely on them) and stay in English regardless of locale — only
+  // the surrounding prose is routed through tr(). match.kind display text in
+  // the body is translated separately via the "kind.*" keys.
   const titlePrefix = match.kind === "reminder" ? "[Reminder]" : match.kind === "research" ? "[Research]" : "[Queue]";
   const subjectRaw = match.remainder || prompt.slice(0, 80);
   const subject = subjectRaw.replace(/\s+/g, " ").trim().slice(0, 96);
   const title = `${titlePrefix} ${subject}`;
 
-  const due = match.dueIso ? `\n**Due:** ${match.dueIso}\n` : "";
+  const due = match.dueIso ? tr(lang, "reminder.due", { due: match.dueIso }) : "";
   const body = [
-    `## ${titlePrefix} captured by LifeOS`,
+    tr(lang, "reminder.header", { prefix: titlePrefix }),
     "",
-    `**Trigger:** \`${match.imperative}\``,
-    `**Kind:** ${match.kind}`,
+    tr(lang, "reminder.trigger", { imperative: match.imperative }),
+    tr(lang, "reminder.kind", { kind: tr(lang, `kind.${match.kind}`) }),
     due,
-    `### Original prompt`,
+    tr(lang, "reminder.originalPrompt"),
     "",
     "```",
     prompt.trim(),
     "```",
     "",
     `---`,
-    `*Auto-routed by LifeOS ReminderRouter hook (UserPromptSubmit).*`,
+    tr(lang, "reminder.footer"),
   ].join("\n");
 
   const labels = [
@@ -227,7 +232,7 @@ async function main(): Promise<void> {
   }
   markRouted(sessionId, promptHash);
 
-  const { title, body, labels } = buildIssue(match, prompt);
+  const { title, body, labels } = buildIssue(match, prompt, cfg.issueLanguage);
   await createIssueDetached(cfg.repo, title, body, labels);
 
   console.error(`[ReminderRouter] routed ${match.kind} → ${cfg.repo}: ${title}`);

@@ -68,6 +68,10 @@ export interface WorkConfig {
   captureNative: boolean;
   captureSweep: boolean;
   projectProperty: (project: string | undefined) => string;
+  // Locale for auto-filed issue text (see hooks/lib/work-strings.ts). Labels and
+  // the bracketed title prefixes ([Goal], [Sweep], ...) are classification tokens
+  // and stay in English regardless of this value. Defaults to "en".
+  issueLanguage: string;
   reason?: string;
   reasonCode?: DisabledReason;
   privacy?: {
@@ -96,6 +100,7 @@ export function loadWorkConfig(): WorkConfig {
   const pollSeconds = loadPollSeconds();
   const captureNative = loadBool("CAPTURE_NATIVE", true);
   const captureSweep = loadBool("CAPTURE_SWEEP", true);
+  const issueLanguage = loadIssueLanguage();
   const projectMap = loadProjectPropertyMap();
   const projectProperty = (project: string | undefined): string => {
     if (!project) return "Property:internal";
@@ -111,6 +116,7 @@ export function loadWorkConfig(): WorkConfig {
     captureNative,
     captureSweep,
     projectProperty,
+    issueLanguage,
     reason,
     reasonCode: code,
   });
@@ -200,6 +206,7 @@ export function loadWorkConfig(): WorkConfig {
     captureNative,
     captureSweep,
     projectProperty,
+    issueLanguage,
     privacy: {
       verified_private: parsed.privacy.verified_private,
       verified_at: parsed.privacy.verified_at ?? "",
@@ -280,6 +287,24 @@ function loadBool(key: string, def: boolean): boolean {
     return def;
   } catch {
     return def;
+  }
+}
+
+// Locale code for auto-filed issue text. Any string is accepted here — the
+// loader doesn't know which locale files exist; hooks/lib/work-strings.ts
+// resolves the actual bundle at read time and falls back to "en" for any
+// language it doesn't have a file for. Keeps this loader decoupled from the
+// set of installed locales.
+const DEFAULT_ISSUE_LANGUAGE = "en";
+
+function loadIssueLanguage(): string {
+  if (!existsSync(COLUMNS_YAML_PATH)) return DEFAULT_ISSUE_LANGUAGE;
+  try {
+    const yaml = readFileSync(COLUMNS_YAML_PATH, "utf-8");
+    const raw = extractScalar(yaml, ["WORK", "ISSUE_LANGUAGE"]);
+    return raw && raw.trim() ? raw.trim() : DEFAULT_ISSUE_LANGUAGE;
+  } catch {
+    return DEFAULT_ISSUE_LANGUAGE;
   }
 }
 

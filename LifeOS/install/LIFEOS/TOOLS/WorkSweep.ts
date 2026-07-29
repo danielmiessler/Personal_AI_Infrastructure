@@ -459,7 +459,7 @@ async function sweepGoals(
       "Status:queued",
       "Property:internal",
       "Priority:P2",
-      "Agent:kai",
+      `Agent:${getDAName()}`,
     ], existingLabels);
     const body = [
       tr(lang, "sweep.goal.body", { id: g.id, text: g.text }),
@@ -527,7 +527,7 @@ async function sweepBpeCadence(
     "Status:queued",
     "Property:internal",
     "Priority:P3",
-    "Agent:kai",
+    `Agent:${getDAName()}`,
   ], existingLabels);
   const lastAudit = days === null ? tr(lang, "sweep.bpe.never") : tr(lang, "sweep.bpe.daysAgo", { days });
   const body = [

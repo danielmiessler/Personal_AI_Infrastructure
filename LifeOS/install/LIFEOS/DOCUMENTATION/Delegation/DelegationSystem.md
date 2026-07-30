@@ -198,6 +198,87 @@ Three primitives for non-blocking work. Pick the right one:
 - Use `TaskStop` to cancel a monitor early
 - Selective filters only — never pipe raw logs. Monitors producing too many events get auto-stopped.
 
+### Recipe: Agent Watchdog (auto-triggered by hook)
+
+The Pulse agent-guard hook automatically injects a watchdog reminder when background agents are spawned. The watchdog monitors tool-activity.jsonl for silence while agents are active:
+
+```bash
+Monitor({
+  description: "Agent watchdog",
+  persistent: true,
+  timeout_ms: 3600000,
+  command: "bun $HOME/.claude/LIFEOS/TOOLS/AgentWatchdog.ts"
+})
+```
+
+Alerts when no tool calls detected for 90 seconds with active agents. Rate-limited to one alert per 60 seconds. Runs for the session lifetime — covers all background agents.
+
+### Recipe: Deploy Monitoring
+
+Watch a Cloudflare Pages or Workers deploy for completion or errors:
+
+```bash
+# Monitor wrangler deploy output (run deploy with Bash(run_in_background), then tail its output)
+Monitor({
+  description: "Cloudflare deploy status",
+  persistent: false,
+  timeout_ms: 300000,
+  command: "tail -f /tmp/deploy.log | grep --line-buffered -E '(Published|Error|Failed|SUCCESS)'"
+})
+```
+
+### Recipe: Pulse Log Tailing
+
+Watch Pulse daemon logs for errors during a debugging session:
+
+```bash
+Monitor({
+  description: "Pulse error watcher",
+  persistent: true,
+  timeout_ms: 300000,
+  command: "tail -f ~/.claude/Pulse/logs/pulse-stdout.log | grep --line-buffered -i -E '(error|fatal|crash|unhandled)'"
+})
+```
+
+### Recipe: Build/Test Watching
+
+Monitor a long test suite and get notified on failures:
+
+```bash
+Monitor({
+  description: "Test failure watcher",
+  persistent: false,
+  timeout_ms: 600000,
+  command: "tail -f /tmp/test-output.log | grep --line-buffered -E '(FAIL|ERROR|✗|AssertionError)'"
+})
+```
+
+### Recipe: PR/CI Status Monitoring
+
+Poll GitHub for CI status changes on a PR:
+
+```bash
+Monitor({
+  description: "CI status for PR #42",
+  persistent: true,
+  timeout_ms: 3600000,
+  command: "last_status=''; while true; do status=$(gh pr checks 42 --json state --jq '.[].state' 2>/dev/null | sort -u | tr '\\n' ','); if [ \"$status\" != \"$last_status\" ]; then echo \"CI: $status\"; last_status=\"$status\"; fi; sleep 30; done"
+})
+```
+
+### Recipe: Security Scan Watching
+
+Tail security scan results for critical findings:
+
+```bash
+Monitor({
+  description: "Security scan critical findings",
+  persistent: false,
+  timeout_ms: 600000,
+  command: "tail -f /tmp/security-scan.log | grep --line-buffered -i 'CRITICAL'"
+})
+```
+
 ---
 
 ## Knowledge Archive Access

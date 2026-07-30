@@ -323,47 +323,9 @@ bun ~/.claude/LIFEOS/TOOLS/KnowledgeGraph.ts find architecture
 
 ---
 
-## Voice Server API - Generate Voice Narration
+## Voice narration — not a tool
 
-**Location:** Voice server at `http://localhost:31337/notify`
-
-Send text to the voice server running on localhost for TTS using a configured voice clone.
-
-**Usage:**
-```bash
-# Single narration segment
-curl -X POST http://localhost:31337/notify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Your text here",
-    "voice_id": "$ELEVENLABS_VOICE_ID",
-    "title": "Voice Narrative"
-  }'
-
-# Pause between segments
-sleep 2
-```
-
-**Voice Configuration:**
-- **Voice ID:** Set via `ELEVENLABS_VOICE_ID` environment variable
-- **Stability:** 0.55 (natural variation in storytelling)
-- **Similarity Boost:** 0.85 (maintains authentic sound)
-- **Server:** `http://localhost:31337/notify`
-- **Max Segment:** 450 characters
-- **Pause Between:** 2 seconds
-
-**When to Use:**
-- "read this to me"
-- "voice narrative"
-- "speak this"
-- "narrate this"
-- "perform this"
-
-**Technical Details:**
-- Pulse must be running (voice handler lives at `~/.claude/LIFEOS/PULSE/VoiceServer/voice.ts`, port 31337)
-- Segments longer than 450 chars should be split
-- Natural 2-second pauses between segments for storytelling flow
-- Uses ElevenLabs API under the hood
+`POST localhost:31337/notify` is a Pulse route, not a callable tool. Narration triggers, payload, and the tuning knobs live in `../Notifications/NotificationSystem.md` § Long-form Narration.
 
 ---
 
@@ -564,97 +526,9 @@ rtk verify            # Check installation integrity
 
 ---
 
-## Monitor Tool — Event-Driven Background Watching
+## Monitor — not a tool
 
-The Monitor tool starts a background script whose stdout lines become chat notifications. Instead of polling in a loop (burning tokens), the script runs independently and wakes you when something happens. Zero token cost between events.
-
-**Key rules:**
-- Each stdout line = one notification. Stderr goes to output file only.
-- Always use `grep --line-buffered` in pipes (otherwise pipe buffering delays events).
-- Poll intervals: 30s+ for remote APIs, 0.5-1s for local checks.
-- Handle transient failures: `curl ... || true` in poll loops.
-- Set `persistent: true` for session-length watches. Cancel with `TaskStop`.
-
-### Recipe: Agent Watchdog (auto-triggered by hook)
-
-The Pulse agent-guard hook automatically injects a watchdog reminder when background agents are spawned. The watchdog monitors tool-activity.jsonl for silence while agents are active:
-
-```bash
-Monitor({
-  description: "Agent watchdog",
-  persistent: true,
-  timeout_ms: 3600000,
-  command: "bun $HOME/.claude/LIFEOS/TOOLS/AgentWatchdog.ts"
-})
-```
-
-Alerts when no tool calls detected for 90 seconds with active agents. Rate-limited to one alert per 60 seconds. Runs for the session lifetime — covers all background agents.
-
-### Recipe: Deploy Monitoring
-
-Watch a Cloudflare Pages or Workers deploy for completion or errors:
-
-```bash
-# Monitor wrangler deploy output (run deploy with Bash(run_in_background), then tail its output)
-Monitor({
-  description: "Cloudflare deploy status",
-  persistent: false,
-  timeout_ms: 300000,
-  command: "tail -f /tmp/deploy.log | grep --line-buffered -E '(Published|Error|Failed|SUCCESS)'"
-})
-```
-
-### Recipe: Pulse Log Tailing
-
-Watch Pulse daemon logs for errors during a debugging session:
-
-```bash
-Monitor({
-  description: "Pulse error watcher",
-  persistent: true,
-  timeout_ms: 300000,
-  command: "tail -f ~/.claude/Pulse/logs/pulse-stdout.log | grep --line-buffered -i -E '(error|fatal|crash|unhandled)'"
-})
-```
-
-### Recipe: Build/Test Watching
-
-Monitor a long test suite and get notified on failures:
-
-```bash
-Monitor({
-  description: "Test failure watcher",
-  persistent: false,
-  timeout_ms: 600000,
-  command: "tail -f /tmp/test-output.log | grep --line-buffered -E '(FAIL|ERROR|✗|AssertionError)'"
-})
-```
-
-### Recipe: PR/CI Status Monitoring
-
-Poll GitHub for CI status changes on a PR:
-
-```bash
-Monitor({
-  description: "CI status for PR #42",
-  persistent: true,
-  timeout_ms: 3600000,
-  command: "last_status=''; while true; do status=$(gh pr checks 42 --json state --jq '.[].state' 2>/dev/null | sort -u | tr '\\n' ','); if [ \"$status\" != \"$last_status\" ]; then echo \"CI: $status\"; last_status=\"$status\"; fi; sleep 30; done"
-})
-```
-
-### Recipe: Security Scan Watching
-
-Tail security scan results for critical findings:
-
-```bash
-Monitor({
-  description: "Security scan critical findings",
-  persistent: false,
-  timeout_ms: 600000,
-  command: "tail -f /tmp/security-scan.log | grep --line-buffered -i 'CRITICAL'"
-})
-```
+`Monitor` is a Claude Code harness primitive, not something this repo ships. The rules, the pick-your-primitive table, and the recipe cookbook live in `../Delegation/DelegationSystem.md` § Async Primitives.
 
 ---
 
@@ -671,7 +545,7 @@ Monitor({
 ### Research Skill
 - YouTube transcripts: `GetTranscript.ts`
 - Audio/video transcription: `extract-transcript.py`
-- Voice narration: Voice server API
+- Voice narration: `../Notifications/NotificationSystem.md` § Long-form Narration
 
 ### Metrics Skill
 - YouTube analytics: `YouTubeApi.ts`

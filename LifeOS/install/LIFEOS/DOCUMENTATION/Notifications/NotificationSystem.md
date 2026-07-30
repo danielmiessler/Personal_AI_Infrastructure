@@ -124,6 +124,35 @@ curl -s -X POST http://localhost:31337/notify \
 
 ---
 
+## Long-form Narration
+
+The same `/notify` endpoint reads longer text aloud — "read this to me", "narrate this", "speak this", "perform this". It is a Pulse route, not a callable tool, so it lives here rather than in the tool index.
+
+```bash
+# Single narration segment
+curl -X POST http://localhost:31337/notify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Your text here",
+    "voice_id": "$ELEVENLABS_VOICE_ID",
+    "title": "Voice Narrative"
+  }'
+
+# Pause between segments
+sleep 2
+```
+
+**Narration settings:**
+- **Voice ID:** `ELEVENLABS_VOICE_ID` environment variable
+- **Stability:** 0.55 (natural variation in storytelling)
+- **Similarity Boost:** 0.85 (maintains authentic sound)
+- **Max segment:** 450 characters — split longer text
+- **Pause between:** 2 seconds, for storytelling flow
+
+Pulse must be running; the voice handler lives at `~/.claude/LIFEOS/PULSE/VoiceServer/voice.ts` on port 31337, and calls ElevenLabs under the hood.
+
+---
+
 ## Copy-Paste Templates
 
 ### Template A: Skills WITH Workflows

@@ -38,6 +38,7 @@ import { getLearningCategory } from './lib/learning-utils';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../LIFEOS/TOOLS/FailureCapture';
 import { addRatingPulse } from './lib/isa-utils';
+import { resolveLang, tList } from './lib/locale';
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -159,6 +160,23 @@ const POSITIVE_PHRASES = new Set([
   'great job', 'good job', 'nice work', 'well done', 'nice job', 'good work',
   'love it', 'nailed it', 'looks great', 'looks good', 'thats great', 'that works',
 ]);
+
+// Locale vocabulary is UNIONED onto the English sets above, never substituted
+// for them — an English "perfect" stays praise under any locale (see
+// hooks/lib/locale.ts's tList() doc comment for why union, not override, is
+// the correct semantics here). RATING_LANG resolves once per hook invocation;
+// tList() returns [] for "en" or an unset/missing/malformed locale bundle, so
+// with no locale configured EFFECTIVE_* is the exact same Set reference as
+// the English one — locale-unset output is provably unchanged.
+const RATING_LANG = resolveLang();
+const LOCALE_PRAISE_WORDS = tList(RATING_LANG, 'praise.words');
+const LOCALE_PRAISE_PHRASES = tList(RATING_LANG, 'praise.phrases');
+const EFFECTIVE_PRAISE_WORDS = LOCALE_PRAISE_WORDS.length
+  ? new Set([...POSITIVE_PRAISE_WORDS, ...LOCALE_PRAISE_WORDS])
+  : POSITIVE_PRAISE_WORDS;
+const EFFECTIVE_PRAISE_PHRASES = LOCALE_PRAISE_PHRASES.length
+  ? new Set([...POSITIVE_PHRASES, ...LOCALE_PRAISE_PHRASES])
+  : POSITIVE_PHRASES;
 
 // ── System Text Detection ──
 
@@ -323,11 +341,13 @@ async function main() {
     }
 
     // ── FAST PATH: Positive praise ──
-    const normalizedPrompt = prompt.trim().toLowerCase().replace(/[.!?,'"]/g, '');
+    // Full-width CJK punctuation ("完璧！" → "完璧") joins the ASCII set below —
+    // English prompts never contain these characters, so this is a no-op for them.
+    const normalizedPrompt = prompt.trim().toLowerCase().replace(/[.!?,'"。、！？…「」]/g, '');
     const promptWords = normalizedPrompt.split(/\s+/);
     if (promptWords.length <= 2) {
-      if (POSITIVE_PRAISE_WORDS.has(normalizedPrompt) || POSITIVE_PHRASES.has(normalizedPrompt)
-          || (promptWords.length === 2 && promptWords.every(w => POSITIVE_PRAISE_WORDS.has(w)))) {
+      if (EFFECTIVE_PRAISE_WORDS.has(normalizedPrompt) || EFFECTIVE_PRAISE_PHRASES.has(normalizedPrompt)
+          || (promptWords.length === 2 && promptWords.every(w => EFFECTIVE_PRAISE_WORDS.has(w)))) {
         console.error(`[SatisfactionCapture] Positive praise fast-path: "${prompt.trim()}" → rating 8`);
         const cachedResponse = getLastResponse();
         writeRating({

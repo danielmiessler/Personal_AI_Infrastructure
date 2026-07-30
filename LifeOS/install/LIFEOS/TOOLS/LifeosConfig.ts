@@ -38,6 +38,10 @@ export interface LifeosPrincipal {
   timezone: string;
   hometown?: string;
   voiceCloneId?: string;
+  // ISO 639-1 code (e.g. "ja"). Optional — most consumers (hooks/lib/locale.ts,
+  // hooks/lib/work-strings.ts) fall back to WORK.ISSUE_LANGUAGE or "en" when
+  // this is unset, so existing TOML files need no edit.
+  language?: string;
 }
 
 export interface LifeosVoiceSettings {
@@ -169,6 +173,7 @@ function validateAndNormalize(raw: unknown, path: string): LifeosConfig {
       timezone: principal.timezone,
       hometown: principal.hometown,
       voiceCloneId: principal.voice_clone_id ?? principal.voiceCloneId,
+      language: principal.language,
     },
     da: {
       name: da.name,

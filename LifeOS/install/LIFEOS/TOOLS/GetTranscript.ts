@@ -4,12 +4,12 @@
  * GetTranscript.ts - Extract transcript from YouTube video
  *
  * Usage:
- *   bun ~/.claude/skills/Videotranscript/Tools/GetTranscript.ts <youtube-url>
- *   bun ~/.claude/skills/Videotranscript/Tools/GetTranscript.ts <youtube-url> --save <output-file>
+ *   bun ~/.claude/LIFEOS/TOOLS/GetTranscript.ts <youtube-url>
+ *   bun ~/.claude/LIFEOS/TOOLS/GetTranscript.ts <youtube-url> --save <output-file>
  *
  * Examples:
- *   bun ~/.claude/skills/Videotranscript/Tools/GetTranscript.ts "https://www.youtube.com/watch?v=abc123"
- *   bun ~/.claude/skills/Videotranscript/Tools/GetTranscript.ts "https://youtu.be/abc123" --save transcript.txt
+ *   bun ~/.claude/LIFEOS/TOOLS/GetTranscript.ts "https://www.youtube.com/watch?v=abc123"
+ *   bun ~/.claude/LIFEOS/TOOLS/GetTranscript.ts "https://youtu.be/abc123" --save transcript.txt
  *
  * @author LifeOS System
  * @version 1.0.0

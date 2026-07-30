@@ -634,14 +634,9 @@ When adding a new utility tool to this system:
 
 ## Deprecated Skills
 
-The following skills have been consolidated into this Tools system:
+A row belongs here only while the retired name still resolves to something in the tree — otherwise it is archaeology that makes a dead name look live.
 
-- **Images** → `Tools/RemoveBg.ts`, `Tools/AddBg.ts` (2024-12-22)
-- **VideoTranscript** → `Tools/GetTranscript.ts` (2024-12-22)
-- **VoiceNarration** → Voice server API (2024-12-22)
 - **ExtractTranscript** → `Tools/extract-transcript.py`, `Tools/ExtractTranscript.ts` (2024-12-22)
-- **YouTube** → `Tools/YouTubeApi.ts` (2024-12-22)
-- **Sensitive** → `trufflehog` system tool (2024-12-22)
 
 Archived skill files have been removed.
 

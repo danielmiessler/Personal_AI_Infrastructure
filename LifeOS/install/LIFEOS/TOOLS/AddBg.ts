@@ -4,13 +4,13 @@
  * add-bg - Add Background Color CLI
  *
  * Add a solid background color to transparent PNG images.
- * Part of the Images skill for LifeOS system.
+ * Companion to RemoveBg.ts; driven by the Art skill's background workflows.
  *
  * Usage:
  *   add-bg input.png "#EAE9DF" output.png
  *   add-bg input.png --ul-brand output.png
  *
- * @see ~/.claude/skills/Images/SKILL.md
+ * @see ~/.claude/LIFEOS/DOCUMENTATION/Tools/Tools.md
  */
 
 import { existsSync } from "node:fs";

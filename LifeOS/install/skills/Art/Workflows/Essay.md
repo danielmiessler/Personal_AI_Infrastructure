@@ -719,7 +719,7 @@ thumbnail: https://example.com/images/my-header.png
 For non-blog images that only need transparency, or to remove backgrounds after generation:
 
 ```bash
-# Use the Images Skill for background removal
+# Standalone background removal
 bun ~/.claude/LIFEOS/TOOLS/RemoveBg.ts /path/to/output.png
 
 # Or batch process multiple images

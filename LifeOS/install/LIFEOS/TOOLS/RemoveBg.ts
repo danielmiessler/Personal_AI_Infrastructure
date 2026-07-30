@@ -4,7 +4,7 @@
  * remove-bg - Background Removal CLI
  *
  * Remove backgrounds from images using local rembg.
- * Part of the Images skill for LifeOS system.
+ * Companion to AddBg.ts; driven by the Art skill's background workflows.
  *
  * Usage:
  *   remove-bg input.png                    # Overwrites original

@@ -1,16 +1,87 @@
 ---
-version: 1.8.0
+version: 1.9.0
 ---
 
-# LifeOS Tools - CLI Utilities Reference
+# LifeOS Tools — the tool index
 
 > CLI-first is how the Life OS stays deterministic (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`): the hill-climb's moves are code you can script, test, and trust — prompts orchestrate, code executes.
 
-This file documents single-purpose CLI utilities that have been consolidated from individual skills. These are pure command-line tools that wrap APIs or external commands.
+This is the index of LifeOS **tools** — the counterpart to `skills/`. A tool is a thing an agent or the principal *invokes*. Skills carry judgment; tools carry determinism.
 
-**Philosophy:** Simple utilities don't need separate skills. Document them here, execute them directly.
+## Placement doctrine
 
-**Model:** Following the `Tools/fabric/` pattern - 242+ Fabric patterns documented as utilities rather than individual skills.
+The one rule set for what lands in this file and in what shape. Generated flat-tool registry: `FlatTools.md`.
+
+### What belongs
+
+A **callable tool** — something you can run:
+
+| Tier | What it is | Registration |
+|---|---|---|
+| **Flat tool** | a single file (`*.ts`, `*.sh`, `*.py`) in the `LIFEOS/TOOLS` root | exhaustive in generated `FlatTools.md`; **selective** here |
+| **Directory tool** | a subsystem under `LIFEOS/TOOLS/<tool>/` with its own `package.json` / `src/` / `test/` | **exhaustive over the adopted set** — one pointer section per adopted tool |
+| **External tool** | a binary or app LifeOS doctrine depends on but does not ship (`trufflehog`, `rtk`) | **exhaustive** here — nothing else indexes it |
+
+**The adopted set.** A directory tool registers here when the instance has adopted it — decided that this instance runs it — never merely because the directory exists on disk. An unadopted directory under `LIFEOS/TOOLS/` gets no section until that call is made.
+
+**The selective flat policy.** A flat tool earns a chapter here only when invocation needs more than one line: non-obvious flags, a small fixed dimension worth a table, or a routing imperative ("use this, never the raw SDK"). Everything else is a row in `FlatTools.md`, generated from the tool's own header and never hand-edited. Absence from this file is not absence from the system — check `FlatTools.md` first.
+
+### What does not belong
+
+| Not a tool | Its home |
+|---|---|
+| Hooks | `../Hooks/HookSystem.md` § Quick Reference Card |
+| HTTP routes and Pulse modules | the owning subsystem's doc (`../Pulse/PulseSystem.md`, `../Notifications/NotificationSystem.md`) |
+| Claude Code harness primitives (`Monitor`, `Agent`, `Workflow`) | `../Delegation/DelegationSystem.md` § Async Primitives |
+| Changelogs, version history, design-decision archaeology | the tool's own `ISA.md` § Decisions / § Changelog |
+| "Re-add after every update" inventories for a local deviation | `USER/CUSTOMIZATIONS/` |
+| Skills | `skills/` + `../Skills/SkillSystem.md` |
+
+### The entry template
+
+Same skeleton at every tier; the tier decides which rows are present.
+
+```text
+H2  <name> — <one-line identity>   (H3 when nested inside a chapter)
+**Location:** <tilde-absolute path>
+<one paragraph: what it is, plus a routing imperative if this tool is the mandatory path>
+**Usage:** <runnable block, one comment per example>
+<at most one table — only for a small fixed dimension: run levels, verbs, URL formats>
+**When to use:** <trigger phrases — only where routing is ambiguous>
+**Depth:** <tilde-absolute pointer to the tool's own README or ISA — a bare filename cannot resolve from a registry>
+**Deps:** <env vars, external binaries, credentials — one line, pointers never values>
+```
+
+- **Flat tool** — identity · Location · what-it-is · Usage · optional table · When-to-use · Deps. Depth row only if the tool has its own doc.
+- **Directory tool** — identity · Location · what-it-is · the stable entrypoint · **Depth** (mandatory: README or ISA). No file inventory, no module list, no migration history — the tool's own docs own all of it.
+- **External tool** — identity · Location or install line · what-it-is · Usage · When-to-use. No Depth row; there is nothing local to point at.
+
+### Anti-bloat rules
+
+- **A pointer, not a mini-PRD.** Location, one-line identity, how to run it, one depth pointer. Working ceiling, every tier: ~15 non-blank lines per entry (a pointer-only section lands well under it). Longer means the depth belongs in the tool's own docs — the structural bans below, not the line count, are the operative rule.
+- **No archaeology.** No design-corpus citations, no migration lists, no decision codes, no test counts, no per-module file inventories, no "born from" origin stories, no dated remediation paragraphs. An entry describes the tool as it is *now*.
+- **One entry per tool, edited in place.** A rewrite replaces the entry; it never appends a "current state" block under a stale one.
+- **Tables earn their place.** At most one per entry, and only for a small fixed dimension.
+
+### The flat-tool header
+
+`FlatTools.md` is rendered from each tool's leading comment block, so that header is the registry's source of truth. Three elements, machine-checked by `bun ~/.claude/LIFEOS/TOOLS/ToolsRegistry.ts --audit`:
+
+- **Identity line** — `<Filename> — <one-line purpose>`, separated by an em dash or ` - `. The text after the separator becomes the registry's Purpose cell.
+- **Purpose prose** — at least one line beyond the identity line saying what the tool does.
+- **Usage block, or a library marker** — a `Usage:` block for anything callable; `not a CLI` or `Consumed by:` for a module that is imported rather than run.
+
+Optional and judgment-scoped, so it is not machine-enforced: `@see <path>` naming the tool's governing doc, which becomes the registry's Docs cell.
+
+### Adding a tool
+
+1. **Class it** — flat · directory · external. Directory tools are normal, not an exception; the older "keep the directory flat — NO subdirectories" rule governed single-file utilities only and never applied to subsystems.
+2. **Flat** — Title-Case filename in the `LIFEOS/TOOLS` root (`GetTranscript.ts`, not `get-transcript.ts`), header block per above, then `bun ~/.claude/LIFEOS/TOOLS/ToolsRegistry.ts` to regenerate `FlatTools.md`. Add a chapter here only under the selective policy.
+3. **Directory** — its own doc set (a README, plus an ISA where the tool has a design contract), then one pointer section here.
+4. **External** — an entry here with its install line.
+5. **Close the build** — run the tool from its final path, and leave `ToolsRegistry.ts --check` clean.
+
+**Don't create a separate skill** if the entire functionality is just a CLI command with parameters.
 
 ---
 
@@ -607,28 +678,6 @@ Monitor({
 
 ### Security Workflows
 - Secret scanning: `trufflehog` (system tool)
-
----
-
-## Adding New Tools
-
-When adding a new utility tool to this system:
-
-1. **Add tool file:** Place `.ts` or `.py` file directly in `~/.claude/LIFEOS/TOOLS/`
-   - Use **Title Case** for filenames (e.g., `GetTranscript.ts`, not `get-transcript.ts`)
-   - Keep the directory flat - NO subdirectories
-
-2. **Document here:** Add section to this file with:
-   - Tool location (e.g., `~/.claude/`)
-   - Usage examples
-   - When to use triggers
-   - Environment variables (if any)
-
-3. **Update `CLAUDE.md` routing table:** Ensure TOOLS.md is referenced in the documentation index
-
-4. **Test:** Verify tool works from new location
-
-**Don't create a separate skill** if the entire functionality is just a CLI command with parameters.
 
 ---
 

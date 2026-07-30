@@ -1,0 +1,33 @@
+# com.lifeos.usage-aggregator.service.template — Source template (Linux/systemd --user).
+# Install via:
+#   bun ~/.claude/LIFEOS/TOOLS/InstallUsageAggregator.ts
+#
+# The installer reads $HOME at install time, substitutes {{HOME}}/{{BUN}}/{{BUN_DIR}}
+# placeholders, writes the materialized units to ~/.config/systemd/user/, and
+# enables the timer via systemctl --user. This template stays clean of
+# principal-specific paths so it ships in the public LifeOS release,
+# mirroring the macOS com.lifeos.usage-aggregator.plist.template (same
+# nightly 03:30 cadence + boot-time run, same log target family).
+#
+# Behavior: one-shot run of UsageAggregator.ts, triggered by the paired
+# .timer unit (com.lifeos.usage-aggregator.timer — nightly at 03:30 local,
+# plus once ~2min after boot to populate the durable store immediately,
+# same intent as the launchd plist's RunAtLoad true). StartLimitIntervalSec/
+# StartLimitBurst are the systemd analog of the launchd plist's
+# ThrottleInterval 60. stdout/stderr captured to
+# MEMORY/STATE/com.lifeos.usage-aggregator.log, same as the launchd
+# StandardOutPath/StandardErrorPath.
+
+[Unit]
+Description=LifeOS Usage aggregator — nightly usage/cost telemetry rollup
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart={{BUN}} {{HOME}}/.claude/LIFEOS/TOOLS/UsageAggregator.ts
+WorkingDirectory={{HOME}}/.claude
+Environment=HOME={{HOME}}
+Environment=PATH={{BUN_DIR}}:/usr/local/bin:/usr/bin:/bin
+StandardOutput=append:{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.usage-aggregator.log
+StandardError=append:{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.usage-aggregator.log

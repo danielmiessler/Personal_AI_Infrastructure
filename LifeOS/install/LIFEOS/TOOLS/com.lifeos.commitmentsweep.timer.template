@@ -1,0 +1,15 @@
+# com.lifeos.commitmentsweep.timer.template — pairs with com.lifeos.commitmentsweep.service.template.
+# Equivalent to the launchd plist's StartCalendarInterval Hour=7 Minute=0
+# with RunAtLoad false: fires once daily at 07:00 local time, no boot-time
+# catch-up run.
+
+[Unit]
+Description=LifeOS Commitment sweep timer — daily 07:00
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+Unit=com.lifeos.commitmentsweep.service
+
+[Install]
+WantedBy=timers.target

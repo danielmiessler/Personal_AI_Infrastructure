@@ -1,0 +1,17 @@
+# com.lifeos.usage-aggregator.timer.template — pairs with com.lifeos.usage-aggregator.service.template.
+# Equivalent to the launchd plist's StartCalendarInterval Hour=3 Minute=30
+# plus RunAtLoad true: OnCalendar fires nightly at 03:30, and OnBootSec
+# fires once ~2min after boot so the durable store is populated
+# immediately, same as RunAtLoad's "fire once when loaded" behavior.
+
+[Unit]
+Description=LifeOS Usage aggregator timer — nightly 03:30
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=com.lifeos.usage-aggregator.service
+
+[Install]
+WantedBy=timers.target

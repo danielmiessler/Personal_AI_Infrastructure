@@ -1,0 +1,32 @@
+# com.lifeos.codexupdate.service.template — Source template (Linux/systemd --user).
+# Install via:
+#   bun ~/.claude/LIFEOS/TOOLS/InstallCodexUpdate.ts
+#
+# The installer reads $HOME at install time, substitutes {{HOME}}/{{BUN}}/{{BUN_DIR}}
+# placeholders, writes the materialized units to ~/.config/systemd/user/, and
+# enables the timer via systemctl --user. This template stays clean of
+# principal-specific paths so it ships in the public LifeOS release,
+# mirroring the macOS com.lifeos.codexupdate.plist.template (same daily
+# 04:00 cadence, no boot-time run, same log target family).
+#
+# Behavior: one-shot run of CodexUpdate.ts, triggered by the paired .timer
+# unit (com.lifeos.codexupdate.timer — daily at 04:00 local). No boot-time
+# run — avoids reinstalling the codex global on every login, same reason
+# the launchd plist omits RunAtLoad. StartLimitIntervalSec/StartLimitBurst
+# are the systemd analog of the launchd plist's ThrottleInterval 60.
+# stdout/stderr captured to MEMORY/STATE/com.lifeos.codexupdate.log, same
+# as the launchd StandardOutPath/StandardErrorPath.
+
+[Unit]
+Description=LifeOS Codex update — keeps the Codex mirror / update state current
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart={{BUN}} {{HOME}}/.claude/LIFEOS/TOOLS/CodexUpdate.ts
+WorkingDirectory={{HOME}}/.claude
+Environment=HOME={{HOME}}
+Environment=PATH={{BUN_DIR}}:/usr/local/bin:/usr/bin:/bin
+StandardOutput=append:{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.codexupdate.log
+StandardError=append:{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.codexupdate.log

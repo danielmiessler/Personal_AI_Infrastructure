@@ -1,0 +1,36 @@
+# com.lifeos.derivedsync.service.template — Source template (Linux/systemd --user).
+# Install via:
+#   bun ~/.claude/LIFEOS/TOOLS/InstallDerivedSync.ts
+#
+# The installer reads $HOME at install time, resolves LIFEOS/USER to the real
+# USER directory, substitutes {{HOME}}/{{BUN}}/{{BUN_DIR}}/{{USER_DIR}}
+# placeholders, writes the materialized units to ~/.config/systemd/user/, and
+# enables them via systemctl --user. This template stays clean of
+# principal-specific paths so it ships in the public LifeOS release,
+# mirroring the macOS com.lifeos.derivedsync.plist.template (same trigger
+# paths, same log target family).
+#
+# Behavior: one-shot run of DerivedSync.ts, triggered by the paired .path
+# unit (com.lifeos.derivedsync.path — fires on any USER source change).
+# StartLimitIntervalSec/StartLimitBurst below are the systemd analog of the
+# launchd plist's ThrottleInterval 30 (crash-loop rate limiting; DerivedSync
+# itself is a silent no-op on unchanged file hashes, so this rarely matters
+# in practice). stdout/stderr captured to
+# MEMORY/OBSERVABILITY/derived-sync-systemd.log — a separate log file from
+# the launchd side's derived-sync-launchd.log (DerivedSync.ts's own
+# structured log at MEMORY/OBSERVABILITY/derived-sync.jsonl is shared by
+# both backends).
+
+[Unit]
+Description=LifeOS Derived-file sync — regenerates PRINCIPAL_TELOS, LIFEOS_STATE, Data-Plane on USER hand-edits
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart={{BUN}} {{HOME}}/.claude/LIFEOS/TOOLS/DerivedSync.ts
+WorkingDirectory={{HOME}}/.claude
+Environment=HOME={{HOME}}
+Environment=PATH={{BUN_DIR}}:{{HOME}}/.local/bin:/usr/local/bin:/usr/bin:/bin
+StandardOutput=append:{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/derived-sync-systemd.log
+StandardError=append:{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/derived-sync-systemd.log

@@ -1,0 +1,21 @@
+# com.lifeos.derivedsync.path.template — pairs with com.lifeos.derivedsync.service.template.
+# Equivalent to the launchd plist's WatchPaths (7 USER subdirectories) +
+# RunAtLoad true: PathModified fires the paired .service on any change under
+# these paths, and the installer starts the service once at install time to
+# match RunAtLoad's "fire once immediately" behavior.
+
+[Unit]
+Description=LifeOS Derived-file sync watcher — USER source directories
+
+[Path]
+PathModified={{USER_DIR}}
+PathModified={{USER_DIR}}/TELOS
+PathModified={{USER_DIR}}/TELOS/IDEAL_STATE
+PathModified={{USER_DIR}}/TELOS/CURRENT_STATE
+PathModified={{USER_DIR}}/PRINCIPAL
+PathModified={{USER_DIR}}/DIGITAL_ASSISTANT
+PathModified={{USER_DIR}}/CONFIG
+Unit=com.lifeos.derivedsync.service
+
+[Install]
+WantedBy=default.target

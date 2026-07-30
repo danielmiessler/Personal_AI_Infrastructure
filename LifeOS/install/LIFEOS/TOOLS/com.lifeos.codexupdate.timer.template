@@ -1,0 +1,14 @@
+# com.lifeos.codexupdate.timer.template — pairs with com.lifeos.codexupdate.service.template.
+# Equivalent to the launchd plist's StartCalendarInterval Hour=4 Minute=0
+# with no RunAtLoad: fires once daily at 04:00 local time, no boot-time run.
+
+[Unit]
+Description=LifeOS Codex update timer — daily 04:00
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+Unit=com.lifeos.codexupdate.service
+
+[Install]
+WantedBy=timers.target

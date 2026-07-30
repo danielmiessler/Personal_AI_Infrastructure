@@ -60,7 +60,7 @@ bun ~/.claude/LIFEOS/TOOLS/Services.ts doc                 # regenerate the tabl
 
 ## Fresh install
 
-The LifeOS install skill (`skills/LifeOS/`, `DeployComponents.ts`) stands up the core set during Setup. `Services.ts install --all` is the complete-coverage path: point a fresh macOS install at it and every service comes up, opt-ins included. macOS-only — `launchd` services skip cleanly on Linux/Windows. **Integration status:** `DeployComponents.ts` currently covers ~9 components; wiring it to read `Services.ts`'s registry so a single Setup step covers all 16 is the tracked follow-up.
+The LifeOS install skill (`skills/LifeOS/`, `DeployComponents.ts`) stands up the core set during Setup. `Services.ts install --all` is the complete-coverage path: point a fresh macOS install at it and every service comes up, opt-ins included. Mostly macOS-only for now — `launchd` services skip cleanly on Linux/Windows, with the exception of work sweep, derived-file sync, commitment sweep, usage aggregator, and codex update (`com.lifeos.worksweep`/`derivedsync`/`commitmentsweep`/`usage-aggregator`/`codexupdate`), whose installers detect `process.platform` and materialize a systemd `--user` unit (service+timer, or service+path for the file-watch case) instead — same install command, same `--uninstall`/`--status` flags. **Integration status:** `DeployComponents.ts` currently covers ~9 components; wiring it to read `Services.ts`'s registry so a single Setup step covers all 16 is the tracked follow-up. `Services.ts status` itself still only inspects `launchd`, so it under-reports on Linux until it gains the same platform branch (tracked separately).
 
 ## Cross-references
 

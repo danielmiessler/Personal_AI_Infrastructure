@@ -11,17 +11,28 @@
  *   bun Services.ts doc                 # emit the canonical markdown table (for the doc)
  *
  * launchctl install/uninstall are the privileged steps; `status`/`doc` are read-only.
+ *
+ * Linux: `status`/`doc` branch on `process.platform` to read systemd --user
+ * units instead of launchd plists (same pattern as InstallWorkSweep.ts and
+ * the sibling Install*.ts scripts, which each materialize a systemd unit
+ * pair on Linux). `install`/`uninstall` need no branch here — they just run
+ * each service's `install:` command, which is itself platform-dispatching
+ * inside the Install*.ts script. Services with no systemd unit yet (macOS
+ * menu-bar app, deriver — both launchd-only by design) correctly report
+ * "✗ missing" on Linux; that's fact, not a bug.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+const IS_LINUX = process.platform === "linux";
 const HOME = homedir();
 const CLAUDE = join(HOME, ".claude");
 const LIFEOS = join(CLAUDE, "LIFEOS");
 const TOOLS = join(LIFEOS, "TOOLS");
 const PULSE = join(LIFEOS, "PULSE");
 const LAUNCH_AGENTS = join(HOME, "Library", "LaunchAgents");
+const SYSTEMD_USER = join(HOME, ".config", "systemd", "user");
 const AMBER = join(LIFEOS, "USER/CUSTOMIZATIONS/ARBOL/Workers/_A_AMBER_LEDGER");
 
 type Cat = "pulse" | "capture" | "sync" | "sweep" | "maintenance";
@@ -100,13 +111,30 @@ function sh(cmd: string): { code: number; out: string } {
   return { code: p.exitCode ?? 1, out: (p.stdout.toString() + p.stderr.toString()).trim() };
 }
 
-function loadedLabels(): Set<string> {
+function loadedLabelsDarwin(): Set<string> {
   const r = sh("launchctl list 2>/dev/null | grep -iE 'lifeos' | awk '{print $3}'");
   return new Set(r.out.split("\n").map((s) => s.trim()).filter(Boolean));
 }
 
+function loadedLabelsLinux(): Set<string> {
+  const r = sh(
+    "systemctl --user list-units --all --type=service,timer,path --plain --no-legend 2>/dev/null" +
+      " | awk '{print $1}' | grep -i lifeos",
+  );
+  return new Set(
+    r.out
+      .split("\n")
+      .map((s) => s.trim().replace(/\.(service|timer|path)$/, ""))
+      .filter(Boolean),
+  );
+}
+
+function loadedLabels(): Set<string> {
+  return IS_LINUX ? loadedLabelsLinux() : loadedLabelsDarwin();
+}
+
 /** Find the plist for a label: installed one wins, else a template in TOOLS/PULSE. */
-function findPlist(label: string): { path: string; installed: boolean } | null {
+function findPlistDarwin(label: string): { path: string; installed: boolean } | null {
   const installed = join(LAUNCH_AGENTS, `${label}.plist`);
   if (existsSync(installed)) return { path: installed, installed: true };
   const short = label.replace(/^com\.lifeos\./, "");
@@ -119,7 +147,39 @@ function findPlist(label: string): { path: string; installed: boolean } | null {
   return null;
 }
 
-function cadenceOf(plistPath: string): string {
+/**
+ * Find the most cadence-informative systemd unit for a label: a `.timer`
+ * (OnCalendar/OnUnitActiveSec) or `.path` (PathModified — the file-watch
+ * case, e.g. derivedsync) wins over the bare `.service`, since that's where
+ * the scheduling lives. Falls back to the `.service` alone for persistent
+ * daemons with no timer/path pairing (e.g. pulse — the systemd analog of a
+ * RunAtLoad-only launchd job).
+ */
+function findPlistLinux(label: string): { path: string; installed: boolean } | null {
+  for (const ext of ["timer", "path", "service"]) {
+    const installed = join(SYSTEMD_USER, `${label}.${ext}`);
+    if (existsSync(installed)) return { path: installed, installed: true };
+  }
+  // Not-yet-installed source: most Install*.ts ship a `.template` (placeholders
+  // substituted at install time); manage.sh instead keeps pulse's systemd unit
+  // as a bare `.service` in PULSE/ (its own __HOME__/__BUN_PATH__ sed step) —
+  // same dual pattern findPlistDarwin already handles for the plist side.
+  for (const ext of ["timer", "path", "service"]) {
+    for (const base of [TOOLS, PULSE]) {
+      for (const cand of [`${label}.${ext}.template`, `${label}.${ext}`]) {
+        const p = join(base, cand);
+        if (existsSync(p)) return { path: p, installed: false };
+      }
+    }
+  }
+  return null;
+}
+
+function findPlist(label: string): { path: string; installed: boolean } | null {
+  return IS_LINUX ? findPlistLinux(label) : findPlistDarwin(label);
+}
+
+function cadenceOfDarwin(plistPath: string): string {
   try {
     const x = readFileSync(plistPath, "utf8");
     const si = x.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/);
@@ -129,6 +189,27 @@ function cadenceOf(plistPath: string): string {
     if (/<key>RunAtLoad<\/key>\s*<true/.test(x)) return "at load";
     return "—";
   } catch { return "?"; }
+}
+
+function cadenceOfLinux(unitPath: string): string {
+  try {
+    const x = readFileSync(unitPath, "utf8");
+    if (/^PathModified=/m.test(x)) return "on file-change";
+    if (/^OnCalendar=/m.test(x)) return "daily/scheduled";
+    const oa = x.match(/^OnUnitActiveSec=(\d+)(min|h)?/m);
+    if (oa) {
+      const n = +oa[1];
+      const s = oa[2] === "h" ? n * 3600 : n * 60; // OnUnitActiveSec has no bare-seconds units in our templates
+      return s % 3600 === 0 ? `every ${s / 3600}h` : `every ${Math.round(s / 60)}m`;
+    }
+    if (/^\[Timer\]/m.test(x)) return "daily/scheduled"; // timer file with neither pattern matched above
+    if (/^Type=simple/m.test(x)) return "at load"; // persistent daemon, no timer/path pairing (e.g. pulse)
+    return "—";
+  } catch { return "?"; }
+}
+
+function cadenceOf(unitPath: string): string {
+  return IS_LINUX ? cadenceOfLinux(unitPath) : cadenceOfDarwin(unitPath);
 }
 
 const cmd = process.argv[2] || "status";

@@ -22,7 +22,7 @@ This file documents single-purpose CLI utilities that have been consolidated fro
 
 Single inference tool with four run levels for different speed/capability trade-offs — the same four-level abstraction as `EFFORT_MODEL` in `models.ts` (max→fable, high→opus, medium→sonnet, low→haiku; one-line mapping edit on a lineup change).
 
-**Executed-model verification (v6.29.0).** `--level max` genuinely runs Fable (spawns `claude --model claude-fable-5`), unlike an `Agent(model:fable)` dispatch which downgrades to Opus — so this is the real Fable carrier for E4/E5 reasoning. Every run reads the executed model back from the JSON envelope's `modelUsage` (`verifyExecutedModel` — filters Claude Code's per-turn background haiku pass, then takes the highest-output model as the answer's author and checks its family; presence alone can't tell a tiny classifier pass from real authorship). The result carries `executedModel` + `modelDowngraded`; the CLI prints a `[model] requested=… → executed=…` line to stderr (stdout stays the clean answer); any downgrade is logged to `MEMORY/OBSERVABILITY/model-verification.jsonl`. The tool reports what RAN, never what it requested.
+`--level max` is the genuine Fable carrier, and every run verifies the model that actually executed — mechanism and rationale: `LIFEOS/DOCUMENTATION/Router/RouterSystem.md` § Carrier + verification (that doc's banner retires the classify/route-effort stages; select-model, which this section applies, is the stage that survived).
 
 **Usage:**
 ```bash

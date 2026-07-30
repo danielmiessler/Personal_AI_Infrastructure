@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { wikiPageUrl } from "@/lib/wiki-links";
+import { useCompact } from "@/contexts/DensityContext";
 import {
   ArrowLeft,
   Clock,
@@ -13,7 +15,12 @@ import {
   User,
   Link as LinkIcon,
   Calendar,
+  PanelLeftOpen,
+  PanelRightClose,
 } from "lucide-react";
+
+/** Per-browser open/closed preference for the metadata rail. */
+const META_RAIL_KEY = "pulse.wikiMetaRail";
 
 interface Backlink {
   slug: string;
@@ -76,8 +83,83 @@ export default function WikiMeta({
   void _title;
   const colors = CATEGORY_COLORS[category] || CATEGORY_COLORS["system-doc"];
 
+  /* ── Collapsible rail ──────────────────────────────────────────────────────
+   * 224px of fixed rail is a fair trade on a wide screen and a bad one when the
+   * note has to share 390px with it (measured: 210px of rail against 282px of
+   * body at a 500px viewport). So the rail collapses to a strip you can reopen.
+   *
+   * Implemented here rather than in each page because knowledge, docs and
+   * system all render this same component — one toggle, three surfaces.
+   *
+   * The choice persists per browser. Default follows the density: expanded at
+   * desktop density, collapsed inside the mobile shell, which is where the
+   * space actually matters.
+   * ------------------------------------------------------------------------ */
+  const compact = useCompact();
+  // Start from the density default so server and client first paint agree;
+  // the stored preference is applied in the effect below.
+  const [open, setOpen] = useState(!compact);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(META_RAIL_KEY);
+      setOpen(stored === null ? !compact : stored === "open");
+    } catch {
+      setOpen(!compact); // storage blocked; fall back to the density default
+    }
+  }, [compact]);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      window.localStorage.setItem(META_RAIL_KEY, next ? "open" : "closed");
+    } catch {
+      /* preference just won't persist */
+    }
+  };
+
+  if (!open) {
+    return (
+      <aside
+        className="w-9 shrink-0 border-l border-line-1 bg-surface-1 h-[calc(100vh-3.5rem)] flex flex-col items-center pt-3 gap-2"
+        aria-label="Note metadata, collapsed"
+      >
+        <button
+          type="button"
+          onClick={toggle}
+          title="Show metadata"
+          aria-expanded={false}
+          className="flex items-center justify-center w-7 h-7 rounded text-ink-3 hover:text-ink-1 hover:bg-surface-3 transition-colors"
+        >
+          <PanelLeftOpen className="w-4 h-4" />
+        </button>
+        {/* Vertical label so the strip reads as "metadata is here", not as a stray button. */}
+        <span
+          className="text-[10px] uppercase tracking-[0.18em] text-ink-3 select-none"
+          style={{ writingMode: "vertical-rl", fontFamily: "'advocate-c14', sans-serif" }}
+        >
+          Metadata
+        </span>
+      </aside>
+    );
+  }
+
   return (
     <aside className="w-56 shrink-0 border-l border-line-1 bg-surface-1 overflow-y-auto h-[calc(100vh-3.5rem)] p-4 space-y-5">
+      <div className="flex justify-end -mt-1 -mr-1">
+        <button
+          type="button"
+          onClick={toggle}
+          title="Hide metadata"
+          aria-expanded={true}
+          className="flex items-center justify-center w-7 h-7 rounded text-ink-3 hover:text-ink-1 hover:bg-surface-3 transition-colors"
+        >
+          <PanelRightClose className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Category badge */}
       <div>
         <span

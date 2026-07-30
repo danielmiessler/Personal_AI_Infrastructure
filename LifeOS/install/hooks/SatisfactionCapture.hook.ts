@@ -127,7 +127,9 @@ function parseExplicitRating(prompt: string): { rating: number; comment?: string
   if (fractionMatch) {
     const fRating = parseInt(fractionMatch[1], 10);
     const fRest = fractionMatch[2].replace(/^[\s!.,:;-]+/, '').trim() || undefined;
-    if (fRest && SENTENCE_STARTERS.test(fRest)) return null; // "2/10 items" is not a rating
+    // "2/10 items" is not a rating; neither is "2/10件" — a non-ASCII lead-in
+    // means fRest is describing something, not commenting on the score (#i18n).
+    if (fRest && (SENTENCE_STARTERS.test(fRest) || /^[^\x00-\x7F]/.test(fRest))) return null;
     return { rating: fRating, comment: fRest };
   }
 
@@ -141,7 +143,11 @@ function parseExplicitRating(prompt: string): { rating: number; comment?: string
   if (rating < 1 || rating > 10) return null;
 
   const afterNumber = trimmed.slice(match[1].length);
-  if (afterNumber.length > 0 && /^[/.\dA-Za-z]/.test(afterNumber)) return null;
+  // Reject a leading digit followed immediately by non-ASCII text (e.g. Japanese
+  // "2はあとで" — "item 2, later" — is not a rating of 2). The ASCII classes below
+  // this guarded against before; non-ASCII text right after the digit is the same
+  // "describing something, not rating it" shape (#i18n).
+  if (afterNumber.length > 0 && /^[/.\dA-Za-z]|^[^\x00-\x7F]/.test(afterNumber)) return null;
 
   if (rest && SENTENCE_STARTERS.test(rest)) return null;
 

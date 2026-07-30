@@ -913,6 +913,7 @@ MCP tool results are truncated by default. Servers can override this by adding `
 
 ## Related Documentation
 
+- **Flat-tool registry**: `~/.claude/LIFEOS/DOCUMENTATION/Tools/FlatTools.md` (generated — every tool in the `LIFEOS/TOOLS` root)
 - **Architecture**: `~/.claude/LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md` (master architecture reference)
 - **CLI Tools**: `~/.claude/LIFEOS/DOCUMENTATION/Tools/Cli.md` (Algorithm CLI, Arbol CLI)
 

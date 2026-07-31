@@ -493,7 +493,7 @@ function isPermanentErrno(code: string | undefined): boolean {
 
 // ── Lock + atomic publish ─────────────────────────────────────────────────
 //
-// THE PROTOCOL: ONE WRITER AT A TIME, ENFORCED BY PID LIVENESS.
+// THE PROTOCOL: ONE WRITER AT A TIME, ENFORCED BY NEVER REMOVING A LOCK.
 //
 // mkdir is the exclusive claim — POSIX guarantees exactly one contender can
 // create a directory that does not yet exist. That primitive was never the
@@ -518,7 +518,11 @@ function isPermanentErrno(code: string | undefined): boolean {
 //                     of it. Both, because the token write can fail silently or
 //                     lose a race; a lock we cannot read our own name from is
 //                     not ours, and proceeding on the belief that it is would be
-//                     the last remaining way to end up with two writers.
+//                     the last remaining way to end up with two writers. The
+//                     token write is EXCLUSIVE-CREATE ('wx'): if a human clears
+//                     our lock mid-acquire and a fresh writer claims the spot,
+//                     our late write fails instead of replacing their token, so
+//                     the read-back sees their name and we defer.
 //
 // A lock is removed by exactly two actors: the owner that created it
 // (releaseLock, owner-checked), and a human running rm by hand. There is no
@@ -623,8 +627,13 @@ export function stillOwnLock(lock: string, token: string): boolean {
  *  than trusting this to have happened. */
 function writeLockToken(lock: string, token: string): void {
   try {
-    writeFileSync(lockTokenPath(lock), token);
-  } catch { /* best effort — an unreadable token defers contenders, never removes anything */ }
+    // Exclusive create ('wx'), never overwrite: if an owner file already exists,
+    // someone else claimed this directory in a gap we cannot see (the one path
+    // there: a human cleared our lock mid-acquire and a fresh writer claimed the
+    // spot). Overwriting their token would make BOTH read-backs pass — two
+    // writers. Failing here makes our read-back see their name and defer.
+    writeFileSync(lockTokenPath(lock), token, { flag: 'wx' });
+  } catch { /* best effort — an unreadable or foreign token defers us, never removes anything */ }
 }
 
 /** The token currently recorded in a lock, or null if there is none to read. */
@@ -770,7 +779,7 @@ function acquireLock(lock: string, token: string): boolean {
     console.error(
       `⚠️ isa-index: created the index lock at ${lock} but could not confirm ownership — the owner token did not read back as ours. `
       + 'Refusing to proceed on an unconfirmed claim. Nothing was written and nothing was deleted. '
-      + `If a lock is now sitting there unowned, index writes will defer until it is cleared by hand: rm -rf ${lock}`,
+      + `If a lock is now sitting there unowned, index writes will defer until it is cleared by hand: rm -rf ${JSON.stringify(lock)}`,
     );
     return false;
   }
@@ -857,7 +866,7 @@ export function stuckLockNotice(path = isaIndexPath()): StuckLockNotice | null {
       heldMs,
       ownerPid,
       ownerState: describeOwner(ownerPid),
-      clearCommand: `rm -rf ${lock}`,
+      clearCommand: `rm -rf ${JSON.stringify(lock)}`,
     };
   } catch {
     return null; // a display path never throws into a session banner

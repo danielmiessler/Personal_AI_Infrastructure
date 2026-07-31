@@ -7,12 +7,12 @@
  * session start; nothing may govern what EXISTS or is FINDABLE. Before this
  * module, an ISA-recorded item went invisible in two steps — off the
  * SessionStart block at 48h, out of work.json at 7d (TTL hard-delete) — and
- * after that lived only as bytes on disk, pull-only (task 3783).
+ * after that lived only as bytes on disk, pull-only.
  *
  * This file is that memory. It is APPEND-ONLY BY CONSTRUCTION:
  *   - there is no exported function that removes an entry;
  *   - there is no retention/purge knob, deliberately (a retention knob on
- *     memory is the exact defect 3783 removes);
+ *     memory is the exact defect this index removes);
  *   - an artifact deleted from disk is marked `missing`, never dropped, and
  *     un-marks itself if the file returns.
  *
@@ -24,7 +24,21 @@
  *   3. isa-utils TTL/cap eviction  rows expire INTO the index, never into the void
  *
  * READ PATH:
- *   - LoadContext.hook.ts "Stalled ISAs" block (any age, display-capped)
+ *   - LoadContext.hook.ts "Stalled ISAs" block (display-capped, and bounded by
+ *     `stalledMaxAgeDays` — 30d by default, 0 for genuinely any age)
+ *
+ * SCOPE OF `enabled`: it governs THIS index — all four write paths and the
+ * stalled block. It does NOT govern the "Recent Sessions" block, which predates
+ * the index and is a plain WORK-directory scan. Turning it off also turns
+ * retention off: with no index to archive into, work.json eviction reverts to
+ * the pre-index behavior of simply dropping old rows.
+ *
+ * COST: the read is one JSON parse of a file that grows without bound by
+ * design, done synchronously at SessionStart; the display cap is applied after
+ * the parse, so it bounds output, not work. The sweep that writes it is async
+ * and walks every owned ISA. Both are cheap at realistic sizes (order 10ms at a
+ * few thousand entries) but neither is constant-time, and calling the read
+ * "cheap" without saying so would be overclaiming.
  *
  * CONCURRENCY: mkdir lock with stale takeover + tmp/rename publish, mirroring
  * hooks/lib/work-events.ts. Readers never see a partial file. On lock
@@ -110,12 +124,14 @@ const PLACEHOLDER_PHASES = new Set(['native', 'starting']);
 
 // ── Knobs (§ leg 5) ───────────────────────────────────────────────────────
 //
-// Defaults are the values that were hardcoded before 3783 — conservative, and
-// what upstream ships. The principal's instance overrides them in settings.user.json.
+// Defaults are the values that were previously hardcoded — conservative, and
+// what ships by default. An instance overrides them in settings.user.json.
 // There is deliberately NO index-retention knob: see the header.
 
 export interface IsaPickupKnobs {
-  /** Master switch for index writes and the stalled block. */
+  /** Switch for THIS index: all write paths and the stalled block. Does not
+   *  govern the Recent Sessions block. Off also means work.json rows are
+   *  dropped on expiry rather than archived — there is no index to keep. */
   enabled: boolean;
   /** LoadContext "Recent Sessions" push window. */
   recentWorkWindowHours: number;
@@ -332,23 +348,53 @@ export function readIsaIndex(path = isaIndexPath()): IsaIndex {
   }
 }
 
-/** Write-path guard (2026-07-25 audit, finding 1): if an index file EXISTS but
- *  does not parse as an index, move it aside before we publish a fresh one —
- *  the file is gitignored and single-copy, so overwriting it is the one way
- *  this store can silently lose index-only memory. Read paths never call this
- *  (a display hook must not rename files). Returns without throwing. */
-function quarantineIfCorrupt(path: string): void {
+/** Write-path guard: if an index file EXISTS but does not parse as an index,
+ *  move it aside before we publish a fresh one — the file is single-copy, so
+ *  overwriting it is the one way this store can silently lose index-only
+ *  memory. Read paths never call this (a display hook must not rename files).
+ *
+ *  Returns TRUE when it is safe to publish: either the file was fine, or it was
+ *  corrupt AND is now preserved aside. Returns FALSE when the file is corrupt
+ *  and could NOT be moved — publishing then would overwrite unrecoverable
+ *  memory with a rebuild, so the caller must abort instead. Append-only is not
+ *  a property we get to keep only when rename() happens to succeed. */
+function quarantineIfCorrupt(path: string): boolean {
   try {
-    if (!existsSync(path)) return;
+    if (!existsSync(path)) return true;
     const parsed = JSON.parse(readFileSync(path, 'utf-8'));
-    if (parsed && typeof parsed === 'object' && parsed.entries && typeof parsed.entries === 'object') return;
+    // `typeof [] === 'object'`, so an array would slip through a bare typeof
+    // check and be treated as a valid entries map. Require a plain object.
+    if (
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      && parsed.entries && typeof parsed.entries === 'object' && !Array.isArray(parsed.entries)
+    ) return true;
   } catch { /* unparseable — fall through to quarantine */ }
   try {
     const aside = `${path}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
     renameSync(path, aside);
     console.error(`⚠️ isa-index: existing index was corrupt — quarantined to ${aside}; rebuilding from disk (index-only entries, if any, are preserved in the quarantined copy)`);
-  } catch { /* rename failed — leave in place; the atomic publish still replaces old-or-new wholesale */ }
+    return true;
+  } catch (err) {
+    console.error(`⚠️ isa-index: existing index is corrupt and could NOT be quarantined (${err}); refusing to publish over it — nothing was written, and the next run retries`);
+    return false;
+  }
 }
+
+/**
+ * The index writer's destination is operator-configurable (`LIFEOS_ISA_INDEX_PATH`).
+ * Publishing renames over whatever sits at that path, so a path aliasing an ISA
+ * artifact would let the index writer destroy the very memory it exists to keep
+ * — and would falsify "the sweep never writes an ISA file" through the back
+ * door. The destination must therefore look like an index, not an artifact.
+ */
+function isSafeIndexDestination(path: string): boolean {
+  const name = (path.split('/').pop() || '').toLowerCase();
+  if (ARTIFACT_BASENAMES.has(name)) return false;
+  return name.endsWith('.json');
+}
+
+/** Artifact filenames the sweep reads. The index may never be pointed at one. */
+const ARTIFACT_BASENAMES = new Set(['isa.md', 'prd.md']);
 
 // ── Lock + atomic publish ─────────────────────────────────────────────────
 
@@ -416,7 +462,10 @@ function publish(index: IsaIndex, path: string): void {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.tmp.${process.pid}`;
   try {
-    writeFileSync(tmp, JSON.stringify(index, null, 2));
+    // Compact, not pretty-printed. This file is machine-read on every
+    // SessionStart and grows without bound by design; indentation roughly
+    // doubles both its size and the parse cost for no consumer's benefit.
+    writeFileSync(tmp, JSON.stringify(index));
     renameSync(tmp, path);
   } catch (err) {
     try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
@@ -437,9 +486,17 @@ function mergeEntry(existing: IsaIndexEntry | undefined, incoming: IsaIndexEntry
     firstIndexed: existing?.firstIndexed || incoming.firstIndexed || now,
     lastIndexed: now,
   };
-  // The artifact is present in this observation — clear any tombstone.
-  delete merged.missing;
-  delete merged.missingSince;
+  // The artifact is present in this observation — clear any tombstone. An
+  // incoming entry that declares itself tombstoned (a work.json row archived
+  // with no artifact path) is the exception: it is asserting absence, not
+  // observing presence.
+  if (incoming.missing) {
+    merged.missing = true;
+    merged.missingSince = incoming.missingSince || existing?.missingSince || now;
+  } else {
+    delete merged.missing;
+    delete merged.missingSince;
+  }
   return merged;
 }
 
@@ -459,6 +516,12 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
   const path = opts.path || isaIndexPath();
   if (entries.length === 0 && !opts.reconcileMissing) return true;
 
+  // The destination is operator-configurable; it may never alias an artifact.
+  if (!isSafeIndexDestination(path)) {
+    console.error(`⚠️ isa-index: refusing to publish the index to ${path} — the destination must be a .json file and must not be an ISA artifact. Nothing was written.`);
+    return false;
+  }
+
   // The lock is a sibling of the index file, so its parent must exist before
   // the non-recursive mkdir that IS the lock. Failure here (e.g. a file where
   // the directory should be) is a hard failure the caller must see.
@@ -471,7 +534,9 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
   const lock = lockPathFor(path);
   if (!acquireLock(lock)) return false;
   try {
-    quarantineIfCorrupt(path);
+    // A corrupt file that cannot be moved aside must not be published over:
+    // the rebuild would replace unrecoverable index-only memory.
+    if (!quarantineIfCorrupt(path)) return false;
     const index = readIsaIndex(path);
     const now = new Date().toISOString();
     const touched = new Set<string>();
@@ -485,7 +550,9 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
     if (opts.reconcileMissing) {
       for (const [key, entry] of Object.entries(index.entries)) {
         if (touched.has(key)) continue;
-        const present = (() => { try { return existsSync(entry.path); } catch { return false; } })();
+        // A pathless entry (an archived work.json row with no artifact) can
+        // never be "present"; it is already tombstoned and stays that way.
+        const present = (() => { try { return !!entry.path && existsSync(entry.path); } catch { return false; } })();
         if (present) {
           // Known but not in this sweep's scope (e.g. an alternate root) and
           // still on disk — clear a stale tombstone, keep everything else.
@@ -514,35 +581,57 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
  * row ONLY when this returns true.
  *
  * Rows carry everything an entry needs, so this path never reads an ISA file —
- * it works even when the artifact has been moved or deleted.
+ * it works even when the artifact has been moved or deleted, and even when the
+ * row never recorded a path at all.
+ *
+ * TOTALITY IS THE INVARIANT. Every row that carries recoverable memory MUST
+ * produce an entry. A row that produces none and is still reported as archived
+ * is deleted unarchived by the caller, which is precisely the data loss this
+ * function exists to prevent — so the count is checked, and a shortfall returns
+ * false (defer the eviction) rather than true. Only PLACEHOLDER_PHASES rows are
+ * legitimately entry-less: they are harness bookkeeping with nothing to keep.
  */
 export function archiveWorkRows(
   rows: Array<{ slug: string; session: Record<string, any> }>,
   opts: { path?: string } = {},
 ): boolean {
+  // Surface disabled: no index exists to archive into, so eviction reverts to
+  // the pre-index behavior (a bounded view that simply drops old rows). Stated
+  // in the knob's own `_docs` — turning the index off turns retention off.
+  if (!loadPickupKnobs().enabled) return true;
+
   const now = new Date().toISOString();
   const entries: IsaIndexEntry[] = [];
+  let recoverable = 0;
 
   for (const { slug, session } of rows) {
     const phase = String(session.phase || 'unknown').toLowerCase();
     if (PLACEHOLDER_PHASES.has(phase)) continue; // harness bookkeeping, not an ISA
-    const abs = resolveRowIsaPath(session.isa);
-    if (!abs) continue;
+    recoverable++;
+
     const checked = Number(session.criteria?.checked ?? 0) || 0;
     const total = Number(session.criteria?.total ?? 0) || 0;
+    const abs = resolveRowIsaPath(session.isa);
+    // A row with no usable `isa` path is still memory: the slug, title, phase,
+    // criteria counts and timestamps all live on the ROW. Keep it under a
+    // namespaced key that cannot collide with a directory key, tombstoned
+    // because there is no artifact to point at. If the artifact later appears,
+    // the sweep indexes it under its real key; this entry remains as the record
+    // that the row existed.
     entries.push({
-      key: indexKeyForArtifact(abs),
-      kind: abs.includes('/LIFEOS/TOOLS/') ? 'tool' : 'work',
+      key: abs ? indexKeyForArtifact(abs) : `work-expiry:${slug}`,
+      kind: abs?.includes('/LIFEOS/TOOLS/') ? 'tool' : 'work',
       slug,
       title: String(session.task || session.sessionName || slug),
-      artifact: abs.split('/').pop() || 'ISA.md',
-      path: abs,
+      artifact: abs ? abs.split('/').pop() || 'ISA.md' : '',
+      path: abs || '',
       phase,
       checked,
       total,
       unchecked: Math.max(0, total - checked),
       remainingWork: false,
       remainingOpen: 0,
+      ...(abs ? {} : { missing: true, missingSince: now }),
       lastTouched: String(session.lastToolActivity || session.updatedAt || session.started || now),
       firstIndexed: now,
       lastIndexed: now,
@@ -550,8 +639,18 @@ export function archiveWorkRows(
     });
   }
 
-  if (entries.length === 0) return true; // nothing to preserve — eviction is safe
+  // Never report success for a row we did not actually keep.
+  if (entries.length !== recoverable) return false;
+  if (entries.length === 0) return true; // every row was a placeholder
   return upsertIsaEntries(entries, { path: opts.path });
+}
+
+/** work.json rows store `isa` relative to LIFEOS_DIR when the artifact lives
+ *  under it, and absolute otherwise (the two-tree split). Resolve both. */
+function resolveRowIsaPath(raw: unknown): string | null {
+  const rel = typeof raw === 'string' ? raw.trim() : '';
+  if (!rel) return null;
+  return rel.startsWith('/') ? rel : join(paiPath(), rel);
 }
 
 /** work.json rows store `isa` relative to LIFEOS_DIR when the artifact lives

@@ -95,7 +95,7 @@ Only `complete` is terminal in the enum. `TERMINAL_PHASES` (`hooks/lib/isa-index
 
 An ISA is the memory of a piece of work, so it must stay findable for as long as it exists. Freshness governs what is **pushed** at session start; nothing governs what **exists**.
 
-`MEMORY/STATE/isa-index.json` is that memory — an append-only index of every ISA the instance owns, across both WORK trees and the persistent tool ISAs under `LIFEOS/TOOLS/`. It is written by `LIFEOS/TOOLS/IsaReconcile.ts` (SessionStart, async) and kept warm by `ISASync.hook.ts` on every ISA edit; `LoadContext.hook.ts` renders the non-terminal entries as the *Stalled ISAs* block at any age. Three properties are load-bearing:
+`MEMORY/STATE/isa-index.json` is that memory — an append-only index of every ISA the instance owns, across both WORK trees and the persistent tool ISAs under `LIFEOS/TOOLS/`. It is written by `LIFEOS/TOOLS/IsaReconcile.ts` (SessionStart, async) and kept warm by `ISASync.hook.ts` on every ISA edit; `LoadContext.hook.ts` renders the non-terminal entries as the *Stalled ISAs* block, bounded for display by `isaPickup.stalledMaxAgeDays` (30 days by default; set `0` for any age). The bound is on the *display*, never on the index. Three properties are load-bearing:
 
 - **No entry is ever removed.** Not on TTL, not on cap eviction, not when the artifact leaves disk — a deleted artifact is tombstoned (`missing: true`) and un-marks itself if the file returns.
 - **There is no retention knob**, deliberately. Every display window is configurable under `isaPickup`; the index itself is not, because a retention knob on memory is the defect this index removes.

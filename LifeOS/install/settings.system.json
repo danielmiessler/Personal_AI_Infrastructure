@@ -400,7 +400,7 @@
     "activeWorkSummary": true
   },
   "isaPickup": {
-    "_docs": "ISA pickup loop. Every window below governs what is PUSHED at session start or held in the work.json VIEW. The persistent backlog index (MEMORY/STATE/isa-index.json) has no window and no retention knob by design: freshness governs what is pushed, never what exists or is findable. Set enabled:false to turn the whole surface off. Read by hooks/lib/isa-index.ts.",
+    "_docs": "ISA pickup loop. Every window below governs what is PUSHED at session start or held in the work.json VIEW. The persistent backlog index (MEMORY/STATE/isa-index.json) has no window and no retention knob by design: freshness governs what is pushed, never what exists or is findable. `enabled:false` switches off this index — all four write paths and the Stalled ISAs block — but NOT the Recent Sessions block, which predates the index; with no index to archive into, work.json rows are then dropped on expiry rather than kept. Read by hooks/lib/isa-index.ts.",
     "enabled": true,
     "recentWorkWindowHours": 48,
     "recentWorkLimit": 8,

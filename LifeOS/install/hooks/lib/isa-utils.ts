@@ -134,7 +134,7 @@ export function parseFrontmatter(content: string): Record<string, string> | null
  *
  * `parseFrontmatter` requires the `---` block to be the very first bytes. A
  * large share of live ISAs put the H1 title first and the block underneath
- * (8 of 57 at the 3783 sweep, including t847 and t328). Under the strict
+ * (a seventh of the artifacts in one real tree). Under the strict
  * parser those ISAs parse to null, and any consumer that skips on null makes
  * them invisible — the exact defect this index removes. So: strict first,
  * then the first `---` fenced block in the head, accepted only if it actually
@@ -225,7 +225,7 @@ export function countCriteria(content: string): { checked: number; total: number
   return { checked, total: lines.length };
 }
 
-// ── Backlog section (task 3783) ───────────────────────────────────────────
+// ── Backlog section ───────────────────────────────────────────────────────
 
 /**
  * The `## Remaining Work` section — the sanctioned per-ISA backlog. Returns
@@ -600,17 +600,11 @@ export function getSessionAgents(sessionUUID: string): AgentEntry[] {
 
     const agents: Map<string, AgentEntry> = new Map();
 
-    // Lifecycle events only. AgentInvocation v1.4.0 also appends
-    // `subagent_attested` rows (executed-model ledger); without this filter any
-    // future non-lifecycle event renders as a phantom "active" agent in Pulse.
-    const LIFECYCLE = new Set(['subagent_start', 'subagent_stop', 'subagent_attested']);
-
     for (const line of raw.split('\n')) {
       if (!line.trim()) continue;
       try {
         const event = JSON.parse(line);
         if (event.session_id !== sessionUUID) continue;
-        if (!LIFECYCLE.has(event.event)) continue;
 
         // Build a unique key from subagent_id (or fallback to timestamp for unknown)
         const agentKey = event.subagent_id && event.subagent_id !== 'unknown'
@@ -621,37 +615,27 @@ export function getSessionAgents(sessionUUID: string): AgentEntry[] {
           ? event.subagent_id
           : (event.prompt_preview ? event.prompt_preview.slice(0, 40) : 'Subagent');
 
-        // v1.4.0 renamed the declaration field; keep reading the legacy name so
-        // this stays correct across the dual-write window and for historical rows.
-        const declaredModel = event.subagent_model_declared || event.subagent_model;
         const agentType = event.subagent_type && event.subagent_type !== 'unknown'
           ? event.subagent_type
-          : (declaredModel && declaredModel !== 'unknown' ? declaredModel : 'agent');
+          : (event.subagent_model && event.subagent_model !== 'unknown' ? event.subagent_model : 'agent');
 
-        // `subagent_attested` is the true completion signal: it is written by the
-        // Stop sweep only once a transcript exists. `subagent_stop` fires at
-        // LAUNCH (dispatches are async), so it must NOT flip status — that was
-        // the long-standing bug here, which checked for `subagent_complete` /
-        // `subagent_end`, two event names this system has never written.
-        const status: 'active' | 'idle' | 'completed' =
-          event.event === 'subagent_attested' ? 'completed' : 'active';
+        // Determine status based on event type
+        let status: 'active' | 'idle' | 'completed' = 'active';
+        if (event.event === 'subagent_complete' || event.event === 'subagent_end') {
+          status = 'completed';
+        }
 
         // Infer phase from the timestamp relative to the session's phase history
         // For now, use the event type as a proxy
         const phase = event.phase || 'BUILD';
 
-        // Merge rather than replace: the attested row carries no prompt_preview,
-        // so a blind set() would erase the task text captured at start.
-        const existing = agents.get(agentKey);
-        const task = (event.prompt_preview && event.prompt_preview.length > 0
-          ? event.prompt_preview.slice(0, 80)
-          : undefined) ?? existing?.task;
-
         agents.set(agentKey, {
           name,
-          agentType: agentType !== 'agent' ? agentType : (existing?.agentType ?? agentType),
+          agentType,
           status,
-          task,
+          task: event.prompt_preview && event.prompt_preview.length > 0
+            ? event.prompt_preview.slice(0, 80)
+            : undefined,
           phase,
         });
       } catch {
@@ -847,7 +831,7 @@ export interface SyncOptions {
    * reason it did not was a gate living in a DIFFERENT FILE from the write
    * (IsaReconcile's old-completed skip, and its `status !== "in-sync"` gate).
    * Any future change to those classifiers silently re-arms an artifact write
-   * from a reconciler (2026-07-25 audit, finding 1).
+   * from a reconciler.
    *
    * Measured 2026-07-30: the resume is currently unreachable from that sweep
    * by construction, because the arming state (registry phase and frontmatter
@@ -1118,7 +1102,7 @@ export function syncToWorkJson(
     ...(fm.frozen ? { frozen: true } : {}),
   };
 
-  // ── v6.9.0 + task 3783: expiry moves rows INTO the index, never into the void ──
+  // ── Expiry moves rows INTO the index, never into the void ──
   //
   // Cleanup against unbounded growth. Thresholds are read against the newer of
   // `lastToolActivity` and `updatedAt` so idle tabs (no tool calls) eventually
@@ -1127,7 +1111,7 @@ export function syncToWorkJson(
   // Wave 1 (2026-05-23): lifted from 30min/2h/2h → 4h/24h/7d. The prior
   // thresholds were quietly deleting sessions the principal wanted to resume
   // (e.g. a learn-phase session from 24h ago was GONE from work.json, so the
-  // dashboard had nothing to render). Wave 2 (3783) closes the class instead of
+  // dashboard had nothing to render). The index closes the class instead of
   // loosening again: work.json stays a bounded VIEW at these windows, and every
   // evicted row is first archived to the persistent backlog index. The windows
   // are now knobs (settings `isaPickup.workJson`); the index has no window.
@@ -1225,7 +1209,7 @@ export function syncToWorkJson(
 
   writeRegistry(registry);
 
-  // Task 3783 — live index upsert. Every ISA edit refreshes this ISA's entry in
+  // Live index upsert. Every ISA edit refreshes this ISA's entry in
   // the persistent backlog index, so anything actively worked on is current
   // there without waiting for the next full sweep. Best-effort: the index is a
   // read-optimized memory surface, and the ISA file on disk (which the sweep

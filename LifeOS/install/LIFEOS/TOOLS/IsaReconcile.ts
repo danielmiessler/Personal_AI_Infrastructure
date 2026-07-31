@@ -6,7 +6,7 @@
 // PURPOSE:
 // Two jobs, one pass.
 //
-//   1. THE INDEX (task 3783, the reason this tool now runs on a trigger).
+//   1. THE INDEX (the reason this tool now runs on a trigger).
 //      ISAs are the memory of the principal's work and tools; they must stay
 //      persistent and findable forever. This sweep writes every ISA it can see
 //      — BOTH WORK trees (~/.claude/MEMORY/WORK and <LIFEOS_DIR>/MEMORY/WORK)
@@ -30,11 +30,11 @@
 //
 // RETIRED: `--abandon-old-verify` used to rewrite stranded ISAs to
 // `phase: complete`. That erased the exact backlog signal the index exists to
-// carry (3783). Stranded ISAs are now flagged `stranded` in the index and
+// carry. Stranded ISAs are now flagged `stranded` in the index and
 // synced to work.json as they are.
 //
 // THE SWEEP NEVER WRITES AN ISA FILE. Scoped precisely, the claim has three
-// independent legs (2026-07-25 audit finding 1; re-verified 2026-07-30):
+// independent legs:
 //
 //   1. FILE. This file contains no write call — no writeFileSync, no
 //      writeFrontmatterField.
@@ -98,7 +98,7 @@ const quiet = args.includes("--quiet") && !asJson;
 
 if (args.includes("--abandon-old-verify")) {
   console.error(
-    "[IsaReconcile] --abandon-old-verify is RETIRED (task 3783): rewriting stranded ISAs to " +
+    "[IsaReconcile] --abandon-old-verify is RETIRED: rewriting stranded ISAs to " +
       "phase:complete erased the backlog signal. Stranded ISAs are flagged in the index instead. " +
       "Proceeding without it.",
   );
@@ -169,7 +169,7 @@ for (const source of sorted) {
     const content = readFileSync(source.path, "utf-8");
     // INDEXING NEVER SKIPS. An ISA whose frontmatter won't parse is still the
     // memory of real work — dropping it here would rebuild the very
-    // invisibility 3783 removes. The tolerant read covers title-first ISAs; a
+    // invisibility this index removes. The tolerant read covers title-first ISAs; a
     // total parse failure still indexes on derived fields (dir name, H1,
     // mtime, ISC counts) and is reported as a normalization finding.
     const fm = parseFrontmatterTolerant(content);
@@ -226,7 +226,7 @@ for (const source of sorted) {
       } else {
         // Stranded verify-phase ISAs sync AS THEY ARE. No frontmatter rewrite:
         // a stranded ISA is real in-flight backlog, and flipping it to complete
-        // was the signal-erasing bug (3783).
+        // was the signal-erasing bug this index exists to prevent.
         //
         // `artifactReadOnly` is the STRUCTURAL half of that promise: it
         // suppresses the v6.9.0 resume write-back inside syncToWorkJson, the
@@ -265,7 +265,12 @@ if (!noIndex && knobs.enabled) {
     // print a hook failure at the principal. Real I/O failures surface the same way and
     // self-heal on the next run; the one caller that cannot tolerate a skip
     // (work.json eviction) checks the boolean itself.
-    console.error(`[IsaReconcile] index write skipped (lock held or I/O) — ${isaIndexPath()}; next sweep retries`);
+    // Not under --quiet: the SessionStart registration runs quiet precisely so
+    // routine lock contention between two sessions opening at once cannot print
+    // at the principal. A skipped write is a no-op that the next sweep retries.
+    if (!quiet) {
+      console.error(`[IsaReconcile] index write skipped (lock held or I/O) — ${isaIndexPath()}; next sweep retries`);
+    }
   }
 }
 

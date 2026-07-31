@@ -14,9 +14,10 @@
  *   - Relationship context (recent opinions + notes)
  *   - Learning readback (signals, wisdom, failure patterns)
  *   - Active work summary (recent sessions + tracked projects)
- *   - Stalled ISAs (v1.7.0, task 3783) — the persistent backlog index, any age
+ *   - Stalled ISAs (v1.7.0) — the persistent backlog index, bounded only by
+ *     the `stalledMaxAgeDays` knob (30d default; 0 means genuinely any age)
  *
- * TWO SURFACES, ONE RULE (3783): the "Recent Sessions" block is the PUSH
+ * TWO SURFACES, ONE RULE: the "Recent Sessions" block is the PUSH
  * surface and is freshness-governed by knobs. The "Stalled ISAs" block reads
  * MEMORY/STATE/isa-index.json, which is append-only and has no retention
  * window at all — freshness governs what is pushed, never what exists or is
@@ -172,13 +173,13 @@ interface WorkSession {
  *
  * This is the PUSH surface: it is freshness-governed (window + row cap, both
  * knobs). It is not, and must never become, the record of what exists — that
- * is the persistent backlog index (task 3783).
+ * is the persistent backlog index.
  */
 function getRecentWorkSessions(paiDir: string): WorkSession[] {
   // Sessions live in TWO WORK trees: ~/.claude/MEMORY/WORK (where sessions since
   // 2026-07-24 create their dirs) and <LIFEOS_DIR>/MEMORY/WORK (the older tree).
   // Scanning only one starves this block of exactly the work it exists to surface
-  // (t3783 root-cause; the union is the fix, the pickup index is the successor).
+  // The union is the fix; the persistent index is the successor.
   const workRoots = [
     join(getClaudeDir(), 'MEMORY', 'WORK'),
     join(paiDir, 'MEMORY', 'WORK'),
@@ -243,8 +244,13 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           const phaseMatch = head.match(/^phase:\s*"?([\w-]+)"?/m);
           const titleMatch = head.match(/^title:\s*"?(.+?)"?\s*$/m);
           const sessionIdMatch = head.match(/^session_id:\s*"?(.+?)"?\s*$/m);
-          if (statusMatch) status = statusMatch[1];
-          else if (phaseMatch) status = phaseMatch[1].toUpperCase();
+          // PHASE FIRST. `phase:` is the authoritative state field and `status:`
+          // is freeform prose whose first word only sometimes means anything —
+          // the same precedence the index uses (`phase || status`). Reading
+          // status first inverted it: `phase: complete` with a stale open status
+          // stayed pushed, and `phase: build` with `status: CLOSED` was hidden.
+          if (phaseMatch) status = phaseMatch[1].toUpperCase();
+          else if (statusMatch) status = statusMatch[1];
           if (titleMatch) rawTitle = titleMatch[1];
           if (sessionIdMatch) sessionId = sessionIdMatch[1]?.trim();
         } catch { /* skip */ }
@@ -265,8 +271,8 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
 
       try {
 
-        // ONE terminal vocabulary across both blocks (2026-07-25 audit,
-        // finding 2). This filter used to hardcode COMPLETED|COMPLETE, so an
+        // ONE terminal vocabulary across both blocks. This filter used to
+        // hardcode COMPLETED|COMPLETE, so an
         // ISA written `status: CLOSED` — which the stalled block correctly
         // treats as finished — still occupied a Recent Sessions slot. Two
         // surfaces disagreeing about "done" is how a finished session keeps
@@ -295,7 +301,8 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           if (artifactFile) {
             const isaContent = readFileSync(artifactFile, 'utf-8');
             const idMatch = isaContent.match(/^id:\s*(.+)$/m);
-            const statusMatch2 = isaContent.match(/^status:\s*(.+)$/m) ?? isaContent.match(/^phase:\s*(.+)$/m);
+            // Same precedence as the filter above: authoritative field first.
+            const statusMatch2 = isaContent.match(/^phase:\s*(.+)$/m) ?? isaContent.match(/^status:\s*(.+)$/m);
             const verifyMatch = isaContent.match(/^verification_summary:\s*"?(.+?)"?$/m)
               ?? isaContent.match(/^progress:\s*"?(.+?)"?$/m);
             isa = {
@@ -381,7 +388,7 @@ function getProjectProgress(paiDir: string): WorkSession[] {
 }
 
 /**
- * Backlog surface (task 3783) — read the persistent ISA index and return the
+ * Backlog surface — read the persistent ISA index and return the
  * ISAs that are not finished, at ANY age.
  *
  * This is a READ. The index is built by IsaReconcile.ts (SessionStart async
@@ -467,7 +474,12 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
   }
 
   if (stalled.length > 0) {
-    summary += '\n  ── Stalled ISAs (backlog — any age, most recent first) ──\n';
+    // The heading states the window actually in force. It used to say "any age"
+    // unconditionally, which is only true at stalledMaxAgeDays: 0 — the stock
+    // default is 30d, so the heading was overclaiming on a default install.
+    const maxAge = loadPickupKnobs().stalledMaxAgeDays;
+    const scope = maxAge > 0 ? `last ${maxAge}d` : 'any age';
+    summary += `\n  ── Stalled ISAs (backlog — ${scope}, most recent first) ──\n`;
     for (const e of stalled) {
       const bits: string[] = [e.phase];
       if (e.total > 0) bits.push(`${e.checked}/${e.total} ISC`);

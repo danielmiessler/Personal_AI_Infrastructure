@@ -61,11 +61,11 @@ Named blocks in `settings.system.json` that a subsystem reads at runtime. Each s
 
 ### `isaPickup` — ISA pickup windows
 
-Governs what ISA work is **pushed** at session start and how long the `work.json` **view** holds a row. Read by `hooks/lib/isa-index.ts` (`loadPickupKnobs()`); consumed by `LoadContext.hook.ts` and `LIFEOS/TOOLS/IsaReconcile.ts`. Set `enabled: false` to turn the whole surface off.
+Governs what ISA work is **pushed** at session start and how long the `work.json` **view** holds a row. Read by `hooks/lib/isa-index.ts` (`loadPickupKnobs()`); consumed by `LoadContext.hook.ts` and `LIFEOS/TOOLS/IsaReconcile.ts`.
 
 | Knob | Default | What it governs |
 |------|---------|-----------------|
-| `enabled` | `true` | Master switch for index writes and the Stalled ISAs block. |
+| `enabled` | `true` | Switches this index on/off: all write paths plus the Stalled ISAs block. Does **not** govern the Recent Sessions block. Off also means work.json rows are dropped on expiry rather than archived, since there is no index to keep them in. |
 | `recentWorkWindowHours` | `48` | Push window for the *Recent Sessions* block. |
 | `recentWorkLimit` | `8` | Max rows in *Recent Sessions*. |
 | `stalledDisplayLimit` | `5` | Max rows in *Stalled ISAs*. A **display** cap, never a data cap. |

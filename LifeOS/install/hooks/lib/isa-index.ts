@@ -112,6 +112,11 @@ export interface IsaIndexEntry {
   /** Artifact no longer on disk. Entry is RETAINED — this is the tombstone. */
   missing?: boolean;
   missingSince?: string;
+  /** Identity of a `work-expiry` archive: WHICH incarnation of `slug` this is.
+   *  Slugs recur (a directory name is reused), so slug alone cannot tell two
+   *  archives apart, and merging on slug equality destroys the earlier one's
+   *  memory. Absent on `sweep`/`sync` entries, whose identity is the key. */
+  incarnation?: string;
   source: IsaEntrySource;
 }
 
@@ -436,6 +441,38 @@ function isSafeIndexDestination(path: string): boolean {
 const ARTIFACT_BASENAMES = new Set(['isa.md', 'prd.md']);
 
 // ── Lock + atomic publish ─────────────────────────────────────────────────
+//
+// EVERY TOCTOU WINDOW IN THIS LOCK, ENUMERATED IN ONE PLACE.
+//
+// A POSIX directory lock has no compare-and-swap, so none of these can be
+// closed — only narrowed. They are listed here rather than asserted away,
+// because a docstring claiming "only if still ours" promises something the
+// filesystem cannot deliver, and a promise that cannot be kept is worse than a
+// window that is written down.
+//
+//   1. STEAL      acquireLock stale path: between measuring the lock's age and
+//                 claiming it. Narrowed to check-vs-RENAME latency: the claim is
+//                 a single atomic renameSync of the lock directory to a
+//                 tombstone, so exactly one contender can win it. It was
+//                 previously rm-then-mkdir — two syscalls, with a gap any writer
+//                 could interleave. Residual: the old owner may release and a new
+//                 owner acquire between our age measurement and our rename, in
+//                 which case we move a fresh live lock aside.
+//   2. HEARTBEAT  touchLock: between stillOwnLock's read and the token write.
+//                 Residual: a takeover in that gap gets our token stamped over
+//                 it. Narrowed from "always overwrites" to "overwrites only if
+//                 the takeover lands inside one read-write pair".
+//   3. COMMIT     publish: between the ownership check and renameSync. Residual:
+//                 a takeover there means we commit over the new owner. Narrowed
+//                 from the whole serialize+write phase (seconds at scale) to
+//                 syscall latency.
+//   4. RELEASE    releaseLock: between stillOwnLock's read and rmSync. Residual:
+//                 a takeover there means we delete the new owner's lock. The
+//                 rename narrowing available to (1) does not apply — removing is
+//                 the operation — so this one is only stated, not narrowed.
+//
+// All four are microsecond-scale against a 10s stale window. The failure mode of
+// each is a lost write that the caller defers, never a silent delete.
 
 const LOCK_STALE_MS = 10_000;
 const LOCK_RETRIES = 5;
@@ -492,10 +529,8 @@ export function stillOwnLock(lock: string, token: string): boolean {
  * `force` is for acquire, where the token does not exist yet and we have just
  * won the mkdir race.
  *
- * Residual window, stated honestly: between the read in stillOwnLock() and the
- * write below, a takeover is still possible, so this narrows the inversion
- * rather than eliminating it. Eliminating it needs an atomic
- * compare-and-swap on file contents, which POSIX does not provide.
+ * This is window 2 in the enumeration at the top of the lock section. It
+ * narrows the inversion rather than eliminating it.
  */
 export function touchLock(lock: string, token: string, force = false): void {
   try {
@@ -552,8 +587,19 @@ function acquireLock(lock: string, token: string): boolean {
       }
       const age = lockAgeMs(lock);
       if (age === -1 || age > LOCK_STALE_MS) {
-        try { rmSync(lock, { recursive: true, force: true }); } catch {}
-        try { mkdirSync(lock); touchLock(lock, token, true); return true; } catch { /* lost the race — retry */ }
+        // Window 1. Claim the stale lock by RENAMING it aside: rename is atomic,
+        // so exactly one contender can succeed. rm-then-mkdir was two syscalls,
+        // and a second contender could mkdir into the gap between them, leaving
+        // two writers both believing they held the lock.
+        const tomb = `${lock}.stale-${process.pid}-${Date.now()}`;
+        let claimed = false;
+        try { renameSync(lock, tomb); claimed = true; } catch { /* another contender won it */ }
+        if (claimed) {
+          let acquired = false;
+          try { mkdirSync(lock); touchLock(lock, token, true); acquired = true; } catch { /* fall through to retry */ }
+          try { rmSync(tomb, { recursive: true, force: true }); } catch { /* tombstone is inert */ }
+          if (acquired) return true;
+        }
       }
       if (attempt < LOCK_RETRIES) sleepSync(LOCK_RETRY_SLEEP_MS);
     }
@@ -564,12 +610,17 @@ function acquireLock(lock: string, token: string): boolean {
 }
 
 /**
- * Release the lock ONLY if it is still ours.
+ * Release the lock, checking ownership first.
+ *
+ * NOT "only if still ours" — that is window 4 above, and the previous docstring
+ * claimed a guarantee POSIX cannot provide. The check narrows the failure from
+ * "always removes whatever lock exists" to "removes another owner's lock only
+ * if the takeover lands between the read and the rmSync". Unlike the steal path
+ * there is no atomic form to narrow it further: removal IS the operation.
  *
  * The unconditional version removed whatever lock existed, including one
- * legitimately re-created by a writer that had taken over from us — which
- * handed the door to a third writer. Releasing someone else's lock is the same
- * class of error as publishing over their index.
+ * legitimately re-created by a writer that had taken over from us, handing the
+ * door to a third writer.
  */
 export function releaseLock(lock: string, token: string): void {
   try {
@@ -589,11 +640,9 @@ export function releaseLock(lock: string, token: string): void {
  * the write and the rename — the rename IS the commit, and it is the last
  * instruction that can destroy another writer's published index.
  *
- * Residual window, stated rather than papered over: between the ownership check
- * and renameSync() a takeover is still possible. It cannot be closed with POSIX
- * directory locks alone; closing it needs a compare-and-swap the filesystem does
- * not offer. It is a few microseconds of syscall latency against a 10s stale
- * window, versus the seconds-to-minutes of serialize+write it replaces.
+ * This is window 3 in the enumeration at the top of the lock section, where all
+ * four are listed with their widths. It narrows the exposure from the whole
+ * serialize+write phase to syscall latency; it does not close it.
  */
 function publish(index: IsaIndex, path: string, lock: string, token: string): boolean {
   const tmp = `${path}.tmp.${process.pid}`;
@@ -610,7 +659,13 @@ function publish(index: IsaIndex, path: string, lock: string, token: string): bo
     renameSync(tmp, path);
     return true;
   } catch (err) {
-    console.error(`⚠️ isa-index: publish failed for ${path} (${err}). Nothing was committed. If this is EROFS/EACCES it will NOT self-heal and every eviction defers until it is fixed; if it is ENOSPC or transient I/O the next run recovers.`);
+    // Classify, do not merely mention. The previous version named EROFS/EACCES
+    // in prose without ever inspecting err.code, so the "permanent failures are
+    // logged distinctly" claim was false on precisely this path while
+    // acquireLock honoured it.
+    const code = (err as NodeJS.ErrnoException)?.code;
+    const permanent = code === 'EROFS' || code === 'EACCES' || code === 'EPERM' || code === 'ENOTDIR';
+    console.error(`⚠️ isa-index: ${permanent ? 'PERMANENT — ' : ''}publish failed for ${path} (${code || err}). Nothing was committed${permanent ? '; this will NOT self-heal and every eviction defers until it is fixed' : '; the next run retries'}.`);
     try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
     return false;
   }
@@ -644,66 +699,56 @@ function mergeEntry(existing: IsaIndexEntry | undefined, incoming: IsaIndexEntry
 }
 
 /**
- * Is this incoming entry retrievable from the merged index under a key that
- * carries ITS identity? This is the property every previous guard approximated.
- */
-function isRetrievable(index: IsaIndex, incoming: IsaIndexEntry): boolean {
-  for (const e of Object.values(index.entries)) {
-    if (e.slug === incoming.slug && e.source === incoming.source) return true;
-  }
-  return false;
-}
-
-/**
- * Place one incoming entry, IDENTITY-SAFELY. Returns false to abort the whole
- * transaction.
+ * Place one incoming entry, IDENTITY-SAFELY. Returns the key it actually landed
+ * on, or `null` to abort the whole transaction.
  *
  * `mergeEntry` spreads incoming over existing, so an entry landing on a
- * contested key replaced it outright — slug and all. That is correct for two
- * observations OF THE SAME ARTIFACT (a sweep re-reading a directory whose
- * frontmatter slug changed) and catastrophic for two different SESSIONS'
- * archived memory, which is what an eviction writes.
+ * contested key replaces it outright. That is correct for two observations OF
+ * THE SAME ARTIFACT (a sweep re-reading a directory whose frontmatter slug
+ * changed) and catastrophic for two different SESSIONS' archived memory.
  *
- * So the rule is scoped by what an entry means:
- *   - `work-expiry` entries are a session's memory. They may never replace, nor
- *     be replaced by, an entry carrying a different slug. On conflict the
- *     archive re-keys to its own incarnation key; a resident archive about to be
- *     overwritten by a fresh observation is moved aside to its incarnation key
- *     first, so both survive.
- *   - `sweep`/`sync` entries are observations of an artifact. The directory IS
- *     the identity, so a changed slug is an update, not a collision.
+ * The rule is scoped by what an entry means:
+ *   - `work-expiry` entries are one session-incarnation's memory. An incoming
+ *     archive merges over a resident ONLY when it IS that resident — same slug
+ *     AND same incarnation. Anything else re-keys to its own incarnation key.
+ *     Slug equality is not identity: slugs recur, so incarnation 2 of a slug
+ *     merging over incarnation 1 destroyed real memory while every guard
+ *     reported success.
+ *   - `sweep`/`sync` entries are observations of an artifact; the directory IS
+ *     the identity, so a changed slug is an update. But a resident ARCHIVE is
+ *     moved aside to its own incarnation key first, so an observation never
+ *     overwrites session memory.
  *
  * An unresolvable collision fails closed. It never overwrites.
  */
-function placeEntry(index: IsaIndex, incoming: IsaIndexEntry, now: string): boolean {
+function placeEntry(index: IsaIndex, incoming: IsaIndexEntry, now: string): string | null {
   const existing = index.entries[incoming.key];
 
-  if (!existing || existing.slug === incoming.slug) {
-    index.entries[incoming.key] = mergeEntry(existing, incoming, now);
-    return true;
-  }
-
-  // Different slug at this key. Whose memory is at risk?
   if (incoming.source === 'work-expiry') {
+    // Merge in place only onto the very same incarnation.
+    if (!existing || sameIdentity(existing, incoming)) {
+      index.entries[incoming.key] = mergeEntry(existing, incoming, now);
+      return incoming.key;
+    }
     const alt = incarnationKeyFor(incoming);
     const resident = index.entries[alt];
-    if (resident && resident.slug !== incoming.slug) return false; // cannot place without loss
+    if (resident && !sameIdentity(resident, incoming)) return null; // cannot place without loss
     index.entries[alt] = mergeEntry(resident, { ...incoming, key: alt }, now);
-    return true;
+    return alt;
   }
 
-  if (existing.source === 'work-expiry') {
+  // Incoming is an artifact observation.
+  if (existing && existing.source === 'work-expiry') {
     const alt = incarnationKeyFor(existing);
     const resident = index.entries[alt];
-    if (resident && resident.slug !== existing.slug) return false; // cannot relocate without loss
+    if (resident && !sameIdentity(resident, existing)) return null; // cannot relocate without loss
     index.entries[alt] = { ...existing, key: alt };
     index.entries[incoming.key] = mergeEntry(undefined, incoming, now);
-    return true;
+    return incoming.key;
   }
 
-  // Two observations of one artifact; the directory is the identity.
   index.entries[incoming.key] = mergeEntry(existing, incoming, now);
-  return true;
+  return incoming.key;
 }
 
 export interface UpsertOptions {
@@ -787,20 +832,29 @@ function withIndexTransaction(path: string, plan: IndexPlan, opts: { reconcileMi
     if (entries === null) return false;
 
     const touched = new Set<string>();
+    const placements: Array<{ planned: IsaIndexEntry; key: string }> = [];
     for (const incoming of entries) {
       if (PLACEHOLDER_PHASES.has(incoming.phase)) continue;
-      if (!placeEntry(index, incoming, now)) return false;
-      touched.add(incoming.key);
+      const landed = placeEntry(index, incoming, now);
+      if (landed === null) return false;
+      placements.push({ planned: incoming, key: landed });
+      touched.add(landed);
     }
 
-    // POST-MERGE VERIFICATION. The property is not "we produced N entries" or
-    // "we chose N distinct keys" — both of those were true while memory was
-    // being lost. It is: after the merge, every entry we were asked to write is
-    // retrievable under a key carrying ITS identity.
-    for (const incoming of entries) {
-      if (PLACEHOLDER_PHASES.has(incoming.phase)) continue;
-      if (!isRetrievable(index, incoming)) {
-        console.error(`⚠️ isa-index: post-merge verification failed for slug "${incoming.slug}" — refusing to publish. Nothing was written; the caller defers.`);
+    // POST-MERGE VERIFICATION, on the property rather than a proxy.
+    //
+    // "We produced N entries" and "we chose N distinct keys" were both true
+    // while memory was being lost. So was "some entry with this slug exists" —
+    // that scan passed when incarnation 2 of a slug had just merged over
+    // incarnation 1, because it never asked WHICH incarnation survived.
+    //
+    // The property is: THIS planned entry is present AT THE KEY IT LANDED ON,
+    // carrying ITS identity. Nothing weaker distinguishes "my memory survived"
+    // from "something that looks like it did".
+    for (const { planned, key } of placements) {
+      const stored = index.entries[key];
+      if (!stored || !sameIdentity(stored, planned)) {
+        console.error(`⚠️ isa-index: post-merge verification failed for "${planned.slug}" at ${key} — refusing to publish. Nothing was written; the caller defers.`);
         return false;
       }
     }
@@ -888,8 +942,12 @@ export function archiveWorkRows(
   // overwrite the first.
   return withIndexTransaction(path, (index, now) => {
     const entries: IsaIndexEntry[] = [];
-    const claimed = new Map<string, string>();
-    for (const [k, e] of Object.entries(index.entries)) claimed.set(k, e.slug);
+    // Claims are by IDENTITY, not by slug. The previous version mapped key→slug
+    // and reused a directory key whenever `owner === slug`, which is the same
+    // false equation placeEntry made: a second incarnation of a recurring slug
+    // took the first one's key and merged over its memory.
+    const claimed = new Map<string, IsaIndexEntry>();
+    for (const [k, e] of Object.entries(index.entries)) claimed.set(k, e);
 
     let recoverable = 0;
     for (const { slug, session } of rows) {
@@ -908,23 +966,30 @@ export function archiveWorkRows(
       //
       // The directory key is used only while unclaimed or already ours —
       // against THIS read, and against the keys this batch has already taken.
+      const incarnation = incarnationDiscriminator(session);
       const dirKey = abs ? indexKeyForArtifact(abs) : null;
-      const owner = dirKey === null ? undefined : claimed.get(dirKey);
-      const synthetic = workExpiryKey(slug, session);
-      const key = dirKey !== null && (owner === undefined || owner === slug) ? dirKey : synthetic;
+      const synthetic = workExpiryKey(slug, incarnation);
 
-      // A synthetic key must also be checked against what already exists —
-      // the previous version only looked at the current batch, so a later
-      // archive of a reused slug merged over the earlier incarnation.
+      // Identity of the archive this row will become, for comparison against
+      // whatever already holds the key we would like to use.
+      const identity = { slug, source: 'work-expiry' as const, incarnation } as IsaIndexEntry;
+      const dirHolder = dirKey === null ? undefined : claimed.get(dirKey);
+      const key = dirKey !== null && (dirHolder === undefined || sameIdentity(dirHolder, identity))
+        ? dirKey
+        : synthetic;
+
+      // The chosen key must also be free of a DIFFERENT identity in what
+      // already exists — not just in this batch, which is all the previous
+      // version checked.
       const holder = claimed.get(key);
-      if (holder !== undefined && holder !== slug) {
-        console.error(`⚠️ isa-index: cannot archive work.json row "${slug}" without displacing "${holder}" at key ${key}; deferring rather than overwriting.`);
+      if (holder !== undefined && !sameIdentity(holder, identity)) {
+        console.error(`⚠️ isa-index: cannot archive work.json row "${slug}" without displacing "${holder.slug}" at key ${key}; deferring rather than overwriting.`);
         return null; // fail closed — the caller keeps every row
       }
-      claimed.set(key, slug);
 
       entries.push({
         key,
+        incarnation,
         kind: abs?.includes('/LIFEOS/TOOLS/') ? 'tool' : 'work',
         slug,
         title: String(session.task || session.sessionName || slug),
@@ -942,6 +1007,7 @@ export function archiveWorkRows(
         lastIndexed: now,
         source: 'work-expiry',
       });
+      claimed.set(key, entries[entries.length - 1]);
     }
 
     // Distinct-key check retained as a cheap early abort. It is no longer the
@@ -968,9 +1034,14 @@ export function archiveWorkRows(
  *   - TOTAL: there is no fallback branch, so no input mints a shared key.
  *   - DETERMINISTIC: re-archiving the same incarnation is idempotent, which is
  *     what makes a retry safe.
- *   - COLLIDING ONLY ON IDENTICAL CONTENT: two rows indistinguishable in every
- *     recorded field are the same memory, so merging them loses nothing.
- * Hex output also cannot be altered by the sanitizer that broke the last one.
+ *   - COLLISION-RESISTANT: two rows indistinguishable in every recorded field
+ *     hash alike and are the same memory, so merging them loses nothing. A
+ *     hash collision between DIFFERENT content is not identical content, so
+ *     this is a resistance property, not an absolute — the previous wording
+ *     ("only on identical content") claimed more than a hash can deliver.
+ * Full-width hex: truncation to 64 bits was theoretical at this scale, but
+ * widening costs nothing and retires the argument. Hex also cannot be altered
+ * by the sanitizer that broke the last scheme.
  */
 function incarnationDiscriminator(session: Record<string, any>): string {
   const material = JSON.stringify([
@@ -985,20 +1056,44 @@ function incarnationDiscriminator(session: Record<string, any>): string {
     session.criteria?.total ?? null,
     session.sessionUUID ?? null,
   ]);
-  return createHash('sha256').update(material).digest('hex').slice(0, 16);
+  return createHash('sha256').update(material).digest('hex');
 }
 
-function workExpiryKey(slug: string, session: Record<string, any>): string {
-  return `${WORK_EXPIRY_PREFIX}${slug}@${incarnationDiscriminator(session)}`;
+function workExpiryKey(slug: string, incarnation: string): string {
+  return `${WORK_EXPIRY_PREFIX}${slug}@${incarnation}`;
 }
 
-/** The incarnation key for an entry already built (used when re-keying). */
+/**
+ * The incarnation key for an entry already built (used when re-keying).
+ *
+ * Reads the identity the entry CARRIES. The previous version recomputed a hash
+ * from entry fields while the plan computed one from session fields — two
+ * different discriminators for one incarnation, so a relocated archive could
+ * not be recognised as itself. Entries written before `incarnation` existed
+ * have none; they fall back to a hash of their own fields, which is stable for
+ * a given legacy entry and cannot collide with a real discriminator except by
+ * hash collision.
+ */
 function incarnationKeyFor(entry: IsaIndexEntry): string {
-  const material = JSON.stringify([
-    entry.lastTouched ?? null, entry.path ?? null, entry.title ?? null,
-    entry.phase ?? null, entry.checked ?? null, entry.total ?? null,
-  ]);
-  return `${WORK_EXPIRY_PREFIX}${entry.slug}@${createHash('sha256').update(material).digest('hex').slice(0, 16)}`;
+  const disc = entry.incarnation
+    || createHash('sha256').update(JSON.stringify([
+      entry.lastTouched ?? null, entry.path ?? null, entry.title ?? null,
+      entry.phase ?? null, entry.checked ?? null, entry.total ?? null,
+    ])).digest('hex');
+  return `${WORK_EXPIRY_PREFIX}${entry.slug}@${disc}`;
+}
+
+/**
+ * Do these two entries denote the SAME memory?
+ *
+ * For an archive that means the same incarnation of the same slug — not merely
+ * the same slug, which recurs. For an artifact observation the key is the
+ * identity, so slug and source suffice.
+ */
+function sameIdentity(a: IsaIndexEntry, b: IsaIndexEntry): boolean {
+  if (a.slug !== b.slug || a.source !== b.source) return false;
+  if (b.source === 'work-expiry') return a.incarnation === b.incarnation;
+  return true;
 }
 
 

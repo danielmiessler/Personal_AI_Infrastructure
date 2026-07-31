@@ -70,6 +70,9 @@ import {
   statSync,
   unlinkSync,
   writeFileSync,
+  openSync,
+  readSync,
+  closeSync,
 } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { createHash } from 'crypto';
@@ -122,6 +125,12 @@ export interface IsaIndexEntry {
 
 export interface IsaIndex {
   version: number;
+  /** Monotonic publish counter. A canonical file whose generation is LOWER than
+   *  the highest surviving archive means a stale writer overwrote a newer
+   *  publish; the next transaction detects that and repairs from the archive. */
+  generation: number;
+  /** Lock token of the writer that published this generation. Diagnostic. */
+  writer?: string;
   updatedAt: string;
   entries: Record<string, IsaIndexEntry>;
 }
@@ -370,7 +379,7 @@ export function discoverIsaSources(): IsaSource[] {
 // ── Read ──────────────────────────────────────────────────────────────────
 
 function emptyIndex(): IsaIndex {
-  return { version: ISA_INDEX_VERSION, updatedAt: new Date(0).toISOString(), entries: {} };
+  return { version: ISA_INDEX_VERSION, generation: 0, updatedAt: new Date(0).toISOString(), entries: {} };
 }
 
 /** Never throws. A missing or corrupt index reads as empty. NOTE the limit of
@@ -386,7 +395,13 @@ export function readIsaIndex(path = isaIndexPath()): IsaIndex {
     if (!parsed || typeof parsed !== 'object' || !parsed.entries || typeof parsed.entries !== 'object') {
       return emptyIndex();
     }
-    return { version: parsed.version ?? ISA_INDEX_VERSION, updatedAt: parsed.updatedAt ?? '', entries: parsed.entries };
+    return {
+      version: parsed.version ?? ISA_INDEX_VERSION,
+      generation: Number.isFinite(parsed.generation) ? Number(parsed.generation) : 0,
+      writer: parsed.writer,
+      updatedAt: parsed.updatedAt ?? '',
+      entries: parsed.entries,
+    };
   } catch {
     return emptyIndex();
   }
@@ -402,7 +417,7 @@ export function readIsaIndex(path = isaIndexPath()): IsaIndex {
  *  and could NOT be moved — publishing then would overwrite unrecoverable
  *  memory with a rebuild, so the caller must abort instead. Append-only is not
  *  a property we get to keep only when rename() happens to succeed. */
-function quarantineIfCorrupt(path: string): boolean {
+export function quarantineIfCorrupt(path: string, lock: string, token: string): boolean {
   try {
     if (!existsSync(path)) return true;
     const parsed = JSON.parse(readFileSync(path, 'utf-8'));
@@ -413,6 +428,17 @@ function quarantineIfCorrupt(path: string): boolean {
       && parsed.entries && typeof parsed.entries === 'object' && !Array.isArray(parsed.entries)
     ) return true;
   } catch { /* unparseable — fall through to quarantine */ }
+  // OWNERSHIP RE-CHECK BEFORE A DESTRUCTIVE RENAME (window 3).
+  // This rename is as destructive as the commit and ran unguarded: a writer
+  // that judged the file corrupt, then paused past the stale threshold while a
+  // thief quarantined, published valid rows and let its caller delete them,
+  // would resume and rename that VALID index aside as "corrupt". publish()'s
+  // claim to own "the last instruction that can destroy a published index" was
+  // falsified by this earlier rename.
+  if (!stillOwnLock(lock, token)) {
+    console.error('⚠️ isa-index: lock was taken over before the corrupt-index quarantine; refusing to move the file aside. Nothing was written; the caller defers.');
+    return false;
+  }
   try {
     const aside = `${path}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
     renameSync(path, aside);
@@ -440,39 +466,84 @@ function isSafeIndexDestination(path: string): boolean {
 /** Artifact filenames the sweep reads. The index may never be pointed at one. */
 const ARTIFACT_BASENAMES = new Set(['isa.md', 'prd.md']);
 
+/**
+ * Errnos this module treats as PERMANENT — deterministic conditions that a
+ * retry cannot resolve without an operator changing something.
+ *
+ * The claim these support is deliberately bounded: a KNOWN-PERMANENT SUBSET is
+ * named, and anything unclassified defaults to transient-with-retry. That is
+ * not "permanent failures are always identified" — an errno outside this set
+ * that never self-heals will be reported as retryable, and the operator sees a
+ * repeating diagnostic rather than a permanent one. Failing toward "retry" is
+ * the safe direction: it never authorizes a delete.
+ */
+const PERMANENT_ERRNOS = new Set([
+  'EROFS',        // read-only filesystem
+  'EACCES',       // permission denied
+  'EPERM',        // operation not permitted
+  'ENOTDIR',      // a path component is not a directory
+  'EISDIR',       // a directory sits where a file must be
+  'ENAMETOOLONG', // the configured path cannot exist
+  'ELOOP',        // symlink cycle on the configured path
+  'EINVAL',       // malformed path/argument — configuration, not weather
+]);
+
+function isPermanentErrno(code: string | undefined): boolean {
+  return !!code && PERMANENT_ERRNOS.has(code);
+}
+
 // ── Lock + atomic publish ─────────────────────────────────────────────────
 //
-// EVERY TOCTOU WINDOW IN THIS LOCK, ENUMERATED IN ONE PLACE.
+// EVERY CHECK-TO-MUTATION WINDOW IN THIS MODULE, ENUMERATED IN ONE PLACE.
 //
-// A POSIX directory lock has no compare-and-swap, so none of these can be
-// closed — only narrowed. They are listed here rather than asserted away,
-// because a docstring claiming "only if still ours" promises something the
-// filesystem cannot deliver, and a promise that cannot be kept is worse than a
-// window that is written down.
+// Derived, not remembered: the list below is produced by sweeping the file for
+// every renameSync / rmSync / unlinkSync / writeFileSync on SHARED state and
+// naming the guard that precedes it. (Writes to `${path}.tmp.${pid}` and to our
+// own `.stale-${pid}-${ts}` tombstone are excluded: those names are unique to
+// this process, so no other writer can be racing them.) Re-run that sweep when
+// adding any mutation here; a window that is remembered rather than derived is
+// how the quarantine rename went four rounds unlisted.
 //
-//   1. STEAL      acquireLock stale path: between measuring the lock's age and
-//                 claiming it. Narrowed to check-vs-RENAME latency: the claim is
-//                 a single atomic renameSync of the lock directory to a
-//                 tombstone, so exactly one contender can win it. It was
-//                 previously rm-then-mkdir — two syscalls, with a gap any writer
-//                 could interleave. Residual: the old owner may release and a new
-//                 owner acquire between our age measurement and our rename, in
-//                 which case we move a fresh live lock aside.
-//   2. HEARTBEAT  touchLock: between stillOwnLock's read and the token write.
-//                 Residual: a takeover in that gap gets our token stamped over
-//                 it. Narrowed from "always overwrites" to "overwrites only if
-//                 the takeover lands inside one read-write pair".
-//   3. COMMIT     publish: between the ownership check and renameSync. Residual:
-//                 a takeover there means we commit over the new owner. Narrowed
-//                 from the whole serialize+write phase (seconds at scale) to
-//                 syscall latency.
-//   4. RELEASE    releaseLock: between stillOwnLock's read and rmSync. Residual:
-//                 a takeover there means we delete the new owner's lock. The
-//                 rename narrowing available to (1) does not apply — removing is
-//                 the operation — so this one is only stated, not narrowed.
+// A POSIX directory lock has no compare-and-swap, so none of these close. What
+// changed in round 6 is the CONSEQUENCE of the worst one: the commit no longer
+// destroys anything, so a lost race costs a detection-and-repair cycle rather
+// than memory.
 //
-// All four are microsecond-scale against a 10s stale window. The failure mode of
-// each is a lost write that the caller defers, never a silent delete.
+// WIDTH, STATED CORRECTLY. Every window below is bounded in INSTRUCTIONS and
+// UNBOUNDED IN WALL-CLOCK. Calling them "microseconds of syscall latency" was
+// wrong: a process SIGSTOPped, suspended with the laptop, or stalled on a
+// network filesystem sits inside one for minutes. Any reasoning that assumes a
+// short window is invalid.
+//
+//   1. QUARANTINE   quarantineIfCorrupt: stillOwnLock -> renameSync(path, aside)
+//                   Consequence if lost: a valid index is renamed aside as
+//                   corrupt. Recoverable — the aside file is intact — but the
+//                   canonical path is gone until an operator restores it.
+//   2. HEARTBEAT    touchLock: stillOwnLock -> writeFileSync(token)
+//                   Consequence: our token stamps over a new owner's, so the
+//                   LEGITIMATE writer aborts. Fails toward deferral.
+//   3. STEAL        acquireLock stale path: lockAgeMs -> renameSync(lock, tomb)
+//                   Consequence: a lock that went live between measurement and
+//                   claim is moved aside. Narrowed to a single atomic rename;
+//                   rm-then-mkdir was two syscalls with a gap between them.
+//   4. ARCHIVE      publish: stillOwnLock -> renameSync(path, gen-archive)
+//                   Consequence: none destructive — the file is preserved under
+//                   a generation name. This is the window that used to destroy.
+//   5. COMMIT       publish: stillOwnLock -> renameSync(tmp, path)
+//                   Consequence: a stale writer shadows a newer publish, which
+//                   survives as the archive written at (4) and is detected by
+//                   generation regression on the next locked read.
+//   6. RELEASE      releaseLock: stillOwnLock -> rmSync(lock)
+//                   Consequence: we remove a new owner's lock, admitting a
+//                   third writer. Not narrowable — removal IS the operation.
+//   7. PRUNE        pruneGenArchives: entries-verified-present -> unlinkSync
+//                   Consequence: none. The verification is a read of the
+//                   canonical index we just published, and an archive is
+//                   unlinked only when every entry it holds is present under
+//                   its own identity. Unverified archives are kept forever.
+//
+// The failure mode of 2, 3, 5, 6 and 7 is a deferred write or a redundant file.
+// Only 1 leaves an operator-visible mess, and it leaves the data intact.
 
 const LOCK_STALE_MS = 10_000;
 const LOCK_RETRIES = 5;
@@ -629,45 +700,194 @@ export function releaseLock(lock: string, token: string): void {
   } catch { /* best effort */ }
 }
 
+/** Generation-named archive of a superseded canonical index. */
+const GEN_ARCHIVE_RE = /\.gen-(\d+)-/;
+
+function genArchivePath(path: string, generation: number, writer: string): string {
+  const safeWriter = writer.replace(/[^0-9A-Za-z_-]/g, '');
+  return `${path}.gen-${generation}-${safeWriter}`;
+}
+
+/** Every surviving generation archive beside `path`, newest generation first. */
+function listGenArchives(path: string): Array<{ file: string; generation: number }> {
+  const dir = dirname(path);
+  const base = (path.split('/').pop() || '') + '.gen-';
+  let names: string[] = [];
+  try { names = readdirSync(dir); } catch { return []; }
+  return names
+    .filter((n) => n.startsWith(base))
+    .map((n) => ({ file: join(dir, n), generation: Number(n.match(GEN_ARCHIVE_RE)?.[1] ?? -1) }))
+    .filter((a) => a.generation >= 0)
+    .sort((a, b) => b.generation - a.generation);
+}
+
 /**
- * tmp + rename: a reader either sees the old file or the new one, never a
- * partial write. The tmp name carries the pid so concurrent writers that both
- * hold a (stale-stolen) lock cannot corrupt each other's staging file.
+ * Read just the header of an index file.
  *
- * OWNERSHIP GUARDS THE COMMIT, NOT THE PREAMBLE. The expensive phase is
- * serialize + write; checking ownership before it and committing after it left
- * exactly the window that matters unguarded. The check therefore sits between
- * the write and the rename — the rename IS the commit, and it is the last
- * instruction that can destroy another writer's published index.
+ * The published object writes `version`/`generation`/`writer` before `entries`,
+ * and JSON.stringify preserves insertion order for string keys, so the fields
+ * we need sit in the first bytes. Reading a 512-byte slice avoids parsing a
+ * file that may be hundreds of megabytes purely to learn its generation.
+ */
+function readIndexGeneration(path: string): number {
+  try {
+    const fd = openSync(path, 'r');
+    try {
+      const buf = Buffer.alloc(512);
+      const n = readSync(fd, buf, 0, 512, 0);
+      const m = buf.subarray(0, n).toString('utf-8').match(/"generation"\s*:\s*(\d+)/);
+      return m ? Number(m[1]) : 0;
+    } finally { closeSync(fd); }
+  } catch { return 0; }
+}
+
+/**
+ * Commit the index. NEVER DESTROYS A PUBLISH.
  *
- * This is window 3 in the enumeration at the top of the lock section, where all
- * four are listed with their widths. It narrows the exposure from the whole
- * serialize+write phase to syscall latency; it does not close it.
+ * Rounds 4 and 5 narrowed the ownership check toward the commit and then
+ * admitted a residual window. That framing was wrong in one important way: the
+ * window is bounded in INSTRUCTIONS but unbounded in WALL-CLOCK. A writer
+ * SIGSTOPped, suspended with the laptop, or stalled on a network filesystem can
+ * sit between the check and the rename for minutes. In that world "the caller
+ * defers, never a silent delete" was false — a stale writer's rename destroyed
+ * a newer publish whose caller had already deleted its work.json rows.
+ *
+ * So the commit stops depending on winning a race. It is two renames:
+ *   1. the CURRENT canonical is renamed to a generation-named archive;
+ *   2. our tmp is renamed into place, carrying generation N+1.
+ *
+ * A stale writer therefore DEMOTES the newer publish to an archive file instead
+ * of destroying it, and leaves evidence: the canonical's generation is now lower
+ * than a surviving archive's. Every transaction's locked read checks exactly
+ * that and repairs from the archive before planning. Nothing is lost, and the
+ * loss window becomes a detection-and-repair window.
+ *
+ * This needs no filesystem compare-and-swap. It needs only that rename is
+ * atomic, which POSIX does guarantee.
  */
 function publish(index: IsaIndex, path: string, lock: string, token: string): boolean {
   const tmp = `${path}.tmp.${process.pid}`;
   try {
+    // Header fields first so readIndexGeneration() can find them in a short slice.
+    const payload: IsaIndex = {
+      version: index.version,
+      generation: index.generation,
+      writer: token,
+      updatedAt: index.updatedAt,
+      entries: index.entries,
+    };
     // Compact, not pretty-printed. This file is machine-read on every
     // SessionStart and grows without bound by design; indentation roughly
     // doubles both its size and the parse cost for no consumer's benefit.
-    writeFileSync(tmp, JSON.stringify(index));
+    writeFileSync(tmp, JSON.stringify(payload));
+
     if (!stillOwnLock(lock, token)) {
       console.error('⚠️ isa-index: lock was taken over during serialization; discarding this merge rather than overwriting the current owner. Nothing was published; the caller defers.');
       try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
       return false;
     }
+
+    // Demote the current canonical rather than overwrite it. If we are a stale
+    // writer, this is what preserves the newer publish we are about to shadow.
+    if (existsSync(path)) {
+      const currentGen = readIndexGeneration(path);
+      try {
+        renameSync(path, genArchivePath(path, currentGen, token));
+      } catch (err) {
+        console.error(`⚠️ isa-index: could not archive the current index before committing (${(err as NodeJS.ErrnoException)?.code || err}); refusing to overwrite it. Nothing was published; the caller defers.`);
+        try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
+        return false;
+      }
+    }
+
     renameSync(tmp, path);
     return true;
   } catch (err) {
-    // Classify, do not merely mention. The previous version named EROFS/EACCES
-    // in prose without ever inspecting err.code, so the "permanent failures are
-    // logged distinctly" claim was false on precisely this path while
-    // acquireLock honoured it.
+    // Classify, do not merely mention. An earlier version named EROFS/EACCES in
+    // prose without ever inspecting err.code, so the "logged distinctly" claim
+    // was false on exactly this path while acquireLock honoured it.
     const code = (err as NodeJS.ErrnoException)?.code;
-    const permanent = code === 'EROFS' || code === 'EACCES' || code === 'EPERM' || code === 'ENOTDIR';
+    const permanent = isPermanentErrno(code);
     console.error(`⚠️ isa-index: ${permanent ? 'PERMANENT — ' : ''}publish failed for ${path} (${code || err}). Nothing was committed${permanent ? '; this will NOT self-heal and every eviction defers until it is fixed' : '; the next run retries'}.`);
     try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
     return false;
+  }
+}
+
+/**
+ * Detect and repair a generation regression.
+ *
+ * A canonical index whose generation is lower than a surviving archive's means
+ * a stale writer's commit shadowed a newer publish. The newer entries are in
+ * the archive; fold them back through the SAME identity-safe placement path
+ * everything else uses, so repair cannot itself overwrite memory.
+ *
+ * Returns the number of archives folded in. Runs inside the transaction, under
+ * the lock, before planning — so a plan is always made against repaired state.
+ */
+function repairGenerationRegression(index: IsaIndex, path: string, now: string): number {
+  const archives = listGenArchives(path);
+  if (archives.length === 0) return 0;
+  let repaired = 0;
+
+  for (const archive of archives) {
+    if (archive.generation <= index.generation) continue; // older or equal — nothing newer to recover
+    let older: IsaIndex;
+    try {
+      older = readIsaIndex(archive.file);
+    } catch { continue; }
+    console.error(`⚠️ isa-index: GENERATION REGRESSION — canonical is generation ${index.generation} but ${archive.file} is generation ${archive.generation}. A stale writer shadowed a newer publish; folding its entries back in.`);
+    for (const entry of Object.values(older.entries)) {
+      // Identity-safe: repair uses the same placement rule as every writer, so
+      // it cannot resolve a conflict by overwriting.
+      if (placeEntry(index, entry, now) === null) {
+        console.error(`⚠️ isa-index: repair could not place "${entry.slug}" without loss; leaving ${archive.file} in place for manual recovery.`);
+        return repaired;
+      }
+    }
+    index.generation = Math.max(index.generation, archive.generation);
+    repaired++;
+  }
+  return repaired;
+}
+
+/**
+ * Prune generation archives whose entries are all present in the canonical
+ * index.
+ *
+ * THE RETENTION INVARIANT IS ABSOLUTE: an archive is unlinked only after every
+ * entry it holds is verified present in the canonical index under a key
+ * carrying that entry's identity. Anything unverified is kept. In steady state
+ * the archive written by the previous commit prunes immediately, because an
+ * append-only merge contains everything it superseded — so the directory holds
+ * zero or one archive rather than growing.
+ *
+ * Bounded work: at most PRUNE_BUDGET archives per transaction, so a directory
+ * that has accumulated many (a repeated crash, a long regression) is drained
+ * over several runs instead of stalling one.
+ */
+const PRUNE_BUDGET = 4;
+
+function pruneGenArchives(index: IsaIndex, path: string): void {
+  let budget = PRUNE_BUDGET;
+  for (const archive of listGenArchives(path)) {
+    if (budget <= 0) return;
+    budget--;
+    let older: IsaIndex;
+    try {
+      older = readIsaIndex(archive.file);
+    } catch {
+      continue; // unreadable: keep it. An unreadable archive is not a verified one.
+    }
+    const allPresent = Object.values(older.entries).every((e) => {
+      const stored = index.entries[e.key];
+      if (stored && sameIdentity(stored, e)) return true;
+      // It may have been re-keyed by identity-safe placement; accept an exact
+      // identity match anywhere rather than requiring the original key.
+      return Object.values(index.entries).some((c) => sameIdentity(c, e));
+    });
+    if (!allPresent) continue; // KEEP — retention invariant
+    try { unlinkSync(archive.file); } catch { /* keep it; nothing is lost by trying again */ }
   }
 }
 
@@ -722,6 +942,17 @@ function mergeEntry(existing: IsaIndexEntry | undefined, incoming: IsaIndexEntry
  * An unresolvable collision fails closed. It never overwrites.
  */
 function placeEntry(index: IsaIndex, incoming: IsaIndexEntry, now: string): string | null {
+  // A work-expiry entry is never STORED without an identity. `undefined`
+  // deliberately matches nothing — not even another `undefined` — so an entry
+  // carrying no incarnation could never be verified as itself, and two of them
+  // could never be told apart. Assigning one derived from the entry's own
+  // fields makes both work: identical content yields the same identity (and
+  // correctly merges), different content yields different identities (and
+  // correctly re-keys). Legacy entries acquire an identity the first time they
+  // are touched.
+  if (incoming.source === 'work-expiry' && !incoming.incarnation) {
+    incoming = { ...incoming, incarnation: derivedIncarnation(incoming) };
+  }
   const existing = index.entries[incoming.key];
 
   if (incoming.source === 'work-expiry') {
@@ -822,10 +1053,15 @@ function withIndexTransaction(path: string, plan: IndexPlan, opts: { reconcileMi
   try {
     // A corrupt file that cannot be moved aside must not be published over:
     // the rebuild would replace unrecoverable index-only memory.
-    if (!quarantineIfCorrupt(path)) return false;
+    if (!quarantineIfCorrupt(path, lock, token)) return false;
     const index = readIsaIndex(path);
     const now = new Date().toISOString();
     if (afterLockedRead) afterLockedRead();
+
+    // A stale writer's commit demotes a newer publish to an archive rather than
+    // destroying it. Detect that here — before planning — so the plan is always
+    // made against repaired state.
+    repairGenerationRegression(index, path, now);
 
     // Key selection happens HERE, against the index we just read under the lock.
     const entries = plan(index, now);
@@ -837,7 +1073,10 @@ function withIndexTransaction(path: string, plan: IndexPlan, opts: { reconcileMi
       if (PLACEHOLDER_PHASES.has(incoming.phase)) continue;
       const landed = placeEntry(index, incoming, now);
       if (landed === null) return false;
-      placements.push({ planned: incoming, key: landed });
+      // Compare against the identity as PLACED: placeEntry assigns one to a
+      // work-expiry entry that arrived without it, and verifying against the
+      // pre-placement value would fail for exactly those entries.
+      placements.push({ planned: index.entries[landed], key: landed });
       touched.add(landed);
     }
 
@@ -877,10 +1116,16 @@ function withIndexTransaction(path: string, plan: IndexPlan, opts: { reconcileMi
     }
 
     index.version = ISA_INDEX_VERSION;
+    index.generation = (index.generation ?? 0) + 1;
     index.updatedAt = now;
 
     touchLock(lock, token); // fresh clock for serialize+write — only if still ours
-    return publish(index, path, lock, token);
+    if (!publish(index, path, lock, token)) return false;
+
+    // Only after a successful commit, and only for archives whose every entry
+    // is verified present in the canonical index.
+    pruneGenArchives(index, path);
+    return true;
   } catch (err) {
     console.error(`⚠️ isa-index: transaction aborted for ${path} (${err}). Nothing was committed; the caller defers.`);
     return false;
@@ -1075,12 +1320,15 @@ function workExpiryKey(slug: string, incarnation: string): string {
  * hash collision.
  */
 function incarnationKeyFor(entry: IsaIndexEntry): string {
-  const disc = entry.incarnation
-    || createHash('sha256').update(JSON.stringify([
-      entry.lastTouched ?? null, entry.path ?? null, entry.title ?? null,
-      entry.phase ?? null, entry.checked ?? null, entry.total ?? null,
-    ])).digest('hex');
-  return `${WORK_EXPIRY_PREFIX}${entry.slug}@${disc}`;
+  return `${WORK_EXPIRY_PREFIX}${entry.slug}@${entry.incarnation || derivedIncarnation(entry)}`;
+}
+
+/** Identity for an entry that carries none — derived from what it does carry. */
+function derivedIncarnation(entry: IsaIndexEntry): string {
+  return createHash('sha256').update(JSON.stringify([
+    entry.lastTouched ?? null, entry.path ?? null, entry.title ?? null,
+    entry.phase ?? null, entry.checked ?? null, entry.total ?? null,
+  ])).digest('hex');
 }
 
 /**
@@ -1092,7 +1340,18 @@ function incarnationKeyFor(entry: IsaIndexEntry): string {
  */
 function sameIdentity(a: IsaIndexEntry, b: IsaIndexEntry): boolean {
   if (a.slug !== b.slug || a.source !== b.source) return false;
-  if (b.source === 'work-expiry') return a.incarnation === b.incarnation;
+  if (b.source === 'work-expiry') {
+    // UNDEFINED MATCHES NOTHING — not even another undefined. `undefined ===
+    // undefined` is true, so two incarnation-less legacy archives compared
+    // equal and merged in place: exactly the class the incarnation field was
+    // added to close, surviving through the optionality of the field itself.
+    //
+    // Consequence, accepted deliberately: a legacy entry with no incarnation
+    // re-archives under a fresh key rather than merging. That duplicates an
+    // entry. Duplication is recoverable; a merged-away incarnation is not.
+    if (a.incarnation === undefined || b.incarnation === undefined) return false;
+    return a.incarnation === b.incarnation;
+  }
   return true;
 }
 

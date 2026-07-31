@@ -9,6 +9,61 @@ import { inference, type InferenceLevel } from '../../../../LIFEOS/TOOLS/Inferen
 import { judgeLevelForModel } from './JudgeLevel.ts';
 import { readFileSync, existsSync } from 'fs';
 
+export interface ComparisonResult {
+  position: string;
+  winner: 'A' | 'B' | 'tie';
+  reasoning: string;
+  /** The judge call itself failed; the winner field carries no verdict. */
+  errored?: boolean;
+}
+
+/**
+ * Turn per-position verdicts into a score.
+ *
+ * A judge that never answered is not a tie. Both are recorded as `tie` for the
+ * winner tally, so without the `errored` flag an outage scored (0 + 2*0.5)/2 =
+ * 0.5, and `passed = score >= 0.5` made that a PASS — every task in the suite
+ * passing on the strength of a judge that was down. The sibling model-based
+ * graders already return 0 when their judge throws; this makes pairwise agree.
+ *
+ * One failed comparison fails the grade rather than scoring on the survivor:
+ * the swap exists to cancel position bias, so half of it is not a debiased
+ * result, it is a biased one wearing a debiased result's score.
+ */
+export function aggregatePairwise(
+  results: ComparisonResult[],
+  positionSwap: boolean,
+): { score: number; winner: string; outputWins: number; referenceWins: number; ties: number } {
+  const outputWins = results.filter(r => r.winner === 'A').length;
+  const referenceWins = results.filter(r => r.winner === 'B').length;
+  const ties = results.filter(r => r.winner === 'tie').length;
+
+  if (results.some(r => r.errored)) {
+    return { score: 0, winner: 'error', outputWins, referenceWins, ties };
+  }
+
+  let score: number;
+  let winner: string;
+
+  if (outputWins > referenceWins) {
+    score = 1.0;
+    winner = 'output';
+  } else if (referenceWins > outputWins) {
+    score = 0.0;
+    winner = 'reference';
+  } else {
+    score = 0.5;
+    winner = 'tie';
+  }
+
+  // For the score, also consider partial wins
+  if (positionSwap && results.length === 2) {
+    score = (outputWins + ties * 0.5) / 2;
+  }
+
+  return { score, winner, outputWins, referenceWins, ties };
+}
+
 export class PairwiseComparisonGrader extends BaseGrader {
   type = 'pairwise_comparison' as const;
   category = 'model_based' as const;
@@ -36,7 +91,7 @@ export class PairwiseComparisonGrader extends BaseGrader {
     const positionSwap = params.position_swap ?? true;
 
     // Run comparison(s)
-    const results: { position: string; winner: 'A' | 'B' | 'tie'; reasoning: string }[] = [];
+    const results: ComparisonResult[] = [];
 
     // First comparison: Output = A, Reference = B
     const result1 = await this.compare(context.output, reference, level, params.criteria);
@@ -51,37 +106,19 @@ export class PairwiseComparisonGrader extends BaseGrader {
         position: 'reference_first',
         winner: flippedWinner as 'A' | 'B' | 'tie',
         reasoning: result2.reasoning,
+        errored: result2.errored,
       });
     }
 
-    // Aggregate results
-    const outputWins = results.filter(r => r.winner === 'A').length;
-    const referenceWins = results.filter(r => r.winner === 'B').length;
-    const ties = results.filter(r => r.winner === 'tie').length;
-
-    let score: number;
-    let aggregateWinner: string;
-
-    if (outputWins > referenceWins) {
-      score = 1.0;
-      aggregateWinner = 'output';
-    } else if (referenceWins > outputWins) {
-      score = 0.0;
-      aggregateWinner = 'reference';
-    } else {
-      score = 0.5;
-      aggregateWinner = 'tie';
-    }
-
-    // For the score, also consider partial wins
-    if (positionSwap && results.length === 2) {
-      score = (outputWins + ties * 0.5) / 2;
-    }
+    const { score, winner: aggregateWinner, outputWins, referenceWins, ties } =
+      aggregatePairwise(results, positionSwap);
 
     const passed = score >= 0.5;
 
     return this.createResult(score, passed, performance.now() - start, {
-      reasoning: `${aggregateWinner} wins (output: ${outputWins}, reference: ${referenceWins}, ties: ${ties})`,
+      reasoning: aggregateWinner === 'error'
+        ? `judge error (output: ${outputWins}, reference: ${referenceWins}, ties: ${ties})`
+        : `${aggregateWinner} wins (output: ${outputWins}, reference: ${referenceWins}, ties: ${ties})`,
       details: {
         results,
         position_swap: positionSwap,
@@ -96,7 +133,7 @@ export class PairwiseComparisonGrader extends BaseGrader {
     outputB: string,
     level: InferenceLevel,
     criteria?: string[]
-  ): Promise<{ winner: 'A' | 'B' | 'tie'; reasoning: string }> {
+  ): Promise<Omit<ComparisonResult, 'position'>> {
     const criteriaText = criteria?.length
       ? `Focus on these criteria:\n${criteria.map(c => `- ${c}`).join('\n')}`
       : 'Consider overall quality, accuracy, clarity, and helpfulness.';
@@ -147,9 +184,12 @@ Compare these outputs and determine which is better.`;
         reasoning: reasoningMatch?.[1]?.trim() ?? text,
       };
     } catch (e) {
+      // `tie` keeps the winner field a valid verdict shape; `errored` is what
+      // tells the aggregator this comparison produced no verdict at all.
       return {
         winner: 'tie',
         reasoning: `Comparison error: ${e}`,
+        errored: true,
       };
     }
   }

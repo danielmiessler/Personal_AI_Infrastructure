@@ -4,7 +4,8 @@
   "type": "module",
   "description": "AI agent evaluation framework for LifeOS — graders, pass@k scoring, multi-turn scenarios",
   "scripts": {
-    "scenario": "bun run Tools/ScenarioRunner.ts"
+    "scenario": "bun run Tools/ScenarioRunner.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.74",

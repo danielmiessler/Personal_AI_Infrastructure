@@ -48,12 +48,13 @@
  * few thousand entries) but neither is constant-time, and calling the read
  * "cheap" without saying so would be overclaiming.
  *
- * CONCURRENCY: mkdir lock with stale takeover + tmp/rename publish, mirroring
- * hooks/lib/work-events.ts. Readers never see a partial file. On lock
- * contention a write is SKIPPED, never partial — safe because the ISA files on
- * disk remain ground truth and the next sweep re-reads them. The one caller
- * that cannot tolerate a skip (TTL eviction) checks the boolean return and
- * defers its delete.
+ * CONCURRENCY: ONE WRITER AT A TIME, enforced by PID LIVENESS. mkdir is the
+ * exclusive claim; a lock is taken over only when its owning process is proven
+ * dead, never because it looks old. Everything else — a live owner, an owner we
+ * cannot identify — defers, and a deferral never deletes. Publish is a single
+ * atomic rename, so readers never see a partial file. The one caller that cannot
+ * tolerate a skip (TTL eviction) checks the boolean return and defers its delete.
+ * Full protocol and its residual windows: § Lock + atomic publish.
  *
  * TRIGGER: n/a (shared lib — no stdin, no registration)
  *
@@ -70,9 +71,6 @@ import {
   statSync,
   unlinkSync,
   writeFileSync,
-  openSync,
-  readSync,
-  closeSync,
 } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { createHash } from 'crypto';
@@ -125,12 +123,6 @@ export interface IsaIndexEntry {
 
 export interface IsaIndex {
   version: number;
-  /** Monotonic publish counter. A canonical file whose generation is LOWER than
-   *  the highest surviving archive means a stale writer overwrote a newer
-   *  publish; the next transaction detects that and repairs from the archive. */
-  generation: number;
-  /** Lock token of the writer that published this generation. Diagnostic. */
-  writer?: string;
   updatedAt: string;
   entries: Record<string, IsaIndexEntry>;
 }
@@ -379,7 +371,7 @@ export function discoverIsaSources(): IsaSource[] {
 // ── Read ──────────────────────────────────────────────────────────────────
 
 function emptyIndex(): IsaIndex {
-  return { version: ISA_INDEX_VERSION, generation: 0, updatedAt: new Date(0).toISOString(), entries: {} };
+  return { version: ISA_INDEX_VERSION, updatedAt: new Date(0).toISOString(), entries: {} };
 }
 
 /** Never throws. A missing or corrupt index reads as empty. NOTE the limit of
@@ -387,7 +379,14 @@ function emptyIndex(): IsaIndex {
  *  entries that still have a file — tombstones, work-expiry archives, and
  *  firstIndexed provenance exist ONLY here. That is why the WRITE path
  *  quarantines a corrupt file before publishing over it (see
- *  quarantineIfCorrupt) instead of silently starting fresh. */
+ *  quarantineIfCorrupt) instead of silently starting fresh.
+ *
+ *  FORWARD-TOLERANT BY CONSTRUCTION: the returned object is built field by
+ *  field, so an index written by an older build — one carrying the retired
+ *  `generation`/`writer` header fields — parses normally, its extra fields are
+ *  ignored here and dropped by the next publish. An unrecognized header field is
+ *  never a reason to read an index as empty; that would discard real memory over
+ *  a header. */
 export function readIsaIndex(path = isaIndexPath()): IsaIndex {
   try {
     if (!existsSync(path)) return emptyIndex();
@@ -397,8 +396,6 @@ export function readIsaIndex(path = isaIndexPath()): IsaIndex {
     }
     return {
       version: parsed.version ?? ISA_INDEX_VERSION,
-      generation: Number.isFinite(parsed.generation) ? Number(parsed.generation) : 0,
-      writer: parsed.writer,
       updatedAt: parsed.updatedAt ?? '',
       entries: parsed.entries,
     };
@@ -494,58 +491,104 @@ function isPermanentErrno(code: string | undefined): boolean {
 
 // ── Lock + atomic publish ─────────────────────────────────────────────────
 //
-// EVERY CHECK-TO-MUTATION WINDOW IN THIS MODULE, ENUMERATED IN ONE PLACE.
+// THE PROTOCOL: ONE WRITER AT A TIME, ENFORCED BY PID LIVENESS.
 //
-// Derived, not remembered: the list below is produced by sweeping the file for
-// every renameSync / rmSync / unlinkSync / writeFileSync on SHARED state and
-// naming the guard that precedes it. (Writes to `${path}.tmp.${pid}` and to our
-// own `.stale-${pid}-${ts}` tombstone are excluded: those names are unique to
-// this process, so no other writer can be racing them.) Re-run that sweep when
-// adding any mutation here; a window that is remembered rather than derived is
-// how the quarantine rename went four rounds unlisted.
+// mkdir is the exclusive claim — POSIX guarantees exactly one contender can
+// create a directory that does not yet exist. That primitive was never the
+// problem. The problem was the rule for what to do when the directory is ALREADY
+// there, and the answer through several rounds was "steal it if it looks old".
+// Every critical those rounds produced traces to that answer: a writer paused
+// past the threshold — SIGSTOP, a suspended laptop, a stalled network mount, a
+// long GC pause — is not dead, and stealing from it puts two LIVE writers inside
+// the critical section at once. Age cannot distinguish slow from dead, and no
+// threshold derived from index size fixes that, because the pause is unrelated
+// to the work.
 //
-// A POSIX directory lock has no compare-and-swap, so none of these close. What
-// changed in round 6 is the CONSEQUENCE of the worst one: the commit no longer
-// destroys anything, so a lost race costs a detection-and-repair cycle rather
-// than memory.
+// So the rule is liveness, not age:
 //
-// WIDTH, STATED CORRECTLY. Every window below is bounded in INSTRUCTIONS and
-// UNBOUNDED IN WALL-CLOCK. Calling them "microseconds of syscall latency" was
-// wrong: a process SIGSTOPped, suspended with the laptop, or stalled on a
-// network filesystem sits inside one for minutes. Any reasoning that assumes a
-// short window is invalid.
+//   OWNER ALIVE          defer. Always, at any age. There is no timeout after
+//                        which a live owner is stolen from. Callers treat a
+//                        deferral as keep-my-rows, so deferring never deletes.
+//   OWNER PROVABLY DEAD  take over. A process that has exited executes no
+//                        further instruction, so it cannot resume into a rename,
+//                        a publish or a release. Takeover is an atomic rename of
+//                        the lock directory to a private tombstone — never
+//                        rm-then-mkdir, whose two syscalls admit a contender to
+//                        the gap between them.
+//   UNPROVABLE           defer, and warn a human once the lock is old. This
+//                        covers an ownerless lock (a writer that died between
+//                        mkdir and the token write), an unparseable token, and
+//                        PID REUSE (an unrelated live process now holds the
+//                        recorded pid). None of the three is distinguishable
+//                        from a live owner by anything the filesystem can tell
+//                        us, so all three take the safe branch. A lock genuinely
+//                        orphaned this way is cleared by an operator, never by
+//                        this code — code that resolves its own ambiguity by
+//                        deleting is the defect this design removes.
+//
+// PREMISE — SINGLE HOST. `kill(pid, 0)` answers about a process on THIS machine.
+// The protocol therefore requires that every writer of a given index runs on the
+// host holding it, which is true here by construction: the index is written by
+// hooks inside the local session. If it were ever placed on a share written by
+// two hosts, a live remote writer's pid would read as dead locally and be stolen
+// from. That is the one configuration this design does not cover, and it must be
+// prevented by placement — it is not detectable from here.
+//
+// ── EVERY CHECK-TO-MUTATION WINDOW, RE-DERIVED FOR THIS PROTOCOL ───────────
+//
+// Derived, not remembered: produced by sweeping the file for every renameSync /
+// rmSync / unlinkSync / writeFileSync on SHARED state and naming the guard that
+// precedes it. Excluded because the name is unique to this process and no other
+// writer can be racing it: `${path}.tmp.${pid}` and our own `.dead-${pid}-…`
+// tombstone. Re-run that sweep when adding any mutation here; a window that is
+// remembered rather than derived is how the quarantine rename went four rounds
+// unlisted.
+//
+// WIDTH, STATED HONESTLY. Every window below is bounded in INSTRUCTIONS and
+// UNBOUNDED IN WALL-CLOCK — a suspended process sits inside one for minutes. No
+// reasoning here assumes a window is short. What makes the list safe is not its
+// width but the fact that, with live owners never stolen from, ENTERING these
+// windows concurrently requires one of only two things.
 //
 //   1. QUARANTINE   quarantineIfCorrupt: stillOwnLock -> renameSync(path, aside)
-//                   Consequence if lost: a valid index is renamed aside as
-//                   corrupt. Recoverable — the aside file is intact — but the
-//                   canonical path is gone until an operator restores it.
-//   2. HEARTBEAT    touchLock: stillOwnLock -> writeFileSync(token)
-//                   Consequence: our token stamps over a new owner's, so the
-//                   LEGITIMATE writer aborts. Fails toward deferral.
-//   3. STEAL        acquireLock stale path: lockAgeMs -> renameSync(lock, tomb)
-//                   Consequence: a lock that went live between measurement and
-//                   claim is moved aside. Narrowed to a single atomic rename;
-//                   rm-then-mkdir was two syscalls with a gap between them.
-//   4. ARCHIVE      publish: stillOwnLock -> renameSync(path, gen-archive)
-//                   Consequence: none destructive — the file is preserved under
-//                   a generation name. This is the window that used to destroy.
-//   5. COMMIT       publish: stillOwnLock -> renameSync(tmp, path)
-//                   Consequence: a stale writer shadows a newer publish, which
-//                   survives as the archive written at (4) and is detected by
-//                   generation regression on the next locked read.
-//   6. RELEASE      releaseLock: stillOwnLock -> rmSync(lock)
-//                   Consequence: we remove a new owner's lock, admitting a
-//                   third writer. Not narrowable — removal IS the operation.
-//   7. PRUNE        pruneGenArchives: entries-verified-present -> unlinkSync
-//                   Consequence: none. The verification is a read of the
-//                   canonical index we just published, and an archive is
-//                   unlinked only when every entry it holds is present under
-//                   its own identity. Unverified archives are kept forever.
+//                   Reachable concurrently only via (A). Consequence: a valid
+//                   index is renamed aside as corrupt. The data is intact in the
+//                   aside file; the canonical path is empty until an operator
+//                   restores it.
+//   2. TAKEOVER     acquireLock dead path: !isProcessAlive -> renameSync(lock, tomb)
+//                   Reachable concurrently via (B). The captured directory is
+//                   verified to carry the dead token we set out to displace; a
+//                   mismatch means we captured a contender's live lock, so we
+//                   put it back and defer instead of proceeding. Consequence of
+//                   losing this race: both contenders defer. Never two writers.
+//   3. COMMIT       publish: stillOwnLock -> renameSync(tmp, path)
+//                   Reachable concurrently only via (A). Consequence: we publish
+//                   over a state a new owner is working from. Our payload is an
+//                   append-only merge of what we read, so this loses only writes
+//                   that landed after our own locked read.
+//   4. RELEASE      releaseLock: stillOwnLock -> rmSync(lock)
+//                   Reachable concurrently only via (A). Consequence: we remove
+//                   another owner's lock, admitting a third writer. Not
+//                   narrowable — removal IS the operation.
 //
-// The failure mode of 2, 3, 5, 6 and 7 is a deferred write or a redundant file.
-// Only 1 leaves an operator-visible mess, and it leaves the data intact.
+// The two ways in:
+//   (A) AN OPERATOR REMOVES A LIVE LOCK BY HAND. Nothing in this module does it,
+//       and the diagnostic that names the manual unlock says so. Operator-induced
+//       concurrency is out of the module's control by definition.
+//   (B) TWO CONTENDERS PROVE THE SAME DEAD OWNER SIMULTANEOUSLY. Handled at (2)
+//       by capture-then-verify, which fails closed to a deferral.
+//
+// No window here is entered concurrently by two live writers under the module's
+// own operation. That is the whole claim — it is not "races are impossible", and
+// it is not a guarantee POSIX cannot give. It is: nothing in this code steals
+// from a process that is running, so nothing in this code creates the second
+// writer that these windows would need.
 
-const LOCK_STALE_MS = 10_000;
+/** Warn-only threshold. It gates a DIAGNOSTIC and nothing else: no code path in
+ *  this module removes, steals or overrides a lock on account of its age. The
+ *  name is load-bearing — the constant this replaced was called STALE, and a
+ *  name like that reads as a licence to take the lock. */
+const LOCK_WARN_AFTER_MS = 60_000;
 const LOCK_RETRIES = 5;
 const LOCK_RETRY_SLEEP_MS = 20;
 
@@ -566,19 +609,16 @@ function mintLockToken(): string {
 /**
  * Is the lock still OURS?
  *
- * Stale takeover means a lock can be removed and re-created by another writer
- * while we hold it. Measured 2026-07-31, the whole locked operation is ~1.2s at
- * 400k entries / 193MB — three orders of magnitude past any realistic index — so
- * a writer does not out-run the 10s stale window by being slow. It out-runs it
- * by being STOPPED: a suspended laptop, a stalled network filesystem, a long GC
- * pause or SIGSTOP blows any fixed window at any index size, and no size-derived
- * threshold fixes that.
+ * With takeover gated on death, a lock cannot change hands under a RUNNING
+ * writer through any path this module takes — so in normal operation this is
+ * always true, and that is exactly the point: it is the assertion that catches
+ * the one case the module does not control, an operator clearing a live lock by
+ * hand.
  *
- * So ownership is checked rather than assumed. If our token is gone, someone
- * took the lock and has published (or is publishing) their own merge; ours was
- * computed against a snapshot that no longer exists, and writing it would drop
- * their entries. We abort and return false — the caller then defers its delete,
- * which is the same fail-closed direction as every other failure here.
+ * If our token is gone, something outside this protocol touched the lock. Ours
+ * was computed against a snapshot we can no longer vouch for, so we abort and
+ * return false — the caller then defers its delete, the same fail-closed
+ * direction as every other failure here.
  */
 export function stillOwnLock(lock: string, token: string): boolean {
   try {
@@ -588,26 +628,63 @@ export function stillOwnLock(lock: string, token: string): boolean {
   }
 }
 
-/**
- * Push the lock's staleness clock forward across a long phase.
- *
- * VERIFY THEN WRITE. The first version wrote unconditionally, which inverted
- * the whole fail-closed direction: a writer that resumed after a legitimate
- * takeover stamped ITS token over the new owner's, so the new owner's own
- * pre-publish check failed and the legitimate writer aborted while the stale
- * one carried on. A heartbeat must never be able to steal a lock.
- *
- * `force` is for acquire, where the token does not exist yet and we have just
- * won the mkdir race.
- *
- * This is window 2 in the enumeration at the top of the lock section. It
- * narrows the inversion rather than eliminating it.
- */
-export function touchLock(lock: string, token: string, force = false): void {
+/** Record ownership. Called only after our own mkdir won the exclusive claim, so
+ *  there is nobody to race: a lock whose token has not been written yet reads as
+ *  unattributable to every contender, and unattributable defers. */
+function writeLockToken(lock: string, token: string): void {
   try {
-    if (!force && !stillOwnLock(lock, token)) return;
     writeFileSync(lockTokenPath(lock), token);
-  } catch { /* best effort */ }
+  } catch { /* best effort — an unreadable token defers contenders, never steals */ }
+}
+
+/** The token currently recorded in a lock, or null if there is none to read. */
+function readLockOwner(lock: string): string | null {
+  try {
+    return readFileSync(lockTokenPath(lock), 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The pid recorded in a lock token, or null when the token carries no usable one.
+ *
+ * Tokens are minted as `<pid>-<ms>-<seq>`. A token we cannot parse is not an
+ * error to recover from — it is an owner we cannot attribute, and that takes the
+ * defer branch. Non-positive values are rejected explicitly rather than passed
+ * along: `process.kill(0, sig)` addresses the CALLER'S ENTIRE PROCESS GROUP and
+ * a negative pid addresses a group by id, so a malformed token must never reach
+ * kill() carrying one. Today that call is signal 0 and would merely test the
+ * group — but a predicate whose safety depends on the signal never changing is
+ * one refactor away from being a real problem.
+ */
+function pidFromToken(token: string | null): number | null {
+  if (!token) return null;
+  const pid = Number(token.split('-')[0]);
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+/**
+ * Is this pid a live process on this host? (See the SINGLE HOST premise above.)
+ *
+ * Signal 0 runs the existence and permission checks without delivering anything.
+ * ESRCH — no such process — is the ONLY answer that proves death. EPERM means
+ * the process exists but belongs to another user: alive, and not ours to steal
+ * from. Every other errno is unclassified, and unclassified is not proof, so it
+ * reads as alive.
+ *
+ * The asymmetry is deliberate and carries the whole safety argument. A false
+ * "alive" costs a deferred write, which every caller already handles by keeping
+ * its rows. A false "dead" admits a second live writer — the class of bug this
+ * module spent six rounds failing to close by every other means.
+ */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException)?.code !== 'ESRCH';
+  }
 }
 
 /** Synchronous sleep with no runtime assumptions (the write path is sync). */
@@ -620,10 +697,16 @@ function sleepSync(ms: number): void {
   }
 }
 
+/**
+ * How long this lock has been held. DIAGNOSTIC ONLY — it feeds the warning that
+ * asks a human to look, and nothing else. No caller may branch a takeover on it;
+ * that equation is the defect this protocol removed.
+ *
+ * The token is written once at acquire and never rewritten, so its mtime is the
+ * moment the lock changed hands. The directory mtime is the fallback for a lock
+ * whose token was never written at all.
+ */
 export function lockAgeMs(lock: string): number {
-  // Age off the TOKEN, not the directory: touchLock() rewrites the token to
-  // push the clock forward across a long phase, and a directory's mtime does
-  // not change when a file inside it is rewritten.
   for (const p of [lockTokenPath(lock), lock]) {
     try { return Date.now() - statSync(p).mtimeMs; } catch { /* try the next */ }
   }
@@ -631,7 +714,46 @@ export function lockAgeMs(lock: string): number {
 }
 
 /**
- * mkdir lock with stale takeover.
+ * Claim a lock whose owner is a PROVEN-DEAD process, by atomic rename.
+ *
+ * Rename, not rm-then-mkdir: removal and creation are two syscalls, and a second
+ * contender can mkdir into the gap, leaving two writers each believing they hold
+ * the lock.
+ *
+ * CAPTURE THEN VERIFY. Rename is atomic but it is not compare-and-swap, and two
+ * contenders can prove the SAME dead owner at the same moment: the first renames
+ * the dead lock away and creates its own, and the second one's rename would then
+ * move that first contender's LIVE lock aside. So the captured directory is
+ * inspected after the fact. If it does not carry the dead token we set out to
+ * displace, we captured somebody else's lock — we put it back and defer instead
+ * of proceeding. Losing this race costs a deferral; it never yields two writers.
+ *
+ * Returns true only when the dead lock is gone and the path is clear to mkdir.
+ */
+function takeOverDeadLock(lock: string, deadToken: string): boolean {
+  const tomb = `${lock}.dead-${process.pid}-${Date.now()}-${++lockSeq}`;
+  try {
+    renameSync(lock, tomb);
+  } catch {
+    return false; // another contender captured it first — retry and defer to them
+  }
+
+  if (readLockOwner(tomb) !== deadToken) {
+    // Not the lock we proved dead. Put it back; best effort, and harmless either
+    // way, because we do not proceed. If the restore fails, the writer whose
+    // lock we moved finds its own ownership check false and aborts without
+    // publishing — deferral, not loss.
+    try { renameSync(tomb, lock); } catch { /* a contender re-created it; leave the tombstone */ }
+    console.error(`⚠️ isa-index: two writers raced to take over the same dead lock at ${lock}; deferring rather than displacing the one that won. Nothing was written.`);
+    return false;
+  }
+
+  try { rmSync(tomb, { recursive: true, force: true }); } catch { /* inert */ }
+  return true;
+}
+
+/**
+ * mkdir lock, with takeover gated on the owner's DEATH — never on its age.
  *
  * Only EEXIST means contention. Any other errno (a missing parent, a file where
  * the directory should be, a read-only volume) is a hard failure and returns
@@ -640,10 +762,13 @@ export function lockAgeMs(lock: string): number {
  * fail-safe decision.
  */
 function acquireLock(lock: string, token: string): boolean {
+  let warned = false;
   for (let attempt = 0; attempt <= LOCK_RETRIES; attempt++) {
     try {
       mkdirSync(lock);
-      touchLock(lock, token, true); // we just won the mkdir race — the token is ours to mint
+      // We created the directory, so the claim is exclusively ours and the token
+      // is ours to mint.
+      writeLockToken(lock, token);
       return true;
     } catch (err) {
       const code = (err as NodeJS.ErrnoException)?.code;
@@ -656,42 +781,65 @@ function acquireLock(lock: string, token: string): boolean {
         console.error(`⚠️ isa-index: ${permanent ? 'PERMANENT — ' : ''}cannot acquire the index lock at ${lock} (${code || err}). Nothing was written${permanent ? '; this will NOT self-heal and every eviction defers until it is fixed' : '; the next run retries'}.`);
         return false;
       }
-      const age = lockAgeMs(lock);
-      if (age === -1 || age > LOCK_STALE_MS) {
-        // Window 1. Claim the stale lock by RENAMING it aside: rename is atomic,
-        // so exactly one contender can succeed. rm-then-mkdir was two syscalls,
-        // and a second contender could mkdir into the gap between them, leaving
-        // two writers both believing they held the lock.
-        const tomb = `${lock}.stale-${process.pid}-${Date.now()}`;
-        let claimed = false;
-        try { renameSync(lock, tomb); claimed = true; } catch { /* another contender won it */ }
-        if (claimed) {
-          let acquired = false;
-          try { mkdirSync(lock); touchLock(lock, token, true); acquired = true; } catch { /* fall through to retry */ }
-          try { rmSync(tomb, { recursive: true, force: true }); } catch { /* tombstone is inert */ }
-          if (acquired) return true;
+
+      const ownerToken = readLockOwner(lock);
+      const ownerPid = pidFromToken(ownerToken);
+
+      if (ownerPid === null || isProcessAlive(ownerPid)) {
+        // DEFER — a live or unattributable owner is never taken over, at any
+        // age. Warn once per acquire, and only when the lock is old enough that
+        // a human would want to know; the warning names the manual unlock
+        // because clearing it is an operator's call, never this code's.
+        if (!warned) {
+          warned = true;
+          const age = lockAgeMs(lock);
+          if (age > LOCK_WARN_AFTER_MS) {
+            const who = ownerPid === null
+              ? 'an owner it does not identify (no readable token, or one this build cannot parse)'
+              : `pid ${ownerPid}, which is still running`;
+            console.error(
+              `⚠️ isa-index: the index lock at ${lock} has been held for ${Math.round(age / 1000)}s by ${who}. `
+              + 'Index writes defer while it is held; nothing was written and nothing was deleted. '
+              + 'This code never removes a lock it cannot prove is dead — if that process is not an ISA index writer '
+              + `(a reused pid, or a writer killed before it could clean up), clear the lock by hand: rm -rf ${lock}`,
+            );
+          }
         }
+        if (attempt < LOCK_RETRIES) sleepSync(LOCK_RETRY_SLEEP_MS);
+        continue;
+      }
+
+      // The owner is provably dead: no such process, so it cannot resume into
+      // any mutation. Takeover is safe.
+      if (takeOverDeadLock(lock, ownerToken as string)) {
+        try {
+          mkdirSync(lock);
+          writeLockToken(lock, token);
+          return true;
+        } catch { /* a contender claimed the cleared path first — retry, and defer to them */ }
       }
       if (attempt < LOCK_RETRIES) sleepSync(LOCK_RETRY_SLEEP_MS);
     }
   }
-  // Contention only: another writer held it for the whole retry budget. This is
-  // the transient case by construction, and the next run retries.
+  // Held for the whole retry budget by an owner we may not take over. Transient
+  // by construction — the next run retries, and the caller keeps its rows.
   return false;
 }
 
 /**
  * Release the lock, checking ownership first.
  *
- * NOT "only if still ours" — that is window 4 above, and the previous docstring
- * claimed a guarantee POSIX cannot provide. The check narrows the failure from
- * "always removes whatever lock exists" to "removes another owner's lock only
- * if the takeover lands between the read and the rmSync". Unlike the steal path
- * there is no atomic form to narrow it further: removal IS the operation.
+ * NOT "only if still ours" — that is window 4 in the enumeration above, and
+ * POSIX cannot give the guarantee that phrasing claims. The check narrows the
+ * failure from "always removes whatever lock exists" to "removes another owner's
+ * lock only if the handover lands between the read and the rmSync", and unlike
+ * the takeover path there is no atomic form to narrow it further: removal IS the
+ * operation.
  *
- * The unconditional version removed whatever lock existed, including one
- * legitimately re-created by a writer that had taken over from us, handing the
- * door to a third writer.
+ * Under this protocol the lock can only have changed hands out of band (an
+ * operator clearing it), since a running writer is never taken over from. The
+ * check is what keeps that operator's mistake from compounding into a third
+ * writer.
  */
 export function releaseLock(lock: string, token: string): void {
   try {
@@ -700,79 +848,26 @@ export function releaseLock(lock: string, token: string): void {
   } catch { /* best effort */ }
 }
 
-/** Generation-named archive of a superseded canonical index. */
-const GEN_ARCHIVE_RE = /\.gen-(\d+)-/;
-
-function genArchivePath(path: string, generation: number, writer: string): string {
-  const safeWriter = writer.replace(/[^0-9A-Za-z_-]/g, '');
-  return `${path}.gen-${generation}-${safeWriter}`;
-}
-
-/** Every surviving generation archive beside `path`, newest generation first. */
-function listGenArchives(path: string): Array<{ file: string; generation: number }> {
-  const dir = dirname(path);
-  const base = (path.split('/').pop() || '') + '.gen-';
-  let names: string[] = [];
-  try { names = readdirSync(dir); } catch { return []; }
-  return names
-    .filter((n) => n.startsWith(base))
-    .map((n) => ({ file: join(dir, n), generation: Number(n.match(GEN_ARCHIVE_RE)?.[1] ?? -1) }))
-    .filter((a) => a.generation >= 0)
-    .sort((a, b) => b.generation - a.generation);
-}
-
 /**
- * Read just the header of an index file.
+ * Commit the index: serialize to a private staging file, re-check ownership,
+ * then ONE atomic rename into place.
  *
- * The published object writes `version`/`generation`/`writer` before `entries`,
- * and JSON.stringify preserves insertion order for string keys, so the fields
- * we need sit in the first bytes. Reading a 512-byte slice avoids parsing a
- * file that may be hundreds of megabytes purely to learn its generation.
- */
-function readIndexGeneration(path: string): number {
-  try {
-    const fd = openSync(path, 'r');
-    try {
-      const buf = Buffer.alloc(512);
-      const n = readSync(fd, buf, 0, 512, 0);
-      const m = buf.subarray(0, n).toString('utf-8').match(/"generation"\s*:\s*(\d+)/);
-      return m ? Number(m[1]) : 0;
-    } finally { closeSync(fd); }
-  } catch { return 0; }
-}
-
-/**
- * Commit the index. NEVER DESTROYS A PUBLISH.
+ * There is no second writer to race here. A contender reaches the critical
+ * section only by proving THIS process dead, and a dead process does not arrive
+ * at this line. That is why the commit needs no archive, no generation counter
+ * and no repair pass: the protocol excludes the concurrent writer that those
+ * mechanisms existed to survive.
  *
- * Rounds 4 and 5 narrowed the ownership check toward the commit and then
- * admitted a residual window. That framing was wrong in one important way: the
- * window is bounded in INSTRUCTIONS but unbounded in WALL-CLOCK. A writer
- * SIGSTOPped, suspended with the laptop, or stalled on a network filesystem can
- * sit between the check and the rename for minutes. In that world "the caller
- * defers, never a silent delete" was false — a stale writer's rename destroyed
- * a newer publish whose caller had already deleted its work.json rows.
- *
- * So the commit stops depending on winning a race. It is two renames:
- *   1. the CURRENT canonical is renamed to a generation-named archive;
- *   2. our tmp is renamed into place, carrying generation N+1.
- *
- * A stale writer therefore DEMOTES the newer publish to an archive file instead
- * of destroying it, and leaves evidence: the canonical's generation is now lower
- * than a surviving archive's. Every transaction's locked read checks exactly
- * that and repairs from the archive before planning. Nothing is lost, and the
- * loss window becomes a detection-and-repair window.
- *
- * This needs no filesystem compare-and-swap. It needs only that rename is
- * atomic, which POSIX does guarantee.
+ * The ownership check that remains is not a race-narrowing device. It catches a
+ * lock removed OUT OF BAND — an operator clearing one by hand — and it fails
+ * toward discarding our own merge, the only direction that cannot lose somebody
+ * else's.
  */
 function publish(index: IsaIndex, path: string, lock: string, token: string): boolean {
   const tmp = `${path}.tmp.${process.pid}`;
   try {
-    // Header fields first so readIndexGeneration() can find them in a short slice.
     const payload: IsaIndex = {
       version: index.version,
-      generation: index.generation,
-      writer: token,
       updatedAt: index.updatedAt,
       entries: index.entries,
     };
@@ -782,22 +877,9 @@ function publish(index: IsaIndex, path: string, lock: string, token: string): bo
     writeFileSync(tmp, JSON.stringify(payload));
 
     if (!stillOwnLock(lock, token)) {
-      console.error('⚠️ isa-index: lock was taken over during serialization; discarding this merge rather than overwriting the current owner. Nothing was published; the caller defers.');
+      console.error('⚠️ isa-index: the index lock was released out of band during serialization; discarding this merge rather than publishing over whatever holds it now. Nothing was published; the caller defers.');
       try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
       return false;
-    }
-
-    // Demote the current canonical rather than overwrite it. If we are a stale
-    // writer, this is what preserves the newer publish we are about to shadow.
-    if (existsSync(path)) {
-      const currentGen = readIndexGeneration(path);
-      try {
-        renameSync(path, genArchivePath(path, currentGen, token));
-      } catch (err) {
-        console.error(`⚠️ isa-index: could not archive the current index before committing (${(err as NodeJS.ErrnoException)?.code || err}); refusing to overwrite it. Nothing was published; the caller defers.`);
-        try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
-        return false;
-      }
     }
 
     renameSync(tmp, path);
@@ -811,83 +893,6 @@ function publish(index: IsaIndex, path: string, lock: string, token: string): bo
     console.error(`⚠️ isa-index: ${permanent ? 'PERMANENT — ' : ''}publish failed for ${path} (${code || err}). Nothing was committed${permanent ? '; this will NOT self-heal and every eviction defers until it is fixed' : '; the next run retries'}.`);
     try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
     return false;
-  }
-}
-
-/**
- * Detect and repair a generation regression.
- *
- * A canonical index whose generation is lower than a surviving archive's means
- * a stale writer's commit shadowed a newer publish. The newer entries are in
- * the archive; fold them back through the SAME identity-safe placement path
- * everything else uses, so repair cannot itself overwrite memory.
- *
- * Returns the number of archives folded in. Runs inside the transaction, under
- * the lock, before planning — so a plan is always made against repaired state.
- */
-function repairGenerationRegression(index: IsaIndex, path: string, now: string): number {
-  const archives = listGenArchives(path);
-  if (archives.length === 0) return 0;
-  let repaired = 0;
-
-  for (const archive of archives) {
-    if (archive.generation <= index.generation) continue; // older or equal — nothing newer to recover
-    let older: IsaIndex;
-    try {
-      older = readIsaIndex(archive.file);
-    } catch { continue; }
-    console.error(`⚠️ isa-index: GENERATION REGRESSION — canonical is generation ${index.generation} but ${archive.file} is generation ${archive.generation}. A stale writer shadowed a newer publish; folding its entries back in.`);
-    for (const entry of Object.values(older.entries)) {
-      // Identity-safe: repair uses the same placement rule as every writer, so
-      // it cannot resolve a conflict by overwriting.
-      if (placeEntry(index, entry, now) === null) {
-        console.error(`⚠️ isa-index: repair could not place "${entry.slug}" without loss; leaving ${archive.file} in place for manual recovery.`);
-        return repaired;
-      }
-    }
-    index.generation = Math.max(index.generation, archive.generation);
-    repaired++;
-  }
-  return repaired;
-}
-
-/**
- * Prune generation archives whose entries are all present in the canonical
- * index.
- *
- * THE RETENTION INVARIANT IS ABSOLUTE: an archive is unlinked only after every
- * entry it holds is verified present in the canonical index under a key
- * carrying that entry's identity. Anything unverified is kept. In steady state
- * the archive written by the previous commit prunes immediately, because an
- * append-only merge contains everything it superseded — so the directory holds
- * zero or one archive rather than growing.
- *
- * Bounded work: at most PRUNE_BUDGET archives per transaction, so a directory
- * that has accumulated many (a repeated crash, a long regression) is drained
- * over several runs instead of stalling one.
- */
-const PRUNE_BUDGET = 4;
-
-function pruneGenArchives(index: IsaIndex, path: string): void {
-  let budget = PRUNE_BUDGET;
-  for (const archive of listGenArchives(path)) {
-    if (budget <= 0) return;
-    budget--;
-    let older: IsaIndex;
-    try {
-      older = readIsaIndex(archive.file);
-    } catch {
-      continue; // unreadable: keep it. An unreadable archive is not a verified one.
-    }
-    const allPresent = Object.values(older.entries).every((e) => {
-      const stored = index.entries[e.key];
-      if (stored && sameIdentity(stored, e)) return true;
-      // It may have been re-keyed by identity-safe placement; accept an exact
-      // identity match anywhere rather than requiring the original key.
-      return Object.values(index.entries).some((c) => sameIdentity(c, e));
-    });
-    if (!allPresent) continue; // KEEP — retention invariant
-    try { unlinkSync(archive.file); } catch { /* keep it; nothing is lost by trying again */ }
   }
 }
 
@@ -1058,11 +1063,6 @@ function withIndexTransaction(path: string, plan: IndexPlan, opts: { reconcileMi
     const now = new Date().toISOString();
     if (afterLockedRead) afterLockedRead();
 
-    // A stale writer's commit demotes a newer publish to an archive rather than
-    // destroying it. Detect that here — before planning — so the plan is always
-    // made against repaired state.
-    repairGenerationRegression(index, path, now);
-
     // Key selection happens HERE, against the index we just read under the lock.
     const entries = plan(index, now);
     if (entries === null) return false;
@@ -1116,16 +1116,9 @@ function withIndexTransaction(path: string, plan: IndexPlan, opts: { reconcileMi
     }
 
     index.version = ISA_INDEX_VERSION;
-    index.generation = (index.generation ?? 0) + 1;
     index.updatedAt = now;
 
-    touchLock(lock, token); // fresh clock for serialize+write — only if still ours
-    if (!publish(index, path, lock, token)) return false;
-
-    // Only after a successful commit, and only for archives whose every entry
-    // is verified present in the canonical index.
-    pruneGenArchives(index, path);
-    return true;
+    return publish(index, path, lock, token);
   } catch (err) {
     console.error(`⚠️ isa-index: transaction aborted for ${path} (${err}). Nothing was committed; the caller defers.`);
     return false;

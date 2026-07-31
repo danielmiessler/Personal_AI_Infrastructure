@@ -55,7 +55,9 @@ import {
   indexKeyForArtifact,
   loadPickupKnobs,
   readIsaIndex,
+  renderStuckLockNotice,
   stalledIsaEntries,
+  stuckLockNotice,
   TERMINAL_PHASES,
   type StalledIsa,
 } from './lib/isa-index';
@@ -432,11 +434,21 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
   const shownKeys = new Set(recentSessions.map(s => s.indexKey).filter((k): k is string => !!k));
   const stalled = getStalledIsas(shownKeys);
 
-  if (recentSessions.length === 0 && projects.length === 0 && stalled.length === 0) {
+  // A lock held far past any legitimate write blocks every index write until a
+  // human clears it — nothing removes it automatically, by design. That trade is
+  // only defensible if the human is told, so it renders HERE, above the backlog
+  // it is silently freezing. It is also the one part of this block that must
+  // render even when there is nothing else to show: an empty ACTIVE WORK banner
+  // is exactly what a stuck index looks like from the outside.
+  const stuck = loadPickupKnobs().enabled ? stuckLockNotice() : null;
+
+  if (recentSessions.length === 0 && projects.length === 0 && stalled.length === 0 && !stuck) {
     return null;
   }
 
   let summary = '\n📋 ACTIVE WORK:\n';
+
+  if (stuck) summary += renderStuckLockNotice(stuck);
 
   if (recentSessions.length > 0) {
     const win = loadPickupKnobs().recentWorkWindowHours;

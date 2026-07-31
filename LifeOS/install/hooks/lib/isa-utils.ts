@@ -1175,14 +1175,19 @@ export function syncToWorkJson(
       // verify.
       //
       // COST, HONESTLY: work.json may exceed its cap while the index is
-      // unwritable. If the cause is transient (lock contention, a full disk that
-      // clears) the next sync drains the backlog. If it is PERMANENT — an
-      // invalid configured destination, a read-only volume, corruption that
-      // cannot be quarantined — nothing drains it and work.json grows until the
-      // cause is fixed. That is deliberate: unbounded growth is recoverable,
-      // deleted memory is not. isa-index logs permanent causes distinctly so the
-      // difference is visible rather than inferred.
-      console.error(`[ISASync] index archive skipped — deferring eviction of ${evictions.length} work.json row(s); see the isa-index diagnostic above for whether the cause is transient or permanent`);
+      // unwritable. If the cause is transient (a writer holding the lock, a full
+      // disk that clears) the next sync drains the backlog. If it is PERMANENT —
+      // an invalid configured destination, a read-only volume, corruption that
+      // cannot be quarantined, or a lock left behind by a writer that died — then
+      // nothing drains it and work.json grows until the cause is fixed. That is
+      // deliberate: unbounded growth is recoverable, deleted memory is not.
+      //
+      // WHERE TO LOOK. isa-index logs permanent I/O causes here, distinctly. It
+      // does NOT log ordinary lock contention, which is expected and would be
+      // noise on every contended sync — a lock held long enough to matter is
+      // reported instead on the SessionStart ACTIVE WORK banner
+      // (isa-index stuckLockNotice), which names the owner and the manual clear.
+      console.error(`[ISASync] index archive skipped — deferring eviction of ${evictions.length} work.json row(s); if no isa-index diagnostic accompanies this, the index lock is held — a stuck one is reported on the next SessionStart banner`);
     }
   }
 

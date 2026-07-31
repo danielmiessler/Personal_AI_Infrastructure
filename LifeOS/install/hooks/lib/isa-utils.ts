@@ -18,11 +18,20 @@
 // before the rename. New sessions always write ISA.md.
 
 import { writeFileSync, readdirSync, statSync, existsSync, mkdirSync, appendFileSync } from 'fs';
-import { join, basename } from 'path';
+import { join, basename, resolve } from 'path';
 import { createHash } from 'crypto';
 import { paiPath } from './paths';
 import { effortToCanonicalELevel } from './effort';
 import { appendWorkEvents, diffRegistry, foldToSnapshot, readLiveRegistry, workEventsPath } from './work-events';
+import {
+  archiveWorkRows,
+  indexKeyForArtifact,
+  loadPickupKnobs,
+  upsertIsaEntries,
+  type IsaIndexEntry,
+  type IsaKind,
+  type IsaEntrySource,
+} from './isa-index';
 
 // ── v6.9.0: Resume After Complete tunables ────────────────────────────────
 // Constants live here per v6.9.0 doctrine "Tunable Parameters" section.
@@ -120,6 +129,46 @@ export function parseFrontmatter(content: string): Record<string, string> | null
   return fm;
 }
 
+/**
+ * Frontmatter for the INDEX path — tolerant where the strict parser is not.
+ *
+ * `parseFrontmatter` requires the `---` block to be the very first bytes. A
+ * large share of live ISAs put the H1 title first and the block underneath
+ * (8 of 57 at the 3783 sweep, including t847 and t328). Under the strict
+ * parser those ISAs parse to null, and any consumer that skips on null makes
+ * them invisible — the exact defect this index removes. So: strict first,
+ * then the first `---` fenced block in the head, accepted only if it actually
+ * contains `key: value` lines (a prose horizontal rule never qualifies).
+ *
+ * Deliberately a SEPARATE function: the strict parser stays byte-identical for
+ * ISASync and every other writer. This one only ever informs a read.
+ */
+export function parseFrontmatterTolerant(content: string): Record<string, string> {
+  const strict = parseFrontmatter(content);
+  if (strict) return strict;
+
+  const head = content.slice(0, 4000);
+  const block = head.match(/(?:^|\n)---\n([\s\S]*?)\n---(?:\n|$)/);
+  if (!block) return {};
+  const fm: Record<string, string> = {};
+  for (const line of block[1].split('\n')) {
+    const idx = line.indexOf(':');
+    if (idx > 0) fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+  }
+  return Object.keys(fm).length > 0 ? fm : {};
+}
+
+/**
+ * Collapse a phase/status value to a single comparable token.
+ * Live ISAs write prose statuses (`status: CLOSED — built, audited, pushed`);
+ * without this every such ISA gets its own unique "phase" and no terminal check
+ * can ever match. First token, lowercased, punctuation stripped.
+ */
+export function normalizePhase(raw: string | undefined): string {
+  const first = (raw || '').trim().split(/[\s,;:—–|(]/)[0] || '';
+  return first.toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'unknown';
+}
+
 export function writeFrontmatterField(content: string, field: string, value: string): string {
   const fmMatch = content.match(/^(---\n)([\s\S]*?)(\n---)/);
   if (!fmMatch) return content;
@@ -174,6 +223,88 @@ export function countCriteria(content: string): { checked: number; total: number
   const lines = body.split('\n').filter(l => l.match(/^- \[[ x]\]/));
   const checked = lines.filter(l => l.startsWith('- [x]')).length;
   return { checked, total: lines.length };
+}
+
+// ── Backlog section (task 3783) ───────────────────────────────────────────
+
+/**
+ * The `## Remaining Work` section — the sanctioned per-ISA backlog. Returns
+ * whether the section exists and how many `- [ ]` items are still open inside
+ * it. Section
+ * ends at the next H2, a YAML terminator, or EOF — same boundary rule as
+ * extractCriteriaSection, so the two stay in lockstep.
+ */
+export function remainingWorkSection(content: string): { present: boolean; open: number } {
+  const m = content.match(/^#{2,3}\s+Remaining\s+Work\b[^\n]*$/im);
+  if (!m || m.index === undefined) return { present: false, open: 0 };
+  const rest = content.slice(m.index + m[0].length);
+  const end = rest.match(/\n##\s+(?!#)|\n---\s*\n/);
+  const body = end ? rest.slice(0, end.index) : rest;
+  const open = body.split('\n').filter(l => /^\s*- \[ \]/.test(l)).length;
+  return { present: true, open };
+}
+
+/**
+ * Build the index entry for one ISA. SINGLE definition of "how an ISA becomes
+ * a backlog-index entry" — the full sweep (IsaReconcile) and the live edit path
+ * (syncToWorkJson) both go through here, so they can never drift apart.
+ */
+export function isaIndexEntryFrom(
+  fm: Record<string, string>,
+  rawIsaPath: string,
+  content: string,
+  opts: { kind?: IsaKind; mtimeMs?: number; source?: IsaEntrySource; strandedAfterDays?: number } = {},
+): IsaIndexEntry {
+  // Index entries are permanent. Resolve once, here, so a relative path from
+  // any caller can never mint a malformed key or an unusable `path`.
+  const isaPath = resolve(rawIsaPath);
+  const nowIso = new Date().toISOString();
+  const mtimeMs = opts.mtimeMs ?? (() => {
+    try { return statSync(isaPath).mtimeMs; } catch { return Date.now(); }
+  })();
+  const ageDays = (Date.now() - mtimeMs) / 86_400_000;
+  const strandedAfter = opts.strandedAfterDays ?? loadPickupKnobs().strandedAfterDays;
+  const dirName = basename(join(isaPath, '..'));
+  const slug = fm.slug || dirName;
+  const phase = normalizePhase(fm.phase || fm.status);
+  const { checked, total } = countCriteria(content);
+  const rw = remainingWorkSection(content);
+  // Title fallback for ISAs with no frontmatter title: the H1, which every
+  // live ISA has. Keeps an unparseable ISA legible in the stalled block. The
+  // `ISA — ` / `PRD — ` prefix is noise once the surface says "ISA".
+  const h1 = content.match(/^#\s+(.+?)\s*$/m)?.[1]?.replace(/^(?:ISA|PRD)\s*[—–-]\s*/i, '');
+  // `task:` holds an external tracker code as often as a title (`task: 359`).
+  // A bare number is a reference, never a name — read it as the reference.
+  // An instance wired to an issue tracker can name it explicitly with
+  // `task_ref:` / `project_ref:`; both are optional everywhere.
+  const taskRaw = (fm.task || '').trim();
+  const taskIsCode = /^\d+$/.test(taskRaw);
+  const threadRaw = (fm.thread || '').trim();
+  const cardCode = fm.task_ref || fm.card
+    || (taskIsCode ? taskRaw : '')
+    || (/^\d+$/.test(threadRaw) ? threadRaw : '');
+
+  return {
+    key: indexKeyForArtifact(isaPath),
+    kind: opts.kind ?? (isaPath.includes('/LIFEOS/TOOLS/') ? 'tool' : 'work'),
+    slug,
+    title: fm.title || (taskIsCode ? '' : taskRaw) || h1 || slug.replace(/-/g, ' '),
+    artifact: basename(isaPath),
+    path: isaPath,
+    phase,
+    checked,
+    total,
+    unchecked: Math.max(0, total - checked),
+    remainingWork: rw.present,
+    remainingOpen: rw.open,
+    taskRef: cardCode || undefined,
+    projectRef: fm.project_ref || undefined,
+    stranded: phase === 'verify' && ageDays > strandedAfter ? true : undefined,
+    lastTouched: new Date(mtimeMs).toISOString(),
+    firstIndexed: nowIso,
+    lastIndexed: nowIso,
+    source: opts.source ?? 'sync',
+  };
 }
 
 export interface ModeTransition {
@@ -469,11 +600,17 @@ export function getSessionAgents(sessionUUID: string): AgentEntry[] {
 
     const agents: Map<string, AgentEntry> = new Map();
 
+    // Lifecycle events only. AgentInvocation v1.4.0 also appends
+    // `subagent_attested` rows (executed-model ledger); without this filter any
+    // future non-lifecycle event renders as a phantom "active" agent in Pulse.
+    const LIFECYCLE = new Set(['subagent_start', 'subagent_stop', 'subagent_attested']);
+
     for (const line of raw.split('\n')) {
       if (!line.trim()) continue;
       try {
         const event = JSON.parse(line);
         if (event.session_id !== sessionUUID) continue;
+        if (!LIFECYCLE.has(event.event)) continue;
 
         // Build a unique key from subagent_id (or fallback to timestamp for unknown)
         const agentKey = event.subagent_id && event.subagent_id !== 'unknown'
@@ -484,27 +621,37 @@ export function getSessionAgents(sessionUUID: string): AgentEntry[] {
           ? event.subagent_id
           : (event.prompt_preview ? event.prompt_preview.slice(0, 40) : 'Subagent');
 
+        // v1.4.0 renamed the declaration field; keep reading the legacy name so
+        // this stays correct across the dual-write window and for historical rows.
+        const declaredModel = event.subagent_model_declared || event.subagent_model;
         const agentType = event.subagent_type && event.subagent_type !== 'unknown'
           ? event.subagent_type
-          : (event.subagent_model && event.subagent_model !== 'unknown' ? event.subagent_model : 'agent');
+          : (declaredModel && declaredModel !== 'unknown' ? declaredModel : 'agent');
 
-        // Determine status based on event type
-        let status: 'active' | 'idle' | 'completed' = 'active';
-        if (event.event === 'subagent_complete' || event.event === 'subagent_end') {
-          status = 'completed';
-        }
+        // `subagent_attested` is the true completion signal: it is written by the
+        // Stop sweep only once a transcript exists. `subagent_stop` fires at
+        // LAUNCH (dispatches are async), so it must NOT flip status — that was
+        // the long-standing bug here, which checked for `subagent_complete` /
+        // `subagent_end`, two event names this system has never written.
+        const status: 'active' | 'idle' | 'completed' =
+          event.event === 'subagent_attested' ? 'completed' : 'active';
 
         // Infer phase from the timestamp relative to the session's phase history
         // For now, use the event type as a proxy
         const phase = event.phase || 'BUILD';
 
+        // Merge rather than replace: the attested row carries no prompt_preview,
+        // so a blind set() would erase the task text captured at start.
+        const existing = agents.get(agentKey);
+        const task = (event.prompt_preview && event.prompt_preview.length > 0
+          ? event.prompt_preview.slice(0, 80)
+          : undefined) ?? existing?.task;
+
         agents.set(agentKey, {
           name,
-          agentType,
+          agentType: agentType !== 'agent' ? agentType : (existing?.agentType ?? agentType),
           status,
-          task: event.prompt_preview && event.prompt_preview.length > 0
-            ? event.prompt_preview.slice(0, 80)
-            : undefined,
+          task,
           phase,
         });
       } catch {
@@ -688,7 +835,40 @@ export function appendPhase(
   return phaseHistory;
 }
 
-export function syncToWorkJson(fm: Record<string, string>, isaPath: string, content?: string, sessionId?: string): void {
+/** Caller context for syncToWorkJson. */
+export interface SyncOptions {
+  /**
+   * STRUCTURAL guarantee for observer callers (the IsaReconcile sweep): this
+   * call will not write to the ISA file, full stop.
+   *
+   * Why a flag and not a gate: the v6.9.0 Resume After Complete path below
+   * writes ISA frontmatter (`writeFileSync(isaPath, …)`). The sweep is a pure
+   * observer and must never resurrect a session — but before this flag, every
+   * reason it did not was a gate living in a DIFFERENT FILE from the write
+   * (IsaReconcile's old-completed skip, and its `status !== "in-sync"` gate).
+   * Any future change to those classifiers silently re-arms an artifact write
+   * from a reconciler (2026-07-25 audit, finding 1).
+   *
+   * Measured 2026-07-30: the resume is currently unreachable from that sweep
+   * by construction, because the arming state (registry phase and frontmatter
+   * phase both exactly `complete`) is the same state `classify()` calls
+   * "in-sync" and skips. So this flag is defense in depth — which is the point.
+   * Unreachability is an emergent property of a caller's classifier; this flag
+   * is a property of the callee, and only the callee owns the write.
+   *
+   * Suppresses the whole resume, not just its write: no phase flip, no
+   * iteration bump, no `fm` mutation, no rework event. An observer observes.
+   */
+  artifactReadOnly?: boolean;
+}
+
+export function syncToWorkJson(
+  fm: Record<string, string>,
+  isaPath: string,
+  content?: string,
+  sessionId?: string,
+  opts: SyncOptions = {},
+): void {
   if (!fm.slug) return;
   const paiDir = paiPath();
   const relativeIsa = isaPath.replace(paiDir + '/', '');
@@ -722,13 +902,17 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   // Edit landed on a complete ISA AND body content changed → auto-rewind to
   // phase=learn, iteration++, write-back to ISA frontmatter, append Decisions
   // row, append observability event. Frozen ISAs (frontmatter `frozen: true`)
-  // bypass.
+  // bypass. Observer callers (`artifactReadOnly`) bypass structurally — this is
+  // the ONLY path in this module that writes an ISA file, so the flag beside it
+  // is what makes "a sweep never mutates an artifact" a property of the code
+  // rather than of a gate in another file.
   const incomingBodyHash = content ? hashBody(content) : (existing.bodyHash || '');
   const isFrozen = fm.frozen === 'true' || fm.frozen === true as unknown as string;
   const bodyChanged = !existing.bodyHash || existing.bodyHash !== incomingBodyHash;
   const completeInRegistry = existing.phase === 'complete';
   const completeInFrontmatter = (fm.phase || '').toLowerCase() === 'complete';
-  const shouldResume = completeInRegistry && completeInFrontmatter && bodyChanged && !isFrozen && !!content;
+  const shouldResume = !opts.artifactReadOnly
+    && completeInRegistry && completeInFrontmatter && bodyChanged && !isFrozen && !!content;
 
   if (shouldResume) {
     const prevIteration = parseInt(fm.iteration as string) || existing.iteration || 1;
@@ -934,6 +1118,8 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
     ...(fm.frozen ? { frozen: true } : {}),
   };
 
+  // ── v6.9.0 + task 3783: expiry moves rows INTO the index, never into the void ──
+  //
   // Cleanup against unbounded growth. Thresholds are read against the newer of
   // `lastToolActivity` and `updatedAt` so idle tabs (no tool calls) eventually
   // age out even if prompts still bump updatedAt.
@@ -941,15 +1127,21 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   // Wave 1 (2026-05-23): lifted from 30min/2h/2h → 4h/24h/7d. The prior
   // thresholds were quietly deleting sessions the principal wanted to resume
   // (e.g. a learn-phase session from 24h ago was GONE from work.json, so the
-  // dashboard had nothing to render). The 50-session cap (below) is the real
-  // upper bound — these thresholds just decide cadence.
-  //   - native/starting: 4h  (terminal closed, no recent prompts)
-  //   - complete:        24h (one day to revisit before archival)
-  //   - everything else: 7d  ("Open Sessions to Resume" cadence is days)
+  // dashboard had nothing to render). Wave 2 (3783) closes the class instead of
+  // loosening again: work.json stays a bounded VIEW at these windows, and every
+  // evicted row is first archived to the persistent backlog index. The windows
+  // are now knobs (settings `isaPickup.workJson`); the index has no window.
+  //
+  // FAIL-SAFE: a row is deleted only after its archive write SUCCEEDS. If the
+  // index write is skipped (lock contention, I/O), the eviction is deferred to
+  // the next sync — a row never leaves memory because a write lost a race.
+  const wj = loadPickupKnobs().workJson;
   const now = Date.now();
-  const FOUR_HOURS = 4 * 60 * 60 * 1000;
-  const ONE_DAY = 24 * 60 * 60 * 1000;
-  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  const nativeStartingMs = wj.nativeStartingHours * 60 * 60 * 1000;
+  const completeMs = wj.completeHours * 60 * 60 * 1000;
+  const defaultMs = wj.defaultDays * 24 * 60 * 60 * 1000;
+
+  const evictions: Array<{ slug: string; session: Record<string, any> }> = [];
 
   for (const [slug, session] of Object.entries(registry.sessions) as [string, any][]) {
     const updatedMs = new Date(session.updatedAt || session.started || 0).getTime();
@@ -958,26 +1150,44 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
     const age = now - lastAlive;
     const phase = (session.phase || '').toLowerCase();
 
-    if ((phase === 'native' || phase === 'starting') && age > FOUR_HOURS) {
-      delete registry.sessions[slug];
-    } else if (phase === 'complete' && age > ONE_DAY) {
-      delete registry.sessions[slug];
-    } else if (age > SEVEN_DAYS) {
-      delete registry.sessions[slug];
-    }
+    const expired =
+      (phase === 'native' || phase === 'starting') ? age > nativeStartingMs
+      : phase === 'complete' ? age > completeMs
+      : age > defaultMs;
+
+    if (expired) evictions.push({ slug, session });
   }
 
-  // Cap at 50 most recent sessions to prevent unbounded growth
-  const entries = Object.entries(registry.sessions) as [string, any][];
-  if (entries.length > 50) {
-    entries.sort((a, b) => {
+  // Cap the view at the most recent N sessions. Overflow rows are evicted on
+  // the same archive-then-delete contract as the TTL rows above.
+  const remaining = (Object.entries(registry.sessions) as [string, any][])
+    .filter(([slug]) => !evictions.some(e => e.slug === slug));
+  if (remaining.length > wj.capRows) {
+    remaining.sort((a, b) => {
       const aTime = new Date(a[1].updatedAt || a[1].started || 0).getTime();
       const bTime = new Date(b[1].updatedAt || b[1].started || 0).getTime();
       return bTime - aTime; // newest first
     });
-    const toRemove = entries.slice(50);
-    for (const [slug] of toRemove) {
-      delete registry.sessions[slug];
+    for (const [slug, session] of remaining.slice(wj.capRows)) {
+      evictions.push({ slug, session });
+    }
+  }
+
+  if (evictions.length > 0) {
+    // archiveWorkRows returns true when every row that carries recoverable
+    // memory is in the index (or when none of them did — placeholder rows).
+    const archived = archiveWorkRows(evictions);
+    if (archived) {
+      for (const { slug } of evictions) delete registry.sessions[slug];
+    } else {
+      // ONE invariant, no exceptions: a row leaves work.json only after it is in
+      // the index. A partial rule ("evict it anyway if its ISA file still
+      // exists") would be safe in practice but makes the invariant conditional
+      // on a sweep that may not run — and an invariant you cannot state in one
+      // sentence is one nobody can verify. work.json may exceed its cap while
+      // the index is unwritable; that is the accepted cost, it is logged, and
+      // the next sync clears the backlog.
+      console.error(`[ISASync] index archive skipped — deferring eviction of ${evictions.length} work.json row(s)`);
     }
   }
 
@@ -1014,6 +1224,17 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   } catch { /* silent — observability must not break sync */ }
 
   writeRegistry(registry);
+
+  // Task 3783 — live index upsert. Every ISA edit refreshes this ISA's entry in
+  // the persistent backlog index, so anything actively worked on is current
+  // there without waiting for the next full sweep. Best-effort: the index is a
+  // read-optimized memory surface, and the ISA file on disk (which the sweep
+  // re-reads) is ground truth — a failure here must never break the sync.
+  try {
+    if (content && loadPickupKnobs().enabled) {
+      upsertIsaEntries([isaIndexEntryFrom(fm, isaPath, content, { source: 'sync' })]);
+    }
+  } catch { /* silent — index capture must not break sync */ }
 }
 
 /**

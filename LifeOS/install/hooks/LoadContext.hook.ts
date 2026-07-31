@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.6.28
+ * @version 1.7.0
  * LoadContext.hook.ts - Inject LifeOS dynamic context into Claude's Context (SessionStart)
  *
  * LifeOS v5.0 Context Architecture:
@@ -13,13 +13,20 @@
  * - Injects dynamic, session-specific context:
  *   - Relationship context (recent opinions + notes)
  *   - Learning readback (signals, wisdom, failure patterns)
- *   - Active work summary (last 48h sessions + tracked projects)
+ *   - Active work summary (recent sessions + tracked projects)
+ *   - Stalled ISAs (v1.7.0, task 3783) — the persistent backlog index, any age
+ *
+ * TWO SURFACES, ONE RULE (3783): the "Recent Sessions" block is the PUSH
+ * surface and is freshness-governed by knobs. The "Stalled ISAs" block reads
+ * MEMORY/STATE/isa-index.json, which is append-only and has no retention
+ * window at all — freshness governs what is pushed, never what exists or is
+ * findable. Every window here is a knob (`isaPickup` in settings.json).
  *
  * TRIGGER: SessionStart
  *
  * INPUT:
  * - Environment: LIFEOS_DIR
- *          MEMORY/WORK/*, MEMORY/STATE/progress/*.json
+ *          MEMORY/WORK/*, ~/.claude/MEMORY/WORK/*, MEMORY/STATE/isa-index.json
  *
  * OUTPUT:
  * - stdout: <system-reminder> containing dynamic context (relationship + learning)
@@ -40,10 +47,18 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { getLifeosDir, getSettingsPath } from './lib/paths';
+import { getClaudeDir, getLifeosDir, getSettingsPath } from './lib/paths';
 import { recordSessionStart } from './lib/notifications';
 import { loadWisdomFrames } from './lib/learning-readback';
-import { findArtifactPath } from './lib/isa-utils';
+import {
+  indexKeyForArtifact,
+  loadPickupKnobs,
+  readIsaIndex,
+  stalledIsaEntries,
+  TERMINAL_PHASES,
+  type StalledIsa,
+} from './lib/isa-index';
+import { normalizePhase } from './lib/isa-utils';
 
 interface DynamicContextConfig {
   relationshipContext?: boolean;
@@ -148,14 +163,27 @@ interface WorkSession {
   handoff_notes?: string;
   next_steps?: string[];
   isa?: { id: string; status: string; progress: string } | null;
+  /** Backlog-index key for this session's dir — used to dedupe the stalled block. */
+  indexKey?: string;
 }
 
 /**
- * Scan recent WORK/ directories (last 48h) for active sessions.
+ * Scan recent WORK/ directories for active sessions.
+ *
+ * This is the PUSH surface: it is freshness-governed (window + row cap, both
+ * knobs). It is not, and must never become, the record of what exists — that
+ * is the persistent backlog index (task 3783).
  */
 function getRecentWorkSessions(paiDir: string): WorkSession[] {
-  const workDir = join(paiDir, 'MEMORY', 'WORK');
-  if (!existsSync(workDir)) return [];
+  // Sessions live in TWO WORK trees: ~/.claude/MEMORY/WORK (where sessions since
+  // 2026-07-24 create their dirs) and <LIFEOS_DIR>/MEMORY/WORK (the older tree).
+  // Scanning only one starves this block of exactly the work it exists to surface
+  // (t3783 root-cause; the union is the fix, the pickup index is the successor).
+  const workRoots = [
+    join(getClaudeDir(), 'MEMORY', 'WORK'),
+    join(paiDir, 'MEMORY', 'WORK'),
+  ].filter((p, i, a) => a.indexOf(p) === i && existsSync(p));
+  if (workRoots.length === 0) return [];
 
   let sessionNames: Record<string, string> = {};
   const namesPath = join(paiDir, 'MEMORY', 'STATE', 'session-names.json');
@@ -167,25 +195,30 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
 
   const sessions: WorkSession[] = [];
   const now = Date.now();
-  const cutoff48h = 48 * 60 * 60 * 1000;
+  const knobs = loadPickupKnobs();
+  const cutoffMs = knobs.recentWorkWindowHours * 60 * 60 * 1000;
   const seenSessionIds = new Set<string>();
 
   try {
-    const allDirs = readdirSync(workDir, { withFileTypes: true })
-      .filter(d => d.isDirectory() && /^\d{8}-\d{6}_/.test(d.name))
-      .map(d => d.name)
-      .sort()
-      .reverse()
-      .slice(0, 30);
+    const allDirs = workRoots
+      .flatMap(root =>
+        readdirSync(root, { withFileTypes: true })
+          .filter(d => d.isDirectory() && /^\d{8}-\d{6}_/.test(d.name))
+          .map(d => ({ name: d.name, root })))
+      .sort((a, b) => b.name.localeCompare(a.name))
+      // Safety bound only. The real bound is the window `break` below, which is
+      // sound because the sort key is a chronological timestamp prefix. A fixed
+      // 30 truncated the scan as soon as the window knob grew past a few days.
+      .slice(0, 200);
 
-    for (const dirName of allDirs) {
+    for (const { name: dirName, root: workDir } of allDirs) {
       const match = dirName.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})_(.+)$/);
       if (!match) continue;
 
       const [, y, mo, d, h, mi, s, slug] = match;
       const dirTime = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}`).getTime();
 
-      if (now - dirTime > cutoff48h) break;
+      if (now - dirTime > cutoffMs) break;
 
       const dirPath = join(workDir, dirName);
 
@@ -194,17 +227,24 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
       let status = 'UNKNOWN';
       let rawTitle = slug.replace(/-/g, ' ');
       let sessionId: string | undefined;
-      const isaPath = findArtifactPath(dirName);
+      // Resolve the artifact inside THIS dir's own tree — the shared
+      // findArtifactPath() is pinned to one WORK root and misresolves the other.
+      let isaPath: string | null = join(dirPath, 'ISA.md');
+      if (!existsSync(isaPath)) isaPath = join(dirPath, 'PRD.md');
+      if (!existsSync(isaPath)) isaPath = null;
       const metaPath = join(dirPath, 'META.yaml');
 
       if (isaPath) {
-        // v4.0+: Read from ISA.md / PRD.md frontmatter
+        // v4.0+: Read from ISA.md / PRD.md frontmatter. Modern ISAs carry
+        // `phase:` (build|learn|complete|…); `status:` is the legacy key.
         try {
           const head = readFileSync(isaPath, 'utf-8').substring(0, 600);
           const statusMatch = head.match(/^status:\s*"?(\w+)"?/m);
+          const phaseMatch = head.match(/^phase:\s*"?([\w-]+)"?/m);
           const titleMatch = head.match(/^title:\s*"?(.+?)"?\s*$/m);
           const sessionIdMatch = head.match(/^session_id:\s*"?(.+?)"?\s*$/m);
           if (statusMatch) status = statusMatch[1];
+          else if (phaseMatch) status = phaseMatch[1].toUpperCase();
           if (titleMatch) rawTitle = titleMatch[1];
           if (sessionIdMatch) sessionId = sessionIdMatch[1]?.trim();
         } catch { /* skip */ }
@@ -225,19 +265,25 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
 
       try {
 
-        if (status === 'COMPLETED') continue;
+        // ONE terminal vocabulary across both blocks (2026-07-25 audit,
+        // finding 2). This filter used to hardcode COMPLETED|COMPLETE, so an
+        // ISA written `status: CLOSED` — which the stalled block correctly
+        // treats as finished — still occupied a Recent Sessions slot. Two
+        // surfaces disagreeing about "done" is how a finished session keeps
+        // being pushed at the principal.
+        if (TERMINAL_PHASES.has(normalizePhase(status))) continue;
         if (rawTitle.toLowerCase().startsWith('tasknotification') || rawTitle.length < 10) continue;
         if (sessionId && seenSessionIds.has(sessionId)) continue;
         if (sessionId) seenSessionIds.add(sessionId);
 
         const title = (sessionId && sessionNames[sessionId]) || rawTitle;
 
-        if (sessions.length >= 8) break;
+        if (sessions.length >= knobs.recentWorkLimit) break;
 
         let isa: WorkSession['isa'] = null;
         try {
           // v4.1: ISA.md at root; v4.0: PRD.md at root; pre-v4.0: PRD-*.md.
-          // findArtifactPath already covers v4.0/v4.1; fall back to date-stamped
+          // isaPath above covers v4.0/v4.1; fall back to date-stamped
           // PRD-*.md files only when neither ISA.md nor PRD.md is present.
           let artifactFile: string | null = isaPath;
           if (!artifactFile) {
@@ -249,8 +295,9 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           if (artifactFile) {
             const isaContent = readFileSync(artifactFile, 'utf-8');
             const idMatch = isaContent.match(/^id:\s*(.+)$/m);
-            const statusMatch2 = isaContent.match(/^status:\s*(.+)$/m);
-            const verifyMatch = isaContent.match(/^verification_summary:\s*"?(.+?)"?$/m);
+            const statusMatch2 = isaContent.match(/^status:\s*(.+)$/m) ?? isaContent.match(/^phase:\s*(.+)$/m);
+            const verifyMatch = isaContent.match(/^verification_summary:\s*"?(.+?)"?$/m)
+              ?? isaContent.match(/^progress:\s*"?(.+?)"?$/m);
             isa = {
               id: idMatch?.[1]?.trim() || 'ISA',
               status: statusMatch2?.[1]?.trim() || 'UNKNOWN',
@@ -266,7 +313,10 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           status,
           timestamp: `${y}-${mo}-${d} ${h}:${mi}`,
           stale: false,
-          isa
+          isa,
+          // Same key the index uses (artifact DIRECTORY relative to ~/.claude),
+          // so the stalled block can exclude what this block already showed.
+          indexKey: indexKeyForArtifact(join(dirPath, 'ISA.md'))
         });
       } catch { /* skip malformed */ }
     }
@@ -331,20 +381,60 @@ function getProjectProgress(paiDir: string): WorkSession[] {
 }
 
 /**
- * Unified activity dashboard — merges recent WORK sessions + persistent projects.
+ * Backlog surface (task 3783) — read the persistent ISA index and return the
+ * ISAs that are not finished, at ANY age.
+ *
+ * This is a READ. The index is built by IsaReconcile.ts (SessionStart async
+ * sweep) and kept warm by ISASync's live upsert, so SessionStart stays cheap:
+ * one JSON read, no directory walk, no ISA parsing.
+ *
+ * `stalledMaxAgeDays` and `stalledDisplayLimit` are knobs. The limit is a
+ * DISPLAY cap — the index still holds everything, and nothing here can remove
+ * an entry.
+ */
+function getStalledIsas(excludeKeys: Set<string>): StalledIsa[] {
+  const knobs = loadPickupKnobs();
+  if (!knobs.enabled) return [];
+  try {
+    return stalledIsaEntries(readIsaIndex(), {
+      maxAgeDays: knobs.stalledMaxAgeDays,
+      limit: knobs.stalledDisplayLimit,
+      exclude: excludeKeys,
+    });
+  } catch (err) {
+    console.error(`⚠️ Error reading ISA index: ${err}`);
+    return [];
+  }
+}
+
+/** "3d" / "5h" / "2mo" — compact age for the stalled block. */
+function humanAge(days: number): string {
+  if (!Number.isFinite(days)) return '?';
+  if (days < 1) return `${Math.max(1, Math.round(days * 24))}h`;
+  if (days < 60) return `${Math.round(days)}d`;
+  return `${Math.round(days / 30)}mo`;
+}
+
+/**
+ * Unified activity dashboard — merges recent WORK sessions, tracked projects,
+ * and the stalled-ISA backlog.
  */
 async function checkActiveProgress(paiDir: string): Promise<string | null> {
   const recentSessions = getRecentWorkSessions(paiDir);
   const projects = getProjectProgress(paiDir);
+  const shownKeys = new Set(recentSessions.map(s => s.indexKey).filter((k): k is string => !!k));
+  const stalled = getStalledIsas(shownKeys);
 
-  if (recentSessions.length === 0 && projects.length === 0) {
+  if (recentSessions.length === 0 && projects.length === 0 && stalled.length === 0) {
     return null;
   }
 
   let summary = '\n📋 ACTIVE WORK:\n';
 
   if (recentSessions.length > 0) {
-    summary += '\n  ── Recent Sessions (last 48h) ──\n';
+    const win = loadPickupKnobs().recentWorkWindowHours;
+    const winLabel = win % 24 === 0 ? `${win / 24}d` : `${win}h`;
+    summary += `\n  ── Recent Sessions (last ${winLabel}) ──\n`;
     for (const s of recentSessions) {
       summary += `\n  ⚡ ${s.title}\n`;
       summary += `     ${s.timestamp} | Status: ${s.status}\n`;
@@ -373,6 +463,22 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
         summary += '     Next steps:\n';
         proj.next_steps.forEach(s => summary += `     → ${s}\n`);
       }
+    }
+  }
+
+  if (stalled.length > 0) {
+    summary += '\n  ── Stalled ISAs (backlog — any age, most recent first) ──\n';
+    for (const e of stalled) {
+      const bits: string[] = [e.phase];
+      if (e.total > 0) bits.push(`${e.checked}/${e.total} ISC`);
+      if (e.remainingWork) bits.push(e.remainingOpen > 0 ? `${e.remainingOpen} remaining-work` : 'Remaining Work');
+      if (e.stranded) bits.push('stranded');
+      if (e.kind === 'tool') bits.push('tool ISA');
+      const card = e.taskRef ? ` [${e.taskRef}]` : '';
+      const title = e.title.length > 60 ? e.title.substring(0, 57) + '...' : e.title;
+      summary += `\n  ⏸ ${title}${card}\n`;
+      summary += `     ${bits.join(' · ')} | last touched ${humanAge(e.ageDays)} ago\n`;
+      summary += `     ${e.path}\n`;
     }
   }
 

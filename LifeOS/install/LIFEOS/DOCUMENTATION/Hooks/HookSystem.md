@@ -63,6 +63,7 @@ Claude Code supports the following hook events:
         { "type": "command", "command": "$HOME/.claude/hooks/KittyEnvPersist.hook.ts" },
         { "type": "command", "command": "$HOME/.claude/hooks/LoadContext.hook.ts" },
         { "type": "command", "command": "bun $HOME/.claude/LIFEOS/TOOLS/FreshnessCache.ts --quiet", "timeout": 5, "async": true },
+        { "type": "command", "command": "bun $HOME/.claude/LIFEOS/TOOLS/IsaReconcile.ts --index-only --quiet", "timeout": 30, "async": true },
         { "type": "command", "command": "bun $HOME/.claude/LIFEOS/TOOLS/SettingsBackport.ts; bun $HOME/.claude/LIFEOS/TOOLS/MergeSettings.ts --system $HOME/.claude/settings.system.json --user $HOME/.claude/LIFEOS/USER/CONFIG/settings.user.json --output $HOME/.claude/settings.json", "timeout": 15, "async": true }
       ]
     }
@@ -73,8 +74,9 @@ Claude Code supports the following hook events:
 **What They Do:**
 - `HookHealer.hook.ts` - Self-heals the registered-script exec-bit class: sweeps every script a settings hook execs directly, `chmod +x` on a missing exec bit, warns on a missing file/shebang. Registered via `bun <path>` so it is immune to losing its own exec bit. Writes `MEMORY/OBSERVABILITY/hook-healer.jsonl`.
 - `KittyEnvPersist.hook.ts` - Persists Kitty terminal env vars both to the shared `MEMORY/STATE/kitty-env.json` and to a per-session `MEMORY/STATE/kitty-sessions/{sessionId}.json` (required by out-of-process consumers like Pulse voice daemon), then resets tab title to clean state
-- `LoadContext.hook.ts` - Injects dynamic context (relationship, learning, work summary) as `<system-reminder>` at session start
+- `LoadContext.hook.ts` - Injects dynamic context (relationship, learning, work summary) as `<system-reminder>` at session start. Emits **two** work blocks: *Recent Sessions* (the push window, `isaPickup.recentWorkWindowHours`) and *Stalled ISAs* — every non-terminal ISA in the backlog index at **any age**, most-recently-touched first, deduped against Recent and capped for display only. Both blocks share one terminal vocabulary (`TERMINAL_PHASES` in `hooks/lib/isa-index.ts`), so "done" cannot mean two things on one screen.
 - `FreshnessCache.ts` *(a `LIFEOS/TOOLS/` script, not a `hooks/` file)* - Warms the `pai-freshness-v1` staleness cache (async)
+- `IsaReconcile.ts --index-only --quiet` *(TOOLS, not a hook)* - The ISA backlog sweep. Walks **both** WORK trees (`~/.claude/MEMORY/WORK`, `<LIFEOS_DIR>/MEMORY/WORK`) plus the persistent tool ISAs under `LIFEOS/TOOLS/` and upserts every one into `MEMORY/STATE/isa-index.json`, which the *Stalled ISAs* block reads. Append-only: an ISA that leaves disk is tombstoned, never dropped, and there is no retention knob. Async by design — the blocking read path must stay cheap, so a session may render the previous sweep's index (the live upsert in `ISASync` keeps actively-worked ISAs current regardless). `--index-only` means it touches no work.json row and no ISA file; the sweep is a pure observer (`hooks/lib/isa-utils.ts` § `SyncOptions.artifactReadOnly`). Governed by `isaPickup` in `settings.json`.
 - `SettingsBackport.ts` + `MergeSettings.ts` *(TOOLS, not hooks)* - Backport source-vs-generated drift, then regenerate `settings.json` from `settings.system.json` + `settings.user.json` (async). This is why `settings.json` is a generated artifact.
 
 ---

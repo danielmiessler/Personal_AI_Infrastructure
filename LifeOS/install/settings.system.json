@@ -399,6 +399,23 @@
     "learningReadback": true,
     "activeWorkSummary": true
   },
+  "isaPickup": {
+    "_docs": "ISA pickup loop. Every window below governs what is PUSHED at session start or held in the work.json VIEW. The persistent backlog index (MEMORY/STATE/isa-index.json) has no window and no retention knob by design: freshness governs what is pushed, never what exists or is findable. Set enabled:false to turn the whole surface off. Read by hooks/lib/isa-index.ts.",
+    "enabled": true,
+    "recentWorkWindowHours": 48,
+    "recentWorkLimit": 8,
+    "stalledDisplayLimit": 5,
+    "stalledMaxAgeDays": 30,
+    "strandedAfterDays": 7,
+    "reconcileMaxAgeDays": 30,
+    "workJson": {
+      "_docs": "work.json is a bounded view. Rows are archived INTO the index before eviction, never deleted outright.",
+      "nativeStartingHours": 4,
+      "completeHours": 24,
+      "defaultDays": 7,
+      "capRows": 50
+    }
+  },
   "postCompactRestore": {
     "_docs": "System default files re-injected after compaction. User additions via EXTRA_COMPACT_RESTORE in LIFEOS_CONFIG.yaml.",
     "fullFiles": [

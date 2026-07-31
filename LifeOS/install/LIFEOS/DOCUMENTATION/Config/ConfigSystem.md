@@ -55,6 +55,30 @@ LifeOS configuration follows the **system/user separation** contract (`LIFEOS/DO
 3. **Skills** — private `_*` skills that need credentials/integration data read `LIFEOS_CONFIG.toml` via `LifeosConfig.load()` (e.g. `_HOMEBRIDGE` reads Homebridge token; `_NETWORK` reads UniFi creds).
 4. **CLAUDE.md `@`-imports** — at session start, CC loads files referenced by top-level `@`-imports in `CLAUDE.md` (ARCHITECTURE_SUMMARY, PRINCIPAL_TELOS, PRINCIPAL_IDENTITY, DA_IDENTITY, PROJECTS, OPERATIONAL_RULES). CC does NOT follow transitive `@`-imports from inside imported files, so identity files must be listed in `CLAUDE.md` directly.
 
+## Knob blocks
+
+Named blocks in `settings.system.json` that a subsystem reads at runtime. Each ships conservative SYSTEM defaults and is overridable per-principal in `settings.user.json` by the normal deep-merge. Every block carries a `_docs` string next to the values, so the knob's meaning travels with the knob.
+
+### `isaPickup` — ISA pickup windows
+
+Governs what ISA work is **pushed** at session start and how long the `work.json` **view** holds a row. Read by `hooks/lib/isa-index.ts` (`loadPickupKnobs()`); consumed by `LoadContext.hook.ts` and `LIFEOS/TOOLS/IsaReconcile.ts`. Set `enabled: false` to turn the whole surface off.
+
+| Knob | Default | What it governs |
+|------|---------|-----------------|
+| `enabled` | `true` | Master switch for index writes and the Stalled ISAs block. |
+| `recentWorkWindowHours` | `48` | Push window for the *Recent Sessions* block. |
+| `recentWorkLimit` | `8` | Max rows in *Recent Sessions*. |
+| `stalledDisplayLimit` | `5` | Max rows in *Stalled ISAs*. A **display** cap, never a data cap. |
+| `stalledMaxAgeDays` | `30` | Age ceiling for the stalled block. `0` = no limit. |
+| `strandedAfterDays` | `7` | A `phase: verify` ISA untouched this long is flagged `stranded` in the index. |
+| `reconcileMaxAgeDays` | `30` | ISAs older than this are indexed but not synced to `work.json`. |
+| `workJson.nativeStartingHours` | `4` | View-freshness for placeholder rows. |
+| `workJson.completeHours` | `24` | View-freshness for completed rows. |
+| `workJson.defaultDays` | `7` | View-freshness for everything else. |
+| `workJson.capRows` | `50` | Row cap on the view. |
+
+**There is deliberately no retention knob for the backlog index**, and adding one would be a regression, not a feature. Freshness governs what is *pushed*; nothing governs what *exists* or is *findable*. Rows leaving `work.json` on TTL or cap are archived **into** `MEMORY/STATE/isa-index.json` first, and the delete is deferred if that write fails — no path deletes memory into the void. See `LIFEOS/DOCUMENTATION/Isa/IsaFormat.md` § Backlog.
+
 ## Editing
 
 - **Identity / voice / principal name / per-machine integrations** → edit `LIFEOS/USER/CONFIG/settings.user.json` (USER overlay) or `LIFEOS_CONFIG.toml`. Takes effect next SessionStart.

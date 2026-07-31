@@ -87,6 +87,20 @@ updated: 2026-02-24T02:00:00Z            # Last modification timestamp (ISO 8601
 ---
 ```
 
+**`phase:` is the authoritative state field — a prose `status:` line is not a substitute.** The backlog index derives an ISA's state as `normalizePhase(phase || status)`, and `normalizePhase` keeps only the **first token**. So an artifact carrying only prose has its visibility decided by the first word of a sentence: `status: CLOSED — built, audited, pushed` and `status: VERIFIED — …; awaiting sign-off on the release` collapse to one token each, and only one of them is finished. Write `phase:` from the eight-value enum above; put the narrative in `status:` beside it, where it is read by humans and not by the classifier.
+
+Only `complete` is terminal in the enum. `TERMINAL_PHASES` (`hooks/lib/isa-index.ts`) additionally tolerates the legacy synonyms `completed` · `closed` · `done` · `abandoned` · `archived` so pre-enum artifacts are not surfaced forever — every one of them is a synonym for *finished*. `verify` is mid-pipeline and stays in the backlog: an ISA that says it has been verified but not completed is usually work **waiting** on someone, and waiting work stays visible.
+
+## Backlog — what stays findable
+
+An ISA is the memory of a piece of work, so it must stay findable for as long as it exists. Freshness governs what is **pushed** at session start; nothing governs what **exists**.
+
+`MEMORY/STATE/isa-index.json` is that memory — an append-only index of every ISA the instance owns, across both WORK trees and the persistent tool ISAs under `LIFEOS/TOOLS/`. It is written by `LIFEOS/TOOLS/IsaReconcile.ts` (SessionStart, async) and kept warm by `ISASync.hook.ts` on every ISA edit; `LoadContext.hook.ts` renders the non-terminal entries as the *Stalled ISAs* block at any age. Three properties are load-bearing:
+
+- **No entry is ever removed.** Not on TTL, not on cap eviction, not when the artifact leaves disk — a deleted artifact is tombstoned (`missing: true`) and un-marks itself if the file returns.
+- **There is no retention knob**, deliberately. Every display window is configurable under `isaPickup`; the index itself is not, because a retention knob on memory is the defect this index removes.
+- **`work.json` rows expire *into* the index**, never into the void, and the delete is deferred if the archive write fails.
+
 **`mode:` field values (2026-05-13+, post mode-reorg):** `iterate` | `optimize` | `ideate` | `loop`. The legacy values `interactive` and `loop` (different semantics) are no longer accepted; older ISAs may still carry them and parsers should treat as `iterate`. See `LIFEOS/ALGORITHM/modes/README.md` for canonical mode reference and `LIFEOS/ALGORITHM/modes/{iterate,optimize,ideate,loop,native}.md` for per-mode doctrine. Note: `native` is not an `mode:` value — NATIVE-response sessions don't have ISAs.
 
 Optional field (added on rework/continuation):

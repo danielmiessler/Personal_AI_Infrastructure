@@ -277,6 +277,12 @@
           },
           {
             "type": "command",
+            "command": "bun $HOME/.claude/LIFEOS/TOOLS/IsaReconcile.ts --index-only --quiet",
+            "timeout": 30,
+            "async": true
+          },
+          {
+            "type": "command",
             "command": "bun $HOME/.claude/LIFEOS/TOOLS/SettingsBackport.ts; bun $HOME/.claude/LIFEOS/TOOLS/MergeSettings.ts --system $HOME/.claude/settings.system.json --user $HOME/.claude/LIFEOS/USER/CONFIG/settings.user.json --output $HOME/.claude/settings.json",
             "timeout": 15,
             "async": true

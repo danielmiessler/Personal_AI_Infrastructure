@@ -1164,14 +1164,25 @@ export function syncToWorkJson(
     if (archived) {
       for (const { slug } of evictions) delete registry.sessions[slug];
     } else {
-      // ONE invariant, no exceptions: a row leaves work.json only after it is in
-      // the index. A partial rule ("evict it anyway if its ISA file still
-      // exists") would be safe in practice but makes the invariant conditional
-      // on a sweep that may not run — and an invariant you cannot state in one
-      // sentence is one nobody can verify. work.json may exceed its cap while
-      // the index is unwritable; that is the accepted cost, it is logged, and
-      // the next sync clears the backlog.
-      console.error(`[ISASync] index archive skipped — deferring eviction of ${evictions.length} work.json row(s)`);
+      // A row leaves work.json only after it is retrievable from the index.
+      // The two exceptions are named where they live (isa-index.ts header):
+      // placeholder rows carry no memory, and with the index disabled there is
+      // nothing to archive into. Everything else defers.
+      //
+      // A partial rule ("evict it anyway if its ISA file still exists") would be
+      // safe in practice but makes the invariant conditional on a sweep that may
+      // not run, and an invariant you cannot state plainly is one nobody can
+      // verify.
+      //
+      // COST, HONESTLY: work.json may exceed its cap while the index is
+      // unwritable. If the cause is transient (lock contention, a full disk that
+      // clears) the next sync drains the backlog. If it is PERMANENT — an
+      // invalid configured destination, a read-only volume, corruption that
+      // cannot be quarantined — nothing drains it and work.json grows until the
+      // cause is fixed. That is deliberate: unbounded growth is recoverable,
+      // deleted memory is not. isa-index logs permanent causes distinctly so the
+      // difference is visible rather than inferred.
+      console.error(`[ISASync] index archive skipped — deferring eviction of ${evictions.length} work.json row(s); see the isa-index diagnostic above for whether the cause is transient or permanent`);
     }
   }
 

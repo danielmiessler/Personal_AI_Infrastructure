@@ -23,6 +23,14 @@
  *   2. isa-utils syncToWorkJson  live upsert on every ISA edit
  *   3. isa-utils TTL/cap eviction  rows expire INTO the index, never into the void
  *
+ * THE RETENTION INVARIANT, STATED WITH ITS EXCEPTIONS (it is not universal, and
+ * writing it as if it were is how it stops being checkable):
+ *   A work.json row is deleted only after it is retrievable from this index —
+ *   EXCEPT (a) `native`/`starting` placeholder rows, which are harness
+ *   bookkeeping and carry no memory to retrieve, and (b) when `isaPickup.enabled`
+ *   is false, in which case there is no index and eviction reverts to the
+ *   pre-index behavior of simply dropping the row. Everything else defers.
+ *
  * READ PATH:
  *   - LoadContext.hook.ts "Stalled ISAs" block (display-capped, and bounded by
  *     `stalledMaxAgeDays` — 30d by default, 0 for genuinely any age)
@@ -253,8 +261,18 @@ export function workRoots(): string[] {
 export function indexKeyForArtifact(artifactPath: string): string {
   const dir = dirname(resolve(artifactPath));
   const root = getClaudeDir() + '/';
-  return dir.startsWith(root) ? dir.slice(root.length) : dir;
+  const key = dir.startsWith(root) ? dir.slice(root.length) : dir;
+  // RESERVED NAMESPACE. `work-expiry:` keys are minted for work.json rows that
+  // have no artifact to key on. A real directory literally named that would
+  // collide with one, so an artifact never gets to mint a key inside it — the
+  // prefix is escaped instead. Colons are legal in POSIX filenames, so this is
+  // a real (if unlikely) path, and an append-only store has no cleanup path for
+  // a key minted wrong.
+  return key.startsWith(WORK_EXPIRY_PREFIX) ? `artifact:${key}` : key;
 }
+
+/** Reserved key namespace — see indexKeyForArtifact and workExpiryKey. */
+export const WORK_EXPIRY_PREFIX = 'work-expiry:';
 
 // ── Discovery ─────────────────────────────────────────────────────────────
 
@@ -375,7 +393,7 @@ function quarantineIfCorrupt(path: string): boolean {
     console.error(`⚠️ isa-index: existing index was corrupt — quarantined to ${aside}; rebuilding from disk (index-only entries, if any, are preserved in the quarantined copy)`);
     return true;
   } catch (err) {
-    console.error(`⚠️ isa-index: existing index is corrupt and could NOT be quarantined (${err}); refusing to publish over it — nothing was written, and the next run retries`);
+    console.error(`⚠️ isa-index: existing index is corrupt and could NOT be quarantined (${err}); refusing to publish over it. Nothing was written. If the cause is transient the next run recovers; if it is a permission or read-only-volume problem it will NOT self-heal and every eviction defers until it is fixed.`);
     return false;
   }
 }
@@ -406,6 +424,46 @@ function lockPathFor(indexPath: string): string {
   return indexPath + '.lock';
 }
 
+/** Owner token written into the lock at acquire and re-checked before publish. */
+function lockTokenPath(lock: string): string {
+  return join(lock, 'owner');
+}
+
+let lockSeq = 0;
+function mintLockToken(): string {
+  return `${process.pid}-${Date.now()}-${++lockSeq}`;
+}
+
+/**
+ * Is the lock still OURS?
+ *
+ * Stale takeover means a lock can be removed and re-created by another writer
+ * while we hold it. Measured 2026-07-31, the whole locked operation is ~1.2s at
+ * 400k entries / 193MB — three orders of magnitude past any realistic index — so
+ * a writer does not out-run the 10s stale window by being slow. It out-runs it
+ * by being STOPPED: a suspended laptop, a stalled network filesystem, a long GC
+ * pause or SIGSTOP blows any fixed window at any index size, and no size-derived
+ * threshold fixes that.
+ *
+ * So ownership is checked rather than assumed. If our token is gone, someone
+ * took the lock and has published (or is publishing) their own merge; ours was
+ * computed against a snapshot that no longer exists, and writing it would drop
+ * their entries. We abort and return false — the caller then defers its delete,
+ * which is the same fail-closed direction as every other failure here.
+ */
+export function stillOwnLock(lock: string, token: string): boolean {
+  try {
+    return readFileSync(lockTokenPath(lock), 'utf-8') === token;
+  } catch {
+    return false; // token unreadable or gone — assume lost
+  }
+}
+
+/** Push the lock's staleness clock forward across a long phase. */
+function touchLock(lock: string, token: string): void {
+  try { writeFileSync(lockTokenPath(lock), token); } catch { /* best effort */ }
+}
+
 /** Synchronous sleep with no runtime assumptions (the write path is sync). */
 function sleepSync(ms: number): void {
   try {
@@ -416,12 +474,14 @@ function sleepSync(ms: number): void {
   }
 }
 
-function lockAgeMs(lock: string): number {
-  try {
-    return Date.now() - statSync(lock).mtimeMs;
-  } catch {
-    return -1; // gone
+export function lockAgeMs(lock: string): number {
+  // Age off the TOKEN, not the directory: touchLock() rewrites the token to
+  // push the clock forward across a long phase, and a directory's mtime does
+  // not change when a file inside it is rewritten.
+  for (const p of [lockTokenPath(lock), lock]) {
+    try { return Date.now() - statSync(p).mtimeMs; } catch { /* try the next */ }
   }
+  return -1; // gone
 }
 
 /**
@@ -433,17 +493,18 @@ function lockAgeMs(lock: string): number {
  * cannot resolve itself, and the caller needs a prompt `false` to make its own
  * fail-safe decision.
  */
-function acquireLock(lock: string): boolean {
+function acquireLock(lock: string, token: string): boolean {
   for (let attempt = 0; attempt <= LOCK_RETRIES; attempt++) {
     try {
       mkdirSync(lock);
+      touchLock(lock, token);
       return true;
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code !== 'EEXIST') return false;
       const age = lockAgeMs(lock);
       if (age === -1 || age > LOCK_STALE_MS) {
         try { rmSync(lock, { recursive: true, force: true }); } catch {}
-        try { mkdirSync(lock); return true; } catch { /* lost the race — retry */ }
+        try { mkdirSync(lock); touchLock(lock, token); return true; } catch { /* lost the race — retry */ }
       }
       if (attempt < LOCK_RETRIES) sleepSync(LOCK_RETRY_SLEEP_MS);
     }
@@ -518,7 +579,7 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
 
   // The destination is operator-configurable; it may never alias an artifact.
   if (!isSafeIndexDestination(path)) {
-    console.error(`⚠️ isa-index: refusing to publish the index to ${path} — the destination must be a .json file and must not be an ISA artifact. Nothing was written.`);
+    console.error(`⚠️ isa-index: PERMANENT — refusing to publish the index to ${path}; the destination must be a .json file and must not be an ISA artifact. Nothing was written, and this will NOT self-heal: every eviction defers until the configured path is corrected.`);
     return false;
   }
 
@@ -532,7 +593,8 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
   }
 
   const lock = lockPathFor(path);
-  if (!acquireLock(lock)) return false;
+  const token = mintLockToken();
+  if (!acquireLock(lock, token)) return false;
   try {
     // A corrupt file that cannot be moved aside must not be published over:
     // the rebuild would replace unrecoverable index-only memory.
@@ -566,6 +628,17 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
 
     index.version = ISA_INDEX_VERSION;
     index.updatedAt = now;
+
+    // Everything above read a SNAPSHOT. If our lock was taken over while we
+    // worked, another writer has merged and published against that same
+    // snapshot or a newer one, and publishing ours now would drop their
+    // entries — an append-only store losing entries by write ordering. Check
+    // ownership last, immediately before the rename, and fail closed.
+    if (!stillOwnLock(lock, token)) {
+      console.error('⚠️ isa-index: lock was taken over mid-write; discarding this merge rather than overwriting the other writer. Nothing was published; the caller defers.');
+      return false;
+    }
+    touchLock(lock, token); // fresh clock for the serialize + rename phase
     publish(index, path);
     return true;
   } catch {
@@ -584,12 +657,21 @@ export function upsertIsaEntries(entries: IsaIndexEntry[], opts: UpsertOptions =
  * it works even when the artifact has been moved or deleted, and even when the
  * row never recorded a path at all.
  *
- * TOTALITY IS THE INVARIANT. Every row that carries recoverable memory MUST
- * produce an entry. A row that produces none and is still reported as archived
- * is deleted unarchived by the caller, which is precisely the data loss this
- * function exists to prevent — so the count is checked, and a shortfall returns
- * false (defer the eviction) rather than true. Only PLACEHOLDER_PHASES rows are
- * legitimately entry-less: they are harness bookkeeping with nothing to keep.
+ * TOTALITY IS THE INVARIANT, AND IT IS MEASURED ON KEYS, NOT ON ENTRIES.
+ * Every row that carries recoverable memory must be RETRIEVABLE afterwards. An
+ * earlier version counted entries PRODUCED, which is a proxy, not the property:
+ * the index stores by key and `indexKeyForArtifact` keys by DIRECTORY, so two
+ * rows whose artifacts sit in one directory (an `ISA.md` and a `PRD.md` side by
+ * side — common in real trees) produced two entries that merged into ONE on
+ * write. The count matched, the write succeeded, and the caller deleted both
+ * rows with one row's memory retained. Same class as the pathless-row bug: a
+ * guard that checks the wrong thing.
+ *
+ * So: keys are disambiguated first, so two rows can never collapse into one,
+ * and the guard then counts DISTINCT KEYS. Any future change whose entries
+ * collapse fails closed (defer the eviction) instead of silently dropping a
+ * row. Only PLACEHOLDER_PHASES rows are legitimately keyless: they are harness
+ * bookkeeping with nothing to keep.
  */
 export function archiveWorkRows(
   rows: Array<{ slug: string; session: Record<string, any> }>,
@@ -604,6 +686,13 @@ export function archiveWorkRows(
   const entries: IsaIndexEntry[] = [];
   let recoverable = 0;
 
+  // Every key this batch will occupy, plus the slug that owns it. A directory
+  // key already held by a DIFFERENT session must not be merged over: that is
+  // one row's memory overwriting another's.
+  const existing = readIsaIndex(opts.path || isaIndexPath());
+  const claimed = new Map<string, string>();
+  for (const [k, e] of Object.entries(existing.entries)) claimed.set(k, e.slug);
+
   for (const { slug, session } of rows) {
     const phase = String(session.phase || 'unknown').toLowerCase();
     if (PLACEHOLDER_PHASES.has(phase)) continue; // harness bookkeeping, not an ISA
@@ -612,14 +701,26 @@ export function archiveWorkRows(
     const checked = Number(session.criteria?.checked ?? 0) || 0;
     const total = Number(session.criteria?.total ?? 0) || 0;
     const abs = resolveRowIsaPath(session.isa);
+
     // A row with no usable `isa` path is still memory: the slug, title, phase,
-    // criteria counts and timestamps all live on the ROW. Keep it under a
-    // namespaced key that cannot collide with a directory key, tombstoned
-    // because there is no artifact to point at. If the artifact later appears,
-    // the sweep indexes it under its real key; this entry remains as the record
-    // that the row existed.
+    // criteria counts and timestamps all live on the ROW. It goes under a
+    // reserved synthetic key, tombstoned because there is no artifact to point
+    // at. If the artifact later appears, the sweep indexes it under its real
+    // key; this entry remains as the record that the row existed.
+    //
+    // The directory key is used only while it is unclaimed or already ours.
+    // Otherwise the row falls back to its own synthetic key, so two sessions
+    // sharing a directory both survive instead of one silently replacing the
+    // other.
+    const dirKey = abs ? indexKeyForArtifact(abs) : null;
+    const owner = dirKey === null ? undefined : claimed.get(dirKey);
+    const key = dirKey !== null && (owner === undefined || owner === slug)
+      ? dirKey
+      : workExpiryKey(slug, session);
+    claimed.set(key, slug);
+
     entries.push({
-      key: abs ? indexKeyForArtifact(abs) : `work-expiry:${slug}`,
+      key,
       kind: abs?.includes('/LIFEOS/TOOLS/') ? 'tool' : 'work',
       slug,
       title: String(session.task || session.sessionName || slug),
@@ -639,18 +740,28 @@ export function archiveWorkRows(
     });
   }
 
-  // Never report success for a row we did not actually keep.
-  if (entries.length !== recoverable) return false;
+  // THE GUARD, on keys rather than entries: distinct keys is what survives the
+  // merge, so it is what "retrievable afterwards" actually means. Anything that
+  // collapses here fails closed and the caller keeps its rows.
+  if (new Set(entries.map(e => e.key)).size !== recoverable) return false;
   if (entries.length === 0) return true; // every row was a placeholder
   return upsertIsaEntries(entries, { path: opts.path });
 }
 
-/** work.json rows store `isa` relative to LIFEOS_DIR when the artifact lives
- *  under it, and absolute otherwise (the two-tree split). Resolve both. */
-function resolveRowIsaPath(raw: unknown): string | null {
-  const rel = typeof raw === 'string' ? raw.trim() : '';
-  if (!rel) return null;
-  return rel.startsWith('/') ? rel : join(paiPath(), rel);
+/**
+ * Synthetic key for a work.json row archived without a usable artifact path,
+ * or whose directory key belongs to another session.
+ *
+ * Unique per INCARNATION, not per slug: slugs are reused (a directory name can
+ * recur), and a bare `work-expiry:<slug>` would merge a later incarnation over
+ * the archived memory of an earlier one — the same overwrite this key exists to
+ * avoid. The discriminator is the row's own start/update stamp, so re-archiving
+ * the same incarnation stays idempotent.
+ */
+function workExpiryKey(slug: string, session: Record<string, any>): string {
+  const stamp = String(session.started || session.updatedAt || session.lastToolActivity || '')
+    .replace(/[^0-9A-Za-z]/g, '') || 'nostamp';
+  return `${WORK_EXPIRY_PREFIX}${slug}@${stamp}`;
 }
 
 /** work.json rows store `isa` relative to LIFEOS_DIR when the artifact lives

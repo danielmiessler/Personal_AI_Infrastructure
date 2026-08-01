@@ -259,6 +259,13 @@ badosanjos · benoitdepaire · bnkath2o · brycemagera · catchingknives · DAES
 
 <br/>
 
+**v7.28.3 — Cortex, Hermes, and hardened releases**
+- **Cortex** — the memory system, named: hot-layer memory, a typed Knowledge Archive (People, Companies, Ideas, Research), learnings, and work history, consolidated across sessions so each one starts smarter than the last.
+- **Hermes sidecar** — an optional second front door: talk to your LifeOS as an agent from a terminal, with the same constitution, identity, and skills. One brain, another way in.
+- **Named subsystems** — Synapse (the input router), Conduit and Feed (the internal and external senses), Atlas (the live asset graph), and Ledger (change tracking), each a product within the product.
+- **Release-security hardening** — three new deterministic gates (sanitizer-residue, licensed-font, dead-legacy-doc-pointer); previously-shipped commercially licensed fonts removed.
+- [Full release notes](https://github.com/danielmiessler/LifeOS/releases)
+
 **v7.1.1 — Install Awareness**
 - **Doctor** — `bun LIFEOS/TOOLS/Doctor.ts` reports the real state of every optional capability (live, broken, declined, stale) and reconciles hooks on disk against what's registered.
 - **Capability-aware install** — the installer asks now/later/never per optional capability and records the choice; failure-aware nudges surface the exact fix command when a broken capability trips.

@@ -12,7 +12,7 @@ Every source listed here is keyed off `{city, state}` (and occasionally `county`
 
 ## Crime (FetchCrime)
 
-**Delegates to `_CRIMESTATS`. No direct sources from this skill.**
+**Delegates to a dedicated crime-stats skill. No direct sources from this skill.**
 
 ## Business (FetchBusiness)
 

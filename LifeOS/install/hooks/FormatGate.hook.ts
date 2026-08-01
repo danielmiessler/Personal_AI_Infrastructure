@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.0
+ * @version 1.0.1
  * FormatGate.hook.ts — deterministic Stop-hook teeth for the LifeOS output
  * format (system prompt § Output Format).
  *
@@ -10,7 +10,8 @@
  * deterministically verifiable without an LLM:
  *   1. Banner `════ LifeOS` is the first visible line.
  *   2. `🗣️` closer is the last visible line.
- *   3. When a <pai-memory-delta> arrived this turn, a `🧠 MEMORY:` line exists.
+ *   3. When a <lifeos-memory-delta> arrived this turn, a `🧠 MEMORY:` line exists.
+ *   3b. When a <lifeos-system-delta> arrived this turn, a `⚙️ SYSTEM:` line exists.
  *   4. No more than 2 em-dashes in prose (code/blockquote stripped).
  *
  * OBSERVATION-ONLY (2026-07-12): this gate does NOT block. A Stop hook fires
@@ -48,7 +49,7 @@ const LIFEOS_DIR = process.env.LIFEOS_DIR || join(process.env.HOME!, ".claude", 
 const OBS_PATH = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "format-gate.jsonl");
 
 export interface FormatViolation {
-  code: "no-banner" | "no-closer" | "missing-memory-line" | "too-many-emdashes";
+  code: "no-banner" | "no-closer" | "missing-memory-line" | "missing-system-line" | "too-many-emdashes";
   detail: string;
 }
 
@@ -73,24 +74,46 @@ function visibleLines(text: string): string[] {
 const BANNER = /════\s*LifeOS/;
 const CLOSER = /🗣️/;
 const MEMORY_LINE = /🧠\s*MEMORY\s*:/;
+const SYSTEM_LINE = /⚙️?\s*SYSTEM\s*:/;
 
 /**
- * Did a <pai-memory-delta> block arrive on THIS turn? Scan only the transcript
+ * Did a <lifeos-memory-delta> block arrive on THIS turn? Scan only the transcript
  * tail after the last user-role marker so a delta from a prior turn can't force
  * a false block. Bias: when uncertain, do NOT require the line (fail-open).
  */
 export function memoryDeltaThisTurn(rawTranscript: string): boolean {
+  return deltaThisTurn(rawTranscript, "memory-delta");
+}
+
+/** Same turn-scoped scan for the ⚙️ SYSTEM surface. */
+export function systemDeltaThisTurn(rawTranscript: string): boolean {
+  return deltaThisTurn(rawTranscript, "system-delta");
+}
+
+/**
+ * Readers accept BOTH prefixes; emitters write only `lifeos-`. A stale in-flight
+ * session or a replayed transcript still carries `pai-` blocks, and a gate that
+ * only knew the new name would silently stop enforcing the memory line — the
+ * exact half-rename failure raised in public issue #1592 / PR #1594
+ * (@anikinsasha). Drop the legacy prefix once no `pai-` transcripts remain.
+ */
+const TAG_PREFIXES = ["lifeos-", "pai-"] as const;
+
+function deltaThisTurn(rawTranscript: string, suffix: string): boolean {
   if (!rawTranscript) return false;
   const lastUser = rawTranscript.lastIndexOf('"role":"user"');
   const region = lastUser >= 0 ? rawTranscript.slice(lastUser) : rawTranscript.slice(-8000);
-  return region.includes("pai-memory-delta");
+  return TAG_PREFIXES.some((p) => region.includes(p + suffix));
 }
 
 /**
  * Pure structural checker. Returns the FIRST violation (block reasons compose
  * poorly; one clear fix at a time), or null when the message conforms.
  */
-export function checkFormat(message: string, opts: { memoryDelta: boolean }): FormatViolation | null {
+export function checkFormat(
+  message: string,
+  opts: { memoryDelta: boolean; systemDelta?: boolean },
+): FormatViolation | null {
   const lines = visibleLines(message);
   if (lines.length === 0) return null; // nothing to gate — fail open
 
@@ -101,7 +124,10 @@ export function checkFormat(message: string, opts: { memoryDelta: boolean }): Fo
     return { code: "no-closer", detail: "last visible line is not the 🗣️ closer" };
   }
   if (opts.memoryDelta && !MEMORY_LINE.test(message)) {
-    return { code: "missing-memory-line", detail: "a pai-memory-delta arrived this turn but no 🧠 MEMORY: line was rendered" };
+    return { code: "missing-memory-line", detail: "a memory-delta arrived this turn but no 🧠 MEMORY: line was rendered" };
+  }
+  if (opts.systemDelta && !SYSTEM_LINE.test(message)) {
+    return { code: "missing-system-line", detail: "a system-delta arrived this turn but no ⚙️ SYSTEM: line was rendered" };
   }
   const emdashes = (stripNonProse(message).match(/—/g) || []).length;
   if (emdashes > 2) {
@@ -138,7 +164,8 @@ export async function run(
     if (!message) return null;
 
     const memoryDelta = memoryDeltaThisTurn(parsed.raw);
-    const violation = checkFormat(message, { memoryDelta });
+    const systemDelta = systemDeltaThisTurn(parsed.raw);
+    const violation = checkFormat(message, { memoryDelta, systemDelta });
 
     if (violation) {
       // Observation-only: log the drift, never re-emit (see header WHY 2026-07-12).

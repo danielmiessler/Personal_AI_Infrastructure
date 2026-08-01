@@ -1,7 +1,27 @@
 #!/usr/bin/env bun
 /**
- * @version 1.3.1
+ * @version 1.5.5
  * AgentInvocation.hook.ts — Agent (Task) subagent lifecycle tracker.
+ *
+ * v1.5.3 (2026-07-24): MODEL-CHECK ADVISORY REMOVED. v1.5.0 emitted a
+ * PreToolUse advisory whenever a dispatch carried no model, citing the rule
+ * "every Agent dispatch sets model explicitly." That rule is RETIRED
+ * (OPERATIONAL_RULES § Model selection, 2026-07-11, restated 2026-07-24): the
+ * saved /model value is the single dial, an omitted `model` INHERITS it, and
+ * that inheritance IS the intended carrier — naming a model is what rots. The
+ * same rule scopes this hook to observe-and-log with no injection, and stdout
+ * from a PreToolUse hook is injection, so the advisory violated both halves.
+ * This hook now emits nothing on stdout. Nothing injects a model at dispatch.
+ *
+ * v1.4.0 (2026-07-13): background/mailbox spawns detected at PostToolUse. The
+ * harness's async Agent spawns return "Spawned successfully" immediately, so
+ * PostToolUse fires at spawn time — the old code logged subagent_stop with
+ * duration 0 and deleted the start record, making background agents invisible
+ * to the statusline ACTIVE ladder ({{PRINCIPAL_NAME}} caught this live: an Opus dispatch
+ * showed nothing). Now: a spawn-ack response logs subagent_spawned_async and
+ * removes the start record; liveness for background agents comes from the
+ * harness's own subagents/agent-*.jsonl transcript mtime (statusline reads it
+ * directly — no hook bookkeeping can go stale).
  *
  * Claude Code's built-in SubagentStart/SubagentStop payloads do NOT include
  * subagent_type / description / prompt reliably — the prior tracker wrote
@@ -9,15 +29,14 @@
  * at PreToolUse:Agent / PostToolUse:Agent where tool_input and tool_response
  * are present, and writes proper events to subagent-events.jsonl.
  *
- * MODEL INJECTOR REMOVED (v1.3.0, 2026-07-11, principal directive): the
- * v1.2.0 injector rewrote any no-model Agent dispatch to a routing-curve rung
- * (E4/E5 → fable, else opus). Its tier signal died with the 2026-07-11 tier
- * retirement, silently flattening every dispatch to opus. Baseline now: model
- * selection is {{DA_NAME}}'s per-dispatch judgment; an unspecified model inherits the
- * session model (harness behavior). This hook OBSERVES only — it resolves and
- * logs which model a dispatch carries (cross-vendor > explicit param >
- * frontmatter pin > inherited) and never mutates tool input. Historical
- * injections remain in MEMORY/OBSERVABILITY/model-injections.jsonl.
+ * THIS HOOK OBSERVES ONLY — it resolves and logs which model a dispatch carries
+ * (cross-vendor > explicit param > frontmatter pin > inherited) and never mutates tool
+ * input. Do not reintroduce model injection here. An injector that rewrites a no-model
+ * dispatch to a rung depends on a tier signal, and when that signal goes away the injector
+ * does not fail loudly — it silently flattens every dispatch to one rung, which is exactly
+ * what happened before this hook was reduced to observation. Model selection is a
+ * per-dispatch judgment; an unspecified model inherits the session model.
+ * Earlier injection records remain in MEMORY/OBSERVABILITY/model-injections.jsonl.
  *
  * Wired in settings.json under:
  *   PreToolUse  matcher=Agent → subagent_start  (with real subagent_type)
@@ -33,7 +52,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { paiPath } from './lib/paths';
 import { getISOTimestamp } from './lib/time';
-import { EFFORT_MODEL, ALIAS, CROSS_VENDOR } from '../LIFEOS/TOOLS/models';
+import { EFFORT_MODEL, CROSS_VENDOR } from '../LIFEOS/TOOLS/models';
 
 interface AgentToolInput {
   subagent_type?: string;
@@ -45,7 +64,7 @@ interface AgentToolInput {
 /** Reverse-map a model alias/tier to its effort level via EFFORT_MODEL. */
 function levelForModel(model: string): string {
   for (const [level, tier] of Object.entries(EFFORT_MODEL)) {
-    if (tier === model || ALIAS[tier as keyof typeof ALIAS] === model) return level;
+    if (tier === model) return level;
   }
   return 'custom';
 }
@@ -152,6 +171,12 @@ async function main() {
       };
       appendFileSync(EVENTS_FILE, JSON.stringify(event) + '\n', 'utf-8');
       console.error(`[AgentInvocation] START: ${subagentType} (${dispatch.level} → ${dispatch.model}) — ${description.slice(0, 48)}`);
+
+      // Observe and log only — no advisory, no classifier, no tier rubric.
+      // The saved /model value is the single dial; a dispatch that omits
+      // `model` inherits it, which is the intended carrier (OPERATIONAL_RULES
+      // § Model selection, 2026-07-11). The former explicit-model advisory
+      // that lived here was removed when that rule was retired.
     } else {
       const starts = readStarts();
       const startRec = starts[key];
@@ -162,17 +187,26 @@ async function main() {
         writeStarts(starts);
       }
 
+      // Background/mailbox spawn: PostToolUse fires at spawn, not completion.
+      // A duration-0 "stop" here is a lie — the agent is still running. Log the
+      // async spawn; the statusline tracks its liveness from the harness's
+      // subagents/agent-*.jsonl transcript mtime.
+      const respStr = typeof data.tool_response === 'string'
+        ? data.tool_response
+        : JSON.stringify(data.tool_response ?? '');
+      const isAsyncSpawn = /Spawned successfully|running and will receive instructions via mailbox/i.test(respStr);
+
       const event = {
         timestamp: getISOTimestamp(),
-        event: 'subagent_stop',
+        event: isAsyncSpawn ? 'subagent_spawned_async' : 'subagent_stop',
         session_id: sessionId,
         subagent_id: key,
         subagent_type: subagentType,
         description,
-        duration_seconds: duration,
+        duration_seconds: isAsyncSpawn ? null : duration,
       };
       appendFileSync(EVENTS_FILE, JSON.stringify(event) + '\n', 'utf-8');
-      console.error(`[AgentInvocation] STOP: ${subagentType} — ${description.slice(0, 48)} (${duration ?? '?'}s)`);
+      console.error(`[AgentInvocation] ${isAsyncSpawn ? 'ASYNC-SPAWN' : 'STOP'}: ${subagentType} — ${description.slice(0, 48)}${isAsyncSpawn ? '' : ` (${duration ?? '?'}s)`}`);
     }
   } catch (e) {
     console.error('[AgentInvocation]', e instanceof Error ? e.message : String(e));

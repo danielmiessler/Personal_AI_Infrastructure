@@ -8,14 +8,16 @@
  * can show per-subsystem counts + a chronological activity feed WITHOUT the Swift app
  * having to know about every subsystem's storage. Every subsystem read is best-effort:
  * a failing source degrades its own section to empty and NEVER throws to the caller
- * (ISC-13). Amber is cloud-D1 and reached via a cached, timeout-bounded proxy (ISC-4);
- * its base URL comes from AMBER_LEDGER_URL (never hardcoded in this SYSTEM file).
+ * (ISC-13). The amber ledger (Synapse's write-ahead journal) is cloud-D1 and reached via
+ * a cached, timeout-bounded proxy (ISC-4); its base URL comes from AMBER_LEDGER_URL
+ * (never hardcoded in this SYSTEM file).
  *
  * Read-only. No capture, no mutation. Register in pulse.ts like the conduit module.
  */
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import { hermesHealth } from "./scheduled.ts"
 
 const MODULE_NAME = "menubar"
 const state = { running: false, startedAt: null as Date | null }
@@ -37,12 +39,23 @@ interface FeedItem {
   actionable: boolean
 }
 
+/** The sidecar as the menu bar needs it — status word plus the one-line summary. */
+interface HermesBlock {
+  status: "absent" | "down" | "flapping" | "degraded" | "up"
+  summary: string
+  channels: string
+}
+
 interface MenuBarPayload {
   generatedAt: string
   daemon: { status: string; label: string; uptimeSec: number; failingJobs: number; jobCount: number }
   counts: { amber: number; conduitMinutes: number; memory: number; memoryPending: number; work: number }
+  hermes: HermesBlock
   feed: FeedItem[]
 }
+
+/** Absent is the safe default: an uninstalled sidecar must add no row and no noise. */
+const HERMES_ABSENT: HermesBlock = { status: "absent", summary: "not installed", channels: "" }
 
 // ---------- helpers ----------
 
@@ -138,7 +151,7 @@ function daemonBlock(): MenuBarPayload["daemon"] {
   }
 }
 
-// ---------- Amber (cloud, best-effort, cached) ----------
+// ---------- Synapse / amber ledger (cloud, best-effort, cached) ----------
 
 const AMBER_BASE = (process.env.AMBER_LEDGER_URL || "").replace(/\/$/, "")
 let amberCache: { at: number; captures: any[] } = { at: 0, captures: [] }
@@ -203,7 +216,7 @@ function workBlock(): { count: number; items: FeedItem[] } {
 async function buildPayload(): Promise<MenuBarPayload> {
   const feed: FeedItem[] = []
 
-  // Amber
+  // Synapse
   let amberCount = 0
   try {
     const caps = await amberCaptures()
@@ -215,7 +228,7 @@ async function buildPayload(): Promise<MenuBarPayload> {
       feed.push({
         subsystem: "amber",
         glyph: "✦",
-        title: `Amber captured "${String(label).slice(0, 44)}"`,
+        title: `Synapse captured "${String(label).slice(0, 44)}"`,
         tsMs: ts,
         ago: agoFrom(ts),
         actionable: false,
@@ -312,12 +325,46 @@ async function buildPayload(): Promise<MenuBarPayload> {
     feed.push({ subsystem: "system", glyph: "⚠", title: `${daemon.failingJobs} job${daemon.failingJobs === 1 ? "" : "s"} failing`, tsMs: ts, ago: agoFrom(ts), actionable: true })
   }
 
+  // Hermes sidecar — its own process tree, so its health is independent of every
+  // count above. Best-effort like the rest: a broken sidecar degrades to absent.
+  let hermes: HermesBlock = HERMES_ABSENT
+  try {
+    const h = hermesHealth()
+    if (h?.installed) {
+      const connected = h.platforms.filter((p) => p.state === "connected").length
+      hermes = {
+        status: h.status,
+        summary: h.summary,
+        channels: h.platforms.length ? `${connected}/${h.platforms.length}` : "",
+      }
+      // Only acute states earn a feed entry. `degraded` is usually a standing
+      // config gap (a channel that was never given its credentials) — it belongs
+      // in the persistent Hermes row, not in a badge that re-fires forever.
+      if (h.status === "down" || h.status === "flapping") {
+        // Stamped from the sidecar's own last state write, never Date.now() —
+        // a poll-time stamp re-badges every 5s and the unseen count never clears.
+        const ts = h.stateUpdatedAt ? Date.parse(h.stateUpdatedAt) : startOfTodayMs()
+        feed.push({
+          subsystem: "hermes",
+          glyph: "⚠",
+          title: `Hermes sidecar ${h.status} — ${h.summary}`,
+          tsMs: Number.isFinite(ts) ? ts : startOfTodayMs(),
+          ago: agoFrom(ts),
+          actionable: true,
+        })
+      }
+    }
+  } catch {
+    /* sidecar absent or unreadable — HERMES_ABSENT stands */
+  }
+
   feed.sort((a, b) => b.tsMs - a.tsMs)
 
   return {
     generatedAt: new Date().toISOString(),
     daemon,
     counts: { amber: amberCount, conduitMinutes, memory: memoryToday, memoryPending, work: work.count },
+    hermes,
     feed: feed.slice(0, 20),
   }
 }
@@ -348,6 +395,7 @@ export async function handleRequest(_req: Request, pathname: string): Promise<Re
         generatedAt: new Date().toISOString(),
         daemon: daemonBlock(),
         counts: { amber: 0, conduitMinutes: 0, memory: 0, memoryPending: 0, work: 0 },
+        hermes: HERMES_ABSENT,
         feed: [],
         error: String(err),
       })

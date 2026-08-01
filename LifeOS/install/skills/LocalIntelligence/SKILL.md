@@ -1,8 +1,7 @@
 ---
 name: LocalIntelligence
-version: 1.0.4
-description: "Generic civic intelligence aggregator for any US city — daily local digest of construction permits, crime, new businesses, public officials, legislation, elections, arrests, and local news, keyed off principal's Hometown. Writes JSON consumed by Pulse LOCAL tab. Crime delegates to _CRIMESTATS. Workflows: DailyBrief, Construction, Crime, Business, Officials, Legislation, Elections, Arrests, News. USE WHEN local news, hometown news, council meeting, building permits, mayor, ballot measures, ordinance, recent arrests, civic intel, local digest. NOT FOR national news or arbitrary-city crime."
-effort: medium
+version: 1.0.6
+description: "Generic civic intelligence aggregator for any US city — daily local digest of construction permits, crime, new businesses, public officials, legislation, elections, arrests, and local news, keyed off principal's Hometown. Writes JSON consumed by Pulse LOCAL tab. Crime delegates to a dedicated crime-stats skill. Workflows: DailyBrief, Construction, Crime, Business, Officials, Legislation, Elections, Arrests, News. USE WHEN local news, hometown news, council meeting, building permits, mayor, ballot measures, ordinance, recent arrests, civic intel, local digest. NOT FOR national news or arbitrary-city crime."
 ---
 
 # LocalIntelligence
@@ -13,6 +12,8 @@ effort: medium
 `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/LocalIntelligence/`
 
 If this directory exists, load and apply any `PREFERENCES.md`, optional source-list overrides, or per-source API keys (e.g., OpenStates, Google News topic ID). These override defaults. If the directory does not exist, proceed with skill defaults — universal sources only.
+
+**`sources.json`** in the same directory is the deterministic per-city source list (RSS feeds, local JSON APIs) consumed by `Tools/UserSources.ts` on every refresh — see `Tools/UserSources.help.md` for the schema. City-specific URLs belong there, never in this skill.
 
 ## Voice Notification
 
@@ -85,7 +86,9 @@ LocalIntelligence/
 │   └── News.md
 ├── Tools/
 │   ├── Hometown.ts           parser + types — sole source of city info
-│   ├── Refresh.ts            orchestrator — calls 8 fetchers, writes latest.json
+│   ├── Refresh.ts            orchestrator — calls 8 fetchers, writes latest.json; --fill adds AI gap-fill
+│   ├── ClaudeFill.ts         AI gap-filler — one web-research claude subprocess for empty sections
+│   ├── UserSources.ts        user-configured RSS/JSON sources from CUSTOMIZATIONS sources.json
 │   ├── FetchConstruction.ts
 │   ├── FetchBusiness.ts
 │   ├── FetchOfficials.ts
@@ -93,12 +96,16 @@ LocalIntelligence/
 │   ├── FetchElections.ts
 │   ├── FetchArrests.ts
 │   ├── FetchNews.ts
-│   └── FetchCrime.ts         shells to _CRIMESTATS workflow output
+│   └── FetchCrime.ts         shells to a dedicated crime-stats skill's workflow output
 └── References/
     └── DataSources.md        catalog of universal civic sources keyed off {city,state}
 ```
 
-Output: `~/.claude/LIFEOS/MEMORY/DATA/LocalIntelligence/<YYYY-MM-DD>_<city>_<state>_digest.json` plus a copy at `latest.json` for Pulse to read.
+Output: `~/.claude/LIFEOS/MEMORY/DATA/LocalIntelligence/<YYYY-MM-DD>_<city>_<state>_digest.json` (dated history — the Week/Month/Year views aggregate these) plus `latest.json` written to BOTH `LIFEOS/USER/CUSTOMIZATIONS/SKILLS/LocalIntelligence/` (the Pulse module's primary read path) and `MEMORY/DATA/LocalIntelligence/` (legacy fallback).
+
+**`--fill` mode:** `bun run Tools/Refresh.ts --fill` runs the fetchers, then `ClaudeFill.ts` researches any empty/unavailable sections via one web-enabled claude subprocess with deterministic output validation. The daily Pulse cron and the dashboard Refresh button both use `--fill`; a bare invocation stays purely deterministic.
+
+**Fetch order per refresh:** built-in fetchers → `UserSources.ts` (deterministic, user-configured) → `ClaudeFill.ts` (only sections still empty). Deterministic data always wins over model research.
 
 ## Fetcher Contract
 
@@ -157,9 +164,15 @@ User clicks "Refresh now" on the LOCAL tab
 - **OpenStates covers state legislatures, not city councils.** For council pending/enacted laws, fetchers attempt Granicus/Legistar discovery via well-known URL patterns. Coverage is best-effort.
 - **Patch RSS path varies by state.** `https://patch.com/<state-slug>/<city-slug>/feed` works for most cities but a few have legacy slugs. The News fetcher tries the canonical path first and falls back to a Google News topic search keyed on `"<city>, <state>"`.
 - **Sheriff blotter scraping is jurisdiction-specific.** Fetchers attempt the county sheriff's blotter page if discoverable; if not, they return `unavailable`. No bypassing CAPTCHA, no paid scraping services in v1.
-- **Crime never duplicates `_CRIMESTATS`.** `FetchCrime.ts` invokes `_CRIMESTATS` and shapes the result into the digest. Direct calls to CitizenRIMS, FBI UCR, or AreaVibes from inside this skill are forbidden — see ISC-12 in the design ISA.
+- **Crime never duplicates a dedicated crime-stats skill.** `FetchCrime.ts` invokes that skill and shapes the result into the digest. Direct calls to CitizenRIMS, FBI UCR, or AreaVibes from inside this skill are forbidden — see ISC-12 in the design ISA.
 - **Daily JSON files accumulate.** Old digests stay in `MEMORY/DATA/LocalIntelligence/` for trend retrieval; only `latest.json` is the read target for Pulse. Periodic prune is the user's call.
 - **Local newspapers paywall the good stories.** RSS feeds usually surface headlines + summaries; the dashboard links to the source. The skill never bypasses paywalls.
+- **Two latest.json paths exist and BOTH must be written.** The Pulse module reads `USER/CUSTOMIZATIONS/SKILLS/LocalIntelligence/latest.json` first, `MEMORY/DATA/LocalIntelligence/latest.json` second. From 2026-05-03 to 2026-07-16 Refresh.ts wrote only the legacy path — the tab silently served a 2.5-month-old digest while the 6 a.m. job "succeeded" daily. `persist()` now writes both; never remove one.
+- **No-clobber guard is load-bearing.** An all-empty run (fetchers stubbed/down, fill failed) writes its dated file but never overwrites a populated `latest.json`. Without it, one bad 6 a.m. run blanks the dashboard.
+- **ClaudeFill output never enters the digest unvalidated.** All model output passes `validateSection()` (field checks, URL shape, caps). Fill errors degrade to the fetchers' digest — the fill can only add.
+- **Aggregator search feeds rank by relevance, not date.** A Google News RSS query happily returns decade-old stories. Every aggregator source in `sources.json` needs BOTH a `when:Nd` operator in the query AND `max_age_days` (the deterministic backstop — `when:` alone still leaks old items).
+- **Google News item links are news.google.com redirects and titles end "Headline - Publication".** Set `strip_title_suffix: true` to promote the publication into the item's source field. Redirect URLs resolve fine in a browser; don't rewrite them.
+- **Municipal CivicPlus/city sites often hard-block bots (Akamai 403 even with browser headers).** Don't wire them directly — their content arrives via Google News queries instead. Verified against a city site 2026-07-16.
 - **`source_status: "empty"` is not the same as `"unavailable"`.** `empty` = source returned 200 with zero matching items (common for small towns). `unavailable` = source 4xx/5xx or DNS failure. The dashboard renders different empty states for each.
 
 ## Public Release Readiness

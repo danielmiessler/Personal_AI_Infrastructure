@@ -7,9 +7,18 @@ import { Container } from "lucide-react";
 // ── Bunker: the application-harness readout. Each app is a bay with ISA probes. ──
 
 interface Probe { isc: string; check: string; status: string; detail: string }
+interface AppSecurity {
+  status: "green" | "orange" | "red";
+  lastScan: string;
+  targets: string[];
+  fails: number;
+  errors: number;
+  failing: { target: string; category: string; check: string; severity: string }[];
+}
 interface App {
-  name: string; type: string; dir: string; isaPath: string;
-  pass: number; fail: number; skip: number; og: boolean; favicon: boolean; probes: Probe[];
+  name: string; type: string; dir: string; isaPath: string; url?: string;
+  pass: number; fail: number; skip: number; og: boolean; favicon: boolean; shot: boolean; probes: Probe[];
+  security?: AppSecurity | null;
 }
 interface Snapshot {
   apps: App[];
@@ -26,13 +35,27 @@ function st(a: App): "ok" | "down" | "idle" {
 const stDim = (s: string): Dim => (s === "ok" ? "ok" : s === "down" ? "err" : "warn");
 const dimVar = (d: Dim): string => `var(--${d === "blue" ? "accent-blue" : d === "neutral" ? "ink-3" : d})`;
 
+// Security grade pill — every bay answers "last security check: when, and
+// green/orange/red" without a click.
+function SecPill({ sec }: { sec: AppSecurity | null | undefined }) {
+  if (!sec) return <Pill dim="neutral" title="No cloud scan target matched this app">SEC · NO SCAN</Pill>;
+  const dim: Dim = sec.status === "green" ? "ok" : sec.status === "orange" ? "warn" : "err";
+  const t = new Date(sec.lastScan);
+  const when = t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return (
+    <Pill dim={dim} title={`Last cloud security scan ${t.toLocaleString()} · ${sec.targets.join(", ")}${sec.errors ? ` · ${sec.errors} checks errored` : ""}`}>
+      SEC {sec.status.toUpperCase()}{sec.fails > 0 ? ` · ${sec.fails}` : ""} · {when}
+    </Pill>
+  );
+}
+
 function planesForType(type: string): { plane: string; components: { name: string; live: boolean }[] }[] {
   const harness = { name: "test-harness", live: true };
   const health = { name: "health", live: true };
   const config = { name: "config + isa", live: true };
   if (type === "web-static") {
     return [
-      { plane: "OBSERVABILITY", components: [{ name: "tracking (ul-admin)", live: false }, health, { name: "cost", live: false }] },
+      { plane: "OBSERVABILITY", components: [{ name: "tracking (admin)", live: false }, health, { name: "cost", live: false }] },
       { plane: "DELIVERY", components: [{ name: "deploy (workers)", live: false }, { name: "brand assets", live: true }, { name: "link-gate", live: false }] },
       { plane: "QUALITY", components: [harness] },
       { plane: "CONTROL", components: [config, { name: "type playbook", live: false }] },
@@ -92,7 +115,14 @@ export default function BunkerPage() {
       )}
       {!data && !error && <EmptyState title="Establishing link…" />}
 
-      {data && !app && <Bays data={data} onOpen={setSelected} />}
+      {data && !app && (
+        <>
+          <Bays data={data} onOpen={setSelected} />
+          <SiteHealthPanel />
+          <ArbolPanel />
+          <CostPanel />
+        </>
+      )}
       {data && app && <Readout app={app} onBack={() => setSelected(null)} />}
 
       {data && (
@@ -106,15 +136,17 @@ export default function BunkerPage() {
 }
 
 function Thumb({ app, w, h }: { app: App; w: number; h: number }) {
-  const [broken, setBroken] = useState(false);
-  if (app.og && !broken) {
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
+  // Prefer the real live-page screenshot (bunker shots), then the OG image, then the tile.
+  const kind = app.shot && !broken.shot ? "shot" : app.og && !broken.og ? "og" : null;
+  if (kind) {
     return (
       <img
-        src={`/api/bunker/asset?app=${encodeURIComponent(app.name)}&kind=og`}
+        src={`/api/bunker/asset?app=${encodeURIComponent(app.name)}&kind=${kind}`}
         alt={app.name}
-        onError={() => setBroken(true)}
+        onError={() => setBroken((b) => ({ ...b, [kind]: true }))}
         className="border border-line-2"
-        style={{ width: w, height: h, objectFit: "cover", borderRadius: 3, flex: "none", background: "var(--ground)" }}
+        style={{ width: w, height: h, objectFit: "cover", objectPosition: "top", borderRadius: 3, flex: "none", background: "var(--ground)" }}
       />
     );
   }
@@ -128,11 +160,37 @@ function Thumb({ app, w, h }: { app: App; w: number; h: number }) {
   );
 }
 
+const PAGE_SIZE = 10;
+
 function Bays({ data, onOpen }: { data: Snapshot; onOpen: (n: string) => void }) {
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(data.apps.length / PAGE_SIZE));
+  const cur = Math.min(page, pages - 1);
+  const shown = data.apps.slice(cur * PAGE_SIZE, (cur + 1) * PAGE_SIZE);
+  const pager = pages > 1 && (
+    <div className="flex items-center gap-4 text-[12px] tracking-[0.14em]">
+      <button
+        onClick={() => setPage((p) => Math.max(0, p - 1))}
+        disabled={cur === 0}
+        className="cursor-pointer disabled:cursor-default"
+        style={{ background: "none", border: "none", padding: 0, color: cur === 0 ? "var(--ink-3)" : "var(--accent-blue)" }}
+      >◂ PREV</button>
+      <span className="text-ink-3">PAGE {cur + 1}/{pages} · {data.apps.length} APPS</span>
+      <button
+        onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
+        disabled={cur >= pages - 1}
+        className="cursor-pointer disabled:cursor-default"
+        style={{ background: "none", border: "none", padding: 0, color: cur >= pages - 1 ? "var(--ink-3)" : "var(--accent-blue)" }}
+      >NEXT ▸</button>
+    </div>
+  );
   return (
     <div className="flex flex-col gap-3">
-      <PanelHeader title={`Application Bays (${data.apps.length})`} />
-      {data.apps.map((a) => {
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <PanelHeader title={`Application Bays (${data.apps.length})`} />
+        {pager}
+      </div>
+      {shown.map((a) => {
         const dim = stDim(st(a));
         const c = dimVar(dim);
         const total = a.pass + a.fail;
@@ -151,6 +209,7 @@ function Bays({ data, onOpen }: { data: Snapshot; onOpen: (n: string) => void })
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: c, flex: "none" }} />
                 <span className="text-ink-1" style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.02em" }}>{a.name}</span>
                 <Pill dim="neutral">{a.type.toUpperCase()}</Pill>
+                <SecPill sec={a.security} />
               </div>
               <div className="flex items-center gap-2.5">
                 <div className="bg-surface-1 rounded-[3px] overflow-hidden" style={{ height: 5, width: 180, maxWidth: "40vw", flex: "none" }}>
@@ -163,6 +222,7 @@ function Bays({ data, onOpen }: { data: Snapshot; onOpen: (n: string) => void })
           </Panel>
         );
       })}
+      {pager}
       <Panel className="border-dashed text-ink-3 text-[12px] tracking-[0.1em]">+ ADOPT AN APP · bunker adopt &lt;dir&gt;</Panel>
     </div>
   );
@@ -178,7 +238,7 @@ function Readout({ app, onBack }: { app: App; onBack: () => void }) {
     <div className="flex flex-col gap-3.5">
       <button onClick={onBack} className="self-start text-[12px] tracking-[0.14em] cursor-pointer" style={{ background: "none", border: "none", color: "var(--accent-blue)", padding: 0 }}>◂ ALL BAYS</button>
 
-      {app.og && <Thumb app={app} w={1120} h={168} />}
+      {(app.shot || app.og) && <Thumb app={app} w={1120} h={280} />}
 
       <div className="flex items-center gap-3 flex-wrap">
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: c, flex: "none" }} />
@@ -222,7 +282,7 @@ function Readout({ app, onBack }: { app: App; onBack: () => void }) {
 
       <RPanel title="Live Metrics" live={false}>
         <p className="text-ink-3" style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-          NOT WIRED. Planned: UL-admin tracking + a real-time viewers badge for this app, pageviews, per-app cloud cost. No fake numbers here.
+          NOT WIRED. Planned: admin tracking + a real-time viewers badge for this app, pageviews, per-app cloud cost. No fake numbers here.
         </p>
       </RPanel>
       <RPanel title="Identity & Logs" live={false}>
@@ -238,6 +298,244 @@ function Readout({ app, onBack }: { app: App; onBack: () => void }) {
         </div>
       </RPanel>
     </div>
+  );
+}
+
+// ── Cost: what the monitoring stack actually costs on Cloudflare. Real request
+// counts from the CF analytics API, projected monthly and priced against the plan. ──
+
+interface CostWorker { name: string; reqPerDay: number; reqPerMonth: number }
+interface CostData {
+  updatedAt: string;
+  totalReqPerMonth: number;
+  includedRequests: number;
+  pctOfIncluded: number;
+  marginalMonthly: number;
+  standaloneMonthly: number;
+  plan: string;
+  workers: CostWorker[];
+  error?: string;
+}
+
+const fmtN = (n: number): string => n.toLocaleString();
+
+function CostPanel() {
+  const [c, setC] = useState<CostData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch("/api/bunker/cost", { cache: "no-store" });
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error ?? "HTTP " + r.status);
+        setC(j); setErr(null);
+      } catch (e) { setErr(String(e)); }
+    };
+    load();
+    const id = setInterval(load, 60 * 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <Panel style={{ borderLeftWidth: 2, borderLeftColor: err ? "var(--err)" : "var(--ok)" }}>
+      <PanelHeader
+        title="Monitoring Cost · Cloudflare"
+        actions={
+          c ? (
+            <>
+              <Pill dim="ok">${c.marginalMonthly.toFixed(2)}/mo MARGINAL</Pill>
+              <Pill dim="neutral">{c.pctOfIncluded < 0.1 ? "<0.1" : c.pctOfIncluded.toFixed(1)}% OF INCLUDED</Pill>
+            </>
+          ) : (
+            <Pill dim={err ? "err" : "neutral"}>{err ? "OFFLINE" : "…"}</Pill>
+          )
+        }
+      />
+      {err && <span style={{ color: "var(--err)", fontSize: 13 }}>SIGNAL LOST · /api/bunker/cost — {err}</span>}
+      {c && (
+        <>
+          <p className="text-ink-2" style={{ fontSize: 13, lineHeight: 1.6, margin: "0 0 10px" }}>
+            The uptime and security monitors run {fmtN(c.totalReqPerMonth)} worker requests/month, about{" "}
+            {c.pctOfIncluded < 0.1 ? "under 0.1" : c.pctOfIncluded.toFixed(1)}% of the {fmtN(c.includedRequests / 1_000_000)}M included in the
+            plan. Marginal cost is <strong style={{ color: "var(--ok)" }}>$0</strong> — it all sits inside the flat {c.plan}.
+            Billed purely per-request it would be about ${c.standaloneMonthly.toFixed(2)}/month.
+          </p>
+          {c.workers.map((w) => (
+            <div key={w.name} className="flex items-center gap-3 border-b border-line-1" style={{ padding: "5px 0", fontSize: 13 }}>
+              <span className="text-ink-1 flex-1 min-w-0">{w.name}</span>
+              <span className="text-ink-3 mono whitespace-nowrap" style={{ flex: "none" }}>{fmtN(w.reqPerDay)}/day</span>
+              <span className="text-ink-2 mono whitespace-nowrap" style={{ flex: "none", width: 120, textAlign: "right" }}>{fmtN(w.reqPerMonth)}/mo</span>
+            </div>
+          ))}
+          <div className="text-[11px] tracking-[0.12em] text-ink-3" style={{ paddingTop: 6 }}>
+            LIVE FROM CLOUDFLARE ANALYTICS · updated {new Date(c.updatedAt).toLocaleTimeString()} · 24h window projected to 30.4 days
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+// ── Site Health: the cloud uptime leg. Every deployed site checked every 5 min
+// by the A_SITE_HEALTH worker (was a public dashboard, now authenticated and
+// read into Pulse server-side). ──
+
+interface SiteRow { name: string; url: string; state: string; lastCheck: string; since: string; spark: number[] }
+interface SiteHealthData { total: number; red: number; degraded: number; updatedAt: string; apps: SiteRow[]; error?: string }
+
+const siteDim = (s: string): Dim => (s === "green" ? "ok" : s === "degraded" ? "warn" : "err");
+
+function SiteHealthPanel() {
+  const [d, setD] = useState<SiteHealthData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch("/api/bunker/sitehealth", { cache: "no-store" });
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error ?? "HTTP " + r.status);
+        setD(j); setErr(null);
+      } catch (e) { setErr(String(e)); }
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const allGreen = d ? d.red === 0 && d.degraded === 0 : false;
+
+  return (
+    <Panel style={{ borderLeftWidth: 2, borderLeftColor: err ? "var(--err)" : "var(--accent-blue)" }}>
+      <PanelHeader
+        title="Cloud Uptime · Every Deployed Site"
+        actions={
+          d ? (
+            <>
+              <Pill dim="neutral">{d.total} SITES · 5-MIN</Pill>
+              <Pill dim={allGreen ? "ok" : d.red > 0 ? "err" : "warn"}>
+                {d.total - d.red - d.degraded} UP{d.degraded ? ` · ${d.degraded} DEGRADED` : ""}{d.red ? ` · ${d.red} DOWN` : ""}
+              </Pill>
+            </>
+          ) : (
+            <Pill dim={err ? "err" : "neutral"}>{err ? "OFFLINE" : "…"}</Pill>
+          )
+        }
+      />
+      {err && <span style={{ color: "var(--err)", fontSize: 13 }}>SIGNAL LOST · /api/bunker/sitehealth — {err}</span>}
+      {d && (
+        <>
+          {[...d.apps].sort((a, b) => (siteDim(a.state) === "err" ? -1 : siteDim(b.state) === "err" ? 1 : 0)).map((s) => {
+            const sd = siteDim(s.state);
+            const col = dimVar(sd);
+            return (
+              <div key={s.name} className="flex items-center gap-3 border-b border-line-1" style={{ padding: "6px 0", fontSize: 13 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: col, flex: "none" }} />
+                <span className="text-ink-1" style={{ flex: "none", minWidth: 220 }}>{s.name}</span>
+                <span style={{ color: col, flex: "none", width: 90, fontSize: 12, letterSpacing: "0.06em" }}>{s.state.toUpperCase()}</span>
+                <span className="flex-1" />
+                <span className="text-ink-3 whitespace-nowrap" style={{ flex: "none", fontSize: 12 }} title={`since ${new Date(s.since).toLocaleString()}`}>
+                  checked {new Date(s.lastCheck).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </span>
+              </div>
+            );
+          })}
+          <div className="text-[11px] tracking-[0.12em] text-ink-3" style={{ paddingTop: 6 }}>
+            LAST CLOUD CHECK {new Date(d.updatedAt).toLocaleString()} · arbol worker A_SITE_HEALTH · 5-min cron · authenticated
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+// ── Arbol: the cloud leg of the same uptime/security stack. Hourly worker scan
+// over every deployed property; Bunker shows its last report next to the local
+// probe results so one page carries the whole picture. ──
+
+interface ArbolFail { target: string; category: string; check: string; severity: string }
+interface ArbolData {
+  timestamp: string;
+  summary: { pass: number; fail: number; error: number; skip: number };
+  targets: number;
+  bySeverity: Record<string, number>;
+  failing: ArbolFail[];
+  error?: string;
+}
+
+const sevDim = (s: string): Dim => (s === "critical" || s === "high" ? "err" : s === "medium" ? "warn" : "neutral");
+
+function ArbolPanel() {
+  const [arbol, setArbol] = useState<ArbolData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await fetch("/api/bunker/arbol", { cache: "no-store" });
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error ?? "HTTP " + r.status);
+        setArbol(j);
+        setErr(null);
+      } catch (e) { setErr(String(e)); }
+    };
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const shown = arbol ? (showAll ? arbol.failing : arbol.failing.slice(0, 10)) : [];
+
+  return (
+    <Panel style={{ borderLeftWidth: 2, borderLeftColor: err ? "var(--err)" : "var(--accent-blue)" }}>
+      <PanelHeader
+        title="Cloud Watch · Arbol Infra-Security"
+        actions={
+          arbol ? (
+            <>
+              <Pill dim="neutral">{arbol.targets} TARGETS · HOURLY</Pill>
+              <Pill dim={arbol.summary.fail > 0 ? "warn" : "ok"}>
+                {arbol.summary.pass} PASS · {arbol.summary.fail} FAIL · {arbol.summary.error} ERR
+              </Pill>
+              {Object.entries(arbol.bySeverity).map(([sev, n]) => (
+                <Pill key={sev} dim={sevDim(sev)}>{n} {sev.toUpperCase()}</Pill>
+              ))}
+            </>
+          ) : (
+            <Pill dim={err ? "err" : "neutral"}>{err ? "OFFLINE" : "…"}</Pill>
+          )
+        }
+      />
+      {err && <span style={{ color: "var(--err)", fontSize: 13 }}>SIGNAL LOST · /api/bunker/arbol — {err}</span>}
+      {arbol && (
+        <>
+          {shown.map((f, i) => (
+            <div key={f.target + f.check + i} className="flex items-center gap-3 border-b border-line-1" style={{ padding: "6px 0", fontSize: 13 }}>
+              <span className="mono" style={{ color: `var(--${sevDim(f.severity) === "err" ? "err" : sevDim(f.severity) === "warn" ? "warn" : "ink-3"})`, flex: "none", width: 76 }}>
+                [{({ critical: "CRIT", high: "HIGH", medium: "MED", low: "LOW" } as Record<string, string>)[f.severity] ?? f.severity.toUpperCase().slice(0, 4)}]
+              </span>
+              <span className="text-ink-1" style={{ flex: "none", minWidth: 200 }}>{f.target}</span>
+              <span className="text-ink-2 flex-1 min-w-0">{f.check}</span>
+              <span className="text-ink-3" style={{ flex: "none" }}>{f.category}</span>
+            </div>
+          ))}
+          {arbol.failing.length > 10 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="self-start text-[12px] tracking-[0.12em] cursor-pointer"
+              style={{ background: "none", border: "none", color: "var(--accent-blue)", padding: "6px 0 0" }}
+            >
+              {showAll ? "◂ SHOW FEWER" : `SHOW ALL ${arbol.failing.length} FAILING ▸`}
+            </button>
+          )}
+          <div className="text-[11px] tracking-[0.12em] text-ink-3" style={{ paddingTop: 6 }}>
+            LAST CLOUD SCAN {new Date(arbol.timestamp).toLocaleString()} · arbol worker F_INFRA_SECURITY · hourly cron
+          </div>
+        </>
+      )}
+    </Panel>
   );
 }
 

@@ -5,7 +5,7 @@
 | Trigger | Mode | Config | Speed |
 |---------|------|--------|-------|
 | "quick research", "minor research" | Quick | 1 Perplexity agent | ~10-15s |
-| "do research", "research this" | Standard | 4 agents (Claude + Gemini + Grok + Perplexity) + cross-check | ~30-60s |
+| "do research", "research this" | Standard | 3 agents (Claude + Gemini + Perplexity) + cross-check | ~30-60s |
 | "extensive research" | Extensive | 7 explorers + 2 verifiers (9 agents) | ~60-90s |
 | "deep investigation", "investigate [topic]" | Deep | Progressive iteration + verification | ~3-60min |
 
@@ -52,7 +52,7 @@ User: "quick research on Texas hot sauce brands"
 **Example 2: Standard research (default)**
 ```
 User: "do research on AI agent frameworks"
--> Spawns 4 agents in parallel (Claude + Gemini + Grok + Perplexity)
+-> Spawns 3 agents in parallel (Claude + Gemini + Perplexity)
 -> Cross-checks findings, tags confidence, flags conflicts
 -> Returns synthesized findings with [HIGH]/[MED]/[LOW] tags (~30-60s)
 ```

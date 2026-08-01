@@ -25,7 +25,7 @@ infrastructure suggestions or debugging cross-system issues.
 ## Communications
 
 - (interview — how you reach the DA when not at the keyboard: iMessage,
-  Telegram, voice, etc.)
+  Siri, voice, etc.)
 
 ## Identity boundaries
 

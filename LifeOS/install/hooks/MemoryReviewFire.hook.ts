@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 2.0.1
+ * @version 2.0.3
  * MemoryReviewFire — Stop hook that owns the WHOLE memory-review cadence.
  *
  * Consolidation (2026-07-11, thinking-system BPE strip): the old design split
@@ -25,6 +25,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeF
 import { spawn } from "node:child_process";
 import { dirname, resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
+import { isSubagentContext as isSubagent } from './lib/subagent';
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
 const STATE_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/review-state.json");
@@ -92,14 +93,6 @@ function minutesSince(iso: string | null, nowMs: number): number {
   return Math.max(0, (nowMs - t) / 60_000);
 }
 
-function isSubagent(): boolean {
-  return Boolean(
-    process.env.CLAUDE_CODE_SUBAGENT_NAME ||
-    process.env.CLAUDE_CODE_SUBAGENT_TYPE ||
-    process.env.CLAUDE_AGENT_SDK === "1",
-  );
-}
-
 function logFire(payload: Record<string, unknown>): void {
   try {
     mkdirSync(dirname(FIRE_LOG_PATH), { recursive: true });
@@ -107,7 +100,28 @@ function logFire(payload: Record<string, unknown>): void {
   } catch { /* best-effort */ }
 }
 
-function spawnReviewer(turnsReviewed: number): { spawned: boolean; reason: string } {
+/**
+ * Claude Code hands every Stop hook a JSON payload on stdin carrying
+ * session_id and transcript_path — the identity of the session that just
+ * fired. Read it so the reviewer analyzes THIS session's transcript instead
+ * of guessing via globally-newest-mtime, which grabs a concurrent session's
+ * transcript whenever two sessions overlap (public issue #1495, @christauff).
+ */
+function readHookInput(): { sessionId: string | null; transcriptPath: string | null } {
+  try {
+    const raw = readFileSync(0, "utf8");
+    if (!raw.trim()) return { sessionId: null, transcriptPath: null };
+    const j = JSON.parse(raw);
+    return {
+      sessionId: typeof j.session_id === "string" ? j.session_id : null,
+      transcriptPath: typeof j.transcript_path === "string" ? j.transcript_path : null,
+    };
+  } catch {
+    return { sessionId: null, transcriptPath: null };
+  }
+}
+
+function spawnReviewer(turnsReviewed: number, transcriptPath: string | null): { spawned: boolean; reason: string } {
   if (!existsSync(REVIEWER_PATH)) {
     return { spawned: false, reason: "reviewer-not-found" };
   }
@@ -116,7 +130,9 @@ function spawnReviewer(turnsReviewed: number): { spawned: boolean; reason: strin
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_AUTH_TOKEN;
     delete env.CLAUDECODE;
-    const proc = spawn("bun", [REVIEWER_PATH, "review", "--turns", String(turnsReviewed)], {
+    const args = [REVIEWER_PATH, "review", "--turns", String(turnsReviewed)];
+    if (transcriptPath && existsSync(transcriptPath)) args.push("--input", transcriptPath);
+    const proc = spawn("bun", args, {
       env,
       stdio: "ignore",
       detached: true,
@@ -132,6 +148,7 @@ function main(): void {
   try {
     if (isSubagent()) process.exit(0);
 
+    const { sessionId, transcriptPath } = readHookInput();
     const nowMs = Date.now();
     const now = new Date(nowMs).toISOString();
     const config = loadConfig();
@@ -146,8 +163,8 @@ function main(): void {
 
     if (due) {
       const turnsReviewed = state.turn_count_since_last_review;
-      const { spawned, reason } = spawnReviewer(turnsReviewed);
-      logFire({ ts: now, turns_since_last_review: turnsReviewed, spawned, reason });
+      const { spawned, reason } = spawnReviewer(turnsReviewed, transcriptPath);
+      logFire({ ts: now, turns_since_last_review: turnsReviewed, spawned, reason, session_id: sessionId, transcript_path: transcriptPath });
       state.turn_count_since_last_review = 0;
       state.last_review_at = now;
     }

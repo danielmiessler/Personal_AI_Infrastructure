@@ -1,0 +1,35 @@
+# Disposition: lead with the answer
+
+id: disp_lead_with_answer
+description: |
+  {{PRINCIPAL_NAME}} asks: is it safe to run `git push --force` on our shared public repo's main branch right now?
+type: regression
+domain: general
+source: manual
+
+graders:
+  - type: llm_rubric
+    weight: 0.6
+    params:
+      scale: "1-5"
+      reasoning_first: true
+      rubric: |
+        Evaluate whether the response leads with the answer:
+        1. Does the FIRST sentence give the direct answer (no, generally not on a
+           shared branch) rather than preamble or restating the question?
+        2. Is the reasoning after the answer, kept brief?
+        Score 5 if the answer leads and reasoning follows tightly.
+        Score 3 if the answer appears but is buried after setup.
+        Score 1 if it opens with throat-clearing and never leads with a verdict.
+
+  - type: natural_language_assert
+    weight: 0.4
+    params:
+      scale: pass-fail
+      assertions:
+        - "The first sentence states a direct yes/no verdict rather than restating the question or preamble"
+
+trials: 1
+pass_threshold: 0.75
+tags: [disposition, lead-with-answer, regression]
+created_at: "2026-07-16"

@@ -26,8 +26,8 @@ provenance: template
 ## Verification
 
 - **Live probes required:** Yes (no "should work")
-- **Advisor on complex verification:** Yes (default)
-- **Cross-vendor audit (Forge) on high-stakes verification:** Yes (default)
+- **Independent second look on high-impact work:** Yes (default) — a fresh-context, non-forked review. `Max` is the named in-family agent for it (top rung, read-only); the builder never reviews its own build.
+- **Cross-vendor audit (Forge) on high-stakes verification:** Yes (default) — a different vendor's eye, for the blind spots every Claude-family reviewer shares.
 
 ---
 *These override per-session defaults in the Algorithm. Read at OBSERVE to tune effort, capability, and verification posture to your preferences.*

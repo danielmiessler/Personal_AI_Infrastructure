@@ -86,7 +86,7 @@ Use when native URL fetching fails.
 
 ### Step 4b: Auto-Harvest (summarize-family patterns)
 
-**Trigger:** When the selected pattern is a member of the **summarize-family** AND the input is either a URL or text ≥200 characters, fire `_HARVEST` on the SAME input as a side-effect of the summary. Two outputs from one action: the summary in chat, the KNOWLEDGE note on disk.
+**Trigger:** When the selected pattern is a member of the **summarize-family** AND the input is either a URL or text ≥200 characters, fire the knowledge-ingestion (harvest) skill on the SAME input as a side-effect of the summary — only if that skill is installed. Two outputs from one action: the summary in chat, the KNOWLEDGE note on disk.
 
 **Summarize-family patterns** (extend as new ones land):
 
@@ -100,13 +100,7 @@ Use when native URL fetching fails.
 - `summarize_debate`
 - `youtube_summary`
 
-**Invocation** — run in the BACKGROUND so it does not block the summary:
-
-```bash
-bun ~/.claude/skills/_HARVEST/Tools/harvest.ts "<the same input the user sent into summarize>"
-```
-
-Use `Bash` with `run_in_background: true`. The CLI handles source detection (URL / YouTube / text), body fetch, Arbol classification, and executor dispatch — never re-implement the writer here.
+**Invocation** — invoke the harvest/knowledge-ingestion skill on the same input, run in the BACKGROUND so it does not block the summary. Its CLI handles source detection (URL / YouTube / text), body fetch, classification, and note-writing — never re-implement the writer here. Skip this step silently if no such skill is installed.
 
 **Input-type gate:**
 
@@ -191,8 +185,8 @@ User Request
     │   ├─ "micro" or "tldr" → create_micro_summary
     │   └─ Default → summarize
     │   *(auto-harvest side-effect: any summarize-family pattern with a URL or
-    │    text ≥200 chars also fires `~/.claude/skills/_HARVEST/Tools/harvest.ts`
-    │    in the background — see Step 4b)*
+    │    text ≥200 chars also fires the harvest/knowledge-ingestion skill
+    │    in the background, if installed — see Step 4b)*
     │
     ├─ Contains "threat model"?
     │   ├─ "stride" → create_stride_threat_model

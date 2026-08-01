@@ -49,6 +49,9 @@ export function Stranded({ telos, showIds, openFile }: StrandedProps) {
   const n = telos.stranded.work_no_goal.length
           + telos.stranded.goals_no_strategy.length
           + telos.stranded.strategies_idle.length;
+  // No backing parser yet (public issue #1532) — a "0 items drifting" toggle over
+  // a permanently-null API field reads as broken, not empty. Hide until real.
+  if (n === 0) return null;
   return (
     <section className={'stranded'+(open?' open':'')}>
       <button className="str-toggle" onClick={()=>setOpen(o=>!o)}>

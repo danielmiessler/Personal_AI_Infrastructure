@@ -1,8 +1,7 @@
 ---
 name: ExtractWisdom
-version: 1.1.15
+version: 1.1.16
 description: "Content-adaptive wisdom extraction that reads content first, detects which wisdom domains are present, and builds custom sections around them, with five depth levels and mandatory contrarian takes; pulls YouTube via fabric and articles via WebFetch. USE WHEN extract wisdom, analyze video, analyze podcast, extract insights, key takeaways, summarize interview, distill content. NOT FOR static Fabric extract_wisdom pattern (use Fabric)."
-effort: medium
 ---
 
 ## Customization

@@ -9,10 +9,13 @@ const HOME = homedir();
 const LIFEOS_DIR = join(HOME, ".claude");
 const STATE_DIR = join(LIFEOS_DIR, "LIFEOS", "MEMORY", "STATE");
 const WORK_DIR = join(LIFEOS_DIR, "LIFEOS", "MEMORY", "WORK");
-// Claude Code names each project dir by its absolute path with "/" and "." mapped to "-",
-// e.g. $HOME/.claude -> "-Users-<user>--claude". Derive it from $HOME instead of hardcoding.
-const PROJECT_SLUG = LIFEOS_DIR.replace(/[/.]/g, "-");
-const JSONL_DIR = join(LIFEOS_DIR, "Projects", PROJECT_SLUG);
+// Claude Code writes one transcript dir per working directory under
+// ~/.claude/projects/ (lowercase on disk — the old "Projects" spelling only
+// worked on case-insensitive macOS), named by the cwd with "/" and "." mapped
+// to "-". Search ALL of them: pinning to the ~/.claude slug alone made every
+// session run inside a code repo unrecallable (public issues #1494 + #1498,
+// @christauff / @simeonzickert).
+const PROJECTS_ROOT = join(LIFEOS_DIR, "projects");
 const WORK_JSON = join(STATE_DIR, "work.json");
 const NAMES_JSON = join(STATE_DIR, "session-names.json");
 
@@ -21,7 +24,56 @@ const STOPWORDS = new Set([
   "is", "was", "we", "you", "i", "and", "or", "for", "with",
 ]);
 
-type Source = "work.json" | "session-names.json" | "work-dir" | "isa-body" | "jsonl";
+type Source = "work.json" | "session-names.json" | "work-dir" | "isa-body" | "project-isa" | "jsonl";
+
+/** All Claude Code transcript dirs (one per cwd ever worked in). */
+function projectDirs(): string[] {
+  if (!existsSync(PROJECTS_ROOT)) return [];
+  return readdirSync(PROJECTS_ROOT, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => join(PROJECTS_ROOT, e.name));
+}
+
+/** uuid → transcript path, across every project dir. */
+function jsonlIndex(): Map<string, string> {
+  const idx = new Map<string, string>();
+  for (const dir of projectDirs()) {
+    let entries: string[] = [];
+    try { entries = readdirSync(dir); } catch { continue; }
+    for (const f of entries) {
+      if (f.endsWith(".jsonl")) idx.set(f.slice(0, -".jsonl".length), join(dir, f));
+    }
+  }
+  return idx;
+}
+
+/**
+ * Real cwd of each project dir, recovered from the `cwd` field of a transcript
+ * line (the dir name's slug encoding is lossy, so decode from data instead).
+ * Used to find `<project>/ISA.md` — the ISA home for anything with persistent
+ * identity, which lives exactly where MEMORY/WORK-rooted search never looked.
+ */
+function discoveredProjectCwds(): string[] {
+  const cwds = new Set<string>();
+  for (const dir of projectDirs()) {
+    let newest: { path: string; mtime: number } | null = null;
+    try {
+      for (const f of readdirSync(dir)) {
+        if (!f.endsWith(".jsonl")) continue;
+        const p = join(dir, f);
+        const mt = statSync(p).mtimeMs;
+        if (!newest || mt > newest.mtime) newest = { path: p, mtime: mt };
+      }
+    } catch { continue; }
+    if (!newest) continue;
+    try {
+      const head = readFileSync(newest.path, "utf8").slice(0, 16_384);
+      const m = head.match(/"cwd"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if (m) cwds.add(JSON.parse(`"${m[1]}"`));
+    } catch { /* unreadable transcript — skip */ }
+  }
+  return [...cwds];
+}
 
 interface Result {
   source: Source[];
@@ -213,7 +265,7 @@ function searchWorkJson(tokens: string[], since: Date | null, until: Date | null
       effort: entry.effort,
       score: overlap * multiplier,
       recencyDays: days,
-      path: entry.isa ? join(LIFEOS_DIR, entry.isa) : undefined,
+      path: entry.isa ? (entry.isa.startsWith("/") ? entry.isa : join(LIFEOS_DIR, entry.isa)) : undefined,
     });
   }
   out.sort((a, b) => {
@@ -236,12 +288,13 @@ function searchSessionNames(tokens: string[], since: Date | null, until: Date | 
       return null;
     }
   })();
+  const idx = jsonlIndex();
   for (const [uuid, name] of Object.entries<string>(data)) {
     const overlap = tokenOverlap(tokens, name);
     if (overlap === 0 && tokens.length > 0) continue;
     let dt: Date | null = null;
-    const jsonlPath = join(JSONL_DIR, `${uuid}.jsonl`);
-    if (existsSync(jsonlPath)) {
+    const jsonlPath = idx.get(uuid);
+    if (jsonlPath) {
       try {
         dt = new Date(statSync(jsonlPath).mtime);
       } catch {}
@@ -256,7 +309,7 @@ function searchSessionNames(tokens: string[], since: Date | null, until: Date | 
       name,
       score: overlap * multiplier,
       recencyDays: days,
-      path: existsSync(jsonlPath) ? jsonlPath : undefined,
+      path: jsonlPath,
     });
   }
   out.sort((a, b) => {
@@ -299,17 +352,35 @@ function searchWorkDirs(tokens: string[], since: Date | null, until: Date | null
   return out.slice(0, 50);
 }
 
+/**
+ * Resolve a runnable ripgrep. On machines without a real `rg` binary, Claude
+ * Code's shell integration aliases rg to its embedded ripgrep via a shell
+ * FUNCTION — invisible to Bun.spawn, so every rg-backed source (ISA bodies,
+ * conversation logs) dies with "Executable not found in $PATH". Fall back to
+ * running the Claude Code executable with argv0="rg", the same trick the shell
+ * function uses. (Public PR #1486, credit @anikinsasha.)
+ */
+function rgCommand(): { exe: string; argv0?: string } {
+  const onPath = typeof Bun.which === "function" ? Bun.which("rg") : null;
+  if (onPath) return { exe: onPath };
+  const cc = process.env.CLAUDE_CODE_EXECPATH || join(HOME, ".local", "bin", "claude");
+  if (existsSync(cc)) return { exe: cc, argv0: "rg" };
+  return { exe: "rg" };
+}
+
 async function ripgrep(pattern: string, dir: string, extra: string[] = []): Promise<string> {
-  const proc = Bun.spawn(["rg", "--no-heading", "--line-number", "-i", ...extra, pattern, dir], {
+  const { exe, argv0 } = rgCommand();
+  const proc = Bun.spawn([exe, "--no-heading", "--line-number", "-i", ...extra, pattern, dir], {
     stdout: "pipe",
     stderr: "pipe",
+    ...(argv0 ? { argv0 } : {}),
   });
   const out = await new Response(proc.stdout).text();
   await proc.exited;
   return out;
 }
 
-async function searchIsaBodies(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
+async function searchISABodies(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
   if (tokens.length === 0 || !existsSync(WORK_DIR)) return [];
   const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const out = await ripgrep(pattern, WORK_DIR, ["--glob", "*ISA.md", "-c"]);
@@ -349,10 +420,63 @@ async function searchIsaBodies(tokens: string[], since: Date | null, until: Date
   return results.slice(0, 100);
 }
 
+/**
+ * `<project>/ISA.md` — the long-lived ISA of anything with persistent identity
+ * (public issue #1498, @simeonzickert). Candidates come from two places: cwds
+ * recovered from transcripts, and absolute `isa` paths in the work registry.
+ * A project ISA that can't be found is indistinguishable from work never done.
+ */
+async function searchProjectIsas(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
+  if (tokens.length === 0) return [];
+  const candidates = new Set<string>();
+  for (const cwd of discoveredProjectCwds()) {
+    if (cwd === LIFEOS_DIR) continue; // task ISAs under ~/.claude are covered by the WORK_DIR sources
+    const isa = join(cwd, "ISA.md");
+    if (existsSync(isa)) candidates.add(isa);
+  }
+  if (existsSync(WORK_JSON)) {
+    try {
+      const data = JSON.parse(readFileSync(WORK_JSON, "utf8"));
+      for (const e of Object.values<any>(data.sessions ?? {})) {
+        if (typeof e?.isa === "string" && e.isa.startsWith("/") && existsSync(e.isa)) candidates.add(e.isa);
+      }
+    } catch {}
+  }
+  if (candidates.size === 0) return [];
+  const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const re = new RegExp(`(.{0,40}(?:${pattern}).{0,80})`, "i");
+  const results: Result[] = [];
+  for (const isaPath of candidates) {
+    let body: string;
+    try { body = readFileSync(isaPath, "utf8"); } catch { continue; }
+    const hits = (body.match(new RegExp(pattern, "gi")) || []).length;
+    if (hits === 0) continue;
+    let dt: Date | null = null;
+    try { dt = new Date(statSync(isaPath).mtime); } catch {}
+    if (!passSinceFilter(dt, since, until)) continue;
+    const { multiplier, days } = recencyMultiplier(dt);
+    const sm = body.match(re);
+    const phase = body.match(/^phase:\s*(.+)$/m)?.[1]?.trim();
+    const progress = body.match(/^progress:\s*(.+)$/m)?.[1]?.trim();
+    results.push({
+      source: ["project-isa"],
+      slug: basename(isaPath.replace(/\/ISA\.md$/, "")),
+      score: hits * multiplier,
+      recencyDays: days,
+      snippet: sm ? sm[1]!.trim().replace(/\s+/g, " ").slice(0, 160) : undefined,
+      phase,
+      progress,
+      path: isaPath,
+    });
+  }
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, 50);
+}
+
 async function searchJsonl(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
-  if (tokens.length === 0 || !existsSync(JSONL_DIR)) return [];
-  const realDir = JSONL_DIR;
-  if (!realDir.startsWith(join(HOME, ".claude", "Projects", PROJECT_SLUG))) return [];
+  if (tokens.length === 0 || !existsSync(PROJECTS_ROOT)) return [];
+  const realDir = PROJECTS_ROOT;
+  if (!realDir.startsWith(join(HOME, ".claude", "projects"))) return [];
   const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const out = await ripgrep(pattern, realDir, ["--glob", "*.jsonl", "-c"]);
   const byFile = new Map<string, { hits: number; path: string }>();
@@ -481,7 +605,7 @@ function formatPretty(query: string, results: Result[], stats: Record<string, nu
   if (results.length === 0) {
     lines.push(absenceMessage(query));
     lines.push("");
-    lines.push(`Searched: work.json=${stats.work}, names=${stats.names}, dirs=${stats.dirs}, isa=${stats.isa}, jsonl=${stats.jsonl}`);
+    lines.push(`Searched: work.json=${stats.work}, names=${stats.names}, dirs=${stats.dirs}, isa=${stats.isa}, projectIsa=${stats.projectIsa}, jsonl=${stats.jsonl}`);
     lines.push("════════════════════════════════════════════════");
     return lines.join("\n");
   }
@@ -509,7 +633,7 @@ function formatPretty(query: string, results: Result[], stats: Record<string, nu
 }
 
 function absenceMessage(query: string): string {
-  return `No prior work found on "${query}" (searched work.json, session names, work dirs, ISA bodies, conversation logs).`;
+  return `No prior work found on "${query}" (searched work.json, session names, work dirs, ISA bodies, project ISAs, and conversation logs across all project dirs).`;
 }
 
 async function main() {
@@ -523,15 +647,16 @@ async function main() {
   const until = parsedUntil;
   const tokens = tokenize(cleanedQuery);
 
-  const [work, names, dirs, isa, jsonl] = await Promise.all([
+  const [work, names, dirs, isa, projectIsa, jsonl] = await Promise.all([
     Promise.resolve(searchWorkJson(tokens, since, until)),
     Promise.resolve(searchSessionNames(tokens, since, until)),
     Promise.resolve(searchWorkDirs(tokens, since, until)),
-    searchIsaBodies(tokens, since, until),
+    searchISABodies(tokens, since, until),
+    searchProjectIsas(tokens, since, until),
     searchJsonl(tokens, since, until),
   ]);
 
-  const all = [...work, ...names, ...dirs, ...isa, ...jsonl];
+  const all = [...work, ...names, ...dirs, ...isa, ...projectIsa, ...jsonl];
   let merged = dedupe(all);
   if (args.limit > 0) merged = merged.slice(0, args.limit);
 
@@ -540,6 +665,7 @@ async function main() {
     names: names.length,
     dirs: dirs.length,
     isa: isa.length,
+    projectIsa: projectIsa.length,
     jsonl: jsonl.length,
   };
 

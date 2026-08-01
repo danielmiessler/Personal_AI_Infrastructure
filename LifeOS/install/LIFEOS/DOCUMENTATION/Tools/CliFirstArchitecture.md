@@ -1,5 +1,5 @@
 ---
-version: 1.1.3
+version: 1.3.0
 ---
 
 # CLI-First Architecture Pattern
@@ -419,6 +419,20 @@ const failures = await bash('evals query runs --status failed --json');
 
 ---
 
+## The MCP Boundary — Consume via CLI, Serve via MCP
+
+**Added:** 2026-07-29, after the MCP 2026-07-28 spec revision.
+
+The stateless MCP redesign (sessions removed, Sampling/Roots/Logging deprecated, servers reduced to request/response calls) confirmed the bet this document makes: a tool should be a simple, deterministic callable. The protocol retreated to the shape a CLI already has. That settles the boundary question:
+
+- **Consume via CLI.** Any capability *our own harness* uses gets a deterministic CLI, not an MCP server. Schemas stay out of context, behavior is testable without a protocol layer, and the tool survives spec revisions untouched. Wrapping a third-party API for our own use = CLI, every time (the ClickUp pattern).
+
+- **Serve via MCP.** Any capability we expose to *external clients* — claude.ai connectors, other people's harnesses, anything that isn't this system — speaks MCP (Vector's `/mcp` gateway is the canonical example). A CLI can't serve a remote client, and MCP owns the things a CLI never will: per-user OAuth, interactive apps, enterprise-managed auth.
+
+The test is one question: **who calls it?** Us → CLI. Not us → MCP. A consumed MCP server is migrated to a CLI only when it costs us something real (maintenance risk, reliability, a forced upstream rewrite) — never on principle; managed connectors the harness maintains stay as they are.
+
+---
+
 ## Migration Strategy
 
 ### For Existing LifeOS Systems
@@ -591,6 +605,48 @@ User sees:
 **Build tools that work perfectly without AI, then add AI to make them easier to use.**
 
 AI should orchestrate deterministic tools, not replace them with ad-hoc prompting.
+
+---
+
+## Examples
+
+### The same task, prompt-driven vs CLI-first
+
+A team keeps receiving CSVs where the date column is a mess — `3/1/24`, `March 1 2024`, `2024-1-3`. Every file needs those dates normalized to ISO `2024-03-01`.
+
+**Prompt-driven:** hand the file to a model each time and ask it to fix the dates. It mostly works — but run the same file twice and you can get `2024-03-01` once and `2024-01-03` the next, with the month and day flipped, plus a silent timezone guess you never asked for. Nothing is reproducible, and there's no way to test "did it parse ambiguous dates correctly?" because the behavior lives in a prompt that drifts.
+
+**CLI-first:** build the normalizer once as a deterministic command, then let the model call it.
+
+```bash
+dates normalize --file inbox.csv --column shipped_at --assume MDY --out clean.csv
+```
+
+Same file, same flags, same output — every run. The ambiguous-date rule is `--assume MDY`, explicit and inspectable, not a guess buried in a prompt. You can unit-test it directly, script it over a whole folder, and diff a bad run to see exactly which command produced it. The model's job shrinks to the part it's good at: reading "fix the dates, they're US-format" and constructing the right flags.
+
+### When the CLI isn't worth it
+
+The pattern earns its keep on *repeated, deterministic* work — normalizing every incoming CSV, resizing every image, scaffolding every new skill. It's the wrong tool for a genuine one-off:
+
+- **Build a CLI:** "normalize the date column" — you'll do it on hundreds of files, the rule must be identical each time, and you want to test it. → a deterministic command, wrapped by prompting.
+- **Just ask:** "what's the weird date format in this one file?" — asked once, never repeated, no state to manage. → a direct prompt is faster, and building a tool is over-engineering.
+
+The test is the one the rest of the system uses: if you'll want the *exact same behavior* again and need to trust it, make it a command. If it's a question you're asking once, just ask it.
+
+### The three-step shape
+
+```mermaid
+flowchart TD
+    A[Requirements: what must happen, every time] --> B[Build deterministic CLI: explicit commands and flags]
+    B --> C[Test the CLI directly, without any AI]
+    C --> D[Wrap with prompting: model maps intent to flags]
+    D --> E{User request}
+    E -->|repeated, deterministic| F[Model runs the CLI command]
+    E -->|true one-off| G[Model just answers directly]
+    F --> H[Consistent, reproducible, testable result]
+```
+
+The load-bearing edge is `C → D`: the CLI is tested and trustworthy *before* any prompting wraps it. That ordering is the whole principle — a tool that works perfectly without AI, with AI added on top to make it easy to reach, never AI improvising the work each time.
 
 ---
 

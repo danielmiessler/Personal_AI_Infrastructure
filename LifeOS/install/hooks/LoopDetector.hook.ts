@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.1
+ * @version 1.0.3
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs';
@@ -9,7 +9,7 @@ import { createHash } from 'crypto';
 import { paiPath } from './lib/paths';
 import { getISOTimestamp } from './lib/time';
 
-interface PostToolUseInput { session_id?: string; tool_name?: string; tool_input?: unknown; tool_response?: unknown; error?: unknown; }
+interface PostToolUseInput { session_id?: string; tool_name?: string; tool_input?: unknown; tool_response?: unknown; error?: unknown; hook_event_name?: string; }
 interface WindowEntry { sig: string; tool: string; failed: boolean; ts: string; }
 interface LoopState { window: WindowEntry[]; alerted: string[]; seq: number; lastAlert: number; }
 const COOLDOWN = 4;
@@ -19,7 +19,11 @@ async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
     const timer = setTimeout(() => resolve(data), 2000);
-    process.stdin.on('data', (chunk) => { data += chunk.toString(); });
+    // 10MB cap — unbounded buffering risked multi-GB allocation on a fast stream (public issue #1533, @christauff)
+    process.stdin.on('data', (chunk) => {
+      data += chunk.toString();
+      if (data.length > 10_000_000) { clearTimeout(timer); try { process.stdin.pause(); } catch {} resolve(data); }
+    });
     process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
     process.stdin.on('error', () => { clearTimeout(timer); resolve(data); });
   });
@@ -75,8 +79,21 @@ function summarizeInput(input: unknown): string {
   const compact = JSON.stringify(input ?? {}).replace(/\s+/g, ' ');
   return compact.length > 120 ? `${compact.slice(0, 117)}...` : compact;
 }
+/**
+ * A failed tool call does NOT emit PostToolUse — Claude Code routes it to the
+ * separate PostToolUseFailure event (verified 2026-07-28: a failing Bash added
+ * one line to tool-failures.jsonl and zero to tool-activity.jsonl). So reading
+ * `input.error` on PostToolUse could never be true, `failed` was always false,
+ * and detectHammering's `failedCount >= 3` was unreachable. The hook is now
+ * registered for both events; either the error field or the event name marks
+ * the entry failed.
+ */
+function isFailure(input: PostToolUseInput): boolean {
+  if (input.hook_event_name === 'PostToolUseFailure') return true;
+  return String(input.error ?? '').trim().length > 0;
+}
 function pushToWindow(state: LoopState, input: PostToolUseInput): void {
-  state.window.push({ sig: signatureFor(input), tool: input.tool_name || 'unknown', failed: String(input.error ?? '').trim().length > 0, ts: getISOTimestamp() });
+  state.window.push({ sig: signatureFor(input), tool: input.tool_name || 'unknown', failed: isFailure(input), ts: getISOTimestamp() });
   if (state.window.length > 20) state.window = state.window.slice(-20);
 }
 function detectExactRepeat(state: LoopState, input: PostToolUseInput): Detection | null {
@@ -122,11 +139,13 @@ function processInput(input: PostToolUseInput, paths: StatePaths): string | null
   persistState(paths, state);
   return detection?.message ?? null;
 }
-function emitAdditionalContext(message: string): void {
+function emitAdditionalContext(message: string, eventName?: string): void {
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
-        hookEventName: "PostToolUse",
+        // Echo the event we were actually invoked on — the hook now serves both
+        // PostToolUse and PostToolUseFailure, and a mismatched name is dropped.
+        hookEventName: eventName || "PostToolUse",
         additionalContext: message,
       },
     }) + "\n",
@@ -160,6 +179,28 @@ function runSelftest(): void {
       processInput({ session_id: osc.file, tool_name: 'Edit', tool_input: { f: 'b' } }, osc),
     ];
     assertSelftest(Boolean(oscMsgs[3]) && oscMsgs.filter(Boolean).length === 1, 'oscillation fires at a-b-a-b');
+    // Hammering: 5 calls to one tool with 3 failures. Inputs vary so the exact-
+    // repeat detector stays silent and only detectHammering can fire. This case
+    // was unreachable until PostToolUseFailure reached the hook.
+    const ham = selftestPaths(`${session}-ham`);
+    const hamMsgs = [0, 1, 2, 3, 4].map((index) =>
+      processInput(
+        {
+          session_id: ham.file,
+          tool_name: 'Bash',
+          tool_input: { index },
+          ...(index < 3 ? { hook_event_name: 'PostToolUseFailure', error: 'Exit code 1' } : {}),
+        },
+        ham,
+      ),
+    );
+    assertSelftest(hamMsgs.some((m) => m?.includes('3 failed')), 'hammering fires on 5 calls / 3 failures');
+    // Anti: the same five calls all succeeding must stay silent.
+    const clean = selftestPaths(`${session}-clean`);
+    const cleanMsgs = [0, 1, 2, 3, 4].map((index) =>
+      processInput({ session_id: clean.file, tool_name: 'Bash', tool_input: { index } }, clean),
+    );
+    assertSelftest(cleanMsgs.every((m) => m === null), 'hammering silent when nothing failed');
     assertSelftest(parseInput('') === null, 'empty input');
     assertSelftest(parseInput('{not json') === null, 'malformed input');
     process.stdout.write('SELFTEST: PASS\n');
@@ -187,7 +228,7 @@ if (import.meta.main) {
     const input = parseInput(await readStdin());
     if (input) {
       const message = run(input);
-      if (message) emitAdditionalContext(message);
+      if (message) emitAdditionalContext(message, input.hook_event_name);
     }
     process.exit(0);
   })();

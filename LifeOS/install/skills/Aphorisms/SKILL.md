@@ -1,8 +1,7 @@
 ---
 name: Aphorisms
-version: 1.1.19
+version: 1.1.20
 description: "Curated aphorism collection with CRUD — content-based matching, themed search, thinker research, DB maintenance. Quotes organized by author/theme/context/usage to prevent repetition. Four workflows: FindAphorism, AddAphorism, ResearchThinker, SearchAphorisms. Themes: Stoicism, Wisdom, Truth-seeking, Excellence, Resilience, Curiosity. USE WHEN aphorism, quote, find a quote, research thinker, add aphorism, quote for newsletter, what did X say about, quote bank. NOT FOR creative writing or social posts."
-effort: low
 ---
 
 ## Customization

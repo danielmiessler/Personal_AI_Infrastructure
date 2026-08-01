@@ -4,7 +4,7 @@
  *
  * Why this exists:
  *   An early-2026 Anthropic invoice was $XXX, dominated by LifeOS-local processes
- *   that billed API instead of subscription (Pulse telegram SDK, spawnClaude
+ *   that billed API instead of subscription (Pulse remote-channel SDKs, spawnClaude
  *   `--bare`, .env auto-load of ANTHROPIC_API_KEY). The leak went undetected
  *   until the monthly invoice arrived. This tool closes that feedback loop.
  *
@@ -31,6 +31,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
 import { join } from "path";
 import { execSync } from "child_process";
+import { PULSE_BASE } from "../PULSE/endpoint";
 
 const HOME = process.env.HOME ?? "";
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS");
@@ -325,7 +326,7 @@ async function takeSnapshot(): Promise<{ snapshot: CostSnapshot; sites: CallSite
 
 async function voiceAlert(message: string): Promise<void> {
   try {
-    await fetch("http://localhost:31337/notify", {
+    await fetch(`${PULSE_BASE}/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, voice_enabled: true }),

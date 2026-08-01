@@ -23,10 +23,12 @@ const TOOLS = join(LIFEOS, "TOOLS");
 const PULSE = join(LIFEOS, "PULSE");
 const LAUNCH_AGENTS = join(HOME, "Library", "LaunchAgents");
 const AMBER = join(LIFEOS, "USER/CUSTOMIZATIONS/ARBOL/Workers/_A_AMBER_LEDGER");
+const HERMES = join(LIFEOS, "HERMES");
 
-type Cat = "pulse" | "capture" | "sync" | "sweep" | "maintenance";
-interface Svc {
-  label: string;            // com.lifeos.<x>
+export type Cat = "pulse" | "sidecar" | "capture" | "sync" | "sweep" | "maintenance";
+export interface Svc {
+  /** `com.lifeos.<x>` for services LifeOS installs; a vendor label for a mounted sidecar. */
+  label: string;
   title: string;
   purpose: string;
   category: Cat;
@@ -37,7 +39,7 @@ interface Svc {
 
 // Canonical registry: the human-meaningful metadata. Mechanical facts (cadence,
 // runner) are read live from the plists in status()/doc().
-const SERVICES: Svc[] = [
+export const SERVICES: Svc[] = [
   { label: "com.lifeos.pulse", title: "Pulse (dashboard server)", category: "pulse", optIn: false,
     purpose: "The Life Dashboard HTTP server on :31337 — Pulse, the visible surface onto LifeOS.",
     install: `bash ${join(PULSE, "manage.sh")} install` },
@@ -47,6 +49,12 @@ const SERVICES: Svc[] = [
   { label: "com.lifeos.deriver", title: "Pulse deriver", category: "pulse", optIn: false,
     purpose: "Regenerates Pulse's derived Data-Plane pages on a cadence.",
     install: `bash ${join(PULSE, "manage-deriver.sh")} install` },
+  // Separate but integrated: Hermes runs its own process tree under its own
+  // vendor label, and LifeOS owns its health. Registered here so the sidecar
+  // can't be up-or-down without the service surface knowing.
+  { label: "ai.hermes.gateway", title: "Hermes sidecar (gateway)", category: "sidecar", optIn: true,
+    purpose: "The second front door — Hermes gateway mounting this LifeOS install, serving its message channels. Health probe: `bun LIFEOS/HERMES/Health.ts`.",
+    install: `bun ${join(HERMES, "Mount.ts")}` },
   { label: "com.lifeos.conduit", title: "Conduit (sensory capture)", category: "capture", optIn: false,
     purpose: "Local current-state capture — feeds memory + TELOS current state.",
     install: `bun ${join(PULSE, "Conduit/InstallConduit.ts")}` },
@@ -65,6 +73,9 @@ const SERVICES: Svc[] = [
   { label: "com.lifeos.worksweep", title: "Work sweep", category: "sweep", optIn: true,
     purpose: "Hourly UL work capture — untracked sessions, stale items, project checks, TELOS-goal derivation.",
     install: `bun ${join(TOOLS, "InstallWorkSweep.ts")}` },
+  { label: "com.lifeos.atlas", title: "Atlas asset-graph sync", category: "sync", optIn: true,
+    purpose: "Reconciles the Atlas asset graph — 15-min tick (hourly full sync) + event-hint targeted syncs via WatchPaths.",
+    install: "manual plist — ~/Library/LaunchAgents/com.lifeos.atlas.plist (see LIFEOS/DOCUMENTATION/Atlas/AtlasSystem.md)" },
   { label: "com.lifeos.derivedsync", title: "Derived-file sync", category: "sync", optIn: true,
     purpose: "Watches 31 USER source files; regenerates PRINCIPAL_TELOS, LIFEOS_STATE, Data-Plane on hand-edits.",
     install: `bun ${join(TOOLS, "InstallDerivedSync.ts")}` },
@@ -74,6 +85,10 @@ const SERVICES: Svc[] = [
   { label: "com.lifeos.codexupdate", title: "Codex update", category: "maintenance", optIn: true,
     purpose: "Keeps the Codex mirror / update state current.",
     install: `bun ${join(TOOLS, "InstallCodexUpdate.ts")}` },
+  { label: "com.lifeos.inboxsweep", title: "Inbox sweep", category: "sweep", optIn: true,
+    purpose: "Every 5 min: deterministic Gmail triage — archives marketing/notification (podcast pitches, cold outreach) via _INBOX sender taxonomy; keep-classes hard-guarded.",
+    install: `bun ${join(TOOLS, "InstallInboxSweep.ts")}`,
+    uninstall: `bun ${join(TOOLS, "InstallInboxSweep.ts")} --uninstall` },
   { label: "com.lifeos.commitmentsweep", title: "Commitment sweep", category: "sweep", optIn: true,
     purpose: "Sweeps commitments/reminders on a cadence.",
     install: `bun ${join(TOOLS, "InstallCommitmentSweep.ts")}` },
@@ -89,8 +104,12 @@ const SERVICES: Svc[] = [
   { label: "com.lifeos.backups", title: "Backups", category: "maintenance", optIn: true,
     purpose: "Daily 03:00 PT repo backup (Git LFS).",
     install: `# Backups project — installed from its own repo (backup.sh)` },
-  { label: "com.lifeos.amberroute", title: "Amber router", category: "capture", optIn: true,
-    purpose: "Every 30 min: TELOS-grade unrouted Amber captures → KNOWLEDGE notes / UL issues.",
+  { label: "com.lifeos.bunkermonitor", title: "Bunker app monitor", category: "sweep", optIn: true,
+    purpose: "Every 5 min: re-runs every Bunker app's ISA Test Strategy probes; emails on green→red / red→green transitions.",
+    install: `bun ${join(TOOLS, "InstallBunkerMonitor.ts")}`,
+    uninstall: `bun ${join(TOOLS, "InstallBunkerMonitor.ts")} --uninstall` },
+  { label: "com.lifeos.amberroute", title: "Synapse router", category: "capture", optIn: true,
+    purpose: "Every 30 min: TELOS-grade unrouted Synapse captures → KNOWLEDGE notes / UL issues.",
     install: `bun ${join(AMBER, "Tools/InstallAmberRoute.ts")}`,
     uninstall: `bun ${join(AMBER, "Tools/InstallAmberRoute.ts")} --uninstall` },
 ];
@@ -100,13 +119,19 @@ function sh(cmd: string): { code: number; out: string } {
   return { code: p.exitCode ?? 1, out: (p.stdout.toString() + p.stderr.toString()).trim() };
 }
 
-function loadedLabels(): Set<string> {
-  const r = sh("launchctl list 2>/dev/null | grep -iE 'lifeos' | awk '{print $3}'");
+/**
+ * Every label launchd currently has loaded. Membership is tested by exact label,
+ * so there is nothing to gain by pre-filtering the list — and a `lifeos` filter
+ * silently reports any service under a vendor label (the Hermes sidecar) as
+ * missing forever, which is the kind of bug that hides a dead service.
+ */
+export function loadedLabels(): Set<string> {
+  const r = sh("launchctl list 2>/dev/null | awk '{print $3}'");
   return new Set(r.out.split("\n").map((s) => s.trim()).filter(Boolean));
 }
 
 /** Find the plist for a label: installed one wins, else a template in TOOLS/PULSE. */
-function findPlist(label: string): { path: string; installed: boolean } | null {
+export function findPlist(label: string): { path: string; installed: boolean } | null {
   const installed = join(LAUNCH_AGENTS, `${label}.plist`);
   if (existsSync(installed)) return { path: installed, installed: true };
   const short = label.replace(/^com\.lifeos\./, "");
@@ -119,7 +144,7 @@ function findPlist(label: string): { path: string; installed: boolean } | null {
   return null;
 }
 
-function cadenceOf(plistPath: string): string {
+export function cadenceOf(plistPath: string): string {
   try {
     const x = readFileSync(plistPath, "utf8");
     const si = x.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/);
@@ -131,6 +156,11 @@ function cadenceOf(plistPath: string): string {
   } catch { return "?"; }
 }
 
+// CLI dispatch runs only when invoked directly. Pulse's `scheduled` module
+// imports SERVICES so the registry has exactly one home; without this guard an
+// import would execute a command and, worse, could exit the server process.
+if (import.meta.main) {
+
 const cmd = process.argv[2] || "status";
 const onlyArg = (() => { const i = process.argv.indexOf("--only"); return i >= 0 ? process.argv[i + 1].split(",") : null; })();
 const all = process.argv.includes("--all");
@@ -141,7 +171,7 @@ if (cmd === "status" || cmd === "list") {
   const loaded = loadedLabels();
   console.log(`LifeOS background services (${SERVICES.length})\n`);
   console.log("  " + "STATE".padEnd(13) + "CADENCE".padEnd(16) + "SERVICE");
-  for (const cat of ["pulse", "capture", "sync", "sweep", "maintenance"] as Cat[]) {
+  for (const cat of ["pulse", "sidecar", "capture", "sync", "sweep", "maintenance"] as Cat[]) {
     const rows = SERVICES.filter((s) => s.category === cat);
     if (!rows.length) continue;
     console.log(`\n  ── ${cat} ──`);
@@ -167,12 +197,34 @@ if (cmd === "status" || cmd === "list") {
   const targets = SERVICES.filter(pick).filter((s) => (all || onlyArg ? true : !s.optIn) && !s.install.startsWith("#"));
   console.log(`Installing ${targets.length} service(s):`);
   if (!yes) { console.log("  (dry preview — re-run with --yes to execute)"); for (const s of targets) console.log(`  ${s.label}: ${s.install.replace(HOME, "~")}`); process.exit(0); }
+  // Some services install from a script that lives in a private, release-stripped
+  // skill, so on a public install the script simply is not there. Skipping those
+  // explicitly beats running them: the bare failure was an opaque exit 1 that read
+  // like a broken release rather than "this service belongs to a component you did
+  // not install". Caught by the 2026-07-27 cross-vendor audit, which found the inbox
+  // sweep always exiting 1 and an Amber installer advertised but never shipped.
+  const scriptOf = (cmd: string): string | null => {
+    const m = cmd.match(/(\S+\.(?:ts|sh))/);
+    return m ? m[1] : null;
+  };
+  let failed = 0, skipped = 0;
   for (const s of targets) {
+    const script = scriptOf(s.install);
+    if (script && script.startsWith("/") && !existsSync(script)) {
+      console.log(`  ${s.label} … ⏭  skipped (installer not present in this install: ${script.replace(HOME, "~")})`);
+      skipped++;
+      continue;
+    }
     process.stdout.write(`  ${s.label} … `);
     const r = sh(s.install);
-    console.log(r.code === 0 ? "✅" : `⚠️ (${r.out.split("\n").pop()})`);
+    if (r.code === 0) console.log("✅");
+    else { console.log(`⚠️ (${r.out.split("\n").pop()})`); failed++; }
   }
-  console.log("\nRun `bun Services.ts status` to confirm.");
+  console.log(`\nRun \`bun Services.ts status\` to confirm.${skipped ? ` ${skipped} skipped.` : ""}`);
+  // Exit non-zero when something actually failed. The old loop printed a warning
+  // glyph and still exited 0, so any caller or install script treating the exit
+  // code as truth recorded a false success.
+  if (failed > 0) { console.error(`${failed} service install(s) FAILED.`); process.exit(1); }
 } else if (cmd === "uninstall") {
   if (!onlyArg) { console.error("uninstall requires --only <labels> (refusing to remove everything at once)"); process.exit(1); }
   for (const s of SERVICES.filter(pick)) {
@@ -185,3 +237,5 @@ if (cmd === "status" || cmd === "list") {
   console.log("usage: bun Services.ts <status|install|uninstall|doc> [--all] [--only a,b] [--yes]");
   process.exit(1);
 }
+
+} // end import.meta.main

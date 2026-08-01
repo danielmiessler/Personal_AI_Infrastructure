@@ -65,8 +65,8 @@ const PREFIX_PATTERN = /^(NAME|ROLE|RELATION|PREFERENCE|RULE): /;
 const MAX_CHARS_PER_ENTRY = 256;
 const MAX_ENTRIES = 48;
 
-const BEGIN_MARKER = "<!-- BEGIN ENTRIES -->";
-const END_MARKER = "<!-- END ENTRIES -->";
+export const BEGIN_MARKER = "<!-- BEGIN ENTRIES -->";
+export const END_MARKER = "<!-- END ENTRIES -->";
 
 const OBSERVABILITY_PATH = pathResolve(
   CLAUDE_ROOT,
@@ -136,6 +136,12 @@ export interface ReadResult {
   chars_used: number;
   cap_entries: number;
   cap_chars: number;
+  /**
+   * On-disk entries excluded from `entries` as invalid (marker/newline content or
+   * over-length). NEVER silently ignorable: the reviewer's set-overwrite submits
+   * `entries`, so anything listed here is erased by its next write.
+   */
+  dropped_invalid: { entry: string; reason: "malformed" | "overlength" }[];
 }
 
 // ── Path validation ──
@@ -177,8 +183,25 @@ function validateAndDedup(entries: string[]): ValidationOutcome {
     const entry = raw.trim();
     if (entry.length === 0) continue;
 
+    // One entry = one physical line. An embedded newline would serialize as
+    // multiple on-disk lines, inflating the real entry count past every cap and
+    // desyncing accepted/new_count from what a reparse sees.
+    if (/[\r\n]/.test(entry)) {
+      malformed++;
+      continue;
+    }
+
     const m = entry.match(PREFIX_PATTERN);
     if (!m) {
+      malformed++;
+      continue;
+    }
+
+    // Entries may never contain the structural markers: a marker substring inside
+    // an entry would pollute the block and blind naive parsers. A pre-existing
+    // on-disk offender still parses whole (markers are line-based), but
+    // resubmission drops it here — visible as dropped_malformed.
+    if (entry.includes(BEGIN_MARKER) || entry.includes(END_MARKER)) {
       malformed++;
       continue;
     }
@@ -205,53 +228,75 @@ function validateAndDedup(entries: string[]): ValidationOutcome {
 
 // ── File parse / serialize ──
 
-interface ParsedFile {
+// Line-based canonical model (public PR #1593, @anikinsasha). The former
+// indexOf-over-the-whole-body parse had three compounding defects that produced
+// permanent, SILENT memory loss in the wild:
+//
+//   1. A stray END before BEGIN sent every write down the recovery branch, forever.
+//   2. serializeFile's self-heal appended the missing BEGIN *after* that stray END,
+//      manufacturing a permanent END-before-BEGIN inversion, and re-emitted one
+//      fresh END per write — files grew a stack of END markers, +1 per curation,
+//      never compacted.
+//   3. Every reader bailed to zero entries on marker disorder, so sessions ran with
+//      no memory loaded while the writer kept curating and the health check
+//      reported clean headroom (0/48).
+//
+// The model that fixes it: markers are recognized ONLY as whole trimmed lines, so
+// an entry that merely mentions a marker can never truncate the block. Parse is
+// uniformly lenient — every valid-prefix line anywhere after the frontmatter is an
+// entry (block ∪ orphans, order-preserved, first-seen deduped); marker lines are
+// structural and dropped; everything else is body, preserved verbatim, including
+// invalid-prefix orphans, which are never silently absorbed or deleted. Serialize
+// always emits the canonical shape (frontmatter → body → BEGIN → entries → END →
+// newline), so ONE write converges any historical corruption and repeated writes
+// are byte-identical.
+//
+// This is THE parser for the memory files. Every consumer (LoadMemory hook, Pulse
+// memory panel, MemoryHealthCheck, MemoryRestore) imports it — reader and writer
+// can never diverge again. Never write a second marker-parsing implementation.
+
+export interface ParsedMemoryFile {
   frontmatter: string;
-  preEntriesBody: string;
+  bodyLines: string[];
   entries: string[];
-  postEntriesBody: string;
 }
 
-function parseFile(content: string): ParsedFile {
-  // Frontmatter is between two --- lines at the top.
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
-  const frontmatter = fmMatch ? fmMatch[0] : "";
-  const afterFm = content.slice(frontmatter.length);
+export function parseMemoryContent(content: string): ParsedMemoryFile {
+  const fmMatch = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  // A "frontmatter" that swallowed a marker line is a mis-close: an unterminated
+  // opening fence closing on some later body `---` would hide the whole entries
+  // block inside frontmatter, blinding the parse AND the shrink guard while
+  // marker-sanity checks stay green. Demote to no-frontmatter so every entry is
+  // recovered from the body instead.
+  const fmRaw = fmMatch ? fmMatch[0] : "";
+  const fmValid = fmRaw !== "" && !fmRaw.includes(BEGIN_MARKER) && !fmRaw.includes(END_MARKER);
+  const frontmatter = fmValid ? fmRaw.replace(/\r\n/g, "\n") : "";
+  const afterFm = fmValid ? content.slice(fmRaw.length) : content;
 
-  const beginIdx = afterFm.indexOf(BEGIN_MARKER);
-  const endIdx = afterFm.indexOf(END_MARKER);
+  const bodyLines: string[] = [];
+  const entries: string[] = [];
+  const seen = new Set<string>();
 
-  if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
-    // Markers missing or malformed. Recover any orphaned prefixed entries a prior
-    // broken write may have dumped into the body (see serializeFile's BEGIN-marker
-    // heal) so read() still surfaces them and the next write re-homes them inside a
-    // proper marker block instead of duplicating them. Non-entry lines stay in
-    // preEntriesBody, preserving principal-authored content.
-    const recovered: string[] = [];
-    const kept: string[] = [];
-    for (const line of afterFm.split("\n")) {
-      const t = line.trim();
-      if (t.length > 0 && PREFIX_PATTERN.test(t)) recovered.push(t);
-      else kept.push(line);
+  for (const line of afterFm.split(/\r?\n/)) {
+    const t = line.trim();
+    if (t === BEGIN_MARKER || t === END_MARKER) continue;
+    if (t.length > 0 && PREFIX_PATTERN.test(t)) {
+      if (!seen.has(t)) {
+        seen.add(t);
+        entries.push(t);
+      }
+      continue;
     }
-    return {
-      frontmatter,
-      preEntriesBody: kept.join("\n"),
-      entries: recovered,
-      postEntriesBody: "",
-    };
+    bodyLines.push(line);
   }
 
-  const preEntriesBody = afterFm.slice(0, beginIdx + BEGIN_MARKER.length);
-  const entriesBlock = afterFm.slice(beginIdx + BEGIN_MARKER.length, endIdx);
-  const postEntriesBody = afterFm.slice(endIdx);
+  // Trailing blank body lines are separator artifacts; serialize re-adds exactly
+  // one, keeping parse→serialize→parse byte-stable.
+  while (bodyLines.length > 0 && bodyLines[bodyLines.length - 1].trim() === "") {
+    bodyLines.pop();
+  }
 
-  const entries = entriesBlock
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && PREFIX_PATTERN.test(line));
-
-  return { frontmatter, preEntriesBody, entries, postEntriesBody };
+  return { frontmatter, bodyLines, entries };
 }
 
 function updateFrontmatterTimestamp(frontmatter: string): string {
@@ -273,32 +318,25 @@ function updateFrontmatterUpdatedBy(frontmatter: string, by: string): string {
   return frontmatter.replace(/\n---\n$/, `\nlast_updated_by: ${by}\n---\n`);
 }
 
-function serializeFile(parsed: ParsedFile, newEntries: string[], updatedBy: string): string {
+/**
+ * Always emits the canonical shape — frontmatter → body → BEGIN → entries → END →
+ * trailing newline. No self-heal branches: there is exactly one output shape, so a
+ * single write converges any corrupted file and a repeat write is byte-identical.
+ */
+export function serializeMemoryContent(
+  parsed: ParsedMemoryFile,
+  newEntries: string[],
+  updatedBy: string,
+): string {
   let fm = updateFrontmatterTimestamp(parsed.frontmatter);
   fm = updateFrontmatterUpdatedBy(fm, updatedBy);
 
-  // Ensure preEntriesBody ends just after BEGIN_MARKER, with a newline before entries.
-  // Symmetric self-heal (mirrors the END-marker heal below): if the body lost its
-  // BEGIN marker, re-insert it so appended entries land inside a parseable block.
-  // parseFile only recovers entries between BEGIN and END, so without this an
-  // already-broken file would keep accepting writes that never persist as entries.
-  let pre = parsed.preEntriesBody;
-  if (!pre.includes(BEGIN_MARKER)) {
-    if (pre.length > 0 && !pre.endsWith("\n")) pre += "\n";
-    pre += BEGIN_MARKER;
-  }
-  if (!pre.endsWith("\n")) pre += "\n";
-
-  const entriesBlock = newEntries.length === 0 ? "" : newEntries.join("\n") + "\n";
-
-  let post = parsed.postEntriesBody;
-  // Ensure post starts cleanly with the END_MARKER
-  if (!post.startsWith(END_MARKER)) {
-    // Should not happen given parseFile guarantees, but defensive
-    post = END_MARKER + post;
-  }
-
-  return fm + pre + entriesBlock + post;
+  let out = fm;
+  if (parsed.bodyLines.length > 0) out += parsed.bodyLines.join("\n") + "\n\n";
+  out += BEGIN_MARKER + "\n";
+  if (newEntries.length > 0) out += newEntries.join("\n") + "\n";
+  out += END_MARKER + "\n";
+  return out;
 }
 
 // ── Atomic write with lock ──
@@ -371,7 +409,12 @@ function snapshotBeforeWrite(absPath: string, priorContent: string): void {
 function atomicWrite(filePath: string, content: string): true | SetEntriesErrIO {
   const tmpPath = `${filePath}.tmp`;
   try {
-    writeFileSync(tmpPath, content, "utf8");
+    // O_EXCL ("wx") after a best-effort unlink: a symlink planted at the
+    // predictable tmpPath would otherwise be written THROUGH — the write lands on
+    // its target before the rename ever runs. O_EXCL refuses any pre-existing
+    // path, symlinks included. (public PR #1593, @anikinsasha)
+    try { unlinkSync(tmpPath); } catch { /* absent is the normal case */ }
+    writeFileSync(tmpPath, content, { encoding: "utf8", flag: "wx" });
     // fsync the tmp file for durability before rename
     const fd = openSync(tmpPath, "r+");
     try {
@@ -380,6 +423,12 @@ function atomicWrite(filePath: string, content: string): true | SetEntriesErrIO 
       closeSync(fd);
     }
     renameSync(tmpPath, filePath);
+    // fsync the containing directory so the rename itself is durable — without it
+    // a power/kernel crash can roll the rename back despite this returning ok.
+    try {
+      const dirFd = openSync(dirname(filePath), "r");
+      try { fsyncSync(dirFd); } finally { closeSync(dirFd); }
+    } catch { /* dir fsync unsupported on some filesystems — best-effort */ }
     return true;
   } catch (e: any) {
     try { unlinkSync(tmpPath); } catch { /* ignore */ }
@@ -462,7 +511,7 @@ export function setEntries(
 
   const result = withLock(abs, () => {
     const content = readFileSync(abs, "utf8");
-    const parsed = parseFile(content);
+    const parsed = parseMemoryContent(content);
     const priorEntries = parsed.entries;
     const newEntries = validated.accepted;
 
@@ -498,7 +547,7 @@ export function setEntries(
     // Snapshot the prior content before we overwrite — individual-write recovery.
     snapshotBeforeWrite(abs, content);
 
-    const newContent = serializeFile(parsed, newEntries, options.updatedBy || "MemoryWriter");
+    const newContent = serializeMemoryContent(parsed, newEntries, options.updatedBy || "MemoryWriter");
     const writeRes = atomicWrite(abs, newContent);
     if (writeRes !== true) return writeRes;
 
@@ -533,13 +582,25 @@ export function read(filePath: string): ReadResult | SetEntriesErrPath {
       chars_used: 0,
       cap_entries: MAX_ENTRIES,
       cap_chars: MAX_ENTRIES * MAX_CHARS_PER_ENTRY,
+      dropped_invalid: [],
     };
   }
 
   const content = readFileSync(abs, "utf8");
-  const parsed = parseFile(content);
-  // Silent-drop malformed entries discovered at read time too.
+  const parsed = parseMemoryContent(content);
+  // Entries invalid at read time are excluded from `entries` but REPORTED, never
+  // silently swallowed: a set-overwrite computed from `entries` would otherwise
+  // erase them with no trace anywhere, since the write's dropped_* counts only
+  // cover the submission, which by then no longer contains them.
   const valid = validateAndDedup(parsed.entries);
+  const acceptedSet = new Set(valid.accepted);
+  const dropped_invalid: ReadResult["dropped_invalid"] = [];
+  for (const entry of parsed.entries) {
+    if (acceptedSet.has(entry)) continue;
+    const m = entry.match(PREFIX_PATTERN);
+    const overlength = !!m && entry.slice(m[0].length).length > MAX_CHARS_PER_ENTRY;
+    dropped_invalid.push({ entry, reason: overlength ? "overlength" : "malformed" });
+  }
   const chars_used = valid.accepted.reduce((sum, e) => sum + e.length, 0);
 
   return {
@@ -548,6 +609,7 @@ export function read(filePath: string): ReadResult | SetEntriesErrPath {
     chars_used,
     cap_entries: MAX_ENTRIES,
     cap_chars: MAX_ENTRIES * MAX_CHARS_PER_ENTRY,
+    dropped_invalid,
   };
 }
 
@@ -555,108 +617,98 @@ export function read(filePath: string): ReadResult | SetEntriesErrPath {
 
 function smokeTest(): number {
   console.log("MemoryWriter smoke test starting…");
-  const testFile = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/PRINCIPAL/PRINCIPAL_MEMORY.md");
-  const writer = "smoke-test";
 
-  // 1. Read initial state (should be empty)
-  const r0 = read(testFile);
-  if ("code" in r0) {
-    console.error(`FAIL: read returned error: ${r0.message}`);
-    return 1;
-  }
-  console.log(`  initial: ${r0.count}/${r0.cap_entries} entries, ${r0.chars_used}/${r0.cap_chars} chars`);
+  // Pure canonical-rebuild fixtures — NO filesystem, and in particular NOT the
+  // live memory files. The pre-port smoke test ran setEntries against the real
+  // PRINCIPAL_MEMORY.md and its step-7 cleanup submitted [], so running
+  // `bun MemoryWriter.ts test` on a populated install WIPED real memory.
+  // Write-path coverage lives in test/tools/MemoryWriter.test.ts.
+  // (public PR #1593, @anikinsasha)
+  const corrupted =
+    [
+      "---",
+      "schema_version: 1",
+      "---",
+      "# Hot-Layer Memory",
+      "",
+      "<!-- template comment -->",
+      END_MARKER,
+      BEGIN_MARKER,
+      END_MARKER,
+      END_MARKER,
+      "FACT: legacy invalid-prefix orphan stays in body",
+      "NAME: Fixture User",
+      `RULE: keep the ${END_MARKER} marker pair intact`,
+      END_MARKER,
+    ].join("\n") + "\n";
 
-  // 2. Write 3 valid entries + 1 malformed + 1 over-length + 1 dup
-  const longStr = "X".repeat(300);
-  const submission = [
-    "NAME: SmokeTest User",
-    "PREFERENCE: Smoke-test prefers terse outputs",
-    "RULE: Smoke-test always cleans up after itself",
-    "INVALID_PREFIX: this should be dropped",
-    `PREFERENCE: ${longStr}`,
-    "NAME: SmokeTest User", // duplicate
-  ];
-  const w1 = setEntries(testFile, submission, { updatedBy: writer });
-  if (!w1.ok) {
-    console.error(`FAIL: setEntries returned error: ${w1.code} — ${w1.message}`);
+  const p1 = parseMemoryContent(corrupted);
+  if (p1.entries.length !== 2) {
+    console.error(`FAIL: corrupted fixture expected 2 entries, got ${p1.entries.length}`);
     return 1;
   }
-  console.log(`  write 1: accepted=${w1.accepted}, dropped_malformed=${w1.dropped_malformed}, dropped_overlength=${w1.dropped_overlength}, dropped_duplicates=${w1.dropped_duplicates}, evictions=${w1.evictions.length}`);
-  if (w1.accepted !== 3) {
-    console.error(`FAIL: expected 3 accepted, got ${w1.accepted}`);
+  if (p1.entries[1] !== `RULE: keep the ${END_MARKER} marker pair intact`) {
+    console.error(`FAIL: marker-substring entry truncated on parse: ${p1.entries[1]}`);
     return 1;
   }
-  if (w1.dropped_malformed !== 1) {
-    console.error(`FAIL: expected 1 malformed drop, got ${w1.dropped_malformed}`);
+  if (!p1.bodyLines.some((l) => l.startsWith("FACT: "))) {
+    console.error("FAIL: invalid-prefix orphan was silently absorbed instead of kept in body");
     return 1;
   }
-  if (w1.dropped_overlength !== 1) {
-    console.error(`FAIL: expected 1 overlength drop, got ${w1.dropped_overlength}`);
-    return 1;
-  }
-  if (w1.dropped_duplicates !== 1) {
-    console.error(`FAIL: expected 1 dup drop, got ${w1.dropped_duplicates}`);
-    return 1;
-  }
+  console.log(`  parse: recovered ${p1.entries.length} entries from an END-before-BEGIN + END-stack file`);
 
-  // 3. Read back, verify
-  const r1 = read(testFile);
-  if ("code" in r1) {
-    console.error(`FAIL: read after write returned error: ${r1.message}`);
+  // One write converges to canonical shape: exactly one BEGIN, one END, in order.
+  const rebuilt = serializeMemoryContent(p1, p1.entries, "smoke-test");
+  const begins = rebuilt.split("\n").filter((l) => l.trim() === BEGIN_MARKER).length;
+  const ends = rebuilt.split("\n").filter((l) => l.trim() === END_MARKER).length;
+  if (begins !== 1 || ends !== 1) {
+    console.error(`FAIL: canonical rebuild expected 1 BEGIN / 1 END, got ${begins} / ${ends}`);
     return 1;
   }
-  if (r1.count !== 3) {
-    console.error(`FAIL: expected 3 entries on readback, got ${r1.count}`);
+  if (rebuilt.indexOf(BEGIN_MARKER) > rebuilt.indexOf(END_MARKER)) {
+    console.error("FAIL: canonical rebuild left END before BEGIN");
     return 1;
   }
-  console.log(`  readback: ${r1.count}/${r1.cap_entries} entries, ${r1.chars_used}/${r1.cap_chars} chars`);
+  console.log(`  serialize: converged ${begins} BEGIN / ${ends} END, in order`);
 
-  // 4. Set-overwrite with fewer entries (test eviction)
-  const w2 = setEntries(testFile, ["NAME: SmokeTest User"], { updatedBy: writer });
-  if (!w2.ok) {
-    console.error(`FAIL: second write returned error: ${(w2 as any).message}`);
+  // Idempotency: a second round-trip is byte-identical apart from the stamp.
+  const stripStamp = (s: string) => s.replace(/^last_updated: .*$/m, "last_updated: X");
+  const again = serializeMemoryContent(parseMemoryContent(rebuilt), p1.entries, "smoke-test");
+  if (stripStamp(again) !== stripStamp(rebuilt)) {
+    console.error("FAIL: second write was not byte-identical — rebuild is not idempotent");
     return 1;
   }
-  if (w2.evictions.length !== 2) {
-    console.error(`FAIL: expected 2 evictions, got ${w2.evictions.length}`);
-    return 1;
-  }
-  console.log(`  write 2 (set-overwrite with 1 entry): evictions=${w2.evictions.length} ← PREFERENCE + RULE evicted`);
+  console.log("  idempotency: second write byte-identical");
 
-  // 5. Test at-cap error
-  const tooMany = Array.from({ length: 49 }, (_, i) => `PREFERENCE: smoke entry ${i}`);
-  const w3 = setEntries(testFile, tooMany, { updatedBy: writer });
-  if (w3.ok) {
-    console.error(`FAIL: expected EAT_CAP error, got success`);
+  // Entry set is preserved verbatim across the heal (zero set-diff).
+  const after = parseMemoryContent(rebuilt).entries;
+  if (after.join("\u0000") !== p1.entries.join("\u0000")) {
+    console.error("FAIL: entry set changed across the heal");
     return 1;
   }
-  if (w3.code !== "EAT_CAP") {
-    console.error(`FAIL: expected EAT_CAP, got ${w3.code}`);
-    return 1;
-  }
-  console.log(`  write 3 (49 entries): correctly rejected with ${w3.code} — over_count=${w3.over_count}`);
+  console.log(`  preservation: ${after.length}/${p1.entries.length} entries survived verbatim`);
 
-  // 6. Test path rejection
-  const w4 = setEntries("/etc/passwd", ["NAME: hacker"], { updatedBy: writer });
-  if (w4.ok) {
-    console.error(`FAIL: expected EINVAL_PATH for /etc/passwd, got success`);
+  // CRLF and frontmatter-less shapes parse the same way.
+  const crlf = `${BEGIN_MARKER}\r\nNAME: CRLF User\r\n${END_MARKER}\r\n`;
+  if (parseMemoryContent(crlf).entries.length !== 1) {
+    console.error("FAIL: CRLF file did not parse to 1 entry");
     return 1;
   }
-  if (w4.code !== "EINVAL_PATH") {
-    console.error(`FAIL: expected EINVAL_PATH, got ${w4.code}`);
+  if (parseMemoryContent("NAME: No Frontmatter\n").entries.length !== 1) {
+    console.error("FAIL: frontmatter-less file did not parse to 1 entry");
     return 1;
   }
-  console.log(`  write 4 (/etc/passwd): correctly rejected with ${w4.code}`);
+  console.log("  tolerance: CRLF + frontmatter-less parse correctly");
 
-  // 7. Cleanup — restore to empty
-  const w5 = setEntries(testFile, [], { updatedBy: "smoke-test-cleanup" });
-  if (!w5.ok) {
-    console.error(`FAIL: cleanup write returned error: ${(w5 as any).message}`);
+  // Path allowlist still refuses anything outside the two memory files.
+  const w = setEntries("/etc/passwd", ["NAME: hacker"], { updatedBy: "smoke-test" });
+  if (w.ok || w.code !== "EINVAL_PATH") {
+    console.error(`FAIL: expected EINVAL_PATH for /etc/passwd, got ${w.ok ? "success" : w.code}`);
     return 1;
   }
-  console.log(`  cleanup: ${w5.new_count} entries remaining (should be 0)`);
+  console.log("  allowlist: /etc/passwd correctly rejected with EINVAL_PATH");
 
-  console.log("✓ MemoryWriter smoke test PASSED");
+  console.log("✓ MemoryWriter smoke test PASSED (no live memory file was touched)");
   return 0;
 }
 

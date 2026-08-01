@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- LifeOS mark: ascending tile staircase. 4 cols x 5 rows, cell 27x21, 4px gaps. -->
+  <!-- row1 (bottom) --><rect x="4" y="104" width="27" height="21" fill="#94C5FD"/><rect x="35" y="104" width="27" height="21" fill="#94C5FD"/><rect x="66" y="104" width="27" height="21" fill="#94C5FD"/><rect x="97" y="104" width="27" height="21" fill="#94C5FD"/>
+  <!-- row2 --><rect x="35" y="79" width="27" height="21" fill="#00339A"/><rect x="66" y="79" width="27" height="21" fill="#00339A"/><rect x="97" y="79" width="27" height="21" fill="#94C5FD"/>
+  <!-- row3 --><rect x="66" y="54" width="27" height="21" fill="#94C5FD"/><rect x="97" y="54" width="27" height="21" fill="#94C5FD"/>
+  <!-- row4 --><rect x="97" y="29" width="27" height="21" fill="#00339A"/>
+  <!-- row5 (summit) --><rect x="97" y="4" width="27" height="21" fill="#1B47FF"/>
+</svg>

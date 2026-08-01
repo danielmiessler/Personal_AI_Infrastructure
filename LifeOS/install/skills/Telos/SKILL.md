@@ -1,8 +1,7 @@
 ---
 name: Telos
-version: 1.0.39
+version: 1.0.45
 description: "Dual-context skill: Personal TELOS reads and updates goals, beliefs, narratives, strategies, and more with timestamped backups; Project TELOS analyzes .md/.csv directories for dependency chains, bottlenecks, and alignment, generating reports, narrative points, or dashboards. USE WHEN Telos, life goals, projects, dependencies, update TELOS, narrative points, McKinsey report, dashboard, what am I wrong about, life frames, mental models. NOT FOR conversational constitutional review (use Interview)."
-effort: medium
 ---
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
@@ -234,7 +233,7 @@ Deliver in whatever format was asked: markdown report (Mermaid diagrams), intera
 
 ## Building Dashboards
 
-The deliverable is an interactive Next.js dashboard that renders the analysis against the stack and design tokens below. Fan the build out across parallel agents however the work splits cleanly — data-parsing lib, shared components, per-page views, theme, integration — running independent pieces at once.
+The deliverable is an interactive Next.js dashboard that renders the analysis against the stack and design tokens below. **Start from the shipped scaffold at `DashboardTemplate/`** (working Next.js app: file browser, markdown/CSV rendering, dependency views — see its README for the copy-and-run steps) rather than from scratch, then adapt pages to the analysis. Fan the build out across parallel agents however the work splits cleanly — data-parsing lib, shared components, per-page views, theme, integration — running independent pieces at once. (Wired per public issue #1555, @tzioup — the template previously shipped unreferenced.)
 
 **Tech Stack:**
 - Next.js 14 + TypeScript

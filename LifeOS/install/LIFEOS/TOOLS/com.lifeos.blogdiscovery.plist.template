@@ -33,8 +33,10 @@
     <string>kagi,indieblog,bear</string>
   </array>
 
+  <!-- RunAtLoad true so a missed nightly fires at next login — a laptop asleep
+       through the scheduled time otherwise never runs it (public issue #1513, @xmasyx). -->
   <key>RunAtLoad</key>
-  <false/>
+  <true/>
 
   <key>StartCalendarInterval</key>
   <dict>

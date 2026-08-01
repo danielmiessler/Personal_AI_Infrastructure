@@ -59,24 +59,24 @@ Generate **7 unique explorer angles** + **2 verification angles** (9 total).
 // === EXPLORERS (7 agents) ===
 
 // Claude - 2 threads (academic depth, strategic analysis)
-Task({ subagent_type: "ClaudeResearcher", description: "[topic] angle 1", prompt: "Search for: [angle 1]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
-Task({ subagent_type: "ClaudeResearcher", description: "[topic] angle 2", prompt: "Search for: [angle 2]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+Agent({ subagent_type: "ClaudeResearcher", description: "[topic] angle 1", prompt: "Search for: [angle 1]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+Agent({ subagent_type: "ClaudeResearcher", description: "[topic] angle 2", prompt: "Search for: [angle 2]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
 
 // Gemini - 3 threads (multi-perspective, cross-domain)
-Task({ subagent_type: "GeminiResearcher", description: "[topic] angle 3", prompt: "Search for: [angle 3]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
-Task({ subagent_type: "GeminiResearcher", description: "[topic] angle 4", prompt: "Search for: [angle 4]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
-Task({ subagent_type: "GeminiResearcher", description: "[topic] angle 5", prompt: "Search for: [angle 5]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+Agent({ subagent_type: "GeminiResearcher", description: "[topic] angle 3", prompt: "Search for: [angle 3]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+Agent({ subagent_type: "GeminiResearcher", description: "[topic] angle 4", prompt: "Search for: [angle 4]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+Agent({ subagent_type: "GeminiResearcher", description: "[topic] angle 5", prompt: "Search for: [angle 5]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
 
-// Grok - 2 threads (contrarian, fact-based)
-Task({ subagent_type: "GrokResearcher", description: "[topic] angle 6", prompt: "Search for: [angle 6]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
-Task({ subagent_type: "GrokResearcher", description: "[topic] angle 7", prompt: "Search for: [angle 7]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+// Contrarian - 2 threads (counter-consensus, fact-based)
+Agent({ subagent_type: "ClaudeResearcher", description: "[topic] angle 6", prompt: "Search for: [angle 6 — contrarian/counter-consensus framing]. Prefer durable facts over trending narrative. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
+Agent({ subagent_type: "GeminiResearcher", description: "[topic] angle 7", prompt: "Search for: [angle 7 — contrarian/counter-consensus framing]. Prefer durable facts over trending narrative. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return findings." })
 
 // === VERIFIERS (2 agents) ===
 // These independently check the most important claims about the topic.
 // They have NO access to explorer reasoning — only the topic and their own research.
 
-Task({ subagent_type: "PerplexityResearcher", description: "verify [topic] claims", prompt: "Independently verify the most commonly cited facts, statistics, and claims about [topic]. For each claim you find, check if it's supported by primary sources. Tag each as [HIGH] (confirmed), [MED] (plausible), or [LOW] (unconfirmed). Focus on quantitative claims and dates — these are most likely to be wrong." })
-Task({ subagent_type: "ClaudeResearcher", description: "find contradictions about [topic]", prompt: "Search for contradictory evidence, debunked claims, and common misconceptions about [topic]. What do people get wrong? What's the contrarian view with evidence? Tag each finding with confidence: [HIGH], [MED], or [LOW]." })
+Agent({ subagent_type: "PerplexityResearcher", description: "verify [topic] claims", prompt: "Independently verify the most commonly cited facts, statistics, and claims about [topic]. For each claim you find, check if it's supported by primary sources. Tag each as [HIGH] (confirmed), [MED] (plausible), or [LOW] (unconfirmed). Focus on quantitative claims and dates — these are most likely to be wrong." })
+Agent({ subagent_type: "ClaudeResearcher", description: "find contradictions about [topic]", prompt: "Search for contradictory evidence, debunked claims, and common misconceptions about [topic]. What do people get wrong? What's the contrarian view with evidence? Tag each finding with confidence: [HIGH], [MED], or [LOW]." })
 ```
 
 **Each agent:**
@@ -120,14 +120,13 @@ Task({ subagent_type: "ClaudeResearcher", description: "find contradictions abou
 - [CONFLICT] Finding A vs Finding B (see Conflicts section)
 
 ## Unique Insights by Source
-- **Claude**: [analytical depth]
+- **Claude**: [analytical depth + contrarian perspectives]
 - **Gemini**: [cross-domain connections]
-- **Grok**: [contrarian perspectives]
 - **Verifiers**: [what was confirmed/refuted]
 
 ## Conflicts & Low-Confidence Items
 ⚠️ CONFLICT on [topic]:
-  Explorer (GrokResearcher): [claim] — [source]
+  Explorer (ClaudeResearcher): [claim] — [source]
   Verifier (PerplexityResearcher): [contradicting claim] — [source]
   Status: Unresolved
 
@@ -150,7 +149,7 @@ Task({ subagent_type: "ClaudeResearcher", description: "find contradictions abou
 
 📈 RESEARCH METRICS:
 - Total Agents: 9 (7 explorers + 2 verifiers)
-- Explorer Types: Claude(2), Gemini(3), Grok(2)
+- Explorer Types: Claude(3), Gemini(4)
 - Verifier Types: Perplexity(1), Claude(1)
 - Findings: N HIGH | N MED | N LOW | N CONFLICT
 - URLs verified: N/N

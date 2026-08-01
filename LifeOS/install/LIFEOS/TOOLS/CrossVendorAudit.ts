@@ -10,15 +10,15 @@
  * track-record continuity), emits parsed JSON to stdout.
  *
  * Usage:
- *   bun CrossVendorAudit.ts --slug <slug>
+ *   bun CrossVendorAudit.ts --slug <slug> [--artifact <path>]...
  *
- * Algorithm v3.27 Rule 2a. E4/E5 VERIFY phase only.
+ * Algorithm Rule 2a (v3.27-era). Elected during VERIFY on high-stakes runs.
  */
 
 import { spawn } from "node:child_process";
-import { readFile, writeFile, appendFile, mkdir, stat } from "node:fs/promises";
+import { readFile, writeFile, appendFile, mkdir, stat, rm, symlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const HOME = homedir();
@@ -26,7 +26,53 @@ const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS");
 const WORK_DIR = join(LIFEOS_DIR, "MEMORY", "WORK");
 const FINDINGS_LOG = join(LIFEOS_DIR, "MEMORY", "VERIFICATION", "cato-findings.jsonl");
 const TOOL_ACTIVITY_LOG = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "tool-activity.jsonl");
-const CODEX_BIN = join(HOME, ".bun", "bin", "codex");
+// Resolve codex robustly: env override → PATH → common install dirs. A single
+// hard-coded path silently skipped the whole audit ("skipped" reads like a
+// pass) when codex lived elsewhere, e.g. Homebrew (public issue #1500).
+function resolveCodexBin(): string {
+  const override = process.env.CODEX_BIN;
+  if (override && existsSync(override)) return override;
+  const fromPath = Bun.which("codex");
+  if (fromPath) return fromPath;
+  const candidates = [
+    join(HOME, ".bun", "bin", "codex"),
+    "/opt/homebrew/bin/codex",
+    "/usr/local/bin/codex",
+  ];
+  return candidates.find((p) => existsSync(p)) ?? join(HOME, ".bun", "bin", "codex");
+}
+const CODEX_BIN = resolveCodexBin();
+
+// ISOLATED CODEX HOME — the fix for a lane that was silently not cross-vendor
+// (2026-07-25). The user's real $CODEX_HOME hosts a SEPARATE LifeOS-for-Codex
+// installation: `AGENTS.md` tells codex to load that install's DA identity and
+// system prompt, `hooks.json` has a session_start injector, and the same file
+// carries "Never read from ... any LifeOS installation outside ~/.codex".
+// Consequences, both reproduced directly before this was written: the auditor
+// answered in the DA's persona complete with the LifeOS banner — so it shared
+// exactly the Anthropic-family framing the audit exists to escape — and it
+// DECLINED to read the ~/.claude artifact it was pointed at. A run like that
+// still returns a verdict, which is the dangerous part: "cross-vendor pass" on
+// an audit that never read the work and was not independent.
+//
+// CODEX_HOME is the one lever that drops AGENTS.md, hooks, skills and config in
+// a single move. Auth is the only thing worth keeping, and it is SYMLINKED, never
+// copied — no credential is duplicated onto disk. Verified: under the isolated
+// home the same probe returns the file contents with no persona and no refusal.
+// Config-key overrides were tried first and are NOT sufficient — disabling
+// `model_instructions_file` + `features.hooks` removed the persona but the
+// refusal survived via the still-loaded skills tree.
+const AUDIT_CODEX_HOME = join(tmpdir(), "lifeos-audit-codex-home");
+
+async function buildIsolatedCodexHome(): Promise<string> {
+  await rm(AUDIT_CODEX_HOME, { recursive: true, force: true });
+  await mkdir(AUDIT_CODEX_HOME, { recursive: true });
+  const realAuth = join(HOME, ".codex", "auth.json");
+  // Absent auth.json = the user authenticates codex via OPENAI_API_KEY, which
+  // the env carries anyway. Nothing to link; the isolated home still works.
+  if (existsSync(realAuth)) await symlink(realAuth, join(AUDIT_CODEX_HOME, "auth.json"));
+  return AUDIT_CODEX_HOME;
+}
 
 const BUNDLE_TOKEN_CAP = 80_000;
 const CHARS_PER_TOKEN = 4; // rough estimate for bundle sizing
@@ -83,6 +129,8 @@ Output ONLY this JSON on one line, no markdown, no prose, no preamble:
 
 interface Args {
   slug: string;
+  /** Extra files to bundle beyond the ISA's `## Decisions` references. */
+  extraArtifacts: string[];
 }
 
 interface AuditResponse {
@@ -97,9 +145,14 @@ interface AuditResponse {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Partial<Args> = {};
+  const args: Partial<Args> = { extraArtifacts: [] };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--slug") args.slug = argv[++i];
+    // --artifact may repeat. The `## Decisions` scrape only finds files the ISA
+    // happens to name in backticks, which is fine for a code change and useless
+    // for a release cut — the thing under audit there is a payload the ISA never
+    // enumerates. This lets the caller point the audit at what actually shipped.
+    else if (argv[i] === "--artifact") (args.extraArtifacts as string[]).push(argv[++i]);
   }
   if (!args.slug) throw new Error("--slug required");
   return args as Args;
@@ -115,22 +168,28 @@ async function readISA(slug: string): Promise<string> {
   return await readFile(path, "utf8");
 }
 
-async function readArtifacts(slug: string, isa: string): Promise<string> {
-  // Extract file paths referenced in ISA ## Decisions section.
-  const decisionsMatch = isa.match(/## Decisions\n([\s\S]*?)(?=\n## |\n---|\n*$)/);
-  if (!decisionsMatch) return "(no ## Decisions section found)";
-
-  const decisions = decisionsMatch[1];
-  const pathPattern = /`([~/][^\s`]+\.(?:ts|md|json|yaml|yml|tsx|jsx|js|txt))`/g;
+async function readArtifacts(slug: string, isa: string, extra: string[] = []): Promise<string> {
   const paths = new Set<string>();
-  let match;
-  while ((match = pathPattern.exec(decisions))) {
-    let p = match[1];
+  for (const e of extra) {
+    let p = e;
     if (p.startsWith("~/")) p = join(HOME, p.slice(2));
     paths.add(resolve(p));
   }
 
-  if (paths.size === 0) return "(no file references found in ## Decisions)";
+  // Extract file paths referenced in ISA ## Decisions section.
+  const decisionsMatch = isa.match(/## Decisions\n([\s\S]*?)(?=\n## |\n---|\n*$)/);
+  if (decisionsMatch) {
+    const decisions = decisionsMatch[1];
+    const pathPattern = /`([~/][^\s`]+\.(?:ts|md|json|yaml|yml|tsx|jsx|js|txt))`/g;
+    let match;
+    while ((match = pathPattern.exec(decisions))) {
+      let p = match[1];
+      if (p.startsWith("~/")) p = join(HOME, p.slice(2));
+      paths.add(resolve(p));
+    }
+  }
+
+  if (paths.size === 0) return "(no artifacts: none passed via --artifact and no file references in ## Decisions)";
 
   const chunks: string[] = [];
   let totalChars = 0;
@@ -243,10 +302,13 @@ function invokeCodex(bundle: string, schemaPath: string): Promise<{ stdout: stri
       delete env.OPENAI_API_KEY;
       delete env.OPENAI_BASE_URL;
     }
+    // Isolation (see AUDIT_CODEX_HOME): keeps the separate LifeOS-for-Codex
+    // install's identity, hooks and read-refusal out of the audit.
+    env.CODEX_HOME = AUDIT_CODEX_HOME;
     const proc = spawn(
       CODEX_BIN,
       ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--output-schema", schemaPath, "--model", "gpt-5.6-sol", "-"],
-      { stdio: ["pipe", "pipe", "pipe"], env }
+      { stdio: ["pipe", "pipe", "pipe"], env, cwd: tmpdir() }
     );
     let stdout = "";
     let stderr = "";
@@ -318,7 +380,10 @@ async function writeVerdictSchema(): Promise<string> {
 // or parse, proceed — the preflight must never become a new failure source. 30s cap.
 function codexDoctor(): Promise<{ healthy: boolean; summary: string }> {
   return new Promise((resolvePromise) => {
-    const proc = spawn(CODEX_BIN, ["doctor", "--json"], { stdio: ["ignore", "pipe", "pipe"] });
+    const proc = spawn(CODEX_BIN, ["doctor", "--json"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, CODEX_HOME: AUDIT_CODEX_HOME },
+    });
     let out = "";
     const timer = setTimeout(() => { proc.kill("SIGTERM"); resolvePromise({ healthy: true, summary: "doctor timed out (proceeding)" }); }, 30_000);
     proc.stdout.on("data", (c) => (out += c.toString()));
@@ -345,12 +410,13 @@ async function main() {
   }
 
   if (!existsSync(CODEX_BIN)) {
-    const resp = { verdict: "skipped" as const, reason: "codex CLI not installed" };
+    const resp = { verdict: "skipped" as const, reason: "codex CLI not found on PATH, $CODEX_BIN, or common install dirs" };
     await appendFinding(args.slug, resp, "unknown");
     console.log(JSON.stringify(resp));
     process.exit(0);
   }
 
+  await buildIsolatedCodexHome();
   const doctor = await codexDoctor();
   if (!doctor.healthy) {
     const resp = { verdict: "skipped" as const, reason: `codex doctor: ${doctor.summary}` };
@@ -370,7 +436,7 @@ async function main() {
 
   const tier = extractTier(isa);
   const [artifacts, toolTail] = await Promise.all([
-    readArtifacts(args.slug, isa),
+    readArtifacts(args.slug, isa, args.extraArtifacts),
     readToolActivityTail(args.slug),
   ]);
   const bundle = assembleBundle(isa, artifacts, toolTail);
@@ -378,7 +444,7 @@ async function main() {
   const schemaPath = await writeVerdictSchema();
   const { stdout, stderr, code } = await invokeCodex(bundle, schemaPath);
   if (code === 124) {
-    const resp = { verdict: "skipped" as const, reason: "codex timeout at 120s" };
+    const resp = { verdict: "skipped" as const, reason: `codex timeout at ${CODEX_TIMEOUT_MS / 1000}s` };
     await appendFinding(args.slug, resp, tier);
     console.log(JSON.stringify(resp));
     return;

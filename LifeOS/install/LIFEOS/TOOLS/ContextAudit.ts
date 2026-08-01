@@ -29,13 +29,10 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 const HOME = process.env.HOME || "";
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const CLAUDE_DIR = dirname(LIFEOS_DIR);
-const AUDIT_PATH = join(
-  LIFEOS_DIR,
-  "MEMORY",
-  "WORK",
-  "20260503-230000_freshness-extends-to-constitutional-files",
-  "AUDIT.md",
-);
+// Stable, non-dated report location (public issue #1559, @tzioup, C5): the
+// previous path was a hardcoded dated WORK-session slug that this tool
+// re-created on every run long after that session closed.
+const AUDIT_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "context-audit", "AUDIT.md");
 
 type Severity = "critical" | "warn" | "info";
 
@@ -142,7 +139,10 @@ function scanEmptySections(entry: ContextFile, info: BodyInfo): Finding[] {
 }
 
 function sectionBody(lines: string[], headingName: string): string[] | null {
-  const headingRe = new RegExp(`^##\\s+${headingName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`);
+  // Prefix match (public issue #1559, C3): headings like "Active Goals (2026)"
+  // carry a variable suffix, and an exact-match list silently exempted every
+  // section it didn't name from the empty-section check.
+  const headingRe = new RegExp(`^##\\s+${headingName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
   const start = lines.findIndex((line) => headingRe.test(line));
   if (start === -1) return null;
 
@@ -156,7 +156,14 @@ function sectionBody(lines: string[], headingName: string): string[] | null {
 
 function scanPrincipalTelos(info: BodyInfo): Finding[] {
   const findings: Finding[] = [];
-  const headings = ["Missions", "Active Goals (2026)", "Problems Being Solved"];
+  // Full generator-emitted section set (public issue #1559, C3): the old
+  // 3-heading exact list left most sections — including Core Models, which the
+  // generator could emit empty — structurally invisible to this critical check.
+  const headings = [
+    "Missions", "Active Goals", "Problems Being Solved", "Strategies",
+    "Active Narratives", "Personal Challenges", "Formative Experiences",
+    "Things I've Been Wrong About", "Core Models",
+  ];
   for (const heading of headings) {
     const body = sectionBody(info.lines, heading);
     if (body === null) continue;
@@ -164,7 +171,7 @@ function scanPrincipalTelos(info: BodyInfo): Finding[] {
     const hasBullets = body.some((line) => /^-\s+/.test(line));
     const hasSubstantive = substantiveText(body).length > 0;
     if (!hasBullets && !hasSubstantive) {
-      const lineIndex = info.lines.findIndex((line) => line.trim() === `## ${heading}`);
+      const lineIndex = info.lines.findIndex((line) => line.trim().startsWith(`## ${heading}`));
       findings.push({
         severity: "critical",
         kind: "principal-telos-empty",
@@ -201,7 +208,12 @@ function scanSystemPromptModel(info: BodyInfo): Finding[] {
 }
 
 function normalizeReference(raw: string): string | null {
-  const value = raw.trim().replace(/^<|>$/g, "").split("#")[0];
+  let value = raw.trim().replace(/^<|>$/g, "").split("#")[0];
+  // A backtick span is often "path --flag" or prose, not a bare path (public
+  // issue #1559, C2): keep only the leading whitespace-delimited token so
+  // "`LIFEOS/TOOLS/Foo.ts --check`" resolves the file instead of failing on
+  // the whole span.
+  value = value.split(/\s+/)[0] ?? "";
   if (!value || /^https?:\/\//.test(value)) return null;
   if (/[*?[\]{}]/.test(value)) return null;
 
@@ -251,6 +263,11 @@ function scanPlaceholders(info: BodyInfo): Finding[] {
     { label: "<TBD>", re: /<TBD>/g },
     { label: "<...>", re: /<\.\.\.>/g },
     { label: "(seeded during interview)", re: /\(seeded during interview\)/g },
+    // Shipped-template markers (public issue #1559, C1): unfilled templates
+    // carry (sample) entries and (interview ...) stubs that previously scored
+    // a false-clean zero.
+    { label: "(sample)", re: /\(sample\)/gi },
+    { label: "(interview stub)", re: /\(interview\b/gi },
   ];
 
   const findings: Finding[] = [];
@@ -289,7 +306,7 @@ function auditFile(entry: ContextFile): FileAudit {
     ...scanEmptySections(entry, info),
     ...(entry.slug === "principal_telos" ? scanPrincipalTelos(info) : []),
     ...(entry.slug === "projects" ? scanProjectsBudget(info) : []),
-    ...(entry.slug === "pai_system_prompt" ? scanSystemPromptModel(info) : []),
+    ...(entry.slug === "lifeos_system_prompt" ? scanSystemPromptModel(info) : []),
     ...scanCrossRefs(info),
     ...scanPlaceholders(info),
   ];

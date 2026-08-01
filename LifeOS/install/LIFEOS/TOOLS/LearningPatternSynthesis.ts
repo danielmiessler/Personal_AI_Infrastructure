@@ -14,6 +14,16 @@
  *                  to MEMORY/WISDOM/FRAMES/_hypotheses/. See deriver section
  *                  below.
  *   --window <Nd>  Window for --hypothesize, e.g. 7d, 30d, 90d (default 7d)
+ *   --no-inference Skip the patch-proposal inference step (deriver v2)
+ *
+ * Deriver v3 (2026-07-13, true-healing-loop ISA): intake widened beyond
+ * ratings.jsonl to the observability failure streams via RecurrenceLedger
+ * (gate blocks, tool failures, healer events). A recurring failure class that
+ * crosses HEALING_RECURRENCE_THRESHOLD gets a HEALING FIXTURE drafted — a RED
+ * replay fixture (DATA, never code) proving the class isn't caught, landed in
+ * test/regression/pending/. The fix is done through the normal Algorithm;
+ * PromoteFixture.ts moves a now-green fixture into the blocking corpus. The
+ * deriver never authors code that touches a hook.
  *
  * Examples:
  *   bun run LearningPatternSynthesis.ts --week
@@ -26,6 +36,11 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import {
+  FRUSTRATION_PATTERNS, SUCCESS_PATTERNS,
+  collectObservabilityClusters, readPatchRegistry,
+  type ObservabilityCluster,
+} from "./RecurrenceLedger";
 
 // ============================================================================
 // Configuration
@@ -36,9 +51,9 @@ const LIFEOS_DIR = path.join(CLAUDE_DIR, "LIFEOS");
 const MEMORY_DIR = path.join(LIFEOS_DIR, "MEMORY");
 const LEARNING_DIR = path.join(MEMORY_DIR, "LEARNING");
 const RATINGS_FILE = path.join(LEARNING_DIR, "SIGNALS", "ratings.jsonl");
-// REFLECTIONS_FILE, FAILURES_DIR, WORK_DIR — deferred to v2 of the deriver.
-// v1 sources hypotheses from ratings.jsonl only; multi-source fusion is the
-// tunability story once we have a week of v1 data to compare against.
+// v2 (2026-07-13): observability streams are now an intake source via
+// RecurrenceLedger.collectObservabilityClusters. REFLECTIONS/WORK fusion
+// remains future work.
 const SYNTHESIS_DIR = path.join(LEARNING_DIR, "SYNTHESIS");
 const KNOWLEDGE_PEOPLE_DIR = path.join(MEMORY_DIR, "KNOWLEDGE", "People");
 const FRAMES_DIR = path.join(MEMORY_DIR, "WISDOM", "FRAMES");
@@ -46,6 +61,7 @@ const HYPOTHESES_DIR = path.join(FRAMES_DIR, "_hypotheses");
 const HYPOTHESES_ARCHIVE_DIR = path.join(HYPOTHESES_DIR, "_archive");
 const HYPOTHESES_STATE_FILE = path.join(HYPOTHESES_DIR, ".state.json");
 const DERIVER_LOG = path.join(MEMORY_DIR, "OBSERVABILITY", "deriver.log");
+const PENDING_DIR = path.join(CLAUDE_DIR, "test", "regression", "pending");
 
 // Deriver doctrine — non-negotiable floors
 const HYPO_CONFIDENCE_FLOOR = 0.6;
@@ -53,6 +69,11 @@ const HYPO_SAMPLE_FLOOR = 5;
 const HYPO_MAX_PER_RUN = 3;
 const HYPO_EXPIRY_DAYS = 30;
 const HYPO_DEDUP_RETENTION_DAYS = 30; // claim-hashes kept post-archival
+
+// Deriver v3 — observability intake + healing-fixture proposals
+const OBS_SAMPLE_FLOOR = 3;               // hard failures are rarer than ratings
+const HEALING_RECURRENCE_THRESHOLD = 2;   // class recurrence before a fixture is drafted
+const HEALING_MAX_PER_RUN = 1;            // one drafted fixture per nightly run
 
 // ============================================================================
 // Types
@@ -90,22 +111,8 @@ interface SynthesisResult {
 // Pattern Detection
 // ============================================================================
 
-const FRUSTRATION_PATTERNS: Record<string, RegExp> = {
-  "Time/Performance Issues": /time|slow|delay|hang|wait|long|minutes|hours/i,
-  "Incomplete Work": /incomplete|missing|partial|didn't finish|not done/i,
-  "Wrong Approach": /wrong|incorrect|not what|misunderstand|mistake/i,
-  "Over-engineering": /over-?engineer|too complex|unnecessary|bloat/i,
-  "Tool/System Failures": /fail|error|broken|crash|bug|issue/i,
-  "Communication Problems": /unclear|confus|didn't ask|should have asked/i,
-  "Repetitive Issues": /again|repeat|still|same problem/i,
-};
-
-const SUCCESS_PATTERNS: Record<string, RegExp> = {
-  "Quick Resolution": /quick|fast|efficient|smooth/i,
-  "Good Understanding": /understood|clear|exactly|perfect/i,
-  "Proactive Help": /proactive|anticipat|helpful|above and beyond/i,
-  "Clean Implementation": /clean|simple|elegant|well done/i,
-};
+// Pattern dictionaries live in RecurrenceLedger.ts (single source — the ledger
+// classifies failure captures with the same regexes; imported at top).
 
 function detectPatterns(summaries: string[], patterns: Record<string, RegExp>): Map<string, string[]> {
   const results = new Map<string, string[]>();
@@ -339,6 +346,17 @@ interface HypothesisFrontmatter {
   falsifier: string;
 }
 
+// The deriver's drafted output is DATA, never code (iteration-3 pivot): a red
+// replay fixture that PROVES the class isn't handled yet. The fix is done
+// through the normal Algorithm; a now-green fixture is promoted into the
+// blocking corpus by PromoteFixture.ts. No model-authored code touches a hook.
+interface HealingFixtureProposal {
+  rationale: string;
+  surface: "hook" | "rule" | "skill" | "settings";
+  fixture: object;      // ReplayFixture-shaped, validated + verified RED at draft
+  pending_slug: string; // where it landed under test/regression/pending/
+}
+
 interface HypothesisCandidate {
   slug: string;
   claim: string;
@@ -348,6 +366,11 @@ interface HypothesisCandidate {
   falsifier: string;
   pattern: string; // source pattern name for context
   cluster_size: number;
+  source: "ratings" | "observability";
+  class_id?: string; // observability candidates only
+  dedup_key: string; // stable identity for claim-hash dedup
+  enforcement_surface: "context" | "hook" | "rule" | "settings" | "skill";
+  healing?: HealingFixtureProposal;
 }
 
 interface DeriverState {
@@ -518,10 +541,162 @@ function buildHypothesisFromCluster(
     falsifier,
     pattern: patternName,
     cluster_size: matching.length,
+    source: "ratings",
+    dedup_key: claim,
+    enforcement_surface: "context",
   };
 }
 
-function renderHypothesisFile(c: HypothesisCandidate): string {
+function buildObservabilityCandidate(
+  cluster: ObservabilityCluster,
+  windowDays: number,
+  frames: { name: string; body: string }[]
+): HypothesisCandidate | null {
+  if (cluster.count < OBS_SAMPLE_FLOOR) return null;
+  // Deterministic confidence: recurrence-driven, saturating well below 1.
+  const confidence = Math.min(0.6 + cluster.count * 0.02, 0.95);
+  const topExample = cluster.examples[0] ? ` Top example: ${cluster.examples[0].slice(0, 160)}` : "";
+  const claim = `Recurring failure class ${cluster.classId} — ${cluster.count} events in ${windowDays}d, last ${cluster.lastSeen.slice(0, 10)}.${topExample}`;
+  return {
+    slug: slugifyClaim(cluster.classId.replace(/[:]/g, " ")),
+    claim,
+    target_frame: suggestTargetFrame(claim, frames),
+    confidence: Number(confidence.toFixed(2)),
+    evidence_signals: cluster.sigRefs,
+    falsifier: `Refuted if class ${cluster.classId} logs zero events over the next ${windowDays}d of normal operation.`,
+    pattern: cluster.classId,
+    cluster_size: cluster.count,
+    source: "observability",
+    class_id: cluster.classId,
+    // Stable identity: the class ID — the claim text embeds counts/dates that
+    // change nightly and would defeat claim-hash dedup.
+    dedup_key: `obs-class:${cluster.classId}`,
+    enforcement_surface: "context", // upgraded to a code surface iff a patch is drafted
+  };
+}
+
+// ── Healing-fixture proposal (deriver v3 — draft a RED test, never a patch) ──
+// The pivot (2026-07-13): a model authoring diffs to enforcement code is in
+// tension with the standing rule "security-sensitive code must be deterministic,
+// simple, auditable, not open to prompt injection." So the deriver now drafts a
+// DATA-ONLY replay fixture that PROVES the class isn't handled — one inference
+// call, output is a ReplayFixture (JSON), run by the fixed/audited hook-replay
+// runner. The fixture is verified RED at draft time (proof the gap is real) and
+// lands in test/regression/pending/ (quarantine, never blocking). The fix is
+// done through the normal Algorithm; PromoteFixture moves a now-green fixture
+// into the blocking corpus. No model-authored code ever reaches a hook.
+
+const HOOK_REF_RE = /^hooks\/[A-Za-z0-9_]+\.hook\.ts$/;
+
+function hookInventory(): string {
+  const hooksDir = path.join(CLAUDE_DIR, "hooks");
+  const hooks = fs.existsSync(hooksDir)
+    ? fs.readdirSync(hooksDir).filter(f => f.endsWith(".hook.ts")).sort()
+    : [];
+  return `Existing Stop/PreToolUse hooks (a fixture targets exactly one): ${hooks.join(", ")}`;
+}
+
+/** Structural validation of a model-drafted fixture. Returns the fixture typed,
+ *  or null with a logged reason. NEVER trusts the model's `hook` field beyond
+ *  this gate + the runner's own assertHookRef. */
+function validateDraftedFixture(raw: any, log: string[], classId: string): any | null {
+  if (!raw || typeof raw !== "object") { log.push(`fixture-not-object: ${classId}`); return null; }
+  if (raw.mode !== "stop-hook") { log.push(`fixture-bad-mode: ${classId} — ${raw.mode}`); return null; }
+  if (typeof raw.hook !== "string" || !HOOK_REF_RE.test(raw.hook) || !fs.existsSync(path.join(CLAUDE_DIR, raw.hook))) {
+    log.push(`fixture-bad-hook: ${classId} — ${JSON.stringify(raw.hook)}`); return null;
+  }
+  if (raw.expect !== "block" && raw.expect !== "pass") { log.push(`fixture-bad-expect: ${classId} — ${raw.expect}`); return null; }
+  if (!Array.isArray(raw.transcript)) { log.push(`fixture-bad-transcript: ${classId}`); return null; }
+  // Keep only the known data fields — strip anything else the model emitted.
+  return {
+    class_id: classId,
+    incident: String(raw.incident ?? "").slice(0, 400),
+    mode: "stop-hook",
+    hook: raw.hook,
+    expect: raw.expect,
+    last_assistant_message: String(raw.last_assistant_message ?? ""),
+    transcript: raw.transcript,
+  };
+}
+
+export async function proposeHealingFixture(c: HypothesisCandidate, log: string[]): Promise<HealingFixtureProposal | null> {
+  const { inference } = await import("./Inference");
+  // The hook-replay harness lives in test/, which does not ship in the public
+  // payload — degrade gracefully instead of crashing the deriver on installs
+  // without it (Forge 7.10.0 audit finding, dangling-dynamic-import class).
+  const replayPath = new URL("../../test/lib/hook-replay.ts", import.meta.url).pathname;
+  if (!fs.existsSync(replayPath)) {
+    log.push("hook-replay harness not present in this install — skipping healing-fixture proposal");
+    return null;
+  }
+  const { runFixture } = await import("../../test/lib/hook-replay");
+  const evidence = [
+    `Failure class: ${c.class_id}`,
+    `Recurrence: ${c.cluster_size} events`,
+    `Claim: ${c.claim}`,
+    `Evidence refs: ${c.evidence_signals.join(", ")}`,
+  ].join("\n");
+
+  // ONE ideal-state call. Output is DATA (a fixture) plus a surface + rationale.
+  const res = await inference({
+    systemPrompt: [
+      "You are the LifeOS self-healing fixture author. A failure class keeps recurring.",
+      "Your job is NOT to write a fix — it is to write a FAILING REGRESSION FIXTURE that",
+      "proves the class is not yet caught, so a human/agent can then fix it and the",
+      "fixture turns green. Output is DATA ONLY, never code.",
+      "The fixture is a replay of a Stop hook: it feeds a transcript + final assistant",
+      "message to ONE existing hook and asserts the outcome that SHOULD hold once the",
+      "class is handled (expect:\"block\" for something that should be blocked but isn't",
+      "yet; expect:\"pass\" for a false-positive that should stop firing).",
+      "Pick the single hook whose job it is to catch this class. If no deterministic",
+      "hook could ever catch it (pure taste/judgment failures, external-service errors,",
+      'gates already doing their job correctly), answer {"surface":"context"} with no fixture.',
+      "TOOL LIMIT: the replay harness only exercises STOP hooks (it feeds a final",
+      "assistant message + transcript and reads the block/pass decision). If the class",
+      "is best caught by a PreToolUse guard (SystemFileGuard, PreToolGuard, Safety) or",
+      'any non-Stop surface, that cannot be replayed yet — answer {"surface":"<x>"} with',
+      "NO fixture and say so in rationale. Only draft a fixture for a genuine Stop hook.",
+      "Answer ONLY as JSON:",
+      '{"surface":"hook|rule|skill|settings|context","rationale":"one paragraph",',
+      '"fixture":{"incident":"...","mode":"stop-hook","hook":"hooks/<Name>.hook.ts",',
+      '"expect":"block|pass","last_assistant_message":"...","transcript":[ {"type":"user","message":{"role":"user","content":[{"type":"text","text":"..."}]}}, {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1","name":"Bash","input":{"command":"..."}}]}}, {"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"e1","content":"...","is_error":false}]}} ]}}',
+      "The transcript must realistically reproduce the failure class. `hook` must be one",
+      "of the existing hooks listed in the user message.",
+    ].join("\n"),
+    userPrompt: `${evidence}\n\n${hookInventory()}`,
+    level: "high",
+    expectJson: true,
+    timeout: 120_000,
+  });
+  if (!res.success) { log.push(`fixture-inference-failed: ${c.class_id} — ${res.error ?? "unknown"}`); return null; }
+
+  let out: { surface?: string; rationale?: string; fixture?: any };
+  try { out = (res.parsed as any) ?? JSON.parse(res.output); }
+  catch { log.push(`fixture-unparseable: ${c.class_id}`); return null; }
+
+  if (!out.surface || out.surface === "context" || !out.fixture) {
+    log.push(`fixture-context-only: ${c.class_id}`);
+    return null;
+  }
+  const fixture = validateDraftedFixture(out.fixture, log, c.class_id!);
+  if (!fixture) return null;
+
+  // Verify the fixture is RED right now — that IS the proof the gap is real.
+  // A green fixture means the class is already handled; don't file it.
+  const result = runFixture(fixture);
+  if (result.ok) { log.push(`fixture-already-green: ${c.class_id} (class already handled)`); return null; }
+
+  // Land it in the quarantine dir (non-blocking). Slug is class-derived + safe.
+  const pendingSlug = slugifyClaim(c.class_id!.replace(/[:]/g, " ")).slice(0, 60) || "unknown";
+  const dir = path.join(PENDING_DIR, pendingSlug);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "fixture.json"), JSON.stringify(fixture, null, 2) + "\n");
+  log.push(`fixture-drafted: ${c.class_id} → pending/${pendingSlug} (hook=${fixture.hook}, expect=${fixture.expect}, RED)`);
+  c.enforcement_surface = out.surface as HypothesisCandidate["enforcement_surface"];
+  return { rationale: out.rationale ?? "", surface: c.enforcement_surface as any, fixture, pending_slug: pendingSlug };
+}
+
+function renderHypothesisFile(c: HypothesisCandidate, priorChangelog: string[] = []): string {
   const generated = new Date();
   const expires = new Date(generated.getTime() + HYPO_EXPIRY_DAYS * 86400 * 1000);
 
@@ -544,6 +719,9 @@ function renderHypothesisFile(c: HypothesisCandidate): string {
     `confidence: ${fm.confidence}`,
     `generated: ${fm.generated}`,
     `expires: ${fm.expires}`,
+    `source: ${c.source}`,
+    `enforcement_surface: ${c.enforcement_surface}`,
+    ...(c.class_id ? [`class_id: ${c.class_id}`] : []),
     "evidence_signals:",
     ...fm.evidence_signals.map(s => `  - ${s}`),
     `falsifier: "${fm.falsifier.replace(/"/g, '\\"')}"`,
@@ -565,19 +743,60 @@ function renderHypothesisFile(c: HypothesisCandidate): string {
     "",
     c.falsifier,
     "",
+    ...(c.healing ? [
+      "## Proposed Healing Fixture (RED — proves the gap is real)",
+      "",
+      c.healing.rationale,
+      "",
+      `Target hook: \`${(c.healing.fixture as any).hook}\` · surface: ${c.enforcement_surface} · pending: \`test/regression/pending/${c.healing.pending_slug}/\``,
+      "",
+      "This is a FAILING replay fixture (data, not a patch). Fixing the class through the normal Algorithm turns it green; PromoteFixture then moves it into the blocking corpus. No code was authored by the deriver.",
+      "",
+      "```json",
+      JSON.stringify(c.healing.fixture, null, 2),
+      "```",
+      "",
+    ] : []),
     "## Suggested Action",
     "",
-    c.target_frame === "new"
+    c.healing
+      ? `Graduating this in Pulse promotes the fixture IF it is already green (the class got fixed); if still red, it stays a pending healing task. The deriver never writes code — it wrote a failing test. Fix the class through normal work, then \`bun LIFEOS/TOOLS/PromoteFixture.ts ${c.healing.pending_slug}\`.`
+      : c.target_frame === "new"
       ? `Start a new frame at \`MEMORY/WISDOM/FRAMES/${c.slug}.md\` if {{PRINCIPAL_NAME}} reviews and confirms the pattern.`
       : `Append a section to \`MEMORY/WISDOM/FRAMES/${c.target_frame}.md\` under \`## Hypothesis-Sourced\` if {{PRINCIPAL_NAME}} graduates this hypothesis.`,
     "",
     "## Changelog",
     "",
-    `- ${generated.toISOString()} — emitted by deriver loop`,
+    ...(priorChangelog.length > 0
+      ? [...priorChangelog, `- ${generated.toISOString()} — updated in place by deriver loop (samples: ${c.cluster_size}, conf: ${c.confidence})`]
+      : [`- ${generated.toISOString()} — emitted by deriver loop`]),
     "",
   ].join("\n");
 
   return fmYaml + body;
+}
+
+// A hypothesis's stable identity is its slug (patternName-direction for rating
+// clusters, slugified classId for observability). The dated filename prefix
+// records first emission; a re-derivation of the same slug updates that file in
+// place instead of spawning a new dated copy. Slugs never contain "_" (the date
+// separator), so `_<slug>.md` uniquely identifies the file.
+function findLiveHypothesisFile(slug: string): string | null {
+  if (!fs.existsSync(HYPOTHESES_DIR)) return null;
+  const suffix = `_${slug}.md`;
+  for (const f of fs.readdirSync(HYPOTHESES_DIR)) {
+    if (f === "README.md" || !f.endsWith(suffix)) continue;
+    const fp = path.join(HYPOTHESES_DIR, f);
+    const statusMatch = fs.readFileSync(fp, "utf-8").match(/^status:\s*(\S+)/m);
+    if (statusMatch && statusMatch[1] === "hypothesis") return fp;
+  }
+  return null;
+}
+
+function priorChangelogLines(content: string): string[] {
+  const idx = content.indexOf("## Changelog");
+  if (idx === -1) return [];
+  return content.slice(idx).split("\n").filter(l => l.startsWith("- "));
 }
 
 function expirySweep(state: DeriverState, log: string[]): number {
@@ -620,7 +839,7 @@ function appendDeriverLog(lines: string[]): void {
   fs.appendFileSync(DERIVER_LOG, entry);
 }
 
-function runDeriver(opts: { window: number; dryRun: boolean }): { emitted: number; expired: number } {
+export async function runDeriver(opts: { window: number; dryRun: boolean; noInference?: boolean }): Promise<{ emitted: number; updated: number; expired: number }> {
   const log: string[] = [];
   log.push(`run: window=${opts.window}d dry-run=${opts.dryRun}`);
 
@@ -636,12 +855,13 @@ function runDeriver(opts: { window: number; dryRun: boolean }): { emitted: numbe
   const cutoff = Date.now() - opts.window * 86400 * 1000;
   const allRatings = loadJsonl<Rating>(RATINGS_FILE);
   const ratings = allRatings.filter(r => new Date(r.timestamp).getTime() >= cutoff);
-  log.push(`signals: total=${allRatings.length} in_window=${ratings.length}`);
+  const obsClusters = collectObservabilityClusters(opts.window);
+  log.push(`signals: total=${allRatings.length} in_window=${ratings.length} obs_clusters=${obsClusters.length}`);
 
-  if (ratings.length === 0) {
+  if (ratings.length === 0 && obsClusters.length === 0) {
     log.push("no signals in window — nothing to do");
     if (!opts.dryRun) appendDeriverLog(log);
-    return { emitted: 0, expired };
+    return { emitted: 0, updated: 0, expired };
   }
 
   const summaries = ratings.map(r => r.sentiment_summary);
@@ -658,18 +878,32 @@ function runDeriver(opts: { window: number; dryRun: boolean }): { emitted: numbe
   const frames = listExistingFrames();
   const peopleSlugs = listPeopleSlugs();
 
-  const candidates: HypothesisCandidate[] = [];
+  const rawCandidates: HypothesisCandidate[] = [];
   for (const [pattern, examples] of allGroups.entries()) {
     const c = buildHypothesisFromCluster(pattern, examples, ratings, frames);
-    if (!c) continue;
-    if (violatesPrivacy(c.claim + " " + c.evidence_signals.join(" "), peopleSlugs)) {
-      log.push(`privacy-block: ${pattern}`);
+    if (c) rawCandidates.push(c);
+  }
+  for (const cluster of obsClusters) {
+    const c = buildObservabilityCandidate(cluster, opts.window, frames);
+    if (c) rawCandidates.push(c);
+  }
+
+  const candidates: HypothesisCandidate[] = [];
+  for (const c of rawCandidates) {
+    if (violatesPrivacy(c.claim + " " + c.evidence_signals.join(" ") + " " + c.dedup_key, peopleSlugs)) {
+      log.push(`privacy-block: ${c.pattern}`);
       continue;
     }
-    const h = claimHash(c.claim);
+    // Dedup on the STABLE key (class ID for observability candidates — claim
+    // text embeds counts/dates that change nightly and would defeat dedup).
+    // Only skip a claim-hash match that is ARCHIVED within retention (don't
+    // immediately re-propose a recently expired hypothesis). A match to a LIVE
+    // entry is allowed through — emission finds its file by slug and updates it
+    // in place rather than spawning a new dated duplicate.
+    const h = claimHash(c.dedup_key);
     const existing = Object.values(state.claim_hashes).find(e => e.hash === h);
-    if (existing) {
-      log.push(`dedup-skip: ${pattern}`);
+    if (existing && existing.archived_at) {
+      log.push(`dedup-skip (archived within retention): ${c.pattern}`);
       continue;
     }
     candidates.push(c);
@@ -680,30 +914,66 @@ function runDeriver(opts: { window: number; dryRun: boolean }): { emitted: numbe
 
   if (opts.dryRun) {
     log.push(`dry-run: would emit ${emit.length} hypotheses`);
-    for (const c of emit) log.push(`  ${c.slug} (conf=${c.confidence}, samples=${c.cluster_size})`);
+    for (const c of emit) log.push(`  ${c.slug} (src=${c.source}, conf=${c.confidence}, samples=${c.cluster_size})`);
     appendDeriverLog(log);
-    return { emitted: emit.length, expired };
+    return { emitted: emit.length, updated: 0, expired };
+  }
+
+  // Patch proposals (v2): for recurring observability classes not yet patched,
+  // draft ≤PATCH_MAX_PER_RUN diffs. Failures degrade to prose-only notes.
+  if (!opts.noInference) {
+    // Already-healed classes (a fixture landed and was promoted) are skipped.
+    const healed = new Set(readPatchRegistry().map(p => p.class_id));
+    let drafted = 0;
+    for (const c of emit) {
+      if (drafted >= HEALING_MAX_PER_RUN) break;
+      if (c.source !== "observability" || !c.class_id) continue;
+      if (c.cluster_size < HEALING_RECURRENCE_THRESHOLD || healed.has(c.class_id)) continue;
+      try {
+        const h = await proposeHealingFixture(c, log);
+        if (h) { c.healing = h; drafted++; }
+      } catch (e: any) {
+        log.push(`fixture-step-error: ${c.class_id} — ${String(e?.message ?? e).split("\n")[0]}`);
+      }
+    }
   }
 
   let emitted = 0;
+  let updated = 0;
   for (const c of emit) {
+    // Update-in-place: a live file already carries this slug → refresh it
+    // (evidence window, counts, confidence, generated, changelog) instead of
+    // spawning a new dated duplicate.
+    const livePath = findLiveHypothesisFile(c.slug);
+    if (livePath) {
+      const prior = priorChangelogLines(fs.readFileSync(livePath, "utf-8"));
+      const content = renderHypothesisFile(c, prior);
+      const tmp = livePath + ".tmp";
+      fs.writeFileSync(tmp, content);
+      fs.renameSync(tmp, livePath);
+      state.claim_hashes[c.slug] = {
+        hash: claimHash(c.dedup_key),
+        archived_at: null,
+        status: "hypothesis",
+      };
+      log.push(`updated: ${path.basename(livePath)} (src=${c.source}, conf=${c.confidence}, samples=${c.cluster_size}${c.healing ? ", healing-fixture attached" : ""})`);
+      updated++;
+      continue;
+    }
+
     const dateStr = new Date().toISOString().split("T")[0];
     const filename = `${dateStr}_${c.slug}.md`;
     const filepath = path.join(HYPOTHESES_DIR, filename);
-    if (fs.existsSync(filepath)) {
-      log.push(`collision-skip: ${filename}`);
-      continue;
-    }
     const content = renderHypothesisFile(c);
     const tmp = filepath + ".tmp";
     fs.writeFileSync(tmp, content);
     fs.renameSync(tmp, filepath);
     state.claim_hashes[c.slug] = {
-      hash: claimHash(c.claim),
+      hash: claimHash(c.dedup_key),
       archived_at: null,
       status: "hypothesis",
     };
-    log.push(`emitted: ${filename} (conf=${c.confidence}, samples=${c.cluster_size})`);
+    log.push(`emitted: ${filename} (src=${c.source}, conf=${c.confidence}, samples=${c.cluster_size}${c.healing ? ", healing-fixture attached" : ""})`);
     emitted++;
   }
 
@@ -711,12 +981,18 @@ function runDeriver(opts: { window: number; dryRun: boolean }): { emitted: numbe
   writeDeriverState(state);
   appendDeriverLog(log);
 
-  return { emitted, expired };
+  return { emitted, updated, expired };
 }
 
 // ============================================================================
 // CLI
 // ============================================================================
+
+// CLI — guarded so the module is importable (tests, direct proposeHealingFixture
+// probes) without executing a synthesis run as an import side effect.
+if (!import.meta.main) {
+  // no-op: exports only
+} else {
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -727,6 +1003,8 @@ const { values } = parseArgs({
     "dry-run": { type: "boolean" },
     hypothesize: { type: "boolean" },
     window: { type: "string" },
+    "no-inference": { type: "boolean" },
+    "once-daily": { type: "boolean" },
     help: { type: "boolean", short: "h" },
   },
 });
@@ -755,6 +1033,20 @@ Deriver log:      MEMORY/OBSERVABILITY/deriver.log
 
 // Hypothesize mode short-circuits — runs the proactive deriver loop and exits.
 if (values.hypothesize) {
+  // --once-daily: idempotence guard for the launchd RunAtLoad trigger. The
+  // plist fires at 03:00 AND at load; this stamp makes at most one real run
+  // per local date, so the pair can't double-run and a cold-booted machine
+  // still gets its run at login. Public issue #1612, @xmasyx.
+  const onceStamp = path.join(MEMORY_DIR, "OBSERVABILITY", "deriver-lastrun.date");
+  const localToday = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local tz
+  if (values["once-daily"] && !values["dry-run"]) {
+    try {
+      if (fs.existsSync(onceStamp) && fs.readFileSync(onceStamp, "utf-8").trim() === localToday) {
+        console.log(`🌙 deriver: already ran ${localToday} (--once-daily) — skipping`);
+        process.exit(0);
+      }
+    } catch { /* unreadable stamp → run */ }
+  }
   let windowDays = 7;
   try {
     windowDays = parseWindow(values.window);
@@ -762,8 +1054,11 @@ if (values.hypothesize) {
     console.error("error:", e.message);
     process.exit(1);
   }
-  const { emitted, expired } = runDeriver({ window: windowDays, dryRun: !!values["dry-run"] });
-  console.log(`🌙 deriver: window=${windowDays}d expired=${expired} emitted=${emitted}${values["dry-run"] ? " (dry-run)" : ""}`);
+  const { emitted, updated, expired } = await runDeriver({ window: windowDays, dryRun: !!values["dry-run"], noInference: !!values["no-inference"] });
+  if (values["once-daily"] && !values["dry-run"]) {
+    try { fs.writeFileSync(onceStamp, `${localToday}\n`); } catch { /* stamp failure never fails the run */ }
+  }
+  console.log(`🌙 deriver: window=${windowDays}d expired=${expired} emitted=${emitted} updated=${updated}${values["dry-run"] ? " (dry-run)" : ""}`);
   process.exit(0);
 }
 
@@ -841,3 +1136,5 @@ if (values["dry-run"]) {
   const filepath = writeSynthesis(result, period);
   console.log(`\n✅ Created synthesis report: ${path.basename(filepath)}`);
 }
+
+} // import.meta.main CLI guard

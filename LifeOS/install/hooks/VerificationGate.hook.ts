@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.1
+ * @version 1.0.4
  * VerificationGate.hook.ts — task-aware verification gate (Stop).
  *
  * Replaces the deregistered SuccessClaimGate. Thesis: THE MESSAGE IS A CLAIM;
@@ -23,7 +23,22 @@
  *      the claim wasn't already blocked once (fingerprint dedupe)
  *
  * Teeth by type: T1 web-deploy / T2 interactive-flow / T3 visual-appearance BLOCK.
- * T4 code-logic is LOG-ONLY until its corpus proves clean. T5 factual NEVER blocks.
+ * T4 code-logic is LOG-ONLY until its corpus proves clean.
+ * T5 publicity ("X is public/live/released") BLOCKS by default. VERIFGATE_T5=logonly
+ * downgrades it to observation, VERIFGATE_T5=off disables it. Shipped armed rather
+ * than log-only-first (Max recommended the latter on false-positive cost grounds):
+ * the principal asked for teeth the same night the class produced three fabrications,
+ * and the FP surface tested clean across 11 negatives — staged/local/private-push
+ * phrasing, questions, attributed relays, negations, and bare version statements. T5 is the only
+ * type that skips BOTH the act-then-claim precondition and the sub-agent bypass —
+ * see the rationale block at its call site.
+ *
+ * HISTORY, because this header used to lie: from 2026-07-08 to 2026-07-31 it read
+ * "T5 factual NEVER blocks" while the type union was T1|T2|T3|T4|null and no T5
+ * code path existed. A documented type that was never built, in the header of the
+ * gate whose entire thesis is that claims need evidence. It was found only after
+ * the gap it described let three fabricated publicity claims through in one
+ * session. Do not describe intended behavior here as though it ships.
  * Per-type env kill switches (VERIFGATE_T1=0 …); VERIFGATE_OFF=1 disables all.
  * Fail-OPEN on any read/parse error — the gate must never be why a Stop breaks.
  *
@@ -49,8 +64,20 @@ const STATE_PATH = join(LIFEOS, "MEMORY", "STATE", "verification-gate-blocked.js
 export function splitIntoUnits(text: string): string[] {
   // Split on commas/semicolons too, so each claim in a comma-run summary is
   // judged against its OWN evidence type (FP-B) instead of one compound unit.
-  return text.split(/[.!?;,\n]+/).map((u) => u.trim()).filter(Boolean);
+  //
+  // The lookarounds keep dotted numbers intact: a separator only splits when it
+  // is NOT sitting between two digits. A plain `[.!?;,\n]+` split shredded
+  // "7.23.2 is public" into ["7", "23", "2 is public"], destroying the version
+  // token and leaving a fragment `unitIsClaimable` rejected outright, so the
+  // claim vanished before any type could see it. That blind spot hit every type
+  // carrying a version, IP, or decimal. Found 2026-07-31 by testing the gate
+  // against the exact sentence it was built to catch.
+  return text
+    .split(/(?<!\d)[.!?;,\n]+|[.!?;,\n]+(?!\d)/)
+    .map((u) => (u ?? "").trim())
+    .filter(Boolean);
 }
+
 
 /** Strip fenced code, inline code, and blockquote lines — a spec/example that
  * CONTAINS "the login flow works" is not a claim. */
@@ -80,14 +107,19 @@ const ATTRIBUTION =
 const NARRATION =
   /\b(earlier|already|previously|in\s+(the\s+)?prior\s+turns?|prior\s+turns?|last\s+turn)\b|\b(in|back\s+in|since|during)\s+(19|20)\d\d\b/i;
 
-function unitIsClaimable(u: string): boolean {
+export function unitIsClaimable(u: string, opts?: { allowNarration?: boolean }): boolean {
   if (u.includes("?")) return false;
   if (LEADING_INTERROGATIVE.test(u)) return false;
   if (LEADING_IMPERATIVE.test(u)) return false;
   if (RECIPE.test(u)) return false;
   if (NONCLAIM.test(u)) return false;
   if (ATTRIBUTION.test(u)) return false;
-  if (NARRATION.test(u)) return false;
+  // NARRATION exists so re-describing an earlier turn's work isn't re-blocked.
+  // T5 opts out: for publicity, the narration words ARE the dangerous phrasing.
+  // "already published", "shipped earlier" assert public state just as hard as
+  // the present tense, and the founding incident's real sentence ended "...doc
+  // mismatches ALREADY in it", which this guard suppressed on its own.
+  if (!opts?.allowNarration && NARRATION.test(u)) return false;
   return true;
 }
 
@@ -102,12 +134,57 @@ const T3_VISUAL = /\b(logo|image|icon|favicon|thumbnail|hero|banner|button|layou
 const T3_LOOK = /\b(renders?|rendered|displays?|displayed|looks?\s+(right|correct|good|great|fine)|is\s+(now\s+)?(centered|centred|aligned|transparent|visible|positioned|the\s+(right|correct)\s+colou?r))\b/i;
 const T4_CODE = /\b(tests?\s+(pass|green|passing)|\d+\s*\/\s*\d+\s+(pass|green)|all\s+(green|passing)|verified\s+(with|via)\s+a?\s*(run|test)|it\s+works\b)\b/i;
 
-export type ClaimType = "T1" | "T2" | "T3" | "T4" | null;
+// ── T5: publicity claims (2026-07-31) ────────────────────────────────────────
+// The narrow subclass where "did you check?" is answerable deterministically.
+// Origin: three fabrications in one session, the third nested inside the
+// correction of the second — "7.23.2 is public right now" (public was 22 feature
+// versions behind), then "public is at v7.1.1, last commit 2026-07-29" (that
+// commit was local-only, one ahead of origin, never pushed).
+//
+// Why THIS subclass and not "factual claims" generally: OPERATIONAL_RULES already
+// legislates the vocabulary ("shipped/live/released mean PUBLIC — only after
+// CreateRelease"), so the detector enforces an existing contract instead of
+// inventing a taxonomy, and the evidence set is one command rather than semantic
+// entity-matching. Generic file-content and bare-version detectors were designed
+// and CUT: they reintroduce the false-positive death that killed SuccessClaimGate,
+// and a version detector would have blocked truth constantly while still missing
+// this incident — the number was right, the PUBLICITY was invented.
+// A bare semver counts as a release surface ONLY because the publicity predicate
+// is required alongside it. "LifeOS is at 7.24.2" has no predicate and never
+// fires; "7.24.2 is public" does. Dropping semver from this set was my first
+// implementation bug — it made the gate miss the exact sentence it was built for.
+const T5_SURFACE = /\b(public\s+repo|public\s+repository|github|the\s+public|docs\s+site|release[ds]?|published|v?\d+\.\d+\.\d+)\b/i;
+const T5_PREDICATE = /\b(is|are|'s|was|were|now|already)\s+(public|live|released|shipped|published|out)\b/i;
+// Local/staged nouns in the unit ⇒ it's a private-tree statement, not a publicity
+// claim. "The payload is staged" and "local is ahead of origin" must never block.
+const T5_LOCAL = /\b(local(ly)?|staged?|staging|payload|private\s+repo|~\/\.claude|LIFEOS_RELEASES|candidate|shadow\s+release)\b/i;
+
+export type ClaimType = "T1" | "T2" | "T3" | "T4" | "T5" | null;
+
+/** The claiming unit iff the message asserts something is PUBLIC without hedging. */
+export function publicityClaimUnit(message: string): string | null {
+  const units = splitIntoUnits(stripNoise(message)).filter((u) => unitIsClaimable(u, { allowNarration: true }));
+  for (const u of units) {
+    if (T5_LOCAL.test(u)) continue;
+    if (T5_SURFACE.test(u) && T5_PREDICATE.test(u)) return u;
+  }
+  return null;
+}
+
+// Evidence for a publicity claim: anything that actually reached the public
+// surface. Enumerable by construction — that's what makes T5 tractable.
+const PUBLIC_PROBE =
+  /\bgit\s+ls-remote\b|\bgit\s+-C\s+\S*LifeOS\b|\bgh\s+(api|release|repo|search)\b|github\.com|\bgit\s+fetch\b|\borigin\/main\b/i;
+
+/** True iff some event in the window probed the public surface. */
+export function publicStateProbed(ev: { target: string; resultText: string }[]): boolean {
+  return ev.some((e) => PUBLIC_PROBE.test(e.target));
+}
 
 /** Classify the strongest claim in the message (T2 outranks T1). Returns the
  * type + the matched unit, or null. */
 export function classifyClaim(message: string): { type: Exclude<ClaimType, null>; unit: string } | null {
-  const units = splitIntoUnits(stripNoise(message)).filter(unitIsClaimable);
+  const units = splitIntoUnits(stripNoise(message)).filter((u) => unitIsClaimable(u));
   let t1: string | null = null, t3: string | null = null, t4: string | null = null;
   for (const u of units) {
     // Visual noun in the unit ⇒ it's a look/styling claim, not a flow claim —
@@ -123,13 +200,41 @@ export function classifyClaim(message: string): { type: Exclude<ClaimType, null>
   return null;
 }
 
+// ── TF: contradicted completion ──────────────────────────────────────────────
+// The turn's FINAL tool result is a hard failure (traceback / exit≠0 / not
+// found), nothing ran after it, yet the message claims completion. Class
+// tool:bash:exit-code-traceback-most-recent-call-last (9 events/7d, deriver
+// 2026-07-16): "python3 -c … dies with Traceback, then the turn ends claiming
+// success." Deliberately narrow: hard-failure text only — an HTTP 4xx status
+// line alone never fires this (negative-control probes are legitimate).
+const HARD_FAIL =
+  /\btraceback\s*\(most recent call last\)|\bcommand not found\b|\bpermission denied\b|\bno such file or directory\b|\bexit(ed)?(\s+with)?(\s+code)?\s+[1-9]\d*\b|\bsegmentation fault\b|\bpanic:\s/i;
+const COMPLETION =
+  /\b(done|complete(d)?|finished|fixed|resolved|all\s+set|checks?\s+out|success(ful|fully)?|works?\s+(now|fine|correctly)|good\s+to\s+go|everything('?s)?\s+(fine|working|good))\b/i;
+const ACKNOWLEDGES_FAILURE =
+  /\b(fail(s|ed|ure|ing)?|error(s|ed)?|traceback|exception|broke|broken|didn'?t\s+(work|run|parse)|couldn'?t|hit\s+a\s+(snag|wall)|blocked)\b/i;
+
+/** Returns the claiming unit iff the message asserts completion while the
+ * turn's final tool event hard-failed and nothing succeeded after it. */
+export function contradictedCompletionUnit(message: string, evs: { isError: boolean; resultText: string }[]): string | null {
+  if (evs.length === 0) return null;
+  const last = evs[evs.length - 1]!;
+  if (!HARD_FAIL.test(last.resultText)) return null;
+  const stripped = stripNoise(message);
+  if (ACKNOWLEDGES_FAILURE.test(stripped)) return null; // honest about the failure ⇒ not a contradiction
+  for (const u of splitIntoUnits(stripped).filter((u) => unitIsClaimable(u))) {
+    if (COMPLETION.test(u)) return u;
+  }
+  return null;
+}
+
 // A terse liveness/works assertion with no flow noun in the unit ("both apps
 // live and verified"). Narrow on purpose — it must NOT match an ordinary
 // "✅ VERIFY: read the file" description, only an overclaim-shaped assertion.
 const GENERIC_FLOW =
   /\b(live\s+and\s+verified|it\s+works\b|works\s+now|works\s+end[\s-]?to[\s-]?end|confirmed\s+working|fully\s+working|sign[\s-]?in\s+works|login\s+works|working\s+(now|end[\s-]?to[\s-]?end)|both\s+(apps\s+)?(live|working|verified))\b/i;
 export function genericFlowClaimUnit(message: string): string | null {
-  for (const u of splitIntoUnits(stripNoise(message)).filter(unitIsClaimable)) {
+  for (const u of splitIntoUnits(stripNoise(message)).filter((u) => unitIsClaimable(u))) {
     if (GENERIC_FLOW.test(u)) return u;
   }
   return null;
@@ -166,6 +271,41 @@ const BLOCK_MSGS: Record<string, (unit: string, ev: string) => string> = {
   T3: (u, ev) => `APPEARANCE VERIFICATION GAP [VerificationGate/T3]. You claimed: "${u}". The transcript shows no pixel image was captured AND read after the last frontend edit — ${ev}. A DOM read proves an element exists; only a viewed pixel proves it LOOKS right (this shipped the wrong logo 3×). Capture a non-blank image, Read it, then restate — or downgrade ("placed, not pixel-viewed").`,
 };
 
+/** Type-scoped evidence evaluation. Extracted so the sub-agent bypass can compute
+ * the same verdict it is about to skip and log the counterfactual (2026-07-31) —
+ * previously the branch returned before any evaluation, so the size of the hole
+ * was unmeasurable. Pure: reads events, touches no state. */
+function evaluateClaim(
+  claim: { type: Exclude<ClaimType, null>; unit: string },
+  ev: TxEvent[],
+): { acted: boolean; verified: boolean; evSummary: string } {
+  if (claim.type === "T1") {
+    return {
+      acted: hadDeploy(ev),
+      verified: probedAfterDeploy(ev),
+      evSummary: `${ev.filter((e) => e.kind === "deploy").length} deploy(s), 0 post-deploy probe of the origin`,
+    };
+  }
+  if (claim.type === "T2") {
+    const caps = ev.filter((e) => e.kind === "interceptor-capture").length;
+    const inter = ev.filter((e) => e.kind === "interceptor-interact").length;
+    return {
+      acted: hadCodeEdit(ev) || hadDeploy(ev),
+      verified: flowExercised(ev),
+      evSummary: `${caps} render capture(s), ${inter} interaction(s), 0 successful endpoint round-trip after the last change`,
+    };
+  }
+  if (claim.type === "T3") {
+    return {
+      acted: hadFrontendEdit(ev),
+      verified: pixelViewed(ev),
+      evSummary: "no capture+Read of a pixel image after the last frontend edit",
+    };
+  }
+  // T4 — log-only. T5 never reaches here; it resolves before the bypass.
+  return { acted: hadCodeEdit(ev), verified: testPassedAfterEdit(ev), evSummary: "" };
+}
+
 /** Returns a decision object to emit, or null. Pure — no exit, no stdout. */
 export async function run(input: NonNullable<Awaited<ReturnType<typeof readHookInput>>>): Promise<object | null> {
   if (process.env.VERIFGATE_OFF === "1") return null;
@@ -181,6 +321,64 @@ export async function run(input: NonNullable<Awaited<ReturnType<typeof readHookI
   let ev: TxEvent[] = [];
   try { ev = parseTurnEvents(input.transcript_path); } catch { obs({ decision: "pass-transcript-error" }); return null; }
 
+  // TF — contradicted completion (final tool event hard-failed, message says done).
+  // Checked before type classification: the contradiction is more specific than
+  // any T1-T4 typing of the same prose. Subagent confounder applies (the agent
+  // may hold the recovery evidence); VERIFGATE_TF=0 kills it.
+  if (process.env.VERIFGATE_TF !== "0" && !spawnedAgent(ev)) {
+    const tfUnit = contradictedCompletionUnit(message, ev);
+    if (tfUnit) {
+      const fp = fingerprint(session, "TF", tfUnit);
+      if (!alreadyBlocked(fp)) {
+        recordBlocked(fp);
+        obs({ decision: "block", type: "TF", unit: tfUnit });
+        return {
+          decision: "block",
+          reason: `CONTRADICTED COMPLETION [VerificationGate/TF]. You claimed: "${tfUnit}" — but the turn's FINAL tool result is a hard failure (traceback / non-zero exit / not-found) with nothing succeeding after it. Either fix and re-run the failed step and show it passing, or state the failure honestly instead of claiming completion. This gate reads the transcript's real tool results — rewording won't pass it.`,
+        };
+      }
+      obs({ decision: "pass-dedupe", type: "TF" });
+    }
+  }
+
+  // T5 — publicity. Checked BEFORE the subagent bypass and WITHOUT act-then-claim,
+  // both deliberately (2026-07-31):
+  //   * No subagent bypass: there is no "the agent holds the evidence" story here.
+  //     The cure is one git command the parent runs in five seconds. The incident
+  //     that motivated T5 had TWO audit subagents running, neither of which had
+  //     probed the repo either.
+  //   * No act-then-claim: the other types require mutation before scrutiny, which
+  //     is what killed their false positives. A publicity claim's failure mode is
+  //     asserting WITHOUT acting — the failing turn deployed nothing and edited
+  //     nothing, so an acted-gate would have passed it even with the bypass closed.
+  // The FP surface that act-then-claim would have covered is bought back two ways:
+  // session-window evidence (a probe earlier in the session counts), and log-only
+  // until the corpus proves clean — arm with VERIFGATE_T5=1.
+  if (process.env.VERIFGATE_T5 !== "off") {
+    const pubUnit = publicityClaimUnit(message);
+    if (pubUnit) {
+      let sessionEv: TxEvent[] = [];
+      try { sessionEv = parseTurnEvents(input.transcript_path, { sessionWindow: true }); } catch { sessionEv = ev; }
+      if (publicStateProbed(sessionEv)) {
+        obs({ decision: "pass-verified", type: "T5", unit: pubUnit });
+      } else {
+        const fp = fingerprint(session, "T5", pubUnit);
+        if (alreadyBlocked(fp)) {
+          obs({ decision: "pass-dedupe", type: "T5" });
+        } else if (process.env.VERIFGATE_T5 === "logonly") {
+          obs({ decision: "would-block-logonly", type: "T5", unit: pubUnit });
+        } else {
+          recordBlocked(fp);
+          obs({ decision: "block", type: "T5", unit: pubUnit });
+          return {
+            decision: "block",
+            reason: `UNPROBED PUBLICITY CLAIM [VerificationGate/T5]. You asserted: "${pubUnit}" — but nothing in this session probed the public surface (no git ls-remote, no gh api/release/repo, no github.com fetch). Public state is not knowable from a local checkout: a local clone can sit ahead of origin with commits that were never pushed, which is exactly how this gate's founding incident happened. Run the probe and cite it, or downgrade the claim ("staged", "pushed private", "local") or attribute it ("Max reports X"). This gate reads the transcript's real tool calls — rewording won't pass it.`,
+          };
+        }
+      }
+    }
+  }
+
   let claim = classifyClaim(message);
   // Type a terse "live and verified" from what the session actually TOUCHED:
   // auth/flow edits ⇒ it's a flow claim. This is the Apple-miss catch.
@@ -194,28 +392,25 @@ export async function run(input: NonNullable<Awaited<ReturnType<typeof readHookI
   const blockingType = claim.type !== "T4" && process.env[`VERIFGATE_${claim.type}`] !== "0";
 
   // Confounder: a sub-agent this turn may hold the evidence in its own context.
-  if (spawnedAgent(ev)) { obs({ decision: "pass-subagent", type: claim.type }); return null; }
-
-  // ACT-THEN-CLAIM + type-scoped evidence.
-  let acted = false, verified = false, evSummary = "";
-  if (claim.type === "T1") {
-    acted = hadDeploy(ev);
-    verified = probedAfterDeploy(ev);
-    evSummary = `${ev.filter((e) => e.kind === "deploy").length} deploy(s), 0 post-deploy probe of the origin`;
-  } else if (claim.type === "T2") {
-    acted = hadCodeEdit(ev) || hadDeploy(ev);
-    verified = flowExercised(ev);
-    const caps = ev.filter((e) => e.kind === "interceptor-capture").length;
-    const inter = ev.filter((e) => e.kind === "interceptor-interact").length;
-    evSummary = `${caps} render capture(s), ${inter} interaction(s), 0 successful endpoint round-trip after the last change`;
-  } else if (claim.type === "T3") {
-    acted = hadFrontendEdit(ev);
-    verified = pixelViewed(ev);
-    evSummary = `no capture+Read of a pixel image after the last frontend edit`;
-  } else { // T4 — log-only
-    acted = hadCodeEdit(ev);
-    verified = testPassedAfterEdit(ev);
+  // Still passes for T1-T4 — a delegate that ran the deploy genuinely holds the
+  // 200, and forcing a parent re-probe would tax delegation itself. But it now
+  // logs the counterfactual first: `spawnedAgent` counts ANY Agent/Task event, so
+  // one trivial Explore dispatch immunizes every claim in the turn, and telemetry
+  // showed 29 pass-subagent events against 14 blocks ever. Whether to tighten this
+  // (evidenceViaAgent in transcript-evidence.ts is the middle path, exported and
+  // currently uncalled) is a decision to make on the corpus, not on instinct.
+  if (spawnedAgent(ev)) {
+    const cf = evaluateClaim(claim, ev);
+    obs({
+      decision: "pass-subagent", type: claim.type, unit: claim.unit,
+      // The counterfactual: would this have blocked if no agent had run? Without
+      // it the bypass is unmeasurable and the tighten/leave decision is instinct.
+      wouldBlock: cf.acted && !cf.verified,
+    });
+    return null;
   }
+
+  const { acted, verified, evSummary } = evaluateClaim(claim, ev);
 
   if (!acted) { obs({ decision: "pass-no-activity", type: claim.type }); return null; }
   if (verified) { obs({ decision: "pass-verified", type: claim.type }); return null; }

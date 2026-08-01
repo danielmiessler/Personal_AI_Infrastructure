@@ -84,6 +84,9 @@ export function What({ telos, showIds, onOpenItem }: WhatProps) {
         </div>
       </header>
 
+      {telos.projects.length === 0 && (
+        <p className="muted">Nothing in flight — the work registry and app monitor feed this table.</p>
+      )}
       <div className="what-grid">
         <div className="what-head">
           <div>Project</div>

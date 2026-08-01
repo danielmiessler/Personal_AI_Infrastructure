@@ -649,7 +649,7 @@ await main().catch(async (err) => {
 
 ---
 
-## 6️⃣ RECOMMENDED PATTERNS FOR KAI CLIS
+## 6️⃣ RECOMMENDED PATTERNS FOR LIFEOS CLIS
 
 ### For Tier 1 (llcli-style):
 

@@ -8,10 +8,16 @@
  * - Complete version history
  *
  * Usage:
- *   update-telos <file> "<content>" "<change-description>"
+ *   update-telos <file> "<content>" "<change-description>" [--section "<heading>"]
  *
  * Example:
  *   update-telos BOOKS.md "- Project Hail Mary by Andy Weir" "Added new favorite book"
+ *   update-telos TELOS.md "### Capture\n\nOne gesture..." "Added capture ideal state" --section "Ideal State"
+ *
+ * Without --section, content appends at EOF (above a trailing italic footer when
+ * the file has one). With --section, content lands at the END of the named
+ * section — TELOS.md is section-structured, so an EOF append would file an
+ * Ideal State entry under Changelog. Fails closed when the section is absent.
  *
  * Files that can be updated:
  * - BELIEFS.md - Core beliefs and world model
@@ -92,11 +98,64 @@ function getLocalDateForLog(): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (${timezone})`;
 }
 
+/**
+ * Insert `content` at the END of the section whose heading starts with
+ * `section` (case-insensitive, hashes stripped — so "Ideal State" matches
+ * "## Ideal State (The IDEAL in ...)"). A section ends at the next heading of
+ * the same or higher level, or at a standalone `---` divider, whichever comes
+ * first. Returns null when the section is not found so the caller can fail
+ * closed rather than silently appending to the wrong place.
+ */
+export function insertIntoSection(fileContent: string, section: string, content: string): string | null {
+  const lines = fileContent.split('\n');
+  const wanted = section.replace(/^#+\s*/, '').trim().toLowerCase();
+
+  let startIdx = -1;
+  let level = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^(#{1,6})\s+(.*)$/);
+    if (m && m[2].trim().toLowerCase().startsWith(wanted)) {
+      startIdx = i;
+      level = m[1].length;
+      break;
+    }
+  }
+  if (startIdx === -1) return null;
+
+  let endIdx = lines.length;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const m = lines[i].match(/^(#{1,6})\s+/);
+    if (m && m[1].length <= level) { endIdx = i; break; }
+    if (lines[i].trim() === '---') { endIdx = i; break; }
+  }
+
+  // Back up over trailing blank lines so the insert sits flush with the last
+  // content line, then re-open one blank line of separation.
+  let insertAt = endIdx;
+  while (insertAt > startIdx + 1 && lines[insertAt - 1].trim() === '') insertAt--;
+
+  const needsTrailingBlank = lines[insertAt] !== undefined && lines[insertAt].trim() !== '';
+  const block = ['', ...content.split('\n'), ...(needsTrailingBlank ? [''] : [])];
+  lines.splice(insertAt, 0, ...block);
+  return lines.join('\n');
+}
+
 async function main() {
   const args = process.argv.slice(2);
 
+  const sectionFlag = args.indexOf('--section');
+  let section: string | undefined;
+  if (sectionFlag !== -1) {
+    section = args[sectionFlag + 1];
+    if (!section) {
+      console.error('❌ --section requires a heading name');
+      process.exit(1);
+    }
+    args.splice(sectionFlag, 2);
+  }
+
   if (args.length < 3) {
-    console.error('❌ Usage: update-telos <file> "<content>" "<change-description>"');
+    console.error('❌ Usage: update-telos <file> "<content>" "<change-description>" [--section "<heading>"]');
     console.error('\nExample: update-telos BOOKS.md "- New Book Title" "Added favorite book"');
     console.error('\nValid files:', VALID_FILES.join(', '));
     process.exit(1);
@@ -153,6 +212,18 @@ async function main() {
   try {
     const currentContent = readFileSync(targetFile, 'utf-8');
     let updatedContent: string;
+    if (section) {
+      const sectioned = insertIntoSection(currentContent, section, content);
+      if (sectioned === null) {
+        console.error(`❌ Section not found in ${filename}: "${section}"`);
+        console.error('   Nothing written. Backup remains at Backups/' + backupFilename);
+        process.exit(1);
+      }
+      writeFileSync(targetFile, sectioned, 'utf-8');
+      console.log(`✅ Updated: ${filename} (inside section "${section}")`);
+      logChange(filename, changeDescription, backupFilename, section);
+      return;
+    }
     const footerIdx = currentContent.lastIndexOf('\n---\n');
     const footer = footerIdx === -1 ? '' : currentContent.slice(footerIdx);
     if (footerIdx !== -1 && /\n---\n\s*\*[\s\S]*\*\s*$/.test(footer)) {
@@ -168,13 +239,17 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 3: Update updates.md with change log
+  logChange(filename, changeDescription, backupFilename);
+}
+
+// Step 3: Update updates.md with change log
+function logChange(filename: string, changeDescription: string, backupFilename: string, section?: string) {
   try {
     const logTimestamp = getLocalDateForLog();
     const logEntry = `
 ## ${logTimestamp}
 
-- **File Modified**: ${filename}
+- **File Modified**: ${filename}${section ? ` (section: ${section})` : ''}
 - **Change Type**: Content Addition
 - **Description**: ${changeDescription}
 - **Backup Location**: \`Backups/${backupFilename}\`
@@ -221,4 +296,4 @@ async function main() {
   console.log(`   Change: ${changeDescription}`);
 }
 
-main();
+if (import.meta.main) main();

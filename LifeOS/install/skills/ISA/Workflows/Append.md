@@ -1,11 +1,11 @@
 # Append Workflow
 
-Canonical writer for the three append-only sections of an ISA: `## Decisions`, `## Changelog`, `## Verification`. The Deutsch conjecture/refutation/learning Changelog format is novel and easy to mangle with free-form editing — this workflow owns the canonical entry shape so it doesn't degrade across projects.
+Canonical writer for the three append-only sections of an ISA: `## Decisions`, `## Learning` (the C/R/L trail, formerly named `## Changelog`), `## Verification`. The Deutsch conjecture/refutation/learning format is novel and easy to mangle with free-form editing — this workflow owns the canonical entry shape so it doesn't degrade across projects. It also enforces two Algorithm v8.7.1 claim-12 conventions: the ISA carries **no changelog section** (`git log -- <isa-path>` is the authoritative change record), and each `## Verification` entry is a **one-line provenance stub** (commit hash, test name, or probe ref), never a retained evidence paragraph.
 
 ## When to invoke
 
 - Algorithm at any phase when a non-obvious decision is made: `Skill("ISA", "append decision to <isa-path>: <text>")`
-- Algorithm at LEARN when understanding evolved: `Skill("ISA", "append changelog to <isa-path>: <conjecture> / <refutation> / <learning>")`
+- Algorithm at LEARN when understanding evolved: `Skill("ISA", "append learning to <isa-path>: <conjecture> / <refutation> / <learning> / <criterion-now>")`
 - Algorithm at EXECUTE/VERIFY when an ISC passes: `Skill("ISA", "append verification to <isa-path>: <ISC-N> <evidence>")`
 - User directly when adding an entry by hand.
 
@@ -25,9 +25,9 @@ Timestamped log line. Use the `refined:` prefix when the decision changes the Go
 
 **Inputs:** `text` (required), `kind` (optional: `decision` | `refined` | `dead-end`)
 
-### Type 2 — Changelog (the Deutsch C/R/L entry)
+### Type 2 — Learning (the Deutsch C/R/L entry)
 
-Structured entry capturing how thinking evolved.
+Structured entry capturing how thinking evolved. Written to `## Learning` (formerly `## Changelog`). This is **not** a changelog — the ISA has no changelog section; `git log -- <isa-path>` is the change record.
 
 **Schema:**
 
@@ -40,19 +40,21 @@ Structured entry capturing how thinking evolved.
 
 **Inputs:** All four fields required (`conjectured`, `refuted_by`, `learned`, `criterion_now`).
 
-**Format invariant:** The four-line shape is non-negotiable. If any of the four pieces is missing, this is a Decision entry, not a Changelog entry. Refuse to write a partial C/R/L; surface the missing piece and ask.
+**Format invariant:** The four-line shape is non-negotiable. If any of the four pieces is missing, this is a Decision entry, not a Learning entry. Refuse to write a partial C/R/L; surface the missing piece and ask.
 
 ### Type 3 — Verification
 
-ISC-keyed evidence line. Used at VERIFY phase to record how each ISC was probed.
+ISC-keyed provenance stub. Used at VERIFY phase / on claim close to point at how each ISC was probed.
+
+**Evidence collapses on close (Algorithm v8.7.1 claim 12):** the entry is a **one-line provenance stub** — a commit hash, test name, or probe ref — never a retained paragraph of quoted output. The proof lives in git and CI; this line only points at it.
 
 **Schema:**
 
 ```
-- ISC-N: <probe type> — <one-line evidence, quoted command output or file content>
+- ISC-N: <probe type> — <one-line provenance stub: commit hash | test name | probe ref>
 ```
 
-**Inputs:** `isc_id` (required, must exist in master), `probe_type` (required), `evidence` (required, quoted verbatim from tool output).
+**Inputs:** `isc_id` (required, must exist in master), `probe_type` (required), `provenance` (required — a commit hash, test name, or probe ref; refuse a multi-line paragraph and ask for the stub).
 
 ## Procedure
 
@@ -67,21 +69,21 @@ curl -s -X POST http://localhost:31337/notify \
 
 ### Step 2 — Resolve target ISA and section
 
-Read the ISA at `isa_path`. Find the target section (`## Decisions` | `## Changelog` | `## Verification`). If the section doesn't exist, create it in the canonical position (after `## Features` for Decisions, after Decisions for Changelog, last for Verification).
+Read the ISA at `isa_path`. Find the target section (`## Decisions` | `## Learning` | `## Verification`). If the section doesn't exist, create it in the canonical position (after `## Features` for Decisions, after Decisions for Learning, last for Verification). Never create a `## Changelog` section — the ISA has no changelog.
 
 ### Step 3 — Validate the entry shape
 
 | Type | Required pieces | Refuse if... |
 |------|-----------------|--------------|
 | Decision | text + timestamp | text is empty |
-| Changelog | conjectured + refuted_by + learned + criterion_now + date | any of the four C/R/L pieces is missing |
-| Verification | isc_id + probe_type + evidence | isc_id doesn't exist in `## Criteria`, or evidence is empty |
+| Learning | conjectured + refuted_by + learned + criterion_now + date | any of the four C/R/L pieces is missing |
+| Verification | isc_id + probe_type + provenance | isc_id doesn't exist in `## Criteria`, provenance is empty, or provenance is a multi-line paragraph instead of a one-line stub |
 
 **Refuse mode:** If validation fails, do not write. Surface the missing piece. The whole point of Append is to keep these sections clean — silently writing partial entries defeats it.
 
 ### Step 4 — Format the entry
 
-Use the schemas above verbatim. Prefer single-line entries over multi-line where the schema permits. For Changelog entries, use the four-line indented form exactly.
+Use the schemas above verbatim. Prefer single-line entries over multi-line where the schema permits. For Learning entries, use the four-line indented form exactly. For Verification entries, emit exactly one line — the provenance stub, never a quoted paragraph.
 
 ### Step 5 — Append to the section
 
@@ -97,7 +99,7 @@ Output the exact text that was appended, plus the path. Caller can re-emit for c
 
 ## Why this workflow exists
 
-The Deutsch C/R/L Changelog format is the most opinionated piece of the ISA doctrine and the easiest to dilute. Three failure modes if there's no canonical writer:
+The Deutsch C/R/L learning-trail format (`## Learning`) is the most opinionated piece of the ISA doctrine and the easiest to dilute. Three failure modes if there's no canonical writer:
 
 1. **Free-form prose creep:** "we changed our minds about X" instead of the four-piece structure.
 2. **Half-entries:** `conjectured` + `criterion now` without the refutation evidence in between.
@@ -107,7 +109,7 @@ Append is the gate. Every C/R/L entry passes through here. Every Verification en
 
 ## Interaction with Reconcile
 
-The Reconcile workflow (merging an ephemeral feature file back to master) calls Append internally for each Decisions, Changelog, and Verification entry it stages. This means Reconcile's output passes the same shape validation as direct Append calls — the merge cannot smuggle in malformed entries.
+The Reconcile workflow (merging an ephemeral feature file back to master) calls Append internally for each Decisions, Learning, and Verification entry it stages. This means Reconcile's output passes the same shape validation as direct Append calls — the merge cannot smuggle in malformed entries or evidence paragraphs.
 
 ## Failure modes
 

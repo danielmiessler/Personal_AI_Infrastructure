@@ -1,5 +1,5 @@
 ---
-version: 1.0.10
+version: 1.1.4
 ---
 
 # LifeOS Digital Assistant Subsystem
@@ -9,8 +9,10 @@ version: 1.0.10
 **The DA subsystem formalizes how LifeOS instantiates, manages, and evolves a Digital Assistant. It turns DA_IDENTITY from a flat markdown file into a living schema with interview-based creation, heartbeat-driven proactivity, natural-language scheduling, identity growth, and multi-DA awareness.**
 
 **Version:** 1.0 (Design)
-**Location:** Integrated into Pulse (`modules/da.ts`) + LIFEOS/USER/DA/
-**Status:** Architecture complete, pending implementation
+**Location:** Integrated into Pulse at `LIFEOS/PULSE/Assistant/module.ts` (+ `Assistant/checks/`, `Assistant/state/`) + `LIFEOS/USER/DIGITAL_ASSISTANT/`
+**Status:** Implemented. 🔒 **Private — the whole `LIFEOS/PULSE/Assistant/` tree is excluded from the public release** (`ShadowRelease.ts` staging exclude), so these paths do not exist on a public install. This document ships as the design of record; the implementation does not.
+
+> **Path note.** This design was drafted against a planned `modules/da.ts`. It landed instead as the `Assistant/` subsystem — `Assistant/module.ts` is the real entry point. Where the prose below says `modules/da.ts`, read `Assistant/module.ts`.
 
 ---
 
@@ -21,11 +23,11 @@ version: 1.0.10
                                          |
         +------+--------+--------+-------+-------+--------+--------+
         |      |        |        |       |       |        |        |
-      Voice  Hooks  Observ  Telegram  iMessage  Cron   Worker    DA
+      Voice  Hooks  Observ  Siri  iMessage  Cron   Worker    DA
                                                           |
                           +-------------------------------+
                           |
-                    DA Module (modules/da.ts)
+                 DA Module (Assistant/module.ts)
                           |
           +-------+-------+-------+-------+
           |       |       |       |       |
@@ -48,7 +50,7 @@ version: 1.0.10
 
 ### What This Subsystem Does NOT Do
 
-- Replace the existing Telegram/iMessage chat modules (those remain separate)
+- Replace the existing iMessage/Siri chat modules (those remain separate)
 - Create a new daemon (everything runs inside Pulse)
 - Duplicate the Memory system (uses existing MEMORY/ infrastructure)
 - Replace the Algorithm (DA uses the Algorithm, not the other way around)
@@ -99,8 +101,8 @@ das:
     created: "2025-01-15"
     channels:                   # Which communication channels this DA owns
       - terminal
-      - telegram
       - imessage
+      - siri
       - voice
 
   worker-da:
@@ -227,7 +229,7 @@ autonomy:
     - update_diary              # Write daily diary entry
     - routine_checks            # Run scheduled checks
   must_ask:                     # Things that require principal approval
-    - send_external_message     # Email, Discord, Telegram to others
+    - send_external_message     # Email, Discord to others
     - modify_code               # Code changes in projects
     - financial_action          # Anything involving money
     - delete_data               # Destructive operations
@@ -236,7 +238,7 @@ autonomy:
 
 # ── Companion ──────────────────────────────────────────
 companion:
-  name: {{PRINCIPAL_COMPANION_NAME}}
+  name: Ziggy
   species: Cat
   personality: "Chaotic gremlin -- maximum sass, zero sympathy"
   relationship: "Ambient micro-commentary. We don't overlap."
@@ -275,7 +277,7 @@ DA:
   PRIMARY: your-da              # Which DA drives CLAUDE.md generation
 ```
 
-ConfigRenderer reads the registry, opens the primary DA's `DA_IDENTITY.md`, parses the frontmatter slice for template variable substitution. The existing `{{DA_NAME}}`, `{{DA_FULLNAME}}` etc. variables continue to work.
+ConfigRenderer reads the registry, opens the primary DA's `DA_IDENTITY.md`, parses the frontmatter slice for template variable substitution. The existing `{{DA_NAME}}`, `{{DA_FULL_NAME}}` etc. variables continue to work.
 
 ---
 
@@ -532,7 +534,7 @@ interface ScheduledTask {
     type: "notify" | "prompt" | "script"
     // For "notify":
     message?: string            // What to say
-    channel?: string            // voice | telegram | ntfy
+    channel?: string            // voice | ntfy | email
     // For "prompt":
     prompt?: string             // Claude prompt to execute
     model?: string              // haiku | sonnet
@@ -790,10 +792,10 @@ The identity file must stay bounded. Target size: under 200 lines of YAML.
 
 ### Module Architecture
 
-The DA module follows the same pattern as Telegram, iMessage, and other Pulse modules:
+The DA module follows the same pattern as iMessage, Siri, and other Pulse modules:
 
 ```typescript
-// LIFEOS/PULSE/modules/da.ts
+// LIFEOS/PULSE/Assistant/module.ts
 
 export interface DAConfig {
   enabled: boolean
@@ -872,7 +874,7 @@ Continue Pulse startup (HTTP server, other modules, cron loop)
                         |
         +-------+-------+-------+-------+
         |       |       |       |       |
-    Telegram  iMessage  Voice   Cron    Memory
+    Siri      iMessage  Voice   Cron    Memory
         |       |       |       |       |
         v       v       v       v       v
     Chat msgs  Chat    TTS     Jobs    WORK/
@@ -881,7 +883,7 @@ Continue Pulse startup (HTTP server, other modules, cron loop)
                ident.  voice   context
 ```
 
-**Telegram/iMessage**: Already reference DA identity for system prompts. They read from the `DA_IDENTITY.md` frontmatter (parsed by the `yaml` package).
+**iMessage/Siri**: Already reference DA identity for system prompts. They read from the `DA_IDENTITY.md` frontmatter (parsed by the `yaml` package).
 
 **Voice**: Already uses voice_id from config. Reads from the `DA_IDENTITY.md` frontmatter `voice` section.
 
@@ -909,7 +911,7 @@ The DA module adds these routes to the Pulse HTTP server:
 
 ### Design Principles
 
-1. **One primary, many workers**: Only one DA owns interactive channels (terminal, Telegram). Workers run in background only.
+1. **One primary, many workers**: Only one DA owns interactive channels (terminal, iMessage). Workers run in background only.
 2. **Shared infrastructure**: All DAs use the same Pulse instance, Memory system, Skills, and Hooks.
 3. **Distinct identities**: Each DA has its own personality, voice, growth trajectory, and opinions.
 4. **Mutual awareness**: DAs know about each other via the registry. The primary DA can delegate to workers.
@@ -926,7 +928,7 @@ The DA module adds these routes to the Pulse HTTP server:
             |                       |
     +-------+-------+       +------+------+
     |       |       |       |      |      |
-  terminal telegram voice  background   voice
+  terminal siri     voice  background   voice
   iMessage                  tasks       (own)
 ```
 
@@ -967,7 +969,7 @@ DAs do not communicate directly. The primary DA delegates to workers via the exi
 
 ```typescript
 // Primary DA delegates research to worker DA
-Task({
+Agent({
   prompt: `You are the worker DA, a research worker. ${taskDescription}`,
   subagent_type: "general-purpose",
   model: "sonnet"
@@ -1007,7 +1009,7 @@ Tasks:
 - [ ] Create migration script: extract current DA_IDENTITY.md + LIFEOS_CONFIG.yaml DA section into `your-da/DA_IDENTITY.yaml`
 - [ ] Create `DA_IDENTITY.md` generator (YAML -> readable markdown for @import)
 - [ ] Update ConfigRenderer to read from DA registry
-- [ ] Verify: CLAUDE.md generation still works, Telegram still uses correct identity
+- [ ] Verify: CLAUDE.md generation still works, iMessage still uses correct identity
 
 **Acceptance criteria:**
 - `DA_IDENTITY.yaml` is the source of truth for the DA's identity
@@ -1036,7 +1038,7 @@ Tasks:
 **Goal:** DA proactively checks context and manages scheduled reminders.
 
 Tasks:
-- [P] Write `modules/da.ts` (DA Pulse module)
+- [P] Write the DA Pulse module (landed as `Assistant/module.ts`)
 - [P] Write `checks/da-heartbeat.ts` (context gather + evaluate)
 - [P] Write `checks/da-tasks.ts` (scheduled task evaluator)
 - [P] Write `Tools/DASchedule.ts` (task management CLI)
@@ -1079,7 +1081,7 @@ Tasks:
 - [ ] Test multi-DA registry with primary + worker DAs
 - [ ] Add DA HTTP routes to Pulse server
 - [ ] Update Observatory dashboard with DA section
-- [ ] Write `DASUBSYSTEM.md` update (this doc, finalized)
+- [ ] Write `DaSubsystem.md` update (this doc, finalized)
 - [ ] Performance testing: Pulse startup time with DA module
 - [ ] Update LifeOS public release to include DA schemas (without personal data)
 
@@ -1124,7 +1126,7 @@ Step 4: Update ConfigRenderer
 
 Step 5: Verify
   → CLAUDE.md generates correctly
-  → Telegram module uses correct identity
+  → iMessage module uses correct identity
   → Voice uses correct voice_id
   → No visible behavioral change
 
@@ -1179,7 +1181,7 @@ The `autonomy.must_ask` list in `DA_IDENTITY.md` frontmatter is enforced at the 
 ### Injection Prevention
 
 - Heartbeat context is structured JSON, not free text
-- Scheduled task descriptions are sanitized through the same `sanitize.ts` used by Telegram
+- Scheduled task descriptions are sanitized through the same `sanitize.ts` used by iMessage
 - Growth engine operates on internal data only (ratings, events) -- no external input
 - Opinion formation uses internal signals, never raw user text
 
@@ -1197,10 +1199,48 @@ The `autonomy.must_ask` list in `DA_IDENTITY.md` frontmatter is enforced at the 
 
 ---
 
+## Examples
+
+### A heartbeat tick that stays quiet — and one that doesn't
+
+The DA wakes every 30 minutes and runs a two-layer check. Most ticks cost almost nothing and do nothing:
+
+1. **Layer 1 (free)** gathers context deterministically — the next couple of calendar events, unread VIP mail, active work, tasks due soon, today's diary. It packs this into a small JSON bundle.
+2. **Layer 2 (a cheap Haiku call)** reads the bundle and the DA's personality and answers one question: *should I act?*
+
+At 2 p.m. on a normal afternoon the answer is `NO_ACTION`. Nothing is spoken; the tick is logged and forgotten. But on a tick where a meeting is 10 minutes out, Layer 2 returns `notify`, and the DA speaks a single reminder. The default is silence; action has to earn its way past the filter.
+
+### An observation becomes an opinion
+
+Proactivity is one loop; growth is another. Say the principal keeps doing their sharpest work late at night. No single session proves it, but the pattern accrues: the weekly growth engine reads the diary, notices the repetition, and forms a confidence-weighted belief — starting low, climbing about `0.05 × (1 − confidence)` per confirming week, with diminishing returns. A contradiction knocks it back; long silence lets it decay. Nothing about the DA's *name*, *voice*, or *autonomy limits* drifts this way — those change only with the principal's approval. Only the soft, learned edges move.
+
+### The heartbeat decision
+
+```mermaid
+flowchart TD
+    A[Heartbeat tick — every 30 min] --> B[Layer 1: gather context — free]
+    B --> C[Context bundle ~500 tokens]
+    C --> D[Layer 2: Haiku evaluation]
+    D --> E{Act?}
+    E -->|NO_ACTION| F[Log only, stay silent]
+    E -->|notify| G[Speak via voice channel]
+    E -->|remind| H[Deferred notification]
+    E -->|task| I[Create a scheduled task]
+    G --> J{On the must_ask list?}
+    H --> J
+    I --> J
+    J -->|no| K[Dispatch]
+    J -->|yes| L[Queue and ask the principal]
+```
+
+The two layers exist to keep the loop cheap — the expensive model only ever sees a small pre-filtered bundle, and anything on the `must_ask` list is queued for approval rather than done.
+
+---
+
 ## Related Documentation
 
-- **Pulse System:** `THEPULSESYSTEM.md` -- parent daemon architecture
-- **Memory System:** `MEMORYSYSTEM.md` -- where DA reads/writes knowledge
-- **Agent System:** `PAIAGENTSYSTEM.md` -- named agents vs DA vs workers
-- **Config System:** `CONFIGSYSTEM.md` -- how DA identity feeds into CLAUDE.md
-- **Notification System:** `THENOTIFICATIONSYSTEM.md` -- dispatch targets for heartbeat
+- **Pulse System:** `PulseSystem.md` -- parent daemon architecture
+- **Cortex (memory system):** `Memory/MemorySystem.md` -- where DA reads/writes knowledge
+- **Agent System:** `Agents/AgentSystem.md` -- named agents vs DA vs workers
+- **Config System:** `Config/ConfigSystem.md` -- how DA identity feeds into CLAUDE.md
+- **Notification System:** `Notifications/NotificationSystem.md` -- dispatch targets for heartbeat

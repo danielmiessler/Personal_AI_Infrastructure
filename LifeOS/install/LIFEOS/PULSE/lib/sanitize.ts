@@ -10,7 +10,7 @@
  *   3. wrapUntrusted() — XML boundary tags for safe AI consumption
  */
 
-// --- Injection Patterns (from TelegramApi.ts) ---
+// --- Injection Patterns (remote-channel inbound text) ---
 
 const INJECTION_PATTERNS = [
   /ignore\s+(previous|prior|all|above|the)\s+(instructions?|prompts?|rules?|context)/i,

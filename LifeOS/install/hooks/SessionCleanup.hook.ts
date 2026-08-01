@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.5.16
+ * @version 1.6.0
  * SessionCleanup.hook.ts - Mark Work Complete and Clear State (SessionEnd)
  *
  * PURPOSE:
@@ -45,7 +45,7 @@ import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getISOTimestamp } from './lib/time';
 import { setTabState, cleanupKittySession } from './lib/tab-setter';
-import { readRegistry, writeRegistry, findArtifactPath, findActiveSessionByUUID } from './lib/isa-utils';
+import { readRegistry, writeRegistry, findArtifactPath, findActiveSessionByUUID, applyAscent } from './lib/isa-utils';
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -126,6 +126,10 @@ function clearSessionWork(sessionId?: string): void {
           if (session.sessionUUID !== sessionId) continue;
           if (session.phase === 'complete') continue;
           session.phase = 'complete';
+          // `ascent` is derived from phase — recompute it here or the closed row
+          // keeps rendering 🧗 Ascending on the board and the status line
+          // (2026-07-30 sweep: two of three row writers skipped this).
+          applyAscent(session);
           session.updatedAt = ts;
           touched++;
         }

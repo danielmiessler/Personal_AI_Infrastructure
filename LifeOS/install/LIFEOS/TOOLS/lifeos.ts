@@ -1,21 +1,23 @@
 #!/usr/bin/env bun
 /**
- * lifeos — the LifeOS launcher CLI (aliased as `k`)
+ * lifeos — the LifeOS launcher CLI
+ * (Canonical name `lifeos`; alias it to whatever you like — public PR #1631, @elhoim.)
  *
  * Comprehensive CLI for managing Claude Code with dynamic MCP loading,
  * updates, version checking, and profile management.
  *
  * Usage:
- *   k                  Launch Claude (default profile)
- *   k -m bd            Launch with Bright Data MCP
- *   k -m bd,ap         Launch with multiple MCPs
- *   k -r / --resume    Resume a session (picker, or pass a session ID)
- *   k --local          Stay in current directory (don't cd to ~/.claude)
- *   k update           Update Claude Code
- *   k version          Show version info
- *   k profiles         List available profiles
- *   k mcp list         List available MCPs
- *   k mcp set <profile>  Set MCP profile
+ *   lifeos             Launch Claude (default profile)
+ *   lifeos -m bd       Launch with Bright Data MCP
+ *   lifeos -m bd,ap    Launch with multiple MCPs
+ *   lifeos -r / --resume  Resume a session (picker, or pass a session ID)
+ *   lifeos --local     Stay in current directory (don't cd to ~/.claude)
+ *   lifeos -- <flags...>  Forward everything after -- verbatim to `claude`
+ *   lifeos update      Update Claude Code
+ *   lifeos version     Show version info
+ *   lifeos profiles    List available profiles
+ *   lifeos mcp list    List available MCPs
+ *   lifeos mcp set <profile>  Set MCP profile
  */
 
 import { spawn, spawnSync } from "bun";
@@ -23,6 +25,7 @@ import { getIdentity, getStartupCatchphrase } from "../../hooks/lib/identity";
 import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync } from "fs";
 import { homedir } from "os";
 import { join, basename } from "path";
+import { PULSE_BASE } from "../PULSE/endpoint";
 
 // ============================================================================
 // Configuration
@@ -32,7 +35,7 @@ const CLAUDE_DIR = join(homedir(), ".claude");
 const MCP_DIR = join(CLAUDE_DIR, "MCPs");
 const ACTIVE_MCP = join(CLAUDE_DIR, ".mcp.json");
 const BANNER_SCRIPT = join(homedir(), ".claude", "LIFEOS", "TOOLS", "Banner.ts");
-const VOICE_SERVER = "http://localhost:31337/notify/personality";
+const VOICE_SERVER = `${PULSE_BASE}/notify/personality`;
 const WALLPAPER_DIR = join(homedir(), "Projects", "Wallpaper");
 // Note: RAW archiving removed - Claude Code handles its own cleanup (30-day retention in projects/)
 
@@ -74,6 +77,34 @@ function log(message: string, emoji = "") {
 }
 
 
+// True when the current directory is a git repo's MAIN checkout (not a linked
+// worktree) AND the repo uses the .claude/worktrees convention. The main
+// checkout has --git-dir == --git-common-dir; a linked worktree's --git-dir
+// points into .git/worktrees/<name>, so they differ. Fail-open: anything
+// unexpected returns false and the launch proceeds (public PR #1579,
+// @asdf8675309).
+export function inMainCheckoutWithWorktrees(): boolean {
+  try {
+    // No --path-format flag → works on any git version; the two paths stay
+    // directly comparable (both ".git" in a main checkout, divergent in a
+    // linked worktree).
+    const r = spawnSync(["git", "rev-parse", "--git-dir", "--git-common-dir"]);
+    if (r.exitCode !== 0) return false; // not a git repo
+    const [gitDir, commonDir] = r.stdout.toString().trim().split("\n");
+    if (!gitDir || gitDir !== commonDir) return false; // linked worktree → fine
+    const top = spawnSync(["git", "rev-parse", "--show-toplevel"]).stdout.toString().trim();
+    if (top.length === 0) return false;
+    // "In use" means the dir actually CONTAINS worktrees. The harness creates
+    // an empty .claude/worktrees as a side effect of one-off agent isolation;
+    // an empty dir must not lock --local out of the main checkout (caught
+    // live on this install while porting).
+    const wtDir = join(top, ".claude", "worktrees");
+    return existsSync(wtDir) && readdirSync(wtDir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function error(message: string): never {
   console.error(`❌ ${message}`);
   process.exit(1);
@@ -86,7 +117,7 @@ function notifyVoice(message: string) {
 
   if (!personality?.baseVoice) {
     // Fall back to simple notify if no personality configured
-    fetch("http://localhost:31337/notify", {
+    fetch(`${PULSE_BASE}/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, play: true }),
@@ -350,6 +381,22 @@ function setWallpaper(filename: string): boolean {
   return success;
 }
 
+/**
+ * `k doctor` — the capability check. Doctor.ts and the statusline both advise
+ * running "lifeos doctor" on a capability regression, but there was no such
+ * subcommand: the only working invocation was the more obscure
+ * `bun LIFEOS/TOOLS/Doctor.ts`. Extra args are forwarded verbatim, so
+ * `k doctor --network` and `k doctor decline <name>` work too.
+ * public PR #1637, @elhoim
+ */
+function cmdDoctor(args: string[]) {
+  const doctor = join(CLAUDE_DIR, "LIFEOS", "TOOLS", "Doctor.ts");
+  const result = spawnSync(["bun", doctor, ...args], {
+    stdin: "inherit", stdout: "inherit", stderr: "inherit",
+  });
+  process.exit(result.exitCode ?? 0);
+}
+
 function cmdWallpaper(args: string[]) {
   const wallpapers = getWallpapers();
 
@@ -398,7 +445,7 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: string; local?: boolean; systemPrompt?: string }) {
+async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: string; local?: boolean; systemPrompt?: string; passthrough?: string[] }) {
   // CLAUDE.md is now static — no build step needed.
   // Algorithm spec is loaded on-demand when Algorithm mode triggers.
   // (InstantiatePAI.ts is retired — kept for reference only)
@@ -421,9 +468,10 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
   }
 
   // Add flags
-  // NOTE: We no longer use --dangerously-skip-permissions by default.
-  // The settings.json permission system (allow/deny/ask) provides proper security.
-  // Use --dangerous flag explicitly if you really need to skip all permission checks.
+  // NOTE: We never pass --dangerously-skip-permissions. Permissions come from
+  // the settings.json allow/deny/ask system, full stop. (A comment here used to
+  // advertise a --dangerous flag the parser never implemented — public issue
+  // #1691, @catchingknives.)
   if (options.resume) {
     args.push("--resume");
     // Forward a specific session ID when given; bare --resume opens the picker.
@@ -432,9 +480,28 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
     }
   }
 
+  // Guard (public PR #1579, @asdf8675309): --local launches Claude in the
+  // CURRENT directory. If that's a repo's main checkout (not a worktree) and
+  // the repo uses .claude/worktrees, the whole session would run on whatever
+  // stale branch the root is parked on. Refuse unless explicitly overridden.
+  if (options.local && process.env.LIFEOS_ALLOW_ROOT !== "1" && inMainCheckoutWithWorktrees()) {
+    error(
+      "You're in the main checkout root, not a worktree.\n" +
+        "   A --local session here runs on whatever branch the root is parked on.\n" +
+        "   cd into a worktree first, or set LIFEOS_ALLOW_ROOT=1 to override.",
+    );
+  }
+
   // Change to LifeOS directory unless --local flag is set
   if (!options.local) {
     process.chdir(CLAUDE_DIR);
+  }
+
+  // Flags this CLI doesn't model (e.g. --fork-session) reach `claude` verbatim
+  // after a bare `--`. Without it the parser's default branch swallowed every
+  // unrecognized dash-flag silently (public issue #1690, @catchingknives).
+  if (options.passthrough?.length) {
+    args.push(...options.passthrough);
   }
 
   // Voice notification (using focused marker for calmer tone).
@@ -611,25 +678,27 @@ async function cmdPrompt(prompt: string) {
 
 function cmdHelp() {
   console.log(`
-lifeos — LifeOS launcher CLI (v2.1.0)
+lifeos — LifeOS launcher CLI (v2.2.0)
 
 USAGE:
-  k                        Launch Claude (no MCPs, max performance)
-  k -m <mcp>               Launch with specific MCP(s)
-  k -m bd,ap               Launch with multiple MCPs
-  k -r, --resume [id]      Resume a session (interactive picker, or a specific session ID)
-  k -s, --system-prompt    System prompt file to append (default: LIFEOS_SYSTEM_PROMPT.md)
-  k -l, --local            Stay in current directory (don't cd to ~/.claude)
+  lifeos                   Launch Claude (no MCPs, max performance)
+  lifeos -m <mcp>          Launch with specific MCP(s)
+  lifeos -m bd,ap          Launch with multiple MCPs
+  lifeos -r, --resume [id]  Resume a session (interactive picker, or a specific session ID)
+  lifeos -s, --system-prompt  System prompt file to append (default: LIFEOS_SYSTEM_PROMPT.md)
+  lifeos -l, --local       Stay in current directory (don't cd to ~/.claude)
+  lifeos -- <flags...>     Forward everything after -- straight to \`claude\`
 
 COMMANDS:
-  k update                 Update Claude Code to latest version
-  k version, -v            Show version information
-  k profiles               List available MCP profiles
-  k mcp list               List all available MCPs
-  k mcp set <profile>      Set MCP profile permanently
-  k prompt "<text>"        One-shot prompt execution
-  k -w, --wallpaper        List/switch wallpapers (Kitty + macOS)
-  k help, -h               Show this help
+  lifeos update            Update Claude Code to latest version
+  lifeos version, -v       Show version information
+  lifeos profiles          List available MCP profiles
+  lifeos mcp list          List all available MCPs
+  lifeos mcp set <profile>  Set MCP profile permanently
+  lifeos prompt "<text>"   One-shot prompt execution
+  lifeos -w, --wallpaper   List/switch wallpapers (Kitty + macOS)
+  lifeos doctor [args]     Run the capability check (args forwarded to Doctor.ts)
+  lifeos help, -h          Show this help
 
 MCP SHORTCUTS:
   bd, brightdata           Bright Data scraping
@@ -643,15 +712,20 @@ MCP SHORTCUTS:
   none                     No MCPs
 
 EXAMPLES:
-  k                        Start with current profile
-  k -m bd                  Start with Bright Data
-  k -m bd,ap               Start with multiple MCPs
-  k -r                     Resume a session (picker), or 'k -r <id>' for a specific one
-  k mcp set research       Switch to research profile
-  k update                 Update Claude Code
-  k prompt "What time is it?"   One-shot prompt
-  k -w                     List available wallpapers
-  k -w circuit-board       Switch wallpaper (Kitty + macOS)
+  lifeos                   Start with current profile
+  lifeos -m bd             Start with Bright Data
+  lifeos -m bd,ap          Start with multiple MCPs
+  lifeos -r                Resume a session (picker), or 'lifeos -r <id>' for a specific one
+  lifeos mcp set research  Switch to research profile
+  lifeos update            Update Claude Code
+  lifeos prompt "What time is it?"  One-shot prompt
+  lifeos -w                List available wallpapers
+  lifeos -w circuit-board  Switch wallpaper (Kitty + macOS)
+  lifeos -r -- --fork-session  Resume, forwarding --fork-session to claude
+
+NOTE:
+  Flags this CLI doesn't know are ignored, not rejected. To hand a native
+  Claude Code flag to the underlying \`claude\` process, put it after \`--\`.
 `);
 }
 
@@ -668,6 +742,22 @@ async function main() {
     return;
   }
 
+  // `k` is aliased to `bun <this file>`, and bun CONSUMES a `--` that sits
+  // immediately after the script path — verified: `-- --fork-session` arrives as
+  // ["--fork-session"], while `-r -- --fork-session` keeps its separator. Only
+  // that first one is eaten. So a leading dash-flag we don't model is the tail of
+  // a separator the runtime swallowed; forwarding it is what the user asked for,
+  // and the default branch below would otherwise silently drop it all over again
+  // (public issue #1690, @catchingknives).
+  const KNOWN_FLAGS = new Set([
+    "-m", "--mcp", "-r", "--resume", "-s", "--system-prompt", "-l", "--local",
+    "-v", "--version", "-h", "--help", "-p", "-w", "--wallpaper", "--",
+  ]);
+  if (args[0].startsWith("-") && !KNOWN_FLAGS.has(args[0])) {
+    await cmdLaunch({ passthrough: args });
+    return;
+  }
+
   // Parse arguments
   let mcp: string | undefined;
   let resume = false;
@@ -679,6 +769,8 @@ async function main() {
   let subArg: string | undefined;
   let promptText: string | undefined;
   let wallpaperArgs: string[] = [];
+  let doctorArgs: string[] = [];
+  let passthrough: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -745,10 +837,20 @@ async function main() {
         wallpaperArgs = args.slice(i + 1);
         i = args.length; // Exit loop
         break;
+      case "doctor":
+        command = "doctor";
+        doctorArgs = args.slice(i + 1);
+        i = args.length; // Exit loop
+        break;
+      case "--":
+        // Everything after a bare `--` is forwarded verbatim to `claude`.
+        passthrough = args.slice(i + 1);
+        i = args.length; // Exit loop
+        break;
       default:
         if (!arg.startsWith("-")) {
           // Might be an unknown command
-          error(`Unknown command: ${arg}. Use 'k help' for usage.`);
+          error(`Unknown command: ${arg}. Use 'lifeos help' for usage.`);
         }
     }
   }
@@ -785,9 +887,12 @@ async function main() {
     case "wallpaper":
       cmdWallpaper(wallpaperArgs);
       break;
+    case "doctor":
+      cmdDoctor(doctorArgs);
+      break;
     default:
       // Launch with options
-      await cmdLaunch({ mcp, resume, resumeId, local, systemPrompt });
+      await cmdLaunch({ mcp, resume, resumeId, local, systemPrompt, passthrough });
   }
 }
 

@@ -32,6 +32,8 @@ interface ContentType { label: string; share: number; evidence: string }
 interface Insight {
   available: boolean; date: string; generatedAt?: string; level?: string; model?: string;
   eventsConsidered?: number; narrative: string; contentTypes: ContentType[];
+  /** True while an on-demand run is in flight server-side. public PR #1647, @elhoim */
+  building?: boolean;
 }
 
 const hm = (m: number) => `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`;
@@ -75,6 +77,10 @@ export default function ConduitPage() {
   const [sources, setSources] = useState<SourcesReport | null>(null);
   const [insight, setInsight] = useState<Insight | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Locally-known "a run is in flight". The server is the authority (it reports
+  // `building` on /insight), but the button has to respond to the click before the
+  // first poll comes back. public PR #1647, @elhoim
+  const [building, setBuilding] = useState(false);
 
   useEffect(() => {
     fetch("/api/conduit/today").then((r) => r.json()).then(setToday).catch((e) => setError(String(e)));
@@ -82,6 +88,37 @@ export default function ConduitPage() {
     fetch("/api/conduit/sources").then((r) => r.json()).then(setSources).catch(() => {});
     fetch("/api/conduit/insight").then((r) => r.json()).then(setInsight).catch(() => {});
   }, []);
+
+  // Poll while a run is in flight; stop as soon as the server says it's done.
+  // The insight job is an inference call — seconds, not milliseconds — so the
+  // POST returns 202 immediately and the result arrives through this poll.
+  useEffect(() => {
+    if (!building) return;
+    let cancelled = false;
+    const id = setInterval(async () => {
+      try {
+        const next: Insight = await (await fetch("/api/conduit/insight")).json();
+        if (cancelled) return;
+        setInsight(next);
+        if (!next.building) setBuilding(false);
+      } catch {
+        /* transient — keep polling until the timeout below */
+      }
+    }, 3000);
+    // Hard stop so a server-side crash can't leave the button spinning forever.
+    const timeout = setTimeout(() => setBuilding(false), 180_000);
+    return () => { cancelled = true; clearInterval(id); clearTimeout(timeout); };
+  }, [building]);
+
+  async function runInsight() {
+    setBuilding(true);
+    try {
+      await fetch("/api/conduit/insight/build", { method: "POST" });
+    } catch (e) {
+      setBuilding(false);
+      setError(String(e));
+    }
+  }
 
   const pollSec = sources?.pollIntervalSec;
 
@@ -117,10 +154,20 @@ export default function ConduitPage() {
               icon={Sparkles}
               title="What's flowing in"
               actions={
-                <span className="text-[12px] text-ink-3 mono">
-                  {insight?.available
-                    ? `hourly read · ${insight.level ?? "low"} · updated ${ago(insight.generatedAt)}`
-                    : "hourly read"}
+                <span className="flex items-center gap-3">
+                  <span className="text-[12px] text-ink-3 mono">
+                    {insight?.available
+                      ? `hourly read · ${insight.level ?? "low"} · updated ${ago(insight.generatedAt)}`
+                      : "hourly read"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={runInsight}
+                    disabled={building}
+                    className="text-[12px] mono px-2 py-1 rounded border border-ink-3/30 text-ink-2 hover:text-ink-1 hover:border-ink-3/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {building ? "reading…" : "run now"}
+                  </button>
                 </span>
               }
             />
@@ -137,8 +184,9 @@ export default function ConduitPage() {
                 ) : (
                   !insight.available && (
                     <div className="text-xs text-ink-3">
-                      The insight job runs on the hour. Run it now:{" "}
-                      <code className="text-ink-2 mono">bun Conduit/BuildInsight.ts</code>
+                      The insight job runs on the hour. Use <span className="text-ink-2 mono">run now</span> above, or
+                      from a shell:{" "}
+                      <code className="text-ink-2 mono">bun ~/.claude/LIFEOS/PULSE/Conduit/BuildInsight.ts</code>
                     </div>
                   )
                 )}

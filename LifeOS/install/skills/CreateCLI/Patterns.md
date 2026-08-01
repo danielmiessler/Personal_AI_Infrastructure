@@ -1,6 +1,6 @@
 # Common CLI Patterns
 
-**Reusable patterns for TypeScript CLIs based on llcli and production CLIs.**
+**Reusable patterns for TypeScript CLIs based on llcli (retired 2026-07-15; its patterns live on here) and production CLIs.**
 
 ---
 

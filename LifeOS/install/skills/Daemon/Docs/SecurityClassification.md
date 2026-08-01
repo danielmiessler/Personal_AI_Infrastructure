@@ -39,8 +39,8 @@ Defines what data is public vs private for daemon aggregation. The aggregator us
 | Source | Reason |
 |--------|--------|
 | LIFEOS/USER/CONTACTS.md | Contains real names, emails, phones |
-| LIFEOS/USER/TELOS/FINANCES/ | Financial data |
-| LIFEOS/USER/TELOS/HEALTH/ | Health data |
+| LIFEOS/USER/FINANCES/ | Financial data |
+| LIFEOS/USER/HEALTH/ | Health data |
 | LIFEOS/USER/TELOS/TELOS.md `## Traumas` | Deeply personal |
 | LIFEOS/USER/BUSINESS/ | Business confidential |
 | MEMORY/KNOWLEDGE/People/ | OSINT dossiers, consent not given |

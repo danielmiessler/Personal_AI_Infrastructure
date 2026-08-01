@@ -1,17 +1,17 @@
 ---
 name: Knowledge
-version: 1.0.13
-description: "Manage the LifeOS Knowledge Archive — a curated, typed graph of People, Companies, Ideas, and Research notes with typed related: links; search, add, harvest, develop, ingest, and graph-navigate. USE WHEN knowledge, knowledge base, search knowledge, what do we know about, archive, harvest, knowledge status, develop note, add to knowledge, ingest, contradictions, knowledge graph, retrieve, mine conversations. NOT FOR session/ISA context recovery (use ContextSearch), published content semantic search across blog/newsletter/X/LinkedIn (use _CONTENTSEARCH), or one-shot URL/YouTube ingestion via the Arbol harvester pipeline (use _HARVEST)."
+version: 1.0.17
+description: "Manage the LifeOS Knowledge Archive — a curated, typed graph of People, Companies, Ideas, and Research notes with typed related: links; search, add, harvest, develop, ingest, and graph-navigate. USE WHEN knowledge, knowledge base, search knowledge, what do we know about, archive, harvest, knowledge status, develop note, add to knowledge, ingest, contradictions, knowledge graph, retrieve, mine conversations. NOT FOR session/ISA context recovery (use ContextSearch), published content semantic search across blog/newsletter/X/LinkedIn, or one-shot URL/YouTube ingestion via the Arbol harvester pipeline."
 argument-hint: [search|add|harvest|develop|ingest|contradictions|graph|retrieve|mine|<query>]
-effort: low
 context: fork
+background: false
 ---
 
 # Knowledge Skill
 
 ## What It Does
 
-Manage the LifeOS Knowledge Archive — a curated, typed graph of notes across four entity domains: People, Companies, Ideas, and Research. Operations cover search, add, harvest, develop, ingest, contradiction-finding, graph traversal, compressed retrieval, and mining recent conversations for memory candidates. Every note ships with typed `related:` cross-links, so the archive is a connected graph, not a pile of files.
+Manage the LifeOS Knowledge Archive — a curated, typed graph of notes across six entity domains: People, Companies, Ideas, Research, Blogs, and Books. Operations cover search, add, harvest, develop, ingest, contradiction-finding, graph traversal, compressed retrieval, and mining recent conversations for memory candidates. Every note ships with typed `related:` cross-links, so the archive is a connected graph, not a pile of files.
 
 ## The Problem
 
@@ -102,7 +102,7 @@ Create a new note manually in the specified entity type.
 2. Ask for a title (or use remaining args after type)
 3. Generate kebab-case filename from title
 4. **MANDATORY: Find 2-3 related notes first.** Before writing the new note, grep existing Knowledge for related entities by topic/tags/name. This becomes the `related:` frontmatter array. No Knowledge note ships without typed links. See Canonical Linking Requirement below.
-5. Create the note with proper frontmatter from `_schema.md` — schemas require: `title`, `type`, `tags` (min 1), `created`, `updated`, `quality` (0-10), plus type-specific body sections.
+5. Create the note with proper frontmatter from `_schema.md` — the validator (`LIFEOS/TOOLS/KnowledgeSchema.ts` ENVELOPE) requires all EIGHT of: `id` (mint via `mintId(slug, created)` — `kb_` + 12 hex chars), `type`, `title`, `tags` (min 1), `quality` (0-10), `created`, `updated`, `convention: kb-v3` — plus type-specific body sections. A note built from the old six-field list can never validate (public issue #1678, @christauff). Set `created:` and `updated:` to today's date from `date +%Y-%m-%d` — archive-entry dates, never a source's publication date (public PR #1604, @asdf8675309).
 6. Write the file to `KNOWLEDGE/<Type>/<kebab-case-title>.md` — slug max 60 chars
 7. Verify every slug in `related:` exists in the archive before saving
 8. Regenerate the type's MOC:
@@ -121,7 +121,7 @@ bun ~/.claude/LIFEOS/TOOLS/KnowledgeHarvester.ts index
 1. **`related:` frontmatter array** — 2-4 typed entries linking to other Knowledge entries (any domain: People, Companies, Ideas, Research)
 2. **Body wikilinks** — 1-3 `[[slug]]` references woven into the prose where natural (Implications, Evidence, or Context sections)
 
-**8 relationship types** (pick the most accurate, prefer specific over generic):
+**9 relationship types** (pick the most accurate, prefer specific over generic):
 
 | Type | Meaning |
 |------|---------|
@@ -133,6 +133,7 @@ bun ~/.claude/LIFEOS/TOOLS/KnowledgeHarvester.ts index
 | `instance-of` | Example of a pattern |
 | `caused-by` | Result of the linked note |
 | `preceded-by` | Came before temporally |
+| `derived-from` | Distilled from the linked source note (e.g. blog → idea) |
 
 **Frontmatter format:**
 ```yaml
@@ -197,7 +198,7 @@ rg "^status: seedling" ~/.claude/LIFEOS/MEMORY/KNOWLEDGE/ --type md -l
 **Step 4 — If approved:**
 - Write the updated note
 - Promote status from `seedling` to `budding` (or `evergreen` if comprehensive)
-- Update the `updated` date
+- Update `updated:` to today's date from `date +%Y-%m-%d`; leave `created:` untouched
 - Regenerate affected MOCs
 
 If no seedlings exist, report archive is clean.
@@ -224,6 +225,7 @@ Determine entity type (People, Companies, Ideas, or Research) using the classifi
 Create the primary note using the schema for that type:
 - Generate kebab-case slug from title (max 60 chars)
 - Write to `KNOWLEDGE/<Type>/<slug>.md` with proper frontmatter
+- Set `created:` and `updated:` to today's date from `date +%Y-%m-%d` — both record when the note entered the archive, **not** when the source was published. A stated publication date belongs in `source_date:`; never let it reach `created:`, and never guess a date the source does not state (public PR #1604, @asdf8675309)
 - Include `source_url:` or `source_path:` in frontmatter
 - **MANDATORY: Include `related:` array with 2-4 typed links** — the ripple pass (Step 3) identifies these, and they must be baked into the frontmatter of the primary note at creation time, not added after
 
@@ -265,7 +267,7 @@ After the user approves (or you determine updates are low-risk cross-references)
 - **Primary note**: ensure `related:` frontmatter array has 2-4 typed entries — this is mandatory, not optional
 - **Related notes**: add reverse-direction `related:` entries to their frontmatter with appropriate types
 - **Body wikilinks**: add `[[wikilinks]]` in existing prose where natural (not forced)
-- Update `updated:` date on modified notes
+- Update `updated:` to today's date from `date +%Y-%m-%d` on modified notes; leave their `created:` untouched
 - For contradictions: add a `> ⚠️ **Contradiction:** [note] claims X — see [[new-note]] for counter-evidence` callout, AND add `type: contradicts` in related: arrays
 
 ### Step 5 — Log and index

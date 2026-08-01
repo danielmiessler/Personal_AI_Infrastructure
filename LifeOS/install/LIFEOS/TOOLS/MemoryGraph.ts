@@ -9,7 +9,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 /**
  * MemoryGraph — a first-class graph layer over the WHOLE LifeOS memory system.
  *
- * Supersedes KnowledgeGraph.ts (KNOWLEDGE-only, console-text, no clustering).
+ * Covers every memory silo, not just KNOWLEDGE, and clusters rather than printing text.
  * Ingests every memory silo as nodes, builds DECLARED edges (related / wikilink /
  * tag), runs graphology pattern algorithms (Louvain communities, PageRank, degree,
  * optional betweenness), and emits two artifacts under MEMORY/GRAPH/:
@@ -195,6 +195,44 @@ function ingest(): Raw[] {
           updated: fm.updated || fm.started || null,
         }, content,
       });
+    }
+  }
+
+  // WISDOM silo (frames + principles) and LEARNING/SYNTHESIS — the curated,
+  // cross-linking tiers of the learning system. Raw per-event lessons stay out
+  // of the graph (8K+ nodes of noise); they're searchable via the wiki index.
+  // Node ids match the wiki slugs (`SUB--name`) so graph nodes open as notes.
+  const CURATED: Array<{ base: string; subs: string[]; silo: string; type: string }> = [
+    { base: path.join(MEMORY, "WISDOM"), subs: ["FRAMES", "PRINCIPLES"], silo: "wisdom", type: "wisdom" },
+    { base: path.join(MEMORY, "LEARNING"), subs: ["SYNTHESIS"], silo: "synthesis", type: "lesson" },
+  ];
+  for (const { base, subs, silo, type } of CURATED) {
+    for (const sub of subs) {
+      const dir = path.join(base, sub);
+      if (!fs.existsSync(dir)) continue;
+      const walk = (d: string): string[] => {
+        const out: string[] = [];
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          if (e.name.startsWith(".") || e.name.startsWith("_")) continue;
+          const p = path.join(d, e.name);
+          if (e.isDirectory()) out.push(...walk(p));
+          else if (e.isFile() && e.name.endsWith(".md")) out.push(p);
+        }
+        return out;
+      };
+      for (const fp of walk(dir)) {
+        const rel = path.relative(dir, fp).replace(/\.md$/, "").replace(/[\\/]+/g, "--");
+        const content = fs.readFileSync(fp, "utf-8");
+        const { fm } = readFront(content);
+        raws.push({
+          node: {
+            id: `${sub}--${rel}`, silo, type,
+            title: fm.title || content.match(/^#\s+(.+)$/m)?.[1] || rel,
+            path: fp, tags: parseTags(fm),
+            updated: fm.last_updated || fm.updated || fm.created || null,
+          }, content,
+        });
+      }
     }
   }
 

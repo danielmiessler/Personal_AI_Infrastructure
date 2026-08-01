@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Briefcase, FolderOpen, ExternalLink, GitBranch, Cpu, Kanban, RefreshCw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, List as ListIcon, Inbox } from "lucide-react";
+import { Archive, Briefcase, Compass, ExternalLink, GitBranch, Cpu, Kanban, RefreshCw, Rocket, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, List as ListIcon, Inbox, type LucideIcon } from "lucide-react";
 import EmptyStateGuide from "@/components/EmptyStateGuide";
+import ProjectsBoard, { type ProjectGroup } from "@/components/ProjectsBoard";
 import { PageShell, PageHeader, Panel, TabBar, Pill, EmptyState } from "@/components/ui/chrome";
+import type { Dim } from "@/components/ui/chrome";
 
 interface AlgorithmSession {
   slug: string;
@@ -297,8 +299,13 @@ function relativeUpdated(iso: string): string {
   return Math.floor(d / 7) + "w";
 }
 
+// Internal sync-marker labels hidden from Kanban chips. A set (not a single
+// literal) so a marker rename can't leak the chip onto every card — `pai-sync`
+// is the legacy pre-rebrand name still emitted today (public issue #1497).
+const HIDDEN_LABELS = new Set(["pai-sync", "lifeos-sync"]);
+
 function KanbanCard({ issue }: { issue: KanbanIssue }) {
-  const labels = (issue.labels || []).filter((l) => l !== "pai-sync");
+  const labels = (issue.labels || []).filter((l) => !HIDDEN_LABELS.has(l));
   return (
     <a
       href={issue.url}
@@ -717,9 +724,9 @@ function WorkList({ data }: { data: KanbanData }) {
                     </p>
                   )}
                   <p className="text-ink-1" style={{ fontSize: 13, marginBottom: 8, lineHeight: 1.4 }}>{cleanTitle(it.title)}</p>
-                  {(it.labels || []).filter((l) => l !== "pai-sync").length > 0 && (
+                  {(it.labels || []).filter((l) => !HIDDEN_LABELS.has(l)).length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-                      {(it.labels || []).filter((l) => l !== "pai-sync").map((l) => (
+                      {(it.labels || []).filter((l) => !HIDDEN_LABELS.has(l)).map((l) => (
                         <span key={l} className="pill" style={{ fontSize: 11, padding: "1px 6px" }}>{l}</span>
                       ))}
                     </div>
@@ -864,62 +871,53 @@ function WorkItemsPanel() {
   );
 }
 
-function Projects({ projects }: { projects?: Array<{ name: string; path: string; url: string }> }) {
-  if (!projects || projects.length === 0) return null;
-  return (
-    <section>
-      <h2 className="text-sm font-medium uppercase tracking-widest text-ink-3 mb-4 flex items-center gap-2">
-        <GitBranch className="w-4 h-4" style={{ color: "var(--money)" }} /> Projects
-        <span className="text-xs text-ink-3 font-normal">({projects.length})</span>
-      </h2>
-      <div className="prob-grid">
-        {projects.map((p) => {
-          const isPublic = !p.url.toLowerCase().includes("private");
-          const href = isPublic && p.url.startsWith("github.com") ? `https://${p.url}` : undefined;
-          return (
-            <Panel key={p.name} hover className="border-l-[3px] [border-left-color:var(--creative)]">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FolderOpen className="w-4 h-4 shrink-0" style={{ color: "var(--creative)" }} />
-                  <h3 className="text-sm font-medium truncate text-ink-1">{p.name}</h3>
-                </div>
-                {href ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0"
-                    style={{ color: "var(--money)" }}
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                ) : (
-                  <Pill dim="creative" className="shrink-0">private</Pill>
-                )}
-              </div>
-              <div className="text-[12px] font-mono mt-1 truncate text-ink-3" data-sensitive title={p.path}>
-                {p.path}
-              </div>
-              <div className="text-[12px] mt-1 truncate text-ink-3" data-sensitive title={p.url}>
-                {p.url}
-              </div>
-            </Panel>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+// ── Page-level area tabs ─────────────────────────────────────────────────────
+// Board and Sessions are fixed areas; every group /api/projects returns becomes
+// its own tab (live / telos / retired today — new source files appear with no
+// code change here beyond an optional icon mapping).
+
+type AreaTab = string;
+
+/** Per-group tab chrome — generic fallback for groups this map doesn't know. */
+const GROUP_TAB_META: Record<string, { icon: LucideIcon; dim: Dim }> = {
+  live: { icon: Rocket, dim: "blue" },
+  telos: { icon: Compass, dim: "money" },
+  retired: { icon: Archive, dim: "neutral" },
+};
 
 export default function WorkPage() {
   const [data, setData] = useState<WorkData | null>(null);
+  const [projectsData, setProjectsData] = useState<{ groups?: ProjectGroup[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<AreaTab>("board");
+
+  // ?tab= deep link (/work?tab=telos) — read after hydration; an initializer
+  // that reads window.location diverges from the static prerender and loses.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t) setTab(t);
+  }, []);
+
   useEffect(() => {
     fetch("/api/life/work")
       .then((r) => (r.ok ? r.json() : null))
       .then(setData)
       .catch((e) => setError(String(e)));
+    fetch("/api/projects", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setProjectsData)
+      .catch(() => setProjectsData(null));
   }, []);
+
+  // Keep ?tab= in the URL so tabs are linkable/refresh-stable without a nav.
+  const selectTab = (t: AreaTab) => {
+    setTab(t);
+    const u = new URL(window.location.href);
+    if (t === "board") u.searchParams.delete("tab");
+    else u.searchParams.set("tab", t);
+    window.history.replaceState(null, "", u.toString());
+  };
+
   if (error) {
     return (
       <PageShell>
@@ -940,9 +938,11 @@ export default function WorkPage() {
     );
   }
 
+  const groups = projectsData?.groups ?? [];
   const sessionCount = data.algorithmSessions?.length ?? 0;
-  const projectCount = data.projects?.length ?? 0;
-  const showEmptyGuide = sessionCount === 0 && projectCount === 0 && !data.currentFocus && !data.currentProject;
+  const liveCount = groups.find((g) => g.key === "live")?.count ?? 0;
+  const showEmptyGuide = sessionCount === 0 && liveCount === 0 && !data.currentFocus && !data.currentProject;
+  const activeGroup = groups.find((g) => g.key === tab);
 
   return (
     <PageShell>
@@ -959,12 +959,36 @@ export default function WorkPage() {
         focus={data.currentFocus}
         current={data.currentProject}
         streams={data.activeWorkstreams}
-        sessionCount={data.algorithmSessions?.length ?? 0}
-        projectCount={data.projects?.length ?? 0}
+        sessionCount={sessionCount}
+        projectCount={liveCount}
       />
-      <WorkItemsPanel />
-      <AlgorithmSessions sessions={data.algorithmSessions} />
-      <Projects projects={data.projects} />
+
+      <TabBar<AreaTab>
+        active={activeGroup ? tab : tab === "sessions" ? "sessions" : "board"}
+        onChange={selectTab}
+        tabs={[
+          { id: "board", label: "Board", icon: Kanban, dim: "blue" },
+          { id: "sessions", label: "Sessions", icon: Cpu, dim: "creative", hint: sessionCount || undefined },
+          ...groups.map((g) => ({
+            id: g.key,
+            label: g.label,
+            icon: GROUP_TAB_META[g.key]?.icon ?? GitBranch,
+            dim: GROUP_TAB_META[g.key]?.dim ?? ("blue" as Dim),
+            hint: g.count,
+          })),
+        ]}
+      />
+
+      {activeGroup ? (
+        <ProjectsBoard group={activeGroup} />
+      ) : tab === "sessions" ? (
+        <AlgorithmSessions sessions={data.algorithmSessions} />
+      ) : (
+        <>
+          <WorkItemsPanel />
+          <AlgorithmSessions sessions={data.algorithmSessions} />
+        </>
+      )}
     </PageShell>
   );
 }

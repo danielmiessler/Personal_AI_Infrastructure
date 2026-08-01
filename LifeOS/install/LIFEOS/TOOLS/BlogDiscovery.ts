@@ -33,6 +33,7 @@ import { Database } from "bun:sqlite";
 import { homedir } from "os";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import { existsSync } from "fs";
 import { randomUUID } from "crypto";
 
 const HOME = homedir();
@@ -473,7 +474,20 @@ function cmdStats() {
 }
 function cmdReset() { try { require("fs").rmSync(DB_PATH); } catch {} try { require("fs").rmSync(DB_PATH + "-wal"); } catch {} try { require("fs").rmSync(DB_PATH + "-shm"); } catch {} openDb(); console.log("queue reset."); }
 
+// Public-install guard: harvest hard-depends on the private _CLOUDFLARE skill
+// (CfEnv.ts → D1 'feed' DB). That skill is stripped from public releases, so on
+// a public install the launchd job (com.lifeos.blogdiscovery) would throw daily.
+// Skip cleanly instead — same pattern as DeriveDenyHashes for issue #1488
+// (public issue #1508 finding #12).
+function requiresCloudflareSkill(): boolean {
+  return existsSync(CFENV);
+}
+
 const cmd = process.argv[2];
+if (cmd === "harvest" && !requiresCloudflareSkill()) {
+  console.log("[BlogDiscovery] _CLOUDFLARE skill absent (public install) — skipping harvest (no D1 'feed' backend).");
+  process.exit(0);
+}
 switch (cmd) {
   case "harvest": await cmdHarvest(); break;
   case "list": cmdList(); break;

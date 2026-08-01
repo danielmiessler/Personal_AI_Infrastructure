@@ -1,7 +1,7 @@
 ---
 name: BiasCheck
-version: 1.0.2
-description: "Three-layer bias analysis on any URL, file, or text — auto-fetches the content and any cited study, then audits data-level biases, source conflicts of interest, and journalism-added distortions, separating what the data supports from what's editorialized. USE WHEN bias analysis, analyze bias, bias check, check this study, who funded this, is this source biased, fact-check article, methodological flaws, source credibility, what's wrong with this claim. NOT FOR psychological author analysis (use _CRITICAL_ANALYSIS), research synthesis (use Research), entity due diligence (use _OSINT)."
+version: 1.0.3
+description: "Three-layer bias analysis on any URL, file, or text — auto-fetches the content and any cited study, then audits data-level biases, source conflicts of interest, and journalism-added distortions, separating what the data supports from what's editorialized. USE WHEN bias analysis, analyze bias, bias check, check this study, who funded this, is this source biased, fact-check article, methodological flaws, source credibility, what's wrong with this claim. NOT FOR psychological author analysis, research synthesis (use Research), entity due diligence."
 disallowed-tools: Edit, Write, NotebookEdit
 ---
 
@@ -109,8 +109,8 @@ User: "bias check ~/Downloads/some-report.pdf"
 - **Headlines travel; bodies don't.** Most readers see only the headline. A headline-to-source mismatch is the most consequential journalism bias and should always be flagged when present.
 - **"Charitable reading" is required.** Before concluding the source is misleading, articulate what the data DOES support. This anchors the critique in specifics.
 - **Don't go beyond the source you fetched.** No drive-by claims about Mercer's other reports if you only read one. No "they always do X" — stick to what's in the artifact.
-- **Pure opinion piece with no data?** This skill is the wrong tool — redirect to `_CRITICAL_ANALYSIS` for psychological author read. BiasCheck needs claims with empirical scaffolding.
-- **Author background is out of scope.** This skill audits the source artifact, not the author's biography. If you need "who is this writer and what's their track record," use Research or _OSINT.
+- **Pure opinion piece with no data?** This skill is the wrong tool — redirect to a psychological author-analysis skill for a psychological author read. BiasCheck needs claims with empirical scaffolding.
+- **Author background is out of scope.** This skill audits the source artifact, not the author's biography. If you need "who is this writer and what's their track record," use Research or a dedicated OSINT/entity-investigation skill.
 
 ## Execution Log
 

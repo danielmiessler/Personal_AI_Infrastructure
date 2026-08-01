@@ -40,6 +40,6 @@ real answers. The interview is incremental — you can stop and resume.
 ## Privacy
 
 Everything in this directory is **private** and never ships in any LifeOS
-release. The release builder (`skills/_LIFEOS/Tools/ShadowRelease.ts`)
+release. The release builder
 deletes the entire `USER/` tree from staging and overlays generic
 scaffolds in its place.

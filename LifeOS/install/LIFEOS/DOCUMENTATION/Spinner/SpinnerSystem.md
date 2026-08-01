@@ -1,10 +1,10 @@
 ---
 last_updated: 2026-07-02
-last_updated_by: kai
+last_updated_by: da
 last_reviewed: 2026-07-02
-last_reviewed_by: kai
+last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.0.1
+version: 1.1.0
 ---
 
 # Custom Spinner Verbs
@@ -32,10 +32,41 @@ To change the vocabulary, edit the customization JSON and re-run the sync tool �
 The tips are short informational strings shown during longer operations. They're kept accurate against the current system — skill counts, hook counts, version strings — by a dedicated maintenance workflow.
 
 - **Live config:** `settings.json` → `spinnerTipsOverride.tips`.
-- **Maintenance:** the `/ut` (UpdateTips) workflow in the `<your-release-skill>` skill audits and refreshes the tips against the current skill/hook/agent counts and versions. Run `/ut` after a system change so the tips never go stale.
+- **Maintenance:** the `/ut` (UpdateTips) workflow in the release/maintenance skill audits and refreshes the tips against the current skill/hook/agent counts and versions. Run `/ut` after a system change so the tips never go stale.
+
+## Examples
+
+### Adding a working-verb the right way
+
+Someone wants the statusline to say "Foraging" while long jobs run. The verb vocabulary is a customization asset, so the edit goes to the source, never the live config:
+
+1. Add `"Foraging"` (with its icon, color, and animation entries) to the JSON under `LIFEOS/USER/CUSTOMIZATIONS/Spinner/`.
+2. Run `SyncSpinnerAssets.ts`, which pushes verbs/icons/colors/anims out to `settings.json` → `spinnerVerbs.verbs` and to downstream projects.
+3. The statusline renderer picks it up on the next spin.
+
+Editing `settings.json` directly would work for one session and then get overwritten. The customization dir is the source of truth, and the sync tool is the only sanctioned way to move a change into the live config.
+
+### When the tips go stale
+
+Verbs are cosmetic; tips make a factual claim — skill counts, hook counts, version strings — so they rot when the system changes underneath them. After adding a skill or cutting a release, the fix is not to hand-edit `spinnerTipsOverride.tips`; it is to run the `/ut` (UpdateTips) workflow, which re-audits every tip against the current counts and versions and rewrites the stale ones. Same principle as the verbs: change the system, then run the tool that reconciles the surface to it.
+
+```mermaid
+flowchart TD
+    A[Edit verbs.json in CUSTOMIZATIONS/Spinner] --> B[Run SyncSpinnerAssets.ts]
+    B --> C[settings.json spinnerVerbs.verbs]
+    C --> D[Statusline renderer shows the verb]
+    E[System changes: new skill, new version] --> F[Run /ut UpdateTips]
+    F --> G[settings.json spinnerTipsOverride.tips]
+    G --> D
+    H[Hand-edit live config] -.->|overwritten on next sync| C
+```
+
+Both halves of the statusline follow one rule: the source of truth is upstream of the live config, and a tool — never a hand edit — reconciles them. The dashed path is the anti-pattern the whole design exists to prevent.
+
+---
 
 ## Related
 
 - The statusline these render in is part of the overall system surface.
 - Pulse — the Life Dashboard: `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`
-- LifeOS maintenance (the `/ut` workflow lives here): the `<your-release-skill>` skill.
+- LifeOS maintenance (the `/ut` workflow lives here): the release/maintenance skill.

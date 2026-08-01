@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.0
+ * @version 1.0.1
  * TabState.hook.ts — Unified Kitty tab-state hook (PreToolUse + PostToolUse + Stop)
  *
  * CONSOLIDATION (2026-07-10, {{PRINCIPAL_NAME}}'s hook consolidation):
@@ -23,7 +23,7 @@
  * - stdin empty/malformed: fail-open, exit(0) with no tab change.
  */
 
-import { setTabState, readTabState, stripPrefix } from './lib/tab-setter';
+import { setTabState, readTabState, stripPrefix, setAscentTab } from './lib/tab-setter';
 import { isValidQuestionTitle, getQuestionFallback } from './lib/output-validators';
 import { readHookInput, parseTranscriptFromInput, type HookInput } from './lib/hook-io';
 import { handleTabState } from './handlers/TabState';
@@ -76,8 +76,10 @@ function handlePreToolUse(input: HookInput): void {
     const currentState = readTabState(sessionId);
     const previousTitle = currentState?.title || undefined;
 
-    // Set tab to question state (teal) with previousTitle for restoration
-    setTabState({ title: summary, state: 'question', previousTitle, sessionId });
+    // Set tab to question state (teal) with previousTitle + previousAscent for
+    // restoration — the question stamp overwrites the state file, so the run's
+    // ascent state must ride along or the restore falls back to generic.
+    setTabState({ title: summary, state: 'question', previousTitle, previousAscent: currentState?.ascent, sessionId });
 
     console.error(`[TabState/PreToolUse] Tab set to teal with summary: "${summary}"`);
   } catch (error) {
@@ -106,9 +108,13 @@ function handlePostToolUse(input: HookInput): void {
       }
     }
 
-    setTabState({ title: '⚙️' + restoredTitle, state: 'working', sessionId });
+    // Restore the run's real ascent state (carried through the question stamp);
+    // un-ISA'd work restores to traverse — the pre-Algorithm gear is retired.
+    const prior = currentState?.previousAscent;
+    const restoreState = prior && !['idle', 'cairn'].includes(prior) ? prior : 'traverse';
+    setAscentTab(restoreState, sessionId, restoredTitle);
 
-    console.error('[TabState/PostToolUse] Tab reset to working state (orange on inactive only)');
+    console.error(`[TabState/PostToolUse] Tab restored to ascent state: ${restoreState}`);
   } catch (error) {
     // Silently fail if kitty remote control is not available
     console.error('[TabState/PostToolUse] Kitty remote control unavailable');

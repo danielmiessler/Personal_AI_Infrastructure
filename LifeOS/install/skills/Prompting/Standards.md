@@ -56,6 +56,16 @@ Deterministic Tools (`*.ts`) are exempt entirely — they do one fixed thing by 
 
 ---
 
+# Leading Words (adopted 2026-07-16, from Pocock's writing-great-skills, MIT)
+
+A **leading word** is a compact concept already living in the model's pretraining that the prompt recruits as a behavior anchor — *relentless*, *tight*, *red*, *fog*, *tracer bullet*, *frontier*. Repeated (or even placed once, well), it accumulates a distributed definition and anchors a whole region of behavior in the fewest tokens, because it borrows priors the model already holds. It works twice: in a body it anchors *execution* (the model reaches for the same behavior each time the word appears); in a description it anchors *invocation* (shared vocabulary across prompts, docs, and code fires the right capability more reliably).
+
+When authoring or optimizing any prompt, hunt for restatements a leading word retires: "fast, deterministic, low-overhead" collapses to *tight*; "a test you believe in" collapses to *red* (a binary observable state). Fewer tokens AND a sharper hook. A weak leading word is a no-op ("be thorough" when the model is already thorough-ish); the fix is a stronger word (*relentless*), not more prose. The no-op test itself is BPE Question 1 (`skills/BitterPillEngineering` — does this line change behavior versus the default?); apply it sentence by sentence, and delete failing sentences whole rather than trimming words from them.
+
+**Prompt the positive.** Steering by prohibition backfires — "don't think of an elephant" names the elephant and raises its availability. State the target behavior so the banned one is never spoken. Keep a prohibition only as a hard guardrail that can't be phrased positively (a safety-gate), and even then pair it with what to do instead. Live reference with the full vocabulary (context load vs cognitive load, progressive disclosure, failure modes): `skills/Prompting/References/WritingGreatSkills.md`.
+
+---
+
 # Claude 4.x Behavioral Characteristics
 
 **Critical Understanding:** Claude 4.x models have distinct behavioral patterns that affect prompting strategy.
@@ -357,7 +367,7 @@ Report every issue you find, including ones you are uncertain about or consider 
 
 If you must self-filter in a single pass, be concrete about the bar ("report any bug that could cause incorrect behavior, a test failure, or a misleading result; omit only pure style/naming nits") — never a qualitative term like "important."
 
-This is the find→verify split the Workflow tool already encodes: finders maximize coverage, an adversarial verify stage kills the false positives. Any LifeOS review/finding prompt (Cato, `_HELIOS` finding phases, code-review fan-outs) inherits this rule.
+This is the find→verify split the Workflow tool already encodes: finders maximize coverage, an adversarial verify stage kills the false positives. Any LifeOS review/finding prompt (Cato, a security-assessment skill's finding phases, code-review fan-outs) inherits this rule.
 
 ---
 

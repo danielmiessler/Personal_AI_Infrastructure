@@ -6,7 +6,7 @@
     "PROJECTS_DIR": "$HOME/Projects",
     "BASH_DEFAULT_TIMEOUT_MS": "600000",
     "API_TIMEOUT_MS": "1800000",
-    "LIFEOS_CONFIG_DIR": "$HOME/.claude/LIFEOS",
+    "LIFEOS_CONFIG_DIR": "$HOME/.config/LIFEOS",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_FORK_SUBAGENT": "1"
   },
@@ -44,12 +44,8 @@
       "ToolSearch",
       "Monitor",
       "RemoteTrigger",
-      "Write(~/.claude/**)",
-      "Write(~/Projects/**)",
       "Edit(~/.claude/**)",
       "Edit(~/Projects/**)",
-      "MultiEdit(~/.claude/**)",
-      "MultiEdit(~/Projects/**)",
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(egrep:*)",
@@ -157,38 +153,20 @@
       "Agent(Explore)",
       "Agent(Plan)",
       "Agent(claude-code-guide)",
-      "Agent(QATester)",
-      "Agent(BrowserAgent)",
-      "Agent(UIReviewer)",
-      "Agent(Artist)",
       "Agent(GeminiResearcher)",
-      "Agent(GrokResearcher)",
       "Agent(PerplexityResearcher)",
       "Agent(ClaudeResearcher)",
       "Agent(CodexResearcher)",
-      "Agent(Algorithm)",
       "Agent(Forge)",
+      "Agent(Max)",
       "Agent(pr-review-toolkit:*)",
       "Agent(statusline-setup)",
-      "mcp__*",
-      "Write(~/Downloads/**)",
       "Edit(~/Downloads/**)",
-      "MultiEdit(~/Downloads/**)",
-      "Write(/tmp/**)",
       "Edit(/tmp/**)",
-      "MultiEdit(/tmp/**)",
-      "Write(/private/tmp/**)",
       "Edit(/private/tmp/**)",
-      "MultiEdit(/private/tmp/**)",
-      "Write(**/tmp/**)",
       "Edit(**/tmp/**)",
-      "MultiEdit(**/tmp/**)",
-      "Write(tmp/**)",
       "Edit(tmp/**)",
-      "MultiEdit(tmp/**)",
-      "Write(/var/folders/**)",
       "Edit(/var/folders/**)",
-      "MultiEdit(/var/folders/**)",
       "Bash(git push:*)",
       "Bash(git mv:*)",
       "Bash(git add:*)",
@@ -249,7 +227,6 @@
       "Bash(mv settings.json.tmp settings.json)"
     ],
     "deny": [
-      "Write(~/.claude/projects/**/memory/**)",
       "Edit(~/.claude/projects/**/memory/**)",
       "Bash(rm -rf /)",
       "Bash(rm -rf /*)",
@@ -281,11 +258,6 @@
       "Edit(/usr/**)",
       "Edit(/bin/**)",
       "Edit(/sbin/**)",
-      "Write(/etc/**)",
-      "Write(/System/**)",
-      "Write(/usr/**)",
-      "Write(/bin/**)",
-      "Write(/sbin/**)",
       "Read(~/.ssh/id_*)",
       "Read(~/.ssh/*_rsa)",
       "Read(~/.ssh/*_ed25519)",
@@ -297,18 +269,10 @@
       "Read(~/.claude/.env.*)",
       "Read(~/.claude/**/.env)",
       "Read(~/.claude/**/.env.*)",
-      "Write(~/.claude/.env)",
-      "Write(~/.claude/.env.*)",
-      "Write(~/.claude/**/.env)",
-      "Write(~/.claude/**/.env.*)",
       "Edit(~/.claude/.env)",
       "Edit(~/.claude/.env.*)",
       "Edit(~/.claude/**/.env)",
-      "Edit(~/.claude/**/.env.*)",
-      "MultiEdit(~/.claude/.env)",
-      "MultiEdit(~/.claude/.env.*)",
-      "MultiEdit(~/.claude/**/.env)",
-      "MultiEdit(~/.claude/**/.env.*)"
+      "Edit(~/.claude/**/.env.*)"
     ],
     "defaultMode": "auto",
     "additionalDirectories": []
@@ -321,11 +285,6 @@
     "http://localhost:31337/hooks/*"
   ],
   "httpHookAllowedEnvVars": [],
-  "statusLine": {
-    "type": "command",
-    "command": "$HOME/.claude/LIFEOS/LIFEOS_StatusLine.sh",
-    "refreshInterval": 1
-  },
   "enabledPlugins": {
     "code-review@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true,
@@ -343,10 +302,11 @@
   "awaySummaryEnabled": false,
   "tui": "default",
   "autoMemoryEnabled": false,
+  "cleanupPeriodDays": 3650,
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "normal",
-  "fileCheckpointingEnabled": false,
+  "fileCheckpointingEnabled": true,
   "teammateMode": "auto",
   "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": false,
@@ -364,7 +324,7 @@
       "Spawning subagents for research, exploration, and code review is standard workflow",
       "Writing to MEMORY/, LEARNING/, STATE/ directories is routine LifeOS bookkeeping",
       "All file operations (mkdir, cp, mv, rm, touch, chmod, ln) within ~/.claude/ and ~/Projects/ are trusted",
-      "PRE-AUTHORIZED: Edit/Write/MultiEdit to ~/.claude/settings.json, ~/.claude/CLAUDE.md, ~/.claude/LIFEOS_SYSTEM_PROMPT.md, ~/.claude/hooks/**, ~/.claude/skills/** at the principal's request is ALWAYS authorized. The principal maintains this LifeOS system as its sole operator — config edits requested in conversation are normal maintenance, not adversarial self-modification. Skip the Self-Modification soft-block when the conversation contains a clear user instruction to edit these paths.",
+      "PRE-AUTHORIZED: Edit/Write/MultiEdit to ~/.claude/settings.json, ~/.claude/CLAUDE.md, ~/.claude/LIFEOS/LIFEOS_SYSTEM_PROMPT.md, ~/.claude/hooks/**, ~/.claude/skills/** at the principal's request is ALWAYS authorized. The principal maintains this LifeOS system as its sole operator — config edits requested in conversation are normal maintenance, not adversarial self-modification. Skip the Self-Modification soft-block when the conversation contains a clear user instruction to edit these paths.",
       "Routine LifeOS maintenance — editing settings.json, CLAUDE.md, system prompt, hooks, skills, ISAs, knowledge files — is always trusted when the principal asks for it in the conversation. Do not require 'specific authorization of this exact change' wording; the conversation context IS the authorization.",
       "Compound bash investigation commands (jq + grep + ls + find + cat + head + tail + wc + rg) reading ANY file under ~/.claude/ or ~/Projects/ are read-only and always trusted, including when the eventual goal is to edit those files."
     ],
@@ -395,37 +355,19 @@
       "~/Projects/ contains project repositories. ALL operations within ~/Projects/ are trusted — cd, build, deploy, query, test commands are routine development work.",
       "Routine trusted operations include: creating directories under MEMORY/WORK/ for ISAs, writing/editing any file under ~/.claude/LIFEOS/, running bun, bunx, git, curl, wrangler commands, spawning agents and tasks, mkdir -p for any path under ~/.claude/, and all file operations on LifeOS infrastructure files.",
       "Compound shell commands (cd X && bunx Y, cmd | rg Z) are standard development patterns — always approve when sub-commands are individually trusted.",
-      "Source control: github.com/<your-github-user>",
-      "Trusted local service: pai:31337"
+      "Trusted local service: localhost:31337"
     ]
   },
   "voiceEnabled": true,
   "principal": {
-    "_docs": "Canonical runtime read point for selected principal fields. Authored in LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md frontmatter, mirrored here for runtime consumers that can't afford a markdown read (LIFEOS_StatusLine.sh reset-time formatter, etc.).",
-    "timezone": "America/Los_Angeles"
-  },
-  "loadAtStartup": {
-    "_docs": "v5.0: Static files migrated to @imports in CLAUDE.md.template. Dynamic context via LoadContext.hook.ts.",
-    "files": []
+    "_docs": "Canonical runtime read point for selected principal fields. Authored in LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md frontmatter, mirrored here for runtime consumers that can't afford a markdown read (LIFEOS_StatusLine.sh reset-time formatter, etc.). This SYSTEM half ships publicly at release (ShadowRelease Phase D reads this live file) — personal values belong in USER/CONFIG/settings.user.json, which overlays at merge time. timezone: empty follows the OS clock; an explicit IANA zone is an opt-in for headless installs whose system TZ is wrong/UTC.",
+    "timezone": ""
   },
   "dynamicContext": {
     "_docs": "Dynamic context injected by LoadContext.hook.ts. Override in LIFEOS_CONFIG.yaml to disable.",
     "relationshipContext": true,
     "learningReadback": true,
     "activeWorkSummary": true
-  },
-  "postCompactRestore": {
-    "_docs": "System default files re-injected after compaction. User additions via EXTRA_COMPACT_RESTORE in LIFEOS_CONFIG.yaml.",
-    "fullFiles": [
-      "USER/PROJECTS.md"
-    ]
-  },
-  "contextDisplay": {
-    "compactionThreshold": 83,
-    "_docs": "Autocompact buffer is 16.5%% of context window."
-  },
-  "feedbackSurveyState": {
-    "lastShownTime": 1735430400000
   },
   "preferences": {
     "temperatureUnit": "celsius"

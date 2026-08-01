@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * @version 1.2.5
+ * @version 1.2.7
  * SystemFileGuard.hook.ts — PreToolUse Write/Edit/MultiEdit gate.
  *
- * Blocks writes of user-identifying patterns (per skills/_LIFEOS/DENY_LIST.txt)
+ * Blocks writes of user-identifying patterns (per the release skill's deny-list)
  * into SYSTEM files (anything under ~/.claude/ that is NOT in a containment
  * zone per hooks/lib/containment-zones.ts).
  *
@@ -24,6 +24,7 @@ import { readFileSync, appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { evaluateWrite, extractNewContent } from "./lib/system-file-guard-core";
+import { parseHookStdin, asWriteToolInput, isString } from "./lib/hook-input";
 
 const HOME = process.env.HOME ?? homedir();
 const LOG_PATH = join(HOME, ".claude/LIFEOS/MEMORY/OBSERVABILITY/system-file-guard.jsonl");
@@ -40,11 +41,21 @@ interface HookInput {
 }
 
 function readHookInput(): HookInput {
+  // Validate the stdin trust boundary instead of casting: parse to an object,
+  // then narrow tool fields with typed guards. Malformed/empty input degrades to
+  // {} — the existing fail-safe-open path (a bad parse must never block a write).
+  let raw: string;
   try {
-    return JSON.parse(readFileSync(0, "utf-8")) as HookInput;
+    raw = readFileSync(0, "utf-8");
   } catch {
     return {};
   }
+  const parsed = parseHookStdin(raw);
+  if (!parsed.ok) return {};
+  const narrowed = asWriteToolInput(parsed.value);
+  return isString(parsed.value.session_id)
+    ? { ...narrowed, session_id: parsed.value.session_id }
+    : narrowed;
 }
 
 function logEvent(event: Record<string, unknown>): void {

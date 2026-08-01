@@ -171,10 +171,17 @@ function loadPronunciations(customPath?: string): void {
       const content = readFileSync(userPronPath, "utf-8")
       const flat: Record<string, string> = JSON.parse(content)
 
-      pronunciationRules = Object.entries(flat).map(([term, phonetic]) => ({
-        regex: new RegExp(`\\b${escapeRegex(term)}\\b`, "g"),
-        phonetic,
-      }))
+      pronunciationRules = Object.entries(flat).map(([term, phonetic]) => {
+        // \b only exists next to a word char: a leading \b before "." (".env")
+        // or a trailing \b after "." ("Live.") never matches, silently killing
+        // the rule. Anchor with \b only where the term boundary is a word char.
+        const lead = /^\w/.test(term) ? "\\b" : ""
+        const tail = /\w$/.test(term) ? "\\b" : ""
+        return {
+          regex: new RegExp(`${lead}${escapeRegex(term)}${tail}`, "g"),
+          phonetic,
+        }
+      })
 
       log("info", `Voice: loaded ${pronunciationRules.length} pronunciation rules from ${userPronPath}`)
     } else {
@@ -356,6 +363,15 @@ interface AudioPlayer {
   buildArgs: (file: string, volume: number) => string[]
 }
 
+// (public PR #1548, @m8ryx) `volume` is a multiplier where 1.0 is normal,
+// matching afplay's -v. Each Linux player expresses volume on its own integer
+// scale, so map onto that range and clamp. A non-finite or negative value falls
+// back to the player's normal level rather than silencing playback.
+function scaleVolume(volume: number, max: number): number {
+  if (!Number.isFinite(volume) || volume < 0) return max
+  return Math.min(max, Math.round(volume * max))
+}
+
 let resolvedPlayer: AudioPlayer | null | undefined = undefined
 
 function resolveAudioPlayer(): AudioPlayer | null {
@@ -365,9 +381,30 @@ function resolveAudioPlayer(): AudioPlayer | null {
     process.platform === "darwin"
       ? [{ cmd: "afplay", buildArgs: (file, volume) => ["-v", volume.toString(), file] }]
       : [
-          { cmd: "ffplay", buildArgs: (file) => ["-nodisp", "-autoexit", "-loglevel", "quiet", file] },
+          {
+            cmd: "ffplay",
+            // ffplay -h: "-volume volume  set startup volume 0=min 100=max"
+            buildArgs: (file, volume) => [
+              "-nodisp",
+              "-autoexit",
+              "-loglevel",
+              "quiet",
+              "-volume",
+              String(scaleVolume(volume, 100)),
+              file,
+            ],
+          },
+          // mpg123 scales with -f, but its range was not verified here; left as-is
+          // rather than guessing a factor.
           { cmd: "mpg123", buildArgs: (file) => ["-q", file] },
-          { cmd: "paplay", buildArgs: (file) => [file] },
+          {
+            cmd: "paplay",
+            // paplay --help: "--volume=VOLUME  Specify the initial (linear) volume
+            // in range 0...65536"
+            buildArgs: (file, volume) => [`--volume=${scaleVolume(volume, 65536)}`, file],
+          },
+          // aplay has no volume-set option (only --disable-softvol), so volume
+          // cannot be honoured on this fallback.
           { cmd: "aplay", buildArgs: (file) => ["-q", file] },
         ]
 
@@ -694,7 +731,7 @@ export async function handleVoiceRequest(req: Request): Promise<Response | null>
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       log("error", "Voice: notification error", { error: msg })
-      return jsonResponse({ status: "error", message: msg }, errorStatus(msg))
+      return jsonResponse({ status: "error", message: "Notification failed" }, errorStatus(msg))
     }
   }
 
@@ -728,7 +765,7 @@ export async function handleVoiceRequest(req: Request): Promise<Response | null>
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       log("error", "Voice: personality notification error", { error: msg })
-      return jsonResponse({ status: "error", message: msg }, errorStatus(msg))
+      return jsonResponse({ status: "error", message: "Notification failed" }, errorStatus(msg))
     }
   }
 
@@ -746,7 +783,7 @@ export async function handleVoiceRequest(req: Request): Promise<Response | null>
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       log("error", "Voice: LifeOS notification error", { error: msg })
-      return jsonResponse({ status: "error", message: msg }, errorStatus(msg))
+      return jsonResponse({ status: "error", message: "Notification failed" }, errorStatus(msg))
     }
   }
 

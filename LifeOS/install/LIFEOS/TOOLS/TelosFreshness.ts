@@ -29,7 +29,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *   bun ~/.claude/LIFEOS/TOOLS/TelosFreshness.ts --bump <slug>   → mark a section fresh
  */
 
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, statSync } from "fs";
 import { getDAName } from "../../hooks/lib/identity"
 
 import { basename, join } from "path";
@@ -105,12 +105,12 @@ export const STALENESS_THRESHOLDS: Record<string, number> = {
   da_identity: 180,
   principal_identity: 90,
   projects: 30,
-  pai_system_prompt: 90,
+  lifeos_system_prompt: 90,
   principal_telos: 30,
   architecture_summary: 30,
 
   // Source / authored docs that derivatives inherit from
-  pai_system_architecture: 90,
+  lifeos_system_architecture: 90,
 };
 
 const DEFAULT_THRESHOLD_DAYS = 180;
@@ -166,10 +166,10 @@ export const CONTEXT_FRESHNESS_REGISTRY: ContextFile[] = [
   { slug: "da_identity", path: DA_IDENTITY_PATH, threshold_days: 180, is_auto_generated: false },
   { slug: "principal_identity", path: PRINCIPAL_IDENTITY_PATH, threshold_days: 90, is_auto_generated: false },
   { slug: "projects", path: PROJECTS_PATH, threshold_days: 30, is_auto_generated: false },
-  { slug: "pai_system_prompt", path: LIFEOS_SYSTEM_PROMPT_PATH, threshold_days: 90, is_auto_generated: false },
+  { slug: "lifeos_system_prompt", path: LIFEOS_SYSTEM_PROMPT_PATH, threshold_days: 90, is_auto_generated: false },
   { slug: "principal_telos", path: PRINCIPAL_TELOS_PATH, threshold_days: 30, derived_from: TELOS_PATH, is_auto_generated: true },
   { slug: "architecture_summary", path: ARCHITECTURE_SUMMARY_PATH, threshold_days: 30, derived_from: LIFEOS_ARCHITECTURE_PATH, is_auto_generated: true },
-  { slug: "pai_system_architecture", path: LIFEOS_SYSTEM_ARCHITECTURE_PATH, threshold_days: 90, is_auto_generated: false },
+  { slug: "lifeos_system_architecture", path: LIFEOS_SYSTEM_ARCHITECTURE_PATH, threshold_days: 90, is_auto_generated: false },
 ];
 
 /** A-F letter grade. F covers both "overdue" and "never reviewed". */
@@ -253,6 +253,75 @@ export function aggregateGrade(grades: FreshnessGrade[]): FreshnessGrade {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
+
+// Slug → legacy per-topic filename. Inverse of GenerateTelosSummary.ts's
+// LEGACY_FILE_TO_SECTION: the summary reads the legacy file FIRST when it
+// exists, so freshness must honor the same effective source or the two tools
+// disagree — the summary shows real content while every section reports
+// stale/never (public issue #1477). Keep the two maps in sync.
+const LEGACY_SECTION_FILES: Record<string, string> = {
+  mission:     "MISSION.md",
+  goals:       "GOALS.md",
+  problems:    "PROBLEMS.md",
+  strategies:  "STRATEGIES.md",
+  challenges:  "CHALLENGES.md",
+  narratives:  "NARRATIVES.md",
+  traumas:     "TRAUMAS.md",
+  wrong:       "WRONG.md",
+  models:      "MODELS.md",
+  beliefs:     "BELIEFS.md",
+  frames:      "FRAMES.md",
+  wisdom:      "WISDOM.md",
+  predictions: "PREDICTIONS.md",
+
+  // Read-tolerance only (public PR #1587, @asdf8675309). On a split-file TELOS
+  // these sections live in their own sibling files, and freshness scored every
+  // one of them "never" because it only knew the thirteen above. Consolidating
+  // into TELOS.md remains the correct direction — this is not an endorsement of
+  // the split layout, just a refusal to misreport an install that has one.
+  //
+  // Deliberately NOT mirrored into GenerateTelosSummary's LEGACY_FILE_TO_SECTION:
+  // that map governs what the summary RENDERS, and widening it would grow the
+  // generated artifact. These twelve are read for freshness only.
+  ideas:              "IDEAS.md",
+  sparks:             "SPARKS.md",
+  books:              "BOOKS.md",
+  authors:            "AUTHORS.md",
+  bands:              "BANDS.md",
+  movies:             "MOVIES.md",
+  restaurants:        "RESTAURANTS.md",
+  food:               "FOOD_PREFERENCES.md",
+  meetups:            "MEETUPS.md",
+  civic:              "CIVIC.md",
+  learning_interests: "LEARNING.md",
+  team:               "TEAM.md",
+};
+
+/**
+ * Freshness date of a section's legacy per-topic file, when that file exists
+ * (frontmatter `last_updated` first, file mtime as fallback). null when the
+ * install has no legacy file for the slug — the unified-TELOS.md marker is
+ * then the only source, exactly as before.
+ */
+export function legacyTelosFilePath(slug: string, telosPath: string = TELOS_PATH): string | null {
+  const filename = LEGACY_SECTION_FILES[slug];
+  if (!filename) return null;
+  const path = join(telosPath, "..", filename);
+  return existsSync(path) ? path : null;
+}
+
+export function legacyTelosFileDate(slug: string, telosPath: string = TELOS_PATH): Date | null {
+  const path = legacyTelosFilePath(slug, telosPath);
+  if (!path) return null;
+  const { fm } = fileFrontmatter(path);
+  const fromFm = fm ? parseDate(fm.last_updated) : null;
+  if (fromFm) return fromFm;
+  try {
+    return statSync(path).mtime;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Normalize a heading to a stable slug for the threshold map.
@@ -382,7 +451,18 @@ export function readTelosFreshness(path: string = TELOS_PATH): TelosFreshness {
 
   const raw = readFileSync(path, "utf-8");
   const { fm } = parseFrontmatter(raw);
-  const fileUpdated = parseDate(fm.last_updated);
+  let fileUpdated = parseDate(fm.last_updated);
+  // Template TELOS.md with no frontmatter but real legacy per-topic files:
+  // the newest legacy file dates the corpus (issue #1477). Installs whose
+  // TELOS.md carries frontmatter are untouched by this fallback.
+  if (!fileUpdated) {
+    const legacyDates = Object.keys(LEGACY_SECTION_FILES)
+      .map((slug) => legacyTelosFileDate(slug, path))
+      .filter((d): d is Date => d !== null);
+    if (legacyDates.length) {
+      fileUpdated = new Date(Math.max(...legacyDates.map((d) => d.getTime())));
+    }
+  }
   const now = new Date();
   const fileAgeDays = fileUpdated ? daysBetween(fileUpdated, now) : null;
 
@@ -406,6 +486,11 @@ export function readTelosFreshness(path: string = TELOS_PATH): TelosFreshness {
         break;
       }
     }
+
+    // No marker → effective-source fallback: if this install still authors the
+    // section in a legacy per-topic file (the file GenerateTelosSummary reads
+    // FIRST), that file's freshness IS the section's freshness (issue #1477).
+    if (!updated) updated = legacyTelosFileDate(slug, path);
 
     // First substantive line of the section body, for preview.
     let preview = "";
@@ -678,6 +763,64 @@ export function bumpReviewedTimestamp(filePath: string, by: string = "user"): { 
   writeFileSync(filePath, next);
   refreshFreshnessCache();
   return { changed: true };
+}
+
+/**
+ * Stamp a context file after a PROGRAMMATIC write — the memory reviewer applying a
+ * proposal, ProposalGC removing one, any automated appender to an always-loaded file.
+ *
+ * Does two things in one read-modify-write:
+ *   1. `last_updated` / `last_updated_by` → now / `by` (the freshness write clock).
+ *   2. `provenance: template` → `customized`, and ONLY that transition.
+ *
+ * Why (2) matters: `PULSE/Tools/ReleaseAudit.ts` treats `provenance: template` as the
+ * ship permit for anything under `LIFEOS/USER/` — "only template may ship". A file the
+ * memory loop has written principal content into is no longer a template, and saying so
+ * in the header is what keeps the release audit honest. The key is never invented: a file
+ * carrying no `provenance` keeps none, because the audit's missing-key case is already a
+ * violation and inventing one would paper over it. `customized` (not `mixed`) matches
+ * every existing writer of this transition — MarkCustomized.ts, provenance-watcher.ts.
+ *
+ * `last_reviewed` is deliberately untouched — only a principal review bumps that
+ * (see `bumpReviewedTimestamp`), and a machine write is not a review.
+ *
+ * Best-effort by contract: returns `{ changed: false }` rather than throwing, so a
+ * stamping failure can never cost the caller the write it just made.
+ *
+ * Ported from public PR #1667, @elhoim.
+ */
+export function stampContextWrite(
+  filePath: string,
+  by: string,
+): { changed: boolean; provenanceFlipped: boolean } {
+  try {
+    if (!existsSync(filePath)) return { changed: false, provenanceFlipped: false };
+
+    const raw = readFileSync(filePath, "utf-8");
+    let next = bumpFileFrontmatter(raw, new Date().toISOString(), by);
+
+    let provenanceFlipped = false;
+    const end = next.indexOf("\n---\n", 4);
+    if (next.startsWith("---\n") && end !== -1) {
+      const fmBlock = next.slice(4, end);
+      if (/^provenance:[ \t]*template[ \t]*$/m.test(fmBlock)) {
+        next =
+          "---\n" +
+          fmBlock.replace(/^provenance:[ \t]*template[ \t]*$/m, "provenance: customized") +
+          "\n---\n" +
+          next.slice(end + 5);
+        provenanceFlipped = true;
+      }
+    }
+
+    if (next === raw) return { changed: false, provenanceFlipped: false };
+    writeFileSync(filePath, next);
+    refreshFreshnessCache();
+    return { changed: true, provenanceFlipped };
+  } catch {
+    // Never fail a caller's write because the header could not be stamped.
+    return { changed: false, provenanceFlipped: false };
+  }
 }
 
 // ─── CLI ──────────────────────────────────────────────────────────────────

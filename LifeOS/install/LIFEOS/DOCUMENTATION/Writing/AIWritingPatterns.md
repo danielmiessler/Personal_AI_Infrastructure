@@ -1,10 +1,10 @@
 ---
-version: 1.0.5
+version: 1.1.1
 ---
 
 # AI Writing Patterns — Detection Reference
 
-Exhaustive reference of AI writing tells for auditing and rewriting content. Used by the `_WRITING` skill and referenced by writing workflows.
+Exhaustive reference of AI writing tells for auditing and rewriting content. Used by the writing-audit skill and referenced by writing workflows.
 
 **Companion to `WRITINGSTYLE.md`** — that file defines how to write (voice, tone, style). This file defines what NOT to write (detection patterns, word tables, severity tiers). Some overlap exists intentionally: WRITINGSTYLE.md has compact "Forbidden" lists for quick scanning during composition; this file has the same patterns plus severity, context sensitivity, and exhaustive word tables for systematic auditing.
 
@@ -17,6 +17,7 @@ Exhaustive reference of AI writing tells for auditing and rewriting content. Use
 Not all AI-isms are equal. Prioritize by tier during audits.
 
 ### P0 — Credibility killers (fix immediately)
+- **Negations of any shape** — defining something by what it is NOT on the way to what it is. Hard ban in the principal's voice (2026-07-30). Covers the pair-form ("Von Neumann wasn't predicting AI. He was pointing at a horizon."), the trailing clause ("a claim about us, not about the machine"), and the setup-question ("the question isn't X. It's Y."). **A literal regex for `It's not X. It's Y.` under-catches badly** — four instances shipped to production after an audit using one reported zero. Read every `not` / `n't` / `never` / `rather than` / `instead of` and restate it positively. Quoted material is exempt. Full rule + rewrite table: `WRITINGSTYLE.md` § No Negations, Ever.
 - Cutoff disclaimers ("As of my last update", "I don't have access to real-time data")
 - Chatbot artifacts ("I hope this helps!", "Great question!", "Feel free to reach out")
 - Sycophantic tone ("Excellent point!", "You're absolutely right!")
@@ -355,9 +356,44 @@ When writing about AI writing patterns (blog posts, tutorials, documentation lik
 
 ---
 
+## Examples
+
+### One slop sentence, one plain rewrite
+
+Here is the reference doing its job on a single sentence. The AI-generated version:
+
+> *In today's rapidly evolving landscape, our robust platform leverages cutting-edge AI to seamlessly empower users and unlock a myriad of transformative possibilities.*
+
+Almost every word trips a rule: "In today's rapidly evolving" is a formulaic opener, and *robust*, *leverages*, *cutting-edge*, *seamlessly*, *empower*, *myriad*, and *transformative* are all Tier 1 or Tier 2 flags — seven of them in one sentence. The tell is not any single word; it is the density plus the slot-fill shape, where a blank noun could replace "possibilities" and nothing would change.
+
+The rewrite says the same thing with the air let out:
+
+> *Our tool turns a rough outline into a finished draft in seconds.*
+
+Concrete, one claim, zero flagged vocabulary. That is the whole method: name the specific thing, delete the inflation, prefer "is" and "use" over "serves as" and "leverage."
+
+### Same word, different verdict
+
+The rules are not absolute — context sets the strictness. "Leverage" is a Tier 1 flag in a blog post and gets replaced with "use." In a technical piece describing how one API *leverages* another's auth, the word carries a real meaning and passes. And a flagged phrase sitting inside a quotation — like the slop sentence quoted above — is exempt by the self-reference escape hatch: the audit flags the author's own prose, never cited examples of what not to do.
+
+```mermaid
+flowchart TD
+    A[A sentence] --> B{Inside a quote<br/>or code block?}
+    B -->|yes| P[Pass — self-reference exempt]
+    B -->|no| C{Tier 1 word,<br/>or 2+ Tier 2?}
+    C -->|yes| R[Rewrite: name the specific thing]
+    C -->|no| D{Slot-fill shape<br/>or uniform rhythm?}
+    D -->|yes| R
+    D -->|no| P
+```
+
+The diagram is the audit in miniature: quotes get a pass, a single Tier 1 word or a cluster of Tier 2 words triggers a rewrite, and even clean vocabulary fails if the shape and rhythm are templated — because structure, not word choice, is the strongest tell.
+
+---
+
 ## Cross-references
 
 - **Voice guide:** `LIFEOS/USER/PRINCIPAL/WRITINGSTYLE.md` — how {{PRINCIPAL_NAME}} sounds
 - **Analytical voice:**  — how {{DA_NAME}} sounds in analysis
 - **Rhetorical figures:** `LIFEOS/USER/PRINCIPAL/WRITINGSTYLE.md` — techniques for memorable lines
-- **Audit skill:** `skills/_WRITING/SKILL.md` — workflow for detect/rewrite modes
+- **Audit skill:** the writing-audit skill — workflow for detect/rewrite modes

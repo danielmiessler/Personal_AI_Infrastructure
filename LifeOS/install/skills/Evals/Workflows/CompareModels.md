@@ -94,18 +94,18 @@ model_comparison:
 
 ### Step 4: Run Model Comparison
 
-Run the same suite once per model via `AlgorithmBridge.ts`, then collect the per-run `results.json` and compare. The suite config encodes the model under test, so vary it across runs:
+Run the same suite once per model via `EvalRunner.ts`, then collect the per-run `results.json` and compare. The suite config encodes the model under test, so vary it across runs:
 
 ```bash
 # Sequential — three runs, one per model
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>-claude
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>-gpt
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>-gemini
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>-claude
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>-gpt
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>-gemini
 
 # Parallel — same three runs in the background
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>-claude &
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>-gpt &
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>-gemini &
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>-claude &
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>-gpt &
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>-gemini &
 wait
 ```
 
@@ -123,7 +123,7 @@ Results stored in:
 Use Report template:
 
 ```bash
-bun run ~/.claude/Templates/Tools/RenderTemplate.ts \
+bun run ~/.claude/skills/Prompting/Tools/RenderTemplate.ts \
   -t Evals/Report.hbs \
   -d ~/.claude/LIFEOS/MEMORY/STATE/Evals-Results/<use-case>/models/<run-id>/summary.yaml \
   -o ~/.claude/LIFEOS/MEMORY/STATE/Evals-Results/<use-case>/models/<run-id>/report.md

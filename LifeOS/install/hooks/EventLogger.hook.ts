@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.0
+ * @version 1.0.3
  * EventLogger.hook.ts - Unified observability event logger
  *
  * Consolidation (2026-07-10, {{PRINCIPAL_NAME}}'s hook consolidation): merges FIVE
@@ -43,13 +43,14 @@ import {
   mkdirSync,
   appendFileSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import { paiPath, getSettingsPath } from './lib/paths';
 import { getISOTimestamp, getPSTDate, getYearMonth } from './lib/time';
-import { bumpLastToolActivity } from './lib/isa-utils';
+import { bumpLastToolActivity, bumpLastToolActivityByUUID } from './lib/isa-utils';
 import {
   buildExecutionLine,
   extractSkillArgs,
@@ -58,13 +59,28 @@ import {
 } from './lib/skill-notify-core';
 
 // ── Shared stdin reader (identical 2s-timeout pattern used by all five) ──────
+// 10MB cap: a fast/continuous stream could buffer multi-GB inside the 2s window
+// (public issue #1533, @christauff). Over the cap → settle with what we have;
+// that one oversized event is truncated, consistent with fail-open behavior.
+const STDIN_CAP_BYTES = 10_000_000;
 async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
-    const timer = setTimeout(() => resolve(data), 2000);
-    process.stdin.on('data', (chunk) => { data += chunk.toString(); });
-    process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
-    process.stdin.on('error', () => { clearTimeout(timer); resolve(data); });
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { process.stdin.pause(); } catch { /* already closed */ }
+      resolve(data);
+    };
+    const timer = setTimeout(finish, 2000);
+    process.stdin.on('data', (chunk) => {
+      data += chunk.toString();
+      if (data.length > STDIN_CAP_BYTES) finish();
+    });
+    process.stdin.on('end', finish);
+    process.stdin.on('error', finish);
   });
 }
 
@@ -191,14 +207,38 @@ function handlePostToolUse(raw: string): void {
     if (!existsSync(OBS_DIR)) mkdirSync(OBS_DIR, { recursive: true });
     appendFileSync(ACTIVITY_FILE, JSON.stringify(event) + '\n', 'utf-8');
 
-    // Bump only if the tool touched a file path under MEMORY/WORK/<slug>/.
-    // For all other tool calls (general bash, web fetch, unrelated reads), no
-    // heartbeat fires. This is what makes the dashboard's "active" signal
-    // match reality instead of every tool keeping any matching-UUID session alive.
+    // Heartbeat (2026-07-15 reversal of the narrow-bump design): EVERY tool
+    // call bumps the session's row (30s debounce inside). The old rule bumped
+    // only on files under MEMORY/WORK/<slug>/, which made runs doing real work
+    // between ISA edits read as dead within 10 minutes ("I'm working right now
+    // and I don't see it" — {{PRINCIPAL_NAME}}, twice). Phantom-dead proved worse than the
+    // phantom-active the old rule guarded against. The path-based bump stays
+    // for cross-session ISA touches (a different UUID working an ISA's files).
+    if (typeof data.session_id === 'string') bumpLastToolActivityByUUID(data.session_id);
     const toolFilePath = typeof data.tool_input?.file_path === 'string'
       ? data.tool_input.file_path
       : null;
     if (toolFilePath) bumpLastToolActivity(toolFilePath);
+
+    // Drift healer (2026-07-20): ISA edits that bypass ISASync's Write/Edit
+    // trigger (Bash sed, git, other machines) leave work.json rows stale in
+    // wrong kanban lanes. WorkReconcile re-syncs rows whose ISA mtime moved.
+    // Spawn gate: state-file mtime check keeps this to one detached spawn per
+    // minute; the tool itself debounces again internally.
+    try {
+      const reconcileState = paiPath('MEMORY', 'STATE', 'work-reconcile.json');
+      let due = true;
+      try {
+        due = Date.now() - statSync(reconcileState).mtimeMs > 60_000;
+      } catch { /* no state file yet — run it */ }
+      if (due) {
+        const proc = spawn('bun', [paiPath('TOOLS', 'WorkReconcile.ts')], {
+          detached: true,
+          stdio: 'ignore',
+        });
+        proc.unref();
+      }
+    } catch { /* healing is best-effort; never break the logger */ }
   } catch (e) {
     console.error('[ToolActivityTracker]', e instanceof Error ? e.message : String(e));
   }
@@ -318,13 +358,10 @@ function handleStopFailure(raw: string): void {
     // Silent — don't block on logging failure
   }
 
-  // No voice notification — log-only (principal directive 2026-06-11).
-  // History: the voice fired on every event, then got a rate_limit skip + 90s
-  // cooldown (2026-06-02), and STILL annoyed {{PRINCIPAL_NAME}} — any StopFailure kind the
-  // suppression list didn't name (e.g. "unknown") spoke "API error ended the
-  // turn. Check the session." The harness already prints the error on screen,
-  // so the voice carried zero new information. The JSONL log above remains the
-  // record; nothing here speaks.
+  // Log-only. Nothing here speaks, and re-adding voice is a regression, not a feature:
+  // Claude Code already prints the error on screen, so a spoken StopFailure carries zero
+  // new information. Suppression lists do not fix this — any kind the list fails to name
+  // (e.g. "unknown") speaks anyway. The JSONL above is the record.
 }
 
 // ═════════════════════════════════════════════════════════════════════════

@@ -5,19 +5,13 @@
 #
 # type = "script" → runs command, $0 cost
 # type = "claude" → spawns claude --print, costs tokens
-# output = voice | telegram | ntfy | email | log
+# output = voice | ntfy | email | log
 # Sentinels: NO_ACTION, NO_URGENT, NO_EVENTS → suppress dispatch
 
 # ── Module Configuration ──
 
 [voice]
 enabled = true
-
-[telegram]
-enabled = true
-# Spoken summary of each text reply as a Telegram voice note (PR #1458, author anikin-xyz).
-# Requires ELEVENLABS_API_KEY. Set false to keep text replies but suppress voice notes.
-voice_summaries = true
 
 [imessage]
 enabled = false
@@ -69,14 +63,16 @@ enabled = true
 
 [bunker]
 enabled = true
-# Reads the app registry from ~/Projects/bunker via its CLI (`bunker data`).
+# Reads the app registry from ~/.claude/LIFEOS/PULSE/Bunker via its CLI (`bunker data`).
 # Override the harness location with the BUNKER_DIR env var.
 
 [syslog]
 enabled = true
 port = 5514
 # Captures UniFi syslog to ~/.claude/LIFEOS/MEMORY/OBSERVABILITY/unifi-syslog.jsonl.
-# See _NETWORK/Workflows/CaptureLogs.md for controller-side setup.
+# Controller-side setup: point your router/firewall's remote-syslog target at this
+# host on UDP 5514. Most consumer and prosumer gear exposes this as Settings →
+# System → Remote Logging (hostname + port).
 
 [local_intelligence]
 enabled = true
@@ -124,23 +120,40 @@ command = "bun run checks/health.ts"
 output = "ntfy"
 enabled = true
 
-[[job]]
-name = "airgradient-poll"
-schedule = "*/5 * * * *"
-type = "script"
-command = "bun run checks/airgradient-poll.ts"
-output = "log"
-enabled = true
-
 # NOTE: cost-tracker moved to LIFEOS/USER/CONFIG/PULSE.user.toml on 2026-05-03 —
 # scans {{PRINCIPAL_NAME}}-specific call-site fingerprint, doesn't belong in public template.
+# NOTE: airgradient-poll moved to LIFEOS/USER/CONFIG/PULSE.user.toml on 2026-07-17 —
+# polls the principal's own AirGradient sensors; shipped default-on it polled
+# nothing forever on fresh installs (public issue #1504, @tzioup).
 
 [[job]]
 name = "memory-consolidation"
 schedule = "0 3 * * *"
-type = "claude"
-prompt = "Run learning consolidation: execute `bun run ~/.claude/LIFEOS/TOOLS/SessionHarvester.ts --recent 20` then `bun run ~/.claude/LIFEOS/TOOLS/LearningPatternSynthesis.ts --week`. Summarize what was learned and any patterns found."
-model = "sonnet"
+# Deterministic tools, no LLM needed. Must be a script job: `type = "claude"`
+# spawns the CLI with `--tools ""` (see PULSE/lib.ts), so an agent asked to
+# *execute* these commands can't — it narrates and exits, logging "completed"
+# in a few seconds while running nothing. (public PR #1601, @asdf8675309)
+# timeout_ms is explicit because spawnScript's 60s default is far too short for
+# a 20-session harvest plus a week of pattern synthesis.
+type = "script"
+command = "bun run ~/.claude/LIFEOS/TOOLS/SessionHarvester.ts --recent 20 && bun run ~/.claude/LIFEOS/TOOLS/LearningPatternSynthesis.ts --week"
+timeout_ms = 600000
+output = "log"
+enabled = true
+
+[[job]]
+name = "proposal-gc"
+schedule = "45 3 * * *"
+# Applied proposals accreted in the always-loaded context files until someone
+# remembered to run /trim by hand (public issue #1669, @xmasyx). `--auto` implies
+# --apply and adds what an unattended run needs: BOUNDED (a file offering more
+# than MAX_AUTO_REMOVALS is left for a human — a pass that large is a signal, not
+# a chore) and FAIL-SILENT (always exit 0; a GC failure must never page). Removal
+# is provable-only: an entry goes only when it is already folded into the curated
+# section above it, which is why re-running finds nothing. Runs at :45 so it
+# collects whatever memory-consolidation (0 3) just wrote.
+type = "script"
+command = "bun run ~/.claude/LIFEOS/TOOLS/ProposalGC.ts --auto"
 output = "log"
 enabled = true
 

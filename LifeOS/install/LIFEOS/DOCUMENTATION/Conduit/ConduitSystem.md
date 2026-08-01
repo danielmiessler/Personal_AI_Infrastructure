@@ -1,8 +1,8 @@
 ---
 last_updated: 2026-07-04T00:00:00Z
-last_updated_by: kai
+last_updated_by: da
 convention: pai-freshness-v1
-version: 1.2.0
+version: 1.3.3
 ---
 
 # Conduit — LifeOS's Sensory Layer
@@ -11,7 +11,9 @@ version: 1.2.0
 > known your ideal state (TELOS) but not your actual state — what you do day to day. So
 > it could not answer "are we working on the right stuff?" Conduit gives LifeOS eyes: a
 > local, continuous, opt-in capture layer that records where attention actually goes,
-> rolls it into a daily record, and feeds that record to the memory and TELOS systems.
+> rolls it into a daily record, and feeds that record to Cortex (the memory system) and TELOS.
+> In the sensory stack, Conduit is the **internal sense** — Feed is the external one, and
+> Synapse (`Synapse/SynapseSystem.md`) is the router that grades and routes captured signal.
 > Design ISA: `LIFEOS/MEMORY/WORK/20260704-conduit-context-gathering/ISA.md`.
 
 **Component version:** Conduit v1.0.0 · shipped in LifeOS 6.1.0.
@@ -59,7 +61,7 @@ launchd (com.lifeos.conduit, every 120s)
                        │
         ┌──────────────┼───────────────┬──────────────┐
         ▼              ▼               ▼              ▼
-   Pulse module   memory system   TELOS/LIFEOS_STATE  WorkSweep
+   Pulse module   Cortex (memory)  TELOS/LIFEOS_STATE  WorkSweep
    (/api/conduit) (daily context) (observed vs ideal) (untracked work)
 ```
 
@@ -189,13 +191,55 @@ schema, adapter contract, or rollup format. Conduit v1.0.0 ships in LifeOS 6.1.0
 - **v1 (shipped):** deterministic capture (appFocus + git + claudeSession) → daily record; launchd; Pulse module; retention.
 - **v1.1 (shipped 2026-07-05):** intuitive tab — sources & cadence panel (`/api/conduit/sources`), the hourly cheap-inference **content-type read** (`BuildInsight.ts` → `insights/<date>.json` → `/api/conduit/insight`), honest empty/stale states. Subscription inference, `--level low`, idempotent skip-on-idle. This is the pragmatic realization of the `narrative` seam via subscription inference (vs the Ollama-class local model originally sketched for v2).
 - **v2 — TELOS scoring:** activity→TELOS-goal tagging, filling the `telosTags` seam. **Gated by the D-11 validation spike** (can a cheap model reliably tag a synthetic day against TELOS?).
-- **v3 — reach adapters:** wire `_INBOX` / `_CALENDAR` as tier-1 account readers.
-- **v1.5 — browser adapter:** Dia/Chrome extension → active URL (makes in-browser C1 visible).
+- **v3 — reach adapters:** wire the inbox and calendar skills as tier-1 account readers.
+- **v1.5 — browser adapter:** Chrome extension → active URL (makes in-browser C1 visible).
 - **later:** iMessage metadata; optional screenshot/vision fallback.
+
+## Examples
+
+### A day, handed back to you
+
+The whole idea at its smallest: **you think you spent the day writing, and the mirror says otherwise.**
+
+A writer sits down meaning to work on a book chapter. At day's end Conduit's daily record shows where attention actually went — three hours in a chat app, ninety minutes in email, forty minutes in the editor. Nothing accuses; the record just lays the day out. The writer reads it and decides for themselves: the morning got eaten, the afternoon was real.
+
+That is the entire contract. Conduit captured spans (which app was in front, for how long) and never a keystroke of what was typed. It rolled them into one deterministic record. It offered no score, no "you were 40% aligned" verdict — because a single number would just invite gaming. Distribution plus record; you judge.
+
+### When the mirror is honestly blank
+
+The reinforcing case is what Conduit *doesn't* see. v1 watches the front app, new commits, and coding sessions — it has no browser adapter. So a day spent entirely on in-browser research reads as near-empty.
+
+That is honest incompleteness, not a false verdict:
+
+- **A source it can read** (the editor, a git repo) shows up as real time.
+- **A source it can't** (an active browser tab) is absent — and the tab says "no browser adapter yet," not "you did nothing."
+- **A source you switched off** in config is absent by your own choice.
+
+The blank is a boundary of perception, surfaced plainly, never dressed up as a judgment.
+
+### One day, capture to gap
+
+```mermaid
+flowchart TD
+    A[launchd poll every 120s] --> B[Adapters read spans:<br/>front app, new commits, sessions]
+    B --> C[Append one JSONL line per signal]
+    C --> D{Day rolls over?}
+    D -->|not yet| A
+    D -->|yes| E[Pure rollup: events to daily record]
+    E --> F[Deterministic time + creation view]
+    F --> G[Cortex reads the day]
+    F --> H[TELOS state gains an observed signal]
+    G --> I[The gap: observed vs ideal state]
+    H --> I
+```
+
+The diagram is the sensory loop in one frame: cheap polls accrete raw spans all day, a pure function folds them into one record at rollover, and that record meets TELOS only at the gap — where observed state is compared to ideal state, and neither side ever writes the other's file.
+
+---
 
 ## Cross-references
 
 - Design ISA: `LIFEOS/MEMORY/WORK/20260704-conduit-context-gathering/ISA.md`
 - Pulse: `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`
-- Memory: `LIFEOS/DOCUMENTATION/Memory/MemorySystem.md`
+- Cortex (memory): `LIFEOS/DOCUMENTATION/Memory/MemorySystem.md`
 - TELOS derived-state: `LIFEOS/TOOLS/UpdateLifeosState.ts`, `DerivedSync.ts`

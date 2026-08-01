@@ -1,6 +1,6 @@
 # Crime Workflow
 
-Local crime stats and recent incidents. **Delegates entirely to the `_CRIMESTATS` skill** — this workflow does not re-implement crime data fetching.
+Local crime stats and recent incidents. **Delegates entirely to a dedicated crime-stats skill** — this workflow does not re-implement crime data fetching.
 
 ## Voice Notification
 
@@ -22,4 +22,4 @@ Running **Crime** in **LocalIntelligence**...
 
 ## Forbidden
 
-- Direct calls to CitizenRIMS, FBI UCR, AreaVibes, NeighborhoodScout, or any crime-data source from this workflow or `Tools/FetchCrime.ts`. All crime data routes through `_CRIMESTATS`.
+- Direct calls to CitizenRIMS, FBI UCR, AreaVibes, NeighborhoodScout, or any crime-data source from this workflow or `Tools/FetchCrime.ts`. All crime data routes through a dedicated crime-stats skill.

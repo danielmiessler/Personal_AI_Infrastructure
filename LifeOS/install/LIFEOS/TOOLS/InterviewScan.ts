@@ -25,7 +25,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { readTelosFreshness, sectionSlug, type SectionFreshness } from "./TelosFreshness";
+import { readTelosFreshness, sectionSlug, legacyTelosFilePath, type SectionFreshness } from "./TelosFreshness";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -176,18 +176,18 @@ const REGISTRY: RegistryTarget[] = [
               "What has changed in your vision of {{DA_NAME}}'s role by then?",
               "Any missing moments that would make the future day more concrete?"] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Books")}`, name: "Books", category: "preference", leverage: 5,
-    prompts: ["The massive list — beyond the current 5, what books shaped you?",
+    prompts: ["The long list — which books actually shaped how you think?",
               "Biographies, science, history, classics, business — categories to fill?"] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Authors")}`, name: "Authors", category: "preference", leverage: 5,
-    prompts: ["Beyond the 7 already listed — what other authors do you track?",
-              "Security / AI / tech writers whose new work you'd buy immediately?"] },
+    prompts: ["Which authors do you follow by name, whatever they publish?",
+              "Writers in your field whose new work you'd buy immediately?"] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Bands")}`, name: "Bands", category: "preference", leverage: 4,
-    prompts: ["Beyond Tool, Meshuggah, Boris Brejcha — what other artists have shaped you?",
+    prompts: ["Which artists have actually shaped you — not just ones you enjoy?",
               "Artists you'd travel 100 miles for — tour-alert priority ones?",
               "Electronic / DJ / producer names you track?"] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Movies")}`, name: "Movies", category: "preference", leverage: 3,
-    prompts: ["Sci-fi beyond Interstellar that shaped you?",
-              "Crime / thrillers beyond Pulp Fiction and Snatch?",
+    prompts: ["Films that shaped how you see the world?",
+              "Genres you return to — crime, sci-fi, thrillers, something else?",
               "Directors whose catalog you track?"] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Restaurants")}`, name: "Restaurants", category: "preference", leverage: 4,
     prompts: ["Favorites near home — your go-to list?",
@@ -272,9 +272,37 @@ function parseTelosSections(content: string): Map<string, string> {
   return sections;
 }
 
+/**
+ * Body of a TELOS section, tolerating a split-file install.
+ *
+ * The H2 scan over TELOS.md is the primary source. On a split-file TELOS,
+ * though, TELOS.md is a thin index and the real content lives in an ALLCAPS
+ * sibling — so every section scored 0% "does not exist" while the content was
+ * sitting right there. A POPULATED sibling wins; an empty or missing one falls
+ * back to the H2 body, so a half-made file can never hide real content.
+ * Consolidating into TELOS.md is still the correct direction — this only stops
+ * the scan from misreporting an install that hasn't.
+ * public PR #1587, @asdf8675309
+ */
 function extractSectionBody(target: RegistryTarget, sections: Map<string, string>): string | null {
   if (!target.path.startsWith(TELOS_SECTION_PREFIX)) return null;
-  return sections.get(sectionSlug(target.name)) ?? null;
+  const slug = sectionSlug(target.name);
+  const h2Body = sections.get(slug) ?? null;
+
+  const legacyPath = legacyTelosFilePath(slug, TELOS_PATH);
+  if (legacyPath) {
+    try {
+      const raw = readFileSync(legacyPath, "utf-8");
+      // Strip frontmatter so a file carrying only `---\nlast_updated: ...\n---`
+      // reads as empty rather than as content.
+      const body = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+      if (body.replace(/^#.*$/gm, "").trim().length > 0) return body;
+    } catch {
+      // Unreadable sibling — fall through to the H2 body.
+    }
+  }
+
+  return h2Body;
 }
 
 function freshnessForSection(target: RegistryTarget): SectionFreshness | null {

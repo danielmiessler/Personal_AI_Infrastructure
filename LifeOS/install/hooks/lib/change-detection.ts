@@ -7,7 +7,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join, relative, basename } from 'path';
-import { getLifeosDir } from './paths';
+import { getLifeosDir, getClaudeDir } from './paths';
 
 // ============================================================================
 // Types
@@ -53,6 +53,10 @@ export interface IntegrityState {
 // ============================================================================
 
 const LIFEOS_DIR = getLifeosDir();
+// LifeOS spans TWO roots. CLAUDE_DIR (~/.claude) holds hooks, skills,
+// settings.json, agents and CLAUDE.md; LIFEOS_DIR (~/.claude/LIFEOS) holds the
+// data tree. Containment must accept both — see categorizeChange().
+const CLAUDE_DIR = getClaudeDir();
 const STATE_FILE = join(LIFEOS_DIR, 'MEMORY', 'STATE', 'integrity-state.json');
 
 // Paths that are excluded from integrity checks
@@ -210,9 +214,16 @@ export function categorizeChange(path: string): ChangeCategory | null {
     }
   }
 
-  // Check if path is within LifeOS directory
-  const absolutePath = path.startsWith('/') ? path : join(LIFEOS_DIR, path);
-  if (!absolutePath.startsWith(LIFEOS_DIR)) {
+  // Check if path is within LifeOS. Transcripts always record ABSOLUTE paths,
+  // and hooks / skills / settings.json live under CLAUDE_DIR, not LIFEOS_DIR —
+  // so testing LIFEOS_DIR alone returned null for every hook, skill and config
+  // edit. That silently emptied the `category !== null` filter in
+  // isSignificantChange() and shouldDocumentChanges(), and the integrity and
+  // documentation pipelines never fired for hook or skill work, which is most
+  // system work. Measured on a live transcript: 9 file changes, 6 of them
+  // hooks, all categorized null and reported "not significant".
+  const absolutePath = path.startsWith('/') ? path : join(CLAUDE_DIR, path);
+  if (!absolutePath.startsWith(CLAUDE_DIR) && !absolutePath.startsWith(LIFEOS_DIR)) {
     return null;
   }
 

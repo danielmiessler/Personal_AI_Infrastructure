@@ -11,7 +11,7 @@ handrolling anti-pattern documented in feedback_invoke_blogging_skill_never_hand
 
 - Creating a new skill directory
 - Adding / removing / renaming Workflows, Tools, or References
-- Editing SKILL.md frontmatter (name, description, effort, license)
+- Editing SKILL.md frontmatter (name, description, license)
 - Validating an existing skill against canonical format
 - Canonicalizing a legacy skill
 - Public-clean audit

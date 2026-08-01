@@ -5,7 +5,7 @@
 #
 #   Unlike a whole-harness install, this does NOT clobber your setup.
 #   It drops the LifeOS skill into your existing harness, then hands off
-#   to the agentic `/lifeos-setup`, which (with your permission) does the
+#   to the agentic `/LifeOS setup`, which (with your permission) does the
 #   conflict detection, the principal conversation, the TELOS interview
 #   (current state + ideal state), pulls in any sources you provide, and
 #   wires hooks — adapting to YOUR OS and harness as it goes.
@@ -15,7 +15,8 @@
 #     2. Detects your harness + any existing LifeOS install (no clobber)
 #     3. Fetches the latest LifeOS release (or uses $LIFEOS_SRC locally)
 #     4. Places the LifeOS skill additively into your skills dir
-#     5. Hands off to `/lifeos-setup` (the agentic onboarding)
+#     5. Migrates stale pre-7.x launch aliases (`pai` → the 7.x launcher)
+#     6. Hands off to `/LifeOS setup` (the agentic onboarding)
 #
 #   Local/offline install (no network):
 #     LIFEOS_SRC=/path/to/LIFEOS_RELEASES/<version> bash install.sh
@@ -26,17 +27,34 @@ set -euo pipefail
 # No pin: this resolves the newest GitHub Release at run time, so every new
 # release reaches every installer with zero edits here. Override with
 # LIFEOS_VERSION=x.y.z (or LIFEOS_TAG=vx.y.z) to force a specific version.
-# Falls back to a known-good tag if the GitHub API is unreachable, so the
-# install never hard-fails on a network hiccup.
+# Resolution order: (1) the releases/latest HTML redirect — NOT subject to the
+# anonymous API rate limit (60/hr/IP) that made the old API-only path fail on
+# shared IPs; (2) the GitHub API; (3) a stamped fallback tag, WITH a warning.
+# LIFEOS_FALLBACK_TAG is stamped to the release version by EmitSkill at emit
+# time — never edit it by hand, and never trust it silently (2026-07-12: a
+# rate-limited API call silently installed v7.0.0 after v7.1.1 had shipped).
 # Repo owner/name is parameterized — set at publish time, never hard-coded here.
 LIFEOS_REPO="${LIFEOS_REPO:-danielmiessler/LifeOS}"
-LIFEOS_FALLBACK_TAG="v7.0.0"
+LIFEOS_FALLBACK_TAG="v7.28.3"
 if [ -n "${LIFEOS_VERSION:-}" ]; then
   LIFEOS_TAG="v${LIFEOS_VERSION}"
 elif [ -z "${LIFEOS_TAG:-}" ]; then
-  LIFEOS_TAG="$(curl -fsSL "https://api.github.com/repos/${LIFEOS_REPO}/releases/latest" 2>/dev/null \
-    | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1 || true)"
-  LIFEOS_TAG="${LIFEOS_TAG:-$LIFEOS_FALLBACK_TAG}"
+  # 1) Redirect probe: github.com/<repo>/releases/latest 302s to .../releases/tag/vX.Y.Z
+  LIFEOS_TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+    "https://github.com/${LIFEOS_REPO}/releases/latest" 2>/dev/null \
+    | sed -n 's|.*/releases/tag/||p' || true)"
+  # 2) API fallback (rate-limited for anonymous callers, so it's second)
+  if [ -z "$LIFEOS_TAG" ]; then
+    LIFEOS_TAG="$(curl -fsSL "https://api.github.com/repos/${LIFEOS_REPO}/releases/latest" 2>/dev/null \
+      | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1 || true)"
+  fi
+  # 3) Stamped fallback — loud, never silent
+  if [ -z "$LIFEOS_TAG" ]; then
+    LIFEOS_TAG="$LIFEOS_FALLBACK_TAG"
+    echo "WARNING: could not resolve the latest release from GitHub (network/rate limit)." >&2
+    echo "WARNING: installing pinned fallback ${LIFEOS_FALLBACK_TAG} — a newer release may exist." >&2
+    echo "WARNING: re-run later, or force one with LIFEOS_VERSION=x.y.z" >&2
+  fi
 fi
 LIFEOS_VERSION="${LIFEOS_TAG#v}"
 LIFEOS_TARBALL_URL="${LIFEOS_TARBALL_URL:-https://github.com/${LIFEOS_REPO}/archive/refs/tags/${LIFEOS_TAG}.tar.gz}"
@@ -69,7 +87,7 @@ printf "  ${LIGHT_BLUE}━━━━━━━━━━━━━━━━━━━
 [ "$DRY_RUN" = "1" ] && warn "DRY-RUN mode — no changes will be made."
 
 # ─── Step 1: Prereqs ─────────────────────────────────────────────
-step "1/5  Checking prerequisites"
+step "1/6  Checking prerequisites"
 OS="$(uname -s)"
 case "$OS" in
   Darwin) info "Platform: macOS" ;;
@@ -102,6 +120,9 @@ bun_too_old() {
   [ "$minor" -lt "$BUN_MIN_MINOR" ] && return 0 || return 1
 }
 install_bun() {
+  # Dry-run must simulate end-to-end: the run wrapper suppresses the install,
+  # so the postcondition check would abort the simulation (Forge audit, 2026-07-30).
+  if [ "$DRY_RUN" = "1" ]; then info "[DRY-RUN] Would install bun (curl -fsSL https://bun.sh/install | bash)"; return 0; fi
   if [ "${LIFEOS_AUTO_INSTALL_BUN:-1}" = "1" ] && [ -z "${CI:-}" ] && [ -t 0 ]; then
     info "Installing bun..."
     run bash -c "curl -fsSL https://bun.sh/install | bash"
@@ -125,7 +146,7 @@ fi
 success "bun ($(command -v bun), v$(bun --version 2>/dev/null))"
 
 # ─── Step 2: Detect harness (no clobber) ─────────────────────────
-step "2/5  Detecting your harness"
+step "2/6  Detecting your harness"
 if [ -z "$LIFEOS_SKILLS_DIR" ]; then
   if [ -d "$HOME/.claude" ]; then LIFEOS_SKILLS_DIR="$HOME/.claude/skills"
   elif [ -d "$HOME/.config/claude" ]; then LIFEOS_SKILLS_DIR="$HOME/.config/claude/skills"
@@ -134,17 +155,33 @@ fi
 info "Skills dir: ${BOLD}${LIFEOS_SKILLS_DIR/#$HOME/~}${RESET}"
 TARGET="$LIFEOS_SKILLS_DIR/LifeOS"
 if [ -e "$TARGET" ]; then
-  TS="$(date +%Y%m%d-%H%M%S)"
-  warn "Existing LifeOS skill — backing up ONLY it to LifeOS.backup-$TS (your other files are untouched)."
-  run mv "$TARGET" "$TARGET.backup-$TS"
+  info "Existing LifeOS skill found — it will be backed up AFTER the new release is fetched."
 else
   success "No existing LifeOS skill — clean drop-in."
 fi
 
 # ─── Step 3: Fetch the LifeOS release ────────────────────────────
-step "3/5  Fetching LifeOS ${LIFEOS_TAG}"
+step "3/6  Fetching LifeOS ${LIFEOS_TAG}"
 TMP_DIR="$(mktemp -d -t lifeos-install-XXXXXX)"
-trap 'rm -rf "$TMP_DIR"' EXIT
+# The EXIT trap also restores the backed-up skill if we die MID-PLACEMENT —
+# command failure alone was handled, but SIGINT/SIGTERM during the copy left
+# no active skill despite the transactional promise (Forge audit, 2026-07-30).
+PLACEMENT_BACKUP=""
+PLACEMENT_DONE=0
+restore_on_abort() {
+  rm -rf "$TMP_DIR"
+  if [ -n "$PLACEMENT_BACKUP" ] && [ "$PLACEMENT_DONE" = "0" ] && [ -d "$PLACEMENT_BACKUP" ]; then
+    rm -rf "$TARGET" 2>/dev/null || true
+    mv "$PLACEMENT_BACKUP" "$TARGET" 2>/dev/null || true
+    echo "Aborted mid-placement — previous LifeOS skill restored from backup." >&2
+  fi
+}
+# Signals must EXIT (which fires the EXIT trap above) — a handler that merely
+# restores would let bash resume the script afterward and reinstall over the
+# restored backup (bash defers traps until the foreground child returns).
+trap restore_on_abort EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 if [ -n "$LIFEOS_SRC" ]; then
   info "Local source: ${LIFEOS_SRC/#$HOME/~}"
   SRC_SKILL="$LIFEOS_SRC/$LIFEOS_RELEASE_SUBPATH"
@@ -155,21 +192,148 @@ else
     error "Network install needs LIFEOS_REPO set (owner/name), or use LIFEOS_SRC for a local install."; exit 1
   fi
   run bash -c "curl -fsSL '$LIFEOS_TARBALL_URL' | tar -xzf - -C '$TMP_DIR'"
-  EXTRACTED="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-  SRC_SKILL="$EXTRACTED/$LIFEOS_RELEASE_SUBPATH"
-  [ -d "$SRC_SKILL" ] || { error "LifeOS skill not in tarball at $LIFEOS_RELEASE_SUBPATH"; exit 1; }
+  if [ "$DRY_RUN" = "1" ]; then
+    # The run wrapper suppressed the download, so the postconditions below would
+    # abort the simulation against an empty TMP_DIR (Forge audit, 2026-07-30 —
+    # same class as the install_bun postcondition). Simulate the resolved path.
+    SRC_SKILL="$TMP_DIR/[dry-run-extracted]/$LIFEOS_RELEASE_SUBPATH"
+    info "[DRY-RUN] Would extract the tarball and resolve the skill at .../$LIFEOS_RELEASE_SUBPATH"
+  else
+    EXTRACTED="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+    SRC_SKILL="$EXTRACTED/$LIFEOS_RELEASE_SUBPATH"
+    [ -d "$SRC_SKILL" ] || { error "LifeOS skill not in tarball at $LIFEOS_RELEASE_SUBPATH"; exit 1; }
+  fi
 fi
 success "Fetched ${LIFEOS_TAG}"
 
+# Back up the existing skill ONLY now that a usable source is in hand. Doing this
+# in Step 2 meant any Step 3 failure — an unset LIFEOS_REPO, a missing local
+# source, a network error — left the user with no active LifeOS skill and a
+# backup directory they had to find themselves.
+if [ -e "$TARGET" ]; then
+  TS="$(date +%Y%m%d-%H%M%S)"
+  warn "Existing LifeOS skill — backing up ONLY it to LifeOS.backup-$TS (your other files are untouched)."
+  run mv "$TARGET" "$TARGET.backup-$TS"
+  [ "$DRY_RUN" = "1" ] || PLACEMENT_BACKUP="$TARGET.backup-$TS"
+fi
+
 # ─── Step 4: Place the skill (additive) ──────────────────────────
-step "4/5  Installing the LifeOS skill (additive — nothing else touched)"
+step "4/6  Installing the LifeOS skill (additive — nothing else touched)"
 run mkdir -p "$LIFEOS_SKILLS_DIR"
-run cp -R "$SRC_SKILL" "$TARGET"
+# Transactional placement: a failed copy (permissions, disk, interrupt) must
+# restore the backup instead of leaving no active skill (Forge audit, 2026-07-30).
+if [ "$DRY_RUN" = "1" ]; then
+  run cp -R "$SRC_SKILL" "$TARGET"
+else
+  if ! cp -R "$SRC_SKILL" "$TARGET"; then
+    if [ -n "${TS:-}" ] && [ -d "$TARGET.backup-$TS" ]; then
+      rm -rf "$TARGET" 2>/dev/null || true
+      mv "$TARGET.backup-$TS" "$TARGET"
+      error "Skill copy failed — previous installation RESTORED from backup. Fix the underlying error (disk space? permissions?) and re-run."
+    else
+      error "Skill copy failed and no backup exists — re-run the installer after fixing the underlying error."
+    fi
+    exit 1
+  fi
+fi
+PLACEMENT_DONE=1
 success "LifeOS skill placed at ${TARGET/#$HOME/~}"
 
-# ─── Step 5: Hand off to the agentic setup ───────────────────────
-step "5/5  Onboarding"
-if [ "$DRY_RUN" = "1" ]; then info "[DRY-RUN] Would launch /lifeos-setup"; exit 0; fi
+# Interceptor verification captures must never ride into a user's backup commit
+# (public issue #1566, @xmasyx): keeping the config root under git with a private
+# remote is common, and captures can contain authenticated pages. Name-anchored,
+# NOT extension-anchored — both .png and .jpg captures have been observed, and a
+# format change must not silently reopen the hole. Idempotent append.
+GITIGNORE_TARGET="$(dirname "$LIFEOS_SKILLS_DIR")/.gitignore"
+# Each rule is guarded INDIVIDUALLY — a compound guard keyed on the first rule
+# left older installs missing every rule added later (Forge audit, 2026-07-30).
+# Direct redirection, never a path interpolated into a bash -c string — a
+# single quote in HOME would terminate the quoting and reparse the path as
+# shell syntax (Forge audit P1, 2026-07-30).
+append_gitignore_line() {
+  if [ "$DRY_RUN" = "1" ]; then echo "  [DRY-RUN] append to gitignore: $1"; else printf '%s\n' "$1" >> "$GITIGNORE_TARGET"; fi
+}
+CAPTURE_RULES_ADDED=0
+for capture_rule in 'interceptor-screenshot-*' 'interceptor-capture-*' 'interceptor-macos-screenshot-*'; do
+  if ! grep -qxF "$capture_rule" "$GITIGNORE_TARGET" 2>/dev/null; then
+    if [ "$CAPTURE_RULES_ADDED" = "0" ] && ! grep -q '# Interceptor verification captures' "$GITIGNORE_TARGET" 2>/dev/null; then
+      append_gitignore_line ''
+      append_gitignore_line '# Interceptor verification captures — never commit (name-anchored; capture format varies)'
+    fi
+    append_gitignore_line "$capture_rule"
+    CAPTURE_RULES_ADDED=1
+  fi
+done
+[ "$CAPTURE_RULES_ADDED" = "1" ] && success "Backup-safety gitignore rules for Interceptor captures in place"
+
+# ─── Step 5: Migrate stale pre-7.x launch aliases (upgrade path) ──
+# Pre-7.x installs wired a `pai` launch alias — either `cd ~/.claude && claude`
+# or `bun ~/.claude/PAI/ACTIONS/pai.ts`. 7.x renamed PAI/ → LIFEOS/ and made the
+# launch constitutional (`lifeos.ts -s LIFEOS_SYSTEM_PROMPT.md`), so an old alias
+# either dies on the missing PAI/ path or silently launches WITHOUT the
+# constitution. Repoint stale aliases in place — SAME alias name, so the user's
+# muscle-memory invocation keeps working — and add the canonical `lifeos` alias.
+# Detection is deliberately tight (only the two documented historical forms:
+# a /PAI/ path, or a bare `&& claude` launch); a current 7.x alias always
+# contains LIFEOS_SYSTEM_PROMPT and is never touched, and the valid Arbol CLI
+# alias (ARBOL/Actions/lifeos.ts) matches neither pattern. The rc is backed up
+# first; the rewrite is idempotent (commented lines no longer match). Skip
+# entirely with LIFEOS_SKIP_ALIAS=1. Fish users: migrate the funcsaved alias
+# by hand (see INSTALL.md step 7).
+step "5/6  Migrating launch aliases (pre-7.x upgrades)"
+CONFIG_ROOT="$(dirname "$LIFEOS_SKILLS_DIR")"
+LAUNCHER="$CONFIG_ROOT/LIFEOS/TOOLS/lifeos.ts"
+SYS_PROMPT="$CONFIG_ROOT/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"
+migrate_rc() {
+  local rc="$1" stale names n ts
+  [ -f "$rc" ] || return 0
+  stale="$(grep -E '^[[:space:]]*alias[[:space:]]+(pai|kai|lifeos)=' "$rc" 2>/dev/null \
+    | grep -v 'LIFEOS_SYSTEM_PROMPT' \
+    | grep -E '/PAI/|&&[[:space:]]*claude' || true)"
+  [ -z "$stale" ] && return 0
+  warn "Stale pre-7.x launch alias in ${rc/#$HOME/~}:"
+  printf '%s\n' "$stale" | sed 's/^/      /'
+  if [ "$DRY_RUN" = "1" ]; then echo "  [DRY-RUN] Would back up ${rc/#$HOME/~}, comment the line(s) out, and repoint to the 7.x launcher."; return 0; fi
+  ts="$(date +%Y%m%d-%H%M%S)"
+  cp "$rc" "$rc.lifeos-backup-$ts"
+  names="$(printf '%s\n' "$stale" | sed -E 's/^[[:space:]]*alias[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)=.*/\1/' | sort -u)"
+  awk -v tag="$LIFEOS_TAG" '
+    /^[[:space:]]*alias[[:space:]]+(pai|kai|lifeos)=/ && !/LIFEOS_SYSTEM_PROMPT/ && (/\/PAI\// || /&&[[:space:]]*claude/) {
+      print "# [migrated to LifeOS " tag " — see .lifeos-backup] " $0; next
+    }
+    { print }
+  ' "$rc" > "$rc.lifeos-tmp" && mv "$rc.lifeos-tmp" "$rc"
+  if [ -f "$LAUNCHER" ]; then
+    local add_lifeos=1
+    printf '%s\n' $names | grep -qx lifeos && add_lifeos=0
+    grep -E '^[[:space:]]*alias[[:space:]]+lifeos=' "$rc" 2>/dev/null | grep -q 'LIFEOS_SYSTEM_PROMPT' && add_lifeos=0
+    {
+      echo ""
+      echo "# LifeOS ${LIFEOS_TAG} launch aliases (repointed from pre-7.x by install.sh)"
+      for n in $names; do
+        echo "alias $n='bun $LAUNCHER -s $SYS_PROMPT'"
+      done
+      if [ "$add_lifeos" = "1" ]; then echo "alias lifeos='bun $LAUNCHER -s $SYS_PROMPT'"; fi
+    } >> "$rc"
+    success "Repointed $(echo $names | tr '\n' ' ')to the constituted 7.x launcher (backup: $(basename "$rc").lifeos-backup-$ts)"
+  else
+    warn "Old alias commented out, but the LIFEOS launcher isn't placed yet — /LifeOS setup will wire the new alias (backup: $(basename "$rc").lifeos-backup-$ts)."
+  fi
+}
+if [ "${LIFEOS_SKIP_ALIAS:-0}" = "1" ]; then
+  info "Skipping alias migration (LIFEOS_SKIP_ALIAS=1)."
+else
+  FOUND_STALE=0
+  for RC in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    if [ -f "$RC" ] && grep -E '^[[:space:]]*alias[[:space:]]+(pai|kai|lifeos)=' "$RC" 2>/dev/null | grep -v 'LIFEOS_SYSTEM_PROMPT' | grep -qE '/PAI/|&&[[:space:]]*claude'; then FOUND_STALE=1; fi
+    migrate_rc "$RC"
+  done
+  [ "$FOUND_STALE" = "0" ] && success "No stale pre-7.x launch aliases found."
+fi
+
+# ─── Step 6: Hand off to the agentic setup ───────────────────────
+step "6/6  Onboarding"
+if [ "$DRY_RUN" = "1" ]; then info "[DRY-RUN] Would launch /LifeOS setup"; exit 0; fi
 echo
 success "LifeOS is installed. Now let's set it up for YOU."
 info "The rest is a conversation — it detects conflicts, asks about your TELOS"
@@ -178,7 +342,7 @@ info "hooks with your permission. Nothing changes without you saying yes."
 echo
 if command -v claude >/dev/null 2>&1 && [ -z "${CLAUDECODE:-}" ]; then
   info "Launching setup..."
-  exec claude "/lifeos-setup"
+  exec claude "/LifeOS setup"
 else
-  printf "  ${BOLD}Open your harness and run:${RESET}  ${LIGHT_BLUE}/lifeos-setup${RESET}\n\n"
+  printf "  ${BOLD}Open your harness and run:${RESET}  ${LIGHT_BLUE}/LifeOS setup${RESET}\n\n"
 fi

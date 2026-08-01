@@ -36,19 +36,158 @@ const CATEGORY_COLORS: Record<string, string> = {
   book: "#f87171",
 };
 
+interface SimNode extends GraphNode {
+  x: number;
+  y: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
+  r: number;
+}
+
+interface SimEdge {
+  source: SimNode | string;
+  target: SimNode | string;
+}
+
+interface TransformAnim {
+  from: { x: number; y: number; k: number };
+  to: { x: number; y: number; k: number };
+  start: number;
+  dur: number;
+}
+
 export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCategories, searchQuery, colorMap }: KnowledgeGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const simulationRef = useRef<d3.Simulation<any, any> | null>(null);
+  const colorMapRef = useRef(colorMap);
+  colorMapRef.current = colorMap;
+
   const stateRef = useRef<{
-    positions: Map<string, { x: number; y: number; r: number; category: string; title: string; backlinks: number }>;
-    edgeList: Array<{ sx: number; sy: number; tx: number; ty: number }>;
+    simNodes: SimNode[];
+    nodeById: Map<string, SimNode>;
+    simEdges: SimEdge[];
     neighbors: Map<string, Set<string>>;
     transform: { x: number; y: number; k: number };
+    transformAnim: TransformAnim | null;
     focused: string | null;
+    hovered: string | null;
+    dim: number; // animated 0..1 — how far the non-highlighted graph has faded
+    dragNode: SimNode | null;
+    needsRender: boolean;
     width: number;
     height: number;
   } | null>(null);
 
+  const markDirty = useCallback(() => {
+    if (stateRef.current) stateRef.current.needsRender = true;
+  }, []);
+
+  const render = useCallback(() => {
+    const state = stateRef.current;
+    const canvas = canvasRef.current;
+    if (!state || !canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const { transform, simNodes, simEdges, neighbors, focused, hovered, dim, width, height } = state;
+    const cmap = colorMapRef.current;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.save();
+    ctx.translate(transform.x, transform.y);
+    ctx.scale(transform.k, transform.k);
+
+    // The active node drives highlighting: an explicit focus wins, otherwise hover.
+    const active = focused ?? hovered;
+    const activeNeighbors = active ? neighbors.get(active) ?? new Set<string>() : null;
+    const dimAlpha = 1 - dim * 0.94; // dimmed elements fade toward 0.06
+
+    // Labels fade in with zoom; highlight state overrides the threshold.
+    const zoomLabelAlpha = Math.max(0, Math.min(1, (transform.k - 1.6) / 0.8));
+
+    // Edges
+    for (const e of simEdges) {
+      const s = e.source as SimNode;
+      const t = e.target as SimNode;
+      const connects = active !== null && (s.id === active || t.id === active);
+      if (active && !connects) {
+        ctx.globalAlpha = 0.25 * dimAlpha;
+        ctx.strokeStyle = "rgba(51,65,85,1)";
+        ctx.lineWidth = 0.5 / transform.k;
+      } else if (connects) {
+        ctx.globalAlpha = 0.25 + dim * 0.35;
+        ctx.strokeStyle = "rgba(148,163,184,1)";
+        ctx.lineWidth = (0.5 + dim) / transform.k;
+      } else {
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = "rgba(51,65,85,1)";
+        ctx.lineWidth = 0.5 / transform.k;
+      }
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(t.x, t.y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Nodes
+    for (const n of simNodes) {
+      const isActive = n.id === active;
+      const isNeighbor = activeNeighbors?.has(n.id) ?? false;
+      const dimmed = active !== null && !isActive && !isNeighbor;
+      const color = cmap?.[n.category] || CATEGORY_COLORS[n.category] || "#64748b";
+
+      ctx.globalAlpha = dimmed ? dimAlpha : 1;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, isActive ? n.r * (1 + dim * 0.35) : n.r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      if (isActive) {
+        ctx.strokeStyle = "rgba(255,255,255," + (0.4 + dim * 0.6) + ")";
+        ctx.lineWidth = 1.5 / transform.k;
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Labels
+    if (zoomLabelAlpha > 0 || active) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      const fontSize = Math.max(3, 10 / transform.k);
+      ctx.font = `${fontSize}px 'concourse-t3', sans-serif`;
+
+      for (const n of simNodes) {
+        const isActive = n.id === active;
+        const isNeighbor = activeNeighbors?.has(n.id) ?? false;
+
+        let alpha = zoomLabelAlpha;
+        if (active) {
+          if (isActive) alpha = Math.max(alpha, dim);
+          else if (isNeighbor) alpha = Math.max(alpha * dimAlpha, dim * 0.8);
+          else alpha = alpha * dimAlpha;
+        }
+        if (alpha <= 0.02) continue;
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = isActive ? "#f1f5f9" : isNeighbor ? "#94a3b8" : "#64748b";
+        const label = n.title.length > 25 ? n.title.slice(0, 22) + "..." : n.title;
+        ctx.fillText(label, n.x, n.y - n.r - 2);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }, []);
+
+  // Build (or rebuild) the live simulation
   const draw = useCallback(() => {
     if (!canvasRef.current || !containerRef.current || nodes.length === 0) return;
 
@@ -63,6 +202,8 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCatego
     canvas.height = height * dpr;
     canvas.style.width = width + "px";
     canvas.style.height = height + "px";
+
+    simulationRef.current?.stop();
 
     // Filter nodes
     const visibleNodes = hiddenCategories?.size
@@ -102,218 +243,159 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCatego
       };
     }
 
-    // Build simulation nodes with initial positions
-    const simNodes = visibleNodes.map((n) => {
+    // Build simulation nodes with initial positions near their cluster center
+    const simNodes: SimNode[] = visibleNodes.map((n) => {
       const c = cats[n.category] || { x: width / 2, y: height / 2 };
       return {
         ...n,
         x: c.x + (Math.random() - 0.5) * width * 0.3,
         y: c.y + (Math.random() - 0.5) * height * 0.3,
+        r: Math.max(3, Math.sqrt(n.backlinkCount || 1) * 2.5 + 2),
       };
     });
-    const nodeMap = new Map(simNodes.map((n) => [n.id, n]));
-    const simEdges = visibleEdges
-      .filter((e) => nodeMap.has(e.source) && nodeMap.has(e.target))
+    const nodeById = new Map(simNodes.map((n) => [n.id, n]));
+    const simEdges: SimEdge[] = visibleEdges
+      .filter((e) => nodeById.has(e.source) && nodeById.has(e.target))
       .map((e) => ({ source: e.source, target: e.target }));
 
-    const nodeCount = simNodes.length;
-    const edgeRatio = simEdges.length / Math.max(nodeCount, 1);
+    const edgeRatio = simEdges.length / Math.max(simNodes.length, 1);
     const isSparse = edgeRatio < 0.1;
-    const pad = 20;
 
-    // PRE-COMPUTE layout synchronously — no live simulation
     const simulation = d3
       .forceSimulation(simNodes as any)
       .force("link", d3.forceLink(simEdges as any).id((d: any) => d.id).distance(isSparse ? 15 : 50))
       .force("charge", d3.forceManyBody().strength(isSparse ? -5 : -80))
       .force("x", d3.forceX((d: any) => (cats[d.category]?.x ?? width / 2)).strength(0.15))
       .force("y", d3.forceY((d: any) => (cats[d.category]?.y ?? height / 2)).strength(0.15))
-      .force("collision", d3.forceCollide().radius((d: any) => Math.max(3, Math.sqrt(d.backlinkCount || 1) * 2 + 2)))
-      .velocityDecay(0.5)
-      .alphaDecay(0.05)
-      .stop();
-
-    // Run 200 ticks synchronously
-    for (let i = 0; i < 200; i++) {
-      simulation.tick();
-      for (const d of simNodes as any[]) {
-        d.x = Math.max(pad, Math.min(width - pad, d.x));
-        d.y = Math.max(pad, Math.min(height - pad, d.y));
-      }
-    }
-
-    // Store pre-computed positions
-    const positions = new Map<string, { x: number; y: number; r: number; category: string; title: string; backlinks: number }>();
-    for (const n of simNodes as any[]) {
-      positions.set(n.id, {
-        x: n.x,
-        y: n.y,
-        r: Math.max(3, Math.sqrt(n.backlinkCount || 1) * 2.5 + 2),
-        category: n.category,
-        title: n.title,
-        backlinks: n.backlinkCount,
+      .force("collision", d3.forceCollide().radius((d: any) => d.r + 1))
+      .velocityDecay(0.4)
+      .alphaDecay(0.02)
+      .on("tick", () => {
+        // Soft viewport containment — without it the dense communities push
+        // themselves off-frame and the initial view opens on empty space.
+        const pad = 20;
+        for (const n of simNodes) {
+          n.x = Math.max(pad, Math.min(width - pad, n.x));
+          n.y = Math.max(pad, Math.min(height - pad, n.y));
+        }
+        markDirty();
       });
-    }
 
-    // Store edge coordinates
-    const edgeList: Array<{ sx: number; sy: number; tx: number; ty: number }> = [];
-    for (const e of simEdges as any[]) {
-      const s = typeof e.source === "string" ? positions.get(e.source) : positions.get(e.source.id);
-      const t = typeof e.target === "string" ? positions.get(e.target) : positions.get(e.target.id);
-      if (s && t) edgeList.push({ sx: s.x, sy: s.y, tx: t.x, ty: t.y });
-    }
+    // A few warmup ticks so the first painted frame is clustered, not exploded —
+    // the visible part of the settle still plays out live.
+    for (let i = 0; i < 15; i++) simulation.tick();
 
-    // Save state for interaction
+    simulationRef.current = simulation;
     stateRef.current = {
-      positions,
-      edgeList,
+      simNodes,
+      nodeById,
+      simEdges,
       neighbors,
-      transform: { x: 0, y: 0, k: 1 },
+      transform: stateRef.current?.transform ?? { x: 0, y: 0, k: 1 },
+      transformAnim: null,
       focused: null,
+      hovered: null,
+      dim: 0,
+      dragNode: null,
+      needsRender: true,
       width,
       height,
     };
+  }, [nodes, edges, hiddenCategories, colorMap, markDirty]);
 
-    // Render
-    render();
+  // Animation / render loop — paints only when something changed or is animating
+  useEffect(() => {
+    let raf = 0;
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
-    // Search: auto-focus first match
-    if (searchQuery && searchQuery.length >= 2) {
-      const q = searchQuery.toLowerCase();
-      for (const [id, pos] of positions) {
-        if (pos.title.toLowerCase().includes(q)) {
-          stateRef.current.focused = id;
-          stateRef.current.transform = {
-            x: width / 2 - pos.x * 3,
-            y: height / 2 - pos.y * 3,
-            k: 3,
-          };
-          render();
-          break;
-        }
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      const state = stateRef.current;
+      if (!state) return;
+
+      // Animate the highlight fade
+      const dimTarget = state.focused || state.hovered ? 1 : 0;
+      if (Math.abs(state.dim - dimTarget) > 0.005) {
+        state.dim += (dimTarget - state.dim) * 0.18;
+        state.needsRender = true;
+      } else if (state.dim !== dimTarget) {
+        state.dim = dimTarget;
+        state.needsRender = true;
       }
-    }
-  }, [nodes, edges, hiddenCategories, searchQuery, onNodeClick, colorMap]);
 
-  const render = useCallback(() => {
+      // Animate camera moves (focus zoom)
+      if (state.transformAnim) {
+        const a = state.transformAnim;
+        const t = Math.min(1, (performance.now() - a.start) / a.dur);
+        const e = easeOut(t);
+        state.transform = {
+          x: a.from.x + (a.to.x - a.from.x) * e,
+          y: a.from.y + (a.to.y - a.from.y) * e,
+          k: a.from.k + (a.to.k - a.from.k) * e,
+        };
+        if (t >= 1) state.transformAnim = null;
+        state.needsRender = true;
+      }
+
+      if (state.needsRender) {
+        state.needsRender = false;
+        render();
+      }
+    };
+
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [render]);
+
+  // Camera helper — animate toward centering a node
+  const animateTo = useCallback((to: { x: number; y: number; k: number }, dur = 450) => {
     const state = stateRef.current;
-    const canvas = canvasRef.current;
-    if (!state || !canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const { transform, positions, edgeList, neighbors, focused, width, height } = state;
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-
-    ctx.save();
-    ctx.translate(transform.x, transform.y);
-    ctx.scale(transform.k, transform.k);
-
-    const focusNeighbors = focused ? neighbors.get(focused) || new Set() : null;
-
-    // Edges
-    ctx.lineWidth = 0.5 / transform.k;
-    for (const e of edgeList) {
-      if (focused) {
-        // Check if edge connects to focused node
-        let connects = false;
-        for (const [id, pos] of positions) {
-          if (id === focused && (Math.abs(pos.x - e.sx) < 0.1 && Math.abs(pos.y - e.sy) < 0.1 ||
-              Math.abs(pos.x - e.tx) < 0.1 && Math.abs(pos.y - e.ty) < 0.1)) {
-            connects = true;
-            break;
-          }
-        }
-        ctx.strokeStyle = connects ? "rgba(148,163,184,0.5)" : "rgba(51,65,85,0.05)";
-        ctx.lineWidth = connects ? 1.5 / transform.k : 0.5 / transform.k;
-      } else {
-        ctx.strokeStyle = "rgba(51,65,85,0.25)";
-        ctx.lineWidth = 0.5 / transform.k;
-      }
-      ctx.beginPath();
-      ctx.moveTo(e.sx, e.sy);
-      ctx.lineTo(e.tx, e.ty);
-      ctx.stroke();
-    }
-
-    // Nodes
-    for (const [id, pos] of positions) {
-      const isFocused = id === focused;
-      const isNeighbor = focusNeighbors?.has(id);
-      const dimmed = focused && !isFocused && !isNeighbor;
-
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, pos.r, 0, Math.PI * 2);
-      const color = colorMap?.[pos.category] || CATEGORY_COLORS[pos.category] || "#64748b";
-
-      if (dimmed) {
-        ctx.globalAlpha = 0.06;
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      } else {
-        ctx.fillStyle = color;
-        ctx.fill();
-        if (isFocused) {
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2 / transform.k;
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Labels at zoom > 2x, or for focused + neighbors
-    if (transform.k > 2 || focused) {
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      const fontSize = Math.max(3, 10 / transform.k);
-      ctx.font = `${fontSize}px 'concourse-t3', sans-serif`;
-
-      for (const [id, pos] of positions) {
-        const isFocused = id === focused;
-        const isNeighbor = focusNeighbors?.has(id);
-
-        if (focused && !isFocused && !isNeighbor) continue;
-        if (!focused && transform.k <= 2) continue;
-
-        ctx.fillStyle = isFocused ? "#f1f5f9" : isNeighbor ? "#94a3b8" : "#64748b";
-        const label = pos.title.length > 25 ? pos.title.slice(0, 22) + "..." : pos.title;
-        ctx.fillText(label, pos.x, pos.y - pos.r - 2);
-      }
-    }
-
-    ctx.restore();
+    if (!state) return;
+    state.transformAnim = { from: { ...state.transform }, to, start: performance.now(), dur };
   }, []);
+
+  // Search: auto-focus first match (no physics rebuild on keystrokes)
+  useEffect(() => {
+    const state = stateRef.current;
+    if (!state || !searchQuery || searchQuery.length < 2) return;
+    const q = searchQuery.toLowerCase();
+    for (const n of state.simNodes) {
+      if (n.title.toLowerCase().includes(q)) {
+        state.focused = n.id;
+        animateTo({ x: state.width / 2 - n.x * 3, y: state.height / 2 - n.y * 3, k: 3 });
+        break;
+      }
+    }
+  }, [searchQuery, animateTo]);
 
   // Mouse interaction
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvasRef.current) return;
+    const canvas: HTMLCanvasElement = canvasRef.current;
 
-    let isDragging = false;
+    let isPanning = false;
+    let moved = false;
     let lastX = 0;
     let lastY = 0;
 
-    function hitTest(mx: number, my: number): string | null {
+    function toWorld(mx: number, my: number) {
+      const t = stateRef.current!.transform;
+      return { x: (mx - t.x) / t.k, y: (my - t.y) / t.k };
+    }
+
+    function hitTest(mx: number, my: number): SimNode | null {
       const state = stateRef.current;
       if (!state) return null;
-      const { transform, positions } = state;
-      const wx = (mx - transform.x) / transform.k;
-      const wy = (my - transform.y) / transform.k;
-
-      let closest: string | null = null;
+      const w = toWorld(mx, my);
+      let closest: SimNode | null = null;
       let closestDist = Infinity;
-      for (const [id, pos] of positions) {
-        const dx = pos.x - wx;
-        const dy = pos.y - wy;
+      for (const n of state.simNodes) {
+        const dx = n.x - w.x;
+        const dy = n.y - w.y;
         const dist = dx * dx + dy * dy;
-        const hitR = Math.max(pos.r + 3, 8 / transform.k);
+        const hitR = Math.max(n.r + 3, 8 / state.transform.k);
         if (dist < hitR * hitR && dist < closestDist) {
-          closest = id;
+          closest = n;
           closestDist = dist;
         }
       }
@@ -338,17 +420,15 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCatego
     });
     canvas.parentElement?.appendChild(tooltipEl);
 
-    function showTooltip(id: string, mx: number, my: number) {
+    function showTooltip(n: SimNode, mx: number, my: number) {
       const state = stateRef.current;
       if (!state) return;
-      const pos = state.positions.get(id);
-      if (!pos) return;
-      const color = colorMap?.[pos.category] || CATEGORY_COLORS[pos.category] || "#94a3b8";
+      const color = colorMapRef.current?.[n.category] || CATEGORY_COLORS[n.category] || "#94a3b8";
       tooltipEl.innerHTML =
-        `<div style="font-family: 'advocate-c14', sans-serif; font-size: 10px; letter-spacing: 0.05em; color: ${color}">${pos.category.replace("-", " ").toUpperCase()}</div>` +
-        `<div style="font-size: 12px; color: #f1f5f9; margin-top: 2px">${pos.title}</div>` +
-        (pos.backlinks > 0 ? `<div style="font-size: 10px; color: #64748b; margin-top: 2px">${pos.backlinks} backlinks</div>` : "") +
-        `<div style="font-size: 9px; color: #475569; margin-top: 3px">${state.focused === id ? "click again to open" : "click to focus"}</div>`;
+        `<div style="font-family: 'advocate-c14', sans-serif; font-size: 10px; letter-spacing: 0.05em; color: ${color}">${n.category.replace("-", " ").toUpperCase()}</div>` +
+        `<div style="font-size: 12px; color: #f1f5f9; margin-top: 2px">${n.title}</div>` +
+        (n.backlinkCount > 0 ? `<div style="font-size: 10px; color: #64748b; margin-top: 2px">${n.backlinkCount} backlinks</div>` : "") +
+        `<div style="font-size: 9px; color: #475569; margin-top: 3px">${state.focused === n.id ? "click again to open" : "click to focus · drag to move"}</div>`;
       tooltipEl.style.opacity = "1";
       tooltipEl.style.left = mx + 12 + "px";
       tooltipEl.style.top = my - 12 + "px";
@@ -362,6 +442,7 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCatego
       e.preventDefault();
       const state = stateRef.current;
       if (!state) return;
+      state.transformAnim = null;
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -370,72 +451,109 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCatego
       state.transform.x = mx - (mx - state.transform.x) * (newK / state.transform.k);
       state.transform.y = my - (my - state.transform.y) * (newK / state.transform.k);
       state.transform.k = newK;
-      render();
+      state.needsRender = true;
     }
 
     function handleMouseDown(e: MouseEvent) {
-      isDragging = true;
+      const state = stateRef.current;
+      if (!state) return;
+      moved = false;
       lastX = e.clientX;
       lastY = e.clientY;
+      const rect = canvas.getBoundingClientRect();
+      const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+
+      if (hit) {
+        // Grab the node: pin it to the pointer and reheat the physics so the
+        // rest of the graph springs around it (the Obsidian drag feel).
+        state.dragNode = hit;
+        hit.fx = hit.x;
+        hit.fy = hit.y;
+        simulationRef.current?.alphaTarget(0.3).restart();
+        canvas.style.cursor = "grabbing";
+      } else {
+        isPanning = true;
+        canvas.style.cursor = "grabbing";
+      }
     }
 
     function handleMouseMove(e: MouseEvent) {
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-
-      if (isDragging) {
-        const state = stateRef.current;
-        if (!state) return;
-        state.transform.x += e.clientX - lastX;
-        state.transform.y += e.clientY - lastY;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        render();
-        hideTooltip();
-        return;
-      }
-
-      const id = hitTest(mx, my);
-      canvas.style.cursor = id ? "pointer" : "grab";
-      if (id) showTooltip(id, mx, my);
-      else hideTooltip();
-    }
-
-    function handleMouseUp() {
-      isDragging = false;
-    }
-
-    function handleClick(e: MouseEvent) {
       const state = stateRef.current;
       if (!state) return;
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const id = hitTest(mx, my);
 
-      if (id) {
-        if (state.focused === id) {
+      if (Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) > 3) moved = true;
+
+      if (state.dragNode) {
+        const w = toWorld(mx, my);
+        state.dragNode.fx = w.x;
+        state.dragNode.fy = w.y;
+        hideTooltip();
+        return;
+      }
+
+      if (isPanning) {
+        state.transformAnim = null;
+        state.transform.x += e.clientX - lastX;
+        state.transform.y += e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        state.needsRender = true;
+        hideTooltip();
+        return;
+      }
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      const hit = hitTest(mx, my);
+      canvas.style.cursor = hit ? "pointer" : "grab";
+      const newHover = hit?.id ?? null;
+      if (newHover !== state.hovered) {
+        state.hovered = newHover;
+        state.needsRender = true;
+      }
+      if (hit) showTooltip(hit, mx, my);
+      else hideTooltip();
+    }
+
+    function handleMouseUp() {
+      const state = stateRef.current;
+      if (!state) return;
+      if (state.dragNode) {
+        state.dragNode.fx = null;
+        state.dragNode.fy = null;
+        state.dragNode = null;
+        simulationRef.current?.alphaTarget(0);
+      }
+      isPanning = false;
+      canvas.style.cursor = "grab";
+    }
+
+    function handleClick(e: MouseEvent) {
+      const state = stateRef.current;
+      if (!state || moved) return; // a drag, not a click
+      const rect = canvas.getBoundingClientRect();
+      const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+
+      if (hit) {
+        if (state.focused === hit.id) {
           // Second click — navigate
-          const pos = state.positions.get(id);
-          if (pos && onNodeClick) onNodeClick(id, pos.category);
+          if (onNodeClick) onNodeClick(hit.id, hit.category);
         } else {
-          // Focus
-          state.focused = id;
-          const pos = state.positions.get(id)!;
+          state.focused = hit.id;
           const targetK = 3;
-          state.transform = {
-            x: state.width / 2 - pos.x * targetK,
-            y: state.height / 2 - pos.y * targetK,
+          animateTo({
+            x: state.width / 2 - hit.x * targetK,
+            y: state.height / 2 - hit.y * targetK,
             k: targetK,
-          };
-          render();
+          });
         }
+        state.needsRender = true;
       } else if (state.focused) {
-        // Unfocus
         state.focused = null;
-        state.transform = { x: 0, y: 0, k: 1 };
-        render();
+        animateTo({ x: 0, y: 0, k: 1 });
       }
     }
 
@@ -455,13 +573,16 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, hiddenCatego
       canvas.removeEventListener("click", handleClick);
       tooltipEl.remove();
     };
-  }, [onNodeClick, render]);
+  }, [onNodeClick, animateTo]);
 
   useEffect(() => {
     draw();
     const handleResize = () => draw();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      simulationRef.current?.stop();
+    };
   }, [draw]);
 
   return (

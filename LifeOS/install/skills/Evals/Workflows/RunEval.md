@@ -35,14 +35,17 @@ If missing, redirect to `CreateUseCase.md` workflow.
 ### Step 2: Run Evaluation
 
 ```bash
-# Run an eval suite via AlgorithmBridge (the canonical entry point)
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case>
+# Run an eval suite via EvalRunner (the canonical entry point)
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case>
 
-# With ISC row binding (auto-updates the Algorithm ISC row with result):
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case> -r <isc-row> -u
+# Override the trial count for pass^k / pass@k:
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case> -t 5
 
-# To see saturation status alongside the run:
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <use-case> --show-saturation
+# Machine-readable output:
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <use-case> --json
+
+# Saturation status is a separate SuiteManager command:
+bun run ~/.claude/skills/Evals/Tools/SuiteManager.ts check-saturation <use-case>
 ```
 
 ### Step 3: Collect Results

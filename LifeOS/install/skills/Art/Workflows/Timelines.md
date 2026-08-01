@@ -263,7 +263,7 @@ Optional: Sign small in bottom right corner in charcoal (#2D2D2D).
 ### Step 5: Execute Generation
 
 ```bash
-bun run ~/.claude/skills/art/Tools/Generate.ts \
+bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --workflow=Timelines \
   --model nano-banana-pro \
   --prompt "[YOUR PROMPT]" \
@@ -272,7 +272,7 @@ bun run ~/.claude/skills/art/Tools/Generate.ts \
   --output /path/to/timeline.png
 ```
 
-**Model Recommendation:** nano-banana-pro (default, best for date labels within editorial aesthetic) or `gpt-image-2` (currently #1 on Image Arena leaderboards as of 2026-05-04 — strongest fidelity for date ranges and event captions when the timeline is text-dominant).
+**Model Recommendation:** nano-banana-pro — the default and only model for this workflow. It handles date labels and event captions within the editorial aesthetic.
 
 **Immediately Open:**
 ```bash

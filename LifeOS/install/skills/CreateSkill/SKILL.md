@@ -1,8 +1,7 @@
 ---
 name: CreateSkill
-version: 1.1.23
+version: 1.1.28
 description: "Mandatory orchestrator for all LifeOS skill work — creating, editing, adding a workflow or tool, renaming, validating, or canonicalizing any skill. Handrolling skill files is forbidden; owns the full lifecycle: scaffold, validate, canonicalize, test, improve. USE WHEN create skill, new skill, make a skill, build a skill, set up a skill, private skill, make a X skill, add a workflow, add a tool, edit/change/update/rename a skill, skill frontmatter, validate skill, check skill, canonicalize, scaffold skill, test skill, improve skill, optimize description, skill not triggering, overtriggering. NOT FOR TypeScript CLI generation (use CreateCLI)."
-effort: medium
 ---
 
 ## Customization
@@ -49,7 +48,7 @@ Complete skill development lifecycle: **structure** (create, validate, canonical
 | Skill type | Directory format | Example | Allowed content |
 |------------|------------------|---------|-----------------|
 | **Public** | `TitleCase` | `Blogging`, `Daemon`, `CreateSkill` | Templated, safe, generic, ready for public release |
-| **Private** | `_ALLCAPS` (underscore prefix, all uppercase) | `<your-release-skill>`, `_INBOX`, `_BROADCAST`, `_DOTFILES` | Anything personal, sensitive, identity-bound, customer-bound, or environment-specific |
+| **Private** | `_ALLCAPS` (underscore prefix, all uppercase) | `_MYSKILL`, `_MYINBOX`, `_MYINFRA` | Personal-scoped *function*; body publishable-clean, all sensitive data referenced from `LIFEOS/USER/` |
 
 **The leading underscore is the public-release boundary.** Release tooling skips `_*` skills entirely — they never leave `~/.claude`. Public skills (no underscore) are mirrored into the LifeOS public release and MUST contain only generic, templated content.
 
@@ -99,9 +98,18 @@ ONLY templated, safe, public, ready content. Period.
 - ❌ User-specific filesystem paths (`/Users/<name>/...`, `/home/<name>/...`)
 - ❌ Identity-bound preferences (DA name, principal name, partner name, pet name, financial figures, health data)
 
-**Private skill (`_ALLCAPS`) — content rule:**
+**Private skill (`_ALLCAPS`) — content rule (2026-07-23 separation directive):**
 
-Anything goes. Real names, real domains, real customers, real credentials-by-reference (env var names, never values), real war stories, real internal infra. The underscore IS the safety boundary. These skills are excluded from release tooling.
+Same publishable-clean standard as public skills. The underscore is still the release boundary (release tooling skips `_*` — that safety net stays), but it no longer licenses embedding personal content. A private skill's body — SKILL.md, workflows, tools — holds only generic code and instructions; everything sensitive lives under `LIFEOS/USER/` and the skill reads it by path:
+
+- Personal data (corpora, inventories, preferences, registries, state) → `LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` — unless a canonical USER home already owns it (`GEAR.md`, `FINANCES/`, `TELOS/`, `CONTACTS.md`); then point there, never duplicate.
+- Personal config (your domains, account IDs, repo paths, endpoints) → a `Config.md`/`.yaml` in that same CUSTOMIZATIONS dir, loaded by the skill at run time.
+- Credentials → env var *names* in the skill, values in `~/.claude/.env`. Never values, never tokens in URLs.
+- Prose refers to "the principal," never a real name; no home-path literals (`~`-relative or config-resolved paths only).
+
+Why: a private skill in this state is promotable to public with a rename, the whole tree passes one hygiene gate, and a leak of the skills tree leaks no life data. What makes a skill *private* is that its FUNCTION is personal-scoped (your inbox, your customer, your infra) — not that its files hold your data.
+
+**Enforcement:** `LIFEOS/TOOLS/SkillHygieneGate.ts` (deny-list clean, runs inside `/ic`) + the SystemFileGuard write gate. A new skill is not done while the gate reports violations on it.
 
 ### The Decision Test
 
@@ -136,14 +144,14 @@ A public skill can be made user-specific at runtime via `~/.claude/LIFEOS/USER/C
 - Example values clearly marked as placeholders (`<url>`, `<SESSION_ID>`, `test@example.com`)
 - Generic env var *names* (never values): `STRIPE_API_KEY`, `OPENAI_API_KEY`
 
-### Pre-Flight Grep (Public Skills Only)
+### Pre-Flight Gate (ALL Skills — public and private)
 
-Before shipping or modifying any `TitleCase` skill, run:
+Before shipping or modifying ANY skill, run the hygiene gate:
 ```bash
-rg -i "<your-name>|<your-org>|<your-product>|<your-domain>|/Users/[a-z]+/" ~/.claude/skills/<SkillName>/
+bun ~/.claude/LIFEOS/TOOLS/SkillHygieneGate.ts --skill <SkillName>
 ```
 
-Zero matches = ready for public release. Any match = either scrub it, move it to SKILLCUSTOMIZATIONS, or rename the skill to `_ALLCAPS` and stop pretending it's public. **`_ALLCAPS` skills are exempt from this grep — they are private by design.**
+It scans against the canonical deny-list (`LIFEOS/USER/SECURITY/DENY_LIST.txt` — the list is identity DATA, so it lives in the USER tree) plus home-path shapes. Exit 0 = clean. Any violation = move the data to `LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` (or its canonical USER home) and reference it by path. Since 2026-07-23 there is no private-skill exemption — `_ALLCAPS` decides where a skill *ships* (nowhere), not what its files may contain.
 
 ---
 
@@ -340,13 +348,13 @@ Before creating any skill, identify which of the 9 types it is (from Anthropic's
 |------|-------|---------------|---------|
 | 1. Library/API Reference | Gotchas, edge cases Claude gets wrong | Lightweight, gotchas-heavy, reference snippets | HonoReference, D1Reference |
 | 2. Product Validation | Test/verify code works | State assertions, browser automation, output recording | Browser |
-| 3. Data Fetching | Connect to data systems | Credential refs, query patterns, dashboard pointers | USMetrics, _METRICS |
-| 4. Business Process | Automate repetitive workflows | Execution logs, consistency tracking | _CLICKUP, _BROADCAST |
+| 3. Data Fetching | Connect to data systems | Credential refs, query patterns, dashboard pointers | USMetrics, a business-metrics skill |
+| 4. Business Process | Automate repetitive workflows | Execution logs, consistency tracking | a task-tracker skill, a syndication skill |
 | 5. Code Scaffolding | Generate framework boilerplate | Template files, project-aware scripts | CreateCLI, CreateSkill |
 | 6. Code Quality | Enforce standards, review | Deterministic scripts, hook integration | /simplify, /code-review |
 | 7. CI/CD & Deployment | Deploy with safety patterns | Pre-deploy checks, smoke tests, rollback | (gap — needs Deploy skill) |
-| 8. Operations Runbooks | Map phenomena to diagnostics | Phenomenon → tool → query → report | _HEALTHCHECK |
-| 9. Infrastructure Ops | Maintenance with safety guardrails | Safety gates, audit logging, orphan detection | _LIFEOS, _DOTFILES |
+| 8. Operations Runbooks | Map phenomena to diagnostics | Phenomenon → tool → query → report | a site-health skill |
+| 9. Infrastructure Ops | Maintenance with safety guardrails | Safety gates, audit logging, orphan detection | a system-management skill, a dotfiles skill |
 
 ## Skill Writing Guidance
 
@@ -425,7 +433,7 @@ Skills can include hooks that activate only when invoked, remaining effective fo
 
 ## Versioning
 
-Every skill carries its own `version:` semver in SKILL.md frontmatter (`MAJOR.MINOR.PATCH`), independent of the OS version and of other skills. A new skill scaffolds at `version: 1.0.0`. A skill change is ALSO an OS change — `skills/` is part of the core-file surface the LifeOS version system watches — so editing a skill moves both the skill's own version AND (rolled up) the canonical `LIFEOS/VERSION`. The two lines are separate: the skill's `version:` is its own lineage; `LIFEOS/VERSION` is the umbrella. CreateSkill never edits `LIFEOS/VERSION` itself.
+Every skill carries its own `version:` semver in SKILL.md frontmatter (`Major.Feature.Patch` — the middle number is **Feature**, not "minor"), independent of the OS version and of other skills. A new skill scaffolds at `version: 1.0.0`. A skill change is ALSO an OS change — `skills/` is part of the core-file surface the LifeOS version system watches — so editing a skill moves both the skill's own version AND (rolled up) the canonical `LIFEOS/VERSION`. The two lines are separate: the skill's `version:` is its own lineage; `LIFEOS/VERSION` is the umbrella. CreateSkill never edits `LIFEOS/VERSION` itself.
 
 Classify the change so the bump level is right (the SAME rubric applies to the per-skill bump and the roll-up):
 
@@ -433,7 +441,7 @@ Classify the change so the bump level is right (the SAME rubric applies to the p
 - **feature** — a new workflow or a new tool (a brand-new skill starts at 1.0.0, not a feature bump on itself). Additive, non-breaking.
 - **major** — renaming or removing the skill, or breaking its public contract or routing behavior. Human gate: stop and confirm before any major bump; never decide major on your own.
 
-**When the per-skill bump fires:** at private-sync time, not at edit time. The `<your-release-skill>` `UpdateKaiRepo` ship flow runs `BumpSkillVersions.ts` — for every `skills/<name>/` that changed since the last OS tag it scopes `ClassifyChange --path skills/<name>` and bumps that skill's `version:` (major held for confirm), recording each in the SYSTEMUPDATES registry. This catches workflow-body edits that never route through CreateSkill. You do NOT hand-bump `version:` here; the ship flow owns it. A skill edit is a **private-sync** change — never a release **cut** (staging only) or **publish** (public repo). Keep those three operations distinct.
+**When the per-skill bump fires:** at private-sync time, not at edit time. The `UpdateKaiRepo` ship flow runs `BumpSkillVersions.ts` — for every `skills/<name>/` that changed since the last OS tag it scopes `ClassifyChange --path skills/<name>` and bumps that skill's `version:` (major held for confirm), recording each in the SYSTEMUPDATES registry. This catches workflow-body edits that never route through CreateSkill. You do NOT hand-bump `version:` here; the ship flow owns it. A skill edit is a **private-sync** change — never a release **cut** (staging only) or **publish** (public repo). Keep those three operations distinct.
 
 Public skills do not carry a separate version line — the release/emit carries each skill's private `version:` forward unchanged.
 

@@ -187,10 +187,18 @@ async function fetchIssues(repo: string): Promise<IssueRecord[] | null> {
     { stdout: "pipe", stderr: "pipe", timeout: 12000 },
   );
 
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
+  // Drain stdout AND stderr concurrently (issue #1482). stderr was piped but
+  // never read — a chatty gh error fills the OS pipe buffer, gh blocks on the
+  // write, and since only stdout was drained the whole call hung until the 12s
+  // timeout. Reading both in parallel prevents the deadlock and surfaces the
+  // actual failure cause instead of a bare exit code.
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
   if (exitCode !== 0) {
-    console.error(`[${MODULE}] gh issue list failed (exit ${exitCode})`);
+    console.error(`[${MODULE}] gh issue list failed (exit ${exitCode}): ${stderr.trim() || "no stderr"}`);
     return null;
   }
 
@@ -324,12 +332,12 @@ function setupTemplate(reason: string): Response {
     reason,
     subtype,
     instructions: [
-      "Configure the work repo via the privacy-attested CLI: `bun ~/.claude/skills/_ULWORK/Tools/SetWorkRepo.ts <owner/repo>`. The CLI calls `gh repo view --json visibility,isPrivate` and refuses to write the config unless the repo is currently private.",
+      "Bind a PRIVATE GitHub repo by writing `LIFEOS/USER/WORK/work_repo.json`:\n`{ \"repo\": \"owner/repo\", \"privacy\": { \"verified_private\": true, \"verified_at\": \"1970-01-01T00:00:00Z\", \"visibility\": \"private\" } }`\nThe loader never trusts a hand-written attestation on its own — it re-runs `gh repo view --json visibility,isPrivate` and only enables the module if the repo is genuinely private, then writes back a fresh `verified_at`. If your install ships a work-tracking skill with a SetWorkRepo tool, use that instead; it writes the same file.",
       `Ensure the repo has these labels: Type:feature, Type:reminder, Type:research, Type:queue, Status:queued, Status:in-progress, Status:in-review, Status:blocked, Status:done, Priority:P0..P3, Property:internal, Agent:${getDAName()}, pai-sync.`,
       "Restart Pulse so this module re-reads work_repo.json: `bun ~/.claude/LIFEOS/PULSE/manage.sh restart`.",
-      "Run an Algorithm session — ULWorkSync.hook.ts will open the first issue at SessionEnd.",
+      "Run an Algorithm session — the SessionEnd work-capture hook will open the first issue.",
     ],
-    docs: "skills/_ULWORK/SKILL.md (search 'Capture flow')",
+    docs: "LIFEOS/DOCUMENTATION/Work/WorkSystem.md (see 'Capture surfaces')",
   };
   return Response.json(body);
 }

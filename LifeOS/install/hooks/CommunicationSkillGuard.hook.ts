@@ -1,23 +1,21 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.2
+ * @version 1.0.3
  * CommunicationSkillGuard.hook.ts — PreToolUse Bash gate
  *
  * Catches raw outbound-email sends — `gmail.ts send` and `aws ses send-email`
- * — that are NOT routed through the _COMMUNICATION skill, and blocks them
- * BEFORE the tool runs.
+ * — that are NOT routed through a communication skill's send workflow, and
+ * blocks them BEFORE the tool runs.
  *
- * Sending email is the _COMMUNICATION skill's SendEmail workflow. That
- * workflow carries load-bearing rules the bare tool skips: mandatory auto-BCC
- * to the principal, send-as-DA identity/signature consistency, and DKIM/DMARC-
- * safe transport selection (gmail.ts for the principal's personal domain, SES
- * for the org domain). Free-handing the tool bypasses all of it (the
+ * A send workflow carries load-bearing rules the bare tool skips: mandatory
+ * BCC/archive, sender identity/signature consistency, and DKIM/DMARC-safe
+ * transport selection. Free-handing the tool bypasses all of it (the
  * 2026-06-13 ISA-email miss is the canonical failure).
  *
- * The skill's SendEmail workflow tags every send command with the marker
- * `LIFEOS_SKILL=_COMMUNICATION` (an inert env assignment the tools ignore). This
- * hook allows commands carrying that marker and blocks the rest — same
- * model as ArtWorkflowGuard's `--workflow=` requirement for Generate.ts.
+ * A send workflow tags every send command with a `LIFEOS_SKILL=<name>` marker
+ * (an inert env assignment the tools ignore). This hook allows commands
+ * carrying any such marker and blocks the rest — same model as
+ * ArtWorkflowGuard's `--workflow=` requirement for Generate.ts.
  *
  * TRIGGER: PreToolUse (matcher: Bash)
  * EXIT CODES: 0 = allow, 2 = deny (blocks the call, message goes to model)
@@ -55,7 +53,10 @@ function isEmailSend(command: string): boolean {
 }
 
 function isSkillRouted(command: string): boolean {
-  return /LIFEOS_SKILL=_COMMUNICATION\b/.test(command);
+  // Any LIFEOS_SKILL= marker routes (public issue #1504, @tzioup): the guard
+  // must not name a specific private skill, so it accepts whatever comms skill
+  // an install actually has — a LIFEOS_SKILL=<comms-skill> marker still matches.
+  return /LIFEOS_SKILL=\S+/.test(command);
 }
 
 const BLOCK_MESSAGE = [
@@ -64,20 +65,20 @@ const BLOCK_MESSAGE = [
   "  CommunicationSkillGuard — raw email send BLOCKED before execution.",
   "═══════════════════════════════════════════════════════════════════════════",
   "",
-  "  Sending email is the _COMMUNICATION skill, not a standalone tool call.",
-  "  The SendEmail workflow carries rules a bare `gmail.ts send` / `aws ses",
-  "  send-email` skips: mandatory auto-BCC to the principal, send-as-DA",
-  "  identity + signature consistency, and DKIM/DMARC-safe transport.",
+  "  Email should go through your communication skill/workflow, not a bare",
+  "  tool call. A raw `gmail.ts send` / `aws ses send-email` skips the rules a",
+  "  send path carries: BCC/archive, consistent sender identity + signature,",
+  "  and safe (DKIM/DMARC-aligned) transport.",
   "",
   "  Do this instead:",
-  "    1. Invoke  Skill(\"_COMMUNICATION\")",
-  "    2. Follow its SendEmail workflow (skills/_COMMUNICATION/Workflows/SendEmail.md)",
-  "    3. The send command it builds carries  LIFEOS_SKILL=_COMMUNICATION  and passes.",
+  "    1. Route the send through your communication skill's send workflow.",
+  "    2. That workflow prefixes the command with a  LIFEOS_SKILL=<name>",
+  "       marker, which this guard recognizes and allows.",
   "",
   "  Explicit one-off override (logged): prefix the command with",
-  "    LIFEOS_SKILL=_COMMUNICATION  <your send command>",
-  "  Only do this when you have genuinely already applied the workflow's rules",
-  "  (BCC, identity/signature, transport).",
+  "    LIFEOS_SKILL=<your-comms-skill>  <your send command>",
+  "  Only do this when you have genuinely already applied the send rules",
+  "  (BCC/archive, identity/signature, transport).",
   "",
   "═══════════════════════════════════════════════════════════════════════════",
   "",

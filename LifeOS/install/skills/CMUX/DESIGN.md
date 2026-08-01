@@ -53,7 +53,7 @@ His build system is `just`; we have no `just` and we are bun-always. So `just fa
 |-------------|-------|------------|-------------------------|
 | Pulse dashboard | SSE `/api/algorithm/stream`, work.json registry (localhost:31337) | unchanged; cmux state polled → pushed into Pulse | **keep** + bridge |
 | Voice notify | `POST localhost:31337/notify {message,voice_enabled}` → {{DA_NAME}} TTS | `monitor` calls the same endpoint via `voice` subcommand | **keep** |
-| Algorithm / ISA phase tracking | `AlgoPhase.ts` + `ISASync.hook.ts` write phase to work.json + tab | phase logic untouched; only the *tab-paint* target changes | **keep** (retarget paint) |
+| Algorithm / ISA phase tracking | `ISASync.hook.ts` writes phase to work.json + tab (`AlgoPhase.ts` retired 2026-07-14) | phase logic untouched; only the *tab-paint* target changes | **keep** (retarget paint) |
 | Model routing (EFFORT_MODEL) | max→fable / high→opus / medium→sonnet / low→haiku | orthogonal to the terminal; nothing changes | **keep** |
 | Remote Mac-mini fleet | three hosts over SSH, names in USER config | `mini-fleet` opens one SSH pane per host | **keep** + bridge |
 | Memory / learning capture | Stop-hook harvesters → MEMORY | orthogonal; fires regardless of terminal | **keep** |
@@ -70,9 +70,9 @@ The principal chose **replace the terminal layer only**. Here is the exact cut l
 - `hooks/PromptProcessing.hook.ts` (SessionAnalysis consolidated in) — paints working/completed/error onto the Kitty tab.
 - `hooks/TabState.hook.ts` (absorbed SetQuestionTab 2026-07-11) — paints the awaiting-input (bold caps) state.
 - `hooks/handlers/TabState.ts` — the Stop-time final-state detector.
-- `hooks/lib/tab-setter.ts` — the `kitten @ set-tab-*` calls, `setModeToken`, `setPhaseTab`.
+- `hooks/lib/tab-setter.ts` — the `kitten @ set-tab-*` calls and `setPhaseTab` (`setModeToken` was removed 2026-07-11).
 
-These drive Kitty tab **color / icon / title** to show agent state (working / completed / awaiting / error) plus the `N` / `E1..E5` mode-token owned by `TheRouter.hook.ts`. Under cmux the same signals map to surface-level equivalents: `rename-tab` for the title+token, `trigger-flash` for attention, `workspace-action` / `themes` for color-by-state.
+These drive Kitty tab **color / icon / title** to show agent state (working / completed / awaiting / error) plus, historically, the `N` / `E1..E5` mode-token owned by `TheRouter.hook.ts` until both were deleted 2026-07-11. Under cmux the same signals map to surface-level equivalents: `rename-tab` for the title+token, `trigger-flash` for attention, `workspace-action` / `themes` for color-by-state.
 
 **What stays, untouched:**
 
@@ -80,9 +80,9 @@ These drive Kitty tab **color / icon / title** to show agent state (working / co
 - Voice (`/notify` → {{DA_NAME}} TTS).
 - Algorithm phase logic, ISA phase tracking (the *decision* of what phase we're in).
 - Model routing, memory, learning capture.
-- `TheRouter.hook.ts` as the single authority for the mode/tier token — it keeps owning the *decision*; only the paint target moves.
+- ~~`TheRouter.hook.ts` as the single authority for the mode/tier token~~ — obsolete: the hook and the whole mode/tier token were deleted 2026-07-11, so there is no token left to paint.
 
-**Why the cutover must be staged.** The Kitty hooks work today and are wired through a subtle single-authority contract: `TheRouter` owns the token, `PromptProcessing` owns the description, `AlgoPhase` + `ISASync` own the phase, each preserving the other's field. Ripping that out and repointing four hooks at an immature, poll-only, Mac-only target in one move is how you get a session with no visible state and no idea which layer broke. The safe path keeps both painters alive — Kitty and cmux writing in parallel — until the cmux path is proven across working, completed, awaiting, error, and every phase transition. Then Kitty is removed. A hook that paints state is cheap to run twice and expensive to get wrong once.
+**Why the cutover must be staged.** The Kitty hooks work today and are wired through a subtle single-authority contract: `TheRouter` owned the token until it was deleted 2026-07-11, `PromptProcessing` owns the description, `ISASync` owns the phase (`AlgoPhase` retired 2026-07-14), each preserving the other's field. Ripping that out and repointing four hooks at an immature, poll-only, Mac-only target in one move is how you get a session with no visible state and no idea which layer broke. The safe path keeps both painters alive — Kitty and cmux writing in parallel — until the cmux path is proven across working, completed, awaiting, error, and every phase transition. Then Kitty is removed. A hook that paints state is cheap to run twice and expensive to get wrong once.
 
 ## Phased rollout
 

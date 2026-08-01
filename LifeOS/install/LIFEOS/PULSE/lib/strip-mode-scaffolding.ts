@@ -1,25 +1,25 @@
 /**
  * strip-mode-scaffolding.ts — Egress sanitizer for remote-channel chat surfaces.
  *
- * LifeOS CLAUDE.md constitutionally requires every assistant response to use one
- * of three mode templates (MINIMAL/NATIVE/ALGORITHM). That contract is right
- * for the terminal; it is wrong for Telegram and iMessage, where the principal
- * sees the mode banner ("MINIMAL", "═══ LifeOS ═══", "📃 CONTENT:", "🗣️ {{DA_NAME}}:")
- * as visual noise interrupting a conversation.
+ * The LifeOS output format (banner, field prefixes, 🗣️ closer) is right for
+ * the terminal; it is wrong for remote chat surfaces like iMessage, where the
+ * principal sees the scaffolding ("═══ LifeOS ═══", "📃 CONTENT:",
+ * "🗣️ <DA name>:") as visual noise interrupting a conversation.
  *
  * Two layers defend the chat surface:
  *
- *   Layer 1 (prevention) — hooks/TheRouter.hook.ts emits a channel-specific
- *   directive (TELEGRAM_DIRECTIVE / IMESSAGE_DIRECTIVE) instead of the MODE
- *   banner when LIFEOS_NOTIFICATION_CHANNEL identifies a remote channel. The
- *   model never sees "MODE: ALGORITHM" so doesn't reach for the template.
+ *   Layer 1 (prevention) — the channel's own spawn appends a channel-specific
+ *   directive to the system prompt, overriding the format contract for that
+ *   turn. For iMessage that is the IMESSAGE_DIRECTIVE literal in
+ *   `PULSE/modules/imessage.ts` (systemPrompt.append), which also sets
+ *   LIFEOS_NOTIFICATION_CHANNEL=imessage so voice-emitting hooks stay quiet.
+ *   No hook emits the directive — it lives with the channel that needs it.
  *
  *   Layer 2 (egress) — THIS file. Even with prevention in place the model can
- *   leak markers (CLAUDE.md mode-template rules survive context compaction
- *   and are very strong). The sanitizer regex-strips known LifeOS scaffolding
- *   markers from outgoing text before bot.api.sendMessage / sendVoice. Pattern
- *   matches Nous Research's `hermes-agent` `_strip_mdv2()` fallback —
- *   stripping all known formatting when the format is wrong for the channel.
+ *   leak markers (format rules survive context compaction and are very
+ *   strong). The sanitizer regex-strips known LifeOS scaffolding markers from
+ *   outgoing text before send — stripping all known formatting when the
+ *   format is wrong for the channel.
  *
  * The sanitizer is conservative — it only matches LifeOS's specific scaffolding
  * tokens, never arbitrary user prose. If the model emits no scaffolding (the

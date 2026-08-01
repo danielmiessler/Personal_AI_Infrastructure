@@ -1,12 +1,14 @@
 ---
-version: 1.2.10
+version: 1.3.2
 ---
 
-# The Feed System
+# Feed — the LifeOS External Sense
 
 > **Private infrastructure — not included in the public LifeOS release.** This document describes a feed pipeline the maintainer runs privately on Arbol (also private). No Feed implementation ships with the OSS release; it's reference documentation for how the architecture works, and a blueprint if you want to build your own.
 
-> The Feed is the LifeOS's sensor layer in thesis terms (`LifeOs/LifeOsThesis.md`): it keeps the OS's current-state picture fed with the outside world, and it routes by what *your* ideal state cares about — a TELOS-relevant signal alerts immediately, noise archives silently.
+> The Feed is the LifeOS's **external sense** in thesis terms (`LifeOs/LifeOsThesis.md`) — Conduit is the internal one, and both feed Synapse (`Synapse/SynapseSystem.md`), the input router. The Feed keeps the OS's current-state picture fed with the outside world, and it routes by what *your* ideal state cares about — a TELOS-relevant signal alerts immediately, noise archives silently. Its rate/route stages are conceptually Synapse's work running in the Feed's plumbing.
+
+**Why "Feed."** In the sensory stack Feed is the outward-facing eye: Conduit senses *you*, Feed senses *the world* — sources you choose, watched continuously, evaluated against your TELOS, and passed to Synapse for grading and routing into Cortex. The name is plain because the job is plain: it keeps the OS fed.
 
 **Turning information streams into routed intelligence.**
 
@@ -29,7 +31,7 @@ NOISE (thousands of items/day from hundreds of sources)
 INTELLIGENCE (rated, labeled, priority-routed to specific destinations)
 ```
 
-**The key insight:** Different content deserves different treatment. A trusted security researcher posting about a national security issue with high urgency should trigger Telegram + Discord + email immediately. A mediocre blog post about a topic you've seen before should archive silently. The Feed System makes these routing decisions automatically using multi-dimensional ratings and configurable rules.
+**The key insight:** Different content deserves different treatment. A trusted security researcher posting about a national security issue with high urgency should trigger Discord + email immediately. A mediocre blog post about a topic you've seen before should archive silently. The Feed System makes these routing decisions automatically using multi-dimensional ratings and configurable rules.
 
 ---
 
@@ -44,7 +46,7 @@ INTELLIGENCE (rated, labeled, priority-routed to specific destinations)
 │                                                                         │
 │  People       ┌─► INGEST ──────────┐                                   │
 │  Channels     │   (fetch, parse,    │                                   │
-│  Feeds        │    normalize)       │   ┌─► ROUTE ──┬─► Telegram       │
+│  Feeds        │    normalize)       │   ┌─► ROUTE ──┬─► (removed)      │
 │  Publications │                     │   │  (rules,  │                   │
 │               │   SUMMARIZE ────────┤   │   AND     ├─► Discord        │
 │  RSS          │   (Haiku: short +   │   │   logic,  │                   │
@@ -175,9 +177,9 @@ These are illustrative starting points — edit, replace, or remove them to fit 
 
 | Rule | Conditions | Action | Priority |
 |------|-----------|--------|----------|
-| Critical security | tier S/A + urgency >= 8 + Security label | notify (Telegram, Discord, email) | immediate |
+| Critical security | tier S/A + urgency >= 8 + Security label | notify (Discord, email) — Telegram removed 2026-07-15 | immediate |
 | High-quality AI content | tier S/A + AI label + quality >= 80 | blog-draft + social-post | daily |
-| Breaking news | Breaking label + urgency >= 9 | notify (Telegram) | immediate |
+| Breaking news | Breaking label + urgency >= 9 | notify (Discord, email) — Telegram removed 2026-07-15 | immediate |
 | Weekly digest material | tier B+ + importance >= 6 | digest | weekly |
 | Everything else | (default) | archive | archive |
 
@@ -185,7 +187,7 @@ These are illustrative starting points — edit, replace, or remove them to fit 
 
 | Priority | Meaning | Delivery |
 |----------|---------|----------|
-| **immediate** | Act now | Push notification: Telegram, Discord, email |
+| **immediate** | Act now | Push notification: Discord, email (Telegram removed 2026-07-15) |
 | **daily** | Review today | Included in daily digest/queue |
 | **weekly** | Review this week | Included in weekly compilation |
 | **archive** | Store for reference | No active delivery |
@@ -194,7 +196,7 @@ These are illustrative starting points — edit, replace, or remove them to fit 
 
 | Destination | Action | Implementation |
 |-------------|--------|----------------|
-| `notify` | Push alert to messaging platforms | Telegram, Discord, Email via respective APIs |
+| `notify` | Push alert to messaging platforms | Discord, Email via respective APIs (Telegram removed 2026-07-15) |
 | `blog-draft` | Create draft post on the user's blog platform | Blog publishing skill integration |
 | `social-post` | Generate and queue social media post | Social posting skill (e.g. tweet/LinkedIn writers) |
 | `digest` | Accumulate for periodic compilation | Daily/weekly digest builder |
@@ -456,9 +458,45 @@ High-value feed items can be harvested into the LifeOS Knowledge Archive (`MEMOR
 
 ---
 
+## Examples
+
+### One item through the pipeline
+
+The whole system in miniature: **a trusted security researcher you follow posts about a vulnerability that's being actively exploited right now.** Watch that single item travel the four stages.
+
+1. **Ingest** — the poller sees the new post, fetches it, and normalizes it to `{title, content, url, source_id}`.
+2. **Summarize** — a fast model writes a one-sentence version (for the alert) and a one-paragraph version (for the dashboard).
+3. **Rate** — the AI scores it: high quality, `Security` label, high urgency.
+4. **Route** — the pure-logic engine matches it against the rules. It hits "critical security" (high quality + urgent + Security), so the action is *notify* at *immediate* priority.
+
+Minutes after the post went up, the operator hears about it over Discord and email — without having watched a single feed. The item earned that alert by what it *is*, not by who happened to be looking.
+
+### The same pipeline, the opposite outcome
+
+Now run a low-value item through the identical machinery: **a rehash blog post covering news you saw a week ago.**
+
+Ingest, summarize, rate — same three stages, no shortcut. But it scores low, carries no urgent label, and matches only the default "everything else" rule, whose action is *archive*. It lands in storage silently. No notification, no digest slot, nothing asked of the operator's attention.
+
+Same pipeline, same effort spent evaluating both — and the routing rules, not a human triaging an inbox, decide that one deserves an interruption and the other deserves silence. That is the difference between an RSS reader (shows you everything) and an intelligence router (shows you what matters).
+
+```mermaid
+flowchart TD
+    S[Source posts an item] --> I[Ingest: fetch, parse, normalize]
+    I --> M[Summarize: one line + one paragraph]
+    M --> R[Rate: quality, labels, urgency]
+    R --> D{Match a routing rule?}
+    D -->|high quality + urgent + Security| N[Immediate: Discord + email]
+    D -->|good, not time-sensitive| G[Daily digest]
+    D -->|low value, no match| A[Archive silently]
+```
+
+The branch is the whole design. Everything upstream of it is the same for every item — the intelligence is in scoring each piece honestly, then letting deterministic rules turn those scores into the right destination at the right priority.
+
+---
+
 ## See Also
 
-- `_FEED/SKILL.md` — Operational reference: API endpoints, workflows, schema
+- The feed skill's SKILL.md — Operational reference: API endpoints, workflows, schema
 - `ArbolSystem.md` — Arbol cloud execution: actions, pipelines, flows
 - `LIFEOS/USER/CUSTOMIZATIONS/ARBOL/` — Cloudflare Workers implementation (per-user customization area)
 - `LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md` — Master LifeOS architecture reference

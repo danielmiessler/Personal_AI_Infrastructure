@@ -1,8 +1,7 @@
 ---
 name: Sales
-version: 1.0.25
-description: "Transforms product documentation into sales-ready packages — a story explanation, charcoal gestural sketch art, and talking points — via a narrative-arc pipeline. USE WHEN sales, proposal, pitch deck, value proposition, sales narrative, sales deck, sales package, turn this into a pitch, create a sales story, sales materials, product pitch, transform docs to sales, sales script. NOT FOR Hormozi $100M frameworks, value equation, irresistible offer, or VOC mining (use _SALESHORMOZI), standalone diagrams or illustrations (use Art), or platform social posts (use _SOCIALPOST)."
-effort: medium
+version: 1.0.28
+description: "Transforms product documentation into sales-ready packages — a story explanation, charcoal gestural sketch art, and talking points — via a narrative-arc pipeline. USE WHEN sales, proposal, pitch deck, value proposition, sales narrative, sales deck, sales package, turn this into a pitch, create a sales story, sales materials, product pitch, transform docs to sales, sales script. NOT FOR Hormozi $100M frameworks, value equation, irresistible offer, or VOC mining, standalone diagrams or illustrations (use Art), or platform social posts."
 ---
 
 ## Customization
@@ -108,7 +107,7 @@ It produces three things: sales narratives (story explanations that capture the 
 ## Integration
 
 This skill combines:
-- **storyexplanation skill** - For narrative extraction
+- **A story-explanation skill** - For narrative extraction
 - **art skill (essay-art workflow)** - For visual generation
 - **Sales-specific framing** - Value proposition focus
 
@@ -148,7 +147,7 @@ User: "create a visual for this sales story"
 
 - **Charcoal sketch art is the visual style for sales assets.** Don't use other art styles unless explicitly asked.
 - **Pitch decks must tell a STORY, not list features.** Narrative arc matters more than bullet points.
-- **NOT for Hormozi frameworks** — use _SALESHORMOZI for $100M Offers/Leads methodology.
+- **NOT for Hormozi frameworks** — use a dedicated Hormozi $100M Offers/Leads skill for that methodology.
 
 ## Execution Log
 

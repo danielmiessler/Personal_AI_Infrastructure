@@ -86,6 +86,23 @@ export default function QuickPulseStrip({ pulses }: QuickPulseStripProps) {
 
   if (!pulses || pulses.length === 0) return null;
 
+  // Below 3 ratings a mood verdict is noise, not signal (2026-07-14 review:
+  // the strip declared "Frustrated" off one stale rating). Render a quiet
+  // single-line note instead.
+  if (pulses.length < 3) {
+    const last = pulses[pulses.length - 1];
+    return (
+      <div className="px-4 py-1.5 border-b border-white/[0.05] bg-white/[0.01] flex items-center gap-2">
+        <span className={`text-[13px] font-mono font-bold ${barTextColor(last.value)}`}>{last.value}/10</span>
+        <span className="text-[13px] text-ink-3">
+          {pulses.length} rating{pulses.length > 1 ? "s" : ""} in the last 24h
+          {last.message ? ` — “${last.message.slice(0, 80)}”` : ""}
+        </span>
+        <span className="text-[13px] text-ink-3 ml-auto font-mono">{formatRelative(last.timestamp)}</span>
+      </div>
+    );
+  }
+
   const mood = getMood(avg);
   const timeRange = formatTimeRange(pulses[0].timestamp, pulses[pulses.length - 1].timestamp);
   const lo = Math.min(...pulses.map((p) => p.value));

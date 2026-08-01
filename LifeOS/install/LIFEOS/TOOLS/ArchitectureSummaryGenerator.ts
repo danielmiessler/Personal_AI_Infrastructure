@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * ArchitectureSummaryGenerator — Generate LIFEOS_ARCHITECTURE_SUMMARY.md from source docs
+ * ArchitectureSummaryGenerator — Generate ARCHITECTURE_SUMMARY.md from source docs
  *
  * Commands:
  *   generate    Generate/regenerate the architecture summary
@@ -140,26 +140,27 @@ function extractTopology(content: string): string | null {
   return section.trim();
 }
 
-// The summary is a ROUTER, not an archive (principal directive 2026-07-09):
-// one line per pipeline + a doc pointer; wiring detail stays in the master doc.
+// The summary is a ROUTER, not an archive: one line per pipeline plus a doc pointer,
+// with wiring detail staying in the master doc.
 // Pipeline NAMES come from the master doc's topology table (so new pipelines
 // surface automatically); descriptions come from this curated map. An unmapped
 // pipeline falls back to a truncated master-doc cell and warns on stderr so
 // the map gets updated rather than silently drifting.
 const PIPELINE_ROUTER: Record<string, { what: string; doc: string }> = {
-  "Security": { what: "Constitutional security protocol, native denylist, safety-classifier hooks", doc: "Security/README.md" },
+  "Security": { what: "Constitutional security protocol, native denylist, safety-classifier hooks; deployed estate scanned hourly server-side by the Arbol scanner = the Bunker Security plane", doc: "Security/README.md" },
   "Algorithm": { what: "Outcome-driven ISA execution — articulate done, hill-climb, close claims on tool evidence", doc: "Algorithm/AlgorithmSystem.md" },
-  "Memory": { what: "Autonomic capture, tiered curation, and retrieval across hot-layer, KNOWLEDGE, LEARNING", doc: "Memory/MemorySystem.md" },
+  "Cortex (Memory)": { what: "Cortex, the memory system — autonomic capture, tiered curation, and retrieval across hot-layer, KNOWLEDGE, LEARNING", doc: "Memory/MemorySystem.md" },
   "Hooks": { what: "Deterministic enforcement and context injection at Claude Code events", doc: "Hooks/HookSystem.md" },
   "Observability": { what: "Tool activity and failures appended to JSONL, read by Pulse", doc: "Observability/ObservabilitySystem.md" },
-  "Pulse": { what: "The Life Dashboard server on :31337 — voice, work kanban, wiki, Telegram", doc: "Pulse/PulseSystem.md" },
+  "Pulse": { what: "The Life Dashboard server on :31337 — voice, work kanban, wiki, iMessage/Siri", doc: "Pulse/PulseSystem.md" },
   "Work System": { what: "Four capture surfaces feeding private GitHub Issues as system of record", doc: "Work/WorkSystem.md" },
   "Skills": { what: "Domain capabilities: SKILL.md + workflows + deterministic tools", doc: "Skills/SkillSystem.md" },
   "Config": { what: "settings.json, CLAUDE.md, system prompt; release tooling stages public artifacts", doc: "Config/ConfigSystem.md" },
   "Notifications": { what: "Voice notifications via Pulse to ElevenLabs, logged to VOICE events", doc: "Notifications/NotificationSystem.md" },
-  "Telegram Dynamic Voice": { what: "Per-turn Telegram pipeline: identity-injected replies plus voice bubbles", doc: "Pulse/PulseSystem.md" },
-  "Doc Integrity": { what: "Stop-hook cross-reference checks; regenerates this summary from the master doc", doc: "Hooks/HookSystem.md" },
-  "Bunker": { what: "Universal application harness — canonical repo ~/Projects/bunker; app state-of-record bunker.isa.md; Pulse /bunker tab", doc: "LifeosSystemArchitecture.md" },
+  "Doc Integrity": { what: "SessionEnd-hook cross-reference checks; regenerates this summary from the master doc", doc: "Hooks/HookSystem.md" },
+  "Bunker": { what: "Universal application harness — canonical repo ~/.claude/LIFEOS/PULSE/Bunker; app state-of-record bunker.isa.md; Pulse /bunker tab; Security plane IS the Arbol infra-security scanner (server-side, hourly)", doc: "LifeosSystemArchitecture.md" },
+  "Atlas": { what: "Graph-based asset management — the current state of everything owned; `atlas` CLI (owns/blast/unregistered), Pulse /atlas", doc: "Atlas/AtlasSystem.md" },
+  "Ledger": { what: "Change-tracking authority — versioning, update registry, integrity gate, deploy events (the APPLIED half of the change pipeline)", doc: "Ledger/LedgerSystem.md" },
 };
 
 const ROW_FALLBACK_MAX = 140;
@@ -235,10 +236,10 @@ function generate(): string {
     "",
     "## Overview",
     "",
-    "LifeOS — the **Life Operating System**, built on the LifeOS (LifeOS) layer — is the framework that knows your goals, people, and current state, and continuously hill-climbs you toward your ideal state.",
+    "LifeOS — the **Life Operating System** — is the AI harness that moves you from your current state to your ideal state: an intent engineering platform that captures what you're ultimately trying to achieve and conveys that intent to your AI on every task, then verifies the output against it.",
     "Everything below is the machinery of that one loop: Current State → Ideal State via verifiable iteration (ISC). Canonical thesis: `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`.",
     "",
-    `**Current versions:** LifeOS ${paiVersion} | Algorithm v${algorithmVersion} | System Prompt v${systemPromptVersion} | Memory v${memoryVersion}`,
+    `**Current versions:** LifeOS ${paiVersion} | Algorithm v${algorithmVersion} | System Prompt v${systemPromptVersion} | Cortex (Memory) v${memoryVersion}`,
     "",
     "Doc routing lives in CLAUDE.md; founding principles + full section map in the master doc.",
     "",
@@ -247,7 +248,7 @@ function generate(): string {
     "",
     "- Full architecture: `LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md`",
     `- Algorithm spec: \`LIFEOS/ALGORITHM/v${algorithmVersion}.md\``,
-    "- ISA format: `LIFEOS/DOCUMENTATION/Isa/IsaFormat.md`",
+    "- ISA format: `LIFEOS/DOCUMENTATION/ISA/ISAFormat.md`",
     "- Config system: `LIFEOS/DOCUMENTATION/Config/ConfigSystem.md`",
     "",
   ];
@@ -282,9 +283,12 @@ function cmdCheck(): void {
   }
 
   // Version drift check: the master doc shouldn't mention an older Algorithm version than ALGORITHM/
+  // Only Algorithm-QUALIFIED mentions count ("Algorithm v8.4.0", "ALGORITHM/v8.4.0.md") — the doc
+  // legitimately cites hook/Memory/Bunker versions and historical notes, and a bare-semver match
+  // flagged all of them as drift, making --check permanently fail (public issue #1501).
   const archContent = fs.readFileSync(ARCH_SOURCE, "utf-8");
   const current = detectAlgorithmVersion();
-  const cited = [...archContent.matchAll(/v(\d+\.\d+\.\d+)/g)].map(m => m[1]);
+  const cited = [...archContent.matchAll(/(?:Algorithm\s+v|ALGORITHM\/v)(\d+\.\d+\.\d+)/gi)].map(m => m[1]);
   const stale = cited.filter(v => compareSemver(v, current) < 0);
   if (stale.length > 0) {
     console.log(`STALE: LifeosSystemArchitecture.md references older Algorithm version(s) ${[...new Set(stale)].join(", ")} — current is v${current}`);
@@ -318,7 +322,7 @@ switch (command) {
     console.log(`Usage: bun ArchitectureSummaryGenerator.ts <command>
 
 Commands:
-  generate    Generate/regenerate LIFEOS_ARCHITECTURE_SUMMARY.md
+  generate    Generate/regenerate ARCHITECTURE_SUMMARY.md
   check       Check if summary is stale (exit 1 if stale)`);
     process.exit(command ? 1 : 0);
 }

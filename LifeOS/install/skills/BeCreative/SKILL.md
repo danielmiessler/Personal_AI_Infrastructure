@@ -1,8 +1,7 @@
 ---
 name: BeCreative
-version: 1.1.18
+version: 1.1.21
 description: "Divergent ideation and corpus expansion via Verbalized Sampling plus extended thinking — single-shot generates several internally diverse candidates and surfaces the strongest, or expands a seed corpus into a diverse dataset for evals and test sets. USE WHEN be creative, brainstorm, divergent ideas, creative solutions, maximum creativity, tree of thoughts, radically different, name this, creative angle, expand this corpus, synthetic data, generate diverse examples, create test set. NOT FOR multi-cycle evolutionary ideation with Lamarckian meta-learning (use Ideate)."
-effort: medium
 ---
 
 ## Customization
@@ -98,8 +97,8 @@ Running the **WorkflowName** workflow in the **BeCreative** skill to ACTION...
 ## Integration with Other Skills
 
 **Works well with:**
-- **_SOCIALPOST** (XPost / LinkedInPost workflows) - Generate creative social media content
-- **_BLOGGING** - Creative blog post ideas and narrative approaches
+- **A social-post skill** (X / LinkedIn post workflows) - Generate creative social media content
+- **A blog-authoring skill** - Creative blog post ideas and narrative approaches
 - **Art** - Diverse image prompt ideas and creative directions
 - **Research** - Creative research angles and synthesis approaches
 

@@ -239,7 +239,7 @@ Optional: Sign small in bottom right corner in charcoal (#2D2D2D).
 ### Step 5: Execute Generation
 
 ```bash
-bun run ~/.claude/skills/art/Tools/Generate.ts \
+bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --workflow=Aphorisms \
   --model nano-banana-pro \
   --prompt "[YOUR PROMPT]" \
@@ -248,7 +248,7 @@ bun run ~/.claude/skills/art/Tools/Generate.ts \
   --output /path/to/aphorism.png
 ```
 
-**Model Recommendation:** nano-banana-pro (default, best for editorial typography on charcoal aesthetic) or `gpt-image-2` (currently #1 on Image Arena leaderboards as of 2026-05-04 — strongest pure text fidelity if the quote needs crisp, legible serif/sans rendering at small sizes) or flux (stylistic variety).
+**Model Recommendation:** nano-banana-pro — the default. Use flux only when you want stylistic variety.
 
 **Immediately Open:**
 ```bash

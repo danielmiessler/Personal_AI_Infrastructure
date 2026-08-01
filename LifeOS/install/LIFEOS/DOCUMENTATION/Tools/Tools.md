@@ -1,5 +1,5 @@
 ---
-version: 1.8.0
+version: 1.9.3
 ---
 
 # LifeOS Tools - CLI Utilities Reference
@@ -22,7 +22,7 @@ This file documents single-purpose CLI utilities that have been consolidated fro
 
 Single inference tool with four run levels for different speed/capability trade-offs — the same four-level abstraction as `EFFORT_MODEL` in `models.ts` (max→fable, high→opus, medium→sonnet, low→haiku; one-line mapping edit on a lineup change).
 
-**Executed-model verification (v6.29.0).** `--level max` genuinely runs Fable (spawns `claude --model claude-fable-5`), unlike an `Agent(model:fable)` dispatch which downgrades to Opus — so this is the real Fable carrier for E4/E5 reasoning. Every run reads the executed model back from the JSON envelope's `modelUsage` (`verifyExecutedModel` — filters Claude Code's per-turn background haiku pass, then takes the highest-output model as the answer's author and checks its family; presence alone can't tell a tiny classifier pass from real authorship). The result carries `executedModel` + `modelDowngraded`; the CLI prints a `[model] requested=… → executed=…` line to stderr (stdout stays the clean answer); any downgrade is logged to `MEMORY/OBSERVABILITY/model-verification.jsonl`. The tool reports what RAN, never what it requested.
+**Executed-model verification (v6.29.0).** `--level max` genuinely runs Fable (spawns `claude --model claude-fable-5`), unlike an `Agent(model:fable)` dispatch which downgrades to Opus — so this is the real Fable carrier for max-level reasoning. Every run reads the executed model back from the JSON envelope's `modelUsage` (`verifyExecutedModel` — filters Claude Code's per-turn background haiku pass, then takes the highest-output model as the answer's author and checks its family; presence alone can't tell a tiny classifier pass from real authorship). The result carries `executedModel` + `modelDowngraded`; the CLI prints a `[model] requested=… → executed=…` line to stderr (stdout stays the clean answer); any downgrade is logged to `MEMORY/OBSERVABILITY/model-verification.jsonl`. The tool reports what RAN, never what it requested.
 
 **Usage:**
 ```bash
@@ -451,45 +451,28 @@ brew install trufflehog
 
 **Repository:** [github.com/rtk-ai/rtk](https://github.com/rtk-ai/rtk) (MIT license)
 
-Transparent CLI proxy that compresses Bash command output by 60-90%, reducing token consumption in Claude Code sessions. Integrated via PreToolUse hook — commands are automatically rewritten to `rtk` equivalents before execution.
+Transparent CLI proxy that compresses the output of a few high-volume commands before it reaches Claude Code's context. Integrated via a PreToolUse hook that rewrites matching commands to their `rtk` equivalents before execution.
 
-**How It Works:**
-- PreToolUse hook (`ContextReduction.hook.sh`) intercepts Bash commands
-- Rewrites `git status` → `rtk git status`, `bun test` → `rtk bun test`, etc.
-- RTK binary executes the command, applies command-specific compression
-- Returns compact output via `updatedInput` — AI receives fewer tokens
+**`rtk` is an OPTIONAL dependency, not bundled by the installer.** Without `rtk` on PATH the hook is an inert passthrough — it never errors and never blocks a command. To enable it, install rtk separately (see Location above). This is deliberate: the installer ships no third-party binary.
 
-**Compression Coverage (50+ commands):**
+**Scope (2026-07-13 shrink):** the hook rewrites **only** `git` (status/diff/log/commit/push/pull/branch/fetch/stash/show), `gh` (pr/issue/run/api/release), and an `interceptor screenshot --save` output redirect. An earlier build carried a ~15-family rewrite table (cargo, vitest, pytest, go, docker, kubectl, npm, pnpm, tsc, eslint, prettier, prisma, ruff, mypy); those were removed because they are not this system's stack (bun/TS) and the table was dead weight.
 
-| Domain | Commands | Typical Savings |
-|--------|----------|----------------|
-| Git | status, log, diff, commit, push, pull | 85-99% |
-| Build | cargo, tsc, Next.js builds | 75-87% |
-| Test | pytest, vitest, jest, cargo test | 94-99% |
-| Lint | eslint, ruff, pylint, mypy, prettier | 80-90% |
-| Package | npm, pnpm, pip, bun | 70-95% |
-| File ops | ls, tree, find, grep, diff | 50-80% |
-| Infrastructure | docker, kubectl, aws, psql | varies |
-| GitHub CLI | gh pr, gh issue, gh run | 30%+ |
+**What it does NOT touch (INVARIANT):** read-path commands whose stdout the model reasons over as evidence — `rg`/`grep`, `cat`/`head`, `ls`/`tree`/`find`, `diff`, `curl`/`wget`, `psql`/`aws`. rtk's parse-fail there falls back to a different binary (`rg`→BSD grep) and can silently corrupt results. Compress what the model *watches* (VCS status, gh metadata), never what it *reads*. Incident: 2026-06-10 Vector ISA miss.
+
+**Measured value (this install):** `git status` ≈69% smaller, `gh pr diff` ≈65%, `git log` ≈42%. `rtk gain` reports a much larger lifetime figure, but most of that is direct/manual rtk usage of read-path commands (curl, grep, ls) that the hook does **not** rewrite — the hook's own contribution is the git/gh subset.
 
 **Key Commands:**
 ```bash
-rtk gain              # Token savings dashboard
-rtk gain --history    # Historical savings data
-rtk discover          # Find unoptimized commands
-rtk verify            # Check installation integrity
+rtk gain              # rtk's own token-savings ledger (all rtk usage, not just the hook)
+rtk --help            # supported subcommands
 ```
-
-**When to Use:**
-- Automatic — the PreToolUse hook handles everything transparently
-- Direct invocation for analytics: `rtk gain`, `rtk discover`
 
 **Technical Details:**
 - Rust binary, zero runtime dependencies
 - 3-tier parsing: JSON → regex → passthrough (graceful degradation)
 - SQLite tracking database at `~/.config/rtk/history.db`
-- Config at `~/.config/rtk/config.toml`
-- Hook requires `jq` (for JSON stdin parsing)
+- Hook requires `jq` (for JSON stdin parsing) in addition to `rtk`
+- Regression gate: `cd ~/.claude/hooks && bun test ContextReduction.test.ts`
 
 ---
 
@@ -647,81 +630,6 @@ Archived skill files have been removed.
 
 ---
 
-## algorithm.ts - The Algorithm CLI
-
-**Location:** `~/.claude/LIFEOS/TOOLS/algorithm.ts`
-
-Run the LifeOS Algorithm in Loop, Interactive, Ideate, or Optimize mode against a ISA.
-
-**Usage:**
-```bash
-# Run modes
-algorithm -m loop -p <ISA> [-n 128]           # Autonomous loop execution
-algorithm -m interactive -p <ISA>              # Interactive claude session
-algorithm -m optimize -p <ISA>                 # Autonomous metric optimization
-algorithm -m ideate -p <ISA>                   # Evolutionary ideation session
-
-# Presets (ideate)
-algorithm -m ideate -p <ISA> --preset dream        # Pure free-form dreaming
-algorithm -m ideate -p <ISA> --preset explore       # Broad exploration
-algorithm -m ideate -p <ISA> --preset balanced      # Default balanced
-algorithm -m ideate -p <ISA> --preset directed      # Problem-focused
-algorithm -m ideate -p <ISA> --preset surgical      # Maximum analytical focus
-algorithm -m ideate -p <ISA> --preset wild-but-picky  # Dream wildly, select ruthlessly
-
-# Presets (optimize)
-algorithm -m optimize -p <ISA> --preset cautious    # Small steps, no regression
-algorithm -m optimize -p <ISA> --preset aggressive   # Large steps, accepts regression
-
-# Focus dial (ideate only, 0.0=dream, 1.0=laser)
-algorithm -m ideate -p <ISA> --focus 0.2
-
-# Individual parameter overrides (repeatable)
-algorithm -m ideate -p <ISA> --focus 0.2 --param selectionPressure=0.9
-algorithm -m optimize -p <ISA> --param stepSize=0.8 --param regressionTolerance=0.3
-
-# Management
-algorithm new -t <title> [-e <effort>]         # Create a new ISA
-algorithm status [-p <ISA>]                    # Show ISA status
-algorithm pause -p <ISA>                       # Pause a running loop
-algorithm resume -p <ISA>                      # Resume a paused loop
-algorithm stop -p <ISA>                        # Stop a loop
-```
-
-**Parameter schema:** `~/.claude/LIFEOS/ALGORITHM/parameter-schema.md`
-
----
-
-## AlgorithmPhaseReport.ts - Algorithm State Reporter
-
-**Location:** `~/.claude/LIFEOS/TOOLS/AlgorithmPhaseReport.ts`
-
-Writes algorithm execution state to `algorithm-phase.json` for dashboard consumption.
-
-**Usage:**
-```bash
-# Phase transitions
-bun AlgorithmPhaseReport.ts phase --phase OBSERVE --task "Auth rebuild" --sla Standard
-
-# Criteria tracking
-bun AlgorithmPhaseReport.ts criterion --id 1 --desc "JWT rejects expired tokens" --status pending
-bun AlgorithmPhaseReport.ts criterion --id 1 --status completed --evidence "Tests pass"
-
-# Agent tracking
-bun AlgorithmPhaseReport.ts agent --name engineer-1 --type Engineer --status active
-
-# Capabilities
-bun AlgorithmPhaseReport.ts capabilities --list "Task Tool,Engineer Agents"
-
-# Parameter configuration (v3.16.0+)
-bun AlgorithmPhaseReport.ts config --preset dream --focus 0.25 --mode ideate
-
-# Meta-learner adjustment tracking (v3.16.0+)
-bun AlgorithmPhaseReport.ts meta-adjust --param selectionPressure --from 0.3 --to 0.45 --rationale "text"
-```
-
----
-
 ## KnowledgeHarvester.ts - Knowledge Archive Harvester
 
 **Location:** `~/.claude/LIFEOS/TOOLS/KnowledgeHarvester.ts`
@@ -768,22 +676,22 @@ bun ~/.claude/LIFEOS/TOOLS/KnowledgeHarvester.ts index
 
 `models.ts` is the **single source of truth** for current Claude model IDs (`CURRENT.opus/sonnet/haiku`) plus cross-vendor pins (inventory only). The rule of the road:
 
-- **Prefer aliases.** Consumers that accept a string and don't need a pinned ID use the tier alias (`"opus"`/`"sonnet"`/`"haiku"`) — the `claude` CLI resolves them to the latest, so they never drift. Pulse manifests and `Inference.ts` work this way.
+- **Prefer aliases.** Consumers that accept a string and don't need a pinned ID use the tier alias (`"opus"`/`"sonnet"`/`"haiku"`/`"fable"`) — the `claude` CLI resolves each to the LATEST model in that tier (`claude --help`: "Provide an alias for the latest model"), so they never drift. This is the system's auto-update mechanism; a pinned ID is the staleness source. Pulse manifests and `Inference.ts` work this way. A tier name IS its alias — the former `ALIAS` record was an identity map and was deleted 2026-07-24.
 - **Import the registry** only when you genuinely need a pinned ID (e.g. `ContextAudit.ts`'s drift check imports `currentModel("opus")`).
 - **Never** hardcode a dated ID in live code — that's the bug class this replaced (`ContextAudit` checked for `claude-opus-4-7` long after 4.8 shipped).
 
 **On a new model release (propose-not-auto):**
-1. The `_NEWS` Anthropic monitor (`CheckAnthropicChanges.ts`) scans fetched source bodies for a new Claude ID and, on a hit, records it to `LIFEOS/MEMORY/OBSERVABILITY/model-releases.jsonl` and best-effort fires `/notify` (voice/Telegram). It never edits the registry. (A model bump is a command, not a markdown-section text edit, so it deliberately does NOT use the `pending-proposals.jsonl` Telegram queue — that queue's apply path only appends text under a header.)
+1. The AI-news skill's Anthropic monitor (`CheckAnthropicChanges.ts`) scans fetched source bodies for a new Claude ID and, on a hit, records it to `LIFEOS/MEMORY/OBSERVABILITY/model-releases.jsonl` and best-effort fires `/notify` (voice/ntfy). It never edits the registry. (A model bump is a command, not a markdown-section text edit, so it deliberately does NOT use the `pending-proposals.jsonl` proposal queue — that queue's apply path only appends text under a header.)
 2. A human reviews, then bumps the one edit point: `bun ~/.claude/LIFEOS/TOOLS/UpdateModels.ts --apply <tier> <new-id>`.
 3. Confirm nothing else drifted: `bun ~/.claude/LIFEOS/TOOLS/UpdateModels.ts --check` (also runnable any time as a drift alarm; exit 1 on drift).
 
-Historical Algorithm doctrine snapshots (`LIFEOS/ALGORITHM/v*.md`) keep their period IDs and are excluded from the drift scan.
+Historical Algorithm doctrine snapshots (`LIFEOS/ALGORITHM/v*.md`), the Algorithm changelog, co-located `.test.ts` fixtures, skill `/State/` runtime caches, eval configs (which pin a model on purpose for reproducible comparison), and price tables keyed by past IDs are all excluded from the drift scan — see `SCAN_EXCLUDES`. `--check` reports two classes: **stale** (wrong now) and **pinned-but-current** (right today, will rot on the next bump — prefer an alias).
 
 ## ArchitectureSummaryGenerator.ts - Architecture Summary Generator
 
 **Location:** `~/.claude/LIFEOS/TOOLS/ArchitectureSummaryGenerator.ts`
 
-Generate `LIFEOS_ARCHITECTURE_SUMMARY.md` from LifeosSystemArchitecture.md and subsystem docs. Provides a compact architecture overview derived from the master architecture document.
+Generate `ARCHITECTURE_SUMMARY.md` from LifeosSystemArchitecture.md and subsystem docs. Provides a compact architecture overview derived from the master architecture document.
 
 **Usage:**
 ```bash
@@ -864,6 +772,42 @@ MCP tool results are truncated by default. Servers can override this by adding `
 **LifeOS applicability:**
 - **vendor-mcp** — Can add this annotation (we control the Worker). Useful for `vendor_scan` and `vendor_diff` style tools that return large analysis payloads.
 - **cloudflare** — External server; annotation must be added upstream by their maintainers.
+
+---
+
+## Examples
+
+### The whole idea: don't hand-roll what's already one command
+
+You need the transcript of a YouTube talk. The wrong move is to reach for `yt-dlp` flags and stitch together caption parsing by hand every time. The right move is one line:
+
+```bash
+bun ~/.claude/LIFEOS/TOOLS/GetTranscript.ts "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+The tool already handles the URL formats, prefers manual captions, falls back to auto-generated, and detects the language. It is documented here rather than wrapped in a skill because it is exactly one deterministic command with parameters — nothing to orchestrate, no state to carry, no judgment to make. The prompt decides *when* to run it; the code does the work the same way every time.
+
+### Tool or skill? One question decides
+
+The line between "document it here" and "build a skill" is sharp:
+
+- **A tool** is a single command that wraps an API or binary and returns a result — background removal, a transcript, a stats pull. It lives flat in `LIFEOS/TOOLS/`, gets a section on this page, and is called directly.
+- **A skill** is warranted the moment there are multiple workflows, persistent state, or a decision the model has to make about how to proceed. A transcript fetch is a tool; a research pass that fetches, reads, cross-checks, and synthesizes is a skill.
+
+Get this wrong toward the skill side and you have buried a one-liner under ceremony; wrong toward the tool side and you are re-deriving a workflow in the prompt every time.
+
+```mermaid
+flowchart TD
+    A[Need a capability] --> B{One deterministic<br/>command?}
+    B -->|no| E[Build a skill]
+    B -->|yes| C{Multiple workflows<br/>or state?}
+    C -->|yes| E
+    C -->|no| D[Add a tool in LIFEOS/TOOLS/<br/>document on this page]
+    D --> F[Call it directly from a prompt]
+    E --> G[Skill owns the workflows]
+```
+
+The default bias is toward the bottom-left branch: most needs are one command, and a documented utility beats a new skill every time the work is genuinely deterministic.
 
 ---
 

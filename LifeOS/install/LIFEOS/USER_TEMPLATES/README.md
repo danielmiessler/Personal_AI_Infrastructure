@@ -14,7 +14,7 @@ This directory ships with every LifeOS release. Each `*.md` file is a starter sc
 
 1. Copy a template into `USER/` (without `_TEMPLATES/`):
    ```bash
-   cp LIFEOS/USER/_TEMPLATES/Books.md LIFEOS/USER/Books.md
+   cp LIFEOS/USER_TEMPLATES/Books.md LIFEOS/USER/Books.md
    ```
 2. Edit the file. Add your own content. Pulse will detect the change and flip `provenance: template` → `provenance: customized` automatically.
 3. Or delete the template and write your own from scratch — Pulse only requires that the file exist where the manifest points (`LIFEOS/PULSE/pages/<id>.manifest.toml`).

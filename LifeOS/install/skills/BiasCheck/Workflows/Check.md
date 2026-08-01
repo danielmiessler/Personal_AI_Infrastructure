@@ -21,7 +21,7 @@ Running the **Check** workflow in the **BiasCheck** skill to audit the source...
 Before fetching anything, verify the input is workable:
 
 1. **Is there a source?** A URL, file path, or substantive text body (≥ ~50 words) must be present. A bare claim with no source attached ("is the moon landing fake biased?") fails this gate — ask for a source or redirect.
-2. **Is it the right tool?** Pure opinion piece with no empirical scaffolding → redirect to `_CRITICAL_ANALYSIS`. Pure claim about a person's character → redirect to `_OSINT` or Research. A study, dataset, survey, statistical claim, or article reporting any of those → proceed.
+2. **Is it the right tool?** Pure opinion piece with no empirical scaffolding → redirect to a psychological author-analysis skill. Pure claim about a person's character → redirect to a dedicated OSINT/entity-investigation skill or Research. A study, dataset, survey, statistical claim, or article reporting any of those → proceed.
 3. **Ambiguity threshold:** if the input is one URL with no further context, proceed (default interpretation: audit it). If the input is two URLs without a stated relationship, ask one question — are these (a) one analyzes the other, or (b) two separate sources to compare? Then proceed.
 
 If sufficient, run the workflow. If not, emit ≤3 questions with a `proceed` override and halt.

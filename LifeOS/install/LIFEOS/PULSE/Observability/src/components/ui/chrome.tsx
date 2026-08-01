@@ -271,7 +271,7 @@ export function TabBar<T extends string>({
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium cursor-pointer transition-colors duration-150"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium cursor-pointer transition-colors duration-150 whitespace-nowrap"
             style={{
               ...dimStyle(dim, isActive),
               ...(isActive ? { color: "var(--ink-1)" } : {}),
@@ -304,7 +304,7 @@ export function Pill({
   return (
     <span
       title={title}
-      className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-medium", className)}
+      className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-medium whitespace-nowrap", className)}
       style={dimStyle(dim, true)}
     >
       {children}

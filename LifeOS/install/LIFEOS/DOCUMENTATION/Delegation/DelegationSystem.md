@@ -3,8 +3,18 @@ name: DelegationReference
 description: Comprehensive delegation and agent parallelization patterns. Reference material extracted from SKILL.md for on-demand loading.
 created: 2025-12-17
 extracted_from: SKILL.md lines 535-627
-version: 1.4.11
+version: 1.5.2
 ---
+
+> **RETIRED 2026-07-21 (BPE capability-surfacing cleanup).** The Delegation skill and this
+> reference are gone: they hand-maintained a manual of harness capabilities (`Task()`,
+> `TeamCreate`/`team_name`, `max_turns`, effort tiers) that rotted against the live tool
+> surface. Capability existence is surfaced natively — tool schemas ride in context every
+> turn, skills list their USE WHEN, agent types their descriptions, ToolSearch loads the
+> rest. What LifeOS keeps is only what the harness can't know: election rules and spend
+> facts (Algorithm §Spend), the fork-reviewer clause (claim 11), dispatch/model rules
+> (OPERATIONAL_RULES § Model selection). The `retired-tokens` /ic check blocks this rot
+> class from returning. This document is kept as history only — nothing below is operative.
 
 # Delegation & Parallelization Reference
 
@@ -59,19 +69,19 @@ Agent({ prompt: "System design / distributed systems. Design the distributed cac
 
 ### Agent Types
 
-**Default for parallel work: Custom agents via Agents skill (ComposeAgent).**
+**Default for parallel work: custom agents as inline briefs on `general-purpose`.** (The old `Agents` composition skill — ComposeAgent/Traits.yaml — was retired; see `AgentSystem.md` § Forbidden Patterns. Public issue #1504, @tzioup, caught the stale routing here.)
 
-Use the Agents skill to compose task-specific agents with unique traits, voices, and expertise:
+Compose task-specific agents by writing the role/perspective/voice directly into each prompt:
 - Use a SINGLE message with MULTIPLE Agent tool calls
-- Each agent gets FULL CONTEXT and DETAILED INSTRUCTIONS via ComposeAgent prompt
-- Launch as many as needed (no artificial limit)
+- Each agent gets FULL CONTEXT and a DETAILED role brief written into its prompt, launched with `subagent_type: "general-purpose"`
+- ~~Launch as many as needed (no artificial limit)~~ — corrected 2026-07-23 (public PR #1569, @elhoim): since Claude Code 2.1.217, concurrently-running subagents are capped (default 20, override `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`) and subagents no longer spawn nested subagents by default (override `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`)
 - **ALWAYS launch a spotcheck agent after parallel work completes**
 
 **Agent routing by task type:**
 - **Research tasks** → Use the Research skill (has dedicated researcher agents)
 - **Code implementation** → Use `general-purpose` with a senior-engineer/TDD brief in the prompt
 - **Architecture/design** → Use `general-purpose` with a system-design / distributed-systems brief in the prompt
-- **Everything else** → Use Agents skill → ComposeAgent → `subagent_type: "general-purpose"`
+- **Everything else** → Write a distinct inline brief per agent → `subagent_type: "general-purpose"`
 
 ### 🚨 AGENT ROUTING (Always Active)
 
@@ -80,12 +90,12 @@ Use the Agents skill to compose task-specific agents with unique traits, voices,
 | Priority | User Says | System | Tool | What Happens |
 |----------|-----------|--------|------|-------------|
 | **1. DEFAULT** | "parallel work", "agents", "team", "swarm", or Algorithm selects delegation | **Agent Teams** | `TeamCreate` → `Agent` with `team_name` → `TaskCreate` → `SendMessage` | Persistent teammates, shared task list, peer messaging, task dependencies |
-| **2. EXPLICIT** | "**custom agents**", "spin up **custom** agents" | **Custom Agents** (ComposeAgent) | `Skill("Agents")` → `Agent(subagent_type="general-purpose", prompt=<composed>)` | Unique personalities, voices, one-shot parallel work |
+| **2. EXPLICIT** | "**custom agents**", "spin up **custom** agents" | **Custom Agents** (inline briefs) | `Agent(subagent_type="general-purpose", prompt=<distinct role brief per agent>)` | Unique personalities, voices, one-shot parallel work |
 | **3. UNATTENDED** | "run overnight", "long-running", "CI trigger", or task exceeds session lifetime | **Managed Agents** (Anthropic cloud API) | `Skill("claude-api")` to build workflows | Durable sessions, sandboxed containers, vault credentials, $0.08/session-hour |
 
 **These are three distinct systems:**
 - **Agent Teams** = persistent local teammates with shared task lists, messaging, and multi-turn coordination via `TeamCreate`. DEFAULT for all parallel work.
-- **Custom Agents** = one-shot parallel workers with unique identities via ComposeAgent. ONLY when {{PRINCIPAL_NAME}} explicitly says "custom agents".
+- **Custom Agents** = one-shot parallel workers with unique identities written as inline briefs. ONLY when {{PRINCIPAL_NAME}} explicitly says "custom agents".
 - **Managed Agents** = cloud-hosted agents with durable sessions that survive disconnects. For unattended/overnight work only.
 
 **Additional routing by task type:**
@@ -103,9 +113,9 @@ Use the Agents skill to compose task-specific agents with unique traits, voices,
 4. Teammates self-claim tasks, message each other, go idle between rounds
 
 **For Custom Agents (only when explicitly requested):**
-1. Invoke Agents skill → ComposeAgent for EACH agent with different trait combinations
-2. Launch with composed prompt as `subagent_type: "general-purpose"`
-3. Each agent gets a personality-matched ElevenLabs voice
+1. Write a distinct inline brief for EACH agent — role, perspective, voice, expertise in the prompt itself
+2. Launch each brief as `subagent_type: "general-purpose"`
+3. Each agent gets a personality-matched ElevenLabs voice (described in the brief)
 
 **For research specifically:** Use the Research skill, which has dedicated researcher agents (ClaudeResearcher, GeminiResearcher, etc.)
 
@@ -187,7 +197,7 @@ Three primitives for non-blocking work. Pick the right one:
 2. Do you need events as they happen? → `Monitor`
 3. Just need to know when it's done? → `Bash(run_in_background)`
 
-**Monitor vs Pulse:** Monitor is an in-session watcher — lives and dies with the conversation. Pulse is the out-of-process daemon that runs 24/7. Use Monitor for session-scoped watching (deploy logs, CI). Use Pulse for persistent monitoring (Telegram, iMessage, cron checks).
+**Monitor vs Pulse:** Monitor is an in-session watcher — lives and dies with the conversation. Pulse is the out-of-process daemon that runs 24/7. Use Monitor for session-scoped watching (deploy logs, CI). Use Pulse for persistent monitoring (iMessage, Siri, cron checks).
 
 **Monitor guidelines:**
 - Always use `grep --line-buffered` in pipes — without it, pipe buffering delays events by minutes
@@ -203,6 +213,46 @@ Three primitives for non-blocking work. Pick the right one:
 ## Knowledge Archive Access
 
 Delegated agents can query the **Knowledge Archive** (`~/.claude/LIFEOS/MEMORY/KNOWLEDGE/`) for accumulated knowledge organized by 4 entity types: People (human beings), Companies (organizations), Ideas (insights/theses/analyses), Research (longer-form research notes). Topic is a tag, not a domain. Managed by Algorithm LEARN phase (direct writes), `LIFEOS/TOOLS/KnowledgeHarvester.ts` (validation/maintenance), and the `/knowledge` skill. Include archive query instructions in agent prompts when the task benefits from prior research or domain context.
+
+---
+
+## Examples
+
+### One task, four workers, one message
+
+Delegation at its smallest: **a task that splits cleanly into independent parts, run all at once instead of one after another.**
+
+Say a small site has four sections and you need to know which ones have a broken link. The parts don't depend on each other — checking section two tells you nothing about section three. So you fan out: four agents in a *single* message, each handed one section, each on `haiku` because the work is mechanical lookup, not reasoning. They run at the same time and report back. Then one spotcheck agent confirms the four results line up.
+
+Four `haiku` agents finishing together is faster *and* cheaper than one `opus` agent walking the sections in sequence. The model is matched to the work (grunt work → `haiku`), and the parallelism is matched to the structure (independent parts → fan out).
+
+### When not to fan out
+
+The reinforcing case is knowing when parallel is the wrong move — because forcing it either breaks the work or wastes agents:
+
+- **Serial dependency** — "write the migration, *then* test it against the result." The test needs the migration's output. Parallelizing would have the tester grading a thing that doesn't exist yet. Run it in sequence.
+- **A single trivial lookup** — "is the dev server up?" One `Bash` check answers it. Spinning up an agent, let alone several, is pure overhead.
+- **Shared, evolving state** — when workers must see each other's progress mid-flight, that's an **Agent Team** (shared task list, messaging), not a set of one-shot fan-out agents.
+
+The test: are the parts truly independent? Independent → fan out. Dependent → sequence, or a team that can coordinate.
+
+### Fan-out, then gather
+
+```mermaid
+flowchart TD
+    A[Task with independent parts] --> B{Parallelizable?}
+    B -->|no, serial dependency| C[Run in sequence]
+    B -->|yes| D[One message, many Agent calls]
+    D --> E1[haiku: part 1]
+    D --> E2[haiku: part 2]
+    D --> E3[haiku: part 3]
+    E1 --> F[Spotcheck agent]
+    E2 --> F
+    E3 --> F
+    F --> G[Merged result]
+```
+
+The diagram is the pattern in one frame: split only what's genuinely independent, launch the workers together in a single message, match each to the cheapest model that can do it, and always close with a spotcheck before trusting the merge.
 
 ---
 

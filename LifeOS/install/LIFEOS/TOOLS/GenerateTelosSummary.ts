@@ -90,12 +90,21 @@ function loadTelosSections(): Record<string, string> {
 
 function readTelosFile(filename: string): string {
   // Legacy per-file path first (back-compat), then unified-TELOS section.
+  // Strip leading YAML frontmatter (public issue #1496): in files with no
+  // ID-form items, paragraphItems() otherwise swallows the frontmatter block
+  // as a garbage first entry (e.g. "M0: --- provenance: interview ...").
   const path = join(TELOS_DIR, filename);
-  if (existsSync(path)) return readFileSync(path, 'utf-8');
+  if (existsSync(path)) {
+    return readFileSync(path, 'utf-8').replace(/^---\n[\s\S]*?\n---\n?/, '');
+  }
   const sectionKey = LEGACY_FILE_TO_SECTION[filename];
   if (sectionKey) {
     const sections = loadTelosSections();
-    return sections[sectionKey] ?? '';
+    // Plural fallback (public issue #1517, @christauff): TELOS.md is
+    // hand-authored, and "## MISSIONS" (plural) keyed as 'missions' silently
+    // missed the singular 'mission' lookup — the section rendered empty and
+    // the fail-loud guard below couldn't see it (same lookup, same miss).
+    return sections[sectionKey] ?? sections[sectionKey + 's'] ?? '';
   }
   return '';
 }
@@ -126,12 +135,33 @@ function parseItems(content: string, fallbackPrefix?: string): ParsedItem[] {
       items.push({ id: heading[1], text: heading[2].trim() });
     }
   }
+  // H2 heading form with body: "## M0: title" followed by prose until the next
+  // heading (public issue #1538, @waveman2020-sudo). Line-based matching alone
+  // dropped the ID'd heading and let its multi-paragraph body fall through to
+  // the positional-prose fallback, silently fragmenting one entry into fake
+  // sequential items. Runs only when no bullet/H3 items matched, so existing
+  // formats keep byte-identical output; explicit IDs still win over prose.
+  if (items.length === 0) {
+    const h2Re = /^#{2}\s+([A-Z]+\d+\w?):\s*(.+)$/;
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(h2Re);
+      if (!m) continue;
+      const body: string[] = [];
+      for (let j = i + 1; j < lines.length && !/^#{2,3}\s/.test(lines[j]); j++) body.push(lines[j]);
+      const bodyText = body.join(' ').replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ').trim();
+      items.push({ id: m[1], text: bodyText ? `${m[2].trim()} — ${bodyText}` : m[2].trim() });
+    }
+  }
   // Fallback: ID-less prose (2026-06-08 TELOS rewrite). Explicit IDs always win;
   // this path only runs when zero ID-form items matched.
   if (items.length === 0 && fallbackPrefix) {
     return paragraphItems(content, fallbackPrefix);
   }
-  return items;
+  // Shipped-template placeholder text must never render as the principal's real
+  // content — PRINCIPAL_TELOS.md is @-imported every session (public issue #1528, @vichong).
+  // \b not literal ")": templates also write "(sample — …)" variants, which the
+  // literal match let through into fresh installs (public issue #1671, @catchingknives).
+  return items.filter(item => !/\(sample\b/i.test(item.text));
 }
 
 /**
@@ -140,10 +170,18 @@ function parseItems(content: string, fallbackPrefix?: string): ParsedItem[] {
  * acceptable; the source format carries no stable IDs to preserve.
  */
 function paragraphItems(content: string, prefix: string): ParsedItem[] {
+  // Strip HTML comments before paragraphing (issue #1472). The unified TELOS
+  // format requires an `<!-- updated: … -->` freshness marker after every H2;
+  // without this strip the marker survives as its own paragraph and, because
+  // downstream truncates to the first N items, EVICTS a real entry.
   return content
+    .replace(/<!--[\s\S]*?-->/g, '')
     .split(/\n\s*\n/)
     .map(p => p.trim())
     .filter(p => p.length > 0 && !/^-{3,}$/.test(p) && !p.startsWith('#'))
+    // Skip shipped-template placeholder paragraphs (public issue #1528, @vichong;
+    // \b for "(sample — …)" variants, public issue #1671, @catchingknives)
+    .filter(p => !/\(sample\b/i.test(p))
     .map((p, i) => ({ id: `${prefix}${i}`, text: p.replace(/\s*\n\s*/g, ' ').replace(/^-\s+/, '').trim() }));
 }
 
@@ -177,7 +215,12 @@ function parseGoals(): { active: string[]; deferred: string[]; completed: string
     if (h.includes('active')) return 'active';
     if (h.includes('deferred') || h.includes('ongoing')) return 'deferred';
     if (h.includes('completed') || h.includes('done')) return 'completed';
-    return null; // unrecognized heading (e.g. "## Notes") — not goal content
+    // Explicit skip: a "## Notes"/"## Note" block is genuinely not goal content.
+    if (h.includes('note')) return null;
+    // Any other unrecognized heading (e.g. "## Detail") is treated as active
+    // goal content — never silently discarded (issue #1473). Dropping real
+    // goals under a natural heading is worse than over-including a stray line.
+    return 'active';
   };
 
   const sectionLines: Record<Bucket, string[]> = { active: [], deferred: [], completed: [] };
@@ -212,7 +255,17 @@ function parseGoals(): { active: string[]; deferred: string[]; completed: string
     completed: parseBucket(sectionLines.completed),
   };
 
+  // Seed the positional counter ABOVE the highest explicit G<n> anywhere in the
+  // parsed buckets — a counter starting at 0 could re-issue an ID an explicit entry
+  // already owns in another bucket, corrupting the session-imported summary
+  // (public issue #1529, @vichong). ID-less files are unaffected (seed stays 0).
   let idx = 0;
+  for (const bucket of Object.values(parsed)) {
+    for (const item of bucket) {
+      const explicit = item.id.match(/^G(\d+)$/);
+      if (explicit) idx = Math.max(idx, Number(explicit[1]) + 1);
+    }
+  }
   const format = (items: ParsedItem[], max: number): string[] =>
     items.map(item => {
       const id = item.id || `G${idx}`;
@@ -414,9 +467,30 @@ function generate(): string {
     ['challenges', 'Challenges', challenges.length],
   ];
   for (const [key, label, count] of coreChecks) {
-    if ((sections[key] ?? '').trim().length > 0 && count === 0) {
+    if (((sections[key] ?? sections[key + 's']) ?? '').trim().length > 0 && count === 0) {
       console.error(`❌ TELOS section "${label}" has source content but parsed to zero items — refusing to write a summary that silently drops it.`);
       process.exit(1);
+    }
+  }
+
+  // Orphan-heading warning (public issue #1517, @christauff): the guard above
+  // resolves keys through the same lookup it guards, so a heading that drifts
+  // past LEGACY_FILE_TO_SECTION (e.g. "## NARRATIVES / PROBLEMS / MODELS"
+  // combined under one heading) is invisible to it — both miss, section drops
+  // silently. Detect drift from the content side: a non-empty heading no known
+  // key claims, but which CONTAINS a known section token, is almost certainly
+  // meant to be consumed. Warn, don't fail — headings that share no token with
+  // any known section (Ideas, Projects, Current State…) are legitimately
+  // consumed by other tools and stay silent.
+  const knownKeys = new Set(Object.values(LEGACY_FILE_TO_SECTION));
+  for (const [heading, body] of Object.entries(sections)) {
+    if (!body.trim()) continue;
+    const singular = heading.endsWith('s') ? heading.slice(0, -1) : heading;
+    if (knownKeys.has(heading) || knownKeys.has(singular)) continue;
+    const tokens = heading.split(/[^a-z]+/).filter(Boolean);
+    const hit = tokens.find(t => knownKeys.has(t) || knownKeys.has(t.replace(/s$/, '')));
+    if (hit) {
+      console.error(`⚠️  TELOS heading "${heading}" has content but matches no known section — its "${hit}" content will be missing from the summary. Known sections: ${[...knownKeys].join(', ')}.`);
     }
   }
 
@@ -494,11 +568,14 @@ function generate(): string {
     lines.push('', '## Things I\'ve Been Wrong About (Mistakes)', '', ...wrong);
   }
 
+  // Emit Core Models only when populated (public issue #1559, @tzioup): an
+  // unconditional empty section is exactly the shape ContextAudit's empty-
+  // section check exists to catch, and emitting it guaranteed a false-clean.
+  if (models.length > 0) {
+    lines.push('', '## Core Models', '', ...models);
+  }
+
   lines.push(
-    '',
-    '## Core Models',
-    '',
-    ...models,
     '',
     '## Context Filter',
     '',

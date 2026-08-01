@@ -33,6 +33,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { existsSync, readFileSync, readdirSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
 import { join } from "path";
+import { execFileSync } from "child_process";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -64,6 +65,13 @@ interface Hypothesis {
   suggested_action: string;
   raw_body: string;
   expires_in_days: number;
+  // Deriver v3 (healing-fixture proposals — data, not code)
+  source: string; // "ratings" | "observability"
+  enforcement_surface: string; // context | hook | rule | settings | skill
+  class_id: string | null;
+  proposed_patch: string; // the "## Proposed Healing Fixture" section (rationale + JSON), "" if none
+  has_patch: boolean;     // true when a pending healing fixture is attached
+  pending_slug: string | null; // test/regression/pending/<slug> when has_patch
 }
 
 interface ModuleState {
@@ -112,7 +120,11 @@ function parseFrontmatter(content: string): { fm: Record<string, any>; body: str
 }
 
 function extractSection(body: string, heading: string): string {
-  const re = new RegExp(`^##\\s+${heading}\\s*\\n([\\s\\S]*?)(?=^##\\s+|$)`, "m");
+  // (?![\s\S]) is true end-of-string — a bare `$` under the m flag matches at
+  // EVERY line end, which silently truncated multi-line sections to their
+  // first line (latent since this module shipped; surfaced 2026-07-13 when
+  // has_patch probed for a ```diff fence deeper in the section).
+  const re = new RegExp(`^##\\s+${heading}\\s*\\n([\\s\\S]*?)(?=^##\\s+|(?![\\s\\S]))`, "m");
   const m = body.match(re);
   return m ? m[1].trim() : "";
 }
@@ -142,10 +154,40 @@ function loadHypothesis(filename: string): Hypothesis | null {
     suggested_action: extractSection(body, "Suggested Action"),
     raw_body: body,
     expires_in_days: expiresInDays,
+    source: String(fm.source || "ratings"),
+    enforcement_surface: String(fm.enforcement_surface || "context"),
+    class_id: fm.class_id ? String(fm.class_id) : null,
+    proposed_patch: extractSection(body, "Proposed Healing Fixture (RED — proves the gap is real)"),
+    has_patch: /pending_slug:/.test(body) || /pending:\s*`test\/regression\/pending\//.test(body),
+    pending_slug: (body.match(/pending:\s*`test\/regression\/pending\/([^/`]+)\//) ?? [])[1] ?? null,
   };
 }
 
-function listPending(): Hypothesis[] {
+// ── Healing-fixture promotion (deriver v3 — no code path) ───────────────────
+// Graduating a healing-fixture hypothesis attempts to PROMOTE its pending
+// fixture into the blocking corpus — which only succeeds if the class is
+// already fixed (the fixture is green). It NEVER writes code: PromoteFixture
+// only moves a data-only fixture dir + records the registry row. A still-red
+// fixture stays pending (the fix hasn't been done yet). The HTTP response
+// carries the truth.
+
+function runPromoteFixture(pendingSlug: string): { promoted: boolean; detail: string } {
+  const env = { ...process.env } as Record<string, string | undefined>;
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  delete env.CLAUDECODE;
+  try {
+    const out = execFileSync("bun", [join(LIFEOS_DIR, "TOOLS", "PromoteFixture.ts"), pendingSlug], {
+      encoding: "utf-8", timeout: 120_000, stdio: ["ignore", "pipe", "pipe"], env: env as NodeJS.ProcessEnv,
+    });
+    return { promoted: true, detail: out.trim().split("\n")[0] ?? "promoted" };
+  } catch (e: any) {
+    const detail = ((e.stdout || "") + (e.stderr || "")).toString().trim().split("\n").slice(0, 3).join(" · ");
+    return { promoted: false, detail: detail || String(e.message ?? e) };
+  }
+}
+
+export function listPending(): Hypothesis[] {
   if (!existsSync(HYPOTHESES_DIR)) return [];
   const files = readdirSync(HYPOTHESES_DIR)
     .filter(f => f.endsWith(".md") && f !== "README.md");
@@ -213,6 +255,27 @@ function graduateToFrame(slug: string, target_frame: string, claim: string): voi
   writeFileSync(framePath, readFileSync(framePath, "utf-8") + append);
 }
 
+// ── Exported actions (consumed by modules/upgrades.ts — the unified queue) ──
+
+export function graduateHypothesis(slug: string, note?: string): { ok: boolean; detail?: string; reason?: string } {
+  const items = listPending();
+  const h = items.find(x => x.slug === slug);
+  if (!h) return { ok: false, reason: "not_found" };
+  if (h.has_patch && h.pending_slug && h.enforcement_surface !== "context") {
+    const promo = runPromoteFixture(h.pending_slug);
+    if (!promo.promoted) return { ok: false, reason: "patch_still_red", detail: promo.detail };
+    const result = archiveHypothesis(slug, "graduated", note);
+    return result.ok ? { ok: true, detail: promo.detail } : { ok: false, reason: result.reason };
+  }
+  graduateToFrame(slug, h.target_frame, h.claim);
+  const result = archiveHypothesis(slug, "graduated", note);
+  return result.ok ? { ok: true } : { ok: false, reason: result.reason };
+}
+
+export function rejectHypothesis(slug: string, note?: string): { ok: boolean; reason?: string } {
+  return archiveHypothesis(slug, "rejected", note);
+}
+
 // ── HTTP handler ───────────────────────────────────────────────────────────
 
 function jsonResponse(body: any, status = 200): Response {
@@ -231,6 +294,10 @@ function summarizeForList(h: Hypothesis) {
     evidence_count: h.evidence_signals.length,
     generated: h.generated,
     expires_in_days: h.expires_in_days,
+    source: h.source,
+    enforcement_surface: h.enforcement_surface,
+    has_patch: h.has_patch,
+    pending_slug: h.pending_slug,
   };
 }
 
@@ -268,6 +335,27 @@ export async function handleRequest(req: Request, pathname: string): Promise<Res
       const items = listPending();
       const h = items.find(x => x.slug === slug);
       if (!h) return jsonResponse({ error: "not_found" }, 404);
+
+      // Deriver v3 routing: a healing-fixture hypothesis on a code surface
+      // graduates by trying to PROMOTE its pending fixture — which succeeds only
+      // if the class is already fixed (fixture is green). No code is ever
+      // written; PromoteFixture just moves a data fixture into the corpus. A
+      // still-red fixture stays pending as a task.
+      if (h.has_patch && h.pending_slug && h.enforcement_surface !== "context") {
+        const promo = runPromoteFixture(h.pending_slug);
+        if (promo.promoted) {
+          const result = archiveHypothesis(slug, "graduated", note);
+          if (!result.ok) return jsonResponse({ error: result.reason }, 409);
+        }
+        return jsonResponse({
+          ok: true, slug,
+          new_status: promo.promoted ? "graduated" : "hypothesis",
+          enforcement_surface: h.enforcement_surface,
+          patch: promo.promoted ? "promoted" : "still-red-pending",
+          patch_detail: promo.detail,
+        });
+      }
+
       graduateToFrame(slug, h.target_frame, h.claim);
       const result = archiveHypothesis(slug, "graduated", note);
       if (!result.ok) return jsonResponse({ error: result.reason }, 409);

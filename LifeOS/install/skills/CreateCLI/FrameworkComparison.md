@@ -102,7 +102,7 @@ main().catch(error => {
 - ✅ Fast development priority
 
 ### Reference Implementation
-**Location:** `~/.claude/LIFEOS/TOOLS/llcli/llcli.ts` (327 lines)
+**Location:** retired 2026-07-15 (llcli was the Limitless CLI, deleted with that service; the pattern lives on in this doc)
 **Commands:** today, date, search
 **Pattern:** Exactly what this tier generates
 
@@ -470,7 +470,7 @@ Check dist/ folder size. Tier 1 CLIs are <100 KB.
 ---
 
 **Sources:**
-- llcli production implementation (~/.claude/LIFEOS/TOOLS/llcli/)
+- llcli production implementation (retired 2026-07-15; pattern preserved in this doc)
 - Commander.js 12.x documentation
 - oclif core documentation
 - Perplexity research (32 sub-queries on CLI frameworks)

@@ -89,6 +89,20 @@ function computeFromCurrent(file: string): DimensionState | null {
   const have    = (content.match(/\bstatus:\s*have\b/g)    || []).length;
   const partial = (content.match(/\bstatus:\s*partial\b/g) || []).length;
   const missing = (content.match(/\bstatus:\s*missing\b/g) || []).length;
+  // Fail loud on unrecognized status keywords (public issue #1509): a synonym
+  // like `status: populated` used to silently count as nothing, so a fully
+  // populated file computed as 0% coverage with no signal anything was wrong.
+  const RECOGNIZED = new Set(["have", "partial", "missing"]);
+  const unrecognized = [...content.matchAll(/\bstatus:\s*([A-Za-z][\w-]*)/g)]
+    .map((m) => m[1]!.toLowerCase())
+    .filter((kw) => !RECOGNIZED.has(kw));
+  if (unrecognized.length > 0) {
+    const uniq = [...new Set(unrecognized)].join(", ");
+    process.stderr.write(
+      `[UpdateLifeosState] WARNING: ${file} has ${unrecognized.length} unrecognized status keyword(s) (${uniq}) — ` +
+      `only have/partial/missing count toward coverage, so the reported percentage is wrong until fixed.\n`,
+    );
+  }
   const total = have + partial + missing;
   if (total === 0) return null;
   const pct = Math.round(((have + 0.5 * partial) / total) * 100);

@@ -24,9 +24,9 @@ ephemeral: <path>
 master: <path>
 applied:
   iscs_checked: [ISC-12, ISC-13, ISC-14, ISC-15, ISC-31]   # ISCs flipped to [x]
-  verification_added: 5                                     # Verification entries appended
+  verification_added: 5                                     # Verification provenance stubs appended
   decisions_added: 2                                        # Decisions entries appended
-  changelog_added: 1                                        # Changelog entries appended
+  learning_added: 1                                         # Learning (C/R/L) entries appended
 archived_to: MEMORY/WORK/.../_ephemeral/.archive/AuthSystem-2026-04-15.md
 errors:
   - isc: ISC-99
@@ -59,15 +59,15 @@ For each ISC in the ephemeral file:
 
 ### Step 4 — Stage Verification entries
 
-Each ISC flipped in step 3 must have a corresponding entry in the ephemeral's `## Verification` section. Stage these entries to be appended to master's `## Verification`. Preserve quoted command output / file content / screenshot paths verbatim.
+Each ISC flipped in step 3 must have a corresponding entry in the ephemeral's `## Verification` section. Stage these entries to be appended to master's `## Verification`. Each entry is a **one-line provenance stub** — a commit hash, test name, or probe ref (Algorithm v8.7.1 claim 12, evidence collapses on close). If the ephemeral recorded a full evidence paragraph, collapse it to the stub before staging; the proof lives in git and CI, not in master.
 
 ### Step 5 — Stage Decisions entries
 
 Append the ephemeral's `## Decisions` entries to master's `## Decisions`, prefixed with `[from <feature>]:` for traceability. Preserve timestamps.
 
-### Step 6 — Stage Changelog entries
+### Step 6 — Stage Learning entries
 
-If the ephemeral has any new `## Changelog` entries (conjecture/refutation/learning format), append them to master's `## Changelog` with a feature-context note: `[surfaced in <feature>]:`.
+If the ephemeral has any new `## Learning` entries (conjecture/refutation/learning C/R/L format — the section formerly named `## Changelog`), append them to master's `## Learning` with a feature-context note: `[surfaced in <feature>]:`. There is no `## Changelog` section to merge — `git log` is the change record.
 
 ### Step 7 — Update master frontmatter
 
@@ -84,7 +84,7 @@ If `dry_run: false`, apply all staged changes via Edit/Write tools. Order:
 2. Edit master `## Criteria` ISC checkmarks.
 3. Edit master `## Verification` (append).
 4. Edit master `## Decisions` (append).
-5. Edit master `## Changelog` (append).
+5. Edit master `## Learning` (append).
 
 ### Step 9 — Archive the ephemeral file
 

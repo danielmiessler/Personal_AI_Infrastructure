@@ -31,9 +31,24 @@ Generate wallpapers that:
 
 ## Prerequisites
 
-**Logo Source:** `~/Projects/Logos/ul-blue.png`
-**Style References:** `~/Projects/Wallpaper/` (blue-purple-circuits.png, circuit-board.png)
-**Output Directory:** `~/Projects/Wallpaper/`
+This workflow takes **user-supplied** paths. Ask for them if they weren't given;
+never assume a location exists.
+
+**`<LOGO_FILE>`** — the logo to emboss. A flat, high-contrast PNG of the mark
+itself (not a wordmark lockup) works best, since the workflow reads its shape.
+
+**`<WALLPAPER_DIR>`** — where the generated wallpaper is written.
+
+**`<REFERENCE_WALLPAPER>`** *(optional)* — an existing image whose aesthetic to
+match. If the user has none, skip the reference step and work from the style
+description alone.
+
+Set them once per shell so the commands below run as written:
+
+```bash
+export LOGO_FILE=/path/to/your/logo.png
+export WALLPAPER_DIR=/path/to/your/wallpaper/output
+```
 
 ---
 
@@ -69,7 +84,7 @@ Generate wallpapers that:
 - ✅ CORRECT: Visual content fills entire canvas, logo small in bottom left WITHIN the design
 
 **5. Missing Reference Images**
-- ❌ Not using ul-blue.png as reference for logo shape
+- ❌ Not using the supplied logo file as reference for logo shape
 - ❌ Not checking existing wallpapers for quality benchmark
 - ✅ CORRECT: Always use --reference-image with the logo file
 
@@ -87,12 +102,11 @@ Ask about:
 ### Step 2: Load References
 
 ```bash
-# Verify logo exists
-ls ~/Projects/Logos/ul-blue.png
+# Verify the logo exists
+ls "$LOGO_FILE"
 
-# View style reference wallpapers
-open ~/Projects/Wallpaper/circuit-board.png
-open ~/Projects/Wallpaper/blue-purple-circuits.png
+# View the style reference, if the user supplied one
+open "<REFERENCE_WALLPAPER>"
 ```
 
 **Study reference wallpapers for:**
@@ -120,7 +134,7 @@ open ~/Projects/Wallpaper/blue-purple-circuits.png
    - NO GREEN, NO PINK, NO OTHER COLORS
 
 5. LOGO INTEGRATION (CRITICAL):
-   - Connected-nodes logo from reference
+   - The logo shape from the reference image
    - EMBOSSED into surface (raised/pressed texture)
    - Position: bottom left WITHIN the visual content
    - Size: 3-5% of image width (SMALL)
@@ -150,8 +164,8 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --prompt "[CONSTRUCTED_PROMPT]" \
   --size 4K \
   --aspect-ratio 16:9 \
-  --reference-image ~/Projects/Logos/ul-blue.png \
-  --output ~/Projects/Wallpaper/<output-name>.png
+  --reference-image "$LOGO_FILE" \
+  --output "$WALLPAPER_DIR"/<output-name>.png
 ```
 
 ### Step 5: Validate (CRITICAL)
@@ -159,14 +173,14 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
 Open the generated image and check EVERY item:
 
 ```bash
-open -a "Dia" ~/Projects/Wallpaper/<output-name>.png
+open -a "Google Chrome" "$WALLPAPER_DIR"/<output-name>.png
 ```
 
 **Validation Checklist:**
 
 | Check | Pass/Fail |
 |-------|-----------|
-| Logo is the correct shape (connected nodes), not text | |
+| Logo matches the shape in the reference image, not text | |
 | Logo is EMBOSSED (texture), not overlaid or floating | |
 | Logo is in bottom left corner | |
 | Logo is SMALL (3-5% width) | |
@@ -194,7 +208,7 @@ Common fixes:
 
 ```bash
 # Verify saved
-ls -la ~/Projects/Wallpaper/<output-name>.png
+ls -la "$WALLPAPER_DIR"/<output-name>.png
 
 # Apply to Kitty + macOS
 k -w <output-name>
@@ -264,8 +278,8 @@ CRITICAL:
 | Model | nano-banana-pro |
 | Size | 4K |
 | Aspect Ratio | 16:9 |
-| Logo Reference | ~/Projects/Logos/ul-blue.png |
-| Output Directory | ~/Projects/Wallpaper/ |
+| Logo Reference | `$LOGO_FILE` |
+| Output Directory | `$WALLPAPER_DIR` |
 | Logo Size | 3-5% of image width |
 | Logo Position | Bottom left, WITHIN design |
 

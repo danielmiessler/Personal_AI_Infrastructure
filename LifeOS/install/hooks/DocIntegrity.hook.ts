@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.3.2
+ * @version 1.4.0
  * DocIntegrity.hook.ts — Check cross-refs if system docs/hooks were modified
  *
  * PURPOSE:
@@ -12,13 +12,18 @@
  *
  * NEEDS TRANSCRIPT: Yes (to detect which files were modified via tool_use entries)
  *
- * HANDLER: handlers/DocCrossRefIntegrity.ts
+ * HANDLERS: handlers/DocCrossRefIntegrity.ts, handlers/RebuildArchSummary.ts,
+ *   handlers/MemoryDirIntegrity.ts, handlers/RebuildKnowledgeSchema.ts,
+ *   handlers/KnowledgeConformance.ts — each isolated in its own try/catch so one
+ *   failure never costs the others their pass.
  */
 
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
 import { handleDocCrossRefIntegrity } from './handlers/DocCrossRefIntegrity';
 import { handleRebuildArchSummary } from './handlers/RebuildArchSummary';
 import { handleMemoryDirIntegrity } from './handlers/MemoryDirIntegrity';
+import { handleRebuildKnowledgeSchema } from './handlers/RebuildKnowledgeSchema';
+import { handleKnowledgeConformance } from './handlers/KnowledgeConformance';
 
 async function main() {
   const input = await readHookInput();
@@ -26,25 +31,14 @@ async function main() {
 
   const parsed = await parseTranscriptFromInput(input);
 
-  // Effort-aware gating (v6.3.0 — Anthropic CC v2.1.133 surfaces effort.level on hook input).
-  // E1/standard tasks rarely touch doctrine files — skip the cross-ref scan.
-  // Arch-summary + memory-dir integrity still run (cheap, useful at all tiers).
-  // Default-conservative: when effort is undefined, run everything.
-  const effort = (input.effort?.level ?? process.env.CLAUDE_EFFORT ?? '').toLowerCase();
-  const isE1 = effort === 'e1' || effort === 'standard' || effort === 'low';
-
-  if (!effort) {
-    console.error('[DocIntegrity] effort undetermined — running full work (default-conservative).');
-  }
-
-  if (!isE1) {
-    try {
-      await handleDocCrossRefIntegrity(parsed, input);
-    } catch (err) {
-      console.error('[DocIntegrity] Cross-ref handler failed:', err);
-    }
-  } else {
-    console.error('[DocIntegrity] Cross-ref scan skipped: effort=' + effort);
+  // Always runs. The old effort gate skipped the cross-ref scan at "e1 |
+  // standard | low" — retired tier names that collide with the harness's LIVE
+  // CLAUDE_EFFORT dial, so `/effort low` silently disabled this check
+  // (Forge cross-vendor audit, 2026-07-24). Verification is not tier-scaled.
+  try {
+    await handleDocCrossRefIntegrity(parsed, input);
+  } catch (err) {
+    console.error('[DocIntegrity] Cross-ref handler failed:', err);
   }
 
   try {
@@ -57,6 +51,18 @@ async function main() {
     await handleMemoryDirIntegrity();
   } catch (err) {
     console.error('[DocIntegrity] Memory-dir handler failed:', err);
+  }
+
+  try {
+    await handleRebuildKnowledgeSchema();
+  } catch (err) {
+    console.error('[DocIntegrity] Knowledge-schema regen failed:', err);
+  }
+
+  try {
+    await handleKnowledgeConformance();
+  } catch (err) {
+    console.error('[DocIntegrity] Knowledge-conformance check failed:', err);
   }
 
   process.exit(0);

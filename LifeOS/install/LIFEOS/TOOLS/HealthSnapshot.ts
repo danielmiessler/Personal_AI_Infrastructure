@@ -1,4 +1,24 @@
 #!/usr/bin/env bun
+
+/**
+ * HealthSnapshot.ts — ingest wearable/health JSON exports into dated snapshots.
+ *
+ * Watches an iCloud Drive inbox that a phone-side Shortcut drops JSON into,
+ * converts each file into a markdown snapshot under the principal's HEALTH
+ * tree, and moves the consumed source into a processed/ archive so a re-run is
+ * idempotent. Recognised fields include steps, active kcal, exercise minutes,
+ * resting HR, HRV, sleep hours, weight, body fat %, and VO2 max; unknown keys
+ * are preserved rather than dropped.
+ *
+ * Snapshot destination resolves through `loadLifeosConfig().paths.userDir`, so
+ * a relocated LIFEOS_USER_DIR Just Works; the homedir path is only a fallback.
+ *
+ * Usage:
+ *   bun ~/.claude/LIFEOS/TOOLS/HealthSnapshot.ts ingest   # default — inbox → snapshots/YYYY-MM-DD.md
+ *   bun ~/.claude/LIFEOS/TOOLS/HealthSnapshot.ts sample   # drop a sample into the inbox to test the pipeline
+ *   bun ~/.claude/LIFEOS/TOOLS/HealthSnapshot.ts status   # inbox count, last snapshot, resolved paths
+ */
+
 import { readdir, readFile, writeFile, rename, mkdir } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"
@@ -10,8 +30,8 @@ const PROCESSED = join(homedir(), "Library/Mobile Documents/com~apple~CloudDocs/
 // Health snapshots live under the user's TELOS dir; resolve via LifeosConfig so
 // a relocated LIFEOS_USER_DIR Just Works.
 const SNAPSHOTS = ((): string => {
-  try { return join(loadLifeosConfig().paths.userDir, "TELOS/HEALTH/snapshots") }
-  catch { return join(homedir(), ".claude/LIFEOS/USER/TELOS/HEALTH/snapshots") }
+  try { return join(loadLifeosConfig().paths.userDir, "HEALTH/snapshots") }
+  catch { return join(homedir(), ".claude/LIFEOS/USER/HEALTH/snapshots") }
 })()
 
 type HealthSnapshot = {

@@ -17,7 +17,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *   bun LinkUser.ts [--config-root <dir>] [--config-dir <dir>] [--apply] [--allow-dev]
  */
 
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { checkSymlinkContract, detectDevTree, setupUserSeparation } from "./InstallEngine";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
@@ -41,6 +41,16 @@ function main(): void {
 
   if (detectDevTree(configRoot) && !allowDev) {
     console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a source tree — refusing to relink.` }, null, 2));
+    process.exit(2);
+  }
+
+  // Refuse a self-link loudly (public issue #1491, @donovan-sec): if the env
+  // ships LIFEOS_CONFIG_DIR identical to the harness LIFEOS dir, the link
+  // target resolves to its own source and the "separation" is a no-op at best.
+  const linkSrc = resolve(join(configRoot, "LIFEOS", "USER"));
+  const linkDst = resolve(join(configDir, "USER"));
+  if (linkSrc === linkDst) {
+    console.log(JSON.stringify({ ok: false, refused: "self-link", detail: `LIFEOS_CONFIG_DIR resolves USER separation to itself (${linkSrc}) — set LIFEOS_CONFIG_DIR to a location outside the harness tree (default: ~/.config/LIFEOS).` }, null, 2));
     process.exit(2);
   }
 

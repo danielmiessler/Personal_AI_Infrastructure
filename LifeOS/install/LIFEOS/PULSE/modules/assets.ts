@@ -35,6 +35,21 @@ export interface Asset {
   ip?: string;
 }
 
+export interface GearItem {
+  name: string;
+  detail: string;
+  use: string;
+  subgroup?: string;
+}
+
+/** One `##` section of GEAR.md, structure preserved (subgroups, prose notes, TODO stubs). */
+export interface GearSection {
+  category: string;
+  items: GearItem[];
+  notes: string[];
+  todos: string[];
+}
+
 // ── Cell helpers ─────────────────────────────────────────────────────────────
 
 const stripMd = (s: string) =>
@@ -86,6 +101,69 @@ export function parseGear(md: string): Asset[] {
     out.push({ name, category, detail, use, source: "GEAR.md" });
   }
   return out;
+}
+
+/**
+ * Parse GEAR.md into ordered sections, preserving the file's real structure:
+ * `##` headings become categories, bold-only lines (`**Capture**`) become
+ * subgroup labels for the table rows that follow, prose lines become notes,
+ * and `_TODO: …_` stubs become todos. Frontmatter and the pre-first-H2
+ * preamble are skipped. Pure + exported for tests.
+ */
+export function parseGearSections(md: string): GearSection[] {
+  let body = md;
+  if (body.startsWith("---")) {
+    const end = body.indexOf("\n---", 3);
+    if (end !== -1) body = body.slice(end + 4);
+  }
+  const sections: GearSection[] = [];
+  let cur: GearSection | null = null;
+  let subgroup: string | undefined;
+  for (const raw of body.split("\n")) {
+    const line = raw.replace(/\r$/, "");
+    const h = line.match(/^##\s+(.+?)\s*$/);
+    if (h) {
+      cur = { category: stripMd(h[1]), items: [], notes: [], todos: [] };
+      sections.push(cur);
+      subgroup = undefined;
+      continue;
+    }
+    if (!cur) continue;
+    const t = line.trim();
+    if (!t || t === "---" || /^#/.test(t)) continue;
+    // Bold-only label (optionally followed by an em-dash aside) → subgroup.
+    const b = t.match(/^\*\*([^*]+)\*\*\s*(?:[—–-]+\s*(.+))?$/);
+    if (b) {
+      subgroup = stripMd(b[1]).replace(/:$/, "");
+      if (b[2]) cur.notes.push(stripMd(b[2]));
+      continue;
+    }
+    if (t.startsWith("|")) {
+      if (isSeparator(line)) continue;
+      const cells = splitRow(line);
+      if (cells.length < 2) continue;
+      const name = stripMd(cells[0]);
+      if (!name || HEADER_CELLS.has(name.toLowerCase())) continue;
+      cur.items.push({
+        name,
+        detail: stripMd(cells[1] || ""),
+        use: stripMd(cells.slice(2).join(" — ")),
+        ...(subgroup ? { subgroup } : {}),
+      });
+      continue;
+    }
+    const prose = stripMd(t.replace(/^>\s?/, ""));
+    if (!prose) continue;
+    if (/^TODO\b/i.test(prose)) cur.todos.push(prose.replace(/^TODO:?\s*/i, ""));
+    else cur.notes.push(prose);
+  }
+  return sections;
+}
+
+/** `last_updated:` from GEAR.md frontmatter, or null. */
+export function gearLastUpdated(md: string): string | null {
+  const m = md.match(/^last_updated:\s*(.+?)\s*$/m);
+  return m ? m[1] : null;
 }
 
 /** Newest topology-snapshot-*.md in the _NETWORK dir, or null. */
@@ -158,6 +236,8 @@ interface ReadResult {
   categories: string[];
   networkEndpoints: number;
   assets: Asset[];
+  /** Structured GEAR.md render model (sections in file order). */
+  gear: { sections: GearSection[]; updated: string | null };
   error?: string;
 }
 
@@ -166,9 +246,13 @@ function read(): ReadResult {
   const generatedAt = new Date().toISOString();
   const assets: Asset[] = [];
   const sources: string[] = [];
+  const gear: ReadResult["gear"] = { sections: [], updated: null };
   try {
     if (existsSync(GEAR_PATH)) {
-      assets.push(...parseGear(readFileSync(GEAR_PATH, "utf8")));
+      const md = readFileSync(GEAR_PATH, "utf8");
+      assets.push(...parseGear(md));
+      gear.sections = parseGearSections(md);
+      gear.updated = gearLastUpdated(md);
       sources.push("USER/GEAR.md");
     }
   } catch (err) {
@@ -194,6 +278,7 @@ function read(): ReadResult {
     categories,
     networkEndpoints: networkEndpointCount(),
     assets,
+    gear,
   };
 }
 

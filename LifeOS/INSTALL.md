@@ -64,25 +64,28 @@ Surfaces anything already sitting in the target directories. Show your human. No
 ### 4. Drop the skill and runtime (additive)
 
 ```
-bun Tools/DeployCore.ts
+bun Tools/DeployCore.ts            # dry run — prints the plan, writes nothing
+bun Tools/DeployCore.ts --apply    # performs the copy
 ```
 
 Copies the LifeOS skill and runtime into the harness's config tree. Existing files are never overwritten — only missing ones are added.
 
+**These tools are dry-run by default.** Without `--apply` they print a plan and change nothing, so an install that omits the flag reports success while copying zero files. Run the dry run first, show your human, then re-run with `--apply`.
+
 ### 5. Scaffold the personal (USER) tree
 
 ```
-bun Tools/ScaffoldUser.ts
-bun Tools/LinkUser.ts
+bun Tools/ScaffoldUser.ts --apply
+bun Tools/LinkUser.ts --apply
 ```
 
-Creates the personal config tree from templates and links it in. This is empty structure — no personal content yet. That comes in the interview.
+Both are dry-run without `--apply`, same as the previous step. Creates the personal config tree from templates and links it in. This is empty structure — no personal content yet. That comes in the interview.
 
 ### 6. Wire the integration — HARNESS-SPECIFIC, WITH PERMISSION
 
 This is the one place harnesses genuinely differ. Show the exact change and get a yes.
 
-- **Claude Code** — run `bun Tools/InstallHooks.ts` (merges the hook set into `settings.json`, backing it up first) and `bun Tools/ActivateImports.ts` (turns on the identity context imports). This is what lights up the always-on behavior: the LifeOS response format, the memory loop, and per-turn context injection.
+- **Claude Code** — run `bun Tools/InstallHooks.ts --apply` (merges the hook set into `settings.json`, backing it up first) and `bun Tools/ActivateImports.ts --apply` (turns on the identity context imports). **Both need `--apply`** — without it they print a plan and write nothing. This is what lights up the always-on behavior: the LifeOS response format, the memory loop, and per-turn context injection.
 
 - **Any other harness (Cursor / Cline / Codex / Gemini / other)** — LifeOS's always-on behavior is enforced by Claude Code *hooks*, which are a Claude Code mechanism. They don't auto-wire on other harnesses **yet**. So instead:
   1. Write an `AGENTS.md` (or the harness's own context file — e.g. `.cursor/rules`) that points the harness at the LifeOS tree, so it loads the LifeOS context every session.
@@ -100,6 +103,8 @@ The payload ships the launcher — `install/LIFEOS/TOOLS/lifeos.ts` — which sp
   alias lifeos='bun <configRoot>/LIFEOS/TOOLS/lifeos.ts -s <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md'
   ```
   fish: `alias lifeos "bun <configRoot>/LIFEOS/TOOLS/lifeos.ts -s <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"; funcsave lifeos`. After this, **`lifeos` launches Claude WITH the constitution**; plain `claude` stays vanilla (which is fine — the user opts in by launching `lifeos`).
+
+  **Upgrade path — migrate stale pre-7.x aliases.** Pre-7.x installs wired a `pai` launch alias (`cd ~/.claude && claude`, or `bun ~/.claude/PAI/ACTIONS/pai.ts`). The `PAI/` tree no longer exists and the bare-`claude` form launches without the constitution, so check the rc for these, and (with permission, rc backed up) comment them out and repoint the SAME alias name at the launcher above — the human's muscle-memory `pai` keeps working. `install.sh` does this automatically at bootstrap; do it here when the human ran setup without the bootstrap script. Never touch an alias containing `LIFEOS_SYSTEM_PROMPT` (current) or `ARBOL/Actions/lifeos.ts` (the valid Arbol CLI alias).
 
 - **Any other harness** — use that harness's own system-prompt flag against the same file. e.g. pi: `pi --append-system-prompt <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md`. If a harness has no system-prompt flag, load `LIFEOS_SYSTEM_PROMPT.md` through its context file (AGENTS.md / rules) as the closest equivalent, and tell your human plainly that the constitution is loading as context, not as a true system-prompt layer.
 

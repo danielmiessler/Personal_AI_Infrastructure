@@ -40,7 +40,7 @@ Everything interesting we found, ranked by how cool it is.
 
 | # | Recommendation | Prior Status | Evidence | LifeOS Relevance | Effort | Files Affected |
 |---|---------------|-------------|----------|---------------|--------|----------------|
-| 2 | Replace session ID hacks with native ${CLAUDE_SESSION_ID} | 🔶 PARTIAL | `skills/_LIFEOS/Workflows/DocumentSession.md:15` uses extraction hack | Session documentation workflows have manual extraction workarounds — native variable eliminates fragile code | Low | `skills/_LIFEOS/Workflows/DocumentSession.md` |
+| 2 | Replace session ID hacks with native ${CLAUDE_SESSION_ID} | 🔶 PARTIAL | `skills/_MYSKILL/Workflows/DocumentSession.md:15` uses extraction hack | Session documentation workflows have manual extraction workarounds — native variable eliminates fragile code | Low | `skills/_MYSKILL/Workflows/DocumentSession.md` |
 
 (MEDIUM and LOW tiers omitted — no items.)
 
@@ -80,7 +80,7 @@ return { decision: "allow", additionalContext: "WARNING: Protected file." };
 echo "Session: ${CLAUDE_SESSION_ID}"
 ```
 
-**Applies To:** `skills/_LIFEOS/Workflows/DocumentSession.md`
+**Applies To:** `skills/_MYSKILL/Workflows/DocumentSession.md`
 
 ---
 

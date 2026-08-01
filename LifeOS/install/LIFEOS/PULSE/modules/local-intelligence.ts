@@ -15,7 +15,7 @@
  */
 
 import { spawn } from "node:child_process"
-import { readFile, mkdir, writeFile, stat } from "node:fs/promises"
+import { readFile, readdir, mkdir, writeFile, stat } from "node:fs/promises"
 import { join } from "node:path"
 import { homedir } from "node:os"
 import { randomUUID } from "node:crypto"
@@ -106,7 +106,7 @@ async function spawnRefresh(): Promise<string> {
   const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}_${randomUUID().slice(0, 8)}`
   const logPath = join(RUNS_DIR, `${runId}.log`)
   const out = await Bun.file(logPath).writer()
-  const child = spawn("bun", ["run", REFRESH_SCRIPT], {
+  const child = spawn("bun", ["run", REFRESH_SCRIPT, "--fill"], {
     stdio: ["ignore", "pipe", "pipe"],
     env: process.env,
   })
@@ -122,7 +122,98 @@ async function spawnRefresh(): Promise<string> {
   return runId
 }
 
+// ── History aggregation (Week / Month / Year views) ──
+//
+// Dated digests written by the skill to MEMORY/DATA/LocalIntelligence/ are the
+// history source of record. A range view merges every digest in the window per
+// section, dedupes by URL (first-seen wins — newest digest scanned first), and
+// stamps each item with the digest date it came from.
+
+const RANGE_DAYS: Record<string, number> = { week: 7, month: 30, year: 365 }
+const SECTION_KEYS = [
+  "construction", "crime", "business", "officials",
+  "legislation", "elections", "arrests", "news",
+] as const
+
+interface HistoryItem {
+  title: string; source: string; url: string; date: string
+  summary?: string; digest_date: string
+}
+
+async function buildHistory(range: string): Promise<Response> {
+  const days = RANGE_DAYS[range]
+  if (!days) {
+    return Response.json({ error: "bad_range", valid: Object.keys(RANGE_DAYS) }, { status: 400 })
+  }
+  // (days - 1): the window is "today plus N-1 prior calendar days" — a full
+  // N*24h subtraction spans N+1 calendar dates and renders as "8/7 days".
+  const cutoff = new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10)
+
+  let files: string[] = []
+  try {
+    files = (await readdir(LEGACY_DATA_DIR))
+      .filter((f) => /^\d{4}-\d{2}-\d{2}_.*_digest\.json$/.test(f))
+      .filter((f) => f.slice(0, 10) >= cutoff)
+      .sort()
+      .reverse() // newest first so dedupe keeps the freshest copy
+  } catch {}
+
+  const sections: Record<string, { items: HistoryItem[]; days_with_data: number }> =
+    Object.fromEntries(SECTION_KEYS.map((k) => [k, { items: [], days_with_data: 0 }]))
+  // Dedupe PER SECTION — a story can legitimately live in two sections
+  // (a council vote is both legislation and officials); global dedupe was
+  // silently emptying whichever section scanned second.
+  const seen: Record<string, Set<string>> = Object.fromEntries(SECTION_KEYS.map((k) => [k, new Set()]))
+  let meta: Record<string, unknown> | null = null
+  let daysCovered = 0
+  let firstDate: string | null = null
+  let lastDate: string | null = null
+
+  for (const f of files) {
+    let digest: Record<string, any>
+    try {
+      digest = JSON.parse(await readFile(join(LEGACY_DATA_DIR, f), "utf8"))
+    } catch { continue }
+    const digestDate = f.slice(0, 10)
+    daysCovered++
+    if (!lastDate) lastDate = digestDate
+    firstDate = digestDate
+    if (!meta) meta = digest.meta ?? null
+    for (const key of SECTION_KEYS) {
+      const items = digest[key]?.items
+      if (!Array.isArray(items) || items.length === 0) continue
+      sections[key].days_with_data++
+      for (const it of items) {
+        // URL alone is NOT unique — fixed-link sources (e.g. a crime API whose
+        // items all link to the site root) would collapse to one item.
+        const dedupeKey = `${it?.url ?? ""}|${String(it?.title ?? "").toLowerCase()}`
+        if (dedupeKey === "|" || seen[key].has(dedupeKey)) continue
+        seen[key].add(dedupeKey)
+        sections[key].items.push({
+          title: it.title, source: it.source, url: it.url,
+          date: it.date, summary: it.summary, digest_date: digestDate,
+        })
+      }
+    }
+  }
+
+  return Response.json({
+    range,
+    window_days: days,
+    days_covered: daysCovered,
+    first_date: firstDate,
+    last_date: lastDate,
+    city: (meta?.city as string) ?? null,
+    state: (meta?.state as string) ?? null,
+    sections,
+  }, { headers: { "Cache-Control": "no-cache" } })
+}
+
 export async function handleRequest(req: Request, pathname: string): Promise<Response | null> {
+  if (req.method === "GET" && pathname === "/api/local-intelligence/history") {
+    const range = new URL(req.url).searchParams.get("range") ?? "week"
+    return buildHistory(range)
+  }
   if (req.method === "GET" && pathname === "/api/local-intelligence") {
     const raw = await readLatest()
     if (raw) {

@@ -152,7 +152,7 @@ function loadAuthToken(): string {
 async function fetchHarvestItems(token: string, limit: number, itemId?: number): Promise<HarvestItem[]> {
   if (!HARVEST_API_BASE) {
     throw new Error(
-      "ARBOL_HARVEST_API_BASE is unset. Run via skills/_HARVEST/Tools/harvest.ts " +
+      "ARBOL_HARVEST_API_BASE is unset. Run via the harvest skill's CLI " +
         "(which threads the endpoint), or export ARBOL_HARVEST_API_BASE before calling the executor directly.",
     );
   }

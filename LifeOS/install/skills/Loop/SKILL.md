@@ -1,16 +1,15 @@
 ---
 name: Loop
-version: 1.0.7
+version: 1.0.9
 description: "Iterative improvement loop — refine a target across multiple Algorithm cycles toward ideal state. USE WHEN loop, iterate, refine, multiple passes, keep improving, revisit, rework."
 disable-model-invocation: true
-effort: medium
 ---
 
 # /loop — Iterative Improvement
 
 ## What It Does
 
-`/loop` runs the Algorithm in `mode: loop` — multiple full Algorithm cycles on the same target, each iteration building on the last. By default a human reviews and redirects between iterations. Unlike `/optimize` (an autonomous mutation loop), `/loop` runs full Algorithm passes with that human review in the seam.
+`/loop` runs the Algorithm as a loop — multiple full Algorithm cycles on the same target, each iteration building on the last. By default a human reviews and redirects between iterations. Unlike `/optimize` (an autonomous mutation loop), `/loop` runs full Algorithm passes with that human review in the seam.
 
 ## The Problem
 
@@ -50,7 +49,7 @@ Each iteration is a full Algorithm cycle (OBSERVE → THINK → PLAN → BUILD �
 
 ## Algorithm Integration
 
-Sets `mode: loop` in ISA frontmatter. The `iteration` field tracks cycle count. Each cycle re-enters the Algorithm with accumulated context from prior iterations.
+The `iteration` field tracks cycle count. (`mode:` is retired — never write it.) Each cycle re-enters the Algorithm with accumulated context from prior iterations.
 
 ## Autoresearch Mode (opt-in)
 

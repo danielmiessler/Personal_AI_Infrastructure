@@ -18,6 +18,7 @@ const results = await Promise.allSettled(manifests.map((m) => runAdapter(m, { fo
 const wallMs = Date.now() - start;
 
 const entries: IndexEntry[] = [];
+const crashes: string[] = [];
 let success = 0, cached = 0, failed = 0;
 console.log("\n┌─ page ─────────────────┬─ status ──────────┬─ cost USD ─┬─ latency ms ─┐");
 for (let i = 0; i < manifests.length; i++) {
@@ -42,15 +43,22 @@ for (let i = 0; i < manifests.length; i++) {
     });
     console.log(`│ ${m.id.padEnd(22)} │ ${a.status.padEnd(17)} │ ${a.costUSD.toFixed(4).padStart(10)} │ ${String(a.latencyMs).padStart(12)} │`);
   } else {
+    // runAdapter rejected instead of returning a result — a bug in the adapter
+    // itself, not a page-level build failure. Keep the reason: "unhandled" with
+    // no message told an operator nothing. public PR #1648, @elhoim
     failed++;
+    const reason = r.reason instanceof Error ? (r.reason.stack ?? r.reason.message) : String(r.reason);
+    crashes.push(`${m.id}: ${reason}`);
     entries.push({
       id: m.id, title: m.title, kind: m.dataType.replace("PageSchema", "").toLowerCase(),
       lastBuildAt: "", hasError: true, costUSD: 0, provenance: "template",
     });
-    console.log(`│ ${m.id.padEnd(22)} │ ${"unhandled".padEnd(17)} │ ${"".padStart(10)} │ ${"".padStart(12)} │`);
+    console.log(`│ ${m.id.padEnd(22)} │ ${"crashed".padEnd(17)} │ ${"".padStart(10)} │ ${"".padStart(12)} │`);
   }
 }
 console.log("└────────────────────────┴───────────────────┴────────────┴──────────────┘");
+
+for (const c of crashes) console.error(`\ncrashed — ${c}`);
 
 writeIndex(entries);
 

@@ -8,7 +8,7 @@
  * DOCUMENTATION/ARCHITECTURE_SUMMARY.md, invokes Tools/ArchitectureSummaryGenerator.ts to
  * regenerate it.
  *
- * TRIGGER: called from DocIntegrity.hook.ts on Stop.
+ * TRIGGER: called from DocIntegrity.hook.ts on SessionEnd.
  *
  * DESIGN:
  * - No Components dir tracking (deprecated pipeline removed in v5.0).
@@ -24,8 +24,17 @@ import { getLifeosDir, getClaudeDir } from "../lib/paths";
 export async function handleRebuildArchSummary(): Promise<void> {
   const paiDir = getLifeosDir();
   const claudeDir = getClaudeDir();
-  const output = join(paiDir, "DOCUMENTATION", "LIFEOS_ARCHITECTURE_SUMMARY.md");
-  const generator = join(paiDir, "Tools/ArchitectureSummaryGenerator.ts");
+  // Both paths were wrong, in ways that hid each other.
+  //   1. The generator writes ARCHITECTURE_SUMMARY.md (ArchitectureSummaryGenerator.ts
+  //      SUMMARY_OUTPUT), never LIFEOS_ARCHITECTURE_SUMMARY.md. The old name could not
+  //      exist, so statting it always returned null, the mtime freshness check was dead
+  //      code, and every Stop hook took the "missing - regenerating" branch and spawned
+  //      an unconditional regeneration subprocess.
+  //   2. The directory is TOOLS, not Tools. existsSync only resolved on case-insensitive
+  //      macOS; on Linux — which install.sh explicitly supports — the guard below
+  //      returned early and the summary was never regenerated, silently.
+  const output = join(paiDir, "DOCUMENTATION", "ARCHITECTURE_SUMMARY.md");
+  const generator = join(paiDir, "TOOLS/ArchitectureSummaryGenerator.ts");
 
   if (!existsSync(generator)) return;
 
@@ -43,7 +52,7 @@ export async function handleRebuildArchSummary(): Promise<void> {
       join(claudeDir, "hooks"),
       join(paiDir, "ALGORITHM"),
       join(paiDir, "TOOLS"),
-      join(paiDir, "USER", "Config"),
+      join(paiDir, "USER", "CONFIG"),
       join(paiDir, "USER", "SECURITY"),
     ];
 
@@ -94,25 +103,46 @@ export async function handleRebuildArchSummary(): Promise<void> {
   }
 }
 
+/**
+ * Wall-clock ceiling for the generator subprocess.
+ *
+ * This runs LAST on the SessionEnd path, after the cross-ref handler. The
+ * harness kills the whole hook at 30s and reports only "Hook cancelled" — the
+ * hook cannot self-report, so an unbounded child here surfaced as an
+ * unexplained cancellation rather than as a slow generator. Bounded so the
+ * failure is legible and the remaining budget is never consumed silently.
+ * public PR #1682, @pkumaschow
+ */
+const REBUILD_TIMEOUT_MS = 8000;
+
 async function rebuild(generator: string, cwd: string): Promise<void> {
   return new Promise((resolve) => {
     const proc = spawn("bun", [generator, "generate"], { cwd, stdio: "pipe" });
 
     let stderr = "";
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; clearTimeout(timer); resolve(); } };
+
+    const timer = setTimeout(() => {
+      console.error(`[RebuildArchSummary] Generator exceeded ${REBUILD_TIMEOUT_MS}ms — killed. Summary left unchanged.`);
+      try { proc.kill("SIGKILL"); } catch { /* already gone */ }
+      finish();
+    }, REBUILD_TIMEOUT_MS);
+
     proc.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
 
     proc.on("close", (code) => {
       if (code === 0) {
         console.error("[RebuildArchSummary] Regenerated DOCUMENTATION/ARCHITECTURE_SUMMARY.md");
-      } else {
+      } else if (!settled) {
         console.error(`[RebuildArchSummary] Regeneration failed (exit ${code}): ${stderr.trim()}`);
       }
-      resolve();
+      finish();
     });
 
     proc.on("error", (err) => {
       console.error("[RebuildArchSummary] Spawn error:", err);
-      resolve();
+      finish();
     });
   });
 }

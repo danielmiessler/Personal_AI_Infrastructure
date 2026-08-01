@@ -1,8 +1,7 @@
 ---
 name: USMetrics
-version: 1.0.19
+version: 1.0.20
 description: "Analyze and update 68 US economic and social indicators from five government APIs (FRED, EIA, Treasury, BLS, Census) across 10 categories: GDP, Inflation, Employment, Housing, Consumer Finance, Markets, Trade, Government/Fiscal, Demographics, Health. Two workflows: UpdateData, GetCurrentState (10y/5y/2y/1y trend analysis). USE WHEN GDP, inflation, unemployment, economic metrics, gas prices, how is the economy, refresh data, FRED, US metrics, economic trends. NOT FOR pathogen surveillance."
-effort: medium
 ---
 
 ## Customization

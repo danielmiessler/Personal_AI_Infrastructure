@@ -1,5 +1,5 @@
 ---
-version: 1.5.7
+version: 1.6.0
 ---
 
 # The Observability System
@@ -49,9 +49,9 @@ JSONL Sources (local disk)
 | Reviewer fires | `MEMORY/OBSERVABILITY/reviewer-fires.jsonl` | — | `MemoryReviewFire.hook.ts` (Stop). Audit of when reviewer would fire if subprocess were unavailable. |
 | Memory writes (Tier A) | `MEMORY/OBSERVABILITY/memory-writes.jsonl` | — | `MemoryWriter.ts`. One row per set-overwrite to `_MEMORY.md` hot-layer files. Tracks evictions. |
 | Tier-B writes | `MEMORY/OBSERVABILITY/tier-b-writes.jsonl` | — | `MemorySystem.add()` routing. Audit row per logged-append to PROJECTS / CONTACTS / KNOWLEDGE / IDEAS (timestamp, type, bytes, path). |
-| Pending proposals (Tier C queue) | `MEMORY/OBSERVABILITY/pending-proposals.jsonl` | — | `MemorySystem.add()` for `type:proposal`. Status lifecycle: pending → sent → accepted/rejected/edited. Surfaced by `LIFEOS/PULSE/lib/telegram-proposals.ts` as Telegram `yes/no/edit #id` replies. |
-| Identity proposals (archive) | `MEMORY/OBSERVABILITY/identity-proposals.jsonl` | — | `LIFEOS/PULSE/modules/telegram.ts` surfacer. Archive of sent/accepted/rejected/edited proposals. |
-| Proposal replies | `MEMORY/OBSERVABILITY/proposal-replies.jsonl` | — | `LIFEOS/PULSE/modules/telegram.ts` reply handler. Records Telegram yes/no/edit interactions. |
+| Pending proposals (Tier C queue) | `MEMORY/OBSERVABILITY/pending-proposals.jsonl` | — | `MemorySystem.add()` for `type:proposal`. Status lifecycle: pending → sent → accepted/rejected/edited. Surfaced by `LIFEOS/PULSE/lib/memory-proposals.ts` on the Pulse dashboard and the inline 🧠 MEMORY line for accept/reject/edit. |
+| Identity proposals (archive) | `MEMORY/OBSERVABILITY/identity-proposals.jsonl` | — | `LIFEOS/PULSE/lib/memory-proposals.ts` surfacer. Archive of sent/accepted/rejected/edited proposals. |
+| Proposal replies | `MEMORY/OBSERVABILITY/proposal-replies.jsonl` | — | Pulse dashboard reply handler. Records accept/reject/edit interactions. |
 | Memory retrievals | `MEMORY/OBSERVABILITY/memory-retrievals.jsonl` | — | `MemoryRetriever.getRelevantContext()` (ISC-107..112; not yet populated as of 2026-05-23; infrastructure ready). Per-turn BM25 audit. |
 
 Per-source counts are configured inline in `Pulse/Observability/observability.ts`.
@@ -208,13 +208,7 @@ All endpoints served by the Pulse daemon's observability module (`Observability/
 | `/hooks/skill-guard` | POST | Validate Skill tool calls (PreToolUse HTTP hook) | `modules/hooks.ts` |
 | `/hooks/agent-guard` | POST | Validate Agent tool calls (PreToolUse HTTP hook) | `modules/hooks.ts` |
 
-**Stubs (reserved, not yet implemented)**
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/loops` | GET | Loop system index |
-| `/api/loops/control` | GET/POST | Loop control |
-| `/api/loops/start` | POST | Start a loop |
+**Removed stubs** — the `/api/loops*` stub routes were deleted 2026-07-14 with the agents-dashboard redesign (Loop mode retired 2026-07-11; the stubs only ever returned `[]` / `not_available`).
 
 ### Deployment Checklist
 
@@ -245,13 +239,51 @@ Readers (both use identical mapping)
 - Mode `starting` → Algorithm tab, phase strip (OBSERVE/THINK/PLAN/BUILD/EXECUTE/VERIFY/LEARN).
 - Mode `native` → Native tab, no phase strip.
 
-**Classifier:** `SessionAnalysis.hook.ts:ALGO_ACTION_RE` — narrow 8-verb regex (`implement|build|create|architect|design|migrate|deploy|refactor`). Everything else that passes the trivia filter (`POSITIVE_PRAISE_WORDS`, `SYSTEM_TEXT_PATTERNS`, `MIN_PROMPT_LENGTH=3`) is native. Do not broaden — see `feedback_state_monitoring_requires_starting_gate.md`.
+**Classifier:** `SessionAnalysis.hook.ts` action regex (the `ALGO_ACTION_RE` symbol was deleted 2026-07-11 with the mode/tier system) — narrow 8-verb regex (`implement|build|create|architect|design|migrate|deploy|refactor`). Everything else that passes the trivia filter (`POSITIVE_PRAISE_WORDS`, `SYSTEM_TEXT_PATTERNS`, `MIN_PROMPT_LENGTH=3`) is native. Do not broaden — see `feedback_state_monitoring_requires_starting_gate.md`.
 
 **Staleness thresholds:** 5 min native, 10 min algorithm. Matched in both readers.
 
 **Loud-fail:** `algorithm-watcher.ts` emits `console.error` on missing work.json at startup; `/api/algorithm` returns HTTP 503 with the resolved path. `EventLogger.hook.ts` logs exceptions via `console.error` so a silently-broken tracker shows up in session logs.
 
 **Self-healing:** Both readers use `Math.max(updatedAt, lastToolActivity)` for the activity signal, so a fresh user prompt revives a stale session even if the tool-activity tracker is down.
+
+## Examples
+
+### One tool call, from disk to dashboard
+
+Watch a single tool call travel the pipeline:
+
+1. The DA runs a command. The moment it returns, the PostToolUse `EventLogger` hook appends one JSON line to `tool-activity.jsonl` — synchronous, fire-and-forget, no network.
+2. Nothing is pushed anywhere. The line just sits on disk.
+3. The Observatory dashboard, open in a browser, polls `/api/events/recent` every three seconds. On the next poll, Pulse reads the tail of each JSONL source, merges them newest-first, and serves the batch.
+4. The call shows up in the activity feed, roughly three seconds after it happened.
+
+The whole design is **read-on-demand**: emitters only ever append to local files, and the one consumer (Pulse) pulls tails when the dashboard asks. There's no event bus, no in-memory queue, no push — a crashed dashboard loses nothing, because the events were never in flight.
+
+### A failure takes a parallel path
+
+The same shape handles the unhappy case. A tool errors, so the `PostToolUseFailure` branch of the same hook appends to `tool-failures.jsonl` instead — tool name, error, truncated input, timestamp. It surfaces in the dashboard's failures panel on the next poll, without ever touching the activity stream. One writer, several typed sinks, one puller.
+
+### The pipeline in one picture
+
+```mermaid
+sequenceDiagram
+    participant DA as DA / hook
+    participant Disk as JSONL on disk
+    participant Pulse as Pulse (:31337)
+    participant Dash as Dashboard
+    DA->>Disk: append one event line (fire-and-forget)
+    loop every 3 seconds
+        Dash->>Pulse: GET /api/events/recent
+        Pulse->>Disk: read last N lines per source
+        Disk-->>Pulse: recent tails
+        Pulse-->>Dash: merged, newest-first, capped
+    end
+```
+
+The gap between "it happened" and "you can see it" is one poll interval, and the only moving part is a file append. Nothing buffers state that a restart could drop.
+
+---
 
 ## See Also
 

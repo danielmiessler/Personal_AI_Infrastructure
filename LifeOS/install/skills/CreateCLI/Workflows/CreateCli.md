@@ -202,18 +202,23 @@ const DEFAULTS = {
  * Load configuration from environment
  */
 function loadConfig(): Config {
-  const envPath = process.env.LIFEOS_CONFIG_DIR ? join(process.env.LIFEOS_CONFIG_DIR, '.env') : join(homedir(), '.claude', 'LifeOS', '.env');
+  // Canonical .env is ~/.claude/.env — never $LIFEOS_CONFIG_DIR/.env, which
+  // resolves to the dead ~/.claude/LIFEOS/.env path (public issue #1490).
+  const envPath = join(homedir(), '.claude', '.env');
 
   try {
     const envContent = readFileSync(envPath, 'utf-8');
+    // slice past the first '=' only — .split('=')[1] truncates values that
+    // themselves contain '=' (e.g. base64 keys with padding).
     const apiKey = envContent
       .split('\n')
       .find(line => line.startsWith('{{ENV_VAR_NAME}}='))
-      ?.split('=')[1]
-      ?.trim();
+      ?.slice('{{ENV_VAR_NAME}}='.length)
+      ?.trim()
+      ?.replace(/^["']|["']$/g, '');
 
     if (!apiKey) {
-      console.error('Error: {{ENV_VAR_NAME}} not found in ${LIFEOS_CONFIG_DIR}/.env');
+      console.error('Error: {{ENV_VAR_NAME}} not found in ~/.claude/.env');
       process.exit(1);
     }
 
@@ -223,8 +228,8 @@ function loadConfig(): Config {
       {{ADDITIONAL_CONFIG}}
     };
   } catch (error) {
-    console.error(`Error: Cannot read ${LIFEOS_CONFIG_DIR}/.env file`);
-    console.error('Make sure {{ENV_VAR_NAME}} is set in ${LIFEOS_CONFIG_DIR}/.env');
+    console.error('Error: Cannot read ~/.claude/.env file');
+    console.error('Make sure {{ENV_VAR_NAME}} is set in ~/.claude/.env');
     process.exit(1);
   }
 }
@@ -622,7 +627,7 @@ Files generated:
 - QUICKSTART.md
 
 Next steps:
-1. Configure: Add {{ENV_VAR_NAME}} to ${LIFEOS_CONFIG_DIR}/.env
+1. Configure: Add {{ENV_VAR_NAME}} to ~/.claude/.env
 2. Test: ./{{CLI_NAME}}.ts --help
 3. Use: ./{{CLI_NAME}}.ts {{EXAMPLE_COMMAND}}
 
@@ -655,7 +660,7 @@ Commands available:
 - notioncli --help                       # Show full help
 
 Next steps:
-1. Add NOTION_API_KEY=your_key to ${LIFEOS_CONFIG_DIR}/.env
+1. Add NOTION_API_KEY=your_key to ~/.claude/.env
 2. Test: notioncli databases
 3. Read: ~/.claude/LIFEOS/TOOLS/notioncli/README.md
 
@@ -751,7 +756,7 @@ Show real usage examples, not just flag descriptions.
 Run `--help` and version command before reporting success.
 
 ### 8. **Follow llcli Pattern**
-Use proven structure from ~/.claude/LIFEOS/TOOLS/llcli/ as reference.
+Use the proven Tier-1 structure documented in FrameworkComparison.md and Patterns.md as reference (original exemplar llcli retired 2026-07-15).
 
 ---
 

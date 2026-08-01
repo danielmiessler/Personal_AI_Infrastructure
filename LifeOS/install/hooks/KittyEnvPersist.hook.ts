@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.4.13
+ * @version 1.4.14
  * KittyEnvPersist.hook.ts - Kitty terminal env persistence + tab reset (SessionStart)
  *
  * PURPOSE:
@@ -16,14 +16,12 @@ import { join } from 'path';
 import { getLifeosDir } from './lib/paths';
 import { setTabState, readTabState, persistKittySession } from './lib/tab-setter';
 import { getDAName } from './lib/identity';
+import { isSubagentContext } from './lib/subagent';
 
 const paiDir = getLifeosDir();
 
 // Skip for subagents
-const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
-const isSubagent = claudeProjectDir.includes('/.claude/Agents/') ||
-                  process.env.CLAUDE_AGENT_TYPE !== undefined;
-if (isSubagent) process.exit(0);
+if (isSubagentContext()) process.exit(0);
 
 // Read session_id + source from stdin (SessionStart hook input)
 // source ∈ {"startup", "resume", "compact", "clear"}; absent on older CC versions.

@@ -4,14 +4,13 @@
  * The Pulse VoiceServer at localhost:31337/notify is the DESKTOP voice channel.
  * It plays audio out of the laptop speaker. Stop / StopFailure / UserPromptSubmit
  * hooks that fire /notify must NOT fire when the Claude session is running on
- * behalf of a remote channel (Telegram, iMessage) — those channels deliver
- * voice via their own APIs (bot.api.sendVoice, etc.), and a desktop /notify
- * call from a remote-channel turn is a leak.
+ * behalf of a remote channel (iMessage, Siri) — those channels deliver
+ * replies via their own APIs, and a desktop /notify call from a
+ * remote-channel turn is a leak.
  *
  * Contract:
- *   PULSE/modules/telegram.ts spawns its SDK subprocess with
- *     env: { ...process.env, LIFEOS_NOTIFICATION_CHANNEL: "telegram" }
- *   PULSE/modules/imessage.ts uses "imessage".
+ *   PULSE/modules/imessage.ts spawns its SDK subprocess with
+ *     env: { ...process.env, LIFEOS_NOTIFICATION_CHANNEL: "imessage" }
  *   Any future remote channel (email, slack, ...) follows the same pattern.
  *
  * Every voice-firing hook checks isDesktopChannel() before calling /notify,
@@ -23,7 +22,7 @@ import { existsSync, mkdirSync, appendFileSync } from 'fs';
 import { paiPath } from './paths';
 import { getISOTimestamp } from './time';
 
-export type NotificationChannel = 'desktop' | 'telegram' | 'imessage' | string;
+export type NotificationChannel = 'desktop' | 'imessage' | string;
 
 const VOICE_LOG_PATH = paiPath('MEMORY', 'VOICE', 'voice-events.jsonl');
 

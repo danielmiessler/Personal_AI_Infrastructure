@@ -19,22 +19,37 @@
  *   3. ABSORBED   — the entry's substantive text already appears verbatim in the
  *                   file's canonical body (above the proposals section).
  *
- * ROUTING (checkpoint-OUT, advisory only — `--route`): a proposal whose directive
- * is already enforced by a named hook, or is scoped to a single skill, does not
- * belong in an always-loaded file — its home is the hook (delete the prose) or the
- * skill's SKILL.md (relocate). Detection is by NAME (the entry literally references
- * an existing hook or skill), so it is precise, but it is NEVER auto-applied: it
- * only FLAGS candidates for a human/Trim decision. The auto-heal path above keeps
- * its provable-only invariant untouched.
+ * ROUTING (checkpoint-OUT, advisory only — `--route`): a proposal already enforced
+ * by a named hook, or scoped to a single skill or project, does not belong in an
+ * always-loaded file. Its home is the hook (delete the prose), the skill's
+ * SKILL.md, or the project's ISA. Classification is delegated to ProposalScope.ts.
+ * It is NEVER auto-applied: it only FLAGS candidates for a human/Trim decision,
+ * and the auto-heal path above keeps its provable-only invariant untouched.
+ *
+ * As of 2026-07-31 this leg is a BACKSTOP, not the primary defense: new proposals
+ * are diverted to the Upgrades store before they can ever reach these files, so
+ * `--route` exists for entries that predate that gate.
+ *
+ * UNATTENDED (`--auto`): the scheduled entry point. Applied proposals otherwise
+ * accreted in always-on context files until someone remembered to run `/trim`
+ * (public issue #1669, @xmasyx). `--auto` implies `--apply` and adds the two
+ * properties a cron job needs that an interactive run doesn't: it is BOUNDED (a
+ * file offering more than MAX_AUTO_REMOVALS removals is left untouched for a
+ * human — an unattended pass that large is a signal, not a chore) and
+ * FAIL-SILENT (always exits 0; a GC failure must never surface as a job alarm).
+ * Idempotence comes free from the provable-only invariant: the second run finds
+ * nothing. Interactive `--apply` behaviour is unchanged.
  *
  * Usage:
  *   bun ProposalGC.ts                # dry-run: report provable removals per file
  *   bun ProposalGC.ts --apply        # write the cleaned files (provable removals only)
- *   bun ProposalGC.ts --route        # advisory: flag hook-enforced / skill-scoped entries
+ *   bun ProposalGC.ts --auto         # scheduled unattended heal (bounded, fail-silent)
+ *   bun ProposalGC.ts --route        # advisory: flag hook-, skill-, or project-scoped entries
  *   bun ProposalGC.ts --json
  */
-import { readFileSync, writeFileSync, renameSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { classifyScope, loadScopeTables, type ProposalScope, type ScopeTables } from "./ProposalScope";
 
 const CLAUDE_DIR = join(dirname(new URL(import.meta.url).pathname), "..", "..");
 const OBS_LOG = join(CLAUDE_DIR, "LIFEOS/MEMORY/OBSERVABILITY/proposal-gc.jsonl");
@@ -47,6 +62,10 @@ const TARGETS = [
   "LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md",
   "LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md",
 ];
+
+// Per-file ceiling for an unattended (`--auto`) pass. A file offering more than
+// this many removals is skipped whole and left for a human `/trim`.
+const MAX_AUTO_REMOVALS = 20;
 
 type Removal = { file: string; reason: "superseded" | "exact-dup" | "absorbed"; text: string };
 
@@ -126,88 +145,78 @@ function gcFile(relPath: string): { removals: Removal[]; nextContent: string | n
 }
 
 // ── Routing (checkpoint-OUT, advisory) ─────────────────────────────────────
-type Route = { file: string; kind: "hook" | "skill"; dest: string; text: string };
-
-/** Hook basenames present under hooks/ (e.g. "OutputFormatGate"). */
-function listHooks(): string[] {
-  try {
-    return readdirSync(join(CLAUDE_DIR, "hooks"))
-      .filter((f) => f.endsWith(".hook.ts"))
-      .map((f) => f.replace(/\.hook\.ts$/, ""));
-  } catch { return []; }
-}
-
-/** Skill dir names present under skills/ (e.g. "_VIDEO", "Research"). */
-function listSkills(): string[] {
-  try {
-    return readdirSync(join(CLAUDE_DIR, "skills"), { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
-  } catch { return []; }
-}
+// Before 2026-07-31 this file carried its own copies of the directory lookups.
+// They agreed with ProposalScope's at the time, which is exactly how a pair like
+// that drifts unnoticed.
+type Route = { file: string; kind: Exclude<ProposalScope, "global">; dest: string; reason: string; text: string };
 
 /**
- * Flag entries whose home is elsewhere. Precise by construction — the entry must
- * NAME an existing hook or skill. Hook match wins (enforcement > relocation).
- * Advisory only: returns candidates, never removes.
+ * Flag entries whose home is elsewhere. Advisory only: returns candidates,
+ * never removes — the auto-heal path keeps its provable-only invariant.
  */
-function routeFile(relPath: string, hooks: string[], skills: string[]): Route[] {
+function routeFile(relPath: string, tables: ScopeTables): Route[] {
   const abs = join(CLAUDE_DIR, relPath);
   if (!existsSync(abs)) return [];
   const content = readFileSync(abs, "utf8");
   const idx = content.indexOf(SECTION);
   if (idx === -1) return [];
-  const lines = content.slice(idx).split("\n");
   const routes: Route[] = [];
-  // A hook match only means "delete the prose" if the entry CLAIMS the hook
-  // enforces it — not if it merely mentions the hook in a design record.
-  const ENFORCES = /\b(enforc|block[s|ed]?|reject|gate[sd]?|rewrite|hard[- ]?stop|refus)/i;
-  for (const line of lines) {
+  for (const line of content.slice(idx).split("\n")) {
     if (!/^\s*[-*]\s+/.test(line) || line.length <= 3) continue;
-    const hook = hooks.find((h) => new RegExp(`\\b${h}\\b`).test(line));
-    if (hook && ENFORCES.test(line)) { routes.push({ file: relPath, kind: "hook", dest: hook, text: line.trim() }); continue; }
-    // skill: `_ALLCAPS` token that is a real skill dir, or "<Skill> skill" for a real dir
-    const skill = skills.find((s) =>
-      s.startsWith("_")
-        ? new RegExp(`\\b${s}\\b`).test(line)
-        : new RegExp(`\\b${s}\\s+skill\\b`, "i").test(line));
-    if (skill) routes.push({ file: relPath, kind: "skill", dest: skill, text: line.trim() });
+    const v = classifyScope(line, tables);
+    if (v.scope === "global") continue;
+    routes.push({ file: relPath, kind: v.scope, dest: v.dest, reason: v.reason, text: line.trim() });
   }
   return routes;
 }
 
 function runRoute(json: boolean) {
-  const hooks = listHooks();
-  const skills = listSkills();
+  const tables = loadScopeTables();
   const all: Route[] = [];
-  for (const t of TARGETS) all.push(...routeFile(t, hooks, skills));
+  for (const t of TARGETS) all.push(...routeFile(t, tables));
   if (json) { console.log(JSON.stringify({ routes: all }, null, 2)); return; }
   console.log("── ProposalGC (route — advisory, no removals) ──");
-  if (all.length === 0) { console.log("  no hook-enforced or skill-scoped proposals found ✅"); return; }
+  if (all.length === 0) { console.log("  every entry in the always-loaded tails is genuinely global ✅"); return; }
   const byFile = new Map<string, Route[]>();
   for (const r of all) (byFile.get(r.file) ?? byFile.set(r.file, []).get(r.file)!).push(r);
   for (const [file, rs] of byFile) {
     console.log(`\n  ${file} — ${rs.length} candidate(s):`);
-    for (const r of rs) console.log(`    → ${r.kind}:${r.dest}  ${r.text.slice(0, 90)}${r.text.length > 90 ? "…" : ""}`);
+    for (const r of rs) {
+      console.log(`    → ${r.kind}:${r.dest}  ${r.text.slice(0, 84)}${r.text.length > 84 ? "…" : ""}`);
+      console.log(`       ${r.reason}`);
+    }
   }
-  console.log(`\n${all.length} candidate(s) for a better home. HOOK = the entry claims a hook enforces it → delete the prose if confirmed. SKILL = scoped to one skill → relocate to its SKILL.md. Human-gated — nothing removed.`);
+  console.log(`\n${all.length} candidate(s) for a better home. HOOK = a hook already enforces it, so delete the prose once confirmed. SKILL = relocate to its SKILL.md. PROJECT = relocate to its ISA or repo CLAUDE.md. Human-gated: nothing removed. New proposals no longer reach these files — MemorySystem.add() diverts them at write time.`);
 }
 
 function main() {
   const args = new Set(process.argv.slice(2));
   if (args.has("--route")) return runRoute(args.has("--json"));
-  const apply = args.has("--apply");
+  const auto = args.has("--auto");
+  const apply = args.has("--apply") || auto;
   const all: Removal[] = [];
   const writes: { path: string; content: string }[] = [];
+  const skipped: { file: string; count: number }[] = [];
 
   for (const t of TARGETS) {
     const { removals, nextContent } = gcFile(t);
+    // Bounded: an unattended pass never makes a large edit to an always-on file.
+    if (auto && removals.length > MAX_AUTO_REMOVALS) {
+      skipped.push({ file: t, count: removals.length });
+      continue;
+    }
     all.push(...removals);
     if (nextContent && apply) writes.push({ path: join(CLAUDE_DIR, t), content: nextContent });
   }
 
   if (args.has("--json")) {
-    console.log(JSON.stringify({ dryRun: !apply, removals: all }, null, 2));
+    console.log(JSON.stringify({ dryRun: !apply, removals: all, skipped }, null, 2));
+  } else if (auto) {
+    // One line for the job log. NO_ACTION is Pulse's suppress-dispatch sentinel.
+    for (const s of skipped) {
+      console.log(`ProposalGC: ${s.file} offers ${s.count} removals (> ${MAX_AUTO_REMOVALS}) — skipped, run /trim`);
+    }
+    if (all.length === 0 && skipped.length === 0) console.log("NO_ACTION");
   } else {
     console.log(`── ProposalGC ${apply ? "(APPLY)" : "(dry-run)"} ──`);
     if (all.length === 0) console.log("  nothing to collect — all proposal sections clean ✅");
@@ -220,13 +229,38 @@ function main() {
   }
 
   if (apply) {
-    for (const w of writes) { const tmp = `${w.path}.tmp`; writeFileSync(tmp, w.content, "utf8"); renameSync(tmp, w.path); }
+    for (const w of writes) {
+      const tmp = `${w.path}.tmp`;
+      writeFileSync(tmp, w.content, "utf8");
+      renameSync(tmp, w.path);
+      stampTarget(w.path);
+    }
     try {
-      appendLog({ ts: new Date().toISOString(), applied: true, removed: all.length, byReason: countBy(all) });
+      appendLog({ ts: new Date().toISOString(), applied: true, auto, removed: all.length, byReason: countBy(all), skipped });
     } catch {}
-    console.log(`\n✅ applied — removed ${all.length} redundant entries across ${writes.length} file(s). Commit to persist.`);
+    // A no-op auto pass already said NO_ACTION; don't contradict it with a
+    // "removed 0 entries" success line.
+    if (writes.length || !auto) {
+      console.log(`\n✅ applied — removed ${all.length} redundant entries across ${writes.length} file(s). Commit to persist.`);
+    }
   } else if (all.length) {
     console.log(`\n${all.length} entries would be removed. Re-run with --apply to heal.`);
+  }
+}
+
+/**
+ * Stamp a healed file's frontmatter so the header stops contradicting the body.
+ * A GC pass is still a programmatic write to an always-loaded context file: it must
+ * move `last_updated`, and a file the memory loop is maintaining is not a pristine
+ * template, so `provenance: template` flips too. Best-effort — a stamping failure
+ * must not undo a heal that already landed on disk. (public PR #1667, @elhoim)
+ */
+function stampTarget(absPath: string): void {
+  try {
+    const mod = require("./TelosFreshness") as typeof import("./TelosFreshness");
+    mod.stampContextWrite(absPath, "proposal-gc");
+  } catch {
+    // best-effort — see doc above
   }
 }
 
@@ -240,4 +274,13 @@ function appendLog(obj: unknown) {
   appendFileSync(OBS_LOG, JSON.stringify(obj) + "\n", "utf8");
 }
 
-main();
+// Fail-silent under `--auto`: a scheduled heal that throws must not surface as a
+// job alarm — the worst case of skipping a GC pass is a slightly larger context
+// file, which the next tick collects. Interactive runs still fail loudly.
+try {
+  main();
+} catch (err) {
+  if (!process.argv.includes("--auto")) throw err;
+  console.error(`ProposalGC: auto pass failed — ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(0);
+}

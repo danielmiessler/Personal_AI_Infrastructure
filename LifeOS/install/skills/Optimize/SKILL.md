@@ -1,9 +1,8 @@
 ---
 name: Optimize
-version: 1.0.10
+version: 1.0.12
 description: "Autonomous optimization loop — hill-climb any target. Code with metrics, or skills/prompts/agents with LLM-as-judge. USE WHEN optimize, hill climb, improve metric, reduce latency, optimize skill, optimize prompt, eval mode."
 disable-model-invocation: true
-effort: medium
 ---
 
 # /optimize — Autonomous Optimization v2
@@ -59,7 +58,7 @@ In eval mode, the system automatically:
 
 ## What Happens
 
-This skill triggers the LifeOS Algorithm in `mode: optimize`:
+This skill drives the LifeOS Algorithm as an autonomous mutation loop:
 
 1. **OBSERVE** — Define or auto-detect the target, set eval_mode
 2. **THINK** — Analyze codebase/skill, generate hypothesis queue
@@ -109,7 +108,7 @@ This skill triggers the LifeOS Algorithm in `mode: optimize`:
 
 ## Algorithm Integration
 
-When `/optimize` is invoked, the Algorithm enters with `mode: optimize` in the ISA frontmatter. The eval_mode is set based on arguments:
+When `/optimize` is invoked, the eval_mode is set based on arguments (`mode:` is retired — never write it to frontmatter):
 
 - `--measure` provided → `eval_mode: metric` (git branch sandbox)
 - `--target` provided → `eval_mode: eval` (directory sandbox)
@@ -119,7 +118,7 @@ ISC criteria become **guard rails** — assertions that must hold true across AL
 **Reference files:**
 - `~/.claude/LIFEOS/ALGORITHM/optimize-loop.md` — the full loop protocol
 - `~/.claude/LIFEOS/ALGORITHM/eval-guide.md` — how to write good eval criteria
-- `~/.claude/LIFEOS/ALGORITHM/target-types.md` — target detection and ISC generation
+- `~/.claude/LIFEOS/ALGORITHM/archive/target-types.md` — target detection and ISC generation
 
 ## Examples
 

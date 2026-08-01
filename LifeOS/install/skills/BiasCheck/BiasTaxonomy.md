@@ -242,4 +242,4 @@ For any source, walk these categories top-to-bottom. Most sources fire 3–7 cat
 - Vendor research with viral coverage → typically fires source/funding bias + question-design + headline-to-source distortion + causal framing
 - Academic paper with niche coverage → typically fires sampling + no-benchmark + selective quoting in the article
 - Press release reported verbatim → typically fires the entire Layer 2 plus echo-chain amplification
-- Op-ed dressed as analysis → wrong tool; redirect to `_CRITICAL_ANALYSIS`
+- Op-ed dressed as analysis → wrong tool; redirect to a psychological author-analysis skill

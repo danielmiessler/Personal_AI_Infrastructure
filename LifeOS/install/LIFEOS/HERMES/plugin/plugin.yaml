@@ -1,0 +1,10 @@
+name: lifeos
+version: 1.0.0
+description: >-
+  LifeOS sidecar guard. Blocks credential material at the tool-call boundary so
+  the agent can be given a full LifeOS mount — identity, TELOS, memory,
+  projects, skills — without exposing secrets to the model's context.
+author: LifeOS
+hooks:
+  - pre_tool_call
+  - transform_tool_result

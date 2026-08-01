@@ -61,6 +61,47 @@ const ARCHIVE_DIR = path.join(KNOWLEDGE_DIR, "_archive");
 const PROJECTS_DIR = path.join(HOME, ".claude", "projects");
 
 /**
+ * Single-pass backlink index over KNOWLEDGE/ (public PR #1574, @asdf8675309).
+ * Reads every note once and tallies [[target]] wikilinks into a
+ * slug -> distinct-source-note-count Map. Replaces the per-note `rg -c` scan,
+ * which made MOC regeneration and seedling expiry O(n^2) (~10 min measured on
+ * a 6,419-note archive) and over-counted three ways: prefix match ([[foo]]
+ * counted toward [[foo-bar]]), summed matching LINES instead of distinct
+ * source notes, and included generated _*.md MOCs (whose link lists inflate
+ * every count) plus self-links. New counts are therefore <= the old ones —
+ * the safe direction for both consumers (MOC "Most Referenced" is a cosmetic
+ * ranking; seedling expiry branches only on > 0, now keyed to REAL inbound
+ * note-links rather than MOC self-listing).
+ */
+function computeBacklinks(): Map<string, number> {
+  const sources = new Map<string, Set<string>>();
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (entry.name.startsWith("_")) continue; // generated MOCs/schema + _archive
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!entry.name.endsWith(".md")) continue;
+      const sourceSlug = entry.name.replace(/\.md$/, "").toLowerCase();
+      let content = "";
+      try { content = fs.readFileSync(full, "utf-8"); } catch { continue; }
+      for (const m of content.matchAll(/\[\[([^\]]+?)\]\]/g)) {
+        // [[target]], [[target|alias]], [[domain/target#anchor]] -> bare slug
+        const target = m[1].split("|")[0].split("#")[0].trim().toLowerCase().split("/").pop() || "";
+        if (!target || target === sourceSlug) continue; // self-links never count
+        if (!sources.has(target)) sources.set(target, new Set());
+        sources.get(target)!.add(full);
+      }
+    }
+  };
+  walk(KNOWLEDGE_DIR);
+  const counts = new Map<string, number>();
+  for (const [target, srcs] of sources) counts.set(target, srcs.size);
+  return counts;
+}
+
+/**
  * Auto-memory dirs — multi-instance aware (#1170).
  * Override with LIFEOS_AUTO_MEMORY_DIR (colon-separated absolute paths).
  * Otherwise every ~/.claude/projects/<project>/memory dir is scanned, not just
@@ -604,7 +645,7 @@ function matchStaged(staged: StagedNote[], target: string): StagedNote[] {
 // MOC Dashboard Generation
 // ============================================================================
 
-function regenerateMOC(domain: string): void {
+function regenerateMOC(domain: string, backlinks: Map<string, number>): void {
   const domainDir = path.join(KNOWLEDGE_DIR, domain);
   if (!fs.existsSync(domainDir)) return;
 
@@ -616,16 +657,8 @@ function regenerateMOC(domain: string): void {
     const fm = parseFrontmatter(content);
     const slug = file.replace(/\.md$/, "");
 
-    // Count backlinks across all KNOWLEDGE/ files
-    let backlinkCount = 0;
-    try {
-      const { execSync } = require("child_process");
-      const result = execSync(`rg -c '\\[\\[${slug}' "${KNOWLEDGE_DIR}" 2>/dev/null || echo "0"`, { encoding: "utf-8" });
-      backlinkCount = result.split("\n").reduce((acc: number, line: string) => {
-        const match = line.match(/:(\d+)$/);
-        return acc + (match ? parseInt(match[1]) : 0);
-      }, 0);
-    } catch { /* rg not available or no matches */ }
+    // O(1) lookup in the single-pass index (public PR #1574, @asdf8675309)
+    const backlinkCount = backlinks.get(slug.toLowerCase()) ?? 0;
 
     notes.push({
       slug,
@@ -850,7 +883,7 @@ function getArchiveStats(): ArchiveStats {
   return stats;
 }
 
-function expireStaleSeedlings(): string[] {
+function expireStaleSeedlings(backlinks: Map<string, number>): string[] {
   const expired: string[] = [];
   for (const domain of DOMAINS) {
     const domainDir = path.join(KNOWLEDGE_DIR, domain);
@@ -867,17 +900,11 @@ function expireStaleSeedlings(): string[] {
       const daysSince = (Date.now() - new Date(fm.created).getTime()) / (1000 * 60 * 60 * 24);
       if (daysSince <= SEEDLING_EXPIRY_DAYS) continue;
 
-      // Check for inbound references
-      try {
-        const slug = file.replace(/\.md$/, "");
-        const { execSync } = require("child_process");
-        const result = execSync(`rg -c '\\[\\[${slug}' "${KNOWLEDGE_DIR}" 2>/dev/null || echo ""`, { encoding: "utf-8" });
-        const totalRefs = result.split("\n").reduce((acc: number, line: string) => {
-          const match = line.match(/:(\d+)$/);
-          return acc + (match ? parseInt(match[1]) : 0);
-        }, 0);
-        if (totalRefs > 0) continue; // Has references, don't expire
-      } catch { /* rg failed, be conservative — don't expire */ continue; }
+      // Check for inbound references — distinct real-note links only; a
+      // generated MOC listing no longer keeps a seedling alive (public PR
+      // #1574, @asdf8675309)
+      const slug = file.replace(/\.md$/, "").toLowerCase();
+      if ((backlinks.get(slug) ?? 0) > 0) continue; // Has references, don't expire
 
       // Move to archive
       const archivePath = path.join(ARCHIVE_DIR, file);
@@ -965,7 +992,7 @@ function cmdHarvest(sourceFilter: string | null, dryRun: boolean, maxNotes: numb
 
   if (!dryRun) {
     // Expire stale seedlings in the committed archive
-    const expired = expireStaleSeedlings();
+    const expired = expireStaleSeedlings(computeBacklinks());
     if (expired.length > 0) {
       console.log(`\n  📦 Archived ${expired.length} stale low-quality note(s):`);
       for (const e of expired) console.log(`     ${e}`);
@@ -1035,8 +1062,9 @@ function cmdPromote(target: string | null, all: boolean): void {
 
   if (affectedDomains.size > 0) {
     console.log("\n  📑 Regenerating MOCs...");
+    const backlinks = computeBacklinks(); // once per run, not per domain
     for (const domain of affectedDomains) {
-      regenerateMOC(domain);
+      regenerateMOC(domain, backlinks);
       console.log(`     ${domain}/_index.md`);
     }
     regenerateMasterMOC();
@@ -1219,8 +1247,9 @@ function cmdContradictions(): void {
 
 function cmdIndex(): void {
   console.log("📑 Regenerating all MOC dashboards...");
+  const backlinks = computeBacklinks(); // once per run, not per domain
   for (const domain of DOMAINS) {
-    regenerateMOC(domain);
+    regenerateMOC(domain, backlinks);
     console.log(`  ${domain}/_index.md`);
   }
   regenerateMasterMOC();

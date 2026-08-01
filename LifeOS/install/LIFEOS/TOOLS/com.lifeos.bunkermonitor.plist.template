@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.lifeos.bunkermonitor.plist.template — Source template. Install via:
+    bun ~/.claude/LIFEOS/TOOLS/InstallBunkerMonitor.ts
+
+  The installer reads $HOME at install time, substitutes {{HOME}} placeholders,
+  writes the materialized plist to ~/Library/LaunchAgents/, and bootstraps it
+  with launchctl. This template stays clean of principal-specific paths so it
+  ships in the public LifeOS release.
+
+  Behavior:
+    Runs `bunker monitor` every 5 minutes (StartInterval 300) — re-runs every
+    monitored app's ISA Test Strategy probes and emails on green→red / red→green
+    state transitions. State: ~/.bunker/monitor-state.json.
+    Fires once at boot (RunAtLoad true).
+    Crash-loop rate-limited (ThrottleInterval 60s).
+    stdout/stderr captured to ~/.bunker/monitor.log.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lifeos.bunkermonitor</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{BUN}}</string>
+    <string>{{BUNKER}}/bin/bunker.ts</string>
+    <string>monitor</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/.config/LIFEOS/USER/PULSE/Bunker/monitor.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/.config/LIFEOS/USER/PULSE/Bunker/monitor.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>{{HOME}}</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{BUN_DIR}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>{{HOME}}</string>
+  </dict>
+</dict>
+</plist>

@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.8
+ * @version 1.0.10
  * MemoryDeltaSurface — UserPromptSubmit hook that makes the autonomic memory
  * loop VISIBLE in every response, Hermes-style.
  *
  * ALWAYS-ON (2026-06-11 redesign, principal-directed): every primary-session
- * prompt gets a `<pai-memory-delta>` block with one verbatim 🧠 MEMORY line:
+ * prompt gets a `<lifeos-memory-delta>` block with one verbatim 🧠 MEMORY line:
  *
  *   - DELTA form (loop wrote since last surfaced turn):
  *     🧠 MEMORY: +3 learned · −1 dropped — "principal: …", "self: …" · C 5/8 fresh
@@ -19,14 +19,12 @@
  * model only echoes the string (the 2026-05-28 model-self-computed line failed
  * compliance repeatedly; never go back).
  *
- * History: built change-only on 2026-06-05 (81d1cf0ec), registration clobbered
- * 19h later by a concurrent session's whole-file settings.json write
- * (787f66ef7) — the surface sat dead for 5 days and nobody could tell, because
- * change-only silence looks healthy. Hence two guards: (1) this hook touches
- * MEMORY/STATE/delta-surface-heartbeat on every run and MemoryHealthCheck
- * flags it dead if writes continue without surfacing; (2) MemoryHealthCheck
- * treats missing settings registration as critical, which nags in chat via
- * the 🩺 line below.
+ * Two guards, both load-bearing, because for a change-only surface silence IS the healthy
+ * state and a dead hook is indistinguishable from a quiet week (INC-20260605-delta-surface-
+ * silent-death): (1) this hook touches MEMORY/STATE/delta-surface-heartbeat on every run and
+ * MemoryHealthCheck flags it dead if memory writes continue while nothing surfaces;
+ * (2) MemoryHealthCheck treats a missing settings registration as critical, which nags in
+ * chat via the 🩺 line below. Never infer this hook's liveness from its output.
  *
  * Failure mode: any error → stderr + exit 0. Never block a prompt.
  * Subagent skip: the per-turn surface is for the principal's primary session.
@@ -35,6 +33,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
 import { resolve as pathResolve, dirname } from "node:path";
 import { homedir } from "node:os";
+import { isSubagentContext as isSubagent } from './lib/subagent';
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
 const WRITES_LOG = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/memory-writes.jsonl");
@@ -55,14 +54,6 @@ interface WriteRow {
   accepted?: number;
   additions?: string[];
   evictions?: string[];
-}
-
-function isSubagent(): boolean {
-  return Boolean(
-    process.env.CLAUDE_CODE_SUBAGENT_NAME ||
-    process.env.CLAUDE_CODE_SUBAGENT_TYPE ||
-    process.env.CLAUDE_AGENT_SDK === "1",
-  );
 }
 
 function readCursor(): string {
@@ -168,7 +159,7 @@ function criticalHealthLine(): string | null {
   }
 }
 
-/** Returns the <pai-memory-health>? + <pai-memory-delta> blocks, or null. Pure — no exit. */
+/** Returns the <lifeos-memory-health>? + <lifeos-memory-delta> blocks, or null. Pure — no exit. */
 export function run(): string | null {
   let out = "";
   try {
@@ -210,10 +201,10 @@ export function run(): string | null {
     const healthLine = criticalHealthLine();
     if (healthLine) {
       out +=
-        `<pai-memory-health>\n` +
+        `<lifeos-memory-health>\n` +
         `Memory subsystem health is CRITICAL. Surface this line VERBATIM in your response so it cannot be ignored:\n` +
         `${healthLine}\n` +
-        `</pai-memory-health>\n`;
+        `</lifeos-memory-health>\n`;
     }
 
     // ── Compose the always-on line ──
@@ -248,10 +239,10 @@ export function run(): string | null {
     if (line.length > LINE_HARD_CAP) line = line.slice(0, LINE_HARD_CAP - 1) + "…";
 
     out +=
-      `<pai-memory-delta>\n` +
+      `<lifeos-memory-delta>\n` +
       `Memory status from the autonomic loop (computed deterministically by MemoryDeltaSurface.hook.ts). Render this line VERBATIM in your response as the 🧠 MEMORY line of the output format, exactly once. Do not recompute or rephrase it:\n` +
       `${line}\n` +
-      `</pai-memory-delta>\n`;
+      `</lifeos-memory-delta>\n`;
     return out;
   } catch (e) {
     process.stderr.write(`MemoryDeltaSurface error: ${(e as Error)?.message || String(e)}\n`);

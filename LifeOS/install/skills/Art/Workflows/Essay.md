@@ -21,46 +21,38 @@ Uses architectural sketching STYLE (gestural lines, hatching, charcoal) to depic
 
 ---
 
-## 🚨🚨🚨 ALL STEPS ARE MANDATORY — NO EXCEPTIONS 🚨🚨🚨
+## The 8-step pipeline
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️  EVERY SINGLE STEP BELOW IS MANDATORY. EXECUTE ALL OF THEM.  ⚠️
-⚠️  DO NOT SKIP ANY STEP. DO NOT ABBREVIATE. DO NOT SHORTCUT.   ⚠️
-⚠️  IF YOU SKIP A STEP, YOU HAVE FAILED THE WORKFLOW.           ⚠️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-**ALL 8 STEPS ARE MANDATORY. Execute them IN ORDER. Do NOT skip steps.**
+Each step produces an input the next one depends on, so the sequence runs end to end. CSE-24 before composition, generate before optimize, optimize before validate.
 
 ```
 INPUT CONTENT
      ↓
-[1] UNDERSTAND: Deeply read and comprehend the request ← MANDATORY
+[1] UNDERSTAND: Deeply read and comprehend the request
      ↓
-[2] CSE-24: Run Create Story Explanation Level 24 on content ← MANDATORY
+[2] CSE-24: Run Create Story Explanation Level 24 on content
      ↓
-[3] EMOTION: Identify emotional register ← MANDATORY
+[3] EMOTION: Identify emotional register
      ↓
-[4] COMPOSITION: Design what to ACTUALLY DRAW ← MANDATORY
+[4] COMPOSITION: Design what to ACTUALLY DRAW
      ↓
-[5] PROMPT: Construct using charcoal sketch TECHNIQUE template ← MANDATORY
+[5] PROMPT: Construct using charcoal sketch TECHNIQUE template
      ↓
-[6] GENERATE: Execute CLI tool with --thumbnail flag ← MANDATORY
+[6] GENERATE: Execute CLI tool with --thumbnail flag
      ↓
-[7] OPTIMIZE: Resize, convert to WebP, create optimized thumbnails ← MANDATORY
+[7] OPTIMIZE: Resize, convert to WebP, create optimized thumbnails
      ↓
-[8] VALIDATE: Subject matches content? Signature? Gallery-worthy? ← MANDATORY
+[8] VALIDATE: Subject matches content? Signature? Gallery-worthy?
 ```
 
-**MANDATORY ELEMENTS IN EVERY IMAGE:**
+**Every image contains these elements:**
 - Charcoal sketch technique
 - Content-relevant subject matter
-- **BURNT SIENNA (#8B4513)** — human warmth, humanity (MANDATORY)
-- **DEEP PURPLE (#4A148C)** — technology, AI, capital, cold power (MANDATORY)
+- **BURNT SIENNA (#8B4513)** — human warmth, humanity
+- **DEEP PURPLE (#4A148C)** — technology, AI, capital, cold power
 - --thumbnail flag for blog headers
 
-**🚨 NO TEXT IN IMAGES — EXACTLY ONE EXCEPTION: the "{{DA_NAME}}" signature.**
+**NO TEXT IN IMAGES — exactly one exception: the "{{DA_NAME}}" signature.**
 - ✅ **The "{{DA_NAME}}" signature IS REQUIRED** — every blog-header image MUST be signed "{{DA_NAME}}", bottom-right corner, added PROGRAMMATICALLY in Step 7 (never prompted into the model — models hallucinate garbled text). This is the SOLE permitted mark. (Principal directive 2026-06-20: re-required after the 2026-05-02 removal; it must always be there.)
 - 🚨 The signature is a **human handwriting** style, NOT formal calligraphy. Use `SignPainter-HouseScript` — cursive human-signature hand, small (~3% of width), semi-transparent charcoal, tucked into the composition (2026-07-09 directive: more cursive, smaller, part of the image). Formal calligraphy faces Snell-Roundhand / Apple-Chancery / Savoye remain WRONG (2026-06-20: "It's a human like signature not fucking caligraphy").
 - ❌ No OTHER text: no watermarks, no labels, no annotations, no captions, no logos, no titles, no subtitles
@@ -68,13 +60,13 @@ INPUT CONTENT
 - The image carries the meaning visually. All text other than the {{DA_NAME}} signature belongs in the post body, not on the canvas.
 - The model MUST NOT bake any text in. The ONLY text on the final image is the Step-7 programmatic "{{DA_NAME}}" signature.
 
-**🚨 BOTH SIENNA AND PURPLE MUST BE PRESENT IN EVERY IMAGE.**
+**Both sienna and purple appear in every image.**
 - Sienna on human/warm elements
 - Purple on tech/capital/cold elements
 - The ratio of Sienna:Purple tells the emotional story
-- If an image is missing either color, it's INCOMPLETE
+- An image missing either color is incomplete
 
-**🚨 FORBIDDEN — NEVER INCLUDE:**
+**Never include:**
 - ❌ Borders or frames around the image
 - ❌ Background shading or gradients
 - ❌ Filled backgrounds of any kind
@@ -93,7 +85,7 @@ If the signature is missing after generation, you must add it manually or regene
 
 ---
 
-## Step 1: Deeply Understand the Request — MANDATORY
+## Step 1: Deeply Understand the Request
 
 **Before doing ANYTHING, deeply read and understand:**
 
@@ -116,11 +108,11 @@ If the user provides specific direction like:
 
 ---
 
-## Step 2: Run Create Story Explanation Level 24 — MANDATORY
+## Step 2: Run Create Story Explanation Level 24
 
 **Extract the FULL narrative arc to understand the emotional core.**
 
-**🚨 ACTUALLY EXECUTE THIS COMMAND — DO NOT SKIP:**
+Run this command — its 24-item output is the source material for the composition in Steps 3-5:
 
 ```
 Invoke the StoryExplanation Skill with: "Create a 24-item story explanation for this content"
@@ -138,16 +130,16 @@ Or use the slash command:
 - What the piece is REALLY about
 - The "wow" factor and significance
 
-**DO NOT PROCEED TO STEP 3 UNTIL YOU HAVE:**
-1. Actually run the CSE command
-2. Read and understood the 24-item output
-3. Identified the key metaphors and emotional beats
+**Step 3 builds on three outputs from here:**
+1. The CSE command has actually run
+2. The 24-item output is read and understood
+3. The key metaphors and emotional beats are identified
 
 **Output:** 24-item story explanation revealing the emotional and conceptual core.
 
 ---
 
-## Step 3: Identify Emotional Register — MANDATORY
+## Step 3: Identify Emotional Register
 
 **Read the aesthetic file and select the appropriate emotional vocabulary.**
 
@@ -174,7 +166,7 @@ These are just examples. It can be really anything which you will get from the C
 
 ---
 
-## Step 4: Design Composition — MANDATORY
+## Step 4: Design Composition
 
 **🚨 CRITICAL: Design what to ACTUALLY DRAW based on the CONTENT — NOT defaulting to architecture.**
 
@@ -234,9 +226,9 @@ Before designing anything, extract from the CSE-24 output:
    **THE ART SHOULD MAKE THE PROBLEM TYPE VISIBLE AT A GLANCE.**
    Someone seeing the image should immediately understand WHAT KIND of problem this is.
 
-   ### 🚨🚨🚨 OPPOSITE-CONCEPT ASYMMETRY GATE — MANDATORY 🚨🚨🚨
+   ### Opposite-Concept Asymmetry Gate
 
-   **If the essay's argument involves contrasting TWO different things (X vs Y, capitalism vs communism, agency vs control, human vs AI, ruthless vs compassionate, centralized vs distributed, etc.), the image MUST show X and Y with DISTINCT VISUAL CHARACTER — not symmetric color-coded voids, mirror-image silhouettes, or "same shape, different paint."**
+   **When the essay's argument contrasts TWO different things (X vs Y, capitalism vs communism, agency vs control, human vs AI, ruthless vs compassionate, centralized vs distributed, etc.), the image shows X and Y with DISTINCT VISUAL CHARACTER — not symmetric color-coded voids, mirror-image silhouettes, or "same shape, different paint."**
 
    This gate exists because models default to producing visually-symmetric compositions (left blob purple, right blob sienna; left pan-of-scale, right pan-of-scale). Symmetry collapses meaning. The viewer cannot tell which side is which conceptually because they LOOK THE SAME except for color. Exactly this failure was rejected in review on 2026-05-20 — the image did not visually separate the two contrasted styles of government — never repeat it.
 
@@ -351,7 +343,7 @@ COLOR APPROACH:
 
 ---
 
-## Step 5: Construct the Prompt — MANDATORY
+## Step 5: Construct the Prompt
 
 **Use deep thinking to construct the final prompt using the charcoal sketch TECHNIQUE template.**
 
@@ -396,6 +388,13 @@ HUMAN FIGURES (if present) — GESTURAL ABSTRACTED:
 - Abstracted but with PRESENCE and WEIGHT
 - FACES via simple charcoal marks (dark strokes for eyes, line for mouth)
 - Burnt Sienna (#8B4513) WASH accent
+- DIVERSITY IN GROUPS (2026-07-12 principal directive): when the scene has
+  MULTIPLE figures, they must show a natural range of skin tones — in this
+  medium that means varied wash hues and tonal depths across figures (light
+  sienna, deep umber, warm brown, charcoal-dark), plus varied hair textures
+  and silhouettes. Models default every figure to white; say it explicitly
+  in the prompt ("figures with a natural variety of skin tones"). Don't
+  overdo it or tokenize — just never render an all-white group.
 
 HANDS (if present) — GESTURAL:
 - Same overlapping line technique
@@ -424,11 +423,11 @@ COLOR — CHARCOAL DOMINANT, COLORS AS ACCENTS ONLY:
 - Colors are the ESSENCE of elements (purple = cold capital, sienna = human warmth)
 - Every bit of color belongs to a form — no random color floating in space
 
-DO NOT include any signature text in the prompt — AI models hallucinate garbled text instead of clean signatures. The KAI signature will be added programmatically in the Optimize step using ImageMagick.
+DO NOT include any signature text in the prompt — AI models hallucinate garbled text instead of clean signatures. The DA signature will be added programmatically in the Optimize step using ImageMagick.
 NO other text.
 ```
 
-### 🚨 STEP 5A: BEST-IMAGE DELIBERATION (MANDATORY — principal directive 2026-07-09)
+### Step 5A: Best-Image Deliberation (principal directive 2026-07-09)
 
 **Before writing any prompt, stop and think deeply about what the BEST POSSIBLE image for THIS essay would be.** Not "what subjects should appear" — what image would make the argument land hardest. The 2026-07-09 Claude Tag session proved the gap: subject-list prompts ("a desk with a laptop, an AI figure, a colleague") produced flat tableaus that got rejected twice; a composition reasoned from the essay's actual argument (a chat window as thin facade, a robot workshop behind it passing work up) produced immediately-accepted images. Same models, same technique block — the difference was the deliberation.
 
@@ -463,54 +462,25 @@ Before generating, verify:
 
 ---
 
-### 🚨 Model-Specific Prompt Construction (CONTENT-LED, BOTH MODELS)
+### 🚨 Prompt Construction (CONTENT-LED)
 
-**The two production models reason about prompts very differently. Generic visual-spec prompts waste OpenAI's reasoning capability and starve Google's compositional fidelity. Both models need the CONTENT'S LOGIC up front — not just adjectives.**
+**`nano-banana-pro` is the only model this workflow uses.** OpenAI image models and the dual-provider `compare` mode were removed 2026-07-30 at the principal's direction — do not reintroduce them, and do not reach for a second vendor when a round fails the gate. The fix for a failed round is a sharper brief, not another provider.
 
-**🚨 GPT-IMAGE-1 IS DEPRECATED** (per OpenAI docs) — DO NOT USE. The current OpenAI image model is `gpt-image-2` (released Apr 21, 2026 — currently #1 across every Image Arena leaderboard with record margins: +242 Elo in text-to-image, +125 in single-image edit, +90 in multi-image edit, per Arena.ai 2026-05-04). Always pass `--model gpt-image-2`. There is no `gpt-image-1.5` or `gpt-image-2.5` — earlier versions of this workflow referenced these as fallbacks; they do not exist and have been removed.
+Google's `nano-banana-pro` (Gemini 3 Pro Image) is visually-anchored — it executes composition and style with high fidelity, but it produces stronger results when the composition is grounded in WHY the scene exists, not just WHAT objects to draw. Lead with composition, but include the thesis as context so the model treats the elements as load-bearing instead of decorative.
 
-OpenAI's `gpt-image-2` is an autoregressive multimodal model with native "thinking mode" reasoning. Image tokens flow through the same transformer as text tokens, which is what gives it instruction-following depth. **But it has documented quirks** that the prompt must address explicitly:
-- **Warm-color bias** — over-weights amber/sienna, under-delivers purple/cool tones unless explicitly constrained
-- **Photoreal/digital-clean default** — needs explicit "no photorealism, no digital cleanness, hand-drawn" suppression to get editorial sketch register
-- **Avoids named artists in canonical examples** — Lebbeus Woods / Paul Rudolph references work less reliably than on Google; lean on **descriptive structural language** ("dense gestural overlapping charcoal strokes, hatched cross-section, architectural concept-sketch quality") as primary, named-artist as secondary
-- **No negative-prompt parameter** — encode all "do not"s as inline constraints
-- Prefers structured-but-flexible prompts in the order: **background/scene → subject → key details → constraints → intended use**
-- Optimal length: under ~500 words, hard ceiling 32k chars
-- Supports `background: transparent` natively via API (`--transparent` flag)
-- Supports `--quality low|medium|high` (default high)
+**Verified quirks to write against:**
 
-Google's `nano-banana-pro` (Gemini 3 Pro Image) is more visually-anchored — it executes composition and style with high fidelity, but it produces stronger results when the composition is grounded in WHY the scene exists, not just WHAT objects to draw. Lead with composition, but include the thesis as context so the model treats the elements as load-bearing instead of decorative.
+- **🚨 It will not render a large field of dense technical linework, and no amount of prompting fixes it.** Asking for a drafting sheet / plan / grid "packed corner to corner with hundreds of overlapping projection lines" reliably produces the subjects (figures, hands, objects) beautifully rendered and the rest of the canvas BLANK. Verified across 8 rolls on 2026-07-30 — including explicit canvas-fraction instructions ("the drawn linework must cover at least 60 percent of the canvas"), naming the field as THE SUBJECT, and stating which single region is allowed to be bare. All ignored. **The fix is the BRIEF, not the wording:** build the composition from SOLID MASSES the model renders well — hatched terrain, slabs, faceted forms, gestural figures with sienna wash, ledges and shears — and never make a fine-line field load-bearing. The singularity header landed the moment "dense drawing that frays" became "solid hatched ledge that shears off."
+- **It obeys "minimalist" and "floats in empty space" literally.** Those words are in the technique block; when the composition needs weight, say what fills each region instead of relying on the block's defaults.
+- **Scale contrast is a strength — use it.** Tiny sienna figures against a colossal purple mass reads instantly at thumbnail size and survives the alpha cut cleanly.
 
-**Both prompts MUST include three blocks, in this order:**
+**Every prompt MUST include three blocks, in this order:**
 
 1. **Thesis brief** — 2–4 sentences distilling the essay: the argument, the tension, what the reader should feel, and what a stranger should intuit from the image alone.
-2. **Visual brief** — the composition / subject / palette / style. Strict edge-to-edge composition rules from `Step 4: Design Composition`.
+2. **Visual brief** — the composition / subject / palette / style. Strict edge-to-edge composition rules from `Step 4: Design Composition`. If the scene includes multiple figures, the visual brief explicitly requests a natural variety of skin tones across them (varied wash hues/tonal depths) — never an all-white group.
 3. **Anti-pattern list** — what to avoid (literal corporate clichés if it's a workplace essay, digital-vector look, text/logos/watermarks, blank margins).
 
-**Two prompt shapes — pick by model:**
-
-#### OpenAI gpt-image-2 — REASONING-LED (thesis is the spine)
-
-```
-You are illustrating the header for an editorial essay titled "[TITLE]".
-[2–4 sentence thesis brief: argument, tension, emotional register, what the
-reader-as-stranger should intuit from the image alone.]
-
-Render as a single hand-drawn editorial illustration filling the entire
-square frame edge-to-edge with NO blank margins. [Style notes: charcoal,
-warm sepia, painterly gestural texture, New Yorker / Atlantic polish.]
-[Composition: dominant subject, supporting elements, what touches which
-edge.] The visual must carry the thesis — anyone seeing this image without
-reading the essay should intuit the argument.
-
-Avoid: [literal cliché list — e.g. laptops, suits, office buildings if it's
-a workplace essay], digital vector look, text, labels, signatures,
-watermarks. Palette: warm sepia + charcoal with single accent of soft
-amber light. Background: warm sepia paper that blends seamlessly into a
-cream blog page.
-```
-
-#### Google nano-banana-pro — COMPOSITION-LED (thesis is the load-bearing context)
+#### The prompt shape — COMPOSITION-LED (thesis is the load-bearing context)
 
 ```
 Editorial illustration filling the entire square frame edge-to-edge,
@@ -530,35 +500,29 @@ No text, no labels, no signatures, no watermarks, no borders. Background:
 seamless warm sepia paper that blends into a cream blog page.
 ```
 
-### 🚨 DEFAULT FOR BLOG HEADERS: MULTI-CANDIDATE FROM BOTH MODELS, AUTO-SELECT
+### 🚨 DEFAULT FOR BLOG HEADERS: MULTI-CANDIDATE, AUTO-SELECT
 
-**Single-generation is NOT the default for blog header essays.** Single-shot generation is acceptable for low-stakes diagrams, schematics, or technical illustrations where the visual answer is mechanical. Editorial essay headers are not those — they are creative judgment calls where one model's interpretation routinely beats the other and you cannot predict which in advance.
+**Single-generation is NOT the default for blog header essays.** Single-shot generation is fine for low-stakes diagrams, schematics, or technical illustrations where the visual answer is mechanical. Editorial essay headers are creative judgment calls, and the same brief produces meaningfully different compositions roll to roll.
 
-**Default protocol for any blog header (Essay workflow): generate N candidates from BOTH models in parallel, then auto-select via the Concept Fidelity Gate (Step 8).**
+**Default protocol for any blog header (Essay workflow): generate N candidates from `nano-banana-pro` in parallel, then auto-select via the Concept Fidelity Gate (Step 8).**
 
-- **N defaults to 4 total** (2 OpenAI gpt-image-2 + 2 Google nano-banana-pro), each with a distinct compositional angle on the same thesis brief.
-- **Bump to 6 (3+3) or 8 (4+4)** when the thesis is multi-part, the metaphor is non-obvious, or the previous round failed the gate.
-- **Spawn all candidates as parallel background jobs** (`run_in_background: true`) — the wall-clock cost of 4 parallel is roughly the same as 1 sequential.
-- **All outputs go to `~/Downloads/`** with descriptive suffixes (`{slug}-candidate-{n}-{model}-{angle}.png`).
+- **N defaults to 4**, each with a genuinely distinct compositional angle on the same thesis brief — different scene concepts, not the same scene reworded. The variation must come from YOUR angles, since there is no longer a second model supplying it.
+- **Bump to 6 or 8** when the thesis is multi-part, the metaphor is non-obvious, or the previous round failed the gate.
+- **Spawn all candidates as parallel background jobs** (`run_in_background: true`) — 4 parallel costs about the same wall-clock as 1 sequential.
+- **All outputs go to `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset)** with descriptive suffixes (`{slug}-candidate-{n}-{angle}.png`).
 - **Then run the Concept Fidelity Gate (Step 8)** on each. Score every candidate against the thesis brief. Auto-select the highest-fidelity winner.
-- **The winner moves through optimize → mv → git add. Losers stay in `~/Downloads/` as disposable.**
+- **The winner moves through optimize → mv → git add. Losers stay in `$LIFEOS_DOWNLOADS_DIR` as disposable.**
 
-**Why this is the default, not an option:**
+**When to break the default and generate a single image:**
 
-- The two models have orthogonal strengths and orthogonal failure modes. Generating from only one model leaves 50%+ of the option space unexplored on every run.
-- Concept fidelity scoring against a written thesis is fast (you Read each image and check 4 questions). It costs less than re-spending an entire turn after the principal rejects a single image.
-- the principal has explicitly directed this pattern: *"I want you to change the workflow so that it makes n number of options with both Nano Banana and OpenAI and selects the best."* This is not negotiable for blog headers.
-
-**When to break the default and generate single-model:**
-
-- the principal explicitly names a model (e.g. *"use Nano Banana Pro for this one"*) — honor the directive.
-- The previous round selected a clear leader and the principal is asking for a tight variation on it.
+- The principal explicitly asks for one.
+- The previous round selected a clear leader and the principal wants a tight variation on it.
 - The image type is not editorial (diagram, schematic, dashboard, technical illustration).
-- Total candidate count from prior rounds in this same task already exceeds 8 — you're approaching the 4-turn cap; don't burn more compute, surface to the principal instead.
+- Total candidate count from prior rounds in this same task already exceeds 8 — you're approaching the 4-turn cap; surface to the principal instead of burning more compute.
 
 ---
 
-## Step 6: Execute the Generation — MANDATORY
+## Step 6: Execute the Generation
 
 ### Intent-to-Flag Mapping
 
@@ -600,14 +564,14 @@ seamless warm sepia paper that blends into a cream blog page.
 
 ### Default Model: nano-banana-pro
 
-### 🚨 CRITICAL: Always Output to Downloads First — `~/Downloads/` IS THE WORKING DIRECTORY
+### Always Output to Downloads First — `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) IS THE WORKING DIRECTORY
 
-**`~/Downloads/` is the canonical working directory for ALL Art-skill image generation. EVERY `--output` path MUST start with `~/Downloads/`. ZERO exceptions.**
+**`$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) is the canonical working directory for ALL Art-skill image generation. Every `--output` path starts with `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) — writing anywhere else bypasses the visual inspection gate below.**
 
 This applies to:
-- Single-shot generations (`--output ~/Downloads/{name}.png`)
-- Multi-candidate comparisons across models (`--output ~/Downloads/{name}-candidate-{n}-{model}.png`)
-- Thumbnail generation (`--thumbnail` flag — both `.png` and `-thumb.png` land in `~/Downloads/`)
+- Single-shot generations (`--output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.png`)
+- Multi-candidate comparisons across models (`--output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}-candidate-{n}-{model}.png`)
+- Thumbnail generation (`--thumbnail` flag — both `.png` and `-thumb.png` land in `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset))
 - Background-removal intermediates
 - Optimization intermediates (`cwebp` / `magick` outputs while iterating)
 
@@ -616,7 +580,7 @@ This applies to:
 The strict pipeline:
 
 ```bash
-# 1. GENERATE → ALWAYS to ~/Downloads/
+# 1. GENERATE → ALWAYS to "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/
 bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --workflow=Essay \
   --model nano-banana-pro \
@@ -624,26 +588,26 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --size 2K \
   --aspect-ratio 1:1 \
   --thumbnail \
-  --output ~/Downloads/[descriptive-name].png
+  --output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[descriptive-name].png
 
 # 2. INSPECT → MANDATORY visual gate via the Read tool
 #    (see Step 8 — you literally cannot validate the image without this)
-#    Read("~/Downloads/[descriptive-name].png")
+#    Read("${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[descriptive-name].png")
 #    nano-banana-pro often returns JPEG even for --output .png:
-#    Read("~/Downloads/[descriptive-name].jpg")
+#    Read("${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[descriptive-name].jpg")
 
-# 3. OPTIMIZE → still in ~/Downloads/
-cwebp -q 78 ~/Downloads/[name].png -o ~/Downloads/[name].webp
-magick ~/Downloads/[name].png -resize 512x512 -colors 128 ~/Downloads/[name]-thumb.png
+# 3. OPTIMIZE → still in "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/
+cwebp -q 78 "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].png -o "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].webp
+magick "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].png -resize 512x512 -colors 128 "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-thumb.png
 
 # 4. MOVE → only after visual gate passes, only the chosen winner
-mv ~/Downloads/[name].{png,webp,thumb.png} ~/your-site/public/images/
+mv "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].{png,webp,thumb.png} ~/your-site/public/images/
 
 # 5. STAGE → git add the moved files
 cd ~/your-site && git add public/images/[name].*
 ```
 
-**If you generate multiple candidates for comparison, all of them stay in `~/Downloads/`. Only the winner moves through steps 4–5. The losers stay in `~/Downloads/` (they're disposable; the principal's Downloads folder is the staging area, not a permanent archive).**
+**If you generate multiple candidates for comparison, all of them stay in `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset). Only the winner moves through steps 4–5. The losers stay in `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) (they're disposable; the principal's Downloads folder is the staging area, not a permanent archive).**
 
 ### Construct Command Based on Intent
 
@@ -662,17 +626,17 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --output [OUTPUT_PATH]
 ```
 
-### 🚨 MANDATORY: Blog Header Images → Use `--thumbnail`
+### Blog Header Images → Use `--thumbnail`
 
-**ALL blog header images MUST use the `--thumbnail` flag.**
+**Blog header images use the `--thumbnail` flag** — it generates the two versions the blog needs (transparent inline + sepia social).
 
 The `--thumbnail` flag generates TWO versions:
 1. `output.png` — Transparent background (for compositing over website backgrounds)
 2. `output-thumb.png` — With `#EAE9DF` background (for thumbnails, social previews, OpenGraph)
 
 ```bash
-# Example: Generates both my-header.png AND my-header-thumb.png in ~/Downloads/
-# 🚨 --output MUST point to ~/Downloads/ — NEVER directly into cms/public/images/
+# Example: Generates both my-header.png AND my-header-thumb.png in "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/
+# 🚨 --output MUST point to "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/ — NEVER directly into cms/public/images/
 bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --workflow=Essay \
   --model nano-banana-pro \
@@ -680,10 +644,10 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --size 2K \
   --aspect-ratio 1:1 \
   --thumbnail \
-  --output ~/Downloads/my-header.png
+  --output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/my-header.png
 
 # After visual inspection passes (Step 8), move into your site's public tree:
-mv ~/Downloads/my-header.png ~/Downloads/my-header-thumb.png \
+mv "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/my-header.png "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/my-header-thumb.png \
    ~/your-site/public/images/
 ```
 
@@ -754,8 +718,8 @@ bun ~/.claude/LIFEOS/TOOLS/RemoveBg.ts image1.png image2.png image3.png
 
 | Model | Command | When to Use |
 |-------|---------|-------------|
-| **flux** | `--model flux --size 1:1 --remove-bg` | Maximum quality, more detail |
-| **gpt-image-2** | `--model gpt-image-2 --size 1024x1024 --remove-bg` | Different interpretation |
+| **flux** | `--model flux --size 1:1 --remove-bg` | Different aesthetic register, crisper linework |
+| **nano-banana** | `--model nano-banana --size 1:1 --remove-bg` | Faster iteration when the composition is already settled |
 
 ### Immediately Open
 
@@ -765,26 +729,26 @@ open /path/to/output.png
 
 ---
 
-## Step 7: Optimize Images (MANDATORY)
+## Step 7: Optimize Images
 
 **🚨 CRITICAL: This step happens AFTER generation and background removal, BEFORE validation.**
 
-### 🚨🚨🚨 STEP 7.0 — MANDATORY TIGHT-CROP PASS (no baked-in whitespace)
+### Step 7.0 — Tight-Crop Pass (no baked-in whitespace)
 
-**Before any other optimization, EVERY image MUST be cropped tight to the subject bounding box. NO extra padding. NO breathing-room border baked into the image file itself.** The previous workflow added 8% padding which produced visible whitespace gaps above and below the rendered post header — rejected in review on 2026-05-02. Padding belongs in the page CSS layout, not inside the image.
+**Before any other optimization, every image is cropped tight to the subject bounding box — no extra padding, no breathing-room border baked into the image file itself.** The previous workflow added 8% padding which produced visible whitespace gaps above and below the rendered post header — rejected in review on 2026-05-02. Padding belongs in the page CSS layout, not inside the image.
 
 ```bash
 # Stage A — magick -trim removes uniform-color/transparent borders to the bbox of opaque pixels.
-magick ~/Downloads/[name].png -trim +repage ~/Downloads/[name]-trimmed.png
+magick "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].png -trim +repage "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-trimmed.png
 
 # Stage B — resize the trimmed result to 1024 wide (preserve native aspect — DO NOT pad to square).
-magick ~/Downloads/[name]-trimmed.png -resize 1024x ~/Downloads/[name]-resized.png
+magick "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-trimmed.png -resize 1024x "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-resized.png
 
 # Stage C — verify margins are now ≤ 2% on every edge (sanity check; any model whitespace inside
 # the bbox stays, but cropping has eliminated background bleed).
 bun ~/.claude/skills/Art/Tools/FillFrame.ts \
-  ~/Downloads/[name]-resized.png \
-  ~/Downloads/[name]-resized.png \
+  "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-resized.png \
+  "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-resized.png \
   --report-only \
   --max-margin 2 \
   --bg-color auto
@@ -792,8 +756,8 @@ bun ~/.claude/skills/Art/Tools/FillFrame.ts \
 # If Stage C reports margins > 2%, the model produced an image with internal whitespace inside
 # the figure area — REGENERATE with a tighter composition prompt instead of padding it more.
 
-mv ~/Downloads/[name]-resized.png ~/Downloads/[name].png
-rm ~/Downloads/[name]-trimmed.png
+mv "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-resized.png "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].png
+rm "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-trimmed.png
 ```
 
 **Skip conditions: NONE for the trim.** The trim is non-negotiable — every image goes through it. Aspect-ratio padding to force-square is FORBIDDEN; the rendered post does not need square images, and faking a square crops blank space INTO the file which renders as a visible layout gap.
@@ -814,8 +778,8 @@ Generated images at 2K resolution (2048x2048) are 6-8MB each - far too large for
 # Step 7.0 (above) has already trimmed the image to its bbox.
 
 # 7.0.5 — CUT TO TRUE ALPHA (mandatory; the model output is an opaque JPEG)
-bun ~/.claude/LIFEOS/TOOLS/RemoveBg.ts "~/Downloads/[name].jpg"   # → ~/Downloads/[name].png with real alpha
-magick "~/Downloads/[name].png" -trim +repage -resize 1024x "~/Downloads/[name].png"
+bun ~/.claude/LIFEOS/TOOLS/RemoveBg.ts "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].jpg"   # → "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].png with real alpha
+magick "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].png" -trim +repage -resize 1024x "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].png"
 
 # 7.1 — "{{DA_NAME}}" SIGNATURE (human handwriting, NOT calligraphy)
 #   🟢 AUTO-STAMPED BY Generate.ts (2026-06-26): any `--workflow=Essay` or `--thumbnail`
@@ -826,24 +790,24 @@ magick "~/Downloads/[name].png" -trim +repage -resize 1024x "~/Downloads/[name].
 #   This manual command is ONLY for: (a) a hand-built image that never went through
 #   Generate.ts, or (b) re-stamping after rembg ate the signature. Opt out at generation
 #   with `--no-signature`. Snell-Roundhand/Apple-Chancery/Savoye are calligraphy → REJECTED (2026-06-20).
-magick "~/Downloads/[name].png" -gravity SouthEast \
+magick "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].png" -gravity SouthEast \
   -font "SignPainter-HouseScript" -pointsize 31 -fill "rgba(55,45,38,0.55)" \
-  -annotate 352x352+44+30 "{{DA_NAME}}" "~/Downloads/[name].png"
+  -annotate 352x352+44+30 "{{DA_NAME}}" "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].png"
 
 # 1. Convert the signed transparent PNG to WebP for inline blog display
-cwebp -q 86 -alpha_q 100 "~/Downloads/[name].png" -o "~/Downloads/[name].webp"
+cwebp -q 86 -alpha_q 100 "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].png" -o "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].webp"
 
 # 1a. VERIFY the inline WebP kept its alpha — MUST print srgba (NOT srgb).
 #     srgb here = opaque = the white-box bug. Re-cut with RemoveBg if so.
-identify -format "%[channels]\n" "~/Downloads/[name].webp"   # expect: srgba
+identify -format "%[channels]\n" "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].webp"   # expect: srgba
 
 # 2. Build the optimized social-media thumbnail (sepia-flattened, max 512 wide).
 #    Social platforms don't honor transparency; the signature is already baked in.
-magick "~/Downloads/[name].png" -background "#EAE9DF" -flatten -resize 512x -quality 80 \
-  "~/Downloads/[name]-thumb-optimized.png"
+magick "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].png" -background "#EAE9DF" -flatten -resize 512x -quality 80 \
+  "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name]-thumb-optimized.png"
 
 # 3. Check final file sizes
-ls -lh ~/Downloads/[name].webp ~/Downloads/[name]-thumb-optimized.png
+ls -lh "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].webp "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-thumb-optimized.png
 ```
 
 **🚨 The Step 7.1 `-annotate` "{{DA_NAME}}" signature is REQUIRED and is the ONLY sanctioned `-annotate` use. History: the signature was removed 2026-05-02, then explicitly RE-REQUIRED by {{PRINCIPAL_NAME}} on 2026-06-20 ("essay images need to always be signed by {{DA_NAME}}"). It must be the cursive signature hand (`SignPainter-HouseScript`, small, integrated — 2026-07-09), never formal calligraphy (Snell/Chancery/Savoye were rejected). Do NOT `-annotate` anything else onto the canvas — no watermark, no titles, no labels (the rare per-request figure labels are a separate, explicitly-asked-for case, color-coded to the figures).**
@@ -889,7 +853,7 @@ thumbnail: https://example.com/images/[name]-thumb-optimized.png
 **If WebP is over 500KB:**
 ```bash
 # Lower quality further
-cwebp -q 65 "~/Downloads/[name]-1024.png" -o "~/Downloads/[name].webp"
+cwebp -q 65 "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name]-1024.png" -o "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}/[name].webp"
 ```
 
 **If thumbnail is over 600KB:**
@@ -913,30 +877,25 @@ brew install webp
 ### Integration Notes
 
 - **This step is AUTOMATIC** - do not ask the user if optimization should be done
-- **Happens in ~/Downloads/** before files are copied to final destination
+- **Happens in $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset)** before files are copied to final destination
 - **Original high-res files are preserved** as archives
 - **Validation (Step 8) checks the optimized files**, not the originals
 
 ---
 
-## Step 8: Validation (MANDATORY)
+## Step 8: Validation
 
-**🚨 CRITICAL: This step is MANDATORY. Regenerate if validation fails.**
+A failed validation means regenerate, not ship.
 
-### 🚨🚨🚨 ACTUALLY LOOK AT THE IMAGE AND THINK 🚨🚨🚨
+### Look at the image and think
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️  DO NOT JUST CHECK BOXES. ACTUALLY ANALYZE THE IMAGE.           ⚠️
-⚠️  LOOK AT IT. THINK ABOUT IT. ASK: DOES THIS MAKE SENSE?         ⚠️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+The checklist below is a reasoning aid, not a box-ticking exercise. Analyze the actual image — does it make sense, and does it argue the essay?
 
 ### Open and Inspect
 
-**🚨🚨🚨 AI INSPECTION GATE — MANDATORY 🚨🚨🚨**
+**AI inspection gate**
 
-`open` launches the macOS Preview app on the principal's machine. **You cannot see what `open` shows.** That is a verification for the principal, not for you. To verify the image yourself you MUST load it into your own context with the Read tool:
+`open` launches the macOS Preview app on the principal's machine. **You cannot see what `open` shows.** That is a verification for the principal, not for you. To verify the image yourself, load it into your own context with the Read tool:
 
 ```
 Read("/path/to/generated-image.png")
@@ -954,7 +913,7 @@ Optionally also run `open` for the principal:
 open /path/to/generated-image.png
 ```
 
-### 🚨🚨🚨 CONCEPT FIDELITY GATE (MANDATORY — RUN BEFORE THE CHECKLIST) 🚨🚨🚨
+### Concept Fidelity Gate (run before the checklist)
 
 **The image must carry the CONTENT'S argument, not just look pretty. Reading the image alone, a stranger should be able to intuit what the essay is about. If they can't, the image fails — regardless of how editorial or polished it looks.**
 
@@ -1039,7 +998,7 @@ The cap exists because compute spent on 16+ failed generations is compute that s
 
 ### Validation Checklist
 
-**🚨 MANDATORY ELEMENTS (if ANY are missing, REGENERATE):**
+**Required elements (a missing one means regenerate):**
 - [ ] **"{{DA_NAME}}" SIGNATURE PRESENT** — cursive signature hand (SignPainter-HouseScript), small, bottom-right, added programmatically in Step 7.1. Its absence is a FAIL (required since 2026-06-20).
 - [ ] **NO OTHER TEXT** — beyond the "{{DA_NAME}}" signature (and any per-request figure labels {{PRINCIPAL_NAME}} explicitly asked for): zero watermarks, zero stray labels, zero hallucinated letters. Model-baked text → REGENERATE.
 - [ ] **INLINE IS TRANSPARENT (srgba)** — `identify -format "%[channels]" [name].webp` prints `srgba`. `srgb` = opaque = the white-box-on-cream bug → re-cut with RemoveBg.
@@ -1066,14 +1025,15 @@ The cap exists because compute spent on 16+ failed generations is compute that s
 - [ ] **20-40 overlapping strokes** per figure — form emerges from accumulated marks
 - [ ] **Figures have PRESENCE** — abstracted but with weight and dimension
 - [ ] **Faces have EMOTION** — via charcoal marks (dark strokes for eyes, line for mouth, head tilt)
+- [ ] **Groups show varied skin tones** — any multi-figure scene must NOT read as uniformly white; natural mix of wash hues/depths across figures. All-white group → REGENERATE with explicit diversity in the prompt.
 - [ ] Human = organic flowing gestural marks + sienna wash
 - [ ] Robot = angular rigid gestural marks + purple wash
 - [ ] Looks like Paul Rudolph / Lebbeus Woods architectural sketches
 
-**COLOR (all required — BOTH SIENNA AND PURPLE MANDATORY):**
+**COLOR (all required — both sienna and purple present):**
 - [ ] **CHARCOAL/GRAY DOMINANT** — 70-85% of image
-- [ ] **BURNT SIENNA (#8B4513) PRESENT** — on human/warm elements (MANDATORY)
-- [ ] **DEEP PURPLE (#4A148C) PRESENT** — on tech/capital/cold elements (MANDATORY)
+- [ ] **BURNT SIENNA (#8B4513) PRESENT** — on human/warm elements
+- [ ] **DEEP PURPLE (#4A148C) PRESENT** — on tech/capital/cold elements
 - [ ] Colors as washes/accents, not solid fills
 - [ ] Sienna:Purple ratio matches emotional story
 
@@ -1088,7 +1048,7 @@ The cap exists because compute spent on 16+ failed generations is compute that s
 - [ ] **FULL FRAME** — verified by FillFrame.ts exit-code-0 in Step 7.0 (NOT a manual eyeball check)
 - [ ] **SUBJECTS LARGE** — dominant, filling the available space
 - [ ] **NO BACKGROUND FILL** — floats in empty/transparent space (but subjects are LARGE)
-- [ ] **KAI SIGNATURE** — small cursive charcoal in BOTTOM RIGHT CORNER
+- [ ] **DA SIGNATURE** — small cursive charcoal in BOTTOM RIGHT CORNER
 - [ ] **MARGIN CHECK** — FillFrame.ts hard-gate in Step 7.0 must have passed (max-margin ≤ 5%). If it failed, you should have already regenerated, not reached this checklist.
 
 **QUALITY (all required):**

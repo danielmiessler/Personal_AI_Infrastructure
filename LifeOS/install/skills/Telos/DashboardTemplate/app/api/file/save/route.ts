@@ -20,11 +20,17 @@ export async function POST(request: Request) {
     const isCSV = filename.endsWith('.csv')
     let filePath: string
 
-    if (isCSV) {
-      const csvDir = path.join(TELOS_DIR, 'data')
-      filePath = path.join(csvDir, filename)
-    } else {
-      filePath = path.join(TELOS_DIR, filename)
+    const baseDir = isCSV ? path.join(TELOS_DIR, 'data') : TELOS_DIR
+    filePath = path.join(baseDir, filename)
+
+    // Contain the resolved path to baseDir — a filename like `../../.claude/.env`
+    // resolves outside it and is rejected before any existsSync/write touches disk.
+    const resolved = path.resolve(filePath)
+    if (resolved !== baseDir && !resolved.startsWith(baseDir + path.sep)) {
+      return NextResponse.json(
+        { error: "Invalid filename" },
+        { status: 400 }
+      )
     }
 
     // Verify file exists before overwriting

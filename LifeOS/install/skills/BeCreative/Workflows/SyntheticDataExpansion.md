@@ -103,7 +103,7 @@ When termination fires due to diversity collapse, write a clear note to `summary
 ## Best For
 
 - Eval set expansion (Evals skill consumes the output)
-- Prompt-injection test corpora (_HELIOS_PROMPT_INJECTION consumes the output)
+- Prompt-injection test corpora (a prompt-injection testing skill consumes the output)
 - Writing-style fine-tuning sets (the user's voice samples → expanded corpus)
 - Synthetic Q&A pairs for retrieval evals
 - Any task where N>20 examples are needed and only ~10 exist

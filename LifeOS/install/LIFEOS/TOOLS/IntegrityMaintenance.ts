@@ -22,7 +22,8 @@ import { spawn } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { inference } from './Inference';
-import { getIdentity } from '../../../.claude/hooks/lib/identity';
+import { getIdentity } from '../../hooks/lib/identity';
+import { PULSE_BASE } from '../PULSE/endpoint';
 
 // ============================================================================
 // Types
@@ -109,7 +110,8 @@ interface UpdateData {
 // ============================================================================
 
 const LIFEOS_DIR = process.env.HOME + '/.claude/LIFEOS';
-const CREATE_UPDATE_SCRIPT = join(LIFEOS_DIR, 'skills/_LIFEOS/Tools/CreateUpdate.ts');
+// NOT under LIFEOS_DIR — skills/ lives at the ~/.claude root, not under LIFEOS/.
+const CREATE_UPDATE_SCRIPT = join(process.env.HOME || '', '.claude/LIFEOS/TOOLS/CreateUpdate.ts');
 
 // Words that indicate generic/bad titles - reject these
 const GENERIC_TITLE_PATTERNS = [
@@ -791,7 +793,7 @@ async function sendVoiceNotification(message: string): Promise<void> {
 
     if (!personality?.baseVoice) {
       // Fall back to simple notify if no personality configured
-      await fetch('http://localhost:31337/notify', {
+      await fetch(`${PULSE_BASE}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, play: true }),
@@ -799,7 +801,7 @@ async function sendVoiceNotification(message: string): Promise<void> {
       return;
     }
 
-    await fetch('http://localhost:31337/notify/personality', {
+    await fetch(`${PULSE_BASE}/notify/personality`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

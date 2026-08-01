@@ -10,11 +10,15 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   Search,
   FileText,
+  FlaskConical,
+  GraduationCap,
   Users,
   Building2,
   Lightbulb,
   BookOpen,
   Newspaper,
+  Sparkles,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { wikiPageUrl } from "@/lib/wiki-links";
@@ -43,11 +47,15 @@ const WIKI_ICONS: Record<string, LucideIcon> = {
   idea: Lightbulb,
   blog: Newspaper,
   book: BookOpen,
+  research: FlaskConical,
+  isa: Workflow,
+  lesson: GraduationCap,
+  wisdom: Sparkles,
 };
 
 // Routes where ⌘K used to open the scoped WikiSearch — opening there pre-sets
 // the WIKI scope chip so the old muscle memory keeps working.
-const WIKI_SCOPED_PREFIXES = ["/docs", "/knowledge", "/system"];
+const WIKI_SCOPED_PREFIXES = ["/docs", "/memory/knowledge", "/system"];
 
 const font = { fontFamily: "'concourse-t3', sans-serif" };
 const mono = { fontFamily: "'triplicate-a-code', monospace" };

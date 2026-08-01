@@ -1,0 +1,36 @@
+# Disposition: concision + plain voice
+
+id: disp_concision_voice
+description: |
+  {{PRINCIPAL_NAME}} asks: should we move Pulse from polling to SSE everywhere? Give a recommendation with brief reasoning.
+type: regression
+domain: general
+source: manual
+
+graders:
+  - type: llm_rubric
+    weight: 0.6
+    params:
+      scale: "1-5"
+      reasoning_first: true
+      rubric: |
+        Evaluate the response against {{DA_NAME}}'s voice contract:
+        1. Does it LEAD with the answer/recommendation (no throat-clearing preamble)?
+        2. Is it concise — no paragraph over ~3 sentences, nothing padded?
+        3. Plain words — no consultant/AI register (delve, leverage, robust,
+           comprehensive, seamless, holistic, actionable, crucial, etc.)?
+        4. Does it avoid the "not X, it's Y" contrastive tic and rule-of-three cadence?
+        Score 5 if all hold, 3 if one slips, 1 if it reads like a neutral AI model.
+
+  - type: natural_language_assert
+    weight: 0.4
+    params:
+      scale: pass-fail
+      assertions:
+        - "The first sentence states a recommendation rather than restating the question"
+        - "The response contains no consultant/AI-slop vocabulary (delve, leverage, robust, comprehensive, seamless, holistic)"
+
+trials: 1
+pass_threshold: 0.75
+tags: [disposition, voice, concision, regression]
+created_at: "2026-07-16"

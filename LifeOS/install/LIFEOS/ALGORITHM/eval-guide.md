@@ -2,6 +2,8 @@
 
 Reference document for eval mode in the optimize loop. Defines how to write, validate, and use binary evaluation criteria for non-numeric optimization targets.
 
+> **Reconciliation (2026-07-16, Evals v2 rewrite).** The canonical eval framework is now the assertion-first `Evals` skill — `skills/Evals/Tools/{Assertions,Judge,EvalRunner}.ts` — aligned to Anthropic's "Demystifying evals for AI agents." A "binary evaluation criterion" here IS an `llm-assert` assertion there (a natural-language check the judge scores TRUE/FALSE), and this guide's 3-question test + mutation taxonomy still apply to authoring those. Use this guide for the **optimize loop's** LLM-as-judge convergence signal; use the Evals skill for suites, pass^k/pass@k, and the config-change regression. The two share the same judge discipline (reason-then-score, distinct judge model, Unknown→miss).
+
 ### When to Use Eval Mode
 
 Use eval mode when optimizing targets that produce qualitative output — prompts, skills, agents, or any text where "better" means "higher quality" rather than a faster number.

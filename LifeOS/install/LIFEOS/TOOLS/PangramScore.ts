@@ -137,6 +137,20 @@ async function main() {
     console.error(`Pangram task failed: ${data.error ?? JSON.stringify(data)}`);
     process.exit(1);
   }
+  // Anything that is not STAGE_SUCCESS is NOT a measurement. The poll loop can also
+  // fall out on the 60s deadline while the task is still running, which used to leave
+  // `stage` non-terminal. The old code warned, then printed a full score block of
+  // em-dashes and exited 0 — and appendRunRecord had already stamped the text's
+  // SHA-256 into pangram-runs.jsonl. Callers treat that record as proof the detector
+  // ran on this exact text, so an incomplete request was reported as a score AND
+  // given execution proof. Fail closed instead: no record, no score block, non-zero exit.
+  if (data.stage !== "STAGE_SUCCESS") {
+    console.error(
+      `Pangram task did not complete: stage="${data.stage ?? "unknown"}" (no score, no run record). ` +
+      `The task may still be running — re-run, or inspect with --json.`,
+    );
+    process.exit(1);
+  }
 
   appendRunRecord(text, data.fraction_ai);
 
@@ -146,9 +160,6 @@ async function main() {
   }
 
   const pct = (n: unknown) => (typeof n === "number" ? `${(n * 100).toFixed(1)}%` : "—");
-  if (data.stage && data.stage !== "STAGE_SUCCESS") {
-    console.log(`⚠️  stage="${data.stage}" — did not reach STAGE_SUCCESS. Check --json.`);
-  }
   console.log(`Headline:   ${data.headline ?? data.prediction_short ?? "—"}`);
   console.log(`Verdict:    ${data.prediction ?? "—"}`);
   console.log(`AI:         ${pct(data.fraction_ai)}`);

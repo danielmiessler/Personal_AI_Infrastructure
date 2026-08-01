@@ -5,20 +5,17 @@ import { type Manifest, paiRoot, resolveSources } from "../lib/manifest-loader";
 import { hashFile, combineSourceHashes } from "../lib/cache";
 import { writePage, writeError, clearError, readMeta, type DataPlaneFile, PULSE_DATA_DIR } from "../lib/data-plane";
 import { getProvenance } from "../lib/frontmatter";
-import { inference, type InferenceLevel } from "../../TOOLS/Inference";
+import { inference } from "../../TOOLS/Inference";
+// Mapping derived from models.ts EFFORT_MODEL — the local copy returned the
+// legacy "fast"/"smart"/"standard" names Inference.ts deleted 2026-06-10, so
+// every build that reached inference threw (public PR #1648, @elhoim).
+import { modelToLevel } from "./model-level";
 
 const HOME = process.env.HOME!;
 const OBSERVABILITY_DIR = resolve(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY");
 const RUNS_LOG = join(OBSERVABILITY_DIR, "adapter-runs.jsonl");
 
 const ADAPTER_TIMEOUT_MS = 120_000;
-
-function modelToLevel(model: string): InferenceLevel {
-  const m = model.toLowerCase();
-  if (m.includes("haiku")) return "fast";
-  if (m.includes("opus")) return "smart";
-  return "standard";
-}
 
 export interface AdapterResult {
   manifest: Manifest;
@@ -63,13 +60,21 @@ function buildSourceBundle(sources: string[]): string {
 
 async function callInference(systemPrompt: string, model: string, sourceText: string): Promise<{ ok: true; data: unknown; rawOutput: string; costUSD: number; latencyMs: number } | { ok: false; reason: "timeout" | "exec-failed" | "parse-failed"; message: string }> {
   const userPrompt = `--- SOURCE BUNDLE ---\n\n${sourceText}\n\n--- END SOURCE BUNDLE ---\n\nReturn ONLY a single JSON object. No prose, no markdown fence.`;
-  const result = await inference({
-    systemPrompt,
-    userPrompt,
-    level: modelToLevel(model),
-    expectJson: true,
-    timeout: ADAPTER_TIMEOUT_MS,
-  });
+  // inference() REJECTS on a bad request (an unknown level throws before any
+  // model runs). Left uncaught it escapes runAdapter, killing AdapterCli's
+  // top-level await and reducing a RebuildAll page to an unlabelled row.
+  let result: Awaited<ReturnType<typeof inference>>;
+  try {
+    result = await inference({
+      systemPrompt,
+      userPrompt,
+      level: modelToLevel(model),
+      expectJson: true,
+      timeout: ADAPTER_TIMEOUT_MS,
+    });
+  } catch (err) {
+    return { ok: false, reason: "exec-failed", message: err instanceof Error ? err.message : String(err) };
+  }
   if (!result.success) {
     if ((result.error ?? "").includes("Timeout")) {
       return { ok: false, reason: "timeout", message: result.error ?? "timeout" };

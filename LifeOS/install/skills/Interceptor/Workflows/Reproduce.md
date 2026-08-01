@@ -95,3 +95,4 @@ Only THEN proceed to code analysis with specific hypotheses grounded in the brow
 - "curl returns 200" is NOT reproduction. You must SEE the rendered page.
 - Code analysis without reproduction is speculation, not debugging.
 - For authenticated pages, Interceptor uses your real Chrome sessions automatically.
+- When the debugging session is over (bug reproduced and evidence captured — not between probes), run `bash ~/.claude/skills/Interceptor/Tools/CleanupTabs.sh` to close the tabs it left in the test profile.

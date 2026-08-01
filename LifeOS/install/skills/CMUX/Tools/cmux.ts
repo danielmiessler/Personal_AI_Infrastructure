@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { PULSE_BASE } from "../../../LIFEOS/PULSE/endpoint";
 
 type FlagValue = string | boolean;
 type ParsedArgs = {
@@ -48,7 +49,7 @@ const LAUNCH_TIMEOUT_MS = 5_000;
 const PING_WAIT_MS = 15_000;
 const PING_INTERVAL_MS = 750;
 const MONITOR_TAIL_LINES = 40;
-const VOICE_URL = "http://localhost:31337/notify";
+const VOICE_URL = `${PULSE_BASE}/notify`;
 
 function usageText(): string {
   return `cmux.ts - JSON CLI wrapper for the cmux GUI terminal multiplexer

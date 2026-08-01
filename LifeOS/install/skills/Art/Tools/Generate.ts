@@ -10,21 +10,19 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 /**
  * generate - UL Image Generation CLI
  *
- * Generate branded images using Flux 1.1 Pro, Nano Banana, Nano Banana Pro, or GPT-image-2.
- * GPT-image-2 is OpenAI's current flagship image model (released Apr 21, 2026 — #1 across
- * all Image Arena leaderboards as of 2026-05-04, +242 Elo margin in text-to-image).
- * GPT-image-1 is deprecated and rejected at the parser with guidance toward gpt-image-2.
+ * Generate branded images using Nano Banana Pro (default), Nano Banana, or Flux 1.1 Pro.
+ * Nano Banana Pro (Gemini 3 Pro Image) is the default and the only model used for editorial
+ * headers. OpenAI image models were removed 2026-07-30 at the principal's direction.
  *
  * Follows llcli pattern for deterministic, composable CLI design.
  *
  * Usage:
  *   generate --model nano-banana-pro --prompt "..." --size 16:9 --output /tmp/image.png
  *
- * @see ~/.claude/skills/art/README.md
+ * @see ~/.claude/skills/Art/SKILL.md
  */
 
 import Replicate from "replicate";
-import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { writeFile, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
@@ -38,10 +36,22 @@ import { extname, resolve } from "node:path";
  * This ensures API keys are available regardless of how the CLI is invoked
  */
 async function loadEnv(): Promise<void> {
-  const paiDir = process.env.LIFEOS_DIR || resolve(process.env.HOME!, '.claude');
-  const envPath = resolve(paiDir, '.env');
-  try {
-    const envContent = await readFile(envPath, 'utf-8');
+  // The canonical .env lives at ~/.claude/.env — LIFEOS_DIR often points at the
+  // ~/.claude/LIFEOS SUBdirectory, which has no .env, and the silent catch made
+  // present keys invisible (public issue #1515, @xmasyx). Try LIFEOS_DIR first,
+  // then the canonical location; load the first that exists.
+  const home = process.env.HOME!;
+  const candidates = Array.from(new Set([
+    ...(process.env.LIFEOS_DIR ? [resolve(process.env.LIFEOS_DIR, '.env')] : []),
+    resolve(home, '.claude', '.env'),
+  ]));
+  for (const envPath of candidates) {
+    let envContent: string;
+    try {
+      envContent = await readFile(envPath, 'utf-8');
+    } catch {
+      continue; // not here — try the next candidate
+    }
     for (const line of envContent.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
@@ -59,8 +69,7 @@ async function loadEnv(): Promise<void> {
         process.env[key] = value;
       }
     }
-  } catch (error) {
-    // Silently continue if .env doesn't exist - rely on shell env vars
+    break; // loaded one — done
   }
 
   // Canonical key aliases — the user's .env may use _OPTIN suffix variants for some
@@ -81,12 +90,10 @@ async function loadEnv(): Promise<void> {
 // Types
 // ============================================================================
 
-type Model = "flux" | "nano-banana" | "nano-banana-pro" | "gpt-image-2" | "compare";
+type Model = "flux" | "nano-banana" | "nano-banana-pro";
 type ReplicateSize = "1:1" | "16:9" | "3:2" | "2:3" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "21:9";
-type OpenAISize2 = "1024x1024" | "1536x1024" | "1024x1536" | "2048x2048" | "auto";
 type GeminiSize = "1K" | "2K" | "4K";
-type Quality = "low" | "medium" | "high" | "auto";
-type Size = ReplicateSize | OpenAISize2 | GeminiSize;
+type Size = ReplicateSize | GeminiSize;
 
 interface CLIArgs {
   model: Model;
@@ -94,8 +101,7 @@ interface CLIArgs {
   size: Size;
   output: string;
   creativeVariations?: number;
-  aspectRatio?: ReplicateSize; // For Gemini models and compare mode (nano-banana side)
-  quality?: Quality; // For gpt-image-2 only
+  aspectRatio?: ReplicateSize; // For Gemini models (nano-banana-pro)
   transparent?: boolean; // Enable transparent background
   referenceImages?: string[]; // Reference image paths (Nano Banana Pro only) - up to 14 total
   removeBg?: boolean; // Remove background after generation using local rembg
@@ -111,15 +117,14 @@ interface CLIArgs {
 // ============================================================================
 
 const DEFAULTS = {
-  model: "flux" as Model,
-  size: "16:9" as Size,
-  output: `${process.env.HOME}/Downloads/ul-image.png`,
+  model: "nano-banana-pro" as Model,
+  size: "2K" as Size,
+  // LIFEOS_DOWNLOADS_DIR overrides ~/Downloads when set (public PR #1535, @anikinsasha)
+  output: `${process.env.LIFEOS_DOWNLOADS_DIR || `${process.env.HOME}/Downloads`}/ul-image.png`,
 };
 
 const REPLICATE_SIZES: ReplicateSize[] = ["1:1", "16:9", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "21:9"];
-const OPENAI_V2_SIZES: OpenAISize2[] = ["1024x1024", "1536x1024", "1024x1536", "2048x2048", "auto"];
 const GEMINI_SIZES: GeminiSize[] = ["1K", "2K", "4K"];
-const QUALITY_VALUES: Quality[] = ["low", "medium", "high", "auto"];
 
 // Aspect ratio mapping for Gemini (used with image size like 2K)
 const GEMINI_ASPECT_RATIOS: ReplicateSize[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
@@ -224,28 +229,24 @@ function showHelp(): void {
   console.log(`
 generate - UL Image Generation CLI
 
-Generate branded images using Flux 1.1 Pro, Nano Banana, Nano Banana Pro, or GPT-image-2.
-GPT-image-2 is OpenAI's current flagship (released Apr 21 2026 — currently #1 on every
-Image Arena leaderboard with a +242 Elo margin in text-to-image). GPT-image-1 is deprecated
-and rejected at the parser with guidance toward gpt-image-2.
+Generate branded images using Nano Banana Pro, Nano Banana, or Flux 1.1 Pro.
+Nano Banana Pro (Gemini 3 Pro Image) is the DEFAULT model and the only one used for editorial
+headers. OpenAI image models (gpt-image-1, gpt-image-2) and the dual-provider "compare" mode
+were removed 2026-07-30 at the principal's direction.
 
 USAGE:
   generate --model <model> --prompt "<prompt>" [OPTIONS]
 
 REQUIRED:
-  --model <model>      Model to use: flux, nano-banana, nano-banana-pro, gpt-image-2, compare
-                       "compare" runs gpt-image-2 + nano-banana-pro head-to-head (the two flagship models)
   --prompt <text>      Image generation prompt (quote if contains spaces)
 
 OPTIONS:
+  --model <model>            Model to use: nano-banana-pro (default), nano-banana, flux
   --size <size>              Image size/aspect ratio (default varies by model)
+                             Gemini (nano-banana-pro): 1K, 2K, 4K (resolution) — DEFAULT 2K
                              Replicate (flux, nano-banana): 1:1, 16:9, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 9:16, 21:9
-                             OpenAI gpt-image-2: 1024x1024, 1536x1024, 1024x1536, 2048x2048, auto
-                             Gemini (nano-banana-pro): 1K, 2K, 4K (resolution); aspect ratio inferred or 16:9
-                             compare mode: pass gpt-image-2 size here; nano-banana-pro side runs at 2K with --aspect-ratio
-  --aspect-ratio <ratio>     Aspect ratio for Gemini nano-banana-pro AND the compare-mode nano-banana-pro side
+  --aspect-ratio <ratio>     Aspect ratio for Gemini nano-banana-pro
                              Options: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9 (default 16:9)
-  --quality <level>          Quality for gpt-image-2 only: low, medium, high, auto (default: high)
   --output <path>            Output file path (default: /tmp/ul-image.png)
   --reference-image <path>   Reference image for style/character consistency (Nano Banana Pro only)
                              Can specify MULTIPLE times for improved consistency
@@ -280,22 +281,12 @@ EXAMPLES:
   # Generate square image with Flux
   generate --model flux --prompt "Minimal geometric art..." --size 1:1 --output /tmp/header.png
 
-  # Generate text-heavy editorial cover with gpt-image-2 (current OpenAI flagship)
-  generate --model gpt-image-2 --prompt "Editorial cover with crisp serif title..." --size 1024x1536 --quality high
-
-  # Generate at full 2K (2048x2048) with high quality
-  generate --model gpt-image-2 --prompt "Editorial cover..." --size 2048x2048 --quality high
-
-  # Compare mode: 3 images from gpt-image-2 + 3 from nano-banana side-by-side
-  generate --model compare --prompt "Abstract illustration..." \\
-    --creative-variations 3 --size 1024x1024 --aspect-ratio 1:1 \\
-    --output /tmp/shootout.png
-  # Outputs: /tmp/shootout-gpt2-{1,2,3}.png + /tmp/shootout-nano-{1,2,3}.png
+  # Generate at full 4K
+  generate --model nano-banana-pro --prompt "Editorial cover..." --size 4K --aspect-ratio 3:2
 
   # Generate 3 creative variations (for testing model variability)
   generate --model nano-banana-pro --prompt "..." --creative-variations 3 --output /tmp/essay.png
   # Outputs: /tmp/essay-v1.png, /tmp/essay-v2.png, /tmp/essay-v3.png
-  # Note: gpt-image-2 supports batch n natively — single API call returns all variations
 
   # Single reference image for style guidance (Nano Banana Pro only)
   generate --model nano-banana-pro --prompt "Tokyo Night themed illustration..." \\
@@ -315,9 +306,8 @@ MULTI-REFERENCE LIMITS (Gemini API):
   - Maximum 14 total reference images per request
 
 ENVIRONMENT VARIABLES:
+  GOOGLE_API_KEY       Required for nano-banana-pro (the default model)
   REPLICATE_API_TOKEN  Required for flux and nano-banana models
-  OPENAI_API_KEY       Required for gpt-image-2 model (and compare mode)
-  GOOGLE_API_KEY       Required for nano-banana-pro model
   REMBG_BIN            Optional override for rembg binary path (default: ~/.local/bin/rembg)
 
 ERROR CODES:
@@ -502,28 +492,19 @@ function parseArgs(argv: string[]): CLIArgs {
         if (
           value !== "flux" &&
           value !== "nano-banana" &&
-          value !== "nano-banana-pro" &&
-          value !== "gpt-image-2" &&
-          value !== "compare"
+          value !== "nano-banana-pro"
         ) {
-          if (value === "gpt-image-1") {
+          if (value === "gpt-image-1" || value === "gpt-image-2" || value === "compare") {
             throw new CLIError(
-              `gpt-image-1 is DEPRECATED per OpenAI docs. Use --model gpt-image-2 instead (current OpenAI image model, released Apr 21 2026, #1 on Artificial Analysis Image Arena).`
+              `OpenAI image models and compare mode were REMOVED 2026-07-30 at the principal's direction. Use --model nano-banana-pro (the default).`
             );
           }
           throw new CLIError(
-            `Invalid model: ${value}. Must be: flux, nano-banana, nano-banana-pro, gpt-image-2, or compare`
+            `Invalid model: ${value}. Must be: nano-banana-pro, nano-banana, or flux`
           );
         }
         parsed.model = value;
         i++; // Skip next arg (value)
-        break;
-      case "quality":
-        if (!QUALITY_VALUES.includes(value as Quality)) {
-          throw new CLIError(`Invalid quality: ${value}. Must be: ${QUALITY_VALUES.join(", ")}`);
-        }
-        parsed.quality = value as Quality;
-        i++;
         break;
       case "prompt":
         parsed.prompt = value;
@@ -591,10 +572,9 @@ function parseArgs(argv: string[]): CLIArgs {
   // WORKFLOW DISCIPLINE GATE (the load-bearing line — see ISA
   // 20260430-180000_art-skill-freeform-enforcement)
   //
-  // The Art skill's "ALWAYS RUN A NAMED WORKFLOW" doctrine used to live
-  // in markdown only and was silently ignored. This gate moves it into
-  // code: callers must either name the workflow that produced this call
-  // OR explicitly opt out with --freeform-confirmed.
+  // The Art skill's "ALWAYS RUN A NAMED WORKFLOW" doctrine lives HERE, in code, because
+  // stated in markdown alone it is silently ignored. Callers must name the workflow that
+  // produced this call, or explicitly opt out with --freeform-confirmed.
   // ──────────────────────────────────────────────────────────────────────
   enforceWorkflowDiscipline(parsed);
 
@@ -608,23 +588,11 @@ function parseArgs(argv: string[]): CLIArgs {
     throw new CLIError(`Too many reference images: ${parsed.referenceImages.length}. Maximum is 14 total (5 human, 6 object)`);
   }
 
-  // Quality is only valid for gpt-image-2
-  if (parsed.quality && parsed.model !== "gpt-image-2" && parsed.model !== "compare") {
-    throw new CLIError(`--quality is only supported with --model gpt-image-2 (or compare)`);
-  }
-
   // Set model-appropriate default size if not explicitly provided
   if (!parsed.size) {
     switch (parsed.model) {
-      case "gpt-image-2":
-        parsed.size = "1024x1024";
-        break;
       case "nano-banana-pro":
         parsed.size = "2K";
-        break;
-      case "compare":
-        // compare mode: --size feeds the gpt-image-2 side; nano-banana-pro side uses --aspect-ratio at 2K
-        parsed.size = "1024x1024";
         break;
       default: // flux, nano-banana
         parsed.size = "16:9";
@@ -633,19 +601,7 @@ function parseArgs(argv: string[]): CLIArgs {
   }
 
   // Validate size based on model
-  if (parsed.model === "gpt-image-2") {
-    if (!OPENAI_V2_SIZES.includes(parsed.size as OpenAISize2)) {
-      throw new CLIError(`Invalid size for gpt-image-2: ${parsed.size}. Must be: ${OPENAI_V2_SIZES.join(", ")}`);
-    }
-  } else if (parsed.model === "compare") {
-    if (!OPENAI_V2_SIZES.includes(parsed.size as OpenAISize2)) {
-      throw new CLIError(`Invalid size for compare (gpt-image-2 side): ${parsed.size}. Must be: ${OPENAI_V2_SIZES.join(", ")}`);
-    }
-    if (parsed.aspectRatio && !GEMINI_ASPECT_RATIOS.includes(parsed.aspectRatio as ReplicateSize)) {
-      throw new CLIError(`Invalid aspect-ratio for compare (nano-banana-pro side): ${parsed.aspectRatio}. Must be: ${GEMINI_ASPECT_RATIOS.join(", ")}`);
-    }
-    if (!parsed.aspectRatio) parsed.aspectRatio = "1:1";
-  } else if (parsed.model === "nano-banana-pro") {
+  if (parsed.model === "nano-banana-pro") {
     if (!GEMINI_SIZES.includes(parsed.size as GeminiSize)) {
       throw new CLIError(`Invalid size for nano-banana-pro: ${parsed.size}. Must be: ${GEMINI_SIZES.join(", ")}`);
     }
@@ -724,7 +680,7 @@ async function addBackgroundColor(inputPath: string, outputPath: string, hexColo
  * thumbnail is derived, so the signature lands on BOTH versions.
  * Pointsize scales with image width so it reads at any resolution.
  */
-async function stampKaiSignature(imagePath: string): Promise<void> {
+async function stampDaSignature(imagePath: string): Promise<void> {
   // Derive pointsize from the image width (≈3% of width; 1024px → ~31pt —
   // 2026-07-09: reduced from 4.5% so it reads as a painter's mark, not a label).
   let pointsize = 31;
@@ -900,56 +856,6 @@ async function generateWithNanoBanana(prompt: string, size: ReplicateSize, outpu
   return finalPath;
 }
 
-async function generateWithGPTImage2(
-  prompt: string,
-  size: OpenAISize2,
-  quality: Quality,
-  n: number,
-  outputBase: string
-): Promise<string[]> {
-  // Live OpenAI key may be stored under OPENAI_API_KEY_OPTIN (opt-in data-sharing key); fall back to it.
-  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_OPTIN;
-  if (!apiKey) {
-    throw new CLIError("Missing environment variable: OPENAI_API_KEY (or OPENAI_API_KEY_OPTIN)");
-  }
-
-  const openai = new OpenAI({ apiKey });
-
-  console.log(`🧠 Generating with gpt-image-2 (ChatGPT Images 2.0) — size=${size} quality=${quality} n=${n}...`);
-
-  const response = await openai.images.generate({
-    model: "gpt-image-2",
-    prompt,
-    size,
-    quality,
-    n,
-  } as any);
-
-  const data = (response as any).data;
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new CLIError("No image data returned from OpenAI gpt-image-2 API");
-  }
-
-  const paths: string[] = [];
-  for (let i = 0; i < data.length; i++) {
-    const item = data[i];
-    let buffer: Buffer;
-    if (item.b64_json) {
-      buffer = Buffer.from(item.b64_json, "base64");
-    } else if (item.url) {
-      const resp = await fetch(item.url);
-      buffer = Buffer.from(await resp.arrayBuffer());
-    } else {
-      throw new CLIError(`gpt-image-2 returned image ${i + 1} with neither b64_json nor url`);
-    }
-    const target = data.length === 1 ? outputBase : outputBase.replace(/\.[^.]+$/, `-${i + 1}.png`);
-    const finalPath = await saveImage(buffer, target);
-    console.log(`✅ gpt-image-2 image saved to ${finalPath}`);
-    paths.push(finalPath);
-  }
-  return paths;
-}
-
 async function generateWithNanoBananaPro(
   prompt: string,
   size: GeminiSize,
@@ -1053,47 +959,6 @@ async function main(): Promise<void> {
     }
 
     const n = args.creativeVariations && args.creativeVariations > 1 ? args.creativeVariations : 1;
-    const quality: Quality = args.quality ?? "high";
-
-    // Compare mode: generate N images with gpt-image-2 + N with nano-banana-pro, head-to-head.
-    // This is the canonical dual-provider competition — the two flagship models render the same
-    // brief and the best wins. gpt side consumes --size (OpenAI pixels); pro side uses --aspect-ratio.
-    if (args.model === "compare") {
-      console.log(`⚖️  Compare Mode: ${n} image(s) from gpt-image-2 + ${n} from nano-banana-pro (total ${n * 2})`);
-      const basePath = args.output.replace(/\.[^.]+$/, "");
-      const gptBase = `${basePath}-gpt2.png`;
-      const nanoBase = `${basePath}-nbp.png`;
-      const nanoProSize: GeminiSize = "2K"; // compare consumes --size for the gpt side; pin pro side at 2K
-
-      const gptPromise = generateWithGPTImage2(
-        finalPrompt,
-        args.size as OpenAISize2,
-        quality,
-        n,
-        gptBase
-      ).catch((err) => {
-        console.error(`❌ gpt-image-2 side failed: ${err instanceof Error ? err.message : err}`);
-        return [] as string[];
-      });
-
-      const nanoPromises: Promise<string>[] = [];
-      for (let i = 1; i <= n; i++) {
-        const nanoOutput = n === 1 ? nanoBase : `${basePath}-nbp-${i}.png`;
-        nanoPromises.push(
-          generateWithNanoBananaPro(finalPrompt, nanoProSize, args.aspectRatio!, nanoOutput, args.referenceImages).catch((err) => {
-            console.error(`❌ nano-banana-pro variation ${i} failed: ${err instanceof Error ? err.message : err}`);
-            return "";
-          })
-        );
-      }
-
-      const [gptPaths, nanoPathsRaw] = await Promise.all([gptPromise, Promise.all(nanoPromises)]);
-      const nanoPaths = nanoPathsRaw.filter(Boolean);
-      console.log(`\n✅ Compare complete — gpt-image-2: ${gptPaths.length}/${n}, nano-banana-pro: ${nanoPaths.length}/${n}`);
-      console.log(`   gpt-image-2: ${gptPaths.join(", ") || "(none)"}`);
-      console.log(`   nano-banana-pro: ${nanoPaths.join(", ") || "(none)"}`);
-      return;
-    }
 
     // Single-model multi-image (creative-variations) path
     if (n > 1) {
@@ -1103,21 +968,7 @@ async function main(): Promise<void> {
 
       const basePath = args.output.replace(/\.[^.]+$/, "");
 
-      // gpt-image-2 supports batch n natively — single API call
-      if (args.model === "gpt-image-2") {
-        const paths = await generateWithGPTImage2(
-          finalPrompt,
-          args.size as OpenAISize2,
-          quality,
-          n,
-          `${basePath}.png`
-        );
-        console.log(`\n✅ Generated ${paths.length} variation(s)`);
-        console.log(`   Files: ${paths.join(", ")}`);
-        return;
-      }
-
-      // Other models: fan out in parallel
+      // Fan out in parallel
       const promises: Promise<string>[] = [];
       for (let i = 1; i <= n; i++) {
         const varOutput = `${basePath}-v${i}.png`;
@@ -1160,15 +1011,6 @@ async function main(): Promise<void> {
         args.output,
         args.referenceImages
       );
-    } else if (args.model === "gpt-image-2") {
-      const paths = await generateWithGPTImage2(
-        finalPrompt,
-        args.size as OpenAISize2,
-        quality,
-        1,
-        args.output
-      );
-      actualOutput = paths[0];
     }
 
     // Remove background if requested (use actual output path)
@@ -1194,7 +1036,7 @@ async function main(): Promise<void> {
     const signatureDefault = args.workflow === "Essay" || args.thumbnail === true;
     const stampSignature = args.signature ?? signatureDefault;
     if (stampSignature) {
-      await stampKaiSignature(actualOutput);
+      await stampDaSignature(actualOutput);
     }
 
     // Generate thumbnail with background color if requested (blog header mode)

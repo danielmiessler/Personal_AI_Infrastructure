@@ -18,7 +18,7 @@ const TAB_FROM_PATH: Array<{ prefix: string; tabId: string }> = [
   { prefix: "/local", tabId: "local" },
   { prefix: "/assistant", tabId: "assistant" },
   { prefix: "/agents", tabId: "agents" },
-  { prefix: "/knowledge", tabId: "knowledge" },
+  { prefix: "/memory/knowledge", tabId: "knowledge" },
   { prefix: "/docs", tabId: "docs" },
   { prefix: "/skills", tabId: "skills" },
   { prefix: "/hooks", tabId: "hooks" },

@@ -110,9 +110,23 @@ Full verification = ALL FOUR probes captured and clean (with the noise rules abo
 - Screenshot wedged after one auto-heal retry? The other three probes still run — report them, mark the visual portion `[DEFERRED-VERIFY]`, and surface the wedge. Do NOT skip A–C because D failed.
 - Any probe shows a real failure: report the specific evidence (console, network, visual) before attempting fixes. Do NOT theorize from code — the browser evidence is primary.
 
+### 7. Tab hygiene (final step)
+
+Once the evidence bundle is captured, close the tabs this verification opened:
+
+```bash
+bash ~/.claude/skills/Interceptor/Tools/CleanupTabs.sh
+```
+
+Keeps the active tab and only ever touches the pinned test context. Pass `--keep-url <substr>` if a tab must survive for a follow-up check.
+
 ## Notes
 
 - For authenticated pages, Interceptor uses your real Chrome login sessions. No profile setup needed.
 - For public pages where speed matters and auth isn't needed, WebFetch (or the BrightData ladder) is fine.
 - Always use `http://localhost:PORT` instead of `localhost:PORT` for local dev URLs.
 - If Chrome is not running, start it first. Interceptor requires an active Chrome instance with the extension loaded.
+
+## Gotchas
+
+- **Content/archive sites: verify the CONTENT pages, not just the shell.** An SPA answers 200 with the full shell for every path, and list/tab views render from metadata — so a homepage pixel plus tab reads can all pass while every detail page ships raw code. Observed in the wild: a homepage verified clean while every one of 21 essay pages rendered as tag soup. The sweep must open at least one page of EVERY route/template type (especially detail/content pages) in the real browser, and content sites additionally run a deterministic render gate over the full built payload before any done-claim. The gate is a build-time script in the site's own repo that fails on escaped tags, raw markdown artifacts, relative URLs, and missing paragraph structure.

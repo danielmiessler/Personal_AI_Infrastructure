@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import AppHeader from "@/components/AppHeader";
+import SecurityBanner from "@/components/SecurityBanner";
 import CommandPalette from "@/components/palette/CommandPalette";
 import TemplateOnboarding from "@/components/TemplateOnboarding";
 import { Providers } from "./providers";
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans`}>
         <Providers>
+          <SecurityBanner />
           <AppHeader />
           <CommandPalette />
           <TemplateOnboarding />

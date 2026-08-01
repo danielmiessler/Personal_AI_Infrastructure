@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
+import { parseMemoryContent } from "./MemoryWriter";
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
 const SNAPSHOT_DIR = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/memory-snapshots");
@@ -32,9 +33,10 @@ function snapshotsFor(which: string): string[] {
 }
 
 function countEntries(content: string): number {
-  const m = content.match(/<!-- BEGIN ENTRIES -->([\s\S]*?)<!-- END ENTRIES -->/);
-  if (!m) return 0;
-  return m[1].split("\n").map((l) => l.trim()).filter((l) => l.length > 0).length;
+  // Shared lenient parser — the old lazy regex read 0 on any marker-corrupted
+  // snapshot, so the restore picker showed real snapshots as empty and made the
+  // recovery path itself untrustworthy. (public PR #1593, @anikinsasha)
+  return parseMemoryContent(content).entries.length;
 }
 
 function main(): void {

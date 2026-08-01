@@ -15,7 +15,7 @@
  *            (PROJECTS.md, CONTACTS.md, anything under MEMORY/KNOWLEDGE/)
  *
  *   Tier C — propose-only. Reviewer Phase 1 may queue an identity-doctrine
- *            proposal to be surfaced via Telegram (loud) or applied silently
+ *            proposal to be queued for principal review (loud) or applied silently
  *            (quiet) per the confidence threshold; never direct-Edit.
  *            (PRINCIPAL_IDENTITY, DA_IDENTITY, WRITINGSTYLE, DEFINITIONS,
  *            CANONICAL_CONTENT, RESUME)

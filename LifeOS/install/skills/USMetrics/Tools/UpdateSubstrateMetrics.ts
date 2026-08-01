@@ -3,19 +3,22 @@
  * update-substrate-metrics.ts
  *
  * Fetches current data from all sources (FRED, EIA, Treasury) and updates
- * the Substrate US-Common-Metrics dataset files.
+ * the US-Common-Metrics dataset files.
  *
  * Usage:
  *   bun run update-substrate-metrics.ts [--dry-run]
  *
  * Environment:
- *   FRED_API_KEY - Required for most metrics
- *   EIA_API_KEY - Required for gas prices
+ *   FRED_API_KEY        - Required for most metrics
+ *   EIA_API_KEY         - Required for gas prices
+ *   USMETRICS_DATA_DIR  - Optional. Directory holding the US-Common-Metrics
+ *                         dataset. Defaults to
+ *                         ~/.claude/LIFEOS/USER/DATA/US-Common-Metrics
  *
- * Output files:
- *   - ~/Projects/Substrate/Data/US-Common-Metrics/US-Common-Metrics.md (updated values)
- *   - ~/Projects/Substrate/Data/US-Common-Metrics/us-metrics-current.csv (current snapshot)
- *   - ~/Projects/Substrate/Data/US-Common-Metrics/us-metrics-historical.csv (appended)
+ * Output files (inside the data directory):
+ *   - US-Common-Metrics.md      (updated values)
+ *   - us-metrics-current.csv    (current snapshot)
+ *   - us-metrics-historical.csv (appended)
  */
 
 import { parseArgs } from "util";
@@ -26,7 +29,10 @@ import { join } from "path";
 // CONFIGURATION
 // ============================================================================
 
-const SUBSTRATE_PATH = join(process.env.HOME || "", "Projects/Substrate/Data/US-Common-Metrics");
+// Where the US-Common-Metrics dataset lives. Override with USMETRICS_DATA_DIR;
+// otherwise fall back to the USER tree, which every install has.
+const SUBSTRATE_PATH = process.env.USMETRICS_DATA_DIR
+  || join(process.env.HOME || "", ".claude/LIFEOS/USER/DATA/US-Common-Metrics");
 const FRED_API_KEY = process.env.FRED_API_KEY;
 const EIA_API_KEY = process.env.EIA_API_KEY;
 
@@ -421,11 +427,12 @@ Options:
   -h, --help   Show this help
 
 Environment:
-  FRED_API_KEY   Required for most metrics
-  EIA_API_KEY    Required for gas prices
+  FRED_API_KEY        Required for most metrics
+  EIA_API_KEY         Required for gas prices
+  USMETRICS_DATA_DIR  Optional. Dataset directory. Defaults to
+                      ~/.claude/LIFEOS/USER/DATA/US-Common-Metrics
 
-Output:
-  ~/Projects/Substrate/Data/US-Common-Metrics/
+Output (inside the dataset directory):
     - US-Common-Metrics.md (updated)
     - us-metrics-current.csv (current snapshot)
     - us-metrics-historical.csv (appended)
@@ -440,16 +447,24 @@ Output:
     process.exit(1);
   }
 
-  // Verify Substrate path exists
+  // Verify the dataset directory exists
   if (!existsSync(SUBSTRATE_PATH)) {
-    console.error(`Error: Substrate path not found: ${SUBSTRATE_PATH}`);
+    console.error(`Error: US-Common-Metrics data directory not found: ${SUBSTRATE_PATH}`);
+    console.error("");
+    console.error("Fix it either way:");
+    console.error(`  - Create it:  mkdir -p "${SUBSTRATE_PATH}"`);
+    console.error("  - Or point at an existing dataset:");
+    console.error("      USMETRICS_DATA_DIR=/path/to/US-Common-Metrics bun run UpdateSubstrateMetrics.ts");
+    console.error("");
+    console.error("It must contain (or will be populated with) US-Common-Metrics.md,");
+    console.error("us-metrics-current.csv, and us-metrics-historical.csv.");
     process.exit(1);
   }
 
   console.log("=".repeat(60));
   console.log("US-Common-Metrics Update");
   console.log("=".repeat(60));
-  console.log(`Substrate path: ${SUBSTRATE_PATH}`);
+  console.log(`Data directory: ${SUBSTRATE_PATH}`);
   console.log(`Timestamp: ${new Date().toISOString()}`);
   console.log("");
 

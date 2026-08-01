@@ -1061,7 +1061,7 @@ function SpendInsightsSection({ insights }: { insights: SpendInsights }) {
           </h2>
           <p className="text-[12px] text-ink-2 mt-1">
             Derived from statement CSVs in <code className="text-ink-1">FINANCES/Statements/*</code>.
-            Re-run with <code className="text-ink-1">bun ~/.claude/LIFEOS/USER/TELOS/FINANCES/Tools/StatementAnalyzer.ts</code>.
+            Re-run with <code className="text-ink-1">bun ~/.claude/LIFEOS/USER/FINANCES/Tools/StatementAnalyzer.ts</code>.
           </p>
         </div>
         {insights.statement_spend.generated_at && (
@@ -1124,7 +1124,7 @@ function OutboundTab({ data }: { data: FinancesDataV2 }) {
         <p className="text-sm text-center text-ink-2">
           Expenses data unavailable. Check{" "}
           <code className="text-ink-1">
-            ~/.claude/LIFEOS/USER/TELOS/FINANCES/vendors.yaml
+            ~/.claude/LIFEOS/USER/FINANCES/vendors.yaml
           </code>
           .
         </p>
@@ -1327,7 +1327,7 @@ function PlanTab({ data }: { data: FinancesDataV2 }) {
     return (
       <Panel>
         <p className="text-sm text-center text-ink-2">
-          No plan yet. Create <code>USER/TELOS/FINANCES/PLAN.md</code> — the flywheel, targets, and product ladder render here.
+          No plan yet. Create <code>USER/FINANCES/PLAN.md</code> — the flywheel, targets, and product ladder render here.
         </p>
       </Panel>
     );

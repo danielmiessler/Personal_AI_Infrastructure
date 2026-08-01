@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { Cloud, ArrowLeft, Box, GitBranch, Timer } from "lucide-react";
+import { Cloud, ArrowLeft, Box, GitBranch, Timer, ShieldCheck, ShieldAlert, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import EmptyStateGuide from "@/components/EmptyStateGuide";
 import {
@@ -36,6 +36,56 @@ const TYPE_CONFIG = {
   flow: { icon: Timer, color: "var(--rhythms)", label: "Flow", prefix: "F_", dim: "rhythms" },
 } as const;
 
+// ── Security scan status strip (compact; links to the full Security view) ──
+// Same private, runtime-only source as the Security page. Shows at-a-glance scan health
+// here because the security scan runs on Arbol infrastructure — full detail lives on /security.
+interface ScanSummary {
+  scan: { timestamp: string | null; targetsScanned: number; findingCounts: { critical: number; high: number } } | null;
+}
+
+function relTimeShort(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "—";
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
+}
+
+function SecurityScanStrip() {
+  const { data } = useQuery<ScanSummary>({
+    queryKey: ["arbol-security-scan"],
+    queryFn: async () => (await fetch("/api/security/attack-surface")).json(),
+    refetchInterval: 60_000,
+  });
+  const scan = data?.scan;
+  const crit = scan?.findingCounts?.critical ?? 0;
+  const high = scan?.findingCounts?.high ?? 0;
+  const clean = crit === 0 && high === 0;
+  const Icon = clean ? ShieldCheck : ShieldAlert;
+
+  return (
+    <Link href="/security" className="block group">
+      <Panel className="p-3 transition-colors hover:bg-[var(--surface-2)]">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Icon className={`w-4 h-4 ${clean ? "text-ok" : "text-err"}`} />
+            <span className="text-sm font-medium text-ink-1">Attack Surface Scan</span>
+            <Pill dim={clean ? "ok" : "err"}>{clean ? "clean" : `${crit} critical · ${high} high`}</Pill>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-ink-2">
+            <span className="mono">{scan?.targetsScanned ?? "—"} targets</span>
+            <span>hourly · {relTimeShort(scan?.timestamp)}</span>
+            <span className="flex items-center gap-0.5 text-ink-3 group-hover:text-ink-1">details <ChevronRight className="w-3.5 h-3.5" /></span>
+          </div>
+        </div>
+      </Panel>
+    </Link>
+  );
+}
+
 function ArbolLanding({
   workers,
   actions,
@@ -61,6 +111,8 @@ function ArbolLanding({
         icon={Cloud}
         actions={<Pill dim="relationships">cloud mesh</Pill>}
       />
+
+      <SecurityScanStrip />
 
       {workers.length === 0 && (
         <EmptyStateGuide

@@ -1,9 +1,8 @@
 ---
 name: ContextSearch
-version: 1.1.6
-description: "Find prior LifeOS work — sessions, ISAs, conversations — by topic or date phrase; searches the work registry, titles, dir names, ISA bodies, and conversation logs, ranked by relevance. USE WHEN context search, prior work, browse sessions, recall, remember, previous sessions, context recovery, what did we do, find session, search history, what was that project, pick up where we left off, resume, look up old work, cold start, yesterday's work, last week, find that session, the one about. NOT FOR searching published content like blog posts/newsletters/tweets (use _CONTENTSEARCH) or the typed-graph Knowledge Archive (use Knowledge)."
+version: 1.1.11
+description: "Find prior LifeOS work — sessions, ISAs, conversations — by topic or date phrase; searches the work registry, titles, dir names, ISA bodies, and conversation logs, ranked by relevance. USE WHEN context search, prior work, browse sessions, recall, remember, previous sessions, context recovery, what did we do, find session, search history, what was that project, pick up where we left off, resume, look up old work, cold start, yesterday's work, last week, find that session, the one about. NOT FOR searching published content like blog posts/newsletters/tweets, or the typed-graph Knowledge Archive (use Knowledge)."
 argument-hint: [topic]
-effort: low
 ---
 
 # ContextSearch

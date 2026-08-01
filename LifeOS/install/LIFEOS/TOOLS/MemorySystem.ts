@@ -10,7 +10,7 @@
  *   knowledge, or proposal. A background reviewer reads recent conversation
  *   and emits typed items. The system routes each item to the right place
  *   based on type. Memory items load into every prompt. Ideas and knowledge
- *   load when relevant. Proposals get surfaced in Telegram for yes/no/edit.
+ *   load when relevant. Proposals queue for principal review (Pulse surfaces).
  *   Four safety tiers gate writes by destination.
  *
  * Two public functions:
@@ -23,7 +23,7 @@
  *   type=memory     → MemoryWriter.setEntries (set-overwrite, capped, Tier A)
  *   type=idea       → atomic-rename append (Tier B, audit row written)
  *   type=knowledge  → atomic-rename append (Tier B, audit row written)
- *   type=proposal   → JSONL queue (Telegram surfacer consumes)
+ *   type=proposal   → JSONL queue (proposal surfacer consumes)
  *
  * Defense-in-depth: every write goes through MutationTier.getTier(path)
  * before persisting. If the resolved path's tier doesn't match the type's
@@ -46,17 +46,20 @@ import {
   openSync,
   readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, resolve as pathResolve, join as pathJoin } from "node:path";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 
 import {
   TYPE_REGISTRY,
   isKnownType,
   resolveStoragePath,
   inferProposalKind,
+  pinProposalTargetFile,
+  ALWAYS_LOADED_KINDS,
   ALL_TYPES,
   TIER_B_AUDIT_PATH,
   PRINCIPAL_MEMORY_PATH,
@@ -67,6 +70,8 @@ import {
 } from "./MemoryTypes";
 
 import { setEntries as memoryWriterSetEntries, read as memoryWriterRead } from "./MemoryWriter";
+import { classifyScope } from "./ProposalScope";
+import { addUpgrade } from "./Upgrades";
 import { getTier } from "./MutationTier";
 import { getRelevantContext, type RelevantResultItem } from "./MemoryRetriever";
 import { mintId, slugFromPath, SCHEMA_VERSION } from "./KnowledgeSchema";
@@ -126,20 +131,154 @@ function logTierBWrite(filePath: string, bytes: number, type: MemoryTypeName): v
   }
 }
 
+// ── Per-note write lock, crash-safe ──
+// Memory writes run inside hook-spawned subprocesses. If the harness times one
+// out — or the machine loses power — after the lockfile is created but before
+// the `finally` releases it, the `.lock` survives on disk and every later write
+// to that note fails with "Lock held", permanently and silently. That is memory
+// loss nobody is told about. (public PR #1646, @elhoim — ported slim: recovery
+// lives here rather than in a separate lock module.)
+//
+// Recovery is decided on EVIDENCE first, age second:
+//   1. The holder stamps pid + host + ts into the lockfile at acquire time.
+//   2. A contender reads that stamp. Holder on this host and `kill(pid, 0)`
+//      says gone → the holder died; break immediately, no waiting out a TTL.
+//   3. Liveness unverifiable (empty/corrupt stamp, older build, other host) →
+//      fall back to age; stale only past LOCK_STALE_MS.
+//   4. A provably-live holder is respected.
+// Every unknown resolves toward "assume alive", so the failure mode is a
+// refused write rather than two writers corrupting one note.
+//
+// LOCK_STALE_MS matches DerivedSync.ts's constant rather than inventing a third.
+const LOCK_STALE_MS = 5 * 60 * 1000;
+const LOCK_LOG_PATH = pathJoin(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/memory-locks.jsonl");
+
+type LockReason =
+  | "holder-process-gone"
+  | "holder-alive"
+  | "unverifiable-holder-within-ttl"
+  | "expired-unverifiable-holder";
+
+/**
+ * Every event here is abnormal — a recovered crash or a refused write — so it
+ * earns both a JSONL row and an operator-visible stderr line. Best-effort:
+ * observability must never be why a write fails.
+ */
+function logLockEvent(event: "stale_lock_recovered" | "lock_contended", lockPath: string, reason: LockReason, detail: string): void {
+  try {
+    mkdirSync(dirname(LOCK_LOG_PATH), { recursive: true });
+    appendFileSync(
+      LOCK_LOG_PATH,
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        pid: process.pid,
+        event,
+        reason,
+        lock: lockPath.replace(CLAUDE_ROOT + "/", ""),
+        detail,
+      }) + "\n",
+      "utf8",
+    );
+  } catch {
+    /* observability is best-effort */
+  }
+  console.error(`[MemorySystem] ${event} (${reason}): ${detail}`);
+}
+
+/**
+ * Signal 0 does no work — it runs only the kernel's existence + permission
+ * checks. ESRCH is the ONLY answer that proves absence: EPERM means the process
+ * exists under another uid, and any other error means we don't know. Both
+ * resolve to "alive", so an ambiguous probe can never break a live lock.
+ */
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 1) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e: any) {
+    return e?.code !== "ESRCH";
+  }
+}
+
+/**
+ * Decide whether a held lock may be broken. Returns null when it must be respected.
+ * Exported for `test/tools/MemorySystem.lock.test.ts` — the dangerous direction is
+ * breaking a LIVE lock, so the decision matrix is probed directly.
+ */
+export function staleLockReason(lockPath: string): LockReason | null {
+  let stamp: { pid?: number; host?: string } = {};
+  let ageMs = 0;
+  try {
+    ageMs = Date.now() - statSync(lockPath).mtimeMs;
+    stamp = JSON.parse(readFileSync(lockPath, "utf8"));
+  } catch {
+    /* unreadable or pre-stamp lockfile — falls through to the age rule */
+  }
+
+  const sameHost = typeof stamp.host === "string" && stamp.host === hostname();
+  if (sameHost && typeof stamp.pid === "number") {
+    if (!isProcessAlive(stamp.pid)) return "holder-process-gone";
+    return null; // provably alive — respect it
+  }
+  return ageMs > LOCK_STALE_MS ? "expired-unverifiable-holder" : "unverifiable-holder-within-ttl";
+}
+
+/**
+ * Break a stale lock race-safely: rename it aside, then re-create with O_EXCL so
+ * at most one of several concurrent recoverers wins. Returns the new fd, or null
+ * if we lost the race (another writer got there first — respect it).
+ */
+function breakStaleLock(lockPath: string): number | null {
+  const asidePath = `${lockPath}.stale.${process.pid}`;
+  try {
+    renameSync(lockPath, asidePath);
+  } catch {
+    return null; // someone else already moved it
+  }
+  try {
+    const fd = openSync(lockPath, "wx");
+    try { unlinkSync(asidePath); } catch { /* best-effort */ }
+    return fd;
+  } catch {
+    try { unlinkSync(asidePath); } catch { /* best-effort */ }
+    return null;
+  }
+}
+
 // ── Append-write primitive for Tier B types ──
 
-function appendToTierBFile(filePath: string, content: string): { ok: true; bytes: number } | AddError {
+/** Exported for `test/tools/MemorySystem.lock.test.ts` (acquire / recover / release). */
+export function appendToTierBFile(filePath: string, content: string): { ok: true; bytes: number } | AddError {
   const lockPath = `${filePath}.lock`;
   let fd: number | null = null;
   try {
     mkdirSync(dirname(filePath), { recursive: true });
     fd = openSync(lockPath, "wx");
   } catch (e: any) {
-    if (e?.code === "EEXIST") {
+    if (e?.code !== "EEXIST") {
+      return { ok: false, code: "EWRITE_FAILED", message: `Failed to acquire lock: ${e?.message}` };
+    }
+    const reason = staleLockReason(lockPath);
+    if (reason === null || reason === "unverifiable-holder-within-ttl") {
+      // `null` means the holder is provably alive — a distinct operator signal
+      // from "we could not verify it", so it must not be collapsed into one code.
+      logLockEvent("lock_contended", lockPath, reason ?? "holder-alive", `Lock held: ${lockPath}`);
       return { ok: false, code: "EWRITE_FAILED", message: `Lock held: ${lockPath}` };
     }
-    return { ok: false, code: "EWRITE_FAILED", message: `Failed to acquire lock: ${e?.message}` };
+    fd = breakStaleLock(lockPath);
+    if (fd === null) {
+      logLockEvent("lock_contended", lockPath, "holder-alive", `Lost the recovery race for ${lockPath}`);
+      return { ok: false, code: "EWRITE_FAILED", message: `Lock held: ${lockPath}` };
+    }
+    logLockEvent("stale_lock_recovered", lockPath, reason, `Recovered stale lock at ${lockPath}`);
   }
+
+  // Stamp the holder so the next contender can prove liveness instead of
+  // waiting out the TTL. Best-effort: a failed stamp only costs evidence.
+  try {
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, host: hostname(), ts: new Date().toISOString() }), "utf8");
+  } catch { /* the lock still holds; the next contender falls back to age */ }
 
   try {
     const tmpPath = `${filePath}.tmp`;
@@ -168,9 +307,45 @@ function enqueueProposal(item: TypedItem & { type: "proposal" }): { ok: true; id
   const id = generateProposalId();
   const path = resolveStoragePath(item);
   // P1 2026-05-25: persist the subtype discriminator onto the queue row so
-  // the Telegram surfacer can render the [kind] badge. Falls back to the
+  // the proposal surfacer can render the [kind] badge. Falls back to the
   // path-based inference when the reviewer omits target_kind (legacy compat).
   const targetKind = item.target_kind ?? inferProposalKind(item.target_file);
+  // Pin target_file to the kind's canonical file (public PR #1563, @anikinsasha):
+  // most kinds map to exactly one file, so trusting the reviewer's free-text
+  // path lets a hallucinated path get persisted and then silently mis-file or
+  // fail to apply. null = a multi-file (identity) path outside the allowed set.
+  const targetFile = pinProposalTargetFile(targetKind, item.target_file);
+  if (targetFile === null) {
+    return { ok: false, code: "EINVAL_ITEM", message: `target_file '${item.target_file}' is not an allowed '${targetKind}' target` };
+  }
+
+  // ── Scope gate (2026-07-31) ────────────────────────────────────────────────
+  // `target_kind` decides WHICH curated file a proposal belongs to; it says
+  // nothing about WHO needs the rule loaded. Without a scope axis every
+  // rule-shaped signal landed in an @-imported file. Audit of OPERATIONAL_RULES'
+  // tail: 7 of 10 entries were skill- or project-scoped, carried into every turn
+  // for the benefit of one skill.
+  //
+  // Only the kinds whose target is @-imported are gated. `projects` is exempt by
+  // construction — a PROJECTS.md row NAMES a project, so scoping it away from
+  // PROJECTS.md would divert exactly the proposals that belong there.
+  if (ALWAYS_LOADED_KINDS.has(targetKind)) {
+    const verdict = classifyScope(item.edit);
+    if (verdict.scope !== "global") {
+      const r = addUpgrade({
+        claim: item.edit.slice(0, 1000),
+        source: "correction",
+        current_state: `Proposed as a '${targetKind}' edit to ${targetFile}, which is loaded on every turn.`,
+        recommendation: `Encode in ${verdict.dest} instead — ${verdict.reason}.`,
+        target_surface: verdict.scope,
+        confidence: item.confidence,
+        session_id: item.source_session ?? undefined,
+        evidence: [`memory-proposal:${id}`],
+      });
+      return { ok: true, id: r.id || id };
+    }
+  }
+
   try {
     mkdirSync(dirname(path), { recursive: true });
     appendFileSync(
@@ -179,7 +354,7 @@ function enqueueProposal(item: TypedItem & { type: "proposal" }): { ok: true; id
         id,
         ts: new Date().toISOString(),
         status: "pending",
-        target_file: item.target_file,
+        target_file: targetFile,
         target_kind: targetKind,
         edit: item.edit,
         confidence: item.confidence,

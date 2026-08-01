@@ -7,11 +7,30 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.1.5
- * DriftReminder — UserPromptSubmit hook for deterministic voice drift nudges.
+ * @version 1.2.0
+ * TRIGGER: UserPromptSubmit
+ * DriftReminder — pre-write format contract for the LifeOS output format.
  *
- * Reads the Stop-hook last-response cache and emits at most one context line
- * when the previous response violates the LifeOS banner or voice rules.
+ * WHY (2026-07-31, {{PRINCIPAL_NAME}}): FormatGate went observation-only on 2026-07-11
+ * (commit ea6965351) because a Stop hook fires AFTER the text is on screen and
+ * can only block, which forces a doubled re-emit. Measured effect in
+ * format-gate.jsonl: 0% violations across 168 turns while it blocked
+ * (Jul 10-11), then 61-91% EVERY DAY across 2,608 turns once it only logged
+ * (Jul 12-31). The teeth were the thing that worked.
+ *
+ * {{PRINCIPAL_NAME}}'s fix, and it is the right one: check BEFORE the answer is written,
+ * not after. This hook is the only enforcement point that runs pre-generation,
+ * so it now emits a per-turn CONTRACT rather than an occasional nudge:
+ *   - the line budget for THIS turn (lifted when the prompt asks for depth)
+ *   - the structural rules (banner first, closer last, em-dash cap)
+ *   - what the PREVIOUS response actually broke, measured
+ *
+ * Every turn, no rate limit. The old MIN_TURNS_BETWEEN_FIRES budget meant the
+ * nudge was silent 4 turns out of 5, which is why 80% drift went unnoticed.
+ * FormatGate stays as the post-write recorder; this is the pre-write shaper.
+ *
+ * NOT scaffolding (BPE): every field is a measured number or a deterministic
+ * property of an artifact. It states the contract, never how to think.
  *
  * Performance: hot-path hook, no LLM calls, no large reads. Target <20ms.
  * Failure mode: any error logs to stderr and exits 0, never blocking prompts.
@@ -41,7 +60,15 @@ interface DriftState {
 }
 
 const STDIN_TIMEOUT_MS = 300;
+// Retained only so the persisted state schema stays readable across the 1.2.0
+// change; the contract itself fires every turn (that silence was the bug).
 const MIN_TURNS_BETWEEN_FIRES = 5;
+// System prompt § Output Format: "often 1-5 lines, and for a question with no
+// work attached, rarely more than about fifteen."
+const DEFAULT_LINE_CAP = 15;
+// The principal asking for depth lifts the cap. His explicit call outranks the
+// default; nothing else does.
+const DEPTH_RE = /\b(extensive|thorough|comprehensive|exhaustive|deep[\s-]?dive|in[\s-]depth|detailed|long[\s-]form|full (?:analysis|report|breakdown|write[\s-]?up)|go deep|be verbose|everything (?:you|we) (?:know|have))\b/i;
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(process.env.HOME || "", ".claude", "LIFEOS");
 const LAST_RESPONSE_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "last-response.txt");
 const STATE_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "drift-reminder.json");
@@ -61,6 +88,8 @@ async function readStdinWithTimeout(timeoutMs: number = STDIN_TIMEOUT_MS): Promi
     const timer = setTimeout(() => resolve(data), timeoutMs);
     process.stdin.on("data", (chunk: Buffer) => {
       data += chunk.toString();
+      // 10MB cap — unbounded buffering risked multi-GB allocation on a fast stream (public issue #1533, @christauff)
+      if (data.length > 10_000_000) { clearTimeout(timer); try { process.stdin.pause(); } catch { /* closed */ } resolve(data); }
     });
     process.stdin.on("end", () => {
       clearTimeout(timer);
@@ -127,17 +156,66 @@ function countEmDashes(text: string): number {
   return (text.match(/—/g) ?? []).length;
 }
 
-function findingFor(text: string): string | null {
-  const bannedHit = firstBannedHit(text);
-  if (bannedHit) return `last response used banned word '${bannedHit}'`;
+/**
+ * Strip fenced and inline code so prose measurements never count a code block's
+ * lines or an em-dash inside a shell command.
+ */
+function stripCode(text: string): string {
+  return text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+}
 
-  const hasModeBanner = MODE_BANNERS.some((banner) => text.includes(banner));
-  if (!hasModeBanner) return "last response missing LifeOS mode banner";
+interface FormatMeasure {
+  lines: number;
+  emDashes: number;
+  banner: boolean;
+  closer: boolean;
+  banned: string | null;
+}
 
-  const emDashCount = countEmDashes(text);
-  if (emDashCount > 4) return `last response used ${emDashCount} em-dashes (>4); voice rules cap at 2`;
+function measure(text: string): FormatMeasure {
+  const prose = stripCode(text);
+  return {
+    lines: prose.split("\n").filter((l) => l.trim().length > 0).length,
+    emDashes: countEmDashes(prose),
+    banner: MODE_BANNERS.some((banner) => text.includes(banner)),
+    closer: /🗣️/.test(text),
+    banned: firstBannedHit(text),
+  };
+}
 
-  return null;
+/** What the previous response actually broke, measured. Empty when clean. */
+function breaksIn(m: FormatMeasure, cap: number | null): string[] {
+  const out: string[] = [];
+  if (!m.banner) out.push("no banner");
+  if (!m.closer) out.push("no closer");
+  if (m.emDashes > 2) out.push(`${m.emDashes} em-dashes`);
+  if (m.banned) out.push(`banned word '${m.banned}'`);
+  if (cap !== null && m.lines > cap) out.push(`${m.lines} lines (cap ${cap})`);
+  return out;
+}
+
+/**
+ * The line budget for THIS turn. Null means the principal asked for depth, so
+ * the cap is lifted — his explicit call outranks the default (claim 15).
+ */
+function capFor(prompt: string): number | null {
+  return DEPTH_RE.test(prompt) ? null : DEFAULT_LINE_CAP;
+}
+
+function contractLine(cap: number | null, last: FormatMeasure | null): string {
+  const budget = cap === null
+    ? "depth requested, line cap lifted"
+    : `max ${cap} prose lines`;
+  const structure = "banner first, 🗣️ closer last, max 2 em-dashes";
+  const previous = last
+    ? (() => {
+        const broke = breaksIn(last, cap);
+        return broke.length
+          ? ` Last response broke: ${broke.join(", ")}.`
+          : ` Last response was clean (${last.lines} lines).`;
+      })()
+    : "";
+  return `FORMAT CONTRACT (check before writing, not after): ${budget}; ${structure}.${previous}`;
 }
 
 function emit(line: string): void {
@@ -151,37 +229,16 @@ async function main(): Promise<void> {
     const raw = await readStdinWithTimeout();
     const input = parseHookInput(raw);
     const prompt = input.prompt || input.user_prompt || "";
-    void prompt;
 
     const state = loadState();
     state.turn_count += 1;
 
+    const cap = capFor(prompt);
     const lastResponse = readLastResponse();
-    if (!lastResponse) {
-      saveState(state);
-      process.exit(0);
-    }
+    const line = contractLine(cap, lastResponse ? measure(lastResponse) : null);
 
-    const finding = findingFor(lastResponse);
-    if (!finding) {
-      // Clean response clears the dedupe memory — the next drift, even an
-      // identical one, fires again. Without this, identical drift is
-      // suppressed forever once seen (Cato finding, 2026-06-10).
-      state.last_text = null;
-      saveState(state);
-      process.exit(0);
-    }
-
-    const line = `DRIFT-REMINDER: ${finding}; voice rules: DA_IDENTITY Writing Style`;
-    const withinBudget = (state.turn_count - state.last_fired_turn) < MIN_TURNS_BETWEEN_FIRES;
-    // Dedupe only suppresses CONSECUTIVE identical findings inside the budget
-    // logic above; a cleared last_text (clean turn in between) re-arms it.
-    const duplicate = state.last_text === line;
-    if (withinBudget || duplicate) {
-      saveState(state);
-      process.exit(0);
-    }
-
+    // Every turn, no rate limit and no dedupe. A contract that is silent 4
+    // turns out of 5 is why 61-91% daily drift ran unnoticed for 19 days.
     state.last_fired_turn = state.turn_count;
     state.last_text = line;
     saveState(state);

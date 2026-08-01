@@ -149,4 +149,5 @@ bash ~/.claude/skills/Interceptor/Tools/Capture.sh --current
 - `interceptor type` clears the field before typing. Use `interceptor type <ref> "text" --append` to add to existing content.
 - For dropdowns/selects, use `interceptor select <ref> "value"` instead of click-based selection.
 - Network log captures the actual API request triggered by form submission — useful for verifying the correct endpoint and payload shape.
+- After all form scenarios are done and evidence is captured, run `bash ~/.claude/skills/Interceptor/Tools/CleanupTabs.sh` to close the tabs the test opened in the test profile.
 - For password fields, use `interceptor act <ref> "value" --trusted` for OS-level HID-sourced input (formerly `--os`, now deprecated alias). Bypasses autocomplete detection on sites that check `isTrusted` against HID source state.

@@ -1,5 +1,5 @@
 ---
-version: 1.0.4
+version: 1.1.1
 ---
 
 # Life OS Schema
@@ -10,7 +10,7 @@ version: 1.0.4
 
 **Status:** Draft v1.0 · 2026-04-16
 **Applies to:** `LIFEOS/USER/` in every LifeOS installation
-**Companion docs:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` (the why), `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` (the dashboard), `skills/_LIFEOS/RELEASE_TEMPLATES/USER/` (the starter scaffold)
+**Companion docs:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` (the why), `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` (the dashboard), the release templates' `USER/` starter scaffold
 
 ---
 
@@ -236,12 +236,12 @@ USER/BoardGames.md        # new taste file
 ## 14. Public Release Story
 
 - **Private content lives in `USER/`.** Never committed to the public LifeOS repo.
-- **Templates live in `skills/_LIFEOS/RELEASE_TEMPLATES/USER/`.** Shipped with every LifeOS release. This is the scaffold a new LifeOS user starts with.
-- **This spec (`LIFEOSSCHEMA.md`) is the contract.** Public. Referenced by templates, Pulse renderer docs, Interview prompts.
-- **`ShadowRelease.ts` never reads USER/.** It reads `skills/_LIFEOS/RELEASE_TEMPLATES/USER/` + this spec.
+- **Templates live in the release templates' `USER/` scaffold.** Shipped with every LifeOS release. This is the scaffold a new LifeOS user starts with.
+- **This spec (`LifeOs/LifeOsSchema.md`) is the contract.** Public. Referenced by templates, Pulse renderer docs, Interview prompts.
+- **`ShadowRelease.ts` never reads USER/.** It reads the release templates' `USER/` scaffold + this spec.
 
 New LifeOS user experience:
-1. Install LifeOS the platform-agnostic, AI-native way: hand the installer (`skills/LifeOS/install/install.sh`, or the install doc) to your own AI/harness, which installs the `LifeOS/` skill and scaffolds `USER/` from the release templates (`skills/_LIFEOS/RELEASE_TEMPLATES/USER/`). No `git clone` into `~/.claude`.
+1. Install LifeOS the platform-agnostic, AI-native way: hand the installer (`skills/LifeOS/install/install.sh`, or the install doc) to your own AI/harness, which installs the `LifeOS/` skill and scaffolds `USER/` from the release templates. No `git clone` into `~/.claude`.
 2. Run `Interview` skill → conversation walks them through filling in files, phase by phase
 3. Pulse dashboard lights up as files gain content
 4. Daemon publishes nothing until the user sets `publish:` flags
@@ -276,4 +276,44 @@ USER/
 
 ## 16. Changelog
 
-- **v1.0 (2026-04-16)** — Initial draft. Companion to `LIFEOSTHESIS.md`. Supersedes the ad-hoc USER/ structure.
+- **v1.0 (2026-04-16)** — Initial draft. Companion to `LifeOs/LifeOsThesis.md`. Supersedes the ad-hoc USER/ structure.
+
+## Examples
+
+### One new file, and the whole system reacts
+
+A user decides to track the board games they own. The schema makes this a thirty-second job.
+
+1. **The One Rule picks the shape.** Board games are a single concept, so it's one file at root — `BoardGames.md` — not a `Games/` folder and never a `Preferences/` wrapper.
+2. **Frontmatter is the whole contract.** They set `category: taste`, `kind: collection`, `publish: false`, and add items in the standard line format:
+
+   ```markdown
+   - **Terraforming Mars** — ★9 · long but worth it
+   - **Azul** — ★8 · fast, gorgeous tiles
+   ```
+3. **Everything else is automatic.** Pulse's `fs.watch` sees the new file, the indexer parses it, and a new tile appears under the taste section — rendered by `<CollectionView>` because `kind: collection`. The Interview skill folds it into its phase-3 taste conversation. The Daemon ignores it, because `publish: false`. No code was changed in Pulse, the Daemon, or Interview.
+
+Later they flip `publish: false` to `publish: daemon` and the same file starts broadcasting to their public profile — same file, one field, new behavior. The frontmatter *is* the API.
+
+### When it's one file, and when it's a directory
+
+The fork is legibility, not size of interest:
+
+- **One concept → one root file.** Board games, coffee, a list of beliefs — each is a single file that reads like a line in a biography.
+- **A concept that genuinely needs many files → a directory** with a `README.md` as its `kind: index` entry. A whole side business (contracts, customers, invoices) isn't one file; it's `Business/`. Health metrics plus lab time-series isn't one file; it's `Health/` with a `Labs/` subdir.
+
+The test: could a stranger walk the root and see the *person*, not a filing cabinet? Single-concept files at root keep that true; premature folders break it.
+
+```mermaid
+flowchart TD
+    F["BoardGames.md<br/>category + kind + publish"] --> I[Pulse indexer parses frontmatter]
+    I --> P[New taste tile via CollectionView]
+    I --> V[Interview: added to phase-3 taste]
+    I --> D{publish flag}
+    D -->|false| X[Stays private]
+    D -->|daemon| B[Broadcast to public profile]
+```
+
+One file with valid frontmatter fans out to every consumer on its own. `category` picks the Pulse section, `kind` picks the renderer, `publish` decides broadcast — and none of it required touching code.
+
+---

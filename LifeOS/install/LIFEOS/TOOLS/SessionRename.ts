@@ -10,7 +10,7 @@
  *
  * What gets updated:
  *   - work.json row's `sessionName` field (the human-readable label that
- *     Pulse Agents and `kai status` surface)
+ *     Pulse Agents and the memory-status CLI surface)
  *   - session-names.json entry for the session UUID (the per-UUID label that
  *     ContextSearch and the Pulse history view use)
  *

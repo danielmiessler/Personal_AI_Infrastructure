@@ -1,10 +1,10 @@
 ---
 last_updated: 2026-07-11T00:00:00Z
-last_updated_by: kai
+last_updated_by: da
 convention: pai-freshness-v1
 last_reviewed: 2026-05-25T18:45:00Z
 last_reviewed_by: {{PRINCIPAL_NAME}}
-version: 1.0.3
+version: 1.1.3
 ---
 
 # Curation Coverage — what LifeOS autonomic systems touch
@@ -21,7 +21,7 @@ Defined in `LIFEOS/TOOLS/MutationTier.ts` as a closed allowlist (default-deny):
 |---|---|---|
 | **A** | Auto, set-overwrite | `PRINCIPAL_MEMORY.md`, `DA_MEMORY.md` |
 | **B** | Logged append + audit | `PROJECTS.md`, `CONTACTS.md`, `MEMORY/KNOWLEDGE/**`, `MEMORY/IDEAS/**` |
-| **C** | Propose-only (Telegram approval, or auto-apply at confidence ≥ 0.70) | `PRINCIPAL_IDENTITY.md`, `DA_IDENTITY.md`, `WRITINGSTYLE.md`, `DEFINITIONS.md`, `CANONICAL_CONTENT.md`, `RESUME.md`, `OPERATIONAL_RULES.md` |
+| **C** | Propose-only (Pulse dashboard approval, or auto-apply at confidence ≥ 0.70) | `PRINCIPAL_IDENTITY.md`, `DA_IDENTITY.md`, `WRITINGSTYLE.md`, `DEFINITIONS.md`, `CANONICAL_CONTENT.md`, `RESUME.md`, `OPERATIONAL_RULES.md` |
 | **D** | Untouchable by memory subsystem | Everything else |
 
 A new file added to `~/.claude/` is Tier D by default until a code change promotes it.
@@ -32,8 +32,8 @@ A new file added to `~/.claude/` is Tier D by default until a code change promot
 
 | File | Tier | Cadence | Subtype | Currently emitting? |
 |---|---|---|---|---|
-| `USER/PRINCIPAL/PRINCIPAL_MEMORY.md` | A | 8 turns / 30 min / 2 idle | `memory` (actor=daniel) | ✓ live (set-overwrite) |
-| `USER/DIGITAL_ASSISTANT/DA_MEMORY.md` | A | Same | `memory` (actor=kai) | ✓ live (set-overwrite) |
+| `USER/PRINCIPAL/PRINCIPAL_MEMORY.md` | A | 8 turns / 30 min / 2 idle | `memory` (actor=the principal's name) | ✓ live (set-overwrite) |
+| `USER/DIGITAL_ASSISTANT/DA_MEMORY.md` | A | Same | `memory` (actor=the DA's name) | ✓ live (set-overwrite) |
 | `USER/PROJECTS.md` | B | Same | `proposal` (kind=projects) — propose-first | P1 extends |
 | `USER/CONTACTS.md` | B | Same | `proposal` (kind=contacts) — propose-first | P1 extends |
 | `MEMORY/KNOWLEDGE/**` | B | Same | `knowledge` (append with `related:` merge) | ✓ live |
@@ -54,14 +54,14 @@ These files are Tier D from the memory subsystem's POV (untouchable by the revie
 |---|---|---|---|
 | `USER/TELOS/PRINCIPAL_TELOS.md` | `LIFEOS/TOOLS/GenerateTelosSummary.ts` | TELOS source-file change | Manual run; planned cron in P2 |
 | `USER/TELOS/LIFEOS_STATE.json` | `LIFEOS/TOOLS/ComputeGap.ts` | Cron / Stop hook | Hourly |
-| `DOCUMENTATION/ARCHITECTURE_SUMMARY.md` | `LIFEOS/TOOLS/ArchitectureSummaryGenerator.ts` | `DocIntegrity.hook.ts` on Stop | Per session end |
+| `DOCUMENTATION/ARCHITECTURE_SUMMARY.md` | `LIFEOS/TOOLS/ArchitectureSummaryGenerator.ts` | `DocIntegrity.hook.ts` on SessionEnd | Per session end |
 | `MEMORY/WORK/**/ISA.md` | `hooks/ISASync.hook.ts` | Algorithm phase transitions | Per Edit (debounced 30s) |
 | `MEMORY/LEARNING/**` | `WorkCompletionLearning`, `SatisfactionCapture`, `FailureCapture` hooks | UserPromptSubmit, Stop, tool failures | Per event |
 | `MEMORY/RELATIONSHIP/**` | `RelationshipMemory.hook.ts` | UserPromptSubmit | Per turn (batched) |
 | `MEMORY/WISDOM/**` | `WisdomFrameUpdater`, `WisdomCrossFrameSynthesizer` | Algorithm LEARN phase | Per LEARN; planned monthly cron in P3 |
 | `MEMORY/SECURITY/**` | `SecurityPipeline.hook.ts` | Tool calls | Per event |
 | `MEMORY/OBSERVABILITY/**` | Many hooks (EventLogger, MemoryReviewer, etc.) | Tool events | Continuous |
-| `MEMORY/STATE/work.json` | `hooks/ISASync.hook.ts`, `LIFEOS/TOOLS/AlgoPhase.ts` | Phase transitions | Per change |
+| `MEMORY/STATE/work.json` | `hooks/ISASync.hook.ts` | Phase transitions | Per change |
 | `MEMORY/STATE/session-names.json` | `LIFEOS/TOOLS/SessionRename.ts` (manual), `SessionAnalysis` (auto-name) | First prompt at session start; manual rename | One-shot per session |
 | `MEMORY/VOICE/voice-events.jsonl` | Pulse VoiceServer | Voice event | Per fire |
 
@@ -75,7 +75,7 @@ These files are Tier D AND have no other writer. {{PRINCIPAL_NAME}} writes direc
 | `USER/PRINCIPAL/PRONUNCIATIONS.json` | Voice-server runtime config; principal-curated |
 | `USER/CONFIG/memory-review.json` | Cadence config for the memory system itself; principal-curated to avoid recursive auto-tuning |
 | `USER/CONFIG/CREDENTIALS/**` | Security boundary — credentials never autonomic |
-| `USER/GEAR.md`, `USER/SMARTHOME.md`, `USER/SECURITY/SecurityControls.md`, `USER/DAEMON.md` | Manually curated documentation (GEAR.md also skill-updated by gear-aware skills) |
+| `USER/GEAR.md`, `USER/SMARTHOME.md`, `USER/SECURITY/SecurityPosture.md`, `USER/DAEMON.md` | Manually curated documentation (GEAR.md also skill-updated by gear-aware skills) |
 | `USER/BUSINESS/**`, `USER/HEALTH/**`, `USER/FINANCES/**` | Domain-specific, principal-curated |
 | `USER/INTEGRATIONS/*.yaml` | Per-skill config; principal-curated |
 | `USER/WORK/config.yaml` | Work-hub config; principal-curated |
@@ -93,19 +93,19 @@ Different content types update at fundamentally different rates. The cadence per
 |---|---|---|
 | Hot-layer memory (`memory` items) | Per-turn-batched (8 / 30 min / 2 idle) | Loads every turn; needs freshness |
 | Knowledge graph (`knowledge`, `idea`) | Same | BM25 retrieval; freshness matters less |
-| Identity / style / definition / canonical / resume / operational-rule proposals | Same | Telegram-gated; principal has the final word |
+| Identity / style / definition / canonical / resume / operational-rule proposals | Same | Dashboard-gated; principal has the final word |
 | TELOS reviews (planned P2) | Weekly cron | Belief revision; deep observation window |
 | Wisdom frame synthesis (planned P3) | Monthly cron | Compounding wisdom; long observation window |
-| Architecture summary | Per-session-end (DocIntegrity hook on Stop) | Tracks source `LifeosSystemArchitecture.md` changes |
+| Architecture summary | Per-session-end (DocIntegrity hook on SessionEnd) | Tracks source `LifeosSystemArchitecture.md` changes |
 | Work / ISA / phase tracking | Per Edit (debounced 30s) | Mirror of in-flight Algorithm runs |
 | Observability streams | Continuous (per event) | Append-only telemetry |
 
 ## Roadmap
 
-- **P1 (this build, 2026-05-25)** — extend reviewer prompt with 7 new proposal subtypes (`style`, `definition`, `canonical-content`, `resume`, `operational-rule`, `projects`, `contacts`); persist `target_kind` on queue rows; render `[kind]` badge in Telegram; group pending by subtype in `kai status`.
+- **P1 (this build, 2026-05-25)** — extend reviewer prompt with 7 new proposal subtypes (`style`, `definition`, `canonical-content`, `resume`, `operational-rule`, `projects`, `contacts`); persist `target_kind` on queue rows; render `[kind]` badge in Telegram; group pending by subtype in the memory-status CLI. (Telegram integration since removed 2026-07-15.)
 - **P2 (named follow-up ISA)** — TELOS autonomic loop. Weekly `TelosReviewer.ts` cron that reads recent ISAs + LEARNING + WISDOM + recent PRINCIPAL_MEMORY snapshots, emits TELOS-change proposals (goal-deferral, new-strategy, mission-drift) routed via the `Telos` skill Update workflow.
-- **P3 (named follow-up ISA)** — WISDOM autonomic loop. Monthly synthesis pass extracts new WISDOM frames from accumulated LEARNING signals; surfaces principle candidates via Telegram for principal review-and-graduate.
-- **P4 (named follow-up ISA)** — On-demand LLM-agent retrieval tier (`kai recall "<question>"` CLI/Telegram command) for deep questions that need tool-using LLM loops over KNOWLEDGE. Different latency budget, different use case from per-turn BM25.
+- **P3 (named follow-up ISA)** — WISDOM autonomic loop. Monthly synthesis pass extracts new WISDOM frames from accumulated LEARNING signals; surfaces principle candidates via the Pulse dashboard for principal review-and-graduate.
+- **P4 (named follow-up ISA)** — On-demand LLM-agent retrieval tier (`recall "<question>"` CLI command) for deep questions that need tool-using LLM loops over KNOWLEDGE. Different latency budget, different use case from per-turn BM25.
 
 ## Adding a new file to the curation system
 
@@ -115,7 +115,42 @@ The closed-allowlist posture means new files default to Tier D (untouchable). To
 2. If Tier C — add an entry to `PROPOSAL_KIND_TO_FILES` in `LIFEOS/TOOLS/MemoryTypes.ts` with a new `target_kind` value.
 3. Extend the reviewer prompt in `LIFEOS/TOOLS/MemoryReviewer.ts` with subtype guidance describing when to emit a proposal targeting the new kind.
 4. Add a row to the matrix above.
-5. Regenerate `ARCHITECTURE_SUMMARY.md` (or let the DocIntegrity hook do it on next Stop).
+5. Regenerate `ARCHITECTURE_SUMMARY.md` (or let the DocIntegrity hook do it on next SessionEnd).
 6. Run the MemoryTypes + MemoryReviewer smoke tests; they should still pass.
 
 The principle: code is the source of truth; documentation mirrors. The MutationTier file is the authoritative list — this document is the human-readable view of it.
+
+## Examples
+
+### One conversation, four destinations
+
+The whole matrix comes alive when you watch a single conversation get sorted. Suppose in one working session a user reveals four different things. Each is a different *kind* of fact, so each lands in a different place under a different SLA:
+
+- **"I always want measurements in metric."** A durable operating preference → the reviewer emits a **Tier C** proposal (`operational-rule`). It does *not* write silently; it surfaces for approval, or auto-applies only if confidence clears the bar. Identity-class facts get the principal's final word.
+- **A new collaborator named three times, with role and why they matter.** → **Tier B** (`contacts`): a logged append to the contacts file, with an audit row. Additive, reversible, no approval gate.
+- **"I'm currently deep in a migration."** Fast-moving current-state → **Tier A** (`memory`): auto set-overwrite into hot-layer memory, loaded on every future turn until it goes stale.
+- **A change to a credentials file.** → **Tier D**: untouchable. The memory system never proposes, never writes. It isn't in the allowlist, so default-deny holds.
+
+Same conversation, four fates — decided entirely by *what kind of fact it is* and *which file it targets*, never by how important it felt in the moment.
+
+### Why default-deny is the safe posture
+
+The reason a new file is Tier D until code promotes it: silence is the safe failure. If the classifier is unsure where something belongs, the worst outcome is that nothing is written and a human curates it later — never that an autonomic pipeline mutates a file it was never meant to touch. Coverage is opt-in, one allowlist entry at a time.
+
+### Routing one captured fact
+
+```mermaid
+flowchart TD
+    F[A fact appears in conversation] --> K{What kind of fact?}
+    K -->|durable identity or rule| C[Tier C: propose-only]
+    K -->|contact or knowledge| B[Tier B: logged append]
+    K -->|current-state memory| A[Tier A: auto overwrite]
+    K -->|not in the allowlist| D[Tier D: untouched]
+    C --> P[Dashboard approval, or auto-apply if confident]
+    B --> W[Write plus audit row]
+    A --> H[Loads every turn]
+```
+
+The diagram is the coverage decision in one frame: type and target decide the tier, the tier decides the behavior, and anything the allowlist doesn't name falls through to Tier D and is left alone.
+
+---

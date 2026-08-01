@@ -11,7 +11,7 @@
  *
  * "reserved"-status rows are allowed to be empty or absent.
  *
- * TRIGGER: Stop hook (called from DocIntegrity.hook.ts)
+ * TRIGGER: SessionEnd hook (called from DocIntegrity.hook.ts)
  *
  * READS:
  *   LIFEOS/DOCUMENTATION/Memory/MemorySystem.md (Directory Inventory table)
@@ -52,7 +52,7 @@ const IGNORED_NAMES = new Set(['.DS_Store', '.git', 'node_modules']);
 const IGNORED_FILES = new Set(['README.md', '.DS_Store']);
 
 interface InventoryRow {
-  name: string;       // e.g., "KNOWLEDGE" or "_NETWORK"
+  name: string;       // e.g., "KNOWLEDGE" or "LEARNING"
   klass: string;      // "core" | "skill-private" | "reserved"
   status: string;     // "active" | "reserved"
 }
@@ -177,6 +177,13 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
 
   // Direction 1: dirs on disk not in inventory.
   for (const dir of onDisk) {
+    // Skill-private dirs are recognized by CONVENTION, not by enumeration: any
+    // `_`-prefixed dir is owned by the skill named `_<dir>` (see the `_X`
+    // convention in MemorySystem.md). They are deliberately NOT listed by name
+    // in the shipping inventory — naming each private skill in a public doc is
+    // a leak, and enumerating them here just duplicates the convention. Their
+    // internal schema is the owning skill's responsibility, not core memory's.
+    if (dir.startsWith('_')) continue;
     if (!inventoryByName.has(dir)) {
       drift.push({
         kind: 'unknown_on_disk',
@@ -185,13 +192,14 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     }
   }
 
-  // Direction 2: active inventory rows missing on disk. Reserved rows are
-  // allowed to be absent.
+  // Direction 2: active inventory rows missing on disk. Non-active rows
+  // (reserved = not-yet-built; on-demand = created when the owning skill/tool
+  // first runs) are allowed to be absent — a fresh install has run nothing yet.
   for (const row of inventory) {
     if (row.status === 'active' && !onDiskSet.has(row.name)) {
       drift.push({
         kind: 'missing_active',
-        detail: `Inventory lists MEMORY/${row.name}/ as ${row.status} but directory does not exist on disk. Either create it or change the row's status to reserved.`,
+        detail: `Inventory lists MEMORY/${row.name}/ as ${row.status} but directory does not exist on disk. Either create it or change the row's status to reserved/on-demand.`,
       });
     }
   }

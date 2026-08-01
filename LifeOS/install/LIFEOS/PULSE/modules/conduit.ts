@@ -2,9 +2,11 @@
  * Conduit Pulse module — read-only dashboard surface over Conduit's daily records.
  *
  * Reads ONLY from USER/CONDUIT (no capture here — capture is the launchd job). Routes:
- *   GET /api/conduit/today   → today's live deterministic record
- *   GET /api/conduit/recent  → last N daily records (?days=7)
- *   GET /api/conduit/status  → module health
+ *   GET  /api/conduit/today         → today's live deterministic record
+ *   GET  /api/conduit/recent        → last N daily records (?days=7)
+ *   GET  /api/conduit/insight       → latest cached content-type read
+ *   POST /api/conduit/insight/build → run the hourly insight job now (public PR #1647, @elhoim)
+ *   GET  /api/conduit/status        → module health
  *
  * Register in PULSE.toml under [modules].
  */
@@ -19,7 +21,11 @@ import type { DailyRecord } from "../Conduit/types.ts"
 import { CONDUIT_VERSION } from "../Conduit/version.ts"
 
 const MODULE_NAME = "conduit"
-const state = { running: false, startedAt: null as Date | null }
+// `building` gates the on-demand insight run. The job costs an inference call and
+// takes seconds, so a second request while one is in flight must not start another
+// — the same single-flight shape the atlas insights regenerate route uses.
+// public PR #1647, @elhoim
+const state = { running: false, startedAt: null as Date | null, building: false }
 
 export async function start(): Promise<void> {
   state.running = true
@@ -124,7 +130,31 @@ export async function handleRequest(req: Request, pathname: string): Promise<Res
     return Response.json(recentRecords(days))
   }
   if (sub === "/sources") return Response.json(buildSourcesReport())
-  if (sub === "/insight") return Response.json(todayInsight())
+  // On-demand insight run. The dashboard's empty state used to print a command for
+  // the operator to paste; this is the button behind it. public PR #1647, @elhoim
+  //
+  // Fire-and-forget with a 202: buildInsight makes an inference call and can take
+  // seconds, and holding the socket open for it would look like a hung dashboard.
+  // The caller re-reads GET /insight, which now reports `building`.
+  // BuildInsight is imported lazily so Pulse startup doesn't pull the inference
+  // path into its module graph for a route most sessions never hit.
+  if (sub === "/insight/build") {
+    if (req.method !== "POST") return new Response("method not allowed", { status: 405 })
+    if (state.building) return Response.json({ building: true, alreadyRunning: true }, { status: 202 })
+    state.building = true
+    void (async () => {
+      try {
+        const { buildInsight } = await import("../Conduit/BuildInsight.ts")
+        await buildInsight(localDate(new Date()))
+      } catch (err) {
+        console.error(`[${MODULE_NAME}] on-demand insight failed: ${String(err)}`)
+      } finally {
+        state.building = false
+      }
+    })()
+    return Response.json({ building: true }, { status: 202 })
+  }
+  if (sub === "/insight") return Response.json({ ...(todayInsight() as object), building: state.building })
   if (sub === "/status" || sub === "/health") return Response.json(health())
   return null // fall through to other routers
 }

@@ -42,6 +42,8 @@ export interface Digest {
     sources_used: string[]
     sources_failed: string[]
     errors: string[]
+    /** True on dated digests reconstructed by Tools/Backfill.ts. */
+    backfilled?: boolean
   }
   construction: FetchResult
   crime: FetchResult

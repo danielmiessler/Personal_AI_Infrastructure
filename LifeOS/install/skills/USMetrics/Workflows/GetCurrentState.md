@@ -39,7 +39,7 @@ Running **GetCurrentState** in **USMetrics**...
 
 Read the master metrics document:
 ```
-~/Projects/Substrate/Data/US-Common-Metrics/US-Common-Metrics.md
+${USMETRICS_DATA_DIR:-~/.claude/LIFEOS/USER/DATA/US-Common-Metrics}/US-Common-Metrics.md
 ```
 
 Extract the list of all metrics with their:

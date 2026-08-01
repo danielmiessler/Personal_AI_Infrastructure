@@ -44,7 +44,7 @@ export interface WorkEvent {
   unset?: string[];
   /** sessionUUID when the row carries one — identity for forensics. */
   uuid?: string;
-  /** Writer tag, e.g. 'AlgoPhase', 'ISASync', 'SessionCleanup'. */
+  /** Writer tag, e.g. 'ISASync', 'SessionCleanup'. (Legacy events carry 'AlgoPhase' — tool retired 2026-07-14.) */
   src: string;
 }
 

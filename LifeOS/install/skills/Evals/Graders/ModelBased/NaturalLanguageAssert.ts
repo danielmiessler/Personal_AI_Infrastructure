@@ -6,6 +6,7 @@
 import { BaseGrader, registerGrader, type GraderContext } from '../Base.ts';
 import type { GraderConfig, GraderResult, NaturalLanguageAssertParams } from '../../Types/index.ts';
 import { inference, type InferenceLevel } from '../../../../LIFEOS/TOOLS/Inference.ts';
+import { judgeLevelForModel } from './JudgeLevel.ts';
 
 export class NaturalLanguageAssertGrader extends BaseGrader {
   type = 'natural_language_assert' as const;
@@ -21,17 +22,10 @@ export class NaturalLanguageAssertGrader extends BaseGrader {
       });
     }
 
-    // Map model preference to inference level (default to medium/Sonnet)
-    const levelMap: Record<string, InferenceLevel> = {
-      'claude-haiku-4-5-20251001': 'low',
-      'claude-sonnet-4-6': 'medium',
-      'claude-opus-4-8': 'high',
-      'claude-opus-4-6': 'high',
-      'claude-sonnet-4-20250514': 'medium',
-      'claude-opus-4-20250514': 'high',
-      'claude-fable-5': 'max',
-    };
-    const level: InferenceLevel = levelMap[params.judge_model ?? ''] ?? 'medium';
+    // Judge level derives from the registry (tier-based, so version bumps don't
+    // silently demote every judge) and CAPS at high — uplevel routing is the
+    // Advisor's door alone. See JudgeLevel.ts for both defects this replaced.
+    const level: InferenceLevel = judgeLevelForModel(params.judge_model);
     const requireAll = params.require_all ?? true;
 
     const systemPrompt = `You are an assertion checker. For each assertion, determine if it is TRUE or FALSE based on the given output.

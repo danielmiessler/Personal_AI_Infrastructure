@@ -1,8 +1,7 @@
 ---
 name: Science
-version: 1.1.17
+version: 1.1.18
 description: "The scientific method as a universal problem-solving algorithm — goal-first, plural falsifiable hypotheses, designed experiments, and honest measurement, scaling from TDD to feature validation to MVP launch. USE WHEN think about, figure out, experiment, iterate, optimize, hypothesis, science, full cycle, quick diagnosis, structured investigation, how do we test, analyze results. NOT FOR multi-angle lens passes (use IterativeDepth)."
-effort: high
 ---
 
 ## Customization

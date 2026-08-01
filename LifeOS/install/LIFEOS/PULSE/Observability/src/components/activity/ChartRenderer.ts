@@ -28,8 +28,6 @@ const AGENT_COLORS: Record<string, string> = {
   "perplexity-researcher": "#EAB308",
   "claude-researcher": "#EAB308",
   "gemini-researcher": "#EAB308",
-  "grok-researcher": "#EAB308",
-  qatester: "#EAB308",
   main: "#3B82F6",
   da: "#3B82F6",
   pai: "#3B82F6",

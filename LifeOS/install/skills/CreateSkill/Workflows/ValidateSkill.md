@@ -143,22 +143,19 @@ Common confusable pairs to check: research-style skills (Research vs investigati
 
 ---
 
-## Step 5a-prelude: Public Release Readiness Check
+## Step 5a-prelude: Publish-Clean Readiness Gate
 
-Every skill ships with the LifeOS public release. Verify the skill is clean of personal/sensitive content:
+Every skill — public `TitleCase` AND private `_ALLCAPS` (2026-07-23 separation directive) — must be publish-clean in its body, with sensitive data referenced from `LIFEOS/USER/`. Run the deterministic gate, never a hand-rolled grep (a hardcoded pattern list rots and misses most of the deny-list):
 
 ```bash
-rg -i "danielmiessler|unsupervised|ULAdmin|thesurface|human3|ul\.live|/Users/[a-z]+/" ~/.claude/skills/[SkillName]/
+bun ~/.claude/LIFEOS/TOOLS/SkillHygieneGate.ts --skill <SkillName>
 ```
 
-**Check for violations:**
-- Hardcoded secrets, API keys, tokens, bearer credentials (zero tolerance)
-- Author name or first-person war stories ("the user reports", "the YYYY-MM bug we hit...")
-- Specific project names baked into prose (<product>, <subproduct>, <brand>, etc.) — these belong in `SKILLCUSTOMIZATIONS/`
-- User-specific absolute paths (`/Users/<name>/...`) — use `~/` instead
-- Personal domain names (<author>.example, <product>.example, <brand>.example) — unless the skill is specifically about operating that domain
+The gate reads the canonical `LIFEOS/USER/SECURITY/DENY_LIST.txt` (same source the release pipeline uses) and flags identity strings, home-path literals, and git-tracked vendored deps. It runs inside `/ic` too, and the write-time SystemFileGuard blocks deny-listed tokens from landing in a skill body at edit time.
 
-**Zero matches = PASS.** Any match = FAIL, recommend moving to `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` or rewriting in generic language.
+**Exit 0 = PASS.** Any violation = FAIL: move the offending data to `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` (or its canonical USER home) and reference it by path. Additional checks the gate does not cover:
+- Hardcoded secrets, API keys, tokens, bearer credentials (zero tolerance) — env-var *names* only, values in `~/.claude/.env`.
+- Bare first-names the deny-list ignores for attribution: grep the skill for the principal's and partner's first names (from the identity files) and genericize any that aren't a public citation or a functional detection pattern.
 
 ---
 
@@ -272,7 +269,7 @@ grep -l "Intent-to-Flag" ~/.claude/skills/[SkillName]/Workflows/*.md
 ### Public Release Readiness
 - [ ] No sensitive content (API keys, tokens, credentials, private URLs)
 - [ ] No personal references (author name, project names, personal domains, user-specific absolute paths)
-- [ ] Pre-flight grep for personal refs returns zero matches
+- [ ] `SkillHygieneGate.ts --skill <SkillName>` exits 0 (publish-clean, public and private alike)
 - [ ] Personal/user-specific content (if any) lives in `SKILLCUSTOMIZATIONS/`, not the skill body
 
 ### Structure

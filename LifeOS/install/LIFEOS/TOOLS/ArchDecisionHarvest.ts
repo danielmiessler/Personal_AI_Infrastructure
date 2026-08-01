@@ -60,13 +60,13 @@ interface CliOptions {
   workDir: string;
 }
 
-interface IsaFrontmatter {
+interface ISAFrontmatter {
   phase?: string;
   updated?: string;
   started?: string;
 }
 
-interface IsaDecision {
+interface ISADecision {
   slug: string;
   number: number;
   text: string;
@@ -83,7 +83,7 @@ interface HarvestResult {
 // File discovery
 // ============================================================================
 
-function listIsaFiles(workDir: string): string[] {
+function listISAFiles(workDir: string): string[] {
   if (!fs.existsSync(workDir)) {
     return [];
   }
@@ -109,7 +109,7 @@ function listIsaFiles(workDir: string): string[] {
 // ISA parsing
 // ============================================================================
 
-function parseFrontmatter(content: string): IsaFrontmatter {
+function parseFrontmatter(content: string): ISAFrontmatter {
   if (!content.startsWith("---\n")) {
     return {};
   }
@@ -120,7 +120,7 @@ function parseFrontmatter(content: string): IsaFrontmatter {
   }
 
   const frontmatter = content.slice(4, end);
-  const result: IsaFrontmatter = {};
+  const result: ISAFrontmatter = {};
   for (const line of frontmatter.split("\n")) {
     const match = line.match(/^([A-Za-z_][A-Za-z0-9_-]*):\s*(.+?)\s*$/);
     if (match) {
@@ -151,7 +151,7 @@ function normalizeDate(value: string): string | undefined {
   return undefined;
 }
 
-function resolveDecisionDate(frontmatter: IsaFrontmatter, today?: string): string {
+function resolveDecisionDate(frontmatter: ISAFrontmatter, today?: string): string {
   if (frontmatter.updated) {
     return frontmatter.updated;
   }
@@ -164,7 +164,7 @@ function resolveDecisionDate(frontmatter: IsaFrontmatter, today?: string): strin
   return "unknown (ISA missing updated/started)";
 }
 
-function isCompleteIsa(frontmatter: IsaFrontmatter): boolean {
+function isCompleteIsa(frontmatter: ISAFrontmatter): boolean {
   return frontmatter.phase?.trim().toLowerCase() === "complete";
 }
 
@@ -186,8 +186,8 @@ function extractDecisionsSection(content: string): string | null {
   return content.slice(bodyStart, bodyStart + nextHeading);
 }
 
-function parseDecisionBullets(section: string, slug: string, decided: string): IsaDecision[] {
-  const decisions: IsaDecision[] = [];
+function parseDecisionBullets(section: string, slug: string, decided: string): ISADecision[] {
+  const decisions: ISADecision[] = [];
   let current: { number: number; parts: string[] } | null = null;
 
   const flush = (): void => {
@@ -234,7 +234,7 @@ function parseDecisionBullets(section: string, slug: string, decided: string): I
   return decisions;
 }
 
-function readIsaDecisions(isaPath: string, options: Pick<CliOptions, "includeIncomplete" | "today">): IsaDecision[] {
+function readISADecisions(isaPath: string, options: Pick<CliOptions, "includeIncomplete" | "today">): ISADecision[] {
   const slug = path.basename(path.dirname(isaPath));
   const content = fs.readFileSync(isaPath, "utf-8");
   const frontmatter = parseFrontmatter(content);
@@ -335,7 +335,7 @@ function truncateReplacementNote(note: string): string {
   return normalizeWhitespace(normalized.slice(0, boundary));
 }
 
-function renderArchitectureDecision(decision: IsaDecision, sequence: number): string {
+function renderArchitectureDecision(decision: ISADecision, sequence: number): string {
   const marker = `<!-- ad-src: ${decision.slug}#D-${decision.number} -->`;
   const decisionText = stripArchTag(decision.text);
   const lines = [
@@ -406,11 +406,11 @@ function insertBlocks(content: string, insertAt: number, blocks: string): string
 // Harvest
 // ============================================================================
 
-function collectSelectedDecisions(options: CliOptions): IsaDecision[] {
-  const decisions: IsaDecision[] = [];
-  for (const isaPath of listIsaFiles(options.workDir)) {
+function collectSelectedDecisions(options: CliOptions): ISADecision[] {
+  const decisions: ISADecision[] = [];
+  for (const isaPath of listISAFiles(options.workDir)) {
     try {
-      const parsed = readIsaDecisions(isaPath, options);
+      const parsed = readISADecisions(isaPath, options);
       for (const decision of parsed) {
         if (qualifiesDecision(decision.text, options.keywords)) {
           decisions.push(decision);
@@ -484,11 +484,11 @@ function runHarvest(options: CliOptions): string {
 function writeSelftestFixture(tempDir: string): { workDir: string; docPath: string } {
   const workDir = path.join(tempDir, "MEMORY", "WORK");
   const isaDir = path.join(workDir, "20260614-loop-detector-and-arch-decisions");
-  const incompleteIsaDir = path.join(workDir, "20260614-verify-phase-arch-conjecture");
+  const incompleteISADir = path.join(workDir, "20260614-verify-phase-arch-conjecture");
   const docPath = path.join(tempDir, "DOCUMENTATION", "LifeosSystemArchitecture.md");
 
   fs.mkdirSync(isaDir, { recursive: true });
-  fs.mkdirSync(incompleteIsaDir, { recursive: true });
+  fs.mkdirSync(incompleteISADir, { recursive: true });
   fs.mkdirSync(path.dirname(docPath), { recursive: true });
 
   fs.writeFileSync(path.join(isaDir, "ISA.md"), [
@@ -510,7 +510,7 @@ function writeSelftestFixture(tempDir: string): { workDir: string; docPath: stri
     "",
   ].join("\n"));
 
-  fs.writeFileSync(path.join(incompleteIsaDir, "ISA.md"), [
+  fs.writeFileSync(path.join(incompleteISADir, "ISA.md"), [
     "---",
     "phase: verify",
     "updated: 2026-06-14T13:00:00Z",

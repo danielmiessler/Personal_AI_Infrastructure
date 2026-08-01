@@ -1,25 +1,30 @@
 /**
- * Projects Pulse module — read-only surface over USER/PROJECTS.md ({{PRINCIPAL_NAME}}'s project
- * routing table). Holds ZERO data: parses the USER file on every request and serves
- * it. The dashboard page renders whatever this returns. Edit PROJECTS.md → the view
- * changes with no code change and no rebuild.
+ * Projects Pulse module — read-only surface over the project source files. Holds
+ * ZERO data: parses the USER files on every request and serves them grouped by
+ * source. Edit a source file → the view changes with no code change and no rebuild.
  *
- * Route: GET /api/projects → { count, source, generatedAt, projects: [ … ] }
+ * Route: GET /api/projects → { count, source, generatedAt, projects, groups }
+ *   - Top-level count/source/projects mirror the "live" group (back-compat).
+ *   - groups: one entry per source — live apps (PROJECTS.md), TELOS projects
+ *     (TELOS.md ## Projects), retired (PROJECTS_RETIRED.md).
  *
  * Data/code separation: no project name, path, URL, or stack is hardcoded here.
- * Every field is derived from the markdown table at request time.
+ * Every field is derived from the markdown at request time.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 const MODULE_NAME = "projects";
-const PROJECTS_PATH = join(
-  process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"),
-  "LIFEOS",
-  "USER",
-  "PROJECTS.md",
-);
+const USER_DIR = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "LIFEOS", "USER");
+const PROJECTS_PATH = join(USER_DIR, "PROJECTS.md");
+
+/** Every project source Pulse knows about — one tab each on the dashboard. */
+const SOURCES: { key: string; label: string; path: string; source: string; kind: "table" | "telos" }[] = [
+  { key: "live", label: "Live Apps", path: PROJECTS_PATH, source: "USER/PROJECTS.md", kind: "table" },
+  { key: "telos", label: "TELOS", path: join(USER_DIR, "TELOS", "TELOS.md"), source: "USER/TELOS/TELOS.md § Projects", kind: "telos" },
+  { key: "retired", label: "Retired", path: join(USER_DIR, "PROJECTS_RETIRED.md"), source: "USER/PROJECTS_RETIRED.md", kind: "table" },
+];
 const state = { running: false };
 
 export type Badge =
@@ -93,6 +98,8 @@ function cleanName(raw: string): string {
 function deriveHref(urlCell: string): string | null {
   const cell = urlCell.trim();
   if (!cell || cell === "—" || cell === "-") return null;
+  // ~~struck-through~~ URL = dead infra (retired rows) — never link it.
+  if (/^~~/.test(cell)) return null;
   // Already a full URL?
   const full = cell.match(/https?:\/\/[^\s)]+/i);
   if (full) return full[0];
@@ -138,11 +145,12 @@ export function parseProjects(md: string): Project[] {
   const projects: Project[] = [];
   const sessionLabels = openSessionLabels(md);
 
-  // Find the main projects table header: a row naming Project + Deploy + Stack.
+  // Find the main projects table header: a row naming Project + Deploy. The last
+  // column has been renamed over time (Stack → ISA / detail), so don't pin it.
   let i = 0;
   for (; i < lines.length; i++) {
     const l = lines[i];
-    if (l.trim().startsWith("|") && /\bProject\b/i.test(l) && /\bDeploy\b/i.test(l) && /\bStack\b/i.test(l)) {
+    if (l.trim().startsWith("|") && /\bProject\b/i.test(l) && /\bDeploy\b/i.test(l)) {
       break;
     }
   }
@@ -163,10 +171,10 @@ export function parseProjects(md: string): Project[] {
       name,
       rawName: rawName.trim(),
       path: stripBackticks(pathCell),
-      url: urlCell.trim(),
+      url: urlCell.replace(/\*\*/g, "").replace(/~~/g, "").trim(),
       href: deriveHref(urlCell),
       deploy: stripBackticks(deployCell),
-      stack: stackCell.trim(),
+      stack: stackCell.replace(/\*\*/g, "").trim(),
       badges: deriveBadges(rawName, urlCell, stackCell),
       openSession: hasOpenSession(name, sessionLabels),
     });
@@ -174,37 +182,95 @@ export function parseProjects(md: string): Project[] {
   return projects;
 }
 
+/**
+ * Parse the `## Projects` section of TELOS.md — prose lines (optionally bulleted),
+ * one project per non-empty line. These carry no path/URL/deploy; the whole line
+ * is the project statement.
+ */
+export function parseTelosProjects(md: string): Project[] {
+  // (?![\s\S]) = true end-of-string (with /m, $ would match every line end and
+  // starve the lazy capture down to nothing).
+  const m = md.match(/^##\s+Projects\b[^\n]*\n([\s\S]*?)(?=\n##\s|(?![\s\S]))/m);
+  if (!m) return [];
+  const projects: Project[] = [];
+  for (const raw of m[1].split("\n")) {
+    let line = raw.trim();
+    if (!line || line.startsWith("#") || line.startsWith("<!--")) continue;
+    line = line.replace(/^[-*]\s+/, ""); // tolerate bulleted form
+    const name = cleanName(line);
+    if (!name) continue;
+    projects.push({
+      name,
+      rawName: raw.trim(),
+      path: "",
+      url: "",
+      href: null,
+      deploy: "",
+      stack: "",
+      badges: [],
+      openSession: false,
+    });
+  }
+  return projects;
+}
+
 // ── Module contract ──────────────────────────────────────────────────────────
+
+interface Group {
+  key: string;
+  label: string;
+  source: string;
+  count: number;
+  projects: Project[];
+  /** Drift signal: source file exists with content but nothing parsed. */
+  error?: string;
+}
 
 interface ReadResult {
   count: number;
   source: string;
   generatedAt: string;
   projects: Project[];
+  groups: Group[];
   error?: string;
 }
 
+/** Parse one source file into its group. Fail-soft: never throws. */
+function readGroup(src: (typeof SOURCES)[number]): Group {
+  const base = { key: src.key, label: src.label, source: src.source };
+  try {
+    if (!existsSync(src.path)) return { ...base, count: 0, projects: [], error: `${src.source} not found` };
+    const md = readFileSync(src.path, "utf8");
+    const projects = src.kind === "telos" ? parseTelosProjects(md) : parseProjects(md);
+    const group: Group = { ...base, count: projects.length, projects };
+    // Drift signal: file has content but nothing parsed → heading/format changed.
+    if (projects.length === 0 && md.trim().length > 0) {
+      group.error = `${src.source} present but no projects parsed — source format drifted`;
+      console.warn(`[${MODULE_NAME}] ${group.error}`);
+    }
+    return group;
+  } catch (err) {
+    console.warn(`[${MODULE_NAME}] failed to read/parse ${src.source}: ${String(err)}`);
+    return { ...base, count: 0, projects: [], error: String(err) };
+  }
+}
+
 /**
- * Read + parse PROJECTS.md. Fail-soft: a missing, unreadable, or malformed file
- * NEVER throws — it returns an empty list (+ an `error` field when relevant) so
- * the endpoint and the dashboard degrade gracefully instead of taking down Pulse.
+ * Read + parse every source. Fail-soft per group; top-level fields mirror the
+ * "live" group so pre-groups consumers keep working.
  */
 function read(): ReadResult {
   const generatedAt = new Date().toISOString();
-  const source = "USER/PROJECTS.md";
-  try {
-    if (!existsSync(PROJECTS_PATH)) return { count: 0, source, generatedAt, projects: [], error: "PROJECTS.md not found" };
-    const md = readFileSync(PROJECTS_PATH, "utf8");
-    const projects = parseProjects(md);
-    // Drift signal: file has content but no parseable table → heading/format changed.
-    if (projects.length === 0 && md.trim().length > 0) {
-      console.warn(`[${MODULE_NAME}] PROJECTS.md present but no project table parsed — check the '| Project | … | Stack |' header`);
-    }
-    return { count: projects.length, source, generatedAt, projects };
-  } catch (err) {
-    console.warn(`[${MODULE_NAME}] failed to read/parse PROJECTS.md: ${String(err)}`);
-    return { count: 0, source, generatedAt, projects: [], error: String(err) };
-  }
+  const groups = SOURCES.map(readGroup);
+  const live = groups.find((g) => g.key === "live") ?? groups[0];
+  return {
+    count: live.count,
+    source: live.source,
+    generatedAt,
+    projects: live.projects,
+    groups,
+    ...(live.error ? { error: live.error } : {}),
+  };
 }
 
 export async function start(): Promise<void> {
@@ -215,13 +281,22 @@ export async function stop(): Promise<void> {
   state.running = false;
 }
 export function health(): { status: string; details?: Record<string, unknown> } {
-  let count = 0;
+  if (!state.running) return { status: "stopped" };
+  // Parse-drift is DEGRADED, not healthy-with-zero: a renamed column once zeroed
+  // the page for a week while health stayed green (2026-07-19 incident).
+  let counts: Record<string, number> = {};
+  let drift: string[] = [];
   try {
-    count = read().count;
+    const r = read();
+    counts = Object.fromEntries(r.groups.map((g) => [g.key, g.count]));
+    drift = r.groups.filter((g) => g.error).map((g) => g.error!);
   } catch {
     /* ignore */
   }
-  return { status: state.running ? "healthy" : "stopped", details: { projects: count } };
+  return {
+    status: drift.length > 0 ? "degraded" : "healthy",
+    details: { ...counts, ...(drift.length ? { drift } : {}) },
+  };
 }
 export async function handleRequest(_req: Request, pathname: string): Promise<Response | null> {
   const sub = pathname.replace(/^\/api\/projects/, "") || "/";

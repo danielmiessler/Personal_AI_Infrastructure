@@ -1,8 +1,7 @@
 ---
 name: WriteStory
-version: 1.1.7
-description: "Scaffolding that helps a writer build a story they already want to tell — fills in structure, hidden wound, theme, and prose from the writer's own material across seven narrative layers, deriving the spine from their notes as proposals they ratify. Bans generic AI patterns; scales short story to multi-book series. USE WHEN write story, fiction, novel, chapter, story bible, character arc, plot outline, creative writing, worldbuilding, draft story, help me write my story, develop my novel, layer my story, build out my book, I have notes for a story. NOT FOR narrative summaries of real content (use _STORYEXPLANATION)."
-effort: high
+version: 1.1.9
+description: "Scaffolding that helps a writer build a story they already want to tell — fills in structure, hidden wound, theme, and prose from the writer's own material across seven narrative layers, deriving the spine from their notes as proposals they ratify. Bans generic AI patterns; scales short story to multi-book series. USE WHEN write story, fiction, novel, chapter, story bible, character arc, plot outline, creative writing, worldbuilding, draft story, help me write my story, develop my novel, layer my story, build out my book, I have notes for a story. NOT FOR narrative summaries of real content."
 ---
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)

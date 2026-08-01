@@ -1,8 +1,7 @@
 ---
 name: PrivateInvestigator
-version: 1.1.16
-description: "Ethical people-finding and identity verification via parallel research agents across people-search sites, social media, public records, and reverse phone/email/image/username lookups, with confidence-scored results requiring 3+ matching identifiers. USE WHEN find person, locate person, reconnect, lost contact, old friend, reverse phone lookup, who owns this email, reverse image search, find by username, verify identity, people search, public-data background check, who is this caller. NOT FOR structured due-diligence or company/entity intelligence investigations (use _OSINT) or general web research synthesis (use Research)."
-effort: high
+version: 1.1.18
+description: "Ethical people-finding and identity verification via parallel research agents across people-search sites, social media, public records, and reverse phone/email/image/username lookups, with confidence-scored results requiring 3+ matching identifiers. USE WHEN find person, locate person, reconnect, lost contact, old friend, reverse phone lookup, who owns this email, reverse image search, find by username, verify identity, people search, public-data background check, who is this caller. NOT FOR structured due-diligence or company/entity intelligence investigations, or general web research synthesis (use Research)."
 ---
 
 ## Customization

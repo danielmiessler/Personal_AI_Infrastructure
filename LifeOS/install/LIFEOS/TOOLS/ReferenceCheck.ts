@@ -81,7 +81,7 @@ const EXCLUDE_PATH_PREFIXES = [
   'LIFEOS/USER/CUSTOMIZATIONS/ARBOL',         // private worker tree
   'LIFEOS/USER/DAEMON',        // private daemon work
   'LIFEOS/USER/CUSTOMIZATIONS/SKILLS',
-  'LIFEOS/ARBOL',              // ACTIONS/FLOWS/PIPELINES/ARBOLSYSTEM.md consolidated here
+  'LIFEOS/ARBOL',              // pre-rename Arbol docs (actions/flows/pipelines) consolidated here
   'MEMORY',
   'Projects',
   'projects',
@@ -181,6 +181,7 @@ const EXCLUDE_SUBSTRINGS = [
   '/Patterns/',              // Fabric LLM prompt files
   '/MigrationNotes.md',      // historical migration docs
   '/Templates/',             // public-release templates w/ placeholders
+  '/test/regression/fixtures/', // replay-corpus fixture DATA — synthetic path literals, not refs
 ];
 
 const EXCLUDE_FILE_SUFFIXES = [
@@ -283,7 +284,11 @@ function walk(root: string): string[] {
 // Engineered to land on the LAST `.\w+` boundary so `foo.hook.ts` captures whole name.
 const EXT = '\\.\\w+(?:\\.\\w+)*';
 
-const REF_PATTERNS: { re: RegExp; label: string }[] = [
+// `fenceSafe` opts a pattern out of the blanket fenced-block skip below. Prose
+// fences are usually examples, so the default (skip) is right — but a runnable
+// command block is the one place where a fenced path IS a live reference: it's
+// what a reader will actually paste into a shell. public issue #1679, @christauff
+const REF_PATTERNS: { re: RegExp; label: string; fenceSafe?: true }[] = [
   // Backtick-quoted paths with top-level anchor
   { re: new RegExp('`((?:LifeOS|hooks|skills|agents|Pulse|USER|MEMORY|Components|Algorithm|Tools|Workflows|References)\\/[\\w/@.-]+?' + EXT + ')`', 'g'), label: 'backtick-anchored' },
   // Backtick-quoted paths starting with ~/.claude/
@@ -302,7 +307,24 @@ const REF_PATTERNS: { re: RegExp; label: string }[] = [
   { re: /from\s+["'](\.\.?\/[\w/@.-]+?)["']/g, label: 'ts-import' },
   // settings.json style: "command": "... $HOME/.claude/hooks/Foo.hook.ts ..."
   { re: new RegExp('\\$\\{?HOME\\}?\\/\\.claude\\/((?:hooks|LifeOS|skills|agents)\\/[\\w/@.-]+?' + EXT + ')', 'g'), label: 'json-home' },
+  // Bare command invocations: `bun ~/.claude/LIFEOS/TOOLS/Foo.ts --flag`.
+  // Every other tilde pattern above is backtick-anchored (backtick-home needs the
+  // backtick immediately before `~`), and json-home only matches the $HOME form —
+  // so an inline or fenced command naming a tool path matched nothing at all, and
+  // a renamed tool could rot in every runbook without the checker noticing.
+  // public issue #1679, @christauff
+  {
+    re: new RegExp('\\b(?:bun|bunx|node|tsx)\\s+(?:run\\s+)?(?:~|\\$\\{?HOME\\}?)\\/\\.claude\\/([\\w/@.-]+?' + EXT + ')', 'g'),
+    label: 'fenced-command',
+    fenceSafe: true,
+  },
 ];
+
+// Illustrative stand-in names used by the authoring guides. Deliberately
+// narrow: `SkillName`/`ToolName` are the exact tokens the skill-authoring
+// template uses, and `my-*` is the hook guide's convention for "your hook
+// goes here". public issue #1679, @christauff
+const PLACEHOLDER_NAME_RE = /(?:^|\/)(?:SkillName|ToolName|my-[\w-]+)(?:\/|\.\w)/;
 
 interface RefHit {
   raw: string;
@@ -386,7 +408,7 @@ function extractRefs(content: string, referringFile: string): RefHit[] {
   // regex patterns, test fixtures, and docstrings that are NOT real path references.
   const isTs = referringFile.endsWith('.ts') || referringFile.endsWith('.tsx');
 
-  for (const { re, label } of REF_PATTERNS) {
+  for (const { re, label, fenceSafe } of REF_PATTERNS) {
     if (isTs && label !== 'ts-import') continue;
     const regex = new RegExp(re.source, re.flags);
     let m: RegExpExecArray | null;
@@ -406,11 +428,24 @@ function extractRefs(content: string, referringFile: string): RefHit[] {
       // user-defined override file that may not exist by default)
       if (raw.includes('your-da')) continue;
       if (raw.includes('CUSTOMIZATIONS/SKILLS/')) continue;
+      // Stand-in names in authoring docs. The angle-bracket forms above cover
+      // `<name>`, but the how-to-write-a-hook and how-to-write-a-skill guides
+      // use bare illustrative names in runnable-looking command blocks —
+      // `bun ~/.claude/hooks/my-hook.ts`, `skills/SkillName/Tools/ToolName.ts`.
+      // Nothing should exist at those paths; flagging them trains the reader to
+      // ignore the checker. public issue #1679, @christauff
+      if (PLACEHOLDER_NAME_RE.test(raw)) continue;
+      // The pre-7.x `PAI/` tree is retired and deliberately absent. Migration
+      // prose names its old paths so an installer can find and remove stale
+      // aliases — those mentions are historical, never live references.
+      if (raw.startsWith('PAI/')) continue;
       // Skip obvious non-path strings
       if (raw.length < 3 || raw.length > 200) continue;
 
-      // Skip refs inside ``` code fences (usually examples, not live refs)
-      if (fences && fences[m.index] === 1) continue;
+      // Skip refs inside ``` code fences (usually examples, not live refs).
+      // fenceSafe patterns opt out — a runnable command block is exactly where a
+      // live path reference belongs. public issue #1679, @christauff
+      if (!fenceSafe && fences && fences[m.index] === 1) continue;
 
       const key = `${referringFile}\u0000${raw}\u0000${m.index}`;
       if (seen.has(key)) continue;
@@ -559,6 +594,27 @@ const filesToReport = changed
 // Mirrors the LIFEOS/PULSE/state source exclusion above, on the target side.
 const RUNTIME_TARGET_SUBSTRINGS = ['MEMORY/PULSE_DATA/'];
 
+/** Referrers whose references are imports, not descriptions — never stale-checked. */
+const CODE_REFERRER = /\.(ts|tsx|js|jsx|mjs|cjs|json)$/;
+
+/**
+ * Targets that change as a matter of course: generated data and the principal's own
+ * living files. A workflow pointing at TELOS.md is not rot because TELOS.md was edited —
+ * that is the file doing its job. Staleness only means something for targets whose
+ * change implies the describing doc fell behind.
+ */
+const LIVING_TARGET_SUBSTRINGS = ['MEMORY/DATA/', 'MEMORY/PULSE_DATA/', 'USER/TELOS/', 'USER/PRINCIPAL/', 'USER/PROJECTS.md', 'USER/CONFIG/', 'USER/WORK/'];
+
+/**
+ * How far a target may drift ahead of the doc describing it before that doc is
+ * suspect. `--stale-days N` overrides.
+ */
+const STALE_DAYS = (() => {
+  const i = args.indexOf('--stale-days');
+  const n = i >= 0 ? Number(args[i + 1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 30;
+})();
+
 // Second pass — classify findings
 for (const [file, refs] of fileRefs) {
   if (filesToReport && !filesToReport.has(file)) continue;
@@ -581,13 +637,18 @@ for (const [file, refs] of fileRefs) {
       });
       continue;
     }
-    if (includeStale) {
+    // Staleness is a PROSE heuristic: "this description may no longer match what it
+    // describes." It is meaningless for a code import — a module changing is the normal
+    // life of a dependency, not rot in the file that imports it. Applying it to code
+    // produced 201 of 418 findings, which is most of why nobody read the other 217.
+    if (includeStale && !CODE_REFERRER.test(relFile)
+        && !LIVING_TARGET_SUBSTRINGS.some(s => relative(CLAUDE_DIR, r.resolved).includes(s))) {
       try {
         if (refMtimeCache === null) refMtimeCache = statSync(file).mtimeMs;
         const targetMtime = statSync(r.resolved).mtimeMs;
         if (targetMtime > refMtimeCache) {
           const daysStale = Math.round((targetMtime - refMtimeCache) / (1000 * 60 * 60 * 24));
-          if (daysStale >= 1) {
+          if (daysStale >= STALE_DAYS) {
             findings.push({
               type: 'stale',
               file: relFile,
@@ -613,7 +674,11 @@ for (const [file, refs] of fileRefs) {
 if (includeOrphans) {
   for (const file of allFiles) {
     const rel = relative(CLAUDE_DIR, file);
-    const isLifeosTopMd = /^LifeOS\/[^/]+\.md$/.test(rel);
+    // Case matters (public issue #1541, @tzioup): the dir is LIFEOS/, and the
+    // old LifeOS/-cased regex never matched anything — orphan detection was
+    // structurally dead. Scope (top-level LIFEOS/*.md only) is a known
+    // limitation; widening it is a separate design decision.
+    const isLifeosTopMd = /^LIFEOS\/[^/]+\.md$/.test(rel);
     if (!isLifeosTopMd) continue;
     if (!referenced.has(file)) {
       findings.push({

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.4.11
+ * @version 1.4.13
  * ISASync.hook.ts — ISA → work.json sync via PostToolUse
  *
  * TRIGGER: PostToolUse (Write, Edit, MultiEdit, Read)
@@ -31,9 +31,8 @@ import {
   ARTIFACT_FILENAME,
   LEGACY_ARTIFACT_FILENAME,
 } from './lib/isa-utils';
-import { setPhaseTab } from './lib/tab-setter';
-import { effortToCanonicalELevel } from './lib/effort';
-import type { AlgorithmTabPhase } from './lib/tab-constants';
+import { setAscentTab } from './lib/tab-setter';
+import { deriveAscent } from '../LIFEOS/TOOLS/ascent';
 
 let input: any;
 try {
@@ -46,7 +45,9 @@ const toolInput = input.tool_input || {};
 const toolName = (input.tool_name || '') as string;
 
 async function main() {
-  // Only trigger for ISA.md (or legacy PRD.md) files in MEMORY/WORK/
+  // Only trigger for ISA.md (or legacy PRD.md) files in MEMORY/WORK/.
+  // (The per-tool-call liveness heartbeat lives in EventLogger.hook.ts, which
+  // fires on every PostToolUse — one home, 2026-07-15 consolidation.)
   const filePath = toolInput.file_path || '';
   if (!filePath.includes('MEMORY/WORK/')) return;
   const isISA = filePath.endsWith('/' + ARTIFACT_FILENAME) || filePath.endsWith(ARTIFACT_FILENAME);
@@ -71,6 +72,16 @@ async function main() {
   const fm = parseFrontmatter(content);
   if (!fm) return;
 
+  // The slug IS the directory name — derive it when frontmatter omits it.
+  // syncToWorkJson keys the registry by fm.slug and silently no-ops without
+  // one, so every minimal/hand-written ISA (sanctioned by Algorithm claim 2)
+  // was invisible to the board: tracked runs rendered as "NO ISA" sessions
+  // (found 2026-07-22 — both of this session's ISAs never registered).
+  if (!fm.slug) {
+    const slugFromPath = filePath.match(/MEMORY\/WORK\/([^/]+)\//);
+    if (slugFromPath) fm.slug = slugFromPath[1];
+  }
+
   // Check existing phase before sync to detect phase changes
   const newPhase = (fm.phase || '').toUpperCase();
   let oldPhase = '';
@@ -85,15 +96,26 @@ async function main() {
   // Sync frontmatter + criteria to work.json (pass session_id for session name lookup)
   syncToWorkJson(fm, isaPath, content, input.session_id);
 
-  // Update tab color when algorithm phase changes
-  const VALID_PHASES = new Set(['OBSERVE', 'THINK', 'PLAN', 'BUILD', 'EXECUTE', 'VERIFY', 'LEARN', 'COMPLETE']);
-  if (newPhase !== oldPhase && VALID_PHASES.has(newPhase) && input.session_id) {
+  // Repaint the tab when the run's derived ascent state changes.
+  //
+  // The old gate was an explicit phase allowlist that had to be extended by hand
+  // every time the vocabulary moved — and wasn't, twice (2026-07-22, 2026-07-27),
+  // so tab colors silently stopped firing mid-run. `deriveAscent` resolves any
+  // phase value, current or retired, through the one table; an unknown value
+  // falls back to a real state instead of being dropped on the floor.
+  if (input.session_id && newPhase !== oldPhase) {
+    const [doneStr, totalStr] = String(fm.progress || '0/0').split('/');
+    const state = deriveAscent({
+      phase: newPhase,
+      tracked: true,
+      active: true,
+      done: parseInt(doneStr, 10) || 0,
+      total: parseInt(totalStr, 10) || 0,
+    });
     try {
-      // Tier token ("E1".."E5") from ISA frontmatter effort; '' for untiered.
-      const eLevel = effortToCanonicalELevel(fm.effort) || undefined;
-      setPhaseTab(newPhase as AlgorithmTabPhase, input.session_id, undefined, eLevel);
+      setAscentTab(state, input.session_id);
     } catch (err) {
-      console.error('[ISASync] setPhaseTab failed:', err);
+      console.error('[ISASync] setAscentTab failed:', err);
     }
   }
 

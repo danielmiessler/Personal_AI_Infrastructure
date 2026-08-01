@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { localApiCall } from "@/lib/local-api";
 import EmptyStateGuide from "@/components/EmptyStateGuide";
+import HermesFiles from "@/components/HermesFiles";
 import {
   PageShell, PageHeader, Panel, PanelHeader, Pill, TabBar, StatTile, dimStyle,
   type TabSpec,
@@ -11,6 +12,7 @@ import {
 import {
   Zap, Terminal, Clock, Plus, X, Trash2, Activity,
   Heart, Brain, Shield, Pencil, Check, ChevronDown, ChevronRight, Repeat,
+  Cloud, MessageSquare,
 } from "lucide-react";
 
 // ── Types ──
@@ -48,14 +50,46 @@ interface UnifiedTask {
   name: string;
   schedule: string;
   status: string;
-  source: "da" | "pulse" | "claude-code";
+  source: "da" | "pulse" | "claude-code" | "launchd" | "arbol" | "hermes";
   details?: Record<string, unknown>;
+}
+
+/** Mirrors `checkHermesHealth()` in LIFEOS/HERMES/Health.ts. */
+interface HermesHealth {
+  status: "absent" | "down" | "flapping" | "degraded" | "up";
+  summary: string;
+  installed: boolean;
+  pid: number | null;
+  pidAlive: boolean;
+  uptimeSeconds: number | null;
+  activeAgents: number | null;
+  platforms: { name: string; state: string; errorCode: string | null; errorMessage: string | null }[];
+  recentStarts: number;
+  problems: string[];
 }
 
 interface TasksResponse {
   tasks: UnifiedTask[];
   count: number;
-  by_source: { da: number; pulse: number; "claude-code": number };
+  by_source: { da: number; pulse: number; "claude-code": number; launchd: number; arbol?: number; hermes?: number };
+  /** The sidecar process itself — null when the probe failed. */
+  hermes?: HermesHealth | null;
+}
+
+const HERMES_STATUS_COLOR: Record<HermesHealth["status"], string> = {
+  up: "var(--ok)",
+  degraded: "var(--warn)",
+  flapping: "var(--warn)",
+  down: "var(--err)",
+  absent: "var(--ink-3)",
+};
+
+function formatUptimeSeconds(seconds: number | null): string {
+  if (seconds === null) return "—";
+  if (seconds < 90) return `${seconds}s`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 172800) return `${Math.round(seconds / 3600)}h`;
+  return `${Math.round(seconds / 86400)}d`;
 }
 
 interface CronJob {
@@ -200,7 +234,10 @@ function TraitBar({ name, value, color, onEdit }: { name: string; value: number;
 
 export default function AssistantPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"tasks" | "personality" | "diary">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "personality" | "hermes" | "diary">("tasks");
+  // Which scheduler the Scheduled Tasks tab is showing. Pulse cron is the default
+  // because it is the one Pulse actually owns and the one that gets edited.
+  const [scheduleTab, setScheduleTab] = useState<"pulse" | "launchd" | "claude-code" | "arbol" | "hermes">("pulse");
 
   const { data: identity } = useQuery<Identity>({ queryKey: ["assistant-identity"], queryFn: () => localApiCall("/assistant/identity"), refetchInterval: 30_000 });
   const { data: health } = useQuery<Health>({ queryKey: ["assistant-health"], queryFn: () => localApiCall("/assistant/health"), refetchInterval: 10_000 });
@@ -306,9 +343,22 @@ export default function AssistantPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assistant-personality"] }),
   });
 
+  // Scheduled Tasks is five independent schedulers, not one list — each with its
+  // own owner, its own file, and its own rules about what Pulse may change. They
+  // used to stack into one page you had to scroll past to reach the cron table
+  // you actually wanted; sub-tabs put each scheduler one click away instead.
+  const scheduleTabs: TabSpec<typeof scheduleTab>[] = [
+    { id: "pulse", label: "Pulse Cron", dim: "rhythms", hint: cronData ? `${cronData.counts.enabled}/${cronData.counts.total}` : undefined },
+    { id: "launchd", label: "launchd", dim: "freedom", hint: tasksData?.by_source.launchd || undefined },
+    { id: "claude-code", label: "Claude Code", dim: "freedom", hint: tasksData?.by_source["claude-code"] || undefined },
+    { id: "arbol", label: "Arbol", dim: "creative", hint: tasksData?.by_source.arbol || undefined },
+    { id: "hermes", label: "Hermes", dim: "relationships", hint: tasksData?.by_source.hermes || undefined },
+  ];
+
   const tabs: TabSpec<typeof activeTab>[] = [
-    { id: "tasks", label: "Tasks", dim: "creative" },
+    { id: "tasks", label: "Scheduled Tasks", dim: "creative" },
     { id: "personality", label: "Personality", dim: "relationships" },
+    { id: "hermes", label: "Hermes", dim: "freedom" },
     { id: "diary", label: "Diary", dim: "rhythms" },
   ];
 
@@ -332,48 +382,9 @@ export default function AssistantPage() {
           />
         )}
 
-        {/* Identity Card */}
-        {identity && (
-          <Panel className="flex flex-row items-center gap-6">
-            {identity.has_avatar ? (
-              <img
-                src="/assistant/avatar"
-                alt={identity.display_name}
-                className="w-20 h-20 rounded-full object-cover"
-                style={{ border: "2px solid var(--creative)" }}
-              />
-            ) : (
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold shrink-0"
-                style={{ backgroundColor: "rgba(248,123,123,0.14)", color: "var(--creative)" }}
-              >
-                {identity.display_name.charAt(0)}
-              </div>
-            )}
-            <div className="flex-1 min-w-0" data-sensitive>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-ink-1 font-medium" style={{ fontSize: 20 }}>{identity.full_name}</h2>
-                <Pill dim="creative" className="tracking-wide font-semibold">{identity.display_name}</Pill>
-              </div>
-              <p className="mt-1 text-sm text-ink-1">{identity.role}</p>
-              {identity.origin_story && (
-                <p className="mt-1.5 leading-relaxed text-[13px] text-ink-2">{identity.origin_story}</p>
-              )}
-            </div>
-            <div className="text-right text-sm space-y-1.5 shrink-0 text-ink-2">
-              <div className="flex items-center gap-2 justify-end">
-                <Clock className="w-4 h-4" style={{ color: "var(--creative)" }} />
-                <span>Up {formatUptime(identity.uptime_ms)}</span>
-              </div>
-              <div>Principal: <span className="text-ink-1">{identity.principal}</span></div>
-              <div>{health?.opinions_count ?? 0} opinions formed</div>
-            </div>
-          </Panel>
-        )}
-
         {/* Stats */}
         {health && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <StatTile
               label="Status"
               icon={Activity}
@@ -382,15 +393,172 @@ export default function AssistantPage() {
             />
             <StatTile label="CC Scheduled" icon={Terminal} value={String(tasksData?.by_source["claude-code"] ?? 0)} />
             <StatTile label="Cron Jobs" icon={Zap} value={String(tasksData?.by_source.pulse ?? 0)} />
+            <StatTile label="launchd" icon={Activity} value={String(tasksData?.by_source.launchd ?? 0)} />
+            <StatTile label="Arbol" icon={Cloud} value={String(tasksData?.by_source.arbol ?? 0)} />
+            <StatTile label="Hermes" icon={MessageSquare} value={String(tasksData?.by_source.hermes ?? 0)} />
           </div>
         )}
 
         {/* Tab Bar */}
         <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} className="pb-3" />
 
-        {/* TASKS TAB */}
+        {/* SCHEDULED TASKS TAB — one sub-tab per scheduler */}
         {activeTab === "tasks" && (
           <div className="space-y-6">
+            <TabBar tabs={scheduleTabs} active={scheduleTab} onChange={setScheduleTab} />
+
+            {scheduleTab === "launchd" && (
+            <Section title="Background Services · launchd" icon={Activity} dimension="freedom">
+              <div className="text-xs mono mb-1 text-ink-2">
+                ~/Library/LaunchAgents/com.lifeos.*.plist <span className="text-ink-3">(read-only — manage via LIFEOS/TOOLS/Services.ts)</span>
+              </div>
+              <div className="text-xs mb-3 text-ink-3">
+                macOS launchd agents installed by LifeOS — deterministic background jobs (inbox sweep, Conduit, backups) that run outside Pulse and survive Pulse restarts.
+              </div>
+              {(() => {
+                const svcTasks = tasksData?.tasks.filter((t) => t.source === "launchd") ?? [];
+                if (svcTasks.length === 0) {
+                  return <div className="text-[13px] text-ink-3">No com.lifeos launchd agents found.</div>;
+                }
+                return (
+                  <div className="space-y-1">
+                    {svcTasks.map((task, i) => (
+                      <div key={i} className="flex items-center gap-4 px-4 py-2.5 rounded-md">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: task.status === "active" ? "var(--ok)" : "var(--ink-3)" }}
+                        />
+                        <span className="text-[13px] mono text-ink-1 flex-1 truncate">{task.name}</span>
+                        <span className="text-xs mono text-ink-2 shrink-0">{task.schedule}</span>
+                        <span className="text-xs mono shrink-0" style={{ color: task.status === "active" ? "var(--ok)" : "var(--ink-3)" }}>
+                          {task.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </Section>
+            )}
+
+            {scheduleTab === "arbol" && (
+            <Section title="Scheduled Tasks · Arbol (Cloudflare)" icon={Cloud} dimension="freedom">
+              <div className="text-xs mono mb-1 text-ink-2">
+                ARBOL/Workers/*/wrangler.jsonc <span className="text-ink-3">(cron triggers, read from each worker&apos;s deploy config)</span>
+              </div>
+              <div className="text-xs mb-3 text-ink-3">
+                Cloud-side scheduled work on Cloudflare Workers. A cron here is scheduled by definition — whether its last run <em>succeeded</em> is a separate question this view does not answer.
+              </div>
+              {(() => {
+                const arbolTasks = tasksData?.tasks.filter((t) => t.source === "arbol") ?? [];
+                if (arbolTasks.length === 0) {
+                  return <div className="text-[13px] text-ink-3">No Arbol workers with cron triggers found.</div>;
+                }
+                return (
+                  <div className="space-y-1">
+                    {arbolTasks.map((task, i) => (
+                      <div key={i} className="flex items-center gap-4 px-4 py-2.5 rounded-md">
+                        <Cloud className="w-4 h-4 shrink-0" style={{ color: "var(--freedom)" }} />
+                        <span className="text-[13px] mono text-ink-1 flex-1 truncate">{task.name}</span>
+                        <span className="text-xs mono text-ink-2 shrink-0">{task.schedule}</span>
+                        <span className="text-xs mono shrink-0" style={{ color: "var(--ok)" }}>{task.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </Section>
+            )}
+
+            {scheduleTab === "hermes" && (
+            <Section title="Hermes (sidecar)" icon={MessageSquare} dimension="rhythms">
+              {/* The gateway process, above its jobs. Job rows say nothing about
+                  whether the sidecar serving them is alive, and a crash loop
+                  reads as running at any instant you happen to look. */}
+              {(() => {
+                const h = tasksData?.hermes;
+                if (!h) {
+                  return <div className="text-[13px] text-ink-3 mb-4">Sidecar health unavailable.</div>;
+                }
+                if (!h.installed) {
+                  return <div className="text-[13px] text-ink-3 mb-4">Hermes sidecar not installed on this machine.</div>;
+                }
+                const color = HERMES_STATUS_COLOR[h.status];
+                return (
+                  <div className="mb-5">
+                    <div className="flex items-center gap-4 px-4 py-2.5 rounded-md" style={{ background: "var(--surface-2)" }}>
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                      <span className="text-[13px] mono shrink-0" style={{ color }}>{h.status}</span>
+                      <span className="text-[13px] text-ink-1 flex-1 truncate">{h.summary}</span>
+                      <span className="text-xs mono text-ink-2 shrink-0">up {formatUptimeSeconds(h.uptimeSeconds)}</span>
+                      <span className="text-xs mono text-ink-3 shrink-0">{h.pid ? `pid ${h.pid}` : "no pid"}</span>
+                    </div>
+                    {h.platforms.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 px-4">
+                        {h.platforms.map((p) => (
+                          <span
+                            key={p.name}
+                            title={p.errorMessage ?? p.state}
+                            className="text-xs mono px-2 py-0.5 rounded"
+                            style={{
+                              color: p.state === "connected" ? "var(--ok)" : p.state === "fatal" ? "var(--err)" : "var(--ink-3)",
+                              border: "1px solid var(--line-2)",
+                            }}
+                          >
+                            {p.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {h.problems.length > 0 && (
+                      <ul className="mt-2 px-4 space-y-1">
+                        {h.problems.map((problem, i) => (
+                          <li key={i} className="text-xs text-ink-2">
+                            <span style={{ color: "var(--warn)" }}>!</span> {problem}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+              <div className="text-xs mono mb-1 text-ink-2">
+                $HERMES_HOME/cron/jobs.json <span className="text-ink-3">(manage via <code className="mono">hermes cron</code>)</span>
+              </div>
+              <div className="text-xs mb-3 text-ink-3">
+                Scheduled <em>agent turns</em> delivered to a channel — the one thing launchd can&apos;t do (&ldquo;text me the morning brief at 7&rdquo;).
+              </div>
+              {(() => {
+                const hermesTasks = tasksData?.tasks.filter((t) => t.source === "hermes") ?? [];
+                if (hermesTasks.length === 0) {
+                  return (
+                    <div className="text-[13px] text-ink-3">
+                      No Hermes cron jobs. <span className="muted">Create one with <code className="mono">hermes cron create</code>.</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-1">
+                    {hermesTasks.map((task, i) => (
+                      <div key={i} className="flex items-center gap-4 px-4 py-2.5 rounded-md">
+                        <MessageSquare className="w-4 h-4 shrink-0" style={{ color: "var(--rhythms)" }} />
+                        <span className="text-[13px] text-ink-1 flex-1 truncate">{task.name}</span>
+                        <span className="text-xs mono text-ink-2 shrink-0">{task.schedule}</span>
+                        <span
+                          className="text-xs mono shrink-0"
+                          style={{ color: task.status === "active" ? "var(--ok)" : "var(--ink-3)" }}
+                        >
+                          {task.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </Section>
+            )}
+
+            {scheduleTab === "claude-code" && (
             <Section title="Scheduled Tasks · Claude Code" icon={Terminal} dimension="freedom">
               <div className="text-xs mono mb-1 text-ink-2">
                 Claude Code harness · <code className="mono">claude triggers list</code> (not under ~/.claude/LIFEOS/)
@@ -440,7 +608,9 @@ export default function AssistantPage() {
                 );
               })()}
             </Section>
+            )}
 
+            {scheduleTab === "pulse" && (
             <Section
               title="Pulse Cron Jobs · LifeOS"
               icon={Zap}
@@ -525,7 +695,9 @@ export default function AssistantPage() {
               )}
 
               {(() => {
-                const jobs = cronData?.jobs ?? [];
+                const jobs = [...(cronData?.jobs ?? [])].sort((a, b) =>
+                  a.enabled === b.enabled ? 0 : a.enabled ? -1 : 1
+                );
                 if (jobs.length === 0) return <div className="text-sm text-ink-3">No cron jobs defined</div>;
                 const pageCount = Math.max(1, Math.ceil(jobs.length / CRON_PAGE_SIZE));
                 const safePage = Math.min(cronPage, pageCount - 1);
@@ -644,7 +816,7 @@ export default function AssistantPage() {
 
                                 <label className="text-xs uppercase tracking-wider self-start pt-1 text-ink-3">Output</label>
                                 <div className="flex flex-wrap gap-2">
-                                  {(["log", "voice", "telegram", "ntfy", "email"] as const).map((opt) => {
+                                  {(["log", "voice", "ntfy", "email"] as const).map((opt) => {
                                     const active = bufOutputs.includes(opt);
                                     return (
                                       <button
@@ -758,6 +930,7 @@ export default function AssistantPage() {
               })()}
 
             </Section>
+            )}
           </div>
         )}
 
@@ -882,6 +1055,10 @@ export default function AssistantPage() {
           </div>
         )}
 
+        {/* HERMES TAB — the sidecar's core files: soul, config, guard, and the
+            code that generates them. Same assistant, second front door. */}
+        {activeTab === "hermes" && <HermesFiles />}
+
         {/* DIARY TAB */}
         {activeTab === "diary" && (
           <Section title="Diary Entries" dimension="rhythms">
@@ -927,6 +1104,45 @@ export default function AssistantPage() {
               </div>
             )}
           </Section>
+        )}
+
+        {/* Identity Card — schedules lead the page; identity lives down here */}
+        {identity && (
+          <Panel className="flex flex-row items-center gap-6">
+            {identity.has_avatar ? (
+              <img
+                src="/assistant/avatar"
+                alt={identity.display_name}
+                className="w-20 h-20 rounded-full object-cover"
+                style={{ border: "2px solid var(--creative)" }}
+              />
+            ) : (
+              <div
+                className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold shrink-0"
+                style={{ backgroundColor: "rgba(248,123,123,0.14)", color: "var(--creative)" }}
+              >
+                {identity.display_name.charAt(0)}
+              </div>
+            )}
+            <div className="flex-1 min-w-0" data-sensitive>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-ink-1 font-medium" style={{ fontSize: 20 }}>{identity.full_name}</h2>
+                <Pill dim="creative" className="tracking-wide font-semibold">{identity.display_name}</Pill>
+              </div>
+              <p className="mt-1 text-sm text-ink-1">{identity.role}</p>
+              {identity.origin_story && (
+                <p className="mt-1.5 leading-relaxed text-[13px] text-ink-2">{identity.origin_story}</p>
+              )}
+            </div>
+            <div className="text-right text-sm space-y-1.5 shrink-0 text-ink-2">
+              <div className="flex items-center gap-2 justify-end">
+                <Clock className="w-4 h-4" style={{ color: "var(--creative)" }} />
+                <span>Up {formatUptime(identity.uptime_ms)}</span>
+              </div>
+              <div>Principal: <span className="text-ink-1">{identity.principal}</span></div>
+              <div>{health?.opinions_count ?? 0} opinions formed</div>
+            </div>
+          </Panel>
         )}
       </div>
     </PageShell>

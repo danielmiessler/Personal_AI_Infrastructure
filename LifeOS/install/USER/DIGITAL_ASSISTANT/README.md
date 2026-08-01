@@ -50,7 +50,7 @@ diary.jsonl        # The DA's session-by-session reflections
 
 ```bash
 bun ~/.claude/LIFEOS/TOOLS/DAInterview.ts --update            # Update primary DA
-bun ~/.claude/LIFEOS/TOOLS/DAInterview.ts --update --da kai   # Update specific DA
+bun ~/.claude/LIFEOS/TOOLS/DAInterview.ts --update --da <your-da-name>   # Update specific DA
 ```
 
 ## Privacy

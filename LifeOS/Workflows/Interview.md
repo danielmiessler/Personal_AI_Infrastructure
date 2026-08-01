@@ -20,7 +20,7 @@ Peer conversation, not a form. Ask one thing at a time, reflect it back, go deep
 3. **TELOS — current state** — mission, the people who matter, current projects, challenges, what's actually true right now. Write to `TELOS/`.
 4. **TELOS — ideal state** — goals (with metrics + dates where they have them), strategies, the destination. Current → ideal is the spine of LifeOS; get both halves.
 5. **External sources (optional)** — the user can hand over existing material: notes, an old config, exports, URLs, a prior LIFEOS/other-harness setup. Pull from each (read files, fetch URLs), extract identity / TELOS / project signal, and merge into the USER tree — `existsSync`-guarded, confirm before each write. This is the migration on-ramp: bring your context, don't retype it.
-6. **SeedPulse** — `bun Tools/SeedPulse.ts` → write `LIFEOS_STATE.json` and regenerate `PRINCIPAL_TELOS.md` from the captured TELOS so Pulse renders real rings + state on first open.
+6. **SeedPulse** — `bun Tools/SeedPulse.ts` (dry-run first, then `--apply`) → write `LIFEOS_STATE.json` and regenerate `PRINCIPAL_TELOS.md` from the captured TELOS so Pulse renders real rings + state on first open.
 
 ## Close
 

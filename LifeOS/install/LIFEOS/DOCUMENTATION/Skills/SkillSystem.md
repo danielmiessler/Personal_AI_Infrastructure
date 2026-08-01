@@ -1,10 +1,10 @@
 ---
 last_updated: 2026-06-21
-last_updated_by: kai
+last_updated_by: da
 last_reviewed: 2026-07-02
-last_reviewed_by: kai
+last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.5.1
+version: 1.6.2
 ---
 
 # Custom Skill System
@@ -22,7 +22,7 @@ version: 1.5.1
 | Skill type | Directory format | Example | Allowed content |
 |------------|------------------|---------|-----------------|
 | **Public** | `TitleCase` | `Blogging`, `Daemon`, `CreateSkill` | Templated, safe, generic, ready for public release |
-| **Private** | `_ALLCAPS` (underscore prefix, all uppercase) | `<your-release-skill>`, `_INBOX`, `_BROADCAST`, `_DOTFILES` | Anything personal, identity-bound, customer-bound, or environment-specific |
+| **Private** | `_ALLCAPS` (underscore prefix, all uppercase) | `_MYFINANCES`, `_HOMELAB`, `_CLIENTWORK` | Anything personal, identity-bound, customer-bound, or environment-specific |
 
 **The leading underscore is the public-release boundary.** Release tooling (`hooks/lib/containment-zones.ts:47` → `skills/_*/**`) excludes every `_*` skill from the public release. Public skills are mirrored as-is into the public LifeOS repo and MUST contain only generic, templated content — no real names, no real domains, no real customers, no credentials, no identity-bound preferences.
 
@@ -38,7 +38,7 @@ version: 1.5.1
 
 **TitleCase rules** (apply to public skill dirs and ALL sub-files): first letter of each word capitalized; no hyphens, underscores, or spaces; single words capitalize first letter (`Blogging`, `Daemon`); multi-word concatenate with each capitalized (`UpdateDaemonInfo`).
 
-**`_ALLCAPS` rules** (apply to private skill dirs only): leading underscore + uppercase letters; internal underscores tolerated for compound names (`_CLIENT_PROJECT`, `_JAVASCRIPT_ANALYSIS`).
+**`_ALLCAPS` rules** (apply to private skill dirs only): leading underscore + uppercase letters; internal underscores tolerated for compound names (`_CLIENT_PROJECT`, `_DATA_PIPELINE`).
 
 **Exception:** `SKILL.md` is always uppercase (convention for the main skill file in every skill).
 
@@ -215,7 +215,7 @@ science_cycle_time: meso         # Optional: micro | meso | macro
 ---
 ```
 
-**Per-skill versioning.** Every skill carries its own `version:` — always three levels, **`Major.Feature.Patch`** (system-wide rule; see OPERATIONAL_RULES) — independent of the OS version (`LIFEOS/VERSION`) and of every other skill — the same umbrella model the Algorithm and Memory lines use. A new skill scaffolds at `1.0.0` (CreateSkill stamps it). Bumps are NOT hand-applied; at private-sync time the `<your-release-skill>` `UpdateKaiRepo` / `VersionBump` flow runs `BumpSkillVersions.ts`, which scopes `ClassifyChange --path skills/<name>` per changed skill and bumps its `version:` (patch/feature/major, major human-gated), recording each in the SYSTEMUPDATES registry. A skill edit rolls up into the OS version too. Public skills inherit the private `version:` at release/emit time — there is no separate public version line.
+**Per-skill versioning.** Every skill carries its own `version:` — always three levels, **`Major.Feature.Patch`** (system-wide rule; see `Ledger/LedgerSystem.md` § The scheme) — independent of the OS version (`LIFEOS/VERSION`) and of every other skill — the same umbrella model the Algorithm and Memory lines use. A new skill scaffolds at `1.0.0` (CreateSkill stamps it). Bumps are NOT hand-applied; at private-sync time the release pipeline's version-bump flow runs `BumpSkillVersions.ts`, which scopes `ClassifyChange --path skills/<name>` per changed skill and bumps its `version:` (patch/feature/major, major human-gated), recording each in the SYSTEMUPDATES registry. A skill edit rolls up into the OS version too. Public skills inherit the private `version:` at release/emit time — there is no separate public version line.
 
 **Rules:**
 - `name` uses **TitleCase**
@@ -224,6 +224,15 @@ science_cycle_time: meso         # Optional: micro | meso | macro
 - Use intent-based triggers with `OR` for multiple conditions
 - **Max 500 characters recommended, 650 hard ceiling.** Claude Code has a total character budget for all skill descriptions combined. In practice, descriptions over ~650 chars cause skills to be silently dropped from the session listing — the skill becomes invisible and unroutable. Keep descriptions tight: brief prose summary + USE WHEN trigger keywords. Move detailed explanations to the SKILL.md body, not the YAML description.
 - **NO separate `triggers:` or `workflows:` arrays in YAML**
+
+**Execution-context fields — `context` and `background`** (public PR #1570, @elhoim):
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `context` | `fork` (or absent) | `fork` runs the skill in a forked subagent context instead of inline in the main thread |
+| `background` | `true` / `false` | Whether a `context: fork` skill runs as a background subagent (result arrives as a task notification) or blocks and returns inline |
+
+**The 2.1.218 gotcha:** Claude Code 2.1.218 changed the default — `context: fork` skills now run as **background subagents by default** where they previously blocked the main thread. A backgrounded skill's answer does not arrive in the invoking turn. The test for which way to set it: if the user expects the answer *in that turn* (interactive lookups like Knowledge), set `background: false` explicitly; long-running deliberation skills (Council, Research, Ideate) are better left on the background default — detaching them is the point.
 
 ### Science Protocol Compliance (Optional)
 
@@ -431,7 +440,7 @@ Complete visual content system using **charcoal architectural sketch** aesthetic
 
 **Aesthetic:** Charcoal architectural sketch
 **Model:** nano-banana-pro
-**Output:** Always ~/Downloads/ first
+**Output:** Always $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) first
 
 **Full Documentation:**
 - Aesthetic guide: `SkillSearch('art aesthetic')` → loads Aesthetic.md
@@ -1088,6 +1097,39 @@ This system ensures:
 2. Specific functionality executes accurately (Workflow Routing in body)
 3. All skills have consistent, predictable structure
 4. **All naming follows TitleCase convention**
+
+---
+
+## Examples
+
+### Building one generic skill, end to end
+
+Someone wants a skill that converts between units — Celsius/Fahrenheit, kg/lb, km/mi. Nothing about it is personal, so it is **public**, and that one fact settles everything downstream:
+
+- **Name:** `UnitConverter` — TitleCase, no leading underscore. The missing underscore is exactly what tells release tooling to ship it in the public repo.
+- **Description:** a single line ending in a `USE WHEN` clause of intent triggers ("convert units, Celsius to Fahrenheit, kg to pounds, metric to imperial") — under the character ceiling, so it is never silently dropped from the session listing.
+- **Body:** a `## Workflow Routing` table pointing at a `Convert` workflow under `Workflows/`, plus a `## Examples` section with two or three real request-to-result patterns.
+- **Structure:** `SKILL.md` at the root, a `Tools/` directory (present even though a converter is simple), and any context files like `ConversionTables.md` in the root — never in a `Docs/` or `Resources/` subdirectory.
+
+Because it holds only generic logic, it drops into any stranger's `~/.claude/skills/` and just works — which is the whole test for whether a skill is allowed to be public.
+
+### The fork: what forces a private name
+
+Same converter, one change: it now calls a specific paid currency-rate API tied to one account's key. That single fact trips a decision-test trigger ("a specific paid API account"), and the skill must be renamed `_UNITCONVERTER` — `_ALLCAPS`, private, excluded from release. The rule runs one way only: promoting `_Foo` to `Foo` later is easy; discovering a shipped public skill leaked an account key is permanent. When unsure, build it private first.
+
+```mermaid
+flowchart TD
+    A[New skill] --> B{Touches a real person, customer, paid account, private infra, or incident?}
+    B -->|yes| C[_ALLCAPS name]
+    B -->|no| D[TitleCase name]
+    C --> E[Release tooling skips it: stays local]
+    D --> F[Mirrored into the public repo as-is]
+    F --> G{Body holds only generic, templated content?}
+    G -->|no| H[Move private bits to USER customizations, or rename _ALLCAPS]
+    G -->|yes| I[Ships public]
+```
+
+The diagram is the naming convention as a gate: the leading underscore is the public-release boundary, and every "does this touch something identity-bound?" answer routes the skill to exactly one side of it.
 
 ---
 

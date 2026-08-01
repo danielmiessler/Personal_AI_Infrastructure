@@ -1,8 +1,7 @@
 ---
 name: Art
-version: 1.5.8
-description: "Static visual content across 20+ formats — diagrams, mermaid, infographics, D3 dashboards, comics, icons, wallpaper — via Flux, Nano Banana Pro, and GPT-Image-2. USE WHEN art, illustration, diagram, flowchart, infographic, header image, blog social thumbnail, visualize, generate image, mermaid, architecture diagram, comic, icon, blog art, framework diagram, D3 chart, remove background, wallpaper. NOT FOR locked house-style YouTube/channel/video thumbnails (use _THUMBNAIL — it orchestrates Art's Generate/PickExpression/ThumbnailText tools), video or animation (use Remotion), or web UI design and integrated frontend layout (use Webdesign)."
-effort: medium
+version: 1.5.18
+description: "Static visual content across 20+ formats — diagrams, mermaid, infographics, D3 dashboards, comics, icons, wallpaper — via Nano Banana Pro (default), Nano Banana, and Flux. USE WHEN art, illustration, diagram, flowchart, infographic, header image, blog social thumbnail, visualize, generate image, mermaid, architecture diagram, comic, icon, blog art, framework diagram, D3 chart, remove background, wallpaper. NOT FOR locked house-style YouTube/channel/video thumbnails, video or animation (use Remotion), or web UI design and integrated frontend layout (use Webdesign)."
 ---
 
 # Art Skill
@@ -41,7 +40,7 @@ These override default behavior. If the directory does not exist, proceed with s
 
 ## What It Does
 
-Generates static visual content across 20+ formats — blog headers, technical and architecture diagrams, frameworks, taxonomies, timelines, comparisons, stat cards, comics, icons, wallpapers, D3 charts, Mermaid diagrams — using Flux, Nano Banana Pro (Gemini 3 Pro), and GPT-Image-2. Every request routes through a named workflow that encodes the technique and palette, output stages to ~/Downloads/ for review first, and blog headers ship both a transparent inline version and an opaque social thumbnail.
+Generates static visual content across 20+ formats — blog headers, technical and architecture diagrams, frameworks, taxonomies, timelines, comparisons, stat cards, comics, icons, wallpapers, D3 charts, Mermaid diagrams — using Flux, Nano Banana Pro (Gemini 3 Pro), and GPT-Image-2. Every request routes through a named workflow that encodes the technique and palette, output stages to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for review first, and blog headers ship both a transparent inline version and an opaque social thumbnail.
 
 ## The Problem
 
@@ -49,7 +48,7 @@ The bare image model produces inconsistent, off-style output when handed a freef
 
 ## How It Works
 
-A complete visual content system for illustrations, diagrams, and other static visuals. Each request picks a matching workflow file first, follows its prompt template, then calls `Generate.ts` with `--workflow=<name>` plus model/size/output flags. Two layers enforce that the workflow was followed (`Generate.ts` itself and the `ArtWorkflowGuard.hook.ts` PreToolUse hook), output always lands in ~/Downloads/ for preview, and blog headers run with `--thumbnail` to produce both the transparent PNG and the sepia-backed social thumbnail.
+A complete visual content system for illustrations, diagrams, and other static visuals. Each request picks a matching workflow file first, follows its prompt template, then calls `Generate.ts` with `--workflow=<name>` plus model/size/output flags. Two layers enforce that the workflow was followed (`Generate.ts` itself and the `ArtWorkflowGuard.hook.ts` PreToolUse hook), output always lands in $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for preview, and blog headers run with `--thumbnail` to produce both the transparent PNG and the sepia-backed social thumbnail.
 
 ## 🛑 STRUCTURAL ENFORCEMENT — `--workflow=<name>` IS REQUIRED
 
@@ -77,7 +76,7 @@ bun ~/.claude/skills/Art/Tools/Generate.ts \
   --prompt "..." \
   --size 2K \
   --aspect-ratio 16:9 \
-  --output ~/Downloads/<filename>.png
+  --output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/<filename>.png
 ```
 
 `<WorkflowName>` MUST match a file under `Workflows/` (without `.md`):
@@ -97,8 +96,8 @@ bun ~/.claude/skills/Art/Tools/Generate.ts \
 | Stat card | `Workflows/Stats.md` |
 | Aphorism / quote card | `Workflows/Aphorisms.md` |
 | Comic panel | `Workflows/Comics.md` |
-| Locked house-style YouTube / channel thumbnail | **Use the `_THUMBNAIL` skill** — it owns the locked style and orchestrates the Art tools below. Don't drive these workflows directly for channel thumbnails. |
-| YouTube thumbnail (generic mechanism, orchestrated by _THUMBNAIL) | **`Workflows/StyleMatchedThumbnail.md`** — deterministic text + real-photo face |
+| Locked house-style YouTube / channel thumbnail | **Use a dedicated locked-house-style thumbnail skill** — it owns the locked style and orchestrates the Art tools below. Don't drive these workflows directly for channel thumbnails. |
+| YouTube thumbnail (generic mechanism, orchestrated by the thumbnail skill) | **`Workflows/StyleMatchedThumbnail.md`** — deterministic text + real-photo face |
 | YouTube thumbnail (legacy / validation) | `Workflows/AdHocYouTubeThumbnail.md` or `Workflows/YouTubeThumbnailChecklist.md` |
 | LifeOS pack icon | `Workflows/CreateLifeosPackIcon.md` |
 | brand-logo wallpaper | `Workflows/LogoWallpaper.md` |
@@ -119,7 +118,7 @@ If no workflow matches the request, **stop and surface to the user** before gene
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️  ALL GENERATED IMAGES GO TO ~/Downloads/ FIRST                   ⚠️
+⚠️  ALL GENERATED IMAGES GO TO $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) FIRST                   ⚠️
 ⚠️  NEVER output directly to project directories                    ⚠️
 ⚠️  User MUST preview in Finder/Preview before use                  ⚠️
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -145,8 +144,8 @@ The blog page background is sepia #EAE9DF. Inline images MUST be transparent PNG
 - If `rembg` isn't installed at `~/.local/bin/rembg`, the tool fails loudly with install instructions rather than silently producing an opaque image. Install: `pipx install rembg` (or set `REMBG_BIN` env var to override the path).
 
 **Verification step before declaring an image done (REQUIRED):**
-1. `file ~/Downloads/[name].png` → must report `PNG image data, ... RGBA` (8-bit/color RGBA). If it says `JPEG` or `8-bit colormap` without alpha, transparency failed.
-2. `file ~/Downloads/[name]-thumb.png` → must report `PNG image data`. The thumb is intentionally opaque with sepia background.
+1. `file "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name].png` → must report `PNG image data, ... RGBA` (8-bit/color RGBA). If it says `JPEG` or `8-bit colormap` without alpha, transparency failed.
+2. `file "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[name]-thumb.png` → must report `PNG image data`. The thumb is intentionally opaque with sepia background.
 3. Only after both pass: copy to the project directory and wire into the post.
 
 **Wiring into the blog post:**
@@ -155,7 +154,7 @@ The blog page background is sepia #EAE9DF. Inline images MUST be transparent PNG
 
 Never reuse the opaque thumbnail for the inline slot. Never reuse the transparent file for the social thumbnail. These are two distinct outputs from one `--thumbnail` run.
 
-**Sanctioned exception (this section is the canonical home; _BLOGGING defers here):** transparent inline is the DEFAULT for every blog header. The one exception is thin-linework/charcoal pieces where rembg strips the artwork itself (see Gotchas) — those may ship an opaque sepia `#EAE9DF` inline image, which composites seamlessly on the matching page background. Opaque inline is a documented fallback for that failure mode, never a second default.
+**Sanctioned exception (this section is the canonical home; the blog-authoring skill defers here):** transparent inline is the DEFAULT for every blog header. The one exception is thin-linework/charcoal pieces where rembg strips the artwork itself (see Gotchas) — those may ship an opaque sepia `#EAE9DF` inline image, which composites seamlessly on the matching page background. Opaque inline is a documented fallback for that failure mode, never a second default.
 
 
 ## Workflow Routing
@@ -230,33 +229,29 @@ Each model accepts different `--size` formats. Using the wrong format causes val
 | `flux` | Aspect ratio | `1:1`, `16:9`, `3:2`, `2:3`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `21:9` | `16:9` |
 | `nano-banana` | Aspect ratio | `1:1`, `16:9`, `3:2`, `2:3`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `21:9` | `16:9` |
 | `nano-banana-pro` | Resolution tier | `1K`, `2K`, `4K` (also accepts `--aspect-ratio` separately) | `2K` |
-| `gpt-image-2` | Pixel dimensions | `1024x1024`, `1536x1024`, `1024x1536`, `2048x2048`, `auto` (also accepts `--quality` low/medium/high/auto) | `1024x1024` |
 
-**`gpt-image-1` is DEPRECATED** per OpenAI docs and is rejected by `Generate.ts` with a clear error message. There is no `gpt-image-1.5` or `gpt-image-2.5` — earlier versions of this skill referenced those as fallbacks; they do not exist. The OpenAI image lineup as of 2026-05-04 is exactly: `gpt-image-2` (current) and `gpt-image-1` (deprecated).
+**OpenAI image models are REMOVED (2026-07-30, principal's direction).** `gpt-image-1`, `gpt-image-2`, and the dual-provider `compare` mode are gone from `Generate.ts` — passing any of them exits with an error pointing at `nano-banana-pro`. Do not reintroduce an OpenAI image path, and do not add a different vendor as a substitute; adding a new vendor to any lane is an identity/doctrine-class decision requiring the principal's explicit approval.
 
 ### Model Selection — when to pick which
 
-Three first-class models are wired into `Generate.ts`. PREFERENCES.md (if present) pins the user's default; in absence of a pin, pick by job:
+Three models are wired into `Generate.ts`, and `nano-banana-pro` is the DEFAULT for everything. PREFERENCES.md (if present) pins the user's default:
 
-| Job | Recommended model | Why |
-|-----|-------------------|-----|
-| Editorial illustration / blog header (default) | `nano-banana-pro` | Best composition fidelity for the user's editorial aesthetic; PREFERENCES.md typically pins it. |
-| Text-heavy work — stat cards, framework diagrams, taxonomies, timelines, aphorism cards | `gpt-image-2` | Currently #1 across all Image Arena leaderboards (Arena.ai, 2026-05-04) — text-to-image margin +242 Elo, single-image edit +125, multi-image edit +90. Strongest text rendering on the market right now. |
-| Editorial / blog / essay header (the DEFAULT — competing head-to-head) | `compare` (runs both `gpt-image-2` + `nano-banana-pro` in parallel on the same brief) | The two flagship models compete to make the best image; pick the winner. This is the default for any editorial header — the models have orthogonal strengths, so generating from only one leaves half the option space unexplored. See `Workflows/Essay.md`. |
-| Stylistic variety / non-photoreal / iteration speed | `flux` or `nano-banana` | Different aesthetic register; `flux` is crisper for technical illustration. |
-
-Arena leaderboard sweeps measure aesthetic preference at scale, not editorial style fit. They are a strong quality signal, not a default-override; respect PREFERENCES.md when it exists.
+| Job | Model | Why |
+|-----|-------|-----|
+| Everything by default — editorial illustration, blog headers, text-heavy stat cards, frameworks, taxonomies, timelines, aphorism cards | `nano-banana-pro` | Best composition fidelity for the user's editorial aesthetic, and strong enough on labels and numbers to carry the text-heavy workflows too. |
+| Stylistic variety / non-photoreal / crisper technical linework | `flux` | Different aesthetic register. |
+| Faster iteration once the composition is settled | `nano-banana` | Quicker, slightly lower fidelity. |
 
 **Note:** `nano-banana-pro` uses `--size` for resolution quality and a separate `--aspect-ratio` flag for aspect ratio (defaults to `16:9`).
 
 ### 🚨 CRITICAL: Always Output to Downloads First
 
-**ALL generated images MUST go to `~/Downloads/` first for preview and selection.**
+**ALL generated images MUST go to `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) first for preview and selection.**
 
 Never output directly to a project's `public/images/` directory. User needs to review images in Preview before they're used.
 
 **Workflow:**
-1. Generate to `~/Downloads/[descriptive-name].png`
+1. Generate to `"${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/[descriptive-name].png`
 2. User reviews in Preview
 3. If approved, THEN copy to final destination (e.g., `cms/public/images/`)
 4. Create WebP and thumbnail versions at final destination
@@ -269,11 +264,11 @@ bun run ${LIFEOS_SKILL_DIR}/Tools/Generate.ts \
   --size 2K \
   --aspect-ratio 1:1 \
   --thumbnail \
-  --output ~/Downloads/blog-header-concept.png
+  --output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/blog-header-concept.png
 
 # After approval, copy to final location (substitute your blog/site path)
-cp ~/Downloads/blog-header-concept.png ~/your-site/public/images/
-cp ~/Downloads/blog-header-concept-thumb.png ~/your-site/public/images/
+cp "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/blog-header-concept.png ~/your-site/public/images/
+cp "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/blog-header-concept-thumb.png ~/your-site/public/images/
 ```
 
 ### Multiple Reference Images (Character/Style Consistency)
@@ -290,7 +285,7 @@ bun run ${LIFEOS_SKILL_DIR}/Tools/Generate.ts \
   --reference-image face3.jpg \
   --size 2K \
   --aspect-ratio 16:9 \
-  --output ~/Downloads/character-scene.png
+  --output "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/character-scene.png
 ```
 
 **API Limits (Gemini):**
@@ -308,7 +303,7 @@ User: "create a header for my AI agents post"
 → Invokes ESSAY workflow
 → Generates charcoal sketch prompt
 → Creates image with architectural aesthetic
-→ Saves to ~/Downloads/ for preview
+→ Saves to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for preview
 → After approval, copies to public/images/
 ```
 
@@ -335,13 +330,13 @@ User: "create icon for the skill system pack"
 → Reads workflow from Workflows/CreateLifeosPackIcon.md
 → Generates 1K image with --remove-bg for transparency
 → Resizes to 256x256 RGBA PNG
-→ Outputs to ~/Downloads/ for preview
+→ Outputs to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for preview
 → After approval, copies to ${PROJECTS_DIR}/LIFEOS/Packs/icons/
 ```
 
 ## Gotchas
 
-- **Always output to ~/Downloads/ first — NEVER directly to project directories.** User must preview before use. Multiple past failures from pushing wrong images directly to repos.
+- **Always output to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) first — NEVER directly to project directories.** User must preview before use. Multiple past failures from pushing wrong images directly to repos.
 - **Verify image dimensions match target use case before claiming done.** Social media previews, blog headers, and thumbnails have different size requirements. A header that works on the blog may break OG/social previews.
 - **nano-banana-pro uses `--size` for resolution (1K/2K/4K) and SEPARATE `--aspect-ratio` flag.** Don't pass aspect ratio values to `--size`.
 - **Reference images: max 5 human, 6 object, 14 total per request** (Gemini API limit).
@@ -355,6 +350,7 @@ User: "create icon for the skill system pack"
 - **Essay headers: run the Step 5A Best-Image Deliberation before prompting (2026-07-09 principal directive).** Subject-list prompts produce rejected flat tableaus; a composition reasoned deeply from the essay's specific argument — scene concepts compared, every element given a narrative role, connected structure — produces accepted images. The deliberation is the mandatory step; devices like cutaways are possible outcomes, not rules. See Essay.md Step 5A.
 - **Interior-white ban (2026-07-09, "giant white space" incident):** prompt large flat surfaces (desks, panels, windows, paper) as "warm cream paper tone", never bright white or unstated — baked-white interiors survive rembg intact and render as giant white rectangles on the cream page. Inside-the-subject sibling of the 2026-06-20 white-box bug. Also trim white padding off any external screenshot before embedding (`magick -fuzz 4% -trim` + sepia border).
 - **Reference-image edits: negative text loses to the reference (2026-07-09 studio-background session).** When nano-banana-pro keeps reproducing an unwanted object that exists in the reference photo (e.g. a second floor lamp), "do NOT add/duplicate" prompt language fails ~7/8 rolls — the model preserves what it sees over what you forbid. Fix: roll until ONE output has the corrected composition, then use THAT output as the new `--reference-image` for the remaining variations; compliance jumped to 7/7. Editing the reference beats describing the edit.
+- **Groups of figures must show varied skin tones (2026-07-12 principal directive).** Image models default every person to white; any multi-figure scene (essay headers, comics, visualizations) gets explicit prompt language for a natural range of skin tones — in the charcoal style, varied wash hues and tonal depths across figures. Subtle and natural, not tokenized — but an all-white group is a validation failure. See Essay.md HUMAN FIGURES block + Step 8 checklist.
 - **Essay/blog headers MUST be signed "{{DA_NAME}}" (2026-06-20 + 2026-07-09 principal directives) — cursive signature hand, small, integrated.** Programmatic stamp in Generate.ts/Essay.md Step 7.1 (`SignPainter-HouseScript`, ~3% of image width, semi-transparent charcoal, slight rotation, tucked into the composition's bottom-right); never prompt the signature into the model (it garbles). Formal calligraphy faces (Snell-Roundhand / Apple-Chancery / Savoye) remain rejected; oversized print-letter Bradley Hand was replaced 2026-07-09 ("more cursive looking and smaller, more part of the image").
 
 ## Execution Log

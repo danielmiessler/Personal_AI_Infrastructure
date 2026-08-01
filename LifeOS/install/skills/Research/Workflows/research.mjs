@@ -1,7 +1,7 @@
 export const meta = {
   name: 'research',
   description:
-    'Multi-agent research fan-out: parallel researchers -> per-result URL verification -> confidence-tagged cited synthesis. Deterministic port of the Research skill Standard (4 researchers) and Extensive (7 explorers + 2 verifiers) workflows.',
+    'Multi-agent research fan-out: parallel researchers -> per-result URL verification -> confidence-tagged cited synthesis. Deterministic port of the Research skill Standard (3 researchers) and Extensive (7 explorers + 2 verifiers) workflows.',
   whenToUse:
     'Run for Quick, Standard, or Extensive research when you want the researcher roster, the mandatory URL-verification stage, and the cross-checked synthesis fixed in code instead of improvised each run. Pass args {question, depth: "quick"|"standard"|"extensive"}. quick = 1 researcher + URL verify + short synthesis (same rails, lighter).',
   phases: [
@@ -19,15 +19,14 @@ const QUICK_ROSTER = [
   { agentType: 'PerplexityResearcher', label: 'perplexity', angle: 'live-web current state with citations' },
 ]
 
-// Standard: 4 researcher types, one query each.
+// Standard: 3 researcher types, one query each.
 const STANDARD_ROSTER = [
   { agentType: 'ClaudeResearcher', label: 'claude', angle: 'academic depth, scholarly sources, detailed analysis' },
   { agentType: 'GeminiResearcher', label: 'gemini', angle: 'multi-perspective synthesis, cross-domain connections' },
-  { agentType: 'GrokResearcher', label: 'grok', angle: 'contrarian, fact-based, long-term truth over short-term trend' },
   { agentType: 'PerplexityResearcher', label: 'perplexity', angle: 'live-web current state with citations' },
 ]
 
-// Extensive: 7 explorers (Claude x2, Gemini x3, Grok x2) + 2 verifiers (Perplexity x1, Claude x1).
+// Extensive: 7 explorers (Claude x3, Gemini x4) + 2 verifiers (Perplexity x1, Claude x1).
 // Verifier angles are topic-level so they work without explorer results (explorer-verifier pattern).
 const EXTENSIVE_ROSTER = [
   { agentType: 'ClaudeResearcher', label: 'claude-1', role: 'explorer', angle: 'academic depth' },
@@ -35,8 +34,8 @@ const EXTENSIVE_ROSTER = [
   { agentType: 'GeminiResearcher', label: 'gemini-1', role: 'explorer', angle: 'cross-domain perspective A' },
   { agentType: 'GeminiResearcher', label: 'gemini-2', role: 'explorer', angle: 'cross-domain perspective B' },
   { agentType: 'GeminiResearcher', label: 'gemini-3', role: 'explorer', angle: 'cross-domain perspective C' },
-  { agentType: 'GrokResearcher', label: 'grok-1', role: 'explorer', angle: 'contrarian angle A' },
-  { agentType: 'GrokResearcher', label: 'grok-2', role: 'explorer', angle: 'contrarian angle B' },
+  { agentType: 'ClaudeResearcher', label: 'claude-3', role: 'explorer', angle: 'contrarian angle A — fact-based counterevidence' },
+  { agentType: 'GeminiResearcher', label: 'gemini-4', role: 'explorer', angle: 'contrarian angle B — fact-based counterevidence' },
   { agentType: 'PerplexityResearcher', label: 'verify-claims', role: 'verifier', angle: 'independently verify the most commonly cited facts, statistics, and dates — quantitative claims first, they are most likely wrong' },
   { agentType: 'ClaudeResearcher', label: 'find-contradictions', role: 'verifier', angle: 'contradictory evidence, debunked claims, and common misconceptions' },
 ]

@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.4.40
+ * @version 1.4.45
  * PromptProcessing.hook.ts - Tab Title + Session Naming (Haiku)
  *
  * PURPOSE:
@@ -16,12 +16,12 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * TRIGGER: UserPromptSubmit
  *
- * NOTE: Mode/tier classification is NOT handled here — that lives in
- * TheRouter.hook.ts (which runs on the same UserPromptSubmit event,
- * before this hook, and emits MODE/TIER to additionalContext via
- * hookSpecificOutput). Satisfaction/rating capture is handled by the
- * dedicated SatisfactionCapture.hook.ts. This hook does only:
- * tab title + session naming.
+ * NOTE: Modes/tiers and the per-prompt classifier were retired 2026-07-11 —
+ * spend is discovered from the work, not predicted per prompt.
+ * The leading tab token below is now a vestigial cosmetic ("N" on light turns);
+ * with no classifier stamping it, stampWorkingTab just recovers whatever token
+ * is already on the tab. Satisfaction/rating capture is handled by the dedicated
+ * SatisfactionCapture.hook.ts. This hook does only: tab title + session naming.
  *
  * FLOW:
  * 1. Parse stdin
@@ -42,11 +42,11 @@ import { join, dirname } from 'path';
 import { inference } from '../LIFEOS/TOOLS/Inference';
 import { getIdentity, getPrincipal } from './lib/identity';
 import { isValidWorkingTitle, getWorkingFallback, trimToValidTitle } from './lib/output-validators';
-import { setTabState, getSessionOneWord, readTabState, extractModeToken, setPhaseTab } from './lib/tab-setter';
-import type { AlgorithmTabPhase } from './lib/tab-constants';
+import { setTabState, getSessionOneWord, readTabState, setAscentTab } from './lib/tab-setter';
 import { paiPath } from './lib/paths';
 import { updateSessionNameInWorkJson, upsertSession } from './lib/isa-utils';
 import { isDesktopChannel, logSkippedVoice, getNotificationChannel } from './lib/notification-channel';
+import { PULSE_BASE } from '../LIFEOS/PULSE/endpoint';
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -94,7 +94,11 @@ async function readStdinWithTimeout(timeout: number = 5000): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = '';
     const timer = setTimeout(() => resolve(data), timeout);
-    process.stdin.on('data', (chunk) => { data += chunk.toString(); });
+    // 10MB cap — unbounded buffering risked multi-GB allocation on a fast stream (public issue #1533, @christauff)
+    process.stdin.on('data', (chunk) => {
+      data += chunk.toString();
+      if (data.length > 10_000_000) { clearTimeout(timer); try { process.stdin.pause(); } catch {} resolve(data); }
+    });
     process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
     process.stdin.on('error', (err) => { clearTimeout(timer); reject(err); });
   });
@@ -670,8 +674,6 @@ function syncNameToJsonl(sessionId: string, title: string): void {
 // Narrow algorithm-verb detector: these 8 verbs signal explicit multi-phase
 // (ISC-gated) algorithm work. Everything else that passes the trivia gates
 // upstream (length, praise, system-text) is treated as native mode.
-const ALGO_ACTION_RE = /\b(implement|build|create|architect|design|migrate|deploy|refactor)\b/i;
-function isNativeMode(prompt: string): boolean { return !ALGO_ACTION_RE.test(prompt.trim()); }
 
 // ══════════════════════════════════════════════════
 // COMBINED INFERENCE
@@ -830,25 +832,6 @@ async function main() {
     const isFirstPrompt = !existingNames[sessionId];
     const sanitizedPrompt = sanitizePromptForNaming(prompt);
 
-    // ── Detect current mode for tracking ──
-    const trimmedLower = prompt.trim().toLowerCase().replace(/[.!?,'"]/g, '');
-    const trimmedWords = trimmedLower.split(/\s+/);
-    const isMinimalInteraction = isExplicitRating(prompt) || (
-      trimmedWords.length <= 2 && (
-        POSITIVE_PRAISE_WORDS.has(trimmedLower) || POSITIVE_PHRASES.has(trimmedLower) ||
-        (trimmedWords.length === 2 && trimmedWords.every(w => POSITIVE_PRAISE_WORDS.has(w)))
-      )
-    );
-    const detectedCurrentMode: 'minimal' | 'native' | 'algorithm' =
-      isMinimalInteraction ? 'minimal' :
-      !isNativeMode(prompt) ? 'algorithm' : 'native';
-
-    // The tab's mode/tier token is OWNED by TheRouter (the authoritative
-    // classifier), not derived here. PromptProcessing used to stamp "N" from its
-    // own 8-verb isNativeMode() shadow-classifier, which diverged from TheRouter
-    // and showed "N" on ALGORITHM turns. Now PromptProcessing only sets the working
-    // DESCRIPTION and recovers whatever token TheRouter stamped (see stampWorkingTab).
-
     // ── Slash-command / skill invocation: name deterministically from the command ──
     // A command name (e.g. "/Upgrade") can never satisfy the natural-language
     // naming path (extractFallbackName + inference both want a 5-word action-verb
@@ -860,11 +843,12 @@ async function main() {
       const label = commandNameToLabel(slashCmd);
       const slashName = `${label} Skill Run`;
       storeName(sessionId, slashName, 'slash-command');
-      const sessionMode = isNativeMode(prompt) ? 'native' : 'starting';
-      upsertSession(sessionId, slashName, sanitizedPrompt.slice(0, 120), sessionMode, detectedCurrentMode);
+      upsertSession(sessionId, slashName, sanitizedPrompt.slice(0, 120));
       const slashLabel = getSessionOneWord(sessionId);
       const slashPrefix = slashLabel ? `${slashLabel} | ` : '';
-      setTabState({ title: `⚙️ ${slashPrefix}${label}`, state: 'working', sessionId });
+      // Skill runs are live work with no ISA declared yet — that is exactly
+      // the traverse state, not the pre-Algorithm gear.
+      setAscentTab('traverse', sessionId, `${slashPrefix}${label}`);
       process.exit(0);
     }
 
@@ -877,19 +861,17 @@ async function main() {
         console.error(`[PromptProcessing] Rejected invalid fallback name: "${pendingFallbackName}"`);
         pendingFallbackName = null;
       }
-      const sessionMode = isNativeMode(prompt) ? 'native' : 'starting';
       // Upsert both native and starting. Native shows in the Native tab
       // (no phase strip); starting shows in Algorithm with phase progression.
       // Trivial prompts are already filtered by the fast-path gates above
       // (praise words, system text, length < MIN_PROMPT_LENGTH).
-      upsertSession(sessionId, pendingFallbackName || '', sanitizedPrompt.slice(0, 120), sessionMode, detectedCurrentMode);
+      upsertSession(sessionId, pendingFallbackName || '', sanitizedPrompt.slice(0, 120));
     } else {
       const customTitle = getCustomTitle(sessionId);
       if (customTitle && existingNames[sessionId] !== customTitle) {
         storeName(sessionId, customTitle, 'custom-title');
       }
-      const sessionMode = isNativeMode(prompt) ? 'native' : 'starting';
-      upsertSession(sessionId, existingNames[sessionId] || '', '', sessionMode, detectedCurrentMode);
+      upsertSession(sessionId, existingNames[sessionId] || '', '');
     }
 
     // ── Skip Haiku inference on trivial prompts (naming/title not useful) ──
@@ -914,33 +896,27 @@ async function main() {
       process.exit(0);
     }
 
-    // ── Preserve an active Algorithm session's tier+phase across iterations ──
-    // On a follow-up prompt mid-Algorithm-run the prior tab already carries an
-    // "E1".."E5" token and a phase. Re-stamp that phase (updating only the
-    // summary) instead of reverting to the generic working gear — which is the
-    // regression where the orange ⚙️ reappeared and wiped the phase tab.
-    const ALGO_PHASES = new Set(['OBSERVE', 'THINK', 'PLAN', 'BUILD', 'EXECUTE', 'VERIFY', 'LEARN']);
+    // ── Preserve an active run's ascent state across iterations ──
+    // On a follow-up prompt mid-run the prior tab already carries a state;
+    // re-stamp it (updating only the summary) instead of reverting to the
+    // generic working gear — the regression where the orange ⚙️ reappeared
+    // and wiped the run's tab. The old hand-listed station set here went stale
+    // when the vocabulary moved, so every current run hit the wipe path
+    // (found 2026-07-27); the check is now "is this a live run state?".
     const priorTab = !isFirstPrompt ? readTabState(sessionId) : null;
-    const priorToken = priorTab?.title ? extractModeToken(priorTab.title) : null;
-    const priorPhase = (priorTab?.phase || '').toUpperCase();
-    const algoIteration = !!priorToken && /^E[1-5]$/.test(priorToken) && ALGO_PHASES.has(priorPhase);
+    const priorAscent = priorTab?.ascent;
+    const algoIteration = !!priorAscent && !['idle', 'cairn', 'traverse'].includes(priorAscent);
 
-    /** Set the working/thinking tab, preserving Algorithm phase+tier on iterations. */
+    /** Set the working/thinking tab, preserving the run's ascent state on iterations. */
     const stampWorkingTab = (rawTitle: string, thinking: boolean): void => {
-      if (algoIteration) {
-        setPhaseTab(priorPhase as AlgorithmTabPhase, sessionId, rawTitle, priorToken!);
+      if (algoIteration && priorAscent) {
+        setAscentTab(priorAscent, sessionId, rawTitle);
+      } else if (thinking) {
+        setTabState({ title: `🧠 ${rawTitle}`, state: 'thinking', sessionId });
       } else {
-        // Do NOT self-classify the mode token — TheRouter owns it. Recover the
-        // token already on the tab, but ONLY when the tab shows live work; a stale
-        // completion/idle token from the prior turn is dropped so it can't leak into
-        // this turn (TheRouter stamps the authoritative token ~concurrently).
-        const cur = readTabState(sessionId);
-        const liveToken = cur && cur.state !== 'completed' && cur.state !== 'idle'
-          ? (extractModeToken(cur.title) || undefined)
-          : undefined;
-        const icon = thinking ? '🧠' : '⚙️';
-        const stampState = thinking ? 'thinking' : (liveToken === 'N' ? 'native' : 'working');
-        setTabState({ title: `${icon} ${rawTitle}`, state: stampState, sessionId, modeToken: liveToken });
+        // Un-ISA'd live work is traverse (🥾) — on the hill without a declared
+        // route, not the retired pre-Algorithm working gear.
+        setAscentTab('traverse', sessionId, rawTitle);
       }
     };
 
@@ -1017,15 +993,15 @@ async function main() {
         stampWorkingTab(finalTitle, false);
 
         // ── Voice announcement (desktop channel only) ──
-        // Remote channels (Telegram, iMessage) do not surface the tab-title
+        // Remote channels (iMessage, Siri) do not surface the tab-title
         // announcement audibly — it would leak desktop voice for a
-        // Telegram-originated turn. Tab title is set regardless above.
+        // remote-originated turn. Tab title is set regardless above.
         const voiceContent = finalTitle && isValidWorkingTitle(finalTitle) ? finalTitle : null;
         if (voiceContent) {
           if (isDesktopChannel()) {
             const identity = getIdentity();
             try {
-              await fetch('http://localhost:31337/notify', {
+              await fetch(`${PULSE_BASE}/notify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1053,7 +1029,10 @@ async function main() {
             const nameWords = r.session_name.trim().split(/\s+/).slice(0, 5);
             const label = nameWords.map(w => titleCase(w)).join(' ');
             const hasProfanity = nameWords.some(w => PROFANITY_WORDS.has(w.toLowerCase()));
-            if (label && nameWords.length >= 2 && nameWords.every(w => w.length >= 2) && !hasProfanity && isValidSessionName(label)) {
+            // No per-word length floor: single-char words are legitimate in real
+            // names ("Command K Palette", "Add A Record") — a ≥2-char rule here
+            // silently discarded valid inference names.
+            if (label && nameWords.length >= 2 && !hasProfanity && isValidSessionName(label)) {
               storeName(sessionId, label, 'inference-haiku');
               inferenceNameStored = true;
             } else if (label) {
@@ -1106,6 +1085,31 @@ async function main() {
         source: 'inference-error',
         error: String(err).slice(0, 80),
         latency_ms: Date.now() - inferenceStart,
+      });
+    }
+
+    // ── Last-resort naming backstop (first prompt only) ──
+    // Every path above can reject: inference name fails validation, fallback is
+    // null. A session that leaves this block unnamed shows a blank statusline
+    // slot for its whole life, so store SOMETHING — top content words of the
+    // prompt, validator bypassed (same bypass the slash-command path uses).
+    if (isFirstPrompt && !readSessionNames()[sessionId]) {
+      const contentWords = sanitizedPrompt
+        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 0 && !NOISE_WORDS.has(w.toLowerCase()))
+        .slice(0, 5);
+      const lastResort = contentWords.length >= 2
+        ? contentWords.map(w => titleCase(w)).join(' ')
+        : `Session ${new Date().toISOString().slice(0, 10)}`;
+      storeName(sessionId, lastResort, 'last-resort');
+      appendPromptProcessingTelemetry({
+        timestamp: new Date().toISOString(),
+        session_id: sessionId,
+        prompt_excerpt: cleanPrompt.slice(0, 120),
+        session_name: lastResort,
+        source: 'last-resort-name',
+        latency_ms: 0,
       });
     }
 

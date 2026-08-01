@@ -201,7 +201,7 @@ Check ENTITIES.md for categories with fewer than 3 entities. For each thin categ
 
 **Launch 2-3 targeted researcher agents:**
 ```
-Task({
+Agent({
   subagent_type: "PerplexityResearcher",
   prompt: "Find 3-5 notable {entity_category} in the {domain} space.
            For each: name, one-line description, why they matter.
@@ -224,10 +224,12 @@ Task({
 
 **Load the profile template** from the domain template pack for this entity's category.
 
-**Launch focused research (3 agents, entity-specific):**
+**Launch focused research (3 agents, entity-specific — 4 when the entity is technical):**
+
+> If the technical signal in `../SourceRoutingProtocol.md` fires (the entity is a framework, protocol, runtime, API, or tool rather than a person/company), add a `CodexResearcher` slot. Different vendor, so it breaks the Claude-family agreement on version numbers, flags, and API contracts — the exact facts a same-family pair gets confidently wrong together.
 
 ```
-Task({
+Agent({
   subagent_type: "ClaudeResearcher",
   prompt: "Deep research on {entity_name} in the context of {domain}.
            Focus on: {template_fields_for_this_category}
@@ -236,7 +238,7 @@ Task({
            Return comprehensive findings organized by the template fields."
 })
 
-Task({
+Agent({
   subagent_type: "PerplexityResearcher",
   prompt: "Find recent information about {entity_name}:
            latest news, funding, product launches, key hires, partnerships.
@@ -244,7 +246,7 @@ Task({
            Tag each finding with confidence: [HIGH], [MED], or [LOW]."
 })
 
-Task({
+Agent({
   subagent_type: "GeminiResearcher",
   prompt: "Research {entity_name}: competitive position, strengths, weaknesses,
            how they compare to {list 2-3 related entities from ENTITIES.md}.

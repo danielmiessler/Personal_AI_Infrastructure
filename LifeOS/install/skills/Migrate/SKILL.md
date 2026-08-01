@@ -1,6 +1,6 @@
 ---
 name: Migrate
-version: 1.0.10
+version: 1.0.11
 description: "Intakes external content, classifies chunks against LifeOS taxonomy, commits with provenance. Sources: .md/.txt, stdin, LifeOS dirs, CLAUDE.md/Cursor/OpenAI Custom Instructions, Obsidian/Notion/Apple Notes exports. MigrateScan classifies → routing table. MigrateApprove with --approve-all/--approve-target/--review/--dry-run. Confidence ≥70% auto, 40-70% confirm, <40% walk-through. USE WHEN /migrate, migrate content, import from other LifeOS, bring in old notes, import Cursor rules, import CLAUDE.md, bulk import, Obsidian/Notion/Apple Notes import. NOT FOR single-file edits, conversational interviews, identity edits."
 disable-model-invocation: true
 ---
@@ -181,7 +181,7 @@ the DA scans the journal, expects a lot of UNCLEAR + WISDOM, walks through each 
 - `/interview` — fills gaps by asking questions (not by intaking existing content)
 - `/Telos` Update workflow — edit a single TELOS file directly
 - `/Knowledge` — manage the Knowledge Archive
-- `/_PROFILE` — manage PRINCIPAL_IDENTITY
+- an identity-profile skill — manage PRINCIPAL_IDENTITY
 
 ## Gotchas
 

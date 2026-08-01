@@ -139,6 +139,7 @@ const ROOT_FALLBACK: Record<string, { category: Category; kind: Kind; publish: P
   "RHETORICALSTYLE.md":      { category: "voice",    kind: "narrative",  publish: "false" },
   "AI_WRITING_PATTERNS.md":  { category: "voice",    kind: "reference",  publish: "false" },
   "PRONUNCIATIONS.md":       { category: "voice",    kind: "reference",  publish: "false" },
+  "PRONUNCIATIONS.json":     { category: "voice",    kind: "reference",  publish: "false" },
   "DEFINITIONS.md":          { category: "mind",     kind: "reference",  publish: "daemon" },
   "CORECONTENT.md":          { category: "mind",     kind: "reference",  publish: "false" },
   "PRODUCTIVITY.md":         { category: "ops",      kind: "narrative",  publish: "false" },
@@ -399,7 +400,7 @@ const SKIP_DIRS = new Set([
   "Credentials", "CREDENTIALS",
   "SkillCustomizations", "SKILLCUSTOMIZATIONS",
   "Terminal", "TERMINAL",
-  "PAISECURITYSYSTEM", "Security",
+  "Security", "SECURITY",  // security operational state (SecurityPosture, MONITORING) never enters the wiki index
   "Daemon",  // handled by Daemon skill directly
   "node_modules", ".git", "Backups",
 ])
@@ -569,6 +570,14 @@ export async function start(): Promise<void> {
     state.watcher = watch(USER_DIR, { recursive: true }, (event, filename) => {
       if (!filename || !filename.endsWith(".md")) return
       reindexDebounced(`${event}:${filename}`)
+    })
+    // A recursive watch that meets an unopenable node (socket, FIFO, dead
+    // symlink) emits an ASYNC 'error' event the try/catch cannot reach —
+    // unhandled, it takes all of Pulse down at boot. The initial scan above
+    // already built the index, so losing live updates is a soft degrade.
+    // Same fix as wiki.ts. public PR #1683, @lmbagley
+    state.watcher.on("error", (err) => {
+      console.warn(`[${MODULE_NAME}] watch error on ${USER_DIR} (continuing, best-effort): ${String(err)}`)
     })
     console.log(`[${MODULE_NAME}] Watching ${USER_DIR}`)
   } catch (err) {

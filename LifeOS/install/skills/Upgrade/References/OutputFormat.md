@@ -42,7 +42,7 @@ Ranked by interestingness, NOT implementation priority. A LOW-priority item can 
 Every row MUST carry a Prior Status tag with file:line evidence from Thread 0.
 
 **Prior Status legend:**
-- 🆕 **NEW** — no prior trace in Algorithm, PATTERNS.yaml, hooks, ISAs, KNOWLEDGE, or MEMORY
+- 🆕 **NEW** — no prior trace in Algorithm, hooks, skills, ISAs, KNOWLEDGE (incl. REJECTED), or MEMORY
 - 🔶 **PARTIAL** — partially implemented; row scopes only the missing delta
 - 💬 **DISCUSSED** — appears in ISA/session/KNOWLEDGE but not shipped; confirm not deferred-by-decision
 - 🚫 **REJECTED** — previously decided against; only re-surface if context changed (state what changed)

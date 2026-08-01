@@ -1,10 +1,10 @@
 ---
 last_updated: 2026-07-11T00:00:00.000Z
-last_updated_by: kai
+last_updated_by: da
 convention: pai-freshness-v1
 last_reviewed: 2026-05-08T01:30:00.000Z
 last_reviewed_by: <principal>
-version: 1.0.24
+version: 1.1.9
 ---
 
 # LifeOS Testing Doctrine
@@ -13,13 +13,15 @@ version: 1.0.24
 
 > **TL;DR.** Tests for LifeOS run on `bun test`. The shared harness lives at `~/.claude/test/harness.ts` and exports zero-external-dep helpers (`paiTestEnv`, `tempDir`, `claudeFixture`, platform predicates, custom matchers). Tests live in a parallel `~/.claude/test/` tree that mirrors the source API surface — *not* co-located. Coverage is corpus-based: every documented hook, skill workflow, and tool surface gets at least one test file. No retries, no hardcoded ports, no time-based waits, no per-test timeouts. The ISA's `## Test Strategy` `tool: bun test path/to/foo.test.ts` is the canonical bridge from criterion to probe.
 
+> **Status (public installs):** the harness and `test/` tree described here are NOT yet included in the public release payload (public issue #1550) — releases through 7.3.6 shipped them; the 7.4+ single-skill `install/` layout dropped them, and re-inclusion is a pending packaging decision. On a public install, treat this doctrine as the specification the system is converging on: `bun test` remains the canonical probe wherever a test exists, and the harness here is the Phase 1 skeleton (243 lines, 18 exports), not the full Bun-scale harness the table below describes as its inspiration.
+
 This document is the result of a deep analysis of how the Bun project itself (`oven-sh/bun`) achieves its reputation for thorough test coverage and harness discipline, mapped onto LifeOS's TypeScript surface. Citations to Bun source are inline; the full research lives at `~/.claude/LIFEOS/MEMORY/WORK/20260507-bun-testing-doctrine-analysis/ISA.md`.
 
 ---
 
 ## Why this doctrine exists
 
-LifeOS ships a lot of TypeScript across hooks, skills, tools, Pulse, Arbol Workers, and the release pipeline. Verification has been ad-hoc — `curl` checks, manual `bun run` invocations, eyeballing diffs. Several recurring failure modes (silent OAuth/API-key billing, identity-grep gates, ISA parsing, Pulse VoiceServer, the since-retired TheRouter classifier) are exactly the class of bugs a real harness catches.
+LifeOS ships a lot of TypeScript across hooks, skills, tools, Pulse, Arbol Workers, and the release pipeline. Verification has been ad-hoc — `curl` checks, manual `bun run` invocations, eyeballing diffs. Several recurring failure modes (silent OAuth/API-key billing, identity-grep gates, ISA parsing, Pulse VoiceServer, the TheRouter classifier, retired 2026-07-11) are exactly the class of bugs a real harness catches.
 
 The ISA already declares the test surface (Algorithm v6.3.0 doctrine: *"the ISA IS the test harness because the ISCs are the tests"*). What's been missing is the *invocable probe* behind each ISC. This doctrine closes that gap by making `bun test path/to/foo.test.ts` the canonical answer to "how does this ISC actually verify?"
 
@@ -77,6 +79,8 @@ Mirror the source path, not co-locate. Map:
 | `LIFEOS/TOOLS/Inference.ts` | `test/tools/Inference.test.ts` |
 
 Snapshot files at `test/<surface>/__snapshots__/<name>.test.ts.snap`.
+
+**Subsystem-package clause.** A directory-tool with its own `package.json` (`LIFEOS/TOOLS/<tool>/`) keeps its suite in-package at `<tool>/test/` with a `package.json` `test` script — the suite travels with the deployable package. The parallel `~/.claude/test/` tree governs the repo-root surface (hooks, skills, single-file tools). The repo-root `bun test` walk still reaches in-package suites, so corpus coverage loses nothing. (Public PR #1603, @anikinsasha.)
 
 ### 3. Every test file is independently runnable.
 
@@ -176,7 +180,33 @@ test("Anti: ANTHROPIC_API_KEY is not present in spawned env", async () => {
 });
 ```
 
-### 11. Property tests use `fast-check` as the single approved primitive.
+### 11. A state-machine edge test must PRODUCE the edge, never assert from a hand-written state.
+
+If the behavior under test is a transition — open→closed, stale→fresh, first-time→repeat — the test drives the system across it. Writing the precondition directly into the state file, the registry, or the fixture tests the *consequence* of the transition while leaving the code that causes it unexecuted.
+
+```ts
+// WRONG — pins the reset, not the thing that arms it.
+st.runWasOpen = true; writeFileSync(stateFile, JSON.stringify(st));
+expect(call()).toBeNull();
+
+// RIGHT — the edge happens because the system observed it happen.
+writeWork("climbing", "2/7");   // an OPEN run
+for (let i = 0; i < 40; i++) call();
+writeWork("complete", "7/7");   // now CLOSED — the transition is real
+expect(call()).toBeNull();
+```
+
+The falsifier is mechanical and worth running once per state machine: **delete the single line that sets the flag and re-run the suite.** If it stays green, the test is decoration.
+
+This rule was bought expensively. In one run (2026-07-30, `20260730-nudge-phase-gate-drift`) the same displacement landed three times, and every instance read as passing coverage:
+
+- tests exercised an extracted predicate while the call site kept the bug — deleting the guard left 50 tests green;
+- the fix for that produced a test that hand-wrote `runWasOpen = true` into the state file, so deleting the one line that sets it left 58 tests green and silently restored a misfire incident from three weeks earlier;
+- the telemetry channel added to make silence visible was filled entirely with its own test output — 8 lines, zero production entries.
+
+The shared failure: a guard's own test was the thing that didn't guard. Corollary — **any file a test writes to must be path-overridable by env var**, or the test's evidence contaminates the production signal it exists to protect.
+
+### 12. Property tests use `fast-check` as the single approved primitive.
 
 `fast-check` (MIT, zero runtime deps, native `bun:test` integration) is the one approved property-testing primitive. **No `jsverify`, no `quickcheck-js`, no hand-rolled property runners.** Adding any alternative property-testing dependency to `package.json` is a CRITICAL FAILURE.
 
@@ -198,7 +228,7 @@ test("reverse is self-inverse", () => {
 
 Property tests live alongside example tests in the same `test/` tree, with `.property.test.ts` suffix to distinguish. Failing properties emit shrunk counterexamples that auto-promote to permanent regression cases — pin the seed in a comment when you copy the counterexample into an example test (`// fc seed: 0x...`).
 
-**At E3+**, every pure-function ISC SHOULD have at least one property-form ISC row in `## Test Strategy`. The granularity rule applies: each property is one binary probe (passes when the property holds across all `numRuns` invocations). The new ISC type is `bun-property` — see `LIFEOS/DOCUMENTATION/Isa/IsaFormat.md` § ISC Type Vocabulary for schema, and `skills/Hardening/Workflows/PropertyTest.md` for candidate detection and the ten property categories (round-trip, idempotency, commutativity, associativity, identity, conservation, model-based, metamorphic, state-machine, oracle).
+**In substantial work**, every pure-function ISC SHOULD have at least one property-form ISC row in `## Test Strategy`. The granularity rule applies: each property is one binary probe (passes when the property holds across all `numRuns` invocations). The new ISC type is `bun-property` — see `LIFEOS/DOCUMENTATION/ISA/ISAFormat.md` § ISC Type Vocabulary for schema, and `skills/Hardening/Workflows/PropertyTest.md` for candidate detection and the ten property categories (round-trip, idempotency, commutativity, associativity, identity, conservation, model-based, metamorphic, state-machine, oracle).
 
 **Worked Anti-ISC universal-form example.** The example-shaped Rule #10 anti-ISC catches one named variable. The universal-form version catches the API-key class:
 
@@ -220,7 +250,7 @@ test("Anti: no API-key-shaped env var leaks into spawned subprocess", () => {
 });
 ```
 
-This is strictly stronger than the example form — it catches `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and the next vendor's key the author hasn't bought yet. **At E3+, this is the default Anti-ISC shape.**
+This is strictly stronger than the example form — it catches `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and the next vendor's key the author hasn't bought yet. **In substantial work, this is the default Anti-ISC shape.**
 
 ---
 
@@ -311,7 +341,7 @@ Phases 2–5 are tracked separately as PROJECTS.md entries; they're not part of 
 
 ## Anti-patterns (do not do)
 
-- ❌ Co-locating test files next to source (`hooks/<Hook>.hook.test.ts` next to `hooks/<Hook>.hook.ts`). Bun does not do this and the parallel `test/` tree scales better.
+- ❌ Co-locating test files next to source (`hooks/<Hook>.hook.test.ts` next to `hooks/<Hook>.hook.ts`). Bun does not do this and the parallel `test/` tree scales better. (Repo-root surface only; subsystem packages keep in-package suites per Rule 2 — a package-local `test/` dir is the parallel-tree pattern at package scope, not co-location.)
 - ❌ Adding Jest, Vitest, Mocha, AVA, ts-node, ts-jest, sinon, jest-mock to LifeOS's `package.json`. CONSTITUTIONAL FAILURE.
 - ❌ Setting a global `coverageThreshold = 1.0`. Gamification trap; incentivizes shallow tests.
 - ❌ Adding a `--retry 3` flag to any test invocation in CI. Banned.
@@ -323,10 +353,56 @@ Phases 2–5 are tracked separately as PROJECTS.md entries; they're not part of 
 
 ---
 
+## Examples
+
+### One claim, closed by one probe
+
+Here's the doctrine at its smallest — a tiny utility, `slugify(title)`, that turns a post title into a URL slug. The ISA states done as a claim and names the probe that closes it:
+
+```
+## Criteria
+- [ ] ISC-3: slugify lowercases, hyphenates, and is idempotent — slugify(x) equals slugify(slugify(x)).
+
+## Test Strategy
+| isc   | type     | check                             | tool                                 |
+| ISC-3 | bun-test | idempotent + lowercase-hyphenated | bun test test/tools/slugify.test.ts  |
+```
+
+The rule is mechanical: the `tool` column starts with `bun test`, so `[ ]` → `[x]` is not allowed until `test/tools/slugify.test.ts` exists and exits 0. "I ran it in my head" doesn't flip the box. A green run does. That's the whole bridge from a written criterion to a verified one.
+
+### The probe that fits the claim
+
+`bun test` is the default probe, but it isn't the only one — the claim's modality decides which instrument is honest:
+
+- **A pure function** ("slugify is idempotent") → `bun test`. It's code correctness, checked in-process.
+- **A rendered page** ("the toggle flips the theme on a phone viewport") → Interceptor. `bun test` can't see a DOM.
+- **An agent's answer quality** ("the summary keeps every key fact") → `Skill("Evals")`. That's judging a transcript, not asserting a return value.
+
+Reaching for `bun test` on a DOM claim, or Interceptor on a pure function, is the wrong instrument — the claim would close on evidence that doesn't actually test it.
+
+### A criterion becoming verified
+
+```mermaid
+flowchart TD
+    A[ISC written in the ISA] --> B[Test Strategy names a bun test file]
+    B --> C{Does the named test file exist?}
+    C -->|no| D[Write the test first]
+    D --> C
+    C -->|yes| E[Run bun test on that file]
+    E --> F{Exit code 0?}
+    F -->|no| G[Claim stays open: fix code or fix claim]
+    G --> E
+    F -->|yes| H[Flip ISC to done, capture output in Verification]
+```
+
+The checkbox is downstream of a real exit code, never upstream of it. A failing probe forces the same question the Algorithm always asks — is the code wrong or is the claim wrong? — and only a passing run, captured in `## Verification`, earns the checkmark.
+
+---
+
 ## Cross-references
 
-- Algorithm doctrine on ISA-as-test-harness: `~/.claude/LIFEOS/ALGORITHM/v8.4.0.md` § Doctrine (line 17)
-- ISA format spec: `~/.claude/LIFEOS/DOCUMENTATION/Isa/IsaFormat.md`
+- Algorithm doctrine on ISA-as-test-harness: `~/.claude/LIFEOS/ALGORITHM/v8.17.3.md` § Doctrine (line 17)
+- ISA format spec: `~/.claude/LIFEOS/DOCUMENTATION/ISA/ISAFormat.md`
 - Bun test docs: <https://bun.sh/docs/cli/test>, <https://bun.sh/docs/test/writing>, <https://bun.sh/docs/test/lifecycle>, <https://bun.sh/docs/test/snapshots>, <https://bun.sh/docs/test/coverage>, <https://bun.sh/docs/test/mocks>
 - Bun's own test doctrine: <https://github.com/oven-sh/bun/blob/main/test/CLAUDE.md>
 - Bun harness source: <https://github.com/oven-sh/bun/blob/main/test/harness.ts>

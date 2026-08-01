@@ -37,17 +37,36 @@ Mode is recorded in `~/.config/interceptor/config.toml`. `interceptor status` ec
 
 ## Steps
 
+> **Most users should not run these steps.** The normal install and upgrade path is
+> the signed `.pkg` from the upstream releases page, or `interceptor upgrade --full`
+> on an existing install. Build from source only when you need an unreleased commit
+> or are developing against the repo.
+
+### 0. Point at Your Source Checkout
+
+Everything below reads `$INTERCEPTOR_SRC` — your clone of
+https://github.com/Hacker-Valley-Media/Interceptor. `Tools/Pin.sh` reads the same
+variable. Point it at wherever you cloned the repo:
+
+```bash
+export INTERCEPTOR_SRC=/path/to/your/interceptor
+```
+
+**Do not keep this checkout in a cloud-synced directory** (iCloud Drive, Dropbox,
+Google Drive). Sync strips the code-signature envelope off built `.app` bundles,
+which makes the macOS bridge SIGKILL-loop on launch. Keep it on local disk.
+
 ### 1. Pull Latest
 
 ```bash
-cd ~/Projects/interceptor && git fetch origin && git status -uno
+cd "$INTERCEPTOR_SRC" && git fetch origin && git status -uno
 ```
 
 If you have local diffs, stash before pulling:
 
 ```bash
-cd ~/Projects/interceptor && \
-  git stash push -m "kai-local patches" -- '<paths>' && \
+cd "$INTERCEPTOR_SRC" && \
+  git stash push -m "local patches" -- '<paths>' && \
   git pull --ff-only origin main && \
   git stash pop
 ```
@@ -57,13 +76,13 @@ cd ~/Projects/interceptor && \
 If upstream force-pushed (rarer now post-v0.10), inspect what would be lost, then:
 
 ```bash
-cd ~/Projects/interceptor && git reset --hard origin/main
+cd "$INTERCEPTOR_SRC" && git reset --hard origin/main
 ```
 
 ### 2. Install Dependencies
 
 ```bash
-cd ~/Projects/interceptor && bun install
+cd "$INTERCEPTOR_SRC" && bun install
 ```
 
 Always run before build — upstream may add deps. Build fails with "Could not resolve" otherwise.
@@ -71,7 +90,7 @@ Always run before build — upstream may add deps. Build fails with "Could not r
 ### 3. Build
 
 ```bash
-cd ~/Projects/interceptor && bun run build       # or: bash scripts/build.sh
+cd "$INTERCEPTOR_SRC" && bun run build       # or: bash scripts/build.sh
 ```
 
 Produces:
@@ -84,13 +103,21 @@ Produces:
 ### 4. Install Binaries
 
 ```bash
-cp ~/Projects/interceptor/dist/interceptor /opt/homebrew/bin/
-cp ~/Projects/interceptor/daemon/interceptor-daemon /opt/homebrew/bin/
+cp "$INTERCEPTOR_SRC"/dist/interceptor /opt/homebrew/bin/
+cp "$INTERCEPTOR_SRC"/daemon/interceptor-daemon /opt/homebrew/bin/
 ```
 
-### 4a. Pin the Extension into the skill
+### 4a. Pin the Built Extension
 
-`~/.claude/skills/Interceptor/Extension/` is a **pinned copy** of the built `extension/dist/`, not a symlink. Two reasons: Chrome disables unpacked extensions on every manifest version bump (a stable copy survives that), and the public LifeOS release ships this skill — a symlink to a local build dir is useless to other users.
+The signed `.pkg` installers place the Chrome extension for you — this step only
+applies to a from-source build.
+
+`Tools/Pin.sh` copies the built `extension/dist/` into
+`~/.claude/skills/Interceptor/Extension/`, **creating that directory on first
+run**. It does not ship with the skill; it exists only once you have pinned a
+build into it. Chrome then loads that stable copy rather than the build tree,
+which matters because a rebuild rewrites `dist/` in place and Chrome disables an
+unpacked extension when the manifest version changes underneath it.
 
 Re-pin after every build:
 
@@ -98,12 +125,12 @@ Re-pin after every build:
 bash ~/.claude/skills/Interceptor/Tools/Pin.sh
 ```
 
-`Pin.sh` rsyncs `dist/` → `Extension/`, **scrubs absolute home paths** that esbuild bakes into bundled JS (the `__dirname` literal in CommonJS wrappers → `"."`), regenerates `PINNED_FROM.txt` with a relative source path, and exits non-zero if any absolute home path survives. Set `INTERCEPTOR_SRC` to override the source repo location.
+`Pin.sh` rsyncs `dist/` → `Extension/`, **scrubs absolute home paths** that esbuild bakes into bundled JS (the `__dirname` literal in CommonJS wrappers → `"."`), regenerates `PINNED_FROM.txt` with a relative source path, and exits non-zero if any absolute home path survives. It reads the same `INTERCEPTOR_SRC` variable set in step 0.
 
 ### 5. Re-register Native Messaging
 
 ```bash
-cd ~/Projects/interceptor && bash scripts/install.sh --chrome --skip-extension
+cd "$INTERCEPTOR_SRC" && bash scripts/install.sh --chrome --skip-extension
 ```
 
 `--skip-extension` is the right path for Chrome — branded Chrome ignores `--load-extension` and the extension reload is a manual step (see "Extension Reload" below). The script regenerates `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.interceptor.host.json` with the current allowed extension IDs.
@@ -126,7 +153,7 @@ The signed-`.pkg` install path lands the `.app` bundle there (Sparkle.framework 
 # 1. Stage the .app bundle (no sudo — lives under $HOME)
 mkdir -p ~/.local/share/interceptor
 rm -rf ~/.local/share/interceptor/interceptor-bridge.app
-cp -R ~/Projects/interceptor/dist/interceptor-bridge.app \
+cp -R "$INTERCEPTOR_SRC"/dist/interceptor-bridge.app \
       ~/.local/share/interceptor/interceptor-bridge.app
 
 # 2. Write LaunchAgent plist into $HOME (no sudo) — points at the .app MacOS binary
@@ -189,7 +216,7 @@ interceptor macos trust --walkthrough  # Deep-links to System Settings for missi
 - **No authentication on the socket.** Any local process running as your user can connect and execute every bridge action. macOS TCC permissions (Accessibility, Screen Recording, Microphone) are granted to the bridge once and inherited by every socket client. (The `trust` probe exposes exactly three keys — `accessibility`, `screenRecording`, `microphone` — there is no `inputMonitoring` field.)
 - **Marginal risk is supply-chain:** a malicious local package gains a one-step path to OS-level input/screen/clipboard without needing its own permission grants.
 - Single-user Mac threat model: acceptable. Multi-user Macs need socket hardening (chmod 700 of the socket as a post-start plist hook).
-- **Binary provenance:** built locally from `~/Projects/interceptor/interceptor-bridge/Sources/`, ad-hoc signed for dev. v0.9.0+ ships a Developer-ID-signed `.pkg` for distribution — we build from source for fast iteration.
+- **Binary provenance:** built locally from `$INTERCEPTOR_SRC/interceptor-bridge/Sources/`, ad-hoc signed for dev. v0.9.0+ ships a Developer-ID-signed `.pkg` for distribution — we build from source for fast iteration.
 
 #### 6e. Troubleshoot
 
@@ -223,7 +250,7 @@ If `Extension/manifest.json` changed (especially `version` or `key`):
 
 1. Open `chrome://extensions`, enable Developer Mode.
 2. **Delete** the existing Interceptor card (don't just hit reload — if the manifest `key` changed, the extension ID changed and the old card is dead).
-3. **Load unpacked** → `~/.claude/skills/Interceptor/Extension` (a pinned copy of the built `extension/dist`, captured by `Tools/Pin.sh` — NOT a symlink; it does not auto-follow upstream, so it must be re-pinned after every build).
+3. **Load unpacked** → `~/.claude/skills/Interceptor/Extension` (the copy `Tools/Pin.sh` created in step 4a — NOT a symlink; it does not auto-follow upstream, so it must be re-pinned after every build). If you installed from the signed `.pkg` instead of building, the installer already registered the extension — skip this step.
 4. Quit Chrome fully (⌘Q, not just close window) and relaunch — service worker needs a clean restart, especially with `userScripts` permission added.
 5. Accept any new permission prompts (`userScripts`, etc.).
 
@@ -240,7 +267,7 @@ interceptor diagnose --no-skills-hint    # 0.22.2+: daemon exec path, per-contex
 interceptor open "https://example.com"
 ```
 
-`status` reports both `daemon` and `bridge` lines (bridge shows "not running" if you skipped step 6 — that's fine for `--browser-only`). `open` should return tree + extracted text. **`diagnose` is the new must-run check** — it prints the daemon's real exec path and flags a **binary split-brain** (Chrome spawns one daemon binary while the CLI talks to another). If it reports a mismatch, point the NMH manifest `path` at `/opt/homebrew/bin/interceptor-daemon` and `pkill -f interceptor-daemon`. See SKILL.md Gotchas for the full bridge-signing / iCloud / launchd-throttle recovery sequence.
+`status` reports both `daemon` and `bridge` lines (bridge shows "not running" if you skipped step 6 — that's fine for `--browser-only`). `open` should return tree + extracted text. **`diagnose` is the new must-run check** — it prints the daemon's real exec path and flags a **binary split-brain** (Chrome spawns one daemon binary while the CLI talks to another). If it reports a mismatch, point the NMH manifest `path` at `/opt/homebrew/bin/interceptor-daemon` and `pkill -f interceptor-daemon`. See SKILL.md Gotchas for the full bridge-signing / cloud-sync / launchd-throttle recovery sequence.
 
 ## Notes
 

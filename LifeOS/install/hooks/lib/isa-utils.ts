@@ -21,8 +21,8 @@ import { writeFileSync, readdirSync, statSync, existsSync, mkdirSync, appendFile
 import { join, basename } from 'path';
 import { createHash } from 'crypto';
 import { paiPath } from './paths';
-import { effortToCanonicalELevel } from './effort';
 import { appendWorkEvents, diffRegistry, foldToSnapshot, readLiveRegistry, workEventsPath } from './work-events';
+import { PHASE_TO_ASCENT, ascentTag, deriveAscent, isRunActive } from '../../LIFEOS/TOOLS/ascent';
 
 // ── v6.9.0: Resume After Complete tunables ────────────────────────────────
 // Constants live here per v6.9.0 doctrine "Tunable Parameters" section.
@@ -48,9 +48,11 @@ function appendDecisionRow(content: string, ts: string, newIteration: number): s
   if (match) {
     return content.replace(decisionsRe, `${match[1]}${match[2].trimEnd()}\n${row}\n${match[3]}`);
   }
-  // No Decisions section yet — append before Changelog if present, else end.
-  const changelogIdx = content.indexOf('\n## Changelog');
-  const insertAt = changelogIdx > 0 ? changelogIdx : content.length;
+  // No Decisions section yet — append before the learning-trail section if present
+  // (## Learning, or the legacy ## Changelog alias for pre-rename ISAs), else end.
+  const learningIdx = content.indexOf('\n## Learning');
+  const trailIdx = learningIdx > 0 ? learningIdx : content.indexOf('\n## Changelog');
+  const insertAt = trailIdx > 0 ? trailIdx : content.length;
   return content.slice(0, insertAt) + `\n## Decisions\n\n${row}\n` + content.slice(insertAt);
 }
 
@@ -143,12 +145,27 @@ export function writeFrontmatterField(content: string, field: string, value: str
 //   ## ISC Criteria
 //   ## IDEAL STATE CRITERIA (Verification Criteria)
 //     ### Criteria               (sub-heading inside IDEAL STATE block)
+//   ## Claims                    (Algorithm v8 vocabulary)
+//   ## Features                  (spec v2.16.0 — feature-block ISAs: claims live
+//                                 in `### F<n>` blocks under `## Features`)
 // Case-insensitive. Section ends at the next `## ` (H2) heading, `---`, or EOF.
+// `## Claims` must anchor at "Claims" so `## Anti-claims` never matches as the
+// section start (anti-claims are a separate H2 in v8 ISAs and stay excluded).
 //
 // The regex INCLUDES `### Criteria` so ISAs using the v4.0 template layout
 // (`## IDEAL STATE CRITERIA` + `### Criteria` sub-heading) parse correctly.
+// Without the Claims variant, every v8-vocabulary ISA parsed as zero criteria:
+// no claim cards, no body-count progress, no criteria fallback on the board
+// (found 2026-07-22 — the "essence of hill climbing" gap was largely this).
+//
+// `## Features` is LAST in the alternation and only wins when no earlier
+// criteria heading exists. In feature-block ISAs (v2.16.0) `## Features` holds
+// the ISCs (nested under `### F<n>` sub-headings, which are H3 so the section
+// runs to the next H2); legacy ISAs keep a `## Claims`/`## Criteria` section
+// that sorts before their `## Features` pointer table, so they are unaffected —
+// and a legacy pointer table has no `- [ ]` lines to mis-parse regardless.
 export const CRITERIA_HEADING_RE =
-  /^(?:##\s+(?:ISC\s+)?Criteria\b[^\n]*|##\s+IDEAL\s+STATE\s+CRITERIA\b[^\n]*|###\s+Criteria\b[^\n]*)$/im;
+  /^(?:##\s+(?:ISC\s+)?Criteria\b[^\n]*|##\s+Claims\b[^\n]*|##\s+IDEAL\s+STATE\s+CRITERIA\b[^\n]*|###\s+Criteria\b[^\n]*|##\s+Features\b[^\n]*)$/im;
 
 // Canonical heading the template emits and migrations target.
 // Short, unambiguous, what most live ISAs already use.
@@ -176,12 +193,6 @@ export function countCriteria(content: string): { checked: number; total: number
   return { checked, total: lines.length };
 }
 
-export interface ModeTransition {
-  mode: 'minimal' | 'native' | 'algorithm';
-  startedAt: number;       // epoch ms
-  endedAt?: number;        // undefined = current
-}
-
 export interface RatingPulse {
   value: number;           // 1-10
   timestamp: number;       // epoch ms
@@ -205,22 +216,17 @@ export interface SessionEntry {
   sessionUUID?: string;
   phase: string;
   progress: string;
-  effort: string;
-  mode: string;
   started: string;
   updatedAt: string;
   criteria?: CriterionEntry[];
-  phaseHistory?: any[];
   iteration?: number;
-  // Mode transition tracking
-  currentMode?: 'minimal' | 'native' | 'algorithm';
-  modeHistory?: ModeTransition[];
-  // MINIMAL session tracking
   ratings?: RatingPulse[];
-  minimalCount?: number;
   // Enriched pipeline data
   capabilities?: string[];      // Skills/capabilities selected for this session
   agents?: AgentEntry[];        // Agents active in this session
+  // 2026-07-14 deep strip: effort/mode/currentMode/modeHistory/minimalCount/
+  // phaseHistory are no longer written. Legacy rows may still carry them;
+  // readers must tolerate unknown keys (they already do — JSON passthrough).
 }
 
 export interface CriterionEntry {
@@ -259,15 +265,27 @@ export function parseCriteriaList(content: string): CriterionEntry[] {
       // Primary parse (Algorithm v5.3.0+): `- [x] ISC-1: description` — bare ISC ID, `:` required.
       // Backward-compat: also accepts pre-v5.3.0 bracketed format `- [x] ISC-1 [F]: description`
       // and legacy nested `- [x] ISC-1 [F][grep]: description`.
-      let textMatch = line.match(/^- \[[ x]\]\s*(ISC-[\w-]+)(?:\s+\[([A-Za-z]+)\](?:\[\w+\])?)?:\s*(.*)/);
+      // Algorithm v8 vocabulary (2026-07-22): short claim IDs — `C1`, `R3`,
+      // `EQ-12` — are the live convention (`- [x] C1: description`). Without
+      // them every v8 ISA parsed as all-dropped: zero claim cards, no body
+      // progress, the climb invisible on the board.
+      // ISC-N | domain-prefixed (ADM-1, CH-10, H-AVAIL, CRS-PAGE) | short (C1, A3).
+      // The domain-prefixed alt accepts a LETTER suffix (H-AVAIL) not just digits
+      // — H3/Vector use alphabetic claim IDs that the digits-only pattern missed.
+      const ID_RE = '(ISC-[\\w-]+|[A-Z]{1,6}-[A-Z0-9][\\w-]*|[A-Z]{1,4}-?\\d+)';
+      let textMatch = line.match(new RegExp(`^- \\[[ x]\\]\\s*${ID_RE}(?:\\s+\\[([A-Za-z]+)\\](?:\\[\\w+\\])?)?:\\s*(.*)`));
 
-      // Fallback: no trailing `:` — e.g. `- [x] ISC-1 description` or
+      // Fallback: no trailing `:` — e.g. `- [x] ISC-1 description`,
+      // `- [x] C1 — description` (em-dash separator), or
       // `- [x] ISC-1 [COMPLETE] description` (status word in brackets, no colon).
-      // Accept the line but strip any non-category bracket tokens from the text.
+      // Accept the line but strip separator dashes and non-category bracket tokens.
       if (!textMatch) {
-        const loose = line.match(/^- \[[ x]\]\s*(ISC-[\w-]+)\s+(.*)/);
+        const loose = line.match(new RegExp(`^- \\[[ x]\\]\\s*${ID_RE}\\s+(.*)`));
         if (loose) {
-          const rest = loose[2].replace(/\[[A-Za-z]+\]\s*/g, '').trim();
+          const rest = loose[2]
+            .replace(/^[—–-]\s*/, '')
+            .replace(/\[[A-Za-z]+\]\s*/g, '')
+            .trim();
           if (rest.length > 0) {
             textMatch = [line, loose[1], undefined as unknown as string, rest] as RegExpMatchArray;
           }
@@ -524,6 +542,52 @@ export function getSessionAgents(sessionUUID: string): AgentEntry[] {
 // diff against THEIR OWN baseline — a shared slot would emit phantom diffs.
 const registryBaselines = new WeakMap<object, { sessions: Record<string, any> }>();
 
+/**
+ * Recompute a row's denormalized `ascent` blob from its OWN phase + progress.
+ * Returns true when the blob changed.
+ *
+ * THE one derivation site for the field. It exists because `ascent` is derived
+ * state stored on the row (so the bash status line can be a pure `jq` read),
+ * which means every writer that moves `phase` or `progress` must recompute it —
+ * and two of the three writers didn't (found 2026-07-30): `WorkReconcile` moved
+ * a row to `climbing 6/7` while its blob still said 📐 Marking, and
+ * `SessionCleanup` stamped `complete` while the blob still said 🧗 Ascending.
+ * A row that disagrees with itself makes the tab, the status line and the board
+ * disagree with each other, which is the exact failure the one-table design
+ * exists to prevent. Call this instead of building the blob by hand.
+ */
+export function applyAscent(session: Record<string, any>): boolean {
+  const [done, total] = String(session.progress || '0/0')
+    .split('/')
+    .map((n) => parseInt(n, 10) || 0);
+  // `tracked` comes from the row, never hardcoded: a placeholder row (no `isa`)
+  // is a TRAVERSE row, and hardcoding true derived 📐 Marking for it. That was
+  // harmless only by evaluation order — SessionCleanup stamps phase=complete
+  // first, and deriveAscent's cairn early-return precedes its tracked check, so
+  // a coincidence was carrying a correctness burden (Max review 2026-07-30, F2).
+  //
+  // `active` likewise comes from the row's own recency, through the table's
+  // shared thresholds. Hardcoding it true made ⛺ Camped unreachable on the
+  // status line — a permanent state with a defined meaning that no row could
+  // ever hold, so a run whose session died kept claiming 🧗 Ascending forever
+  // (Forge audit M2). Pulse already derived this correctly from the same fields;
+  // now both read the same constants.
+  const next = ascentTag(
+    deriveAscent({
+      phase: session.phase,
+      tracked: !!session.isa,
+      active: isRunActive(session),
+      done,
+      total,
+    }),
+  );
+  // Full-tag compare, not key-only: a table edit (icon, label, colour) must
+  // propagate to live rows too, or the board keeps rendering last week's glyph.
+  if (JSON.stringify(session.ascent) === JSON.stringify(next)) return false;
+  session.ascent = next;
+  return true;
+}
+
 export function readRegistry(): { sessions: Record<string, any> } {
   // Live view: derived snapshot + replay of appended-but-unfolded events.
   // Read-only — never appends, never folds.
@@ -537,10 +601,14 @@ export function readRegistry(): { sessions: Record<string, any> } {
  * `complete` because a session that JUST completed in this same harness turn
  * still wants to be matched at SessionEnd (so completion hooks can act on it).
  * Excludes `native` and `starting` — those are placeholder phases.
+ *
+ * Derived from the ascent phase map rather than hand-listed: the hand-listed
+ * version silently lost `scoping` and `climbing` when the vocabulary moved in
+ * 8.x, which made every current-vocabulary run invisible here (found 2026-07-27).
  */
-const ACTIVE_LOOKUP_PHASES = new Set([
-  'observe', 'think', 'plan', 'build', 'execute', 'verify', 'learn', 'complete',
-]);
+const ACTIVE_LOOKUP_PHASES = new Set(
+  Object.keys(PHASE_TO_ASCENT).filter((p) => !['native', 'idle', 'starting'].includes(p)),
+);
 
 /** Numeric timestamp from a session's `updatedAt` (falling back to `started`). */
 function sessionAliveMs(session: Record<string, any>): number {
@@ -617,76 +685,12 @@ export function writeRegistry(reg: { sessions: Record<string, any> }, src?: stri
 
 // ── Phase tracking (single-source: ISA frontmatter) ───────────────────────
 //
-// 2026-04-27: Voice phase capture was removed. ISA frontmatter is the SOLE
-// writer of phaseHistory and `session.phase`. The PhaseSource type retains
-// 'voice' and 'merged' for BACKWARD READ compatibility — work.json files
-// written before this change still contain those values, and parsing must
-// not crash on them. New writes only emit 'isa'.
-
-export type PhaseSource = 'voice' | 'isa' | 'merged';
-
-export interface PhaseEntry {
-  phase: string;          // uppercased (OBSERVE, THINK, PLAN, BUILD, EXECUTE, VERIFY, LEARN, COMPLETE)
-  startedAt: number;      // epoch ms — set when ISASync sees the new phase
-  completedAt?: number;   // epoch ms — set when next phase arrives
-  criteriaCount: number;  // enriched by ISASync
-  agentCount: number;     // enriched by ISASync
-  source?: PhaseSource;   // new entries: 'isa'. Legacy 'voice'/'merged'/'prd' parse as historical.
-}
-
-/**
- * Append a phase transition to phaseHistory with dual-source dedup.
- *
- * - Same phase, same/legacy source → no-op (duplicate guard)
- * - Same phase, different source   → upgrade source to 'merged' (voice+ISA confirmed)
- * - Different phase                → close previous (completedAt = now), push new entry
- *
- * Mutates `phaseHistory` in place AND returns it for chaining.
- * `startedAt` is set from the first source to arrive — subsequent confirmations don't overwrite.
- *
- * Legacy 'prd' source values written by older builds are treated as 'isa' for
- * dedup purposes — same semantic meaning, just renamed.
- */
-export function appendPhase(
-  phaseHistory: PhaseEntry[],
-  newPhase: string,
-  source: PhaseSource
-): PhaseEntry[] {
-  const upperPhase = newPhase.toUpperCase();
-  const now = Date.now();
-  const last = phaseHistory.length > 0 ? phaseHistory[phaseHistory.length - 1] : null;
-
-  // Normalize legacy 'prd' source to 'isa' so old phase entries dedup cleanly
-  // against new ISA-sourced ones.
-  const normalize = (s: PhaseSource | undefined): PhaseSource =>
-    (s as unknown as string) === 'prd' ? 'isa' : (s ?? 'isa');
-
-  const incomingSource = normalize(source);
-
-  if (last && last.phase === upperPhase) {
-    // Same phase — dedup/upgrade
-    const existingSource: PhaseSource = normalize(last.source);
-    if (existingSource !== incomingSource && existingSource !== 'merged') {
-      last.source = 'merged';
-    }
-    return phaseHistory;
-  }
-
-  // New phase transition — close previous
-  if (last && !last.completedAt) {
-    last.completedAt = now;
-  }
-
-  phaseHistory.push({
-    phase: upperPhase,
-    startedAt: now,
-    criteriaCount: 0,
-    agentCount: 0,
-    source: incomingSource,
-  });
-
-  return phaseHistory;
-}
+// 2026-07-14 (agents-dashboard deep strip): the per-transition phaseHistory
+// pipeline (PhaseEntry/appendPhase) was removed with the phase ceremony —
+// `session.phase` (the minimal lifecycle value from ISA frontmatter) is the
+// only phase state written. Run-progress history lives in work-events.jsonl,
+// which the ClimbChart folds. Legacy rows still carrying phaseHistory parse
+// fine; nothing reads the field.
 
 export function syncToWorkJson(fm: Record<string, string>, isaPath: string, content?: string, sessionId?: string): void {
   if (!fm.slug) return;
@@ -707,7 +711,7 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   // from SessionAutoName, then get a full entry from ISASync.
   if (sessionId) {
     for (const [slug, session] of Object.entries(registry.sessions) as [string, any][]) {
-      if (session.sessionUUID === sessionId && (session.mode === 'starting' || session.mode === 'native') && slug !== fm.slug) {
+      if (session.sessionUUID === sessionId && (session.phase === 'starting' || session.phase === 'native') && slug !== fm.slug) {
         delete registry.sessions[slug];
         break;
       }
@@ -723,7 +727,8 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   // phase=learn, iteration++, write-back to ISA frontmatter, append Decisions
   // row, append observability event. Frozen ISAs (frontmatter `frozen: true`)
   // bypass.
-  const incomingBodyHash = content ? hashBody(content) : (existing.bodyHash || '');
+  let incomingBodyHash = content ? hashBody(content) : (existing.bodyHash || '');
+  let persistedBodyLength = content ? content.length : 0;
   const isFrozen = fm.frozen === 'true' || fm.frozen === true as unknown as string;
   const bodyChanged = !existing.bodyHash || existing.bodyHash !== incomingBodyHash;
   const completeInRegistry = existing.phase === 'complete';
@@ -749,6 +754,11 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
       updated = writeFrontmatterField(updated, 'resumed_from_phase', 'complete');
       updated = appendDecisionRow(updated, timestamp, newIteration);
       writeFileSync(isaPath, updated);
+      // Invariant: the persisted bodyHash must describe the body actually on
+      // disk. The rewind just mutated it — rehash, or the next sync reads our
+      // own append as a fresh bodyChanged (public issue #1503).
+      incomingBodyHash = hashBody(updated);
+      persistedBodyLength = updated.length;
     } catch (err) {
       console.error('[ISASync] resume write-back failed:', err);
       // Continue with sync anyway — work.json mutation still helps the dashboard.
@@ -781,16 +791,18 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   // ISA sessions wrote `sessionName: null` to work.json because Algorithm
   // scaffolds rarely emit an explicit sessionName field; the dashboard then
   // showed bare slugs instead of human-readable titles.
+  // 2026-07-20: H1 fallback added. Quick ISAs often carry neither task: nor
+  // title: frontmatter; without this, rows ship nameless and the dashboard
+  // falls back to slugs (or worse — it used to leak the intent snippet).
+  const h1Title = content ? (content.match(/^#\s+(.+)$/m)?.[1]?.trim() || '') : '';
   const sessionName =
     fm.sessionName ||
     existing.sessionName ||
     fm.task ||
     fm.title ||
+    h1Title ||
     '';
 
-  // Build phaseHistory via shared appendPhase utility (dual-source aware)
-  const phaseHistory: PhaseEntry[] = existing.phaseHistory || [];
-  appendPhase(phaseHistory, newPhase, 'isa');
 
   // Parse criteria from ISA content if available, with createdInPhase tracking
   const currentPhaseUpper = newPhase.toUpperCase();
@@ -859,11 +871,6 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
     criteriaParseWarning = existing.criteriaParseWarning ?? null;
   }
 
-  // Update criteriaCount on current phase entry
-  if (phaseHistory.length > 0) {
-    phaseHistory[phaseHistory.length - 1].criteriaCount = criteria.length;
-  }
-
   // Parse capabilities from ISA content
   const capabilities: string[] = content
     ? parseCapabilities(content)
@@ -875,29 +882,6 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
     ? getSessionAgents(resolvedSessionId)
     : (existing.agents || []);
 
-  // Update agentCount on current phase entry
-  if (phaseHistory.length > 0) {
-    phaseHistory[phaseHistory.length - 1].agentCount = agents.length;
-  }
-
-  // Track mode transitions: ISASync always means 'algorithm' mode
-  const existingModeHistory: ModeTransition[] = existing.modeHistory || [];
-  const existingCurrentMode: string = existing.currentMode || '';
-  const newCurrentMode: 'minimal' | 'native' | 'algorithm' = 'algorithm';
-
-  if (existingCurrentMode !== newCurrentMode) {
-    // Close previous mode entry if open
-    if (existingModeHistory.length > 0) {
-      const last = existingModeHistory[existingModeHistory.length - 1];
-      if (!last.endedAt) last.endedAt = Date.now();
-    }
-    // Push new mode transition
-    existingModeHistory.push({ mode: newCurrentMode, startedAt: Date.now() });
-  } else if (existingModeHistory.length === 0) {
-    // First time — initialize with algorithm
-    existingModeHistory.push({ mode: newCurrentMode, startedAt: Date.now() });
-  }
-
   // Intent snippet — UI fallback when no criteria render on the current phase.
   const intent = content ? extractIntentSnippet(content) : (existing.intent || '');
 
@@ -905,34 +889,43 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
   // Algorithm ISAs use `title:` not `task:`; keep backward compat.
   const taskValue = fm.task || fm.title || existing.task || '';
 
-  registry.sessions[fm.slug] = {
+  // Progress is always X/Y for the registry. Non-fraction frontmatter values
+  // (e.g. `progress: true`) previously leaked through and rendered as 0/0 on
+  // the dashboard (2026-07-14 agents-dashboard review) — derive from criteria
+  // counts whenever the frontmatter value isn't a fraction.
+  const progressValue = /^\d+\s*\/\s*\d+$/.test(String(fm.progress || ''))
+    ? String(fm.progress).replace(/\s+/g, '')
+    : `${criteria.filter((c) => c.status === 'completed').length}/${criteria.length}`;
+
+  // Resolved run state, denormalized onto the row so the bash status line is a
+  // pure `jq` read with zero duplicated derivation. Pulse re-derives instead of
+  // reading this — it has the live tool stream and can be more precise — but
+  // both go through `deriveAscent`, so they always agree on the bracket.
+  // Computed by `applyAscent` below, from the row's own phase + progress.
+  const row: Record<string, any> = {
     isa: relativeIsa,
     task: taskValue,
     sessionName: sessionName || undefined,
     sessionUUID: sessionId || existing.sessionUUID || undefined,
     phase: newPhase,
-    progress: fm.progress || '0/0',
-    effort: effortToCanonicalELevel(fm.effort),
-    mode: fm.mode || 'interactive',
+    progress: progressValue,
     started: fm.started || timestamp,
     updatedAt: timestamp,
     criteria,
-    phaseHistory,
-    currentMode: newCurrentMode,
-    modeHistory: existingModeHistory,
     ratings: existing.ratings || [],
-    minimalCount: existing.minimalCount || 0,
     capabilities: capabilities.length > 0 ? capabilities : undefined,
     agents: agents.length > 0 ? agents : undefined,
     intent: intent || undefined,
     criteriaParseWarning: criteriaParseWarning || undefined,
     ...(fm.iteration ? { iteration: parseInt(fm.iteration) || 1 } : {}),
     // v6.9.0: body diff gate for Resume After Complete (B2).
-    ...(incomingBodyHash ? { bodyHash: incomingBodyHash, lastBodySize: content ? content.length : 0 } : {}),
+    ...(incomingBodyHash ? { bodyHash: incomingBodyHash, lastBodySize: persistedBodyLength } : {}),
     ...(fm.resumed_at ? { resumedAt: fm.resumed_at } : {}),
     ...(fm.resumed_from_phase ? { resumedFromPhase: fm.resumed_from_phase } : {}),
     ...(fm.frozen ? { frozen: true } : {}),
   };
+  applyAscent(row);
+  registry.sessions[fm.slug] = row;
 
   // Cleanup against unbounded growth. Thresholds are read against the newer of
   // `lastToolActivity` and `updatedAt` so idle tabs (no tool calls) eventually
@@ -991,7 +984,7 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
     const uuidSlugs = new Map<string, string[]>();
     for (const [slug, session] of Object.entries(registry.sessions) as [string, any][]) {
       if (!session.sessionUUID) continue;
-      if (session.mode === 'native' || session.mode === 'starting') continue;
+      if (session.phase === 'native' || session.phase === 'starting') continue;
       const slugs = uuidSlugs.get(session.sessionUUID) || [];
       slugs.push(slug);
       uuidSlugs.set(session.sessionUUID, slugs);
@@ -1084,12 +1077,45 @@ export function bumpLastToolActivityBySlug(slug: string, sessionUUID?: string): 
       session.sessionUUID = sessionUUID;
       for (const [otherSlug, other] of Object.entries(registry.sessions) as [string, any][]) {
         if (otherSlug === slug) continue;
-        if (other.sessionUUID === sessionUUID && (other.mode === 'starting' || other.mode === 'native')) {
+        if (other.sessionUUID === sessionUUID && (other.phase === 'starting' || other.phase === 'native')) {
           delete registry.sessions[otherSlug];
         }
       }
     }
 
+    writeRegistry(registry);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bump `lastToolActivity` on the session row owned by this harness UUID.
+ * The per-tool-call heartbeat for TRACKED runs (2026-07-14): without it, a
+ * run doing real work between ISA edits went "inactive" after 10 minutes and
+ * fell off the board's active lanes — the exact "I'm working right now and I
+ * don't see it" failure. Called by ISASync for every file event, ISA or not.
+ * Debounced via the row's own timestamp; prefers the tracked row when a
+ * UUID owns both a tracked row and a placeholder.
+ */
+export function bumpLastToolActivityByUUID(sessionUUID: string): boolean {
+  if (!sessionUUID) return false;
+  try {
+    const registry = readRegistry();
+    let target: any = null;
+    for (const session of Object.values(registry.sessions) as any[]) {
+      if (session.sessionUUID !== sessionUUID) continue;
+      if (session.phase === 'complete') continue;
+      if (typeof session.isa === 'string') { target = session; break; }
+      if (!target) target = session;
+    }
+    if (!target) return false;
+
+    const current = target.lastToolActivity;
+    if (current && Date.now() - new Date(current).getTime() < BUMP_DEBOUNCE_MS) return false;
+
+    target.lastToolActivity = new Date().toISOString();
     writeRegistry(registry);
     return true;
   } catch {
@@ -1111,7 +1137,7 @@ export function updateSessionNameInWorkJson(sessionUUID: string, sessionName: st
       if (session.sessionUUID !== sessionUUID) continue;
       if (session.phase === 'complete') continue;
       // Native/starting only — never overwrite an ISA session's sessionName.
-      if (session.mode !== 'native' && session.mode !== 'starting') continue;
+      if (session.phase !== 'native' && session.phase !== 'starting') continue;
       const t = new Date(session.updatedAt || session.started || 0).getTime();
       if (t > bestTime) { bestTime = t; bestSlug = slug; }
     }
@@ -1131,26 +1157,28 @@ export function updateSessionNameInWorkJson(sessionUUID: string, sessionName: st
  * For algorithm mode: phase='starting', replaced by ISASync when ISA.md is written.
  *
  * On subsequent prompts, only updates `updatedAt` to keep the session "alive".
- * Tracks mode transitions via currentMode and modeHistory.
+ * 2026-07-14 deep strip: placeholder rows are phase-only — the retired
+ * mode/currentMode/modeHistory markers are no longer written; `phase:
+ * 'native'|'starting'` IS the marker, and tracked rows are identified by the
+ * `isa` pointer everywhere. The legacy `currentMode` param is accepted and
+ * ignored so callers didn't need a lockstep change.
  */
-export function upsertSession(sessionUUID: string, sessionName: string, task: string, mode: 'native' | 'starting' = 'native', currentMode?: 'minimal' | 'native' | 'algorithm'): void {
+export function upsertSession(sessionUUID: string, sessionName: string, task: string, mode: 'native' | 'starting' = 'native', _currentMode?: 'minimal' | 'native' | 'algorithm'): void {
   try {
     const registry = readRegistry();
     const timestamp = new Date().toISOString();
 
-    // Derive currentMode from the legacy mode param if not explicitly provided
-    const resolvedMode: 'minimal' | 'native' | 'algorithm' = currentMode || (mode === 'starting' ? 'algorithm' : 'native');
-
     // Check if this UUID already has ANY non-complete entry. ISA sessions
-    // (mode='normal'/'interactive') are authoritative — if one exists, just
-    // bump updatedAt on it and bail so PromptProcessing doesn't create a
-    // duplicate native row that splits tool-activity bumps.
+    // are authoritative — if one exists, bail so PromptProcessing doesn't
+    // create a duplicate native row that splits tool-activity bumps.
+    // Placeholder rows are recognized by phase (legacy rows may also carry
+    // the old mode field; phase is present on both generations).
     let existingSlug: string | null = null;
     let existingISASlug: string | null = null;
     for (const [slug, session] of Object.entries(registry.sessions) as [string, any][]) {
       if (session.sessionUUID !== sessionUUID) continue;
       if (session.phase === 'complete') continue;
-      if (session.mode === 'native' || session.mode === 'starting') {
+      if (session.phase === 'native' || session.phase === 'starting') {
         existingSlug = slug;
       } else {
         existingISASlug = slug;
@@ -1168,38 +1196,15 @@ export function upsertSession(sessionUUID: string, sessionName: string, task: st
 
     if (existingSlug) {
       const session = registry.sessions[existingSlug];
-      // Session exists — bump updatedAt
+      // Debounced bump (2026-07-15 efficiency pass): per-prompt updatedAt
+      // writes were ~half of all work-events volume (444/920 measured).
+      // A bare aliveness bump within the debounce window carries no new
+      // information — skip the write entirely. Name upgrades always land.
+      const nameChanged = !!sessionName && session.sessionName !== sessionName;
+      const updMs = new Date(session.updatedAt || 0).getTime();
+      if (!nameChanged && Date.now() - updMs < BUMP_DEBOUNCE_MS) return;
       session.updatedAt = timestamp;
       if (sessionName) session.sessionName = sessionName;
-
-      // Track mode transition if mode changed.
-      // 2026-05-24 (realtime-phase-tracking): one-way upgrade for `algorithm`.
-      // When TheRouter's classifier already declared this session as
-      // currentMode='algorithm', PromptProcessing's local `isNativeMode` regex
-      // must NOT silently downgrade it back to 'native' a tick later. The
-      // classifier is authoritative; this guard preserves its decision.
-      // 2026-07-01: the LEGITIMATE algorithm→native downgrade is recorded by
-      // TheRouter (the authoritative classifier) via markSessionNative() —
-      // this guard only blocks PromptProcessing's WEAK regex, never the classifier.
-      const prevMode = session.currentMode || (session.mode === 'starting' ? 'algorithm' : 'native');
-      const isDowngradeFromAlgorithm = prevMode === 'algorithm' && resolvedMode === 'native';
-      if (prevMode !== resolvedMode && !isDowngradeFromAlgorithm) {
-        const modeHistory: ModeTransition[] = session.modeHistory || [];
-        // Close previous mode entry
-        if (modeHistory.length > 0) {
-          const last = modeHistory[modeHistory.length - 1];
-          if (!last.endedAt) last.endedAt = Date.now();
-        }
-        modeHistory.push({ mode: resolvedMode, startedAt: Date.now() });
-        session.modeHistory = modeHistory;
-        session.currentMode = resolvedMode;
-      } else if (!session.currentMode) {
-        // Initialize currentMode if missing
-        session.currentMode = resolvedMode;
-        if (!session.modeHistory || session.modeHistory.length === 0) {
-          session.modeHistory = [{ mode: resolvedMode, startedAt: Date.now() }];
-        }
-      }
     } else {
       // New session — create lightweight entry.
       // Native mode uses a deterministic slug (`native-${sessionUUID}`) so a
@@ -1231,14 +1236,9 @@ export function upsertSession(sessionUUID: string, sessionName: string, task: st
         sessionUUID: sessionUUID,
         phase: mode === 'native' ? 'native' : 'starting',
         progress: '0/0',
-        effort: mode === 'native' ? '' : 'E1',
-        mode: mode,
         started: timestamp,
         updatedAt: timestamp,
-        currentMode: resolvedMode,
-        modeHistory: [{ mode: resolvedMode, startedAt: Date.now() }],
         ratings: [],
-        minimalCount: 0,
       };
     }
 
@@ -1249,159 +1249,10 @@ export function upsertSession(sessionUUID: string, sessionName: string, task: st
 /** @deprecated Use upsertSession instead */
 export const upsertNativeSession = upsertSession;
 
-/**
- * Mark a session as algorithm-starting in work.json. Called by
- * TheRouter.hook.ts the instant the classifier emits MODE=ALGORITHM, so
- * the Pulse dashboard shows the session as an algorithm session BEFORE the
- * model receives the prompt — no "phase: native" wrong-display window.
- *
- * Behavior:
- *   - If a row exists for this UUID:
- *       - currentMode='algorithm' AND not phase='complete' → no-op (idempotent)
- *       - otherwise: upgrade currentMode→'algorithm', mode→'starting',
- *         and phase→'starting' (only when phase was 'native' — never stomps
- *         a real algorithm phase like 'observe' from a resumed session)
- *   - If no row exists: create a fresh `${datePrefix}_starting-${prefix}` slug
- *     with currentMode='algorithm', mode='starting', phase='starting'
- *
- * Side-effect: writes work.json atomically via writeRegistry.
- * Best-effort: failures must not break the TheRouter classification path.
- */
-/**
- * Authoritatively record a session switching BACK to native (algorithm→native),
- * updating `currentMode` + pushing a `modeHistory` transition so the Pulse
- * Agents/Lattice dashboard re-lanes the session to the native view and the
- * ModeTimeline shows the switch. Called by TheRouter (the authoritative
- * classifier) on NATIVE turns.
- *
- * This is the DOWNGRADE path that `upsertSession` deliberately refuses: that
- * guard exists to stop PromptProcessing's WEAK 8-verb regex from clobbering the
- * classifier's decision a tick later. TheRouter's classifier is authoritative,
- * so it IS allowed to record the return to native. `currentMode` is what every
- * dashboard `inferMode`/`resolveMode` reads FIRST, so this alone re-categorizes
- * the session without touching `phase`/`mode` — safe to resume the algorithm later
- * (markAlgorithmStarting re-upgrades). Idempotent; failure-silent.
- */
-export function markSessionNative(sessionUUID: string): void {
-  if (!sessionUUID) return;
-  try {
-    const registry = readRegistry();
-    // Deterministic targeting: the MOST-RECENT non-complete row for this uuid.
-    // Usually there is exactly one (upsertSession dedupes per uuid); on the rare
-    // "finished-but-unmarked ISA + fresh row" edge, most-recent picks the live one
-    // so we never flicker the wrong dashboard lane. No matching row → no-op (never
-    // create a row for a pure-native session that never entered work tracking).
-    let targetSlug: string | null = null;
-    let bestT = -1;
-    for (const [slug, session] of Object.entries(registry.sessions) as [string, any][]) {
-      if (session.sessionUUID !== sessionUUID) continue;
-      if (session.phase === 'complete') continue;
-      const t = new Date(session.updatedAt || session.started || 0).getTime();
-      if (t >= bestT) { bestT = t; targetSlug = slug; }
-    }
-    if (!targetSlug) return;
-    const session = registry.sessions[targetSlug];
-    if (session.currentMode === 'native') return; // idempotent — already native
-    const modeHistory: ModeTransition[] = session.modeHistory || [];
-    const last = modeHistory.length ? modeHistory[modeHistory.length - 1] : null;
-    if (last && !last.endedAt) last.endedAt = Date.now();
-    modeHistory.push({ mode: 'native', startedAt: Date.now() });
-    // Cap growth on a long oscillating session — the timeline only needs recent history.
-    session.modeHistory = modeHistory.length > 50 ? modeHistory.slice(-50) : modeHistory;
-    session.currentMode = 'native';
-    session.updatedAt = new Date().toISOString();
-    writeRegistry(registry);
-  } catch { /* silent — dashboard mode is best-effort */ }
-}
-
-export function markAlgorithmStarting(sessionUUID: string, taskHint: string, tier?: number): void {
-  if (!sessionUUID) return;
-  // Resolved tier ("E1".."E5") persisted onto the row so the Pulse Agents/Lattice
-  // page shows the correct tier the instant TheRouter classifies — before any
-  // ISA exists. Undefined tier leaves the existing effort untouched.
-  const effortStr = (typeof tier === 'number' && tier >= 1 && tier <= 5) ? `E${tier}` : undefined;
-  try {
-    const registry = readRegistry();
-    const timestamp = new Date().toISOString();
-
-    // Look for any non-complete row owning this UUID.
-    let targetSlug: string | null = null;
-    for (const [slug, session] of Object.entries(registry.sessions) as [string, any][]) {
-      if (session.sessionUUID !== sessionUUID) continue;
-      if (session.phase === 'complete') continue;
-      targetSlug = slug;
-      break;
-    }
-
-    if (targetSlug) {
-      const session = registry.sessions[targetSlug];
-      const alreadyAlgorithm = session.currentMode === 'algorithm';
-      const phaseIsNative = (session.phase || '').toLowerCase() === 'native';
-
-      // Idempotent: already algorithm AND not native-placeholder → just bump.
-      if (alreadyAlgorithm && !phaseIsNative) {
-        if (effortStr) session.effort = effortStr;
-        session.updatedAt = timestamp;
-        writeRegistry(registry);
-        return;
-      }
-
-      // Upgrade in place — preserve sessionUUID and slug; only flip mode/phase.
-      const modeHistory: ModeTransition[] = session.modeHistory || [];
-      if (modeHistory.length > 0) {
-        const last = modeHistory[modeHistory.length - 1];
-        if (!last.endedAt && last.mode !== 'algorithm') last.endedAt = Date.now();
-      }
-      if (!alreadyAlgorithm) {
-        modeHistory.push({ mode: 'algorithm', startedAt: Date.now() });
-        session.modeHistory = modeHistory;
-      }
-      session.currentMode = 'algorithm';
-      if (effortStr) session.effort = effortStr;
-      // Only flip the surface phase when it was the native placeholder.
-      // Real algorithm phases (observe/think/plan/build/execute/verify/learn/complete)
-      // are owned by ISASync / AlgoPhase and must not be stomped here.
-      if (phaseIsNative) {
-        session.phase = 'starting';
-        session.mode = 'starting';
-      }
-      session.updatedAt = timestamp;
-      writeRegistry(registry);
-      return;
-    }
-
-    // No row exists yet — create a fresh starting row.
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const datePrefix = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;
-    const taskSlug = (taskHint || 'starting')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 40) || 'starting';
-    const slug = `${datePrefix}_${taskSlug}`;
-
-    registry.sessions[slug] = {
-      task: taskHint || 'Starting...',
-      sessionUUID,
-      phase: 'starting',
-      progress: '0/0',
-      effort: effortStr || 'E1',
-      mode: 'starting',
-      started: timestamp,
-      updatedAt: timestamp,
-      currentMode: 'algorithm',
-      modeHistory: [{ mode: 'algorithm', startedAt: Date.now() }],
-      ratings: [],
-      minimalCount: 0,
-    };
-    writeRegistry(registry);
-  } catch {}
-}
 
 /**
  * Add a RatingPulse to a session in work.json. Called by PromptProcessing fast-path.
- * If sessionUUID matches an existing session, appends to its ratings array and increments minimalCount.
+ * If sessionUUID matches an existing session, appends to its ratings array.
  * If no session exists, writes to a __pulse_strip array for orphan ratings.
  * Designed to stay under 10ms — simple JSON read-modify-write.
  */
@@ -1415,12 +1266,6 @@ export function addRatingPulse(sessionUUID: string, pulse: RatingPulse): void {
       if (session.sessionUUID === sessionUUID) {
         if (!session.ratings) session.ratings = [];
         session.ratings.push(pulse);
-        session.minimalCount = (session.minimalCount || 0) + 1;
-        // Set currentMode to 'minimal' if first interaction was a rating
-        if (!session.currentMode) {
-          session.currentMode = 'minimal';
-          session.modeHistory = [{ mode: 'minimal' as const, startedAt: Date.now() }];
-        }
         found = true;
         break;
       }
@@ -1435,19 +1280,14 @@ export function addRatingPulse(sessionUUID: string, pulse: RatingPulse): void {
           sessionUUID: '__pulse_strip',
           phase: 'minimal',
           progress: '0/0',
-          effort: '',
-          mode: 'minimal',
           started: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          currentMode: 'minimal' as const,
           ratings: [],
-          minimalCount: 0,
         };
       }
       const strip = registry.sessions['__pulse_strip'];
       if (!strip.ratings) strip.ratings = [];
       strip.ratings.push(pulse);
-      strip.minimalCount = (strip.minimalCount || 0) + 1;
       strip.updatedAt = new Date().toISOString();
       // Cap orphan ratings to prevent unbounded growth (keep last 50)
       if (strip.ratings.length > 50) strip.ratings = strip.ratings.slice(-50);

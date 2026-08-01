@@ -9,10 +9,11 @@
  * Merge annotations are consumed and never emitted in the output.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { atomicWriteText } from "../PULSE/lib/atomic-write";
 
 /**
  * Snapshot of the last merge output, written alongside every successful
@@ -99,6 +100,46 @@ export function applyArrayMerge(systemValue: any, userValue: AppendAnnotation): 
   throw new Error(
     '__merge: "append" requires the system value to be an array or absent',
   );
+}
+
+/**
+ * Permission-array overlay guard (public issue #1527, @vichong).
+ *
+ * Arrays replace wholesale by design, but a scaffolded overlay carrying a literal
+ * empty array — `"deny": []` — silently erased the entire system denylist, turning
+ * the security layer off from install day with no signal. For the three permission
+ * arrays only: an EMPTY user array is treated as "no opinion" (system list kept),
+ * and a merge that nets fewer deny rules than the system half ships warns loudly.
+ * Non-empty user arrays keep the documented replace semantics untouched.
+ */
+export function guardPermissionOverlays(system: any, user: any, merged: any): string[] {
+  const warnings: string[] = [];
+  const systemPerms = system?.permissions;
+  const userPerms = user?.permissions;
+  const mergedPerms = merged?.permissions;
+  if (!isObjectRecord(systemPerms) || !isObjectRecord(mergedPerms)) return warnings;
+
+  for (const arrayName of PERMISSION_ARRAYS) {
+    const systemArr = systemPerms[arrayName];
+    if (!Array.isArray(systemArr) || systemArr.length === 0) continue;
+    const userArr = isObjectRecord(userPerms) ? userPerms[arrayName] : undefined;
+    if (Array.isArray(userArr) && userArr.length === 0) {
+      mergedPerms[arrayName] = cloneJsonValue(systemArr);
+      warnings.push(
+        `permissions.${arrayName}: user overlay is an empty array — treated as no-opinion, kept the ${systemArr.length} system rule(s). To append instead, use { "__merge": "append", "values": [...] }.`,
+      );
+    }
+  }
+
+  const mergedDeny = mergedPerms.deny;
+  const systemDeny = systemPerms.deny;
+  if (Array.isArray(systemDeny) && Array.isArray(mergedDeny) && mergedDeny.length < systemDeny.length) {
+    warnings.push(
+      `permissions.deny: merged output has ${mergedDeny.length} rule(s), fewer than the ${systemDeny.length} the system layer ships — the user overlay is removing deny rules. Verify this is intentional.`,
+    );
+  }
+
+  return warnings;
 }
 
 export function mergeSettings(system: any, user: any): any {
@@ -193,11 +234,33 @@ const PERMISSION_ARRAYS = ["allow", "ask", "deny"] as const;
 export type DroppedRule = { array: string; rule: string; reason: string };
 
 /**
+ * File-editing tools whose PATH rules the harness never matches. File permission
+ * checks resolve against `Edit(path)` ONLY, and Edit covers every file-editing
+ * tool — so `Write(/etc/**)` is dead weight next to `Edit(/etc/**)`, and dead
+ * weight the CLI complains about at startup.
+ *
+ * Verified live, not counted: with only `Edit(~/.claude/projects/**\/memory/**)`
+ * present and no Write twin, the Write tool was DENIED there; with no Write allow
+ * rule present, Write to `~/.claude/` was ALLOWED (commit b68b1a5c4, 2026-07-26).
+ *
+ * This has been "fixed" the wrong way three times — 2026-07-16 (dropped), 07-25
+ * (restored on a config-shape count), 07-27 (restored again) — each time from an
+ * audit that read the settings file and saw an Edit rule without a Write twin.
+ * The count is not evidence; the probe is. Pruning here is what makes the wrong
+ * fix harmless no matter which source layer it lands in.
+ */
+const INERT_FILE_RULE_TOOLS = new Set(["Write", "MultiEdit"]);
+
+/**
  * Returns null when the rule is valid, or a human reason when the harness would
- * reject it. Two rejection classes, matching the harness validator:
+ * reject or silently ignore it. Three rejection classes:
  *   1. mcp wildcard not in tool position — `mcp__*` is illegal; a glob is only
  *      allowed AFTER a literal `mcp__<server>__` prefix.
  *   2. Non-mcp rule naming a tool not in KNOWN_TOOL_NAMES (e.g. MultiEdit).
+ *   3. `Write(path)` / `MultiEdit(path)` — a real tool, but file permissions
+ *      match Edit(path) only, so the rule is inert (see INERT_FILE_RULE_TOOLS).
+ *      Bare `Write` with no specifier is untouched: that is a tool-level rule
+ *      and the harness does honor it.
  */
 export function permissionRuleRejectionReason(rule: string): string | null {
   if (typeof rule !== "string" || rule.length === 0) {
@@ -214,9 +277,14 @@ export function permissionRuleRejectionReason(rule: string): string | null {
     return null;
   }
 
-  const toolName = rule.includes("(") ? rule.slice(0, rule.indexOf("(")) : rule;
+  const hasSpecifier = rule.includes("(");
+  const toolName = hasSpecifier ? rule.slice(0, rule.indexOf("(")) : rule;
   if (!KNOWN_TOOL_NAMES.has(toolName)) {
     return `tool "${toolName}" matches no known tool`;
+  }
+  if (hasSpecifier && INERT_FILE_RULE_TOOLS.has(toolName)) {
+    const path = rule.slice(rule.indexOf("(") + 1, rule.lastIndexOf(")"));
+    return `${toolName}(...) path rules are inert — file permissions match Edit(...) only, and Edit covers every file-editing tool (live probe, commit b68b1a5c4). Use Edit(${path}); do not "restore" a Write twin.`;
   }
   return null;
 }
@@ -511,6 +579,24 @@ async function runCli(argv: string[]): Promise<number> {
     return 2;
   }
 
+  // Root-overlay footgun (public issue #1575, @dactylmedia): a user overlay at
+  // <configRoot>/settings.user.json is a natural-but-wrong guess (both
+  // settings.system.json and the generated settings.json live at the root),
+  // and the merge reads only the canonical --user path — so a root-level copy
+  // is silently inert. On one install an entire overlay (deny rules, hooks)
+  // sat dead for days. Warn loudly whenever a root-level copy exists that is
+  // not the canonical file. This runs BEFORE the fresh-install no-op guard:
+  // canonical-absent + root-stray-present is exactly the footgun case.
+  const rootStray = path.join(os.homedir(), ".claude", "settings.user.json");
+  if (existsSync(rootStray) && path.resolve(rootStray) !== path.resolve(options.userPath)) {
+    process.stderr.write(
+      `⚠️  MergeSettings: ${rootStray} exists but is NOT read by the merge.\n` +
+      `   The user overlay is read ONLY from the canonical path passed via --user\n` +
+      `   (${options.userPath}).\n` +
+      `   Move your overlay there, or its rules/hooks will never take effect.\n`,
+    );
+  }
+
   // Fresh-install guard (audit 20260702 F-001): the SessionStart maintenance hook
   // invokes this with a system+user settings layer a fresh skill-only install has not
   // established yet. If either input is absent there is nothing to merge — no-op
@@ -524,6 +610,11 @@ async function runCli(argv: string[]): Promise<number> {
     const system = await parseJsonFileOrThrow(options.systemPath);
     const user = await parseJsonFileOrThrow(options.userPath);
     const merged = mergeSettings(system, user);
+
+    const permWarnings = guardPermissionOverlays(system, user, merged);
+    for (const warning of permWarnings) {
+      process.stderr.write(`⚠️  MergeSettings: ${warning}\n`);
+    }
 
     // The harness exports env values verbatim — expand leading $HOME/${HOME}/~ so
     // LIFEOS_DIR et al. resolve to real paths on a fresh install (#1404 / #1422).
@@ -545,8 +636,12 @@ async function runCli(argv: string[]): Promise<number> {
     const outputJson = validateRoundTripOrThrow(merged);
 
     if (options.mode.kind === "output") {
+      // Atomic: this runs at SessionStart under a 15s hook timeout, so a kill
+      // mid-write must not leave settings.json truncated — that drops every
+      // hook, permission rule and env var on the next launch.
+      // public PR #1643, @elhoim
       try {
-        await writeFile(options.mode.path, outputJson, "utf8");
+        atomicWriteText(options.mode.path, outputJson);
       } catch (error) {
         throw new Error(
           `Failed to write merged settings to ${options.mode.path}: ${formatErrorMessage(error)}`,
@@ -557,7 +652,7 @@ async function runCli(argv: string[]): Promise<number> {
       // Best-effort: a failed snapshot write must never fail the merge itself
       // (backport skips safely when the snapshot is missing/stale).
       try {
-        await writeFile(MERGE_SNAPSHOT_PATH, outputJson, "utf8");
+        atomicWriteText(MERGE_SNAPSHOT_PATH, outputJson);
       } catch {
         process.stderr.write(`⚠️  could not write merge snapshot to ${MERGE_SNAPSHOT_PATH}\n`);
       }

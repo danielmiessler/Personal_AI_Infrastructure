@@ -20,8 +20,8 @@ single source of truth for "where does my stuff live and how do I authenticate."
 two places:
 
 - **`~/.claude/.env`** — environment variables (`ELEVENLABS_API_KEY`,
-  `TELEGRAM_BOT_TOKEN`, etc.). Pulse loads this on boot. The installer
-  writes here when you complete the voice / Telegram steps.
+  etc.). Pulse loads this on boot. The installer writes here when you
+  complete the voice setup steps.
 - **`~/.claude/LIFEOS/USER/CREDENTIALS/`** — credential JSON files (Google
   OAuth, AWS profiles, etc.). The directory does not exist by default;
   create it on demand and `chmod 700` it.

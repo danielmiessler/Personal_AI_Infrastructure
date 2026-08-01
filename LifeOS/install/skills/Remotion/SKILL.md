@@ -1,8 +1,7 @@
 ---
 name: Remotion
-version: 1.2.10
-description: "Creates programmatic video with React via Remotion — compositions, sequences, and motion graphics animated with useCurrentFrame() and rendered to MP4. USE WHEN video, animation, motion graphics, video rendering, React video, render video, animate content, make a short, create animations, video overlay, explainer video, animated explainer, content to video, programmatic video. NOT FOR static images, diagrams, or illustrations (use Art), tight-cut filler removal from raw recordings (use Video), or audio-only podcast cleaning (use AudioEditor)."
-effort: medium
+version: 1.2.14
+description: "Creates programmatic video with React via Remotion — compositions, sequences, and motion graphics animated with useCurrentFrame() and rendered to MP4. USE WHEN video, animation, motion graphics, video rendering, React video, render video, animate content, make a short, create animations, video overlay, explainer video, animated explainer, content to video, programmatic video. NOT FOR static images, diagrams, or illustrations (use Art), tight-cut filler removal from raw talking-head recordings (that is video editing, not motion graphics), or audio-only podcast cleaning (use AudioEditor)."
 ---
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
@@ -28,7 +27,7 @@ effort: medium
 
 ## What It Does
 
-Creates video programmatically with React. You describe the composition in code; Remotion renders it to MP4. Every frame is driven by `useCurrentFrame()` rather than CSS animation, so the output is deterministic and reproducible. It pulls LifeOS theme constants and Art-skill aesthetics for visual consistency, and stages output to `~/Downloads/` for preview first.
+Creates video programmatically with React. You describe the composition in code; Remotion renders it to MP4. Every frame is driven by `useCurrentFrame()` rather than CSS animation, so the output is deterministic and reproducible. It pulls LifeOS theme constants and Art-skill aesthetics for visual consistency, and stages output to `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) for preview first.
 
 ## The Problem
 
@@ -55,12 +54,12 @@ Define a composition as React, animate with `useCurrentFrame()`, render with `bu
 - **Theme:** Always use LIFEOS_THEME from `Tools/Theme.ts`
 - **Art Integration:** Load Art preferences before creating content
 - **Critical:** NO CSS animations - use `useCurrentFrame()` only
-- **Output:** Always to `~/Downloads/` first
+- **Output:** Always to `$LIFEOS_DOWNLOADS_DIR` (default `~/Downloads/` when unset) first
 - **CLI:** `bunx` always (never `npx`)
 
 **Render command:**
 ```bash
-bunx remotion render {composition-id} ~/Downloads/{name}.mp4
+bunx remotion render {composition-id} "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.mp4
 ```
 
 ## Full Documentation
@@ -86,7 +85,7 @@ bunx remotion render {composition-id} ~/Downloads/{name}.mp4
 
 - **React-based video — component patterns differ from web React.** Remotion has specific composition, sequence, and timing APIs.
 - **Rendering is CPU-intensive.** Use `run_in_background: true` for render commands.
-- **Output goes to ~/Downloads/ first** for preview. Same as images.
+- **Output goes to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) first** for preview. Same as images.
 - **NOT for static images** — use Art skill for illustrations, diagrams, thumbnails.
 
 ## Examples
@@ -97,7 +96,7 @@ User: "create a video showing how the Algorithm works"
 → Builds React composition with Remotion
 → Defines sequences, animations, timing
 → Renders to MP4 in background
-→ Output to ~/Downloads/ for preview
+→ Output to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for preview
 ```
 
 ## Execution Log

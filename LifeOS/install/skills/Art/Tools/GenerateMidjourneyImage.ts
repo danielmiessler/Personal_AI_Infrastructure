@@ -16,11 +16,11 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * Usage:
  *   generate-midjourney-image --prompt "..." --aspect-ratio 16:9 --output /tmp/image.png
  *
- * @see ~/.claude/skills/art/SKILL.md
+ * @see ~/.claude/skills/Art/SKILL.md
  */
 
-import { DiscordBotClient } from '../lib/discord-bot.js';
-import { MidjourneyClient, MidjourneyError } from '../lib/midjourney-client.js';
+import { DiscordBotClient } from '../Lib/discord-bot.js';
+import { MidjourneyClient, MidjourneyError } from '../Lib/midjourney-client.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -40,10 +40,22 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * This ensures API keys are available regardless of how the CLI is invoked
  */
 async function loadEnv(): Promise<void> {
-  const paiDir = process.env.LIFEOS_DIR || resolve(process.env.HOME!, '.claude');
-  const envPath = resolve(paiDir, '.env');
-  try {
-    const envContent = await readFile(envPath, 'utf-8');
+  // The canonical .env lives at ~/.claude/.env — LIFEOS_DIR often points at the
+  // ~/.claude/LIFEOS SUBdirectory, which has no .env, and the silent catch made
+  // present keys invisible (public issue #1515, @xmasyx). Try LIFEOS_DIR first,
+  // then the canonical location; load the first that exists.
+  const home = process.env.HOME!;
+  const candidates = Array.from(new Set([
+    ...(process.env.LIFEOS_DIR ? [resolve(process.env.LIFEOS_DIR, '.env')] : []),
+    resolve(home, '.claude', '.env'),
+  ]));
+  for (const envPath of candidates) {
+    let envContent: string;
+    try {
+      envContent = await readFile(envPath, 'utf-8');
+    } catch {
+      continue; // not here — try the next candidate
+    }
     for (const line of envContent.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
@@ -61,8 +73,7 @@ async function loadEnv(): Promise<void> {
         process.env[key] = value;
       }
     }
-  } catch (error) {
-    // Silently continue if .env doesn't exist - rely on shell env vars
+    break; // loaded one — done
   }
 }
 

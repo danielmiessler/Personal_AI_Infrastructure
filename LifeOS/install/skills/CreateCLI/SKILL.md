@@ -1,8 +1,7 @@
 ---
 name: CreateCLI
-version: 1.1.18
+version: 1.1.25
 description: "Generates production-ready TypeScript CLIs via a 3-tier template system (manual arg parsing, Commander.js, oclif), each shipping full implementation, docs, package.json, strict config, JSON output, and exit-code compliance. USE WHEN create CLI, build CLI, command-line tool, wrap API, add command, upgrade tier, TypeScript CLI. NOT FOR LifeOS skill scaffolding (use CreateSkill)."
-effort: medium
 ---
 
 ## Customization
@@ -228,7 +227,7 @@ Every generated CLI follows:
 **Usage:**
 ```bash
 ghcli repos --user exampleuser
-ghcli issues create --repo pai --title "Bug fix"
+ghcli issues create --repo myrepo --title "Bug fix"
 ghcli search "typescript CLI"
 ghcli --help
 ```
@@ -333,7 +332,7 @@ Developers repeatedly create CLIs for APIs and tools. Each time:
 
 ### The llcli Pattern
 
-The `llcli` CLI (Limitless.ai API) proves this pattern works:
+The `llcli` CLI (Limitless.ai API; retired 2026-07-15 when the backend moved to Bee — the pattern it proved lives on here) demonstrated this pattern works:
 - 327 lines of TypeScript
 - Zero dependencies (no framework)
 - Complete error handling
@@ -356,7 +355,7 @@ The `llcli` CLI (Limitless.ai API) proves this pattern works:
 
 - **development** - For complex feature development (not CLI-specific)
 - **mcp** - For web scraping CLIs (Bright Data, Apify wrappers)
-- **lifelog** - Example of skill using llcli
+- **a lifelog skill** - Example of a skill built on an official vendor CLI (bee)
 
 ---
 

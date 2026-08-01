@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.3.13
+ * @version 1.3.14
  * Safety.hook.ts — unified safety/permissions hook.
  *
  * Single entry point dispatching by event:
@@ -296,7 +296,10 @@ function isAttackerWritableSource(toolName: string): boolean {
   // ToolSchemaLoaded hook event) is an upstream Claude Code feature request.
   if (toolName === "ToolSearch") return true;
   if (!toolName.startsWith("mcp__")) return false;
-  return /gmail|mail|drive|calendar|inbox/i.test(toolName);
+  // dropbox: file content pulled from a sync service is attacker-writable for
+  // the same reason drive already is — shared folders and file requests let a
+  // stranger put text there. public PR #1654, @elhoim
+  return /gmail|mail|drive|calendar|inbox|dropbox/i.test(toolName);
 }
 
 function annotate(input: { tool_name?: string; tool_response?: unknown }): void {

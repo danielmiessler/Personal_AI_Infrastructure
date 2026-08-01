@@ -65,7 +65,7 @@ output:
 ### Step 3: Render Judge Prompt
 
 ```bash
-bun run ~/.claude/Templates/Tools/RenderTemplate.ts \
+bun run ~/.claude/skills/Prompting/Tools/RenderTemplate.ts \
   -t Evals/Judge.hbs \
   -d ~/.claude/skills/Evals/UseCases/<name>/judge-config.yaml \
   -o ~/.claude/skills/Evals/UseCases/<name>/judge-prompt.md \
@@ -96,10 +96,10 @@ criteria:
 
 ### Step 6: Test the Judge
 
-Run the suite (which contains the use case + judge) via `AlgorithmBridge.ts` and inspect the output:
+Run the suite (which contains the use case + judge) via `EvalRunner.ts` and inspect the output:
 
 ```bash
-bun run ~/.claude/skills/Evals/Tools/AlgorithmBridge.ts -s <suite>
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s <suite>
 cat ~/.claude/LIFEOS/MEMORY/STATE/Evals-Results/<use-case>/<run-id>/results.json | jq '.trials[0].graders'
 ```
 

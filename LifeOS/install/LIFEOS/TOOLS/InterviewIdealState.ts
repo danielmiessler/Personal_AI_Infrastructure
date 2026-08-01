@@ -107,32 +107,39 @@ const DIMENSION_PROMPTS: Record<string, string[]> = {
   ],
 };
 
+// Prompts are GENERIC by contract. They ship to every install, so naming the
+// authoring principal's own bands/films/authors did two things wrong at once:
+// it published his taste fingerprint in public source, and it made Phase 3
+// incoherent for a stranger — "beyond the 7 already listed" against a template
+// TELOS that lists nothing (Max in-family audit, 7.24.2 cut). Ask the question;
+// never presuppose the answer. Anything already captured belongs in the
+// principal's own files, which the scanner reads at runtime.
 const PREFERENCE_PROMPTS: Record<string, string[]> = {
   BANDS: [
-    "Beyond Tool, Meshuggah, Boris Brejcha — what other artists have shaped you?",
+    "Which artists have actually shaped you — not just ones you enjoy?",
     "Any artists you'd travel for — the 5-10 you'd drive 100 miles to see?",
-    "Electronic subgenres or individual DJs you track?",
-    "Progressive metal, classic metal — who's in there?",
+    "Genres or individual performers you track closely?",
+    "Anyone whose back catalog you know end to end?",
     "Any artists where you want FULL tour-alert coverage vs. just local?",
   ],
   MOVIES: [
-    "Sci-fi that shaped your worldview — beyond Interstellar?",
-    "Crime / thrillers you love — beyond Pulp Fiction, Snatch?",
+    "Films that shaped how you see the world?",
+    "Genres you return to — crime, sci-fi, thrillers, something else?",
     "Fantasy / epics?",
-    "Directors whose full catalog you'd see — beyond Nolan, Tarantino, Ritchie?",
+    "Directors whose full catalog you'd watch?",
     "Movies you re-watch? Comfort films?",
   ],
   BOOKS: [
-    "Beyond the current 5 — what other books shaped you? Aim for the massive list.",
+    "Which books actually changed how you think? Aim for the long list.",
     "Biographies — who did you read that changed your thinking?",
-    "Sci-fi canon — Banks, Herbert, Stephenson are in AUTHORS.md. What specific works?",
+    "Sci-fi canon — which specific works, not just authors?",
     "History / politics?",
     "Business / strategy?",
-    "Classics — Marcus Aurelius? Epictetus? Seneca?",
+    "Classics or philosophy you return to?",
   ],
   AUTHORS: [
-    "Beyond Frankl, Brooks, Deutsch, Rothfuss, Herbert, Stephenson, Banks — who else?",
-    "Security thinkers — Schneier? Krebs? Others worth tour-alerts?",
+    "Which authors do you follow by name, whatever they publish?",
+    "Thinkers in your own field worth tracking?",
     "AI / tech writers you track?",
     "Historians whose books you read?",
     "Anyone whose EVERY new book you'd buy immediately?",

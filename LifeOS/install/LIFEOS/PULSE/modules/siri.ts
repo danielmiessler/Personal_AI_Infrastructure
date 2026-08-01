@@ -2,9 +2,9 @@
 //
 // The iPhone leg is a stock Shortcuts shortcut named "Talk to {{DA_NAME}}": Siri
 // dictates {{PRINCIPAL_NAME}}'s words, the shortcut POSTs them here, and Siri speaks the
-// reply back. This module is the "to and from" bridge: it runs the same brain
-// as the Telegram channel (buildLifeosContextBlock + Claude Agent SDK query)
-// with a SIRI MODE system prompt tuned for text-to-speech output.
+// reply back. This module is the "to and from" bridge: it runs the LifeOS
+// context brain (buildLifeosContextBlock + Claude Agent SDK query) with a
+// SIRI MODE system prompt tuned for text-to-speech output.
 //
 // Exposure: POST /api/siri/turn, wired in pulse.ts. Publicly reachable ONLY
 // through the path-restricted Cloudflare Tunnel (see LIFEOS/TOOLS/SiriTunnel/
@@ -13,15 +13,16 @@
 // tunnel edge. Auth: Authorization: Bearer $SIRI_API_KEY (header only, never
 // URL — constitutional security rule). Fail-closed when the key is unset.
 //
-// Continuity mirrors telegram.ts: SDK-resume session ID + 60-minute idle
-// boundary. Single user ({{PRINCIPAL_NAME}}), sequential turns — a second request while
-// one is processing gets 429 so the Shortcut can say "still thinking".
+// Continuity: SDK-resume session ID + 60-minute idle boundary. Single user
+// ({{PRINCIPAL_NAME}}), sequential turns — a second request while one is processing gets
+// 429 so the Shortcut can say "still thinking".
 
 import { query } from "@anthropic-ai/claude-agent-sdk"
-import { buildLifeosContextBlock } from "./telegram"
+import { buildLifeosContextBlock } from "../lib/lifeos-context"
+import { loadRemoteMcpServers, mcpStatusPromptLine } from "../lib/mcp-allowlist"
 
 const CWD = `${process.env.HOME}/.claude`
-const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 60 min — same thread boundary as Telegram
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 60 min idle gap resets the SDK thread
 const SDK_TIMEOUT_MS = 50_000 // Shortcuts' Get Contents of URL times out ~60s; stay under it
 const MAX_TURNS = 10 // speed over depth — this is a spoken exchange, not a work session
 const MAX_INPUT_CHARS = 2_000
@@ -86,9 +87,14 @@ async function runTurn(text: string): Promise<string> {
 
   const contextBlock = await buildLifeosContextBlock(text)
 
+  // settingSources does NOT cover MCP config (public issue #1553,
+  // @MatiasBarboza) — default-deny on this remote channel; opt in per server
+  // via LIFEOS_REMOTE_MCP_ALLOWLIST. See ../lib/mcp-allowlist.ts.
+  const remoteMcp = loadRemoteMcpServers()
   const sdkOptions: Record<string, unknown> = {
     cwd: CWD,
     tools: { type: "preset", preset: "claude_code" },
+    ...(Object.keys(remoteMcp).length > 0 ? { mcpServers: remoteMcp } : {}),
     settingSources: ["user", "project"], // no "local" — skip CLAUDE.md mode/format machinery
     // Channel marker — hooks skip the desktop /notify voice when not "desktop".
     // {{PRINCIPAL_NAME}} hears the reply through Siri's TTS on the phone, not the Mac speaker.
@@ -119,7 +125,8 @@ Rules, absolute:
 - Lead with the answer. No preamble.
 - Numbers and names the way a person says them out loud.
 - If a task needs real work (files, deploys, long research), do the quick version now and offer to queue the rest: "want me to pick that up on the Mac?"
-- Speak as {{DA_NAME}} — precise, fast, warm through attention to his context.`,
+- Speak as {{DA_NAME}} — precise, fast, warm through attention to his context.
+- ${mcpStatusPromptLine(Object.keys(remoteMcp))}`,
     },
   }
 

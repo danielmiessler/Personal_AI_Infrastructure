@@ -1,9 +1,9 @@
 ---
 name: LifeOS
-version: 1.4.19
-description: Install and onboard a user into LifeOS — the Life Operating System (current state → ideal state via TELOS + the Algorithm). The agentic installer detects your OS + harness, wires hooks with permission, scaffolds your USER tree, pulls in sources you provide, and runs the TELOS / current→ideal interview that seeds your Pulse dashboard. USE WHEN install LifeOS, set up LifeOS, lifeos setup, lifeos-setup, lifeos interview, onboard me, run the interview, integrate LifeOS into my harness, update LifeOS, uninstall LifeOS, first-time setup. NOT FOR building or cutting a LifeOS release (private release tooling), editing TELOS after onboarding (use Telos / Interview), or LifeOS system maintenance (use the private maintenance skill).
+version: 1.5.35
+description: Install and onboard a user into LifeOS — the Life Operating System (current state → ideal state via TELOS + the Algorithm). The agentic installer detects your OS + harness, wires hooks with permission, scaffolds your USER tree, pulls in sources you provide, and runs the TELOS / current→ideal interview that seeds your Pulse dashboard. USE WHEN install LifeOS, set up LifeOS, lifeos setup, lifeos-setup, lifeos interview, onboard me, run the interview, integrate LifeOS into my harness, update LifeOS, uninstall LifeOS, first-time setup, lifeos doctor, check my install, what capabilities are broken. NOT FOR building or cutting a LifeOS release (private release tooling), editing TELOS after onboarding (use Telos / Interview), or LifeOS system maintenance (use the private maintenance skill).
 disable-model-invocation: true
-argument-hint: "[setup|interview|update|uninstall]"
+argument-hint: "[setup|interview|doctor|update|uninstall]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -23,18 +23,21 @@ A terminal shortcut stays for Claude Code on macOS/Linux:
 curl -fsSL https://ourlifeos.ai/install.sh | bash
 ```
 
-Both are served from the skill's own single sources of truth — `INSTALL.md` at the skill root, `install/install.sh` for the shell path (which hands off to the agentic `/lifeos-setup`). The skill carries no version field (Claude Code ignores one); **versioning lives at the distribution layer** — the GitHub release tag and the `LIFEOS_RELEASES/<version>/` parent dir. The payload (skills, hooks, system prompt, Algorithm, docs, runtime tools) rides along under `install/` and is placed during setup, with permission.
+Both are served from the skill's own single sources of truth — `INSTALL.md` at the skill root, `install/install.sh` for the shell path (which hands off to the agentic `/LifeOS setup`). Two versions coexist and mean different things: the frontmatter `version:` is this skill's own **component** line (bumped by `BumpSkillVersions` like every other skill), while the **distribution** version — what a user means by "LifeOS 7.x" — is the GitHub release tag and the `LIFEOS_RELEASES/<version>/` parent dir. Never read the component line as the release number. The payload (skills, hooks, system prompt, Algorithm, docs, runtime tools) rides along under `install/` and is placed during setup, with permission.
 
 ## Workflow Routing
 
-| Trigger | Workflow |
-|---------|----------|
-| `setup`, `/lifeos-setup`, "install LifeOS", "integrate into my harness" | `Workflows/Setup.md` |
+| Trigger | Target |
+|---------|--------|
+| `setup`, `/LifeOS setup`, "install LifeOS", "integrate into my harness" | `Workflows/Setup.md` |
 | `interview`, "onboard me", "run the interview", TELOS capture | `Workflows/Interview.md` |
+| `doctor`, "check my install", "what's broken", "what capabilities are live" | run `bun <configRoot>/LIFEOS/TOOLS/Doctor.ts` (see `INSTALL.md`) |
 | `update`, "update LifeOS", after a version bump | `Workflows/Update.md` |
 | `uninstall`, "remove LifeOS" | `Workflows/Uninstall.md` |
 
-Default flow (`/lifeos-setup`): **Setup phase** (system integration) → transitions into **Interview phase** (life onboarding). One continuous experience, two clearly-marked phases — setup is logistics, interview is meaning. Setup ALWAYS runs first; hooks must be wired before the interview seeds anything.
+`doctor` is the one tool-backed route — it needs no workflow because `Doctor.ts` is self-describing: it prints the four capability states (live / broken / declined / stale) and the exact fix command for anything broken. Relay its table, offer the fix it names, and honor `decline` — a declined capability is a legitimate way to run LifeOS, never a defect to nag about.
+
+Default flow (`/LifeOS setup`): **Setup phase** (system integration) → transitions into **Interview phase** (life onboarding). One continuous experience, two clearly-marked phases — setup is logistics, interview is meaning. Setup ALWAYS runs first; hooks must be wired before the interview seeds anything.
 
 ## The two phases
 
@@ -52,7 +55,7 @@ Default flow (`/lifeos-setup`): **Setup phase** (system integration) → transit
 
 ## Gotchas
 
-- **No `version:` in SKILL.md.** Claude Code ignores it. Version lives in the release (tag + `LIFEOS_RELEASES/<version>/` + the `install.sh` fetch), not in the skill.
+- **The frontmatter `version:` is the COMPONENT line, not the release.** Claude Code ignores it; `BumpSkillVersions` maintains it like every other skill. The DISTRIBUTION version is the tag + `LIFEOS_RELEASES/<version>/` + the `install.sh` fetch.
 - **`install.sh` is non-destructive by design.** It installs only the LifeOS skill and backs up only a prior LifeOS skill — never the user's other skills, hooks, or config. The whole point is "bolt on, don't take over."
 - **Hooks are installed imperatively, with permission.** A bare skill cannot auto-wire hooks; the setup workflow writes them into the user's harness explicitly, after showing what changes.
 - **Config is `.toml`, never `.yaml`.** `LifeosConfig.ts` reads TOML; the legacy `.yaml` template was retired 2026-06-19.
@@ -60,6 +63,7 @@ Default flow (`/lifeos-setup`): **Setup phase** (system integration) → transit
 
 ## Examples
 
-- "install LifeOS" → `install.sh` drops the skill, then `/lifeos-setup` runs: detect env, surface conflicts, wire hooks with permission, scaffold the USER tree, then roll into the interview.
+- "install LifeOS" → `install.sh` drops the skill, then `/LifeOS setup` runs: detect env, surface conflicts, wire hooks with permission, scaffold the USER tree, then roll into the interview.
 - "run the lifeos interview" → Interview workflow: capture TELOS + current/ideal state, pull in the user's sources, seed Pulse.
+- "lifeos doctor" → run `Doctor.ts`, relay the capability table, offer the fix command for anything broken.
 - "update LifeOS" → Update workflow: idempotent re-overlay after a version bump, non-destructive.

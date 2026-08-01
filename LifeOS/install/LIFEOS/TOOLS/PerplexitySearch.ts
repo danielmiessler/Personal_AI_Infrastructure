@@ -44,11 +44,11 @@ const colors = {
   red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m',
 }
 
-// Load environment — mirrors LIFEOS/TOOLS/Grok.ts convention
+// Load environment — mirrors the cross-vendor search-tool env convention
 function loadEnv(): Record<string, string> {
-  const envPath = process.env.LIFEOS_CONFIG_DIR
-    ? join(process.env.LIFEOS_CONFIG_DIR, '.env')
-    : join(homedir(), '.claude', '.env')
+  // Canonical .env is ~/.claude/.env — never $LIFEOS_CONFIG_DIR/.env, which
+  // resolves to the dead ~/.claude/LIFEOS/.env path (public issue #1490).
+  const envPath = join(homedir(), '.claude', '.env')
   const env: Record<string, string> = {}
   try {
     const content = readFileSync(envPath, 'utf-8')
@@ -124,8 +124,27 @@ async function perplexity(query: string, opts: ReturnType<typeof parseArgs>['opt
   return { content: content.trim(), citations, usage: data.usage ?? {} }
 }
 
+const USAGE = `Usage: bun ~/.claude/LIFEOS/TOOLS/PerplexitySearch.ts [options] "<query>"
+
+Options:
+  --model <name>     sonar | sonar-pro | sonar-reasoning   (default: sonar)
+  --recency <span>   hour | day | week | month | year      (bias toward fresh sources)
+  --json             machine-readable output
+  -h, --help         this message — costs nothing, sends no request`
+
 async function main() {
-  const { opts, query } = parseArgs(process.argv.slice(2))
+  const argv = process.argv.slice(2)
+
+  // --help must NEVER reach the API. Without this guard, `--help` was parsed as a
+  // QUERY and billed as a live Perplexity call (found 2026-07-27 when an audit
+  // probed the tool's own documented health check and got charged an essay about
+  // the help flag). A usage probe has to be free, or nobody will run it.
+  if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
+    console.log(USAGE)
+    process.exit(argv.length === 0 ? 1 : 0)
+  }
+
+  const { opts, query } = parseArgs(argv)
 
   if (!API_KEY) {
     console.error(`${colors.red}Error: PERPLEXITY_API_KEY not set in ~/.claude/.env${colors.reset}`)
@@ -133,7 +152,7 @@ async function main() {
   }
   if (!query) {
     console.error(`${colors.red}Error: no query provided${colors.reset}`)
-    console.error(`Usage: bun ~/.claude/LIFEOS/TOOLS/PerplexitySearch.ts [--model sonar-pro] [--recency day] [--json] "<query>"`)
+    console.error(USAGE)
     process.exit(1)
   }
 

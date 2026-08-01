@@ -268,7 +268,7 @@ Optional: Sign small in bottom right corner in charcoal (#2D2D2D).
 ### Step 5: Execute Generation
 
 ```bash
-bun run ~/.claude/skills/art/Tools/Generate.ts \
+bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --workflow=Stats \
   --model nano-banana-pro \
   --prompt "[YOUR PROMPT]" \
@@ -277,7 +277,7 @@ bun run ~/.claude/skills/art/Tools/Generate.ts \
   --output /path/to/stat-card.png
 ```
 
-**Model Recommendation:** nano-banana-pro (default, excellent for rendering numbers clearly within editorial aesthetic) or `gpt-image-2` (currently #1 on Image Arena text-to-image with +242 Elo margin as of 2026-05-04 — strongest pure number/typography fidelity when the headline number is the entire composition).
+**Model Recommendation:** nano-banana-pro — the default and only model for this workflow. It renders numbers clearly within the editorial aesthetic.
 
 **Immediately Open:**
 ```bash

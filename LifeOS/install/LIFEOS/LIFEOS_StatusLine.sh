@@ -37,6 +37,28 @@ case "$LIFEOS_DIR" in
 esac
 
 CLAUDE_HOME="$HOME/.claude"
+
+# BUN_BIN — defensive only. MEASURED 2026-07-27: the statusline inherits the
+# full interactive PATH (/opt/homebrew/bin included), so a bare `bun` resolves
+# fine here today and nothing was ever broken by this. It is resolved explicitly
+# because a bare name is the kind of dependency that fails silently and
+# invisibly if this script is ever run from launchd, a fresh install, or any
+# other thin-PATH context — every bun-backed field would just render empty with
+# no error. Empty when bun genuinely is not installed; callers keep their own
+# fallbacks.
+#
+# HISTORY, so nobody re-derives a false lesson from this block: it was first
+# committed claiming a minimal PATH was why the ACTIVE percentages did not
+# appear. That diagnosis was wrong — it came from a failure condition
+# constructed with `env -i PATH=/usr/bin:/bin`, never from the real
+# environment, which was only measured afterwards and found to be full.
+BUN_BIN="$(command -v bun 2>/dev/null)"
+if [ -z "$BUN_BIN" ]; then
+    for _b in /opt/homebrew/bin/bun /usr/local/bin/bun "$HOME/.bun/bin/bun" /usr/bin/bun; do
+        [ -x "$_b" ] && BUN_BIN="$_b" && break
+    done
+fi
+
 SETTINGS_FILE="$CLAUDE_HOME/settings.json"
 RATINGS_FILE="$LIFEOS_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
 MODEL_CACHE="$LIFEOS_DIR/MEMORY/STATE/model-cache.txt"
@@ -128,6 +150,11 @@ ALGO_VERSION="${ALGO_VERSION:-—}"
 LOCATION_CACHE_TTL=3600
 WEATHER_CACHE_TTL=900
 USAGE_CACHE_TTL=900      # 15 min: /api/oauth/usage has aggressive per-token rate limits (~5 req before 429)
+USAGE_SCOPED_TTL=180     # Fast lane for the scoped-model (FABLE) window when THIS session runs that
+                         # model — the scoped window exists ONLY in the OAuth payload (native stdin
+                         # re-verified 2026-07-28: still just five_hour/seven_day), so without this a
+                         # live Fable session read its own counter up to 15 min stale. ~3-min spacing
+                         # through the single-fetcher lock keeps the endpoint burst-safe.
 USAGE_HARD_EXPIRY=21600  # P5: 6h. Show last-known-good (dimmed + stale badge) until here, then hide —
                          # replaces the old 1800s cliff that deleted the cache and vanished the counters.
 
@@ -221,6 +248,13 @@ reset_time_str() {
 # ─────────────────────────────────────────────────────────────────────────────
 
 input=$(cat)
+# Guarded debug capture: touch /tmp/pai-sl-capture to dump one raw stdin payload
+# (0600, then the flag is consumed so this never loops). Diagnostic only.
+if [ -f "/tmp/pai-sl-capture" ]; then
+    printf '%s' "$input" > "/tmp/pai-sl-payload.json" 2>/dev/null
+    chmod 600 "/tmp/pai-sl-payload.json" 2>/dev/null
+    rm -f "/tmp/pai-sl-capture" 2>/dev/null
+fi
 
 # Get DA name from settings (single source of truth)
 DA_NAME="${DA_NAME:-Assistant}"
@@ -247,6 +281,7 @@ eval "$(jq -r '
   "context_max=" + (.context_window.context_window_size // 200000 | tostring) + "\n" +
   "context_pct=" + (.context_window.used_percentage // 0 | tostring) + "\n" +
   "total_input=" + (.context_window.total_input_tokens // 0 | tostring) + "\n" +
+  "session_cost_usd=" + (.cost.total_cost_usd // 0 | tostring) + "\n" +
   "has_native_rate_limits=" + ((.rate_limits != null) | tostring) + "\n" +
   "native_usage_5h_present=" + ((.rate_limits.five_hour.used_percentage // .rate_limits.five_hour.utilization) != null | tostring) + "\n" +
   "native_usage_7d_present=" + ((.rate_limits.seven_day.used_percentage // .rate_limits.seven_day.utilization) != null | tostring) + "\n" +
@@ -364,10 +399,16 @@ if [ -z "$harness_name" ]; then
     harness_name="CC"
 fi
 
-# Get Claude Code version — mtime-cached value, fall back to forking
-# `claude --version` (40-80ms, so cached for 24h).
+# Get Claude Code version. The harness already hands us the live value in the
+# statusline JSON (.version, parsed above as cc_version_json) — use it first;
+# the 24h mtime cache is only a fallback for harnesses that omit it. The cache
+# was previously consulted before the parsed value, showing a stale version for
+# up to a day after an update (public issue #1588, @bnkath2o).
 _CC_VERSION_CACHE="$LIFEOS_DIR/MEMORY/STATE/cc-version-cache.txt"
-if [ -f "$_CC_VERSION_CACHE" ] && [ -z "$(find "$_CC_VERSION_CACHE" -mtime +1 2>/dev/null)" ]; then
+cc_version="${cc_version_json:-}"
+if [ -n "$cc_version" ]; then
+    echo "$cc_version" > "$_CC_VERSION_CACHE" 2>/dev/null
+elif [ -f "$_CC_VERSION_CACHE" ] && [ -z "$(find "$_CC_VERSION_CACHE" -mtime +1 2>/dev/null)" ]; then
     cc_version=$(cat "$_CC_VERSION_CACHE" 2>/dev/null)
 fi
 if [ -z "$cc_version" ] || [ "$cc_version" = "unknown" ]; then
@@ -376,7 +417,12 @@ if [ -z "$cc_version" ] || [ "$cc_version" = "unknown" ]; then
     [ "$cc_version" != "unknown" ] && echo "$cc_version" > "$_CC_VERSION_CACHE" 2>/dev/null
 fi
 
-# Cache model name for other tools
+# Cache model name for THIS statusline's own next tick only.
+# NOT AUTHORITATIVE: every concurrent session's statusline writes this same file,
+# so it is last-writer-wins and can report another session's model (verified
+# 2026-07-24: read 'Fable 5' while the saved default was Opus). Never route from
+# it. The authoritative default is settings.json `model`; the authoritative
+# per-dispatch model is what the harness inherits.
 mkdir -p "$(dirname "$MODEL_CACHE")" 2>/dev/null
 echo "$model_name" > "$MODEL_CACHE" 2>/dev/null
 
@@ -729,7 +775,8 @@ if [ "$MODE" != "nano" ]; then
 
     # Hook count flows through GetCounts.ts — same source banner uses. --single hooks
     # short-circuits all other walks (~20ms). Don't reintroduce inline jq here.
-    _hooks_cnt=$(bun "$HOME/.claude/LIFEOS/TOOLS/GetCounts.ts" --single hooks 2>/dev/null || echo 0)
+    _hooks_cnt=0
+    [ -n "$BUN_BIN" ] && _hooks_cnt=$("$BUN_BIN" "$HOME/.claude/LIFEOS/TOOLS/GetCounts.ts" --single hooks 2>/dev/null || echo 0)
 
     _ratings_cnt=0
     [ -f "$RATINGS_FILE" ] && _ratings_cnt=$(wc -l < "$RATINGS_FILE" 2>/dev/null | tr -d ' ')
@@ -758,6 +805,24 @@ if [ "$MODE" = "normal" ]; then
     #    TTL: 900s (15 min). On failure, use cache if <30min old, else show "—".
     _usage_now=$NOW_EPOCH
 
+    # Reset-boundary staleness (2026-07-21 incident): a cache whose window has
+    # passed its own resets_at is definitionally stale no matter how young the
+    # fetch is — after a 5h/weekly/subscription rollover the pre-reset (often
+    # maxed) percentages would otherwise keep rendering for up to the full TTL.
+    # True iff ANY cached window's resets_at is already in the past.
+    _cache_reset_crossed() {
+        [ -f "$USAGE_CACHE" ] || return 1
+        local _rc_ts _rc_epoch
+        while IFS= read -r _rc_ts; do
+            [ -z "$_rc_ts" ] && continue
+            _rc_epoch=$(parse_iso_epoch "$_rc_ts")
+            if [ "$_rc_epoch" -gt 0 ] 2>/dev/null && [ "$_rc_epoch" -le "$_usage_now" ]; then
+                return 0
+            fi
+        done <<< "$(jq -r '[.five_hour.resets_at, .seven_day.resets_at, .seven_day_opus.resets_at, .seven_day_sonnet.resets_at, (.limits[]?.resets_at)] | map(select(type=="string" and . != "")) | .[]' "$USAGE_CACHE" 2>/dev/null)"
+        return 1
+    }
+
     # Refresh the OAuth usage cache (15-min TTL, single-fetcher lock). Used by
     # BOTH paths below: as the full data source when native rate_limits are
     # absent, and as extra_usage enrichment when they're present — Claude Code's
@@ -777,7 +842,35 @@ if [ "$MODE" = "normal" ]; then
             fi
         fi
 
-        if [ "$_data_age" -gt "$USAGE_CACHE_TTL" ]; then
+        # Scoped-model fast lane (2026-07-28 Fable-counter lag fix): when THIS
+        # session's model matches the cached scoped window (FABLE), the
+        # effective TTL drops to USAGE_SCOPED_TTL so the meter tracks a live
+        # Fable session instead of trailing it by up to 15 min. Every other
+        # session keeps the full TTL; a 429 still falls back to
+        # last-known-good exactly as before.
+        _eff_ttl=$USAGE_CACHE_TTL
+        _scoped_win_name=$(jq -r '([.limits[]? | select(.scope.model? != null)] | first | .scope.model.display_name) // ""' "$USAGE_CACHE" 2>/dev/null)
+        if [ -n "$_scoped_win_name" ] && printf '%s' "${model_name:-}" | grep -qiF -- "$_scoped_win_name"; then
+            _eff_ttl=$USAGE_SCOPED_TTL
+        fi
+
+        # A young cache with a crossed reset forces a refetch attempt, throttled
+        # to one per 60s via a marker file — the endpoint 429s aggressively, and
+        # the 5s tick rate must never hammer it while a fetch keeps failing
+        # (anti-claim A1). On failure the true age is restored below so the P5
+        # last-known-good fallback and stale badge stay honest; the render-side
+        # clamp owns the crossed windows in that interim.
+        _orig_age=""
+        if [ "$_data_age" -le "$_eff_ttl" ] && _cache_reset_crossed; then
+            _probe_age=$((_usage_now - $(get_mtime "${USAGE_CACHE}.resetprobe")))
+            if [ "$_probe_age" -gt 60 ]; then
+                touch "${USAGE_CACHE}.resetprobe" 2>/dev/null
+                _orig_age=$_data_age
+                _data_age=$((_eff_ttl + 1))
+            fi
+        fi
+
+        if [ "$_data_age" -gt "$_eff_ttl" ]; then
             # Single-fetcher coordination (P4): only ONE of N concurrent statuslines
             # fetches per TTL window. mkdir is an atomic, portable mutex — macOS has
             # no flock(1). Acquisition is NON-BLOCKING: a loser never waits on the
@@ -835,6 +928,12 @@ if [ "$MODE" = "normal" ]; then
             fi
             # Losers (mkdir failed): no fetch, no wait — fall through to last-known-good.
         fi
+        # Forced-refetch bookkeeping: a failed forced attempt restores the true
+        # data age (a success already set _data_age=0), so staleness reporting
+        # never lies about how old the last good fetch actually is.
+        if [ -n "$_orig_age" ] && [ "$_data_age" -ne 0 ]; then
+            _data_age=$_orig_age
+        fi
     }
 
     # Emit fields that exist ONLY in the OAuth payload — never in Claude Code's
@@ -859,19 +958,30 @@ if [ "$MODE" = "normal" ]; then
         ' "$USAGE_CACHE" 2>/dev/null
     }
 
-    if [ "$has_native_rate_limits" = "true" ]; then
+    # Per-session billing detection. The keychain is NOT a reliable signal here:
+    # a coexisting subscription-era session refreshes its OAuth token back into
+    # the shared keychain entry (observed live 2026-07-14, mixed-auth sessions).
+    # The session's OWN stdin is authoritative: subscription auth gets a native
+    # rate_limits object on every tick once the first API response lands
+    # (v2.1.80+); API-key auth never does. cost.total_cost_usd > 0 proves
+    # responses HAVE landed, so rate_limits-absent + cost>0 = API billing for
+    # this session. cost==0 (pre-first-response tick) stays ambiguous and falls
+    # through to the OAuth-cache path.
+    _session_has_responses=$(awk -v c="${session_cost_usd:-0}" 'BEGIN{print (c+0 > 0) ? "true" : "false"}')
+
+    # Native-window presence is tri-state and per-source (P1): a present 0% is
+    # real data; an absent rate_limits window is NOT. "field absent" must never
+    # be conflated with "value 0".
+    _native_windows=false
+    if [ "$has_native_rate_limits" = "true" ] && { [ "$native_usage_5h_present" = "true" ] || [ "$native_usage_7d_present" = "true" ]; }; then
+        _native_windows=true
+    fi
+
+    if [ "$_native_windows" = "true" ]; then
         # Native rate_limits available — use directly, skip OAuth API entirely.
-        # Presence is tri-state and per-source (P1): a present 0% is real data
-        # (state=fresh); an absent rate_limits window is NOT (state=absent).
-        # "field absent" must never be conflated with "value 0".
-        if [ "$native_usage_5h_present" = "true" ] || [ "$native_usage_7d_present" = "true" ]; then
-            _native_state=fresh
-        else
-            _native_state=absent
-        fi
         cat > "$_parallel_tmp/usage.sh" << USAGEEOF
 usage_source=native
-usage_state=$_native_state
+usage_state=fresh
 usage_5h=${native_usage_5h:-0}
 usage_5h_reset=${native_usage_5h_reset:-''}
 usage_7d=${native_usage_7d:-0}
@@ -898,8 +1008,15 @@ USAGEEOF
             fi
             _emit_cache_enrichment >> "$_parallel_tmp/usage.sh"
         fi
+    elif [ "$has_native_rate_limits" != "true" ] && [ "$_session_has_responses" = "true" ]; then
+        # API-key billing: responses have landed yet no rate_limits object ever
+        # arrived — subscription windows don't exist for this session's auth.
+        # usage_state=api routes the renderer to the API line (billing token +
+        # live session cost from stdin's cost object).
+        echo -e "usage_source=api\nusage_state=api\nusage_5h=0\nusage_7d=0\nusage_extra_enabled=false\nusage_ws_cost_cents=0" > "$_parallel_tmp/usage.sh"
     else
-        # Fallback: fetch from OAuth API (pre-v2.1.80 or non-Claude.ai auth)
+        # Fallback: fetch from OAuth API (pre-v2.1.80, pre-first-response tick,
+        # or native rate_limits present but windows absent)
         _refresh_usage_cache
 
         # Read last-known-good (P5): show cached data — dimmed with a stale badge by
@@ -916,7 +1033,9 @@ USAGEEOF
                 "usage_7d=" + (.seven_day.utilization // 0 | tostring) + "\n" +
                 "usage_7d_reset=" + (.seven_day.resets_at // "" | @sh) + "\n" +
                 "usage_opus=" + (if .seven_day_opus then (.seven_day_opus.utilization // 0 | tostring) else "null" end) + "\n" +
+                "usage_opus_reset=" + (.seven_day_opus.resets_at // "" | @sh) + "\n" +
                 "usage_sonnet=" + (if .seven_day_sonnet then (.seven_day_sonnet.utilization // 0 | tostring) else "null" end) + "\n" +
+                "usage_sonnet_reset=" + (.seven_day_sonnet.resets_at // "" | @sh) + "\n" +
                 "usage_extra_enabled=" + (.extra_usage.is_enabled // false | tostring) + "\n" +
                 "usage_extra_limit=" + (.extra_usage.monthly_limit // 0 | tostring) + "\n" +
                 "usage_extra_used=" + (.extra_usage.used_credits // 0 | tostring) + "\n" +
@@ -1100,7 +1219,76 @@ get_usage_color() {
     fi
 }
 
-# Render context bar - gradient progress bar using (potentially scaled) percentage
+# Render one usage meter: a VU-style gauge with "PCT% RESET" printed inside.
+# The fill advances left→right with usage and each cell wears the color of its
+# POSITION along the bar (green→amber→orange→red at the 40/60/80 marks), so
+# the leading edge changes color as it travels ({{PRINCIPAL_NAME}}, 2026-07-18). Unfilled
+# cells stay dim green — remaining budget reads green, never slate. Inner text
+# is ASCII-only ON PURPOSE — ${#} and ${var:off:len} are byte-oriented under a
+# C locale, so a multibyte glyph (↻, ·) would corrupt the per-cell split.
+# $1 = pct, $2 = reset text ("" to omit). Echoes the ANSI string.
+USAGE_METER_W=14
+render_usage_meter() {
+    local pct="$1" rst="$2" w=$USAGE_METER_W
+    local pct_i=${pct%%.*}
+    case "$pct_i" in ''|*[!0-9]*) pct_i=0;; esac
+    local text=" ${pct_i}%"
+    [ -n "$rst" ] && text="${text} ${rst}"
+    while [ ${#text} -lt "$w" ]; do text="${text} "; done
+    text=${text:0:$w}
+    local filled=$(( (pct_i * w + 50) / 100 ))
+    [ "$filled" -gt "$w" ] && filled=$w
+    local fg_fill='\033[38;2;15;18;25m'       # dark text on bright fill
+    local bg_rest='\033[48;2;10;58;38m'       # dim green — remaining budget
+    local fg_rest='\033[38;2;140;195;165m'    # soft green text on the rest
+    local out="" cur="" bg fg i pos
+    for ((i=1; i<=w; i++)); do
+        if [ "$i" -le "$filled" ]; then
+            pos=$(( i * 100 / w ))
+            if   [ "$pos" -gt 80 ]; then bg='\033[48;2;190;18;60m'   # Rose
+            elif [ "$pos" -gt 60 ]; then bg='\033[48;2;194;98;30m'   # Orange
+            elif [ "$pos" -gt 40 ]; then bg='\033[48;2;176;128;16m'  # Amber
+            else bg='\033[48;2;16;110;72m'                           # Emerald
+            fi
+            fg=$fg_fill
+        else
+            bg=$bg_rest
+            fg=$fg_rest
+        fi
+        if [ "${bg}${fg}" != "$cur" ]; then out="${out}${bg}${fg}"; cur="${bg}${fg}"; fi
+        out="${out}${text:i-1:1}"
+    done
+    echo "${out}${RESET}"
+}
+
+# ACTIVE-ladder rung colors, shared by the context bar — EXACT RGBs from
+# _ar_rung_c's LIVE tones below, so the bar and the roster can never disagree
+# on what a model's color is.
+BAR_C_LOW='\033[38;2;74;222;128m'    # HAIKU  green-400
+BAR_C_MED='\033[38;2;59;130;246m'    # SONNET blue-500
+BAR_C_HIGH='\033[38;2;239;68;68m'    # OPUS   red-500
+BAR_C_MAX='\033[38;2;168;85;247m'    # FABLE  purple-500
+
+# Fallback hue when no session mix exists yet — the session model's rung.
+# Patterns mirror _pm_roster_states; unknown → the bar's historical green.
+case "$model_name" in
+    *[Hh]aiku*)  MODEL_BAR_COLOR="$BAR_C_LOW"  ;;
+    *[Ss]onnet*) MODEL_BAR_COLOR="$BAR_C_MED"  ;;
+    *[Ff]able*)  MODEL_BAR_COLOR="$BAR_C_MAX"  ;;
+    *[Oo]pus*)   MODEL_BAR_COLOR="$BAR_C_HIGH" ;;
+    *)           MODEL_BAR_COLOR="$BAR_C_LOW"  ;;
+esac
+
+# Render context bar — SESSION-MIX fill ({{PRINCIPAL_NAME}}, 2026-07-28): the filled
+# region is partitioned by each rung's share of the session's output tokens
+# (the same ModelMix.ts mix_* the ACTIVE line prints), in ladder order
+# low→max — a session that ran Haiku, Opus, and Fable paints green, red,
+# and purple segments sized by who did the work. Bar LENGTH stays
+# context-window fill; only the coloring carries the mix (two denominators,
+# one glyph — deliberate). Before mix data exists (early session; narrow
+# modes render before the ACTIVE block computes mix_*), the whole fill
+# falls back to the session model's rung color. Urgency still reads from
+# the two ⛁ threshold markers and the trailing percentage.
 render_context_bar() {
     local width=$1 pct=$2
     local output="" last_color="" color=""
@@ -1118,11 +1306,19 @@ render_context_bar() {
     local pos_20=$((width / 3))          # first warning  — orange marker at 1/3
     local pos_60=$((2 * width / 3))      # final warning  — dark-red marker at 2/3
 
-    # Three discrete bands keyed to the two markers — no gradient.
-    # Filled buckets read off the color of the next marker the user is heading toward:
-    #   green   before pos_20  (orange marker)   — safe, no action needed
-    #   orange  pos_20..pos_60 (dark-red marker) — compact now
-    #   d.red   after pos_60                     — context degraded, compact immediately
+    # Segment boundaries via cumulative floor division — partitions the filled
+    # region exactly (segments always sum to $filled, no rounding drift).
+    local m_lo=${mix_low:-0} m_md=${mix_medium:-0} m_hi=${mix_high:-0} m_mx=${mix_max:-0}
+    local mtot=$(( m_lo + m_md + m_hi + m_mx ))
+    local seg1=0 seg2=0 seg3=0
+    if [ "$mtot" -gt 0 ]; then
+        seg1=$(( filled * m_lo / mtot ))
+        seg2=$(( filled * (m_lo + m_md) / mtot ))
+        seg3=$(( filled * (m_lo + m_md + m_hi) / mtot ))
+    fi
+
+    # The two markers keep the compaction thresholds visible regardless of
+    # fill (orange = compact soon, dark red = compact now).
     for ((i=1; i<=width; i++)); do
         # Marker positions render their threshold glyph regardless of fill.
         if [ "$i" -eq "$pos_20" ]; then
@@ -1130,12 +1326,14 @@ render_context_bar() {
         elif [ "$i" -eq "$pos_60" ]; then
             output="${output}\033[38;2;180;40;40m⛁${RESET}"     # dark-red marker
         elif [ "$i" -le "$filled" ]; then
-            if [ "$i" -lt "$pos_20" ]; then
-                color='\033[38;2;74;222;128m'    # green band
-            elif [ "$i" -lt "$pos_60" ]; then
-                color='\033[38;2;251;146;60m'    # orange band
+            if [ "$mtot" -gt 0 ]; then
+                if   [ "$i" -le "$seg1" ]; then color="$BAR_C_LOW"
+                elif [ "$i" -le "$seg2" ]; then color="$BAR_C_MED"
+                elif [ "$i" -le "$seg3" ]; then color="$BAR_C_HIGH"
+                else                            color="$BAR_C_MAX"
+                fi
             else
-                color='\033[38;2;180;40;40m'     # dark-red band
+                color="$MODEL_BAR_COLOR"
             fi
             last_color="$color"
             output="${output}${color}⛁${RESET}"
@@ -1202,6 +1400,36 @@ current_time=$(date +"%H:%M")
 session_display=""
 if [ -n "$SESSION_LABEL" ]; then
     session_display=$(echo "$SESSION_LABEL" | tr '[:lower:]' '[:upper:]')
+fi
+
+# ── Ascent chip: where this session is on the hill ───────────────────────────
+# Pure read. The icon, label and color are RESOLVED AT WRITE TIME by
+# hooks/lib/isa-utils.ts through LIFEOS/TOOLS/ascent.ts and stored on the
+# work.json row, so this file holds zero derivation logic and can never drift
+# from what the Kitty tab and the Pulse board show. Untracked sessions have no
+# `ascent` object and render nothing — a chip on every terminal is noise.
+ascent_chip=""
+_WORK_JSON="$LIFEOS_DIR/MEMORY/STATE/work.json"
+if [ -n "$session_id" ] && [ -f "$_WORK_JSON" ]; then
+    _asc_icon=""; _asc_label=""; _asc_color=""
+    eval "$(jq -r --arg sid "$session_id" '
+        [ .sessions[]? | select(.sessionUUID == $sid and ((.ascent | type) == "object")) ]
+        | sort_by(.updatedAt // "") | last
+        | if . == null then empty else
+            "_asc_icon="  + (.ascent.icon  // "" | @sh) + "\n" +
+            "_asc_label=" + (.ascent.label // "" | @sh) + "\n" +
+            "_asc_color=" + (.ascent.color // "" | @sh)
+          end' "$_WORK_JSON" 2>/dev/null)"
+    if [ -n "$_asc_label" ]; then
+        _asc_fg="$SLATE_400"
+        case "$_asc_color" in
+            \#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])
+                _h="${_asc_color#\#}"
+                _asc_fg=$(printf '\033[38;2;%d;%d;%dm' "$((16#${_h:0:2}))" "$((16#${_h:2:2}))" "$((16#${_h:4:2}))")
+                ;;
+        esac
+        ascent_chip="${_asc_fg}${_asc_icon} ${_asc_label}${RESET}"
+    fi
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1313,8 +1541,10 @@ _hdr_loc_plain=""
 _hdr_loc_plain="${_hdr_loc_plain}${location_city}"
 [ -n "$location_state" ] && _hdr_loc_plain="${_hdr_loc_plain}, ${location_state}"
 [ -z "$_hdr_loc_plain" ] && _hdr_loc_plain="—"
+_hdr_ascent=""
+[ -n "$ascent_chip" ] && _hdr_ascent=" ${SLATE_600}│${RESET} ${ascent_chip}"
 if [ -n "$session_display" ]; then
-    printf "${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_SESSION}${session_display}${RESET}\n"
+    printf "${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_SESSION}${session_display}${RESET}${_hdr_ascent}\n"
 else
     _hdr_left="LIFEOS │ ${_hdr_loc_plain}  ${current_time}  ${weather_str} "
     _hdr_fill=$((content_width - ${#_hdr_left}))
@@ -1589,7 +1819,7 @@ fi
 # manual `last_reviewed:` recency of SYS/TELOS/PROJ/PRI/DAI/ARCH as A-F letters —
 # the wrong signal for "is memory fresh" and illegible to read. Memory health
 # now renders as the single 🧠 MEMORY line directly under STATE above; doc-review
-# cadence lives in Pulse and `kai insights`.)
+# cadence lives in Pulse and `memory insights`.)
 
 sep
 # Build harness display: "HAR: Pi 0.73.1" (Pi harness with its own version) or
@@ -1630,16 +1860,16 @@ printf "${SLATE_400}HARN:${RESET} ${LIFEOS_A}${_har_display}${RESET} ${SLATE_600
 #     model-verification.jsonl entry whose EXECUTED model is fable
 #     (Inference.ts post-hoc proof; a downgraded run has executed=opus
 #     and correctly does not light this rung).
-#   GPT-5.6 / GROK  — live cross-vendor dispatch (forge/codexResearcher → OpenAI,
-#     grokResearcher → xAI), matched on the resolved model string.
+#   GPT-5.6 SOL     — live cross-vendor dispatch (forge/codexResearcher → OpenAI),
+#     matched on the resolved model string.
 #
 # _pm_roster_states: pure, unit-testable. Args: $1 session model, $2 space-joined
 # live dispatch models, $3 fable-verified flag (0/1), $4 dispatch-executes-fable
-# (true/false). Echoes 6 states in fixed rung order "max high medium low forge
-# grok" — 2 = live now, 0 = idle (dim). Several rungs can be live at once.
+# (true/false). Echoes 5 states in fixed rung order "max high medium low forge"
+# — 2 = live now, 0 = idle (dim). Several rungs can be live at once.
 _pm_roster_states() {
     local _session="$1" _live="$2" _fable="$3" _df="$4"
-    local s_max=0 s_high=0 s_med=0 s_low=0 s_forge=0 s_grok=0 m
+    local s_max=0 s_high=0 s_med=0 s_low=0 s_forge=0 m
     [ "$_fable" = "1" ] && s_max=2
     # The session (main-loop) model is ALWAYS active — light its rung whether or
     # not any agent is dispatched. This is what "ACTIVE" answers: the model you're
@@ -1652,7 +1882,6 @@ _pm_roster_states() {
     esac
     for m in $_live; do
         case "$m" in
-            *grok*)         s_grok=2 ;;
             *gpt-*)         s_forge=2 ;;
             *haiku*)        s_low=2 ;;
             *sonnet*)       s_med=2 ;;
@@ -1668,7 +1897,7 @@ _pm_roster_states() {
             *)              s_high=2 ;;
         esac
     done
-    printf '%s %s %s %s %s %s' "$s_max" "$s_high" "$s_med" "$s_low" "$s_forge" "$s_grok"
+    printf '%s %s %s %s %s' "$s_max" "$s_high" "$s_med" "$s_low" "$s_forge"
 }
 
 if [ "$MODE" = "normal" ]; then
@@ -1682,12 +1911,14 @@ if [ "$MODE" = "normal" ]; then
     _lbl_high=$(_em_lookup high);  _lbl_high="${_lbl_high:-OPUS}"
     _lbl_med=$(_em_lookup medium); _lbl_med="${_lbl_med:-SONNET}"
     _lbl_low=$(_em_lookup low);    _lbl_low="${_lbl_low:-HAIKU}"
-    # Cross-vendor labels: model string minus the "-sol" codename suffix
-    # (display "GPT-5.6", not "GPT-5.6-SOL"), uppercased.
+    # Cross-vendor labels: the full model string INCLUDING its codename suffix,
+    # uppercased — "GPT-5.6 SOL", not "GPT-5.6" (principal 2026-07-27: the
+    # statusline names the actual carrier, codename and all). The suffix is
+    # rendered space-separated for readability; the underlying pin in models.ts
+    # is untouched.
     _cv_block=$(sed -n '/export const CROSS_VENDOR/,/^}/p' "$_pm_models_ts" 2>/dev/null)
-    _cv_lookup() { printf '%s' "$_cv_block" | sed -n "s/^[[:space:]]*$1:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1 | sed 's/-sol$//' | tr '[:lower:]' '[:upper:]'; }
-    _lbl_forge=$(_cv_lookup forge);         _lbl_forge="${_lbl_forge:-GPT-5.6}"
-    _lbl_grok=$(_cv_lookup grokResearcher); _lbl_grok="${_lbl_grok:-GROK}"
+    _cv_lookup() { printf '%s' "$_cv_block" | sed -n "s/^[[:space:]]*$1:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1 | sed 's/-\([a-z]*\)$/ \1/' | tr '[:lower:]' '[:upper:]'; }
+    _lbl_forge=$(_cv_lookup forge);         _lbl_forge="${_lbl_forge:-GPT-5.6 SOL}"
     # Carrier fact from models.ts (CarrierProbe.ts-maintained): decides whether
     # fable-labeled/-inherited dispatches light FABLE or OPUS. Unreadable → false
     # (conservative: never claim Fable ran without the fact in hand).
@@ -1704,6 +1935,22 @@ if [ "$MODE" = "normal" ]; then
              | (.model // "inherited")] | unique | join(" ")
         ' "$_agent_starts" 2>/dev/null)
     fi
+    # Background/mailbox agents (2026-07-13): PostToolUse fires at spawn for
+    # these, so agent-starts.json can't track them. Harness ground truth
+    # instead: a subagents/agent-*.jsonl transcript whose mtime advanced in
+    # the last 2 min IS a live agent; its .meta.json carries the model. Depth
+    # is fixed (projects/<slug>/<session>/subagents/*), so the find is bounded
+    # (~30ms). Run ONCE; _bg_transcripts/_bg_count are reused by ▸ LIVE below.
+    _bg_transcripts=$(find "$HOME/.claude/projects" -mindepth 4 -maxdepth 4 -path '*/subagents/agent-*.jsonl' -mmin -2 2>/dev/null)
+    _bg_count=0
+    _bg_models=""
+    while IFS= read -r _bg_t; do
+        [ -z "$_bg_t" ] && continue
+        _bg_count=$((_bg_count + 1))
+        _bg_meta="${_bg_t%.jsonl}.meta.json"
+        [ -f "$_bg_meta" ] && _bg_models="$_bg_models $(jq -r '.model // "inherited"' "$_bg_meta" 2>/dev/null)"
+    done <<< "$_bg_transcripts"
+    [ -n "$_bg_models" ] && _live_models="$_live_models$_bg_models"
     # FABLE rung: a verified-executed Fable inference in the window. ISO-8601
     # UTC timestamps compare lexicographically, so string > is a time compare.
     _mv_file="$LIFEOS_DIR/MEMORY/OBSERVABILITY/model-verification.jsonl"
@@ -1716,45 +1963,77 @@ if [ "$MODE" = "normal" ]; then
         [ "${_mv_hits:-0}" -gt 0 ] 2>/dev/null && _fable_recent=1
     fi
 
-    read -r _rs_max _rs_high _rs_med _rs_low _rs_forge _rs_grok \
+    read -r _rs_max _rs_high _rs_med _rs_low _rs_forge \
         <<< "$(_pm_roster_states "$model_name" "$_live_models" "$_fable_recent" "$_dispatch_fable")"
 
-    # Escalating rung ladder (principal directive 2026-07-06): EVERY rung renders
-    # DIM unless LIVE. The escalation lives in the hue — HAIKU green → SONNET
-    # blue → OPUS red → FABLE purple — with cross-vendor GPT-5.6 (cyan) and
-    # GROK (silver) behind the divider. Inactive rungs show only a faint, dark
-    # tint; live rungs pop in full BOLD color. No strong colors on inactive
-    # rungs, ever.
-    _ar_rung_c() {  # $1=rung(low|medium|high|max|forge|grok) $2=state(2 live | anything else dim)
+    # SESSION MIX (principal 2026-07-27) — the rung ladder alone answers "what is
+    # running right now"; it cannot answer the question actually being asked of
+    # it: is the system genuinely dipping into the top rung when the work earns
+    # it, or riding the default all session? ModelMix.ts reads the harness
+    # transcripts (main loop + every subagent) and returns each rung's share of
+    # output tokens — real billed carriers, so a silently-downgraded dispatch
+    # reports the model that truly ran. Incremental by byte offset, so this stays
+    # ~30ms on a multi-MB session. Percentages are Claude-rung-only and sum to
+    # 100; cross-vendor spend is invisible to these transcripts, so +GPT gets a
+    # used-flag and never a number.
+    mix_low=0; mix_medium=0; mix_high=0; mix_max=0; mix_forge=0
+    if [ -n "$session_id" ] && [ -n "$BUN_BIN" ]; then
+        eval "$("$BUN_BIN" "$LIFEOS_DIR/TOOLS/ModelMix.ts" --session "$session_id" 2>/dev/null | grep -E '^mix_(low|medium|high|max|forge)=[0-9]+$')"
+    fi
+
+    # Three states, not two (principal 2026-07-27: "activate all the colored
+    # labels that have been used in this particular section"). A rung the
+    # session actually spent tokens on stays lit after its work ends — the
+    # ladder becomes a record of the session's mix, not just a live probe.
+    #   0 unused this session → dim    1 used earlier → color    2 live now → BOLD
+    [ "$_rs_low"   = "0" ] && [ "$mix_low"    -gt 0 ] 2>/dev/null && _rs_low=1
+    [ "$_rs_med"   = "0" ] && [ "$mix_medium" -gt 0 ] 2>/dev/null && _rs_med=1
+    [ "$_rs_high"  = "0" ] && [ "$mix_high"   -gt 0 ] 2>/dev/null && _rs_high=1
+    [ "$_rs_max"   = "0" ] && [ "$mix_max"    -gt 0 ] 2>/dev/null && _rs_max=1
+    [ "$_rs_forge" = "0" ] && [ "$mix_forge"  -gt 0 ] 2>/dev/null && _rs_forge=1
+
+    # Escalating rung ladder (principal directive 2026-07-06): a rung renders DIM
+    # unless it has been used. The escalation lives in the hue — HAIKU green →
+    # SONNET blue → OPUS red → FABLE purple — with cross-vendor GPT-5.6 SOL
+    # (cyan) behind the divider. Untouched rungs show only a faint, dark tint;
+    # live rungs pop in full BOLD. No strong colors on untouched rungs, ever.
+    _ar_rung_c() {  # $1=rung(low|medium|high|max|forge) $2=state(2 live | 1 used | else dim)
         case "$1:$2" in
             low:2)    printf '\033[1;38;2;74;222;128m'  ;;  # LIVE: bold green-400
+            low:1)    printf '\033[38;2;60;190;110m'    ;;  # USED: plain green
             low:*)    printf '\033[2;38;2;86;164;110m'   ;;  # dim: muted green tint
             medium:2) printf '\033[1;38;2;59;130;246m'  ;;  # LIVE: bold blue-500
+            medium:1) printf '\033[38;2;70;140;225m'    ;;  # USED: plain blue
             medium:*) printf '\033[2;38;2;90;130;185m'   ;;  # dim: muted blue tint
             high:2)   printf '\033[1;38;2;239;68;68m'   ;;  # LIVE: bold red-500
+            high:1)   printf '\033[38;2;215;80;80m'     ;;  # USED: plain red
             high:*)   printf '\033[2;38;2;180;95;95m'    ;;  # dim: muted red tint
             max:2)    printf '\033[1;38;2;168;85;247m'  ;;  # LIVE: bold purple-500 — apex
+            max:1)    printf '\033[38;2;155;95;225m'    ;;  # USED: plain purple
             max:*)    printf '\033[2;38;2;150;110;195m'  ;;  # dim: muted purple tint
             forge:2)  printf '\033[1;38;2;103;232;249m' ;;  # LIVE: bold cyan — OpenAI cross-vendor
+            forge:1)  printf '\033[38;2;95;200;215m'    ;;  # USED: plain cyan
             forge:*)  printf '\033[2;38;2;85;160;175m'   ;;  # dim: muted cyan tint
-            grok:2)   printf '\033[1;38;2;226;232;240m' ;;  # LIVE: bold silver — xAI cross-vendor
-            grok:*)   printf '\033[2;38;2;125;135;148m'  ;;  # dim: muted gray tint
         esac
     }
-    _ar_tok() {  # $1=state $2=rung $3=label
+    # $4 = session share. Rendered in the rung's own USED tone so the number reads
+    # as belonging to its label, while the label keeps the bold when live. A 0%
+    # rung prints no number at all — an unused rung should be silent, not noisy.
+    _ar_tok() {  # $1=state $2=rung $3=label $4=pct
         printf "%b%s${RESET}" "$(_ar_rung_c "$2" "$1")" "$3"
+        [ "${4:-0}" -gt 0 ] 2>/dev/null && printf "%b %s%%${RESET}" "$(_ar_rung_c "$2" 1)" "$4"
     }
     _ar_line="${SLATE_400}ACTIVE:${RESET} "
-    _ar_line+="$(_ar_tok "$_rs_low"   low    "$_lbl_low") "
-    _ar_line+="$(_ar_tok "$_rs_med"   medium "$_lbl_med") "
-    _ar_line+="$(_ar_tok "$_rs_high"  high   "$_lbl_high") "
-    _ar_line+="$(_ar_tok "$_rs_max"   max    "$_lbl_max")"
+    _ar_line+="$(_ar_tok "$_rs_low"   low    "$_lbl_low"  "$mix_low") "
+    _ar_line+="$(_ar_tok "$_rs_med"   medium "$_lbl_med"  "$mix_medium") "
+    _ar_line+="$(_ar_tok "$_rs_high"  high   "$_lbl_high" "$mix_high") "
+    _ar_line+="$(_ar_tok "$_rs_max"   max    "$_lbl_max"  "$mix_max")"
     # Divider: the Claude rungs above are ONE family. Cross-vendor ENGINES
     # (OpenAI, xAI) run alongside, not as rungs — each sits behind the divider
-    # as a "+engine" add-on, lit only while a dispatch resolved to it is live.
+    # as a "+engine" add-on. No percentage: its tokens never touch a Claude
+    # transcript, so a number here would be invented.
     _ar_line+=" ${SLATE_600}│${RESET} "
-    _ar_line+="$(_ar_tok "$_rs_forge" forge "+$_lbl_forge") "
-    _ar_line+="$(_ar_tok "$_rs_grok"  grok  "+$_lbl_grok")"
+    _ar_line+="$(_ar_tok "$_rs_forge" forge "+$_lbl_forge" 0)"
     printf "%b\n" "$_ar_line"
 fi
 
@@ -1763,13 +2042,50 @@ fi
 # just how many agents are running, not the full model roster (that's the 🤖 AGENTS
 # line above). 5-min cutoff so killed-agent orphans fade fast instead of lingering 2h.
 _AGENT_STARTS="$LIFEOS_DIR/MEMORY/OBSERVABILITY/agent-starts.json"
+# Each live agent is NAMED — type + brief (principal 2026-07-14: "describe
+# what agents they are, instead of just saying 'two agents'"). Entries are
+# "type|description" pairs; count derives from the same list so the number
+# and the names can never disagree.
+_live_agents=()
 if [ -f "$_AGENT_STARTS" ]; then
-    _live_count=$(jq -r --argjson cutoff "$(( (NOW_EPOCH - 300) * 1000 ))" '
-        [to_entries[] | .value | select(.epoch > $cutoff)] | length
+    while IFS= read -r _la; do
+        [ -n "$_la" ] && _live_agents+=("$_la")
+    done < <(jq -r --argjson cutoff "$(( (NOW_EPOCH - 300) * 1000 ))" '
+        to_entries[] | .value | select(.epoch > $cutoff)
+        | (.subagent_type // "agent") + "|" + ((.description // "") | gsub("[\n|]"; " ") | .[0:48])
     ' "$_AGENT_STARTS" 2>/dev/null)
-    if [ "${_live_count:-0}" -gt 0 ] 2>/dev/null; then
-        _live_noun="agent"; [ "$_live_count" -gt 1 ] && _live_noun="agents"
+fi
+# Background/mailbox agents: live harness transcripts (mtime <2min), disjoint
+# from agent-starts.json (the hook removes async spawns from it).
+# _bg_transcripts is computed by the single find in the ACTIVE block above
+# (normal mode); in narrower modes that block never ran, so compute it here.
+if [ -z "${_bg_count:-}" ]; then
+    _bg_transcripts=$(find "$HOME/.claude/projects" -mindepth 4 -maxdepth 4 -path '*/subagents/agent-*.jsonl' -mmin -2 2>/dev/null)
+fi
+while IFS= read -r _bg_t; do
+    [ -z "$_bg_t" ] && continue
+    _bg_meta="${_bg_t%.jsonl}.meta.json"
+    _la=""
+    [ -f "$_bg_meta" ] && _la=$(jq -r '(.agentType // "agent") + "|" + ((.description // "") | gsub("[\n|]"; " ") | .[0:48])' "$_bg_meta" 2>/dev/null)
+    _live_agents+=("${_la:-agent|}")
+done <<< "${_bg_transcripts:-}"
+_live_count=${#_live_agents[@]}
+if [ "${_live_count:-0}" -gt 0 ] 2>/dev/null; then
+    _live_noun="agent"; [ "$_live_count" -gt 1 ] && _live_noun="agents"
+    _la_tok() {  # $1="type|description" → colored token
+        local _t="${1%%|*}" _b="${1#*|}"
+        printf "${WIELD_ACCENT}%s${RESET}" "$_t"
+        [ -n "$_b" ] && printf " ${SLATE_400}(%s)${RESET}" "$_b"
+    }
+    if [ "$_live_count" -eq 1 ]; then
+        printf "${SLATE_400}▸ LIVE:${RESET} ${WIELD_ACCENT}1 agent${RESET} ${SLATE_600}—${RESET} %b\n" "$(_la_tok "${_live_agents[0]}")"
+    else
+        # Multiple agents: one per line — a joined list overshoots the right
+        # edge of the statusline (principal 2026-07-14).
         printf "${SLATE_400}▸ LIVE:${RESET} ${WIELD_ACCENT}%s %s${RESET}\n" "$_live_count" "$_live_noun"
+        for _la in "${_live_agents[@]}"; do
+            printf "    %b\n" "$(_la_tok "$_la")"
+        done
     fi
 fi
 sep
@@ -1857,24 +2173,10 @@ if [ "${#_ctx_data[@]}" -gt 0 ]; then
     done < <(printf '%s\n' "${_ctx_data[@]}" | sort -rn -t$'\t' -k1,1)
 fi
 
-# Per-file SIZE-CAP pressure: a file nearing/over its byte ceiling (context-budgets.json)
-# turns orange/red right here in the FILES list — the always-on re-bloat indicator, inline.
-# Portable parallel arrays (macOS bash 3.2 has no associative arrays).
-_CAP_NAMES=(); _CAP_MAX=()
-_cap_json="$LIFEOS_DIR/TOOLS/context-budgets.json"
-if [ -f "$_cap_json" ] && command -v jq >/dev/null 2>&1; then
-    while IFS=$'\t' read -r _cn _cm; do
-        [ -n "$_cn" ] && { _CAP_NAMES+=("$_cn"); _CAP_MAX+=("$_cm"); }
-    done < <(jq -r '.budgets[] | "\(.path | split("/") | last)\t\(.maxBytes)"' "$_cap_json" 2>/dev/null)
-fi
-_cap_for() {  # echo maxBytes for basename $1, or 0 if no cap defined
-    local _i=0
-    while [ "$_i" -lt "${#_CAP_NAMES[@]}" ]; do
-        [ "${_CAP_NAMES[$_i]}" = "$1" ] && { echo "${_CAP_MAX[$_i]}"; return; }
-        _i=$((_i + 1))
-    done
-    echo 0
-}
+# Per-file byte-ceiling pressure (the `NN% FULL` suffix) was removed 2026-07-24
+# along with BudgetCheck.ts / context-budgets.json — LifeOS-built machinery, not a
+# harness default. The FILES list still shows each file's share of the context
+# window; there is no longer a per-file cap to be over.
 
 # Format each entry with one-decimal percentage of context window, colored by size.
 # Track total bytes so we can append a combined-total cell at the end of the line.
@@ -1895,25 +2197,10 @@ for _entry in "${_sorted_ctx_data[@]}"; do
     _pct_f=$((_pct_x10 % 10))
     _pct_str=$(printf '%d.%d%%' "$_pct_w" "$_pct_f")
     _pct_clr=$(_size_pct_color "$_pct_x10")
-    # TWO DISTINCT numbers, never conflated:
-    #   (1) the %(above) is SIZE — this file's share of the context window, colored by that.
-    #   (2) capNN% (suffix below) is OVERFLOW pressure — this file's share of its OWN byte
-    #       budget. Shown only when a file nears/exceeds its cap; orange ≥90%, red ≥100%.
-    # The suffix is added to the plain array too so the line-wrap width math stays correct.
-    _cap_plain=""; _cap_color=""
-    _cap=$(_cap_for "$_name")
-    if [ "${_cap:-0}" -gt 0 ] 2>/dev/null; then
-        _cap_pct=$(( _b * 100 / _cap ))
-        if [ "$_cap_pct" -ge 90 ] 2>/dev/null; then
-            # ≥90% full → RED ({{PRINCIPAL_NAME}}: anything over 90% is red). The number + FULL + red is
-            # the signal; the action is `/trim <file>` (Trim skill walks the reduction).
-            _capclr='\033[38;2;180;40;40m'
-            _cap_plain=" ${_cap_pct}% FULL"
-            _cap_color=" ${_capclr}${_cap_pct}% FULL${RESET}"
-        fi
-    fi
-    _ctx_files+=("${_name}(${_pct_str})${_cap_plain}")
-    _ctx_files_color+=("${CTX_SECONDARY}${_name}(${RESET}${_pct_clr}${_pct_str}${RESET}${CTX_SECONDARY})${RESET}${_cap_color}")
+    # The %(above) is SIZE — this file's share of the context window, colored by that.
+    # (The former capNN%/FULL overflow suffix went with BudgetCheck on 2026-07-24.)
+    _ctx_files+=("${_name}(${_pct_str})")
+    _ctx_files_color+=("${CTX_SECONDARY}${_name}(${RESET}${_pct_clr}${_pct_str}${RESET}${CTX_SECONDARY})${RESET}")
 done
 
 # Skills description budget — sum of injected skill description sizes vs the
@@ -2062,10 +2349,13 @@ usage_7d_int=${usage_7d%%.*}
 # (reflected in usage_state); OAuth presence comes from its cache (also reflected
 # in usage_state by the producer). Never use cache-file existence as a data proxy
 # — that hid genuine native 0% (Failure 2) and is independent of the live data.
-if [ "${usage_state:-absent}" != "absent" ]; then
-    usage_5h_color=$(get_usage_color "$usage_5h_int")
-    usage_7d_color=$(get_usage_color "$usage_7d_int")
-
+if [ "${usage_state:-absent}" = "api" ]; then
+    # API-key billing: subscription windows don't exist for this account —
+    # show the billing source and live session cost from stdin's cost object.
+    _api_cost=$(awk -v c="${session_cost_usd:-0}" 'BEGIN{printf "%.2f", c+0}')
+    printf "📊 ${USAGE_PRIMARY}API${RESET} ${USAGE_LABEL}SESSION${RESET} ${SLATE_300}\$${_api_cost}${RESET}\n"
+    sep
+elif [ "${usage_state:-absent}" != "absent" ]; then
     # Parse reset timestamps and show absolute reset times (e.g., "TODAY@1500", "THU@0900")
     # Split into day/time parts for two-tone amber coloring
     reset_5h_day="—"; reset_5h_time=""; reset_7d_day="—"; reset_7d_time=""
@@ -2084,6 +2374,34 @@ if [ "${usage_state:-absent}" != "absent" ]; then
             reset_7d_day="${_r7d_str%%@*}"
             reset_7d_time="${_r7d_str#*@}"
         fi
+    fi
+
+    # Reset-boundary clamp (2026-07-21 incident): a cached window whose
+    # resets_at has already passed must never paint its pre-reset percentage —
+    # after a rollover the truth starts near 0 and the forced refetch corrects
+    # within ~60s. OAuth-sourced only: native rate_limits arrive fresh on stdin
+    # every tick and are never past their own reset. Clamps the value and drops
+    # the window's active-highlight (both claims come from the same stale row).
+    if [ "${usage_source:-oauth}" != "native" ]; then
+        if [ "${_r5h_epoch:-0}" -gt 0 ] 2>/dev/null && [ "$_r5h_epoch" -le "$NOW_EPOCH" ]; then
+            usage_5h_int=0
+            usage_5h_active=false
+        fi
+        if [ "${_r7d_epoch:-0}" -gt 0 ] 2>/dev/null && [ "$_r7d_epoch" -le "$NOW_EPOCH" ]; then
+            usage_7d_int=0
+            usage_7d_active=false
+        fi
+    fi
+    # Opus/sonnet windows feed only the credits-burning check below — clamp
+    # crossed ones so a stale 100% can't fake an active ⚡CREDITS state. These
+    # are cache-only fields (native emits no reset for them), so no source gate.
+    if [ -n "${usage_opus_reset:-}" ]; then
+        _rop_epoch=$(parse_iso_epoch "$usage_opus_reset")
+        [ "$_rop_epoch" -gt 0 ] 2>/dev/null && [ "$_rop_epoch" -le "$NOW_EPOCH" ] && usage_opus=0
+    fi
+    if [ -n "${usage_sonnet_reset:-}" ]; then
+        _rso_epoch=$(parse_iso_epoch "$usage_sonnet_reset")
+        [ "$_rso_epoch" -gt 0 ] 2>/dev/null && [ "$_rso_epoch" -le "$NOW_EPOCH" ] && usage_sonnet=0
     fi
 
     # Extra usage display (Max plan overage credits — values in cents)
@@ -2131,8 +2449,8 @@ if [ "${usage_state:-absent}" != "absent" ]; then
         fi
     fi
 
-    # Format colored reset display: day in USAGE_LABEL amber, time in USAGE_PRIMARY bright amber
-    # When stale, labels/timestamps shift to warm gray; data values are NEVER affected
+    # Reset display now lives INSIDE the meter bars as plain text.
+    # When stale, labels shift to warm gray; data values are NEVER affected
     if [ "$_usage_is_stale" = true ]; then
         _label_color="$USAGE_STALE"
         _reset_color="$USAGE_STALE"
@@ -2140,19 +2458,22 @@ if [ "${usage_state:-absent}" != "absent" ]; then
         _label_color="$USAGE_LABEL"
         _reset_color="$USAGE_RESET"
     fi
-    _fmt_reset() {
+    _bar_rst() {
+        # Plain (ASCII) reset text for inside a meter bar
         local day="$1" time="$2"
         if [ "$day" = "TODAY" ] && [ -n "$time" ]; then
-            # Bare time implies today — drop the redundant day (line-width budget)
-            printf "${_label_color}${time}${RESET}"
+            # Bare time implies today — drop the redundant day (bar-width budget)
+            echo "$time"
         elif [ -n "$time" ]; then
-            printf "${_label_color}${day}${RESET}${SLATE_600}@${RESET}${_label_color}${time}${RESET}"
+            echo "${day}@${time}"
+        elif [ "$day" != "—" ]; then
+            echo "$day"
         else
-            printf "${_label_color}${day}${RESET}"
+            echo ""
         fi
     }
-    _reset_5h_fmt=$(_fmt_reset "$reset_5h_day" "$reset_5h_time")
-    _reset_7d_fmt=$(_fmt_reset "$reset_7d_day" "$reset_7d_time")
+    _bar_5h=$(render_usage_meter "$usage_5h_int" "$(_bar_rst "$reset_5h_day" "$reset_5h_time")")
+    _bar_7d=$(render_usage_meter "$usage_7d_int" "$(_bar_rst "$reset_7d_day" "$reset_7d_time")")
 
     # Active-window highlight: brighten the label of whichever window is the
     # currently binding constraint (limits[].is_active from the OAuth payload).
@@ -2165,21 +2486,26 @@ if [ "${usage_state:-absent}" != "absent" ]; then
     fi
 
     # Scoped per-model weekly window (e.g. FABLE) from the OAuth limits[] array.
-    # Reset time is dropped when it matches WEEK's — same boundary, redundant.
+    # Reset always shows — the old drop-when-same-as-WK dedup made a pill with
+    # empty cells read as missing data ({{PRINCIPAL_NAME}}, 2026-07-18).
     scoped_fmt=""
     if [ "${usage_scoped_present:-false}" = "true" ] && [ -n "${usage_scoped_name:-}" ]; then
         usage_scoped_int=${usage_scoped_pct%%.*}
         [ -z "$usage_scoped_int" ] && usage_scoped_int=0
         # Abbreviate long model names for line width (FABLE → FB)
         [ "$usage_scoped_name" = "FABLE" ] && usage_scoped_name="FB"
-        usage_scoped_color=$(get_usage_color "$usage_scoped_int")
-        _rsc_fmt=""
+        _rsc_txt=""
         if [ -n "${usage_scoped_reset:-}" ]; then
             _rsc_epoch=$(parse_iso_epoch "$usage_scoped_reset")
             if [ "$_rsc_epoch" -gt 0 ] 2>/dev/null; then
                 _rsc_str=$(reset_time_str "$_rsc_epoch")
-                if [ "$_rsc_str" != "${_r7d_str:-}" ]; then
-                    _rsc_fmt=" ${_reset_color}↻${RESET}$(_fmt_reset "${_rsc_str%%@*}" "${_rsc_str#*@}")"
+                _rsc_txt=$(_bar_rst "${_rsc_str%%@*}" "${_rsc_str#*@}")
+                # Reset-boundary clamp: the scoped window is cache-only (never
+                # native), so a passed resets_at always means stale pre-reset
+                # data — the 2026-07-21 "FABLE maxed after fresh subscription".
+                if [ "$_rsc_epoch" -le "$NOW_EPOCH" ]; then
+                    usage_scoped_int=0
+                    usage_scoped_active=false
                 fi
             fi
         fi
@@ -2187,7 +2513,8 @@ if [ "${usage_state:-absent}" != "absent" ]; then
         if [ "$_usage_is_stale" != true ] && [ "${usage_scoped_active:-false}" = "true" ]; then
             _scoped_label_color="$USAGE_PRIMARY"
         fi
-        scoped_fmt=" ${_scoped_label_color}${usage_scoped_name}${RESET} ${usage_scoped_color}${usage_scoped_int}%%${RESET}${_rsc_fmt}"
+        _bar_scoped=$(render_usage_meter "$usage_scoped_int" "$_rsc_txt")
+        scoped_fmt=" ${_scoped_label_color}${usage_scoped_name}${RESET} ${_bar_scoped}"
     fi
     # Billing source indicator — colored = actively billing, slate-dim = inactive.
     # Three-way: SUB (subscription), EXT (Anthropic extra usage credits), API
@@ -2196,7 +2523,10 @@ if [ "${usage_state:-absent}" != "absent" ]; then
     # window is exhausted (>=100%) — that is the "actively burning credits" state.
     _extra_active=false
     if [ "${usage_extra_enabled:-false}" = "true" ]; then
-        for _win in "$usage_5h_int" "$usage_7d_int" "${usage_opus:-null}" "${usage_sonnet:-null}"; do
+        # The scoped per-model window (FABLE) counts too — exhausting it alone
+        # flips billing to credits (live incident 2026-07-14: FABLE 100%,
+        # credits burning, no ⚡ shown because only 5h/7d/opus/sonnet were checked).
+        for _win in "$usage_5h_int" "$usage_7d_int" "${usage_opus:-null}" "${usage_sonnet:-null}" "${usage_scoped_int:-null}"; do
             _win_int=${_win%%.*}
             case "$_win_int" in ''|null) continue;; esac
             [ "$_win_int" -ge 100 ] 2>/dev/null && _extra_active=true && break
@@ -2210,18 +2540,31 @@ if [ "${usage_state:-absent}" != "absent" ]; then
     if [ "${usage_no_data:-false}" = "true" ]; then
         _billing_fmt="${USAGE_PRIMARY}API${RESET}"
     elif [ "$_extra_active" = true ] && [ -n "$extra_display" ]; then
-        _billing_fmt="${USAGE_EXTRA_ACTIVE}⚡${extra_display}${RESET}"
+        # Burning usage credits NOW — say so in words, not just a glyph
+        # (principal 2026-07-14: credits mode must be unmistakable).
+        _billing_fmt="${USAGE_EXTRA_ACTIVE}⚡CREDITS ${extra_display}${RESET}"
     elif [ "$_extra_active" = true ]; then
-        _billing_fmt="${USAGE_EXTRA_ACTIVE}⚡EXT${RESET}"
+        _billing_fmt="${USAGE_EXTRA_ACTIVE}⚡CREDITS${RESET}"
     else
         _billing_fmt="${USAGE_PRIMARY}SUB${RESET}"
         [ -n "$extra_display" ] && _billing_fmt="${_billing_fmt} ${USAGE_EXTRA}${extra_display}${RESET}"
         [ -n "$credits_off_display" ] && _billing_fmt="${_billing_fmt} ${USAGE_EXTRA}${credits_off_display}${RESET}"
     fi
-    printf "📊 ${_5h_label_color}5HR${RESET} ${usage_5h_color}${usage_5h_int}%%${RESET} ${_reset_color}↻${RESET}${_reset_5h_fmt} ${_7d_label_color}WK${RESET} ${usage_7d_color}${usage_7d_int}%%${RESET} ${_reset_color}↻${RESET}${_reset_7d_fmt}${scoped_fmt} ${_billing_fmt}"
-    [ -n "$stale_suffix" ] && printf "${stale_suffix}"
+    # %b (not a format string) — the bars carry literal % signs and ANSI escapes
+    printf '%b' "${_5h_label_color}5H${RESET} ${_bar_5h} ${_7d_label_color}WK${RESET} ${_bar_7d}${scoped_fmt} ${_billing_fmt}"
+    [ -n "$stale_suffix" ] && printf '%b' "$stale_suffix"
     printf "\n"
     sep
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LINE 6.5: LOGGED-IN ACCOUNT (normal mode only) — light gray, above the quote
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if [ "$MODE" = "normal" ]; then
+    # Live login email from ~/.claude.json (.oauthAccount.emailAddress updates on /login)
+    _acct_email=$(jq -r '.oauthAccount.emailAddress // empty' "$HOME/.claude.json" 2>/dev/null)
+    [ -n "$_acct_email" ] && printf "${SLATE_500}${_acct_email}${RESET}\n"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════

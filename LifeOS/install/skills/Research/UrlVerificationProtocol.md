@@ -14,7 +14,7 @@
 
 ## Why This Matters
 
-Research agents (Perplexity, Gemini, Claude, Grok) frequently HALLUCINATE URLs that look plausible but don't exist. This includes:
+Research agents (Perplexity, Gemini, Claude) frequently HALLUCINATE URLs that look plausible but don't exist. This includes:
 - URLs with correct domain but wrong path
 - URLs with plausible article titles that were never published
 - URLs combining real domains with fabricated paths

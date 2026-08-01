@@ -25,7 +25,7 @@ Scan the user's request for sentiment signals: "fans thought", "ratings of", "be
 **ONE Task call - Perplexity researcher with a single focused query:**
 
 ```typescript
-Task({
+Agent({
   subagent_type: "PerplexityResearcher",
   description: "[topic] quick lookup",
   prompt: "Do ONE web search for: [query]. Tag each finding with confidence: [HIGH], [MED], or [LOW]. Return the key findings immediately. Keep it brief and factual."

@@ -29,6 +29,22 @@ For every platform you reach, walk the cascade in order. Move down only when the
 | **Bluesky** | AT Protocol public API (`api.bsky.app/xrpc/app.bsky.feed.searchPosts`) — no auth required for reads | Apify Bluesky scrapers | `site:bsky.app` |
 | **Discord** | Discord API (requires bot token + server membership) | (no general scraper) | n/a |
 
+## Technical Signal Detection (run at Step 0, alongside the sentiment check)
+
+The question is a **technical question** if it is about code, APIs, frameworks, libraries, runtimes, protocols, tooling, versions, migration paths, or "how does <system> actually work under the hood."
+
+If it fires → **add a `CodexResearcher` (Remy) slot.** He runs OpenAI's flagship model through `codex exec` with live web search, so he is the only researcher whose findings come from outside the Anthropic distribution that the DA and ClaudeResearcher share. On technical questions that difference is the point: a wrong API contract or a hallucinated flag is exactly the failure mode two Claude-family passes agree on. He is TypeScript-first by construction, which matches the house stack.
+
+```typescript
+Agent({
+  subagent_type: "CodexResearcher",
+  description: "[topic] technical",
+  prompt: "Do ONE technical search for: [query]. Prefer primary sources — official docs, source, changelogs, RFCs. Tag each finding [HIGH]/[MED]/[LOW]. Return findings immediately."
+})
+```
+
+Wired 2026-07-27: an audit found this agent had **zero** dispatch call sites while its own file claimed the Research workflows called it. Non-technical questions do not spawn him — he is not a fourth generalist.
+
 ## Sentiment Signal Detection (run at Step 0 of every workflow)
 
 The question is a **community-sentiment question** if it contains any of:

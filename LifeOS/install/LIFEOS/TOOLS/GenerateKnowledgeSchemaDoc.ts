@@ -23,7 +23,10 @@ import {
 
 const OUT = pathResolve(homedir(), ".claude/LIFEOS/MEMORY/KNOWLEDGE/_schema.md");
 
-function render(): string {
+/** Absolute path of the generated doc — importers compare against it. */
+export const SCHEMA_DOC_PATH = OUT;
+
+export function render(): string {
   const L: string[] = [];
   L.push("---");
   L.push('title: "Knowledge Archive Schema"');
@@ -69,6 +72,11 @@ function render(): string {
     L.push(`| \`${t}\` | ${extra.length ? extra.map((k) => `\`${k}\``).join(", ") : "— (envelope only)"} |`);
   }
   L.push("");
+  // The waiver lives in validate(), not in the PER_TYPE_REQUIRED table this
+  // generator reads, so it has to be stated here or the doc would declare a
+  // requirement the linter does not enforce. (public PR #1684, @elhoim)
+  L.push("**Waived for internal notes.** A note with `source_kind: internal` has no external origin — it *is* the primary artifact (an own-prose capture, a design decision, a corpus this system built). Demanding a `source_url` of it asks for a URL that cannot exist, so the `source_*` requirements above are skipped when `source_kind` is `internal`. Externally-sourced notes still must carry their provenance.");
+  L.push("");
   L.push("A note missing an optional per-type source field (e.g. a research note with no `source_url`) is **envelope-conformant but incomplete** — Lint reports it as an enrichment gap, not a schema failure.");
   L.push("");
 
@@ -107,4 +115,7 @@ function main() {
   console.log(`✓ wrote ${OUT.replace(homedir(), "~")} (${doc.split("\n").length} lines, generated from KnowledgeSchema.ts)`);
 }
 
-main();
+// Guarded so the doc-integrity handler can import `render()` without the
+// generator writing as a side effect of the import (public PR #1685, @elhoim —
+// which spawned a subprocess to dodge exactly this). CLI behaviour is unchanged.
+if (import.meta.main) main();

@@ -1,8 +1,7 @@
 ---
 name: Prompting
-version: 1.1.21
+version: 1.1.26
 description: "Meta-prompting standard library for generating, optimizing, and composing prompts programmatically via Standards, Handlebars Templates, and Tools; output is always a prompt to use elsewhere, not final content. USE WHEN meta-prompting, template generation, prompt optimization, prompt engineering, write a prompt, create system prompt, Handlebars template, eval prompt, judge prompt. NOT FOR generating final content (use the appropriate domain skill)."
-effort: medium
 ---
 
 ## Customization

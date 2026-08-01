@@ -1,9 +1,9 @@
 ---
 name: Ideate
-version: 1.0.16
+version: 1.0.19
 description: "Evolutionary ideation engine — loop-controlled multi-cycle idea generation through phases of dreaming, cross-domain stealing, recombination, fitness testing, selection, and Lamarckian meta-learning, producing ranked novel solution candidates with provenance. USE WHEN ideate, id8, novel ideas, evolve ideas, dream up solutions, innovate, breakthrough ideas, idea evolution, multi-cycle creativity, need genuinely new approaches. NOT FOR quick single-pass brainstorming (use BeCreative)."
-effort: high
 context: fork
+background: false
 ---
 
 ## Customization
@@ -252,7 +252,7 @@ ideate/
 
 ## Algorithm Integration
 
-When the LifeOS Algorithm sets `mode: ideate` (via `LIFEOS/ALGORITHM/ideate-loop.md`), it loads this skill and routes to `Workflows/FullCycle.md` by default. Tunable parameters from the algorithm's `parameter-schema.md` map to the configuration above. The Meta-Learner may adjust parameters within bounds; user-explicit overrides are auto-locked.
+When the Algorithm runs an ideation cycle it loads this skill and routes to `Workflows/FullCycle.md` by default. Tunable parameters from the algorithm's archived `LIFEOS/ALGORITHM/archive/parameter-schema.md` (historical — the mode system retired 2026-07-11) map to the configuration above. The Meta-Learner may adjust parameters within bounds; user-explicit overrides are auto-locked.
 
 ## Examples
 

@@ -105,15 +105,93 @@ async function archiveBatch(ids: string[]): Promise<void> {
   }
 }
 
+async function unspamBatch(ids: string[]): Promise<void> {
+  // Rescue from spam back to inbox — the gmail.modify-scope substitute for a
+  // "never send to spam" filter (which needs gmail.settings.basic we don't have).
+  for (let i = 0; i < ids.length; i += 1000) {
+    const chunk = ids.slice(i, i + 1000);
+    await gmail(`/messages/batchModify`, {
+      method: "POST",
+      body: JSON.stringify({ ids: chunk, removeLabelIds: ["SPAM"], addLabelIds: ["INBOX"] }),
+    });
+  }
+}
+
 async function fetchMin(id: string): Promise<any> {
   const qp2 = new URLSearchParams({ format: "metadata" });
   qp2.append("metadataHeaders", "From");
   qp2.append("metadataHeaders", "Subject");
   qp2.append("metadataHeaders", "Date");
+  qp2.append("metadataHeaders", "List-Id");
+  qp2.append("metadataHeaders", "List-Unsubscribe");
   const m = await gmail(`/messages/${id}?${qp2.toString()}`);
   const headers = m.payload?.headers ?? [];
   const h = (n: string) => headers.find((x: any) => x.name.toLowerCase() === n.toLowerCase())?.value ?? "";
-  return { id, from: h("From"), subject: h("Subject"), date: h("Date"), snippet: (m.snippet ?? "").slice(0, 120) };
+  return {
+    id, from: h("From"), subject: h("Subject"), date: h("Date"),
+    snippet: (m.snippet ?? "").slice(0, 120),
+    list_id: h("List-Id"), list_unsubscribe: h("List-Unsubscribe"),
+  };
+}
+
+
+// ── full message body + attachment extraction (added 2026-07-30) ──────────────
+// fetchMin returns metadata only, which is right for triage but useless when the
+// message IS the payload — a correspondent's genealogy dump, a scanned page.
+// `body` walks the MIME tree for text; `attach` lists or downloads parts.
+
+function walkParts(part: any, out: any[]): void {
+  if (!part) return;
+  out.push(part);
+  for (const p of part.parts ?? []) walkParts(p, out);
+}
+
+async function fetchWithParts(id: string): Promise<any> {
+  const m = await gmail(`/messages/${id}?format=full`);
+  const headers = m.payload?.headers ?? [];
+  const h = (n: string) =>
+    headers.find((x: any) => x.name.toLowerCase() === n.toLowerCase())?.value ?? "";
+  const parts: any[] = [];
+  walkParts(m.payload, parts);
+
+  const textParts = parts.filter((p) => p.mimeType === "text/plain" && p.body?.data);
+  const htmlParts = parts.filter((p) => p.mimeType === "text/html" && p.body?.data);
+  let body = textParts.map((p) => decodeB64Url(p.body.data)).join("\n\n");
+  if (!body && htmlParts.length) {
+    body = htmlParts
+      .map((p) => decodeB64Url(p.body.data))
+      .join("\n\n")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/\n{3,}/g, "\n\n");
+  }
+  const attachments = parts
+    .filter((p) => p.filename && p.filename.length > 0)
+    .map((p) => ({
+      filename: p.filename,
+      mimeType: p.mimeType,
+      size: p.body?.size ?? 0,
+      attachmentId: p.body?.attachmentId ?? null,
+    }));
+  return {
+    id, threadId: m.threadId,
+    from: h("From"), to: h("To"), cc: h("Cc"),
+    subject: h("Subject"), date: h("Date"),
+    body: body.trim(), attachments,
+  };
+}
+
+async function saveAttachment(msgId: string, attId: string, dest: string): Promise<number> {
+  const a = await gmail(`/messages/${msgId}/attachments/${attId}`);
+  const buf = Buffer.from(String(a.data).replace(/-/g, "+").replace(/_/g, "/"), "base64");
+  await Bun.write(dest, buf);
+  return buf.length;
 }
 
 function decodeB64Url(data: string): string {
@@ -157,6 +235,12 @@ function b64url(buf: Uint8Array | string): string {
   return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+// RFC 5322 headers are ASCII-only; non-ASCII (emoji, em-dashes) must be RFC 2047
+// encoded-words or clients render mojibake (the 2026-07-17 Bunker canary subject).
+function encodeHeaderValue(v: string): string {
+  return /^[\x20-\x7E]*$/.test(v) ? v : `=?UTF-8?B?${Buffer.from(v, "utf8").toString("base64")}?=`;
+}
+
 function buildRfc822(opts: SendOpts): string {
   const headers: string[] = [];
   headers.push(`MIME-Version: 1.0`);
@@ -167,7 +251,7 @@ function buildRfc822(opts: SendOpts): string {
   if (opts.replyTo) headers.push(`Reply-To: ${opts.replyTo}`);
   if (opts.inReplyTo) headers.push(`In-Reply-To: ${opts.inReplyTo}`);
   if (opts.references) headers.push(`References: ${opts.references}`);
-  headers.push(`Subject: ${opts.subject}`);
+  headers.push(`Subject: ${encodeHeaderValue(opts.subject)}`);
   const ctype = opts.html ? `text/html; charset="UTF-8"` : `text/plain; charset="UTF-8"`;
   headers.push(`Content-Type: ${ctype}`);
   headers.push(`Content-Transfer-Encoding: 8bit`);
@@ -233,7 +317,11 @@ async function readStdin(): Promise<string> {
 const [cmd, ...args] = process.argv.slice(2);
 (async () => {
   try {
-    if (cmd === "count") {
+    if (cmd === "profile") {
+      // Which mailbox is this credential actually reading? Settles identity when
+      // several credential files sit side by side in CONFIG/CREDENTIALS/google/.
+      console.log(JSON.stringify(await gmail("/profile"), null, 2));
+    } else if (cmd === "count") {
       console.log(await countQuery(args[0] ?? "in:inbox"));
     } else if (cmd === "ids") {
       const q = args[0] ?? "in:inbox";
@@ -245,6 +333,11 @@ const [cmd, ...args] = process.argv.slice(2);
       if (!ids.length) throw new Error("no ids");
       await archiveBatch(ids);
       console.log(`archived ${ids.length}`);
+    } else if (cmd === "unspam") {
+      const ids = (args[0] ?? "").split(",").filter(Boolean);
+      if (!ids.length) throw new Error("no ids");
+      await unspamBatch(ids);
+      console.log(`unspammed ${ids.length}`);
     } else if (cmd === "fetch") {
       console.log(JSON.stringify(await fetchMin(args[0]), null, 2));
     } else if (cmd === "fetchfull") {
@@ -258,6 +351,24 @@ const [cmd, ...args] = process.argv.slice(2);
         const chunk = ids.slice(i, i + conc);
         const results = await Promise.all(chunk.map(id => fetchMin(id).catch(e => ({ id, error: e.message }))));
         for (const r of results) console.log(JSON.stringify(r));
+      }
+    } else if (cmd === "body") {
+      if (!args[0]) throw new Error("usage: gmail.ts body <id>");
+      console.log(JSON.stringify(await fetchWithParts(args[0]), null, 2));
+    } else if (cmd === "attach") {
+      // gmail.ts attach <id>              → list attachments
+      // gmail.ts attach <id> <outdir>     → download all attachments
+      if (!args[0]) throw new Error("usage: gmail.ts attach <id> [outdir]");
+      const full = await fetchWithParts(args[0]);
+      if (!args[1]) { console.log(JSON.stringify(full.attachments, null, 2)); }
+      else {
+        for (const a of full.attachments) {
+          if (!a.attachmentId) continue;
+          const safe = a.filename.replace(/[^A-Za-z0-9._-]/g, "_");
+          const dest = `${args[1]}/${args[0]}__${safe}`;
+          const n = await saveAttachment(args[0], a.attachmentId, dest);
+          console.log(`${n}\t${dest}`);
+        }
       }
     } else if (cmd === "send") {
       const opts = parseSendArgs(args);
@@ -275,7 +386,7 @@ const [cmd, ...args] = process.argv.slice(2);
       const res = await sendMessage({ ...opts, body });
       console.log(JSON.stringify(res, null, 2));
     } else {
-      console.log("usage: gmail.ts count|ids|archive|fetch|fetchall|send ...");
+      console.log("usage: gmail.ts count|ids|archive|fetch|fetchall|body|attach|send ...");
       process.exit(1);
     }
   } catch (e: any) {

@@ -4,7 +4,13 @@
  *
  * Each migration knows how to detect its own applied state and is safe to re-run.
  * `--diagnose` audits without changes. `--dry-run` prints the apply plan.
- * `default` runs all not-yet-applied migrations in registry order, fail-loud.
+ *
+ * Every registered migration is currently DETECT-ONLY (public issue #1549):
+ * detection is automated, remediation is manual by design (several paths need
+ * interactive auth or hand-migration). The default mode therefore reports
+ * not-yet-applied migrations with their remediation instructions and exits
+ * without modifying anything — it does not throw a false "partial state"
+ * signal.
  *
  * Designed by: LIFEOS/MEMORY/WORK/20260520-pai-system-user-separation-rebuild/PhaseG-design.md
  *
@@ -13,8 +19,9 @@
  *
  * Exit codes:
  *   0  all migrations applied or already-applied (no-op)
- *   1  migration failed; partial state — see error output
+ *   1  an auto-applicable migration failed mid-write; partial state — see error output
  *   2  usage error
+ *   3  action required: detect-only migrations are pending; NOTHING was modified
  */
 
 import { existsSync, readFileSync, lstatSync, readlinkSync } from "node:fs";
@@ -34,7 +41,13 @@ interface Migration {
   name: string;
   isApplied: (ctx: MigrationContext) => boolean;
   apply: (ctx: MigrationContext) => void;
-  /** Optional rollback for emergencies; not run automatically. */
+  /**
+   * True when apply() intentionally throws with remediation instructions
+   * (manual/hand-migration path). Detect-only pending migrations are reported
+   * as action-required (exit 3), never as a failed write (public issue #1549).
+   */
+  detectOnly?: boolean;
+  /** Optional rollback for emergencies; not run automatically (manual use only). */
   rollback?: (ctx: MigrationContext) => void;
 }
 
@@ -47,6 +60,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: "m-001",
     name: "Phase B Part 2 — settings.json split into system+user halves",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) =>
       existsSync(join(claudeRoot, "settings.system.json")) &&
       existsSync(join(claudeRoot, "LIFEOS/USER/CONFIG/settings.user.json")) &&
@@ -58,6 +72,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: "m-002",
     name: "Phase C — CLAUDE.md @-imports the five identity files directly + OPERATIONAL_RULES.md present",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) => {
       const claudeMd = join(claudeRoot, "CLAUDE.md");
       if (!existsSync(claudeMd)) return false;
@@ -74,12 +89,13 @@ const MIGRATIONS: Migration[] = [
       return allImportsPresent && opRulesPresent;
     },
     apply: () => {
-      throw new Error("m-002 apply not implemented — Phase C was a hand-migration. For from-fresh-install, the public LifeOS checkout's CLAUDE.md is staged from skills/_LIFEOS/RELEASE_TEMPLATES/CLAUDE.public.md and `pai setup` populates the identity files + adds the @-imports.");
+      throw new Error("m-002 apply not implemented — Phase C was a hand-migration. For from-fresh-install, the public LifeOS checkout's CLAUDE.md is staged from the release skill's public CLAUDE template and `pai setup` populates the identity files + adds the @-imports.");
     },
   },
   {
     id: "m-003",
     name: "Phase F — LifeosConfig.ts present + LIFEOS_CONFIG.toml populated",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) =>
       existsSync(join(claudeRoot, "LIFEOS/TOOLS/LifeosConfig.ts")) &&
       existsSync(join(claudeRoot, "LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml")),
@@ -90,6 +106,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: "m-004",
     name: "Phase G — LIFEOS/USER is symlink to user data repo",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) => {
       const userPath = join(claudeRoot, "LIFEOS/USER");
       if (!existsSync(userPath)) return false;
@@ -109,6 +126,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: "m-005",
     name: "Phase G — LIFEOS/MEMORY/ in .gitignore",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) => {
       const gitignore = join(claudeRoot, ".gitignore");
       if (!existsSync(gitignore)) return false;
@@ -116,8 +134,9 @@ const MIGRATIONS: Migration[] = [
       // Already-applied if any LIFEOS/MEMORY/ subpath is gitignored. The current
       // policy gitignores LEARNING/, OBSERVABILITY/, STATE/, etc. selectively;
       // Phase G may broaden this. For now, we detect "any LIFEOS/MEMORY/ rule" as
-      // applied.
-      return /^LifeOS\/MEMORY\//m.test(content);
+      // applied. Case matters (public PR #1547, @m8ryx): the dir is LIFEOS/,
+      // and a LifeOS/-cased regex can never match on a case-sensitive FS.
+      return /^LIFEOS\/MEMORY\//m.test(content);
     },
     apply: () => {
       throw new Error("m-005 apply not implemented — modify .gitignore in source PR rather than via tool. The detect-only check surfaces missing state.");
@@ -126,6 +145,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: "m-006",
     name: "Phase E — SystemFileGuard hook registered",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) => {
       const settingsPath = join(claudeRoot, "settings.json");
       if (!existsSync(settingsPath)) return false;
@@ -148,6 +168,7 @@ const MIGRATIONS: Migration[] = [
   {
     id: "m-007",
     name: "Phase G — pre-push hook syncs USER-data repo before push",
+    detectOnly: true,
     isApplied: ({ claudeRoot }) => {
       const hookPath = join(claudeRoot, ".git/hooks/pre-push");
       if (!existsSync(hookPath)) return false;
@@ -263,7 +284,24 @@ function runMigrations(ctx: MigrationContext): never {
     console.log("Nothing to do — install is current.");
     process.exit(0);
   }
-  for (const m of toApply) {
+  // Detect-only migrations are reported, never executed (public issue #1549):
+  // their apply() throws with remediation instructions by design, and treating
+  // that throw as a write failure produced a false "Partial state may exist"
+  // on the exact path users hit when checking install health.
+  const detectOnlyPending = toApply.filter((m) => m.detectOnly);
+  const applicable = toApply.filter((m) => !m.detectOnly);
+  if (detectOnlyPending.length > 0) {
+    console.log(`\nAction required — ${detectOnlyPending.length} detect-only migration(s) pending (manual remediation, nothing was modified):`);
+    for (const m of detectOnlyPending) {
+      console.log(`\n  ! ${m.id}  ${m.name}`);
+      try {
+        m.apply(ctx); // by contract this throws with the remediation instructions
+      } catch (err) {
+        console.log(`    ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
+  for (const m of applicable) {
     console.log(`\n→ Applying ${m.id}: ${m.name}`);
     try {
       m.apply(ctx);
@@ -274,8 +312,8 @@ function runMigrations(ctx: MigrationContext): never {
       process.exit(1);
     }
   }
-  console.log(`\nAll ${toApply.length} migrations applied successfully.`);
-  process.exit(0);
+  if (applicable.length > 0) console.log(`\nAll ${applicable.length} auto-applicable migrations applied successfully.`);
+  process.exit(detectOnlyPending.length > 0 ? 3 : 0);
 }
 
 function main(): never {

@@ -1,4 +1,49 @@
-export type AlgorithmPhase = 'OBSERVE' | 'THINK' | 'PLAN' | 'BUILD' | 'EXECUTE' | 'VERIFY' | 'LEARN' | 'IDLE' | 'COMPLETE';
+// Work-session state served by /api/algorithm (+ SSE mirror).
+//
+// 2026-07-14 agents-dashboard redesign: modes, effort tiers, presets, and the
+// per-phase ceremony are gone. A session is either TRACKED (an ISA backs it —
+// claims close on evidence, the climb is the story) or UNTRACKED (liveness
+// only). `phase` survives as a coarse lifecycle signal (the values actually
+// written today: an active value at start, learn/complete at close).
+
+// `phase` is whatever the ISA declared, uppercased — current vocabulary or a
+// retired station name from an old row. Nothing switches on the literal: it is
+// resolved through PHASE_TO_ASCENT in LIFEOS/TOOLS/ascent.ts, so an unknown
+// value degrades to a real state instead of falling off a switch. Typed as a
+// plain string for exactly that reason (2026-07-27 unification).
+export type AlgorithmPhase = string;
+
+// ── Live activity (2026-07-22) — derived from tool-activity.jsonl server-side ──
+
+export type { ActivityClass } from '../../../../TOOLS/ascent';
+import type { ActivityClass } from '../../../../TOOLS/ascent';
+
+/** One minute of tool calls, bucketed by class (e/b/v/d/o keys keep frames small). */
+export interface RibbonBucket {
+  t: number;
+  e: number;
+  b: number;
+  v: number;
+  d: number;
+  o: number;
+}
+
+export interface ActivitySummary {
+  /** Dominant class over the last ~3 min of tool calls; null when quiet. */
+  state: ActivityClass | null;
+  lastTool: string | null;
+  lastTs: number | null;
+  /** Per-minute buckets for the last ~30 min, oldest first. */
+  ribbon: RibbonBucket[];
+}
+
+/** ISC adds/closes folded from the climb points. */
+export interface IscDeltas {
+  addedTotal: number;
+  closedTotal: number;
+  added1h: number;
+  closed1h: number;
+}
 
 export interface AlgorithmCriterion {
   id: string;
@@ -6,7 +51,6 @@ export interface AlgorithmCriterion {
   type: 'criterion' | 'anti-criterion';
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   evidence?: string;
-  createdInPhase: AlgorithmPhase;
 }
 
 export interface AlgorithmAgent {
@@ -14,55 +58,13 @@ export interface AlgorithmAgent {
   agentType: string;
   status: 'active' | 'idle' | 'completed';
   task?: string;
-  phase: AlgorithmPhase;
 }
 
-export interface PhaseEntry {
-  phase: AlgorithmPhase;
-  startedAt: number;
-  completedAt?: number;
-  criteriaCount: number;
-  agentCount: number;
-  phaseNarrative?: string;
-  /** True if this phase visit is part of a rework cycle */
-  isRework?: boolean;
-  /** Which rework iteration (0 = initial run, 1+ = rework) */
-  reworkIteration?: number;
-}
-
-/** Archive of a completed algorithm cycle (preserved during rework) */
-export interface ReworkCycle {
-  iteration: number;
-  startedAt: number;
-  completedAt: number;
-  fromPhase: AlgorithmPhase;
-  toPhase: AlgorithmPhase;
-  criteria: AlgorithmCriterion[];
-  summary?: string;
-  effortLevel: string;
-  phaseHistory: PhaseEntry[];
-}
-
-export type EffortLevel = 'Native' | 'Standard' | 'Extended' | 'Advanced' | 'Deep' | 'Comprehensive';
-
-export interface CompletedWork {
-  taskDescription: string;
-  completedAt: number;
-  summary?: string;
-  criteria: AlgorithmCriterion[];
-  phaseHistory: PhaseEntry[];
-  effortLevel: EffortLevel;
-  /** @deprecated Use effortLevel */
-  sla?: EffortLevel;
-}
-
-export type SessionMode = 'minimal' | 'native' | 'algorithm';
-
-export interface ModeTransition {
-  mode: SessionMode;
-  startedAt: number;
-  endedAt?: number;
-  trigger?: string;
+/** One step of a run's ascent: claims closed / total at a moment in time. */
+export interface ClimbPoint {
+  ts: number;
+  done: number;
+  total: number;
 }
 
 export interface RatingPulse {
@@ -78,97 +80,30 @@ export interface AlgorithmState {
   currentPhase: AlgorithmPhase;
   phaseStartedAt: number;
   algorithmStartedAt: number;
-  effortLevel: EffortLevel;
-  /** @deprecated Use effortLevel — kept for reading old state files */
-  sla?: EffortLevel;
   criteria: AlgorithmCriterion[];
   agents: AlgorithmAgent[];
   capabilities: string[];
-  /** Path to the session's Ideal State Artifact (ISA.md, or legacy PRD.md). */
-  isaPath?: string;
-  /** @deprecated use isaPath. Kept so older state files still parse. */
-  prdPath?: string;
-  phaseHistory: PhaseEntry[];
-  qualityGate?: {
-    count: boolean;
-    length: boolean;
-    state: boolean;
-    testable: boolean;
-    anti: boolean;
-    open: boolean;
-  };
-  currentAction?: string;
-  mode?: string;
+  progress: { done: number; total: number };
   rawTask?: string;
-  completedAt?: number;
-  summary?: string;
-  abandoned?: boolean;
-  workHistory?: CompletedWork[];
-  compactionEvents?: number[];
-  /** Number of times this session re-entered the algorithm after completion */
-  reworkCount?: number;
-  /** True when currently in a rework cycle (vs initial run) */
-  isRework?: boolean;
-  /** Archive of each completed algorithm cycle */
-  reworkHistory?: ReworkCycle[];
-  /** History of session name changes on rework (for name rejuvenation display) */
-  previousNames?: Array<{ name: string; changedAt: string }>;
-  /** Current LifeOS mode for this session */
-  currentMode?: SessionMode;
-  /** History of mode transitions within this session */
-  modeHistory?: ModeTransition[];
-  /** Recent MINIMAL ratings within this session */
-  ratings?: RatingPulse[];
-  /** Count of MINIMAL interactions in this session */
-  minimalCount?: number;
-  /** Tunable parameter configuration for this session */
-  algorithmConfig?: {
-    preset: string | null;
-    focus: number | null;
-    params: Record<string, number | string>;
-    mode: string;
-  };
   /** Intent snippet extracted from ISA body — shown when no criteria are parseable */
   intent?: string;
   /** Non-null when the ISASync parser could not extract ISCs from the ISA */
   criteriaParseWarning?: 'missing-section' | 'empty-section' | 'all-dropped';
-}
-
-/**
- * Frontmatter shape for the per-session Ideal State Artifact (ISA.md).
- * The artifact is the single source of truth for an Algorithm run.
- */
-export interface IsaFrontmatter {
-  isa?: boolean;
-  /** @deprecated legacy flag from when the artifact was named PRD.md */
-  prd?: boolean;
-  id: string;
-  title?: string;
-  status: string;
-  mode?: string;
-  effort?: string;
-  effort_level?: string;
-  phase?: string;
-  progress?: string;
+  /** ISA iteration (1 = first run; 2+ = reopened/rework) */
   iteration?: number;
-  maxIterations?: number;
-  loopStatus?: string | null;
-  last_phase?: string | null;
-  failing_criteria?: string[];
-  verification_summary?: string;
-  parent?: string | null;
-  children?: string[];
-  session_id?: string;
-  slug?: string;
-  task?: string;
-  created?: string;
-  updated?: string;
-  completed_at?: string | null;
-  github_issue?: number;
+  reworkCount?: number;
+  /** An ISA backs this session — claims, evidence, the climb */
+  tracked: boolean;
+  /** Ascent history folded from work-events.jsonl */
+  climb: ClimbPoint[];
+  /** Live tool-stream state — present when the session has recent tool calls */
+  activity?: ActivitySummary;
+  /** ISC adds/closes folded from climb points — present on tracked runs with data */
+  iscDeltas?: IscDeltas;
+  ratings?: RatingPulse[];
+  sessionUUID?: string;
+  completedAt?: number;
 }
-
-/** @deprecated use IsaFrontmatter */
-export type PrdFrontmatter = IsaFrontmatter;
 
 export interface AlgorithmApiResponse {
   algorithms: AlgorithmState[];

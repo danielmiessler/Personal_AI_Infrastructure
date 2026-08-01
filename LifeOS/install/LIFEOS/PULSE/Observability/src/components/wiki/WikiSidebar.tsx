@@ -12,6 +12,8 @@ import {
   Layers,
   Server,
   FileText,
+  FlaskConical,
+  GraduationCap,
   Users,
   Building2,
   Lightbulb,
@@ -19,6 +21,8 @@ import {
   Network,
   Library,
   BookCopy,
+  Sparkles,
+  Workflow,
   Folder,
   Compass,
   ShieldCheck,
@@ -72,12 +76,16 @@ const CATEGORY_ICONS: Record<string, typeof BookOpen> = {
   Security: ShieldCheck,
   Skills: Zap,
   Tools: Server,
-  // Knowledge Archive domains
+  // Memory object types
   People: Users,
   Companies: Building2,
   Ideas: Lightbulb,
   Blogs: FileText,
   Books: BookOpen,
+  Research: FlaskConical,
+  ISAs: Workflow,
+  Lessons: GraduationCap,
+  Wisdom: Sparkles,
   // Fallback
   Other: Folder,
 };
@@ -106,6 +114,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   Companies: "text-amber-400",
   Ideas: "text-violet-400",
   Books: "text-rose-400",
+  Research: "text-cyan-400",
+  ISAs: "text-emerald-400",
+  Lessons: "text-amber-400",
+  Wisdom: "text-violet-400",
   Other: "text-ink-3",
 };
 
@@ -192,7 +204,7 @@ export default function WikiSidebar({ tree, onSearchClick }: WikiSidebarProps) {
         </button>
       </div>
 
-      {/* Graph link */}
+      {/* Graph link — one graph over the whole memory corpus */}
       <div className="px-3 pt-3 pb-1">
         <Link
           href={WIKI_GRAPH_URL}
@@ -200,16 +212,16 @@ export default function WikiSidebar({ tree, onSearchClick }: WikiSidebarProps) {
           style={{ fontFamily: "'concourse-t3', sans-serif" }}
         >
           <Network className="w-3.5 h-3.5" />
-          <span>Knowledge Graph</span>
+          <span>Graph</span>
         </Link>
       </div>
 
-      {/* Tree navigation */}
+      {/* Tree navigation — memory object types render directly, no section
+          header (2026-07-19 directive: it's all just objects in memory). */}
       <nav className="p-3 space-y-1">
         {(() => {
-          const KNOWLEDGE_LABELS = ["People", "Companies", "Ideas", "Blogs", "Books"];
           const docNodes = tree.filter((n) => n.label === "Documentation");
-          const knowledgeNodes = tree.filter((n) => KNOWLEDGE_LABELS.includes(n.label));
+          const memoryNodes = tree.filter((n) => n.label !== "Documentation");
           return (
             <>
               {docNodes.length > 0 && (
@@ -226,19 +238,9 @@ export default function WikiSidebar({ tree, onSearchClick }: WikiSidebarProps) {
                 </div>
               )}
 
-              {knowledgeNodes.length > 0 && (
-                <div>
-                  <div
-                    className="text-[13px] font-medium tracking-[0.2em] text-ink-3 uppercase px-2 mb-2"
-                    style={{ fontFamily: "'advocate-c14', sans-serif" }}
-                  >
-                    Knowledge
-                  </div>
-                  {knowledgeNodes.map((node, i) => (
-                    <TreeItem key={node.label + i} node={node} />
-                  ))}
-                </div>
-              )}
+              {memoryNodes.map((node, i) => (
+                <TreeItem key={node.label + i} node={node} />
+              ))}
             </>
           );
         })()}

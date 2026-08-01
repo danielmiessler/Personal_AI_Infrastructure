@@ -65,13 +65,15 @@ export interface LifeosDa {
 export interface LifeosIntegrations {
   google?: { credentialsFile?: string };
   cloudflare?: { accountId?: string; tokenEnvVar?: string };
-  telegram?: { allowlist?: number[] };
   [key: string]: unknown;
 }
 
 export interface LifeosPaths {
   userDir: string;
-  memoryDir: string;
+  // memoryDir was removed 2026-07-18 (public issue #1526, @christauff): declared
+  // since inception but never consumed — the memory root is derived by
+  // hooks/lib/paths.ts getMemoryDir(), and a dead config knob that LOOKS live
+  // is worse than no knob.
   projectsDir: string;
 }
 
@@ -181,17 +183,22 @@ function validateAndNormalize(raw: unknown, path: string): LifeosConfig {
       },
     },
     integrations: {
-      google: root.integrations?.google,
-      cloudflare: root.integrations?.cloudflare,
-      telegram: root.integrations?.telegram,
       ...root.integrations,
+      // Normalize snake_case TOML keys like the principal/da fields above. The
+      // spread stays FIRST — spreading after would clobber the normalized shape
+      // with the raw TOML object (credentials_file vs credentialsFile).
+      google: root.integrations?.google
+        ? {
+            ...root.integrations.google,
+            credentialsFile:
+              root.integrations.google.credentials_file ?? root.integrations.google.credentialsFile,
+          }
+        : undefined,
+      cloudflare: root.integrations?.cloudflare,
     },
     paths: {
       userDir: expandHome(
         root.paths?.userDir ?? root.paths?.user_dir ?? resolve(DEFAULT_HOME, ".claude/LIFEOS/USER"),
-      ),
-      memoryDir: expandHome(
-        root.paths?.memoryDir ?? root.paths?.memory_dir ?? resolve(DEFAULT_HOME, ".claude/LIFEOS/MEMORY"),
       ),
       projectsDir: expandHome(
         root.paths?.projectsDir ?? root.paths?.projects_dir ?? resolve(DEFAULT_HOME, "Projects"),

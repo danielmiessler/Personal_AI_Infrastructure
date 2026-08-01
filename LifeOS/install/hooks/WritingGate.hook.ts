@@ -7,8 +7,8 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.0.3
- * WritingGate.hook.ts — force a REAL _WRITING audit + AI-detector run on any
+ * @version 1.0.7
+ * WritingGate.hook.ts — force a REAL writing audit + AI-detector run on any
  * response that ships authored, outbound prose FOR {{PRINCIPAL_NAME}}.
  *
  * WHY (2026-07-01): a sponsored LinkedIn post shipped from NATIVE mode with no
@@ -112,6 +112,28 @@ function freshRuns(): RunRec[] {
 }
 
 // Returns proof that the detector actually ran this turn.
+/**
+ * Is the AI detector actually runnable on this install?
+ *
+ * Mirrors PangramScore.ts loadKey() exactly — process env first, then a
+ * PANGRAM_API_KEY= line in ~/.claude/.env. If neither resolves, PangramScore
+ * exits 1 before it can ever append a run record, so the SHA-match pass
+ * condition below is unreachable and blocking would be a permanent dead end.
+ * Kept deliberately narrow: absence of a KEY, not absence of a successful run.
+ * A configured key that fails at request time still blocks, which is correct —
+ * that is a transient failure the operator can act on, not a missing capability.
+ */
+function detectorAvailable(): boolean {
+  if (process.env.PANGRAM_API_KEY) return true;
+  try {
+    const env = readFileSync(join(process.env.HOME!, ".claude", ".env"), "utf8");
+    return env.split("\n").some((l) => {
+      if (!l.startsWith("PANGRAM_API_KEY=")) return false;
+      return l.slice("PANGRAM_API_KEY=".length).replace(/^["']|["']$/g, "").trim().length > 0;
+    });
+  } catch { return false; }
+}
+
 function auditRunProof(message: string): { freshRun: boolean; shaMatch: boolean } {
   const runs = freshRuns();
   if (runs.length === 0) return { freshRun: false, shaMatch: false };
@@ -130,7 +152,7 @@ function proseWordCount(message: string): number {
 
 type Decision =
   | "pass-run-verified" | "pass-run-fresh" | "block-strong-no-run"
-  | "telemetry-weak" | "no-content" | "skip-recovery";
+  | "telemetry-weak" | "telemetry-no-detector" | "no-content" | "skip-recovery";
 
 function appendObs(rec: Record<string, unknown>): void {
   try { mkdirSync(dirname(OBS_PATH), { recursive: true });
@@ -140,10 +162,10 @@ function appendObs(rec: Record<string, unknown>): void {
 
 const BLOCK_REASON =
   "WRITING-AUDIT GAP. This response ships authored outbound prose (a post / draft / marketing copy) and " +
-  "there is NO record the AI detector actually ran on it this turn. Any writing produced FOR {{PRINCIPAL_NAME}} must go " +
-  "through the _WRITING skill AND the detector before it is shown (OPERATIONAL_RULES.md § Authored content). " +
+  "there is NO record the AI detector actually ran on it this turn. Any writing produced for the principal must go " +
+  "through a writing-audit skill AND the detector before it is shown (OPERATIONAL_RULES.md § Authored content). " +
   "The gate checks for a real PangramScore.ts run on the draft — a typed token does NOT satisfy it. Before " +
-  "stopping: (1) run Skill(\"_WRITING\") DETECT mode on the draft and fix every P0/P1 in the right voice; " +
+  "stopping: (1) run the writing-audit skill's DETECT mode on the draft and fix every P0/P1 in the right voice; " +
   "(2) run `bun ~/.claude/LIFEOS/TOOLS/PangramScore.ts --file <draft>` on the ACTUAL draft text so the run is " +
   "logged; (3) cite the detect result + the reported AI% in a `✍️ WRITING-AUDIT:` line. Pangram saturates on " +
   "model prose, so the number is REPORTED, not a pass/fail bar — the requirement is that the audit RAN.";
@@ -164,13 +186,39 @@ export async function run(input: NonNullable<Awaited<ReturnType<typeof readHookI
   if (!message || message.trim().length === 0) return null;
 
   const fenceStripped = message.replace(/```[\s\S]*?```/g, " ").trimStart();
+  // A trigger phrase inside a code span is being QUOTED, not DELIVERED. This gate
+  // blocked a status report that merely explained what DELIVER_LABEL matches —
+  // writing about the gate tripped the gate (self-caught 2026-07-27). Real authored
+  // prose says "Here's the post:" in the open; it does not wrap the phrase in
+  // backticks. Stripping inline code before the delivery test removes the
+  // discuss-the-mechanism false positive without loosening delivery detection.
+  // Deliberately NOT applied to DISCLOSURE_CAPTION or HASHTAG_CLUSTER: a real
+  // caption can legitimately arrive inside a fenced or indented block.
+  const codeStripped = fenceStripped.replace(/`[^`\n]{1,120}`/g, " ");
   const strong =
     DISCLOSURE_CAPTION.test(message) || HASHTAG_CLUSTER.test(message) ||
-    DELIVER_LABEL.test(message) || BLOG_FRONTMATTER.test(fenceStripped);
+    DELIVER_LABEL.test(codeStripped) || BLOG_FRONTMATTER.test(fenceStripped);
   const weak = strong || WEAK_SIGNALS.some((p) => p.test(message));
   const words = proseWordCount(message);
 
   if (strong && words >= 40) {
+    // UNAVAILABLE VERIFIER MEANS DEFER, NOT BRICK (2026-07-27 pre-publish audit).
+    //
+    // The pass condition is a logged PangramScore run, and PangramScore exits 1
+    // without PANGRAM_API_KEY. No key ships in a public release, so on a fresh
+    // install this branch was unsatisfiable: a stranger asks for a LinkedIn post,
+    // the response says "here's the post" (DELIVER_LABEL), and Stop blocks with a
+    // reason whose own step 2 is to run the tool that cannot succeed. An infinite
+    // loop on a core interaction, reachable on the first real request.
+    //
+    // A control that cannot be satisfied is not a control. Where the detector is
+    // genuinely unavailable we degrade to telemetry and SAY SO, rather than block.
+    // This does not weaken the gate where it has teeth: on any install with a key
+    // configured, the SHA-match requirement below is unchanged.
+    if (!detectorAvailable()) {
+      appendObs({ session_id, decision: "telemetry-no-detector" as Decision, strong, words });
+      return null;
+    }
     // Pass ONLY on a SHA match: the detector demonstrably ran on THIS content.
     // A fresh-run-on-something-else does not clear it (closes the "ran it on
     // other text" gaming path Forge flagged). Citation is required too, as the

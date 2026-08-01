@@ -1,8 +1,7 @@
 ---
 name: RedTeam
-version: 1.1.16
+version: 1.1.17
 description: "Adversarial analysis deploying parallel expert agents to stress-test ideas, strategies, and plans — decomposes into atomic claims, attacks them, then steelmans and counter-argues, producing severity-ranked findings with remediation. USE WHEN red team, attack idea, counterarguments, critique, stress test, devil's advocate, find weaknesses, break this, poke holes, strongest objection. NOT FOR collaborative debate to find best path (use Council)."
-effort: high
 ---
 
 ## Customization

@@ -1,9 +1,8 @@
 ---
 name: Webdesign
-version: 1.2.0
+version: 1.2.2
 description: "Design and integrate web interfaces via three paths: DirectDesign (write design inline with Anthropic frontend-design philosophy — the default workhorse), native /design + /design-sync Claude Code commands (preferred for code integration and design-system sync), or ClaudeDesign (drive claude.ai/design through Interceptor — experimental visual-review fallback). USE WHEN web design, UI design, create prototype, design system, design sync, redesign site, mockup, landing page, dashboard design, design-to-code, frontend design, polish UI, design audit, brutalist/editorial/retro UI. NOT FOR illustrations/logos (use Art) or video (use Remotion)."
 license: Complete terms in LICENSE.txt
-effort: medium
 ---
 
 ## Voice Notification (REQUIRED FIRST ACTION)

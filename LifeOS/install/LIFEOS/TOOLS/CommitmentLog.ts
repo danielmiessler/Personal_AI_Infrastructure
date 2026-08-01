@@ -6,7 +6,7 @@
  *     --beneficiary "Alex" \
  *     --subject "send Surface threat-model brief" \
  *     --due 2026-05-30 \
- *     [--channel imessage|telegram|email|inperson|other] \
+ *     [--channel imessage|email|inperson|other] \
  *     [--source-link <url-or-quote>] \
  *     [--priority P0|P1|P2|P3]
  *
@@ -101,7 +101,7 @@ function main() {
     `Priority:${args.priority}`,
     "Property:internal",
     "Status:ready",
-    "Agent:daniel",
+    cfg.agentLabel,
   ].join(",");
 
   const r = gh([

@@ -48,6 +48,17 @@ const SYSTEM_PROMPT_PATH = join(LIFEOS_DIR, "LIFEOS_SYSTEM_PROMPT.md")
 const KNOWLEDGE_DOMAINS = ["People", "Companies", "Ideas", "Blogs", "Books", "Research"] as const
 type KnowledgeDomain = (typeof KNOWLEDGE_DOMAINS)[number]
 
+// Memory silos beyond KNOWLEDGE/ — indexed as first-class, searchable object
+// types (2026-07-19 directive: the wiki is the whole memory system, not just
+// the knowledge archive). FAILURES/ raw context dumps and REFLECTIONS jsonl
+// stay out — their distilled essence already lands in the learning files.
+const WORK_DIR = join(LIFEOS_DIR, "MEMORY", "WORK")
+const LEARNING_DIR = join(LIFEOS_DIR, "MEMORY", "LEARNING")
+const LEARNING_SUBDIRS = ["SYSTEM", "ALGORITHM", "SYNTHESIS"] as const
+const WISDOM_DIR = join(LIFEOS_DIR, "MEMORY", "WISDOM")
+const WISDOM_SUBDIRS = ["FRAMES", "PRINCIPLES", "META"] as const
+const RESEARCH_DIR = join(LIFEOS_DIR, "MEMORY", "RESEARCH")
+
 // Types
 
 interface WikiPage {
@@ -127,7 +138,9 @@ function walkMarkdown(dir: string): string[] {
   }
 
   for (const entry of entries) {
-    if (entry.name.startsWith(".")) continue
+    // Underscore prefix = metadata/queue/scope-private by LifeOS convention
+    // (KNOWLEDGE/_archive, WISDOM/FRAMES/_hypotheses) — never indexed.
+    if (entry.name.startsWith(".") || entry.name.startsWith("_")) continue
     const entryPath = join(dir, entry.name)
     if (entry.isDirectory()) {
       files.push(...walkMarkdown(entryPath))
@@ -388,6 +401,67 @@ function indexKnowledgeArchive(): void {
   }
 }
 
+// Memory Silo Indexing (WORK ISAs, LEARNING lessons, WISDOM, RESEARCH)
+
+function relSlug(baseDir: string, filePath: string): string {
+  return stripMarkdownExtension(relative(baseDir, filePath)).replace(/[\\/]+/g, "--")
+}
+
+function indexWorkIsas(): void {
+  if (!existsSync(WORK_DIR)) return
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(WORK_DIR, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name.startsWith("_")) continue
+    const isaPath = join(WORK_DIR, entry.name, "ISA.md")
+    if (!existsSync(isaPath)) continue
+    const page = indexFile(isaPath, { category: "isa", slug: entry.name })
+    if (page) pageIndex.set(page.slug, page)
+  }
+}
+
+function indexLearning(): void {
+  for (const sub of LEARNING_SUBDIRS) {
+    const dir = join(LEARNING_DIR, sub)
+    for (const filePath of walkMarkdown(dir)) {
+      const page = indexFile(filePath, {
+        category: "lesson",
+        slug: `${sub}--${relSlug(dir, filePath)}`,
+        group: sub.charAt(0) + sub.slice(1).toLowerCase(),
+      })
+      if (page) pageIndex.set(page.slug, page)
+    }
+  }
+}
+
+function indexWisdom(): void {
+  for (const sub of WISDOM_SUBDIRS) {
+    const dir = join(WISDOM_DIR, sub)
+    for (const filePath of walkMarkdown(dir)) {
+      const page = indexFile(filePath, {
+        category: "wisdom",
+        slug: `${sub}--${relSlug(dir, filePath)}`,
+        group: sub.charAt(0) + sub.slice(1).toLowerCase(),
+      })
+      if (page) pageIndex.set(page.slug, page)
+    }
+  }
+}
+
+function indexResearchOutputs(): void {
+  for (const filePath of walkMarkdown(RESEARCH_DIR)) {
+    const page = indexFile(filePath, {
+      category: "research",
+      slug: relSlug(RESEARCH_DIR, filePath),
+    })
+    if (page) pageIndex.set(page.slug, page)
+  }
+}
+
 // Full Index Build
 
 function buildFullIndex(): void {
@@ -395,6 +469,10 @@ function buildFullIndex(): void {
 
   indexSystemDocs()
   indexKnowledgeArchive()
+  indexWorkIsas()
+  indexLearning()
+  indexWisdom()
+  indexResearchOutputs()
   rebuildBacklinks()
   rebuildSearchIndex()
 
@@ -485,18 +563,38 @@ const pendingPaths: Set<string> = new Set()
 function startWatchers(): void {
   stopWatchers()
 
-  const watchPaths = [LIFEOS_DIR]
+  // Watch only what buildPages actually reads. Watching all of LIFEOS_DIR was
+  // both too broad and pointless: MEMORY/ is the busiest subtree in an install
+  // (constant .jsonl appends) and the one place non-regular files appear —
+  // sockets and FIFOs a recursive walk cannot open — while skills/ and hooks/
+  // live outside LIFEOS/ and were never covered anyway. The system prompt is a
+  // direct child of LIFEOS_DIR, so it gets a NON-recursive watch: it stays live
+  // without the walk descending into MEMORY/. public PR #1683, @lmbagley
+  const watchPaths: Array<{ path: string; recursive: boolean }> = [
+    { path: DOCUMENTATION_DIR, recursive: true },
+    { path: KNOWLEDGE_DIR, recursive: true },
+    { path: ALGORITHM_DIR, recursive: true },
+    { path: LIFEOS_DIR, recursive: false },
+  ]
 
-  for (const watchPath of watchPaths) {
+  for (const { path: watchPath, recursive } of watchPaths) {
     if (!existsSync(watchPath)) continue
 
     try {
-      const watcher = watch(watchPath, { recursive: true }, (_event, filename) => {
+      const watcher = watch(watchPath, { recursive }, (_event, filename) => {
         if (!filename) return
         const filenameText = String(filename)
         if (filenameText.endsWith(".md")) {
           scheduleReindex(join(watchPath, filenameText))
         }
+      })
+
+      // A recursive watch that meets a broken symlink or ELOOP under the tree
+      // emits an ASYNC 'error' event the surrounding try/catch cannot reach —
+      // unhandled, it crashes all of Pulse at boot (public issues #1186 and
+      // #1568, @christauff).
+      watcher.on("error", (err) => {
+        console.warn(`[wiki] watch error on ${watchPath} (continuing, best-effort): ${String(err)}`)
       })
 
       watchers.push(watcher)
@@ -629,21 +727,31 @@ function buildTree(): TreeNode[] {
 
   tree.push(systemNode)
 
-  const domainMap: Array<{ category: string; label: string }> = [
+  // recency: true sections (work + learning) sort newest-first — recency is
+  // the natural browse order for time-stamped memory, not the alphabet.
+  const domainMap: Array<{ category: string; label: string; recency?: boolean }> = [
     { category: "person", label: "People" },
     { category: "company", label: "Companies" },
     { category: "idea", label: "Ideas" },
     { category: "blog", label: "Blogs" },
     { category: "book", label: "Books" },
-    { category: "research", label: "Research" },
+    { category: "research", label: "Research", recency: true },
+    { category: "isa", label: "ISAs", recency: true },
+    { category: "lesson", label: "Lessons", recency: true },
+    { category: "wisdom", label: "Wisdom" },
   ]
 
-  for (const { category, label } of domainMap) {
+  for (const { category, label, recency } of domainMap) {
     const pages = [...pageIndex.values()].filter((page) => page.category === category)
+    const ordered = recency
+      ? [...pages].sort(
+          (a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+        )
+      : sortedPages(pages)
     tree.push({
       label,
       count: pages.length,
-      children: sortedPages(pages).map(treeLeaf),
+      children: ordered.map(treeLeaf),
     })
   }
 
@@ -674,6 +782,9 @@ function getStats(): Record<string, number> {
     totalBlogs: pages.filter((page) => page.category === "blog").length,
     totalBooks: pages.filter((page) => page.category === "book").length,
     totalResearch: pages.filter((page) => page.category === "research").length,
+    totalIsas: pages.filter((page) => page.category === "isa").length,
+    totalLessons: pages.filter((page) => page.category === "lesson").length,
+    totalWisdom: pages.filter((page) => page.category === "wisdom").length,
   }
 }
 
@@ -718,7 +829,9 @@ function handleDoc(slug: string): Response {
   // Knowledge categories (person/company/idea/blog) get the full knowledge
   // shape — including related, tags, source — so MarkdownRenderer wikilinks
   // landing here render identically to the dedicated knowledge route.
-  const knowledgeCategories = new Set(["person", "company", "idea", "blog"])
+  const knowledgeCategories = new Set([
+    "person", "company", "idea", "blog", "book", "research", "isa", "lesson", "wisdom",
+  ])
   if (knowledgeCategories.has(page.category)) {
     const related = (page.related ?? [])
       .map((relSlug) => {
@@ -773,6 +886,12 @@ function handleKnowledgeNote(domain: string, slug: string): Response {
     idea: "idea",
     blog: "blog",
     book: "book",
+    research: "research",
+    isa: "isa",
+    isas: "isa",
+    lesson: "lesson",
+    lessons: "lesson",
+    wisdom: "wisdom",
   }
 
   const category = validDomains[domain.toLowerCase()]

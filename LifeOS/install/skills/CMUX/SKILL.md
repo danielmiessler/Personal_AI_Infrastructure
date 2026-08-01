@@ -1,7 +1,7 @@
 ---
 name: CMUX
-version: 1.0.2
-description: "Drives cmux as an agent cockpit to boot, race, and monitor visible agent teams. Mac-only. USE WHEN cmux, agent cockpit, boot an agent team, orchestrate agents, three-tier orchestration, agent race, needle-in-haystack hotfix, agent fleet, 2x2 fleet, watch/monitor my agents, scale compute to scale impact, send a prompt to a running agent, multiplexer, terminal cockpit, orchestrator lead worker. NOT FOR one-shot in-harness subagents with no terminal to watch (use Delegation/Agent/Workflow), the Pulse dashboard itself (cmux feeds it, use Pulse), browser deploy-verification (use Interceptor), or Linux/Windows (cmux is Mac-only — use tmux)."
+version: 1.0.5
+description: "Drives cmux as an agent cockpit to boot, race, and monitor visible agent teams. Mac-only. USE WHEN cmux, agent cockpit, boot an agent team, orchestrate agents, three-tier orchestration, agent race, needle-in-haystack hotfix, agent fleet, 2x2 fleet, watch/monitor my agents, scale compute to scale impact, send a prompt to a running agent, multiplexer, terminal cockpit, orchestrator lead worker. NOT FOR one-shot in-harness subagents with no terminal to watch (use Agent/Workflow), the Pulse dashboard itself (cmux feeds it, use Pulse), browser deploy-verification (use Interceptor), or Linux/Windows (cmux is Mac-only — use tmux)."
 ---
 
 # CMUX

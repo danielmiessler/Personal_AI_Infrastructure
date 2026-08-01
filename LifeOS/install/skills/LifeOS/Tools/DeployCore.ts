@@ -42,8 +42,14 @@ function arg(a: string[], flag: string): string | undefined {
   return i >= 0 && a[i + 1] && !a[i + 1].startsWith("--") ? a[i + 1] : undefined;
 }
 
+interface SkillConflict {
+  payload: string;
+  existing: string;
+  detail: string;
+}
+
 interface DeployResult {
-  what: "skills" | "runtime" | "memory" | "dependencies";
+  what: "skills" | "runtime" | "memory" | "dependencies" | "nested-dependencies";
   src: string;
   dst: string;
   present: boolean;
@@ -51,24 +57,62 @@ interface DeployResult {
   actions: string[];
   blockers: string[];
   failures: string[];
+  /** Skills NOT deployed because a pre-existing user skill collides case-insensitively. */
+  conflicts?: SkillConflict[];
+  /** Exact-name dirs that already existed and were merged file-additively (prior install / re-run). */
+  mergedExisting?: string[];
 }
 
-/** (a) skills library: install/skills/* → configRoot/skills/ (one copyMissing). */
+/**
+ * (a) skills library: install/skills/<Skill> → configRoot/skills/<Skill>,
+ * deployed PER SKILL DIRECTORY with case-insensitive collision detection
+ * (public issue #1506, @mygirleatsmayo). On default macOS APFS, a payload
+ * `Research/` resolves into a pre-existing user `research/` — one file-level
+ * copyMissing would merge LifeOS files into the user's skill while skipping
+ * its own SKILL.md, leaving OUR skill headless and THEIR dir polluted, with a
+ * clean-looking report. A skill is atomic: it deploys whole into a dir we
+ * created, or not at all.
+ *
+ *  - no entry with the same lowercased name → deploy (copyMissing)
+ *  - EXACT-name dir already present → file-additive merge, reported in
+ *    mergedExisting (keeps re-runs idempotent for prior LifeOS installs)
+ *  - case-VARIANT name present (research vs Research) → foreign dir: SKIP the
+ *    whole skill, record a conflict, tell the user how to resolve
+ */
 function deploySkills(payloadInstall: string, configRoot: string, apply: boolean): DeployResult {
   const src = join(payloadInstall, "skills");
   const dst = join(configRoot, "skills");
-  const r: DeployResult = { what: "skills", src, dst, present: existsSync(src), copied: 0, actions: [], blockers: [], failures: [] };
+  const r: DeployResult = { what: "skills", src, dst, present: existsSync(src), copied: 0, actions: [], blockers: [], failures: [], conflicts: [], mergedExisting: [] };
   if (!r.present) {
     r.blockers.push(`skills payload missing: ${src} — the bare-skill payload is unpopulated (run EmitSkill, or point --skill-root at a staged release)`);
     return r;
   }
-  if (!apply) {
-    r.actions.push(`copyMissing ${src} → ${dst} (never overwrites existing skills)`);
-    return r;
+  const existingByLower = new Map<string, string>();
+  if (existsSync(dst)) {
+    for (const e of readdirSync(dst)) existingByLower.set(e.toLowerCase(), e);
   }
-  const { copied, failures } = copyMissing(src, dst);
-  r.copied = copied;
-  r.failures = failures;
+  for (const entry of readdirSync(src, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const name = entry.name;
+    const es = join(src, name);
+    const ed = join(dst, name);
+    const match = existingByLower.get(name.toLowerCase());
+    if (match !== undefined && match !== name) {
+      r.conflicts!.push({
+        payload: name,
+        existing: match,
+        detail: `pre-existing '${match}' collides case-insensitively with payload '${name}' — skill NOT deployed, existing dir untouched. Resolve by renaming/moving '${join(dst, match)}', then re-run.`,
+      });
+      continue;
+    }
+    if (match === name && entry.isDirectory()) r.mergedExisting!.push(name);
+    if (!apply) {
+      r.actions.push(`copyMissing ${es} → ${ed}${match === name ? " (exists — file-additive merge, never overwrites)" : ""}`);
+      continue;
+    }
+    const { copied, failures } = copyMissing(es, ed);
+    r.copied += copied;
+    r.failures.push(...failures);
+  }
   return r;
 }
 
@@ -128,6 +172,23 @@ function scaffoldMemory(configRoot: string, apply: boolean): DeployResult {
       r.failures.push(`mkdir ${d}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+  // Generate KNOWLEDGE/_schema.md so the Knowledge skill's documented contract
+  // exists on a fresh install — SKILL.md points at it five times, but nothing
+  // shipped or generated it (public issue #1583, @elhoim). Derived from
+  // KnowledgeSchema.ts, the same generated-doc pattern as ARCHITECTURE_SUMMARY.md.
+  // Skipped quietly when the runtime tools aren't deployed yet (dry-run planning
+  // still records the action).
+  const schemaDoc = join(dst, "KNOWLEDGE", "_schema.md");
+  const generator = join(configRoot, "LIFEOS", "TOOLS", "GenerateKnowledgeSchemaDoc.ts");
+  if (!existsSync(schemaDoc) && existsSync(generator)) {
+    if (!apply) {
+      r.actions.push(`bun ${generator}`);
+    } else {
+      const proc = Bun.spawnSync(["bun", generator], { stdout: "pipe", stderr: "pipe" });
+      if (proc.exitCode === 0) r.copied++;
+      else r.failures.push(`GenerateKnowledgeSchemaDoc exited ${proc.exitCode}: ${proc.stderr.toString().trim()}`);
+    }
+  }
   return r;
 }
 
@@ -164,6 +225,88 @@ function deployDependencies(payloadInstall: string, configRoot: string, apply: b
   return r;
 }
 
+/**
+ * (e) nested runtime deps (public PR #1581, @elhoim): several directories
+ * INSIDE the deployed runtime tree ship their OWN package.json (LIFEOS/PULSE,
+ * LIFEOS/PULSE/Observability, LIFEOS/TOOLS, ...) — declaring a dependency
+ * there does not make bun/node resolve it. Module resolution stops walking up
+ * at the first ancestor directory that owns a package.json, so the shared
+ * configRoot/node_modules deployDependencies() just installed never satisfies
+ * these. This is exactly why a fresh install died with `Cannot find package
+ * 'smol-toml'` on `bun run pulse.ts`: LIFEOS/PULSE/package.json lists
+ * smol-toml correctly, but nothing ever ran `bun install` inside LIFEOS/PULSE/.
+ * Walk the deployed runtime tree for every package.json (skipping
+ * node_modules/.git) and `bun install --cwd` each one. The Observability
+ * dashboard additionally needs a build — it ships as a Next.js static export
+ * (Observability/out/index.html); building it here does automatically what
+ * pulse.ts otherwise reports as a copy-paste fix command, so a fresh Pulse
+ * doesn't 503 until a human intervenes.
+ */
+function findNestedDependencyDirs(runtimeDst: string): string[] {
+  const found: string[] = [];
+  const walk = (dir: string): void => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name === ".git") continue;
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(p);
+      } else if (entry.isFile() && entry.name === "package.json") {
+        found.push(dir);
+      }
+    }
+  };
+  walk(runtimeDst);
+  return found.sort();
+}
+
+function deployNestedDependencies(configRoot: string, apply: boolean): DeployResult {
+  const runtimeDst = join(configRoot, "LIFEOS");
+  const skillsDst = join(configRoot, "skills");
+  const r: DeployResult = {
+    what: "nested-dependencies", src: runtimeDst, dst: runtimeDst,
+    present: existsSync(runtimeDst), copied: 0, actions: [], blockers: [], failures: [],
+  };
+  if (!r.present) return r; // runtime not deployed yet — deployRuntime() already reports that blocker
+
+  // Walk skills/ alongside LIFEOS/ — skills ship nested package.json manifests
+  // too (Apify, Evals, Prompting templates, Art/Remotion tools), and installing
+  // only the runtime tree left them import-broken. Public issue #1605, @cristbc.
+  const dirs = [
+    ...findNestedDependencyDirs(runtimeDst),
+    ...(existsSync(skillsDst) ? findNestedDependencyDirs(skillsDst) : []),
+  ];
+  for (const dir of dirs) {
+    const isObservability = dir === join(runtimeDst, "PULSE", "Observability");
+    const needsBuild = isObservability && !existsSync(join(dir, "out", "index.html"));
+
+    if (!apply) {
+      r.actions.push(`bun install --cwd ${dir}`);
+      if (needsBuild) r.actions.push(`bun run build --cwd ${dir}`);
+      continue;
+    }
+
+    const proc = Bun.spawnSync(["bun", "install"], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+    if (proc.exitCode !== 0) {
+      r.failures.push(`bun install --cwd ${dir} exited ${proc.exitCode}: ${proc.stderr.toString().trim()}`);
+      continue;
+    }
+    r.copied++;
+    r.actions.push(`bun install --cwd ${dir}`);
+
+    // Build the Observability dashboard once its deps resolve — see comment above.
+    if (needsBuild) {
+      const build = Bun.spawnSync(["bun", "run", "build"], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+      if (build.exitCode !== 0) {
+        r.failures.push(`bun run build --cwd ${dir} exited ${build.exitCode}: ${build.stderr.toString().trim()}`);
+      } else {
+        r.actions.push(`bun run build --cwd ${dir}`);
+      }
+    }
+  }
+  return r;
+}
+
 function main(): void {
   const a = process.argv.slice(2);
   const home = process.env.HOME || homedir();
@@ -177,7 +320,7 @@ function main(): void {
     console.log(JSON.stringify({
       ok: false,
       refused: "dev-tree",
-      detail: `${configRoot} is a LifeOS source tree (skills/_LIFEOS present) — refusing to deploy core. Use --allow-dev only in a sandbox.`,
+      detail: `${configRoot} is a LifeOS source tree (dev-tree marker present) — refusing to deploy core. Use --allow-dev only in a sandbox.`,
     }, null, 2));
     process.exit(2);
   }
@@ -187,6 +330,7 @@ function main(): void {
     deployRuntime(payloadInstall, configRoot, apply),
     scaffoldMemory(configRoot, apply),
     deployDependencies(payloadInstall, configRoot, apply),
+    deployNestedDependencies(configRoot, apply),
   ];
 
   // A missing required payload source (blocker) or a copy failure is a hard
@@ -194,8 +338,16 @@ function main(): void {
   const blockers = results.flatMap((r) => r.blockers);
   const failures = results.flatMap((r) => r.failures);
   const ok = blockers.length === 0 && failures.length === 0;
-  const skillsCopied = results.find((r) => r.what === "skills")?.copied ?? 0;
+  const skillsResult = results.find((r) => r.what === "skills");
+  const skillsCopied = skillsResult?.copied ?? 0;
   const runtimeCopied = results.find((r) => r.what === "runtime")?.copied ?? 0;
+  const skillConflicts = skillsResult?.conflicts ?? [];
+
+  const notes: string[] = [];
+  if (skillConflicts.length > 0) {
+    notes.push(`⚠️ ${skillConflicts.length} skill(s) NOT deployed — case-insensitive name collision with pre-existing skills (see skillConflicts). SURFACE THIS TO THE USER: their dirs were left untouched, and the colliding LifeOS skills are not installed until resolved.`);
+  }
+  if (!apply) notes.push("dry-run — re-run with --apply to deploy (a blocked source fails the run in both modes)");
 
   console.log(JSON.stringify({
     ok,
@@ -206,10 +358,11 @@ function main(): void {
     runtimeDst: join(configRoot, "LIFEOS"),
     skillsCopied,
     runtimeCopied,
+    skillConflicts,
     blockers,
     failures,
     results,
-    note: apply ? undefined : "dry-run — re-run with --apply to deploy (a blocked source fails the run in both modes)",
+    note: notes.length > 0 ? notes.join(" | ") : undefined,
   }, null, 2));
   process.exit(ok ? 0 : 1);
 }

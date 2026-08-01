@@ -78,8 +78,8 @@ mkdir -p ~/.claude/skills/[SkillName]/Tools
 
 **Example:**
 ```bash
-mkdir -p ~/.claude/skills/_DAEMON/Workflows
-mkdir -p ~/.claude/skills/_DAEMON/Tools
+mkdir -p ~/.claude/skills/_MYSKILL/Workflows
+mkdir -p ~/.claude/skills/_MYSKILL/Tools
 ```
 
 ## Step 5: Create SKILL.md
@@ -168,7 +168,7 @@ Before executing this skill's substantive workflow, verify context sufficiency:
 Skip Step 0 when the skill is a pure transform (input → deterministic output, no interpretation) or a pure lookup.
 ```
 
-This is template-level — new skills include it by default. Retrofit of existing skills (Sales, _BLOGGING, WriteStory, Webdesign, etc.) is a follow-up tracked in `MEMORY/WORK/20260520-algorithm-v670-context-sufficiency/ISA.md`. Re-open trigger: first concrete skill-author commit of a Step 0 (then add `skills_with_step0: []` migration ledger).
+This is template-level — new skills include it by default. Retrofit of existing skills (Sales, WriteStory, Webdesign, etc.) is a follow-up tracked in `MEMORY/WORK/20260520-algorithm-v670-context-sufficiency/ISA.md`. Re-open trigger: first concrete skill-author commit of a Step 0 (then add `skills_with_step0: []` migration ledger).
 
 ## Step 5b: Public Release Readiness (MANDATORY)
 
@@ -182,16 +182,16 @@ This is template-level — new skills include it by default. Retrofit of existin
 
 ### Where Personal Context Belongs
 
-User-specific preferences, project names, domain lists, and war stories go in `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` — the skill body loads these at runtime via the Customization block. This keeps the public skill generic while each LifeOS user layers their own context.
+User-specific preferences, project names, domain lists, and war stories go in `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` — the skill body loads these at runtime via the Customization block. This holds for **every** skill, public and private (2026-07-23 separation directive): a private `_ALLCAPS` skill's body is publish-clean code, its sensitive data lives under `LIFEOS/USER/`.
 
-### Pre-Flight Check
+### Pre-Flight Gate
 
-Before finalizing, grep the skill for personal refs:
+Before finalizing, run the deterministic hygiene gate — never a hand-rolled grep (a hardcoded pattern list rots and misses most of the deny-list):
 ```bash
-rg -i "danielmiessler|unsupervised|ULAdmin|thesurface|human3|ul\.live|/Users/[a-z]+/" ~/.claude/skills/[SkillName]/
+bun ~/.claude/LIFEOS/TOOLS/SkillHygieneGate.ts --skill <SkillName>
 ```
 
-Zero matches = ready. Any match = replace with generic language or move to `SKILLCUSTOMIZATIONS/`.
+Exit 0 = ready. Any violation = move the data to `LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/` (or its canonical USER home) and reference it by path. The gate reads the canonical `LIFEOS/USER/SECURITY/DENY_LIST.txt`, so it stays in lockstep with the release pipeline. The write-time SystemFileGuard also blocks any deny-listed token from landing in a skill body at edit time. For bare first-names the deny-list intentionally ignores (attribution contexts), also grep the skill for the principal's and partner's first names (from the identity files) and genericize any that aren't a public citation or a functional detection pattern.
 
 ## Step 6: Create Workflow Files
 
@@ -304,7 +304,7 @@ Verify ALL files use TitleCase:
 - [ ] No sensitive content (API keys, tokens, credentials, private URLs)
 - [ ] No personal references (author name, specific project names, personal domains, user-specific paths)
 - [ ] Generic framing throughout ("someone", "your project", not the author name, "my UL site")
-- [ ] Pre-flight grep returns zero matches for personal-ref pattern
+- [ ] `SkillHygieneGate.ts --skill <SkillName>` exits 0 (publish-clean, public and private alike)
 
 ### CLI-First Integration (for skills with CLI tools)
 - [ ] CLI tools expose configuration via flags (see CliFirstArchitecture.md)
@@ -323,7 +323,7 @@ If the description needs tuning, suggest `Workflows/OptimizeDescription.md`.
 
 ## Step 10: Version Awareness
 
-A new skill scaffolds with `version: 1.0.0` in its frontmatter (its own per-skill semver line) and is ALSO a **feature**-level OS change (see `## Versioning` in SKILL.md). Don't edit `LIFEOS/VERSION` here, and don't hand-bump the skill's `version:` — both bumps are applied at private-sync time by the `<your-release-skill>` `UpdateKaiRepo` ship flow (per-skill via `BumpSkillVersions.ts`, OS roll-up via the version-bump workflow).
+A new skill scaffolds with `version: 1.0.0` in its frontmatter (its own per-skill semver line) and is ALSO a **feature**-level OS change (see `## Versioning` in SKILL.md). Don't edit `LIFEOS/VERSION` here, and don't hand-bump the skill's `version:` — both bumps are applied at private-sync time by the `UpdateKaiRepo` ship flow (per-skill via `BumpSkillVersions.ts`, OS roll-up via the version-bump workflow).
 
 ## Done
 

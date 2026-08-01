@@ -19,35 +19,38 @@ Running the **MineReflections** workflow in the **Upgrade** skill to mine intern
 
 ## Overview
 
-The Algorithm writes a structured reflection after every Standard+ run to `~/.claude/LIFEOS/MEMORY/LEARNING/REFLECTIONS/algorithm-reflections.jsonl`. Each entry contains three questions focused on algorithm performance:
-
-- **Q1 (Self):** What would I have done differently?
-- **Q2 (Algorithm):** What would a smarter algorithm have done?
-- **Q3 (AI):** What would a fundamentally smarter AI have done?
-
-This workflow mines those reflections for **recurring themes** and produces **actionable upgrade candidates** for the Algorithm, skills, hooks, or system architecture.
+The Algorithm writes a reflection after every run that did real work to `~/.claude/LIFEOS/MEMORY/LEARNING/REFLECTIONS/algorithm-reflections.jsonl` via `LIFEOS/TOOLS/Reflect.ts` (the only sanctioned writer — never append by hand). The improvement signal is the **`reflection` field**: what a smarter run would have done. This workflow mines that channel for **recurring themes** and produces **actionable upgrade candidates** for the Algorithm, skills, hooks, or system architecture.
 
 ---
 
-## Data Schema
+## Data Schema — three corpus eras
 
-Each JSONL entry contains:
+The corpus spans schema generations; mine the improvement channel by era:
+
+| Era | Entries | Improvement channel |
+|-----|---------|---------------------|
+| Legacy (pre-2026-07-11) | `reflection_q1/q2/q3` questions, `implied_sentiment`, `criteria_*` | Q2 primarily; Q1/Q3 secondary |
+| Interim schema 7/8 (2026-07-11 → 07-28) | operational telemetry only (`claims_total`, `within_budget`, `notes`, ...) | optional `notes` where present — the channel was dark here |
+| Schema 9 (2026-07-28 →) | Reflect.ts-gated; `within_budget`/`spend` DERIVED from spend-audit | **required `reflection` field** |
+
+Current-era entry (schema 9, authoritative shape in `LIFEOS/TOOLS/Reflect.ts`):
 
 ```json
 {
-  "timestamp": "ISO or epoch",
-  "effort_level": "Standard|Extended|Advanced|...",
-  "task_description": "What was being done",
-  "criteria_count": 12,
-  "criteria_passed": 12,
-  "criteria_failed": 0,
-  "prd_id": "ISA-YYYYMMDD-slug",
-  "implied_sentiment": 8,
-  "reflection_q1": "Self-reflection on algorithm execution",
-  "reflection_q2": "What a smarter algorithm would do differently",
-  "reflection_q3": "What a fundamentally smarter AI would do",
-  "within_budget": true,
-  "rework_count": 0
+  "schema": 9,
+  "ts": "ISO",
+  "session_id": "...",
+  "slug": "...",
+  "iteration": 1,
+  "work_kind": "feature-build",
+  "claims_closed": ["ISC-1"],
+  "evidence_classes": ["bun-test"],
+  "deploys": [],
+  "within_budget": null,
+  "spend": { "verdict": null, "verdict_confidence": null, "dispatches": 0, "rung_mix": {} },
+  "context_sufficient": null,
+  "reflection": "What a smarter run would have done",
+  "notes": "operational notes"
 }
 ```
 
@@ -70,32 +73,22 @@ Report: "Found N reflections spanning [date range]"
 
 | Signal | Weight | Rationale |
 |--------|--------|-----------|
-| `implied_sentiment` <= 5 | HIGH | Low satisfaction = something went wrong worth fixing |
-| `implied_sentiment` 6-7 | MEDIUM | Room for improvement |
-| `implied_sentiment` 8-10 | LOW | Things went well — less urgent |
-| `within_budget: false` | BOOST | Over-budget = structural issue |
-| `criteria_failed > 0` | BOOST | Failed criteria = verification gap |
-| `rework_count > 0` | BOOST | Rework = initial approach was wrong |
+| `within_budget: false` | HIGH | Measured over/underspend = structural issue (schema 9: derived from spend-audit, trustworthy) |
+| `context_sufficient: false` | BOOST | Run started without what it needed |
+| unclosed claims (`claims_closed` short of the run's claim set) | BOOST | Verification gap |
+| legacy `implied_sentiment` <= 5 | HIGH | Low satisfaction = something went wrong (legacy era only) |
+| legacy `criteria_failed > 0` / `rework_count > 0` | BOOST | Failed criteria or rework (legacy era only) |
 
-**Highest signal entries:** Low sentiment + substantive Q2 answer + over-budget. These are the gold.
+**Highest signal entries:** substantive `reflection` (or legacy Q2) + a boosted operational signal. These are the gold. Join `LEARNING/SIGNALS/ratings.jsonl` by `session_id` for satisfaction where available.
 
 ### Step 3: Theme Extraction
 
-For each question category (Q1, Q2, Q3), cluster the answers into themes:
+Cluster the improvement channel (`reflection`, falling back to `notes` in the interim era and `reflection_q2`/`q1`/`q3` in the legacy era) into themes:
 
-**Q2 Themes (Algorithm Improvements) — PRIMARY OUTPUT:**
-- Group similar Q2 answers together
-- Count frequency: how many reflections mention this theme?
+- Group similar answers together; count frequency across reflections
 - Identify the underlying structural issue each theme points to
-- Example themes: "ISC quality gates too lenient", "Phase budgets not enforced", "Capability selection too conservative"
-
-**Q1 Themes (Execution Patterns) — SECONDARY:**
-- Recurring execution mistakes (e.g., "should have read file before editing", "agent overhead for simple tasks")
-- These suggest workflow guardrails or pre-flight checks
-
-**Q3 Themes (Fundamental Improvements) — ASPIRATIONAL:**
-- Patterns in what a smarter AI would do differently
-- These inform longer-term architecture decisions
+- Example themes: "ISC quality gates too lenient", "class-sweep runs at VERIFY not plan time", "delegates idle silently"
+- Legacy Q3-style entries (what a fundamentally smarter AI would do) inform longer-term architecture decisions — keep them as an ASPIRATIONAL bucket
 
 ### Step 4: Synthesize Upgrade Candidates
 
@@ -106,8 +99,8 @@ UPGRADE CANDIDATE: [Theme Name]
   Frequency: N reflections
   Signal strength: HIGH/MEDIUM/LOW
   Supporting reflections:
-    - [timestamp] [task_description] — "[relevant Q2 quote]"
-    - [timestamp] [task_description] — "[relevant Q2 quote]"
+    - [timestamp] [task_description] — "[relevant reflection quote]"
+    - [timestamp] [task_description] — "[relevant reflection quote]"
   Root cause: [What structural issue causes this pattern]
   Proposed fix: [Specific change to Algorithm, skill, hook, or system]
   Target file(s): [Which LifeOS files would change]

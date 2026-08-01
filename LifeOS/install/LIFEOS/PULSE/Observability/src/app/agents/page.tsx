@@ -1,72 +1,65 @@
 "use client";
 
 import { useState } from "react";
-import UnifiedWorkDashboard from "@/components/activity/UnifiedWorkDashboard";
-import ObservabilityDashboard from "@/components/activity/ObservabilityDashboard";
-import NativeDashboard from "@/components/activity/NativeDashboard";
-import OptimizeDashboard from "@/components/activity/OptimizeDashboard";
-import LoopDashboard from "@/components/activity/LoopDashboard";
+import dynamic from "next/dynamic";
 import SystemHealthVitals from "@/components/activity/insights/SystemHealthVitals";
-import { PageShell, TabBar, dimStyle, type TabSpec } from "@/components/ui/chrome";
-import { Repeat, TrendingUp, Terminal, RefreshCw, Zap } from "lucide-react";
+import CapabilityStrip from "@/components/activity/CapabilityStrip";
+import { PageShell, TabBar, type TabSpec } from "@/components/ui/chrome";
+import { Mountain, Activity } from "lucide-react";
 
+// The tab bodies are the heavy code on this route — WorkBoard pulls framer-motion,
+// ObservabilityDashboard pulls the live chart. Loading them eagerly made /agents
+// ~8× heavier than any other Pulse page (74 kB route). Split each into its own
+// chunk so the shell (vitals + strip + tabs) paints instantly and the active
+// tab's code streams in; the inactive tab never downloads until it's opened.
+const TabFallback = () => (
+  <div className="flex items-center justify-center h-64 text-ink-3 text-sm">Loading…</div>
+);
+const WorkBoard = dynamic(() => import("@/components/activity/WorkBoard"), {
+  ssr: false,
+  loading: TabFallback,
+});
+const ObservabilityDashboard = dynamic(() => import("@/components/activity/ObservabilityDashboard"), {
+  ssr: false,
+  loading: TabFallback,
+});
 
-// ─── Main Agents Page ───
-// Tabs: Iterate | Optimize | Loop | Native (left) | Actions (right)
-// System Health Vitals bar persists across all tabs
+// ─── Agents Page ───
 //
-// CANONICAL DOC for what each tab means, ISA frontmatter mapping, and dashboard
-// component links: ~/.claude/LIFEOS/ALGORITHM/modes/README.md
-// Per-mode doctrine: ~/.claude/LIFEOS/ALGORITHM/modes/{iterate,optimize,ideate,loop,native}.md
-// Short summary lives in ~/.claude/LIFEOS/DOCUMENTATION/Algorithm/AlgorithmSystem.md
-// under "## Mode System". This `modeTabs` array below is the runtime source of truth
-// for tab labels and ordering — the docs above must stay in sync with it.
+// 2026-07-14 redesign: the mode-tab structure (Iterate/Optimize/Loop/Native)
+// died with the mode system (retired 2026-07-11). Two surfaces remain:
+//
+//   WORK     — the board: tracked runs as climbs (claims closing on evidence),
+//              untracked sessions as liveness. Data: /api/algorithm.
+//   ACTIVITY — the live event layer: hooks, tools, agents. Data: /api/events/recent.
+//
+// Phase visualization doctrine: lifecycle is DERIVED from run data
+// (src/lib/lifecycle.ts); nothing here renders declared phase stations.
 
-type Tab = "iterate" | "optimize" | "loop" | "native" | "actions";
+type Tab = "work" | "activity";
 
-const modeTabs: TabSpec<Tab>[] = [
-  { id: "iterate", label: "Iterate", icon: Repeat, dim: "creative" },
-  { id: "optimize", label: "Optimize", icon: TrendingUp, dim: "rhythms" },
-  { id: "loop", label: "Loop", icon: RefreshCw, dim: "relationships" },
-  { id: "native", label: "Native", icon: Terminal, dim: "money" },
+const tabs: TabSpec<Tab>[] = [
+  { id: "work", label: "Work", icon: Mountain, dim: "creative" },
+  { id: "activity", label: "Activity", icon: Activity, dim: "rhythms" },
 ];
 
 export default function AgentsPage() {
-  const [tab, setTab] = useState<Tab>("iterate");
-  const actionsActive = tab === "actions";
+  const [tab, setTab] = useState<Tab>("work");
 
   return (
     <PageShell fullBleed>
       <SystemHealthVitals />
+      <CapabilityStrip />
 
-      {/* Tab bar: mode tabs left, Actions right */}
       <TabBar
         className="px-4 py-2 shrink-0 border-b border-line-2 bg-surface-2"
-        tabs={modeTabs}
+        tabs={tabs}
         active={tab}
         onChange={setTab}
-        right={
-          <button
-            type="button"
-            onClick={() => setTab("actions")}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium cursor-pointer transition-colors duration-150"
-            style={{
-              ...dimStyle("creative", actionsActive),
-              ...(actionsActive ? { color: "var(--ink-1)" } : {}),
-            }}
-          >
-            <Zap className="w-4 h-4" />
-            Actions
-          </button>
-        }
       />
 
-      {/* Tab content */}
-      {tab === "iterate" && <UnifiedWorkDashboard />}
-      {tab === "optimize" && <OptimizeDashboard />}
-      {tab === "loop" && <LoopDashboard />}
-      {tab === "native" && <NativeDashboard />}
-      {tab === "actions" && <ObservabilityDashboard />}
+      {tab === "work" && <WorkBoard />}
+      {tab === "activity" && <ObservabilityDashboard />}
     </PageShell>
   );
 }

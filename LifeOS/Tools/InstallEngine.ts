@@ -198,7 +198,6 @@ export interface ApiKeyScan {
   anthropic?: string;
   openai?: string;
   google?: string;
-  xai?: string;
   perplexity?: string;
 }
 
@@ -224,7 +223,6 @@ export function scanApiKeys(home: string, configDir: string): ApiKeyScan {
     ["anthropic", /(?:^|\n)\s*(?:export\s+)?ANTHROPIC_API_KEY\s*=\s*["']?([^"'\s#]+)/],
     ["openai", /(?:^|\n)\s*(?:export\s+)?OPENAI_API_KEY\s*=\s*["']?([^"'\s#]+)/],
     ["google", /(?:^|\n)\s*(?:export\s+)?(?:GEMINI_API_KEY|GOOGLE_API_KEY|GOOGLE_GENAI_API_KEY)\s*=\s*["']?([^"'\s#]+)/],
-    ["xai", /(?:^|\n)\s*(?:export\s+)?(?:XAI_API_KEY|GROK_API_KEY)\s*=\s*["']?([^"'\s#]+)/],
     ["perplexity", /(?:^|\n)\s*(?:export\s+)?PERPLEXITY_API_KEY\s*=\s*["']?([^"'\s#]+)/],
   ];
   const placeholder = /^(your-key-here|sk-xxxxxxxx|xxxxx|REPLACE_ME|TODO)/i;
@@ -331,8 +329,32 @@ export function scanSettingsHooks(settingsPath: string): SettingsHookScan {
 import { cpSync, lstatSync, mkdirSync, readdirSync, readlinkSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-const TEMPLATE_EXTENSIONS = new Set([".md", ".json", ".txt", ".ts", ".toml", ".yaml", ".yml", ".sh"]);
+// Extended 2026-07-25 (Forge finding, v7.15.0 re-audit). The set stopped at .ts,
+// so every Pulse component and the built Next bundle were invisible to
+// substitution — a fresh install shipped a dashboard rendering
+// `desc="scored against TELOS — is this good for what {{PRINCIPAL_NAME}} is
+// actually doing?"` to the user, both in src and in the served
+// out/_next/static chunk. .css carries them too (Valkyrie voice notes).
+const TEMPLATE_EXTENSIONS = new Set([
+  ".md", ".json", ".txt", ".ts", ".toml", ".yaml", ".yml", ".sh",
+  ".tsx", ".jsx", ".js", ".css",
+]);
 const SKIP_DIRS = new Set(["node_modules", ".git", "MEMORY"]);
+
+/**
+ * Extension of a path's BASENAME, lowercased; "" when there is none.
+ *
+ * Was `filePath.slice(filePath.lastIndexOf("."))`, which searches the whole path:
+ * for `~/.claude/skills/Fabric/Patterns/raycast/yt` that returns
+ * ".claude/skills/Fabric/Patterns/raycast/yt" — the dot in `.claude`. Harmless by
+ * accident (no such key in the set, so extension-less files were skipped), but it
+ * would have mis-typed any file under a dotted directory the moment the set grew.
+ */
+function fileExtension(filePath: string): string {
+  const base = filePath.slice(filePath.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  return dot <= 0 ? "" : base.slice(dot).toLowerCase();
+}
 
 /**
  * Recursive, existsSync-GUARDED copy. Copies only files/dirs absent at dst —
@@ -393,11 +415,17 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
   let applied = 0;
   const entries = Object.entries(vars);
   const processFile = (filePath: string): void => {
-    if (!TEMPLATE_EXTENSIONS.has(filePath.slice(filePath.lastIndexOf(".")))) return;
+    if (!TEMPLATE_EXTENSIONS.has(fileExtension(filePath))) return;
     scanned++;
     const before = readFileSync(filePath, "utf-8");
     let after = before;
     for (const [placeholder, value] of entries) {
+      // Only substitute properly-delimited {{TOKEN}} placeholders. A caller
+      // passing a bare key (e.g. "HOME") would otherwise rewrite every HOME
+      // substring across settings AND source — `const HOME` became
+      // `const /home/<user>` and corrupted 146 .ts files on one install
+      // (public issue #1484, @docxology).
+      if (!/^\{\{[A-Z0-9_]+\}\}$/.test(placeholder)) continue;
       const parts = after.split(placeholder);
       applied += parts.length - 1;
       after = parts.join(value);
@@ -421,6 +449,58 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
   if (existsSync(rootDir) && lstatSync(rootDir).isFile()) processFile(rootDir);
   else walk(rootDir);
   return { scanned, modified, applied };
+}
+
+/**
+ * Identity placeholders the release sanitizer emits and `substituteTree` is
+ * expected to fill. Scoped deliberately: the payload legitimately contains other
+ * `{{TOKEN}}` forms (Art's thumbnail templating, Fabric pattern bodies, prose
+ * about placeholders), so a blanket `{{[A-Z_]+}}` sweep is noise, not a signal.
+ */
+const IDENTITY_PLACEHOLDERS = [
+  "{{DA_NAME}}", "{{DA_FULL_NAME}}", "{{PRINCIPAL_NAME}}", "{{PRINCIPAL_FULL_NAME}}",
+  "{{PRIMARY_VOICE_ID}}", "{{SECONDARY_VOICE_ID}}", "{{LIFEOS_VERSION}}",
+] as const;
+
+/**
+ * Post-substitution verification: report any identity placeholder still present
+ * in the installed tree.
+ *
+ * Why this exists (Forge finding D, 2026-07-25 v7.15.0 audit): `substituteTree`
+ * has no code caller. The install is AI-driven by design — `Workflows/Setup.md`
+ * step 34 instructs the agent to call it — so a skipped or mis-rooted step ships
+ * a system that addresses its owner as `{{PRINCIPAL_NAME}}` with nothing failing.
+ * The old engine's `runSurvivingPlaceholdersCheck` covered this and was lost when
+ * `engine/actions.ts` was retired; this restores it against the current engine.
+ * Verification, not mutation: the caller decides whether to re-run substitution
+ * or abort.
+ */
+export function checkSurvivingPlaceholders(rootDir: string): {
+  passed: boolean; files: Array<{ file: string; placeholder: string; count: number }>; total: number;
+} {
+  const files: Array<{ file: string; placeholder: string; count: number }> = [];
+  let total = 0;
+  const processFile = (filePath: string): void => {
+    if (!TEMPLATE_EXTENSIONS.has(fileExtension(filePath))) return;
+    let src: string;
+    try { src = readFileSync(filePath, "utf-8"); } catch { return; }
+    for (const placeholder of IDENTITY_PLACEHOLDERS) {
+      const count = src.split(placeholder).length - 1;
+      if (count > 0) { files.push({ file: filePath, placeholder, count }); total += count; }
+    }
+  };
+  const walk = (dir: string): void => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      const child = join(dir, entry.name);
+      if (entry.isDirectory()) walk(child);
+      else if (entry.isFile()) processFile(child);
+    }
+  };
+  if (existsSync(rootDir) && lstatSync(rootDir).isFile()) processFile(rootDir);
+  else walk(rootDir);
+  return { passed: total === 0, files, total };
 }
 
 /**
@@ -481,6 +561,13 @@ export function setupUserSeparation(
 ): { action: "already-linked" | "linked" | "scaffolded-linked"; target: string; copied: number; overwritten?: number; preserved?: number; backup?: string; error?: string } {
   const liveUserDir = join(configRoot, "LIFEOS", "USER");
   const dataUserDir = join(configDir, "USER");
+
+  // Same path on both sides (configDir resolves inside configRoot) — nothing to
+  // separate; the rename-aside branch below would EEXIST on its own symlink and
+  // strand the backup tree. Public issue #1694, @dissembler21-png.
+  if (resolve(liveUserDir) === resolve(dataUserDir)) {
+    return { action: "already-linked", target: dataUserDir, copied: 0 };
+  }
 
   // Branch (a): already a correct symlink → no-op.
   if (existsSync(liveUserDir)) {
@@ -560,7 +647,7 @@ type HooksMap = Record<string, MatcherGroup[]>;
 /**
  * Normalize a hook command for dedup: collapse the harness/PAI path-var forms to
  * a single canonical token and squeeze whitespace, so the same hook expressed as
- * `${LIFEOS_DIR}/x`, `$CLAUDE_PROJECT_DIR/x`, or `~/.claude/x` dedupes to one.
+ * `${LIFEOS_DIR}/x`, `$LIFEOS_DIR/x`, or `~/.claude/x` dedupes to one.
  */
 function normalizeCommand(cmd: string): string {
   return cmd

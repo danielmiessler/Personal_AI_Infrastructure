@@ -101,6 +101,10 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts"
           }
         ]
       },
@@ -115,6 +119,10 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts"
           }
         ]
       },
@@ -129,6 +137,10 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts"
           }
         ]
       },
@@ -139,6 +151,15 @@
             "command": "$HOME/.claude/hooks/EventLogger.hook.ts",
             "timeout": 5,
             "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/PostToolObserver.hook.ts"
           }
         ]
       }
@@ -210,6 +231,24 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/MemoryTurnStart.hook.ts",
             "timeout": 8
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/DriftReminder.hook.ts"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts"
           }
         ]
       }

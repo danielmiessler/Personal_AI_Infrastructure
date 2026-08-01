@@ -51,7 +51,10 @@ const colors = {
 
 // Load environment
 function loadEnv(): Record<string, string> {
-  const envPath = process.env.LIFEOS_CONFIG_DIR ? join(process.env.LIFEOS_CONFIG_DIR, '.env') : join(homedir(), '.claude', '.env')
+  // Canonical .env is ~/.claude/.env. LIFEOS_CONFIG_DIR names the LIFEOS
+  // directory, NOT the dir holding .env — joining it produced the dead path
+  // ~/.claude/LIFEOS/.env that nothing creates (public issue #1490).
+  const envPath = join(homedir(), '.claude', '.env')
   const env: Record<string, string> = {}
   try {
     const content = readFileSync(envPath, 'utf-8')

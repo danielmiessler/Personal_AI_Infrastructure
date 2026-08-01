@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync, existsSync, statSync, renameSync, readdirS
 import { resolve, dirname, basename, join } from "node:path";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
+import { ASCENT, ASCENT_BRACKETS, PHASE_TO_ASCENT } from "./ascent";
 
 const HOME = process.env.HOME || homedir();
 const TOOLS_DIR = resolve(HOME, ".claude/LIFEOS/TOOLS");
@@ -27,11 +28,19 @@ const TEMPLATE_CSS = join(TOOLS_DIR, "ISARender/template.css");
 // Brand logo: user override via LIFEOS_BRAND_LOGO_PATH env var (absolute path),
 // else system default under PAI/ASSETS/, else inert (empty src).
 const BRAND_LOGO_PATH_OVERRIDE = process.env.LIFEOS_BRAND_LOGO_PATH ?? "";
+
 const BRAND_LOGO_PATH_DEFAULT = resolve(HOME, ".claude/LIFEOS/ASSETS/pai-logo.png");
 const WORK_DIR = resolve(HOME, ".claude/LIFEOS/MEMORY/WORK");
 const WORK_JSON = resolve(HOME, ".claude/LIFEOS/MEMORY/STATE/work.json");
 
-const PHASES = ["observe", "think", "plan", "build", "execute", "verify", "learn", "complete"];
+// Lifecycle stages come from the one ascent table (LIFEOS/TOOLS/ascent.ts) — the same
+// four brackets an ISA can declare, in the same order, under the same names the Kitty tab
+// and the Pulse board use. Never define a private stage vocabulary here: a second list is
+// how a mirror ends up disagreeing with the tab generated beside it.
+const STAGES = ASCENT_BRACKETS;
+const STAGE_MAP: Record<string, number> = Object.fromEntries(
+  Object.entries(PHASE_TO_ASCENT).map(([phase, state]) => [phase, Math.max(0, ASCENT_BRACKETS.indexOf(state))]),
+);
 
 // ─────────── BRAND LOGO LOADER ───────────
 function loadBrandLogoB64(): string {
@@ -67,7 +76,7 @@ function parseArgs(argv: string[]): Args {
 
 // ─────────── PATH RESOLUTION ───────────
 
-function resolveIsaPath(input: string): string {
+function resolveISAPath(input: string): string {
   if (input.endsWith(".md") && existsSync(input)) return resolve(input);
   // Slug → look up in work.json or scan WORK_DIR
   if (existsSync(WORK_JSON)) {
@@ -123,7 +132,10 @@ function parseFrontmatter(src: string): { fm: Frontmatter; body: string; warning
     }
     fm[key] = val;
   }
-  for (const req of ["task", "slug", "effort", "phase"]) {
+  // Minimal frontmatter: only `phase` is required for a useful render. `task` falls back
+  // to the H1 title, `slug` to the directory name. Do not warn on `effort` — it is a legacy
+  // field that still appears on old ISAs and means nothing now.
+  for (const req of ["phase"]) {
     if (!fm[req]) warnings.push(`missing-frontmatter:${req}`);
   }
   return { fm, body, warnings };
@@ -180,9 +192,17 @@ interface ISCRow {
   body: string;
 }
 
+// Claim IDs: `ISC-1` / `ISC-2.1` (spec ≤v2.14), plus the Algorithm v8 short
+// forms — `C1`, `A3`, `EQ-12` (2026-07-22 claims-vocabulary fix, mirrors
+// hooks/lib/isa-utils.ts). Separator is `:` or an em/en dash.
+const CLAIM_ID = "(ISC-[0-9A-Za-z.-]+|[A-Z]{1,6}-[A-Z0-9][\\w-]*|[A-Z]{1,4}-?\\d+(?:\\.\\d+)*)";
+
 function parseISCLine(line: string): ISCRow | null {
-  // Match: - [ ] ISC-1: ...   OR  - [x] ISC-2.1: ...  OR  - [DEFERRED-VERIFY] ISC-3: ...
-  const m = line.match(/^-\s+\[([ xX]|DEFERRED-VERIFY)\]\s+(ISC-[0-9.]+):\s*(.*)$/);
+  // Match: - [ ] ISC-1: ...  - [x] C2 — ...  - [DEFERRED-VERIFY] ISC-3: ...
+  // Tolerate a parenthetical or `backtick` marker between the ID and its
+  // separator, e.g. `- [ ] H-FLOW (Tier 2, pending build): ...` or
+  // ``- [ ] CRS-FULFILL `[DEFERRED-VERIFY]`: ...`` (H3-style claim IDs).
+  const m = line.match(new RegExp(`^-\\s+\\[([ xX]|DEFERRED-VERIFY)\\]\\s+${CLAIM_ID}\\s*(?:\\([^)]*\\)\\s*|\`[^\`]*\`\\s*)?(?::|[—–-])\\s*(.*)$`));
   if (!m) return null;
   const statusTok = m[1].trim().toLowerCase();
   const status: ISCRow["status"] =
@@ -194,7 +214,18 @@ function parseISCLine(line: string): ISCRow | null {
   if (/^\[DROPPED/i.test(body)) kind = "tombstone";
   else if (/^Anti:/.test(body)) kind = "anti";
   else if (/^Antecedent:/.test(body)) kind = "antecedent";
+  // v8 convention: `A`-prefixed short IDs are anti-claims by construction.
+  if (kind === "normal" && /^A\d/.test(id)) kind = "anti";
   return { status, id, kind, body };
+}
+
+// Anti-claims in v8 ISAs often live in a dedicated `## Anti-claims` section as
+// plain ID bullets without checkboxes: `- A1 — must NOT ...`. Parsed only
+// inside that section so ordinary bullets elsewhere are untouched.
+function parseAntiClaimLine(line: string): ISCRow | null {
+  const m = line.match(new RegExp(`^-\\s+${CLAIM_ID}\\s*(?::|[—–-])\\s*(.*)$`));
+  if (!m) return null;
+  return { status: "pending", id: m[1], kind: "anti", body: m[2] };
 }
 
 function renderISCRow(row: ISCRow): string {
@@ -275,8 +306,10 @@ function renderSectionBody(section: Section): string {
     if (inOl) { out.push("</ol>"); inOl = false; }
   };
 
-  // Special handling: Criteria section groups ISCs by bold subheaders
-  const isCriteria = section.slug === "criteria";
+  // Special handling: Criteria/Claims sections group ISCs by bold subheaders
+  const isCriteria = section.slug === "criteria" || section.slug === "claims" || section.slug === "isc-criteria";
+  // v8 anti-claims sections carry ID bullets without checkboxes
+  const isAntiSection = section.slug === "anti-claims";
 
   while (i < lines.length) {
     const line = lines[i];
@@ -300,8 +333,9 @@ function renderSectionBody(section: Section): string {
       if (parsed) { out.push(renderTable(parsed.table)); i = parsed.endIdx + 1; continue; }
     }
 
-    // ISC line (only meaningful in Criteria, but support anywhere)
-    const isc = parseISCLine(line);
+    // ISC line (only meaningful in Criteria/Claims, but support anywhere).
+    // In an Anti-claims section, checkbox-less ID bullets also parse.
+    const isc = parseISCLine(line) ?? (isAntiSection ? parseAntiClaimLine(line) : null);
     if (isc) {
       flushPara(); closeLists();
       if (!out.length || !out[out.length - 1].startsWith("<ul class=\"isc-list\"")) {
@@ -311,14 +345,15 @@ function renderSectionBody(section: Section): string {
       }
       out.push(renderISCRow(isc));
       // If next line is also an ISC or empty, leave list open
+      const parseRow = (l: string) => parseISCLine(l) ?? (isAntiSection ? parseAntiClaimLine(l) : null);
       const next = lines[i + 1];
-      const nextIsIsc = next && parseISCLine(next);
+      const nextIsIsc = next && parseRow(next);
       if (!nextIsIsc) {
         // Lookahead for blank line then another ISC group header
         let j = i + 1;
         while (j < lines.length && !lines[j].trim()) j++;
         const peek = lines[j];
-        if (peek && parseISCLine(peek)) {
+        if (peek && parseRow(peek)) {
           // continue list across blanks
         } else {
           out.push(`</ul>`);
@@ -365,9 +400,25 @@ function renderSectionBody(section: Section): string {
       continue;
     }
 
+    // Feature-block heading (### F<n> · Name) — v2.16.0 feature blocks
+    const featH = line.match(/^###\s+(F\d+)\s*[·.\-–—]?\s*(.*)$/);
+    if (featH) {
+      flushPara(); closeLists();
+      out.push(`<h3 class="feature-title"><span class="feature-id">${escapeHtml(featH[1])}</span>${featH[2] ? " " + renderInline(featH[2]) : ""}</h3>`);
+      i++; continue;
+    }
+
     // Sub-heading (### or ####)
     const h3 = line.match(/^###\s+(.+?)\s*$/);
     if (h3) { flushPara(); closeLists(); out.push(`<h3>${renderInline(h3[1])}</h3>`); i++; continue; }
+
+    // Feature "Why:" line — the feature's one-line ideal-state (v2.16.0)
+    const whyLine = line.match(/^Why:\s*(.+)$/);
+    if (whyLine) {
+      flushPara(); closeLists();
+      out.push(`<p class="feature-why"><span class="feature-why-label">Why</span>${renderInline(whyLine[1])}</p>`);
+      i++; continue;
+    }
 
     // Default: paragraph line
     closeLists();
@@ -381,23 +432,48 @@ function renderSectionBody(section: Section): string {
 // ─────────── PHASE BAR ───────────
 
 function renderPhaseBar(currentPhase: string): string {
-  const cur = (currentPhase || "observe").toLowerCase();
-  const curIdx = PHASES.indexOf(cur);
-  return PHASES.map((p, i) => {
+  const cur = (currentPhase || "marking").toLowerCase();
+  const curIdx = STAGE_MAP[cur] ?? 0;
+  return STAGES.map((p, i) => {
     const classes = ["phase-slot"];
     if (i === curIdx) classes.push("active");
-    else if (i < curIdx && curIdx >= 0) classes.push("passed");
-    return `<div class="${classes.join(" ")}"><div class="dot"></div><div class="label">${p}</div></div>`;
+    else if (i < curIdx) classes.push("passed");
+    return `<div class="${classes.join(" ")}"><div class="dot"></div><div class="label">${ASCENT[p].icon} ${ASCENT[p].label}</div></div>`;
   }).join("");
 }
 
 // ─────────── HERO BADGES ───────────
+// Tier badge removed 2026-07-23 — effort tiers were retired 2026-07-11.
 
 function renderHeroBadges(fm: Frontmatter): string {
   const badges: string[] = [];
-  if (fm.effort) badges.push(`<span class="badge tier"><span class="label">Tier</span> ${fm.effort.toUpperCase()}</span>`);
-  if (fm.phase) badges.push(`<span class="badge phase ${fm.phase.toLowerCase()}"><span class="label">Phase</span> ${fm.phase.toUpperCase()}</span>`);
+  if (fm.phase) {
+    const state = PHASE_TO_ASCENT[fm.phase.toLowerCase()] ?? "marking";
+    const stageClass = state === "cairn" ? "complete" : state;
+    badges.push(`<span class="badge phase ${stageClass}"><span class="label">Phase</span> ${ASCENT[state].icon} ${ASCENT[state].label.toUpperCase()}</span>`);
+  }
+  if (fm.iteration && parseInt(fm.iteration, 10) > 1) {
+    badges.push(`<span class="badge phase"><span class="label">Iteration</span> ×${escapeHtml(fm.iteration)}</span>`);
+  }
   return badges.join(" ");
+}
+
+// ─────────── BRAND TAG (top-right of the brand bar) ───────────
+// Formerly the effort-tier display; now a claims summary.
+
+function renderBrandTag(fm: Frontmatter, body: string): string {
+  const m = (fm.progress || "").match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (m) return `${m[1]}/${m[2]} claims closed`;
+  const total = countISCs(body);
+  if (total > 0) {
+    let closed = 0;
+    for (const line of body.split("\n")) {
+      const row = parseISCLine(line);
+      if (row?.status === "passed") closed++;
+    }
+    return `${closed}/${total} claims closed`;
+  }
+  return "Ideal State Artifact";
 }
 
 // ─────────── PROGRESS RAIL ───────────
@@ -533,7 +609,7 @@ async function main() {
     console.error("Usage: bun ISARender.ts <slug-or-path> [--no-refresh] [--output <path>] [--stdout]");
     process.exit(1);
   }
-  const isaPath = resolveIsaPath(args.input);
+  const isaPath = resolveISAPath(args.input);
   const isaDir = dirname(isaPath);
   const outPath = args.output ? resolve(args.output) : join(isaDir, "ISA.html");
 
@@ -564,7 +640,7 @@ async function main() {
     const inner = renderSectionBody(s);
     const num = String(i + 1).padStart(2, "0");
     const eyebrow = `  <div class="section-eyebrow"><span class="num">${num}</span>${escapeHtml(s.name)}</div>`;
-    const countsStrip = s.slug === "criteria" ? renderISCCounts(body) : "";
+    const countsStrip = (s.slug === "criteria" || s.slug === "claims" || s.slug === "features") ? renderISCCounts(body) : "";
     return `${eyebrow}
   <section class="section section-${s.slug}" id="section-${s.slug}">
     <h2>${escapeHtml(s.name)} <a class="anchor-link" href="#section-${s.slug}" aria-label="link to section">#</a></h2>
@@ -578,17 +654,17 @@ ${inner}
   const css = readFileSync(TEMPLATE_CSS, "utf-8");
 
   const renderedAt = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-  const effortDisplay = fm.effort
-    ? `${fm.effort.toUpperCase()} effort`
-    : "ISA";
+  // Minimal-frontmatter fallbacks: title from `task:`, `title:`, or the H1.
+  const h1 = body.match(/^#\s+(?:ISA\s*[—–:-]\s*)?(.+?)\s*$/m)?.[1];
+  const taskDisplay = fm.task || fm.title || h1 || "(untitled ISA)";
   const html = tplHtml
-    .replaceAll("{{TITLE}}", escapeHtml(fm.task || "ISA"))
+    .replaceAll("{{TITLE}}", escapeHtml(taskDisplay))
     .replaceAll("{{CSS}}", css)
     .replaceAll("{{BRAND_LOGO_B64}}", loadBrandLogoB64())
-    .replaceAll("{{TASK}}", renderInline(fm.task || "(untitled ISA)"))
+    .replaceAll("{{TASK}}", renderInline(taskDisplay))
     .replaceAll("{{SLUG}}", escapeHtml(fm.slug || basename(isaDir)))
     .replaceAll("{{UPDATED}}", escapeHtml(fm.updated || "—"))
-    .replaceAll("{{EFFORT_DISPLAY}}", escapeHtml(effortDisplay))
+    .replaceAll("{{BRAND_TAG}}", escapeHtml(renderBrandTag(fm, body)))
     .replaceAll("{{HERO_BADGES}}", renderHeroBadges(fm))
     .replaceAll("{{HERO_CALLOUT}}", renderHeroCallout(fm))
     .replaceAll("{{PROGRESS_RAIL}}", renderProgressRail(fm))

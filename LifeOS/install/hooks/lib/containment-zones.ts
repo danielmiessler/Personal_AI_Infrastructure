@@ -5,7 +5,7 @@
 // zone must stay clean per LIFEOS/DOCUMENTATION/Tools/Containment.md.
 //
 // Consumed by two enforcement points:
-//   1. Release pipeline gates in skills/_LIFEOS/Tools/ShadowRelease.ts (build-time).
+//   1. Release pipeline gates in the release tooling (build-time).
 //   2. hooks/SystemFileGuard.hook.ts (runtime PreToolUse Write/Edit/MultiEdit
 //      gate, restored 2026-05-21 in Phase E of the system/user separation
 //      rebuild). The hook reads CONTAINMENT_ZONES via isContained() to decide
@@ -76,9 +76,10 @@ export const CONTAINMENT_ZONES: readonly ContainmentZone[] = [
       "LIFEOS/PULSE/state/**",
       "LIFEOS/PULSE/Observability/out/**",
       "LIFEOS/PULSE/.playwright-cli/**",
+      "LIFEOS/PULSE/Bunker/**",
       "LIFEOS/ScheduledTasks/**",
     ],
-    description: "Top-level private infrastructure dirs: cloud worker code, Assistant runtime state (diary jsonl), planning docs, runtime logs/state, rendered HTML",
+    description: "Top-level private infrastructure dirs: cloud worker code, Assistant runtime state (diary jsonl), planning docs, runtime logs/state, rendered HTML, Bunker app-harness code (personal probe targets + alert email; concept ships via DOCUMENTATION, impl stays private)",
   },
   {
     name: "pre-sanitization-backups",
@@ -127,6 +128,21 @@ export const PATTERN_ALLOWLIST_FILES: readonly string[] = [
   // SystemFileGuard test file legitimately embeds deny-list pattern literals
   // as test fixtures — the whole point is verifying the gate catches them.
   "hooks/SystemFileGuard.test.ts",
+  // 2026-07-20 — the public install flow embeds the public install URL
+  // (curl -fsSL https://ourlifeos.ai/install.sh) BY DESIGN: ourlifeos.ai is
+  // the public marketing/install domain, and these files are the shipped
+  // install path + brand-asset doc. Reviewed hit-by-hit before allowlisting;
+  // only the ourlifeos.ai pattern fires in them.
+  "skills/LifeOS/SKILL.md",
+  "skills/LifeOS/INSTALL.md",
+  "skills/LifeOS/install/install.sh",
+  // The public repo README (template overlay lands at staging root README.md).
+  // Author attribution — blog/social links, contributor credits — is BY DESIGN
+  // here and already public on github.com/danielmiessler/LifeOS; the star-history
+  // README refresh (2026-07-17) made G2 fire on it. Allowlisting also skips the
+  // token sanitizer so the links ship intact. (Principal approved 2026-07-21.)
+  "README.md",
+  "LIFEOS/DOCUMENTATION/BrandAssets.md",
   // Fabric quiz/answer patterns that legitimately use "unsupervised learning"
   // as ML terminology (not as a brand name). Allowed past G2.
   "skills/Fabric/Patterns/create_quiz/README.md",

@@ -37,9 +37,9 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 // ============================================================================
 
 function loadEnv(): void {
-  const envPath = process.env.LIFEOS_CONFIG_DIR
-    ? resolve(process.env.LIFEOS_CONFIG_DIR, ".env")
-    : resolve(homedir(), ".claude/.env");
+  // Canonical .env is ~/.claude/.env — never $LIFEOS_CONFIG_DIR/.env, which
+  // resolves to the dead ~/.claude/LIFEOS/.env path (public issue #1490).
+  const envPath = resolve(homedir(), ".claude/.env");
   try {
     const content = readFileSync(envPath, "utf-8");
     for (const line of content.split("\n")) {

@@ -11,7 +11,7 @@
  * - low:    quick tasks, simple generation, basic classification
  * - medium: balanced reasoning, typical analysis
  * - high:   deep reasoning, strategic decisions, complex analysis
- * - max:    keystone decisions — Algorithm E4/E5 dispatch (max=Fable, 2026-07-01; the TheRouter classifier moved to 'high' the same day)
+ * - max:    keystone decisions — hardest Algorithm dispatch (max=Fable, 2026-07-01)
  *
  * USAGE:
  *   bun Inference.ts --level low <system_prompt> <user_prompt>
@@ -20,11 +20,16 @@
  *   bun Inference.ts --level max <system_prompt> <user_prompt>
  *   bun Inference.ts --json --level low <system_prompt> <user_prompt>
  *
+ * SCOPE: a STANDALONE inference utility — reach for it whenever you would otherwise wire
+ * your own `claude` subprocess (hooks, services, scripts, batch calls). It is NOT part of
+ * intelligence selection for the Algorithm, second looks, or agent dispatch; those ride
+ * native routing (tier aliases on dispatch, /model). A second look is a non-forked dispatch
+ * pattern, never a subprocess — do not add an advisor mode here.
+ *
  * OPTIONS:
  *   --level <low|medium|high|max>  Run level (default: medium)
- *                                  These four are the ONLY accepted names.
- *                                  Legacy fast/standard/smart were removed
- *                                  2026-06-10 — unknown names hard-error.
+ *                                  These four are the ONLY accepted names;
+ *                                  any other name hard-errors.
  *   --json                         Expect and parse JSON response
  *   --timeout <ms>                 Custom timeout (default varies by level)
  *
@@ -41,9 +46,11 @@
  */
 
 import { spawn } from "child_process";
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { appendFileSync, existsSync, mkdirSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
+import { randomUUID } from "crypto";
+import { modelForEffort, pinnedModelForEffort, EFFORT_MODEL, UNIFORM_HARNESS_EFFORT, type EffortLevel, type HarnessEffort } from './models';
 
 /**
  * Resolve the claude binary explicitly. launchd jobs run with a minimal PATH
@@ -57,19 +64,32 @@ export function resolveClaudeBin(): string {  // exported for algorithm.ts (PR #
   return existsSync(fallback) ? fallback : "claude";
 }
 
-/** The four run levels — mirrors models.ts EffortLevel. */
-export type InferenceLevel = 'low' | 'medium' | 'high' | 'max';
+/** The run levels — IS models.ts EffortLevel, not a copy of it. Declaring the
+ * names twice is what let the 2026-06-10 rename break callers silently: a
+ * consumer typed against a stale copy still type-checked (public PR #1648,
+ * @elhoim). Aliasing binds this surface to the single source of truth, so a
+ * level renamed in models.ts breaks stale call sites at the type level. */
+export type InferenceLevel = EffortLevel;
 
-const VALID_LEVELS: readonly InferenceLevel[] = ['low', 'medium', 'high', 'max'] as const;
+/** Derived from EFFORT_MODEL's keys — the runtime validator follows the same
+ * source of truth as the type, so the two can never disagree.
+ *
+ * Sorted ascending rather than left in object-key order: this list is the
+ * user-facing error text, and deriving it flipped the message to
+ * "max | high | medium | low", breaking the contract test that pins the
+ * ascending form. Derivation is the win; key order is an implementation
+ * detail that must not leak into the message. */
+const LEVEL_ORDER: readonly string[] = ['low', 'medium', 'high', 'max'];
+const VALID_LEVELS: readonly InferenceLevel[] = (Object.keys(EFFORT_MODEL) as InferenceLevel[])
+  .slice()
+  .sort((a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b));
 
-/** Validate a level name. Throws on anything outside the four canonical
- * names — including the pre-2026-06-10 legacy names (fast/standard/smart),
- * which were removed the same day they were aliased, per principal directive.
- * Fail-loud beats a silent wrong-model default. */
+/** Validate a level name. Throws on anything outside the four canonical names — aliasing an
+ * unknown name to a default is how a caller silently gets the wrong model, so fail loud. */
 export function normalizeLevel(level: string | undefined): InferenceLevel {
   if (!level) return 'medium';
   if ((VALID_LEVELS as readonly string[]).includes(level)) return level as InferenceLevel;
-  throw new Error(`[Inference] unknown level '${level}' — use low | medium | high | max (legacy fast/standard/smart names were removed 2026-06-10)`);
+  throw new Error(`[Inference] unknown level '${level}' — use ${VALID_LEVELS.join(' | ')} (legacy fast/standard/smart names were removed 2026-06-10)`);
 }
 
 export interface InferenceOptions {
@@ -82,13 +102,11 @@ export interface InferenceOptions {
    * are prepended to the user prompt as @-references so Claude reads them as
    * image attachments. Routes through subscription like all other inference. */
   imagePaths?: string[];
-  /** Optional cap (ms) for the max→high fallback attempt. Bounds the fallback
-   * for a max-level caller under a hook ceiling (the fable attempt + opus
-   * fallback must fit inside it). The TheRouter classifier FORMERLY set this;
-   * it now runs at `high` directly (2026-07-01), so no caller sets it today —
-   * retained for any future hook-bound max caller. Callers WITHOUT a hook
-   * ceiling (e.g. a fixed-timeout max caller) omit it, so the fallback inherits
-   * the full `timeout` and degrades gracefully instead of a too-tight retry. */
+  /** Optional cap (ms) for the max→high fallback attempt. Set it when a max-level caller
+   * runs under a hook ceiling, so the top-rung attempt plus its fallback both fit inside
+   * that budget. No caller sets it today; it exists for the next hook-bound max caller.
+   * Callers WITHOUT a ceiling omit it, letting the fallback inherit the full `timeout` and
+   * degrade gracefully instead of failing on a too-tight retry. */
   fallbackTimeoutMs?: number;
 }
 
@@ -112,27 +130,25 @@ export interface InferenceResult {
   modelDowngraded?: boolean;
 }
 
-import { modelForEffort, pinnedModelForEffort, EFFORT_MODEL, LEVEL_TO_HARNESS_EFFORT, type EffortLevel, type HarnessEffort } from './models';
-
 // Level configurations — models resolve via models.ts EFFORT_MODEL (the single
 // edit point on a lineup change). No model names appear here. `effort` is the
 // REASONING-EFFORT axis (the CLI `--effort` flag), resolved through
-// models.ts LEVEL_TO_HARNESS_EFFORT — the one source of truth for the model-rung
+// models.ts UNIFORM_HARNESS_EFFORT — the one source of truth for the model-rung
 // → reasoning-effort mapping. Reasoning ceiling is `high` (max also resolves to
 // high, 2026-07-06). These are two distinct axes; see THREE LEVEL AXES in models.ts.
 const LEVEL_CONFIG: Record<InferenceLevel, { model: string; defaultTimeout: number; effort: HarnessEffort }> = {
-  low: { model: modelForEffort('low'), defaultTimeout: 15000, effort: LEVEL_TO_HARNESS_EFFORT.low },
-  medium: { model: modelForEffort('medium'), defaultTimeout: 30000, effort: LEVEL_TO_HARNESS_EFFORT.medium },
-  high: { model: modelForEffort('high'), defaultTimeout: 90000, effort: LEVEL_TO_HARNESS_EFFORT.high },
-  // max powers Algorithm E4/E5 +
-  // Core-System dispatch. max is Fable (2026-07-01). The TheRouter classifier
-  // moved OFF max to 'high' the same day — it fires on every prompt, so the
-  // per-prompt keystone stays on cheap/fast Opus. Pinned ID (not alias): the
-  // top-rung CLI alias is unverified from a nested-session-blocked context.
-  // inference() adds a max→high fallback below (now fable→opus, a real degrade).
-  // Reasoning effort caps at `high` (LEVEL_TO_HARNESS_EFFORT.max resolves to high,
-  // 2026-07-06) — LifeOS never emits xhigh/max.
-  max: { model: pinnedModelForEffort('max'), defaultTimeout: 120000, effort: LEVEL_TO_HARNESS_EFFORT.max },
+  low: { model: modelForEffort('low'), defaultTimeout: 15000, effort: UNIFORM_HARNESS_EFFORT },
+  medium: { model: modelForEffort('medium'), defaultTimeout: 30000, effort: UNIFORM_HARNESS_EFFORT },
+  high: { model: modelForEffort('high'), defaultTimeout: 90000, effort: UNIFORM_HARNESS_EFFORT },
+  // `max` uses a PINNED id, not an alias: the top-rung CLI alias cannot be verified from a
+  // nested-session-blocked context, so resolve it explicitly. inference() adds a max→high
+  // fallback below, which is a real degrade because the two rungs are distinct models.
+  //
+  // Every `effort` field reads UNIFORM_HARNESS_EFFORT DIRECTLY — it is a scalar, not a
+  // per-level record. Indexing it (`.low`, `.max`) yields undefined, which spawns
+  // `--effort undefined` on every call and silently drops the effort setting rather than
+  // failing. tsc catches that shape; keep this file inside `bun run test` so something does.
+  max: { model: pinnedModelForEffort('max'), defaultTimeout: 120000, effort: UNIFORM_HARNESS_EFFORT },
 };
 
 /** Determine which model actually produced the answer, and whether the requested
@@ -213,6 +229,27 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
     delete env.ANTHROPIC_BASE_URL;
 
     const hasImages = options.imagePaths && options.imagePaths.length > 0;
+
+    // Large system prompts must not ride argv (public issue #1534, @christauff):
+    // Linux's per-arg MAX_ARG_STRLEN (~128 KiB) kills the exec with E2BIG, and
+    // macOS has no per-arg cap so the bug only bites Linux installs. Route big
+    // prompts through a 0600 temp file + --system-prompt-file (verified
+    // supported by the installed claude CLI). Byte length, not char count —
+    // the kernel limit is bytes.
+    let systemPromptFile: string | null = null;
+    let systemPromptArgs = ['--system-prompt', options.systemPrompt];
+    if (Buffer.byteLength(options.systemPrompt, 'utf8') > 100_000) {
+      systemPromptFile = join(tmpdir(), `lifeos-sysprompt-${randomUUID()}.md`);
+      writeFileSync(systemPromptFile, options.systemPrompt, { mode: 0o600 });
+      systemPromptArgs = ['--system-prompt-file', systemPromptFile];
+    }
+    const cleanupSystemPromptFile = () => {
+      if (systemPromptFile) {
+        try { unlinkSync(systemPromptFile); } catch { /* already gone */ }
+        systemPromptFile = null;
+      }
+    };
+
     const args = [
       '--print',
       '--model', model,
@@ -221,7 +258,7 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
       '--output-format', 'json',
       '--exclude-dynamic-system-prompt-sections',  // v3.23 C2: cache-friendly prompt prefix (claude-code v2.1.98+)
       '--setting-sources', '',
-      '--system-prompt', options.systemPrompt,
+      ...systemPromptArgs,
     ];
 
     const userPromptWithImages = hasImages
@@ -259,6 +296,7 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
     // Handle timeout
     const timeoutId = setTimeout(() => {
       proc.kill('SIGTERM');
+      cleanupSystemPromptFile();
       resolve({
         success: false,
         output: '',
@@ -270,6 +308,7 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
 
     proc.on('close', (code) => {
       clearTimeout(timeoutId);
+      cleanupSystemPromptFile();
       const latencyMs = Date.now() - startTime;
 
       const rawEnvelope = stdout.trim();
@@ -420,6 +459,7 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
 
     proc.on('error', (err) => {
       clearTimeout(timeoutId);
+      cleanupSystemPromptFile();
       resolve({
         success: false,
         output: '',
@@ -452,7 +492,7 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
   if (first.success || level !== 'max') return first;
   // The fallback only buys resilience if it resolves to a DIFFERENT model than
   // the one that just failed. Compare at the TIER level (EFFORT_MODEL), not the
-  // model string — `config.model` is a pinned ID ("claude-opus-4-8") while
+  // model string — `config.model` may be a pinned ID while
   // modelForEffort returns an alias ("opus"), so a string compare would miss the
   // collision. Under a lineup where max and high share a tier (today both →
   // opus), retrying 'high' would hit the same failing model — a no-op fallback
@@ -464,9 +504,9 @@ export async function inference(options: InferenceOptions): Promise<InferenceRes
     : EFFORT_MODEL.medium !== EFFORT_MODEL.max ? 'medium'
     : 'low';
   console.error(`[Inference] max-level model failed (${first.error}); falling back to ${modelForEffort(fallbackLevel)} (level=${fallbackLevel}, distinct from max)`);
-  // The retry uses `fallbackTimeoutMs` when the caller set one — only the
-  // TheRouter classifier does, because its hook has a hard ceiling and the max
-  // attempt + fallback must fit inside it. Callers without a ceiling omit
+  // The retry uses `fallbackTimeoutMs` when the caller set one — the pattern
+  // exists for hook callers with a hard wall-clock ceiling, where the max attempt
+  // plus fallback must both fit inside it. Callers without a ceiling omit
   // it, so the fallback inherits the full `timeout` and degrades gracefully.
   const fallbackTimeout = options.fallbackTimeoutMs ?? options.timeout ?? config.defaultTimeout;
   return inferenceAttempt({ ...normalized, timeout: fallbackTimeout }, modelForEffort(fallbackLevel));
@@ -490,10 +530,10 @@ async function main() {
       expectJson = true;
     } else if (args[i] === '--level' && args[i + 1]) {
       const requestedLevel = args[i + 1].toLowerCase();
-      if (['low', 'medium', 'high', 'max'].includes(requestedLevel)) {
+      if ((VALID_LEVELS as readonly string[]).includes(requestedLevel)) {
         level = requestedLevel as InferenceLevel;
       } else {
-        console.error(`Invalid level: ${args[i + 1]}. Use low, medium, high, or max. (Legacy fast/standard/smart were removed 2026-06-10.)`);
+        console.error(`Invalid level: ${args[i + 1]}. Use ${VALID_LEVELS.join(', ')}. (Legacy fast/standard/smart were removed 2026-06-10.)`);
         process.exit(1);
       }
       i++;
@@ -504,7 +544,6 @@ async function main() {
       positionalArgs.push(args[i]);
     }
   }
-
 
   if (positionalArgs.length < 2) {
     console.error('Usage: bun Inference.ts [--level low|medium|high|max] [--json] [--timeout <ms>] <system_prompt> <user_prompt>');

@@ -31,18 +31,24 @@ Generate cohesive wallpapers that:
 
 ## Prerequisites
 
-**Logos Directory:** `~/Projects/Logos/`
-Place logo files (PNG, SVG) here. The workflow will use these as reference for shape/concept integration.
+This workflow takes **user-supplied** paths. Ask for them if they weren't given;
+never assume a location exists.
 
-**Wallpaper Output:** `~/Projects/Wallpaper/`
-Generated wallpapers are saved here and immediately available via `k -w <name>`.
+**`<LOGO_DIR>`** — the directory holding the user's logo files (PNG, SVG). Used as
+reference for shape/concept integration.
 
-**Reference Wallpapers:** `~/Projects/Wallpaper/`
-Existing wallpapers to match aesthetic:
-- `blue-lines.png` - Abstract flowing lines
-- `blue-purple-circuits.png` - Circuit board pattern
-- `blue-purple-squares.png` - Geometric squares
-- `circuit-board.png` - Dense circuit traces
+**`<WALLPAPER_DIR>`** — where generated wallpapers are written.
+
+**`<REFERENCE_WALLPAPER>`** *(optional)* — an existing image whose aesthetic the
+new wallpaper should match. If the user has no reference image, skip the
+reference-loading step and work from the style description alone.
+
+Set them once per shell so the commands below run as written:
+
+```bash
+export LOGO_DIR=/path/to/your/logos
+export WALLPAPER_DIR=/path/to/your/wallpaper/output
+```
 
 ---
 
@@ -51,7 +57,7 @@ Existing wallpapers to match aesthetic:
 ### Step 1: Gather Input
 
 **Required from user:**
-1. **Logo selection** — Which logo from `~/Projects/Logos/` to embed
+1. **Logo selection** — Which logo from `$LOGO_DIR` to embed
 2. **Style direction** — Circuit, geometric, abstract, flowing, etc.
 3. **Integration style** — How logo appears:
    - **Emblazoned** — Logo shape as glowing focal point
@@ -74,19 +80,21 @@ Read the selected logo file to understand:
 
 ```bash
 # List available logos
-ls ~/Projects/Logos/
+ls "$LOGO_DIR"
 
 # View selected logo
-open ~/Projects/Logos/<logo-name>.png
+open "$LOGO_DIR/<logo-name>.png"
 ```
 
-### Step 3: Load Reference Wallpaper
+### Step 3: Load Reference Wallpaper (optional)
 
-View an existing wallpaper to match the aesthetic:
+If the user supplied a reference image, view it to match the aesthetic:
 
 ```bash
-open ~/Projects/Wallpaper/blue-purple-circuits.png
+open "<REFERENCE_WALLPAPER>"
 ```
+
+No reference image? Skip this step and work from the style description.
 
 **Key aesthetic elements to maintain:**
 - Dark background (#0a0a0f to #1a1a2e)
@@ -142,8 +150,8 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --prompt "[CONSTRUCTED_PROMPT]" \
   --size 4K \
   --aspect-ratio 16:9 \
-  --reference-image ~/Projects/Logos/<selected-logo>.png \
-  --output ~/Projects/Wallpaper/<output-name>.png
+  --reference-image "$LOGO_DIR"/<selected-logo>.png \
+  --output "$WALLPAPER_DIR"/<output-name>.png
 ```
 
 **Parameters:**
@@ -155,7 +163,7 @@ bun run ~/.claude/skills/Art/Tools/Generate.ts \
 
 **Open the generated wallpaper:**
 ```bash
-open ~/Projects/Wallpaper/<output-name>.png
+open "$WALLPAPER_DIR"/<output-name>.png
 ```
 
 **Validation checklist:**
@@ -323,8 +331,8 @@ CRITICAL: Logo as design origin point, not pasted overlay. High contrast for tin
 | Model | nano-banana-pro |
 | Size | 4K |
 | Aspect Ratio | 16:9 |
-| Output Directory | ~/Projects/Wallpaper/ |
-| Logo Source | ~/Projects/Logos/ |
+| Output Directory | `$WALLPAPER_DIR` |
+| Logo Source | `$LOGO_DIR` |
 | Apply Command | `k -w <name>` |
 
 **Color Palette:**

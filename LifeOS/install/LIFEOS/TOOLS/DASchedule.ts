@@ -5,7 +5,7 @@
  * Usage:
  *   bun LIFEOS/TOOLS/DASchedule.ts list              # Active tasks
  *   bun LIFEOS/TOOLS/DASchedule.ts add --desc "..." --at "2026-04-07T09:00:00" --channel voice
- *   bun LIFEOS/TOOLS/DASchedule.ts add --desc "..." --cron "0 15 * * 5" --channel telegram
+ *   bun LIFEOS/TOOLS/DASchedule.ts add --desc "..." --cron "0 15 * * 5" --channel voice
  *   bun LIFEOS/TOOLS/DASchedule.ts cancel <id>
  *   bun LIFEOS/TOOLS/DASchedule.ts history            # Completed/cancelled
  */
@@ -245,7 +245,7 @@ Options:
   --desc      Task description (required)
   --at        ISO datetime for one-time tasks
   --cron      5-field cron for recurring tasks
-  --channel   voice | telegram (default: voice)
+  --channel   voice (default: voice)
   --type      notify | prompt | script (default: notify)
   --message   Notification message (default: desc)
   --prompt    Prompt text (for type=prompt)

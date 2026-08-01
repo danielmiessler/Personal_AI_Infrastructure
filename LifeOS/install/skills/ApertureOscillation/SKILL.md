@@ -1,8 +1,7 @@
 ---
 name: ApertureOscillation
-version: 1.0.8
+version: 1.0.9
 description: "3-pass scope oscillation that holds a question constant while shifting zoom — narrow/tactical, wide/strategic, then synthesis — to surface design tensions, scope recommendations, and coherence assessments invisible at any single zoom level. USE WHEN aperture oscillation, oscillate scope, zoom in and out, tactical vs strategic, scope framing, design tension, system coherence check, local vs global design, wrong scope, scope negotiation. NOT FOR lens rotation across angles (use IterativeDepth)."
-effort: medium
 ---
 
 ## Customization

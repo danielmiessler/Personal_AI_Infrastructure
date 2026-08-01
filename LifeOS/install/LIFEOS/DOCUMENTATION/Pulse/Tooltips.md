@@ -1,8 +1,8 @@
 ---
 last_updated: 2026-07-02
-last_updated_by: kai
+last_updated_by: da
 last_reviewed: 2026-07-02
-last_reviewed_by: kai
+last_reviewed_by: da
 convention: pai-freshness-v1
 version: 1.0.1
 ---

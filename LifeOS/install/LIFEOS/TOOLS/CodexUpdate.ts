@@ -38,13 +38,37 @@ function logEvent(event: Record<string, unknown>): void {
   } catch { /* logging is best-effort */ }
 }
 
-function main(): void {
+async function latestVersion(): Promise<string | null> {
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${PKG}/latest`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as { version?: string };
+    return json.version ?? null;
+  } catch {
+    return null; // offline/registry down — caller falls through to install
+  }
+}
+
+async function main(): Promise<void> {
   const checkOnly = process.argv.includes("--check");
   const before = codexVersion();
 
   if (checkOnly) {
     console.log(`codex current: ${before ?? "NOT INSTALLED"}`);
     logEvent({ action: "check", version: before });
+    return;
+  }
+
+  // Idempotency guard (public issue #1513, @xmasyx): skip the global install
+  // when already at the registry's latest. This is what makes RunAtLoad safe —
+  // without it, every login re-ran `bun install -g`. Registry unreachable →
+  // fall through and install (the old behavior, still correct).
+  const latest = await latestVersion();
+  if (before && latest && before === latest) {
+    console.log(`[CodexUpdate] already current (${before}) — skipping install`);
+    logEvent({ action: "update", from: before, to: before, changed: false, ok: true, skipped: "already-latest" });
     return;
   }
 
@@ -65,4 +89,4 @@ function main(): void {
   logEvent({ action: "update", from: before, to: after, changed, ok: true });
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

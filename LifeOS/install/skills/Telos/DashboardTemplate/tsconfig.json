@@ -1,8 +1,12 @@
 {
   "compilerOptions": {
     "forceConsistentCasingInFileNames": true,
-    // Environment setup & latest features
+    // Environment setup & latest features. DOM libs are required — this is a
+    // Next.js browser app; ESNext-only made every DOM/JSX type error out
+    // (public issue #1556, @tzioup).
     "lib": [
+      "DOM",
+      "DOM.Iterable",
       "ESNext"
     ],
     "target": "ESNext",

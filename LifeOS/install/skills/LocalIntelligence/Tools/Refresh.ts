@@ -7,11 +7,13 @@
  * Pulse module serves.
  */
 
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { homedir } from "node:os"
 
 import { readHometown, NoHometownError } from "./Hometown.ts"
+import { claudeFill } from "./ClaudeFill.ts"
+import { applyUserSources } from "./UserSources.ts"
 import type { Digest, FetchResult, Fetcher, Hometown, SectionKey } from "./Types.ts"
 import { fetchConstruction } from "./FetchConstruction.ts"
 import { fetchBusiness } from "./FetchBusiness.ts"
@@ -22,7 +24,14 @@ import { fetchArrests } from "./FetchArrests.ts"
 import { fetchNews } from "./FetchNews.ts"
 import { fetchCrime } from "./FetchCrime.ts"
 
+// Data plane: dated history + legacy latest.json live in MEMORY/DATA.
+// Serving plane: the Pulse module reads CUSTOMIZATIONS latest.json FIRST
+// (user-scoped primary path) — both latest copies are written on every persist
+// so the module and the history endpoint never diverge again.
 const DATA_DIR = join(homedir(), ".claude", "LIFEOS", "MEMORY", "DATA", "LocalIntelligence")
+const CUSTOMIZATIONS_DIR = join(
+  homedir(), ".claude", "LIFEOS", "USER", "CUSTOMIZATIONS", "SKILLS", "LocalIntelligence"
+)
 
 const fetchers: Record<SectionKey, Fetcher> = {
   construction: fetchConstruction,
@@ -100,34 +109,74 @@ export async function refresh(home: Hometown): Promise<Digest> {
   return digest
 }
 
-async function persist(digest: Digest): Promise<{ datedPath: string; latestPath: string }> {
+function totalItems(digest: Digest): number {
+  return Object.values(digest)
+    .filter((v): v is FetchResult => typeof v === "object" && v !== null && "items" in v)
+    .reduce((acc, r) => acc + r.items.length, 0)
+}
+
+async function readExistingLatest(): Promise<Digest | null> {
+  for (const p of [join(CUSTOMIZATIONS_DIR, "latest.json"), join(DATA_DIR, "latest.json")]) {
+    try {
+      return JSON.parse(await readFile(p, "utf8")) as Digest
+    } catch {}
+  }
+  return null
+}
+
+async function persist(
+  digest: Digest
+): Promise<{ datedPath: string; latestPaths: string[]; latestSkipped: boolean }> {
   await mkdir(DATA_DIR, { recursive: true })
+  await mkdir(CUSTOMIZATIONS_DIR, { recursive: true })
   const dateStr = todayDateString()
   const citySlug = digest.meta.city.toLowerCase().replace(/\s+/g, "-")
   const stateSlug = digest.meta.state.toLowerCase()
   const datedPath = join(DATA_DIR, `${dateStr}_${citySlug}_${stateSlug}_digest.json`)
-  const latestPath = join(DATA_DIR, "latest.json")
   const json = JSON.stringify(digest, null, 2)
   await writeFile(datedPath, json, "utf8")
-  await writeFile(latestPath, json, "utf8")
-  return { datedPath, latestPath }
+
+  // No-clobber guard: an all-empty run never overwrites a populated latest.
+  // The dated file still records the (empty) run for history/debugging.
+  if (totalItems(digest) === 0) {
+    const existing = await readExistingLatest()
+    if (existing && totalItems(existing) > 0) {
+      return { datedPath, latestPaths: [], latestSkipped: true }
+    }
+  }
+
+  const latestPaths = [join(CUSTOMIZATIONS_DIR, "latest.json"), join(DATA_DIR, "latest.json")]
+  for (const p of latestPaths) await writeFile(p, json, "utf8")
+  return { datedPath, latestPaths, latestSkipped: false }
 }
 
 if (import.meta.main) {
+  const args = new Set(process.argv.slice(2))
+  const withFill = args.has("--fill")
   try {
     const home = await readHometown()
-    const digest = await refresh(home)
-    const { datedPath, latestPath } = await persist(digest)
+    let digest = await refresh(home)
+    // Deterministic user-configured sources run BEFORE the AI fill — a section
+    // they populate never needs (or gets) model-researched items.
+    const userSources = await applyUserSources(digest)
+    let filled: SectionKey[] = []
+    if (withFill) {
+      const outcome = await claudeFill(digest, home)
+      digest = outcome.digest
+      filled = outcome.filled
+    }
+    const { datedPath, latestPaths, latestSkipped } = await persist(digest)
     const summary = {
       city: digest.meta.city,
       state: digest.meta.state,
       sources_used: digest.meta.sources_used,
       sources_failed: digest.meta.sources_failed,
-      total_items: Object.values(digest)
-        .filter((v): v is FetchResult => typeof v === "object" && v !== null && "items" in v)
-        .reduce((acc, r) => acc + r.items.length, 0),
+      user_sources_merged: userSources.merged,
+      claude_filled: filled,
+      total_items: totalItems(digest),
       datedPath,
-      latestPath,
+      latestPaths,
+      latest_skipped_no_clobber: latestSkipped,
     }
     console.log(JSON.stringify(summary, null, 2))
   } catch (err) {

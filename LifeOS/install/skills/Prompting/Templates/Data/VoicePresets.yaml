@@ -156,11 +156,11 @@ presets:
 notification_types:
   task_complete:
     preset: celebration
-    default_voice: kai
+    default_voice: da
 
   error_found:
     preset: crisis
-    default_voice: kai
+    default_voice: da
 
   security_alert:
     preset: discovery
@@ -176,4 +176,4 @@ notification_types:
 
   status_update:
     preset: explanation
-    default_voice: kai
+    default_voice: da

@@ -20,7 +20,7 @@ Running the **CanonicalizeSkill** workflow in the **CreateSkill** skill to restr
 **REQUIRED FIRST:** Read the canonical structure:
 
 ```
-~/.claude/LIFEOS/SkillSystem.md
+~/.claude/LIFEOS/DOCUMENTATION/Skills/SkillSystem.md
 ```
 
 This defines exactly what "canonicalize" means.

@@ -1,11 +1,11 @@
 # Scaffold Workflow
 
-Generate a fresh ISA from a prompt at a specified effort tier. The output is a populated ISA file at the canonical location with all required sections per tier.
+Generate a fresh ISA from a prompt. The output is a populated ISA file at the canonical location with the sections the work's substance requires (effort tiers were retired 2026-07-11 — substance is judged from the work, never declared as a label).
 
 ## When to invoke
 
-- The Algorithm at OBSERVE: `Skill("ISA", "scaffold from prompt: <user message> at tier <tier>")`
-- User directly: `Skill("ISA", "scaffold from prompt: <prompt>")` — defaults tier to E3 if unspecified
+- The Algorithm at run start: `Skill("ISA", "scaffold from prompt: <user message>")`
+- User directly: `Skill("ISA", "scaffold from prompt: <prompt>")`
 - Ephemeral feature mode: `Skill("ISA", "extract feature <name> as ephemeral file from <master-isa-path>")`
 
 ## Inputs
@@ -13,7 +13,7 @@ Generate a fresh ISA from a prompt at a specified effort tier. The output is a p
 | Input | Required | Description |
 |-------|----------|-------------|
 | prompt | yes | The user's request — verbatim or distilled |
-| tier | yes | E1 / E2 / E3 / E4 / E5 |
+| substance | no | Optional depth steer from the caller ("trivial" / "substantial" / "deepest", or plain language like "go heavy"); default is judged from the prompt |
 | project | no | If task targets a known project from PROJECTS.md, the project ISA path is used; otherwise a task ISA at `MEMORY/WORK/{slug}/ISA.md` |
 | ephemeral_feature | no | If set, scaffold a feature-file excerpt instead of a full ISA |
 
@@ -37,7 +37,7 @@ curl -s -X POST http://localhost:31337/notify \
 
 ### Step 2 — Pick the canonical template
 
-Always start by reading `~/.claude/skills/ISA/Examples/canonical-isa.md` for section headers and tone. For E1 reference, read `e1-minimal.md`. For E5 reference, read `e5-enterprise.md`.
+Always start by reading `~/.claude/skills/ISA/Examples/canonical-isa.md` for section headers and tone. For a minimal-task reference, read `e1-minimal.md`; for the deepest-scale reference, read `e5-enterprise.md`. (The `eN-` filename prefixes are retired tier vocabulary kept as filenames; examples may show legacy frontmatter — the SKILL.md shape wins.)
 
 ### Step 3 — Preserve principal-stated goal, then derive (Algorithm v7.0.0 R1)
 
@@ -58,7 +58,7 @@ Run the four-signal detector on the prompt:
 
 **Multi-literal:** if multiple candidates ("do X and Y by Z"), **first wins as `principal_stated_goal:`**; others demote to derived Constraints with `derived_from: principal_stated_goal compound` annotation.
 
-**Classifier handshake:** `TheRouter.hook.ts` may emit `GOAL_SIGNAL: <1|2|3|4|none>` in additionalContext. Trust as hint, re-validate via the detector above.
+**Goal-signal detection:** no classifier hook emits `GOAL_SIGNAL` anymore (`TheRouter.hook.ts` was retired 2026-07-11 with the modes/tiers system) — the four-signal detector above is the only mechanism. (Ported from public PR #1525, @jbmml.)
 
 When detection fires + min-content passes, write the four frontmatter fields:
 
@@ -86,10 +86,10 @@ Distill what remains:
 
 One rule, replacing the deleted v6.x density-formula machinery: **could I be wrong about what done means?**
 
-If materially ambiguous — the goal supports ≥2 interpretations leading to materially different builds, or required content can't be scaffolded without speculation — ask up to 3 targeted questions (E3+) or prepend the ambiguity flag (E1/E2): `⚠️ Picking X over Y because R; redirect if wrong.` Literal whole-response `proceed` accepts reasoned defaults.
+If materially ambiguous — the goal supports ≥2 interpretations leading to materially different builds, or required content can't be scaffolded without speculation — ask up to 3 targeted questions (substantial work) or prepend the ambiguity flag (trivial fast-path work): `⚠️ Picking X over Y because R; redirect if wrong.` Literal whole-response `proceed` accepts reasoned defaults.
 
 **Skip conditions (do not run the check):**
-- `INTERVIEW_ELIGIBLE: false` in the most recent `TheRouter.hook.ts` additionalContext block (the hook decided this is fast-path work). Line absent — e.g. a continuation prompt where the hook didn't re-fire — → infer eligibility from the running tier: `true` iff tier ≥ E3. This handoff is explicit text-passing; no shared state, no subprocess IPC. The model is the carrier.
+- Trivial fast-path work skips the question flow (the flag form is enough). (`TheRouter.hook.ts`, which used to emit `INTERVIEW_ELIGIBLE` hints, was retired 2026-07-11 with the modes/tiers system — substance judgment is now the sole determinant. Ported from public PR #1525, @jbmml.)
 - The scaffold call has `ephemeral_feature` set (ephemeral mode operates on an already-scaffolded master).
 
 **Record the outcome in frontmatter** — `context_sufficient: true|false` and `interview_invoked: true|false` (the only two keys v7 ISAs carry for this check; the v6.x density/divergence/acknowledgment ceremony keys are deleted).
@@ -138,12 +138,12 @@ interview_invoked: false    # true when targeted questions were actually asked
 | No material ambiguity found | true | false |
 | Questions asked, principal answered them | true | true |
 | Questions asked, principal said `proceed` | false | true |
-| E1/E2 ambiguity flag prepended | false | false |
+| Trivial-path ambiguity flag prepended | false | false |
 
 When the principal invokes `proceed` after seeing the questions:
 1. Append a Decisions row: `YYYY-MM-DD HH:MM: ambiguity check fired, principal invoked proceed — reasoned defaults: <named defaults>`
 2. Set frontmatter `context_sufficient: false`.
-3. VERIFY surfaces the accepted defaults in `## Verification` as a known risk rather than a surprise.
+3. Verification surfaces the accepted defaults in `## Verification`/`## Log` as a known risk rather than a surprise.
 
 ### Step 4 — Write frontmatter
 
@@ -152,11 +152,8 @@ When the principal invokes `proceed` after seeing the questions:
 task: "8 word task description"
 slug: YYYYMMDD-HHMMSS_kebab-description
 project: <name>            # only when targeting a known project
-effort: <tier>
-effort_source: <auto|explicit|gate-floor>
-phase: observe
-progress: 0/<isc-count>
-mode: interactive
+phase: scoping
+progress: 0/<claim-count>
 started: <ISO-8601>
 updated: <ISO-8601>
 # R1 — only when goal-signal detection fired + min-content rule passed
@@ -170,21 +167,40 @@ interview_invoked: false
 ---
 ```
 
-### Step 5 — Write required sections per tier
+### Step 5 — Write the sections the work's substance requires
 
-| Tier | Required Sections |
-|------|-------------------|
-| E1 | Goal, Criteria |
-| E2 | Problem, Goal, Criteria, Test Strategy |
-| E3 | Problem, Vision, Out of Scope, Constraints, Goal, Criteria, Features, Test Strategy |
-| E4 | All fourteen sections (empty sections never appear — Dependencies/Bridge Criteria only when cross-ISA links exist) |
-| E5 | All fourteen sections (same conditional rule) + run Interview workflow before BUILD |
+| Substance | Required Sections |
+|-----------|-------------------|
+| Trivial (mechanical, single-probe, minutes) | Goal, Claims (flat) |
+| Substantial (multi-claim build, real blast radius) | Problem, Vision, Out of Scope, Constraints, Goal, Features (or flat Claims), Test Strategy |
+| Deepest (frontier multi-component work) | All sixteen (empty sections never appear — Dependencies/Bridge Criteria only when cross-ISA links exist; Not-yet-specified only when the work has fog; Language only when a term has actually been confused) + run Interview workflow before building |
 
-**Project ISA override:** if `<project>/ISA.md` is the target, require E3+ sections regardless of the active task's tier.
+**Claims layout — pick ONE (v2.16.0):**
+- **Flat `## Claims`** when the work has no distinct features (trivial/small; most task ISAs). Claim IDs `ISC-N` (or short `C1`); anti-claims carry the `Anti:` prefix inline or live in `## Anti-claims`.
+- **`## Features` blocks** when the work has distinct features (most project ISAs). Each feature is `### F<n> · <name>` + a one-line `Why:` (its ideal-state — why it exists) + its ISCs nested underneath. `F0 · Cross-cutting` holds spanning claims (security, deploy, data-integrity). Emit ISCs with **global, stable IDs** (`ISC-N` across the whole ISA, never per-feature) so Test Strategy resolves. Do NOT emit the retired `name | satisfies` pointer table. Write a real `Why:` — one that says what the feature name and its claims don't.
 
-### Step 6 — Apply the Splitting Test to every ISC
+Example feature block:
+```markdown
+### F1 · Billing
+Why: a visitor becomes a paying subscriber and can self-serve cancel, without support.
 
-Each ISC must satisfy the granularity rule: one binary tool probe per criterion.
+- [ ] ISC-12: Checkout creates a Stripe session with server-side pricing.
+- [ ] ISC-13: Anti: the webhook is idempotent on event.id.
+```
+
+**Project ISA override:** if `<project>/ISA.md` is the target, require full substantial-grade sections regardless of how small the current task is.
+
+**Project ISA override:** if `<project>/ISA.md` is the target, require full substantial-grade sections regardless of how small the current task is.
+
+**No changelog section (Algorithm v8.7.1 claim 12).** The scaffold NEVER emits a `## Changelog` section — `git log -- <isa-path>` is the authoritative change record and commit messages are its entries. The conjecture/refuted-by/learned/criterion-now trail lives in `## Learning` (the section formerly named `## Changelog`; same position 14, same four-piece C/R/L format), written at close only when understanding changed. When a claim later closes, its `## Verification` entry is a **one-line provenance stub** (commit hash, test name, or probe ref) — never a retained evidence paragraph; the proof lives in git and CI and the ISA only points at it.
+
+### Step 5.5 — Hold fog as fog (v2.14.0)
+
+Surface named in Vision/Goal whose shape is genuinely unknown at scaffold time does NOT get speculative ISCs. Write each such question into `## Not yet specified` as precisely as it can currently be stated (`- fog: <question> — <what must resolve before it sharpens>`). The graduation test: statable with a nameable falsifier → an ISC (even if blocked); statable but not yet probe-able → fog; beyond the vision → Out of Scope. The Coverage Gate is assessed at close, not here — CheckCompleteness at `phase: complete` requires the fog section empty (every entry graduated to an ISC or killed via a Decisions row). Omit the section entirely when the work has no fog (most tasks).
+
+### Step 6 — Apply the Splitting Test to every claim
+
+Each claim must satisfy the granularity rule: one binary tool probe per claim.
 
 | Test | Split when... |
 |------|--------------|
@@ -194,21 +210,21 @@ Each ISC must satisfy the granularity rule: one binary tool probe per criterion.
 | Domain boundary | Crosses UI/API/data/logic → one per boundary |
 | **No nameable probe** | You can't say which tool would verify it |
 
-### Step 7 — Anti-criteria reminder
+### Step 7 — Anti-claims reminder
 
-Before finishing, ask: **what must NOT happen?** At least one `Anti:` ISC is required. Anti-criteria typically derive from the Out of Scope section + regression-prevention concerns.
+Before finishing, ask: **what must NOT happen?** At least one anti-claim is required. Anti-claims typically derive from the Out of Scope section + regression-prevention concerns.
 
 ### Step 8 — Antecedent (when goal is experiential)
 
-If the goal is experiential — art, design, content, anything that has to "land" — at least one `Antecedent:` ISC is required. The antecedent names a precondition that reliably produces the target experience.
+If the goal is experiential — art, design, content, anything that has to "land" — at least one `Antecedent:` claim is required. The antecedent names a precondition that reliably produces the target experience.
 
 ### Step 9 — Run CheckCompleteness
 
-Before returning, invoke `Workflows/CheckCompleteness.md` against the new ISA at the requested tier. If any required section is missing, fill it before declaring the scaffold complete.
+Before returning, invoke `Workflows/CheckCompleteness.md` against the new ISA (substantial+ work; a trivial minimal ISA logs its shape check inline instead). If any required section is missing, fill it before declaring the scaffold complete.
 
 ### Step 10 — Return the path
 
-Output the absolute path of the created ISA file. Algorithm OBSERVE consumes this path.
+Output the absolute path of the created ISA file. The Algorithm consumes this path at run start.
 
 ## Ephemeral feature mode
 
@@ -219,7 +235,7 @@ When `ephemeral_feature` is set:
 3. Extract:
    - `## Vision` and `## Goal` from master (read-only context)
    - `## Constraints` filtered to those relevant to this feature
-   - `## Criteria` ISCs whose IDs appear in the feature's `satisfies:` list, with stable IDs preserved
+   - `## Claims` (or legacy `## Criteria`) claims whose IDs appear in the feature's `satisfies:` list, with stable IDs preserved
    - `## Test Strategy` entries matching those ISCs
    - `## Decisions` filtered to entries mentioning this feature's ISC IDs (optional)
    - Empty `## Verification` section ready to populate
@@ -228,7 +244,7 @@ When `ephemeral_feature` is set:
 
 ## Failure modes
 
-- **Tier mismatch:** caller asks for E1 sections but request is clearly E4 work. Surface the mismatch; let the Algorithm decide the correct tier.
+- **Substance mismatch:** caller steers "trivial" but the request is clearly deep multi-component work (or the reverse). Surface the mismatch; the principal's explicit call outranks judgment, but the break is never silent (Algorithm claim 15).
 - **Missing required section:** CheckCompleteness blocks the return until filled.
-- **Coverage gap (v7.0.0 — replaces the deleted numeric count floors):** every subsystem named in Vision/Goal has a container criterion decomposed until each leaf is one binary tool probe; never split to hit a number. A subsystem with no container criterion is the failure — either decompose it or document the deliberate omission in `## Decisions`.
-- **ID collision in ephemeral mode:** if the feature's ISC IDs don't exist in master, abort and surface the inconsistency — this is a master-ISA error, not a Scaffold error.
+- **Coverage gap (v7.0.0 — replaces the deleted numeric count floors; fog-aware since v2.14.0):** every subsystem named in Vision/Goal has a container criterion decomposed until each leaf is one binary tool probe; never split to hit a number. A subsystem with no container criterion is the failure — either decompose it, hold it as fog in `## Not yet specified` (when its shape is genuinely unknown yet), or document the deliberate omission in `## Decisions`. Coverage is assessed at close: fog must be empty at `phase: complete`.
+- **ID collision in ephemeral mode:** if the feature's claim IDs don't exist in master, abort and surface the inconsistency — this is a master-ISA error, not a Scaffold error.

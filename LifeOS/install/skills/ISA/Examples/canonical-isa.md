@@ -1,17 +1,14 @@
-<!-- Fictitious example. "BeanLine" is a teaching project name; any resemblance to real products or organizations is coincidental. The beanline.example.com domain is RFC 2606 reserved. -->
-
 ---
 task: "Build BeanLine — peer-to-peer specialty-coffee bean marketplace"
 slug: 20260201-090000_beanline-v1
 project: BeanLine
-effort: comprehensive
-effort_source: explicit
-phase: execute
+phase: climbing
 progress: 22/38
-mode: interactive
 started: 2026-02-01T17:00:00Z
 updated: 2026-04-25T03:14:00Z
 ---
+
+<!-- Fictitious example. "BeanLine" is a teaching project name; any resemblance to real products or organizations is coincidental. The beanline.example.com domain is RFC 2606 reserved. -->
 
 ## Problem
 
@@ -56,7 +53,7 @@ A small focused marketplace at `beanline.example.com` where a verified roaster l
 
 Ship a Cloudflare-hosted marketplace at `beanline.example.com` where verified roasters can list 5–50kg green-coffee lots and verified buyers can purchase via Stripe escrow with QR-handoff confirmation; the platform takes ≤ 5.1% margin (≤ 8% all-in including Stripe), browse pages render in ≤ 1s p95 on cellular, and the in-house quality lead can approve a new listing in ≤ 10 minutes per lot.
 
-## Criteria
+## Claims
 
 ### Build & Deploy
 
@@ -125,61 +122,25 @@ Ship a Cloudflare-hosted marketplace at `beanline.example.com` where verified ro
 
 ## Test Strategy
 
-```yaml
-- isc: ISC-3
-  type: deploy-probe
-  check: HTTP status + content-type
-  threshold: 200 + text/html
-  tool: curl -i https://beanline.example.com
+<!-- Bunker parses THIS table (Bunker/src/isa.ts). Column order is the contract:
+     isc | type | check | threshold | tool | anchors_to  (anchors_to last, optional).
+     `type` MUST be one of the real PROBE_TYPES: bash | bun-test | bun-property |
+     curl | manual | screenshot | eval. An invented type or a non-table (YAML)
+     block parses to ZERO probes — the exact zero-probe-green defect this example
+     used to teach. Runnable types (bash/bun-test/bun-property/curl) count toward
+     coverage; manual/screenshot/eval are recognize-on-encounter and don't. -->
 
-- isc: ISC-7
-  type: ops-timing
-  check: quality-lead approval time per lot
-  threshold: p95 ≤ 600s
-  tool: ops-tool telemetry, weekly aggregate
-
-- isc: ISC-13
-  type: performance
-  check: browse-page p95 cold load on simulated 4G
-  threshold: ≤ 1000ms
-  tool: lighthouse --preset=mobile --only-categories=performance --url=https://beanline.example.com/browse
-
-- isc: ISC-23
-  type: payment-fee
-  check: total fees on a $250 lot
-  threshold: ≤ $20 (8%)
-  tool: bun run scripts/checkout-test.ts --sandbox --lot-price=25000
-
-- isc: ISC-25
-  type: integration
-  check: QR handoff scan releases escrow
-  threshold: stripe transfer event fires
-  tool: bun run scripts/handoff-test.ts --sandbox
-
-- isc: ISC-26
-  type: timeout-behavior
-  check: auto-release on day 8
-  threshold: stripe transfer fires within 60s of day-8 cron
-  tool: bun run scripts/auto-release-test.ts --simulate-day=8
-
-- isc: ISC-36
-  type: anti-probe
-  check: social-graph endpoints don't exist
-  threshold: 404
-  tool: curl -i https://beanline.example.com/api/follow
-
-- isc: ISC-37
-  type: privacy
-  check: every image URL returns WebP
-  threshold: 100% Content-Type: image/webp
-  tool: bash scripts/image-format-audit.sh
-
-- isc: ISC-38
-  type: privacy
-  check: zero third-party requests on browse page
-  threshold: 0
-  tool: Skill("Interceptor") network panel at /browse
-```
+| isc | type | check | threshold | tool | anchors_to |
+|-----|------|-------|-----------|------|------------|
+| ISC-3 | curl | home page serves HTML | 200 + text/html | `curl -sfI https://beanline.example.com \| grep -qi 'content-type: text/html'` | literal |
+| ISC-13 | bash | browse-page p95 cold load on simulated 4G | ≤ 1000ms | `bash scripts/lighthouse-p95.sh /browse 1000` | derived: responsiveness |
+| ISC-23 | bun-test | total fees on a $250 lot within cap | ≤ $20 (8%) | `bun test test/checkout.test.ts -t "fee cap"` | derived: fee-transparency |
+| ISC-25 | bun-test | QR handoff scan releases escrow | stripe transfer fires | `bun test test/handoff.test.ts -t "escrow release"` | literal |
+| ISC-26 | bun-test | auto-release fires on day 8 | transfer within 60s of cron | `bun test test/auto-release.test.ts -t "day-8"` | derived: escrow-timeout |
+| ISC-36 | curl | social-graph endpoints do not exist | 404 | `test "$(curl -s -o /dev/null -w '%{http_code}' -m 10 https://beanline.example.com/api/follow)" = "404"` | literal |
+| ISC-37 | bash | every image URL returns WebP | 100% image/webp | `bash scripts/image-format-audit.sh` | derived: image-policy |
+| ISC-38 | screenshot | zero third-party requests on browse page | 0 | Interceptor network panel at /browse | derived: privacy |
+| ISC-7 | manual | quality-lead approval time per lot | p95 ≤ 600s | ops telemetry weekly aggregate (recognize-on-encounter) | derived: ops-sla |
 
 ## Features
 
@@ -238,7 +199,7 @@ Ship a Cloudflare-hosted marketplace at `beanline.example.com` where verified ro
 - 2026-04-12 16:30: refined: ISC-26 added the auto-release timer (day-8) after the first three deliveries had buyers who never scanned the handoff QR — escrow sat indefinitely. The timer + audit log is the safety net.
 - 2026-04-22 22:00: refined: Goal sharpened — added the explicit "p95 ≤ 1s on cellular" and "all-in fees ≤ 8%" — the original Goal was domain-correct but operationally fuzzy.
 
-## Changelog
+## Learning
 
 - 2026-02-22 | conjectured: Buyer self-attestation will scale verification at low ops cost
   refuted by: 3 of 8 attestations turned out to be the wrong buyer profile (retail, not wholesale)

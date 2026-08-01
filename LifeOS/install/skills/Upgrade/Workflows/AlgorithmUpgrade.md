@@ -159,7 +159,7 @@ For EACH signal across ALL sources, classify the theme using this routing table:
 
 SECTION ROUTING:
 - ISC quality/criteria issues → 'ISC'
-- Phase timing/budget issues → 'EFFORT_LEVELS'
+- Spend/pacing issues → 'SPEND'
 - Capability selection issues → 'CAPABILITIES'
 - Agent/parallelization issues → 'AGENTS'
 - Context recovery issues → 'OBSERVE'
@@ -327,7 +327,7 @@ Ideas that require fundamental changes, not just spec edits:
 - [ ] Review proposals
 - [ ] Apply approved changes to Algorithm spec
 - [ ] Bump version if warranted
-- [ ] `ARCHITECTURE_SUMMARY.md` auto-regenerates via DocIntegrity on Stop; no manual rebuild
+- [ ] `ARCHITECTURE_SUMMARY.md` auto-regenerates via DocIntegrity on SessionEnd; no manual rebuild
 ```
 
 ---

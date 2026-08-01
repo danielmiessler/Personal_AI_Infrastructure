@@ -1,5 +1,5 @@
 ---
-version: 1.1.9
+version: 1.2.1
 ---
 
 # LifeOS Containment Policy
@@ -7,7 +7,7 @@ version: 1.1.9
 > Containment zones draw the Life OS boundary at release time (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`): the OS ships; the life never does.
 
 **Status:** Authoritative. Contributors and future DA sessions read this before adding a new file.
-**Enforcement:** `skills/_LIFEOS/Tools/ShadowRelease.ts` G1-G14 gates (release-time only). All enforcement is one-shot at release-build; there is no runtime hook. The 2026-05-06 simplification removed the prospective `ContainmentGuard.hook.ts` and consolidated enforcement to a single release-build pass.
+**Enforcement:** two points. (1) The release pipeline's containment gates (G1-G14 + G17-G21, release-build time). (2) `hooks/SystemFileGuard.hook.ts` — a runtime PreToolUse Write/Edit gate that reads the same zone inventory (restored 2026-05-21 in Phase E of the system/user separation rebuild; it superseded the 2026-05-06 "release-build only" consolidation, which had removed the prospective `ContainmentGuard.hook.ts`).
 **Zone inventory (authoritative):** `hooks/lib/containment-zones.ts` — the source of truth ShadowRelease imports.
 **Last updated:** 2026-05-10
 
@@ -65,9 +65,9 @@ A file outside every configured zone is a policy violation if it contains any of
 - **Infrastructure IDs** — Cloudflare account or KV namespace IDs, ElevenLabs voice IDs, launchd bundle IDs, any UUID that identifies a specific account or resource
 - **Secrets** — API tokens, private keys (`.pem`, `.key`), session cookies, OAuth refresh tokens
 
-The `ShadowRelease --check` gates enforce all three categories at release-build time. There is no runtime guard — all enforcement is one-shot at release-build.
+The `ShadowRelease --check` gates enforce all three categories at release-build time; `SystemFileGuard.hook.ts` enforces the zone boundary at write time between releases.
 
-The concrete patterns live in `skills/_LIFEOS/Tools/ShadowRelease.ts` (`IDENTITY_PATTERNS` + `CF_ID_PATTERNS`). When a new principal-specific string enters the threat model, add it there.
+The concrete patterns live in the release pipeline's `ShadowRelease.ts` (`IDENTITY_PATTERNS` + `CF_ID_PATTERNS`). When a new principal-specific string enters the threat model, add it there.
 
 ---
 
@@ -81,7 +81,7 @@ Use `${HOME}`, `${LIFEOS_DIR}`, `${LIFEOS_DIR}`, or a configurable placeholder. 
 
 1. Load from `process.env.X` at runtime.
 2. Document the var name in the file itself, no default value that contains the secret.
-3. Fallback path: read from `~/.claude/.env` directly (file is the canonical env source; `LIFEOS/.env` and `~/.config/LIFEOS/.env` are symlinks to it). Use Node `fs.readFileSync` + a small parser, not a shared helper — no central env helper exists by design.
+3. Fallback path: read from `~/.claude/.env` directly (file is the canonical env source; on the dev machine `LIFEOS/.env` and `~/.config/LIFEOS/.env` are symlinks to it, but the installer does NOT create those symlinks — never compute the path as `$LIFEOS_CONFIG_DIR/.env`, which resolves to a file public installs don't have; public issue #1490). Use Node `fs.readFileSync` + a small parser, not a shared helper — no central env helper exists by design.
 4. If the secret lookup misses, emit a single stderr warning and degrade gracefully — never silently continue with an empty string.
 
 ### I am adding personal notes, work sessions, or memory
@@ -108,7 +108,7 @@ Do not write docs that assume the reader IS the principal. The LifeOS public rel
 
 ### The file must contain a pattern in order to detect or block it
 
-Example: `skills/_LIFEOS/Tools/ShadowRelease.ts` has to embed principal patterns to scan for them at release time. That is a legitimate exception.
+Example: the release pipeline's `ShadowRelease.ts` has to embed principal patterns to scan for them at release time. That is a legitimate exception.
 
 Record such files in `PATTERN_ALLOWLIST_FILES` in `hooks/lib/containment-zones.ts`, with a note in the living appendix below explaining why the exception exists.
 
@@ -118,8 +118,8 @@ Record such files in `PATTERN_ALLOWLIST_FILES` in `hooks/lib/containment-zones.t
 
 1. **Zone review** — per the mandatory step above. Happens before anything else.
 2. **Source audit** — grep the live tree against the identity plus CF-ID pattern list. Every hit outside the configured zones is a policy violation; fix at source (sanitize, relocate, or allowlist with justification).
-3. **Staging build** — `bun run skills/_LIFEOS/TOOLS/ShadowRelease.ts --create <version>` clones the live tree with hard rsync exclusions, deletes zone contents (preserving only top-level READMEs as scaffold), overlays the public `settings.json`, `CLAUDE.md`, and `LIFEOS_CONFIG.yaml` templates. This `.claude/` tree is an intermediate: `EmitSkill.ts` then reshapes it into the shippable `LifeOS/` skill, so the published release is that emitted skill, not the tree-clone itself.
-4. **Fourteen gates run against the staging tree (G1-G14, see `ShadowRelease.ts` `GateKey` type for canonical order):**
+3. **Staging build** — the release pipeline's `ShadowRelease.ts --create <version>` clones the live tree with hard rsync exclusions, deletes zone contents (preserving only top-level READMEs as scaffold), overlays the public `settings.json`, `CLAUDE.md`, and `LIFEOS_CONFIG.yaml` templates. This `.claude/` tree is an intermediate: `EmitSkill.ts` then reshapes it into the shippable `LifeOS/` skill, so the published release is that emitted skill, not the tree-clone itself.
+4. **The containment gates run against the staging tree (G1-G14 + G17-G21 — see the release pipeline's `GateKey` type for the canonical roster; G1-G14 listed here):**
     - **G1 — Zone deletion:** required public READMEs survive; forbidden personal files and persona dirs do not.
     - **G2 — Identity grep:** no identity patterns in the staging tree (except allowlisted files).
     - **G3 — CF ID grep:** no hardcoded CF account or KV namespace IDs (except allowlisted files).
@@ -154,7 +154,7 @@ Populated by the audit. Updated as files are sanitized or relocated.
 | File | Reason listed | Disposition |
 |------|---------------|-------------|
 | `hooks/lib/containment-zones.ts` | Zone inventory module ShadowRelease imports from | **KEEP** — legitimate exception |
-| `skills/_LIFEOS/Tools/ShadowRelease.ts` | Release tool must embed patterns for G2/G3 gates | **KEEP** — legitimate exception |
+| the release pipeline's `ShadowRelease.ts` | Release tool must embed patterns for G2/G3 gates | **KEEP** — legitimate exception |
 | `LIFEOS/DOCUMENTATION/Tools/Containment.md` | Policy doc describes zones and references patterns categorically | **KEEP** — legitimate exception |
 | `skills/Daemon/Docs/SecurityClassification.md` | Documents the exact path patterns the Daemon filter should scrub | **KEEP** — legitimate exception |
 | `skills/Daemon/Tools/SecurityFilter.ts` | Pattern inspector test cases embed the patterns they filter | **KEEP** — legitimate exception |
@@ -169,3 +169,37 @@ Populated by the audit. Updated as files are sanitized or relocated.
 ## Updating this policy
 
 Edit this file directly. Commit with a message that starts with `policy:` so it's easy to find in git log. After any policy change, re-run `ShadowRelease --create <version>` and verify no gates regress.
+
+---
+
+## Examples
+
+### One string, caught before the world sees it
+
+A contributor adds a troubleshooting doc under `LIFEOS/DOCUMENTATION/` and, to make the fix copy-pasteable, drops in the exact command they ran — which includes an absolute home path and a Cloudflare account ID. The doc sits outside every containment zone, so it must be clean. It isn't.
+
+Nothing happens at write time; there is no runtime guard. The catch comes at release build. `ShadowRelease --create` clones the tree, and the gates scan the staging copy: **G9** flags the `/Users/<name>/…` path, **G3** flags the account ID. The build stops with both hits named. The fix is at the source, never the allowlist — swap the path for `${HOME}` and load the ID from `process.env` at runtime. Re-run, gates green, ship.
+
+### Where a string lives decides whether it's a problem
+
+The same account ID is harmless or fatal depending only on where it sits:
+
+- **Inside a zone** — a file under `LIFEOS/USER/**` or a `skills/_*/**` dir can hold real IDs, paths, and tokens. The release deletes those zones wholesale, so the bytes never reach the public tree. No violation.
+- **Outside every zone** — the identical string in a public-tree doc is a policy violation, because that file ships.
+
+Placement is the whole game: put private content in a zone, or genericize it in prose. The one narrow exception is a file that must embed a pattern *in order to detect it* — the scanner itself, this policy doc. Those are listed in the allowlist, and every entry there is a standing TODO, not a blessing.
+
+```mermaid
+flowchart TD
+    A[Live tree] --> B[Clone to staging]
+    B --> C[Delete zone contents]
+    C --> D[Gates scan staging tree]
+    D --> E{Identity, CF ID,<br/>or secret found?}
+    E -->|outside a zone| F[Build fails — fix at source]
+    E -->|none| G[Ready for release]
+    F --> A
+```
+
+The diagram shows why placement is everything: zone contents are gone before the scan runs, so the gates only ever see what is meant to be public — and any private string that survives into that tree stops the build.
+
+---

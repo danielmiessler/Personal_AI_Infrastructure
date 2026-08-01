@@ -17,18 +17,16 @@ The social skill now uses code-based Apify scripts instead of `mcp__apify` MCP t
 
 | User Says | Script to Run |
 |-----------|---------------|
-| "my latest tweet" | `get-latest-tweet.ts` |
-| "my latest thread" | `get-latest-thread.ts` |
-| "get tweets from @user" | `get-user-tweets.ts user 5` |
-| "what has @user been talking about" | `get-user-tweets.ts user 10` |
+| "get tweets from @user" | `skills/get-user-tweets.ts user 5` |
+| "what has @user been talking about" | `skills/get-user-tweets.ts user 10` |
 
 **Example Workflow:**
 
-1. User: "Turn my latest tweet into a LinkedIn post"
-2. System runs: `bun ~/.claude/filesystem-mcps/apify/get-latest-tweet.ts`
-3. Script returns: Tweet text + metadata (~500 tokens)
-4. System transforms tweet into LinkedIn format
-5. **Token savings: 98%** (vs fetching unfiltered profile data)
+1. User: "Turn @user's recent posts into a LinkedIn post"
+2. System runs: `bun ~/.claude/skills/Apify/skills/get-user-tweets.ts user 5`
+3. Script returns: Tweet text + metadata (~800 tokens per tweet)
+4. System transforms the posts into LinkedIn format
+5. **Token savings: 90-95%** (vs fetching unfiltered profile data)
 
 ### Research Skill Integration
 
@@ -36,13 +34,13 @@ The social skill now uses code-based Apify scripts instead of `mcp__apify` MCP t
 
 ```bash
 # Research what ThePrimeagen is discussing
-bun ~/.claude/filesystem-mcps/apify/get-user-tweets.ts ThePrimeagen 10
+bun ~/.claude/skills/Apify/skills/get-user-tweets.ts ThePrimeagen 10
 
 # Analyze Paul Graham's recent thoughts
-bun ~/.claude/filesystem-mcps/apify/get-user-tweets.ts paulg 20
+bun ~/.claude/skills/Apify/skills/get-user-tweets.ts paulg 20
 
 # Track Simon Willison's posts
-bun ~/.claude/filesystem-mcps/apify/get-user-tweets.ts simonw 15
+bun ~/.claude/skills/Apify/skills/get-user-tweets.ts simonw 15
 ```
 
 **Token Efficiency:**
@@ -52,43 +50,28 @@ bun ~/.claude/filesystem-mcps/apify/get-user-tweets.ts simonw 15
 
 ### Writing Skill Integration
 
-**Use Case:** Generate blog content from Twitter discussions
+**Use Case:** Generate blog content from a user's recent posts
 
 ```bash
-# Get user's thread about AI topic
-bun ~/.claude/filesystem-mcps/apify/get-latest-thread.ts
+# Pull a user's recent posts on a topic
+bun ~/.claude/skills/Apify/skills/get-user-tweets.ts <username> 10
 
-# Expand thread into blog post format
-# Token efficient: only thread content in context
+# Expand the posts into blog post format
+# Token efficient: only post content in context
 ```
 
 ## Available Scripts Summary
 
-### 1. get-latest-tweet.ts
-**Purpose:** User's most recent single tweet
-**Usage:** `bun get-latest-tweet.ts`
-**Returns:** Text, date, URL, engagement stats
-**Tokens:** ~500
-
-### 2. get-latest-thread.ts
-**Purpose:** User's most recent Twitter thread
-**Usage:** `bun get-latest-thread.ts`
-**Returns:** All thread tweets chronologically
-**Tokens:** ~5,500 (for 5-tweet thread)
-**Savings:** 87-90% vs unfiltered
-
-### 3. get-user-tweets.ts
+### skills/get-user-tweets.ts
 **Purpose:** Any user's recent tweets
-**Usage:** `bun get-user-tweets.ts <username> <limit>`
+**Usage:** `bun ~/.claude/skills/Apify/skills/get-user-tweets.ts <username> [limit]`
 **Returns:** Recent tweets with metadata
 **Tokens:** ~800 per tweet
 **Savings:** 90-95% vs unfiltered
 
-### 4. debug-tweet-structure.ts
-**Purpose:** Inspect raw API response
-**Usage:** `bun debug-tweet-structure.ts`
-**Returns:** Full JSON structure + available fields
-**Use:** Development/debugging only
+To inspect a raw actor response while developing a new script, log the
+unfiltered dataset items before your filter step rather than shipping a
+separate debug script.
 
 ## Migration from MCP
 
@@ -111,10 +94,10 @@ mcp__Apify__get-actor-output(runId)
 
 ```typescript
 // All in one script, filtering in code
-bun ~/.claude/filesystem-mcps/apify/get-latest-tweet.ts
+bun ~/.claude/skills/Apify/skills/get-user-tweets.ts <username> 1
 
-// Returns only filtered result: ~500 tokens
-// Savings: 98.2%
+// Returns only the filtered result: ~800 tokens
+// Savings: 98%
 ```
 
 ## Best Practices
@@ -123,7 +106,7 @@ bun ~/.claude/filesystem-mcps/apify/get-latest-tweet.ts
 ✅ Use appropriate script for the task
 ✅ Let script filter data before returning
 ✅ Trust token savings calculations
-✅ Run from `~/.claude/filesystem-mcps/apify/` directory or use full path
+✅ Run from the `~/.claude/skills/Apify/` directory or use the full path
 ✅ Check execution time (~10 seconds expected)
 
 ### DON'T:
@@ -197,14 +180,10 @@ Other Apify actors worth implementing:
 
 ## Documentation
 
-**For Users:**
-- Quick reference: `~/.claude/`
-- Social skill: `~/.claude/`
-
-**For Developers:**
-- Implementation: `~/.claude/`
-- Standards: `~/.claude/`
-- Parent guide: `~/.claude/`
+- Skill entry point and workflows: `~/.claude/skills/Apify/SKILL.md`
+- Code-first API reference: `~/.claude/skills/Apify/README.md`
+- Actor wrappers: `~/.claude/skills/Apify/actors/`
+- Runnable examples: `~/.claude/skills/Apify/examples/`
 
 ## Support
 
@@ -217,10 +196,10 @@ Q: What if script fails?
 A: Check `APIFY_TOKEN` in `${LIFEOS_DIR}/.env`, verify network, check Apify status.
 
 Q: Can I add new actors?
-A: Yes! Follow `STANDARDS.md` pattern, hardcode actor ID, filter in code.
+A: Yes! Follow the pattern in `actors/` — hardcode the actor ID, filter in code.
 
 Q: How do I debug?
-A: Use `debug-tweet-structure.ts` to inspect raw data, check console output.
+A: Log the unfiltered dataset items before your filter step, and check console output.
 
 ## Success Metrics
 
@@ -228,7 +207,6 @@ A: Use `debug-tweet-structure.ts` to inspect raw data, check console output.
 - ✅ 90-98% token reduction vs MCP
 - ✅ ~10 second execution time
 - ✅ Production integration in social skill
-- ✅ 4 production-ready scripts
 - ✅ Comprehensive documentation
 
 **This is now the standard for all Twitter operations in LifeOS.**

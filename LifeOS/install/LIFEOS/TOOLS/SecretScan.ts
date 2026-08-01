@@ -11,7 +11,7 @@
  *   bun ~/.claude/LIFEOS/TOOLS/SecretScan.ts . --verbose
  *   bun ~/.claude/LIFEOS/TOOLS/SecretScan.ts . --verify
  *
- * @see ~/.claude/skills/_LIFEOS/Workflows/SecretScanning.md
+ * @see the release skill's SecretScanning workflow
  */
 
 /*

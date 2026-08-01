@@ -133,16 +133,15 @@
 To run these test cases:
 
 ```bash
-# Run all test cases
-bun run ~/.claude/Skills/Evals/EvalServer/Lib/run-eval.ts \
-  --use-case {{test_suite.name}} \
-  --all
+# Run every case in the suite
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s {{test_suite.name}}
 
-# Run specific test case
-bun run ~/.claude/Skills/Evals/EvalServer/Lib/run-eval.ts \
-  --use-case {{test_suite.name}} \
-  --test-id <test_id>
+# Raise the trial count for pass^k / pass@k
+bun run ~/.claude/skills/Evals/Tools/EvalRunner.ts -s {{test_suite.name}} -t 5
 ```
+
+The runner has no single-case flag — to isolate one case, put it in its own
+suite and run that suite.
 
 ---
 

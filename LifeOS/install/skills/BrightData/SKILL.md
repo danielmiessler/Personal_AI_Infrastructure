@@ -1,8 +1,7 @@
 ---
 name: BrightData
-version: 1.2.19
+version: 1.2.20
 description: "4-tier progressive web scraping that auto-escalates WebFetch to curl to Interceptor to Bright Data proxy for bot detection and CAPTCHAs, with single-URL and multi-page crawl modes, output as markdown. USE WHEN Bright Data, scrape URL, web scraping, bot detection, crawl site, CAPTCHA, can't access, site blocking, extract page content, scrape whole site, spider domain, convert URL to markdown, getting blocked. NOT FOR simple public content (use WebFetch directly), social platform scraping with named actors (use Apify), or real-Chrome bot bypass with logged-in sessions and zero CDP fingerprint (use Interceptor)."
-effort: medium
 ---
 
 ## Customization

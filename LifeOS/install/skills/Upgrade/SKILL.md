@@ -1,8 +1,7 @@
 ---
 name: Upgrade
-version: 1.1.12
-description: "Generate prioritized LifeOS upgrade recommendations via 4 parallel threads (prior-work audit, user context, external source collection, internal reflections), output as a ranked Discoveries table plus tiered CRITICAL/HIGH/MEDIUM/LOW recommendations with Prior Status tags and before/after code. USE WHEN upgrade, system upgrade, check Anthropic, new Claude features, algorithm upgrade, LifeOS upgrade, check bookmarks, scan bookmarks, twitter bookmarks, X bookmarks, bookmarks for upgrades, what have I bookmarked, mine reflections."
-effort: high
+version: 1.1.18
+description: "Improve LifeOS from what the best practitioners are shipping around AI harnesses — Anthropic first (changelogs, docs, releases), then trusted creators, trending repos, and the system's own reflections — extracting concrete techniques and filtering them against verified current state so nothing already-done or rejected is re-recommended. USE WHEN upgrade, system upgrade, check Anthropic, new Claude features, algorithm upgrade, LifeOS upgrade, mine reflections."
 ---
 
 ## Customization
@@ -30,16 +29,9 @@ If this directory exists, load and apply any PREFERENCES.md, configurations, or 
 
 # Upgrade
 
-**Primary Purpose:** Generate prioritized upgrade recommendations for LifeOS by understanding the user's context and discovering what's new in the ecosystem.
+**The ideal state:** the system knows what the best people on the internet are saying, doing, and implementing around AI harnesses — Anthropic most importantly — and its configuration improves from that input. A run is done when every worthwhile new technique from the monitored sources has been extracted (quoted, mapped to a specific LifeOS file or component), every candidate has been checked against what the system already has or already decided, and the result reaches the user as tiered, evidence-backed recommendations they can act on immediately.
 
-The skill runs **four parallel agent threads** that converge into personalized recommendations:
-
-- **Thread 0** — Prior-Work Audit (Algorithm, PATTERNS.yaml, hooks, skills, recent ISAs, KNOWLEDGE, feedback memory)
-- **Thread 1** — User Context (TELOS, projects, recent work, LifeOS state)
-- **Thread 2** — Source Collection (Anthropic, YouTube, custom sources, GitHub trending)
-- **Thread 3** — Internal Reflections (algorithm-reflections.jsonl)
-
-**Thread 0 is the guard rail against recommending what's already implemented, already researched-and-deferred, or already decided against.** Synthesis MUST filter every candidate recommendation through Thread 0's state inventory — never emit a recommendation without a Prior Status assignment.
+Signal comes from two directions, and a good run uses both: **external** (what Anthropic and the best practitioners are shipping) and **internal** (what the system's own reflections and failure history say is weak). The most valuable recommendations are usually where the two agree.
 
 ## Workflow Routing
 
@@ -52,105 +44,37 @@ The skill runs **four parallel agent threads** that converge into personalized r
 | **FindSources** | "find upgrade sources", "find new sources", "discover channels" | `Workflows/FindSources.md` |
 | **TwitterBookmarks** | "check bookmarks", "scan bookmarks", "twitter bookmarks", "X bookmarks", "bookmarks for upgrades", "what have I bookmarked" | `Workflows/TwitterBookmarks.md` |
 
-**Default workflow:** If user says "upgrade" or "check for upgrades" without specifics, run the **Upgrade** workflow (which includes Thread 3 reflection mining).
+**Default workflow:** a bare "upgrade" or "check for upgrades" runs **Upgrade** (which includes reflection mining).
 
-## Output Format
+## The Contract (what every recommendation must satisfy)
 
-**Canonical spec:** `References/OutputFormat.md` — single source of truth for section order, Prior Status legend, table columns, and hard rules. Both this skill and `Workflows/Upgrade.md` reference that file rather than inlining their own copies.
+1. **Grounded in current state.** No recommendation without a Prior Status tag (🆕/🔶/💬/🚫) backed by file:line evidence gathered *this run*. Already-implemented items go to Skipped Content with evidence — that's the proof the prior-state check ran. Rejected ideas (`MEMORY/KNOWLEDGE/REJECTED/`) only resurface with a named reason the context changed.
+2. **A technique, not a pointer.** Quote or code-block the actual content; name the exact LifeOS file or component it improves; include What It Is and How It Helps LifeOS (≤2 concrete sentences each). The test: if "show me the technique" has no answer, it doesn't ship. Content with nothing extractable goes to Skipped with a reason — skip boldly rather than dilute.
+3. **Won't break what exists.** Check backward compatibility against current skills, hooks, and workflows before recommending adoption.
+4. **Formatted per the contract.** `References/OutputFormat.md` is the single source of truth for section order, Prior Status legend, table columns, and hard rules.
 
-Section order: Discoveries → Recommendations → Technique Details → Internal Reflections → Summary → Skipped → Sources Processed.
+## Sources & Tools
 
-**Print only non-empty Recommendation tiers** (no empty `🟡 MEDIUM` headers).
+| Surface | Contract |
+|---------|----------|
+| Anthropic (30+ sources: blog, changelogs, GitHub repos, docs) | `bun Tools/Anthropic.ts` — diffs against `State/last-check.json`, updates it itself |
+| YouTube channels | Config: `youtube-channels.json` (base) + user copy in CUSTOMIZATIONS. List: `yt-dlp --flat-playlist --dump-json 'https://www.youtube.com/@HANDLE/videos'`. Transcript: `bun ~/.claude/LIFEOS/TOOLS/GetTranscript.ts '<url>'`. Seen-state: `State/youtube-videos.json` — update after processing |
+| GitHub trending | Config: `github_trending` block in user `user-sources.json`. `gh api 'search/repositories?q=QUERY+created:>DATE+stars:>N&sort=...&per_page=3'`. Seen-state: `State/github-trending.json` — merge, never drop entries |
+| Custom sources | `user-sources.json` in CUSTOMIZATIONS — fetch each; skip dead/redirected pages with a note |
+| Claude Code internals | When discoveries touch hooks, settings, slash commands, MCP, agent types, or the SDK/API, spawn `Agent(subagent_type="claude-code-guide")` to verify against the live surface — never answer from memory |
+| Internal reflections | `MEMORY/LEARNING/REFLECTIONS/algorithm-reflections.jsonl` — method in `Workflows/MineReflections.md` |
 
-## Extraction Rules
-
-**Extract, don't summarize. Techniques, not recommendations. Verify prior state before recommending.**
-
-1. **Every output item is a TECHNIQUE** — a specific pattern, code snippet, configuration, or approach.
-2. **Quote or code-block the actual content** — show exactly what was said/written.
-3. **Map to LifeOS components** — every technique connects to a specific file, skill, workflow, or system component.
-4. **Verify Prior State (Thread 0 gate)** — Before emitting ANY recommendation, confirm against Thread 0 inventory: is it already in Algorithm / PATTERNS.yaml / hooks / SKILL files / KNOWLEDGE / prior ISAs? Assign a Prior Status emoji and cite evidence. Items that are ✅ DONE go to Skipped, not Recommendations.
-5. **Two mandatory description fields, ≤2 sentences each, concrete and specific:**
-   - **What It Is:** the technique itself — what it does, how it works, what capability it provides
-   - **How It Helps LifeOS:** the specific benefit — which component improves, what gap it fills
-6. **Provide implementation** — show before/after code or specific steps.
-7. **Skip, don't dilute** — if content has no extractable technique, put it in Skipped Content with reason.
-
-**Source Type Labels:**
-
-| Label | Meaning |
-|-------|---------|
-| `GitHub: claude-code vX.Y.Z` | Specific version release notes |
-| `YouTube: Creator @ MM:SS` | Video with timestamp |
-| `Docs: Section Name` | Documentation section |
-| `Blog: Post Title` | Blog post |
-
-## Configuration
-
-**Skill Files:**
-- `sources.json` — Anthropic sources config (30+ sources)
-- `youtube-channels.json` — Base YouTube channels (empty by default)
-- `State/last-check.json` — Anthropic state
-- `State/youtube-videos.json` — YouTube state
-- `State/github-trending.json` — GitHub trending state (seen repos)
-- `State/twitter-bookmarks-seen.json` — Previously processed bookmark URLs
-
-**User Customizations** (`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Upgrade/`):
-- `EXTEND.yaml` — Extension manifest
-- `youtube-channels.json` — User's personal YouTube channels
-- `user-sources.json` — Additional source definitions (e.g., `github_trending` block)
-
-## Tool Reference
-
-| Tool | Purpose |
-|------|---------|
-| `Tools/Anthropic.ts` | Check 30+ Anthropic sources (blogs, GitHub repos, changelogs, docs) for updates |
-
-## Key Principles
-
-1. **Extract, Don't Summarize** — pull specific techniques, never just link to sources.
-2. **Quote the Source** — actual code, doc quotes, or transcript excerpts.
-3. **LifeOS-Contextualized** — every technique maps to a specific LifeOS file, skill, or component.
-4. **Explain "Why You"** — "this helps because your [X] currently [Y]".
-5. **TELOS-Connected** — reference user's goals and challenges when explaining relevance.
-6. **Skip Boldly** — if content has no extractable technique, skip it entirely.
-7. **Implementation-Ready** — provide actual code changes, not vague recommendations.
-8. **Claude Code Freshness via claude-code-guide** — when discoveries involve Claude Code internals (hooks, settings, slash commands, MCP, agent types, keybindings, Agent SDK, Claude API), spawn `Agent(subagent_type="claude-code-guide")` to verify LifeOS's current references match the latest API surface.
-
-## Anti-Patterns (What NOT to Output)
-
-These output patterns are **FAILURES**:
-
-| ❌ Bad Output | Why It's Wrong | ✅ Correct Output |
-|---------------|----------------|-------------------|
-| "Check out R Amjad's video on Claude Code" | Points to content instead of extracting it | "@ 5:42, R Amjad shows this technique: [quote]" |
-| "v2.1.16 has task management improvements" | Vague summary, no technique | "v2.1.16 adds `addBlockedBy` parameter: [code example]" |
-| "Consider looking into MCP updates" | Recommendation without extraction | "MCP now supports [specific feature]: [docs quote]" |
-| "This could be useful for your workflows" | Vague relevance | "This improves your Interceptor skill because [specific gap it fills]" |
-| "Several videos covered AI agents" | Count without content | "[N] videos skipped — no extractable techniques" |
-| "This helps because it improves things" | Vague benefit | "How It Helps LifeOS: SecurityValidator currently only blocks commands. additionalContext enables reasoning context before tool execution, making decisions more nuanced." |
-| "A new hook feature" | No description of what it IS | "What It Is: PreToolUse hooks can return additionalContext that gets injected into the model's context before execution, enabling reasoning-based decisions rather than binary blocks." |
-| "Top 3 Actions" or flat recommendation list | No priority tiers | Recommendations section with 🔴/🟠/🟡/🟢 tiers, each with LifeOS Relevance column |
-| Recommendations at the bottom | Actionable items buried after technique dump | 🔥 Recommendations section appears SECOND, technique details third |
-| **Recommending something already implemented** | Wastes user trust | Move to Skipped with file:line evidence |
-| **Re-surfacing rejected ideas without new context** | Drift from prior decisions | Only re-recommend if reason has changed; say what changed |
-| **Missing Prior Status column** | Bypasses Thread 0 gate | Every recommendation row cites evidence from Thread 0's inventory |
-
-**The test:** if you can say "show me the technique" and there's nothing to show, you've failed.
-
-## Workflows
-
-- **Upgrade.md** — primary workflow; full four-thread analysis with prioritized recommendations
-- **MineReflections.md** — Thread 3 standalone (deep reflection mining)
-- **AlgorithmUpgrade.md** — Algorithm-version-bump-focused upgrade flow
-- **ResearchUpgrade.md** — deep dive on a specific upgrade opportunity
-- **FindSources.md** — discover and evaluate new sources to monitor
+**Source labels in output:** `GitHub: claude-code vX.Y.Z` · `YouTube: Creator @ MM:SS` · `Docs: Section` · `Blog: Title`.
 
 ## Gotchas
 
-- **Check ALL sources in parallel** — Anthropic blog, changelog, YouTube channels, GitHub releases. Don't check sequentially.
-- **Upgrades must not break existing skills or workflows.** Verify backward compatibility before applying.
-- **Full upgrade check can take 5-7 minutes.** Use `run_in_background: true` for the outer agent.
+- **Hard deadline, fail-open — never block on a straggler.** Set a synthesis deadline (~4 min) at dispatch; report with whatever is back when it hits. A missing source is listed as `⏳ timed out` in Sources Processed; it degrades coverage, never delays the report. (2026-07-18: one hung GitHub-trending agent stalled a run ~1 hour.)
+- **Right-size the fan-out (~8 agents).** Small-file reads collapse into one agent; network sources get short budgets and are first to drop. Over-fan-out is the failure the reflection corpus flags most.
+- **Budget the `claude-code-guide` freshness spawn per-spawn — it dies on a broad ask.** Asking one spawn to cover the whole Claude Code surface (hook events, `settings.json`, slash commands, SKILL/subagent frontmatter, MCP, SDK, API) returns nothing: it fans out a batch of doc lookups on its first turn and the combined results blow its context window, surfacing as `Prompt is too long` ~10s after spawn. The prompt length is not the cause — a trivial prompt to the same agent type in a larger parent conversation completes fine; how much the ask makes it FETCH is the variable. Cap at ~3 areas per spawn, tell it to look things up rather than pull whole pages, and split the surface across parallel spawns so losing one costs a slice instead of the whole freshness check. Diagnostic tell: sibling agents in the same batch all succeed while this one dies — that points at the spawn's context budget, not the batch. Fallback that needs no agent at all: read `Claude Code CHANGELOG` from `sources.json` directly and diff the version range. *(public PR #1659, @elhoim.)*
+- **Idle teammate ≠ delivered result.** Spawned agents sometimes go idle without sending output — a one-line SendMessage nudge recovers them. Nudge once; don't re-spawn.
+- **GitHub search 422s on bare OR between qualifiers** with no free-text term. Give every query a free-text term; don't retry a 422 inside the budget.
+- **Absence from `settings.json` ≠ a dead hook.** It's GENERATED by MergeSettings; hooks also fire via dispatchers (PreToolGuard) and Pulse HTTP. Flag "verify before concluding dark," never assert dead from absence.
+- **Check sources in parallel, not sequentially** — the run is network-bound.
 
 ## Execution Log
 

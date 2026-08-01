@@ -298,6 +298,9 @@ export function Metrics({ telos, onTrace, showIds, openFile }: CommonSectionProp
           <p className="band-sub">First-class measurements. Each links up to a Goal, down to the Work producing it.</p>
         </div>
       </header>
+      {telos.metrics.length === 0 && (
+        <p className="muted">No live metrics yet — the app monitor, services, and work registry feed this section.</p>
+      )}
       <div className="metric-grid">
         {telos.metrics.map((m) => (
           <RBtn key={m.id} className="telos-card metric" onClick={() => openFile ? openFile("TELOS.md") : onTrace(m.id)}>
@@ -486,6 +489,9 @@ export function Team({ telos, onTrace, showIds, openFile }: CommonSectionProps) 
           <p className="band-sub">Humans and agents doing the Work.</p>
         </div>
       </header>
+      {telos.team.length === 0 && (
+        <p className="muted">No team data yet — parsed from the principal, DA, and fleet identity files.</p>
+      )}
       <div className="team-grid">
         {telos.team.map((t) => (
           <RBtn key={t.id} className={"telos-card team-" + t.kind} onClick={() => openFile ? openFile("TELOS.md") : onTrace(t.id)}>
@@ -533,6 +539,10 @@ export function Team({ telos, onTrace, showIds, openFile }: CommonSectionProps) 
 
 // ---------- BUDGET ----------
 export function Budget({ telos, onTrace, showIds, openFile }: CommonSectionProps) {
+  // No backing parser yet (public issue #1532, @waveman2020-sudo): until the API
+  // populates budget, render nothing — SectionNav's DOM filter then drops the tab
+  // too, so users never see a permanently-empty section.
+  if (telos.budget.length === 0) return null;
   const groups = {
     money:     telos.budget.filter((b) => b.kind === "money"),
     time:      telos.budget.filter((b) => b.kind === "time"),
@@ -590,6 +600,8 @@ export function Budget({ telos, onTrace, showIds, openFile }: CommonSectionProps
 
 // ---------- RECOMMENDATIONS ----------
 export function Recommendations({ telos, onTrace, openFile }: CommonSectionProps) {
+  // No backing parser yet (public issue #1532) — hide until the API populates it.
+  if (telos.recommendations.length === 0) return null;
   return (
     <section className="recs">
       <header className="band-head">

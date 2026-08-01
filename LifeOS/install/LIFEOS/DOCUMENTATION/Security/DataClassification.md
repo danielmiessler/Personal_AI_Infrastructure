@@ -1,8 +1,8 @@
 ---
 last_updated: 2026-06-18T00:00:00Z
-last_updated_by: kai
+last_updated_by: da
 convention: pai-freshness-v1
-version: 1.0.7
+version: 1.1.0
 ---
 
 # LifeOS Data Classification & Inference-Source Routing
@@ -24,7 +24,7 @@ LifeOS draws inference from sources at different trust/egress tiers. Native (Ant
 | **INTERNAL** | 2 | "Would I shrug if a trusted peer saw this, but I haven't published it?" | Low — reveals how the system works, not who I am |
 | **PUBLIC** | 3 (lowest) | "Is this already on the internet, or built to go there?" | None — already public or publish-destined |
 
-**RESTRICTED** — auth material, third-party PII, customer-owned data. `.env` + anything quoting it; API keys/OAuth/Cloudflare/Google creds; customer-owned engagement data; contacts' PII; financial source docs. Paths: `**/.env`, `LIFEOS/USER/CONFIG/CREDENTIALS/**`, `LIFEOS/USER/WORK/CUSTOMERS/**`, `LIFEOS/USER/TELOS/FINANCES/**`, `LIFEOS/USER/CONTACTS.md`. **Also the fail-closed default.**
+**RESTRICTED** — auth material, third-party PII, customer-owned data. `.env` + anything quoting it; API keys/OAuth/Cloudflare/Google creds; customer-owned engagement data; contacts' PII; financial source docs; health/medical data. Paths: `**/.env`, `LIFEOS/USER/CONFIG/CREDENTIALS/**`, `LIFEOS/USER/WORK/CUSTOMERS/**`, `LIFEOS/USER/FINANCES/**` (legacy alias `LIFEOS/USER/TELOS/FINANCES/**`), `LIFEOS/USER/HEALTH/**`, `LIFEOS/USER/CONTACTS.md`. **Also the fail-closed default.**
 
 **CONFIDENTIAL** — {{PRINCIPAL_NAME}}'s own sensitive life/business data: health, financials, own-infra security findings, TELOS internals, hot-layer + relationship memory, People/Companies notes. **Default for all of `LIFEOS/USER/**`** except RESTRICTED sub-globs and named PUBLIC demotes.
 
@@ -98,4 +98,43 @@ Path-default-first, fail-closed, mark-only-the-exceptions:
 4. **`LIFEOS/DOCUMENTATION/` is dual-state** — raw=INTERNAL, scrubbed=PUBLIC; pin the scrub-output dir into the PUBLIC glob.
 5. **Secret-shape scan catches tokens, not prose PII.**
 6. **Return-path leakage uncontrolled** — governs input, not what a response echoes out.
-7. **Non-inference egress** (raw WebFetch/WebSearch, skill curls, Telegram/Discord/email) is out of scope here.
+7. **Non-inference egress** (raw WebFetch/WebSearch, skill curls, iMessage/Discord/email) is out of scope here.
+
+## Examples
+
+### One request, two files, two verdicts
+
+Say a workflow wants to summarize a file through the external GENE route (GLM behind the broker, pinned to a US zero-retention provider — ceiling INTERNAL). Watch the gate decide, per file, with no model in the loop:
+
+- **A plain work note** — an internal design doc under the memory tree, no secrets, no sensitive paths. Path default lands it at INTERNAL. INTERNAL ≤ the route's INTERNAL ceiling, so the call goes through.
+- **A deploy script that names a credential** — the same route, but the command string references an `.env` path and the scan sees a token-shaped string. Auto-promote fires: class becomes RESTRICTED. Only the two trusted US vendors may ever see RESTRICTED, so the broker route is **blocked, fail-closed** — the summary never leaves for the broker.
+
+Same route, same one-line policy, opposite outcomes — decided by the *content*, not by which route was asked for. Flip the route to Native (Anthropic) and both files pass, because a RESTRICTED-capable vendor has no ceiling to exceed.
+
+### When a route may see the data, and when it may not
+
+The quick read on any route is "what is this route's ceiling, and is the data at or below it?"
+
+- **Native / Forge** — no ceiling; every class, RESTRICTED included. The two trusted US vendors.
+- **GENE, pinned US + zero-retention** — INTERNAL ceiling. Fine for work notes and system internals; never for health, finances, or credentials.
+- **GENE, unpinned or pinned off-US** — drops to PUBLIC. Residency isn't guaranteed, so only already-public data may go.
+- **Unclassified anything** — treated as RESTRICTED. If you didn't tag it, it's as locked as its directory.
+
+### The routing decision as a picture
+
+```mermaid
+flowchart TD
+    A[Data heading to an inference route] --> B{Secret-shape or RESTRICTED path?}
+    B -->|yes| R[Class is RESTRICTED]
+    B -->|no| C[Class from tag or path default]
+    R --> D{Route is Native or Forge?}
+    C --> E{Class at or below the route ceiling?}
+    D -->|yes| P[Allowed]
+    D -->|no| X[Blocked, fail-closed]
+    E -->|yes| P
+    E -->|no| X
+```
+
+The diagram is the whole doctrine in one frame: sensitivity is decided first and most-restrictively, the two trusted vendors are the only path for the top class, and everything else must sit at or below its route's ceiling. Every unresolved branch falls to the blocked side — the default is no, not maybe.
+
+---

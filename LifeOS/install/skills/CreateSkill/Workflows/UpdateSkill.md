@@ -62,7 +62,7 @@ touch ~/.claude/skills/[SkillName]/Workflows/[WorkflowName].md
 
 Example:
 ```bash
-touch ~/.claude/skills/_DAEMON/Workflows/UpdatePublicRepo.md
+touch ~/.claude/skills/_MYSKILL/Workflows/UpdatePublicRepo.md
 ```
 
 3. **Add entry to `## Workflow Routing` section in SKILL.md:**
@@ -133,7 +133,7 @@ All files must use TitleCase:
 
 ## Step 7: Version Awareness
 
-Classify this change (patch / feature / major — see `## Versioning` in SKILL.md). Both the skill's own `version:` and the OS roll-up are applied at private-sync time by the `<your-release-skill>` `UpdateKaiRepo` ship flow (per-skill via `BumpSkillVersions.ts`) — do NOT hand-bump `version:` here, and CreateSkill never edits `LIFEOS/VERSION` directly. A rename or a removed/broken workflow is a **major** change — stop and confirm first.
+Classify this change (patch / feature / major — see `## Versioning` in SKILL.md). Both the skill's own `version:` and the OS roll-up are applied at private-sync time by the `UpdateKaiRepo` ship flow (per-skill via `BumpSkillVersions.ts`) — do NOT hand-bump `version:` here, and CreateSkill never edits `LIFEOS/VERSION` directly. A rename or a removed/broken workflow is a **major** change — stop and confirm first.
 
 ## Done
 

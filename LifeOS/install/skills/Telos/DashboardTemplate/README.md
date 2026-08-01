@@ -30,7 +30,7 @@ A reusable Next.js dashboard template with Tokyo Night Day theme, shadcn/ui comp
 ### 1. Copy the Template
 
 ```bash
-cp -r ~/.claude/skills/telos/dashboard-template /path/to/your/project
+cp -r ~/.claude/skills/Telos/DashboardTemplate /path/to/your/project
 cd /path/to/your/project
 ```
 

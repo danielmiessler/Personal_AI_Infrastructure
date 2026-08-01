@@ -1,0 +1,18 @@
+# com.lifeos.worksweep.timer.template — pairs with com.lifeos.worksweep.service.template.
+# Reproduces the launchd plist's RunAtLoad + StartInterval 3600 + ThrottleInterval 60:
+# OnBootSec fires once ~2min after boot, OnUnitActiveSec repeats hourly from the last
+# run, and systemd's own start-rate limiting covers the throttle case.
+#
+# public PR #1692, @takanorinishida
+
+[Unit]
+Description=LifeOS Work Sweep timer — hourly
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60min
+Persistent=true
+Unit=com.lifeos.worksweep.service
+
+[Install]
+WantedBy=timers.target

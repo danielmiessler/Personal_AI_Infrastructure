@@ -17,7 +17,7 @@
  * filter is opaque even if it leaked. Public LifeOS ships this tool + the guard;
  * each user runs it against their own corpus. No principal data in any shipped file.
  *
- * OUTPUT: skills/_LIFEOS/DENY_HASHES.json (private _-skill -> stripped at release):
+ * OUTPUT: LIFEOS/USER/SECURITY/DENY_HASHES.json (USER tree -> excluded from release):
  *   { version, algo, ngramSizes, count, hashes: ["<hex>", ...] }   <- hashes only, no plaintext.
  * SALT: ~/.claude/.env `DENYLIST_SALT` (generated once; never ships). The guard reads
  *   the same salt to reproduce hashes at scan time.
@@ -28,15 +28,18 @@
  * token, so filtering here keeps the scan precise. Tune ALLOWLIST/STOPWORDS with
  * --show-tokens.
  */
-import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 
 const HOME = process.env.HOME || homedir();
 const CLAUDE = join(HOME, ".claude");
 const ENV_PATH = join(CLAUDE, ".env");
-const OUT_PATH = join(CLAUDE, "skills", "_LIFEOS", "DENY_HASHES.json");
+// USER/SECURITY, not skills/_LIFEOS: writing into skills/_LIFEOS/ created the
+// dev-tree marker on public installs, disabling seven installer tools (public
+// issue #1689, @christauff). Reader: hooks/lib/system-file-guard-core.ts.
+const OUT_PATH = join(CLAUDE, "LIFEOS", "USER", "SECURITY", "DENY_HASHES.json");
 const MIN_LEN = 4;          // single tokens shorter than this are too FP-prone
 const HASH_HEX_LEN = 24;    // truncated sha256 — collision-safe at this corpus size, smaller file
 const NGRAM_SIZES = [1, 2]; // 1-grams (surnames, hostnames) + 2-grams (multi-word names/places)
@@ -74,9 +77,11 @@ const STOPWORDS = new Set<string>([
 // Tokens that legitimately appear in SHIPPING/public files — public attribution,
 // product names, and generic vendor/model terms LifeOS references. Lowercase.
 const ALLOWLIST = new Set<string>([
-  "danielmiessler","miessler","lifeos","github","claude","anthropic","opus","sonnet","haiku","fable","cloudflare","typescript","react","astro","vitepress","hono","wrangler","stripe","google","apple","openai","gemini","descript","elevenlabs",
+  // "danielmiessler" stays: the public repo slug, required attribution in shipped
+  // Fabric/Daemon content. The bare surname moved to the operator allowlist file.
+  "danielmiessler","lifeos","github","claude","anthropic","opus","sonnet","haiku","fable","cloudflare","typescript","react","astro","vitepress","hono","wrangler","stripe","google","apple","openai","gemini","descript","elevenlabs",
   // generic vendor/product terms that appear in feature code (not private fingerprints)
-  "unifi","ubiquiti","ecobee","homebridge","homekit","oura","limitless","beehiiv","fabric","substrate","telos","surface","arbol","pulse","interceptor","genelec","ratgdo","shure","hario","chemex","clever","philz","kinu","weber","herman","miller","meshuggah","boris","brejcha",
+  "unifi","ubiquiti","ecobee","homebridge","homekit","oura","limitless","beehiiv","fabric","substrate","telos","surface","arbol","pulse","interceptor","ratgdo",
   // generic security/tech abbreviations (not in the dictionary, but appear in code/docs)
   "auth","oauth","ciso","cissp","csslp","comptia","appsec","vulnmgmt","cpus","saas","chatgpt","aes67","xhtml","itops","secops","devops","kubernetes","webhook","webhooks","jsonl","esp32","zigbee",
   // public social/platform names + shared email-provider LABELS (the domain check
@@ -84,11 +89,27 @@ const ALLOWLIST = new Set<string>([
   // public, never private fingerprints — like github/google above (2026-07-08 fix).
   "linkedin","youtube","twitter","instagram","facebook","tiktok","bluesky","mastodon","threads","discord","reddit","medium","substack","patreon","twitch","spotify",
   "gmail","googlemail","icloud","outlook","hotmail","yahoo","aol","proton","protonmail","mac",
-  // public brands / orgs / products / certs — non-dictionary but PUBLIC (former
-  // employers, OS/tool names, gear brands the principal references openly). Ordered
-  // so no two form a currently-hashed pair (2026-07-08 fix).
-  "kali","owasp","linux","waymo","hewlett","ioactive","packard","robinhood","microsoft","sdlc","mcse","merging","nvidia","anubis","sennheiser","ubuntu","debian","macos","android","windows","intel",
+  // generic OS/tool/vendor names — non-dictionary but universally public
+  "kali","owasp","linux","waymo","microsoft","sdlc","mcse","nvidia","ubuntu","debian","macos","android","windows","intel",
 ]);
+
+// OPERATOR-SPECIFIC allowlist extension (Max audit, 2026-07-30): tokens tied to
+// one operator's life — surname, former employers, gear brands, music taste —
+// were hard-coded here, and although each is individually public, composed in
+// one shipped file they form an identity fingerprint (and are permanently
+// exempted from the leak filter on every install). Identity lives in USER
+// config, never source (the D-58 pattern): one lowercase token per line,
+// `#` comments allowed, absent file = empty set. USER/ never ships.
+const OPERATOR_ALLOWLIST_PATH = join(CLAUDE, "LIFEOS/USER/CONFIG/denyhash-allowlist.txt");
+function loadOperatorAllowlist(): void {
+  try {
+    for (const line of readFileSync(OPERATOR_ALLOWLIST_PATH, "utf8").split("\n")) {
+      const t = line.trim().toLowerCase();
+      if (t && !t.startsWith("#")) ALLOWLIST.add(t);
+    }
+  } catch { /* no operator extension — generic set only */ }
+}
+loadOperatorAllowlist();
 
 // Real English words are dropped — what survives is proper nouns (surnames,
 // brands, hostnames, place names), which ARE the private fingerprint. This is the
@@ -186,6 +207,17 @@ function main(): void {
   }
   if (dryRun) { console.log("[DeriveDenyHashes] --dry-run: nothing written"); return; }
 
+  // Public installs don't ship the private _LIFEOS skill (its dir doubles as
+  // the dev-tree marker, so it must never be created here). Without it there
+  // is no home for the filter and no guard consuming it — skip cleanly instead
+  // of exiting 1 on every derivedsync run (public issue #1488). The consumer
+  // (hooks/lib/system-file-guard-core.ts) already fails open on a missing
+  // DENY_HASHES.json, so nothing is lost.
+  if (!existsSync(join(CLAUDE, "skills", "_LIFEOS"))) {
+    console.log("[DeriveDenyHashes] skills/_LIFEOS absent (public install) — skipping hash write");
+    return;
+  }
+
   const salt = loadSalt();
   const hashes = [...tokens].map((t) => hashToken(t, salt)).sort();
   const payload = {
@@ -198,6 +230,9 @@ function main(): void {
     note: "Salted hashes of distinctive private tokens. No plaintext. Salt in .env (never ships).",
     hashes,
   };
+  // Create the output dir first — absent on fresh installs, and a throw here
+  // aborts the whole DerivedSync pass (public PR #1652, @elhoim).
+  mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, JSON.stringify(payload, null, 0) + "\n");
   console.log(`[DeriveDenyHashes] wrote ${hashes.length} salted hashes -> ${OUT_PATH} (no plaintext)`);
 }

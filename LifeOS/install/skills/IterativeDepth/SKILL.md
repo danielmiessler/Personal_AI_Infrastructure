@@ -1,8 +1,7 @@
 ---
 name: IterativeDepth
-version: 1.1.15
+version: 1.1.16
 description: "Structured multi-angle exploration running 2-8 sequential passes over the same problem, each through a different scientific lens, to surface hidden requirements and edge cases invisible from one angle; each pass yields new ISC criteria. USE WHEN iterative depth, explore deeper, multi-angle analysis, surface hidden requirements, blind spot check, what am I missing. NOT FOR scope/zoom analysis (use ApertureOscillation)."
-effort: high
 ---
 
 ## Customization

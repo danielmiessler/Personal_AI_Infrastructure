@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.6.28
+ * @version 1.6.30
  * LoadContext.hook.ts - Inject LifeOS dynamic context into Claude's Context (SessionStart)
  *
  * LifeOS v5.0 Context Architecture:
@@ -44,6 +44,7 @@ import { getLifeosDir, getSettingsPath } from './lib/paths';
 import { recordSessionStart } from './lib/notifications';
 import { loadWisdomFrames } from './lib/learning-readback';
 import { findArtifactPath } from './lib/isa-utils';
+import { isSubagentContext } from './lib/subagent';
 
 interface DynamicContextConfig {
   relationshipContext?: boolean;
@@ -376,7 +377,9 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
     }
   }
 
-  const toolsDir = paiDir + '/Tools';
+  // "TOOLS" (canonical on-disk casing) — "/Tools" only resolved on
+  // case-insensitive macOS and 404'd on Linux (public issue #1516, @christauff).
+  const toolsDir = paiDir + '/TOOLS';
   summary += `\n💡 To resume project: \`bun run ${toolsDir}/SessionProgress.ts resume <project>\`\n`;
   summary += `💡 To complete project: \`bun run ${toolsDir}/SessionProgress.ts complete <project>\`\n`;
 
@@ -386,11 +389,7 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
 async function main() {
   try {
     // Subagents don't need dynamic context injection
-    const claudeProjectDir = process.env.CLAUDE_PROJECT_DIR || '';
-    const isSubagent = claudeProjectDir.includes('/.claude/Agents/') ||
-                      process.env.CLAUDE_AGENT_TYPE !== undefined;
-
-    if (isSubagent) {
+    if (isSubagentContext()) {
       console.error('🤖 Subagent session - skipping context loading');
       process.exit(0);
     }

@@ -3,7 +3,7 @@ name: FabricReference
 description: Reference document for Fabric pattern system. For full functionality, use the Fabric skill directly.
 created: 2025-12-17
 updated: 2026-01-18
-version: 1.1.6
+version: 1.2.0
 ---
 
 # Fabric Pattern System Reference
@@ -84,6 +84,53 @@ User: "Update fabric patterns"
 ```bash
 fabric -U && rsync -av ~/.config/fabric/patterns/ ~/.claude/skills/Fabric/Patterns/
 ```
+
+---
+
+## Examples
+
+### One pattern, one transformation
+
+The whole idea at its smallest: **a developer just watched a 90-minute conference talk and has the transcript, but doesn't want to re-read it.** They run one pattern instead of writing a prompt from scratch.
+
+- **Ask:** "use fabric to extract wisdom from this transcript."
+- **What happens:** the skill reads `Patterns/extract_wisdom/system.md`, applies those instructions to the transcript, and returns structured output — IDEAS, INSIGHTS, QUOTES, RECOMMENDATIONS.
+- **Why it matters:** the transformation is *packaged and repeatable*. The next transcript, and the one after that, run through the identical move and come back in the identical shape. The developer never re-invents "how do I pull lessons out of a talk" — that thinking is captured once, in the pattern.
+
+That is the entire point of a pattern: a reusable move you apply to content, not a prompt you rewrite each time.
+
+### The same input, different patterns
+
+Because a pattern is just a packaged transformation, the same piece of content can go through several:
+
+- Feed a written argument to `analyze_claims` and get each claim rated for evidence.
+- Feed a system description to `create_mermaid` and get a diagram back.
+- Feed a rough draft to `improve_writing` and get a cleaner version.
+
+Same content, different move, different structured result — and each result comes out the same way every time you run it.
+
+### When a pattern fits (and when it doesn't)
+
+- **Good fit:** a transformation you want to run *the same way, repeatedly*, across different content — distilling talks, checking arguments, drafting threat models. The repetition is what a pattern is for.
+- **Not a fit:** a one-off question with no reusable shape ("what's the third heading in this file?"). Wrapping that in a pattern is overhead — just answer it directly.
+
+The test: if you'd want the *next* piece of content handled the same way, it's a pattern. If the move dies with this one input, it isn't.
+
+```mermaid
+flowchart TD
+    C[Incoming content: article, transcript, code] --> P{Which pattern fits the intent?}
+    P -->|distill the lessons| W[extract_wisdom]
+    P -->|check an argument| A[analyze_claims]
+    P -->|draw the system| M[create_mermaid]
+    W --> R[Read Patterns/name/system.md]
+    A --> R
+    M --> R
+    R --> X[Apply instructions as the prompt]
+    X --> O[Structured output — same shape every run]
+    O -.->|high-value insights| K[Knowledge Archive]
+```
+
+The diagram shows why patterns compose: the *content* is the variable, the *pattern* is the fixed transformation, and the output shape is a property of the pattern, not the input. Swap the pattern and you get a different move over the same material; keep the pattern and every input comes back in one predictable form — which is what makes the results worth capturing into the Knowledge Archive.
 
 ---
 

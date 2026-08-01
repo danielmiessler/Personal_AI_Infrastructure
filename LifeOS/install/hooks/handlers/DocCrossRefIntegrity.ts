@@ -8,7 +8,16 @@
  * The deterministic layer detects WHAT changed. The inference layer understands
  * HOW docs need updating — generating surgical edit pairs, never full rewrites.
  *
- * TRIGGER: Stop hook (via DocIntegrity.hook.ts)
+ * TRIGGER: SessionEnd hook (via DocIntegrity.hook.ts)
+ *
+ * TEARDOWN BUDGET: the harness kills the whole hook at 30s and reports only
+ * "Hook cancelled" — the hook cannot self-report, because its fatal path exits
+ * 0 and every handler call is individually try/caught. Measured worst case
+ * before this change: up to 15s inference (a spawned `claude` subprocess) + a
+ * deliberate 3s sleep + a 3s voice fetch = ~21s, BEFORE RebuildArchSummary's
+ * then-unbounded generator subprocess even started. The inference layer is
+ * therefore OFF on the SessionEnd path; set DOCINTEGRITY_INFERENCE=1 to opt
+ * back in for a manual run. public PR #1682, @pkumaschow
  *
  * PATTERN TYPES CHECKED (deterministic):
  * 1. Hook file references (*.hook.ts) - diff against disk
@@ -37,6 +46,7 @@ import { getIdentity } from '../lib/identity';
 import { inference } from '../../LIFEOS/TOOLS/Inference';
 import type { ParsedTranscript } from '../../LIFEOS/TOOLS/TranscriptParser';
 import { isDesktopChannel, logSkippedVoice, getNotificationChannel } from '../lib/notification-channel';
+import { PULSE_BASE } from '../../LIFEOS/PULSE/endpoint';
 
 
 // ============================================================================
@@ -71,12 +81,26 @@ const TAG = '[DocAutoUpdate]';
 // Filesystem Inventory
 // ============================================================================
 
-function listFiles(dir: string, suffix: string): string[] {
+/**
+ * Recursive listing, returned as paths RELATIVE to `dir` so every caller's
+ * `join(<dir>, entry)` still resolves. Recursion is a no-op on the flat hook /
+ * handler / lib trees; it is load-bearing for DOCUMENTATION/, which is almost
+ * entirely nested — the previous non-recursive readdir saw 5 of 51 docs and
+ * reported "all cross-references valid" over the 10% it could see.
+ */
+function listFiles(dir: string, suffix: string, prefix = ''): string[] {
   try {
     if (!existsSync(dir)) return [];
-    return readdirSync(dir)
-      .filter(f => f.endsWith(suffix))
-      .sort();
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        out.push(...listFiles(join(dir, entry.name), suffix, rel));
+      } else if (entry.name.endsWith(suffix)) {
+        out.push(rel);
+      }
+    }
+    return out.sort();
   } catch {
     return [];
   }
@@ -295,16 +319,19 @@ function checkSystemDocRefs(docsToCheck: string[], systemDocsOnDisk: Set<string>
   const sysDocRefRegex = /(?:`|'|")(?:~\/\.(?:claude|config\/PAI)\/)?(?:skills\/)?LifeOS\/([\w/]+\.md)(?:`|'|")/g;
 
   for (const docFile of docsToCheck) {
-    const docPath = join(SYSTEM_DIR, docFile);
+    // docsToCheck holds paths relative to DOCS_DIR — the five sibling checks
+    // all join against DOCS_DIR. Joining SYSTEM_DIR here resolved nothing, so
+    // `continue` fired on every doc and Pattern 1 silently scanned zero files.
+    const docPath = join(DOCS_DIR, docFile);
     if (!existsSync(docPath)) continue;
 
     const content = readFileSync(docPath, 'utf-8');
     let match: RegExpExecArray | null;
 
     while ((match = sysDocRefRegex.exec(content)) !== null) {
-      const refTarget = match[1]; // e.g., "DOCUMENTATION/LifeosSystemArchitecture.md" or "PAISECURITYSYSTEM/ARCHITECTURE.md"
+      const refTarget = match[1]; // e.g., "DOCUMENTATION/LifeosSystemArchitecture.md" or "USER/SECURITY/SecurityPosture.md"
       const targetBasename = basename(refTarget);
-      // Check SYSTEM_DIR first (for nested paths like PAISECURITYSYSTEM/ARCHITECTURE.md),
+      // Check SYSTEM_DIR first (for nested paths like USER/SECURITY/SecurityPosture.md),
       // then DOCS_DIR (for bare basenames that refer to files relocated under DOCUMENTATION/).
       const systemPath = join(SYSTEM_DIR, refTarget);
       const docsPath = join(DOCS_DIR, refTarget);
@@ -358,7 +385,7 @@ function checkHookCounts(docsToCheck: string[], actualCount: number): DriftItem[
 // ============================================================================
 
 async function notifyVoice(message: string): Promise<void> {
-  // Desktop channel only. Remote channels (Telegram, iMessage) do not surface
+  // Desktop channel only. Remote channels (iMessage, Siri) do not surface
   // doc-integrity drift audibly — the integrity scan itself still runs.
   if (!isDesktopChannel()) {
     const channel = getNotificationChannel();
@@ -367,7 +394,7 @@ async function notifyVoice(message: string): Promise<void> {
     return;
   }
   try {
-    await fetch('http://localhost:31337/notify', {
+    await fetch(`${PULSE_BASE}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(3000),
@@ -451,7 +478,11 @@ function buildInferenceContext(
   // For each affected doc, extract the FULL section (## heading to next ## heading)
   // so inference has enough context to make quality corrections
   for (const docFile of docsToCheck) {
-    const docPath = join(SYSTEM_DIR, docFile);
+    // Same DOCS_DIR-relative contract as the deterministic checks. This site
+    // had the same wrong root, so the doc half of the inference context was
+    // always empty — inference only ever saw source files, never the prose it
+    // was asked to correct.
+    const docPath = join(DOCS_DIR, docFile);
     if (!existsSync(docPath)) continue;
 
     try {
@@ -649,7 +680,7 @@ function updateLastUpdatedTimestamp(docFile: string): string | null {
  * Update Pattern 5: Hook count in DOCUMENTATION/Hooks/HookSystem.md.
  */
 function updateHookCount(actualCount: number): string | null {
-  const docPath = join(DOCS_DIR, 'THEHOOKSYSTEM.md');
+  const docPath = join(DOCS_DIR, 'Hooks/HookSystem.md');
   if (!existsSync(docPath)) return null;
 
   const content = readFileSync(docPath, 'utf-8');
@@ -661,7 +692,7 @@ function updateHookCount(actualCount: number): string | null {
     if (oldCount !== actualCount) {
       const updated = content.replace(countRegex, `$1${actualCount}$2`);
       writeFileSync(docPath, updated);
-      return `Updated hook count in THEHOOKSYSTEM.md: ${oldCount} -> ${actualCount}`;
+      return `Updated hook count in Hooks/HookSystem.md: ${oldCount} -> ${actualCount}`;
     }
   }
 
@@ -797,17 +828,28 @@ export async function handleDocCrossRefIntegrity(
     }
   }
 
-  // Step 6: Inference-powered semantic analysis
-  // Run inference to catch what grep can't: semantic drift in descriptions.
-  // Always runs when system files are modified — deterministic checks only catch
-  // broken refs/counts, not semantic drift (e.g., "this hook does X" when it now does Y).
-  console.error(`${TAG} === Running inference analysis ===`);
-  const inferenceEdits = await runInferenceAnalysis(modifiedFiles, docsToCheck);
-  if (inferenceEdits.length > 0) {
-    const inferenceApplied = applyInferenceEdits(inferenceEdits);
-    updatesApplied.push(...inferenceApplied);
+  // Step 6: Inference-powered semantic analysis — NOT on teardown.
+  // Catches what grep can't (a doc saying "this hook does X" when it now does Y),
+  // but it spawns a `claude` subprocess capped at 15s, which is half the harness's
+  // 30s kill window for the whole hook. On SessionEnd the session is already
+  // ending, so a semantic correction bought at the cost of losing the entire
+  // deterministic pass — which is the part that actually fixes broken refs and
+  // counts — is a bad trade. Opt in explicitly for a manual run.
+  // public PR #1682, @pkumaschow
+  const inferenceEnabled =
+    hookInput.hook_event_name !== 'SessionEnd' || process.env.DOCINTEGRITY_INFERENCE === '1';
+
+  if (!inferenceEnabled) {
+    console.error(`${TAG} [INFERENCE] Skipped on SessionEnd (teardown budget). Set DOCINTEGRITY_INFERENCE=1 to force.`);
   } else {
-    console.error(`${TAG} [INFERENCE] No semantic corrections needed`);
+    console.error(`${TAG} === Running inference analysis ===`);
+    const inferenceEdits = await runInferenceAnalysis(modifiedFiles, docsToCheck);
+    if (inferenceEdits.length > 0) {
+      const inferenceApplied = applyInferenceEdits(inferenceEdits);
+      updatesApplied.push(...inferenceApplied);
+    } else {
+      console.error(`${TAG} [INFERENCE] No semantic corrections needed`);
+    }
   }
 
   // Step 7: Summary
@@ -827,8 +869,14 @@ export async function handleDocCrossRefIntegrity(
   // Step 10: Voice notification — ONLY when actual documentation edits were applied
   // No voice for "queued for review" or "in sync" — that's noise
   if (updatesApplied.length > 0) {
-    // Delay 3s so the main 🗣️ {{DA_NAME}} voice line plays first
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // The 3s delay below exists to let the main 🗣️ {{DA_NAME}} voice line play first. On
+    // SessionEnd there is no main voice line to sequence against — the session
+    // is ending — so it was 3 seconds of a 30s teardown budget spent ordering
+    // audio nobody is waiting for. Sequence only where sequencing is real.
+    // public PR #1682, @pkumaschow
+    if (hookInput.hook_event_name !== 'SessionEnd') {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
 
     const affectedDocs = new Set<string>();
     for (const update of updatesApplied) {

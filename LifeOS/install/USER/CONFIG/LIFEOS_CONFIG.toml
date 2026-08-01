@@ -46,10 +46,6 @@ volume = 1.0
 # Token lives in ~/.claude/.env (never here). Account ID is non-secret.
 token_env_var = "CLOUDFLARE_API_TOKEN"
 
-[integrations.telegram]
-# Numeric Telegram chat IDs allowed to message the bot. Empty = reject everyone.
-allowlist = []
-
 [paths]
 user_dir = "~/.claude/LIFEOS/USER"
 memory_dir = "~/.claude/LIFEOS/MEMORY"

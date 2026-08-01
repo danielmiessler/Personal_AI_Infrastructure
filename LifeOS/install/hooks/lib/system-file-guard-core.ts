@@ -18,9 +18,55 @@ import { isContained, isPatternAllowlisted, relativeToClaudeRoot } from "./conta
 
 const HOME = process.env.HOME ?? homedir();
 const CLAUDE_ROOT = join(HOME, ".claude");
-const DEFAULT_DENY_LIST_PATH = join(CLAUDE_ROOT, "skills/_LIFEOS/DENY_LIST.txt");
-const DEFAULT_HASHES_PATH = join(CLAUDE_ROOT, "skills/_LIFEOS/DENY_HASHES.json");
+const DEFAULT_DENY_LIST_PATH = join(CLAUDE_ROOT, "LIFEOS/USER/SECURITY/DENY_LIST.txt");
+// USER/SECURITY, not skills/_LIFEOS: on a public install, running the shipped
+// DeriveDenyHashes used to CREATE skills/_LIFEOS/, whose existence is exactly
+// the detectDevTree marker that disables seven installer tools (public issue
+// #1689, @christauff).
+const DEFAULT_HASHES_PATH = join(CLAUDE_ROOT, "LIFEOS/USER/SECURITY/DENY_HASHES.json");
 const DEFAULT_ENV_PATH = join(CLAUDE_ROOT, ".env");
+// Install-local allowlist (USER-tree, never ships): private-skill source files that
+// legitimately embed deny tokens by function — release tooling that greps for the
+// patterns, the customer skill's own directory name. Consulted by the private-skill
+// write tooth below so those files stay editable.
+const DEFAULT_HYGIENE_ALLOWLIST_PATH = join(CLAUDE_ROOT, "LIFEOS/USER/CONFIG/skill-hygiene-allowlist.json");
+
+// Runtime-data segments under a skill: machine-bound, regenerated, never shipped
+// (mirror the skill-runtime-data containment zone). A private-skill path containing
+// one of these is NOT source — it stays USER-classified and is not deny-scanned.
+const SKILL_RUNTIME_SEGMENTS = new Set([
+  "node_modules", "profile-data", "state", "cache", ".playwright-cli", ".cache", ".sdk_bootstrap",
+]);
+
+/**
+ * Is this a private-skill SOURCE file? (skills/_NAME/... excluding runtime-data dirs.)
+ * The 2026-07-23 separation directive requires private skills to hold no identity, so
+ * their source is deny-scanned even though the private-skills containment zone marks
+ * the tree USER. Kept in evaluateWrite (not classifyTarget) so egress classification
+ * and other classifyTarget consumers are unaffected.
+ */
+export function isPrivateSkillSource(rel: string): boolean {
+  const parts = rel.split("/");
+  if (parts.length < 3 || parts[0] !== "skills" || !parts[1].startsWith("_")) return false;
+  return !parts.slice(2).some((seg) => SKILL_RUNTIME_SEGMENTS.has(seg));
+}
+
+let hygieneAllowlistCache: Set<string> | null = null;
+export function loadHygieneAllowlist(path = DEFAULT_HYGIENE_ALLOWLIST_PATH): Set<string> {
+  const isDefault = path === DEFAULT_HYGIENE_ALLOWLIST_PATH;
+  if (isDefault && hygieneAllowlistCache) return hygieneAllowlistCache;
+  let set: Set<string>;
+  try {
+    const arr = JSON.parse(readFileSync(path, "utf-8"));
+    set = new Set(
+      Array.isArray(arr) ? arr.map((e: { path?: string }) => e?.path).filter((p): p is string => typeof p === "string") : [],
+    );
+  } catch {
+    set = new Set(); // fail-open: missing/broken allowlist never blocks
+  }
+  if (isDefault) hygieneAllowlistCache = set; // cache only the real file; injected test paths bypass
+  return set;
+}
 
 export type GuardClassification = "system" | "user" | "out-of-tree";
 
@@ -64,10 +110,20 @@ export function classifyTarget(
  * Patterns are case-insensitive (matches ripgrep `-i` used by DenyListCheck.ts).
  * Returns the compiled list plus the raw source line for each (for hit reporting).
  */
+let warnedNoDenyList = false;
 export function loadPatterns(
   denyListPath = DEFAULT_DENY_LIST_PATH,
 ): Array<{ source: string; regex: RegExp }> {
-  if (!existsSync(denyListPath)) return [];
+  if (!existsSync(denyListPath)) {
+    // Deliberate fail-open: public installs ship no private deny-list, so the
+    // corpus scan is inactive there by design. Say so once instead of looking
+    // active while scanning nothing (public issue #1504, @tzioup).
+    if (!warnedNoDenyList) {
+      warnedNoDenyList = true;
+      console.error(`[SystemFileGuard] no deny-list at ${denyListPath} — private-corpus scan inactive (expected on public installs)`);
+    }
+    return [];
+  }
   const raw = readFileSync(denyListPath, "utf-8");
   const out: Array<{ source: string; regex: RegExp }> = [];
   for (const rawLine of raw.split(/\r?\n/)) {
@@ -162,10 +218,18 @@ export function scanForHashHit(content: string, ctx: HashContext): GuardHit | nu
 export function evaluateWrite(
   absolutePath: string,
   newContent: string,
-  opts: { denyListPath?: string; claudeRoot?: string; hashesPath?: string; envPath?: string } = {},
+  opts: { denyListPath?: string; claudeRoot?: string; hashesPath?: string; envPath?: string; hygieneAllowlistPath?: string } = {},
 ): GuardDecision {
   const { classification, relPath } = classifyTarget(absolutePath, opts.claudeRoot ?? CLAUDE_ROOT);
-  if (classification !== "system") {
+  // Private-skill SOURCE files are deny-scanned even when the containment zone marks
+  // them USER (2026-07-23 separation tooth) — unless the file is hygiene-allowlisted
+  // (release tooling / the customer skill's own name) or pattern-allowlisted.
+  const gateAsPrivateSkill =
+    classification === "user" &&
+    isPrivateSkillSource(relPath) &&
+    !loadHygieneAllowlist(opts.hygieneAllowlistPath ?? DEFAULT_HYGIENE_ALLOWLIST_PATH).has(relPath) &&
+    !isPatternAllowlisted(relPath);
+  if (classification !== "system" && !gateAsPrivateSkill) {
     return { classification, filePath: absolutePath, relPath, hits: [], block: false };
   }
   const patterns = loadPatterns(opts.denyListPath ?? DEFAULT_DENY_LIST_PATH);

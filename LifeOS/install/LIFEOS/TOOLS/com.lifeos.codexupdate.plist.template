@@ -10,7 +10,9 @@
 
   Behavior:
     Runs CodexUpdate.ts daily at 04:00 (StartCalendarInterval).
-    No RunAtLoad — avoids reinstalling the codex global on every login.
+    RunAtLoad true — safe since CodexUpdate.ts skips when already at the
+    registry's latest (public issue #1513, @xmasyx); catches up a missed
+    04:00 when the machine slept through it.
     Crash-loop rate-limited (ThrottleInterval 60s).
     stdout/stderr captured to MEMORY/STATE/com.lifeos.codexupdate.log.
 -->
@@ -33,6 +35,9 @@
     <key>Minute</key>
     <integer>0</integer>
   </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
 
   <key>ThrottleInterval</key>
   <integer>60</integer>

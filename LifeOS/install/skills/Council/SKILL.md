@@ -1,9 +1,9 @@
 ---
 name: Council
-version: 1.1.18
+version: 1.1.20
 description: "Multi-agent collaborative debate producing visible round-by-round transcripts with real intellectual friction — members are topic-briefed custom agents, run as a 3-round DEBATE or a 1-round QUICK check, to find the best path. USE WHEN council, debate, multiple perspectives, weigh options, deliberate, get different views, what would experts say, pros and cons. NOT FOR pure adversarial attack (use RedTeam)."
-effort: high
 context: fork
+background: false
 ---
 
 ## Customization

@@ -5,7 +5,7 @@ import Foundation
 // LifeOS Pulse — menu bar app
 //
 // Rich dropdown: a per-subsystem counts row over a chronological activity feed
-// (Amber, Conduit, Memory, Work, System), fed by the Pulse endpoint /api/menubar.
+// (Synapse, Conduit, Memory, Work, System), fed by the Pulse endpoint /api/menubar.
 // A numeric badge on the icon counts unseen feed events since the menu was last
 // opened; opening the menu clears it. Falls back to a direct state.json read when
 // the Pulse API is unreachable, so the menu always opens.
@@ -20,6 +20,10 @@ let LAST_SEEN_KEY = "lifeos.pulse.menubar.lastSeenMs"
 struct MenuBarPayload: Codable {
     let daemon: Daemon
     let counts: Counts
+    /// Optional so a Pulse that predates the sidecar block still decodes — this
+    /// struct decodes all-or-nothing, and a missing key would drop the whole menu
+    /// into offline mode.
+    let hermes: Hermes?
     let feed: [FeedItem]
 
     struct Daemon: Codable {
@@ -35,6 +39,11 @@ struct MenuBarPayload: Codable {
         let memory: Int
         let memoryPending: Int
         let work: Int
+    }
+    struct Hermes: Codable {
+        let status: String
+        let summary: String
+        let channels: String
     }
     struct FeedItem: Codable {
         let subsystem: String
@@ -152,6 +161,19 @@ func statusColor(_ status: String) -> NSColor {
     case "running": return .systemGreen
     case "stale": return .systemYellow
     case "failing": return .systemRed
+    default: return .systemGray
+    }
+}
+
+/// Sidecar states are its own vocabulary — `flapping` has no daemon equivalent
+/// and is the one worth seeing, so it gets its own colour rather than the
+/// default gray a shared mapper would give it.
+func hermesColor(_ status: String) -> NSColor {
+    switch status {
+    case "up": return .systemGreen
+    case "degraded": return .systemYellow
+    case "flapping": return .systemOrange
+    case "down": return .systemRed
     default: return .systemGray
     }
 }
@@ -324,7 +346,7 @@ class PulseMenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Counts row + activity feed (only when API reachable)
         if apiReachable, let p = payload {
             var countBits: [String] = []
-            countBits.append("Amber \(p.counts.amber)")
+            countBits.append("Synapse \(p.counts.amber)")
             countBits.append("Conduit \(p.counts.conduitMinutes)m")
             var memBit = "Mem \(p.counts.memory)"
             if p.counts.memoryPending > 0 { memBit += " · \(p.counts.memoryPending) pending" }
@@ -332,6 +354,15 @@ class PulseMenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             countBits.append("Work \(p.counts.work)")
             let countsItem = disabledItem(countBits.joined(separator: "    "), indent: 1, color: .labelColor, size: 12)
             menu.addItem(countsItem)
+
+            // Hermes sidecar — separate process tree, so it gets its own row
+            // rather than a count. Absent means not installed: no row at all.
+            // `summary` already names the channel count when there is one, so the
+            // separate `channels` field stays out of this row rather than
+            // repeating it.
+            if let h = p.hermes, h.status != "absent" {
+                menu.addItem(disabledItem("Hermes  \(h.summary)", indent: 1, color: hermesColor(h.status), size: 12))
+            }
 
             menu.addItem(NSMenuItem.separator())
             menu.addItem(disabledItem("RECENT", indent: 1, color: .tertiaryLabelColor, size: 10))

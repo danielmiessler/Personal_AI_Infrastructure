@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.0
+ * @version 1.1.2
  * MemoryTurnStart.hook.ts — the ONE UserPromptSubmit memory hook.
  *
  * Consolidation (2026-07-11, hooks BPE pass): merges the three per-prompt
@@ -9,8 +9,17 @@
  * and concatenates output. Order matches the old registration order:
  *
  *   1. MemoryReviewTrigger.run()  — cadence tick (state only, no output)
- *   2. LoadMemory.run()           — <pai-memory> hot-layer injection
- *   3. MemoryDeltaSurface.run()   — <pai-memory-health>? + <pai-memory-delta>
+ *   2. LoadMemory.run()           — <lifeos-memory> hot-layer injection
+ *   3. MemoryDeltaSurface.run()   — <lifeos-memory-health>? + <lifeos-memory-delta>
+ *   4. getRelevantContext(prompt) — <lifeos-ground> task-scoped BM25 retrieval
+ *
+ * Step 4 (public issue #1573, @christauff): the ranked retriever previously
+ * fired only on remote channels (ln), never on the CLI turn path — so prior
+ * work sitting top-ranked in the corpus for the exact query never reached a
+ * terminal session. Every-turn (query-specific, so the inject gate below does
+ * not apply); the 0.20 score threshold means below-threshold prompts inject
+ * NOTHING — no header noise. Synchronous BM25 over the typed corpus, 60s
+ * cached by query hash. Fail-open: a retriever error never blocks the prompt.
  *
  * Subagent skip: checked ONCE here (the sub-hooks' own shims keep their checks
  * for standalone runs). Failure mode: any sub-hook error is caught inside its
@@ -21,13 +30,16 @@
 // cadence now — counting, decision, and firing in one place.
 import { run as loadMemory } from "./LoadMemory.hook";
 import { run as deltaSurface } from "./MemoryDeltaSurface.hook";
+import { getRelevantContext } from "../LIFEOS/TOOLS/MemoryRetriever";
+import { clearLedger as clearSystemDelta } from "./SystemChangeSurface.hook";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
+import { isSubagentContext as isSubagent } from './lib/subagent';
 
 // ── Hot-layer injection gate (2026-07-11, context-window cleanup #1) ─────────
-// The <pai-memory> block is ~1.5K tokens; injecting it EVERY prompt duplicated
+// The <lifeos-memory> block is ~1.5K tokens; injecting it EVERY prompt duplicated
 // it dozens of times per session. Policy: inject on a session's FIRST prompt,
 // whenever the memory files' content actually CHANGED, or after REFRESH_TURNS
 // prompts without an injection (compaction backstop — a post-compact window
@@ -66,14 +78,6 @@ function shouldInject(sessionId: string): boolean {
   return inject;
 }
 
-function isSubagent(): boolean {
-  return Boolean(
-    process.env.CLAUDE_CODE_SUBAGENT_NAME ||
-    process.env.CLAUDE_CODE_SUBAGENT_TYPE ||
-    process.env.CLAUDE_AGENT_SDK === "1",
-  );
-}
-
 async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = "";
@@ -88,7 +92,19 @@ if (isSubagent()) process.exit(0);
 
 (async () => {
   let sessionId = "unknown";
-  try { sessionId = JSON.parse(await readStdin()).session_id || "unknown"; } catch {}
+  let prompt = "";
+  try {
+    const input = JSON.parse(await readStdin());
+    sessionId = input.session_id || "unknown";
+    prompt = typeof input.prompt === "string" ? input.prompt : "";
+  } catch {}
+
+  // Turn boundary for the ⚙️ SYSTEM surface. It lives here because this is the
+  // ONE UserPromptSubmit composer, so it needs no new settings.json entry — and
+  // a fresh registration is the fragile part (see MemoryDeltaSurface's header:
+  // one was clobbered by a concurrent write and sat dead five days). Per-session
+  // by construction; a concurrent session's turn must not clear this one's.
+  try { clearSystemDelta(sessionId); } catch {}
 
   if (shouldInject(sessionId)) {
     const memory = loadMemory();
@@ -96,5 +112,19 @@ if (isSubagent()) process.exit(0);
   }
   const delta = deltaSurface();
   if (delta) process.stdout.write(delta);
+
+  // Task-scoped retrieval (public issue #1573, @christauff) — CLI parity with
+  // the remote-channel ln() path. Empty markdownBlock (below threshold, empty
+  // corpus, or trivial prompt) injects nothing.
+  if (prompt.trim().length > 0) {
+    try {
+      const ground = getRelevantContext(prompt, { topK: 5, threshold: 0.20 });
+      if (ground.markdownBlock) {
+        process.stdout.write(`<lifeos-ground>\n${ground.markdownBlock}\n</lifeos-ground>\n`);
+      }
+    } catch (e) {
+      process.stderr.write(`MemoryTurnStart ground error: ${(e as Error)?.message || String(e)}\n`);
+    }
+  }
   process.exit(0);
 })().catch(() => process.exit(0));

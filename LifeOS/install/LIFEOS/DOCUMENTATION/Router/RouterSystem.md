@@ -1,16 +1,18 @@
 ---
 last_updated: 2026-07-02
-last_updated_by: kai
+last_updated_by: da
 last_reviewed: 2026-07-02
-last_reviewed_by: kai
+last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.0.11
+version: 1.0.12
 ---
 
 > **RETIRED 2026-07-11 (hooks + thinking-system BPE pass).** TheRouter hook, the mode/tier
 > classifier, and the E1–E5 effort tiers no longer exist. Mode is gone entirely — one response
 > format, one loop (Algorithm v8.2.0); spend is discovered from the work. Model rungs live in
-> `LIFEOS/TOOLS/models.ts` (EFFORT_MODEL) and `AgentInvocation.hook.ts` (dispatch injection).
+> `LIFEOS/TOOLS/models.ts` (EFFORT_MODEL); dispatches that omit `model` inherit the session
+> default, and `AgentInvocation.hook.ts` only observes and logs them (the injector was removed
+> with the classifier; its last vestige, a MODEL-CHECK advisory, went 2026-07-24).
 > This document is kept as history only — nothing below is operative.
 
 # The Router

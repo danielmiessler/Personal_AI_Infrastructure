@@ -12,15 +12,15 @@ Transform any content into professional LifeOS-themed animations.
 
 ## Input Types
 
-This workflow handles ANY input via the Parser skill:
+This workflow handles ANY input. Extraction is whatever gets clean text into context:
 
 | Input Type | Detection | Extraction Method |
 |------------|-----------|-------------------|
-| YouTube URL | `youtube.com`, `youtu.be` | Parser: ExtractYoutube → transcript |
-| Article URL | HTTP(S) URL | Parser: ExtractArticle → text |
+| YouTube URL | `youtube.com`, `youtu.be` | `fabric -y <url>` → transcript |
+| Article URL | HTTP(S) URL | WebFetch → text (Research skill if the page resists) |
 | Blog file | `.md` file path | Direct read → markdown content |
-| PDF file | `.pdf` file path | Parser: ExtractPdf → text |
-| Tweet/Thread | `twitter.com`, `x.com` | Parser: ExtractTwitter → thread |
+| PDF file | `.pdf` file path | Read tool (reads PDFs natively) → text |
+| Tweet/Thread | `twitter.com`, `x.com` | X blocks WebFetch — use a dedicated X reader if you have one, else paste the text |
 | Raw text | No URL/path detected | Use directly |
 
 ## Execution Steps
@@ -32,21 +32,21 @@ This workflow handles ANY input via the Parser skill:
 │ STEP 1: CONTENT EXTRACTION                                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ 1. Detect input type (URL, file path, or raw text)                         │
-│ 2. Route to appropriate Parser workflow OR read directly                    │
+│ 2. Route to the matching extraction method above OR read directly           │
 │ 3. Extract: title, sections, key points, quotes, data                      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **For YouTube:**
 ```bash
-# Get transcript via Parser skill
-# Load: ~/.claude/skills/Parser/Workflows/ExtractYoutube.md
+# Get the transcript
+fabric -y "<youtube-url>"
 ```
 
 **For articles/blogs:**
 ```bash
-# Read file directly for .md
-# Or use Parser: ExtractArticle for URLs
+# Read the file directly for .md
+# For URLs, WebFetch the page; if it resists, run the Research skill
 ```
 
 ### 2. Analyze Structure
@@ -378,8 +378,8 @@ import { LIFEOS_THEME } from '~/.claude/skills/Remotion/theme'
 │ STEP 5: RENDER                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ 1. Install dependencies: npm install                                        │
-│ 2. Render: npx remotion render {composition-id} ~/Downloads/{name}.mp4     │
-│ 3. Open for preview: open ~/Downloads/{name}.mp4                           │
+│ 2. Render: npx remotion render {composition-id} "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.mp4     │
+│ 3. Open for preview: open "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.mp4                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 

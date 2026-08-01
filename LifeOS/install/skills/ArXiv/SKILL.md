@@ -1,8 +1,7 @@
 ---
 name: ArXiv
-version: 1.0.7
-description: "Search and retrieve arXiv academic papers by topic, category, or paper ID — with AlphaXiv-enriched AI-generated overviews. Uses arXiv Atom API across cs.AI/cs.LG/cs.CL/cs.CR/cs.MA/cs.SE/cs.IR. Three workflows: Latest, Search, Paper. USE WHEN arxiv, papers, latest papers, research papers, recent ML papers, paper lookup, summarize paper, latest LLM papers, AI safety papers, cs.AI latest. NOT FOR general research (Research), URL parsing (_PARSER), or annual reports (_ANNUALREPORTS)."
-effort: low
+version: 1.0.9
+description: "Search and retrieve arXiv academic papers by topic, category, or paper ID — with AlphaXiv-enriched AI-generated overviews. Uses arXiv Atom API across cs.AI/cs.LG/cs.CL/cs.CR/cs.MA/cs.SE/cs.IR. Three workflows: Latest, Search, Paper. USE WHEN arxiv, papers, latest papers, research papers, recent ML papers, paper lookup, summarize paper, latest LLM papers, AI safety papers, cs.AI latest. NOT FOR general research (Research), URL parsing, or annual reports."
 ---
 
 ## Customization

@@ -268,7 +268,7 @@ Optional: Sign small in bottom right corner in charcoal (#2D2D2D).
 ### Step 5: Execute Generation
 
 ```bash
-bun run ~/.claude/skills/art/Tools/Generate.ts \
+bun run ~/.claude/skills/Art/Tools/Generate.ts \
   --workflow=Taxonomies \
   --model nano-banana-pro \
   --prompt "[YOUR PROMPT]" \
@@ -277,7 +277,7 @@ bun run ~/.claude/skills/art/Tools/Generate.ts \
   --output /path/to/taxonomy.png
 ```
 
-**Model Recommendation:** nano-banana-pro (default, best for hierarchy labels within editorial aesthetic) or `gpt-image-2` (currently #1 on Image Arena leaderboards as of 2026-05-04 — strongest text fidelity for taxonomies with many small labeled nodes).
+**Model Recommendation:** nano-banana-pro — the default and only model for this workflow. It handles hierarchy labels within the editorial aesthetic.
 
 **Immediately Open:**
 ```bash

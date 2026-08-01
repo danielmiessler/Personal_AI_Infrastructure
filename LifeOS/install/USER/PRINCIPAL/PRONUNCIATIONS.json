@@ -1,0 +1,6 @@
+{
+  "_comment": "Pronunciation overrides for the TTS layer. Flat map: exact text to match -> how it should be spoken. Matching is literal, so add each inflection you actually say ('is live', 'went live'). The VoiceServer reads THIS file (LIFEOS/USER/PRINCIPAL/PRONUNCIATIONS.json); the sibling PRONUNCIATIONS.md is human notes only. Delete these examples and add your own.",
+  "LifeOS": "LIFE-ohess",
+  "is live": "is lyve",
+  "went live": "went lyve"
+}

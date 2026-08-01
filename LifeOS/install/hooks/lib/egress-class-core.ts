@@ -21,7 +21,7 @@ import {
   CLASS_RANK,
   type DataClass,
   type InferenceRoute,
-} from "../../LIFEOS/TOOLS/models";
+} from "./data-classification";
 
 /** Secret VALUE shapes — credentials/tokens that must never reach a capped route. */
 export const SECRET_VALUE_SHAPES: readonly RegExp[] = [
@@ -37,14 +37,21 @@ export const SECRET_VALUE_SHAPES: readonly RegExp[] = [
   /Bearer\s+[A-Za-z0-9._-]{24,}/,         // bearer tokens
 ];
 
-/** Sensitive path references — mirrors LIFEOS/USER/CONFIG/data-classification.json.
+/** Sensitive path references — path list mirrored in
+ * LIFEOS/DOCUMENTATION/Security/DataClassification.md (a former claim that this
+ * mirrors a data-classification.json was wrong: no such file exists — public
+ * issue #1615, @JohnnyDisco7).
  * Most-sensitive match wins (RESTRICTED sub-paths beat the LIFEOS/USER CONFIDENTIAL default). */
 export const PATH_CLASS_RULES: ReadonlyArray<{ re: RegExp; cls: DataClass }> = [
   { re: /(?:^|[\s'"`\/=])\.env\b/, cls: "RESTRICTED" },
   { re: /(?:LIFEOS|PAI)\/USER\/CONFIG\/CREDENTIALS\//, cls: "RESTRICTED" },
-  { re: /(?:LIFEOS|PAI)\/USER\/WORK\/CUSTOMERS\//, cls: "RESTRICTED" },
+  // Customer-work anchor covers the SHIPPED scaffold names, not just this
+  // machine's CUSTOMERS/ dir — on a stock install CUSTOMERS/ never exists, so
+  // the old anchor was dead for every user (public issue #1615, @JohnnyDisco7).
+  { re: /(?:LIFEOS|PAI)\/USER\/WORK\/(?:CUSTOMERS|YOUR_COMPANIES|SAMPLE_CUSTOMER|SAMPLE_CONSULTING)\//, cls: "RESTRICTED" },
   { re: /skills\/_[A-Z]/, cls: "CONFIDENTIAL" }, // any private (underscore-prefixed) skill dir — generalized off a hardcoded customer prefix. Customer-RESTRICTED data is caught by USER/WORK/CUSTOMERS above + the release deny-list; on the capped GLM route (PUBLIC ceiling) CONFIDENTIAL blocks identically to RESTRICTED.
-  { re: /(?:LIFEOS|PAI)\/USER\/TELOS\/FINANCES\//, cls: "RESTRICTED" },
+  { re: /(?:LIFEOS|PAI)\/USER\/(?:TELOS\/)?FINANCES\//, cls: "RESTRICTED" }, // canonical USER/FINANCES since 2026-07-12; TELOS/ form kept as legacy alias — never weaken
+  { re: /(?:LIFEOS|PAI)\/USER\/(?:TELOS\/)?HEALTH\//, cls: "RESTRICTED" }, // health data home (was TELOS/HEALTH); previously only caught by the CONFIDENTIAL default
   { re: /(?:LIFEOS|PAI)\/USER\/CONTACTS\.md/, cls: "RESTRICTED" },
   { re: /(?:LIFEOS|PAI)\/MEMORY\/KNOWLEDGE\/(?:People|Companies)\//, cls: "CONFIDENTIAL" },
   { re: /(?:LIFEOS|PAI)\/MEMORY\/(?:RELATIONSHIP|SECURITY)\//, cls: "CONFIDENTIAL" },

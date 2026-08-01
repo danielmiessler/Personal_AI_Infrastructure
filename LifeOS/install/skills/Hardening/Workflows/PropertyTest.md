@@ -38,7 +38,7 @@ If none apply, skip property testing — use `bun-test` example form for the ISC
 | 7 | **Model-based** | code matches trivial reference impl | `parseFrontmatter ≡ jsYaml.load + body-split` |
 | 8 | **Metamorphic** | "if input grows, output should grow" | density-score is monotone in evidence count |
 | 9 | **State-machine** | any legal sequence preserves invariants | ISA phase machine never goes backward except via Resume |
-| 10 | **Oracle** | result matches trusted alternative | TheRouter classifier vs deterministic rule table |
+| 10 | **Oracle** | result matches trusted alternative | a classifier vs a deterministic rule table |
 
 ## Candidate detection — ten questions
 
@@ -121,7 +121,7 @@ A successful PropertyTest landing adds:
 ## Cross-references
 
 - Testing Doctrine Rule #11 — fast-check as approved primitive (`LIFEOS/DOCUMENTATION/Testing/TestingDoctrine.md`)
-- IsaFormat.md ISC Type Vocabulary — `bun-property` schema (`LIFEOS/DOCUMENTATION/Isa/IsaFormat.md`)
+- ISAFormat.md ISC Type Vocabulary — `bun-property` schema (`LIFEOS/DOCUMENTATION/ISA/ISAFormat.md`)
 - Algorithm v6.10.0 candidate — VERIFY hardening gate, PropertyAudit capability (`LIFEOS/ALGORITHM/v6.10.0.md`)
 - fast-check documentation — <https://fast-check.dev/>
 - John Hughes original QuickCheck paper — <https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf>

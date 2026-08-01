@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * ThumbnailText.ts — deterministic compositor for {{PRINCIPAL_FULL_NAME}}'s (@unsupervised-learning)
+ * ThumbnailText.ts — deterministic compositor for the principal's
  * YouTube thumbnail house style. Built from the documented design system in
  * USER/CUSTOMIZATIONS/SKILLS/Art/YouTubeThumbnailExamples/SPECIFICATIONS.md, reconciled against
  * live pixel samples of the real Main / Sponsored thumbnails (the spec's border/bg values were
@@ -321,7 +321,7 @@ function main(): void {
     //   (white condensed title + subtitle + accent underline), a BIG face bottom-anchored on
     //   the face side with the head rising to just under the band, the plate/diagram showing in
     //   the body, node-logo top-right. The prior layout (small left text column + small low
-    //   face, all-accent title) did NOT match the real @unsupervised-learning solo control
+    //   face, all-accent title) did NOT match the real solo control
     //   (5-Levels) — principal called it out. ----
     const marginX = 56;
     const bandH = Math.round(H * 0.32); // ≈230 navy title band, full width

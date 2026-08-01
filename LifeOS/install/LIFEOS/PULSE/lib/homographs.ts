@@ -14,7 +14,7 @@
  * Each context regex contains the homograph; only the homograph token inside a
  * match is respelled, so a sentence mixing both senses stays correct.
  *
- * Shared by the VoiceServer (PRONUNCIATIONS pipeline) and the Telegram voice
+ * Shared by the VoiceServer (PRONUNCIATIONS pipeline) and any remote-channel voice
  * path so every spoken channel reads "live" the same way.
  */
 

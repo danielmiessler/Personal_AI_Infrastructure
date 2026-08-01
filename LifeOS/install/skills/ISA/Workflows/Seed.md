@@ -4,7 +4,7 @@ Bootstrap a draft project ISA from an existing repository's README, code structu
 
 ## When to invoke
 
-- The Algorithm at OBSERVE on a project that has no `<project>/ISA.md` and the task is non-trivial: `Skill("ISA", "seed <project-path>")`
+- The Algorithm at run start on a project that has no `<project>/ISA.md` and the task is non-trivial: `Skill("ISA", "seed <project-path>")`
 - User directly when onboarding a project: `Skill("ISA", "seed ~/Projects/<repo>")`
 - Lazy-seed migration: a project's first task triggers Seed before any other workflow.
 
@@ -14,7 +14,7 @@ Bootstrap a draft project ISA from an existing repository's README, code structu
 |-------|----------|-------------|
 | project_path | yes | Repository root (where the new `ISA.md` will be written) |
 | name | no | Project name; defaults to basename of project_path |
-| tier | no | Default E3 (the project ISA minimum). Override to E4/E5 for fully-fleshed bootstrap. |
+| depth | no | Default: the substantial-grade project-ISA minimum. Ask for a fully-fleshed deepest-grade bootstrap explicitly when wanted. |
 | dry_run | no | Default false. If true, emit the proposed ISA to stdout instead of writing. |
 
 ## Output
@@ -116,11 +116,8 @@ Write `<project_path>/ISA.md` with the drafted sections. Frontmatter:
 ---
 project: <name>
 task: "Project ISA — <name>"
-effort: <tier>
-effort_source: explicit
-phase: observe
-progress: 0/<isc-count>
-mode: interactive
+phase: scoping
+progress: 0/<claim-count>
 started: <ISO-8601>
 updated: <ISO-8601>
 ---
@@ -134,7 +131,7 @@ Emit `review_required: true` in the report. Seed is a **draft** — the human-au
 
 - **Does not invent fiction.** If the README is empty, the Vision section is empty. Don't fabricate to make the doc look complete.
 - **Does not score AI-generated content.** Seed produces stubs; Interview produces depth.
-- **Does not run CheckCompleteness.** Seeded ISAs are explicitly partial; running CheckCompleteness against a seeded ISA at E4 will fail by design.
+- **Does not run CheckCompleteness.** Seeded ISAs are explicitly partial; running CheckCompleteness against a fresh seed will fail by design.
 - **Does not commit.** Seed writes the file; the user decides when to commit.
 
 ## Failure modes

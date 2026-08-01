@@ -20,7 +20,8 @@
  *   bun InstallSettings.ts [--config-root <dir>] [--skill-root <dir>] [--apply] [--allow-dev]
  */
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync } from "node:fs";
+import { atomicWriteText } from "./lib/atomic-write";
 import { join } from "node:path";
 import { detectDevTree } from "./InstallEngine";
 
@@ -86,7 +87,8 @@ const report: Record<string, unknown> = { ok: true, apply: args.apply, target: t
 if (!existsSync(targetPath)) {
   report.mode = "create";
   report.topLevelKeys = Object.keys(template).length;
-  if (args.apply) writeFileSync(targetPath, JSON.stringify(template, null, 2) + "\n");
+  // Atomic — never leave a half-written settings.json (public PR #1643, @elhoim)
+  if (args.apply) atomicWriteText(targetPath, JSON.stringify(template, null, 2) + "\n");
 } else {
   const current = JSON.parse(readFileSync(targetPath, "utf8")) as Record<string, unknown>;
   const addedKeys: string[] = [];
@@ -105,7 +107,7 @@ if (!existsSync(targetPath)) {
   report.addedEnv = addedEnv;
   if (args.apply && (addedKeys.length || addedEnv.length)) {
     copyFileSync(targetPath, targetPath + ".backup-" + new Date().toISOString().replace(/[:.]/g, "-"));
-    writeFileSync(targetPath, JSON.stringify(current, null, 2) + "\n");
+    atomicWriteText(targetPath, JSON.stringify(current, null, 2) + "\n");
   } else if (args.apply) {
     report.note = "nothing to add — no write, no backup";
   }

@@ -1,8 +1,7 @@
 ---
 name: AudioEditor
-version: 1.0.22
-description: "AI audio editing pipeline: Whisper word-level transcription → Claude segment classification (KEEP/CUT_FILLER/CUT_FALSE_START/CUT_STUTTER/CUT_DEAD_AIR) → ffmpeg with 40ms qsin crossfades and room-tone fill → optional Cleanvoice cloud polish. Distinguishes rhetorical from accidental pauses; breaths attenuated 50%. Modes: --preview, --aggressive, --polish. Workflow: Clean. USE WHEN clean audio, edit audio, remove filler words, clean podcast, remove ums, cut dead air, polish audio, trim recording, cut stutters. NOT FOR video composition (use Remotion)."
-effort: medium
+version: 1.0.26
+description: "AI audio editing pipeline: Whisper word-level transcription → Claude segment classification (KEEP/CUT_FILLER/CUT_FALSE_START/CUT_STUTTER/CUT_DEAD_AIR) → ffmpeg with 40ms qsin crossfades and room-tone fill → optional Cleanvoice cloud polish; plus GateScan/GateRepair for noise-gate ticking artifacts. Modes: --preview, --aggressive, --polish. Workflow: Clean. USE WHEN clean audio, edit audio, remove filler words, clean podcast, remove ums, cut dead air, polish audio, trim recording, cut stutters, ticking audio, clicking audio, audio clicks, gate artifacts, popping audio. NOT FOR video composition (use Remotion)."
 ---
 
 # AudioEditor
@@ -84,6 +83,15 @@ Output: cleaned MP3/WAV
 | **Edit** | `bun ${LIFEOS_SKILL_DIR}/Tools/Edit.ts <file> <edits.json>` | Execute cuts with crossfades + room tone |
 | **Polish** | `bun ${LIFEOS_SKILL_DIR}/Tools/Polish.ts <file>` | Cleanvoice API cloud polish |
 | **Pipeline** | `bun ${LIFEOS_SKILL_DIR}/Tools/Pipeline.ts <file> [--polish]` | Full end-to-end pipeline |
+| **GateScan** | `bun ${LIFEOS_SKILL_DIR}/Tools/GateScan.ts <file> [--json]` | Detect noise-gate ticking (silence-boundary steps); exit 1 on defects |
+| **GateRepair** | `bun ${LIFEOS_SKILL_DIR}/Tools/GateRepair.ts <in> <out.mp4> --finalize [--abr 192k]` | Repair gate ticking; --finalize iterates until the ENCODED file scans clean |
+| **LoudnessLock** | `bun ${LIFEOS_SKILL_DIR}/Tools/LoudnessLock.ts <in> [--out <out.mp4>]` | Measure or lock delivery loudness to −14 LUFS / −1dBTP (YouTube standard); self re-measures, exit 0 only in tolerance |
+
+## Gate Artifacts (on-report only — routine checks retired 2026-07-15)
+
+Capture-chain noise gates (recorder filters, macOS Voice Isolation) truncate audio to digital zero with no fade; leveling amplifies each edge into an audible tick — the 2026-07-13 incident (774 edges, two public launch videos, listener complaints). The class was root-fixed at capture: {{PRINCIPAL_NAME}} removed the OBS noise-gate filter from the mic chain 2026-07-14, and on 2026-07-15 directed the routine per-export GateScan checks REMOVED from the standard workflows — don't re-scan every export.
+
+**When someone actually reports ticking/clicking in audio:** `GateScan` the file to confirm (sample-domain steps, exit 1 on defects), `GateRepair --finalize` to fix (repair before leveling when possible; scan the final ENCODE, not the intermediate WAV — AAC re-introduces steps near silence). If a RAW recording scans dirty, a capture-chain gate is back on — surface it.
 
 ## API Keys Required
 
@@ -123,6 +131,9 @@ User: "aggressively clean this audio and polish it"
 - **Transcription accuracy varies with audio quality.** Background noise, multiple speakers, and accents reduce accuracy.
 - **Cut detection is heuristic-based.** Always preview edits before committing — automated cuts can remove intentional pauses.
 - **Cloud polish uploads audio to external service.** Confirm the user is okay with cloud processing for sensitive content.
+- **dB-domain cliff detectors false-positive on fade feet.** A legitimate cosine fade into digital zero has infinite dB slope at its foot, so any >NdB/2ms detector flags it forever. Verify repairs with sample-domain STEP detection (GateScan), never dB slopes. (2026-07-13)
+- **One-sided iterative fades don't converge on stray boundary impulses.** A single sample sitting on a gate boundary survives repeated one-sided fades; fade-down-then-up "mutes" preserve a blip's edges and its leading step. The V-notch (cosine to zero at the boundary, both sides) and hard-zeroing inside gated silence are the converging fixes. (2026-07-13)
+- **Meter-clean ≠ ear-clean.** Scanners find ticks; repairs can create audible holes the tick-scanner calls clean (the 2026-07-12 duck incident). Match the probe to the defect class a human hears, keep repairs minimal-touch, and give the principal before/after listen clips at swap time.
 
 ## Execution Log
 

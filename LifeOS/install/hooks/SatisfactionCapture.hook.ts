@@ -7,27 +7,33 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.3.15
+ * @version 1.4.1
  * SatisfactionCapture.hook.ts - Implicit & Explicit Satisfaction Rating
  *
  * PURPOSE:
  * Standalone hook that captures user satisfaction with AI responses.
- * Handles both explicit ratings (bare numbers) and implicit sentiment
- * analysis from follow-up behavior.
+ * Handles both explicit ratings (bare numbers) and explicit corrections.
  *
  * TRIGGER: UserPromptSubmit
  *
  * KEY BEHAVIOR:
  * - Explicit rating (bare "8") → capture directly
  * - Positive praise ("great job") → fast-path rating 8
- * - Neutral follow-up ("now do X") → rating 5 (not skipped)
- * - Happy follow-up ("awesome, now do X") → rating 6-10
- * - Unhappy follow-up ("that's wrong, fix X") → rating 1-4
- * - System text / very short → skip
+ * - Explicit correction ("no, that's wrong") → capture a FAILURES incident
+ *   whose summary IS the verbatim complaint (deterministic, no inference)
+ * - System text / very short / neutral → skip
  *
- * CRITICAL FIX: Previous system returned null for neutral prompts,
- * meaning no rating was recorded. Now EVERY non-system prompt gets a rating.
- * Neutral = 5, not null.
+ * 1.4.0: Added the standing-directive leg ("from now on", "in the future",
+ * "always/never do X", "rule:") → one record in the Upgrades store
+ * (LIFEOS/MEMORY/UPGRADES/), and corrections now ALSO write an upgrade record
+ * alongside the FAILURES incident. Deterministic, fail-open, no LLM.
+ *
+ * 1.3.16: Added the deterministic explicit-correction leg. Per-turn implicit-
+ * sentiment inference was removed in 7.0.0 (correct — noisy and costly), which
+ * collapsed complaint capture ~97%: complaints without a numeric rating stopped
+ * reaching the FAILURES corpus (the nightly improvement deriver's input). This
+ * leg restores mechanism-bearing complaint capture WITHOUT any per-turn LLM call:
+ * precision-first phrase matching only, verbatim complaint as the summary.
  */
 
 import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
@@ -37,6 +43,7 @@ import { getIdentity, getPrincipal, getPrincipalName } from './lib/identity';
 import { getLearningCategory } from './lib/learning-utils';
 import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../LIFEOS/TOOLS/FailureCapture';
+import { addUpgrade } from '../LIFEOS/TOOLS/Upgrades';
 import { addRatingPulse } from './lib/isa-utils';
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
@@ -75,6 +82,12 @@ const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const LAST_RESPONSE_CACHE = join(BASE_DIR, 'MEMORY', 'STATE', 'last-response.txt');
 const MIN_PROMPT_LENGTH = 3;
 
+// Longest trailing comment accepted after a BARE leading digit ("8 nice", "8 - nice").
+// Real rating comments are a few words; a long tail means prose that merely starts
+// with a digit. Does not apply to "N/10" or word forms — those are unambiguous.
+// public PR #1670, @asdf8675309
+const MAX_BARE_DIGIT_COMMENT = 80;
+
 // Sentence-starters that mean a leading number is describing work, not rating it
 // (e.g. "2/10 items done", "3 of the files"). Shared by the fraction and generic parsers.
 const SENTENCE_STARTERS = /^(items?|things?|steps?|files?|lines?|bugs?|issues?|errors?|times?|minutes?|hours?|days?|seconds?|percent|%|th\b|st\b|nd\b|rd\b|of\b|in\b|at\b|to\b|the\b|a\b|an\b)/i;
@@ -85,7 +98,11 @@ async function readStdinWithTimeout(timeout: number = 5000): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = '';
     const timer = setTimeout(() => resolve(data), timeout);
-    process.stdin.on('data', (chunk) => { data += chunk.toString(); });
+    // 10MB cap — unbounded buffering risked multi-GB allocation on a fast stream (public issue #1533, @christauff)
+    process.stdin.on('data', (chunk) => {
+      data += chunk.toString();
+      if (data.length > 10_000_000) { clearTimeout(timer); try { process.stdin.pause(); } catch {} resolve(data); }
+    });
     process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
     process.stdin.on('error', (err) => { clearTimeout(timer); reject(err); });
   });
@@ -109,7 +126,7 @@ const WORD_NUMBERS: Record<string, number> = {
 
 // ── Explicit Rating Detection ──
 
-function parseExplicitRating(prompt: string): { rating: number; comment?: string } | null {
+export function parseExplicitRating(prompt: string): { rating: number; comment?: string } | null {
   const trimmed = prompt.trim();
 
   // Check word-form ratings first (e.g., "ten", "Eight")
@@ -140,10 +157,28 @@ function parseExplicitRating(prompt: string): { rating: number; comment?: string
 
   if (rating < 1 || rating > 10) return null;
 
+  // ")" and "]" right after the digit mark a numbered list ("1) do this,
+  // 2) do that"), not a rating. Prefer a missed rating to a false positive:
+  // a miss only loses the ledger row (the prompt still falls through to the
+  // correction/implicit paths below), whereas rating <= 3 writes a permanent
+  // failure capture describing a complaint that never happened.
+  // Not covered: whitespace before the delimiter ("1 ) item") still parses
+  // as a rating — tightening that would also catch "8 . nice", so it is
+  // left alone rather than widened past this one concern.
+  // public PR #1670, @asdf8675309
   const afterNumber = trimmed.slice(match[1].length);
-  if (afterNumber.length > 0 && /^[/.\dA-Za-z]/.test(afterNumber)) return null;
+  if (afterNumber.length > 0 && /^[/.)\]\dA-Za-z]/.test(afterNumber)) return null;
 
   if (rest && SENTENCE_STARTERS.test(rest)) return null;
+
+  // A bare leading digit is the weakest rating evidence in this function — it is
+  // also exactly how a numbered list item starts, and "-" is an accepted rating
+  // separator, so "2 - add the header, but also back the file up first" is
+  // indistinguishable from "8 - nice" by shape alone. Length separates them:
+  // real rating comments are a few words. The "N/10" and word forms above are
+  // unambiguous rating syntax and are deliberately NOT capped.
+  // public PR #1670, @asdf8675309
+  if (rest && rest.length > MAX_BARE_DIGIT_COMMENT) return null;
 
   return { rating, comment: rest };
 }
@@ -159,6 +194,84 @@ const POSITIVE_PHRASES = new Set([
   'great job', 'good job', 'nice work', 'well done', 'nice job', 'good work',
   'love it', 'nailed it', 'looks great', 'looks good', 'thats great', 'that works',
 ]);
+
+// ── Explicit Correction Detection ──
+//
+// Deterministic, precision-first phrase matching — ZERO inference, ZERO API calls.
+// Fires only on prompts that are unambiguously corrections/complaints about the
+// previous response. When in doubt it returns null: a false positive poisons the
+// FAILURES corpus (32% of the historical corpus was noise — that's what this fixes).
+// Returns the verbatim complaint (trimmed) on a hit, else null.
+
+// Unambiguous correction phrases (apostrophes normalized to straight, lowercased).
+const CORRECTION_PHRASES = [
+  "that's wrong",
+  "that's not what i",
+  "you didn't",
+  "you ignored",
+  "still broken",
+  "still not",
+  "didn't work",
+  "not what i asked",
+  "stop doing",
+  "again?",
+  "i already told you",
+];
+
+// Second-person or work reference — the qualifier that turns raw profanity into
+// a work-directed complaint (never fires on profanity alone).
+const WORK_REFERENCE = /\b(you|your|it|code|banner|test|tests|build|hook|hooks|file|page|deploy|fix|script|output|response)\b/;
+const WORK_PROFANITY = /\b(fucking|wtf|what the fuck)\b/;
+
+export function detectExplicitCorrection(prompt: string): string | null {
+  const trimmed = prompt.trim();
+  if (trimmed.length < 10) return null;        // too short to be a real complaint
+  if (trimmed.startsWith('/')) return null;    // slash command
+
+  const norm = trimmed.toLowerCase().replace(/[‘’ʼ`]/g, "'");
+
+  // Unambiguous correction opener
+  if (/^no[,.]/.test(norm) || /^nope\b/.test(norm)) return trimmed;
+
+  // Unambiguous correction phrase anywhere in the prompt
+  for (const phrase of CORRECTION_PHRASES) {
+    if (norm.includes(phrase)) return trimmed;
+  }
+
+  // Profanity directed at the work (requires a second-person / work reference)
+  if (WORK_PROFANITY.test(norm) && WORK_REFERENCE.test(norm)) return trimmed;
+
+  return null;
+}
+
+// ── Standing Directive Detection ──
+//
+// Deterministic, precision-first — ZERO inference. "From now on X" is a system
+// upgrade the moment it's said; before 1.4.0 it survived only if the model
+// encoded it in-session or the periodic memory reviewer happened to extract it.
+// A hit writes ONE record to the Upgrades store (LIFEOS/MEMORY/UPGRADES/,
+// claim-hash deduped there) with the verbatim prompt as the claim.
+
+const DIRECTIVE_PATTERNS: RegExp[] = [
+  /\bfrom now on\b/i,
+  /\bin the future\b/i,
+  /\bgoing forward\b/i,
+  /\bnew rule\b/i,
+  /^rule:/i,
+  /\bkai should (always|never|not)\b/i,
+  /\b(always|never) (do|use|include|make|add|put|run|write|call|show|keep|remember to)\b/i,
+];
+
+export function detectStandingDirective(prompt: string): string | null {
+  const trimmed = prompt.trim();
+  if (trimmed.length < 15) return null;      // too short to carry a real rule
+  if (trimmed.startsWith('/')) return null;  // slash command
+  const norm = trimmed.toLowerCase().replace(/[‘’ʼ`]/g, "'");
+  for (const re of DIRECTIVE_PATTERNS) {
+    if (re.test(norm)) return trimmed;
+  }
+  return null;
+}
 
 // ── System Text Detection ──
 
@@ -348,6 +461,62 @@ async function main() {
 
         process.exit(0);
       }
+    }
+
+    // ── STANDING DIRECTIVE: "from now on X" → Upgrades store (no inference) ──
+    // Isolated + fail-open: any error here is swallowed and we still exit 0.
+    try {
+      const directive = detectStandingDirective(prompt);
+      if (directive) {
+        const res = addUpgrade({
+          claim: directive.slice(0, 900),
+          source: 'directive',
+          current_state: 'Stated by the principal in-session; not yet encoded in infrastructure.',
+          confidence: 0.9,
+          session_id: sessionId,
+          evidence: [`session:${sessionId}`],
+        });
+        console.error(`[SatisfactionCapture] Standing directive → upgrade record ${res.created ? res.id : `(${res.reason})`}`);
+      }
+    } catch (err) {
+      console.error(`[SatisfactionCapture] Directive leg error: ${err}`);
+    }
+
+    // ── EXPLICIT CORRECTION: deterministic complaint capture (no inference) ──
+    // Runs only after the explicit-rating and positive-praise fast-paths have both
+    // exited, so it never fires on a rating, praise, system text, or a slash command.
+    // Isolated + fail-open: any error here is swallowed and we still exit 0.
+    try {
+      const complaint = detectExplicitCorrection(prompt);
+      if (complaint) {
+        const cachedResponse = getLastResponse();
+        if (cachedResponse) {
+          console.error(`[SatisfactionCapture] Explicit correction detected → FAILURES capture`);
+          await captureFailure({
+            transcriptPath: data.transcript_path,
+            rating: 3, // captureFailure gates at <=3; this is not written to ratings.jsonl
+            sentimentSummary: complaint,
+            detailedContext: cachedResponse,
+            sessionId,
+          }).catch((err) => console.error(`[SatisfactionCapture] Correction capture error: ${err}`));
+          // Same signal, second consumer: a correction is also an upgrade candidate
+          // ({{PRINCIPAL_NAME}} 2026-07-23 — every correction triggers required upgrade thinking).
+          try {
+            addUpgrade({
+              claim: complaint.slice(0, 900),
+              source: 'correction',
+              current_state: 'Correction captured live; FAILURES incident holds the transcript context.',
+              confidence: 0.6,
+              session_id: sessionId,
+              evidence: [`session:${sessionId}`, 'failures-incident:same-turn'],
+            });
+          } catch (err) {
+            console.error(`[SatisfactionCapture] Correction→upgrade error: ${err}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[SatisfactionCapture] Correction leg error: ${err}`);
     }
 
     // ── 7.0.0 BPE: implicit-sentiment inference REMOVED ──

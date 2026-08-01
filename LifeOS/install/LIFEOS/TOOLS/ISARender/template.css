@@ -747,7 +747,7 @@ blockquote {
   text-transform: uppercase;
 }
 
-.badge.phase, .badge.tier {
+.badge.phase {
   color: var(--ul-text-primary);
   background: var(--ul-bg-elevated);
   border-color: var(--ul-border-accent);
@@ -811,7 +811,7 @@ blockquote {
 
 .phase-bar {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0;
   margin: 0 0 44px;
   padding: 0;
@@ -1071,6 +1071,48 @@ td code { font-size: 11px; padding: 1px 5px; }
   background: var(--ul-bg-soft);
   border-radius: 2px;
   overflow: hidden;
+}
+
+/* Feature blocks (spec v2.16.0) */
+.feature-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 40px 0 4px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ul-border-accent);
+  font-size: 18px;
+  color: var(--ul-text-primary);
+}
+.feature-title .feature-id {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--ul-accent-secondary);
+  background: var(--ul-bg-elevated);
+  border: var(--hairline) solid var(--ul-border-accent);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+.feature-why {
+  margin: 0 0 16px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--ul-accent-secondary);
+  background: var(--ul-bg-soft);
+  color: var(--ul-text-secondary);
+  font-style: italic;
+  font-size: 14px;
+}
+.feature-why-label {
+  font-family: var(--mono);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ul-accent-secondary);
+  margin-right: 10px;
 }
 
 .isc-group-title {

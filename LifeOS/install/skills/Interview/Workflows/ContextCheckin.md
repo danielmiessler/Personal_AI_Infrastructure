@@ -191,7 +191,7 @@ curl -s -X POST http://localhost:31337/reload > /dev/null 2>&1 &
 ### Opening on a system with stale system prompt
 
 ```
-read freshness ⇒ pai_system_prompt 112d/90d (most stale across both surfaces)
+read freshness ⇒ lifeos_system_prompt 112d/90d (most stale across both surfaces)
 Read LIFEOS/LIFEOS_SYSTEM_PROMPT.md fully
 ```
 

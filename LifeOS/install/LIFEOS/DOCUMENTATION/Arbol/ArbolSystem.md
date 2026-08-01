@@ -1,14 +1,16 @@
 ---
-version: 1.5.11
+version: 1.6.2
 ---
 
-> **LifeOS 6.0.0** --- This system is under active development. APIs, configuration formats, and features may change without notice.
+> This system is under active development. APIs, configuration formats, and features may change without notice.
 
-# Arbol System
+# Arbol — the LifeOS Cloud Execution Layer
 
 > **Private infrastructure — not included in the public LifeOS release.** This document describes cloud infrastructure the maintainer runs privately. No Arbol implementation (workers, flows, actions) ships with the OSS release; it's reference documentation for how the architecture works, and a blueprint if you want to build your own.
 
 > Arbol is the LifeOS running while you sleep. The hill-climb (`LifeOs/LifeOsThesis.md`) doesn't pause when the laptop closes — scheduled flows watch sources, transform signals, and push state changes from the edge, so the OS's picture of current state keeps refreshing without a session open.
+
+**Why "Arbol."** *Árbol* is Spanish for tree, and the metaphor fits the architecture: one trunk of shared primitives (Actions, Pipelines, Flows) branching into scheduled workers at the edge — rooted while you sleep, growing without a session open.
 
 **Cloudflare Workers Execution Platform**
 
@@ -23,6 +25,8 @@ Arbol is the cloud execution layer for LifeOS. It runs on Cloudflare Workers and
 Where LifeOS's local system (the Algorithm, Skills, Memory) operates on the developer's machine, Arbol extends LifeOS into the cloud. It handles scheduled jobs, API integrations, LLM-powered transformations, and multi-step data pipelines --- all deployed as Cloudflare Workers with global distribution and near-zero cold starts.
 
 Arbol organizes all cloud work through three composable primitives: **Actions**, **Pipelines**, and **Flows**.
+
+Arbol also hosts the **infrastructure security scanner** — an hourly, server-side, outsider-only scan of the full deployed estate (auth boundaries, exposed secrets, header/DNS/TLS hygiene). That scanner is the **Security plane of the Bunker application harness**: the Arbol security system and the Bunker security system are the same system, by design. Operational detail lives in the private USER tree, not in this public doc.
 
 ---
 
@@ -194,6 +198,8 @@ Actions declare dependencies in `action.json` under `requires`. The runner injec
 | `A_SEND_EMAIL` | `arbol-a-send-email` | Custom |
 
 ### Running Actions
+
+> **Not in the public release.** The local Arbol CLI tree (`LIFEOS/ARBOL/` — `Actions/`, `Flows/`, `Pipelines/`) is rsync-excluded from the public release payload, so the `~/.claude/LIFEOS/ARBOL/...` paths and commands below do not exist on a public install. The Arbol *model* (the three primitives, the pipe model, the cloud workers) is public; this local runner tree is not.
 
 **Local:**
 
@@ -707,6 +713,42 @@ Check `flow-state.json` for errors. Common: malformed pipeline output, AUTH_TOKE
 
 ---
 
+## Examples
+
+### One flow, built from the three primitives
+
+Picture the smallest useful thing Arbol does: **every morning, turn a blog's new posts into a one-paragraph digest email.** It's built bottom-up from the three primitives.
+
+- **Actions** are the atoms. `A_EXTRACT` pulls the article text from a URL; `A_SUMMARIZE` turns text into one paragraph; `A_RATE` scores how interesting it is. Each does one thing and knows nothing about the others.
+- **A Pipeline** chains them: `A_EXTRACT → A_SUMMARIZE → A_RATE`. Thanks to the passthrough pattern, the rating step still sees the title and URL the extract step produced three actions ago — context accumulates instead of evaporating at each hop.
+- **A Flow** wraps the pipeline in a schedule and wires its ends: the source is the blog's RSS feed, the destination is an email address, the cron is `0 8 * * *`. Cloudflare fires it at 8 AM whether or not anyone is at the keyboard.
+
+Nothing here runs on the laptop. The flow lives at the edge, so the OS's picture of "what's new on that blog" refreshes on its own.
+
+### Which primitive is which
+
+The boundary is about how many steps there are and who controls repetition:
+
+- One step, no dependencies → an **Action**. Scoring a single piece of text is an Action, full stop.
+- Several steps that hand data forward → a **Pipeline**. Extract-then-summarize-then-rate is a Pipeline; it runs its chain once and returns.
+- A source, a schedule, and a destination → a **Flow**. Only Flows watch the clock, and only Flows loop — a pipeline never iterates itself, so when a result must clear a quality bar, the Flow re-calls the pipeline until it does.
+
+### The three tiers assembling
+
+```mermaid
+flowchart TD
+    RSS[Blog RSS feed] -->|cron 8 AM| F[Flow orchestrates]
+    F --> A1
+    subgraph PIPE [Pipeline: passthrough chain]
+        A1[A_EXTRACT] --> A2[A_SUMMARIZE] --> A3[A_RATE]
+    end
+    A3 --> Dest[Digest email]
+```
+
+The picture shows why the layers exist: the Actions are reusable atoms that don't know they're in a pipeline, the Pipeline is pure data-flow with no sense of time, and the Flow is the only thing that owns the schedule and the source-to-destination wiring. Each layer adds exactly one concern the layer below refuses to know about.
+
+---
+
 ## Links
 
 | Document | Path | Description |
@@ -714,9 +756,9 @@ Check `flow-state.json` for errors. Common: malformed pipeline output, AUTH_TOKE
 | Source Code | `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/ARBOL/` | Cloudflare Workers source repository |
 | Cloudflare Skill | `Cloudflare` skill (LifeOS Skill registry) | MCP + wrangler dual-mode operations |
 | Architecture | `LifeosSystemArchitecture.md` | LifeOS system architecture |
-| System Actions | `~/.claude/LIFEOS/ARBOL/Actions/` | Framework actions (examples) |
-| System Pipelines | `~/.claude/LIFEOS/ARBOL/Pipelines/` | Framework pipelines (examples) |
-| System Flows | `~/.claude/LIFEOS/ARBOL/Flows/` | Framework flows (examples) |
+| System Actions 🔒 | `~/.claude/LIFEOS/ARBOL/Actions/` | Framework actions (examples). **Not in the public release** — `LIFEOS/ARBOL/` is rsync-excluded. |
+| System Pipelines 🔒 | `~/.claude/LIFEOS/ARBOL/Pipelines/` | Framework pipelines (examples). **Not in the public release.** |
+| System Flows 🔒 | `~/.claude/LIFEOS/ARBOL/Flows/` | Framework flows (examples). **Not in the public release.** |
 | Personal Actions | `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/ARBOL/ACTIONS/` | User-defined actions (override system) |
 | Personal Pipelines | `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/ARBOL/PIPELINES/` | User-defined pipelines (override system) |
 | Personal Flows | `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/ARBOL/FLOWS/` | User-defined flows (override system) |

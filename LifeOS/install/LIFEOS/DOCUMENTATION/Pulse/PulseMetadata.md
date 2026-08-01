@@ -1,8 +1,8 @@
 ---
-last_updated: 2026-07-11
-last_updated_by: kai
+last_updated: 2026-07-14T22:45:00Z
+last_updated_by: da
 convention: pai-freshness-v1
-version: 1.0.22
+version: 1.1.10
 ---
 
 # Pulse Metadata Surface — Badges, Strips, Panels
@@ -32,14 +32,14 @@ Compact pills/chips that fit in session rows and headers. One badge = one piece 
 
 | Badge | Data source (ISA frontmatter) | Component | Status |
 |-------|------------------------------|-----------|--------|
-| **EffortBadge** | `effort:` (standard/extended/advanced/deep/comprehensive) | `EffortBadge.tsx` | shipped |
-| **ModeBadge** | `mode:` (iterate/optimize/ideate/loop) | `ModeBadge.tsx` | shipped (covers Algorithm mode) |
-| **PresetBadge** | `algorithm_config.preset` (dream/explore/directed/surgical/cautious/aggressive) | `PresetBadge.tsx` | shipped |
-| **ResponseModeBadge** | `response_mode:` (minimal/native/algorithm) — **NEW v2.10** | NOT YET BUILT | planned next-ISA |
-| **AlgorithmModeBadge** | `algorithm_mode:` — **NEW v2.10** alias of `mode:` for clarity | NOT YET BUILT | planned next-ISA (may share `ModeBadge` impl) |
-| **GoalBadge** | presence of `principal_stated_goal:` (v6.4.0) | NOT YET BUILT | planned next-ISA |
-| **DensityBadge** | `density_score:` + `divergence_risk:` (v6.5.0) | NOT YET BUILT | planned next-ISA |
-| **IterationBadge** | `iteration:` (current iteration number for loop mode) | NOT YET BUILT | paired with LoopRunner.ts |
+| **EffortBadge** | `effort:` | — | REMOVED 2026-07-14 (effort tiers retired 2026-07-11) |
+| **ModeBadge** | `mode:` | — | REMOVED 2026-07-14 (modes retired 2026-07-11) |
+| **PresetBadge** | `algorithm_config.preset` | — | REMOVED 2026-07-14 (presets retired with modes) |
+| **ResponseModeBadge** / **AlgorithmModeBadge** | `response_mode:` / `algorithm_mode:` | — | CANCELLED (mode system retired 2026-07-11, before build) |
+| **Lifecycle pill** | derived (`src/lib/lifecycle.ts`: scoping/climbing/learning/done/session/idle) | `WorkBoard.tsx` | shipped 2026-07-14 |
+| **Rework badge (×N)** | `iteration:` | `WorkBoard.tsx` | shipped 2026-07-14 |
+| **GoalBadge** | presence of `principal_stated_goal:` (v6.4.0) | NOT YET BUILT | backlog |
+| **DensityBadge** | `density_score:` + `divergence_risk:` (v6.5.0) | NOT YET BUILT | backlog |
 | **ForgeAuditBadge** | Forge audit verdict (pass/concerns/fail) recorded in `## Verification` | NOT YET BUILT | planned next-ISA |
 
 ### Badge color conventions
@@ -54,13 +54,14 @@ Horizontal full-width visualizations that span the session card or dashboard row
 
 | Strip | Data source | Component | Status |
 |-------|-------------|-----------|--------|
-| **QuickPulseStrip** | live system metrics | `QuickPulseStrip.tsx` | shipped |
-| **PhaseProgressStrip** | `phase:` (1 of 7 visualized) | NOT YET BUILT | planned next-ISA |
-| **JourneyStrip** | `current_state:` → ISC progress → `ideal_state:` — **NEW v2.10** | NOT YET BUILT | planned next-ISA |
-| **CapabilitiesStrip** | `capabilities_invoked:` array — **NEW v2.10** | NOT YET BUILT | planned next-ISA |
-| **IterationHistoryStrip** | `## Iteration History` section (Loop mode) | NOT YET BUILT | paired with LoopRunner.ts |
-| **IntensityBar** | tool-call rate over time | `IntensityBar.tsx` | shipped |
-| **FocusIndicator** | phase + ISA presence | `FocusIndicator.tsx` | shipped |
+| **QuickPulseStrip** | live ratings (24h window; mood verdict muted below 3 ratings) | `QuickPulseStrip.tsx` | shipped |
+| **ClimbChart** | `work-events.jsonl` progress/criteria transitions per slug (mini sparkline + full ascent) | `ClimbChart.tsx` | shipped 2026-07-14 |
+| **PhaseProgressStrip** | `phase:` stations | — | CANCELLED (declared phases retired; the Climb replaces it) |
+| **JourneyStrip** | `current_state:` → ISC progress → `ideal_state:` | NOT YET BUILT | backlog |
+| **CapabilitiesStrip** | `capabilities_invoked:` array | NOT YET BUILT | backlog |
+| **IterationHistoryStrip** | `## Iteration History` section | NOT YET BUILT | backlog |
+| **IntensityBar** | tool-call rate over time | `IntensityBar.tsx` | shipped (Activity tab) |
+| **FocusIndicator** | phase + ISA presence | — | REMOVED 2026-07-14 (dead code, zero importers) |
 
 ### JourneyStrip — the headline new visualization
 
@@ -94,24 +95,23 @@ Multi-line expandable detail views shown on session click.
 
 | Panel | Data source | Component | Status |
 |-------|-------------|-----------|--------|
-| **PhaseDetailPanel** | full phase history with timing | `PhaseDetailPanel.tsx` | shipped |
+| **PhaseDetailPanel** | full phase history with timing | — | REMOVED 2026-07-14 (phase ceremony retired; expanded WorkBoard rows show claims + evidence + Climb instead) |
 | **GoalPanel** | `principal_stated_goal:` + signal type + locked timestamp | NOT YET BUILT | planned next-ISA |
 | **DecisionsPanel** | `## Decisions` section | NOT YET BUILT | planned next-ISA |
 | **ChangelogPanel** | `## Changelog` section (Deutsch format entries) | NOT YET BUILT | planned next-ISA |
-| **VerificationPanel** | `## Verification` section + Forge/Grok audit results | NOT YET BUILT | planned next-ISA |
+| **VerificationPanel** | `## Verification` section + Forge audit results | NOT YET BUILT | planned next-ISA |
 | **IterationHistoryPanel** | `## Iteration History` section (Loop mode) | NOT YET BUILT | paired with LoopRunner.ts |
 
 ---
 
-## Tab-Level Surfaces (one per Pulse mode)
+## Tab-Level Surfaces (agents page — 2026-07-14 redesign)
+
+The per-mode tabs died with the mode system. Two surfaces remain:
 
 | Tab | Dashboard component | Surfaces |
 |-----|---------------------|----------|
-| **Iterate** | `UnifiedWorkDashboard` | all default-mode work, current Algorithm run, ISC progress |
-| **Optimize** | `OptimizeDashboard` | optimize sessions, score curves, experiment history |
-| **Ideate** | `NoveltyDashboard` (`/novelty`) | ideate sessions, candidate gallery, EVOLVE / META-LEARN deltas |
-| **Loop** | `LoopDashboard` | loop sessions, iteration counter, halt conditions, asymptote detection |
-| **Native** | `NativeDashboard` | NATIVE-mode sessions, quick-task chatter, no-ISA work |
+| **Work** | `WorkBoard` | tracked runs as Climbs (claims closed over time from `work-events.jsonl`), untracked live sessions, resumable, done-last-24h; derived lifecycle pills |
+| **Activity** | `ObservabilityDashboard` | live hook/tool/agent event stream, pulse chart, swim lanes |
 
 ---
 
@@ -123,7 +123,7 @@ Multi-line expandable detail views shown on session click.
 | **session metadata** | `MEMORY/STATE/work.json` | session registry, used for NATIVE sessions without ISAs |
 | **ISA body sections** | same ISA file, body | `## Decisions`, `## Changelog`, `## Verification`, `## Iteration History` (Loop only) |
 | **TheRouter additionalContext** _(RETIRED 2026-07-11)_ | `TheRouter.hook.ts` (deleted) | Historical: response mode, tier, goal signal, density gate eligibility — set per-prompt. Mode/tier classification was abolished 2026-07-11; no successor emits this. |
-| **work.json phase history** | `hooks/lib/isa-utils.ts::appendPhase()` | phase transitions with timing — drives PhaseProgressStrip |
+| **work-events.jsonl** | `hooks/lib/work-events.ts` (event-sourced diffs) | per-slug progress/criteria transitions with timestamps — drives ClimbChart |
 
 ---
 
@@ -131,7 +131,7 @@ Multi-line expandable detail views shown on session click.
 
 | Wave | Items | Trigger |
 |------|-------|---------|
-| **Already shipped** | EffortBadge, ModeBadge, PresetBadge, QuickPulseStrip, IntensityBar, FocusIndicator, PhaseDetailPanel, six-tab UI | current Pulse |
+| **Already shipped** | Lifecycle pill, Rework badge, ClimbChart, QuickPulseStrip, IntensityBar, two-tab Work/Activity UI (2026-07-14 redesign; mode/effort/preset badges and phase panels removed) | current Pulse |
 | **Next ISA (paired with v6.6.0 doctrine bump)** | ResponseModeBadge, AlgorithmModeBadge, GoalBadge, DensityBadge, JourneyStrip, CapabilitiesStrip, GoalPanel, DecisionsPanel, ChangelogPanel, VerificationPanel | requires v2.10 frontmatter fields population by ISA skill + ISASync hook |
 | **Paired with LoopRunner.ts ship** | IterationBadge, IterationHistoryStrip, IterationHistoryPanel | requires LoopRunner.ts populating `## Iteration History` section |
 | **Lower priority** | CatoBadge (verdict surfacing), Goal filter pill on Agents page | small additions |
@@ -140,9 +140,9 @@ Multi-line expandable detail views shown on session click.
 
 ## Cross-references
 
-- ISA Format Spec: `LIFEOS/DOCUMENTATION/Isa/IsaFormat.md`
-- Algorithm Modes: `LIFEOS/ALGORITHM/modes/README.md`
+- ISA Format Spec: `LIFEOS/DOCUMENTATION/ISA/ISAFormat.md`
+- Algorithm Modes: `LIFEOS/ALGORITHM/archive/modes/README.md`
 - Pulse System overview: `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`
 - DA subsystem (design): `LIFEOS/DOCUMENTATION/Pulse/DaSubsystem.md`
 - Terminal tabs (kitty integration): `LIFEOS/DOCUMENTATION/Pulse/TerminalTabs.md`
-- Current Algorithm doctrine: `LIFEOS/ALGORITHM/v8.4.0.md`
+- Current Algorithm doctrine: `LIFEOS/ALGORITHM/v8.17.3.md`

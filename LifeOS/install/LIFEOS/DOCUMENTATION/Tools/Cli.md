@@ -1,203 +1,22 @@
 ---
-version: 1.1.10
+version: 1.2.1
 ---
 
-> **LifeOS 6.0.0** — This system is under active development. APIs, configuration formats, and features may change without notice.
+> This system is under active development. APIs, configuration formats, and features may change without notice.
 
 # LifeOS Command-Line Tools
 
 > CLI-first is how the Life OS stays deterministic (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`): the hill-climb's moves are code you can script, test, and trust — prompts orchestrate, code executes.
 
-LifeOS provides two CLI tools for running infrastructure from the terminal:
+LifeOS provides the Arbol CLI for running actions and pipelines locally (runtime: `bun`).
 
-1. **The Algorithm CLI** — Run the LifeOS Algorithm against ISAs in loop or interactive mode
-2. **The Arbol CLI** — Run actions and pipelines locally
-
-Both tools use `bun` as their runtime.
-
----
-
-## The Algorithm CLI
-
-**Location:** `~/.claude/LIFEOS/TOOLS/algorithm.ts`
-
-The Algorithm CLI executes the LifeOS Algorithm (Observe → Think → Plan → Build → Execute → Verify → Learn) against ISA files. It supports three modes: autonomous loop execution (no human needed), interactive sessions (human-in-the-loop), and optimize (autonomous hill-climbing against a measurable metric).
-
-### Quick Start
-
-```bash
-# Run the Algorithm in autonomous loop mode
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m loop -p <ISA-path> -n 20
-
-# Run in interactive mode (launches a claude session with ISA context)
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m interactive -p <ISA-path>
-
-# Run in optimize mode (launches claude with /optimize arguments)
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m optimize -p <ISA-path>
-
-# Or use /optimize directly inside any claude session:
-/optimize --metric "bundle_size" --lower-is-better \
-  --measure "bun run build && du -sb dist/ | cut -f1" \
-  --files "src/**/*.ts"
-
-# Check status of all ISAs
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts status
-```
-
-### Usage
-
-```
-algorithm -m <mode> -p <ISA> [-n N] [-a N]   Run the Algorithm against a ISA
-algorithm status [-p <ISA>]                   Show ISA status
-algorithm pause -p <ISA>                      Pause a running loop
-algorithm resume -p <ISA>                     Resume a paused loop
-algorithm stop -p <ISA>                       Stop a loop
-```
-
-### Flags
-
-| Flag | Short | Description | Default |
-|------|-------|-------------|---------|
-| `--mode` | `-m` | Execution mode: `loop`, `interactive`, or `optimize` | — (required) |
-| `--prd` | `-p` | ISA file path or ISA ID | — (required) |
-| `--max` | `-n` | Max iterations (loop mode only) | 128 |
-| `--agents` | `-a` | Parallel agents per iteration (1-16) | 1 |
-| `--help` | `-h` | Show help | — |
-
-### Modes
-
-#### Loop Mode (Autonomous)
-
-Loop mode runs the Algorithm iteratively without human interaction. Each iteration:
-
-1. Reads the ISA and identifies failing Ideal State Criteria
-2. Spawns a `claude -p` session focused on the failing criteria
-3. The session makes progress, updates the ISA checkboxes
-4. Re-reads the ISA to check progress
-5. Repeats until all criteria pass or max iterations reached
-
-```bash
-# Basic loop — single agent, up to 128 iterations
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m loop -p ISA-20260213-auth.md
-
-# Fast loop — 20 max iterations
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m loop -p ISA-20260213-auth.md -n 20
-
-# Parallel loop — 4 agents working on different criteria simultaneously
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m loop -p ISA-20260213-auth.md -n 20 -a 4
-```
-
-**Parallel agents (`-a N`):** When N > 1, the CLI partitions failing criteria across N agents. Each agent receives exactly one criterion and operates as a focused worker. The CLI uses domain-aware partitioning — criteria from the same domain (e.g., `ISC-AUTH-1`, `ISC-AUTH-2`) are assigned to the same agent to avoid conflicts. After all agents complete, the parent process reconciles results into the ISA.
-
-**Effort Level Decay:** Loop iterations start at the ISA's configured effort level but decay toward Fast as criteria converge:
-- Iterations 1-3: Original effort level (full exploration)
-- Iterations 4+: If >50% passing → Standard (focused fixes)
-- Iterations 8+: If >80% passing → Fast (surgical only)
-
-**Exit conditions:**
-- All criteria pass → ISA status set to `COMPLETE`
-- Only `Custom` verification criteria remain → ISA status set to `BLOCKED`
-- Max iterations reached → ISA status set to `FAILED`
-- External pause/stop → ISA status set to `paused`/`stopped`
-
-#### Interactive Mode
-
-Interactive mode launches a full `claude` session with the ISA context pre-loaded. You work with Claude directly to make progress on criteria.
-
-```bash
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts -m interactive -p ISA-20260213-feature.md
-```
-
-This opens an interactive Claude session with:
-- The ISA path and title
-- Current progress (passing/total)
-- List of failing criteria
-- Instructions to read and update the ISA
-
-### Status & Control
-
-```bash
-# Show all ISAs and their status
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts status
-
-# Show status of a specific ISA
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts status -p ISA-20260213-auth
-
-# Pause a running loop (loop checks between iterations)
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts pause -p ISA-20260213-auth
-
-# Resume a paused loop
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts resume -p ISA-20260213-auth
-
-# Stop a loop permanently
-bun ~/.claude/LIFEOS/TOOLS/algorithm.ts stop -p ISA-20260213-auth
-```
-
-### ISA Resolution
-
-The CLI accepts ISA references in multiple formats:
-
-| Format | Example | Resolution |
-|--------|---------|------------|
-| ISA ID | `ISA-20260207-auth` | Searches `MEMORY/WORK/*/ISA.md` and `~/Projects/*/.prd/` |
-| Project path | `/path/to/project/.prd/ISA-20260213-feature.md` | Used directly |
-
-### Dashboard Integration
-
-The Algorithm CLI integrates with the LifeOS dashboard by writing state to `MEMORY/STATE/algorithms/`:
-
-- Creates a persistent session entry for each loop run
-- Syncs criteria status (passing/failing) from ISA checkboxes after each iteration
-- Registers in `session-names.json` for display
-- Sends voice notifications at key moments (start, iteration complete, done)
-- Tracks parallel agent assignments and per-agent status
-
-### Output
-
-Loop mode displays a live progress dashboard:
-
-```
-╔══════════════════════════════════════════════════════════════════════╗
-║  THE ALGORITHM — Loop Mode                                         ║
-╠══════════════════════════════════════════════════════════════════════╣
-║  ISA:       ISA-20260213-auth                                      ║
-║  Title:     Authentication System                                  ║
-║  Session:   a1b2c3d4                                               ║
-║  Max iterations: 20 | Agents: 4                                    ║
-║  Progress: 8/12 ████████████░░░░░░░░ 67%                          ║
-╚══════════════════════════════════════════════════════════════════════╝
-
-━━━ Iteration 5/20 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Progress: 8/12 ████████████░░░░░░░░ 67% | Failing: 4
-  Agents this round: 4
-
-  Agent 1 → ISC-AUTH-1: JWT middleware validates token signatures
-  Agent 2 → ISC-AUTH-2: Refresh token rotation prevents replay attacks
-  Agent 3 → ISC-API-1: All endpoints return standard error format
-  Agent 4 → ISC-TEST-1: Integration test suite passes completely
-
-  ⏳ 4 agents working...
-  ⏱ Agents finished in 45s
-
-  Agent Results:
-    Agent 1 ✓ PASS    ISC-AUTH-1: JWT middleware validates token...
-    Agent 2 ✓ PASS    ISC-AUTH-2: Refresh token rotation prevents...
-    Agent 3 ✗ FAIL    ISC-API-1: All endpoints return standard er...
-    Agent 4 ✓ PASS    ISC-TEST-1: Integration test suite passes c...
-
-  ── Criteria Scoreboard ──────────────────────────────────────
-  ✓ ISC-AUTH-1     JWT middleware validates token signatures
-  ✓ ISC-AUTH-2     Refresh token rotation prevents replay attacks
-  · ISC-API-1      All endpoints return standard error format
-  ✓ ISC-TEST-1     Integration test suite passes completely
-  ── 11/12 passing (92%) ──────────────────────────────────────
-
-  Iteration 5 Summary: +3 | 11/12 passing (92%) | 45s
-```
+> The former Algorithm CLI (LIFEOS/TOOLS/algorithm.ts, now deleted) was RETIRED 2026-07-14 with the phase-machinery deep strip — the Algorithm runs in-session against the ISA; there is no standalone runner.
 
 ---
 
 ## The Arbol CLI (pai)
+
+> **Not in the public release.** The local Arbol CLI tree (`LIFEOS/ARBOL/` — `Actions/`, `Flows/`, `Pipelines/`) is rsync-excluded from the public release payload, so the `~/.claude/LIFEOS/ARBOL/...` paths and commands below do not exist on a public install. The Arbol *model* (the three primitives, the pipe model, the cloud workers) is public; this local runner tree is not.
 
 **Location:** `~/.claude/LIFEOS/ARBOL/Actions/lifeos.ts`
 
@@ -363,9 +182,6 @@ This two-tier resolution means you can create personal actions and pipelines tha
 For convenience, add aliases to your shell configuration (`.zshrc`, `.bashrc`):
 
 ```bash
-# The Algorithm CLI
-alias algorithm="bun ~/.claude/LIFEOS/TOOLS/algorithm.ts"
-
 # The Arbol CLI
 alias pai="bun ~/.claude/LIFEOS/ARBOL/Actions/lifeos.ts"
 
@@ -377,7 +193,6 @@ alias arbol-pipe="bun ~/.claude/LIFEOS/ARBOL/Actions/lib/pipeline-runner.ts"
 Then use:
 
 ```bash
-algorithm -m loop -p ISA-20260213-auth -n 20 -a 4
 pai action A_EXAMPLE_SUMMARIZE --input '{"content": "text"}'
 pai actions
 ```
@@ -388,10 +203,53 @@ pai actions
 
 | Tool | Purpose | Command |
 |------|---------|---------|
-| **Algorithm CLI** | Run LifeOS Algorithm against ISAs | `bun Tools/algorithm.ts -m loop -p <ISA>` |
 | **Arbol CLI (pai)** | Run actions and pipelines | `bun ACTIONS/lifeos.ts action <name>` |
 | **Runner** | Low-level action execution | `bun ACTIONS/lib/runner.v2.ts run <action>` |
 | **Pipeline Runner** | Chain actions via YAML | `bun ACTIONS/lib/pipeline-runner.ts run <pipeline>` |
+
+---
+
+## Examples
+
+### One task, run as a command instead of a prompt
+
+Say you want to summarize a block of text and then format the result. You could ask a model to "summarize this and format it" and get a slightly different shape every time. Or you run it as two deterministic actions piped together:
+
+```bash
+echo '{"content": "Long text..."}' \
+  | bun lifeos.ts action A_EXAMPLE_SUMMARIZE \
+  | bun lifeos.ts action A_EXAMPLE_FORMAT
+```
+
+The summarize action emits JSON to stdout; that JSON is the format action's stdin. Same input, same command, same output shape — every run. The plumbing between the steps is code, not a prompt, so it can be scripted, tested, and dropped into a pipeline unchanged. The model does the language work inside an action; the CLI owns the wiring.
+
+### The same action, three ways in
+
+An action doesn't care how its input arrives — it resolves one, in priority order, so the same command fits an interactive shell, a script, or a natural-language request:
+
+- **Stdin pipe** — `echo '{"content":"..."}' | bun lifeos.ts action A_EXAMPLE_SUMMARIZE` (for chaining).
+- **`--input` flag** — `bun lifeos.ts action A_EXAMPLE_SUMMARIZE --input '{"content":"..."}'` (for a scripted single call).
+- **Named params** — `bun lifeos.ts action A_EXAMPLE_SUMMARIZE --content "..."` (readable when typed by hand).
+
+Reach for stdin when composing, the flag when scripting one call, named params when a human is typing it.
+
+### How input resolves and output flows
+
+```mermaid
+flowchart TD
+    A[pai action A_SUMMARIZE] --> B{Input source?}
+    B -->|stdin| C[Read JSON from stdin]
+    B -->|input flag| C
+    B -->|named params| C
+    C --> D[Action runs: model does the language work]
+    D --> E[JSON written to stdout]
+    E --> F{Piped to another action?}
+    F -->|yes| G[stdout becomes next action's stdin]
+    G --> D
+    F -->|no| H[Final JSON result]
+```
+
+Because every action reads JSON and writes JSON, actions compose like UNIX tools — the arrow between two of them is just a pipe. That's what makes the CLI the deterministic backbone: prompts decide *which* actions to run, the actions and their plumbing decide *how*, and the how never drifts.
 
 ---
 
@@ -405,4 +263,4 @@ pai actions
 
 ---
 
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-07-14

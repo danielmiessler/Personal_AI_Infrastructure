@@ -44,14 +44,14 @@ import { homedir } from "node:os";
 
 import { add as memoryAdd, type AddResult } from "./MemorySystem";
 import { read as memoryWriterRead } from "./MemoryWriter";
-import { isKnownType, type TypedItem } from "./MemoryTypes";
+import { isKnownType, inferProposalKind, pinProposalTargetFile, type TypedItem } from "./MemoryTypes";
 import { inference } from "./Inference";
 import { getPrincipalName, getDAName } from "../../hooks/lib/identity";
 import {
   applyProposalEdit,
   markProposal,
   logProposalEvent,
-} from "../PULSE/lib/telegram-proposals";
+} from "../PULSE/lib/memory-proposals";
 
 // ── Constants ──
 
@@ -217,7 +217,7 @@ TYPE GUIDANCE:
   - Keep the entries that still reduce future steering; drop the ones that have gone stale.
 - idea — a captured insight or thought. Has a short title and body. Lives in the knowledge graph as an idea note.
 - knowledge — an entity note about a person, company, or research artifact mentioned in the conversation. Carries an entity_type and name. SHOULD include at least one related: link if you can name another entity it relates to. The 8 valid related types are: supports, contradicts, extends, part-of, instance-of, caused-by, preceded-by, related.
-- proposal — a proposed edit to a curated context file. ALWAYS specify both target_kind AND target_file. See PROPOSAL SUBTYPES below. Only emit when you've seen strong evidence (across multiple turns or cross-session) of a durable signal. Low confidence triggers Telegram surfacing for principal approval; high confidence (≥0.70) triggers direct silent application.
+- proposal — a proposed edit to a curated context file. ALWAYS specify both target_kind AND target_file. See PROPOSAL SUBTYPES below. Only emit when you've seen strong evidence (across multiple turns or cross-session) of a durable signal. Low confidence queues the proposal for principal review (surfaced via the Pulse dashboard and the inline 🧠 MEMORY line); high confidence (≥0.70) triggers direct silent application.
 
 PROPOSAL SUBTYPES (target_kind → target_file → what to emit):
 
@@ -273,7 +273,7 @@ DO NOT SAVE:
 CONFIDENCE GUIDANCE (proposals):
 - 0.90+ — {{PRINCIPAL_NAME}} explicitly stated the rule/definition/preference verbatim, with clear durability intent. Will auto-apply.
 - 0.70-0.89 — Strong inference from multiple consistent signals. Will auto-apply.
-- 0.40-0.69 — Plausible but worth confirming. Telegram surfacing.
+- 0.40-0.69 — Plausible but worth confirming. Queued for principal review.
 - <0.40 — Speculation. Don't emit unless cross-session pattern is clear; if you do, expect surfacing.
 
 OUTPUT RULES:
@@ -450,7 +450,17 @@ export function dispatchItems(items: TypedItem[], opts: { dryRun?: boolean; conf
       // is a pure TS module and cannot reach into Claude-side skills).
       if (item.type === "proposal" && typeof item.confidence === "number" && item.confidence >= threshold) {
         const proposalId = (result.detail?.id as string | undefined) ?? null;
-        const applied = applyProposalEdit(item.target_file, item.edit);
+        // Pin the APPLY target the same way the queue write already does
+        // (public PR #1563, @anikinsasha). Without this, the queue row recorded
+        // the canonical file while the edit landed on the reviewer's raw path —
+        // divergence, not just a drop (public issue #1611, @xmasyx).
+        const pinnedTarget = pinProposalTargetFile(
+          item.target_kind ?? inferProposalKind(item.target_file),
+          item.target_file,
+        );
+        const applied = pinnedTarget === null
+          ? { ok: false as const, reason: `target_file '${item.target_file}' is not an allowed target for its kind` }
+          : applyProposalEdit(pinnedTarget, item.edit);
         if (applied.ok && proposalId) {
           markProposal(proposalId, {
             status: "auto-applied",

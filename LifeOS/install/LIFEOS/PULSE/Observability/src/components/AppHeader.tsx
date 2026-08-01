@@ -69,7 +69,7 @@ export default function AppHeader() {
       <div className="border-b border-line-1">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6">
           <div className="flex items-center min-h-14 py-1.5 gap-4 lg:gap-6">
-            <Link href="/memory/graph" className="flex items-center gap-3 shrink-0">
+            <Link href="/" className="flex items-center gap-3 shrink-0">
               <Image src="/lifeos-logo.png" alt="LifeOS" width={28} height={28} className="h-7 w-7 object-contain" />
               <span className="text-lg tracking-[0.25em] text-ink-1" style={{ fontFamily: "'advocate-c14', sans-serif", fontWeight: 600 }}>
                 PULSE

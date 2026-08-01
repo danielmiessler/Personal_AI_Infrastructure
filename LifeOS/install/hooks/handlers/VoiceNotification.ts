@@ -18,6 +18,7 @@ import { isValidVoiceCompletion, getVoiceFallback } from '../lib/output-validato
 import { findActiveSessionByUUID } from '../lib/isa-utils';
 
 import type { ParsedTranscript } from '../../LIFEOS/TOOLS/TranscriptParser';
+import { PULSE_BASE } from '../../LIFEOS/PULSE/endpoint';
 
 const DA_IDENTITY = getIdentity();
 
@@ -105,7 +106,7 @@ async function sendNotification(payload: ElevenLabsNotificationPayload, sessionI
 
   try {
     // Use ElevenLabs voice server /notify endpoint
-    const response = await fetch('http://localhost:31337/notify', {
+    const response = await fetch(`${PULSE_BASE}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { AlgorithmState, AlgorithmApiResponse, RatingPulse, SessionMode } from "@/types/algorithm";
+import type { AlgorithmState, AlgorithmApiResponse, RatingPulse } from "@/types/algorithm";
 import { localOnlyApiCall } from "@/lib/local-api";
 
 // 2026-05-24 (realtime-phase-tracking): SSE-first with polling fallback.
@@ -20,23 +20,13 @@ const FAST_POLL_INTERVAL = 2000;      // fallback when SSE is unavailable
 const STALE_POLL_INTERVAL = 30_000;   // safety net when SSE is connected
 const SSE_RECONNECT_RETRIES = 3;      // give up SSE after N consecutive failures
 
-/** Infer currentMode from legacy mode field if new fields are missing */
-function inferMode(state: AlgorithmState): SessionMode {
-  if (state.currentMode) return state.currentMode;
-  if (state.mode === "native") return "native";
-  if (state.mode === "interactive" || state.mode === "starting") return "algorithm";
-  if (state.criteria?.length > 0 || state.phaseHistory?.length > 0) return "algorithm";
-  return "native";
-}
-
 /** Normalize API response to ensure new fields have defaults */
 function normalizeState(state: AlgorithmState): AlgorithmState {
   return {
     ...state,
-    currentMode: inferMode(state),
-    modeHistory: state.modeHistory ?? [{ mode: inferMode(state), startedAt: state.algorithmStartedAt }],
+    tracked: state.tracked ?? (state.criteria?.length > 0),
+    climb: state.climb ?? [],
     ratings: state.ratings ?? [],
-    minimalCount: state.minimalCount ?? 0,
   };
 }
 

@@ -1,27 +1,47 @@
 ---
-last_updated: 2026-06-21
-last_updated_by: kai
-last_reviewed: 2026-07-02
-last_reviewed_by: kai
+last_updated: 2026-07-16
+last_updated_by: da
+last_reviewed: 2026-07-16
+last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.0.6
+version: 1.3.0
 ---
 
 # LifeOS — The Life Operating System Thesis
 
-**The canonical thesis for LifeOS — the Life Operating System (built on the LifeOS infrastructure).** Every LifeOS system doc, public repo description, and marketing surface references this file as the source of truth. If framing across those surfaces disagrees with this file, this file wins.
+**The canonical thesis for LifeOS — the Life Operating System.** Every LifeOS system doc, public repo description, and marketing surface references this file as the source of truth. If framing across those surfaces disagrees with this file, this file wins.
 
 ---
 
 ## TL;DR
 
-**LifeOS is the Life Operating System (built on the LifeOS infrastructure).** It is the framework that turns AI from a chatbot you talk to into a system that runs your life — knows your goals, your people, your workflows, your current state, and your ideal state — and continuously hill-climbs you from where you are toward where you want to be.
+**LifeOS is the AI harness that moves you from your current state to your ideal state.** The number one problem with AI systems today is not that they're bad at executing — it's that they aren't receiving clear direction on what to execute. LifeOS is an **intent engineering platform**: it captures what you're ultimately trying to achieve — your goals, your people, your current state, your definition of done — and conveys that intent to your AI efficiently on every task, then verifies the output against it.
 
-- **LifeOS** = the **Life Operating System** (the framework itself) — built on **LifeOS** (LifeOS), the infrastructure/legacy name
+Intent engineering extends prompting rather than replacing it. Prompting is how you convey intent in the moment; intent engineering is the infrastructure that makes every prompt carry what you ultimately want. (Canonical essay: *From Prompt Engineering to Intent Engineering*, 2026-07-11 — "still technically prompt engineering, but the thing we're articulating is not HOW a thing should be done, but rather WHAT should be done.")
+
+- **LifeOS** = the **Life Operating System** — the AI harness and intent engineering platform itself
 - **The DA** = your Digital Assistant = the primary (and eventually the only) interface to the LifeOS
 - **Pulse** = the **Life Dashboard** = the visible surface that lets you see and interact with the LifeOS
 - **Target** = **AS3** on the [LifeOS Maturity Model](https://example.com/blog/personal-ai-maturity-model)
 - **Lineage** = [The Real Internet of Things](https://example.com/blog/the-real-internet-of-things) (2016)
+
+---
+
+## The Intent Problem — Why LifeOS Exists
+
+AI's bottleneck has flipped. Models are extraordinary at executing; what they're starved for is direction — clear instruction on what to do and what done looks like. Give a frontier model a vague ask and you get confident motion in a random direction.
+
+LifeOS solves this with **intent engineering**: capturing what you're ultimately trying to achieve and conveying it to your AI on every task.
+
+- **TELOS** holds durable intent — mission, goals, problems, strategies. The why behind every what.
+
+- **ISAs** hold task intent — what done looks like, written as testable claims (ISC) before the work starts.
+
+- **Memory and context** carry situational intent — who you are, what you own, what you've already decided.
+
+- **Verification** closes the loop — output checked against the stated intent, never against vibes. Intent isn't fully conveyed until the result is checked against it.
+
+The market's stack is intent → context → prompt. Context engineering (feeding the model the right information) is well covered by the ecosystem. LifeOS operates the tier above: making sure the system knows what you actually want before any context gets assembled.
 
 ---
 
@@ -114,7 +134,7 @@ LifeOS is the infrastructure that makes that future buildable. It is not a predi
 Current Pulse modules (which are all sub-surfaces of the Dashboard):
 - **Observability** — real-time view into hooks, tools, skills, agents, memory
 - **Voice** — the audible channel for notifications and speech
-- **iMessage / Telegram** — external chat surfaces that pipe into the DA
+- **iMessage / Siri** — external chat surfaces that pipe into the DA
 - **Cron / Assistant / Worker** — the scheduler, heartbeat, and background work handler
 
 All of these belong to the Dashboard because the Dashboard is *everything you can see and hear and touch* about your LifeOS. Future Pulse modules will surface:
@@ -155,14 +175,61 @@ If a feature doesn't survive that test, it's probably aperture contraction (subs
 All LifeOS documentation, public marketing, and system prompts should describe LifeOS in terms that match this thesis. Specifically:
 
 - **Don't say** "LifeOS is scaffolding for AI" (passive, infrastructural, misses the point)
-- **Do say** "LifeOS is the Life Operating System"
+- **Do say** "LifeOS is the AI harness that moves you from your current state to your ideal state"
+- **Do say** "LifeOS is an intent engineering platform" — and always frame intent engineering as prompting's WHAT layer, productized
+- **Never say** "prompt engineering is dead" or position intent engineering as a post-prompting discipline (contradicts the canonical essays; invites the rename critique)
 - **Don't say** "LifeOS is a dashboard"
 - **Do say** "Pulse is the Life Dashboard; LifeOS is the OS behind it"
+- **Reserve "AI harness"** for LifeOS itself; the underlying coding agent (Claude Code, Cursor, Codex) is the **AI engine**
 - **Don't hardcode a DA name** in public-facing content
 - **Do say** "your DA" or "the DA"
 - **Always anchor** to the LifeOS Maturity Model (AS3 target) and The Real Internet of Things (lineage)
 
 This file is the source of truth. Other docs reference it. When they drift, update them to match.
+
+---
+
+## Examples
+
+### One person, one gap closed
+
+Picture the whole thesis at the smallest honest scale. A user wants to write a novel but hasn't started one in two years. Watch the OS do its only real job — move them from current state to ideal state.
+
+- **Current state** (from memory and observations): three abandoned first chapters, a pattern of writing well before 9am and stalling by afternoon, and a standing frustration that "there's never time."
+- **Ideal state** (from TELOS): *publish a novel within eighteen months.*
+- **The hill-climb** (what the DA actually does): it doesn't lecture on how to write a book. It looks at tomorrow's calendar, sees a free 90-minute morning block, and offers one move — *draft chapter two in that block, from the outline you already wrote.* That single move shrinks the gap. The next interaction picks the next move.
+
+None of this is generic advice. A stateless chatbot asked "how do I write a novel" returns the same list to everyone. The OS answers for *this* person, because it holds their current state and their ideal state and only ever picks the next step between the two.
+
+### The same loop, any domain
+
+Swap the goal and nothing about the machinery changes:
+
+- **Health:** ideal state is "sleep seven hours"; current state is a run of 1am snack timestamps; the next move is a nudge to close the kitchen at 10pm.
+- **Work:** ideal state is a shipped product; current state is a stalled branch; the next move is the one task that unblocks it.
+
+Different life dimension, identical shape — measure the gap, pick the move that shrinks it, verify it landed. That is why it's an *operating system* and not a feature: one loop runs everything.
+
+### The loop as a picture
+
+```mermaid
+flowchart LR
+    subgraph Current[Current state]
+    M[Memory, calendar, health, recent history]
+    end
+    subgraph Ideal[Ideal state]
+    T[TELOS: mission, goals, values]
+    end
+    M --> G{Measure the gap}
+    T --> G
+    G --> N[Pick the next move that shrinks it]
+    N --> A[DA acts, via skills]
+    A --> V{Did it land? verify}
+    V -->|yes| M
+    V -->|no| N
+```
+
+The diagram is the thesis in one frame: current state and ideal state are two inputs, the gap between them is the only thing the OS optimizes, and every skill, memory write, and hook exists to pick and verify the next move up that hill.
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.4.5
+ * @version 1.4.6
  * VoiceCompletion.hook.ts — Send completion voice line to TTS server
  *
  * PURPOSE:
@@ -78,8 +78,8 @@ async function main() {
   }
 
   // Channel gate: desktop /notify must not fire when the session is running
-  // on behalf of a remote channel (Telegram, iMessage). Those channels
-  // deliver voice via their own APIs. See hooks/lib/notification-channel.ts.
+  // on behalf of a remote channel (iMessage, Siri). Those channels deliver
+  // replies via their own APIs. See hooks/lib/notification-channel.ts.
   if (!isDesktopChannel()) {
     const channel = getNotificationChannel();
     console.error(`[VoiceCompletion] Voice OFF (remote channel: ${channel})`);

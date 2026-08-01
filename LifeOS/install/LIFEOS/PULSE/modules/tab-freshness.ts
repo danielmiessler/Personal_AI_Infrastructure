@@ -85,6 +85,12 @@ const REGISTRY: Record<string, SourceSpec[]> = {
     { name: "hooks/", path: join(HOME, ".claude", "hooks"), expand: true },
     { name: "settings.json", path: join(HOME, ".claude", "settings.json") },
   ],
+  algorithm: [
+    { name: "ALGORITHM/", path: join(LIFEOS_DIR, "ALGORITHM"), expand: true },
+    { name: "RULES/", path: join(LIFEOS_DIR, "RULES"), expand: true },
+    { name: "LIFEOS_SYSTEM_PROMPT.md", path: join(LIFEOS_DIR, "LIFEOS_SYSTEM_PROMPT.md") },
+    { name: "OPERATIONAL_RULES.md", path: join(USER_DIR, "CONFIG", "OPERATIONAL_RULES.md") },
+  ],
   skills: [
     { name: "skills/", path: join(HOME, ".claude", "skills"), expand: true },
   ],
@@ -103,13 +109,26 @@ const REGISTRY: Record<string, SourceSpec[]> = {
   performance: [
     { name: "MEMORY/OBSERVABILITY/", path: join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY"), expand: true },
   ],
-  amber: [
+  synapse: [
     { name: "KNOWLEDGE/Ideas/", path: join(LIFEOS_DIR, "MEMORY", "KNOWLEDGE", "Ideas"), expand: true },
     { name: "_X/State/", path: join(HOME, ".claude", "skills", "_X", "State") },
+  ],
+  ledger: [
+    { name: "SYSTEMUPDATES/index.json", path: join(LIFEOS_DIR, "MEMORY", "SYSTEMUPDATES", "index.json") },
+    { name: "SYSTEMUPDATES/deploys.jsonl", path: join(LIFEOS_DIR, "MEMORY", "SYSTEMUPDATES", "deploys.jsonl") },
+    { name: "VERSION", path: join(LIFEOS_DIR, "VERSION") },
+    { name: "STATE/integrity/", path: join(LIFEOS_DIR, "MEMORY", "STATE", "integrity"), expand: true },
   ],
   assistant: [
     { name: "DA_IDENTITY.md", path: join(USER_DIR, "DIGITAL_ASSISTANT", "DA_IDENTITY.md") },
     { name: "PRINCIPAL_IDENTITY.md", path: join(USER_DIR, "PRINCIPAL", "PRINCIPAL_IDENTITY.md") },
+  ],
+  gear: [
+    { name: "GEAR.md", path: join(USER_DIR, "GEAR.md") },
+  ],
+  atlas: [
+    { name: "atlas/snapshot.json", path: join(HOME, ".local", "state", "lifeos", "atlas", "snapshot.json") },
+    { name: "atlas/atlas.db", path: join(HOME, ".local", "state", "lifeos", "atlas", "atlas.db") },
   ],
 }
 

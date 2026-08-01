@@ -23,6 +23,7 @@ export type EventKind =
   | "interceptor-interact" // interceptor click|type|fill|act|eval|submit
   | "interceptor-capture"  // interceptor screenshot|capture|scrub
   | "test-run"          // bun test / pytest / go test / vitest / npm test
+  | "command"           // any other Bash command (fallback — carries its result/error)
   | "read-image"        // Read of a .png/.webp/.jpg (the model actually views it)
   | "agent-result"      // Agent/Task result text
   | "user-text";        // a user message (for userConfirmed / turn boundary)
@@ -97,7 +98,10 @@ interface RawEntry { type?: string; role?: string; message?: any; content?: any;
  * Parse the CURRENT TURN (everything after the last user/human message) into an
  * ordered event list. Returns [] on any read/parse failure (caller fails open).
  */
-export function parseTurnEvents(transcriptPath: string): TxEvent[] {
+export function parseTurnEvents(
+  transcriptPath: string,
+  opts?: { sessionWindow?: boolean },
+): TxEvent[] {
   const raw = safeRead(transcriptPath);
   if (!raw) return [];
 
@@ -126,16 +130,22 @@ export function parseTurnEvents(transcriptPath: string): TxEvent[] {
   }
 
   // Turn boundary: last user/human message that is NOT purely a tool_result carrier.
+  // `sessionWindow` keeps turnStart at 0 so the whole transcript counts as evidence.
+  // Needed by VerificationGate's T5: a probe of the public repo three turns ago is
+  // real evidence for a publicity claim now, and turn-scoping it would block honest
+  // multi-turn work. The 8MB tail cap in safeRead already bounds the scan.
   let turnStart = 0;
-  for (let k = parsed.length - 1; k >= 0; k--) {
-    const e = parsed[k]!.entry;
-    const role = e.role ?? e.message?.role ?? e.type;
-    if (role === "user" || role === "human") {
-      const content = e.message?.content ?? e.content;
-      const isToolResultOnly = Array.isArray(content) && content.every((b: any) => b?.type === "tool_result");
-      const hasText = typeof content === "string" ? content.trim().length > 0
-        : Array.isArray(content) && content.some((b: any) => b?.type === "text" && b.text?.trim());
-      if (!isToolResultOnly && hasText) { turnStart = k; break; }
+  if (!opts?.sessionWindow) {
+    for (let k = parsed.length - 1; k >= 0; k--) {
+      const e = parsed[k]!.entry;
+      const role = e.role ?? e.message?.role ?? e.type;
+      if (role === "user" || role === "human") {
+        const content = e.message?.content ?? e.content;
+        const isToolResultOnly = Array.isArray(content) && content.every((b: any) => b?.type === "tool_result");
+        const hasText = typeof content === "string" ? content.trim().length > 0
+          : Array.isArray(content) && content.some((b: any) => b?.type === "text" && b.text?.trim());
+        if (!isToolResultOnly && hasText) { turnStart = k; break; }
+      }
     }
   }
 
@@ -171,6 +181,7 @@ export function parseTurnEvents(transcriptPath: string): TxEvent[] {
           else push("interceptor-nav", extractHost(cmd));
         } else if (TEST_RE.test(cmd) && !/--dry-run/.test(cmd)) push("test-run", cmd.slice(0, 120));
         else if (PROBE_RE.test(cmd)) push("probe", extractHost(cmd));
+        else push("command", cmd.slice(0, 120)); // fallback: a plain command's failure must still be visible evidence
       } else if (name === "WebFetch") {
         push("probe", eTLD1(String(input.url ?? "")));
       } else if (name === "Read") {
@@ -255,6 +266,16 @@ export function testPassedAfterEdit(ev: TxEvent[]): boolean {
 }
 
 /** Evidence lives only inside a spawned agent's result text (pass-but-log). */
+/** Scan an agent-result's TEXT for type-scoped evidence markers.
+ *
+ * DISPOSITION (2026-07-31): exported, zero call sites, deliberately retained.
+ * This is the middle path for VerificationGate's sub-agent bypass — today any
+ * spawned agent passes a claim unconditionally; wiring this would instead demand
+ * the delegate at least REPORT evidence. Not wired yet because agent prose is
+ * weaker than tool output (a hallucinating delegate writes "200 OK" having run
+ * nothing), so the tighten/leave call waits on the `wouldBlock` counterfactual
+ * the bypass now logs. Delete this if that corpus says the hole never bites.
+ */
 export function evidenceViaAgent(ev: TxEvent[], patt: RegExp): boolean {
   return ev.some((e) => e.kind === "agent-result" && patt.test(e.resultText));
 }

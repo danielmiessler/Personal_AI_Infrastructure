@@ -1,10 +1,10 @@
 ---
 last_updated: 2026-07-11
-last_updated_by: kai
+last_updated_by: da
 last_reviewed: 2026-07-11
-last_reviewed_by: kai
+last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.2.50
+version: 1.3.3
 ---
 
 # Hook System
@@ -17,15 +17,15 @@ version: 1.2.50
 
 **Location:** `~/.claude/hooks/`
 **Configuration:** `~/.claude/settings.json` (GENERATED — merged from `settings.system.json` + `LIFEOS/USER/CONFIG/settings.user.json` by `MergeSettings.ts`; for events the user file defines as a plain array — UserPromptSubmit, PostToolUse, PreToolUse, Stop, SessionEnd — the user array REPLACES the system array, so `settings.json` is the only registration truth)
-**Status:** Active — hook count auto-computed by `UpdateCounts.ts` at session end
+**Status:** Active — hook counts below are hand-maintained (the `UpdateCounts.ts` count-cache write was removed 2026-05-06; statusline/Banner read live via `GetCounts.ts`)
 
-> **Post-consolidation state (2026-07-11 hooks-BPE pass).** 30 distinct `.hook.ts` files are registered in `settings.json` (31 counting `ContextReduction.hook.sh`), plus 2 Pulse HTTP routes; **38 `.hook.ts` files exist on disk.** The 8 files that are on disk but NOT registered directly are not dead — each is imported as a `run()`/`check()` module by a consolidating dispatcher and still runnable standalone via its own shim: `SystemFileGuard`, `CommunicationSkillGuard`, `EgressClassGuard` → `PreToolGuard`; `VerificationGate`, `WritingGate` → `StopGates`; `LoadMemory`, `MemoryDeltaSurface` → `MemoryTurnStart`; `LoopDetector` → `PostToolObserver`. The consolidation retired `TheRouter` entirely (mode/tier classification abolished; model rungs now live in `LIFEOS/TOOLS/models.ts` + `AgentInvocation.hook.ts`) and folded a family of single-purpose loggers/gates/painters into `EventLogger`, `TabState`, `StopGates`, `MemoryTurnStart`, `MemoryReviewFire`, and `PostToolObserver`. Details per event below.
+> **Post-consolidation state (2026-07-11 hooks-BPE pass).** 38 distinct `.hook.ts` files are registered in `settings.json` (39 counting `ContextReduction.hook.sh`), plus 2 Pulse HTTP routes; **49 `.hook.ts` files exist on disk (2026-07-29 count — includes `KnowledgeWriteGuard`, registered 2026-07-29; stale 30/46 figures flagged in public issues #1596/#1629, @anikinsasha/@elhoim).** The 11 files that are on disk but NOT registered directly are not dead — each is imported as a `run()`/`check()` module by a consolidating dispatcher and still runnable standalone via its own shim: `SystemFileGuard`, `CommunicationSkillGuard`, `EgressClassGuard` → `PreToolGuard`; `FormatGate`, `VerificationGate`, `ISACloseGate`, `ISAGate`, `WritingGate` → `StopGates`; `LoadMemory`, `MemoryDeltaSurface` → `MemoryTurnStart`; `SystemChangeSurface` → `PostToolObserver`. (`LoopDetector` graduated to a direct PostToolUse + PostToolUseFailure registration and is no longer dispatcher-only.) The consolidation retired `TheRouter` entirely (removed 2026-07-11) (mode/tier classification abolished; model rungs now live in `LIFEOS/TOOLS/models.ts` + `AgentInvocation.hook.ts`) and folded a family of single-purpose loggers/gates/painters into `EventLogger`, `TabState`, `StopGates`, `MemoryTurnStart`, `MemoryReviewFire`, and `PostToolObserver`. Details per event below.
 
 ---
 
 ## Overview
 
-The LifeOS hook system is an event-driven automation infrastructure built on Claude Code's native hook support. Hooks are executable scripts (TypeScript/Python) that run automatically in response to specific events during Claude Code sessions.
+The LifeOS hook system is an event-driven automation infrastructure built on the AI engine's native hook support (Claude Code today). Hooks are executable scripts (TypeScript/Python) that run automatically in response to specific events during sessions.
 
 **Core Capabilities:**
 - **Session Management** - Auto-load context, capture summaries, manage state
@@ -170,12 +170,12 @@ Claude Code supports the following hook events:
 - Fires at most one `DRIFT-REMINDER:` context line; budget 1-per-5-turns (`MEMORY/STATE/drift-reminder.json`); consecutive identical findings dedupe, a clean response re-arms; 30-min staleness guard. No LLM calls.
 
 **MemoryTurnStart.hook.ts** — the ONE UserPromptSubmit memory hook (consolidated 2026-07-11)
-- Dispatcher merging two per-prompt memory modules, each still runnable standalone: `LoadMemory.run()` (`<pai-memory>` hot-layer injection) then `MemoryDeltaSurface.run()` (`<pai-memory-health>?` + `<pai-memory-delta>`)
-- Hot-layer injection is gated: injects `<pai-memory>` on a session's FIRST prompt, whenever the memory files' content hash changes, or after 20 turns without an injection (compaction backstop); the 🧠 delta line stays every-turn
+- Dispatcher merging two per-prompt memory modules, each still runnable standalone: `LoadMemory.run()` (`<lifeos-memory>` hot-layer injection) then `MemoryDeltaSurface.run()` (`<lifeos-memory-health>?` + `<lifeos-memory-delta>`)
+- Hot-layer injection is gated: injects `<lifeos-memory>` on a session's FIRST prompt, whenever the memory files' content hash changes, or after 20 turns without an injection (compaction backstop); the 🧠 delta line stays every-turn
 - Subagent skip checked once here. Failure caught per-module; never blocks the prompt
 - The former cadence tick (`MemoryReviewTrigger.run()`) was removed from this path 2026-07-11 — `MemoryReviewFire` (Stop) now owns the whole memory-review cadence
 
-**AlgorithmNudge.hook.ts** — Algorithm live nudge layer ("Events ask the rest"; unified 2026-07-11, formerly IsaNudge)
+**AlgorithmNudge.hook.ts** — Algorithm live nudge layer ("Events ask the rest"; unified 2026-07-11, formerly ISANudge)
 - TWO SCOPES. Always-on (any session): skill-routing on UserPromptSubmit (prompt matches a skill's USE WHEN → "invoke, don't handroll"; prebuilt index at `MEMORY/STATE/skill-usewhen-index.json`, detached rebuild, noise guards + per-skill 60-min cooldown) and late-ISA on PostToolUse (25+ tool calls, no registered run → "does done need writing down?", once per session)
 - Run-scoped (live Algorithm run only): principal-message (UserPromptSubmit), probe-fail (PostToolUseFailure, execute/verify phases), agent-return / claim-close / stale-ISA / spend (~75 in-run tool calls with claims open, 30-min cooldown; tier-free replacement for the retired budget-half nudge) on PostToolUse
 - Always-on **capability row** (2026-07-12, #1461): on `PostToolUseFailure` for a Bash command that exercises a Doctor-tracked capability (codex / wrangler / notify-curl / interceptor) while `MEMORY/STATE/capabilities.json` has that capability `broken`, fires ONE line with a static fix command (per-capability 60-min cooldown). Reads only `state` from the manifest — the fix string is a compile-time `CAP_FIX` constant, never sourced from the on-disk manifest (Forge audit: keeps a poisoned manifest from injecting runnable prose into model context). `declined`/`live`/absent-manifest all stay silent.
@@ -236,9 +236,12 @@ Each Stop hook is a self-contained `.hook.ts` file that reads stdin via shared `
 - Renders spawned detached, never awaited (<100ms budget)
 
 **`StopGates.hook.ts`** — the ONE Stop-event gate hook (consolidated 2026-07-11)
-- Reads stdin ONCE and evaluates the per-turn gates in the old registration order; each gate file still owns its logic and stays runnable standalone:
-  1. `VerificationGate.run()` — blocks done-claims lacking transcript evidence (T1 web-deploy / T2 flow / T3 appearance)
-  2. `WritingGate.run()` — blocks publication prose without a real Pangram run (strong signals)
+- Reads stdin ONCE and evaluates the per-turn gates in order; each gate file still owns its logic and stays runnable standalone:
+  1. `FormatGate.run()` — deterministic structural checks on the one LifeOS format (banner first, 🗣️ closer last, 🧠 line when a delta arrived)
+  2. `VerificationGate.run()` — blocks done-claims lacking transcript evidence (T1 web-deploy / T2 flow / T3 appearance)
+  3. `ISACloseGate.run()` — blocks a major-work completion claim on an active run whose ISA is provably stale (≥10 tool calls since last ISA edit via `toolCallsSinceIsaEditAbs`, no ISA edit this turn, no subagent); fires ONCE per session+run, honest "no ISA delta needed" statements pass (principal directive 2026-07-24; kill switch `ISACLOSEGATE_OFF=1`)
+  4. `ISAGate.run()` — blocks a close (`phase: complete` written this turn) on structural ISA violations (non-M/N progress, fog-at-complete, missing anchors_to); scoped to ISAs touched this turn — the structural tooth complementing ISACloseGate's staleness tooth
+  5. `WritingGate.run()` — blocks publication prose without a real Pangram run (strong signals)
 - The FIRST gate returning `decision:"block"` wins; the recovery turn re-runs all gates. Fails open per-gate so one gate's crash never silences the others
 - `OutputFormatGate.run()` was dropped from the chain 2026-07-11 (it was telemetry-only and policed the retired mode-banner system; voice/format drift is now `DriftReminder`'s job)
 
@@ -306,21 +309,26 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
     { "matcher": "mcp__.*([Gg]mail|[Mm]ail|[Dd]rive|[Cc]alendar|[Ii]nbox).*", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
     { "matcher": "ToolSearch", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
     { "matcher": "AskUserQuestion", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/TabState.hook.ts" } ] },
+    { "matcher": "Read", "hooks": [
+        { "type": "command", "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts" }
+    ] },
     { "matcher": "Write", "hooks": [
         { "type": "command", "command": "$HOME/.claude/hooks/ISASync.hook.ts" },
-        { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 }
+        { "type": "command", "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 },
+        { "type": "command", "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts", "timeout": 5 }
     ] },
-    { "matcher": "Edit", "hooks": [
-        { "type": "command", "command": "$HOME/.claude/hooks/ISASync.hook.ts" },
-        { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 }
-    ] },
-    { "matcher": "MultiEdit", "hooks": [
-        { "type": "command", "command": "$HOME/.claude/hooks/ISASync.hook.ts" },
-        { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 }
-    ] },
+    { "matcher": "Edit", "hooks": [ "…same six as Write…" ] },
+    { "matcher": "MultiEdit", "hooks": [ "…same six as Write…" ] },
     { "hooks": [
         { "type": "command", "command": "$HOME/.claude/hooks/PostToolObserver.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/LoopDetector.hook.ts", "timeout": 5 },
         { "type": "command", "command": "$HOME/.claude/hooks/EventLogger.hook.ts", "timeout": 5, "async": true }
+    ] },
+    { "matcher": "Bash", "hooks": [
+        { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 }
     ] }
   ]
 }
@@ -340,11 +348,14 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
 
 **CheckpointPerISC.hook.ts** *(matchers `Write`, `Edit`, `MultiEdit`; 30s timeout)* - Per-ISC auto-commit checkpoint of work-tree state.
 
-**PostToolObserver.hook.ts** *(catch-all; the ONE sync catch-all hook, consolidated 2026-07-11)* - Dispatcher merging the two sync catch-all modules that emit `additionalContext`, joined into one `hookSpecificOutput`:
+**KnowledgeWriteGuard.hook.ts** *(matchers `Write`, `Edit`, `MultiEdit`; 5s timeout; registered 2026-07-29, ported from public PR #1687, @elhoim)* - Schema feedback at the moment a Knowledge note is written. Advisory only: for writes under `MEMORY/KNOWLEDGE/<Type>/<slug>.md`, validates the note against the canonical schema and emits `additionalContext` naming violations and the sanctioned writer (`MemorySystem.renderInitialNote`) while the author is still in the loop — one edit now instead of a migration later (the SessionEnd `KnowledgeConformance` pass reports the same drift after the fact). NEVER blocks (the note is already on disk at PostToolUse); fail-silent on every path outside KNOWLEDGE.
+
+**PostToolObserver.hook.ts** *(catch-all; the ONE sync catch-all hook, consolidated 2026-07-11)* - Dispatcher merging the sync catch-all modules that emit `additionalContext`, joined into one `hookSpecificOutput`:
 - `LoopDetector.run()` — exact-repeat / oscillation / hammering detection
 - `AlgorithmNudge.run()` — the Algorithm live nudge layer (run-scoped: agent-return / claim-close / stale-ISA / spend; always-on: late-ISA when no run is registered)
+- `SystemChangeSurface.run()` — the **⚙️ SYSTEM line** (added 2026-07-27, principal directive: "any time that we modify the system, I want the response format to include a cool, maintenance-looking system message"). Emits a `<lifeos-system-delta>` block naming this turn's writes to the four self-surfaces — ISA (anywhere on disk, with its claim delta), doctrine (CLAUDE.md, the system prompt, the Algorithm), identity (PRINCIPAL/DA identity, TELOS, OPERATIONAL_RULES, PROJECTS), machinery (hooks, skills, settings, TOOLS). Silent on ordinary work, and silent on `LIFEOS/MEMORY/` by design — that belongs to 🧠. **Why PostToolUse:** the line must describe THIS turn's writes and be in context before the model composes, so UserPromptSubmit (where the 🧠 surface lives) is structurally one turn too late, and Stop is worse — it fires after the message is on screen and can only enforce by forcing a doubled response. **Turn boundary:** `clearLedger(sessionId)` from `MemoryTurnStart`, per-session. A first cut keyed the boundary to the memory system's GLOBAL heartbeat mtime; a concurrent session's prompt then wiped a live session's ledger mid-turn, which is why the boundary is per-session and owned here. Rendering compliance is flagged (never blocked) by `FormatGate`'s `missing-system-line`.
 
-**EventLogger.hook.ts** *(catch-all; async; the unified observability writer, consolidated 2026-07-10)* - On PostToolUse writes the ground-truth audit to `MEMORY/OBSERVABILITY/tool-activity.jsonl` and bumps the ISA heartbeat; when `tool == Skill` also appends to `MEMORY/SKILLS/execution.jsonl`. The same file dispatches PostToolUseFailure, StopFailure, and ConfigChange (see those events). Merged five former loggers: `ToolActivityTracker`, `SkillExecutionLog`, `ToolFailureTracker`, `StopFailureHandler`, `ConfigAudit`. Fail-open; never blocks a turn.
+**EventLogger.hook.ts** *(catch-all; async; the unified observability writer, consolidated 2026-07-10)* - On PostToolUse writes the ground-truth audit to `MEMORY/OBSERVABILITY/tool-activity.jsonl` and bumps the ISA heartbeat; when `tool == Skill` also appends to `MEMORY/SKILLS/execution.jsonl`. Also spawns `LIFEOS/TOOLS/WorkReconcile.ts` detached at most once a minute (2026-07-20): the reconciler heals work.json rows whose ISA frontmatter changed outside ISASync's Write/Edit trigger (Bash edits, git ops) — phase/progress/criteria/title re-synced from the ISA, mtime-cached so unchanged files cost one stat. The same file dispatches PostToolUseFailure, StopFailure, and ConfigChange (see those events). Merged five former loggers: `ToolActivityTracker`, `SkillExecutionLog`, `ToolFailureTracker`, `StopFailureHandler`, `ConfigAudit`. Fail-open; never blocks a turn.
 
 > **Historical (retired 2026-07-11):** `ContentScanner.hook.ts` (v4.0 InjectionInspector on the global matcher) is gone — external-content tagging is the `Safety.hook.ts` PostToolUse branch, now scoped to the specific egress/read matchers above. `TelosSummarySync.hook.ts` retired (commit `4dd0fbe19`) — PRINCIPAL_TELOS regeneration is handled by `DerivedSync` / `GenerateTelosSummary.ts` outside the hook layer. `ToolActivityTracker.hook.ts` and `QuestionAnswered.hook.ts` were folded into `EventLogger` and `TabState` respectively.
 
@@ -864,7 +875,7 @@ main();
 ```bash
 chmod +x ~/.claude/hooks/my-custom-hook.ts
 ```
-> **Note:** Not needed when using the `bun` prefix in settings.json — all LifeOS hooks use `bun $HOME/.claude/hooks/...` which doesn't require the execute bit.
+> **Note:** LifeOS hooks are registered BARE (`$HOME/.claude/hooks/<Name>.hook.ts`, no `bun` prefix — 62 of 63 commands; `HookHealer` is the one exception), so the shebang + execute bit ARE required. A `bun` prefix would make them optional, but that is not how settings.json is wired (contradiction flagged in public issue #1600, @cristbc).
 
 ### Step 4: Add to settings.json
 ```json
@@ -949,9 +960,10 @@ await Promise.race([readPromise, timeoutPromise]);
 ### Hook Not Running
 
 **Check:**
-1. Is hook script executable? `chmod +x ~/.claude/hooks/my-hook.ts` (not needed when using `bun` prefix — all LifeOS hooks use `bun` prefix)
-2. Is path correct in settings.json? Use `bun $HOME/.claude/hooks/...`
+1. Is hook script executable? `chmod +x ~/.claude/hooks/my-hook.ts` (required: LifeOS registers hooks bare, without a `bun` prefix)
+2. Is path correct in settings.json? Use `$HOME/.claude/hooks/...` (bare, matching every existing registration except `HookHealer`)
 3. Is settings.json valid JSON? `jq . ~/.claude/settings.json`
+4. Can the hook process find `bun`? Bare registration + `#!/usr/bin/env bun` means the harness's PATH must reach bun; a stripped environment fails every `.ts` hook with `env: bun: No such file or directory` (public issues #1368/#1600, @cristbc)
 4. Did you restart Claude Code after editing settings.json?
 
 **Debug:**
@@ -1117,7 +1129,7 @@ bun ~/.claude/hooks/LoadContext.hook.ts
 **Common Issues:**
 - Subagent sessions loading main context → Fixed (subagent detection in hook)
 - File not found → Check `LIFEOS_DIR` environment variable
-- Permission denied → `chmod +x ~/.claude/hooks/LoadContext.hook.ts` (not needed when using `bun` prefix — all LifeOS hooks use `bun` prefix)
+- Permission denied → `chmod +x ~/.claude/hooks/LoadContext.hook.ts` (required — LifeOS hooks are registered bare, without a `bun` prefix)
 
 ---
 
@@ -1234,6 +1246,50 @@ Hooks in same event execute **sequentially** in order defined in settings.json:
 
 ---
 
+## Examples
+
+### One hook, one event
+
+The whole hook idea at its smallest: **speak a short line out loud whenever a long task finishes.** Nothing about the model changes — a deterministic script fires on an event and produces one observable effect.
+
+- **Event:** `Stop` (the assistant finished responding).
+- **Hook:** reads the turn's outcome, and if the work was non-trivial, POSTs a one-sentence summary to the local voice server.
+- **Effect:** the room hears "Done — tests green, deploy verified" without anyone watching the terminal.
+
+The value is that it is *deterministic and always-on*: the announcement isn't something the model chooses to do when it remembers — it's wired to the event, so it happens every time, whether or not the model is paying attention. That is the entire point of a hook: move a behavior you want *every time* out of the model's judgment and into the harness.
+
+### A hook firing, over time
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant M as Model
+    participant H as Stop hook
+    participant V as Voice server
+    U->>M: "ship the fix"
+    M->>M: edits, runs tests, verifies deploy
+    M-->>U: final response
+    Note over M,H: the Stop event fires automatically
+    M->>H: Stop event + turn transcript
+    H->>H: outcome non-trivial? (deterministic check)
+    H->>V: POST one-line summary
+    V-->>U: speaks "Done — tests green, deploy verified"
+```
+
+The hook sits *after* the model's turn, reads what happened, and acts — the model never had to decide to announce anything. Swap the Stop hook for a `PostToolUse` hook and the same shape gives you auto-format-on-save; swap it for a `UserPromptSubmit` hook and you get context injected before the model even sees the prompt. Different event, same contract: **the harness runs the behavior so the model doesn't have to remember to.**
+
+### When a hook should exist (and when it shouldn't)
+
+A behavior earns a hook when all three are true — it should happen *every* time, it can be decided *deterministically* (no judgment call), and forgetting it is *costly*:
+
+- **Good hook:** auto-commit after each verified change. Every time, purely mechanical, and a lost checkpoint hurts. → a `PostToolUse` hook.
+- **Good hook:** tag fetched web content as untrusted data before the model reads it. Every time, deterministic, and missing it is a security hole. → a `PostToolUse` hook.
+- **Bad hook:** "write better commit messages." Not deterministic — it's a judgment the model should make in context. Encoding it as a hook would either misfire or do nothing. This belongs in guidance, not a hook.
+
+The test is the one the whole system uses: if a smarter model would still need this done *mechanically and every time*, it's a hook; if a smarter model would just do it well on its own, it isn't.
+
+---
+
 ## Related Documentation
 
 - **Voice System:** `~/.claude/`
@@ -1286,15 +1342,20 @@ PRE TOOL USE (4 distinct hooks + 2 Pulse HTTP routes):
                                  EgressClassGuard.check [via X] on Bash. FIRST block wins (exit 2).
                                  [Bash|Write|Edit|MultiEdit]
 
-POST TOOL USE (7 distinct hooks):
+POST TOOL USE (12 distinct hooks):
   AgentInvocation.hook.ts        subagent_stop with duration [Agent]
   Safety.hook.ts                 Tag external content as data [WebFetch, WebSearch,
                                  mcp__.*(Gmail|Mail|Drive|Calendar|Inbox).*, ToolSearch] — same
                                  file as PermissionRequest hook below; dispatches by event
   TabState.hook.ts               Post-question tab restore [AskUserQuestion]
+  ISAStaleWriteGuard.hook.ts     Stale-ISA write guard [Read, Write, Edit, MultiEdit]
   ISASync.hook.ts                ISA → work.json sync [Write, Edit, MultiEdit]
   CheckpointPerISC.hook.ts       Per-ISC auto-commit [Write, Edit, MultiEdit; timeout 30]
-  PostToolObserver.hook.ts       ONE sync catch-all: LoopDetector [via X] + AlgorithmNudge [via X] (catch-all) [timeout 5]
+  ConfigEvalFire.hook.ts         Config-eval trigger [Write, Edit, MultiEdit]
+  AtlasEventCapture.hook.ts      Atlas asset-event capture [Write, Edit, MultiEdit, Bash; timeout 5]
+  KnowledgeWriteGuard.hook.ts    Knowledge-note schema advisory [Write, Edit, MultiEdit; timeout 5]
+  PostToolObserver.hook.ts       ONE sync catch-all: LoopDetector [via X] + AlgorithmNudge [via X] + SystemChangeSurface [via X] (catch-all) [timeout 5]
+  LoopDetector.hook.ts           Direct catch-all registration [timeout 5]
   EventLogger.hook.ts            Unified observability writer: tool-activity + skill-execution (catch-all) [async]
 
 POST TOOL USE FAILURE (2 hooks):
@@ -1306,7 +1367,7 @@ STOP (6 hooks, in fire order):
   TabState.hook.ts               Tab title/color reset after response (formerly ResponseTabReset)
   VoiceCompletion.hook.ts        Voice TTS (main sessions only)
   ISARenderOnStop.hook.ts        Re-render completed ISAs (only if ISA.html already exists)
-  StopGates.hook.ts              ONE gate hook: VerificationGate.run [via X] then WritingGate.run [via X]; FIRST block wins
+  StopGates.hook.ts              ONE gate hook: FormatGate, VerificationGate, ISACloseGate, ISAGate, WritingGate .run [via X] in order; FIRST block wins
   MemoryReviewFire.hook.ts       Owns the WHOLE memory-review cadence: tick at Stop, fire MemoryReviewer.ts
                                  detached (env-scrubbed) at turn_threshold ∧ min_minutes_between. pending_review always false now.
 
@@ -1343,13 +1404,13 @@ NOT REGISTERED (event keys absent from settings.json; hook files also gone):
   PreCompact / PostCompact / InstructionsLoaded — see Sections 10, 11, 17.
 
 RETIRED IN THE 2026-07-11 HOOKS-BPE PASS (deleted or folded):
-  TheRouter, MemoryReviewTrigger, OutputFormatGate, SecurityPipeline,
+  TheRouter (removed 2026-07-11), MemoryReviewTrigger, OutputFormatGate, SecurityPipeline,
   ContentScanner, TelosSummarySync, RelationshipMemory, GrepWiringEnrich,
   IdentityToSettingsSync, SettingsBackport.hook — folded loggers/gates/painters:
   ToolActivityTracker+ToolFailureTracker+SkillExecutionLog+ConfigAudit+
   StopFailureHandler → EventLogger; SetQuestionTab+QuestionAnswered+
-  ResponseTabReset → TabState; VerificationGate+WritingGate → StopGates;
-  LoadMemory+MemoryDeltaSurface → MemoryTurnStart; LoopDetector → PostToolObserver;
+  ResponseTabReset → TabState; FormatGate+VerificationGate+ISACloseGate+ISAGate+WritingGate → StopGates;
+  LoadMemory+MemoryDeltaSurface → MemoryTurnStart; SystemChangeSurface → PostToolObserver (LoopDetector now also registered directly);
   SystemFileGuard+CommunicationSkillGuard+EgressClassGuard → PreToolGuard.
 
 KEY FILES:
@@ -1357,7 +1418,7 @@ KEY FILES:
 ~/.claude/settings.system.json       System-side hook/permission source (SYSTEM)
 ~/.claude/LIFEOS/USER/CONFIG/settings.user.json  User-side source (USER); its plain-array events REPLACE the system array
 ~/.claude/LIFEOS/TOOLS/MergeSettings.ts  Merges system + user → settings.json (runs async at SessionStart)
-~/.claude/hooks/                     Hook scripts (39 files: 38 .hook.ts + ContextReduction.hook.sh; 30 .hook.ts registered)
+~/.claude/hooks/                     Hook scripts (49 files: 48 .hook.ts + ContextReduction.hook.sh; 37 .hook.ts registered)
 ~/.claude/hooks/handlers/            Handler modules (7 files)
 ~/.claude/hooks/lib/                 Shared libraries (27 files)
 ~/.claude/hooks/lib/learning-utils.ts Learning categorization

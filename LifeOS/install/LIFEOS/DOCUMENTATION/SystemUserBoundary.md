@@ -3,7 +3,7 @@ last_updated: 2026-06-13T00:00:00Z
 last_updated_by: LifeOS docs reframe wave (refs re-verified against live tree)
 convention: pai-freshness-v1
 applies_to: LifeOS v6.0.0+ (proposed)
-version: 1.1.4
+version: 1.2.5
 ---
 
 # System / User Boundary
@@ -14,7 +14,7 @@ version: 1.1.4
 
 ## Why this document exists
 
-Through LifeOS v4 and v5, the live LifeOS tree and the public release artifact diverged because there was no enforced architectural separation between system code (intended to ship) and user data (must never ship). Defenses were exclusively build-time: a 14-gate scrubber, a deny-list pattern grep, and a containment-zone path inventory. The runtime guard hook was removed in the 2026-05-06 security simplification, leaving no write-time enforcement at all. Drift accumulated between releases; every release required a re-sanitization sweep; the community ran a different artifact than the maintainer.
+Through LifeOS v4 and v5, the live LifeOS tree and the public release artifact diverged because there was no enforced architectural separation between system code (intended to ship) and user data (must never ship). Defenses were exclusively build-time: a fourteen-gate scrubber (since grown to eighteen), a deny-list pattern grep, and a containment-zone path inventory. The runtime guard hook was removed in the 2026-05-06 security simplification, leaving no write-time enforcement at all. Drift accumulated between releases; every release required a re-sanitization sweep; the community ran a different artifact than the maintainer.
 
 This document declares the canonical boundary. Every file in `~/.claude/` falls into exactly one of four zones. The boundary is enforced at three layers: at write time by a runtime hook, at PR time by GitHub Actions, at release time by the existing build-time gates as a backstop.
 
@@ -54,7 +54,7 @@ Private, user-owned data that ships in the user's own private repo and is mounte
 |------|--------|
 | `~/.claude/.env`, `.env.*` | USER (secrets) |
 | `~/.claude/LIFEOS/USER/**` (symlink → `~/.config/LIFEOS/USER/**`) | USER (identity, TELOS, projects, integrations, contacts, finances, health, business, customizations) |
-| `~/.claude/LIFEOS/MEMORY/**` (symlink → `~/.config/LIFEOS/USER/MEMORY/**`, post-Phase-G.2, 2026-05-23) | USER (work history, knowledge graph, learning signals, observability logs, research, reflections, relationships). Durable subset (KNOWLEDGE, WORK/<slug>/ISA.md, RELATIONSHIP, WISDOM, PLANS, RESEARCH, STATE/work.json, BOOKMARKS, REFERENCE, SKILLS, PROJECT, TEAMS, SYSTEMUPDATES, VERIFICATION) is git-tracked in the user's private USER-data repo; ephemeral subset (OBSERVABILITY JSONLs, _BROWSER_STATE, LEARNING signals, SECURITY artifacts, VOICE event log, STATE caches, _AIRGRADIENT, _NETWORK, _HELIOS, PULSE_DATA, SCRATCHPAD, RAW, AUTO, CALLS, INBOX, ARCHIVE, DATA, WORK/<slug>/* intermediates) gitignored from the private repo, local-only. |
+| `~/.claude/LIFEOS/MEMORY/**` (symlink → `~/.config/LIFEOS/USER/MEMORY/**`, post-Phase-G.2, 2026-05-23) | USER (work history, knowledge graph, learning signals, observability logs, research, reflections, relationships). Durable subset (KNOWLEDGE, WORK/<slug>/ISA.md, RELATIONSHIP, WISDOM, PLANS, RESEARCH, STATE/work.json, BOOKMARKS, REFERENCE, SKILLS, PROJECT, TEAMS, SYSTEMUPDATES, VERIFICATION) is git-tracked in the user's private USER-data repo; ephemeral subset (OBSERVABILITY JSONLs, _BROWSER_STATE, LEARNING signals, SECURITY artifacts, VOICE event log, STATE caches, per-skill runtime state, PULSE_DATA, SCRATCHPAD, RAW, AUTO, CALLS, INBOX, ARCHIVE, DATA, WORK/<slug>/* intermediates) gitignored from the private repo, local-only. |
 | `~/.claude/LIFEOS/ARBOL/**` | USER (private cloud worker code) |
 | `~/.claude/LIFEOS/Backups/**` | USER (backup state) |
 | `~/.claude/skills/_<name>/**` (underscore-prefixed) | USER (private/proprietary skills) |
@@ -104,15 +104,15 @@ Anything else — direct `Read('LIFEOS/USER/...')`, hardcoded voice IDs in modul
 
 ## Two-repo sync (post-Phase-G.1, 2026-05-22)
 
-The USER tree is its own private git repo: `~/.config/LIFEOS/USER/` → the user's `<your-username>/<your-user-data-repo>` (PRIVATE GitHub). The SYSTEM tree is `~/.claude/` → the user's `<your-username>/.claude` (PRIVATE GitHub). A pre-push hook at `~/.claude/.git/hooks/pre-push` (1836 bytes) auto-commits and pushes the USER repo before every `git push` from `~/.claude/`, so the two repos stay in sync structurally. A workflow ("update the kai repo" / "push both repos") wraps this with four boundary gates: (G1) USER-zone leak check on pending `~/.claude` changes, (G2) `DenyListCheck.ts` must return 0 real-leaks, (G3) both remotes confirmed private via `gh api`, (G4) post-push HEAD verification on both repos. **Pre-flight refuses to proceed if the public LifeOS repo appears in either remote** — this workflow is explicit private-only. Public LifeOS release goes through the shadow-release pipeline (`skills/_LIFEOS/Tools/ShadowRelease.ts`) with the separate 14-gate sanitization; the shipped distribution unit is the single `LifeOS/` skill emitted from that staging tree, not the `.claude/` clone.
+The USER tree is its own private git repo: `~/.config/LIFEOS/USER/` → the user's `<your-username>/<your-user-data-repo>` (PRIVATE GitHub). The SYSTEM tree is `~/.claude/` → the user's `<your-username>/.claude` (PRIVATE GitHub). There is no pre-push auto-sync git hook (a stale claim corrected 2026-07-04): both repos are committed, pushed, and version-tagged together by the UpdateKaiRepo workflow ("push both repos"), which runs four boundary gates: (G1) USER-zone leak check on pending `~/.claude` changes, (G2) `DenyListCheck.ts` must return 0 real-leaks, (G3) both remotes confirmed private via `gh repo view --json isPrivate`, (G4) post-push HEAD verification on both repos via `git ls-remote`. **Pre-flight refuses to proceed if the public LifeOS repo appears in either remote** — this workflow is explicit private-only. Public LifeOS release goes through the shadow-release pipeline (`ShadowRelease.ts`) with the separate 19-gate sanitization; the shipped distribution unit is the single `LifeOS/` skill emitted from that staging tree, not the `.claude/` clone.
 
 ## Enforcement layers
 
 The boundary is enforced at three independent layers; each catches different drift modes.
 
-1. **Write-time (`SystemFileGuard.hook.ts`, Phase E).** Blocks writes to SYSTEM files when the new content matches deny-list patterns. Fail-safe-open on hook errors. Primary defense — catches drift the moment it would land.
+1. **Write-time (`SystemFileGuard.hook.ts`, Phase E).** Invoked by the `hooks/PreToolGuard.hook.ts` PreToolUse dispatcher on Write/Edit; blocks writes to SYSTEM files when the new content matches deny-list patterns. Fail-safe-open on hook errors. Primary defense — catches drift the moment it would land.
 2. **PR-time (GitHub Actions, Phase H).** Runs `DenyListCheck.ts` on every PR against the public repo. Blocks merge on any real-leak finding.
-3. **Release-time (`ShadowRelease.ts` 14 gates, existing).** Final backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
+3. **Release-time (`ShadowRelease.ts` 19 gates, existing).** Final backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
 
 ## Migration phases
 
@@ -131,10 +131,48 @@ This document is the Phase A deliverable. Phases B–H land progressively. Each 
 
 ## The boundary's success criterion
 
-The deny-list precheck `bun ~/.claude/skills/_LIFEOS/Tools/DenyListCheck.ts ~/.claude` returns:
+The deny-list precheck (`DenyListCheck.ts ~/.claude`) returns:
 
 ```
 Real-leak: 0
 ```
 
 on the live tree, without any scrubbing step having been run. When this passes — and the runtime hook has prevented new leaks from landing for a sustained period — the question "is the system tree publishable?" stops being a question. The answer is structurally yes.
+
+---
+
+## Examples
+
+### The boundary in miniature
+
+Picture a contributor improving a shipped doc. They want a real-looking example, so they paste a line like `host: workstation-7.home.lan` into a file under `LIFEOS/DOCUMENTATION/`. That file is a SYSTEM file — it ships to everyone. The write-time guard sees a SYSTEM path about to receive a deny-list pattern (a hostname) and refuses the write before a single byte lands.
+
+The contributor gets a clear rejection, not a silent leak that surfaces three releases later. The fix isn't to weaken the guard — it's to use a categorical placeholder like `host: <your-workstation>.lan` in the SYSTEM doc, and let the real hostname live in a USER config file where it belongs.
+
+### Same bytes, different zone
+
+The zone is the whole decision — the content is often identical.
+
+- **Blocked:** a real `voiceId: "a1b2c3..."` hardcoded into a module under `hooks/`. That's SYSTEM; a credential can never ship. The guard blocks it.
+- **Allowed:** the same `voiceId` written to `LIFEOS/USER/CONFIG/LIFEOS_CONFIG.json`. That's USER; it never enters the release pipeline. The write goes through.
+
+The rule the guard encodes is the rule a careful contributor would follow anyway: real values live in USER, schemas and placeholders live in SYSTEM, and SYSTEM code reaches USER values only through the typed loader. The guard turns "would follow anyway" into "cannot forget."
+
+### A write, decided at the boundary
+
+```mermaid
+flowchart TD
+    A[Write or Edit to a file] --> B{Which zone is the target?}
+    B -->|USER or RUNTIME| C[Allow: never ships]
+    B -->|SYSTEM| D{Content matches a deny-list pattern?}
+    D -->|no| E[Allow: publishable by construction]
+    D -->|yes| F[Block the write]
+    F --> G[Move the value into a USER file]
+    F --> H[Or replace it with a placeholder]
+    G --> A
+    H --> A
+```
+
+Every write to the tree passes this one gate. Because the check runs at write time and not at release time, the question "is the system tree publishable?" is answered continuously instead of re-answered by a scrub before every release. A blocked write is the boundary doing its job: catching drift the moment it would land, while the fix is still one line.
+
+---

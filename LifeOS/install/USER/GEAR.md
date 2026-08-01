@@ -57,7 +57,7 @@ _TODO: desk, chair, lighting, keyboard, mouse._
 | **Lighting** | (brand) | (count / hub) |
 | **Cameras** | (brand) | (count / integration) |
 
-_TODO: sensors, locks, thermostats, hubs. The `_NETWORK` skill can populate a device topology that the Assets tab reads._
+_TODO: sensors, locks, thermostats, hubs. A network skill can populate a device topology that the Assets tab reads._
 
 ## House
 

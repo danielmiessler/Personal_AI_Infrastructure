@@ -106,6 +106,21 @@ export interface LinkedInPostsInput extends PaginationOptions {
   maxResults?: number
 }
 
+export interface LinkedInEngagersInput {
+  /** Full post URL (reactions) — e.g. https://www.linkedin.com/posts/<slug>_...-activity-<id>-<hash> */
+  postUrl: string
+  /** Cap on billed results. Every engager is a billed row — always set this. */
+  maxResults?: number
+}
+
+export interface LinkedInEngager {
+  name: string
+  /** Job title / headline — the field that makes seniority classification possible */
+  headline: string
+  profileUrl: string
+  source: 'reaction' | 'comment'
+}
+
 export interface LinkedInPost extends Post {
   id: string
   url: string
@@ -265,6 +280,105 @@ export async function searchLinkedInJobs(
 }
 
 /**
+ * Scrape the members who REACTED to a LinkedIn post, with their headlines.
+ *
+ * Headlines are the useful part: they carry job title, which is what makes
+ * audience composition (seniority / function breakdowns) possible. This is
+ * public post-level data — it is NOT the follower-demographics breakdown from
+ * creator analytics, which is session-only and unreachable by any actor.
+ *
+ * @example
+ * ```typescript
+ * const reactors = await scrapeLinkedInPostReactions({
+ *   postUrl: 'https://www.linkedin.com/posts/someuser_slug-activity-123-abc',
+ *   maxResults: 500
+ * })
+ * const execs = reactors.filter(r => /\b(c[efti]o|chief|founder)\b/i.test(r.headline))
+ * ```
+ */
+export async function scrapeLinkedInPostReactions(
+  input: LinkedInEngagersInput,
+  options?: ActorRunOptions
+): Promise<LinkedInEngager[]> {
+  const apify = new Apify()
+
+  // COST GOTCHA: billed per engager. An uncapped run on a high-engagement post
+  // returns thousands of rows — always pass maxResults.
+  const run = await apify.callActor('harvestapi/linkedin-post-reactions', {
+    posts: [input.postUrl],
+    maxItems: input.maxResults || 500
+  }, options)
+
+  await apify.waitForRun(run.id)
+
+  const finalRun = await apify.getRun(run.id)
+  if (finalRun.status !== 'SUCCEEDED') {
+    throw new Error(`LinkedIn post reactions scraping failed: ${finalRun.status}`)
+  }
+
+  const dataset = apify.getDataset(finalRun.defaultDatasetId)
+  const items = await dataset.listItems({ limit: input.maxResults || 500 })
+
+  return items
+    .map((r: any) => ({
+      name: r.actor?.name ?? r.name ?? '',
+      headline: r.actor?.position ?? r.actor?.headline ?? r.headline ?? r.position ?? '',
+      profileUrl: r.actor?.linkedinUrl ?? r.actor?.profile_url ?? r.profileUrl ?? '',
+      source: 'reaction' as const
+    }))
+    .filter((e) => e.headline)
+}
+
+/**
+ * Scrape commenters on a LinkedIn post, with their headlines.
+ *
+ * Takes the numeric ACTIVITY ID, not a URL — passing a post_url returns
+ * "Field input.postIds is required".
+ *
+ * The ID is 19 digits and starts with 7; its top 42 bits are a millisecond
+ * timestamp, so a REAL id in a doc example silently publishes when that post
+ * was made. This example previously carried a genuine activity id that decoded
+ * to a post three days before the 7.24.x cut. Keep the placeholder an obviously
+ * round synthetic number, never a copied-in real one.
+ *
+ * @example
+ * ```typescript
+ * const commenters = await scrapeLinkedInPostCommenters({ postId: '7000000000000000000' })
+ * ```
+ */
+export async function scrapeLinkedInPostCommenters(
+  input: { postId: string },
+  options?: ActorRunOptions
+): Promise<LinkedInEngager[]> {
+  const apify = new Apify()
+
+  const run = await apify.callActor(
+    'apimaestro/linkedin-post-comments-replies-engagements-scraper-no-cookies',
+    { postIds: [input.postId] },
+    options
+  )
+
+  await apify.waitForRun(run.id)
+
+  const finalRun = await apify.getRun(run.id)
+  if (finalRun.status !== 'SUCCEEDED') {
+    throw new Error(`LinkedIn post comments scraping failed: ${finalRun.status}`)
+  }
+
+  const dataset = apify.getDataset(finalRun.defaultDatasetId)
+  const items = await dataset.listItems({ limit: 1000 })
+
+  return items
+    .filter((c: any) => c.author?.headline)
+    .map((c: any) => ({
+      name: c.author.name ?? '',
+      headline: c.author.headline,
+      profileUrl: c.author.profile_url ?? '',
+      source: 'comment' as const
+    }))
+}
+
+/**
  * Scrape LinkedIn posts from a profile or company
  *
  * @param input - Posts scraping options
@@ -291,9 +405,13 @@ export async function scrapeLinkedInPosts(
 ): Promise<LinkedInPost[]> {
   const apify = new Apify()
 
+  // COST GOTCHA (2026-07-21): this actor bills per scraped post and its real
+  // input cap is `limitPerSource` — `maxPosts` is ignored and an uncapped run
+  // scraped 784 posts ($1.58). Always pass limitPerSource.
   const run = await apify.callActor('supreme_coder/linkedin-post', {
     urls: [input.profileUrl],
-    maxPosts: input.maxResults || 50
+    limitPerSource: input.maxResults || 50,
+    deepScrape: false
   }, options)
 
   await apify.waitForRun(run.id)

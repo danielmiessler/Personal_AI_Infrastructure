@@ -33,7 +33,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { atomicWriteText } from "./lib/atomic-write";
 import { dirname, join } from "node:path";
 import { copyMissing, detectDevTree } from "./InstallEngine";
 
@@ -190,7 +191,8 @@ function deployStatusline(ctx: Ctx): ComponentResult {
     if (!alreadyWired) {
       backup(settingsPath);
       settings.statusLine = { type: "command", command, refreshInterval: 1 };
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      // Atomic — never leave a half-written settings.json (public PR #1643, @elhoim)
+      atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     }
     r.applied = !alreadyWired;
     const reread = JSON.parse(readFileSync(settingsPath, "utf-8"));
@@ -239,7 +241,8 @@ function deploySettingsKey(component: Component, key: string, ctx: Ctx): Compone
     if (!already) {
       backup(settingsPath);
       settings[key] = enh[key];
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+      // Atomic — never leave a half-written settings.json (public PR #1643, @elhoim)
+      atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     }
     r.applied = !already;
     const reread = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf-8")) : {};
@@ -392,7 +395,7 @@ function main(): void {
   const allowDev = a.includes("--allow-dev");
 
   if (detectDevTree(configRoot) && !allowDev) {
-    console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a LifeOS source tree (skills/_LIFEOS present) — refusing to deploy components. Use --allow-dev only in a sandbox.` }, null, 2));
+    console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a LifeOS source tree (dev-tree marker present) — refusing to deploy components. Use --allow-dev only in a sandbox.` }, null, 2));
     process.exit(2);
   }
 

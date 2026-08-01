@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.2
+ * @version 1.0.3
  * HookHealer.hook.ts - Self-healing for the registered-script exec-bit class
  *
  * PURPOSE:
@@ -155,7 +155,11 @@ async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
     const timer = setTimeout(() => resolve(data), 2000);
-    process.stdin.on('data', (chunk) => { data += chunk.toString(); });
+    // 10MB cap — unbounded buffering risked multi-GB allocation on a fast stream (public issue #1533, @christauff)
+    process.stdin.on('data', (chunk) => {
+      data += chunk.toString();
+      if (data.length > 10_000_000) { clearTimeout(timer); try { process.stdin.pause(); } catch {} resolve(data); }
+    });
     process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
     process.stdin.on('error', () => { clearTimeout(timer); resolve(data); });
   });

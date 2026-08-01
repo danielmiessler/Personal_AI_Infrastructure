@@ -7,6 +7,7 @@
  */
 
 import { parseTranscript, type ParsedTranscript } from '../../LIFEOS/TOOLS/TranscriptParser';
+import { parseHookStdin, isString } from './hook-input';
 
 export interface HookInput {
   session_id: string;
@@ -57,9 +58,20 @@ export async function readHookInput(): Promise<HookInput | null> {
     await Promise.race([readPromise, timeoutPromise]);
     reader.cancel().catch(() => {});
 
-    if (input.trim()) {
-      return JSON.parse(input) as HookInput;
+    // Validate the stdin boundary instead of casting. A Stop hook needs at least
+    // a transcript_path to do anything; shape-invalid input returns null (the
+    // existing fail-safe contract every consumer already null-checks), and is
+    // logged distinctly from an empty/parse failure.
+    const parsed = parseHookStdin(input);
+    if (!parsed.ok) {
+      if (input.trim()) console.error('[hook-io] stdin rejected at boundary:', parsed.reason);
+      return null;
     }
+    if (!isString(parsed.value.transcript_path)) {
+      console.error('[hook-io] stdin missing transcript_path');
+      return null;
+    }
+    return parsed.value as unknown as HookInput;
   } catch (error) {
     if (reader) reader.cancel().catch(() => {});
     console.error('[hook-io] Error reading stdin:', error);

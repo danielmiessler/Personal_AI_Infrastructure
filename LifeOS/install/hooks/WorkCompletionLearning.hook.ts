@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.5.12
+ * @version 1.5.14
  * WorkCompletionLearning.hook.ts - Extract Learnings from Completed Work (SessionEnd)
  *
  * PURPOSE:
@@ -75,19 +75,24 @@ const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');
 const LEARNING_DIR = join(MEMORY_DIR, 'LEARNING');
 
+/**
+ * What an ISA's frontmatter actually carries. The previous shape was inherited
+ * from the pre-v4 META.yaml era and asked for `lineage` and `source`, which no
+ * ISA has ever written — so `files_changed.length` was always 0, `source` was
+ * always undefined, and the significance test below could never be true. The
+ * bridge's own output proves it: 37 learning files, every one dated 2026-03-20,
+ * nothing since. Fields here are the ones ISAFormat.md defines and real ISAs
+ * on disk contain.
+ */
 interface WorkMeta {
-  id: string;
   title: string;
+  task: string;
   created_at: string;
+  started: string;
   completed_at: string | null;
-  source: string;
-  status: string;
   session_id: string;
-  lineage: {
-    tools_used: string[];
-    files_changed: string[];
-    agents_spawned: string[];
-  };
+  phase: string;
+  progress: string;
 }
 
 function parseYaml(content: string): WorkMeta {
@@ -174,7 +179,7 @@ function getMonthDir(category: 'SYSTEM' | 'ALGORITHM'): string {
   return monthDir;
 }
 
-function writeLearning(workMeta: WorkMeta, idealContent: string): void {
+function writeLearning(workMeta: WorkMeta, idealContent: string, closed: number, total: number): void {
   const category = getLearningCategory(workMeta.title);
   const monthDir = getMonthDir(category);
 
@@ -224,17 +229,11 @@ ${idealContent || 'Not specified'}
 
 ## What Was Done
 
-- **Files Changed:** ${workMeta.lineage?.files_changed?.length || 0}
-- **Tools Used:** ${workMeta.lineage?.tools_used?.join(', ') || 'None tracked'}
-- **Agents Spawned:** ${workMeta.lineage?.agents_spawned?.length || 0}
+- **Claims closed:** ${closed}/${total}
+- **Phase at close:** ${workMeta.phase || 'unknown'}
 
-## Insights
-
-*This work session completed successfully. Consider what made it effective:*
-
-- Was the approach straightforward or did it require iteration?
-- Were there any blockers or surprises?
-- What patterns from this work apply to future tasks?
+*Per-file and per-tool lineage is not recorded in ISA frontmatter. The change
+record is git: \`git log -- <isa-path>\`.*
 
 ---
 
@@ -250,7 +249,6 @@ async function main() {
     // Read input from stdin with timeout — SessionEnd hooks may receive
     // empty or slow stdin. Proceed regardless since state is read from disk.
     let sessionId: string | undefined;
-    let effortLevel: string = '';
     try {
       const input = await Promise.race([
         Bun.stdin.text(),
@@ -259,21 +257,10 @@ async function main() {
       if (input && input.trim()) {
         const parsed = JSON.parse(input);
         sessionId = parsed.session_id;
-        effortLevel = (parsed.effort?.level ?? '').toLowerCase();
       }
     } catch {
       // Timeout or parse error — proceed without session_id
     }
-    if (!effortLevel) {
-      effortLevel = (process.env.CLAUDE_EFFORT ?? '').toLowerCase();
-    }
-
-    // Effort-aware gating (v6.3.0 — Anthropic CC v2.1.133 surfaces effort.level).
-    // E1/standard trivial sessions rarely produce meaningful learnings.
-    // Skip capture when effort is E1 AND the work is light (files_changed ≤ 5).
-    // Default-conservative: when effort is undefined, run full capture.
-    const isE1 = effortLevel === 'e1' || effortLevel === 'standard' || effortLevel === 'low';
-
     // Resolve the active work-session row for this hook UUID against
     // MEMORY/STATE/work.json (the canonical registry — replaces the
     // never-written `current-work.json` lookup).
@@ -316,18 +303,25 @@ async function main() {
       workMeta.completed_at = getISOTimestamp();
     }
 
-    // Extract ISC from ISA.md / PRD.md ISC section (v4.0+) or ISC.json (legacy)
+    // Extract claim counts from the ISA's criteria section, or ISC.json (legacy).
+    // The heading vocabulary is `## Claims` today; `## Criteria` / `## ISC
+    // Criteria` are legacy spellings that ISAFormat.md still parses. The old
+    // regex here matched neither `Claims` nor `ISC Criteria`, so it missed the
+    // current convention outright — the same read-a-field-that-isn't-written
+    // defect as the frontmatter above, in the same file.
     let idealContent = '';
+    let closedClaims = 0;
+    let totalClaims = 0;
     if (isaPath) {
       try {
         const isaContent = readFileSync(isaPath, 'utf-8');
-        const iscMatch = isaContent.match(/## (?:IDEAL STATE CRITERIA|Criteria)[\s\S]*?(?=\n## |$)/);
+        const iscMatch = isaContent.match(/## (?:Claims|ISC Criteria|IDEAL STATE CRITERIA|Criteria)[\s\S]*?(?=\n## |$)/);
         if (iscMatch) {
-          const checked = (iscMatch[0].match(/- \[x\]/g) || []).length;
+          closedClaims = (iscMatch[0].match(/- \[x\]/gi) || []).length;
           const unchecked = (iscMatch[0].match(/- \[ \]/g) || []).length;
-          const total = checked + unchecked;
-          if (total > 0) {
-            idealContent = `**ISC:** ${checked}/${total} criteria passing`;
+          totalClaims = closedClaims + unchecked;
+          if (totalClaims > 0) {
+            idealContent = `**Claims:** ${closedClaims}/${totalClaims} closed`;
           }
         }
       } catch { /* ignore */ }
@@ -347,24 +341,27 @@ async function main() {
       }
     }
 
-    // Check if this was significant work (has files changed or was manually created).
-    // task_count was a legacy field from the never-written current-work.json — gone.
-    const filesChangedCount = workMeta.lineage?.files_changed?.length || 0;
-    const hasSignificantWork = (
-      filesChangedCount > 0 ||
-      workMeta.source === 'MANUAL'
-    );
+    // Identity comes from the registry row when the ISA omits it — `title` and
+    // `session_id` were never ISA frontmatter fields either, so every learning
+    // file used to render "**Session:** undefined".
+    workMeta.title = workMeta.title || workMeta.task || active.session?.task || slug;
+    workMeta.session_id = workMeta.session_id || sessionId || 'unknown';
+    workMeta.created_at = workMeta.created_at || workMeta.started;
 
-    // Effort gate: at E1/standard, raise the bar — require >5 files changed.
-    // Trivial E1 sessions otherwise produce noise-tier learnings.
-    const passesEffortGate = !isE1 || filesChangedCount > 5 || workMeta.source === 'MANUAL';
+    // Significance is "the run closed at least one claim" — the one durable
+    // signal an ISA actually records. The previous test asked for a files-changed
+    // count and a MANUAL source that no ISA has ever carried, so it was false on
+    // every session and the WORK->LEARNING bridge wrote nothing for four months.
+    const hasSignificantWork = closedClaims > 0;
 
-    if (hasSignificantWork && passesEffortGate) {
-      writeLearning(workMeta, idealContent);
-    } else if (hasSignificantWork && !passesEffortGate) {
-      console.error(`[WorkCompletionLearning] E1 session with ${filesChangedCount} files — below effort gate (>5 required), skipping`);
+    // Significance alone decides. The old effort gate keyed on "e1 | standard |
+    // low" — retired tier names that collide with the harness's LIVE
+    // CLAUDE_EFFORT dial, so a low-effort session silently skipped capture
+    // (Forge cross-vendor audit, 2026-07-24).
+    if (hasSignificantWork) {
+      writeLearning(workMeta, idealContent, closedClaims, totalClaims);
     } else {
-      console.error('[WorkCompletionLearning] Trivial work session, skipping learning capture');
+      console.error('[WorkCompletionLearning] No claims closed this session, skipping learning capture');
     }
 
     process.exit(0);

@@ -26,7 +26,7 @@ End-to-end AI video generation: topic or script → scene images + narration + c
 
 ### 1. Parse input
 
-Detect input type — topic string, URL (blog/tweet/YouTube), or file path. Route to Parser skill if extraction needed. Output: a clean script of 60-300 words and a scene outline.
+Detect input type — topic string, URL (blog/tweet/YouTube), or file path. If extraction is needed, use `fabric -y` for YouTube, WebFetch for article URLs (Research skill if the page resists), and the Read tool for local files and PDFs. Output: a clean script of 60-300 words and a scene outline.
 
 ### 2. Write the narration script
 
@@ -89,7 +89,7 @@ Calculate `durationInFrames` from narration length: `audioDurationSec * fps`.
 Default to local:
 
 ```bash
-bunx remotion render GeneratedVideo ~/Downloads/video.mp4 --codec=h264
+bunx remotion render GeneratedVideo "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/video.mp4 --codec=h264
 ```
 
 For batch/production, use Lambda (see `Tools/Ref-lambda.md`).
@@ -99,12 +99,12 @@ For batch/production, use Lambda (see `Tools/Ref-lambda.md`).
 Show the file path and play via `open` on macOS:
 
 ```bash
-open ~/Downloads/video.mp4
+open "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/video.mp4
 ```
 
 ## Output
 
-- `~/Downloads/<slug>.mp4` — final video
+- `"${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/<slug>.mp4` — final video
 - Project kept in your local Remotion projects directory for iteration (same location Remotion studio uses)
 
 ## Related

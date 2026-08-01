@@ -25,7 +25,7 @@ import { homedir } from "node:os";
 
 const WORK_DIR = join(homedir(), ".claude/LIFEOS/MEMORY/WORK");
 
-type IsaMeta = {
+type ISAMeta = {
   slug: string;
   path: string;
   effort: string;
@@ -57,8 +57,8 @@ function fm(body: string, key: string): string {
   return m ? m[1].trim() : "";
 }
 
-function collect(): IsaMeta[] {
-  const out: IsaMeta[] = [];
+function collect(): ISAMeta[] {
+  const out: ISAMeta[] = [];
   for (const dir of readdirSync(WORK_DIR)) {
     const p = join(WORK_DIR, dir, "ISA.md");
     try {
@@ -88,11 +88,11 @@ function collect(): IsaMeta[] {
 // Deterministic stratified sample: round-robin across (tier, domain) cells,
 // newest-first within each cell, months spread by construction. No RNG — the
 // same corpus always yields the same manifest (replay runs are comparable).
-function sample(all: IsaMeta[], n: number): IsaMeta[] {
+function sample(all: ISAMeta[], n: number): ISAMeta[] {
   const eligible = all
     .filter((i) => i.iscCount >= 4 && i.phase !== "?" && i.effort !== "?")
     .sort((a, b) => b.started.localeCompare(a.started));
-  const cells = new Map<string, IsaMeta[]>();
+  const cells = new Map<string, ISAMeta[]>();
   for (const i of eligible) {
     const key = `${i.effort}|${i.domain}`;
     if (!cells.has(key)) cells.set(key, []);
@@ -100,7 +100,7 @@ function sample(all: IsaMeta[], n: number): IsaMeta[] {
   }
   // Order cells rarest-tier-first so E1/E5 survive the cut; then round-robin.
   const ordered = [...cells.entries()].sort((a, b) => a[1].length - b[1].length);
-  const picked: IsaMeta[] = [];
+  const picked: ISAMeta[] = [];
   const seenMonthCell = new Set<string>();
   let round = 0;
   while (picked.length < n && round < 50) {

@@ -73,6 +73,7 @@ function walk(dir: string): string[] {
 }
 
 const files = walk(STAGING);
+const allBasenames = new Set(files.map((f) => f.slice(f.lastIndexOf("/") + 1)));
 console.log(`Auditing ${files.length} file(s) in ${STAGING}…\n`);
 
 for (const file of files) {
@@ -98,11 +99,82 @@ for (const file of files) {
 
   if (rel.endsWith(".md") || rel.endsWith(".markdown") || rel.endsWith(".ts") || rel.endsWith(".js") || rel.endsWith(".json") || rel.endsWith(".toml")) {
     if (rel.startsWith("LIFEOS/USER/_TEMPLATES/")) continue;
-    const content = readFileSync(file, "utf8");
-    for (const s of PROHIBITED_STRINGS) {
-      if (content.includes(s)) {
-        issues.push({ path: rel, rule: "prohibited-string", detail: `contains "${s}"` });
-        break;
+    // Public-repo attribution is not a leak. A github.com/<owner>/<repo> URL is
+    // the canonical link for the owner's OPEN-SOURCE tools (fabric, SecLists,
+    // LifeOS…) and legitimately ships inside those skills' own docs — a LifeOS
+    // release audit flagging Fabric's own repo link is noise, not a finding.
+    // Strip these org URL paths before the identity scan so the repo link stops
+    // reading as a leak, while a bare surname or personal domain still flags.
+    // Same-class benign URL contexts (triaged identically on the 7.23.0/1/2
+    // cuts): shields.io badge paths and GitHub API repo paths carry the owner
+    // slug exactly like a clone URL does.
+    const content = readFileSync(file, "utf8")
+      .replace(/(?:raw\.githubusercontent\.com|github\.com|api\.github\.com\/repos)\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+/g, "")
+      .replace(/img\.shields\.io\/[^\s"')]+/g, "");
+    // Files whose PURPOSE requires the identity string — each with its reason,
+    // scoped to this one rule (every other rule still scans them). Standing
+    // triage encoded 2026-07-30 after three cuts re-adjudicated the same hits.
+    const PROHIBITED_EXEMPT: Record<string, string> = {
+      "hooks/SystemFileGuard.test.ts": "the leak guard's own fixtures must contain the patterns it catches",
+      "LIFEOS/DOCUMENTATION/LifeOs/RenameMap.json": "PAI→LifeOS rename history maps public repo slugs",
+      "LIFEOS/TOOLS/DeriveDenyHashes.ts": "public repo slug kept as attribution allowlist token (documented in-file)",
+      "README.md": "the author's public repo front page — his site, handle, and slug are the attribution, by design",
+      "LIFEOS/TOOLS/GenerateStarHistory.ts": "default CLI arg is the public repo's own slug (star chart of this repo)",
+    };
+    // The emitted LifeOS/ payload nests the tree under install/ — normalize so
+    // the exemptions reach BOTH audit lanes (staging .claude/ and emitted
+    // payload; Max audit 2026-07-30 live-probed the payload lane re-flagging
+    // the sanctioned hits the map was built to retire).
+    const relForExempt = rel.replace(/^install\//, "");
+    if (!(relForExempt in PROHIBITED_EXEMPT)) {
+      for (const s of PROHIBITED_STRINGS) {
+        if (content.includes(s)) {
+          issues.push({ path: rel, rule: "prohibited-string", detail: `contains "${s}"` });
+          break;
+        }
+      }
+    }
+    // Dead legacy-doc pointers (Max audit ratchet, 2026-08-01 v7.26.0 cut):
+    // backticked ALLCAPS .md references like `MEMORYSYSTEM.md` are pre-rename
+    // pointer rot — bare basenames evade G7's path-based ref integrity, and the
+    // MEMORYSYSTEM.md one steered fresh installs to the memory system's
+    // pre-Cortex identity. Scoped to backticked all-caps basenames (6+ letters)
+    // whose basename exists nowhere in the audited tree; plain-prose historical
+    // changelog mentions (no backticks) are deliberately not matched.
+    // Same rot class in CODE (Max 7.28.0 audit: a log message named THEHOOKSYSTEM.md
+    // after the path join was fixed — string sweeps must cover code, not just docs).
+    // change-detection.ts is exempt: its legacy-name MATCHERS exist to classify
+    // historical paths and are match-only by design.
+    // Hardening (Forge+Max 7.28.1, future-only): cover every JS/TS extension, not
+    // just .ts/.js; and exempt only THIS rule's own known literals in ReleaseAudit.ts
+    // rather than blanket-exempting the whole file (which would blind the rule to a
+    // real dead pointer added elsewhere in it later).
+    const codeExt = /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(rel);
+    const isChangeDetection = rel.endsWith("hooks/lib/change-detection.ts");
+    if (codeExt && !isChangeDetection) {
+      // Self-reference guard: this file names smushed patterns in its own comments
+      // and examples; those are the rule describing itself, not dead pointers. Skip
+      // lines that are comments in ReleaseAudit.ts only.
+      const isSelf = rel.endsWith("Tools/ReleaseAudit.ts");
+      for (const line of readFileSync(file, "utf8").split("\n")) {
+        if (isSelf && /^\s*(\/\/|\*)/.test(line)) continue;
+        for (const m of line.matchAll(/([A-Z][A-Z0-9]*(?:SYSTEM|SUBSYSTEM|THESIS|SCHEMA)\.md)/g)) {
+          const base = m[1]!;
+          if (!allBasenames.has(base)) {
+            issues.push({ path: rel, rule: "dead-legacy-doc-pointer", detail: `${base} referenced in code but exists nowhere in the tree — fix the string` });
+          }
+        }
+      }
+    }
+    if (rel.endsWith(".md") || rel.endsWith(".markdown")) {
+      // Scoped to the pre-rename smushed convention (FOOSYSTEM.md / LIFEOSTHESIS.md
+      // etc.) — ordinary ALLCAPS single-word names (PREFERENCES.md, CHANGELOG.md,
+      // TASKLIST.md) are template conventions or runtime-generated and stay exempt.
+      for (const m of readFileSync(file, "utf8").matchAll(/`([A-Z][A-Z0-9]*(?:SYSTEM|SUBSYSTEM|THESIS|SCHEMA)\.md)`/g)) {
+        const base = m[1]!;
+        if (!allBasenames.has(base)) {
+          issues.push({ path: rel, rule: "dead-legacy-doc-pointer", detail: `\`${base}\` exists nowhere in the tree — fix the reference to the real path` });
+        }
       }
     }
   }

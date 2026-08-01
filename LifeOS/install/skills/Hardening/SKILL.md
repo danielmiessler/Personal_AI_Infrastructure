@@ -1,7 +1,7 @@
 ---
 name: Hardening
-version: 1.0.3
-description: "Hardens LifeOS tests via property/mutation testing. USE WHEN harden, hardening, property test, property based testing, PBT, fast-check, mutation test, mutation testing, Stryker, CRAP score, CRAP analysis, DRY scan, jscpd, acceptance test mutation, strengthen tests, sharpen ISCs, find bugs example tests miss, universal quantified claim, shrink counterexample, what bugs am I missing, test the tests, test of the test. NOT FOR writing new feature tests (use bun test directly), grading agent output quality (use Evals), UI verification with real Chrome (use Interceptor), finding security vulnerabilities (use _HELIOS), or building new functionality."
+version: 1.0.6
+description: "Hardens LifeOS tests via property/mutation testing. USE WHEN harden, hardening, property test, property based testing, PBT, fast-check, mutation test, mutation testing, Stryker, CRAP score, CRAP analysis, DRY scan, jscpd, acceptance test mutation, strengthen tests, sharpen ISCs, find bugs example tests miss, universal quantified claim, shrink counterexample, what bugs am I missing, test the tests, test of the test. NOT FOR writing new feature tests (use bun test directly), grading agent output quality (use Evals), UI verification with real Chrome (use Interceptor), finding security vulnerabilities, or building new functionality."
 ---
 
 # Hardening Skill
@@ -30,7 +30,7 @@ Hardening techniques sharpen what already exists — tests, ISCs, code. They don
 
 ## Doctrine
 
-These workflows operate against the **existing** test surface. PropertyTest doesn't replace bun-test examples — properties express the universal claim, examples are sampled instances of it. MutationTest doesn't replace test authoring — it grades existing tests' robustness. CRAP and DRY don't add tests — they prioritize where to add them. Acceptance-test mutation doesn't add ISCs — it mechanizes the Fluff vs Load-bearing distinction from `IsaFormat.md`.
+These workflows operate against the **existing** test surface. PropertyTest doesn't replace bun-test examples — properties express the universal claim, examples are sampled instances of it. MutationTest doesn't replace test authoring — it grades existing tests' robustness. CRAP and DRY don't add tests — they prioritize where to add them. Acceptance-test mutation doesn't add ISCs — it mechanizes the Fluff vs Load-bearing distinction from `ISAFormat.md`.
 
 All five satisfy the same intent: **strengthen the test of the test, the test of the ISC, the test of the code.** The unifying frame is meta-test — testing the things that test the system.
 
@@ -47,8 +47,8 @@ All five satisfy the same intent: **strengthen the test of the test, the test of
 ## Integration Points
 
 - **Testing Doctrine Rule #11** — names fast-check as the property-testing primitive (`LIFEOS/DOCUMENTATION/Testing/TestingDoctrine.md`).
-- **ISA format** — new `bun-property` ISC type with `property | generator | runs` columns (`LIFEOS/DOCUMENTATION/Isa/IsaFormat.md` § ISC Type Vocabulary).
-- **Algorithm v6.10.0 candidate** — VERIFY-phase Hardening gate at E4/E5; `PropertyAudit` as capability #20 (`LIFEOS/ALGORITHM/v6.10.0.md`).
+- **ISA format** — new `bun-property` ISC type with `property | generator | runs` columns (`LIFEOS/DOCUMENTATION/ISA/ISAFormat.md` § ISC Type Vocabulary).
+- **Algorithm** — hardening is elected during VERIFY when a run's claims warrant property/mutation depth; spend is discovered from the work (the v6.10.0-era tier-gated proposal predates the 2026-07-11 tier retirement).
 - **System prompt** — Verification Is the Mechanism section at top (`LIFEOS/LIFEOS_SYSTEM_PROMPT.md`).
 - **BitterPillEngineering skill** — `AcceptanceTestMutation` is the mechanized form of BPE's "would a smarter model render this rule unnecessary" applied to ISCs.
 

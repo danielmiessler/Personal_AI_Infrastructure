@@ -9,7 +9,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * work-config.ts — Single-source loader for the Work System repo binding.
  *
  * Repo identity comes from `LIFEOS/USER/WORK/work_repo.json` (privacy-attested,
- * gh-verified at write time by `skills/_ULWORK/Tools/SetWorkRepo.ts`).
+ * gh-verified at write time by the work-tracking skill's setup tool).
  * Kanban columns + poll interval come from `LIFEOS/USER/WORK/config.yaml`
  * (UX defaults, not privacy-sensitive).
  *
@@ -31,8 +31,9 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * Zero deps, zero throws — config breakage degrades to disabled state.
  */
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { atomicWriteText } from "../../LIFEOS/PULSE/lib/atomic-write";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -63,6 +64,7 @@ export type DisabledReason =
 export interface WorkConfig {
   enabled: boolean;
   repo: string | null;
+  agentLabel: string;
   kanbanColumns: string[];
   pollIntervalSeconds: number;
   captureNative: boolean;
@@ -102,10 +104,12 @@ export function loadWorkConfig(): WorkConfig {
     const key = project.toLowerCase().replace(/\s+/g, "");
     return projectMap[key] ?? "Property:internal";
   };
+  const agentLabel = loadAgentLabel();
 
   const disabled = (code: DisabledReason, reason: string): WorkConfig => ({
     enabled: false,
     repo: null,
+    agentLabel,
     kanbanColumns: columns,
     pollIntervalSeconds: pollSeconds,
     captureNative,
@@ -118,7 +122,7 @@ export function loadWorkConfig(): WorkConfig {
   if (!existsSync(REPO_JSON_PATH)) {
     return disabled(
       "missing",
-      "USER/WORK/work_repo.json missing — run `bun ~/.claude/skills/_ULWORK/Tools/SetWorkRepo.ts <owner/repo>`",
+      "USER/WORK/work_repo.json missing — run the work-tracking skill's SetWorkRepo tool with <owner/repo>",
     );
   }
 
@@ -168,8 +172,10 @@ export function loadWorkConfig(): WorkConfig {
               `gh repo view ${parsed.repo} --json visibility,isPrivate`,
           },
         };
-        writeFileSync(REPO_JSON_PATH, JSON.stringify(updated, null, 2) + "\n");
-        chmodSync(REPO_JSON_PATH, 0o600);
+        // Atomic — a truncated repo.json disables work routing (public PR #1643, @elhoim)
+        // 0600 at create time — a chmod after rename leaves a 0644 window on
+        // every write and drops the prior mode (Max review, 2026-07-29).
+        atomicWriteText(REPO_JSON_PATH, JSON.stringify(updated, null, 2) + "\n", 0o600);
         parsed = updated;
         revalidatedThisLoad = true;
       } catch {
@@ -195,6 +201,7 @@ export function loadWorkConfig(): WorkConfig {
   return {
     enabled: true,
     repo: parsed.repo,
+    agentLabel,
     kanbanColumns: columns,
     pollIntervalSeconds: pollSeconds,
     captureNative,
@@ -265,6 +272,22 @@ function loadPollSeconds(): number {
     return Number.isFinite(n) && n >= 10 ? n : DEFAULT_POLL_SECONDS;
   } catch {
     return DEFAULT_POLL_SECONDS;
+  }
+}
+
+// Issue label naming the acting agent (e.g. "Agent:<name>"). Configured per
+// install via WORK.AGENT_LABEL in USER/WORK/config.yaml — never hardcoded, so
+// no principal name ships in code. Default is the generic "Agent:principal".
+function loadAgentLabel(): string {
+  const def = "Agent:principal";
+  if (!existsSync(COLUMNS_YAML_PATH)) return def;
+  try {
+    const yaml = readFileSync(COLUMNS_YAML_PATH, "utf-8");
+    const raw = extractScalar(yaml, ["WORK", "AGENT_LABEL"]);
+    const v = raw ? raw.trim().replace(/^["']|["']$/g, "") : "";
+    return v.length > 0 ? v : def;
+  } catch {
+    return def;
   }
 }
 

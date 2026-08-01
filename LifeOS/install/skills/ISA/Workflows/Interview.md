@@ -4,9 +4,9 @@ Adaptive question-and-answer that fills in or deepens an ISA's prose sections. U
 
 ## When to invoke
 
-- From Scaffold's Ambiguity check (Step 3.5, Algorithm v7.0.0 R3) when the goal is materially ambiguous and `INTERVIEW_ELIGIBLE: true`. Max 3 targeted questions, `proceed` override available, partial-fill written back to ISA per question.
-- After Scaffold at E5 (mandatory before BUILD per the tier completeness gate).
-- After Scaffold at any tier if CheckCompleteness reports gaps.
+- From Scaffold's Ambiguity check (Step 3.5, Algorithm v7.0.0 R3) when the goal is materially ambiguous on substantial work. Max 3 targeted questions, `proceed` override available, partial-fill written back to ISA per question.
+- After Scaffold on deepest-grade work (mandatory before building, per the substance-scaled completeness gate).
+- After any Scaffold if CheckCompleteness reports gaps.
 - User directly: `Skill("ISA", "interview me on <isa-path>")`
 - User directly with a specific section: `Skill("ISA", "interview me on the Vision section of <isa-path>")`
 
@@ -62,7 +62,7 @@ After every user response, immediately Edit the ISA file. The user should feel t
 ### Step 6 — Stop conditions
 
 End the interview when any of:
-- All required sections per tier are populated to non-thin depth.
+- All sections the work's substance requires are populated to non-thin depth.
 - `max_questions` reached.
 - User says "that's enough" / "skip the rest" / "done."
 - The user's answers stop adding signal (two answers in a row are "I don't know" or "skip").
@@ -76,7 +76,7 @@ Run `Workflows/CheckCompleteness.md` after the interview. Surface any remaining 
 - Conversational, not formal. No "Question 1 of 8."
 - One question per turn. Never batch.
 - Use the user's own words from earlier answers when framing later questions.
-- If the user is rushed, drop to E2/E3 required sections only and flag the rest as "fill in later."
+- If the user is rushed, drop to the substantial-grade core (Problem, Goal, Claims, Test Strategy) and flag the rest as "fill in later."
 
 ## Failure modes
 

@@ -28,10 +28,11 @@ import { sendMessage } from "../lib/imessage-send"
 import { join } from "path"
 import { appendFile, mkdir, rename } from "fs/promises"
 import { stripModeScaffolding, hasModeScaffolding } from "../lib/strip-mode-scaffolding"
+import { loadRemoteMcpServers, mcpStatusPromptLine } from "../lib/mcp-allowlist"
 
 // BILLING: Strip ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN before any SDK
-// query() call. Same rationale as modules/telegram.ts — both outrank OAuth in
-// Anthropic's auth precedence chain. Prevents API billing when re-enabled.
+// query() call — both outrank OAuth in Anthropic's auth precedence chain.
+// Prevents API billing when re-enabled (mirrors LIFEOS/TOOLS/Inference.ts).
 delete process.env.ANTHROPIC_API_KEY
 delete process.env.ANTHROPIC_AUTH_TOKEN
 
@@ -155,15 +156,21 @@ async function processMessage(
     prompt = `Previous conversation:\n${historyText}\n\nPrincipal's new message: ${sanitized}`
   }
 
+  // settingSources does NOT cover MCP config (public issue #1553,
+  // @MatiasBarboza) — without an explicit mcpServers option this session gets
+  // zero MCP servers. Default-deny by design on a remote channel; opt in per
+  // server via LIFEOS_REMOTE_MCP_ALLOWLIST. See ../lib/mcp-allowlist.ts.
+  const remoteMcp = loadRemoteMcpServers()
   const sdkOptions: Record<string, unknown> = {
     cwd: CWD,
     tools: { type: "preset", preset: "claude_code" },
+    ...(Object.keys(remoteMcp).length > 0 ? { mcpServers: remoteMcp } : {}),
     settingSources: ["user", "project", "local"],
     // Channel marker — desktop voice hooks (VoiceCompletion,
     // StopFailureHandler, PromptProcessing voice block, DocCrossRefIntegrity)
     // check LIFEOS_NOTIFICATION_CHANNEL and skip their localhost:31337/notify
     // fetch when it is not "desktop". Replies are surfaced through iMessage
-    // (text only — no voice channel here, unlike Telegram's sendVoice).
+    // (text only — iMessage has no voice-bubble channel).
     // Source of truth: hooks/lib/notification-channel.ts.
     env: { ...process.env, LIFEOS_NOTIFICATION_CHANNEL: "imessage" },
     maxTurns,
@@ -174,12 +181,11 @@ async function processMessage(
       preset: "claude_code",
       append: `\n\nYou are responding via iMessage. Keep responses concise — under 200 words, plain text.
 
-## IMESSAGE_DIRECTIVE (OVERRIDES CLAUDE.md mode-template rule)
+## IMESSAGE_DIRECTIVE (OVERRIDES the constitutional output format)
 
-TheRouter injects an IMESSAGE_DIRECTIVE in this turn's additionalContext. That directive replaces the constitutional "every response uses MINIMAL/NATIVE/ALGORITHM template" rule for this surface — terminal modes are terminal-only; iMessage uses plain conversational prose.
+This surface replaces the constitutional output format for this turn — the banner, the field labels, and the closer are terminal-only. iMessage uses plain conversational prose.
 
 DO NOT emit ANY of these:
-- Mode banner labels: bare "MINIMAL", "NATIVE", "ALGORITHM" on a line of their own
 - Box dividers: \`═══ LifeOS ═══════════════════════════\` or any \`═══\` line
 - Algorithm phase headers: \`━━━ 👁️ OBSERVE ━━━ 1/7\` and equivalents
 - Template field prefixes: \`📃 CONTENT:\`, \`🔧 CHANGE:\`, \`✅ VERIFY:\`, \`📋 SUMMARY:\`, \`🗒️ TASK:\`, \`🗣️ {{DA_NAME}}:\`
@@ -187,8 +193,10 @@ DO NOT emit ANY of these:
 
 A belt-and-suspenders egress sanitizer (LIFEOS/PULSE/lib/strip-mode-scaffolding.ts) strips these markers if you emit them — but cleaner to never emit them.
 
-You have ALL LifeOS capabilities — skills, email, calendar, everything.
-When asked to check email, use the _INBOX skill. When asked about calendar, use the _CALENDAR skill.`,
+You have LifeOS skills, email, and calendar on this channel.
+Route email and calendar asks to whichever skills own them — their descriptions
+name the triggers. Do not assume a specific skill exists; if none matches, say so.
+${mcpStatusPromptLine(Object.keys(remoteMcp))}`,
     },
   }
 

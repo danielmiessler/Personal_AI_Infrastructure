@@ -17,9 +17,9 @@ defaults:
 # Agent definitions
 agents:
   # === PRIMARY ASSISTANT ===
-  kai:
-    id: kai
-    name: {{DA_NAME}}
+  da:
+    id: da
+    name: {DA_IDENTITY.NAME}
     display_name: {DA_IDENTITY.NAME}
     archetype: enthusiast
     role: Primary AI Assistant

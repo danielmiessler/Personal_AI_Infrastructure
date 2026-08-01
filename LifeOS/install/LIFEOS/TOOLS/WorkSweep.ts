@@ -36,6 +36,7 @@ import { getDAName } from "../../hooks/lib/identity"
 
 import { join } from "path";
 import { loadWorkConfig } from "../../hooks/lib/work-config";
+import { phaseHasWorkStarted } from "./ascent";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -60,7 +61,7 @@ const BPE_AUDIT_STATE = join(STATE_DIR, "bpe-last-audit.json");
 const BPE_CADENCE_DAYS = 30;
 const BPE_AUDIT_TARGETS = "force-loaded + doctrine surface: CLAUDE.md, LIFEOS_SYSTEM_PROMPT.md, current ALGORITHM/v*.md";
 
-interface IsaFm {
+interface ISAFm {
   task: string;
   slug: string;
   effort: string;
@@ -86,7 +87,7 @@ interface SweepStats {
   errors: string[];
 }
 
-function parseFrontmatter(content: string): IsaFm | null {
+function parseFrontmatter(content: string): ISAFm | null {
   const m = content.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return null;
   const fm: Record<string, string | number> = {};
@@ -97,7 +98,7 @@ function parseFrontmatter(content: string): IsaFm | null {
       fm[kv[1]] = /^\d+$/.test(v) ? parseInt(v, 10) : v;
     }
   }
-  return fm as unknown as IsaFm;
+  return fm as unknown as ISAFm;
 }
 
 function listSessionDirs(): string[] {
@@ -107,11 +108,14 @@ function listSessionDirs(): string[] {
     .filter((p) => statSync(p).isDirectory() && existsSync(join(p, "ISA.md")));
 }
 
-function isMeaningfulWork(fm: IsaFm, isaPath: string): boolean {
+function isMeaningfulWork(fm: ISAFm, isaPath: string): boolean {
   // Skip empty/abandoned scaffolds — no progress, no phase advance.
-  // ALGORITHM sessions: must be at phase execute or beyond.
+  // ALGORITHM sessions: the run must have left articulation. Resolved through
+  // ascent.ts, never a local phase list — the list that was here held the
+  // RETIRED 8-station vocabulary, so a modern `climbing` run counted as an
+  // abandoned scaffold and never got an issue (2026-07-30 phase-lane sweep).
   if (fm.mode !== "native") {
-    return ["execute", "verify", "learn", "complete"].includes(fm.phase);
+    return phaseHasWorkStarted(fm.phase);
   }
   // NATIVE sessions: require ≥2 artifacts beyond ISA.md in the dir (signals real work,
   // not a placeholder native row with only the scaffold).
@@ -124,7 +128,7 @@ function isMeaningfulWork(fm: IsaFm, isaPath: string): boolean {
   }
 }
 
-function taskOrSlug(fm: IsaFm): string {
+function taskOrSlug(fm: ISAFm): string {
   // Fallback when older ISAs don't have a task field — use slug as readable approximation.
   if (fm.task && fm.task !== "undefined") return fm.task;
   return fm.slug.replace(/^\d+-?\d*_?/, "").replace(/-/g, " ");
@@ -452,7 +456,7 @@ async function sweepGoals(
       "Status:queued",
       "Property:internal",
       "Priority:P2",
-      "Agent:kai",
+      `Agent:${getDAName()}`,
     ], existingLabels);
     const body = [
       `## 🎯 TELOS Goal`,
@@ -523,7 +527,7 @@ async function sweepBpeCadence(
     "Status:queued",
     "Property:internal",
     "Priority:P3",
-    "Agent:kai",
+    `Agent:${getDAName()}`,
   ], existingLabels);
   const body = [
     `## 🪓 Scheduled BitterPillEngineering pass`,
@@ -612,13 +616,19 @@ async function main(): Promise<void> {
   writeLogLine(stats);
   console.error(`[WorkSweep] done in ${stats.duration_ms}ms — sessions=${stats.sessions_scanned} new=${stats.issues_created} stale=${stats.issues_stale_labeled} project-checks=${stats.project_checks_created} goals=${stats.goal_issues_created} bpe=${stats.bpe_reminder_created}`);
 
-  // Final step: regenerate the TASKLIST.md and push (best-effort, never blocks)
+  // Final step: regenerate the TASKLIST.md and push (best-effort, never blocks).
+  // The regenerator belongs to the work-tracking skill, which is optional — private
+  // skills are stripped from the public release, so this path does not exist on most
+  // installs. Probe before spawning: an unconditional spawn of a missing script made
+  // every public install log a Bun "module not found" at the end of every sweep.
   if (!dryRun) {
-    const proc = Bun.spawn(
-      ["bun", join(HOME, ".claude", "skills", "_ULWORK", "Tools", "RegenerateTasklist.ts"), "--commit-push"],
-      { stdout: "inherit", stderr: "inherit", timeout: 30000 },
-    );
-    await proc.exited;
+    const regenTool = join(HOME, ".claude", "skills", "_ULWORK", "Tools", "RegenerateTasklist.ts");
+    if (existsSync(regenTool)) {
+      const proc = Bun.spawn(["bun", regenTool, "--commit-push"], {
+        stdout: "inherit", stderr: "inherit", timeout: 30000,
+      });
+      await proc.exited;
+    }
   }
 
   process.exit(0);

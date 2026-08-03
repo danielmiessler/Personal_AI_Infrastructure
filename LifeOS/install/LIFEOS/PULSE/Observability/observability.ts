@@ -3959,7 +3959,7 @@ function buildTeamFromUserFiles(appIds: string[]): OverviewTeam[] | null {
   if (principal) {
     team.push({
       id: "T0", name: principal, role: "Principal", kind: "human", owns: [],
-      avatar: principal.charAt(0), note: "Sets direction. Everything here serves his TELOS.",
+      avatar: principal.charAt(0), note: "Sets direction. Everything here serves the principal's TELOS.",
     })
   }
   const da = nameFrom(readMd(join(USER_DIR, "DIGITAL_ASSISTANT", "DA_IDENTITY.md")))

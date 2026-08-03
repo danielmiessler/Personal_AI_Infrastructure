@@ -4234,7 +4234,10 @@ function handleLifeCardApi(): Response {
 // arm on a fresh install: the "run /interview" onboarding banner never rendered,
 // and Pulse presented the fabricated sample mission and goals to the new user as
 // if they were their own. Placeholder entries do not count as personalization.
-const SAMPLE_ENTRY_RE = /^\**\s*\(sample\)/i
+// \b not literal ")": the scaffold also writes "(sample — …)" variants (e.g.
+// MISSION.md M2), which a literal match let through. Same fix as the sibling
+// filter in LIFEOS/TOOLS/GenerateTelosSummary.ts.
+const SAMPLE_ENTRY_RE = /^\**\s*\(sample\b/i
 
 function telosPersonalized(): boolean {
   try {

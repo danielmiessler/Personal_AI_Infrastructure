@@ -91,7 +91,7 @@ export function listSuites(type?: EvalType): EvalSuite[] {
     if (!existsSync(dirPath)) continue;
 
     for (const file of readdirSync(dirPath)) {
-      if (file.endsWith('.yaml')) {
+      if (file.endsWith('.yaml') || file.endsWith('.yml')) {
         const suite = parseYaml(readFileSync(join(dirPath, file), 'utf-8')) as EvalSuite;
         suites.push(suite);
       }

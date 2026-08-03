@@ -49,11 +49,21 @@ const PROD_MUTATION_RES: RegExp[] = [
   /\s--apply\b/, // our importers' one write flag (ImportBackfill, ProvisionPortal, …)
 ];
 
+/** A search/display command whose ARGUMENTS routinely contain the exact strings
+ * PROD_MUTATION_RES hunts for — `rg -n "Tools/Release.ts"` is a grep, not a
+ * release. Only these two lists together are safe: the exemption applies solely
+ * to a single unchained invocation, so `rg x && wrangler secret put y` keeps its
+ * teeth, and none of these binaries can run a subcommand from argv (which is why
+ * `find`/`fd`/`awk`/`sed` are deliberately absent — they have -exec/system()). */
+const READ_ONLY_CMD_RE = /^\s*(rg|grep|egrep|fgrep|ag|ack|cat|bat|head|tail|less|ls|wc)\b/;
+const SHELL_CHAIN_RE = /[;&|`\n]|\$\(/;
+
 export function prodMutations(ev: TxEvent[]): TxEvent[] {
   return ev.filter((e) => {
     if (e.isError) return false; // a failed attempt changed nothing
     if (e.kind === "deploy") return true;
     if (e.kind !== "command") return false;
+    if (READ_ONLY_CMD_RE.test(e.target) && !SHELL_CHAIN_RE.test(e.target)) return false;
     // Match on the command text only, never its output.
     return PROD_MUTATION_RES.some((re) => re.test(e.target));
   });

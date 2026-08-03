@@ -185,7 +185,11 @@ export function parseTurnEvents(
           else push("interceptor-nav", extractHost(cmd));
         } else if (TEST_RE.test(cmd) && !/--dry-run/.test(cmd)) push("test-run", cmd.slice(0, 120));
         else if (PROBE_RE.test(cmd)) push("probe", extractHost(cmd));
-        else push("command", cmd.slice(0, 120)); // fallback: a plain command's failure must still be visible evidence
+        // Fallback: a plain command's failure must still be visible evidence.
+        // Kept long because ISAFoldGate matches PROD_MUTATION_RES against this
+        // text — at 120 chars a real `cd … && wrangler d1 execute … --remote
+        // --command "INSERT …"` was cut before its write verb and read as benign.
+        else push("command", cmd.slice(0, 2000));
       } else if (name === "WebFetch") {
         push("probe", eTLD1(String(input.url ?? "")));
       } else if (name === "Read") {

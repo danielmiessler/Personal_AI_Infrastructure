@@ -86,7 +86,7 @@ export default function LedgerPage() {
     const load = () =>
       fetch("/api/ledger")
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-        .then((j) => alive && setData(j))
+        .then((j) => { if (alive) { setData(j); setError(null); } })
         .catch((e) => alive && setError(String(e)));
     load();
     const t = setInterval(load, 60_000);

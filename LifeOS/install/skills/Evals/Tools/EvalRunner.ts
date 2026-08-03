@@ -161,7 +161,10 @@ export async function runSuite(name: string, override: Partial<EvalSuiteV2> = {}
       id: c.id,
       mean_score: trialResults.reduce((s, t) => s + t.score, 0) / trials,
       pass_at_k: passed > 0 ? 1 : 0,
-      pass_to_k: passed / trials,
+      // pass^k is "every one of the k trials passed" — a reliability measure.
+      // passed/trials is the MEAN, which reported 2-of-3 as 67% where the true
+      // pass^k is 0, making a flaky case look like a mostly-passing one.
+      pass_to_k: passed === trials ? 1 : 0,
       trials: trialResults,
     });
   }

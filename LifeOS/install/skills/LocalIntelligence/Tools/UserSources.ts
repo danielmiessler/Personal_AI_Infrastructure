@@ -85,7 +85,15 @@ export async function loadUserSources(): Promise<UserSource[]> {
   } catch {
     return [] // no config = no user sources, not an error
   }
-  const parsed = JSON.parse(raw) as { sources?: UserSource[] }
+  let parsed: { sources?: UserSource[] }
+  try {
+    parsed = JSON.parse(raw) as { sources?: UserSource[] }
+  } catch (err) {
+    // Malformed user config must not sink a whole refresh — the built-in
+    // fetchers have already run by this point and the digest is unsaved.
+    console.error(`[user-sources] ignoring malformed ${CONFIG_PATH}: ${(err as Error).message}`)
+    return []
+  }
   return (parsed.sources ?? []).filter(
     (s) => s.enabled !== false && SECTION_KEYS.includes(s.section) && s.url && s.name
   )

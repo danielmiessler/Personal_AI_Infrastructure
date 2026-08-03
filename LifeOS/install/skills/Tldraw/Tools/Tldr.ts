@@ -267,9 +267,16 @@ async function cmdRemove(file: string) {
     if (!full) die(`no record ${id}`)
     drop.add(full)
   }
-  // cascade: bindings touching dropped shapes, and arrows left dangling
-  for (const b of doc.records.filter((r) => r.typeName === "binding")) {
-    if (drop.has(b.toId) || drop.has(b.fromId)) { drop.add(b.id); drop.add(b.fromId) }
+  // cascade: bindings touching dropped shapes, and arrows left dangling.
+  // Repeat to a fixpoint — dropping an arrow orphans its OTHER binding, which a
+  // single forward pass has already walked past (remove the `to` shape and the
+  // `start` binding survives, dangling).
+  const bindings = doc.records.filter((r) => r.typeName === "binding")
+  for (let size = -1; size !== drop.size; ) {
+    size = drop.size
+    for (const b of bindings) {
+      if (drop.has(b.toId) || drop.has(b.fromId)) { drop.add(b.id); drop.add(b.fromId) }
+    }
   }
   const before = doc.records.length
   doc.records = doc.records.filter((r) => !drop.has(r.id))

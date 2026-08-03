@@ -41,8 +41,8 @@
  * written. A malformed record is never appended — that is the corpus gate.
  */
 
-import { existsSync, appendFileSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const LIFEOS = process.env.LIFEOS_DIR ?? join(process.env.HOME ?? "~", ".claude", "LIFEOS");
 const REFLECTIONS = join(LIFEOS, "MEMORY", "LEARNING", "REFLECTIONS", "algorithm-reflections.jsonl");
@@ -224,6 +224,7 @@ if (import.meta.main) {
     console.log(line);
     process.exit(0);
   }
+  mkdirSync(dirname(REFLECTIONS), { recursive: true });
   appendFileSync(REFLECTIONS, line + "\n", "utf8");
   const wb = record.within_budget === null ? "null (unaudited)" : String(record.within_budget);
   console.log(`✅ reflection appended · within_budget=${wb} · verdict=${spend.verdict ?? "none"} · dispatches=${spend.dispatches}`);

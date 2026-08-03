@@ -168,7 +168,7 @@ function resolveSpec(spec: SourceSpec): ResolvedSource[] {
     const out: ResolvedSource[] = []
     let entries: string[] = []
     try {
-      entries = readdirSync(spec.path).filter((e) => e.endsWith(".md") || e.endsWith(".json") || e.endsWith(".yaml"))
+      entries = readdirSync(spec.path).filter((e) => e.endsWith(".md") || e.endsWith(".json") || e.endsWith(".yaml") || e.endsWith(".yml"))
     } catch {
       // unreadable dir — record as missing
       return [{ name: spec.name, path: spec.path, exists: false, mtime: null }]

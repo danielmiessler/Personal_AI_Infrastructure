@@ -382,11 +382,11 @@ function setWallpaper(filename: string): boolean {
 }
 
 /**
- * `k doctor` — the capability check. Doctor.ts and the statusline both advise
+ * `lifeos doctor` — the capability check. Doctor.ts and the statusline both advise
  * running "lifeos doctor" on a capability regression, but there was no such
  * subcommand: the only working invocation was the more obscure
  * `bun LIFEOS/TOOLS/Doctor.ts`. Extra args are forwarded verbatim, so
- * `k doctor --network` and `k doctor decline <name>` work too.
+ * `lifeos doctor --network` and `lifeos doctor decline <name>` work too.
  * public PR #1637, @elhoim
  */
 function cmdDoctor(args: string[]) {
@@ -412,8 +412,8 @@ function cmdWallpaper(args: string[]) {
       console.log(`  ${i + 1}. ${getWallpaperName(w)}`);
     });
     console.log();
-    log("Usage: k -w <name>", "💡");
-    log("Example: k -w circuit-board", "💡");
+    log("Usage: lifeos -w <name>", "💡");
+    log("Example: lifeos -w circuit-board", "💡");
     return;
   }
 
@@ -590,7 +590,7 @@ async function cmdVersion() {
     if (cmp >= 0) {
       log("Up to date", "✅");
     } else {
-      log("Update available (run 'k update')", "⚠️");
+      log("Update available (run 'lifeos update')", "⚠️");
     }
   } else {
     log("Could not fetch latest version", "⚠️");
@@ -614,7 +614,7 @@ function cmdProfiles() {
   }
 
   console.log();
-  log("Usage: k mcp set <profile>", "💡");
+  log("Usage: lifeos mcp set <profile>", "💡");
 }
 
 function cmdMcpList() {
@@ -633,7 +633,7 @@ function cmdMcpList() {
   }
 
   console.log();
-  log("Profiles (use with 'k mcp set'):", "📁");
+  log("Profiles (use with 'lifeos mcp set'):", "📁");
   const profiles = getMcpProfiles();
   for (const profile of profiles) {
     const desc = PROFILE_DESCRIPTIONS[profile] || "";
@@ -642,9 +642,9 @@ function cmdMcpList() {
 
   console.log();
   log("Examples:", "💡");
-  console.log("  k -m bd          # Bright Data only");
-  console.log("  k -m bd,ap       # Bright Data + Apify");
-  console.log("  k mcp set research  # Full research profile");
+  console.log("  lifeos -m bd             # Bright Data only");
+  console.log("  lifeos -m bd,ap          # Bright Data + Apify");
+  console.log("  lifeos mcp set research  # Full research profile");
 }
 
 async function cmdPrompt(prompt: string) {
@@ -742,7 +742,7 @@ async function main() {
     return;
   }
 
-  // `k` is aliased to `bun <this file>`, and bun CONSUMES a `--` that sits
+  // `lifeos` is aliased to `bun <this file>`, and bun CONSUMES a `--` that sits
   // immediately after the script path — verified: `-- --fork-session` arrives as
   // ["--fork-session"], while `-r -- --fork-session` keeps its separator. Only
   // that first one is eaten. So a leading dash-flag we don't model is the tail of
@@ -790,8 +790,8 @@ async function main() {
       case "-r":
       case "--resume":
         resume = true;
-        // Optional session ID: `k -r <session-id>` resumes that session
-        // directly; bare `k -r` opens the interactive picker.
+        // Optional session ID: `lifeos -r <session-id>` resumes that session
+        // directly; bare `lifeos -r` opens the interactive picker.
         if (args[i + 1] && !args[i + 1].startsWith("-")) {
           resumeId = args[++i];
         }
@@ -875,12 +875,12 @@ async function main() {
       } else if (subCommand === "set" && subArg) {
         setMcpProfile(subArg);
       } else {
-        error("Usage: k mcp list | k mcp set <profile>");
+        error("Usage: lifeos mcp list | lifeos mcp set <profile>");
       }
       break;
     case "prompt":
       if (!promptText) {
-        error("Usage: k prompt \"your prompt here\"");
+        error("Usage: lifeos prompt \"your prompt here\"");
       }
       await cmdPrompt(promptText);
       break;

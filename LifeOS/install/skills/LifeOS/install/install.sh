@@ -284,6 +284,12 @@ step "5/6  Migrating launch aliases (pre-7.x upgrades)"
 CONFIG_ROOT="$(dirname "$LIFEOS_SKILLS_DIR")"
 LAUNCHER="$CONFIG_ROOT/LIFEOS/TOOLS/lifeos.ts"
 SYS_PROMPT="$CONFIG_ROOT/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"
+# Single-quote a value for safe embedding in shell source. A literal `'` is
+# closed, backslash-escaped and reopened (it's → 'it'\''s'). Needed because the
+# alias body is re-parsed by the shell: an unquoted $HOME with a space breaks the
+# launcher, and one with a quote corrupts the rc file — and by this point the old
+# working alias is already commented out, so the user is left with no alias.
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 migrate_rc() {
   local rc="$1" stale names n ts
   [ -f "$rc" ] || return 0
@@ -304,16 +310,19 @@ migrate_rc() {
     { print }
   ' "$rc" > "$rc.lifeos-tmp" && mv "$rc.lifeos-tmp" "$rc"
   if [ -f "$LAUNCHER" ]; then
-    local add_lifeos=1
+    local add_lifeos=1 alias_body
+    # Two levels of quoting for two levels of parsing: the inner shq protects the
+    # paths when the alias body runs, the outer one when the rc file is sourced.
+    alias_body="bun $(shq "$LAUNCHER") -s $(shq "$SYS_PROMPT")"
     printf '%s\n' $names | grep -qx lifeos && add_lifeos=0
     grep -E '^[[:space:]]*alias[[:space:]]+lifeos=' "$rc" 2>/dev/null | grep -q 'LIFEOS_SYSTEM_PROMPT' && add_lifeos=0
     {
       echo ""
       echo "# LifeOS ${LIFEOS_TAG} launch aliases (repointed from pre-7.x by install.sh)"
       for n in $names; do
-        echo "alias $n='bun $LAUNCHER -s $SYS_PROMPT'"
+        echo "alias $n=$(shq "$alias_body")"
       done
-      if [ "$add_lifeos" = "1" ]; then echo "alias lifeos='bun $LAUNCHER -s $SYS_PROMPT'"; fi
+      if [ "$add_lifeos" = "1" ]; then echo "alias lifeos=$(shq "$alias_body")"; fi
     } >> "$rc"
     success "Repointed $(echo $names | tr '\n' ' ')to the constituted 7.x launcher (backup: $(basename "$rc").lifeos-backup-$ts)"
   else

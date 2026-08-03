@@ -13,11 +13,17 @@ import { TabFreshnessPill } from "@/components/TabFreshnessPill";
 // meta view of the system working on itself, never part of the scrolling row.
 // SYSTEM is the mode-switch into the machine plane (lands on systemHome).
 import { tier1Nav, systemNav, metaNav, systemHome } from "@/lib/palette/nav-manifest";
+import { useEnabledModules } from "@/lib/use-enabled-modules";
 
 const systemPaths = [...systemNav.map((i) => i.href), "/system"];
 
 export default function AppHeader() {
   const pathname = usePathname();
+  // A tab whose module is switched off in PULSE.toml would open a page with no
+  // backend answering it, so drop it from both rows and the mobile menu.
+  const isEnabled = useEnabledModules();
+  const tier1 = tier1Nav.filter(isEnabled);
+  const system = systemNav.filter(isEnabled);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const { observerMode, toggleObserverMode } = useObserverMode();
@@ -81,7 +87,7 @@ export default function AppHeader() {
             <nav
               className="hidden md:flex flex-wrap flex-1 items-center justify-start xl:justify-center gap-1 gap-y-1 min-w-0"
             >
-              {tier1Nav.map((item) => {
+              {tier1.map((item) => {
                 const active = isActive(item.href);
                 const Icon = item.icon;
                 return (
@@ -174,7 +180,7 @@ export default function AppHeader() {
                 System
               </span>
               <nav className="flex flex-wrap flex-1 items-center justify-start gap-1 gap-y-1.5 min-w-0">
-                {systemNav.map((item) => {
+                {system.map((item) => {
                   const active = isActive(item.href);
                   const Icon = item.icon;
                   return (
@@ -204,7 +210,7 @@ export default function AppHeader() {
         <div ref={mobileMenuRef} className="md:hidden border-b border-line-1 backdrop-blur-md" style={{ background: "rgba(6, 11, 26, 0.95)" }}>
           <nav className="flex flex-col px-4 py-3 gap-1">
             <div className="text-xs uppercase tracking-wider text-ink-3 px-3 py-1">Sections</div>
-            {tier1Nav.map((item) => {
+            {tier1.map((item) => {
               const active = isActive(item.href);
               const Icon = item.icon;
               return (
@@ -230,7 +236,7 @@ export default function AppHeader() {
               );
             })}
             <div className="text-xs uppercase tracking-wider text-ink-3 px-3 py-1 mt-2">System</div>
-            {systemNav.map((item) => {
+            {system.map((item) => {
               const active = isActive(item.href);
               const Icon = item.icon;
               return (

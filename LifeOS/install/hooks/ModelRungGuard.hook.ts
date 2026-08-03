@@ -35,7 +35,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * Failure mode: any error logs to stderr and exits 0, never blocking prompts.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const STDIN_TIMEOUT_MS = 300;
@@ -110,17 +110,29 @@ export function pinnedRung(settingsPath: string = SETTINGS_PATH): Rung | null {
  * The carrier actually serving this session, read from the last assistant
  * message in the transcript. Null on the very first prompt, when no assistant
  * message exists yet — the check simply starts on turn two.
+ *
+ * Sidechain rows are skipped: a subagent writes its own `message.model` into the
+ * same transcript, so a delegate dispatched to a lower rung would otherwise be
+ * read as the main loop's carrier and warn about a gap that does not exist.
  */
 export function liveModel(transcriptPath: string | undefined): string | null {
+  let fd: number | null = null;
   try {
     if (!transcriptPath || !existsSync(transcriptPath)) return null;
     const size = statSync(transcriptPath).size;
-    const fd = readFileSync(transcriptPath);
-    const tail = fd.subarray(Math.max(0, size - TAIL_BYTES)).toString("utf8");
+    // Read ONLY the tail — the file reaches hundreds of MB and this is a hot path.
+    const start = Math.max(0, size - TAIL_BYTES);
+    const len = size - start;
+    if (len <= 0) return null;
+    const buf = Buffer.allocUnsafe(len);
+    fd = openSync(transcriptPath, "r");
+    const got = readSync(fd, buf, 0, len, start);
+    const tail = buf.subarray(0, got).toString("utf8");
     const lines = tail.split("\n").filter((l) => l.trim().length > 0);
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const row = JSON.parse(lines[i] as string) as Record<string, unknown>;
+        if (row.isSidechain === true) continue; // a subagent's carrier, not ours
         const msg = row.message as Record<string, unknown> | undefined;
         if (msg && typeof msg.model === "string" && msg.model.trim()) return msg.model;
       } catch { /* partial line at the tail boundary */ }
@@ -128,6 +140,8 @@ export function liveModel(transcriptPath: string | undefined): string | null {
     return null;
   } catch {
     return null;
+  } finally {
+    if (fd !== null) { try { closeSync(fd); } catch { /* already gone */ } }
   }
 }
 

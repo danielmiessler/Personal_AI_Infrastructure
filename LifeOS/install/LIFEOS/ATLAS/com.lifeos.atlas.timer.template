@@ -1,0 +1,14 @@
+# com.lifeos.atlas.timer.template — fires `atlas tick` every 15 minutes (approximates
+# the doc's launchd 15-min tick; Atlas.ts's own lastFullSyncAt() gate means most ticks
+# just process hint events cheaply and only run a real full sync once an hour is due).
+[Unit]
+Description=Run LifeOS Atlas tick every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=900
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

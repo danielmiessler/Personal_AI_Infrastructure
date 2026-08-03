@@ -21,7 +21,7 @@ Modeled on CNCF Cartography's design (sync-and-expire collectors, per-source obs
 | Redacted Pulse snapshot | `~/.local/state/lifeos/atlas/snapshot.json` |
 | Event hints | `~/.local/state/lifeos/atlas/events.jsonl` |
 | Hint hook | `hooks/AtlasEventCapture.hook.ts` (PostToolUse: Bash, Write, Edit, MultiEdit) |
-| Background service | `com.lifeos.atlas` (launchd: 15-min tick + WatchPaths on events file) |
+| Background service | `com.lifeos.atlas` — launchd (macOS, 15-min tick + WatchPaths on events file) or systemd --user timer (Linux, 15-min `OnUnitActiveSec`); installed by `LIFEOS/ATLAS/InstallAtlas.ts` |
 | Pulse | module `PULSE/modules/atlas.ts` → `GET /api/atlas`, `GET/POST /api/atlas/insights` → page `/atlas` (tier1 nav): live d3-force graph + Insights + Browse + Gaps tabs |
 | Insights cache | `MEMORY/STATE/atlas-insights.json` (Inference narrative, keyed by metric content hash) |
 | Tests | `LIFEOS/ATLAS/tests/store.test.ts` (sweep invariants) |
@@ -49,6 +49,7 @@ Modeled on CNCF Cartography's design (sync-and-expire collectors, per-source obs
 | `projects` | `USER/PROJECTS.md` main table | projects; SERVES → domains, DEPLOYED_FROM → repos |
 | `infra-inventory` | `ARBOL/Shared/infra-inventory.ts` (observed, never replaced) | targets, security-plane system node; MONITORS → domains, REGISTERED_IN |
 | `launchd` | `~/Library/LaunchAgents/com.{lifeos,pai}.*` (plutil always `-o -`) | services, this machine; RUNS_ON edges |
+| `systemd` | `~/.config/systemd/user/com.{lifeos,pai}.*.{service,timer}` (Linux sibling of `launchd` — unit files parsed directly, no subprocess) | services, this machine; RUNS_ON edges |
 | `gear` | `USER/GEAR.md` tables | devices with category/role |
 | `secrets` | the incident-response credential registry (`GenerateRegistry.ts --json`) + tier shapes (`DetectCriticalKeys.ts --format json`) | credentials (priority/cadence/vendor/dependencies attrs), orphaned credentials; HOLDS edges from this machine and from the config repo when the env file is tracked in it |
 

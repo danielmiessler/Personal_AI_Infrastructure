@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.1
+ * @version 1.0.2
  * AtlasEventCapture.hook.ts — mutation hints for the Atlas asset graph.
  *
  * TRIGGER: PostToolUse (Bash, Write, Edit, MultiEdit)
@@ -39,11 +39,15 @@ if (tool === "Bash") {
   if (/\bdns_records\b|zones\/.*\/dns/.test(cmd)) sources.add("cloudflare");
   if (/\bgh\s+repo\s+(create|delete|rename|archive)/.test(cmd)) sources.add("github");
   if (/launchctl\s+(load|unload|bootstrap|bootout)/.test(cmd)) sources.add("launchd");
+  // Linux sibling of the launchctl match above, for the systemd collector.
+  if (/systemctl\s+--user\s+(enable|disable|start|stop|daemon-reload)/.test(cmd)) sources.add("systemd");
 } else if (["Write", "Edit", "MultiEdit"].includes(tool)) {
   if (/\/PROJECTS\.md$/.test(filePath)) sources.add("projects");
   if (/\/GEAR\.md$/.test(filePath)) sources.add("gear");
   if (/infra-inventory\.ts$/.test(filePath)) sources.add("infra-inventory");
   if (/Library\/LaunchAgents\/com\.(lifeos|pai)\./.test(filePath)) sources.add("launchd");
+  // Linux sibling — a unit file edited directly under systemd's user dir.
+  if (/\.config\/systemd\/user\/com\.(lifeos|pai)\./.test(filePath)) sources.add("systemd");
 }
 
 if (sources.size > 0) {

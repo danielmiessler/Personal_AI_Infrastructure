@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.lifeos.atlas.plist.template — Source template. Install via:
+    bun ~/.claude/LIFEOS/TOOLS/InstallAtlas.ts
+
+  The installer reads $HOME at install time, substitutes {{HOME}} placeholders,
+  writes the materialized plist to ~/Library/LaunchAgents/, and bootstraps it
+  with launchctl. This template stays clean of principal-specific paths so it
+  ships in the public LifeOS release.
+
+  Behavior:
+    Runs `atlas tick` every 15 minutes (StartInterval 900) — cheap event-hint
+    processing most ticks, a real full sync only once lastFullSyncAt is >1h old.
+    Fires once at boot (RunAtLoad true).
+    Crash-loop rate-limited (ThrottleInterval 60s).
+    stdout/stderr captured to MEMORY/STATE/com.lifeos.atlas.log.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lifeos.atlas</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{BUN}}</string>
+    <string>{{HOME}}/.claude/LIFEOS/ATLAS/Atlas.ts</string>
+    <string>tick</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.atlas.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.atlas.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>{{HOME}}/.claude</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{BUN_DIR}}:{{GH_DIR}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>{{HOME}}</string>
+  </dict>
+</dict>
+</plist>

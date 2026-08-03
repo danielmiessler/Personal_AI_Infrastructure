@@ -24,11 +24,12 @@ import { github } from "./collectors/Github";
 import { projects } from "./collectors/Projects";
 import { infraInventory } from "./collectors/InfraInventory";
 import { launchd } from "./collectors/Launchd";
+import { systemd } from "./collectors/Systemd";
 import { gear } from "./collectors/Gear";
 import { secrets } from "./collectors/Secrets";
 
 const COLLECTORS: Record<string, Collector> = Object.fromEntries(
-  [cloudflare, github, projects, infraInventory, launchd, gear, secrets].map((c) => [c.name, c]),
+  [cloudflare, github, projects, infraInventory, launchd, systemd, gear, secrets].map((c) => [c.name, c]),
 );
 
 const FULL_SYNC_INTERVAL_MS = 60 * 60 * 1000;

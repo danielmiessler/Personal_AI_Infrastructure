@@ -343,12 +343,15 @@ async function buildPayload(): Promise<MenuBarPayload> {
       if (h.status === "down" || h.status === "flapping") {
         // Stamped from the sidecar's own last state write, never Date.now() —
         // a poll-time stamp re-badges every 5s and the unseen count never clears.
-        const ts = h.stateUpdatedAt ? Date.parse(h.stateUpdatedAt) : startOfTodayMs()
+        // Clamp once, then use the clamped value for BOTH fields: the raw
+        // Date.parse NaN used to reach agoFrom and render "NaNd".
+        const parsed = h.stateUpdatedAt ? Date.parse(h.stateUpdatedAt) : startOfTodayMs()
+        const ts = Number.isFinite(parsed) ? parsed : startOfTodayMs()
         feed.push({
           subsystem: "hermes",
           glyph: "⚠",
           title: `Hermes sidecar ${h.status} — ${h.summary}`,
-          tsMs: Number.isFinite(ts) ? ts : startOfTodayMs(),
+          tsMs: ts,
           ago: agoFrom(ts),
           actionable: true,
         })

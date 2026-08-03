@@ -267,46 +267,56 @@ Verdict: fresh-with-misses
 
 ## Directory Inventory (authoritative)
 
-This is the canonical list of every directory under `~/.claude/LIFEOS/MEMORY/`. The `MemoryDirIntegrity.ts` drift handler (called by `DocIntegrity.hook.ts` on SessionEnd) parses this table and warns whenever the on-disk tree contains a directory not listed here, or this table lists a directory that no longer exists. Add new memory subsystems by adding a row to this table FIRST, then creating the directory.
+This is the canonical list of every directory under `~/.claude/LIFEOS/MEMORY/`. The `MemoryDirIntegrity.ts` drift handler (called by `DocIntegrity.hook.ts` on SessionEnd) parses this table and warns whenever the on-disk tree contains a directory not listed here, or this table lists a directory that is supposed to be there and is not. **Status decides whether absence is drift, and only a recognised Status value grants silence** — see § Status below. Add new memory subsystems by adding a row to this table FIRST, then creating the directory.
 
 | Directory | Class | Status | Purpose | Primary writers |
 |-----------|-------|--------|---------|-----------------|
 | `KNOWLEDGE/` | core | active | Curated knowledge archive (People / Companies / Ideas / Research) | Algorithm LEARN, KnowledgeHarvester, manual `/knowledge add` |
 | `WORK/` | core | active | Per-session work directories with ISA.md as source of truth | Algorithm execution, ISASync, SessionCleanup |
 | `LEARNING/` | core | active | Categorized learnings (SYSTEM/ALGORITHM/FAILURES/SYNTHESIS/REFLECTIONS/SIGNALS) | SatisfactionCapture, WorkCompletionLearning, SessionHarvester, FailureCapture, LearningPatternSynthesis |
-| `WISDOM/` | core | active | Level-3 compounding wisdom — FRAMES/, PRINCIPLES/, META/ | Algorithm LEARN, WisdomFrameUpdater, WisdomCrossFrameSynthesizer |
-| `RESEARCH/` | core | active | Agent research outputs and OSINT dossiers | Agent task completions, OSINT workflows |
-| `SECURITY/` | core | active | Security audit events (blocks, confirmations, alerts) | SecurityPipeline.hook.ts |
+| `WISDOM/` | core | pending | Level-3 compounding wisdom — FRAMES/, PRINCIPLES/, META/. Read at every SessionStart by `loadWisdomFrames()`; the reader has no empty state, so this row stays loud until it gets one | Algorithm LEARN, WisdomFrameUpdater, WisdomCrossFrameSynthesizer |
+| `RESEARCH/` | core | on-demand | Agent research outputs and dossiers — created on first agent write | Agent task completions |
+| `SECURITY/` | core | on-demand | Security audit events — created on the first StopFailure | `EventLogger.hook.ts` (StopFailure → `SECURITY/YYYY/MM/stop-failures-*.jsonl`; self-creates) |
 | `STATE/` | core | active | Ephemeral runtime state (algorithms, sessions, kitty, tab-titles, events.jsonl) | Many hooks; see STATE/ section |
-| `OBSERVABILITY/` | core | active | Structured event/metric JSONL feeds for the Observability pipeline (NOT auto-rotated today; rotation queued with the sensor-loop iteration) | EventLogger (tool-activity/tool-failures/config-changes), TeammateIdle, observability-transport, ComputeGap, CostTracker, syslog (Pulse), HomeSensorDetector, Speedtest |
-| `VOICE/` | core | active | Voice notification audit log (ElevenLabs events) | Pulse pulse.ts voice handler |
-| `RELATIONSHIP/` | core | dormant archive | Daily principal↔DA interaction notes, opinions, reflections. Last write 2026-07-08; all three writers retired in the 2026-07-11 hooks-BPE pass (`RelationshipMemory.hook.ts`, `RelationshipReflect.ts`, `OpinionTracker.ts` are gone from disk). Relationship signal is carried by the autonomic memory reviewer now; the tree is kept for recall, not appended to. | (none — read-only archive) |
-| `VERIFICATION/` | core | active | Cross-vendor audit findings (Forge audit mode) | CrossVendorAudit |
-| `TEAMS/` | core | active | Team configuration and membership snapshots | TeammateIdle, manual writes |
-| `SKILLS/` | core | active | Skill-execution telemetry log | ShadowRelease (test-shadow-release), skill instrumentation |
-| `SYSTEMUPDATES/` | core | active | Architecture change history | Manual via CreateUpdate.ts |
-| `PLANS/` | core | active | Implementation plan documents (multi-session) | Manual + agent writes |
-| `REFERENCE/` | core | active | Reference materials and specs preserved for recall | Manual writes |
+| `OBSERVABILITY/` | core | active | Structured event/metric JSONL feeds for the Observability pipeline (NOT auto-rotated today; rotation queued with the sensor-loop iteration) | EventLogger (tool-activity/tool-failures/config-changes), ComputeGap, CostTracker, syslog (Pulse) |
+| `VOICE/` | core | on-demand | Voice notification audit log (ElevenLabs events) — created on the first voice notification, and only where Pulse runs | Pulse pulse.ts voice handler |
+| `RELATIONSHIP/` | core | pending | Daily principal↔DA interaction notes. No shipped component writes it — the writers named in earlier revisions of this table ship in no release — but `loadRelationshipContext()` still reads it at every SessionStart, so the row stays loud until that reader is retired or given an empty state | (none — no shipped writer) |
+| `VERIFICATION/` | core | on-demand | Cross-vendor audit findings (Forge audit mode) — created on the first audit | CrossVendorAudit |
+| `TEAMS/` | core | reserved | Team configuration and membership snapshots. Nothing in the release writes this tree and nothing reads it; the row is kept for taxonomy stability | (none — no shipped writer) |
+| `SKILLS/` | core | active | Skill-execution telemetry log | skill instrumentation |
+| `SYSTEMUPDATES/` | core | on-demand | Architecture change history — created on the first entry | `CreateUpdate.ts`, `ActivityParser.ts --generate` (both self-create) |
+| `PLANS/` | core | on-demand | Implementation plan documents (multi-session) — created on first write | Manual + agent writes |
+| `REFERENCE/` | core | on-demand | Reference materials and specs preserved for recall — created on first write | Manual writes |
 | `BOOKMARKS/` | core | on-demand | External bookmark state (X/Twitter sync) — created when the skill first runs | the X bookmarks skill's PullBookmarks workflow |
 | `CALLS/` | core | on-demand | Outbound-call transcripts + cost ledger — created when the skill first runs | the outbound-call skill (cost ledger, transcript store) |
 | `GRAPH/` | core | on-demand | Memory graph (graph.json + PATTERNS.md) — created when first built | `LIFEOS/TOOLS/MemoryGraph.ts` |
 | `INBOX/` | core | on-demand | Email-triage sweeps state — created when the skill first runs | the email-triage skill |
-| `DATA/` | core | active | Generic structured data dumps from skills | Various skills (e.g. a crime-stats skill) |
-| `SCRATCHPAD/` | core | active | Ad-hoc scratch artifacts (queries, drafts, experiments) | Ad-hoc |
-| `PROJECT/` | core | active | Singular per-project notes (distinct from `LIFEOS/USER/PROJECTS/`) | Ad-hoc |
-| `ARCHIVE/` | core | active | Archived legacy memory content | Manual archival |
+| `DATA/` | core | on-demand | Generic structured data dumps from skills — created when a skill first writes one | Various skills |
+| `SCRATCHPAD/` | core | on-demand | Ad-hoc scratch artifacts (queries, drafts, experiments) — created on first write | Ad-hoc |
+| `PROJECT/` | core | on-demand | Singular per-project notes (distinct from `LIFEOS/USER/PROJECTS/`) — created on first write | Ad-hoc |
+| `ARCHIVE/` | core | on-demand | Archived legacy memory content — created on first archival | Manual archival |
 | `AUTO/` | core | reserved | Reserved capture surface — auto-memory role retired in v7.4; stub README retained for taxonomy stability | (none active) |
 | `RAW/` | core | reserved | Reserved capture surface — firehose role retired in v7.0; stub README retained for taxonomy stability | (none active) |
 | `_<skill>/` | skill-private | on-demand | Per-skill private state (e.g. sensor data, device inventory, assessment artifacts) — created when the owning skill first runs; internal schema owned by that skill | the owning skill |
 | `_BROWSER_STATE/` | skill-private | reserved | Legacy browser-skill profile/cookie scratch — that skill retired 2026-07-04; dir retained for taxonomy stability | (none active) |
-| `PULSE_DATA/` | core | active | Pulse v2 Data Plane materialized JSON (e.g. goals.json + .meta.json) | Pulse adapters via RebuildAll |
+| `PULSE_DATA/` | core | on-demand | Pulse v2 Data Plane materialized JSON (e.g. goals.json + .meta.json) — created when Pulse first rebuilds, and only where Pulse runs | Pulse adapters via RebuildAll |
 
 **Class definitions:**
 - **core** — top-level LifeOS subsystem; written by core hooks/pipelines; documented in this file.
 - **skill-private** — `_X`-prefixed directory owned by an individual skill named `_X`. Content schema is the skill's responsibility, not the core memory system. The drift hook recognizes any `_`-prefixed dir by this convention — they are NOT enumerated by name here (naming private skills in a shipping doc would leak them); full documentation lives in the owning skill's SKILL.md.
-- **reserved** — directory exists in the taxonomy and ships with public releases (via `ShadowRelease.ts` FLAT_README_ROOTS) but is not currently written by any core component. Either stays reserved or gets removed in a future migration.
 
-**Adding a memory subsystem:** Add a row above, create the directory with a one-page README, and (if it has structured frequency) add a writer reference to the Hook Integration table below. The drift hook will accept the new directory on next Stop.
+**Status:** how the directory comes to exist, and therefore whether its absence is drift. The drift hook enforces this column and nothing else.
+
+- **active** — guided setup creates it (`DeployCore.ts` `MEMORY_SUBDIRS`). Absent after setup is real drift → **warns**.
+- **on-demand** — created on first use, by a shipped writer that self-creates it or by a hand or agent write. Absence is the normal state of a fresh install → silent.
+- **reserved** — nothing in the release creates it and nothing reads it; the row is kept so the taxonomy stays stable and the directory is recognised if an older install has it. Silent, and the Purpose cell must say why it is reserved.
+- **pending** — a shipped reader still consumes the directory and has no empty state yet. Absence keeps **warning**: the warning is the debt, and it is cleared by the change that gives that reader an empty state, not before.
+
+Anything else — a misspelling, a value with a space in it, a row added before this vocabulary existed — is neither silent nor enforced, so the hook reports the row as unclassified rather than exempting it. Silence is only ever granted by an explicit recognised value.
+
+**Governance — reclassification.** A row may NOT be moved to a Status whose absence is silent (`on-demand` and `reserved` both are) while a shipped component still reads the directory, unless the same change ships that reader a visible empty state. Reclassifying is a way to silence the checker, and for a directory with a live reader the warning is the only signal a fresh install ever gets that the channel has no data. `WISDOM/` and `RELATIONSHIP/` are `pending` for exactly this reason: both are read at SessionStart by `LoadContext.hook.ts`, and neither reader renders anything when its tree is empty. The rule is about readers, not writers — a directory nobody reads produces nothing anyone is waiting for.
+
+**Adding a memory subsystem:** Add a row above with the Status that is true of it, create the directory with a one-page README, and (if it has structured frequency) add a writer reference to the Hook Integration table below. The drift hook will accept the new directory on the next SessionEnd.
 
 ---
 
@@ -676,8 +686,9 @@ The `MemoryDirIntegrity.ts` handler (run from `DocIntegrity.hook.ts` on SessionE
 1. Lists every directory under `~/.claude/LIFEOS/MEMORY/` (one level deep, excluding `.git`, `.DS_Store`, etc.)
 2. Parses the Directory Inventory table in this file
 3. Reports any directory on disk not in the table (**unknown subsystem**)
-4. Reports any directory in the table not on disk (**missing subsystem** — only flagged for `active` rows; `reserved` rows are allowed to be empty or absent)
-5. Logs to stderr with `[MemoryDirIntegrity]` tag and emits a `doc.integrity.memory_dir` event to `STATE/events.jsonl`
+4. Reports any directory in the table not on disk (**missing subsystem** — flagged for `active` and `pending` rows; `on-demand` and `reserved` rows are allowed to be absent)
+5. Reports any row whose Status is not one of the four recognised values (**unclassified row**) — an unrecognised value is not an exemption
+6. Logs to stderr with `[MemoryDirIntegrity]` tag and emits a `doc.integrity.memory_dir` event to `STATE/events.jsonl`
 
 If the handler reports drift, the fix is to either (a) add the new subsystem to the inventory table above, or (b) remove the stray directory from disk. Drift is a soft warning; the hook never blocks.
 
@@ -826,6 +837,13 @@ bun run ~/.claude/hooks/handlers/MemoryDirIntegrity.ts
 ---
 
 ## Migration History
+
+**Directory Inventory — Status made enforceable**
+- Every row re-derived against the shipped tree: the six directories guided setup scaffolds are `active`, everything created on first use is `on-demand`, everything nothing writes or reads is `reserved` with a stated reason, and the two rows with a live reader and no empty state are `pending`. A fresh guided install goes from 14 permanent drift warnings to 2, without scaffolding a directory to fake the checker quiet.
+- Added the `pending` Status and the **Governance — reclassification** rule: a row may not be moved into silence while a shipped reader still consumes its directory, unless the same change gives that reader an empty state.
+- The Status vocabulary is now defined in this file, and the checker rejects values outside it instead of exempting them. Previously any value other than `active` granted silence, so a misspelling and a deliberate exemption were indistinguishable — and a value containing a space (`dormant archive`) dropped the row out of the parse entirely, which also removed the directory from the unknown-subsystem check and produced a spurious warning on every install that had the tree on disk.
+- The `reserved` definition is restated without reference to release tooling that is not in the public payload, and moved out of the Class definitions block (`reserved` is a Status value; it never appears in the Class column).
+- Writer cells corrected to name components that ship: `SECURITY/` is written by `EventLogger.hook.ts`, not the `SecurityPipeline.hook.ts` the row named; `SYSTEMUPDATES/` by `CreateUpdate.ts` and `ActivityParser.ts --generate`. Names with no implementation in the payload are removed from `OBSERVABILITY/`, `TEAMS/`, `SKILLS/` and `RELATIONSHIP/`.
 
 **2026-05-01:** Memory System v8.1 — Full Subsystem Inventory + Drift Detection
 - Documented all live core subsystems that had grown organically since v7.x: OBSERVABILITY/, VOICE/, RELATIONSHIP/, WISDOM/, TEAMS/, VERIFICATION/, SKILLS/, PLANS/, REFERENCE/, BOOKMARKS/, DATA/, SCRATCHPAD/, PROJECT/, ARCHIVE/.

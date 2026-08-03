@@ -5,11 +5,17 @@
  * PURPOSE:
  * Keeps the canonical "Directory Inventory" table in MemorySystem.md honest
  * by diffing it against the actual directory tree under LIFEOS/MEMORY/. Surfaces
- * drift in two directions:
+ * drift in three directions:
  *   - on-disk dir not listed in inventory (unknown subsystem)
- *   - inventory row marked "active" with no on-disk dir (missing subsystem)
+ *   - inventory row whose directory must already exist, with no on-disk dir
+ *   - inventory row the table never classified (unrecognised status)
  *
- * "reserved"-status rows are allowed to be empty or absent.
+ * The Status column decides whether absence is drift, and only a recognised
+ * value grants silence. `active` and `pending` rows must exist; `on-demand` and
+ * `reserved` rows may be absent; anything else — a typo, a value with a space
+ * in it, a row added before this vocabulary existed — is reported rather than
+ * exempted. Silence is a decision someone has to make on the record, because a
+ * checker that quietly forgets a row cannot be distinguished from a clean tree.
  *
  * TRIGGER: SessionEnd hook (called from DocIntegrity.hook.ts)
  *
@@ -53,12 +59,29 @@ const IGNORED_FILES = new Set(['README.md', '.DS_Store']);
 
 interface InventoryRow {
   name: string;       // e.g., "KNOWLEDGE" or "LEARNING"
-  klass: string;      // "core" | "skill-private" | "reserved"
-  status: string;     // "active" | "reserved"
+  klass: string;      // "core" | "skill-private"
+  status: string;     // as written in the table, verbatim — never normalised
 }
 
+/**
+ * Statuses whose absence is normal, and which therefore grant silence:
+ *   on-demand — a shipped writer creates it on first use
+ *   reserved  — nothing creates it and nothing reads it (reason required)
+ *
+ * Statuses whose absence is reported:
+ *   active    — guided setup creates it, so absence afterwards is real drift
+ *   pending   — a shipped reader still consumes it and has no empty state yet;
+ *               the warning is the debt, and it stands until the release that
+ *               gives that reader an empty state reclassifies the row
+ *
+ * Any other value is neither: see UNRECOGNISED handling in computeDrift.
+ */
+const SILENT_WHEN_ABSENT = new Set(['on-demand', 'reserved']);
+const WARN_WHEN_ABSENT = new Set(['active', 'pending']);
+const KNOWN_STATUS = new Set([...SILENT_WHEN_ABSENT, ...WARN_WHEN_ABSENT]);
+
 interface DriftItem {
-  kind: 'unknown_on_disk' | 'missing_active' | 'inventory_unparseable';
+  kind: 'unknown_on_disk' | 'missing_active' | 'unrecognised_status' | 'inventory_unparseable';
   detail: string;
 }
 
@@ -71,47 +94,56 @@ interface DriftItem {
  *   |-----------|-------|--------|---------|-----------------|
  *   | `KNOWLEDGE/` | core | active | ... | ... |
  *
- * Each row's first column is a backtick-wrapped directory name with a
- * trailing slash. Class column is core/skill-private/reserved. Status is
- * active/reserved. We only care about the directory name, class, and status
- * for the drift check.
+ * Cells are read positionally by splitting on `|` rather than matched with one
+ * pattern over the whole row. The difference is not cosmetic: a single pattern
+ * anchoring the status cell as one word silently DROPS any row whose status
+ * contains a space, and a dropped row is invisible in both directions — its
+ * absence stops being checked, and its directory on disk starts reporting as an
+ * unknown subsystem. Reading the cell verbatim and judging it afterwards means
+ * an unclassifiable row is reported as itself.
+ *
+ * Exported for tests; the parse contract is the thing most likely to break
+ * silently.
  */
-function parseInventory(): InventoryRow[] | null {
-  if (!existsSync(INVENTORY_DOC)) {
-    console.error(`${TAG} Inventory doc not found: ${INVENTORY_DOC}`);
-    return null;
-  }
-
-  const content = readFileSync(INVENTORY_DOC, 'utf-8');
-
-  // Find the inventory section. We anchor on the section heading so we don't
-  // accidentally pick up the auto-memory-coexistence table further down.
+export function parseInventoryTable(content: string): InventoryRow[] | null {
+  // Anchor on the section heading so we don't pick up other tables in the file.
   const sectionMarker = '## Directory Inventory';
   const sectionStart = content.indexOf(sectionMarker);
-  if (sectionStart < 0) {
-    console.error(`${TAG} Could not find "${sectionMarker}" in inventory doc`);
-    return null;
-  }
+  if (sectionStart < 0) return null;
 
   const nextSection = content.indexOf('\n## ', sectionStart + sectionMarker.length);
   const section = nextSection > 0
     ? content.slice(sectionStart, nextSection)
     : content.slice(sectionStart);
 
-  // Match rows: `| `NAME/` | class | status | ... | ... |`
-  // Tolerate variations in whitespace and the trailing slash being optional.
-  const rowRegex = /^\|\s*`([\w_]+)\/?`\s*\|\s*([\w-]+)\s*\|\s*([\w-]+)\s*\|/gm;
-
   const rows: InventoryRow[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = rowRegex.exec(section)) !== null) {
-    rows.push({
-      name: match[1],
-      klass: match[2].trim(),
-      status: match[3].trim(),
-    });
+  for (const line of section.split('\n')) {
+    const named = line.match(/^\|\s*`([^`]+)`\s*\|/);
+    if (!named) continue;
+
+    const name = named[1].replace(/\/$/, '');
+    // `_<skill>/` and friends are convention rows: they document a naming rule
+    // rather than a directory. The drift check recognises `_`-prefixed dirs by
+    // that convention (see below), so a placeholder row has nothing to check.
+    if (name.includes('<')) continue;
+
+    const cells = line.split('|').slice(1).map((c) => c.trim());
+    rows.push({ name, klass: cells[1] ?? '', status: cells[2] ?? '' });
   }
 
+  return rows;
+}
+
+function parseInventory(): InventoryRow[] | null {
+  if (!existsSync(INVENTORY_DOC)) {
+    console.error(`${TAG} Inventory doc not found: ${INVENTORY_DOC}`);
+    return null;
+  }
+
+  const rows = parseInventoryTable(readFileSync(INVENTORY_DOC, 'utf-8'));
+  if (rows === null) {
+    console.error(`${TAG} Could not find "## Directory Inventory" in inventory doc`);
+  }
   return rows;
 }
 
@@ -134,6 +166,70 @@ function listMemoryDirsOnDisk(): string[] {
     }
   }
   return dirs.sort();
+}
+
+/**
+ * Diff the inventory against the on-disk tree. Pure — the whole drift policy,
+ * independent of the filesystem, and the unit under test.
+ *
+ * One row yields at most one finding: a row nobody classified is reported as
+ * unclassified rather than also as missing, because the remedy is the same
+ * sentence either way and two lines for one row trains people to skim.
+ */
+export function computeDrift(inventory: InventoryRow[], onDisk: string[]): DriftItem[] {
+  const inventoryByName = new Map<string, InventoryRow>();
+  for (const row of inventory) inventoryByName.set(row.name, row);
+  const onDiskSet = new Set(onDisk);
+
+  const drift: DriftItem[] = [];
+
+  // Direction 1: dirs on disk not in inventory.
+  for (const dir of onDisk) {
+    // Skill-private dirs are recognized by CONVENTION, not by enumeration: any
+    // `_`-prefixed dir is owned by the skill named `_<dir>` (see the `_X`
+    // convention in MemorySystem.md). They are deliberately NOT listed by name
+    // in the shipping inventory — naming each private skill in a public doc is
+    // a leak, and enumerating them here just duplicates the convention. Their
+    // internal schema is the owning skill's responsibility, not core memory's.
+    if (dir.startsWith('_')) continue;
+    if (!inventoryByName.has(dir)) {
+      drift.push({
+        kind: 'unknown_on_disk',
+        detail: `MEMORY/${dir}/ exists but is not listed in MemorySystem.md Directory Inventory. Either add a row or remove the directory.`,
+      });
+    }
+  }
+
+  // Direction 2: rows the table never classified. Reported whether or not the
+  // directory exists, because the row's absence policy is undefined until
+  // someone writes a recognised value — and an unrecognised value that grants
+  // silence is indistinguishable from a deliberate exemption.
+  for (const row of inventory) {
+    if (KNOWN_STATUS.has(row.status)) continue;
+    drift.push({
+      kind: 'unrecognised_status',
+      detail: `Inventory row MEMORY/${row.name}/ has status "${row.status}", which is not one of `
+        + `${[...KNOWN_STATUS].map((s) => `\`${s}\``).join(', ')}. `
+        + `The row is not being enforced in either direction until it carries a recognised status. `
+        + `See MemorySystem.md § Directory Inventory § Status.`,
+    });
+  }
+
+  // Direction 3: rows whose directory must already exist but does not.
+  for (const row of inventory) {
+    if (!WARN_WHEN_ABSENT.has(row.status)) continue;
+    if (onDiskSet.has(row.name)) continue;
+    drift.push({
+      kind: 'missing_active',
+      detail: `MEMORY/${row.name}/ does not exist on disk and the row is \`${row.status}\`. `
+        + `If setup should have created it, create it or re-run the Setup scaffold step. `
+        + `If nothing in this install writes it, give the row the status that is true — `
+        + `but a row whose directory still has a shipped reader must not be reclassified to silence it. `
+        + `See MemorySystem.md § Directory Inventory.`,
+    });
+  }
+
+  return drift;
 }
 
 export async function handleMemoryDirIntegrity(): Promise<void> {
@@ -167,42 +263,8 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     return;
   }
 
-  const inventoryByName = new Map<string, InventoryRow>();
-  for (const row of inventory) inventoryByName.set(row.name, row);
-
   const onDisk = listMemoryDirsOnDisk();
-  const onDiskSet = new Set(onDisk);
-
-  const drift: DriftItem[] = [];
-
-  // Direction 1: dirs on disk not in inventory.
-  for (const dir of onDisk) {
-    // Skill-private dirs are recognized by CONVENTION, not by enumeration: any
-    // `_`-prefixed dir is owned by the skill named `_<dir>` (see the `_X`
-    // convention in MemorySystem.md). They are deliberately NOT listed by name
-    // in the shipping inventory — naming each private skill in a public doc is
-    // a leak, and enumerating them here just duplicates the convention. Their
-    // internal schema is the owning skill's responsibility, not core memory's.
-    if (dir.startsWith('_')) continue;
-    if (!inventoryByName.has(dir)) {
-      drift.push({
-        kind: 'unknown_on_disk',
-        detail: `MEMORY/${dir}/ exists but is not listed in MemorySystem.md Directory Inventory. Either add a row or remove the directory.`,
-      });
-    }
-  }
-
-  // Direction 2: active inventory rows missing on disk. Non-active rows
-  // (reserved = not-yet-built; on-demand = created when the owning skill/tool
-  // first runs) are allowed to be absent — a fresh install has run nothing yet.
-  for (const row of inventory) {
-    if (row.status === 'active' && !onDiskSet.has(row.name)) {
-      drift.push({
-        kind: 'missing_active',
-        detail: `Inventory lists MEMORY/${row.name}/ as ${row.status} but directory does not exist on disk. Either create it or change the row's status to reserved/on-demand.`,
-      });
-    }
-  }
+  const drift = computeDrift(inventory, onDisk);
 
   // Report.
   if (drift.length === 0) {

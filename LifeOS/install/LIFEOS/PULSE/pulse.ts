@@ -67,6 +67,7 @@ import {
   spawnScript,
   spawnClaude,
   parseConfigToml,
+  resolveModules,
 } from "./lib"
 
 import { startHooks, handleHooksRequestAsync, hooksHealth } from "./modules/hooks"
@@ -105,7 +106,7 @@ let evalsModule: any = null
 let hermesModule: any = null
 
 async function loadModules(config: PulseConfig) {
-  if (config.voice?.enabled !== false) {
+  if (config.modules.voice) {
     try {
       voiceModule = await import("./VoiceServer/voice")
     } catch (err) {
@@ -120,12 +121,14 @@ async function loadModules(config: PulseConfig) {
     }
   }
   // Wiki module — always load (no config gate)
-  try {
-    wikiModule = await import("./modules/wiki")
-  } catch (err) {
-    log("warn", "Wiki module not available", { error: String(err) })
+  if (config.modules.docs) {
+    try {
+      wikiModule = await import("./modules/wiki")
+    } catch (err) {
+      log("warn", "Wiki module not available", { error: String(err) })
+    }
   }
-  if (config.imessage?.enabled) {
+  if (config.modules.imessage) {
     try {
       imessageModule = await import("./modules/imessage")
     } catch (err) {
@@ -141,49 +144,49 @@ async function loadModules(config: PulseConfig) {
   // Assistant (DA subsystem) is a private module stripped from the public
   // release payload. Existence-check before importing so a fresh public install
   // boots cleanly and simply omits the /assistant routes. #1419.
-  if (config.da?.enabled && existsSync(join(PULSE_DIR, "Assistant", "module.ts"))) {
+  if (config.modules.da && existsSync(join(PULSE_DIR, "Assistant", "module.ts"))) {
     try {
       assistantModule = await import("./Assistant/module")
     } catch (err) {
       log("warn", "Assistant module not available", { error: String(err) })
     }
   }
-  if (config.performance?.enabled !== false) {
+  if (config.modules.performance) {
     try {
       performanceModule = await import("./Performance/module")
     } catch (err) {
       log("warn", "Performance module not available", { error: String(err) })
     }
   }
-  if (config.syslog?.enabled) {
+  if (config.modules.syslog) {
     try {
       syslogModule = await import("./modules/syslog")
     } catch (err) {
       log("warn", "Syslog module not available", { error: String(err) })
     }
   }
-  if (config.work?.enabled !== false) {
+  if (config.modules.work) {
     try {
       workModule = await import("./modules/work")
     } catch (err) {
       log("warn", "Work module not available", { error: String(err) })
     }
   }
-  if (config.content?.enabled !== false) {
+  if (config.modules.content) {
     try {
       contentModule = await import("./modules/content")
     } catch (err) {
       log("warn", "Content module not available", { error: String(err) })
     }
   }
-  if (config.local_intelligence?.enabled !== false) {
+  if (config.modules.local) {
     try {
       localIntelligenceModule = await import("./modules/local-intelligence")
     } catch (err) {
       log("warn", "LocalIntelligence module not available", { error: String(err) })
     }
   }
-  if (config.telos?.enabled !== false) {
+  if (config.modules.telos) {
     try {
       telosModule = await import("./modules/telos")
       // Without this, state.running stays false and /api/telos/health reports
@@ -194,7 +197,7 @@ async function loadModules(config: PulseConfig) {
       log("warn", "Telos freshness module not available", { error: String(err) })
     }
   }
-  if (config.hypotheses?.enabled !== false) {
+  if (config.modules.hypotheses) {
     try {
       hypothesesModule = await import("./modules/hypotheses")
       if (hypothesesModule.start) hypothesesModule.start()
@@ -202,7 +205,7 @@ async function loadModules(config: PulseConfig) {
       log("warn", "Hypotheses module not available", { error: String(err) })
     }
   }
-  if (config.upgrades?.enabled !== false) {
+  if (config.modules.upgrades) {
     try {
       upgradesModule = await import("./modules/upgrades")
       if (upgradesModule.start) upgradesModule.start()
@@ -217,18 +220,22 @@ async function loadModules(config: PulseConfig) {
     log("warn", "Tab freshness module not available", { error: String(err) })
   }
   // Memory — autonomic-memory subsystem state surface (always loaded).
-  try {
-    memoryModule = await import("./modules/memory")
-    if (memoryModule.start) memoryModule.start()
-  } catch (err) {
-    log("warn", "Memory module not available", { error: String(err) })
+  if (config.modules.memory) {
+    try {
+      memoryModule = await import("./modules/memory")
+      if (memoryModule.start) memoryModule.start()
+    } catch (err) {
+      log("warn", "Memory module not available", { error: String(err) })
+    }
   }
   // Conduit — sensory layer daily-record surface (read-only; capture is launchd).
-  try {
-    conduitModule = await import("./modules/conduit")
-    if (conduitModule.start) conduitModule.start()
-  } catch (err) {
-    log("warn", "Conduit module not available", { error: String(err) })
+  if (config.modules.conduit) {
+    try {
+      conduitModule = await import("./modules/conduit")
+      if (conduitModule.start) conduitModule.start()
+    } catch (err) {
+      log("warn", "Conduit module not available", { error: String(err) })
+    }
   }
   // Menu bar — cross-subsystem aggregator behind the rich native menu bar dropdown.
   try {
@@ -238,64 +245,80 @@ async function loadModules(config: PulseConfig) {
     log("warn", "Menubar module not available", { error: String(err) })
   }
   // Books — favorite-books surface over USER/BOOKS.md.
-  try {
-    booksModule = await import("./modules/books")
-    if (booksModule.start) booksModule.start()
-  } catch (err) {
-    log("warn", "Books module not available", { error: String(err) })
+  if (config.modules.books) {
+    try {
+      booksModule = await import("./modules/books")
+      if (booksModule.start) booksModule.start()
+    } catch (err) {
+      log("warn", "Books module not available", { error: String(err) })
+    }
   }
   // Synapse — input routing & capture surface (ledger, knowledge, bookmarks, flows).
-  try {
-    synapseModule = await import("./modules/synapse")
-    if (synapseModule.start) synapseModule.start()
-  } catch (err) {
-    log("warn", "Synapse module not available", { error: String(err) })
+  if (config.modules.synapse) {
+    try {
+      synapseModule = await import("./modules/synapse")
+      if (synapseModule.start) synapseModule.start()
+    } catch (err) {
+      log("warn", "Synapse module not available", { error: String(err) })
+    }
   }
   // Ledger — change-tracking surface (versions, update registry, deploys, integrity, drift).
-  try {
-    ledgerModule = await import("./modules/ledger")
-    if (ledgerModule.start) ledgerModule.start()
-  } catch (err) {
-    log("warn", "Ledger module not available", { error: String(err) })
+  if (config.modules.ledger) {
+    try {
+      ledgerModule = await import("./modules/ledger")
+      if (ledgerModule.start) ledgerModule.start()
+    } catch (err) {
+      log("warn", "Ledger module not available", { error: String(err) })
+    }
   }
   // Projects — project routing-table surface over USER/PROJECTS.md.
-  try {
-    projectsModule = await import("./modules/projects")
-    if (projectsModule.start) await projectsModule.start()
-  } catch (err) {
-    log("warn", "Projects module not available", { error: String(err) })
+  if (config.modules.projects) {
+    try {
+      projectsModule = await import("./modules/projects")
+      if (projectsModule.start) await projectsModule.start()
+    } catch (err) {
+      log("warn", "Projects module not available", { error: String(err) })
+    }
   }
   // Assets — unified read-only inventory over USER/GEAR.md + network topology.
-  try {
-    assetsModule = await import("./modules/assets")
-    if (assetsModule.start) await assetsModule.start()
-  } catch (err) {
-    log("warn", "Assets module not available", { error: String(err) })
+  if (config.modules.gear) {
+    try {
+      assetsModule = await import("./modules/assets")
+      if (assetsModule.start) await assetsModule.start()
+    } catch (err) {
+      log("warn", "Assets module not available", { error: String(err) })
+    }
   }
   // Atlas — read-only surface over the asset-graph snapshot (LIFEOS/ATLAS).
-  try {
-    atlasModule = await import("./modules/atlas")
-    if (atlasModule.start) atlasModule.start()
-  } catch (err) {
-    log("warn", "Atlas module not available", { error: String(err) })
+  if (config.modules.atlas) {
+    try {
+      atlasModule = await import("./modules/atlas")
+      if (atlasModule.start) atlasModule.start()
+    } catch (err) {
+      log("warn", "Atlas module not available", { error: String(err) })
+    }
   }
   // ThreatModel — read-only surface over the private risk register
   // (skills/ThreatModel; data in LIFEOS/USER/SECURITY/THREATMODEL).
-  try {
-    threatModelModule = await import("./modules/threatmodel")
-    if (threatModelModule.start) threatModelModule.start()
-  } catch (err) {
-    log("warn", "ThreatModel module not available", { error: String(err) })
+  if (config.modules.threatmodel) {
+    try {
+      threatModelModule = await import("./modules/threatmodel")
+      if (threatModelModule.start) threatModelModule.start()
+    } catch (err) {
+      log("warn", "ThreatModel module not available", { error: String(err) })
+    }
   }
   // Usage — Anthropic subscription + durable token/cost/model usage surface.
-  try {
-    usageModule = await import("./modules/usage")
-    if (usageModule.start) await usageModule.start()
-  } catch (err) {
-    log("warn", "Usage module not available", { error: String(err) })
+  if (config.modules.usage) {
+    try {
+      usageModule = await import("./modules/usage")
+      if (usageModule.start) await usageModule.start()
+    } catch (err) {
+      log("warn", "Usage module not available", { error: String(err) })
+    }
   }
   // Bunker — application-harness registry surface (reads ~/.claude/LIFEOS/PULSE/Bunker via its CLI).
-  if (config.bunker?.enabled !== false) {
+  if (config.modules.bunker) {
     try {
       bunkerModule = await import("./modules/bunker")
     } catch (err) {
@@ -312,25 +335,31 @@ async function loadModules(config: PulseConfig) {
   }
   // Hermes — the sidecar's core files: SOUL, config, guard policy, and the code
   // that generates them. Read/edit surface behind the Assistant tab.
-  try {
-    hermesModule = await import("./modules/hermes")
-    if (hermesModule.start) hermesModule.start()
-  } catch (err) {
-    log("warn", "Hermes module not available", { error: String(err) })
+  if (config.modules.hermes) {
+    try {
+      hermesModule = await import("./modules/hermes")
+      if (hermesModule.start) hermesModule.start()
+    } catch (err) {
+      log("warn", "Hermes module not available", { error: String(err) })
+    }
   }
   // Algorithm — the thinking chain surface: doctrine (versioned edits), rules
   // files, AI-generated workflow summary for the /algorithm tab.
-  try {
-    algorithmTabModule = await import("./modules/algorithm-tab")
-    if (algorithmTabModule.start) algorithmTabModule.start()
-  } catch (err) {
-    log("warn", "AlgorithmTab module not available", { error: String(err) })
+  if (config.modules.algorithm) {
+    try {
+      algorithmTabModule = await import("./modules/algorithm-tab")
+      if (algorithmTabModule.start) algorithmTabModule.start()
+    } catch (err) {
+      log("warn", "AlgorithmTab module not available", { error: String(err) })
+    }
   }
   // Evals — standing eval-suite status (pass^k, regressions) for the /algorithm tab.
-  try {
-    evalsModule = await import("./modules/evals")
-  } catch (err) {
-    log("warn", "Evals module not available", { error: String(err) })
+  if (config.modules.evals) {
+    try {
+      evalsModule = await import("./modules/evals")
+    } catch (err) {
+      log("warn", "Evals module not available", { error: String(err) })
+    }
   }
 }
 
@@ -338,6 +367,8 @@ async function loadModules(config: PulseConfig) {
 
 interface PulseConfig {
   port: number
+  /** Resolved on/off state for every switchable surface. See MODULE_DEFAULTS. */
+  modules: Record<string, boolean>
   tls?: { enabled: boolean; cert: string; key: string } // unused — TLS removed
   voice?: { enabled: boolean; [key: string]: unknown }
   imessage?: { enabled: boolean; [key: string]: unknown }
@@ -389,6 +420,7 @@ async function loadPulseConfig(): Promise<PulseConfig> {
 
   return {
     port: (parsed.port as number) ?? parseInt(process.env.PULSE_PORT || "31337", 10),
+    modules: resolveModules(parsed),
     tls: (parsed.tls as PulseConfig["tls"]) ?? undefined,
     voice: (parsed.voice as PulseConfig["voice"]) ?? { enabled: true },
     imessage: (parsed.imessage as PulseConfig["imessage"]) ?? { enabled: false },
@@ -740,6 +772,13 @@ async function main() {
         return buildHealthResponse(state, config)
       }
 
+      // Which surfaces are switched on. The dashboard reads this to avoid
+      // rendering a tab whose backend was never loaded — without it, disabling a
+      // module leaves a nav entry that opens an empty page.
+      if (req.method === "GET" && pathname === "/api/config/modules") {
+        return Response.json({ modules: config.modules })
+      }
+
       // Voice routes: /notify, /notify/personality, /voice, /voice/health
       // (/voice/health is implemented and advertised by the module but was never
       // forwarded, so it 404'd — public PR #1621, @elhoim)
@@ -923,6 +962,20 @@ async function main() {
       if (algorithmTabModule && pathname.startsWith("/api/algorithm-tab")) {
         const resp = await algorithmTabModule.handleRequest(req, pathname)
         if (resp) return resp
+      }
+
+      // The HEALTH / FINANCES / BUSINESS / GROWTH surfaces have no module of
+      // their own — observability.ts serves them directly — so switching them
+      // off has to happen here, at the route, rather than at module load.
+      const LIFE_ROUTE_MODULES: Record<string, string> = {
+        "/api/life/health": "health",
+        "/api/life/finances": "finances",
+        "/api/life/business": "business",
+        "/api/life/growth": "growth",
+      }
+      const lifeModule = LIFE_ROUTE_MODULES[pathname]
+      if (lifeModule && !config.modules[lifeModule]) {
+        return Response.json({ error: "module disabled", module: lifeModule }, { status: 404 })
       }
 
       // Observability routes: /api/*, /dashboard/*

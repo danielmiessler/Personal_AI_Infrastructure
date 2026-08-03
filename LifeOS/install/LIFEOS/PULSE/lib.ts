@@ -582,3 +582,4 @@ export async function spawnClaude(prompt: string, opts: { model: string; timeout
 
   return output.trim()
 }
+export { MODULE_DEFAULTS, resolveModules } from "./lib/modules"

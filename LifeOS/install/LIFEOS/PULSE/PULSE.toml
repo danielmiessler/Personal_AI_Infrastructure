@@ -10,6 +10,54 @@
 
 # ── Module Configuration ──
 
+# [modules] is the one place to switch a Pulse surface off. Every key defaults
+# to the value shown; delete a line and you get that default back. Disabling a
+# module stops it loading, stops its API routes answering, and (via
+# /api/config/modules) hides its tab in the dashboard instead of leaving a nav
+# entry that opens an empty page.
+#
+# Infrastructure Pulse needs to serve anything at all — observability, hooks,
+# tab-freshness, menubar, siri, doctor — is deliberately not listed: those are
+# how Pulse runs, not modules you use.
+#
+# The older `[section].enabled` flags below still work and still win over these
+# defaults, so an existing config needs no changes.
+[modules]
+# Life surfaces (the top nav)
+telos = true
+work = true
+content = true
+health = true
+finances = true
+business = true
+growth = true       # audience metrics; needs USER/CUSTOMIZATIONS/TOOLS/Growth.ts
+local = true        # LocalIntelligence civic digest; needs a Hometown set
+gear = true
+atlas = true
+memory = true
+synapse = true
+projects = true
+books = true
+# System surfaces
+algorithm = true
+bunker = true
+conduit = true
+upgrades = true
+hypotheses = true
+ledger = true
+usage = true
+performance = true
+evals = true
+threatmodel = true
+hermes = true
+docs = true
+da = true
+# Opt-in surfaces (off unless you turn them on)
+voice = true
+imessage = false
+syslog = false
+
+
 [voice]
 enabled = true
 

@@ -49,6 +49,7 @@ import {
 import { dirname, join } from 'path';
 import { execFileSync, spawn } from 'child_process';
 import { paiPath, getSettingsPath } from './lib/paths';
+import { resolveBun } from './lib/resolve-bin';
 import { getISOTimestamp, getPSTDate, getYearMonth } from './lib/time';
 import { bumpLastToolActivity, bumpLastToolActivityByUUID } from './lib/isa-utils';
 import {
@@ -232,10 +233,15 @@ function handlePostToolUse(raw: string): void {
         due = Date.now() - statSync(reconcileState).mtimeMs > 60_000;
       } catch { /* no state file yet — run it */ }
       if (due) {
-        const proc = spawn('bun', [paiPath('TOOLS', 'WorkReconcile.ts')], {
+        // Absolute bun path: a detached child inherits a minimal PATH, so the
+        // bare name ENOENTs. That failure arrives on the 'error' EVENT, past
+        // this sync try/catch — so it was swallowed, WorkReconcile never wrote
+        // its state file, and `due` stayed true on every single tool call.
+        const proc = spawn(resolveBun(), [paiPath('TOOLS', 'WorkReconcile.ts')], {
           detached: true,
           stdio: 'ignore',
         });
+        proc.on('error', (err) => console.error('[WorkReconcile spawn]', err instanceof Error ? err.message : String(err)));
         proc.unref();
       }
     } catch { /* healing is best-effort; never break the logger */ }

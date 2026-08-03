@@ -675,4 +675,9 @@ async function main() {
   console.log(`Change Type: ${changeType}`);
 }
 
-main().catch(console.error);
+// Exit non-zero on failure: IntegrityMaintenance.ts records a ledger entry on
+// `code === 0`, so swallowing the error into a 0 booked work that never happened.
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

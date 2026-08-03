@@ -97,7 +97,14 @@ async function main(): Promise<void> {
       );
     }
   } catch (e) {
-    log({ event: 'error', trigger, error: (e as Error)?.message ?? String(e) });
+    // Notify, don't just log. A suite that cannot RUN is the same operational
+    // fact as a suite that fails: the config change went unverified. Logging to
+    // a JSONL nobody tails made a permanently-broken suite — the shipped one is
+    // still legacy v1 `tasks:`, which the runner cannot execute — look exactly
+    // like a clean pass on every config edit.
+    const msg = (e as Error)?.message ?? String(e);
+    log({ event: 'error', trigger, error: msg });
+    await notify(`Behavioural eval could not run after editing ${trigger}: ${SUITE} errored (${msg}). The change is unverified.`);
   } finally {
     try { rmSync(LOCK, { force: true }); } catch { /* best-effort */ }
   }

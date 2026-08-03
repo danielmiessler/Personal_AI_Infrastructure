@@ -24,7 +24,7 @@
 
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { copyMissing, detectDevTree } from "./InstallEngine";
 
 // Runtime top-level entries this tool does NOT deploy:
@@ -242,10 +242,10 @@ function deployDependencies(payloadInstall: string, configRoot: string, apply: b
  * pulse.ts otherwise reports as a copy-paste fix command, so a fresh Pulse
  * doesn't 503 until a human intervenes.
  */
-function findNestedDependencyDirs(runtimeDst: string): string[] {
+function findNestedDependencyDirs(runtimeDst: string, skip: Set<string> = new Set()): string[] {
   const found: string[] = [];
   const walk = (dir: string): void => {
-    if (!existsSync(dir)) return;
+    if (!existsSync(dir) || skip.has(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.name === "node_modules" || entry.name === ".git") continue;
       const p = join(dir, entry.name);
@@ -260,7 +260,7 @@ function findNestedDependencyDirs(runtimeDst: string): string[] {
   return found.sort();
 }
 
-function deployNestedDependencies(configRoot: string, apply: boolean): DeployResult {
+function deployNestedDependencies(payloadInstall: string, configRoot: string, apply: boolean): DeployResult {
   const runtimeDst = join(configRoot, "LIFEOS");
   const skillsDst = join(configRoot, "skills");
   const r: DeployResult = {
@@ -272,9 +272,27 @@ function deployNestedDependencies(configRoot: string, apply: boolean): DeployRes
   // Walk skills/ alongside LIFEOS/ — skills ship nested package.json manifests
   // too (Apify, Evals, Prompting templates, Art/Remotion tools), and installing
   // only the runtime tree left them import-broken. Public issue #1605, @cristbc.
+  //
+  // Scoped to the skills THIS payload ships, per skill dir: configRoot/skills
+  // also holds the principal's own pre-existing skills — running `bun install`
+  // in those mutates dirs we never deployed (and whose install we don't own),
+  // and any failure there fails OUR deploy. Skills we skipped on a
+  // case-insensitive collision are excluded for the same reason (not in the
+  // payload-name → deployed-dir set we created).
+  const payloadSkills = join(payloadInstall, "skills");
+  // The deployed LifeOS skill carries a second full copy of this very payload
+  // under <skill>/install — walking it re-installs every payload skill a second
+  // time, into a tree nothing imports from.
+  const nestedPayload = join(skillsDst, basename(dirname(payloadInstall)), "install");
+  const ownSkillDirs = existsSync(payloadSkills)
+    ? readdirSync(payloadSkills, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => join(skillsDst, e.name))
+        .filter(existsSync)
+    : [];
   const dirs = [
     ...findNestedDependencyDirs(runtimeDst),
-    ...(existsSync(skillsDst) ? findNestedDependencyDirs(skillsDst) : []),
+    ...ownSkillDirs.flatMap((d) => findNestedDependencyDirs(d, new Set([nestedPayload]))),
   ];
   for (const dir of dirs) {
     const isObservability = dir === join(runtimeDst, "PULSE", "Observability");
@@ -330,7 +348,7 @@ function main(): void {
     deployRuntime(payloadInstall, configRoot, apply),
     scaffoldMemory(configRoot, apply),
     deployDependencies(payloadInstall, configRoot, apply),
-    deployNestedDependencies(configRoot, apply),
+    deployNestedDependencies(payloadInstall, configRoot, apply),
   ];
 
   // A missing required payload source (blocker) or a copy failure is a hard

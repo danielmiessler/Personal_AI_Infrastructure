@@ -327,29 +327,40 @@ export function validateCron(expression: string): string | null {
   }
 }
 
-export function matchesCron(expression: string, date: Date): boolean {
-  let fields: CronField[]
+function parseCronOrThrow(expression: string): CronField[] {
   try {
-    fields = parseCron(expression)
+    return parseCron(expression)
   } catch (err) {
     throw new Error(`Invalid cron "${expression}": ${err instanceof Error ? err.message : String(err)}`)
   }
+}
 
+function matchesFields(fields: CronField[], date: Date): boolean {
   const actuals = [date.getMinutes(), date.getHours(), date.getDate(), date.getMonth() + 1, date.getDay()]
 
   return fields.every((f, i) => f.type === "any" || f.values.includes(actuals[i]))
+}
+
+export function matchesCron(expression: string, date: Date): boolean {
+  return matchesFields(parseCronOrThrow(expression), date)
 }
 
 /**
  * Most recent minute at/before `now` matching the schedule, bounded by
  * `lookbackMs`. Minute-resolution backward scan — cron fields are cheap to
  * test and the bound keeps the worst case (~10k iterations at 7 days) trivial.
+ *
+ * The expression is parsed ONCE, outside the loop: going through matchesCron
+ * re-parsed it on every one of the up-to-10,080 minute-steps, and the parse —
+ * not the field test — was the whole cost of a scan (~53ms per unmatched
+ * sparse job, paid every minute on the thread that serves the dashboard).
  */
 export function mostRecentOccurrence(schedule: string, now: Date, lookbackMs: number): number | null {
+  const fields = parseCronOrThrow(schedule)
   const nowMinute = Math.floor(now.getTime() / 60_000) * 60_000
   const floorMs = now.getTime() - lookbackMs
   for (let t = nowMinute; t >= floorMs; t -= 60_000) {
-    if (matchesCron(schedule, new Date(t))) return t
+    if (matchesFields(fields, new Date(t))) return t
   }
   return null
 }

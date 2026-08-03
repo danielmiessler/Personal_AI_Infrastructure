@@ -113,6 +113,21 @@ export async function runSuite(name: string, override: Partial<EvalSuiteV2> = {}
   } else {
     return { suite: name, type: 'unknown', passed: false, score: 0, pass_to_k: 0, pass_at_k: 0, summary: `Suite not found: ${name}`, run_id: 'error', cases: [] };
   }
+  // Diagnose a v1 suite instead of dying on `for (const c of undefined)`. The
+  // only shipped suite (Suites/Regression/core-behaviors.yaml) still uses the
+  // legacy `tasks:` list, so every run threw a bare TypeError — and callers that
+  // catch broadly (ConfigEvalOnChange) turned that into a regression eval which
+  // silently never ran. The two formats are not mechanically convertible:
+  // UseCases/*.yaml define weighted graders and carry no `prompt`, so there is
+  // nothing for this single-shot runner to send. Say so rather than guess.
+  if (!Array.isArray(suite.cases) || suite.cases.length === 0) {
+    const legacy = (suite as unknown as { tasks?: unknown[] }).tasks;
+    throw new Error(
+      Array.isArray(legacy)
+        ? `Suite '${name}' is in the legacy v1 format: it lists ${legacy.length} \`tasks:\` referencing Evals/UseCases/*.yaml, which define graders and no \`prompt\`. This runner needs v2 \`cases:\` with prompt/assert. Migrate the suite, or run it through a UseCase-aware runner.`
+        : `Suite '${name}' has no \`cases:\` to run.`,
+    );
+  }
   const threshold = suite.pass_threshold ?? 0.75;
   const trials = suite.trials ?? 3;
   const agentLevel: InferenceLevel = suite.agent_level ?? 'medium';

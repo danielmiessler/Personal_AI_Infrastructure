@@ -221,10 +221,18 @@ const ACKNOWLEDGES_FAILURE =
   /\b(fail(s|ed|ure|ing)?|error(s|ed)?|traceback|exception|broke|broken|didn'?t\s+(work|run|parse)|couldn'?t|hit\s+a\s+(snag|wall)|blocked)\b/i;
 
 /** Returns the claiming unit iff the message asserts completion while the
- * turn's final tool event hard-failed and nothing succeeded after it. */
-export function contradictedCompletionUnit(message: string, evs: { isError: boolean; resultText: string }[]): string | null {
+ * turn's final tool event hard-failed and nothing succeeded after it.
+ *
+ * The raw `is_error` flag is required alongside the text match. HARD_FAIL alone
+ * reads the OUTPUT, so any command that merely quotes failure words fired it —
+ * a successful `rg -n "exit 1"` was a contradicted completion. Bash sets
+ * `is_error` on every non-zero exit, so the founding class (a traceback then a
+ * success claim) is untouched; what no longer fires is a command that printed
+ * failure text and still exited 0. */
+export function contradictedCompletionUnit(message: string, evs: { isToolError: boolean; resultText: string }[]): string | null {
   if (evs.length === 0) return null;
   const last = evs[evs.length - 1]!;
+  if (!last.isToolError) return null;
   if (!HARD_FAIL.test(last.resultText)) return null;
   const stripped = stripNoise(message);
   if (ACKNOWLEDGES_FAILURE.test(stripped)) return null; // honest about the failure ⇒ not a contradiction

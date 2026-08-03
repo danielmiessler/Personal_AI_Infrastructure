@@ -38,6 +38,10 @@ export interface TxEvent {
   resultText: string;
   /** True when the tool_result was an error or the result text signals failure. */
   isError: boolean;
+  /** The tool_result's RAW `is_error` flag, with no text heuristic mixed in.
+   * Ground truth for "the tool actually failed": a read-only command whose OUTPUT
+   * quotes failure words (`rg -n "exit 1"`) sets `isError` but never this. */
+  isToolError: boolean;
   /** Doc-only edits (.md / MEMORY / ISA) don't count as code mutations. */
   isCode: boolean;
 }
@@ -163,7 +167,7 @@ export function parseTurnEvents(
       const resultText = res?.text ?? "";
       const isErrorFlag = res?.isError === true || (resultText ? ERROR_MARKERS.test(resultText) : false);
       const push = (kind: EventKind, target: string, isCode = false) =>
-        events.push({ seq: seq++, kind, tool: name, target, resultText, isError: isErrorFlag, isCode });
+        events.push({ seq: seq++, kind, tool: name, target, resultText, isError: isErrorFlag, isToolError: res?.isError === true, isCode });
 
       if (name === "Edit" || name === "Write" || name === "NotebookEdit") {
         const p = String(input.file_path ?? input.notebook_path ?? "");

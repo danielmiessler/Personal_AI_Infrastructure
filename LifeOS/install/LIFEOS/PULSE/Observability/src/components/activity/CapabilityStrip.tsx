@@ -150,21 +150,25 @@ export default function CapabilityStrip() {
   const [data, setData] = useState<CapabilitiesData | null>(null);
   const [windowMin, setWindowMin] = useState(60);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     try {
       const d = await localOnlyApiCall<CapabilitiesData>(
         `/api/capabilities?window=${windowMin}`,
+        { signal },
       );
-      setData(d);
+      if (!signal?.aborted) setData(d);
     } catch {
       // strip stays hidden until data arrives
     }
   }, [windowMin]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    // Aborted on window switch, so a slower response for the old window can
+    // never land on top of the newer one.
+    const ac = new AbortController();
+    fetchData(ac.signal);
+    const interval = setInterval(() => fetchData(ac.signal), 10000);
+    return () => { ac.abort(); clearInterval(interval); };
   }, [fetchData]);
 
   const { active, quiet } = useMemo(() => {

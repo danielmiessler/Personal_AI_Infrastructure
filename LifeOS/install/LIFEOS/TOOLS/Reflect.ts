@@ -139,7 +139,10 @@ export function validate(r: Partial<Reflection>): string[] {
   for (const f of ["ts", "session_id", "slug"] as const) {
     if (typeof r[f] !== "string" || !r[f]) errs.push(`${f} must be a non-empty string`);
   }
-  if (typeof r.iteration !== "number" || r.iteration < 0) errs.push("iteration must be a non-negative number");
+  // Number.isFinite, not just typeof: `Number("x")` is NaN, which is typeof
+  // "number" and fails every comparison, so `NaN < 0` waved it through — and
+  // JSON.stringify then wrote it as `null` into the corpus this gate protects.
+  if (typeof r.iteration !== "number" || !Number.isFinite(r.iteration) || r.iteration < 0) errs.push("iteration must be a non-negative number");
   for (const f of ["claims_closed", "evidence_classes", "deploys"] as const) {
     if (!Array.isArray(r[f])) errs.push(`${f} must be an array`);
     else if ((r[f] as unknown[]).some((x) => typeof x !== "string")) errs.push(`${f} must contain only strings`);

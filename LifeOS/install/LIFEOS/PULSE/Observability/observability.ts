@@ -285,6 +285,21 @@ function foldClimbLine(map: Map<string, ClimbPoint[]>, line: string): void {
   map.set(ev.slug, points)
 }
 
+// Key-count eviction. The per-key series are ring-buffered (200 points / 600
+// ticks), but the number of KEYS was unbounded: every slug and every session_id
+// the daemon ever folded stayed resident for its lifetime. Nothing downstream
+// reads a series whose newest point is older than the stalest run window
+// (RUN_ACTIVITY.nativeStaleMs, 4h), so a day of retention is generous. Called
+// on the fold path only — an unchanged log returns early and grows nothing.
+const CACHE_RETENTION_MS = 24 * 60 * 60 * 1000
+
+function evictStaleSeries<T extends { ts: number }>(map: Map<string, T[]>, now: number): void {
+  for (const [key, series] of map) {
+    const last = series[series.length - 1]
+    if (!last || now - last.ts > CACHE_RETENTION_MS) map.delete(key)
+  }
+}
+
 export function getClimbData(): Map<string, ClimbPoint[]> {
   try {
     if (!existsSync(WORK_EVENTS_PATH)) return new Map()
@@ -314,6 +329,7 @@ export function getClimbData(): Map<string, ClimbPoint[]> {
     climbCache.offset += Buffer.byteLength(complete, "utf-8") + 1
 
     for (const line of complete.split("\n")) foldClimbLine(climbCache.data, line)
+    evictStaleSeries(climbCache.data, Date.now())
     return climbCache.data
   } catch {
     return climbCache.data
@@ -444,6 +460,7 @@ export function getActivityData(): Map<string, ToolTick[]> {
     const remainder = chunk.slice(lastNewline + 1)
     activityCache.offset = st.size - Buffer.byteLength(remainder, "utf-8")
     for (const line of chunk.slice(0, lastNewline).split("\n")) foldActivityLine(line)
+    evictStaleSeries(activityCache.bySession, Date.now())
     return activityCache.bySession
   } catch {
     return activityCache.bySession

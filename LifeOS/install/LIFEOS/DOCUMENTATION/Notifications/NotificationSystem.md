@@ -296,10 +296,12 @@ await sendDiscord("Message", { title: "Title", color: 0x00ff00 });
 
 ---
 
-## Event Log Channel (events.jsonl)
+## Event Log Channels
 
+Two append-only JSONL stores. Both are additive — neither replaces any notification channel above, and hooks emit events alongside their existing state writes and notifications.
 
-Events are emitted directly from each hook via `fs.appendFileSync` to `~/.claude/LIFEOS/MEMORY/OBSERVABILITY/*.jsonl` — synchronous, fire-and-forget, no shared transport library. This channel is additive — it does not replace any of the notification channels above, and hooks emit events alongside their existing state writes and notifications.
+- **`~/.claude/LIFEOS/MEMORY/OBSERVABILITY/*.jsonl`** — tool activity, tool failures, subagent spawns, config changes. Written by `EventLogger.hook.ts` via `fs.appendFileSync`: synchronous, fire-and-forget, no shared transport library.
+- **`~/.claude/LIFEOS/MEMORY/STATE/events.jsonl`** — the unified hook event log, written through the shared emitter `hooks/lib/events.ts` (`appendEvent()` / `emitFindingSet()`). Read back into context at SessionStart by `hooks/lib/advisory-readback.ts` and merged into Pulse's Live Events pane. See `HookSystem.md` § Unified Event System.
 
 ---
 

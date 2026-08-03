@@ -80,6 +80,9 @@ const SUBAGENT_EVENTS_PATH = join(MEMORY_DIR, "OBSERVABILITY", "subagent-events.
 const VOICE_EVENTS_PATH = join(MEMORY_DIR, "VOICE", "voice-events.jsonl")
 const TOOL_FAILURES_PATH = join(MEMORY_DIR, "OBSERVABILITY", "tool-failures.jsonl")
 const TOOL_ACTIVITY_PATH = join(MEMORY_DIR, "OBSERVABILITY", "tool-activity.jsonl")
+// The unified hook event log (hooks/lib/events.ts). LiveEvents.tsx's empty state
+// has always named this file; this is the constant that makes that true.
+const STATE_EVENTS_PATH = join(MEMORY_DIR, "STATE", "events.jsonl")
 const SETTINGS_PATH = join(HOME, ".claude", "settings.json")
 const LADDER_DIR = join(HOME, "Projects", "Ladder")
 
@@ -929,8 +932,21 @@ function handleEventsRecentApi(): Response {
     source: "tool-activity",
     type: e.event || e.type || "tool_use",
   }))
+  // Hook events carry their own dot-separated `type` and a `source` naming the
+  // emitting handler; both are kept. `finding_count` is surfaced as `message`
+  // so a row reads usefully in the pane without the full findings array.
+  const hookEvents = readJsonlTail(STATE_EVENTS_PATH, 50).map((e) => ({
+    ...e,
+    source: e.source || "hook",
+    type: e.type || "hook",
+    message:
+      e.message ??
+      (typeof e.finding_count === "number"
+        ? `${e.finding_count} finding${e.finding_count === 1 ? "" : "s"}`
+        : undefined),
+  }))
 
-  const all = [...voiceEvents, ...toolFailures, ...subagentEvents, ...toolActivity]
+  const all = [...voiceEvents, ...toolFailures, ...subagentEvents, ...toolActivity, ...hookEvents]
   all.sort((a, b) => {
     const ta = new Date(a.timestamp || 0).getTime()
     const tb = new Date(b.timestamp || 0).getTime()

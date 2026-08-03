@@ -34,7 +34,7 @@ The LifeOS hook system is an event-driven automation infrastructure built on the
 - **Security Validation** - Active (v5+, consolidated 2026-05-14) — Single `Safety.hook.ts` dispatching by `hook_event_name`: PermissionRequest gates outgoing tool calls via the shape classifier in `lib/safety-classifier.ts` (auto-allows safe shapes, neutral on dangerous/credential/injection); PostToolUse tags WebFetch/WebSearch responses with the "treat as data" warning + injection marker. Replaces the prior split between `SmartApprover.hook.ts` and `PromptInjection.hook.ts`. The v4.0 Inspector Pipeline was deleted 2026-05-06. See `LIFEOS/DOCUMENTATION/Security/README.md`.
 - **Multi-Agent Support** - Agent-specific hooks with voice routing
 - **Tab Titles** - Dynamic terminal tab updates with task context
-- **Unified Event Stream** - All hooks emit structured events to `events.jsonl` for real-time observability
+- **Unified Event Stream** - The advisory checkers emit structured events to `events.jsonl`, read back at SessionStart and by Pulse (see § Unified Event System for the emitters that participate)
 
 **Key Principle:** Most hooks run asynchronously and fail gracefully. Security hooks (e.g. `hooks/Safety.hook.ts`) are synchronous — the PermissionRequest path emits `decision: allow` JSON when safe (otherwise stdout is empty and the native engine prompts). All `.ts` hooks have `#!/usr/bin/env bun` shebangs and `+x` permissions — settings.json references them directly (e.g., `$HOME/.claude/hooks/Safety.hook.ts`) without a `bun` prefix. HTTP hooks (SkillGuard, AgentGuard) run via Pulse routes on `localhost:31337`.
 
@@ -1549,6 +1549,13 @@ Alongside existing filesystem state writes (algorithm-state JSON, ISAs, session-
 
 ### Components
 
+| Component | Path | Role |
+|-----------|------|------|
+| Emitter | `hooks/lib/events.ts` | `appendEvent()` / `emitFindingSet()` — the shared writer every emitter uses |
+| Log | `LIFEOS/MEMORY/STATE/events.jsonl` | Append-only JSONL, never rotated |
+| Model-facing reader | `hooks/lib/advisory-readback.ts` | SessionStart digest of the current finding set, via `LoadContext.hook.ts` |
+| Human-facing reader | `LIFEOS/PULSE/Observability/observability.ts` | Merged into `/api/events/recent`, rendered by the Pulse activity dashboard (`src/components/activity/ObservabilityDashboard.tsx`) |
+| Shell reader | — | `tail -f` / `jq` (see § Consuming Events) |
 
 ### Usage in Hooks
 
@@ -1572,21 +1579,35 @@ Events use a dot-separated topic hierarchy for filtering. A `custom.*` escape ha
 
 ### Event Type Categories
 
-| Category | Types | Emitting Hooks |
+Types below are the ones actually written to `events.jsonl` by shipped code. The
+hierarchy is open — a new emitter picks a topic and calls `appendEvent()` — but this
+table lists emitters, not intentions: if a type is not here, nothing writes it.
+
+| Type | Emitter | Shape |
 |----------|-------|----------------|
-| `work.*` | created, completed | ISASync, SessionCleanup |
-| `session.*` | named, completed | SessionCleanup |
-| `rating.*` | captured | SatisfactionCapture |
-| `learning.*` | captured | WorkCompletionLearning |
-| `voice.*` | sent | VoiceNotification |
-| `isa.*` | synced | ISASync |
-| `doc.*` | integrity | DocIntegrity |
-| `build.*` | rebuild | RebuildSkill (DocRebuild handler) |
-| `system.*` | integrity | IntegrityCheck |
-| `settings.*` | counts_updated | UpdateCounts |
-| `tab.*` | updated | TabState, PromptProcessing |
-| `hook.*` | error | Any hook (error reporting) |
-| `custom.*` | user-defined | Extensibility escape hatch |
+| `doc.integrity.memory_dir` | `handlers/MemoryDirIntegrity.ts` | finding set (see below) |
+| `doc.integrity` | `handlers/DocCrossRefIntegrity.ts` | finding set (see below) |
+| `doc.integrity.knowledge_conformance` | `handlers/KnowledgeConformance.ts` | finding set (see below) |
+| `custom.*` | — | escape hatch for local emitters |
+
+Other observability streams write their own files and are NOT part of this log:
+`OBSERVABILITY/*.jsonl` (EventLogger — tool activity, failures, config changes),
+`VOICE/voice-events.jsonl`, `OBSERVABILITY/subagent-events.jsonl`,
+`STATE/work-events.jsonl`. Pulse's Live Events pane merges several of them.
+
+### Finding-set events
+
+A checker that reports a set of problems uses `emitFindingSet()`, which adds
+`ok`, `finding_count`, and a `findings` array of `{ key, kind, detail }`.
+
+- **One event per completed check, carrying the full current set — including the
+  empty set.** An emitter that speaks only when it has findings can never say that
+  a problem was fixed, so the SessionStart digest shows it forever.
+- **No event on a skipped check.** No emission means "not re-checked, previous set
+  stands"; an empty set means "checked, all clear". Emitting the empty set from a
+  skip path silently clears findings nobody looked at.
+- **`key` is stable across runs and free of counts, timestamps, and ordinals** —
+  the readback compares key sets to decide whether anything changed.
 
 ### Consuming Events
 
@@ -1613,7 +1634,7 @@ watch(eventsPath, (eventType) => { /* read new lines */ });
 ---
 
 **Last Updated:** 2026-07-11
-**Status:** Production — unified `events.jsonl` log; `EventLogger.hook.ts` is now the single observability writer across PostToolUse/PostToolUseFailure/StopFailure/ConfigChange (count auto-computed by UpdateCounts.ts)
+**Status:** Production — unified `STATE/events.jsonl` log written through `hooks/lib/events.ts`, read at SessionStart by `hooks/lib/advisory-readback.ts` and by Pulse's `/api/events/recent`. Separately, `EventLogger.hook.ts` is the single writer of the `MEMORY/OBSERVABILITY/*.jsonl` streams across PostToolUse/PostToolUseFailure/StopFailure/ConfigChange (count auto-computed by UpdateCounts.ts) — a different store, not this log.
 **Maintainer:** LifeOS System
 
 ### Drift & Routing hooks (added 2026-06-10, Fable-prompt upgrades R1/R4)

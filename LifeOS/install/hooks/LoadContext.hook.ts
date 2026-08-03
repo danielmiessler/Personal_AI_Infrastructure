@@ -13,6 +13,7 @@
  * - Injects dynamic, session-specific context:
  *   - Relationship context (recent opinions + notes)
  *   - Learning readback (signals, wisdom, failure patterns)
+ *   - Advisory readback (last session's doc/memory integrity findings)
  *   - Active work summary (last 48h sessions + tracked projects)
  *
  * TRIGGER: SessionStart
@@ -43,12 +44,15 @@ import { join } from 'path';
 import { getLifeosDir, getSettingsPath } from './lib/paths';
 import { recordSessionStart } from './lib/notifications';
 import { loadWisdomFrames } from './lib/learning-readback';
+import { loadAdvisoryDigest } from './lib/advisory-readback';
 import { findArtifactPath } from './lib/isa-utils';
 import { isSubagentContext } from './lib/subagent';
+import { isDesktopChannel, getNotificationChannel } from './lib/notification-channel';
 
 interface DynamicContextConfig {
   relationshipContext?: boolean;
   learningReadback?: boolean;
+  advisoryReadback?: boolean;
   activeWorkSummary?: boolean;
 }
 
@@ -394,6 +398,16 @@ async function main() {
       process.exit(0);
     }
 
+    // Remote-channel sessions (Telegram, iMessage — see lib/notification-channel.ts)
+    // serve someone through a bot surface. Injecting the principal's relationship
+    // notes, wisdom frames, advisory findings and active work summary into that
+    // context is the same class of leak as a desktop /notify from a remote turn.
+    // One guard here covers every loader below, present and future.
+    if (!isDesktopChannel()) {
+      console.error(`📵 Remote channel (${getNotificationChannel()}) - skipping dynamic context injection`);
+      process.exit(0);
+    }
+
     const paiDir = getLifeosDir();
 
     // Tab reset is handled by KittyEnvPersist.hook.ts (runs before this hook)
@@ -439,11 +453,26 @@ async function main() {
       console.error('⏭️ Skipped learning readback (disabled)');
     }
 
+    // Advisory readback: last session's integrity findings, delivered here
+    // because SessionEnd — where they are produced — cannot inject context.
+    // Emits only on a changed finding set, plus a slow re-announce; steady
+    // state is zero characters.
+    let advisoryContext = '';
+    if (isDynamicEnabled(settings, 'advisoryReadback')) {
+      const digest = loadAdvisoryDigest();
+      advisoryContext = digest ? '\n## Advisory Findings\n\n' + digest : '';
+      if (digest) {
+        console.error(`🩺 Loaded advisory digest (${advisoryContext.length} chars)`);
+      }
+    } else {
+      console.error('⏭️ Skipped advisory readback (disabled)');
+    }
+
     // Inject dynamic context if we have any
-    if (relationshipContext || learningContext) {
+    if (relationshipContext || learningContext || advisoryContext) {
       const message = `<system-reminder>
 LifeOS Dynamic Context (Auto-loaded at Session Start)
-${relationshipContext ?? ''}${learningContext ? '\n---\n' + learningContext : ''}
+${relationshipContext ?? ''}${learningContext ? '\n---\n' + learningContext : ''}${advisoryContext ? '\n---\n' + advisoryContext : ''}
 ---
 Dynamic context loaded. Constitutional rules are in the system prompt (LIFEOS/LIFEOS_SYSTEM_PROMPT.md). Operational procedures are in CLAUDE.md.
 </system-reminder>`;

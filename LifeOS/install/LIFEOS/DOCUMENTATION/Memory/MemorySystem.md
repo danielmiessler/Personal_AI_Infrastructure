@@ -644,7 +644,7 @@ An append-only JSONL file where hooks emit structured, typed events alongside th
 | PreCompact.hook.ts | PreCompact | stdout (handover context) |
 | DocIntegrity.hook.ts | SessionEnd | (no MEMORY writes — runs DocCrossRefIntegrity + RebuildArchSummary + MemoryDirIntegrity) |
 
-> **Note:** All hooks listed above also emit typed events to `STATE/events.jsonl` via `appendEvent()`. See [../Hooks/HookSystem.md § Unified Event System](../Hooks/HookSystem.md) for event types and consumer details.
+> **Note:** The advisory checkers — `MemoryDirIntegrity`, `DocCrossRefIntegrity` and `KnowledgeConformance` — emit typed events to `STATE/events.jsonl` via `appendEvent()`. The other hooks in this table write their own stores and do not participate in that log. See [../Hooks/HookSystem.md § Unified Event System](../Hooks/HookSystem.md) for event types and consumer details.
 
 ## Harvesting & Retrieval Tools
 

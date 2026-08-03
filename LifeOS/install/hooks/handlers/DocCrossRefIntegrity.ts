@@ -36,13 +36,17 @@
  * SIDE EFFECTS:
  * - Updates timestamps, counts (deterministic)
  * - Applies surgical text edits (inference-generated)
- * - Emits doc.integrity event to events.jsonl
+ * - Emits a doc.integrity event to events.jsonl on every completed check, via
+ *   hooks/lib/events.ts — the full deterministic finding set, empty set
+ *   included. A check that skipped (no system files modified) emits nothing,
+ *   because an empty set means "checked, all clear", not "did not look".
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { paiPath, getLifeosDir, getClaudeDir } from '../lib/paths';
 import { getIdentity } from '../lib/identity';
+import { emitFindingSet } from '../lib/events';
 import { inference } from '../../LIFEOS/TOOLS/Inference';
 import type { ParsedTranscript } from '../../LIFEOS/TOOLS/TranscriptParser';
 import { isDesktopChannel, logSkippedVoice, getNotificationChannel } from '../lib/notification-channel';
@@ -720,6 +724,9 @@ export async function handleDocCrossRefIntegrity(
   const hasAnySystemChange = isSystemFileModified(modifiedFiles);
 
   if (!hasAnySystemChange) {
+    // No event here on purpose: the check did not run, so the previous finding
+    // set is still the current truth. Emitting an empty set on this path would
+    // clear real findings out of the SessionStart digest without checking them.
     console.error(`${TAG} No meaningful system files modified, skipping`);
     return;
   }
@@ -865,6 +872,23 @@ export async function handleDocCrossRefIntegrity(
   }
   console.error(`${TAG} Wall time: ${totalElapsed}ms`);
   console.error(`${TAG} === Check complete ===`);
+
+  // The emission this handler's docstring has claimed since v5.0.0. Summary
+  // level: which doc, which check, what is wrong — never doc body text.
+  emitFindingSet({
+    type: 'doc.integrity',
+    source: 'DocCrossRefIntegrity',
+    findings: allDrift.map((item) => ({
+      kind: item.pattern,
+      key: `${item.doc}:${item.pattern}:${item.reference}`,
+      detail: `${item.doc}: ${item.issue}`,
+    })),
+    extra: {
+      docs_checked: docsToCheck.length,
+      updates_applied: updatesApplied.length,
+      duration_ms: totalElapsed,
+    },
+  });
 
   // Step 10: Voice notification — ONLY when actual documentation edits were applied
   // No voice for "queued for review" or "in sync" — that's noise

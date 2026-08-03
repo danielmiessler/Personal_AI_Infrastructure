@@ -456,8 +456,10 @@ Located in `hooks/lib/`:
 | `tab-setter.ts` | Kitty + cmux tab title manipulation | All tab-related hooks |
 | `containment-zones.ts` | Release-pipeline zone inventory | `ShadowRelease.ts` (used at release time, not by runtime hooks) |
 | `learning-readback.ts` | Read prior failures for context | WorkCompletionLearning |
+| `events.ts` | Emit/read `STATE/events.jsonl` (`appendEvent`, `emitFindingSet`) | MemoryDirIntegrity, DocCrossRefIntegrity, advisory-readback |
+| `advisory-readback.ts` | SessionStart digest of the current advisory finding set | LoadContext |
 
-> Note: there is no log-rotation lib — observability JSONLs are NOT auto-rotated today. Rotation is queued with the sensor-loop iteration. (The former log-rotation lib here was dead code with zero importers and was removed 2026-06-12.)
+> Note: there is no log-rotation lib — observability JSONLs are NOT auto-rotated today. Rotation is queued with the sensor-loop iteration. (The former log-rotation lib here was dead code with zero importers and was removed 2026-06-12.) `STATE/events.jsonl` grows unbounded for the same reason; `events.ts` reads it backwards from EOF in bounded windows, so readers stay O(recent) as it grows.
 
 ---
 

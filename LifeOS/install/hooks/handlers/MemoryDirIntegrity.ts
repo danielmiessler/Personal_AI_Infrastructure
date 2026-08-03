@@ -19,31 +19,23 @@
  *
  * WRITES:
  *   stderr (audit log with [MemoryDirIntegrity] tag)
- *   STATE/events.jsonl (typed event: doc.integrity.memory_dir)
+ *   STATE/events.jsonl (typed event: doc.integrity.memory_dir, via hooks/lib/events.ts)
+ *     Full finding set on every completed check, empty set included — that is what
+ *     lets the SessionStart readback show a fixed problem disappearing.
  *
  * SIDE EFFECTS:
  *   None — read-only check. Drift is a soft warning. The hook never blocks.
  */
 
-import { readFileSync, readdirSync, existsSync, statSync, appendFileSync, mkdirSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { paiPath, getLifeosDir } from '../lib/paths';
+import { emitFindingSet } from '../lib/events';
 
 const TAG = '[MemoryDirIntegrity]';
 const LIFEOS_DIR = getLifeosDir();
 const MEMORY_DIR = join(LIFEOS_DIR, 'MEMORY');
 const INVENTORY_DOC = paiPath('DOCUMENTATION/Memory/MemorySystem.md');
-const EVENTS_FILE = join(MEMORY_DIR, 'STATE', 'events.jsonl');
-
-function emitEvent(payload: Record<string, unknown>): void {
-  try {
-    mkdirSync(join(MEMORY_DIR, 'STATE'), { recursive: true });
-    const event = { timestamp: new Date().toISOString(), ...payload };
-    appendFileSync(EVENTS_FILE, JSON.stringify(event) + '\n', 'utf-8');
-  } catch {
-    // Event log is best-effort — never let drift checking fail because of telemetry.
-  }
-}
 
 // Directories that exist on disk but are not subsystems and should be ignored.
 const IGNORED_NAMES = new Set(['.DS_Store', '.git', 'node_modules']);
@@ -57,8 +49,14 @@ interface InventoryRow {
   status: string;     // "active" | "reserved"
 }
 
+/**
+ * One drift finding. `key` is its identity across runs — the readback compares
+ * key sets to decide whether anything changed, so it holds the subsystem name
+ * and nothing that churns (no counts, no timestamps).
+ */
 interface DriftItem {
   kind: 'unknown_on_disk' | 'missing_active' | 'inventory_unparseable';
+  key: string;
   detail: string;
 }
 
@@ -144,25 +142,28 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
   if (inventory === null) {
     const drift: DriftItem = {
       kind: 'inventory_unparseable',
+      key: 'inventory_unparseable:doc',
       detail: `Failed to parse Directory Inventory from ${INVENTORY_DOC}. Drift check skipped.`,
     };
     console.error(`${TAG} [WARN] ${drift.detail}`);
-    emitEvent({
+    emitFindingSet({
       type: 'doc.integrity.memory_dir',
       source: 'MemoryDirIntegrity',
-      drift: [drift],
-      ok: false,
+      findings: [drift],
     });
     return;
   }
 
   if (inventory.length === 0) {
     console.error(`${TAG} [WARN] Inventory table parsed but contains zero rows. Check the table format in MemorySystem.md.`);
-    emitEvent({
+    emitFindingSet({
       type: 'doc.integrity.memory_dir',
       source: 'MemoryDirIntegrity',
-      drift: [{ kind: 'inventory_unparseable', detail: 'Inventory parsed with zero rows' }],
-      ok: false,
+      findings: [{
+        kind: 'inventory_unparseable',
+        key: 'inventory_unparseable:zero_rows',
+        detail: 'Inventory parsed with zero rows',
+      }],
     });
     return;
   }
@@ -187,6 +188,7 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     if (!inventoryByName.has(dir)) {
       drift.push({
         kind: 'unknown_on_disk',
+        key: `unknown_on_disk:${dir}`,
         detail: `MEMORY/${dir}/ exists but is not listed in MemorySystem.md Directory Inventory. Either add a row or remove the directory.`,
       });
     }
@@ -199,6 +201,7 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     if (row.status === 'active' && !onDiskSet.has(row.name)) {
       drift.push({
         kind: 'missing_active',
+        key: `missing_active:${row.name}`,
         detail: `Inventory lists MEMORY/${row.name}/ as ${row.status} but directory does not exist on disk. Either create it or change the row's status to reserved/on-demand.`,
       });
     }
@@ -214,14 +217,16 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     }
   }
 
-  emitEvent({
+  // Emitted on every completed check, empty set included — see the emission
+  // contract in hooks/lib/events.ts. Silence here would mean "not checked".
+  emitFindingSet({
     type: 'doc.integrity.memory_dir',
     source: 'MemoryDirIntegrity',
-    on_disk_count: onDisk.length,
-    inventory_count: inventory.length,
-    drift_count: drift.length,
-    drift,
-    ok: drift.length === 0,
+    findings: drift,
+    extra: {
+      on_disk_count: onDisk.length,
+      inventory_count: inventory.length,
+    },
   });
 
   const elapsed = Date.now() - startTime;

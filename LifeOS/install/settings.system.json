@@ -367,6 +367,7 @@
     "_docs": "Dynamic context injected by LoadContext.hook.ts. Override in LIFEOS_CONFIG.yaml to disable.",
     "relationshipContext": true,
     "learningReadback": true,
+    "advisoryReadback": true,
     "activeWorkSummary": true
   },
   "preferences": {

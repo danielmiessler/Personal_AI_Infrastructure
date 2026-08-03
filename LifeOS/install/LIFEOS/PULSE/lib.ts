@@ -478,6 +478,14 @@ async function dispatchSingle(output: string, target: OutputTarget, jobName: str
 
       case "log":
         break
+
+      // Fail loud on a target this build no longer handles. `output` is cast
+      // unchecked at config load, so a config carrying an older target (e.g.
+      // `telegram`, since removed from OutputTarget) fell through the switch,
+      // sent nothing, and still reported the dispatch as a success.
+      default:
+        log("error", `Dispatch skipped for ${jobName}: unknown output target "${String(target)}" — valid targets are voice, ntfy, email, log`)
+        break
     }
   } catch (err) {
     log("error", `Dispatch to ${target} failed for ${jobName}`, { error: String(err) })

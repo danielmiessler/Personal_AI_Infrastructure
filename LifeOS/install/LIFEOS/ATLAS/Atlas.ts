@@ -17,7 +17,8 @@
  * the authority; `atlas owns` runs alongside it, never instead of it (Algorithm claim 16).
  */
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync } from "node:fs";
+import { atomicWriteText } from "../PULSE/lib/atomic-write";
 import { EVENTS_PATH, SNAPSHOT_PATH, Store, type Collector } from "./Store";
 import { cloudflare } from "./collectors/Cloudflare";
 import { github } from "./collectors/Github";
@@ -57,7 +58,7 @@ async function runSync(names: string[], scope: string): Promise<number> {
         console.error(`✗ ${name}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-    writeFileSync(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
+    atomicWriteText(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
   } finally {
     store.close();
   }
@@ -174,7 +175,7 @@ switch (cmd) {
   }
   case "export": {
     const store = new Store();
-    writeFileSync(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
+    atomicWriteText(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
     console.log(`snapshot → ${SNAPSHOT_PATH}`);
     store.close();
     break;

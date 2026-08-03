@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, existsSync, statSync, renameSync, readdirS
 import { resolve, dirname, basename, join } from "node:path";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { ASCENT, ASCENT_BRACKETS, PHASE_TO_ASCENT } from "./ascent";
+import { ASCENT, ASCENT_BRACKETS, PHASE_TO_ASCENT, type AscentState } from "./ascent";
 
 const HOME = process.env.HOME || homedir();
 const TOOLS_DIR = resolve(HOME, ".claude/LIFEOS/TOOLS");
@@ -38,8 +38,25 @@ const WORK_JSON = resolve(HOME, ".claude/LIFEOS/MEMORY/STATE/work.json");
 // and the Pulse board use. Never define a private stage vocabulary here: a second list is
 // how a mirror ends up disagreeing with the tab generated beside it.
 const STAGES = ASCENT_BRACKETS;
+
+// ASCENT_BRACKETS is a three-slot subset of the six run states, so a phase that
+// maps to an off-bracket state has no slot of its own: `verify` → `anchoring`,
+// `native` → `traverse`, `idle` → `idle`. Letting indexOf's -1 clamp to 0 sent
+// all three to "Marking", so a `phase: verify` ISA rendered Marking in the bar
+// while renderHeroBadges on the same page said ANCHORING. Fold to the last
+// bracket at or before the state in the table's arc order instead.
+function bracketIndex(state: AscentState): number {
+  const exact = ASCENT_BRACKETS.indexOf(state);
+  if (exact >= 0) return exact;
+  let idx = 0;
+  for (let i = 0; i < ASCENT_BRACKETS.length; i++) {
+    if (ASCENT[ASCENT_BRACKETS[i]].order <= ASCENT[state].order) idx = i;
+  }
+  return idx;
+}
+
 const STAGE_MAP: Record<string, number> = Object.fromEntries(
-  Object.entries(PHASE_TO_ASCENT).map(([phase, state]) => [phase, Math.max(0, ASCENT_BRACKETS.indexOf(state))]),
+  Object.entries(PHASE_TO_ASCENT).map(([phase, state]) => [phase, bracketIndex(state)]),
 );
 
 // ─────────── BRAND LOGO LOADER ───────────

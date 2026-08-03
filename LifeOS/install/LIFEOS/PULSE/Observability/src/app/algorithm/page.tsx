@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Workflow,
   ArrowRight,
@@ -148,6 +148,10 @@ export default function AlgorithmPage() {
   const [docNote, setDocNote] = useState("");
 
   const [regenerating, setRegenerating] = useState(false);
+  // The regenerate poll starts in a click handler, not an effect — hold its id
+  // so unmount can clear it (it otherwise runs for up to 15 minutes).
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const load = useCallback(() => {
     fetch("/api/algorithm-tab")
@@ -278,10 +282,12 @@ export default function AlgorithmPage() {
           setData(d);
           if (!d.generating || Date.now() - startedAt > 15 * 60_000) {
             clearInterval(poll);
+            pollRef.current = null;
             setRegenerating(false);
           }
         } catch { /* keep polling */ }
       }, 5000);
+      pollRef.current = poll;
     } catch (e: any) {
       setError(String(e?.message ?? e));
       setRegenerating(false);

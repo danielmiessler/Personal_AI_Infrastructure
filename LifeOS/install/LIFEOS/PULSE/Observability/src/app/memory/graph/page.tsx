@@ -15,7 +15,8 @@ import { Network, Search, ArrowLeft, CornerDownRight, ExternalLink, Tag, X } fro
 interface MemNode { id: string; title: string; category: string; backlinkCount: number; silo: string; type: string; tags: string[]; pagerank: number }
 interface MemEdge { source: string; target: string; kind: string }
 interface Theme { tag: string; count: number }
-interface MemGraph { nodes: MemNode[]; edges: MemEdge[]; themes: Theme[]; built: string | null; nodeCount?: number; edgeCount?: number }
+// themes is optional: the no-graph fallback answers 200 with nodes/edges only.
+interface MemGraph { nodes: MemNode[]; edges: MemEdge[]; themes?: Theme[]; built: string | null; nodeCount?: number; edgeCount?: number }
 
 // Every silo's nodes are wiki-indexed, so a focused node can open as a note.
 function noteUrl(node: MemNode): string | null {
@@ -254,7 +255,7 @@ export default function MemoryGraphPage() {
                 A theme is a tag running through your notes. Click one to see its members and how they connect.
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {data.themes.map((t) => (
+                {(data.themes ?? []).map((t) => (
                   <button key={t.tag} onClick={() => { setTheme(theme === t.tag ? null : t.tag); setFocus(null); setTrail([]); }}
                     className={"px-2 py-0.5 rounded-full border text-[11px] transition-colors " + (theme === t.tag ? "border-sky-500/50 bg-sky-500/10 text-sky-300" : "border-line-2 bg-surface-2 text-ink-2 hover:border-line-3 hover:text-ink-1")}
                     style={font}>

@@ -859,6 +859,15 @@ function checkRuleDuplication(): void {
 function checkReplayCorpus(): void {
   const findings: Finding[] = [];
   let note: string | undefined;
+  // Same reason as checkRetirementRegistry: the replay fixtures live in the
+  // private source tree and are stripped from every public release. Without this
+  // guard `bun test` exited non-zero with no (fail) lines on every public
+  // install, recording a BLOCKING finding for a directory that is not supposed to
+  // exist there — a permanently red /ic on a clean install.
+  if (!existsSync(join(CLAUDE_DIR, 'test', 'regression'))) {
+    record('replay-corpus', [], 'skipped — replay corpus not installed');
+    return;
+  }
   try {
     const out = execFileSync('bun', ['test', join(CLAUDE_DIR, 'test', 'regression')], {
       encoding: 'utf8', cwd: CLAUDE_DIR, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000,

@@ -72,8 +72,14 @@ export function splitIntoUnits(text: string): string[] {
   // claim vanished before any type could see it. That blind spot hit every type
   // carrying a version, IP, or decimal. Found 2026-07-31 by testing the gate
   // against the exact sentence it was built to catch.
+  //
+  // A newline is exempt from that protection and ALWAYS splits: no number is
+  // written across two lines, so the lookarounds only ever fused unrelated lines
+  // — a line ending in a digit followed by a line starting with one became a
+  // single unit, which both invented claims spanning two sentences and let a
+  // neighbouring line's hedge ("local", "not") suppress a real claim.
   return text
-    .split(/(?<!\d)[.!?;,\n]+|[.!?;,\n]+(?!\d)/)
+    .split(/\n+|(?<!\d)[.!?;,]+|[.!?;,]+(?!\d)/)
     .map((u) => (u ?? "").trim())
     .filter(Boolean);
 }

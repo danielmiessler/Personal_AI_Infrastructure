@@ -82,8 +82,11 @@ export function buildLiveSystemPrompt(): string {
 
 function resolveSuite(name: string): string | null {
   for (const dir of [USER_SUITES, SKILL_SUITES]) {
-    for (const p of [join(dir, `${name}.yaml`), join(dir, 'Regression', `${name}.yaml`), join(dir, 'Capability', `${name}.yaml`)]) {
-      if (existsSync(p)) return p;
+    // .yaml first, so an existing .yaml keeps winning if both somehow exist.
+    for (const ext of ['yaml', 'yml']) {
+      for (const p of [join(dir, `${name}.${ext}`), join(dir, 'Regression', `${name}.${ext}`), join(dir, 'Capability', `${name}.${ext}`)]) {
+        if (existsSync(p)) return p;
+      }
     }
   }
   return null;

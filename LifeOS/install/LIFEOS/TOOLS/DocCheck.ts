@@ -164,7 +164,7 @@ function findDocs(): string[] {
   const secDir = join(LIFEOS_DIR, 'USER', 'SECURITY');
   try {
     for (const f of readdirSync(secDir)) {
-      if (f.endsWith('.md') || f.endsWith('.yaml')) docs.push(join(secDir, f));
+      if (f.endsWith('.md') || f.endsWith('.yaml') || f.endsWith('.yml')) docs.push(join(secDir, f));
     }
   } catch { /* */ }
 

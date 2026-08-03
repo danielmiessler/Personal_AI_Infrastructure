@@ -143,10 +143,14 @@ function readJsonlByteTail(filePath: string, maxBytes: number): any[] {
     const size = statSync(filePath).size
     const start = Math.max(0, size - maxBytes)
     const fd = openSync(filePath, "r")
-    const buf = Buffer.alloc(size - start)
-    readSync(fd, buf, 0, buf.length, start)
-    closeSync(fd)
-    let text = buf.toString("utf-8")
+    let text: string
+    try {
+      const buf = Buffer.alloc(size - start)
+      readSync(fd, buf, 0, buf.length, start)
+      text = buf.toString("utf-8")
+    } finally {
+      closeSync(fd)
+    }
     if (start > 0) {
       const nl = text.indexOf("\n")
       text = nl === -1 ? "" : text.slice(nl + 1)

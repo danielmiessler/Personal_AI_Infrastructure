@@ -14,7 +14,7 @@
  * change together. Regression (suite below threshold) POSTs a voice/Pulse notice.
  */
 
-import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync, appendFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, readFileSync, appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { runSuite } from '../../skills/Evals/Tools/EvalRunner.ts';
@@ -61,17 +61,30 @@ async function main(): Promise<void> {
   const trigger = process.argv[2] ?? 'unknown';
 
   mkdirSync(RESULTS_DIR, { recursive: true });
-  // Single-flight: stale lock older than 10 min is ignored.
-  if (existsSync(LOCK)) {
+  // Single-flight: stale lock older than 10 min is reclaimed. The 'wx' flag is
+  // load-bearing — an existsSync-then-write let two sentinel files edited in the
+  // same instant both pass the check, both run the suite, and both notify.
+  try {
+    writeFileSync(LOCK, new Date().toISOString(), { flag: 'wx' });
+  } catch {
+    let stale = true;
     try {
       const age = Date.now() - Date.parse(readFileSync(LOCK, 'utf8').trim() || '');
-      if (Number.isFinite(age) && age < 10 * 60_000) {
-        log({ event: 'skip-locked', trigger });
-        return;
-      }
-    } catch { /* fall through and re-acquire */ }
+      stale = !Number.isFinite(age) || age >= 10 * 60_000;
+    } catch { /* unreadable lock — treat as stale and reclaim */ }
+    if (!stale) {
+      log({ event: 'skip-locked', trigger });
+      return;
+    }
+    rmSync(LOCK, { force: true });
+    try {
+      writeFileSync(LOCK, new Date().toISOString(), { flag: 'wx' });
+    } catch {
+      // Another run reclaimed the stale lock first; it owns this fire.
+      log({ event: 'skip-locked', trigger });
+      return;
+    }
   }
-  writeFileSync(LOCK, new Date().toISOString());
 
   try {
     const result = await runSuite(SUITE);

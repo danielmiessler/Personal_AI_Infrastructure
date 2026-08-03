@@ -947,8 +947,8 @@ export default function WorkBoard() {
               <BoardRow
                 key={s.sessionId}
                 s={s}
-                expanded={false}
-                onToggle={() => {}}
+                expanded={expandedId === s.sessionId}
+                onToggle={() => setExpandedId(expandedId === s.sessionId ? null : s.sessionId)}
               />
             ))}
           </div>

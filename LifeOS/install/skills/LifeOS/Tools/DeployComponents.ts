@@ -190,7 +190,13 @@ function deployStatusline(ctx: Ctx): ComponentResult {
     const alreadyWired = current?.command === command;
     if (!alreadyWired) {
       backup(settingsPath);
-      settings.statusLine = { type: "command", command, refreshInterval: 1 };
+      // A warm render costs ~0.29s and the usage figures it shows sit behind a
+      // 900s TTL, so a 1s poll re-rendered ~900x per data change, and renders
+      // that overrun their interval get killed mid-flight (public PR #1767).
+      // 30 is a conservative starting point, NOT a derived optimum: the right
+      // interval tracks how fast the underlying data actually moves, so revise
+      // it if the bar gains a faster-changing source.
+      settings.statusLine = { type: "command", command, refreshInterval: 30 };
       // Atomic — never leave a half-written settings.json (public PR #1643, @elhoim)
       atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
     }

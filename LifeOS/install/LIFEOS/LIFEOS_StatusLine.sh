@@ -582,7 +582,22 @@ sep() {
 # Results are sourced after `wait` at the end of the block.
 
 _parallel_tmp="/tmp/pai-parallel-$$"
+# Two-layer cleanup. The rm -rf near the end of this script is not reachable on
+# every invocation: Claude Code terminates a slow statusline, and at
+# refreshInterval=1 each killed render leaves its scratch dir behind forever.
+#
+# 1. Entry-path sweep of dirs older than a minute. A live render finishes in well
+#    under a second, so anything older is orphaned. This is the only layer that
+#    covers SIGKILL, which cannot be trapped. Backgrounded so it never adds
+#    latency. The trailing slash on /tmp/ is required, not cosmetic: on macOS
+#    /tmp is a symlink, and find(1) will not descend into a symlinked start
+#    point, so without it this silently matches nothing.
+# 2. A trap, which returns the dir promptly on the common signal path instead of
+#    leaving it for the next run to sweep. EXIT traps are reset in subshells, so
+#    the backgrounded blocks below cannot fire this and delete the dir mid-render.
+find /tmp/ -maxdepth 1 -type d -name 'pai-parallel-*' -mmin +1 -exec rm -rf {} + 2>/dev/null &
 mkdir -p "$_parallel_tmp"
+trap 'rm -rf "$_parallel_tmp" 2>/dev/null' EXIT INT TERM HUP
 NOW_EPOCH=$(date +%s)
 
 # --- PARALLEL BLOCK START ---

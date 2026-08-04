@@ -17,11 +17,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Eye, EyeOff, LayoutGrid, Monitor, X } from "lucide-react";
+import { Eye, EyeOff, LayoutGrid, Monitor, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useObserverMode } from "@/contexts/ObserverModeContext";
 import { DensityProvider } from "@/contexts/DensityContext";
-import { moreGroups, thumbBarItems, pageTitle } from "@/lib/mobile/nav";
+import { moreGroups, thumbBarItems, pageTitle, filterGroups, firstMatch } from "@/lib/mobile/nav";
 import {
   MOBILE_PREFIX,
   MOBILE_UI_ENABLED,
@@ -38,11 +38,13 @@ export default function MobileShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const { observerMode, toggleObserverMode } = useObserverMode();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const desktopPath = toDesktopPath(pathname);
   const title = pageTitle(desktopPath);
+  const groups = filterGroups(moreGroups(), query);
 
   // Kill switch: with the mobile layer disabled, /m is not a place you can be.
   // Anyone holding a bookmark lands on the desktop route instead.
@@ -54,6 +56,11 @@ export default function MobileShell({ children }: { children: React.ReactNode })
     setSheetOpen(false);
     scrollRef.current?.scrollTo({ top: 0 });
   }, [pathname]);
+
+  // Reopening the sheet should offer the whole menu, never the last search.
+  useEffect(() => {
+    if (!sheetOpen) setQuery("");
+  }, [sheetOpen]);
 
   // Browser-tab naming, matching the desktop header's convention.
   //
@@ -190,8 +197,49 @@ export default function MobileShell({ children }: { children: React.ReactNode })
                   <X className="w-[18px] h-[18px]" />
                 </button>
               </div>
+              {/* Search — the menu is ~45 entries across four groups, which is a
+                  lot of thumb-scrolling to reach one page. Not autofocused: the
+                  keyboard would cover the list the moment the sheet opens, and
+                  most visits are a tap on a page the user can already see. */}
+              <div className="pm-sheet-search">
+                <Search className="w-4 h-4 shrink-0 opacity-60" aria-hidden />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    const hit = firstMatch(groups);
+                    if (hit) {
+                      setSheetOpen(false);
+                      router.push(hit.to);
+                    }
+                  }}
+                  placeholder="Search pages"
+                  aria-label="Search pages"
+                  className="pm-sheet-search-input"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="pm-iconbtn shrink-0"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               <div className="pm-sheet-body">
-                {moreGroups().map((group) => (
+                {groups.length === 0 && (
+                  <p className="pm-sheet-empty">
+                    No page matches <span className="mono">{query}</span>.
+                  </p>
+                )}
+                {groups.map((group) => (
                   <section key={group.title}>
                     <div className="pm-group-title" style={CAPS}>{group.title}</div>
                     <div className={group.layout === "list" ? "pm-group-list" : "pm-group-grid"}>

@@ -7,6 +7,9 @@
  */
 
 import { tier1Nav, metaNav, systemNav, paletteEntries, type NavItem } from "@/lib/palette/nav-manifest";
+// The same matcher the desktop command palette uses. Mobile search and Cmd-K
+// rank identically because they are the one function, not two implementations.
+import { fuzzyScore } from "@/lib/palette/fuzzy";
 // The manifest, not the registry — nav needs labels, not React.
 import { TELOS_SECTION_META, telosSectionMeta } from "@/app/telos/_v7/section-manifest";
 import { MOBILE_PREFIX, toMobilePath } from "./config";
@@ -30,6 +33,8 @@ export interface MobileNavItem {
   icon?: NavItem["icon"];
   /** Desktop path this entry corresponds to, for active-state matching. */
   match: string;
+  /** Search aliases from the manifest, so "money" finds FINANCES. */
+  keywords?: string[];
 }
 
 export interface NavGroup {
@@ -40,7 +45,9 @@ export interface NavGroup {
 }
 
 const fromManifest = (items: readonly NavItem[]): MobileNavItem[] =>
-  items.map((i) => ({ to: toMobilePath(i.href), label: i.label, icon: i.icon, match: i.href }));
+  items.map((i) => ({
+    to: toMobilePath(i.href), label: i.label, icon: i.icon, match: i.href, keywords: i.keywords,
+  }));
 
 /**
  * Everything the burger menu offers, grouped.
@@ -101,4 +108,38 @@ export function pageTitle(desktopPath: string): string {
     .filter((e) => e.href !== "/" && desktopPath.startsWith(e.href))
     .sort((a, b) => b.href.length - a.href.length)[0];
   return section ? section.label : "Pulse";
+}
+
+/**
+ * Narrow the menu to what matches `query`, best first.
+ *
+ * Groups that keep nothing are dropped rather than left as empty headings, so
+ * a phone screen shows only hits. An empty or whitespace query returns the
+ * groups untouched — searching for nothing is not a filter.
+ *
+ * Ranking is `fuzzyScore`, the desktop palette's matcher, so a query behaves
+ * the same on both surfaces. Group order is preserved; only items within a
+ * group are reordered, which keeps TELOS sections above System pages instead of
+ * letting one strong match drag a whole group to the top.
+ */
+export function filterGroups(groups: NavGroup[], query: string): NavGroup[] {
+  const q = query.trim();
+  if (!q) return groups;
+  const out: NavGroup[] = [];
+  for (const group of groups) {
+    const scored = group.items
+      .map((item) => ({ item, score: fuzzyScore(q, item.label, item.keywords) }))
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score);
+    if (scored.length > 0) out.push({ ...group, items: scored.map((s) => s.item) });
+  }
+  return out;
+}
+
+/** First hit across all groups, for submitting the search with Enter. */
+export function firstMatch(groups: NavGroup[]): MobileNavItem | null {
+  for (const group of groups) {
+    if (group.items.length > 0) return group.items[0];
+  }
+  return null;
 }

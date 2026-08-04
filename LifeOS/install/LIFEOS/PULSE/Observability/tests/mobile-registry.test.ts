@@ -13,6 +13,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { filterGroups, firstMatch, type NavGroup } from "../src/lib/mobile/nav";
 
 const SRC = join(import.meta.dir, "..", "src");
 const M_TREE = join(SRC, "app", "m");
@@ -218,15 +219,62 @@ describe("mobile layer stays a presentation layer", () => {
   test("the hand-written mobile layer is small relative to what it presents", () => {
     // Bound raised 900 → 1200 on 2026-07-29 when the TELOS section-per-page
     // treatment was added (index + section host + their CSS). Raised
-    // deliberately and recorded in the ISA Changelog — never silently, because
-    // this bound is the whole defence against the mobile layer quietly
-    // becoming a second copy of Pulse. It presents 11,303 lines of pages.
+    // 1200 → 1350 on 2026-08-04 for menu search: an input row and empty state
+    // in MobileShell, its CSS, and filterGroups/firstMatch in nav.ts. The
+    // matching itself is NOT here — it calls the desktop palette's fuzzyScore,
+    // so the cost is the surface, not a second matcher.
+    // Raised deliberately and recorded — never silently, because this bound is
+    // the whole defence against the mobile layer quietly becoming a second copy
+    // of Pulse. It presents 11,303 lines of pages.
     const lines = handWritten.reduce((n, f) => n + readFileSync(f, "utf-8").split("\n").length, 0);
-    expect(lines).toBeLessThan(1200);
+    expect(lines).toBeLessThan(1350);
   });
 
   test("no absolute user-home paths leak into source", () => {
     const offenders = [...handWritten, ...generated].filter((f) => /\/home\/[a-z]/.test(readFileSync(f, "utf-8")));
     expect(offenders.map((f) => relative(SRC, f))).toEqual([]);
+  });
+});
+
+describe("mobile menu search", () => {
+  const groups = (): NavGroup[] => [
+    { title: "TELOS", items: [{ to: "/m/telos/budget", label: "Budget", match: "/telos/budget" }] },
+    {
+      title: "Sections",
+      items: [
+        { to: "/m/finances", label: "FINANCES", match: "/finances", keywords: ["money", "burn"] },
+        { to: "/m/health", label: "HEALTH", match: "/health" },
+      ],
+    },
+  ];
+
+  test("an empty or whitespace query is not a filter", () => {
+    expect(filterGroups(groups(), "")).toEqual(groups());
+    expect(filterGroups(groups(), "   ")).toEqual(groups());
+  });
+
+  test("matches on label", () => {
+    const out = filterGroups(groups(), "health");
+    expect(out.map((g) => g.title)).toEqual(["Sections"]);
+    expect(out[0].items.map((i) => i.label)).toEqual(["HEALTH"]);
+  });
+
+  test("matches on manifest keywords, not just the visible label", () => {
+    const out = filterGroups(groups(), "money");
+    expect(out.flatMap((g) => g.items).map((i) => i.to)).toEqual(["/m/finances"]);
+  });
+
+  test("groups that keep nothing are dropped, not left as empty headings", () => {
+    const out = filterGroups(groups(), "budget");
+    expect(out.map((g) => g.title)).toEqual(["TELOS"]);
+  });
+
+  test("a query matching nothing yields no groups", () => {
+    expect(filterGroups(groups(), "zzzznope")).toEqual([]);
+  });
+
+  test("firstMatch returns the first hit, and null when there is none", () => {
+    expect(firstMatch(filterGroups(groups(), "health"))?.to).toBe("/m/health");
+    expect(firstMatch(filterGroups(groups(), "zzzznope"))).toBeNull();
   });
 });

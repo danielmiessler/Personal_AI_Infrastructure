@@ -25,10 +25,12 @@ curl -s -X POST http://localhost:31337/notify -H "Content-Type: application/json
    - **Network unreachable** → say so and continue with the on-disk payload; re-applying the current version is safe, it just can't deliver anything newer.
 
    Never diff the on-disk payload's version against the install marker — the payload is what wrote the marker, so that comparison always says "already current" and the update never fetches anything.
-3. **Re-overlay system** — re-copy the system templates (CLAUDE, system prompt, `settings.system.json` minus hooks), and overwrite `<configRoot>/LIFEOS/VERSION` with the payload's version — the copyMissing deploys never touch an existing marker, and a stale marker re-trips step 2 forever. These are system-owned and safe to overwrite.
+3. **Re-overlay system** — `bun Tools/OverlaySystem.ts --apply`. Refreshes system-owned files the copyMissing deploys cannot touch: `hooks/`, `skills/`, `agents/`, `LIFEOS/{TOOLS,DOCUMENTATION,ALGORITHM,RULES,PULSE}/`, plus `CLAUDE.md` and `LIFEOS_SYSTEM_PROMPT.md`. `USER/`, `LIFEOS/MEMORY/` and `settings.json` are never touched, and nothing is ever deleted — a file is written only where the payload ships one at the same relative path, so operator-authored hooks, skills and tools survive. `<configRoot>/LIFEOS/VERSION` is written LAST and only on a fully successful apply, so a partial update can never present as complete. Dry-run by default; `--apply` mutates.
+
+   > Without this step the update is silently partial: `copyMissing` (`InstallEngine.ts`) writes only when the destination is absent, so every file that CHANGED between versions keeps its old contents while `VERSION` claims the new one. Because the dispatchers (`StopGates`, `PreToolGuard`, `PostToolObserver`, `MemoryTurnStart`) are among those files, hooks composed inside them cannot fire even though the constitution mandating them installed fine.
 4. **Re-merge hooks** — `bun Tools/InstallHooks.ts --apply` (idempotent): adds new hook entries, leaves existing ones, never duplicates (normalized-command dedup). Backs up `settings.json` first.
 5. **Scaffold new USER templates only** — `bun Tools/ScaffoldUser.ts --apply` copyMissing: adds any NEW template files introduced by the version, never overwrites the user's existing files.
-6. **Re-activate imports** — `bun Tools/ActivateImports.ts --apply` for any newly-shipped identity import lines.
+6. **Re-activate imports** — `bun Tools/ActivateImports.ts --apply` for any newly-shipped identity import lines. **Required after step 3**, which restores `CLAUDE.md` from the template and therefore returns the identity imports to their commented state. Verify by reading `CLAUDE.md` back and counting active `@`-import lines, not by the tool's exit code — it reports `ok: true` even when it activates nothing.
 7. **Verify** — two evidence classes (hooks fire + imports resolve), same as Setup step 9.
 
 ## Rule

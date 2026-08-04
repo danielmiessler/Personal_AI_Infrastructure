@@ -888,45 +888,67 @@ if [ "$MODE" = "normal" ]; then
                 fi
             fi
             if mkdir "$USAGE_LOCK" 2>/dev/null; then
-                echo "$$" > "$USAGE_LOCK/pid" 2>/dev/null   # ownership token (verified on release)
-                # Extract OAuth token — macOS Keychain or Linux credentials file
-                if [ "$(uname -s)" = "Darwin" ]; then
-                    cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
-                else
-                    cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
-                fi
-                token=$(echo "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+                # Fetch DETACHED, mirroring the location/weather refresh above.
+                # The keychain read and the 3s curl must not sit on the render
+                # path. Claude Code kills a statusline render that overruns its
+                # refreshInterval, and killing one mid-`security` can strand the
+                # terminal in the canonical/no-echo mode that call put it in.
+                # </dev/null severs stdin so the fetch can never read the TTY.
+                #
+                # $$ inside a subshell still names the PARENT on bash 3.2 (no
+                # BASHPID), and that parent exits in milliseconds, so writing $$
+                # as the ownership token would let the next render's liveness
+                # check reap a lock whose fetch is still running. sh -c 'echo
+                # $PPID' returns the subshell's own pid — verified equal to the
+                # parent's $! on bash 3.2.57 (macOS).
+                (
+                    _fetch_pid=$(sh -c 'echo $PPID')
+                    echo "$_fetch_pid" > "$USAGE_LOCK/pid" 2>/dev/null   # ownership token (verified on release)
+                    # Release on EXIT so a killed fetch cannot leak the mutex,
+                    # and ONLY if we still own it — never nuke another holder's.
+                    trap 'if [ "$(cat "$USAGE_LOCK/pid" 2>/dev/null)" = "$_fetch_pid" ]; then rm -f "$USAGE_LOCK/pid" 2>/dev/null; rmdir "$USAGE_LOCK" 2>/dev/null; fi' EXIT
 
-                if [ -n "$token" ]; then
-                    usage_json=$(curl -s --max-time 3 \
-                        -H "Authorization: Bearer $token" \
-                        -H "Content-Type: application/json" \
-                        -H "anthropic-beta: oauth-2025-04-20" \
-                        "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
-
-                    # Fail CLOSED: install a new cache ONLY when the body is real JSON
-                    # with a five_hour field. A 429/5xx/HTML body fails this probe, so
-                    # last-known-good is never atomically overwritten with garbage (P5).
-                    if [ -n "$usage_json" ] && echo "$usage_json" | jq -e '.five_hour' >/dev/null 2>&1; then
-                        # Atomic write (P4): temp in the SAME dir (same fs => rename is
-                        # atomic), 0600, and never mv onto a followed symlink (the path
-                        # is predictable in a world-writable dir). Stamp fetched_at (P6).
-                        # mv ONLY if the temp is non-empty (defends jq-exit-0-empty).
-                        _tmp_cache="${USAGE_CACHE}.tmp.$$"
-                        if echo "$usage_json" | jq --argjson now "$_usage_now" '. + {fetched_at:$now}' > "$_tmp_cache" 2>/dev/null && [ -s "$_tmp_cache" ]; then
-                            chmod 600 "$_tmp_cache" 2>/dev/null
-                            [ -L "$USAGE_CACHE" ] && rm -f "$USAGE_CACHE" 2>/dev/null
-                            mv -f "$_tmp_cache" "$USAGE_CACHE" 2>/dev/null && _data_age=0
-                        fi
-                        rm -f "$_tmp_cache" 2>/dev/null
+                    # Extract OAuth token — macOS Keychain or Linux credentials file
+                    if [ "$(uname -s)" = "Darwin" ]; then
+                        cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+                    else
+                        cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
                     fi
-                fi
-                # Release ONLY if we still own the lock — never nuke another holder's.
-                if [ "$(cat "$USAGE_LOCK/pid" 2>/dev/null)" = "$$" ]; then
-                    rm -f "$USAGE_LOCK/pid" 2>/dev/null; rmdir "$USAGE_LOCK" 2>/dev/null
-                fi
+                    token=$(echo "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+
+                    if [ -n "$token" ]; then
+                        usage_json=$(curl -s --max-time 3 \
+                            -H "Authorization: Bearer $token" \
+                            -H "Content-Type: application/json" \
+                            -H "anthropic-beta: oauth-2025-04-20" \
+                            "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
+
+                        # Fail CLOSED: install a new cache ONLY when the body is real JSON
+                        # with a five_hour field. A 429/5xx/HTML body fails this probe, so
+                        # last-known-good is never atomically overwritten with garbage (P5).
+                        if [ -n "$usage_json" ] && echo "$usage_json" | jq -e '.five_hour' >/dev/null 2>&1; then
+                            # Atomic write (P4): temp in the SAME dir (same fs => rename is
+                            # atomic), 0600, and never mv onto a followed symlink (the path
+                            # is predictable in a world-writable dir). Stamp fetched_at (P6).
+                            # mv ONLY if the temp is non-empty (defends jq-exit-0-empty).
+                            _tmp_cache="${USAGE_CACHE}.tmp.${_fetch_pid}"
+                            if echo "$usage_json" | jq --argjson now "$_usage_now" '. + {fetched_at:$now}' > "$_tmp_cache" 2>/dev/null && [ -s "$_tmp_cache" ]; then
+                                chmod 600 "$_tmp_cache" 2>/dev/null
+                                [ -L "$USAGE_CACHE" ] && rm -f "$USAGE_CACHE" 2>/dev/null
+                                mv -f "$_tmp_cache" "$USAGE_CACHE" 2>/dev/null
+                            fi
+                            rm -f "$_tmp_cache" 2>/dev/null
+                        fi
+                    fi
+                ) </dev/null >/dev/null 2>&1 &
+                disown 2>/dev/null || true
             fi
             # Losers (mkdir failed): no fetch, no wait — fall through to last-known-good.
+            # The winner no longer waits either: _data_age keeps its pre-fetch
+            # value, so this render shows last-known-good with an honest age and
+            # the fresh data lands on the next tick. The forced-refetch
+            # bookkeeping below therefore restores _orig_age, which is correct —
+            # from this render's point of view the attempt has not landed yet.
         fi
         # Forced-refetch bookkeeping: a failed forced attempt restores the true
         # data age (a success already set _data_age=0), so staleness reporting

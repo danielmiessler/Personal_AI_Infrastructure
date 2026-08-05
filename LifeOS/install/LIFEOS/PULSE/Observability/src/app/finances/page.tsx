@@ -185,13 +185,20 @@ interface FinancesDataV2 {
 
 function fmtHero(dollars: number | null | undefined): string {
   const n = Number(dollars) || 0;
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `$${Math.round(n / 1000)}K`;
-  if (n >= 1_000) {
-    const k = n / 1000;
-    return k % 1 === 0 ? `$${k.toFixed(0)}K` : `$${k.toFixed(1)}K`;
+  // Threshold on magnitude, not the signed value — a negative net (a real,
+  // common case: this card renders red ink when spending exceeds income)
+  // otherwise misses every `>=` check above and falls through to the last
+  // branch's unabridged digit string (e.g. "$-2,120,000" next to a sibling
+  // KPI reading "$2.1M").
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}$${Math.round(abs / 1000)}K`;
+  if (abs >= 1_000) {
+    const k = abs / 1000;
+    return k % 1 === 0 ? `${sign}$${k.toFixed(0)}K` : `${sign}$${k.toFixed(1)}K`;
   }
-  return `$${Math.round(n).toLocaleString()}`;
+  return `${sign}$${Math.round(abs).toLocaleString()}`;
 }
 
 function fmtExact(dollars: number | null | undefined): string {

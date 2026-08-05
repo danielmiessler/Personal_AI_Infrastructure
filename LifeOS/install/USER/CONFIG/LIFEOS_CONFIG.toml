@@ -15,6 +15,7 @@ name = "Your Name"                 # required — your display name
 pronunciation = ""                 # optional — phonetic spelling if needed
 timezone = "America/Los_Angeles"   # required — IANA timezone
 hometown = ""                      # optional
+currency = "USD"                   # optional — ISO 4217, drives Pulse Finances tab formatting
 
 [da]
 name = "Aria"                      # required — your DA's name (rename to anything)

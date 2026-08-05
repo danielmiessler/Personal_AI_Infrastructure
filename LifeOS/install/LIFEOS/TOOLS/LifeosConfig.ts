@@ -38,6 +38,10 @@ export interface LifeosPrincipal {
   timezone: string;
   hometown?: string;
   voiceCloneId?: string;
+  // ISO 4217 code (e.g. "JPY", "EUR"). Optional — consumers (currently just
+  // Pulse's Finances tab) default to "USD" when unset, so existing TOML files
+  // need no edit.
+  currency?: string;
 }
 
 export interface LifeosVoiceSettings {
@@ -169,6 +173,7 @@ function validateAndNormalize(raw: unknown, path: string): LifeosConfig {
       timezone: principal.timezone,
       hometown: principal.hometown,
       voiceCloneId: principal.voice_clone_id ?? principal.voiceCloneId,
+      currency: principal.currency,
     },
     da: {
       name: da.name,

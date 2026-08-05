@@ -33,6 +33,7 @@ import { join, extname } from "path"
 import { readFileSync, readdirSync, existsSync, realpathSync, statSync, watch, type FSWatcher } from "fs"
 import YAML from "yaml"
 import { effortToCanonicalTierName } from "../../../hooks/lib/effort"
+import { loadLifeosConfig } from "../../TOOLS/LifeosConfig"
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -1533,13 +1534,27 @@ function parseCurrencyTable(content: string): { label: string; annual: number }[
   return rows
 }
 
+// Magnitude suffixes recognized after a numeral, keyed case-insensitively.
+// Data, not branching — a new locale's short-scale word is a new entry here,
+// not a new code path. "K"/"M" cover English "$12K"; "万"/"億" cover Japanese
+// "¥120万" (man, 10,000) / "1.2億" (oku, 100,000,000).
+const CURRENCY_MAGNITUDE: Record<string, number> = { k: 1_000, m: 1_000_000, "万": 10_000, "億": 100_000_000 }
+
 function parseCurrencyCell(cell: string): number {
   if (!cell) return 0
-  const cleaned = cell.replace(/\*\*/g, "").replace(/[~$,]/g, "").trim()
-  const km = cleaned.match(/^([\d.]+)\s*([KkMm])\b/)
-  if (km) {
-    const base = parseFloat(km[1])
-    return km[2].toLowerCase() === "m" ? base * 1_000_000 : base * 1_000
+  // Strip bold markers, common currency symbols (¥ ￥ $ € £ ₩ ₹), the word
+  // "円" (yen), approximation markers ("~", "約"), and thousands commas
+  // before magnitude parsing.
+  const cleaned = cell.replace(/\*\*/g, "").replace(/[~$,¥￥€£₩₹]|円|約/g, "").trim()
+  for (const [suffix, mult] of Object.entries(CURRENCY_MAGNITUDE)) {
+    // \b only makes sense for ASCII letter suffixes (K/M) — it's what stopped
+    // the original regex from matching into a following word. \b is unreliable
+    // for CJK suffixes (万/億 aren't \w chars), so skip it there; the fixed
+    // single-character alternation is unambiguous without it.
+    const boundary = /^[a-z]$/i.test(suffix) ? "\\b" : ""
+    const re = new RegExp(`^([\\d.]+)\\s*(${suffix})${boundary}`, "i")
+    const m = cleaned.match(re)
+    if (m) return parseFloat(m[1]) * mult
   }
   const plain = cleaned.match(/^[\d.]+/)
   return plain ? parseFloat(plain[0]) : 0
@@ -1738,6 +1753,18 @@ function handleLifeHealth(): Response {
 
 // ── GET /api/life/finances ──
 
+// ISO 4217 code driving the Finances tab's number formatting. Reads
+// [principal].currency from LIFEOS_CONFIG.toml; missing config, missing key,
+// or a malformed TOML all fall back to "USD" rather than failing the request
+// (same fail-open contract as loadYaml() above).
+function resolveFinanceCurrency(): string {
+  try {
+    return loadLifeosConfig().principal.currency || "USD"
+  } catch {
+    return "USD"
+  }
+}
+
 // PLAN.md parsers. The forward-plan file is human-authored markdown; these
 // turn its `## Flywheel` ordered list into stages and any pipe-table (e.g.
 // `## Targets`) into headers+rows. All plan CONTENT lives in PLAN.md — these
@@ -1875,7 +1902,7 @@ function handleLifeFinances(): Response {
         const name = o.name ?? o.vendor ?? o.id
         const amount = typeof o.amount_usd === "number"
           ? o.amount_usd
-          : Number(String(o.amount ?? "").replace(/[^0-9.]/g, "")) || 0
+          : parseCurrencyCell(String(o.amount ?? ""))
         return {
           ...o,
           id: typeof o.id === "string" ? o.id : slugify(name),
@@ -2063,6 +2090,7 @@ function handleLifeFinances(): Response {
     return Response.json({
       // v2 envelope
       ...v2,
+      currency: resolveFinanceCurrency(),
       // v1 fields preserved (backward compat for existing page.tsx until migrated)
       accounts: parseSections(readMd(join(FINANCES_DIR, "ACCOUNTS.md"))),
       expenses: parseSections(expensesRaw),

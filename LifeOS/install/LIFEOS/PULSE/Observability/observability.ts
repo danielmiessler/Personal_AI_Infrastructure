@@ -1501,16 +1501,42 @@ function computeFreshness(entries: Array<{
   return { dataDate: oldest, label, daysOld, tier, perFile }
 }
 
+// Cadence label (as it appears in a "Frequency" column) → the ObligationYaml
+// cadence values cadenceToMonthly() understands. Same mapping vendors.yaml's
+// legacy `frequency` field uses (see FREQUENCY_TO_CADENCE in handleLifeFinances) —
+// kept as a second copy here rather than shared, since this one keys off
+// free-text table cells (needs its own synonyms: "annually", "yearly", "one time")
+// while that one keys off a fixed YAML enum.
+const TABLE_FREQUENCY_TO_CADENCE: Record<string, "monthly" | "annual" | "quarterly" | "one_time"> = {
+  monthly: "monthly",
+  annual: "annual", annually: "annual", yearly: "annual",
+  quarterly: "quarterly",
+  "one-time": "one_time", "one time": "one_time", onetime: "one_time",
+}
+
 // Parses the FIRST markdown pipe-table found in `content` and returns
-// { label, annual } pairs from columns [0, 1]. Summary rows whose label
-// starts with "Total" (with or without markdown bold) are excluded.
-// Dollar strings like "$12,000", "~$9,500", "~$40K" all parse to a number.
+// { label, annual } pairs. The amount column is picked by header name
+// (first of "amount"/"annual"/"monthly"/"total"/"cost"/"value") when the
+// header row has a recognizable one; otherwise falls back to column 1,
+// preserving this function's original behavior for tables with unlabeled or
+// differently-named columns. When a "Frequency"/"Cadence"/"Period" column is
+// also present, its value annualizes a per-period amount instead of taking
+// the cell at face value — LifeOS's own shipped EXPENSES.md template uses
+// `| Category | Vendor | Amount | Frequency | Notes |`, where column 1
+// (Vendor) is never a number and column 2 (Amount) is a monthly figure, not
+// an annual one; the original fixed-column-1 assumption silently read zero
+// income/expense off exactly the file layout LifeOS ships.
+// Summary rows whose label starts with "Total" (with or without markdown
+// bold) are excluded. Dollar strings like "$12,000", "~$9,500", "~$40K",
+// and yen strings like "¥100,000", "¥120万" all parse to a number.
 function parseCurrencyTable(content: string): { label: string; annual: number }[] {
   if (!content) return []
   const lines = content.split("\n")
   const rows: { label: string; annual: number }[] = []
   let inTable = false
   let sawHeader = false
+  let amountIdx = 1
+  let frequencyIdx = -1
   for (const raw of lines) {
     const line = raw.trim()
     if (!line.startsWith("|")) {
@@ -1521,16 +1547,51 @@ function parseCurrencyTable(content: string): { label: string; annual: number }[
     if (/^\|\s*-+/.test(line)) { inTable = true; continue }
     if (!inTable) {
       // First |...| line is the header
-      if (!sawHeader) { sawHeader = true; continue }
+      if (!sawHeader) {
+        sawHeader = true
+        const headers = line.split("|").slice(1, -1).map(h => h.trim().toLowerCase())
+        const amountCol = headers.findIndex(h => /amount|annual|monthly|total|cost|value/.test(h))
+        if (amountCol !== -1) amountIdx = amountCol
+        const freqCol = headers.findIndex(h => /frequency|cadence|period/.test(h))
+        if (freqCol !== -1) frequencyIdx = freqCol
+        continue
+      }
     }
     const cells = line.split("|").slice(1, -1).map(c => c.trim())
-    if (cells.length < 2) continue
+    if (cells.length <= amountIdx) continue
     const label = cells[0].replace(/\*\*/g, "").trim()
     if (!label || /^total/i.test(label)) continue
-    const amount = parseCurrencyCell(cells[1])
+    let amount = parseCurrencyCell(cells[amountIdx])
+    if (amount > 0 && frequencyIdx !== -1 && cells[frequencyIdx]) {
+      const cadence = TABLE_FREQUENCY_TO_CADENCE[cells[frequencyIdx].toLowerCase()]
+      if (cadence) amount = cadenceToMonthly(amount, cadence) * 12
+    }
     if (amount > 0) rows.push({ label, annual: amount })
   }
   return rows
+}
+
+// Fallback for narrative files with no pipe-table at all — LifeOS's own
+// shipped INCOME.md template is entirely bulleted prose (each source has its
+// own ad hoc keys: "Gross per period", "Current MRR", "Per-engagement
+// amount", ...), too heterogeneous to sum per-source without guessing. The
+// one anchor both the shipped template and hand-written files share is the
+// "## Expected Monthly Total" section's headline bullet, so that's the only
+// number this reads — narrow on purpose, since a wrong guess is worse than
+// a missing one on a finance dashboard. Returns 0 if the section or bullet
+// isn't found, so callers can treat 0 as "nothing recognized" same as an
+// empty parseCurrencyTable() result.
+function parseCurrencyBullet(content: string, sectionHeading: RegExp, labelPrefix: RegExp): number {
+  if (!content) return 0
+  const section = parseSections(content).find(s => sectionHeading.test(s.heading))
+  if (!section) return 0
+  for (const line of section.body.split("\n")) {
+    const m = line.match(labelPrefix)
+    if (!m) continue
+    const amount = parseCurrencyCell(line.slice(m[0].length))
+    if (amount > 0) return amount
+  }
+  return 0
 }
 
 function parseCurrencyCell(cell: string): number {
@@ -1833,11 +1894,23 @@ function handleLifeFinances(): Response {
       sections: planSections,
     }
 
-    // Pull numeric flow data from the first summary table in each file.
-    // INCOME.md leads with "Annual Income Estimate"; EXPENSES.md leads
-    // with "Annual Expense Summary". parseCurrencyTable finds the first
-    // pipe-table and skips any Total rows.
-    const incomeStreams = parseCurrencyTable(incomeRaw)
+    // Pull numeric flow data from each file's structured content.
+    // parseCurrencyTable finds the first pipe-table and skips any Total rows,
+    // picking the amount column by header name (see that function for why —
+    // LifeOS's own shipped EXPENSES.md doesn't have the amount in column 1).
+    // INCOME.md ships as bulleted prose with no table at all, so when the
+    // table comes back empty this falls back to the one number both the
+    // shipped template and hand-written files anchor on: the "## Expected
+    // Monthly Total" section's headline bullet (see parseCurrencyBullet).
+    let incomeStreams = parseCurrencyTable(incomeRaw)
+    if (incomeStreams.length === 0) {
+      const monthlyTotal = parseCurrencyBullet(
+        incomeRaw,
+        /Expected Monthly Total/i,
+        /^-\s*\*{0,2}Expected monthly income[^:]*:\*{0,2}\s*/i,
+      )
+      if (monthlyTotal > 0) incomeStreams = [{ label: "Expected Monthly Total", annual: monthlyTotal * 12 }]
+    }
     const expenseCategories = parseCurrencyTable(expensesRaw)
     const annualIncome = incomeStreams.reduce((s, r) => s + r.annual, 0)
     const annualExpenses = expenseCategories.reduce((s, r) => s + r.annual, 0)

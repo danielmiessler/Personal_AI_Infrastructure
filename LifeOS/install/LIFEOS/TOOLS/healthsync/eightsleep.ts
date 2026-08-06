@@ -16,6 +16,7 @@ import {
   isoNowLA,
   loadState,
   loadTokens,
+  resolveTimeZone,
   saveTokens,
   timedFetch,
   writeDayFile,
@@ -195,9 +196,11 @@ export async function pull(ctx: Ctx): Promise<SourceResult> {
 
   const to = dayKeyLA(ctx.now.getTime());
   const from = dayKeyLA(ctx.now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  // Ask Eight Sleep to bucket by the same zone the day keys use, or the window
+  // boundaries and the files they land in disagree for non-LA users.
   const url =
     `${CLIENT_API}/users/${auth.userId}/trends` +
-    `?tz=America/Los_Angeles&from=${from}&to=${to}` +
+    `?tz=${encodeURIComponent(resolveTimeZone())}&from=${from}&to=${to}` +
     `&include-main=false&include-all-sessions=true&model-version=v2`;
 
   let response: Response;

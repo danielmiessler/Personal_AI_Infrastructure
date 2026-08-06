@@ -36,13 +36,58 @@ function stripQuotes(value: string): string {
   return trimmed;
 }
 
-export function dayKeyLA(epochMs: number): string {
+/** Last-resort zone, kept so behaviour is unchanged when nothing else resolves. */
+const FALLBACK_TIME_ZONE = "America/Los_Angeles";
+
+let cachedTimeZone: string | null = null;
+
+function isUsableTimeZone(tz: string | undefined | null): tz is string {
+  if (typeof tz !== "string" || tz.trim() === "") return false;
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The IANA zone every health day-boundary is computed in.
+ *
+ * Resolution order, first usable wins:
+ *   1. `LIFEOS_HEALTH_TZ` — explicit override for this subsystem
+ *   2. `TZ`               — POSIX standard, what launchd/cron users already set
+ *   3. the host's own zone via Intl
+ *   4. `America/Los_Angeles` — previous hardcoded behaviour
+ *
+ * Why this matters: the day key decides which file a reading is filed under, so a
+ * wrong zone silently misfiles anything recorded near local midnight. Verified on a
+ * UTC-5 host: 01:13 local landed in the previous day's file because the zone was
+ * pinned to UTC-7.
+ */
+export function resolveTimeZone(): string {
+  if (cachedTimeZone !== null) return cachedTimeZone;
+  const candidates = [
+    process.env.LIFEOS_HEALTH_TZ,
+    process.env.TZ,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ];
+  cachedTimeZone = candidates.find(isUsableTimeZone) ?? FALLBACK_TIME_ZONE;
+  return cachedTimeZone;
+}
+
+/** Test seam: drop the memoised zone so a changed env var takes effect. */
+export function resetTimeZoneCache(): void {
+  cachedTimeZone = null;
+}
+
+export function dayKey(epochMs: number): string {
   if (!Number.isFinite(epochMs)) {
     throw new Error("epochMs must be finite");
   }
 
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
+    timeZone: resolveTimeZone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -54,17 +99,20 @@ export function dayKeyLA(epochMs: number): string {
   const key = `${year}-${month}-${day}`;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-    throw new Error("failed to build LA day key");
+    throw new Error(`failed to build day key in ${resolveTimeZone()}`);
   }
 
   return key;
 }
 
-export function isoNowLA(d: Date): string {
-  // Convert the LA wall-clock parts, then compare them with UTC to derive the
+/** @deprecated Zone is no longer pinned to LA — use `dayKey`. Kept so callers don't break. */
+export const dayKeyLA = dayKey;
+
+export function isoNow(d: Date): string {
+  // Convert the local wall-clock parts, then compare them with UTC to derive the
   // correct DST-aware offset for that instant.
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
+    timeZone: resolveTimeZone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -77,7 +125,7 @@ export function isoNowLA(d: Date): string {
   const getPart = (type: string): string => {
     const value = parts.find((part) => part.type === type)?.value;
     if (value === undefined) {
-      throw new Error(`missing ${type} while formatting LA timestamp`);
+      throw new Error(`missing ${type} while formatting timestamp in ${resolveTimeZone()}`);
     }
     return value;
   };
@@ -104,6 +152,9 @@ export function isoNowLA(d: Date): string {
 
   return `${year}-${month}-${day}T${hour}:${minute}:${second}${sign}${offsetHour}:${offsetMinute}`;
 }
+
+/** @deprecated Zone is no longer pinned to LA — use `isoNow`. Kept so callers don't break. */
+export const isoNowLA = isoNow;
 
 export function parseEnv(text: string): Record<string, string> {
   const env: Record<string, string> = {};

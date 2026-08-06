@@ -35,7 +35,16 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * Failure mode: any error logs to stderr and exits 0, never blocking prompts.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  statSync,
+} from "node:fs";
 import { join } from "node:path";
 
 const STDIN_TIMEOUT_MS = 300;
@@ -115,8 +124,22 @@ export function liveModel(transcriptPath: string | undefined): string | null {
   try {
     if (!transcriptPath || !existsSync(transcriptPath)) return null;
     const size = statSync(transcriptPath).size;
-    const fd = readFileSync(transcriptPath);
-    const tail = fd.subarray(Math.max(0, size - TAIL_BYTES)).toString("utf8");
+    // Seek to the tail rather than reading the whole file. `readFileSync` here
+    // cost O(session length) to keep a fixed 256 KB: on a 152 MB transcript that
+    // measured 22.1 ms and 183 MB RSS per prompt, against 0.1 ms and 30 MB for
+    // the seek. This hook runs on every UserPromptSubmit, so the cost grows with
+    // session length and only bites late in long sessions — where it reads as a
+    // flaky hook timeout rather than a bug.
+    const start = Math.max(0, size - TAIL_BYTES);
+    const buf = Buffer.allocUnsafe(Math.min(size, TAIL_BYTES));
+    const fd = openSync(transcriptPath, "r");
+    let read = 0;
+    try {
+      read = readSync(fd, buf, 0, buf.length, start);
+    } finally {
+      closeSync(fd);
+    }
+    const tail = buf.subarray(0, read).toString("utf8");
     const lines = tail.split("\n").filter((l) => l.trim().length > 0);
     for (let i = lines.length - 1; i >= 0; i--) {
       try {

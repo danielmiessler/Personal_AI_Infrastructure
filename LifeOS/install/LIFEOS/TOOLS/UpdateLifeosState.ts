@@ -13,12 +13,17 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * Pct semantics:
  *   - If `CURRENT_STATE/<DIM>.md` exists with `status: have|partial|missing`
- *     rows, pct = (have + 0.5 × partial) / total × 100 — real coverage.
+ *     rows and is not the byte-identical shipped scaffold, pct =
+ *     (have + 0.5 × partial) / total × 100 — real coverage.
  *   - Else falls back to IDEAL_STATE articulation completeness:
  *     `100 - (TBD markers × 10)`, clamped 0..100.
  *
  * The fallback measures whether the principal has articulated what "good"
- * looks like; the primary path measures whether reality matches it.
+ * looks like; the primary path measures whether reality matches it. A freshly
+ * copied CURRENT_STATE scaffold has not measured reality yet, so it falls
+ * through to IDEAL_STATE instead of reporting a real 0%. Detection uses the
+ * exact hashes of the templates shipped beside this tool: provenance alone is
+ * insufficient because sanctioned writers can add real data to the body.
  *
  * Reads:  LIFEOS/USER/TELOS/IDEAL_STATE/<DIM>.md (target articulation)
  *         LIFEOS/USER/TELOS/CURRENT_STATE/<DIM>.md (actual coverage, when present)
@@ -33,6 +38,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *   bun ~/.claude/LIFEOS/TOOLS/UpdateLifeosState.ts --json
  */
 
+import { createHash } from "crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 
@@ -48,6 +54,20 @@ const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const IDEAL_DIR = join(LIFEOS_DIR, "USER", "TELOS", "IDEAL_STATE");
 const CURRENT_DIR = join(LIFEOS_DIR, "USER", "TELOS", "CURRENT_STATE");
 const STATE_FILE = join(LIFEOS_DIR, "USER", "TELOS", "LIFEOS_STATE.json");
+
+// SHA-256 of install/USER/TELOS/CURRENT_STATE/<file> in this release. These
+// templates contain no identity placeholders, so ScaffoldUser copies the exact
+// bytes. Any sanctioned or manual write changes the hash and makes the file a
+// real CURRENT_STATE measurement, even if every status row still says missing.
+const CURRENT_STATE_TEMPLATE_SHA256: Readonly<Record<string, string>> = {
+  "HEALTH.md": "639f18883019aad254bc10919d5afdadb3e5b75113dac83a66c4f30321cac50b",
+  "MONEY.md": "0aabf60e26599466bab184fc4af8a0422401a33a37bbdfa770d6bd1437a9b535",
+  "FREEDOM.md": "18113772b9f614b63e8015d9f4e3956e9615d629cac839331c93bf9f5e447ec2",
+  "CREATIVE.md": "60947d1433993b2a5b10573139d9168c9b5c8701f03cf16b0fde2f1fb26b5dfb",
+  "RELATIONSHIPS.md": "3fe80f37e984e1f56abdb4476bd520d69048a5301204a0ff4353e086ddca31e0",
+  "RHYTHMS.md": "d0480c374ab725c93b6ddf3472d0fa753c22ffe0f8fdc2e750d81c249920a3ae",
+  "INFRASTRUCTURE.md": "507b80617cd0eb9d1a4285a2a503cf8ffefd2788076f884f614de73d638bb827",
+};
 
 const DIMENSIONS = [
   { id: "health",         file: "HEALTH.md" },
@@ -82,6 +102,12 @@ function readFrontmatterDate(content: string): string | null {
   return m ? m[1].replace(/^["']|["']$/g, "") : null;
 }
 
+function isUntouchedCurrentStateTemplate(file: string, content: string): boolean {
+  const expected = CURRENT_STATE_TEMPLATE_SHA256[file];
+  if (!expected) return false;
+  return createHash("sha256").update(content).digest("hex") === expected;
+}
+
 function computeFromCurrent(file: string): DimensionState | null {
   const path = join(CURRENT_DIR, file);
   if (!existsSync(path)) return null;
@@ -105,6 +131,7 @@ function computeFromCurrent(file: string): DimensionState | null {
   }
   const total = have + partial + missing;
   if (total === 0) return null;
+  if (isUntouchedCurrentStateTemplate(file, content)) return null;
   const pct = Math.round(((have + 0.5 * partial) / total) * 100);
   return {
     pct,

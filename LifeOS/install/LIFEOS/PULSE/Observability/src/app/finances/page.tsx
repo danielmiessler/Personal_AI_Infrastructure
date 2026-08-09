@@ -162,6 +162,7 @@ interface FinancesDataV2 {
     targets: { headers: string[]; rows: string[][] } | null;
     sections: Section[];
   };
+  state?: { currency?: string; [k: string]: unknown };
   incomeStreams?: Stream[];
   expenseCategories?: Stream[];
   annualIncome?: number;
@@ -183,20 +184,31 @@ interface FinancesDataV2 {
 
 // ─── Formatting ───
 
-function fmtHero(dollars: number | null | undefined): string {
-  const n = Number(dollars) || 0;
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `$${Math.round(n / 1000)}K`;
-  if (n >= 1_000) {
-    const k = n / 1000;
-    return k % 1 === 0 ? `$${k.toFixed(0)}K` : `$${k.toFixed(1)}K`;
-  }
-  return `$${Math.round(n).toLocaleString()}`;
+// Currency symbol, driven by state.json's `currency` field via the API payload.
+// Defaults to "$" so an install that never sets it behaves exactly as before.
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", GBP: "£", EUR: "€" };
+let CURRENCY = "$";
+let CURRENCY_LOCALE = "en-US";
+export function setCurrency(code: string | null | undefined) {
+  if (!code) return;
+  CURRENCY = CURRENCY_SYMBOLS[code.toUpperCase()] ?? "$";
+  CURRENCY_LOCALE = code.toUpperCase() === "GBP" ? "en-GB" : "en-US";
 }
 
-function fmtExact(dollars: number | null | undefined): string {
-  const n = Number(dollars) || 0;
-  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+function fmtHero(amount: number | null | undefined): string {
+  const n = Number(amount) || 0;
+  if (n >= 1_000_000) return `${CURRENCY}${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${CURRENCY}${Math.round(n / 1000)}K`;
+  if (n >= 1_000) {
+    const k = n / 1000;
+    return k % 1 === 0 ? `${CURRENCY}${k.toFixed(0)}K` : `${CURRENCY}${k.toFixed(1)}K`;
+  }
+  return `${CURRENCY}${Math.round(n).toLocaleString()}`;
+}
+
+function fmtExact(amount: number | null | undefined): string {
+  const n = Number(amount) || 0;
+  return `${CURRENCY}${n.toLocaleString(CURRENCY_LOCALE, { maximumFractionDigits: 0 })}`;
 }
 
 function fmtPct(rate: number | null | undefined): string {
@@ -530,7 +542,7 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
             <YAxis
               stroke="var(--ink-3)"
               fontSize={11}
-              tickFormatter={(v) => `$${Math.round(v / 1000)}K`}
+              tickFormatter={(v) => `${CURRENCY}${Math.round(v / 1000)}K`}
             />
             <Tooltip
               contentStyle={{
@@ -1403,7 +1415,10 @@ export default function FinancesPage() {
   useEffect(() => {
     fetch("/api/life/finances")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setData)
+      .then((d: FinancesDataV2) => {
+        setCurrency(d?.state?.currency);
+        setData(d);
+      })
       .catch((e) => setError(String(e)));
   }, []);
 

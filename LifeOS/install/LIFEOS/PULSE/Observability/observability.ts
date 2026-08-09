@@ -2120,13 +2120,18 @@ function parseCurrencyTable(content: string): { label: string; annual: number }[
 
 function parseCurrencyCell(cell: string): number {
   if (!cell) return 0
-  const cleaned = cell.replace(/\*\*/g, "").replace(/[~$,]/g, "").trim()
-  const km = cleaned.match(/^([\d.]+)\s*([KkMm])\b/)
+  // Strip £ and € alongside $. A GBP cell such as "£1,234" previously survived
+  // cleaning as "£1234", failed the leading-digit match and returned 0, so every
+  // row on a non-USD dashboard silently became zero rather than failing visibly.
+  // Also accept the Unicode minus (U+2212) so negative rows parse instead of
+  // being dropped by the `amount > 0` filter in parseCurrencyTable.
+  const cleaned = cell.replace(/\*\*/g, "").replace(/[~$£€,]/g, "").replace(/−/g, "-").trim()
+  const km = cleaned.match(/^(-?[\d.]+)\s*([KkMm])\b/)
   if (km) {
     const base = parseFloat(km[1])
     return km[2].toLowerCase() === "m" ? base * 1_000_000 : base * 1_000
   }
-  const plain = cleaned.match(/^[\d.]+/)
+  const plain = cleaned.match(/^-?[\d.]+/)
   return plain ? parseFloat(plain[0]) : 0
 }
 
@@ -2478,7 +2483,9 @@ function handleLifeFinances(): Response {
           ...o,
           id: typeof o.id === "string" ? o.id : slugify(name),
           name,
-          scope: "personal",
+          // Honour an explicit scope when the file states one. Hardcoding this
+          // mislabelled every business-paid obligation as personal.
+          scope: typeof (o as any).scope === "string" ? (o as any).scope : "personal",
           cadence: o.cadence ?? FREQUENCY_TO_CADENCE[o.frequency] ?? "variable",
           amount_usd: amount,
           category: o.category ?? "other",
@@ -2540,7 +2547,9 @@ function handleLifeFinances(): Response {
       return {
         id: o.id,
         name: o.name ?? o.id,
-        scope: "personal",
+        // Second place the same field was flattened; fixing only the normalizer
+        // above has no visible effect because this override runs after it.
+        scope: (o as any).scope ?? "personal",
         monthly_usd: Math.round(monthly * 100) / 100,
         annual_usd: Math.round(monthly * 12 * 100) / 100,
         source: "manual",
@@ -2555,10 +2564,15 @@ function handleLifeFinances(): Response {
     // Matching is case-insensitive substring in either direction.
     // Guarded + empty-filtered: a missing id/name must neither throw nor add
     // "" to the set (an empty known label substring-matches every expense row).
+    // Only suppress an EXPENSES.md row when the matching vendor/obligation actually
+    // contributes spend. A £0 "unconfigured" entry — every row of the shipped sample
+    // vendors.yaml, until a user clears it — has nothing to double-count, so letting
+    // it match silently deleted real expenses from the outbound total.
+    const contributes = (l: ResolvedLine) => l.monthly_usd > 0 || l.annual_usd > 0
     const knownLabels = new Set<string>([
-      ...resolvedVendors.map(v => (v.name ?? v.id ?? "").toLowerCase()),
-      ...resolvedVendors.map(v => (v.id ?? v.name ?? "").toLowerCase()),
-      ...resolvedObligations.map(o => (o.name ?? o.id ?? "").toLowerCase()),
+      ...resolvedVendors.filter(contributes).map(v => (v.name ?? v.id ?? "").toLowerCase()),
+      ...resolvedVendors.filter(contributes).map(v => (v.id ?? v.name ?? "").toLowerCase()),
+      ...resolvedObligations.filter(contributes).map(o => (o.name ?? o.id ?? "").toLowerCase()),
     ].filter(Boolean))
     const otherOutbound: ResolvedLine[] = expenseCategories
       .filter(e => {

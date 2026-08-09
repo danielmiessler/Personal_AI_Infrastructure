@@ -655,6 +655,9 @@ function checkFrontmatterUnits(name: string, dir: string, requireName: boolean):
   for (const f of files) {
     let content = '';
     try { content = readFileSync(join(dir, f), 'utf8'); } catch { continue; }
+    // Tolerate UTF-8 BOM and CRLF before anchoring — both defeat ^---\n and
+    // produced false "no frontmatter block" findings on Windows checkouts (#1732).
+    content = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
     const fm = content.match(/^---\n([\s\S]*?)\n---/);
     if (!fm) { findings.push({ detail: `${name}/${f}: no frontmatter block`, blocking: true }); continue; }
     if (requireName && !/^name:\s*\S/m.test(fm[1])) findings.push({ detail: `${name}/${f}: missing frontmatter 'name:'`, blocking: true });
@@ -739,6 +742,7 @@ function checkSkills(): void {
     const rel = skillMd.replace(CLAUDE_DIR + '/', '');
     let content = '';
     try { content = readFileSync(skillMd, 'utf8'); } catch { continue; }
+    content = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); // BOM/CRLF tolerance (#1732)
     const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
     if (!fmMatch) { findings.push({ detail: `${rel}: no frontmatter block`, blocking: true }); continue; }
     const fm = fmMatch[1];

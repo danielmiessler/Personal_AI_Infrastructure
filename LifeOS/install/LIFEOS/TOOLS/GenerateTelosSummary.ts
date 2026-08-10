@@ -188,6 +188,24 @@ function paragraphItems(content: string, prefix: string): ParsedItem[] {
 /**
  * Parse mission items from MISSION.md
  */
+/** Read the "## Context Filter" H2 body from the unified TELOS.md. */
+function readContextFilter(): string {
+  try {
+    const raw = readFileSync(join(TELOS_DIR, 'TELOS.md'), 'utf-8');
+    const i = raw.indexOf('## Context Filter');
+    if (i < 0) return '';
+    const rest = raw.slice(i + '## Context Filter'.length);
+    const nxt = rest.indexOf('\n## ');
+    const m: string[] | null = ['', nxt >= 0 ? rest.slice(0, nxt) : rest];
+    if (!m) return '';
+    return m[1]
+      .split('\n')
+      .filter(l => !l.trim().startsWith('<!--'))
+      .join('\n')
+      .trim();
+  } catch { return ''; }
+}
+
 function parseMissions(): string[] {
   const content = readTelosFile('MISSION.md');
   const items = parseItems(content, 'M');
@@ -579,7 +597,10 @@ function generate(): string {
     '',
     '## Context Filter',
     '',
-    'When steering work, bias toward: human flourishing, Human 3.0 transition, AI augmentation strategies, becoming one\'s full self, correct framing.',
+    // Read the principal's own Context Filter from unified TELOS.md rather than
+    // shipping a hardcoded personal value statement (local patch 2026-08-09;
+    // upstream candidate — the literal below overwrote every user's filter).
+    readContextFilter() || 'When steering work, bias toward: (define your Context Filter in TELOS.md).',
   );
 
   return lines.join('\n') + '\n';

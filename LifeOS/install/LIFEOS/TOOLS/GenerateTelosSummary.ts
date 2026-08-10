@@ -89,14 +89,13 @@ function loadTelosSections(): Record<string, string> {
 }
 
 function readTelosFile(filename: string): string {
-  // Legacy per-file path first (back-compat), then unified-TELOS section.
-  // Strip leading YAML frontmatter (public issue #1496): in files with no
-  // ID-form items, paragraphItems() otherwise swallows the frontmatter block
-  // as a garbage first entry (e.g. "M0: --- provenance: interview ...").
-  const path = join(TELOS_DIR, filename);
-  if (existsSync(path)) {
-    return readFileSync(path, 'utf-8').replace(/^---\n[\s\S]*?\n---\n?/, '');
-  }
+  // Unified TELOS.md is canonical as of 2026-05-01, so it must WIN over the
+  // legacy per-file path rather than lose to it. ScaffoldUser copies the legacy
+  // template stubs into every fresh install, so checking the file first meant
+  // the stubs always shadowed the user's real TELOS.md and the generated
+  // summary silently rendered sample template data. Prefer the unified section
+  // whenever it carries content; fall back to the per-file path for installs
+  // that predate unification, which keeps back-compat intact.
   const sectionKey = LEGACY_FILE_TO_SECTION[filename];
   if (sectionKey) {
     const sections = loadTelosSections();
@@ -104,7 +103,15 @@ function readTelosFile(filename: string): string {
     // hand-authored, and "## MISSIONS" (plural) keyed as 'missions' silently
     // missed the singular 'mission' lookup — the section rendered empty and
     // the fail-loud guard below couldn't see it (same lookup, same miss).
-    return sections[sectionKey] ?? sections[sectionKey + 's'] ?? '';
+    const unified = (sections[sectionKey] ?? sections[sectionKey + 's'] ?? '').trim();
+    if (unified) return unified;
+  }
+  // Legacy per-file fallback. Strip leading YAML frontmatter (public issue
+  // #1496): in files with no ID-form items, paragraphItems() otherwise swallows
+  // the frontmatter block as a garbage first entry.
+  const path = join(TELOS_DIR, filename);
+  if (existsSync(path)) {
+    return readFileSync(path, 'utf-8').replace(/^---\n[\s\S]*?\n---\n?/, '');
   }
   return '';
 }

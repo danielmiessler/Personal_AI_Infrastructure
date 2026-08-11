@@ -60,7 +60,7 @@ A single AI agent doing research has two failure modes that quietly wreck the re
 
 ## How It Works
 
-Multiple agents work in parallel and their findings get reconciled. Verification runs in three layers at zero added latency: each agent self-verifies its own URLs, a synthesis step cross-checks for conflicts, and dedicated verifier agents (Extensive/Deep) check findings with no access to the explorers' reasoning. Step 0 of every workflow routes sentiment questions to community scrapers before web search, and every URL is verified before delivery — a hallucinated link is a catastrophic failure.
+Multiple agents work in parallel and their findings get reconciled. When `TAVILY_API_KEY` is configured, `TavilySearch.ts` is an optional API-backed web-search path for ranked source discovery; it complements rather than replaces native WebSearch, Perplexity, and Gemini. Tavily output remains untrusted research input and must follow the URL verification and attribution rules below. Verification runs in three layers at zero added latency: each agent self-verifies its own URLs, a synthesis step cross-checks for conflicts, and dedicated verifier agents (Extensive/Deep) check findings with no access to the explorers' reasoning. Step 0 of every workflow routes sentiment questions to community scrapers before web search, and every URL is verified before delivery — a hallucinated link is a catastrophic failure.
 
 ## MANDATORY: URL Verification
 

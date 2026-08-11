@@ -199,6 +199,7 @@ export interface ApiKeyScan {
   openai?: string;
   google?: string;
   perplexity?: string;
+  tavily?: string;
 }
 
 /**
@@ -224,6 +225,7 @@ export function scanApiKeys(home: string, configDir: string): ApiKeyScan {
     ["openai", /(?:^|\n)\s*(?:export\s+)?OPENAI_API_KEY\s*=\s*["']?([^"'\s#]+)/],
     ["google", /(?:^|\n)\s*(?:export\s+)?(?:GEMINI_API_KEY|GOOGLE_API_KEY|GOOGLE_GENAI_API_KEY)\s*=\s*["']?([^"'\s#]+)/],
     ["perplexity", /(?:^|\n)\s*(?:export\s+)?PERPLEXITY_API_KEY\s*=\s*["']?([^"'\s#]+)/],
+    ["tavily", /(?:^|\n)\s*(?:export\s+)?TAVILY_API_KEY\s*=\s*["']?([^"'\s#]+)/],
   ];
   const placeholder = /^(your-key-here|sk-xxxxxxxx|xxxxx|REPLACE_ME|TODO)/i;
   const found: ApiKeyScan = {};

@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.0.0
+ * @version 1.0.1
  * TRIGGER: UserPromptSubmit
  * ModelRungGuard — detect a session running BELOW the pinned model rung.
  *
@@ -37,6 +37,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { getPrincipalName } from "./lib/identity";
 
 const STDIN_TIMEOUT_MS = 300;
 const HOME = process.env.HOME || "";
@@ -144,6 +145,23 @@ function log(event: Record<string, unknown>): void {
   } catch { /* observability is never worth failing a prompt over */ }
 }
 
+/**
+ * Look up the principal's name while the hook is running.
+ *
+ * This used to be a `{{PRINCIPAL_NAME}}` token inside the advisory string,
+ * which doesn't work: placeholder substitution happens once at install time
+ * over the files on disk, and it never sees a string we build at runtime. So
+ * the model was getting the raw token handed to it. Falls back to a generic
+ * word if identity can't be read — nothing here is worth failing a prompt over.
+ */
+function principalName(): string {
+  try {
+    return getPrincipalName() || "the principal";
+  } catch {
+    return "the principal";
+  }
+}
+
 function emit(line: string): void {
   console.log(JSON.stringify({
     hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: line },
@@ -165,7 +183,7 @@ async function main(): Promise<void> {
           `'${pin}' pin in settings.json. Per OPERATIONAL_RULES § Model selection, MAX-class work ` +
           `(judgment, design, architecture, scoping, synthesis, meta work on LifeOS) does NOT run here: ` +
           `dispatch it now with the '${pin}' tier alias. Do not ask which rung to use, and do not ask ` +
-          `{{PRINCIPAL_NAME}} to change /model.`,
+          `${principalName()} to change /model.`,
       );
     } else {
       log({ event: "on-pin", pin, live, model });

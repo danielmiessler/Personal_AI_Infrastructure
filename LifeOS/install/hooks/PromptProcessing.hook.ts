@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.4.45
+ * @version 1.4.46
  * PromptProcessing.hook.ts - Tab Title + Session Naming (Haiku)
  *
  * PURPOSE:
@@ -705,7 +705,7 @@ THINK FIRST: What is ${PRINCIPAL_NAME} actually trying to ACCOMPLISH? Not what w
 - Words appearing in the prompt are EVIDENCE, not the answer. The goal lives in ${PRINCIPAL_NAME}'s actual question or instruction.
 - Ignore HOW they asked (pull up, show me, continue with, look at, hey, thanks) — those are interaction tokens, not work.
 - Focus on the GOAL (what outcome is being pursued: a decision, a fix, a build, a piece of research, an evaluation).
-- The name should be a complete imperative phrase. Read it aloud — it should sound like "{{PRINCIPAL_NAME}} needs to ___" filled in coherently.
+- The name should be a complete imperative phrase. Read it aloud — it should sound like "${PRINCIPAL_NAME} needs to ___" filled in coherently.
 - **Pasted content rule:** If the user pastes an email, letter, message, quote, document, or any block of text that someone ELSE wrote (signs like "Hey [Name],", a closing like "Thanks,/Best,/Cheers,/Regards,", quoted reviews, copied tweets, forwarded messages), the GOAL is ${PRINCIPAL_NAME}'s question or instruction WRAPPED AROUND that content — NOT words from the pasted content itself. Words like "Thanks", "Hey", "Dear", "Regards", "Agenda", "Accurate", recipient names, sender names, subject lines, and other email/letter tokens are NEVER subjects of work. Find ${PRINCIPAL_NAME}'s actual question ("research...", "is X fair?", "what should I do about...", "help me decide...", "evaluate...") and name the session from THAT.
 - **Decision rule:** If the prompt is "Should I X or Y?" or "Is 20% fair?" the goal is a DECISION. Name it: "Decide [Subject] [Aspect]" or "Evaluate [Subject] [Aspect]".
 - **Question rule:** If the prompt is "What is X?" / "How does X work?" the goal is RESEARCH. Name it: "Research [Subject] [Aspect]".
@@ -718,7 +718,7 @@ Rules:
 - Start with a base-form action verb (Fix, Build, Debug, Refactor, Migrate, Research, Analyze — NOT Fixing, Building).
 - Preserve acronyms in ALL CAPS (LifeOS, TUI, API, UL, CLI, ISC, ISA, BPE).
 - Every word must carry meaning. No filler adverbs (seriously, really, properly), no lone conjunctions, no fragment scraps.
-- Reads as a grammatical phrase: imagine "{{PRINCIPAL_NAME}} needs to ___" — the name fills the blank as a coherent action.
+- Reads as a grammatical phrase: imagine "${PRINCIPAL_NAME} needs to ___" — the name fills the blank as a coherent action.
 
 Examples of separating instruction from subject:
 - "Pull up the LifeOS TUI work and continue" → subject is LifeOS TUI → "Build LifeOS TUI Dashboard Interface"

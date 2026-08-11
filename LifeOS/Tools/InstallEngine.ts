@@ -326,7 +326,7 @@ export function scanSettingsHooks(settingsPath: string): SettingsHookScan {
 //  follows the proven logic from the legacy engine actions.ts.
 // ════════════════════════════════════════════════════════════════════
 
-import { cpSync, lstatSync, mkdirSync, readdirSync, readlinkSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, lstatSync, mkdirSync, readdirSync, readlinkSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 // Extended 2026-07-25 (Forge finding, v7.15.0 re-audit). The set stopped at .ts,
@@ -432,7 +432,9 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
     }
     if (after !== before) {
       const tmp = filePath + ".lifeos.tmp";
+      const mode = lstatSync(filePath).mode;
       writeFileSync(tmp, after);
+      chmodSync(tmp, mode);
       renameSync(tmp, filePath);
       modified++;
     }

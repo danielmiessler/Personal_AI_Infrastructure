@@ -85,6 +85,19 @@ export interface SetEntriesOk {
   new_count: number;
   evictions: string[];
   additions: string[];
+  /** Entries whose provenance was forced down to ~inferred by the conflict rule. */
+  value_conflicts: ValueConflict[];
+}
+
+export interface ValueConflict {
+  /** The incoming entry, as the reviewer wrote it. */
+  entry: string;
+  /** Prior entries that asserted a different value on the same topic. */
+  prior: string[];
+  /** Which closed vocabulary disagreed — "weekday" | "time" | "quantity". */
+  kind: string;
+  /** The differing values, for the reader. */
+  values: { incoming: string[]; prior: string[] };
 }
 
 export interface SetEntriesErrAtCap {
@@ -440,6 +453,152 @@ function atomicWrite(filePath: string, content: string): true | SetEntriesErrIO 
   }
 }
 
+// ── Conflict rule ──
+//
+// The reviewer is told to SUPERSEDE rather than stack: when a new fact contradicts
+// an old one, drop the old. That is right when the principal has just stated the new
+// fact, and wrong when two stale entries merely disagree and the reviewer picks a
+// winner — the pick is a guess, and it lands wearing ~explicit, which reads later as
+// "the principal said this". That is how a wrong training schedule entered memory at
+// full confidence while the correct answer was never asked for.
+//
+// Detection here is deterministic and deliberately narrow. It does NOT ask a model
+// whether two statements conflict — that judgement is the thing being removed. It
+// compares CLOSED, ENUMERABLE vocabularies only:
+//
+//   weekday  — the seven day names
+//   time     — HH:MM clock values
+//   quantity — a number carrying a unit from a fixed list (kg, g, kcal, %, h, £)
+//
+// Two entries conflict when they share a topic anchor (a non-stopword token present
+// in both, itself not a value token) and assert DIFFERENT value sets of the same
+// class. Anything outside those vocabularies is not detected, by design: a broader
+// rule would have to infer, which is the defect, not the fix.
+//
+// Enforcement is proportionate. A detected conflict does not reject the write — that
+// would freeze curation on a heuristic. It forces the entry's provenance down to
+// ~inferred and records the conflict, so the claim keeps circulating without false
+// authority and the disagreement can be settled by the principal.
+
+const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const UNITS = ["kg", "g", "kcal", "%", "h", "hrs", "£"];
+const MIN_SHARED_ANCHORS = 2;
+
+const STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "be", "been",
+  "to", "of", "in", "on", "at", "for", "with", "from", "by", "as", "it", "its",
+  "his", "her", "their", "he", "she", "they", "him", "them", "not", "no", "than",
+  "then", "that", "this", "these", "those", "per", "via", "over", "under", "into",
+  "wants", "prefers", "values", "keeps", "runs", "does", "has", "have", "had",
+  "name", "role", "relation", "preference", "rule", "explicit", "inferred", "deduced",
+]);
+
+function valueTokens(entry: string): { kind: string; values: string[] }[] {
+  const lower = entry.toLowerCase();
+  const out: { kind: string; values: string[] }[] = [];
+
+  const days = WEEKDAYS.filter((d) => new RegExp(`\\b${d}s?\\b`).test(lower));
+  if (days.length > 0) out.push({ kind: "weekday", values: days.sort() });
+
+  const times = [...lower.matchAll(/\b(\d{1,2}:\d{2})\b/g)].map((m) => m[1]);
+  if (times.length > 0) out.push({ kind: "time", values: [...new Set(times)].sort() });
+
+  // Each unit is its own class. Comparing 7h against 40g as one "quantity" is
+  // meaningless and was the largest source of false positives in replay.
+  const unitAlt = UNITS.map((u) => u.replace("£", "\\£")).join("|");
+  const byUnit = new Map<string, string[]>();
+  for (const m of lower.matchAll(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(${unitAlt})\\b`, "g"))) {
+    const unit = m[2];
+    byUnit.set(unit, [...(byUnit.get(unit) ?? []), `${m[1]}${unit}`]);
+  }
+  for (const [unit, vals] of byUnit) {
+    out.push({ kind: `quantity:${unit}`, values: [...new Set(vals)].sort() });
+  }
+
+  return out;
+}
+
+function topicAnchors(entry: string): Set<string> {
+  const lower = entry.toLowerCase().replace(/~\w+\s*$/, "");
+  const words = lower.match(/[a-z][a-z-]{2,}/g) ?? [];
+  return new Set(
+    words.filter((w) => !STOPWORDS.has(w) && !WEEKDAYS.includes(w) && !UNITS.includes(w)),
+  );
+}
+
+/**
+ * Pure. Given the prior entry list and the incoming one, return the incoming entries
+ * that assert a different closed-vocabulary value than a prior entry on the same topic.
+ * Exported so the behaviour is directly testable without a filesystem.
+ */
+export function detectValueConflicts(prior: string[], next: string[]): ValueConflict[] {
+
+  const conflicts: ValueConflict[] = [];
+
+  const nextSet = new Set(next);
+
+  for (const entry of next) {
+    const incomingValues = valueTokens(entry);
+    if (incomingValues.length === 0) continue;
+    const anchors = topicAnchors(entry);
+
+    for (const { kind, values } of incomingValues) {
+      // Gather every prior entry on this topic that carries a value of this class,
+      // and count how many DISTINCT values the prior state held.
+      // Includes a prior entry identical to the incoming one: when memory held both
+      // 40g and 60g and the reviewer kept the 40g line, the 40g line is part of
+      // the ambiguity it resolved, not an innocent bystander.
+      const onTopic: { entry: string; sig: string; values: string[] }[] = [];
+      for (const old of prior) {
+        const oldShared = [...topicAnchors(old)].filter((t) => anchors.has(t));
+        // Two shared content words, not one. A single common token ("partner",
+        // "weight") links entries that are plainly about different things — a
+        // Saturday planning session and a Sunday phone call are not competing answers.
+        if (oldShared.length < MIN_SHARED_ANCHORS) continue;
+        const oldOfKind = valueTokens(old).find((v) => v.kind === kind);
+        if (!oldOfKind) continue;
+        onTopic.push({ entry: old, sig: oldOfKind.values.join("|"), values: oldOfKind.values });
+      }
+
+      // The signature that matters is DISAGREEMENT AMONG THE PRIOR ENTRIES.
+      // One prior value plus a different incoming value is ordinary supersession —
+      // the principal told us something new — and must not be downgraded. Two or
+      // more prior values means memory was already ambiguous, so choosing one of
+      // them (or a third) is the reviewer guessing. That is what we catch.
+      const distinctPrior = new Set(onTopic.map((o) => o.sig));
+      const priorWasAmbiguous = distinctPrior.size >= 2;
+
+      const clashing = onTopic.filter((o) => o.sig !== values.join("|")).map((o) => o.entry);
+      const priorValues = new Set<string>();
+      for (const o of onTopic) for (const v of o.values) priorValues.add(v);
+
+      // A pick only happened if a disagreeing sibling was actually DROPPED. If the
+      // reviewer kept every conflicting entry, it declined to resolve — which is the
+      // behaviour we want — so there is nothing to downgrade. Note this is why an
+      // entry carried over verbatim can still be flagged: retaining one value while
+      // evicting the other is a choice, whether or not the text changed.
+      const resolvedByEviction = clashing.some((c) => !nextSet.has(c));
+
+      if (priorWasAmbiguous && clashing.length > 0 && resolvedByEviction) {
+        conflicts.push({
+          entry,
+          prior: clashing,
+          kind,
+          values: { incoming: values, prior: [...priorValues].sort() },
+        });
+      }
+    }
+  }
+
+  return conflicts;
+}
+
+/** Force a conflicted entry's provenance down to ~inferred, preserving its text. */
+function downgradeProvenance(entry: string): string {
+  const stripped = entry.replace(/\s*~(explicit|deduced|inferred)\s*$/, "");
+  return `${stripped} ~inferred`;
+}
+
 // ── Observability ──
 
 function logWriteEvent(
@@ -461,6 +620,7 @@ function logWriteEvent(
       dropped_duplicates: result.dropped_duplicates,
       evictions: result.evictions,
       additions: result.additions,
+      value_conflicts: result.value_conflicts,
     });
     appendFileSync(OBSERVABILITY_PATH, row + "\n", "utf8");
   } catch {
@@ -544,23 +704,31 @@ export function setEntries(
       }
     }
 
+    // Conflict rule: a reviewer pick between disagreeing values is a guess, so it
+    // may not be written at ~explicit. Detected deterministically (see above), then
+    // downgraded rather than rejected — curation keeps flowing, authority does not.
+    const value_conflicts = detectValueConflicts(priorEntries, newEntries);
+    const conflicted = new Map(value_conflicts.map((c) => [c.entry, downgradeProvenance(c.entry)]));
+    const finalEntries = newEntries.map((e) => conflicted.get(e) ?? e);
+
     // Snapshot the prior content before we overwrite — individual-write recovery.
     snapshotBeforeWrite(abs, content);
 
-    const newContent = serializeMemoryContent(parsed, newEntries, options.updatedBy || "MemoryWriter");
+    const newContent = serializeMemoryContent(parsed, finalEntries, options.updatedBy || "MemoryWriter");
     const writeRes = atomicWrite(abs, newContent);
     if (writeRes !== true) return writeRes;
 
     const ok: SetEntriesOk = {
       ok: true,
-      accepted: newEntries.length,
+      accepted: finalEntries.length,
       dropped_malformed: validated.malformed,
       dropped_overlength: validated.overlength,
       dropped_duplicates: validated.duplicates,
       prior_count: priorEntries.length,
-      new_count: newEntries.length,
+      new_count: finalEntries.length,
       evictions,
       additions,
+      value_conflicts,
     };
     logWriteEvent(abs, ok, options.updatedBy);
     return ok;

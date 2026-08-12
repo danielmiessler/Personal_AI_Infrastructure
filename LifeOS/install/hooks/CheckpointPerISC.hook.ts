@@ -20,9 +20,9 @@
  * clean -fd/push --force).
  */
 
-import { readFileSync, existsSync, writeFileSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, statSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { parseFrontmatter, parseCriteriaList, ARTIFACT_FILENAME, LEGACY_ARTIFACT_FILENAME } from './lib/isa-utils';
 
@@ -142,16 +142,66 @@ function dirtyPaths(repo: string): string[] {
  * dirties mid-run still has a fresh mtime and can be swept; this closes the common case,
  * not every case.
  */
-function runTouchedPaths(repo: string, startedMs: number): string[] {
+/**
+ * Absolute paths that a DIFFERENT session provably wrote during this run.
+ *
+ * mtime says "changed recently"; it cannot say "changed by me", which is the
+ * one fact two concurrent sessions in one tree need. Every hook already
+ * receives `transcript_path`, and a transcript records the file_path of every
+ * write tool call, so the attribution is already on disk — it was just never read.
+ *
+ * Deliberately EXCLUSION-shaped, not inclusion-shaped. Staging only paths THIS
+ * session's transcript claims would silently drop work edited by any other
+ * route (a script the session ran, a generator, a formatter), which is worse
+ * than the mis-attribution it fixes. Anything unattributed still stages on
+ * mtime exactly as before; only another session's provable work is removed.
+ */
+function foreignClaimedPaths(myTranscript: string, startedMs: number): Set<string> {
+  const claimed = new Set<string>();
+  const root = join(homedir(), '.claude', 'projects');
+  if (!existsSync(root)) return claimed;
+  const mine = myTranscript ? resolve(myTranscript) : '';
+  const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+  let dirs: string[] = [];
+  try { dirs = readdirSync(root); } catch { return claimed; }
+  for (const d of dirs) {
+    let files: string[] = [];
+    try { files = readdirSync(join(root, d)).filter((f) => f.endsWith('.jsonl')); } catch { continue; }
+    for (const f of files) {
+      const p = join(root, d, f);
+      if (p === mine) continue;                       // never treat myself as foreign
+      try { if (statSync(p).mtimeMs < startedMs) continue; } catch { continue; }
+      let lines: string[];
+      try { lines = readFileSync(p, 'utf-8').split('\n'); } catch { continue; }
+      for (const line of lines) {
+        if (!line.includes('"file_path"')) continue;  // cheap prefilter before JSON.parse
+        try {
+          const rec = JSON.parse(line);
+          for (const block of rec?.message?.content ?? []) {
+            if (block?.type === 'tool_use' && WRITE_TOOLS.has(block?.name)) {
+              const fp = block?.input?.file_path;
+              if (typeof fp === 'string') claimed.add(fp);
+            }
+          }
+        } catch { /* partial or non-JSON line */ }
+      }
+    }
+  }
+  return claimed;
+}
+
+function runTouchedPaths(repo: string, startedMs: number, foreign: Set<string>): string[] {
   return dirtyPaths(repo).filter((rel) => {
-    try { return statSync(join(repo, rel)).mtimeMs >= startedMs; }
+    const abs = join(repo, rel);
+    if (foreign.has(abs)) return false; // another session provably wrote this
+    try { return statSync(abs).mtimeMs >= startedMs; }
     catch { return true; } // deleted in-run — the deletion is ours to record
   });
 }
 
-function commitInRepo(repo: string, iscId: string, slug: string, description: string, startedMs: number): string | null {
+function commitInRepo(repo: string, iscId: string, slug: string, description: string, startedMs: number, foreign: Set<string>): string | null {
   try {
-    const paths = runTouchedPaths(repo, startedMs);
+    const paths = runTouchedPaths(repo, startedMs, foreign);
     if (paths.length === 0) return null;
     gitRun(repo, ['add', '--', ...paths]);
     // iscId already has the canonical "ISC-<N>" form (or "ISC-<N>-A-<M>" for
@@ -209,6 +259,10 @@ async function main() {
     return;
   }
 
+  // Computed once per invocation: paths another live session provably wrote.
+  // Empty set when no transcript is available, which leaves behaviour unchanged.
+  const foreign = foreignClaimedPaths(String(input?.transcript_path ?? ''), startedMs);
+
   const state = loadState(stateFile);
   const alreadyCommitted = new Set(state.committed_iscs);
   const newlyChecked = criteria.filter(c => c.status === 'completed' && !alreadyCommitted.has(c.id));
@@ -231,7 +285,7 @@ async function main() {
         continue;
       }
       if (!hasChanges(repo)) continue;
-      const sha = commitInRepo(repo, isc.id, slug, isc.description, startedMs);
+      const sha = commitInRepo(repo, isc.id, slug, isc.description, startedMs, foreign);
       if (sha) state.last_commit_sha[repo] = sha;
     }
     state.committed_iscs.push(isc.id);

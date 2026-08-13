@@ -31,7 +31,7 @@ export async function sendMessage(
     const script = `
 tell application "Messages"
   set targetService to 1st account whose service type = iMessage
-  set targetBuddy to participant targetService handle "${escapeForAppleScript(handle)}"
+  set targetBuddy to participant "${escapeForAppleScript(handle)}" of targetService
   send "${escaped}" to targetBuddy
 end tell`
 

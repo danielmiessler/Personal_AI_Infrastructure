@@ -25,7 +25,9 @@ export async function sendMessage(
   const chunks = splitMessage(text, MAX_MESSAGE_LENGTH)
 
   for (const chunk of chunks) {
-    const escaped = escapeForAppleScript(chunk)
+    // Zero-width-space prefix marks this as a bot message so the poller
+    // can ignore its own echo in message-to-self conversations.
+    const escaped = escapeForAppleScript("\u200B" + chunk)
 
     // Use buddy-based send — works reliably on modern macOS
     const script = `

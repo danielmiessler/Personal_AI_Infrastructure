@@ -23,7 +23,9 @@ import {
   getNewMessages,
   getLatestRowId,
   verifyAccess,
+  type IncomingMessage,
 } from "../lib/messages-db"
+import { $ } from "bun"
 import { sendMessage } from "../lib/imessage-send"
 import { join } from "path"
 import { appendFile, mkdir, rename } from "fs/promises"
@@ -78,6 +80,8 @@ let processing = false
 let lastError: string | undefined
 let allowedHandles = new Set<string>()
 let pollIntervalMs = 3000
+// Insertion-ordered set for echo dedup (sent row vs delayed iCloud echo copy)
+const recentlyProcessed = new Set<string>()
 let maxTurns = 25
 let sdkTimeoutMs = 120_000
 let conversationStore: ConversationStore | null = null
@@ -127,14 +131,64 @@ async function appendChatLog(
   await appendFile(chatLogPath, entry).catch(() => {})
 }
 
+// ── Attachment Staging ──
+//
+// Attachment files live under ~/Library/Messages/Attachments, which is
+// TCC-protected: this bun process has Full Disk Access, but the claude
+// subprocess it spawns does not. Copy each attachment into our own state
+// dir so the SDK session's Read tool can view it, converting HEIC→JPEG
+// (Read handles jpeg/png natively, not HEIC).
+
+const MAX_ATTACHMENTS = 6
+
+async function stageAttachments(
+  msg: IncomingMessage,
+): Promise<string[]> {
+  const staged: string[] = []
+  const dir = join(STATE_DIR, "attachments", String(msg.rowid))
+  for (const att of msg.attachments.slice(0, MAX_ATTACHMENTS)) {
+    try {
+      const src = Bun.file(att.filename)
+      if (!(await src.exists())) continue
+      await mkdir(dir, { recursive: true })
+      const base = (att.transferName || att.filename.split("/").pop() || "file")
+        .replace(/[^\w.-]/g, "_")
+      const isHeic = /heic|heif/i.test(att.mimeType) || /\.heic$|\.heif$/i.test(att.filename)
+      if (isHeic) {
+        const dst = join(dir, base.replace(/\.[^.]*$/, "") + ".jpg")
+        await $`sips -s format jpeg ${att.filename} --out ${dst}`.quiet()
+        staged.push(dst)
+      } else {
+        const dst = join(dir, base)
+        await Bun.write(dst, src)
+        staged.push(dst)
+      }
+    } catch (err) {
+      log("warn", "Failed to stage attachment", {
+        file: att.filename,
+        error: String(err),
+      })
+    }
+  }
+  if (msg.attachments.length > MAX_ATTACHMENTS) {
+    log("warn", "Attachment count capped", {
+      total: msg.attachments.length,
+      staged: MAX_ATTACHMENTS,
+    })
+  }
+  return staged
+}
+
 // ── Process a Single Message ──
 
 async function processMessage(
   text: string,
   handle: string,
+  stagedAttachments: string[] = [],
 ): Promise<string> {
-  const sanitized = sanitize(text)
-  if (!sanitized) return ""
+  let sanitized = sanitize(text)
+  if (!sanitized && stagedAttachments.length === 0) return ""
+  if (!sanitized) sanitized = "(no text — attachment only)"
 
   const injection = analyzeForInjection(sanitized)
   if (injection.riskLevel === "CRITICAL") {
@@ -154,6 +208,10 @@ async function processMessage(
       .map((m) => `${m.role === "user" ? "Principal" : "DA"}: ${m.content}`)
       .join("\n")
     prompt = `Previous conversation:\n${historyText}\n\nPrincipal's new message: ${sanitized}`
+  }
+
+  if (stagedAttachments.length > 0) {
+    prompt += `\n\n[The principal attached ${stagedAttachments.length} file(s) to this message. View them with the Read tool:\n${stagedAttachments.map((p) => `- ${p}`).join("\n")}]`
   }
 
   // settingSources does NOT cover MCP config (public issue #1553,
@@ -277,6 +335,11 @@ ${mcpStatusPromptLine(Object.keys(remoteMcp))}`,
 // ── Poll Loop ──
 
 async function poll() {
+  // A previous poll's message is still in its SDK session. Don't read —
+  // leave the cursor where it is so pending messages stay in the DB and
+  // get picked up (in order) on the next tick instead of being dropped.
+  if (processing) return
+
   try {
     const messages = getNewMessages(lastRowId)
 
@@ -284,36 +347,84 @@ async function poll() {
       // Update cursor regardless of auth
       lastRowId = msg.rowid
 
-      // Auth check
-      if (!allowedHandles.has(msg.handle)) {
+      // Self-chat echo guard: our own replies carry a zero-width-space
+      // marker and come back as is_from_me=0 copies in a message-to-self
+      // conversation — never answer them or the bot loops on itself.
+      if (msg.text.startsWith("\u200B")) {
+        continue
+      }
+
+      // Auth check. Received rows must come from an allowlisted handle.
+      // Sent rows (is_from_me=1) qualify ONLY inside the allowlisted
+      // self-chat — the principal texting their own handle — because the
+      // iCloud received-echo copy is not reliably generated. Sent messages
+      // to anyone else are the principal's private traffic: skip silently.
+      if (msg.isFromMe) {
+        if (!allowedHandles.has(msg.chatId) && !allowedHandles.has(msg.handle)) {
+          continue
+        }
+      } else if (!allowedHandles.has(msg.handle)) {
         log("warn", "Rejected message from unauthorized handle", {
           handle: msg.handle,
         })
         continue
       }
 
+      // Nothing to respond to (e.g. reaction/sticker rows with no content)
+      if (!msg.text && msg.attachments.length === 0) {
+        continue
+      }
+
+      // Freshness gate: iCloud sync can re-INSERT old messages with brand
+      // new ROWIDs (observed 2026-08-13: yesterday's full history re-synced
+      // overnight and the cursor treated it all as new — the bot answered
+      // ~240 stale messages). ROWID order is not arrival order of new
+      // content; the message's own timestamp is the truth. Never answer
+      // anything older than this window.
+      const ageMs = Date.now() - msg.date.getTime()
+      if (ageMs > 15 * 60 * 1000) {
+        log("info", "Skipping stale message (iCloud re-sync)", {
+          rowid: msg.rowid,
+          ageMinutes: Math.round(ageMs / 60000),
+        })
+        continue
+      }
+
+      // Echo dedup: when iCloud DOES deliver the received copy of a
+      // self-chat message, the same content appears twice (sent row +
+      // echo row, identical timestamp). Process it once.
+      const dedupKey = `${msg.date.getTime()}|${msg.text}|${msg.attachments.length}`
+      if (recentlyProcessed.has(dedupKey)) {
+        continue
+      }
+      recentlyProcessed.add(dedupKey)
+      if (recentlyProcessed.size > 200) {
+        const oldest = recentlyProcessed.values().next().value
+        if (oldest !== undefined) recentlyProcessed.delete(oldest)
+      }
+
       messagesReceived++
       log("info", "Message received", {
         handle: msg.handle,
         textLength: msg.text.length,
+        attachments: msg.attachments.length,
         rowid: msg.rowid,
       })
 
-      // Sequential processing
-      if (processing) {
-        await sendMessage(
-          msg.handle,
-          "Still processing your previous message. Please wait.",
-        )
-        continue
-      }
+      // Sent rows in the self-chat can carry an empty handle; route the
+      // reply to the chat identifier (the principal's own handle) then.
+      const replyTo = allowedHandles.has(msg.handle) ? msg.handle : msg.chatId
 
       processing = true
       const startTime = Date.now()
 
       try {
-        const response = await processMessage(msg.text, msg.handle)
-        const sent = await sendMessage(msg.handle, response)
+        const staged = await stageAttachments(msg)
+        if (staged.length > 0) {
+          log("info", "Attachments staged", { count: staged.length, rowid: msg.rowid })
+        }
+        const response = await processMessage(msg.text, replyTo, staged)
+        const sent = await sendMessage(replyTo, response)
 
         if (sent) {
           messagesResponded++
@@ -333,7 +444,7 @@ async function poll() {
         lastError = String(err)
         log("error", "Message processing failed", { error: lastError })
         await sendMessage(
-          msg.handle,
+          replyTo,
           "Something went wrong processing your message. Try again?",
         ).catch(() => {})
       } finally {

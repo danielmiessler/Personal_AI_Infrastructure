@@ -19,6 +19,12 @@ const CHAT_DB_PATH = join(HOME, "Library", "Messages", "chat.db")
 // chat.db stores dates as nanoseconds since Apple epoch
 const APPLE_EPOCH_OFFSET = 978307200 // seconds between Unix epoch and Apple epoch
 
+export interface MessageAttachment {
+  filename: string // absolute path under ~/Library/Messages/Attachments
+  mimeType: string
+  transferName: string // original filename as sent
+}
+
 export interface IncomingMessage {
   rowid: number
   text: string
@@ -26,11 +32,19 @@ export interface IncomingMessage {
   handle: string // phone number or email
   service: string // "iMessage" or "SMS"
   chatId: string // chat identifier for reply routing
+  isFromMe: boolean
+  attachments: MessageAttachment[]
 }
 
 /**
- * Get new incoming messages since a given ROWID.
- * Only returns messages NOT from the user (is_from_me = 0).
+ * Get new messages since a given ROWID.
+ *
+ * Returns BOTH directions: is_from_me=0 (received) and is_from_me=1 (sent).
+ * Sent rows are needed for the message-to-self setup: the principal texts
+ * their own handle, and the iCloud "received echo" copy (is_from_me=0) is
+ * NOT reliably generated — sometimes it arrives, sometimes never. The
+ * module filters sent rows down to the allowlisted self-chat and dedups
+ * against echo copies.
  */
 export function getNewMessages(sinceRowId: number): IncomingMessage[] {
   const db = new Database(CHAT_DB_PATH, { readonly: true })
@@ -51,14 +65,15 @@ export function getNewMessages(sinceRowId: number): IncomingMessage[] {
         LEFT JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
         LEFT JOIN chat c ON cmj.chat_id = c.ROWID
         WHERE m.ROWID > ?
-          AND m.is_from_me = 0
-          AND m.text IS NOT NULL
-          AND m.text != ''
+          AND (
+            (m.text IS NOT NULL AND m.text != '')
+            OR EXISTS (SELECT 1 FROM message_attachment_join maj WHERE maj.message_id = m.ROWID)
+          )
         ORDER BY m.ROWID ASC
       `)
       .all(sinceRowId) as Array<{
         rowid: number
-        text: string
+        text: string | null
         date: number
         is_from_me: number
         handle: string
@@ -66,14 +81,37 @@ export function getNewMessages(sinceRowId: number): IncomingMessage[] {
         chat_id: string
       }>
 
+    const attachmentQuery = db.query(`
+      SELECT
+        COALESCE(a.filename, '') as filename,
+        COALESCE(a.mime_type, '') as mime_type,
+        COALESCE(a.transfer_name, '') as transfer_name
+      FROM message_attachment_join maj
+      JOIN attachment a ON a.ROWID = maj.attachment_id
+      WHERE maj.message_id = ?
+    `)
+
     return rows.map((row) => ({
       rowid: row.rowid,
-      text: row.text,
+      // Strip U+FFFC object-replacement placeholders that stand in for attachments
+      text: (row.text ?? "").replace(/￼/g, "").trim(),
       handle: row.handle,
       service: row.service,
       chatId: row.chat_id,
+      isFromMe: row.is_from_me === 1,
       // Convert Apple nanosecond timestamp to JS Date
       date: new Date((row.date / 1e9 + APPLE_EPOCH_OFFSET) * 1000),
+      attachments: (attachmentQuery.all(row.rowid) as Array<{
+        filename: string
+        mime_type: string
+        transfer_name: string
+      }>)
+        .filter((a) => a.filename)
+        .map((a) => ({
+          filename: a.filename.replace(/^~\//, HOME + "/"),
+          mimeType: a.mime_type,
+          transferName: a.transfer_name,
+        })),
     }))
   } finally {
     db.close()

@@ -7,11 +7,11 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.0.0
+ * @version 1.0.3
  * TRIGGER: UserPromptSubmit
  * ModelRungGuard — detect a session running BELOW the pinned model rung.
  *
- * WHY (INC-20260731-off-pin-session-undetected, {{PRINCIPAL_NAME}}): `settings.json` pins
+ * WHY ({{PRINCIPAL_NAME}}): `settings.json` pins
  * `"model"` to the top-rung alias so every session starts on MAX. On 2026-07-31
  * a session ran a rung below the pin for its entire length. Nothing noticed:
  * not a hook, not a gate, not `/ic`. A full subsystem analysis and a first
@@ -35,11 +35,12 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * Failure mode: any error logs to stderr and exits 0, never blocking prompts.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 
 const STDIN_TIMEOUT_MS = 300;
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_ROOT = join(HOME, ".claude");
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(CLAUDE_ROOT, "LIFEOS");
 const SETTINGS_PATH = join(CLAUDE_ROOT, "settings.json");
@@ -110,17 +111,30 @@ export function pinnedRung(settingsPath: string = SETTINGS_PATH): Rung | null {
  * The carrier actually serving this session, read from the last assistant
  * message in the transcript. Null on the very first prompt, when no assistant
  * message exists yet — the check simply starts on turn two.
+ *
+ * Sidechain rows are skipped: a subagent writes its own `message.model` into the
+ * same transcript, so a delegate dispatched to a lower rung would otherwise be
+ * read as the main loop's carrier and warn about a gap that does not exist.
+ * (ported from public PR #1738, @elhoim)
  */
 export function liveModel(transcriptPath: string | undefined): string | null {
+  let fd: number | null = null;
   try {
     if (!transcriptPath || !existsSync(transcriptPath)) return null;
     const size = statSync(transcriptPath).size;
-    const fd = readFileSync(transcriptPath);
-    const tail = fd.subarray(Math.max(0, size - TAIL_BYTES)).toString("utf8");
+    // Read ONLY the tail — the file reaches hundreds of MB and this is a hot path.
+    const start = Math.max(0, size - TAIL_BYTES);
+    const len = size - start;
+    if (len <= 0) return null;
+    const buf = Buffer.allocUnsafe(len);
+    fd = openSync(transcriptPath, "r");
+    const got = readSync(fd, buf, 0, len, start);
+    const tail = buf.subarray(0, got).toString("utf8");
     const lines = tail.split("\n").filter((l) => l.trim().length > 0);
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const row = JSON.parse(lines[i] as string) as Record<string, unknown>;
+        if (row.isSidechain === true) continue; // a subagent's carrier, not ours
         const msg = row.message as Record<string, unknown> | undefined;
         if (msg && typeof msg.model === "string" && msg.model.trim()) return msg.model;
       } catch { /* partial line at the tail boundary */ }
@@ -128,6 +142,8 @@ export function liveModel(transcriptPath: string | undefined): string | null {
     return null;
   } catch {
     return null;
+  } finally {
+    if (fd !== null) { try { closeSync(fd); } catch { /* already gone */ } }
   }
 }
 
@@ -160,12 +176,18 @@ async function main(): Promise<void> {
 
     if (gap > 0) {
       log({ event: "off-pin", pin, live, model, gap });
+      // Name-free by construction: the release sanitizer rewrites the principal's
+      // name to a raw PRINCIPAL_NAME-style template token, which then showed up
+      // verbatim in this user-visible warning (public issue #1724,
+      // @waveman2020-sudo; literal kept out of this comment per the
+      // self-referential-redaction rule — the Doctor placeholder probe scans
+      // this file).
       emit(
         `⚠️ MODEL RUNG: this session is running '${model}' (${live}), ${gap} rung below the ` +
           `'${pin}' pin in settings.json. Per OPERATIONAL_RULES § Model selection, MAX-class work ` +
           `(judgment, design, architecture, scoping, synthesis, meta work on LifeOS) does NOT run here: ` +
           `dispatch it now with the '${pin}' tier alias. Do not ask which rung to use, and do not ask ` +
-          `{{PRINCIPAL_NAME}} to change /model.`,
+          `the principal to change /model.`,
       );
     } else {
       log({ event: "on-pin", pin, live, model });

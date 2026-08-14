@@ -25,6 +25,9 @@
  *                          generated incident-response registry is current (GenerateRegistry --check)
  *  15. permission-rule-shape — every permission rule in the settings cascade is a shape the
  *                          harness honors (no inert Write()/MultiEdit() path rules)
+ *  16. spinner-tips    — settings.user.json spinner tips are fresh: source→generated parity,
+ *                          no stale versions/counts, every _ALLCAPS skill + *.hook.ts named
+ *                          resolves, and every slash-command has a tip (add/remove gate)
  *
  * This is an ORCHESTRATOR. It does NOT re-implement ReferenceCheck's tree-walk —
  * it shells out to it. The expensive 12-agent deep audit is NOT run here; `--deep`
@@ -54,8 +57,9 @@ import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
 import { findRuleDuplicates } from './lib/rule-duplication';
 import { ASCENT, type AscentState } from './ascent';
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || '';
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_DIR = join(HOME, '.claude');
 const LIFEOS_DIR = join(CLAUDE_DIR, 'LIFEOS');
 const TOOLS_DIR = join(LIFEOS_DIR, 'TOOLS');
@@ -78,7 +82,7 @@ Flags:
 
 Checks: references, version_anchors, hook_registration, hook_wiring, carrier-probe,
         replay-corpus, claude_imports, skills, workflows, retired-tokens, gate_counts,
-        commands/agents frontmatter, skill-hygiene, credential-registry
+        commands/agents frontmatter, skill-hygiene, credential-registry, spinner-tips
 Exit codes: 0 clean, 1 blocking findings, 2 scan error`);
   process.exit(0);
 }
@@ -128,6 +132,8 @@ const INFO_BUDGET: Record<string, number> = {
   'credential-registry': 1,
   'prose-in-code': 0,
   'model-rung-pin': 0,
+  'fetch-timeouts': 11,   // 2026-08-06 baseline — burn down, then lower
+  'spinner-tips': 0,      // 2026-08-12: command coverage is complete — a new slash-command without a tip blocks
 };
 
 function record(name: string, findings: Finding[], note?: string): void {
@@ -256,6 +262,32 @@ function checkAscentVocabulary(): void {
     }
   } catch (e: any) {
     scanError(`ascent-vocabulary doc lane: ${e.message}`);
+  }
+  // RETIRED-ENUM DOC LANE (Max audit 2026-08-07, 7.32.0 cut): NotificationSystem.md
+  // hand-listed the retired 8-station uppercase enum as the live /notify contract.
+  // The doc lane above only knows LEGACY_ASCENT_ALIASES keys and the phase-key lane
+  // is code-only, so a DOCUMENTATION page teaching the retired enum was invisible to
+  // both. Needle: any single doc line naming 3+ of the retired station names in
+  // ALL-CAPS (unmistakably the enum; lowercase would false-positive ordinary prose).
+  // Historical-context lines are exempt via the same regex as the doc lane.
+  try {
+    const RETIRED_STATIONS = ['OBSERVE', 'THINK', 'PLAN', 'BUILD', 'EXECUTE', 'VERIFY', 'LEARN', 'COMPLETE'];
+    const historicalLine = /legacy|folded|retired|superseded|merged|history|was\b|before\b|20\d\d-\d\d-\d\d/i;
+    for (const f of findFiles(join(LIFEOS_DIR, 'DOCUMENTATION'), ['-type', 'f', '-name', '*.md'])) {
+      const text = readFileSync(f, 'utf8');
+      text.split('\n').forEach((line, i) => {
+        if (historicalLine.test(line)) return;
+        const hits = RETIRED_STATIONS.filter((s) => new RegExp(`\\b${s}\\b`).test(line));
+        if (hits.length >= 3) {
+          findings.push({
+            detail: `${f.replace(HOME, '~')}:${i + 1} — hand-lists ${hits.length} retired 8-station phase names (${hits.slice(0, 3).join(', ')}…) as current — the phase vocabulary lives only in LIFEOS/TOOLS/ascent.ts; fix the prose or mark the line historical`,
+            blocking: true,
+          });
+        }
+      });
+    }
+  } catch (e: any) {
+    scanError(`ascent-vocabulary retired-enum doc lane: ${e.message}`);
   }
   // PHASE-KEY LANE (2026-07-30, 5th recurrence). The two lanes above catch
   // hand-spelled LABELS and ICONS and are structurally blind to the third
@@ -409,6 +441,33 @@ function checkProseInCode(): void {
   record('prose-in-code', findings, note);
 }
 
+// ── fetch timeouts (every outbound fetch in LIFEOS/TOOLS is bounded) ──
+// A Vector scheduled pass died on an unbounded fetch (reflection 2026-08-03): with no
+// signal, a hung endpoint hangs the whole run. The check is file-level, not call-site —
+// a signal assembled in a helper still counts, and that coarseness buys zero false
+// positives on option objects built away from the call. *.test.ts is exempt because
+// bun test enforces its own per-test timeout. Non-blocking with an INFO_BUDGET ratchet:
+// the files predating this gate are the ceiling, so any NEW bare-fetch file breaches it.
+function checkFetchTimeouts(): void {
+  const findings: Finding[] = [];
+  const files = findFiles(TOOLS_DIR, ['-name', '*.ts', '-type', 'f']);
+  let fetchFiles = 0;
+  for (const f of files) {
+    if (f.endsWith('.test.ts')) continue;
+    let text = '';
+    try { text = readFileSync(f, 'utf8'); } catch { continue; }
+    if (!/\bfetch\s*\(/.test(text)) continue;
+    fetchFiles++;
+    if (!/AbortSignal|AbortController|signal\s*:/.test(text)) {
+      findings.push({
+        detail: `${f.replace(CLAUDE_DIR + '/', '')}: calls fetch() with no abort signal anywhere in the file — add signal: AbortSignal.timeout(ms) so a hung endpoint cannot hang the run`,
+        blocking: false,
+      });
+    }
+  }
+  record('fetch-timeouts', findings, `${fetchFiles} fetch-calling tools, ${findings.length} without any abort signal`);
+}
+
 // ── block messages (every red box states the problem AND the fix) ──
 // A gate that stops the work without naming the way out invites the cheapest
 // possible response: rewording the claim until it stops firing. Contract and
@@ -509,7 +568,70 @@ function checkVersionAnchors(): void {
       findings.push({ detail: `LifeosSystemArchitecture.md current-versions line says Algorithm v${vLine[1]} ≠ LATEST v${latest}`, blocking: true });
     }
   } catch { scanError('version_anchors: LifeosSystemArchitecture.md unreadable'); }
-  record('version_anchors', findings, `LATEST=v${latest}; ${findings.length} drifted refs (spec files + master current-versions line)`);
+  // No "(currently vX.Y.Z)" hardcodes anywhere in DOCUMENTATION (Max audit
+  // 2026-08-09: the master doc's Algorithm row shipped "(currently v8.17.0"
+  // one cut stale beside its own regenerated derivative saying v8.18.0 — free
+  // prose restating a version is rot by construction; point at the source of
+  // truth instead).
+  const currentlyRe = /\(currently v\d+\.\d+\.\d+/g;
+  for (const file of docFiles) {
+    let content = '';
+    try { content = readFileSync(file, 'utf8'); } catch { continue; }
+    let c: RegExpExecArray | null;
+    currentlyRe.lastIndex = 0;
+    while ((c = currentlyRe.exec(content)) !== null) {
+      findings.push({ detail: `${file.replace(CLAUDE_DIR + '/', '')}: hardcoded "${c[0]}…)" — point at the version's source of truth (LATEST / VERSION) instead of restating it`, blocking: true });
+    }
+  }
+  record('version_anchors', findings, `LATEST=v${latest}; ${findings.length} drifted refs (spec files + master line + currently-hardcodes)`);
+}
+
+// ── Check 2b: master_doc_paths ──
+// The master architecture doc is the recurring stale-topology offender: three
+// consecutive 7.34.x cross-vendor audit rounds each found path-like prose refs
+// there that resolve nowhere (RestoreContext.hook.ts, removed 2026-05-06; the
+// phantom LIFEOS/Components/ dir, removed 2026-08-09; modules/voice.ts after
+// the VoiceServer split). ReferenceCheck/DocCheck parse
+// only their own syntactic forms, so absolute-prefixed prose paths rot unseen.
+// Scoped to LifeosSystemArchitecture.md deliberately — a tree-wide version of
+// this check drowns in historical mentions; the master doc claims CURRENT
+// topology, so a missing path there is drift by definition. Lines carrying a
+// dated removal marker are exempt (same contract as G19's removal notes).
+// Extension alternation is longest-first with a trailing boundary — `js`
+// before `json` once matched "user-index.js" inside "user-index.json" and
+// produced this check's own first false positive.
+function checkMasterDocPaths(): void {
+  const findings: Finding[] = [];
+  // Maintainer-tree check ONLY. The master doc names maintainer topology (test
+  // files, private state, USER files created per-install), so on a shipped
+  // install this check would red a fresh tree out of the box (Max audit of the
+  // 7.34.7 payload: 9 false blocks by simulation). skills/_LIFEOS never ships,
+  // so its absence identifies an installed tree — skip there, honestly labeled.
+  if (!existsSync(join(CLAUDE_DIR, 'skills', '_LIFEOS'))) {
+    record('master_doc_paths', [], 'skipped — maintainer-tree check (not applicable on an installed tree)');
+    return;
+  }
+  const MARKER = /since removed|removed 20\d\d|deleted 20\d\d|renamed from|\(removed\)|\bREMOVED\b|no longer (?:ship|exist|used)|deprecated 20\d\d|retired 20\d\d|RETIRED \(20\d\d|— removed|historical|formerly|corrected 20\d\d|not in the release payload|maintainer tree|per-install/i;
+  const PATH_RE = /(?:hooks|LIFEOS|skills|commands|agents|test)\/[A-Za-z0-9_./-]+\.(?:tsx|ts|jsonl|json|mjs|js|sh|md|yaml|toml)(?![A-Za-z0-9])/g;
+  let text = '';
+  try { text = readFileSync(join(DOC_DIR, 'LifeosSystemArchitecture.md'), 'utf8'); }
+  catch { scanError('master_doc_paths: LifeosSystemArchitecture.md unreadable'); record('master_doc_paths', [], 'SCAN ERROR'); return; }
+  const lines = text.split('\n');
+  let scanned = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (MARKER.test(lines[i])) continue;
+    PATH_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = PATH_RE.exec(lines[i])) !== null) {
+      const p = m[0];
+      if (/\{|\*|<|YYYY|\$\{|\/v\d+\.\d+\.\d+\.md/.test(p)) continue; // brace-lists, globs, placeholders, versioned spec files (version_anchors owns those)
+      scanned++;
+      if (!existsSync(join(CLAUDE_DIR, p))) {
+        findings.push({ detail: `LifeosSystemArchitecture.md:${i + 1}: path ref \`${p}\` resolves to nothing in the live tree — fix the topology or add a dated removal marker on the line`, blocking: true });
+      }
+    }
+  }
+  record('master_doc_paths', findings, `${scanned} path refs existence-checked in the master doc; ${findings.length} dead`);
 }
 
 // ── Check 3: hook_registration (bidirectional + parse-guard + exec-bit) ──
@@ -573,6 +695,186 @@ function checkHookRegistration(): void {
 }
 
 // ── Check 3b: hook_wiring (SEMANTIC — registered event must match declared TRIGGER) ──
+// ── Check: settings.json ↔ settings.system.json hook parity ──
+// settings.json is what this machine runs; settings.system.json is what a fresh
+// install gets. Nothing keeps the two in step, so a hook added to one and not the
+// other is dead on every install that reads the other file — silently, because
+// each file is internally valid and every other check reads only settings.json.
+// That is the class behind public issue #1724, @waveman2020-sudo: the report was
+// one missing registration, but the hole is that no gate compares the two at all.
+//
+// Warning, never blocking: legitimate divergence exists (private-only hooks), and
+// a hard block here would fire on installs that are working exactly as intended.
+const PRIVATE_ONLY_HOOKS = new Set<string>([
+  // Syncs the private UL work repo — meaningless on a public install.
+  'ULWorkSync.hook.ts',
+]);
+
+function checkSettingsParity(): void {
+  const findings: Finding[] = [];
+  const livePath = join(CLAUDE_DIR, 'settings.json');
+  const shippedPath = join(CLAUDE_DIR, 'settings.system.json');
+
+  // Read the contract, not a snapshot: any {event: [{hooks:[{command}]}]} shape
+  // parses, so this stays correct as registrations are added on either side.
+  const readHooks = (p: string): Map<string, Set<string>> | null => {
+    let parsed: any;
+    try { parsed = JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
+    const byHook = new Map<string, Set<string>>();
+    for (const [event, groups] of Object.entries(parsed?.hooks ?? {})) {
+      for (const g of (groups as any[]) ?? []) {
+        for (const h of g?.hooks ?? []) {
+          for (const nm of String(h?.command ?? '').match(/([A-Za-z0-9_]+\.hook\.ts)/g) ?? []) {
+            if (!byHook.has(nm)) byHook.set(nm, new Set());
+            byHook.get(nm)!.add(event);
+          }
+        }
+      }
+    }
+    return byHook;
+  };
+
+  const live = readHooks(livePath);
+  const shipped = readHooks(shippedPath);
+  if (!live || !shipped) {
+    record('settings-parity', [], `skipped — ${!live ? 'settings.json' : 'settings.system.json'} missing or unparseable`);
+    return;
+  }
+
+  for (const [hook, events] of live) {
+    if (shipped.has(hook) || PRIVATE_ONLY_HOOKS.has(hook)) continue;
+    findings.push({ detail: `hooks/${hook} registered in settings.json (${[...events].sort().join(', ')}) but NOT in settings.system.json — dead on a fresh install`, blocking: false });
+  }
+  for (const [hook, events] of shipped) {
+    if (live.has(hook)) continue;
+    findings.push({ detail: `hooks/${hook} registered in settings.system.json (${[...events].sort().join(', ')}) but NOT in settings.json — never fires on this machine`, blocking: false });
+  }
+  // Same hook, different events: registered in both, so the checks above pass
+  // while the hook still fires on one event here and another on a fresh install.
+  for (const [hook, liveEvents] of live) {
+    const shippedEvents = shipped.get(hook);
+    if (!shippedEvents) continue;
+    const a = [...liveEvents].sort().join(',');
+    const b = [...shippedEvents].sort().join(',');
+    if (a !== b) findings.push({ detail: `hooks/${hook} event drift — settings.json: [${a}] vs settings.system.json: [${b}]`, blocking: false });
+  }
+
+  record('settings-parity', findings, findings.length === 0 ? `${live.size} hooks in parity` : undefined);
+}
+
+// Spinner tips (settings.spinnerTipsOverride.tips) are always-on user-facing surface that
+// rots exactly like doc counts: a skill/command/hook added or removed leaves its tip stale
+// or absent, and nothing noticed until {{PRINCIPAL_NAME}} read a wrong tip. This makes tip freshness a
+// deterministic /ic gate — the principal's 2026-08-12 directive: "clean up the custom tips
+// and adjust them, add them, and remove them accordingly to adding and removing
+// functionality." All anchors are structural (parity, versions, counts, _ALLCAPS/hook-file
+// existence, command coverage); zero semantic matching, so it cannot cry wolf and get
+// demoted. Source of truth is settings.user.json (settings.json is generated from it).
+function checkSpinnerTips(): void {
+  const findings: Finding[] = [];
+  const userPath = join(USER_REPO, 'CONFIG', 'settings.user.json');
+  const livePath = join(CLAUDE_DIR, 'settings.json');
+  const readTips = (p: string): string[] | null => {
+    try { return JSON.parse(readFileSync(p, 'utf8'))?.spinnerTipsOverride?.tips ?? null; }
+    catch { return null; }
+  };
+  const userTips = readTips(userPath);
+  const liveTips = readTips(livePath);
+  if (!userTips) { record('spinner-tips', [], 'skipped — settings.user.json has no tips (public install)'); return; }
+  const tips = userTips;
+  const all = tips.join('\n');
+
+  // 1. Source→generated parity: the merged settings.json must carry the same tips.
+  if (liveTips && JSON.stringify(liveTips) !== JSON.stringify(userTips)) {
+    findings.push({ detail: `spinner tips in settings.json differ from settings.user.json source — regenerate via MergeSettings`, blocking: true });
+  }
+  // 2. Duplicates.
+  const dupes = tips.filter((t, i) => tips.indexOf(t) !== i);
+  for (const d of [...new Set(dupes)]) findings.push({ detail: `duplicate tip: "${d.slice(0, 60)}…"`, blocking: true });
+
+  // 3. Version anchors — any tip naming a tracked version must match the live value.
+  const versionAnchors: Array<{ label: RegExp; live: string | null; name: string }> = [];
+  const liveOf = (re: RegExp, file: string): string | null => {
+    try { return readFileSync(file, 'utf8').match(re)?.[1] ?? null; } catch { return null; }
+  };
+  const lifeosV = liveOf(/# LifeOS (\d+\.\d+\.\d+)/, join(CLAUDE_DIR, 'CLAUDE.md'));
+  let algoV: string | null = null;
+  try { algoV = readFileSync(join(LIFEOS_DIR, 'ALGORITHM', 'LATEST'), 'utf8').trim(); } catch {}
+  const archPath = join(DOC_DIR, 'ARCHITECTURE_SUMMARY.md');
+  const sysPromptV = liveOf(/System Prompt v(\d+\.\d+\.\d+)/, archPath);
+  const cortexV = liveOf(/Cortex \(Memory\) v(\d+\.\d+\.\d+)/, archPath);
+  if (lifeosV) versionAnchors.push({ label: /LifeOS (\d+\.\d+\.\d+)/g, live: lifeosV, name: 'LifeOS' });
+  if (algoV) versionAnchors.push({ label: /Algorithm v(\d+\.\d+\.\d+)/g, live: algoV, name: 'Algorithm' });
+  if (sysPromptV) versionAnchors.push({ label: /System Prompt v(\d+\.\d+\.\d+)/g, live: sysPromptV, name: 'System Prompt' });
+  if (cortexV) versionAnchors.push({ label: /Cortex \(Memory\) v(\d+\.\d+\.\d+)/g, live: cortexV, name: 'Cortex' });
+  for (const a of versionAnchors) {
+    for (const t of tips) {
+      a.label.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = a.label.exec(t)) !== null) {
+        if (m[1] !== a.live) findings.push({ detail: `stale ${a.name} version in tip: "${m[0]}" — live is ${a.live}`, blocking: true });
+      }
+    }
+  }
+
+  // 4. Count anchors — "N skills/workflows/hooks/gates" must match live reality.
+  const skillDirs = existsSync(join(CLAUDE_DIR, 'skills'))
+    ? readdirSync(join(CLAUDE_DIR, 'skills')).filter(d => { try { return statSync(join(CLAUDE_DIR, 'skills', d)).isDirectory(); } catch { return false; } })
+    : [];
+  const publicSkills = skillDirs.filter(d => !d.startsWith('_')).length;
+  const privateSkills = skillDirs.filter(d => d.startsWith('_')).length;
+  const workflowCount = findFiles(join(CLAUDE_DIR, 'skills'), ['-name', '*.md', '-path', '*/Workflows/*', '-type', 'f']).length;
+  const hookCount = existsSync(join(CLAUDE_DIR, 'hooks'))
+    ? readdirSync(join(CLAUDE_DIR, 'hooks')).filter(f => f.endsWith('.hook.ts')).length : 0;
+  let gateCount = 0;
+  try {
+    const sr = readFileSync(join(CLAUDE_DIR, 'skills', '_LIFEOS', 'Tools', 'ShadowRelease.ts'), 'utf8');
+    gateCount = (sr.match(/type GateKey =[^;]+;/)?.[0].match(/"G\d+_/g) ?? []).length;
+  } catch {}
+  const countAnchors: Array<{ re: RegExp; live: number; unit: string }> = [
+    { re: /\b(\d+) skills\b/g, live: skillDirs.length, unit: 'skills' },
+    { re: /\b(\d+) public\b/g, live: publicSkills, unit: 'public skills' },
+    { re: /\b(\d+) private\b/g, live: privateSkills, unit: 'private skills' },
+    { re: /\b(\d+) workflows\b/g, live: workflowCount, unit: 'workflows' },
+    { re: /\b(\d+) hooks\b/g, live: hookCount, unit: 'hooks' },
+  ];
+  if (gateCount > 0) countAnchors.push({ re: /\b(\d+) gates\b/g, live: gateCount, unit: 'gates' });
+  for (const a of countAnchors) {
+    for (const t of tips) {
+      a.re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = a.re.exec(t)) !== null) {
+        if (parseInt(m[1], 10) !== a.live) findings.push({ detail: `stale count in tip: "${m[0]}" — live is ${a.live} ${a.unit}`, blocking: true });
+      }
+    }
+  }
+
+  // 5. Reference existence — every _ALLCAPS skill token and *.hook.ts filename named in a
+  //    tip must resolve on disk. (Slash-commands are NOT reverse-checked: Pulse routes like
+  //    /atlas and /upgrades are legitimately not command files — see command coverage below.)
+  const skillSet = new Set(skillDirs);
+  // Standalone _ALLCAPS tokens only — the negative lookbehind rejects mid-word matches like
+  // the "_SUMMARY" inside "ARCHITECTURE_SUMMARY".
+  for (const tok of new Set(all.match(/(?<![A-Za-z0-9])_[A-Z][A-Z0-9_]+/g) ?? [])) {
+    if (!skillSet.has(tok)) findings.push({ detail: `tip references skill "${tok}" but skills/${tok}/ does not exist`, blocking: true });
+  }
+  for (const hk of new Set(all.match(/[A-Z][A-Za-z0-9]*\.hook\.ts/g) ?? [])) {
+    if (!existsSync(join(CLAUDE_DIR, 'hooks', hk))) findings.push({ detail: `tip references hook "${hk}" but hooks/${hk} does not exist`, blocking: true });
+  }
+
+  // 6. Command coverage — every commands/*.md must appear in ≥1 tip, so a new slash-command
+  //    is not silently undiscoverable. Boundary-matched to avoid /cs matching /context-search.
+  const cmdDir = join(CLAUDE_DIR, 'commands');
+  if (existsSync(cmdDir)) {
+    for (const cmd of readdirSync(cmdDir).filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''))) {
+      const re = new RegExp('/' + cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9-])');
+      if (!re.test(all)) findings.push({ detail: `command /${cmd} has no spinner tip — add one so it is discoverable`, blocking: false });
+    }
+  }
+
+  record('spinner-tips', findings, findings.length === 0 ? `${tips.length} tips fresh` : undefined);
+}
+
 // Count/filename parity (check 3) provably misses a hook wired to the WRONG event or to
 // NO event: AlgorithmNudge/PostToolObserver/DriftReminder each declared an event in their
 // header yet shipped registered nowhere on it, silently dead on every fresh install
@@ -638,6 +940,15 @@ function checkHookWiring(): void {
   record('hook_wiring', findings, `${declared} hooks declare an event; ${findings.length} mis-wired`);
 }
 
+// A leading UTF-8 BOM or CRLF line endings made `^---\n` miss, so an editor that
+// writes either turned a perfectly valid unit into a BLOCKING "no frontmatter
+// block" finding — the file is fine, the reader was strict. Both are invisible
+// in a diff, which is what made this hard to see from the report alone.
+// public issue #1732, @umair-a11y
+function matchFrontmatter(content: string): RegExpMatchArray | null {
+  return content.replace(/^\uFEFF/, '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
+}
+
 // ── Check 3b: frontmatter validation for self-describing units (commands, agents) ──
 // Class-sweep sibling of the skills check: every markdown unit that registers itself
 // by frontmatter must carry name + description, or it decays silently.
@@ -655,7 +966,7 @@ function checkFrontmatterUnits(name: string, dir: string, requireName: boolean):
   for (const f of files) {
     let content = '';
     try { content = readFileSync(join(dir, f), 'utf8'); } catch { continue; }
-    const fm = content.match(/^---\n([\s\S]*?)\n---/);
+    const fm = matchFrontmatter(content);
     if (!fm) { findings.push({ detail: `${name}/${f}: no frontmatter block`, blocking: true }); continue; }
     if (requireName && !/^name:\s*\S/m.test(fm[1])) findings.push({ detail: `${name}/${f}: missing frontmatter 'name:'`, blocking: true });
     if (!/^description:\s*\S/m.test(fm[1])) findings.push({ detail: `${name}/${f}: missing frontmatter 'description:'`, blocking: true });
@@ -739,7 +1050,7 @@ function checkSkills(): void {
     const rel = skillMd.replace(CLAUDE_DIR + '/', '');
     let content = '';
     try { content = readFileSync(skillMd, 'utf8'); } catch { continue; }
-    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const fmMatch = matchFrontmatter(content);
     if (!fmMatch) { findings.push({ detail: `${rel}: no frontmatter block`, blocking: true }); continue; }
     const fm = fmMatch[1];
     if (!/^name:\s*\S/m.test(fm)) findings.push({ detail: `${rel}: missing frontmatter 'name:'`, blocking: true });
@@ -859,6 +1170,16 @@ function checkRuleDuplication(): void {
 function checkReplayCorpus(): void {
   const findings: Finding[] = [];
   let note: string | undefined;
+  // Same reason as checkRetirementRegistry: the replay fixtures live in the
+  // private source tree and are stripped from every public release. Without this
+  // guard `bun test` exited non-zero with no (fail) lines on every public
+  // install, recording a BLOCKING finding for a directory that is not supposed to
+  // exist there — a permanently red /ic on a clean install.
+  // ported from public PR #1737, @elhoim
+  if (!existsSync(join(CLAUDE_DIR, 'test', 'regression'))) {
+    record('replay-corpus', [], 'skipped — replay corpus not installed');
+    return;
+  }
   try {
     const out = execFileSync('bun', ['test', join(CLAUDE_DIR, 'test', 'regression')], {
       encoding: 'utf8', cwd: CLAUDE_DIR, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000,
@@ -1003,11 +1324,11 @@ function checkRetirementRegistry(): void {
 
 // ── Check: x_token_ownership (single-owner X OAuth chain) ──
 // The X bookmark pipeline died repeatedly (2026-05-20, 2026-07-21, 2026-07-22)
-// because local code and the arbol-f-x-bookmarks-summarize worker each ran a
+// because local code and the cloud bookmarks-summarize worker each ran a
 // refresh chain of the same grant: X refresh tokens are single-use, so the
 // second chain's refresh trips reuse detection and X revokes the whole family.
-// The worker is the ONLY legitimate owner of the refresh chain (it lives under
-// LIFEOS/USER/CUSTOMIZATIONS/ARBOL, outside these roots). Any local .ts that
+// The worker is the ONLY legitimate owner of the refresh chain (it lives in the
+// install's own USER customization tree, outside these roots). Any local .ts that
 // calls X's token endpoint with a refresh grant, or recreates the retired
 // local token store, reintroduces the exact failure class — block it.
 function checkXTokenOwnership(): void {
@@ -1053,6 +1374,7 @@ function checkXTokenOwnership(): void {
 function checkGateCounts(): void {
   const findings: Finding[] = [];
   let gateCount = 0;
+  let gateNums: number[] = [];
   // Same reason as checkRetirementRegistry: GateKey lives in the private release
   // tooling. On a public install this raised a scan error for a file that is
   // correctly absent.
@@ -1064,7 +1386,8 @@ function checkGateCounts(): void {
     const src = readFileSync(join(CLAUDE_DIR, 'skills', '_LIFEOS', 'Tools', 'ShadowRelease.ts'), 'utf8');
     const typeLine = src.match(/type GateKey =[^;]+;/);
     if (!typeLine) throw new Error('GateKey type not found');
-    gateCount = (typeLine[0].match(/"G\d+_/g) ?? []).length;
+    gateNums = [...typeLine[0].matchAll(/"G(\d+)_/g)].map(m => parseInt(m[1], 10)).sort((a, b) => a - b);
+    gateCount = gateNums.length;
     if (gateCount === 0) throw new Error('GateKey parsed to zero members');
   } catch (e: any) {
     scanError(`gate_counts: could not parse GateKey from ShadowRelease.ts — ${e?.message ?? e}`);
@@ -1100,7 +1423,56 @@ function checkGateCounts(): void {
       }
     }
   }
-  record('gate_counts', findings, `GateKey=${gateCount} gates; ${scanned} live files scanned, ${findings.length} drifted counts`);
+  // Ranges drift independently of counts. "23 gates (G1–G14 + G17–G24)" passes the
+  // count check and is still wrong: the digits agree, the enumeration doesn't. Four
+  // surfaces carried three different stale ranges (…G24, …G21, …G20) while every count
+  // read 23 (2026-08-14, /rc contextual review). So compare the SET a range denotes
+  // against the GateKey roster, not the literal string — en-dash vs hyphen is noise.
+  const canonical = expandRanges(gateNums);
+  const rangeRe = /\bG\d+\s*[–-]\s*G\d+(?:\s*\+\s*G\d+\s*[–-]\s*G\d+)*/g;
+  for (const f of files) {
+    let text = '';
+    try { text = readFileSync(f, 'utf8'); } catch { continue; }
+    if (text.slice(0, 1024).includes('RETIRED')) continue;
+    let m: RegExpExecArray | null;
+    rangeRe.lastIndex = 0;
+    while ((m = rangeRe.exec(text)) !== null) {
+      // Only MULTI-RUN expressions ("Gx–Gy + Gz–Gw") are checked. That shape exists
+      // solely to enumerate the whole roster around its retired holes, so it is a
+      // completeness claim. A single run is a legitimate subset reference — "G1–G14"
+      // for the original containment gates, "G1-G3" for the boundary gates — and
+      // gating those would fire on correct prose.
+      const pairs = [...m[0].matchAll(/G(\d+)\s*[–-]\s*G(\d+)/g)];
+      if (pairs.length < 2) continue;
+      const nums = new Set<number>();
+      for (const pair of pairs) {
+        const [lo, hi] = [parseInt(pair[1], 10), parseInt(pair[2], 10)];
+        if (hi - lo > 200) continue; // nonsense span — not a gate range
+        for (let i = lo; i <= hi; i++) nums.add(i);
+      }
+      if (nums.size === 0) continue;
+      if (nums.size !== gateNums.length || gateNums.some(n => !nums.has(n))) {
+        const line = text.slice(0, m.index).split('\n').length;
+        findings.push({
+          detail: `${f.replace(CLAUDE_DIR + '/', '')}:${line} says "${m[0]}" but GateKey declares ${canonical}`,
+          blocking: true,
+        });
+      }
+    }
+  }
+  record('gate_counts', findings,
+    `GateKey=${gateCount} gates (${canonical}); ${scanned} live files scanned, ${findings.length} drifted counts/ranges`);
+}
+
+// Collapse a sorted gate roster into its canonical range expression ("G1–G14 + G17–G25").
+function expandRanges(nums: number[]): string {
+  const runs: [number, number][] = [];
+  for (const n of nums) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  return runs.map(([lo, hi]) => (lo === hi ? `G${lo}` : `G${lo}–G${hi}`)).join(' + ');
 }
 
 // ── Change window (memory sweep anchor) ──
@@ -1155,6 +1527,10 @@ function checkSkillHygiene(): void {
   for (const d of parsed.vendoredDeps ?? []) {
     findings.push({ detail: `vendored deps tracked in git: ${d}`, blocking: true });
   }
+  // An ok:false payload with zero extracted findings must never read as a
+  // pass — fail closed on the shape (Max landed-set review, 2026-08-14: the
+  // gate's CANNOT-VERIFY branch previously recorded as CLEAN here).
+  if (parsed.ok === false && findings.length === 0) { scanError('skill-hygiene: gate returned ok:false with no parseable finding — treat as cannot-verify'); return; }
   record('skill-hygiene', findings, `${parsed.totalViolations ?? '?'} violations, ${parsed.allowedHits ?? 0} allowlisted`);
 }
 
@@ -1266,7 +1642,7 @@ function checkPermissionRuleShape(): void {
 // pinned to the top rung "by config, not by election". v8.17.0 shipped the `//model`
 // RATIONALE STRING into settings.json and never wrote the `model` key beside it, so every
 // session since ran a rung below doctrine while both documents asserted otherwise, and
-// nothing observed the gap (INC-20260730). A comment explaining a pin is not a pin.
+// nothing observed the gap until 2026-07-30. A comment explaining a pin is not a pin.
 function checkModelRungPin(): void {
   const findings: Finding[] = [];
   const settingsPath = join(CLAUDE_DIR, 'settings.json');
@@ -1290,7 +1666,7 @@ function checkModelRungPin(): void {
     findings.push({ detail: 'could not resolve EFFORT_MODEL.max from LIFEOS/TOOLS/models.ts', blocking: true });
   } else if (settings.model === undefined) {
     findings.push({
-      detail: `settings.json has no "model" key — the main loop runs the harness default, while doctrine claims the top rung (${topRung}). This is the INC-20260730 shape.`,
+      detail: `settings.json has no "model" key — the main loop runs the harness default, while doctrine claims the top rung (${topRung}). This exact gap has happened before and gone undetected.`,
       blocking: true,
     });
   } else if (settings.model !== topRung) {
@@ -1341,7 +1717,9 @@ const changeWindow = computeChangeWindow();
 try {
   checkReferences();
   checkVersionAnchors();
+  checkMasterDocPaths();
   checkHookRegistration();
+  checkSettingsParity();
   checkHookWiring();
   checkCarrierProbe();
   checkModelRungPin();
@@ -1361,8 +1739,10 @@ try {
   checkCredentialRegistry();
   checkPermissionRuleShape();
   checkProseInCode();
+  checkFetchTimeouts();
   checkAscentVocabulary();
   checkBlockMessages();
+  checkSpinnerTips();
 } catch (e: any) {
   if (jsonOutput) console.log(JSON.stringify({ error: e.message }, null, 2));
   else console.error(`SCAN ERROR: ${e.message}`);
@@ -1386,6 +1766,13 @@ try {
   const runRecord = { ts: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), head, exitCode, blocking: totalBlocking, info: totalInfo };
   writeFileSync(join(STATE_DIR, 'last-run.json'), JSON.stringify(runRecord) + '\n');
   appendFileSync(join(STATE_DIR, 'runs.jsonl'), JSON.stringify(runRecord) + '\n');
+  // Fully-clean runs self-stamp the pass (2026-08-12: a hand-written stamp in a
+  // pipelined command shipped a bump past a 5-BLOCKING verdict — the human write
+  // is the error surface). The manual Step 7 write remains ONLY for the
+  // triaged-with-open-findings case, where a human judged the findings shippable.
+  if (exitCode === 0) {
+    writeFileSync(join(STATE_DIR, 'last-pass.json'), JSON.stringify({ ts: runRecord.ts, head, critical: 0 }) + '\n');
+  }
 } catch (e: any) {
   console.error(`warn: could not write run stamp: ${e?.message ?? e}`);
 }

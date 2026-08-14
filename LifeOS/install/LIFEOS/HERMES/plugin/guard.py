@@ -31,6 +31,7 @@ import fnmatch
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -112,13 +113,25 @@ def _matches(path_variants: Iterable[str], pattern: str) -> bool:
     return False
 
 
-def check_path(raw_path: str) -> Optional[str]:
-    """Return the block reason if this path is denied, else None."""
+def check_path(raw_path: str, read_only: bool = False) -> Optional[str]:
+    """Return the block reason if this path is denied, else None.
+
+    ``read_only`` marks a native read-class tool (never a write, patch, or shell
+    command). Only those consult ``readAllowRules`` — a narrow carve-out that
+    re-permits a directory the deny set would otherwise cover, so the sidecar can
+    read text it produced itself (e.g. its own cron OUTPUT) without opening any
+    write path. A denied WRITE to the same directory still blocks, because the
+    exception is gated on the tool being read-only.
+    """
     if _POLICY is None:
         return f"guard policy unavailable ({_POLICY_ERROR}) — refusing file access while unprotected"
     variants = _candidate_paths(raw_path)
     if not variants:
         return None
+    if read_only:
+        for rule in _POLICY.get("readAllowRules", []):
+            if _matches(variants, rule.get("pattern", "")):
+                return None
     for rule in _POLICY["denyRules"]:
         if _matches(variants, rule.get("pattern", "")):
             return rule.get("reason", "sensitive path")
@@ -126,7 +139,16 @@ def check_path(raw_path: str) -> Optional[str]:
 
 
 def check_command(command: str) -> Optional[str]:
-    """Return the block reason if a shell command touches denied material."""
+    """Return the block reason if a shell command names denied material.
+
+    Best-effort by design: this matches the command STRING, and shell obfuscation
+    (``$IFS``, ``$(...)``, base64, ``eval``) is an unwinnable string-parsing arms
+    race. It is NOT the boundary — the sidecar sandbox is: the agent's env carries
+    no real credentials (Mount.ts writes only HERMES_WRITE_SAFE_ROOT), the mount is
+    CLI-first so secrets never enter model context, and session taint blocks a
+    privileged call after any untrusted read. This layer catches the plain cases
+    off the same deny list ``check_path`` uses; it does not pretend to be complete.
+    """
     if _POLICY is None:
         return f"guard policy unavailable ({_POLICY_ERROR}) — refusing shell access while unprotected"
     lowered = str(command).lower()
@@ -155,7 +177,12 @@ def _extract_pathish_tokens(command: str) -> List[str]:
         t = raw.strip("\"'`<>=")
         if not t:
             continue
-        if t.startswith("~") or t.startswith("/") or t.startswith("./") or t.startswith("../") or "/" in t:
+        # Path-shaped tokens, plus BARE DOTFILES: `cat .env`/`cat .netrc` in the
+        # cwd name a denied file with no slash, so a `/`-only heuristic missed them
+        # (INC 7.38.4). A leading dot is enough to route the token through the path
+        # rules, which match on basename and only block the ones that are denied.
+        if (t.startswith("~") or t.startswith("/") or t.startswith("./")
+                or t.startswith("../") or "/" in t or t.startswith(".")):
             tokens.append(t)
     return tokens
 
@@ -231,6 +258,37 @@ def injection_shapes(text: str) -> List[str]:
     return hits
 
 
+_URL_HOST_RE = re.compile(r"https?://([^/\s:\"'`]+)", re.IGNORECASE)
+
+# The untrusted-source globs whose hits are URL-FETCH shaped, and therefore
+# eligible for the trusted-egress check below. Mail/feed globs are not: their
+# content is third-party by nature regardless of endpoint.
+_URL_FETCH_GLOBS = frozenset({"*curl*", "*wget*", "*webfetch*"})
+
+
+def _all_hosts_trusted(command: str) -> bool:
+    """True only when every URL in the command targets a trusted-egress host.
+
+    Fail closed on purpose: no policy list, no extractable URL, or any host not
+    on the list → NOT trusted, and the taint fires exactly as before. Hosts
+    match on exact name or dot-boundary suffix (`api.x.dev` matches `x.dev`,
+    `evilx.dev` does not).
+    """
+    if _POLICY is None:
+        return False
+    trusted = [str(d).lower().lstrip(".") for d in _POLICY.get("trustedEgressDomains", []) if str(d).strip()]
+    if not trusted:
+        return False
+    hosts = [h.lower().rstrip(".") for h in _URL_HOST_RE.findall(command)]
+    if not hosts:
+        return False
+    for host in hosts:
+        bare = host.split("@")[-1]  # strip userinfo so `u:p@evil.com` can't smuggle
+        if not any(bare == d or bare.endswith("." + d) for d in trusted):
+            return False
+    return True
+
+
 def is_untrusted_source(tool_name: str, args: Dict[str, Any]) -> Optional[str]:
     """Why this call's RESULT should be treated as attacker-controlled, if it should."""
     if _POLICY is None:
@@ -244,6 +302,14 @@ def is_untrusted_source(tool_name: str, args: Dict[str, Any]) -> Optional[str]:
             if isinstance(value, str) and value:
                 hit = _glob_hit(value, _POLICY.get("untrustedOutputCommandGlobs", []))
                 if hit:
+                    # URL-fetch hits against KNOWN infrastructure are first-party
+                    # traffic, not third-party text: 1,811 of the first 2,704
+                    # audited blocks were taints from health probes and the
+                    # skills' own localhost voice-notification curl. Any URL
+                    # off the trusted list — or none extractable — taints
+                    # exactly as before.
+                    if hit in _URL_FETCH_GLOBS and _all_hosts_trusted(value):
+                        continue
                     return f"command output matches untrusted-source rule '{hit}'"
     return None
 
@@ -320,10 +386,11 @@ def evaluate(tool_name: str, args: Dict[str, Any], task_id: Any = "") -> Optiona
     cmd_tools = _POLICY.get("commandBearingTools", {})
 
     if tool_name in path_tools:
+        read_only = tool_name in _POLICY.get("readOnlyTools", [])
         for key in path_tools[tool_name]:
             value = args.get(key)
             if isinstance(value, str) and value:
-                reason = check_path(value)
+                reason = check_path(value, read_only=read_only)
                 if reason:
                     return (value, reason)
 

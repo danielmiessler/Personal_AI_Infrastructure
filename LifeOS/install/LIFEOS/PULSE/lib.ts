@@ -11,6 +11,7 @@ import { existsSync } from "fs"
 import { rename } from "fs/promises"
 import { modelForEffort } from "../TOOLS/models.ts"
 import { PULSE_BASE } from "./endpoint"
+import { homedir } from "node:os";
 
 export { PULSE_BASE }
 
@@ -56,6 +57,15 @@ export interface Job {
 
 export interface DaemonConfig {
   jobs: Job[]
+  /**
+   * The parsed user-tier PULSE.user.toml document, when the file exists and
+   * parses. Beyond `[[job]]` entries the user file may carry `[modules]` and
+   * legacy `[section].enabled` overrides of the system PULSE.toml — this is
+   * how machine-specific module choices (e.g. the syslog collector) stay out
+   * of the shipped template. loadPulseConfig() feeds it to resolveModules()
+   * and layers `[syslog]` from it.
+   */
+  userParsed?: Record<string, unknown>
 }
 
 // ── User-file path helpers ──
@@ -66,7 +76,7 @@ export interface DaemonConfig {
 // structural privacy lever — no separate scrub policy needed.
 
 export const USER_CRON_PATH = join(
-  process.env.HOME ?? "~",
+  homedir(),
   ".claude", "LIFEOS", "USER", "CONFIG", "PULSE.user.toml",
 )
 
@@ -135,16 +145,18 @@ export function parseConfigToml(raw: string): Record<string, unknown> {
 // and merges them into a single Job[]. User-tier jobs override system-tier
 // jobs by name (same-name override pattern). Each Job carries a _source
 // tag so downstream code can render badges and route writes correctly.
+// The parsed user document also rides along as `userParsed` so the config
+// layer can honour user-tier [modules]/[section] overrides (see DaemonConfig).
 //
 // Missing user file is non-fatal — fresh LifeOS installs have system-only
 // jobs until the user adds something via the API.
 
-function jobsFromToml(raw: string, source: JobSource): Job[] {
+function jobsFromParsed(parsed: Record<string, unknown>, source: JobSource): Job[] {
   // parseConfigToml already expanded env vars in every string, including
   // `command` — which is why there is no per-field resolveEnvVars call here
   // any more.
-  const parsed = parseConfigToml(raw) as { job?: Array<Record<string, unknown>> }
-  return (parsed.job ?? []).map((j) => ({
+  const { job } = parsed as { job?: Array<Record<string, unknown>> }
+  return (job ?? []).map((j) => ({
     name: j.name as string,
     schedule: j.schedule as string,
     type: (j.type as "script" | "claude") ?? "script",
@@ -158,17 +170,23 @@ function jobsFromToml(raw: string, source: JobSource): Job[] {
   }))
 }
 
-export async function loadConfig(daemonDir: string): Promise<DaemonConfig> {
+// `userPath` is overridable for tests only — Bun's homedir() ignores a swapped
+// $HOME, so a test cannot redirect USER_CRON_PATH through the environment and
+// must inject a hermetic path instead. Production callers never pass it.
+export async function loadConfig(daemonDir: string, userPath: string = USER_CRON_PATH): Promise<DaemonConfig> {
   const systemRaw = await Bun.file(join(daemonDir, "PULSE.toml")).text()
-  const systemJobs = jobsFromToml(systemRaw, "system")
+  const systemJobs = jobsFromParsed(parseConfigToml(systemRaw), "system")
 
   let userJobs: Job[] = []
-  if (existsSync(USER_CRON_PATH)) {
+  let userParsed: Record<string, unknown> | undefined
+  if (existsSync(userPath)) {
     try {
-      const userRaw = await Bun.file(USER_CRON_PATH).text()
-      userJobs = jobsFromToml(userRaw, "user")
+      const userRaw = await Bun.file(userPath).text()
+      userParsed = parseConfigToml(userRaw)
+      userJobs = jobsFromParsed(userParsed, "user")
     } catch (err) {
-      log("error", "Failed to parse user cron file", { path: USER_CRON_PATH, error: String(err) })
+      userParsed = undefined
+      log("error", "Failed to parse user cron file", { path: userPath, error: String(err) })
     }
   }
 
@@ -192,7 +210,7 @@ export async function loadConfig(daemonDir: string): Promise<DaemonConfig> {
     if (!userOverrideNames.has(usr.name)) merged.push(usr)
   }
 
-  return { jobs: merged.map(checkSchedule) }
+  return { jobs: merged.map(checkSchedule), userParsed }
 }
 
 // Schedules are validated once, here, as the config is read — not on every
@@ -327,29 +345,42 @@ export function validateCron(expression: string): string | null {
   }
 }
 
-export function matchesCron(expression: string, date: Date): boolean {
-  let fields: CronField[]
+// ported from public PR #1736, @elhoim
+function parseCronOrThrow(expression: string): CronField[] {
   try {
-    fields = parseCron(expression)
+    return parseCron(expression)
   } catch (err) {
     throw new Error(`Invalid cron "${expression}": ${err instanceof Error ? err.message : String(err)}`)
   }
+}
 
+function matchesFields(fields: CronField[], date: Date): boolean {
   const actuals = [date.getMinutes(), date.getHours(), date.getDate(), date.getMonth() + 1, date.getDay()]
 
   return fields.every((f, i) => f.type === "any" || f.values.includes(actuals[i]))
+}
+
+export function matchesCron(expression: string, date: Date): boolean {
+  return matchesFields(parseCronOrThrow(expression), date)
 }
 
 /**
  * Most recent minute at/before `now` matching the schedule, bounded by
  * `lookbackMs`. Minute-resolution backward scan — cron fields are cheap to
  * test and the bound keeps the worst case (~10k iterations at 7 days) trivial.
+ *
+ * The expression is parsed ONCE, outside the loop: going through matchesCron
+ * re-parsed it on every one of the up-to-10,080 minute-steps, and the parse —
+ * not the field test — was the whole cost of a scan (~53ms per unmatched
+ * sparse job, paid every minute on the thread that serves the dashboard).
+ * ported from public PR #1736, @elhoim
  */
 export function mostRecentOccurrence(schedule: string, now: Date, lookbackMs: number): number | null {
+  const fields = parseCronOrThrow(schedule)
   const nowMinute = Math.floor(now.getTime() / 60_000) * 60_000
   const floorMs = now.getTime() - lookbackMs
   for (let t = nowMinute; t >= floorMs; t -= 60_000) {
-    if (matchesCron(schedule, new Date(t))) return t
+    if (matchesFields(fields, new Date(t))) return t
   }
   return null
 }
@@ -414,7 +445,22 @@ async function dispatchSingle(output: string, target: OutputTarget, jobName: str
 
   try {
     switch (target) {
-      case "voice":
+      // Scheduled jobs do not speak. A cron tick has no session to answer
+      // back to, so voiced output interrupts whatever the operator is doing
+      // with something they cannot reply to. Suppressed by default here, at
+      // the one choke point every job's output passes through: the earlier
+      // round of fixes added `voice_enabled: false` to individual cadence
+      // TOOLS and never touched this dispatcher, so `output = "voice"` in a
+      // job config kept reaching the VoiceServer (life-morning-brief spoke
+      // every 07:00 through 2026-08-14). The content still reaches the log.
+      // Opt back in per-install with PULSE_CRON_VOICE=1.
+      case "voice": {
+        if (process.env.PULSE_CRON_VOICE !== "1") {
+          log("info", `Voice dispatch suppressed for ${jobName}: scheduled jobs do not speak (set PULSE_CRON_VOICE=1 to allow)`, {
+            outputPreview: output.slice(0, 200),
+          })
+          break
+        }
         await fetch(`${PULSE_BASE}/notify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -422,6 +468,7 @@ async function dispatchSingle(output: string, target: OutputTarget, jobName: str
           signal: AbortSignal.timeout(timeout),
         })
         break
+      }
 
       case "email": {
         const recipient = process.env.GMAIL_USER
@@ -466,6 +513,15 @@ async function dispatchSingle(output: string, target: OutputTarget, jobName: str
       }
 
       case "log":
+        break
+
+      // Fail loud on a target this build no longer handles. `output` is cast
+      // unchecked at config load, so a config carrying an older target (e.g.
+      // `telegram`, since removed from OutputTarget) fell through the switch,
+      // sent nothing, and still reported the dispatch as a success.
+      // ported from public PR #1736, @elhoim
+      default:
+        log("error", `Dispatch skipped for ${jobName}: unknown output target "${String(target)}" — valid targets are voice, ntfy, email, log`)
         break
     }
   } catch (err) {
@@ -524,7 +580,7 @@ export async function spawnScript(command: string, timeoutMs = 60_000): Promise<
   const proc = Bun.spawn([BASH_PATH, "-c", command], {
     stdout: "pipe",
     stderr: "pipe",
-    cwd: join(process.env.HOME ?? "~", ".claude", "LIFEOS", "PULSE"),
+    cwd: join(homedir(), ".claude", "LIFEOS", "PULSE"),
     env: { ...process.env },
   })
 
@@ -556,14 +612,16 @@ export async function spawnClaude(prompt: string, opts: { model: string; timeout
     "--setting-sources", "",
     "--system-prompt", "",
   ]
-  const claudePath = Bun.which("claude") ?? join(process.env.HOME ?? "~", ".local", "bin", "claude")
+  const claudePath = Bun.which("claude") ?? join(homedir(), ".local", "bin", "claude")
 
-  const env: Record<string, string> = { ...process.env, HOME: process.env.HOME ?? "" } as Record<string, string>
+  const env: Record<string, string> = { ...process.env, HOME: homedir() } as Record<string, string>
   // Strip BOTH keys — Anthropic's precedence chain ranks ANTHROPIC_API_KEY and
   // ANTHROPIC_AUTH_TOKEN above CLAUDE_CODE_OAUTH_TOKEN, so either one in env
   // silently overrides OAuth. Mirrors LIFEOS/TOOLS/Inference.ts:116-117.
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
+  // Headless subprocess: never the desktop voice channel (2026-08-14 leak).
+  env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || "headless"
 
   const proc = Bun.spawn([claudePath, ...args], {
     stdin: new Blob([prompt]),
@@ -582,3 +640,6 @@ export async function spawnClaude(prompt: string, opts: { model: string; timeout
 
   return output.trim()
 }
+
+// ported from public PR #1748, @elhoim
+export { MODULE_DEFAULTS, resolveModules } from "./lib/modules"

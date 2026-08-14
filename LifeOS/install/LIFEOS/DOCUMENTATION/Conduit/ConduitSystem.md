@@ -2,7 +2,7 @@
 last_updated: 2026-07-04T00:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.3.3
+version: 1.3.4
 ---
 
 # Conduit — LifeOS's Sensory Layer
@@ -14,7 +14,6 @@ version: 1.3.3
 > rolls it into a daily record, and feeds that record to Cortex (the memory system) and TELOS.
 > In the sensory stack, Conduit is the **internal sense** — Feed is the external one, and
 > Synapse (`Synapse/SynapseSystem.md`) is the router that grades and routes captured signal.
-> Design ISA: `LIFEOS/MEMORY/WORK/20260704-conduit-context-gathering/ISA.md`.
 
 **Component version:** Conduit v1.0.0 · shipped in LifeOS 6.1.0.
 
@@ -239,7 +238,6 @@ The diagram is the sensory loop in one frame: cheap polls accrete raw spans all 
 
 ## Cross-references
 
-- Design ISA: `LIFEOS/MEMORY/WORK/20260704-conduit-context-gathering/ISA.md`
 - Pulse: `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`
 - Cortex (memory): `LIFEOS/DOCUMENTATION/Memory/MemorySystem.md`
 - TELOS derived-state: `LIFEOS/TOOLS/UpdateLifeosState.ts`, `DerivedSync.ts`

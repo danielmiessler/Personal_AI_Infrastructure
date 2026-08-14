@@ -12,8 +12,9 @@ import { join } from "path"
 import { readFileSync } from "fs"
 import { parse } from "smol-toml"
 import { SignJWT, importPKCS8 } from "jose"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? ""
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const PULSE_DIR = join(HOME, ".claude", "LIFEOS", "PULSE")
 const STATE_FILE = join(PULSE_DIR, "state", "work-token.json")
 
@@ -282,6 +283,8 @@ async function executeWork(issue: Issue, config: WorkerConfig): Promise<{ output
   // feedback_claude_bare_flag_forces_api_billing.md.
   const env: Record<string, string> = { ...process.env } as Record<string, string>
   delete env.ANTHROPIC_API_KEY
+  // Headless subprocess: never the desktop voice channel (2026-08-14 leak).
+  env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || "headless"
   const proc = Bun.spawn(
     [claudePath, "--print", "--model", "sonnet", "--tools", "", "--output-format", "text", "--setting-sources", "", "--system-prompt", ""],
     {

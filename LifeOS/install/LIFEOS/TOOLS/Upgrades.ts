@@ -15,7 +15,7 @@
  * The Ledger (MEMORY/SYSTEMUPDATES/) stays applied-only; `apply` here stamps
  * ledger_id so the pending half and the applied half point at each other.
  *
- * Consumed by: SatisfactionCapture.hook.ts (directive/correction capture),
+ * Consumed by: SatisfactionCapture.hook.ts (directive capture),
  * PULSE/modules/upgrades.ts (dashboard), skills/Upgrade + /algo workflows
  * (persist recommendations), LIFEOS/TOOLS/CreateUpdate.ts (--upgrade-id).
  */
@@ -23,6 +23,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -30,7 +31,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
   if (v && /^\$\{?HOME\}?(\/|$)/.test(v)) process.env[k] = v.replace(/^\$\{?HOME\}?/, process.env.HOME ?? "~");
 }
 
-const BASE_DIR = process.env.LIFEOS_DIR || join(process.env.HOME!, ".claude", "LIFEOS");
+const BASE_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const UPGRADES_DIR = join(BASE_DIR, "MEMORY", "UPGRADES");
 const RECORDS_DIR = join(UPGRADES_DIR, "records");
 const STATE_FILE = join(UPGRADES_DIR, ".state.json");

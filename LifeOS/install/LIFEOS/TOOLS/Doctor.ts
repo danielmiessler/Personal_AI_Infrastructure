@@ -40,8 +40,9 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync, readdirSync, statSync } from 'fs';
 import { join, basename } from 'path';
 import { createHash, randomBytes } from 'crypto';
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || '';
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CONFIG_ROOT = process.env.CLAUDE_CONFIG_DIR || join(HOME, '.claude');
 const LIFEOS_DIR = (process.env.LIFEOS_DIR || join(CONFIG_ROOT, 'LIFEOS'))
   .replace(/^\$HOME/, HOME).replace(/^~(?=\/)/, HOME);
@@ -273,6 +274,45 @@ function chromeBinary(): string | null {
 
 const CAPS: CapSpec[] = [
   {
+    // Identity substitution has no programmatic caller — the install is
+    // AI-driven and Setup.md instructs the agent to run substituteTree, so a
+    // skipped step ships a system addressing its owner by a raw
+    // PRINCIPAL_NAME-style token with nothing failing. This probe makes that
+    // state permanently detectable post-install (public issues #1813, @tzioup;
+    // #1817, @catchingknives — G23 covers the release side, this covers the
+    // install side). Scope is the MODEL-FACING runtime surfaces only:
+    // transcripts (projects/), release staging, and install templates all
+    // carry tokens legitimately and must not be scanned.
+    id: 'identity-placeholders',
+    title: 'Identity placeholders rendered',
+    powers: 'the DA knowing who you are — every prompt surface and hook that names you',
+    ttlHours: 24 * 7,
+    configured: () => true, // every install must have run substitution
+    probeOffline: async () => {
+      try {
+        const { checkSurvivingPlaceholders } = await import(join(CONFIG_ROOT, 'skills', 'LifeOS', 'Tools', 'InstallEngine.ts'));
+        const roots = [
+          join(CONFIG_ROOT, 'hooks'), join(CONFIG_ROOT, 'commands'), join(CONFIG_ROOT, 'agents'),
+          join(LIFEOS_DIR, 'ALGORITHM'), join(LIFEOS_DIR, 'LIFEOS_SYSTEM_PROMPT.md'),
+          join(CONFIG_ROOT, 'CLAUDE.md'), join(CONFIG_ROOT, 'settings.json'),
+        ];
+        let total = 0;
+        const sites: Array<{ file: string; placeholder: string }> = [];
+        for (const root of roots) {
+          const r = checkSurvivingPlaceholders(root);
+          total += r.total;
+          sites.push(...r.files);
+        }
+        if (total === 0) return { ok: true, detail: 'no surviving identity placeholders on model-facing surfaces' };
+        const sample = sites.slice(0, 3).map((f) => `${f.placeholder} in ${f.file}`).join('; ');
+        return { ok: false, detail: `${total} unrendered identity placeholder(s) across ${sites.length} site(s) — substitution never ran or was mis-rooted. E.g. ${sample}` };
+      } catch (e) {
+        return { ok: true, detail: `check unavailable (${String(e).split('\n')[0]}) — InstallEngine not present on this tree` };
+      }
+    },
+    fixCmd: 'bun -e \'import {substituteTree} from "<configRoot>/skills/LifeOS/Tools/InstallEngine.ts"; ...\' — re-run Setup.md step 9d substitution',
+  },
+  {
     id: 'shadow-home',
     title: 'Orphaned memory (shadow-$HOME trees)',
     powers: 'the learning loop, satisfaction ratings, failure capture',
@@ -321,9 +361,19 @@ const CAPS: CapSpec[] = [
       // Report "live" only when the runtime setup exists; otherwise say exactly
       // what one-time setup is missing instead of a false green.
       const cli = which('interceptor') || existsSync(join(HOME, 'Projects', 'interceptor'));
-      const prefsPath = join(CONFIG_ROOT, 'skills', 'Interceptor', 'preferences.env');
-      const hasContext = existsSync(prefsPath) &&
-        /^INTERCEPTOR_TEST_CONTEXT_ID=.+/m.test(readFileSync(prefsPath, 'utf8'));
+      // The seam copy under LIFEOS/USER is what every real consumer sources (the
+      // skill Workflows and Tools/EnsureTestProfile.sh); the skill-dir copy is a
+      // fallback for installs that never moved it. Match `export FOO=` and quoted
+      // values too — the canonical seam file writes `export FOO="<uuid>"`, which
+      // the old anchored regex missed, reporting red on a working setup.
+      // public issue #1775, @bnkath2o
+      const prefsCandidates = [
+        join(CONFIG_ROOT, 'LIFEOS', 'USER', 'CUSTOMIZATIONS', 'SKILLS', 'Interceptor', 'preferences.env'),
+        join(CONFIG_ROOT, 'skills', 'Interceptor', 'preferences.env'),
+      ];
+      const prefsPath = prefsCandidates.find((p) => existsSync(p));
+      const hasContext = !!prefsPath &&
+        /^\s*(?:export\s+)?INTERCEPTOR_TEST_CONTEXT_ID=["']?\S/m.test(readFileSync(prefsPath, 'utf8'));
       if (!cli || !hasContext) {
         const missing = [
           !cli ? 'interceptor CLI/daemon (repo not cloned, binary not on PATH)' : null,

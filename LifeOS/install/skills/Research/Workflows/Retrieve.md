@@ -436,7 +436,7 @@ mcp__Apify__apify-slash-rag-web-browser({
 
 **Working files (in current work item directory):**
 ```
-~/.claude/LIFEOS/MEMORY/WORK/20260111-172408_retrieve-react19-docs/
+~/.claude/LIFEOS/MEMORY/WORK/{slug}/
 ├── raw-content/
 │   ├── page1.md (Layer 2 output)
 │   ├── page2.md (Layer 2 output)

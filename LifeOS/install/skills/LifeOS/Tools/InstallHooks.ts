@@ -17,6 +17,7 @@
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import { detectDevTree, mergeHooks } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
@@ -28,7 +29,7 @@ function parseArgs(): Args {
     const i = a.indexOf(flag);
     return i >= 0 && a[i + 1] && !a[i + 1].startsWith("--") ? a[i + 1] : undefined;
   };
-  const home = process.env.HOME || "";
+  const home = process.env.HOME || homedir(); // public issue #1729, @umair-a11y
   return {
     configRoot: get("--config-root") || process.env.CLAUDE_CONFIG_DIR || join(home, ".claude"),
     skillRoot: get("--skill-root") || join(import.meta.dir, ".."),
@@ -75,7 +76,20 @@ function main(): void {
   const settingsPath = join(configRoot, "settings.json");
   let settings: Record<string, unknown> = {};
   if (existsSync(settingsPath)) {
-    try { settings = JSON.parse(readFileSync(settingsPath, "utf-8")); } catch { settings = {}; }
+    try {
+      settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    } catch (e) {
+      // ABORT on an unparseable EXISTING settings.json — never reset to {}.
+      // The prior `catch { settings = {} }` silently dropped model / permissions /
+      // env / statusLine and wrote a file containing ONLY "hooks", destroying the
+      // user's Claude Code config on the most common hand-edit error (a trailing
+      // comma). Fresh-install data loss. (Forge cross-vendor audit 2026-08-11)
+      console.log(JSON.stringify({
+        ok: false, apply, settingsPath,
+        error: `settings.json exists but is not valid JSON: ${e instanceof Error ? e.message : String(e)}. Refusing to write — fix the file (a trailing comma or a comment is the usual cause) and re-run. Your settings were NOT modified.`,
+      }, null, 2));
+      process.exit(1);
+    }
   }
   const existingHooks = (settings.hooks && typeof settings.hooks === "object" ? settings.hooks : {}) as Record<string, never>;
 
@@ -94,22 +108,28 @@ function main(): void {
     backup = `${settingsPath}.lifeos-backup-${Date.now()}`;
     copyFileSync(settingsPath, backup);
   }
-  settings.hooks = merged;
-  // Atomic — a kill mid-write would leave the user with no settings.json at all
-  // (public PR #1643, @elhoim)
-  atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
-
-  // Deploy the hook scripts next to the merged settings (RC2): recursive copy of
-  // the whole payload hooks/ tree (*.hook.ts|sh + lib/**) into <configRoot>/hooks/.
-  // ADDITIVE, never clobbering (public issue #1491, @donovan-sec): `force: false`
-  // skips any file that already exists on disk — a pre-existing user hook with a
-  // colliding name is theirs, not ours. cpSync's default (force: true) silently
-  // overwrote every collision, contradicting the documented contract.
+  // Deploy the hook scripts FIRST, THEN wire settings — the install is not
+  // transactional across the two mutations, so ordering is the guard: a copy
+  // failure must never leave settings.json pointing at hooks that aren't on
+  // disk. The settings write below is the last mutation and is itself atomic
+  // (temp+rename), so a kill leaves settings either fully-old or fully-new,
+  // never wired-to-absent. (Forge cross-vendor audit 2026-08-11, [D])
+  //
+  // Recursive copy of the whole payload hooks/ tree (*.hook.ts|sh + lib/**) into
+  // <configRoot>/hooks/. ADDITIVE, never clobbering (public issue #1491,
+  // @donovan-sec): `force: false` skips any file that already exists on disk — a
+  // pre-existing user hook with a colliding name is theirs, not ours. cpSync's
+  // default (force: true) silently overwrote every collision.
   mkdirSync(hooksDestDir, { recursive: true });
   const preExisting = countFilesRec(hooksDestDir);
   cpSync(hooksPayloadDir, hooksDestDir, { recursive: true, force: false, errorOnExist: false });
   const hookFilesCopied = countFilesRec(hooksDestDir) - preExisting;
   const skippedExisting = hookFiles - hookFilesCopied;
+
+  settings.hooks = merged;
+  // Atomic — a kill mid-write would leave the user with no settings.json at all
+  // (public PR #1643, @elhoim)
+  atomicWriteText(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
   // Copying hook scripts and merging the manifest are two independent operations;
   // a hook can land on disk without any settings entry naming it. Ask the shipped

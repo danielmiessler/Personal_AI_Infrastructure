@@ -4,7 +4,9 @@
  * remove-bg - Background Removal CLI
  *
  * Remove backgrounds from images using local rembg.
- * Part of the Images skill for LifeOS system.
+ * Part of the Art skill for LifeOS system.
+ * (Images was retired and folded into Art — ported from public PR #1707
+ * (commit 1), @anikinsasha.)
  *
  * Usage:
  *   remove-bg input.png                    # Overwrites original
@@ -16,10 +18,11 @@ import { resolve, extname } from "node:path";
 import { existsSync } from "node:fs";
 import { unlink, stat, rename } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { homedir } from "node:os";
 
 function resolveRembgBin(): string {
   if (process.env.REMBG_BIN) return process.env.REMBG_BIN;
-  const home = process.env.HOME;
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
   if (!home) throw new Error("HOME not set; cannot resolve rembg binary");
   return resolve(home, ".local/bin/rembg");
 }

@@ -141,12 +141,21 @@ target_denied() {
         return 0
     fi
     if [ -n "$WORKING_PROFILE_IDS" ]; then
-        local _d
-        IFS=',' read -ra _arr <<< "$WORKING_PROFILE_IDS"
-        for _d in "${_arr[@]}"; do
-            _d="$(printf '%s' "$_d" | sed 's/^[ \t]*//;s/[ \t]*$//')"
-            [ -z "$_d" ] && continue
-            [ "$_d" = "$id" ] && return 0
+        # Comma is the documented separator, but a whitespace-separated value must
+        # not fail open here (it arrives as one token), and a single entry that
+        # itself contains spaces must still match whole. Test the whole value and
+        # both splits: a superset of the comma-only parse, so this can only add a
+        # refusal. public issue #1802, @catchingknives
+        local _d _sep _raw
+        _raw="$(printf '%s' "$WORKING_PROFILE_IDS" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+        [ "$_raw" = "$id" ] && return 0
+        for _sep in ',' $', \t'; do
+            IFS="$_sep" read -ra _arr <<< "$_raw"
+            for _d in "${_arr[@]:-}"; do
+                _d="$(printf '%s' "$_d" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+                [ -z "$_d" ] && continue
+                [ "$_d" = "$id" ] && return 0
+            done
         done
     fi
     return 1

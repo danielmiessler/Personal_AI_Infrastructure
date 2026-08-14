@@ -11,7 +11,7 @@ curl -s -X POST http://localhost:31337/notify \
 
 Running the **Upgrade** workflow in the **Upgrade** skill to check for upgrades...
 
-**Trigger:** "check for upgrades", "upgrade", "any updates", "check Anthropic", "check YouTube", "pai upgrade"
+**Trigger:** "check for upgrades", "upgrade", "any updates", "check Anthropic", "check YouTube"
 
 ---
 
@@ -30,7 +30,8 @@ To ground Prior Status tags, the run needs verified current state before synthes
 
 ## Constraints
 
-- **Deadline is a ceiling:** ~4 minutes from dispatch to synthesis, fail-open. Whatever isn't back gets `⏳ timed out` in Sources Processed. Never re-fire a slow agent; nudge an idle one once.
+- **The source sweep runs as a script, not as loose dispatches.** `~/.claude/workflows/UpgradeFanout.js` owns the deadline, the fail-open behaviour, and the return shape; invoke it with `Workflow({scriptPath: "~/.claude/workflows/UpgradeFanout.js", args: {sources: [{key, model, prompt}], groundingBrief}})`. Each source's brief still lives here, because this file is the source of truth for what a source is and how it is fetched — the script only orchestrates. It returns `{findings, coverage, grounding, totals}`; the report is still written by me, since the output format is a voice contract a script can't hold. Two contract facts learned the hard way (2026-08-06): `args` arrives as a JSON **string** even when passed as a JSON value, and `AbortSignal` does not exist in the runtime.
+- **Deadline is a ceiling:** ~4 minutes, fail-open, enforced by the script. A source that times out or dies comes back in `coverage` with that status and is reported as `⏳ timed out` in Sources Processed. Never re-fire a slow agent.
 - **Fan-out ~8 agents.** Delegates get explicit models per the operative model-selection rules. GitHub trending is inspiration-only — shortest budget, first to drop.
 - **Claude Code internals get verified, not recalled:** anything touching hooks, settings, slash commands, MCP, agent types, or the SDK/API goes through `Agent(subagent_type="claude-code-guide")` against the live surface.
 - **Recommendations must not break existing skills, hooks, or workflows** — check compatibility before recommending adoption.

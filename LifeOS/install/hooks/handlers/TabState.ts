@@ -10,7 +10,7 @@
  * Called by TabState.hook.ts (Stop branch; formerly ResponseTabReset.hook.ts).
  */
 
-import { setTabState, readTabState, stripPrefix, setAscentTab } from '../lib/tab-setter';
+import { setTabState, readTabState, stripPrefix, setAscentTab, isDegenerateDesc } from '../lib/tab-setter';
 import { isValidCompletionTitle, gerundToPastTense, getWorkingFallback, trimToValidTitle } from '../lib/output-validators';
 import { getDAName } from '../lib/identity';
 
@@ -125,7 +125,7 @@ export async function handleTabState(parsed: ParsedTranscript, sessionId?: strin
       if (pipeIdx !== -1) {
         rawTitle = rawTitle.slice(pipeIdx + 3);
       }
-      if (rawTitle && rawTitle !== 'Done.' && rawTitle !== 'Processing.' && rawTitle !== 'Processing request.' && rawTitle !== getWorkingFallback() && !rawTitle.endsWith('ready\u2026')) {
+      if (rawTitle && !isDegenerateDesc(rawTitle) && rawTitle !== 'Done.' && rawTitle !== 'Processing.' && rawTitle !== 'Processing request.' && rawTitle !== getWorkingFallback() && !rawTitle.endsWith('ready\u2026')) {
         const words = rawTitle.replace(/\.$/, '').split(/\s+/);
         if (words.length >= 2 && words[0].toLowerCase().endsWith('ing')) {
           words[0] = gerundToPastTense(words[0]);

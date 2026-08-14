@@ -189,6 +189,7 @@ function ClaimsKanban({ s }: { s: AlgorithmState }) {
                     key={c.id}
                     className="rounded px-2 py-1.5 bg-white/[0.02] border border-white/[0.04]"
                     title={evidenceText ? `${claimText}\n\nEvidence: ${evidenceText}` : claimText}
+                    data-sensitive
                   >
                     <div className="text-[11px] font-mono mb-0.5" style={{ color: `${col.color}99` }}>
                       {c.id}
@@ -234,7 +235,7 @@ function ClaimRow({ c }: { c: AlgorithmCriterion }) {
   }, [c.description, c.evidence]);
 
   return (
-    <div className={`flex items-start gap-2 px-3 py-1.5 rounded ${isAnti ? "bg-rose-500/[0.03]" : "bg-white/[0.015]"}`}>
+    <div className={`flex items-start gap-2 px-3 py-1.5 rounded ${isAnti ? "bg-rose-500/[0.03]" : "bg-white/[0.015]"}`} data-sensitive>
       {isAnti ? <Shield className="w-3.5 h-3.5 text-rose-300/70 shrink-0 mt-0.5" /> : icon}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -278,7 +279,7 @@ function SessionExpanded({ s, bare = false }: { s: AlgorithmState; bare?: boolea
         {s.rawTask && (
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">Opening ask</div>
-            <p className="text-sm text-ink-1 leading-relaxed">“{s.rawTask}”</p>
+            <p className="text-sm text-ink-1 leading-relaxed" data-sensitive>“{s.rawTask}”</p>
           </div>
         )}
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-ink-2">
@@ -335,7 +336,7 @@ function ClimbExpanded({ s, bare = false }: { s: AlgorithmState; bare?: boolean 
         )}
 
         {s.intent && !s.criteria.length && (
-          <p className="text-sm text-ink-2 leading-relaxed">{s.intent}</p>
+          <p className="text-sm text-ink-2 leading-relaxed" data-sensitive>{s.intent}</p>
         )}
 
         {claims.length > 0 && (
@@ -385,6 +386,7 @@ function ClimbExpanded({ s, bare = false }: { s: AlgorithmState; bare?: boolean 
                     : "text-ink-3 border-white/[0.06] bg-white/[0.02]"
                 }`}
                 title={a.task || a.name}
+                data-sensitive
               >
                 ⬡ {a.name.split("::").pop()} · {a.agentType}
               </span>
@@ -446,7 +448,7 @@ function BoardRow({
         </span>
 
         {/* title */}
-        <span className={`text-sm truncate flex-1 ${s.active ? "text-ink-1" : "text-ink-2"}`}>
+        <span className={`text-sm truncate flex-1 ${s.active ? "text-ink-1" : "text-ink-2"}`} data-sensitive>
           {s.taskDescription}
         </span>
 
@@ -472,7 +474,7 @@ function BoardRow({
           s.rawTask &&
           !s.taskDescription.toLowerCase().startsWith(s.rawTask.toLowerCase().slice(0, 24)) &&
           !s.rawTask.toLowerCase().startsWith(s.taskDescription.toLowerCase().slice(0, 24)) && (
-            <span className="text-[13px] text-ink-3 truncate max-w-[280px] shrink-0">{s.rawTask}</span>
+            <span className="text-[13px] text-ink-3 truncate max-w-[280px] shrink-0" data-sensitive>{s.rawTask}</span>
           )}
 
         <span className="text-[13px] font-mono text-ink-3 shrink-0 w-16 text-right">{elapsed}</span>
@@ -568,7 +570,7 @@ function SessionCard2({
             : formatAgo(s.completedAt || s.phaseStartedAt || s.algorithmStartedAt)}
         </span>
       </div>
-      <p className="text-[13px] leading-snug text-ink-1 line-clamp-2 mb-1.5">{s.taskDescription}</p>
+      <p className="text-[13px] leading-snug text-ink-1 line-clamp-2 mb-1.5" data-sensitive>{s.taskDescription}</p>
       {s.tracked && s.progress.total > 0 && (
         <div className="flex items-center gap-2">
           <ClimbChart state={s} variant="mini" />
@@ -576,7 +578,7 @@ function SessionCard2({
       )}
       {/* untracked: show the opening ask so the card says WHAT it is */}
       {!s.tracked && s.rawTask && !s.taskDescription.toLowerCase().startsWith(s.rawTask.toLowerCase().slice(0, 24)) && (
-        <p className="text-[12px] leading-snug text-ink-3 line-clamp-2 mb-1">“{s.rawTask}”</p>
+        <p className="text-[12px] leading-snug text-ink-3 line-clamp-2 mb-1" data-sensitive>“{s.rawTask}”</p>
       )}
       {(lastToolFresh || activeAgents > 0 || delta) && (
         <div className="flex items-center gap-2 text-[11px] font-mono text-ink-3 truncate">
@@ -678,7 +680,7 @@ function BoardKanban({
                 <span className="text-[11px] font-mono text-ink-3 ml-auto">{lane.items.length}</span>
               </div>
               {/* Columns flex between ≈4 rows (floor) and ≈8 rows (ceiling),
-                  scrolling internally only past 8 ({{PRINCIPAL_NAME}}, 2026-07-28). Grid
+                  scrolling internally only past 8 (principal, 2026-07-28). Grid
                   stretch keeps every lane the height of the tallest one. */}
               <div className="p-1.5 space-y-1.5 min-h-[384px] max-h-[780px] overflow-y-auto">
                 {lane.items.map((s) => (
@@ -723,7 +725,7 @@ function BoardKanban({
         </div>
       )}
 
-      {/* The separate Done/cairn ledger is GONE ({{PRINCIPAL_NAME}}, 2026-07-30): columns
+      {/* The separate Done/cairn ledger is GONE (principal, 2026-07-30): columns
           are static and cairn is a real column like every other state. */}
     </div>
   );
@@ -773,7 +775,7 @@ export default function WorkBoard() {
   };
 
   // Satisfaction pulses, windowed to the last 24h — a week-old rating has no
-  // business setting today's mood (2026-07-14 review: widget read 3.0/10 off
+  // business setting today's mood (2026-07-14 review: widget read a low score off
   // one stale rating). dayAgo is computed INSIDE the memo, not as a dep: a fresh
   // Date.now() every render would change the dep on every render and defeat the
   // memo entirely (full recompute per render). The window instead re-evaluates
@@ -943,12 +945,14 @@ export default function WorkBoard() {
               count={liveSessions.length}
               tone="#c0caf5"
             />
+            {/* Live rows drew a chevron that did nothing — same toggle as every
+                other section. ported from public PR #1735, @elhoim */}
             {liveSessions.map((s) => (
               <BoardRow
                 key={s.sessionId}
                 s={s}
-                expanded={false}
-                onToggle={() => {}}
+                expanded={expandedId === s.sessionId}
+                onToggle={() => setExpandedId(expandedId === s.sessionId ? null : s.sessionId)}
               />
             ))}
           </div>

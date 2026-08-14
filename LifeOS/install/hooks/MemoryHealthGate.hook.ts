@@ -16,8 +16,9 @@
 
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CHECK = join(HOME, ".claude/LIFEOS/TOOLS/MemoryHealthCheck.ts");
 
 try {

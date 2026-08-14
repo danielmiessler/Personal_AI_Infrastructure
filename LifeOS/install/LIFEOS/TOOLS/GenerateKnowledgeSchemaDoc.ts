@@ -103,7 +103,7 @@ export function render(): string {
   L.push("");
   L.push("## Rationale & History");
   L.push("");
-  L.push("Design + the three-dialect migration that produced this contract: `LIFEOS/MEMORY/WORK/20260704-knowledge-schema-upgrade-design/DESIGN.md`.");
+  L.push("This contract is the product of a three-dialect migration design pass.");
   L.push("");
   return L.join("\n");
 }

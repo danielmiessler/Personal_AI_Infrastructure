@@ -1,6 +1,6 @@
 ---
-version: 1.3.0
-last_updated: 2026-07-30
+version: 1.3.2
+last_updated: 2026-08-11
 convention: pai-freshness-v1
 source_of_truth: LIFEOS/TOOLS/ascent.ts
 ---
@@ -66,6 +66,8 @@ The theme is climbing a hill you had to name first — the Algorithm's own loop.
 
 **Anchoring is the verification doctrine in one word.** A climber weights a hold before trusting it; a claim closes on evidence, never on "should work."
 
+**Colors are a staged gradient (2026-08-12), in two registers.** Traverse is gray — off the scheme because no route is declared — then the arc escalates blue → green (marking → ascending → anchoring → cairn). Camped sits off the ramp on a dim slate: a run can camp at any point, so its color can't honestly encode progress; 💤 carries the pause. Pulse surfaces read the bright `color`; Kitty tabs read `tabBg`, the same hue darkened. The tab title also carries an activity glyph from `TAB_ACTIVITY` (⚡ working · ⏳ waiting on the principal · ✅ done · 💤 quiet) — state says where in the climb, activity says whether anything is moving. Values live only in the table; `hooks/TabTitleComposition.test.ts` pins both registers.
+
 ## What the model writes
 
 Nothing new. The ISA still declares a **minimal bracket** — an active value at run start, `complete` at close, updated in between only when it genuinely changes. `marking` is accepted alongside `scoping`; both resolve identically, so the vocabulary can converge without a migration. Every retired station name still parses forever.
@@ -103,7 +105,7 @@ Four writers touch rows. `syncToWorkJson`, `WorkReconcile` and `SessionCleanup` 
 |---|---|
 | `hooks/lib/tab-constants.ts` | re-exports the table; owns only the non-run tab colours |
 | `hooks/lib/tab-setter.ts` | `setAscentTab()`, cmux pill + progress, prefix stripping |
-| `hooks/ISASync.hook.ts` | derives on phase change, stamps the tab |
+| `hooks/ISASync.hook.ts` | derives on every ISA write, stamps the tab; injects the response-format phase strip as a `<lifeos-ascent-delta>` block on derived-state change (model echoes verbatim, never self-computes — 2026-08-11, after a self-computed strip said 🧗 while the board derived 🥾) |
 | `hooks/lib/isa-utils.ts` | writes the `ascent` blob onto the `work.json` row |
 | `hooks/PromptProcessing.hook.ts` | re-stamps the run's state across iterations; stamps `traverse` for un-ISA'd work and skill runs (the pre-Algorithm ⚙️ working gear is retired, 2026-07-28 — 🧠 thinking remains as the transient prompt-processing flash) |
 | `hooks/TabState.hook.ts` | question flow — carries the run's ascent through the teal question stamp via `previousAscent`, restores it after (fallback `traverse`) |

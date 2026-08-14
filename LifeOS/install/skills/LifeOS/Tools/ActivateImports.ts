@@ -10,7 +10,9 @@
  *   bun ActivateImports.ts [--config-root <dir>] [--apply] [--allow-dev]
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import { activateImports, detectDevTree } from "./InstallEngine";
 
 function main(): void {
@@ -19,7 +21,7 @@ function main(): void {
     const i = a.indexOf(f);
     return i >= 0 && a[i + 1] && !a[i + 1].startsWith("--") ? a[i + 1] : undefined;
   };
-  const home = process.env.HOME || "";
+  const home = process.env.HOME || homedir(); // public issue #1729, @umair-a11y
   const configRoot = get("--config-root") || process.env.CLAUDE_CONFIG_DIR || join(home, ".claude");
   const apply = a.includes("--apply");
   const allowDev = a.includes("--allow-dev");
@@ -35,7 +37,6 @@ function main(): void {
     // Dry-run: report which commented imports WOULD activate without writing.
     // activateImports only writes when activated.length>0, but to stay non-mutating
     // in dry-run we read + classify against a copy by pointing at a temp scan.
-    const { readFileSync, existsSync } = require("node:fs") as typeof import("node:fs");
     if (!existsSync(claudeMd)) {
       console.log(JSON.stringify({ ok: false, error: `CLAUDE.md not found at ${claudeMd}` }, null, 2));
       process.exit(1);
@@ -55,8 +56,29 @@ function main(): void {
     process.exit(0);
   }
 
+  // public issue #1728, @rpriven — the --apply path reported ok:true even when
+  // CLAUDE.md was absent: activateImports() returns empty rather than throwing,
+  // so a missing file looked like a clean no-op. Mirror the dry-run guard.
+  if (!existsSync(claudeMd)) {
+    console.log(JSON.stringify({ ok: false, error: `CLAUDE.md not found at ${claudeMd}` }, null, 2));
+    process.exit(1);
+  }
+
+  // `ok` means "ran without error", NOT "work happened" — a re-run over a
+  // fully-activated CLAUDE.md is a success with nothing to do. `activated` and
+  // `written` are the work signals; the note keeps a re-running agent from
+  // reading an empty activation as failure.
   const { activated, skipped } = activateImports(claudeMd, configRoot);
-  console.log(JSON.stringify({ ok: true, written: activated.length > 0, activated, skipped }, null, 2));
+  const written = activated.length > 0;
+  const out: Record<string, unknown> = { ok: true, written, activated, skipped };
+  if (!written) {
+    // Two different no-op causes: nothing left to do (success), or dormant
+    // imports whose targets don't resolve yet (success too, but not "done").
+    out.note = skipped.length > 0
+      ? `all imports already active; ${skipped.length} still dormant — target not found under ${configRoot}`
+      : "all imports already active";
+  }
+  console.log(JSON.stringify(out, null, 2));
   process.exit(0);
 }
 

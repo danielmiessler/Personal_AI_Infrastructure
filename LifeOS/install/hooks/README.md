@@ -4,7 +4,7 @@
 
 This document is the authoritative reference for LifeOS's hook system. When modifying any hook, update both the hook's inline documentation AND this README.
 
-*Last updated: 2026-07-29 — registry regenerated against `settings.json` (48 `.hook.ts` on disk, 37 registered, 11 dispatched-only). Ports public PRs #1595 / #1591, credit @anikinsasha.*
+*Last updated: 2026-08-10 — registry regenerated against `settings.json` (52 `.hook.ts` on disk, 40 registered, 12 dispatched-only). Public issues #1811 #1812, @tzioup. Earlier: 2026-07-29 ports of public PRs #1595 / #1591, credit @anikinsasha.*
 
 ---
 
@@ -61,7 +61,8 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │                     ├──► DriftReminder (doctrine drift surfacing)   │
 │                     ├──► MemoryTurnStart (hot-layer + deltas)       │
 │                     ├──► AlgorithmNudge (deterministic event nudges)│
-│                     └──► TimeContext (live wall-clock line)         │
+│                     ├──► TimeContext (live wall-clock line)         │
+│                     └──► ModelRungGuard (below-pin rung report)     │
 │                                                                     │
 │  PreToolUse ──┬──► ContextReduction (Bash → rtk rewrite)            │
 │               ├──► SkillGuard (HTTP route on Pulse 31337)           │
@@ -71,13 +72,15 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │               └──► PreToolGuard (Bash/Write/Edit/MultiEdit blockers)│
 │                                                                     │
 │  PostToolUse ──┬──► AgentInvocation (Agent → subagent_stop)         │
-│                ├──► Safety (WebFetch/WebSearch/mail/ToolSearch tag) │
+│                ├──► Safety (WebFetch/WebSearch/mcp__.*/ToolSearch)  │
 │                ├──► TabState (AskUserQuestion → reset tab)          │
 │                ├──► ISAStaleWriteGuard (Read/Write/Edit/MultiEdit)  │
 │                ├──► ISASync (Write/Edit/MultiEdit → work.json)      │
 │                ├──► CheckpointPerISC (Write/Edit/MultiEdit commit)  │
 │                ├──► ConfigEvalFire (Write/Edit/MultiEdit → evals)   │
 │                ├──► AtlasEventCapture (Bash/Write/Edit/MultiEdit)   │
+│                ├──► KnowledgeWriteGuard (Write/Edit/MultiEdit)      │
+│                ├──► ComplexityRatchet (Write/Edit/MultiEdit advise) │
 │                ├──► PostToolObserver (catch-all sync dispatcher)    │
 │                ├──► LoopDetector (catch-all loop/oscillation watch) │
 │                └──► EventLogger (catch-all observability)           │
@@ -110,6 +113,7 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 ---
 
@@ -118,7 +122,7 @@ Hooks are TypeScript scripts that execute at specific lifecycle events in Claude
 | Event | When It Fires | Typical Use Cases |
 |-------|---------------|-------------------|
 | `SessionStart` | Session begins | Exec-bit self-heal, context loading, terminal env, freshness cache, settings merge |
-| `UserPromptSubmit` | User sends a message | Tab title, session naming, satisfaction capture, reminder routing, drift teeth, memory injection, event nudges, wall clock |
+| `UserPromptSubmit` | User sends a message | Tab title, session naming, satisfaction capture, reminder routing, version + doctrine drift teeth, memory injection, event nudges, wall clock, model-rung check |
 | `PreToolUse` | Before a tool executes | Command rewrite, skill/agent enforcement, blocking guards, UI state |
 | `PostToolUse` | After a tool executes | ISA sync, checkpoint commit, Atlas capture, observability, external content tagging, loop detection |
 | `PostToolUseFailure` | Tool execution fails | Error tracking, failure-state nudges, repeat-failure detection |
@@ -158,7 +162,7 @@ interface StopPayload extends BasePayload {
 
 ## Hook Registry
 
-> **Census (2026-07-29).** 48 `.hook.ts` files exist on disk; **37 distinct `.hook.ts` files are registered in `settings.json`** (38 counting `ContextReduction.hook.sh`), plus 2 Pulse HTTP routes. The other 11 `.hook.ts` files are NOT dead — each is imported as a `run()`/`check()` module by a consolidating dispatcher and remains runnable standalone via its own shim. See [Dispatched-Only Modules](#dispatched-only-modules) below. This registry is generated against `settings.json`; when the two disagree, `settings.json` wins.
+> **Census (2026-08-10).** 52 `.hook.ts` files exist on disk; **40 distinct `.hook.ts` files are registered in `settings.json`** (41 counting `ContextReduction.hook.sh`), plus 2 Pulse HTTP routes. The other 12 `.hook.ts` files are NOT dead — each is imported as a `run()`/`check()` module by a consolidating dispatcher and remains runnable standalone via its own shim. See [Dispatched-Only Modules](#dispatched-only-modules) below. This registry is generated against `settings.json`; when the two disagree, `settings.json` wins.
 >
 > LifeOS registers hooks **bare** — the path alone, no `bun` prefix — relying on the `#!/usr/bin/env bun` shebang plus the executable bit. `HookHealer` is the one deliberate exception (it carries an explicit `bun` prefix so it can still repair a cleared exec bit on everything else).
 
@@ -184,6 +188,7 @@ interface StopPayload extends BasePayload {
 | `MemoryTurnStart.hook.ts` | The ONE per-prompt memory hook — dispatches `LoadMemory` + `MemoryDeltaSurface` | No | `USER/PRINCIPAL/PRINCIPAL_MEMORY.md`, `DA_MEMORY.md` (timeout 8) |
 | `AlgorithmNudge.hook.ts` | Deterministic event nudges (skill USE WHEN match, depth directives, run state) → additionalContext | No | Prebuilt USE WHEN index — zero inference (timeout 5) |
 | `TimeContext.hook.ts` | Inject a live, per-turn wall-clock line | No | `settings.json` `principal.timezone`, falls back to UTC (timeout 5). Ported from public PR #1511, credit @anikinsasha |
+| `ModelRungGuard.hook.ts` | Report a session running BELOW the `settings.json` model pin — states the gap and the sanctioned tier-alias dispatch; never changes the model | No | `settings.json` `model` pin, transcript tail (timeout 5) |
 
 ### PreToolUse Hooks (in fire order)
 
@@ -201,14 +206,16 @@ interface StopPayload extends BasePayload {
 | Hook | Matcher | Purpose | Blocking | Dependencies |
 |------|---------|---------|----------|--------------|
 | `AgentInvocation.hook.ts` | `Agent` | Log subagent_stop with duration | No | `MEMORY/OBSERVABILITY/` |
-| `Safety.hook.ts` | `WebFetch`, `WebSearch`, `mcp__.*(Gmail\|Mail\|Drive\|Calendar\|Inbox).*`, `ToolSearch` | Tag external content with "treat as data" warning + injection-shape marker. Same file as the PermissionRequest hook below; dispatches by event. | No | `lib/safety-classifier.ts` (timeout 5) |
+| `Safety.hook.ts` | `WebFetch`, `WebSearch`, `mcp__.*`, `ToolSearch` | Tag external content with "treat as data" warning + injection-shape marker. The MCP matcher is every MCP tool — it was widened from the old mail/drive/calendar subset. Same file as the PermissionRequest hook below; dispatches by event. | No | `lib/safety-classifier.ts` (timeout 5) |
 | `TabState.hook.ts` | `AskUserQuestion` | Reset tab state after question answered | No | Kitty terminal |
 | `ISAStaleWriteGuard.hook.ts` | `Read`, `Write`, `Edit`, `MultiEdit` | Stop a whole-file Write from silently discarding ISA changes the writing session never saw | No | ISA read-state ledger |
 | `ISASync.hook.ts` | `Write`, `Edit`, `MultiEdit` | Sync ISA frontmatter (incl. `phase:`/`progress:`) → `work.json` + KV push | No | `MEMORY/WORK/`, `work.json` |
 | `CheckpointPerISC.hook.ts` | `Write`, `Edit`, `MultiEdit` | Auto-commit per-ISC durability checkpoint — stages only paths dirty at-or-after the ISA's `started`, never the whole tree | No | `~/.claude/checkpoint-repos.txt` (timeout 30) |
 | `ConfigEvalFire.hook.ts` | `Write`, `Edit`, `MultiEdit` | Fire behavioural evals when CLAUDE.md / OPERATIONAL_RULES / a hook changes. Never blocks the edit. | No | Evals harness |
 | `AtlasEventCapture.hook.ts` | `Write`, `Edit`, `MultiEdit`, `Bash` | Mutation hints for the Atlas asset graph (deploys, DNS changes, tracked-asset edits) | No | Atlas store (timeout 5) |
-| `PostToolObserver.hook.ts` | (catch-all) | The ONE sync catch-all — dispatches `SystemChangeSurface`. Must stay on the empty matcher so it fires on every tool call. | No | `lib/system-surfaces.ts` (timeout 5) |
+| `KnowledgeWriteGuard.hook.ts` | `Write`, `Edit`, `MultiEdit` | Advisory schema feedback the moment a `MEMORY/KNOWLEDGE/<Type>/<slug>.md` note is written — names violations and the sanctioned writer while the author is still in the loop. Never blocks. Ported from public PR #1687, credit @elhoim | No | `MemorySystem` note schema (timeout 5) |
+| `ComplexityRatchet.hook.ts` | `Write`, `Edit`, `MultiEdit` | Advisory complexity-drift meter — measures the complexity a session ADDS and reports it via `additionalContext`. Advise-only in v1; fail-open is absolute | No | `MEMORY/STATE/` |
+| `PostToolObserver.hook.ts` | (catch-all) | The ONE sync catch-all — dispatches `LoopDetector`, `AlgorithmNudge`, and `SystemChangeSurface`, joined into one `hookSpecificOutput`. Must stay on the empty matcher so it fires on every tool call. | No | `lib/system-surfaces.ts` (timeout 5) |
 | `LoopDetector.hook.ts` | (catch-all) | Exact-repeat / oscillation / hammering detection. Graduated to a direct registration — no longer dispatcher-only. | No | `MEMORY/STATE/` (timeout 5) |
 | `EventLogger.hook.ts` | (catch-all) | Unified observability event logger — ground-truth audit log of every tool call | No | `MEMORY/OBSERVABILITY/tool-activity.jsonl` (timeout 5) |
 
@@ -235,7 +242,7 @@ interface StopPayload extends BasePayload {
 | `VoiceCompletion.hook.ts` | Send 🗣️ voice line to TTS server | No | Voice Server |
 | `ISARenderOnStop.hook.ts` | Re-render ISAs edited during the turn, from the per-session state file `ISASync` writes | No | `MEMORY/WORK/`, ISA renderer |
 | `SpendAuditor.hook.ts` | Outcome-side spend verification — did a HEAVY ask get matching effort | No | `MEMORY/OBSERVABILITY/` |
-| `StopGates.hook.ts` | The ONE Stop-event gate hook — dispatches `FormatGate`, `VerificationGate`, `ISACloseGate`, `ISAGate`, `WritingGate` | Yes (decision) | `lib/hook-io.ts`, `PangramScore.ts` (WritingGate) |
+| `StopGates.hook.ts` | The ONE Stop-event gate hook — dispatches `FormatGate`, `VerificationGate`, `ISACloseGate`, `ISAFoldGate`, `ISAGate`, `WritingGate` in that order; first block wins | Yes (decision) | `lib/hook-io.ts`, `PangramScore.ts` (WritingGate) |
 | `MemoryReviewFire.hook.ts` | Owns the whole memory-review cadence | No | `USER/CONFIG/memory-review.json`, `MEMORY/` |
 | `MemoryHealthGate.hook.ts` | Autonomic-memory health check; never fails the Stop chain | No | `MEMORY/OBSERVABILITY/memory-health.jsonl` (timeout 15) |
 
@@ -277,7 +284,7 @@ Outputs: `subagent-events.jsonl` (start + stop events), correlated by `session_i
 
 ### Dispatched-Only Modules
 
-These 11 `.hook.ts` files are on disk but carry no direct `settings.json` registration. Each exports a `run()`/`check()` module its dispatcher imports, and each keeps a standalone shim so it can still be run by hand for debugging.
+These 12 `.hook.ts` files are on disk but carry no direct `settings.json` registration. Each exports a `run()`/`check()` module its dispatcher imports, and each keeps a standalone shim so it can still be run by hand for debugging.
 
 | Module | Dispatcher | Event |
 |--------|-----------|-------|
@@ -287,6 +294,7 @@ These 11 `.hook.ts` files are on disk but carry no direct `settings.json` regist
 | `FormatGate.hook.ts` | `StopGates.hook.ts` | Stop |
 | `VerificationGate.hook.ts` | `StopGates.hook.ts` | Stop |
 | `ISACloseGate.hook.ts` | `StopGates.hook.ts` | Stop |
+| `ISAFoldGate.hook.ts` | `StopGates.hook.ts` | Stop |
 | `ISAGate.hook.ts` | `StopGates.hook.ts` | Stop |
 | `WritingGate.hook.ts` | `StopGates.hook.ts` | Stop |
 | `LoadMemory.hook.ts` | `MemoryTurnStart.hook.ts` | UserPromptSubmit |
@@ -297,7 +305,7 @@ These 11 `.hook.ts` files are on disk but carry no direct `settings.json` regist
 
 ### Retired Hooks
 
-Removed from disk in the 2026-07-10 and 2026-07-11 consolidation passes. They appear in older docs and in the public repo's cut; none of them exist now.
+Removed from disk in the 2026-05-06 security simplification and the 2026-07-10/2026-07-11 consolidation passes (per-row dates below where they differ). They appear in older docs and in the public repo's cut; none of them exist now.
 
 | Retired hook | Where its behaviour went |
 |--------------|--------------------------|
@@ -305,9 +313,9 @@ Removed from disk in the 2026-07-10 and 2026-07-11 consolidation passes. They ap
 | `ToolActivityTracker`, `ToolFailureTracker`, `StopFailureHandler`, `ConfigAudit`, `InstructionsLoadedHandler` | Folded into `EventLogger.hook.ts` |
 | `SetQuestionTab`, `QuestionAnswered`, `ResponseTabReset` | Folded into `TabState.hook.ts` |
 | `RelationshipMemory` | Folded into the memory-review cadence (`MemoryReviewFire.hook.ts`) |
-| `ArtWorkflowGuard` | Folded into the `PreToolGuard` dispatch chain |
+| `ArtWorkflowGuard` | Replaced by `Art/Tools/Generate.ts`'s own argument gate (refuses without `--workflow=`/`--freeform-confirmed`) — never a hook |
 | `TelosSummarySync` | Replaced by `DerivedSync.ts` + launchd `com.lifeos.derivedsync` (WatchPaths, not a hook) |
-| `PreCompact`, `RestoreContext` | Compaction handover is handled by the harness's own summarization; no LifeOS hook registers on `PreCompact`/`PostCompact` |
+| `PreCompact`, `RestoreContext` | Removed 2026-05-06 — compaction handover is handled by the harness's own summarization; no LifeOS hook registers on `PreCompact`/`PostCompact` |
 
 ---
 
@@ -354,8 +362,12 @@ UserPromptSubmit:
   PromptProcessing     (independent of last-response)
   SatisfactionCapture  ◄─ reads last-response.txt for sentiment scoring
   ReminderRouter       (independent of last-response)
+  VersionDrift         (independent of last-response)
+  DriftReminder        ◄─ reads last-response.txt for voice/format drift
   MemoryTurnStart      (independent of last-response)
   AlgorithmNudge       (independent of last-response)
+  TimeContext          (independent of last-response)
+  ModelRungGuard       (independent of last-response)
 ```
 
 ### Work Tracking Flow
@@ -633,7 +645,7 @@ When modifying ANY hook:
 
 ### Hook Blocking Session
 
-1. Check if hook writes to stdout (only LoadContext / AlgorithmNudge / MemoryTurnStart / TimeContext should)
+1. Check if hook writes to stdout (only LoadContext / AlgorithmNudge / MemoryTurnStart / TimeContext / VersionDrift / DriftReminder / ModelRungGuard / PostToolObserver should)
 2. Verify timeouts are set for external calls
 3. Check for infinite loops or blocking I/O
 
@@ -670,7 +682,7 @@ Trimmed:
 - `TaskGovernance.hook.ts` — audit log writes removed (zero readers); rate-limit + quality-gate behavior preserved.
 - `PromptProcessing.hook.ts` — docstring rewritten to accurately reflect single responsibility (tab + naming, no longer claims classification).
 
-Pre-state tag: `pre-bpe-cuts-2026-05-06`. Restoration: see `LIFEOS/MEMORY/WORK/20260506-comprehensive-hook-bpe-audit/RESTORATION.md`.
+Pre-state tag: `pre-bpe-cuts-2026-05-06`.
 
 ### 2026-05-06 — security simplification (yesterday's commit)
 
@@ -679,7 +691,7 @@ Removed (`a4e3522ca`):
 - `hooks/security/` directory (pipeline, types, logger, 5 inspectors)
 - `LIFEOS/USER/SECURITY/{PATTERNS.yaml, ...}` plus 8 of 9 `LIFEOS/DOCUMENTATION/Security/*.md`
 
-Replacement: native `permissions.deny` in `settings.json` (42 entries) + a single 48-LOC `PromptInjection.hook.ts` on WebFetch/WebSearch. The model is the security boundary.
+Replacement: native `permissions.deny` in `settings.json` (42 entries) + a single small hook on WebFetch/WebSearch — first `PromptInjection.hook.ts`, folded into `Safety.hook.ts` on 2026-05-14. The model is the security boundary.
 
 ### 2026-04-19 — naming-context isolation
 

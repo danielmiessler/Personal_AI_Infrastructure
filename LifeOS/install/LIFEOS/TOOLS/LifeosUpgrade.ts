@@ -12,8 +12,6 @@
  * without modifying anything — it does not throw a false "partial state"
  * signal.
  *
- * Designed by: LIFEOS/MEMORY/WORK/20260520-pai-system-user-separation-rebuild/PhaseG-design.md
- *
  * Usage:
  *   bun ~/.claude/LIFEOS/TOOLS/LifeosUpgrade.ts [--diagnose | --dry-run | --from-fresh-install] [--target=<version>]
  *
@@ -89,7 +87,7 @@ const MIGRATIONS: Migration[] = [
       return allImportsPresent && opRulesPresent;
     },
     apply: () => {
-      throw new Error("m-002 apply not implemented — Phase C was a hand-migration. For from-fresh-install, the public LifeOS checkout's CLAUDE.md is staged from the release skill's public CLAUDE template and `pai setup` populates the identity files + adds the @-imports.");
+      throw new Error("m-002 apply not implemented — Phase C was a hand-migration. For from-fresh-install, the public LifeOS checkout's CLAUDE.md is staged from the release skill's public CLAUDE template and `/LifeOS setup` populates the identity files + adds the @-imports.");
     },
   },
   {
@@ -100,7 +98,7 @@ const MIGRATIONS: Migration[] = [
       existsSync(join(claudeRoot, "LIFEOS/TOOLS/LifeosConfig.ts")) &&
       existsSync(join(claudeRoot, "LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml")),
     apply: () => {
-      throw new Error("m-003 apply not implemented — LifeosConfig.ts ships with public LifeOS; LIFEOS_CONFIG.toml comes from `pai setup`. Missing artifact requires manual remediation.");
+      throw new Error("m-003 apply not implemented — LifeosConfig.ts ships with public LifeOS; LIFEOS_CONFIG.toml comes from `/LifeOS setup`. Missing artifact requires manual remediation.");
     },
   },
   {
@@ -120,7 +118,7 @@ const MIGRATIONS: Migration[] = [
       }
     },
     apply: () => {
-      throw new Error("m-004 apply requires principal authorization for `gh repo create` + live tree move. Run the Phase G migration session interactively per PhaseG-design.md, NOT via LifeosUpgrade.ts. This migration is detect-only.");
+      throw new Error("m-004 apply requires principal authorization for `gh repo create` + live tree move. Run the Phase G migration session interactively (its design record lives in the maintainer's private work tree), NOT via LifeosUpgrade.ts. This migration is detect-only.");
     },
   },
   {
@@ -162,7 +160,7 @@ const MIGRATIONS: Migration[] = [
       }
     },
     apply: () => {
-      throw new Error("m-006 apply not implemented — hook entry must be added to settings.system.json (public template), then SessionStart's MergeSettings regenerates settings.json. Detected-as-missing requires manual remediation in public PAI.");
+      throw new Error("m-006 apply not implemented — hook entry must be added to settings.system.json (public template), then SessionStart's MergeSettings regenerates settings.json. Detected-as-missing requires manual remediation on a public LifeOS install.");
     },
   },
   {
@@ -247,7 +245,7 @@ function diagnose(ctx: MigrationContext): void {
   }
   console.log(`\nSummary: ${appliedCount} applied, ${missingCount} missing, of ${MIGRATIONS.length} total.`);
   if (missingCount > 0) {
-    console.log(`\nNext step: review missing migrations against PhaseG-design.md and the parent ISA before applying.`);
+    console.log(`\nNext step: review each missing migration's description above before applying.`);
   } else {
     console.log(`\nInstall is up-to-date through the registered migration set.`);
   }
@@ -321,14 +319,14 @@ function main(): never {
 
   // Sanity: must be running against a recognizable LifeOS tree.
   if (!existsSync(join(CLAUDE_ROOT, "LIFEOS"))) {
-    console.error(`LifeosUpgrade: ${CLAUDE_ROOT}/PAI not found — is this a LifeOS install?`);
+    console.error(`LifeosUpgrade: ${CLAUDE_ROOT}/LIFEOS not found — is this a LifeOS install?`);
     process.exit(2);
   }
 
   const ctx: MigrationContext = { claudeRoot: CLAUDE_ROOT, dryRun: args.dryRun };
 
   if (args.fromFreshInstall) {
-    console.error(`--from-fresh-install is NOT YET IMPLEMENTED. See PhaseG-design.md for the design; the install.sh path is the current way to scaffold a fresh LifeOS tree.`);
+    console.error(`--from-fresh-install is NOT YET IMPLEMENTED. Use the install.sh path to scaffold a fresh LifeOS tree.`);
     process.exit(2);
   }
 

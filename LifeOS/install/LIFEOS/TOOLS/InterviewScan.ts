@@ -25,7 +25,9 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { readTelosFreshness, sectionSlug, legacyTelosFilePath, type SectionFreshness } from "./TelosFreshness";
+import { readTelosFreshness, readStateFreshness, sectionSlug, legacyTelosFilePath, daysBetween, type SectionFreshness } from "./TelosFreshness";
+import { homedir } from "node:os";
+import { getDAName } from "../../hooks/lib/identity";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -34,11 +36,12 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const USER_DIR = join(LIFEOS_DIR, "USER");
 const TELOS_DIR = join(USER_DIR, "TELOS");
 const TELOS_PATH = join(TELOS_DIR, "TELOS.md");
+const DA_NAME = getDAName();
 
 type Category = "setup" | "foundational" | "ideal_state" | "current_state" | "preference" | "identity";
 
@@ -67,6 +70,11 @@ type Target = {
   stale: boolean;
   why_incomplete: string[];
   prompts: string[];
+  /** Evidence grounding (state-file targets only). */
+  domain?: string | null;
+  evidence_days_since_review?: number | null;
+  never_reviewed?: boolean;
+  evidence_live?: boolean;
 };
 
 // ─── Registry: what files are interview-targets, and their prompts ───
@@ -91,12 +99,11 @@ const REGISTRY: RegistryTarget[] = [
               "One-paragraph personality summary — direct, peer, opinionated, etc.?"] },
   { phase: 0, path: join(USER_DIR, "PRINCIPAL", "PRINCIPAL_IDENTITY.md"), name: "PRINCIPAL_IDENTITY/setup", category: "setup", leverage: 10,
     prompts: ["Your name (with pronunciation if uncommon)?",
-              "Location and timezone (e.g. San Francisco Bay Area, America/Los_Angeles)?",
+              "Location and timezone (city/region plus IANA zone, e.g. Lisbon, Europe/Lisbon)?",
               "One-line role / what you do?",
               "One-line focus — what you're working on right now?"] },
   { phase: 0, path: join(LIFEOS_DIR, "PULSE", "PULSE.toml"), name: "PULSE.toml/voice", category: "setup", leverage: 9,
     prompts: ["Main DA voice — pick from ElevenLabs library, or stick with default Rachel (21m00Tcm4TlvDq8ikWAM)?",
-              "Algorithm voice (used for phase transitions) — default Adam (pNInz6obpgDQGcFmaJgB) is fine?",
               "Want voice notifications on by default? (default: yes)"] },
   { phase: 0, path: join(HOME, ".claude", ".env"), name: ".env/credentials", category: "setup", leverage: 10,
     prompts: ["ANTHROPIC_API_KEY — required for inference. Paste here (will write to .env, won't echo back)?",
@@ -142,14 +149,14 @@ const REGISTRY: RegistryTarget[] = [
               "Frames that conflict with each other but you hold both?"] },
   { phase: 1, path: `${TELOS_PATH}#${sectionSlug("Traumas")}`, name: "Traumas", category: "foundational", leverage: 5,
     prompts: ["Which formative hard things still shape your defaults, reactions, or sense of what's possible?",
-              "Any patterns that came from those experiences that {{DA_NAME}} should handle carefully?",
+              `Any patterns that came from those experiences that ${DA_NAME} should handle carefully?`,
               "What has become strength, wisdom, or protection that is worth naming directly?"] },
   { phase: 1, path: `${TELOS_PATH}#${sectionSlug("Wrong (Things I've been wrong about)")}`, name: "Wrong (Things I've been wrong about)", category: "foundational", leverage: 5,
     prompts: ["What have you been materially wrong about that changed how you make decisions?",
               "Any beliefs you still half-hold but suspect are obsolete?",
-              "What would you want {{DA_NAME}} to challenge you on because history says you're biased there?"] },
+              `What would you want ${DA_NAME} to challenge you on because history says you're biased there?`] },
   { phase: 1, path: `${TELOS_PATH}#${sectionSlug("Wisdom")}`, name: "Wisdom", category: "foundational", leverage: 4,
-    prompts: ["Hard-won insights from experience — things you want {{DA_NAME}} to remember permanently?",
+    prompts: [`Hard-won insights from experience — things you want ${DA_NAME} to remember permanently?`,
               "Any recent lessons that haven't landed in WISDOM yet?"] },
   { phase: 1, path: `${TELOS_PATH}#${sectionSlug("Predictions")}`, name: "Predictions", category: "foundational", leverage: 5,
     prompts: ["What current predictions deserve explicit dates, confidence levels, and falsification criteria?",
@@ -173,7 +180,7 @@ const REGISTRY: RegistryTarget[] = [
   // ─── Phase 3: Preference sections ───
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("2036 — A Day in the Life with a Digital Assistant")}`, name: "2036 — A Day in the Life with a Digital Assistant", category: "preference", leverage: 5,
     prompts: ["What parts of the 2036 day still feel right as the target experience?",
-              "What has changed in your vision of {{DA_NAME}}'s role by then?",
+              `What has changed in your vision of ${DA_NAME}'s role by then?`,
               "Any missing moments that would make the future day more concrete?"] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Books")}`, name: "Books", category: "preference", leverage: 5,
     prompts: ["The long list — which books actually shaped how you think?",
@@ -215,9 +222,9 @@ const REGISTRY: RegistryTarget[] = [
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Team")}`, name: "Team", category: "preference", leverage: 5,
     prompts: ["Who belongs in the human and agent team map now?",
               "Any responsibilities, trust boundaries, or operating roles that have changed?",
-              "Which collaborators or agents should {{DA_NAME}} remember as first-class context?"] },
+              `Which collaborators or agents should ${DA_NAME} remember as first-class context?`] },
   { phase: 3, path: `${TELOS_PATH}#${sectionSlug("Context Filter")}`, name: "Context Filter", category: "preference", leverage: 5,
-    prompts: ["What should {{DA_NAME}} bias toward when deciding what context matters?",
+    prompts: [`What should ${DA_NAME} bias toward when deciding what context matters?`,
               "Any themes that should be deprioritized or ignored unless you ask directly?",
               "What framing should guide recommendations when priorities conflict?"] },
 
@@ -229,7 +236,7 @@ const REGISTRY: RegistryTarget[] = [
     prompts: ["Right now: focus, energy, mood, last meal, sleep?",
               "This week's top intent, stalled items, wins?"] },
   { phase: 4, path: `${TELOS_PATH}#${sectionSlug("Status — Current Work & Recent Accomplishments")}`, name: "Status — Current Work & Recent Accomplishments", category: "current_state", leverage: 5,
-    prompts: ["What recent accomplishments should {{DA_NAME}} treat as current context?",
+    prompts: [`What recent accomplishments should ${DA_NAME} treat as current context?`,
               "Which project statuses are outdated or missing?",
               "Any strategic insight from the last few weeks that belongs in the status section?"] },
 
@@ -476,6 +483,131 @@ function scoreTarget(target: RegistryTarget): Target {
   return scoreFile(target);
 }
 
+// ─── State-file targets (CURRENT_STATE / IDEAL_STATE dimension files) ─────
+//
+// The dimension files join the interview via the state freshness registry
+// (TelosFreshness.readStateFreshness) and get grounded in observed data from
+// the StateEvidence cache. The core rule (skills/Interview/SKILL.md):
+// a stale claim file whose domain has FRESH evidence is the most important
+// thing in its phase — the interview should open by confronting the claim
+// with the data, not by asking cold questions.
+
+const STATE_DOMAIN: Record<string, string> = {
+  current_state_health: "health",
+  current_state_activity: "activity",
+  current_state_consumption: "activity",
+  current_state_financial: "money",
+  current_state_snapshot: "health",
+  ideal_state_health: "health",
+  ideal_state_money: "money",
+};
+
+const EVIDENCE_CACHE_PATH = join(USER_DIR, "CACHE", "state-evidence.json");
+const EVIDENCE_STALE_BOOST = 400; // beats every same-phase, non-evidence target
+
+type EvidenceCache = {
+  generated_at?: string;
+  domains?: Record<string, { sources?: Array<{ id?: string; status?: string; last_observation?: string }> }>;
+};
+
+function readEvidenceCache(): EvidenceCache | null {
+  try {
+    return JSON.parse(readFileSync(EVIDENCE_CACHE_PATH, "utf-8")) as EvidenceCache;
+  } catch {
+    return null;
+  }
+}
+
+/** Newest live/stale observation date for a domain, or null. */
+function newestObservation(cache: EvidenceCache | null, domain: string): { date: Date | null; live: boolean } {
+  const sources = cache?.domains?.[domain]?.sources ?? [];
+  let newest: Date | null = null;
+  let live = false;
+  for (const s of sources) {
+    if (s.status === "dead" || !s.last_observation) continue;
+    const d = new Date(s.last_observation);
+    if (isNaN(d.getTime())) continue;
+    if (!newest || d > newest) newest = d;
+    if (s.status === "live") live = true;
+  }
+  return { date: newest, live };
+}
+
+/**
+ * Oldest observation in the 30d window, from the domain's own metrics — the
+ * SAME number InterviewDue uses for never-reviewed skew, so the scan and the
+ * verdict never quote two different figures for one fact (Max review
+ * 2026-08-11, finding 9).
+ */
+function oldestObservation30(cache: EvidenceCache | null, domain: string): Date | null {
+  const m = (cache?.domains?.[domain] as { metrics?: Record<string, unknown> } | undefined)?.metrics;
+  const raw = m?.oldest_observation_30d;
+  if (typeof raw !== "string") return null;
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function stateTargets(): Target[] {
+  const evidence = readEvidenceCache();
+  const now = new Date();
+  const state = readStateFreshness();
+
+  return state.files.map((f) => {
+    const isCurrent = f.slug.startsWith("current_state_");
+    const dimension = f.slug.replace(/^(current|ideal)_state_/, "");
+    const registryTarget: RegistryTarget = {
+      path: f.path,
+      name: f.slug,
+      category: isCurrent ? "current_state" : "ideal_state",
+      phase: isCurrent ? 4 : 2,
+      leverage: STATE_DOMAIN[f.slug] ? 6 : 4,
+      prompts: isCurrent
+        ? [`What's actually true in ${dimension} right now?`,
+           `Anything in this file that observed data would contradict?`]
+        : [`Are the ${dimension} targets still the right targets?`,
+           `Given the measured gap, re-affirm or re-baseline?`],
+    };
+
+    const result = scoreFile(registryTarget);
+    result.age_days = f.effective_reviewed_age_days;
+    result.threshold_days = f.effective_threshold_days;
+    result.stale = f.stale;
+    result.domain = STATE_DOMAIN[f.slug] ?? null;
+    result.never_reviewed = f.effective_reviewed === null;
+    result.evidence_days_since_review = null;
+    result.evidence_live = false;
+
+    if (result.domain) {
+      const obs = newestObservation(evidence, result.domain);
+      result.evidence_live = obs.live;
+      if (obs.date) {
+        const oldest30 = oldestObservation30(evidence, result.domain);
+        result.evidence_days_since_review = f.effective_reviewed
+          ? Math.max(0, daysBetween(f.effective_reviewed, obs.date))
+          : oldest30
+            ? Math.max(0, daysBetween(oldest30, now))
+            : null;
+      }
+    }
+
+    // Rebuild priority with the freshness + evidence signal.
+    const incompleteness = 100 - result.completeness_score;
+    const staleBump = result.stale ? 200 : 0;
+    const evidenceBump = result.stale && result.evidence_live ? EVIDENCE_STALE_BOOST : 0;
+    result.priority = Math.round(PHASE_BOOST[registryTarget.phase] + registryTarget.leverage * 2 + incompleteness + staleBump + evidenceBump);
+
+    if (result.stale) {
+      result.why_incomplete.push(
+        result.never_reviewed ? "never principal-reviewed" : `review overdue (${result.age_days}d/${result.threshold_days}d)`
+      );
+    }
+    if (result.evidence_live && result.evidence_days_since_review !== null && result.evidence_days_since_review > 0) {
+      result.why_incomplete.push(`${result.evidence_days_since_review}d of unexamined ${result.domain} evidence`);
+    }
+    return result;
+  });
+}
+
 const PHASE_LABELS: Record<Phase, string> = {
   0: "PHASE 0 — Setup (DA / Principal / voice / credentials / projects / work repo)",
   1: "PHASE 1 — Foundational TELOS (the core — review first)",
@@ -563,12 +695,12 @@ function formatNext(targets: Target[]): string {
   lines.push(`Why incomplete: ${t.why_incomplete.join(", ") || "—"}`);
   lines.push(``);
   if (t.review_mode) {
-    lines.push(`Review approach ({{DA_NAME}} reads file first, then asks):`);
+    lines.push(`Review approach (${DA_NAME} reads file first, then asks):`);
     lines.push(`  - "Here's what you've got in ${t.name}. Anything outdated? Sharpen / refine?"`);
     lines.push(`  - "Any recent thinking that should be captured here?"`);
     lines.push(`  - "Anything missing from a category that should exist?"`);
   } else {
-    lines.push(`Questions for {{DA_NAME}} to ask:`);
+    lines.push(`Questions for ${DA_NAME} to ask:`);
     t.prompts.forEach((p, i) => lines.push(`  ${i + 1}. ${p}`));
   }
   return lines.join("\n");
@@ -594,7 +726,7 @@ function main(): void {
     return;
   }
 
-  let scored = REGISTRY.map(scoreTarget);
+  let scored = [...REGISTRY.map(scoreTarget), ...stateTargets()];
 
   // Filter: by default skip phase 9 (deferred). --include-deferred to include.
   // --phase N filters to a single phase.

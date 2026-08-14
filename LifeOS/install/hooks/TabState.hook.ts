@@ -1,14 +1,19 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.1
+ * @version 1.1.0
  * TabState.hook.ts — Unified Kitty tab-state hook (PreToolUse + PostToolUse + Stop)
+ *
+ * Since 2026-08-12 EVERY stamp routes through setAscentTab: the tab color is
+ * always the run's ascent-state color (the same paint as the Pulse phase list),
+ * and the "waiting on you" signal is the ⏳ activity glyph, not a special color
+ * (question teal and blocked amber are retired).
  *
  * CONSOLIDATION (2026-07-10, {{PRINCIPAL_NAME}}'s hook consolidation):
  * Merges three former hooks into ONE file, dispatched on `hook_event_name`:
  *   - PreToolUse  (matcher AskUserQuestion) ← SetQuestionTab.hook.ts
- *       Sets tab teal (#0D4F4F) and saves previousTitle so the answer can restore it.
+ *       Stamps ⏳ on the run's ascent color; saves previousTitle for restore.
  *   - PostToolUse (matcher AskUserQuestion) ← QuestionAnswered.hook.ts
- *       Restores tab to working/orange (#804000) after the user answers.
+ *       Restores the run's prior ascent state after the user answers.
  *   - Stop                                  ← ResponseTabReset.hook.ts
  *       Sets completion/past-tense tab state via handlers/TabState.ts.
  *
@@ -23,7 +28,7 @@
  * - stdin empty/malformed: fail-open, exit(0) with no tab change.
  */
 
-import { setTabState, readTabState, stripPrefix, setAscentTab } from './lib/tab-setter';
+import { readTabState, stripPrefix, setAscentTab } from './lib/tab-setter';
 import { isValidQuestionTitle, getQuestionFallback } from './lib/output-validators';
 import { readHookInput, parseTranscriptFromInput, type HookInput } from './lib/hook-io';
 import { handleTabState } from './handlers/TabState';
@@ -76,12 +81,18 @@ function handlePreToolUse(input: HookInput): void {
     const currentState = readTabState(sessionId);
     const previousTitle = currentState?.title || undefined;
 
-    // Set tab to question state (teal) with previousTitle + previousAscent for
-    // restoration — the question stamp overwrites the state file, so the run's
-    // ascent state must ride along or the restore falls back to generic.
-    setTabState({ title: summary, state: 'question', previousTitle, previousAscent: currentState?.ascent, sessionId });
+    // The question keeps the run's ascent COLOR (tab colors are the six run
+    // states since 2026-08-12); the ⏳ activity glyph carries "waiting on you".
+    // previousTitle + previousAscent ride along so the answer restores the run.
+    const prior = currentState?.ascent;
+    const stampState = prior && !['idle', 'cairn'].includes(prior) ? prior : 'traverse';
+    setAscentTab(stampState, sessionId, summary, {
+      activity: 'waiting',
+      previousTitle,
+      previousAscent: prior,
+    });
 
-    console.error(`[TabState/PreToolUse] Tab set to teal with summary: "${summary}"`);
+    console.error(`[TabState/PreToolUse] Question stamp (⏳, ${stampState}): "${summary}"`);
   } catch (error) {
     // Silently fail if kitty remote control is not available
     console.error('[TabState/PreToolUse] Kitty remote control unavailable');
@@ -89,10 +100,86 @@ function handlePreToolUse(input: HookInput): void {
 }
 
 // ---------------------------------------------------------------------------
-// PostToolUse (AskUserQuestion) — formerly QuestionAnswered.hook.ts
+// PermissionRequest — blocked-on-approval stamp (Herdr steal, 2026-08-11)
+// ---------------------------------------------------------------------------
+
+/** Short human-readable detail for the blocked title: what needs approving. */
+function permissionDetail(input: any): string {
+  const toolName = typeof input?.tool_name === 'string' ? input.tool_name : 'tool';
+  try {
+    const ti = input?.tool_input;
+    if (toolName === 'Bash' && typeof ti?.command === 'string') {
+      const cmd = ti.command.trim().replace(/\s+/g, ' ');
+      return `Bash ${cmd.slice(0, 40)}${cmd.length > 40 ? '…' : ''}`;
+    }
+    if (typeof ti?.file_path === 'string') {
+      const base = ti.file_path.split('/').filter(Boolean).pop();
+      if (base) return `${toolName} ${base}`;
+    }
+  } catch { /* fall through */ }
+  return toolName;
+}
+
+function handlePermissionRequest(input: HookInput): void {
+  const sessionId = input.session_id;
+  try {
+    const currentState = readTabState(sessionId);
+    // A second request while already blocked must not overwrite the REAL
+    // previous title/ascent with the blocked stamp itself.
+    const alreadyBlocked = currentState?.blocked === true;
+    const previousTitle = alreadyBlocked ? currentState?.previousTitle : (currentState?.title || undefined);
+    const previousAscent = alreadyBlocked ? currentState?.previousAscent : currentState?.ascent;
+
+    // Approval stamps keep the run's ascent color too — ⏳ + the APPROVE text
+    // carry the "waiting on you" signal (the amber blocked color is retired).
+    const stampState = previousAscent && !['idle', 'cairn'].includes(previousAscent) ? previousAscent : 'traverse';
+    setAscentTab(stampState, sessionId, `APPROVE: ${permissionDetail(input as any)}`, {
+      activity: 'waiting',
+      literal: true,
+      blocked: true,
+      previousTitle,
+      previousAscent,
+    });
+    console.error(`[TabState/PermissionRequest] Approval stamp (⏳, ${stampState})`);
+  } catch {
+    console.error('[TabState/PermissionRequest] Kitty remote control unavailable');
+  }
+}
+
+/** Restore a blocked tab after the approved tool completed. */
+function restoreFromBlocked(input: HookInput): void {
+  try {
+    const sessionId = input.session_id;
+    const currentState = readTabState(sessionId);
+    if (!currentState?.blocked) return; // not blocked — fast no-op (wildcard path)
+
+    // Fall back to the traverse gerund, never a bare state word — and never
+    // "restore" a stacked APPROVE stamp as if it were the run's real title.
+    let restoredTitle = 'Traversing.';
+    if (currentState.previousTitle) {
+      const rawTitle = stripPrefix(currentState.previousTitle);
+      if (rawTitle && !/^APPROVE:/i.test(rawTitle)) restoredTitle = rawTitle;
+    }
+    const prior = currentState.previousAscent;
+    const restoreState = prior && !['idle', 'cairn'].includes(prior) ? prior : 'traverse';
+    setAscentTab(restoreState, sessionId, restoredTitle);
+    console.error(`[TabState/PostToolUse] Blocked tab restored to ascent state: ${restoreState}`);
+  } catch {
+    console.error('[TabState/PostToolUse] Blocked-restore failed (kitty unavailable)');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PostToolUse — question restore (AskUserQuestion) or blocked restore (any tool)
 // ---------------------------------------------------------------------------
 
 function handlePostToolUse(input: HookInput): void {
+  // Wildcard registration: any tool other than AskUserQuestion only ever
+  // clears a blocked stamp; everything else exits untouched.
+  if ((input as any).tool_name !== 'AskUserQuestion') {
+    restoreFromBlocked(input);
+    return;
+  }
   try {
     const sessionId = input.session_id;
 
@@ -150,6 +237,9 @@ async function main() {
         break;
       case 'PostToolUse':
         handlePostToolUse(input);
+        break;
+      case 'PermissionRequest':
+        handlePermissionRequest(input);
         break;
       case 'Stop':
         await handleStop(input);

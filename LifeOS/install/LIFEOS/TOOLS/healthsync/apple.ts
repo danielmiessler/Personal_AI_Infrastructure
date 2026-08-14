@@ -6,6 +6,7 @@
 import { join } from "node:path";
 import type { Ctx, DayFile, SourceResult } from "./types";
 import { normalizeHae } from "./hae";
+import { homedir } from "node:os";
 import {
   dayKeyLA,
   isoNowLA,
@@ -16,7 +17,7 @@ import {
   writeDayFile,
 } from "./store";
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 export const APPLE_EXPORT_PATH = join(
   HOME,
   "Library",
@@ -137,7 +138,7 @@ async function spoolPayload(ctx: Ctx, key: string, body: unknown): Promise<void>
 }
 
 /**
- * REST transport: drain the _F_HEALTH_INGEST Cloudflare buffer (Health Auto
+ * REST transport: drain the health-ingest Cloudflare buffer (Health Auto
  * Export app POSTs there). Two-phase, at-least-once: POST /drain (no delete)
  * → spool raw locally → normalize into day files → POST /ack to delete.
  * Duplicate re-drains are idempotent: day-file merge is replace-per-key

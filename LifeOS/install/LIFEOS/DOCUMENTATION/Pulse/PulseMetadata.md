@@ -2,7 +2,7 @@
 last_updated: 2026-07-14T22:45:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.1.10
+version: 1.1.14
 ---
 
 # Pulse Metadata Surface — Badges, Strips, Panels
@@ -100,7 +100,6 @@ Multi-line expandable detail views shown on session click.
 | **DecisionsPanel** | `## Decisions` section | NOT YET BUILT | planned next-ISA |
 | **ChangelogPanel** | `## Changelog` section (Deutsch format entries) | NOT YET BUILT | planned next-ISA |
 | **VerificationPanel** | `## Verification` section + Forge audit results | NOT YET BUILT | planned next-ISA |
-| **IterationHistoryPanel** | `## Iteration History` section (Loop mode) | NOT YET BUILT | paired with LoopRunner.ts |
 
 ---
 
@@ -145,4 +144,4 @@ The per-mode tabs died with the mode system. Two surfaces remain:
 - Pulse System overview: `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`
 - DA subsystem (design): `LIFEOS/DOCUMENTATION/Pulse/DaSubsystem.md`
 - Terminal tabs (kitty integration): `LIFEOS/DOCUMENTATION/Pulse/TerminalTabs.md`
-- Current Algorithm doctrine: `LIFEOS/ALGORITHM/v8.17.3.md`
+- Current Algorithm doctrine: `LIFEOS/ALGORITHM/v8.20.2.md`

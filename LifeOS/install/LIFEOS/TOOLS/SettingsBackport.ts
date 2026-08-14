@@ -31,7 +31,14 @@
  * backported that choice silently reverted at every SessionStart (2026-07-27:
  * a stale $.model overlay pin resurrected itself for weeks).
  *
- * Limit: arrays backport as whole-array replacements into the user overlay.
+ * Arrays classify element-wise. A PURE ADDITION backports as an append
+ * annotation ({ "__merge": "append", values: [...] }), leaving the system half
+ * live so later settings.system.json additions still reach the merge. Any drift
+ * that REMOVES an element falls back to a whole-array replacement — the only
+ * representation the merge format has for "drop this" — which permanently pins
+ * the array in the overlay, so it warns per array. Before this split every array
+ * backported as a replacement and one appended permission silently froze
+ * permissions.allow forever. public issue #1722, @xmasyx
  *
  * Usage:
  *   bun SettingsBackport.ts            # default ~/.claude paths
@@ -51,6 +58,7 @@ const GENERATED_PATH = path.join(CLAUDE_DIR, "settings.json");
 
 type Drift =
   | { kind: "changed"; segments: string[]; value: any }
+  | { kind: "array"; segments: string[]; before: any[]; after: any[] }
   | { kind: "deleted"; segments: string[] };
 
 function isObjectRecord(value: any): value is Record<string, any> {
@@ -60,8 +68,9 @@ function isObjectRecord(value: any): value is Record<string, any> {
 /**
  * Walks expected (merge output) vs actual (live settings.json) and collects
  * the minimal set of paths whose ACTUAL value should be written to the user
- * overlay. Recurses only while both sides are plain objects; everything else
- * (scalars, arrays, type changes) backports as a whole-value replacement.
+ * overlay. Recurses only while both sides are plain objects. Two arrays yield an
+ * "array" drift the caller classifies element-wise; everything else (scalars,
+ * type changes) backports as a whole-value replacement.
  */
 export function collectDrift(expected: any, actual: any, segments: string[] = []): Drift[] {
   if (deepEqual(expected, actual)) {
@@ -86,7 +95,28 @@ export function collectDrift(expected: any, actual: any, segments: string[] = []
     return drift;
   }
 
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    return [{ kind: "array", segments, before: expected, after: actual }];
+  }
+
   return [{ kind: "changed", segments, value: actual }];
+}
+
+/**
+ * Element-wise array drift by deepEqual set semantics — `added` are elements only
+ * in `after`, `removed` only in `before`. `removed` is what decides the backport
+ * shape: an append annotation cannot express a removal.
+ * public issue #1722, @xmasyx
+ */
+export function classifyArrayDrift(before: any[], after: any[]): { added: any[]; removed: any[] } {
+  const added = after.filter((a) => !before.some((b) => deepEqual(b, a)));
+  const removed = before.filter((b) => !after.some((a) => deepEqual(a, b)));
+  return { added, removed };
+}
+
+/** True when `prefix` matches the head of `arr`, element for element. */
+export function isPrefix(prefix: any[], arr: any[]): boolean {
+  return prefix.length <= arr.length && prefix.every((v, i) => deepEqual(v, arr[i]));
 }
 
 /** Deep-set a value into an object, creating intermediate objects as needed. */
@@ -157,22 +187,57 @@ async function run(dryRun: boolean): Promise<number> {
   }
 
   const changes = drift.filter((d): d is Extract<Drift, { kind: "changed" }> => d.kind === "changed");
+  const arrays = drift.filter((d): d is Extract<Drift, { kind: "array" }> => d.kind === "array");
   const deletions = drift.filter((d): d is Extract<Drift, { kind: "deleted" }> => d.kind === "deleted");
+
+  // An append annotation merges as system ++ values, so it can only reproduce
+  // `after` when the array drops nothing AND the system half is still `after`'s
+  // head. Everything else keeps the whole-array replacement.
+  // public issue #1722, @xmasyx
+  const arrayPlans = arrays.map((d) => {
+    const { added, removed } = classifyArrayDrift(d.before, d.after);
+    const base = getAtPath(system, d.segments);
+    const systemArr = Array.isArray(base) ? base : [];
+    return {
+      ...d,
+      added,
+      removed,
+      appendable: removed.length === 0 && isPrefix(systemArr, d.after),
+      appended: d.after.slice(systemArr.length),
+    };
+  });
 
   for (const d of changes) {
     console.log(`backport ${formatPath(d.segments)} = ${JSON.stringify(d.value)}`);
+  }
+  for (const p of arrayPlans) {
+    if (p.appendable) {
+      console.log(`backport ${formatPath(p.segments)} += ${p.added.length} value(s) (append annotation)`);
+      continue;
+    }
+    console.log(`backport ${formatPath(p.segments)} = whole array (${p.after.length} value(s))`);
+    if (p.removed.length > 0) {
+      console.error(
+        `⚠️  ${formatPath(p.segments)} REMOVES ${p.removed.length} element(s), which an append annotation ` +
+          `cannot express — backported as a whole-array replacement that PINS this array in the overlay, so ` +
+          `later settings.system.json additions will no longer reach it. Removed: ${JSON.stringify(p.removed)}`,
+      );
+    }
   }
   for (const d of deletions) {
     console.log(`backport DELETE ${formatPath(d.segments)}`);
   }
 
   if (dryRun) {
-    console.log(`dry run: ${changes.length + deletions.length} change(s) NOT written`);
+    console.log(`dry run: ${changes.length + arrayPlans.length + deletions.length} change(s) NOT written`);
     return 0;
   }
 
   for (const d of changes) {
     deepSet(user, d.segments, d.value);
+  }
+  for (const p of arrayPlans) {
+    deepSet(user, p.segments, p.appendable ? { __merge: "append", values: p.appended } : p.after);
   }
 
   // A deletion is expressed by removing the overlay entry — the merge format has
@@ -186,15 +251,21 @@ async function run(dryRun: boolean): Promise<number> {
   // Atomic: settings.user.json is a merge SOURCE — truncating it takes out the
   // next MergeSettings run too, not just this one. public PR #1643, @elhoim
   atomicWriteText(USER_PATH, `${JSON.stringify(user, null, 2)}\n`);
-  console.log(`wrote ${changes.length + removed.length} change(s) to ${USER_PATH}`);
+  console.log(`wrote ${changes.length + arrayPlans.length + removed.length} change(s) to ${USER_PATH}`);
 
   // Verify per backported path: each value must survive the merge (overlay
   // wins conflicts), and each deleted path must stay absent. A global
   // merge-vs-actual compare is wrong under the three-way base — un-merged
   // SOURCE edits legitimately differ from the live file and are resolved by the
   // MergeSettings run that follows.
+  // An array backported as an append annotation is verified against its EFFECTIVE
+  // merged array, never against the annotation object it was written as.
   let verified = mergeSettings(system, user);
-  const remaining = changes.filter((d) => !deepEqual(getAtPath(verified, d.segments), d.value));
+  const expectations = [
+    ...changes.map((d) => ({ segments: d.segments, value: d.value })),
+    ...arrayPlans.map((p) => ({ segments: p.segments, value: p.after })),
+  ];
+  const remaining = expectations.filter((e) => !deepEqual(getAtPath(verified, e.segments), e.value));
 
   // Deletions the system half resurrects: restore the overlay entry and warn.
   const resurrected = removed.filter((r) => getAtPath(verified, r.segments) !== undefined);

@@ -87,10 +87,13 @@ export function currentModel(tier: ClaudeTier): string {
  */
 export const CROSS_VENDOR: Record<string, string> = {
   forge: "gpt-5.6-sol",                // OpenAI (Tier-2 egress); build + audit modes
+  helios: "gpt-5.6-cyber",             // OpenAI Trusted Access Program (blue+red cyber model; Tier-2 egress) — the offensive-security agent's finder; access tested + principal-approved. Lights the statusline CYBER lane (*cyber* match)
   codexResearcher: "gpt-5.6-sol",      // OpenAI (Tier-2 egress)
   codexResearcherFast: "gpt-5.6-luna", // OpenAI (Tier-2 egress); breadth-first sweep rung
   geminiResearcher: "gemini-3.6-flash",// Google (Tier-2 egress; PUBLIC ceiling) — research lane only
+  gemini: "gemini-3.1-pro-preview",    // Google (Tier-2 egress; PUBLIC ceiling) — general Gemini agent; top reasoning model per ai.google.dev + our key's ListModels 2026-08-12 (Pro line still preview; bump when a GA pro lands)
   gene: "z-ai/glm-5.2",                // OpenRouter broker (Tier-2); US+ZDR pin => INTERNAL, unpinned => PUBLIC
+  grok: "grok-4.6",                    // xAI (Tier-2 egress; PUBLIC ceiling — HARD: context-recording incident; principal-approved 2026-08-12, non-sensitive tasks only, never reasoning/audit lanes)
 };
 
 /**

@@ -1,5 +1,5 @@
 ---
-version: 1.1.4
+version: 1.1.5
 ---
 
 # Self-Healing Infrastructure (on-demand)
@@ -49,4 +49,4 @@ The doctrine above is the manual move. The nightly pipeline now automates it end
 4. **Promote (green-gated, code-free)** — `PromoteFixture.ts` moves a now-green pending fixture into the blocking corpus (`test/regression/fixtures/`) and records the class in the registry. It refuses a still-red fixture and never writes source — Pulse graduation invokes it.
 5. **Remember** — every promoted fixture is wired into `/ic`, so the incident that justified the fix is re-checked forever. A healed class that fires again auto-flags REOPENED.
 
-The point: the pipeline used to end in a wisdom frame (a memo — the exact thing this file warns against). Now it ends in an executable failing test the system wrote about itself, and a permanent regression once the fix lands — with no model-authored code ever touching an enforcement surface. Full ISA: `MEMORY/WORK/20260713-153500_true-healing-loop/ISA.md`.
+The point: the pipeline used to end in a wisdom frame (a memo — the exact thing this file warns against). Now it ends in an executable failing test the system wrote about itself, and a permanent regression once the fix lands — with no model-authored code ever touching an enforcement surface.

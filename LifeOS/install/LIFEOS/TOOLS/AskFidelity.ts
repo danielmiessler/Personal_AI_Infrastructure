@@ -29,7 +29,7 @@
  * Consumers (do not break these):
  *   - skills/Evals/Tools/ProposeFromFailures.ts — reads asks[].ask, asks[].status,
  *     deferred[].item, deferred[].reason, session, ts
- *   - skills/_LIFEOS/Workflows/AlgorithmAudit.md — reads all_met, slug
+ *   - <your-release-skill>/Workflows/AlgorithmAudit.md — reads all_met, slug
  *
  * Usage:
  *   bun AskFidelity.ts --slug 20260724-foo --session <uuid> \

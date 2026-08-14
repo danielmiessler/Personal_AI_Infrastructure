@@ -1,0 +1,14 @@
+# com.lifeos.atlas.service.template — oneshot unit that runs `atlas tick`.
+# Widened PATH so bun/gh resolve regardless of install method (homebrew, ~/.bun, linuxbrew).
+# ported from public PR #1743, @schmetti-dev
+[Unit]
+Description=LifeOS Atlas asset-graph tick (events-then-hourly-full-sync)
+
+[Service]
+Type=oneshot
+WorkingDirectory={{HOME}}/.claude
+Environment=PATH={{PATH}}
+Environment=HOME={{HOME}}
+ExecStart={{BUN}} {{HOME}}/.claude/LIFEOS/ATLAS/Atlas.ts tick
+StandardOutput=append:{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/atlas-launchd.log
+StandardError=append:{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/atlas-launchd.log

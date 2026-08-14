@@ -36,7 +36,7 @@ import { createHash, randomBytes } from "node:crypto";
 const HOME = process.env.HOME || homedir();
 const CLAUDE = join(HOME, ".claude");
 const ENV_PATH = join(CLAUDE, ".env");
-// USER/SECURITY, not skills/_LIFEOS: writing into skills/_LIFEOS/ created the
+// USER/SECURITY, not skills/_LIFEOS: writing into <your-release-skill>/ created the
 // dev-tree marker on public installs, disabling seven installer tools (public
 // issue #1689, @christauff). Reader: hooks/lib/system-file-guard-core.ts.
 const OUT_PATH = join(CLAUDE, "LIFEOS", "USER", "SECURITY", "DENY_HASHES.json");

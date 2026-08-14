@@ -68,7 +68,7 @@ codex exec --sandbox read-only \
 
 For a fast breadth-first sweep where latency beats depth, swap the registry key to `CROSS_VENDOR.codexResearcherFast`. Effort is capped at `high` — LifeOS runs nothing above it, cross-vendor agents included (2026-07-06 directive).
 
-**`--sandbox read-only` is not a compromise — it's the correct flag.** The sandbox governs model-generated *shell commands*; live web search rides `tools.web_search=true`, which is a server-side Responses tool and needs no filesystem access at all. The old `danger-full-access` in this file bought nothing and handed a full-disk write path to an agent that processes untrusted web content. Verified 2026-07-27: `codex exec --sandbox read-only -c tools.web_search=true` returned a live web answer.
+**`--sandbox read-only` is not a compromise — it's the correct flag.** The sandbox governs model-generated *shell commands*; live web search rides `tools.web_search=true`, which is a server-side Responses tool and needs no filesystem access at all. A `danger-full-access` sandbox buys nothing here and hands a full-disk write path to an agent that processes untrusted web content. `codex exec --sandbox read-only -c tools.web_search=true` returns live web answers.
 
 **The curiosity cascade:** obvious question → crank the reasoning on the substantive version of it → follow the interesting trails → obsess over the edge cases → pull live data → cross-reference and verify → connect the unrelated dots → present with enthusiasm.
 

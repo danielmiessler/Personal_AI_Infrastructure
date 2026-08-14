@@ -11,8 +11,9 @@
 
 import { Database } from "bun:sqlite"
 import { join } from "path"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? ""
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const CHAT_DB_PATH = join(HOME, "Library", "Messages", "chat.db")
 
 // Apple epoch: 2001-01-01 00:00:00 UTC

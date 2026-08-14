@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.10
+ * @version 1.0.11
  * MemoryDeltaSurface — UserPromptSubmit hook that makes the autonomic memory
  * loop VISIBLE in every response, Hermes-style.
  *
@@ -20,8 +20,8 @@
  * compliance repeatedly; never go back).
  *
  * Two guards, both load-bearing, because for a change-only surface silence IS the healthy
- * state and a dead hook is indistinguishable from a quiet week (INC-20260605-delta-surface-
- * silent-death): (1) this hook touches MEMORY/STATE/delta-surface-heartbeat on every run and
+ * state and a dead hook is indistinguishable from a quiet week: (1) this hook touches
+ * MEMORY/STATE/delta-surface-heartbeat on every run and
  * MemoryHealthCheck flags it dead if memory writes continue while nothing surfaces;
  * (2) MemoryHealthCheck treats a missing settings registration as critical, which nags in
  * chat via the 🩺 line below. Never infer this hook's liveness from its output.

@@ -28,8 +28,9 @@
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs"
 import { join } from "path"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? "~"
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
 const USER_DIR = join(LIFEOS_DIR, "USER")
 const TELOS_DIR = join(USER_DIR, "TELOS")
@@ -168,7 +169,8 @@ function resolveSpec(spec: SourceSpec): ResolvedSource[] {
     const out: ResolvedSource[] = []
     let entries: string[] = []
     try {
-      entries = readdirSync(spec.path).filter((e) => e.endsWith(".md") || e.endsWith(".json") || e.endsWith(".yaml"))
+      // ported from public PR #1741, @elhoim — `.yml` is as valid a YAML suffix as `.yaml`
+      entries = readdirSync(spec.path).filter((e) => e.endsWith(".md") || e.endsWith(".json") || e.endsWith(".yaml") || e.endsWith(".yml"))
     } catch {
       // unreadable dir — record as missing
       return [{ name: spec.name, path: spec.path, exists: false, mtime: null }]

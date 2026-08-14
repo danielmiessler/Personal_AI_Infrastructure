@@ -82,7 +82,7 @@ main().catch(error => {
 - ✅ Type-safe with TypeScript interfaces
 - ✅ 300-400 lines total (easy to understand)
 - ✅ Fast development (no framework learning curve)
-- ✅ Proven pattern (llcli is production-ready)
+- ✅ Proven pattern (validated in production by the retired llcli, 2026-07-15)
 - ✅ Perfect for Bun runtime
 - ✅ Deterministic behavior
 
@@ -422,7 +422,7 @@ JSON output + pipes > built-in table rendering.
 Run `--help` before declaring framework choice successful.
 
 ### 7. **Read Real Code**
-Study llcli, not just framework docs.
+Study a real shipped CLI in this codebase (any Tier 3 tool under `LIFEOS/TOOLS/`), not just framework docs.
 
 ### 8. **Benchmark Size**
 Check dist/ folder size. Tier 1 CLIs are <100 KB.

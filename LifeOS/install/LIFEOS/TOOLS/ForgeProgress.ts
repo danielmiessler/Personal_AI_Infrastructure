@@ -37,6 +37,7 @@ import { join } from "node:path";
 import process from "node:process";
 import { CROSS_VENDOR } from "./models";
 import { PULSE_BASE } from "../PULSE/endpoint";
+import { homedir } from "node:os";
 
 type Args = { slug: string; prompt?: string; model: string; effort: string; sandbox: string; timeoutMs: number; pulseUrl: string };
 type JsonRecord = Record<string, unknown>;
@@ -96,7 +97,7 @@ function validUrl(flag: string, value: string): string {
   try { return new URL(nonEmpty(flag, value)).toString(); }
   catch (error: unknown) { throw new Error(`${flag} must be a valid URL: ${String(error)}`); }
 }
-function homeDir(): string { const home = process.env.HOME; if (!home) throw new Error("HOME is not set"); return home; }
+function homeDir(): string { const home = process.env.HOME ?? process.env.USERPROFILE ?? homedir(); if (!home) throw new Error("HOME is not set"); return home; }
 function preflightCodex(home: string): string | null {
   const codexPath = join(home, ".bun", "bin", "codex");
   try { accessSync(codexPath, constants.X_OK); return codexPath; }

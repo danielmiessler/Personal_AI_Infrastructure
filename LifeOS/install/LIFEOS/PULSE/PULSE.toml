@@ -10,6 +10,57 @@
 
 # ── Module Configuration ──
 
+# [modules] is the one place to switch a Pulse surface off. Every key defaults
+# to the value shown; delete a line and you get that default back. Disabling a
+# module stops it loading, stops its API routes answering, and (via
+# /api/config/modules) hides its tab in the dashboard instead of leaving a nav
+# entry that opens an empty page.
+#
+# Infrastructure Pulse needs to serve anything at all — observability, hooks,
+# tab-freshness, menubar, siri, doctor — is deliberately not listed: those are
+# how Pulse runs, not modules you use.
+#
+# The older `[section].enabled` flags below still work and still win over these
+# defaults, so an existing config needs no changes.
+# ported from public PR #1748, @elhoim
+[modules]
+# Life surfaces (the top nav)
+telos = true
+work = true
+content = true
+health = true
+finances = true
+business = true
+growth = true       # audience metrics; needs USER/CUSTOMIZATIONS/TOOLS/Growth.ts
+local = true        # LocalIntelligence civic digest; needs a Hometown set
+gear = true
+atlas = true
+memory = true
+synapse = true
+projects = true
+books = true
+# System surfaces
+algorithm = true
+bunker = true
+conduit = true
+upgrades = true
+hypotheses = true
+ledger = true
+usage = true
+performance = true
+evals = true
+threatmodel = true
+hermes = true
+docs = true
+# Opt-in surfaces. Each key here overrides its code default; omit a key to take
+# the default. voice defaults on; imessage, syslog, and da default off. Turn
+# syslog on only after wiring a router/firewall to the [syslog] listener below;
+# turn da on once a DA identity is configured (its heartbeat spawns agents).
+voice = true
+imessage = false
+syslog = false
+da = false
+
 [voice]
 enabled = true
 
@@ -67,9 +118,11 @@ enabled = true
 # Override the harness location with the BUNKER_DIR env var.
 
 [syslog]
-enabled = true
+enabled = false
 port = 5514
-# Captures UniFi syslog to ~/.claude/LIFEOS/MEMORY/OBSERVABILITY/unifi-syslog.jsonl.
+# Off by default: enabling it opens a UDP listener on the port below. Turn it on
+# only after pointing a router/firewall's remote-syslog target at this host.
+# Captures router/firewall syslog to ~/.claude/LIFEOS/MEMORY/OBSERVABILITY/unifi-syslog.jsonl.
 # Controller-side setup: point your router/firewall's remote-syslog target at this
 # host on UDP 5514. Most consumer and prosumer gear exposes this as Settings →
 # System → Remote Logging (hostname + port).
@@ -89,7 +142,7 @@ enabled = true
 # Read-only — bumps go through skills/Interview which calls bumpTelosTimestamp().
 
 [da]
-enabled = true
+enabled = false
 # DA display name (placeholder). Canonical name lives in LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml [da].name.
 primary = "Aria"
 heartbeat_schedule = "*/30 * * * *"
@@ -121,10 +174,11 @@ output = "ntfy"
 enabled = true
 
 # NOTE: cost-tracker moved to LIFEOS/USER/CONFIG/PULSE.user.toml on 2026-05-03 —
-# scans {{PRINCIPAL_NAME}}-specific call-site fingerprint, doesn't belong in public template.
+# scans a user-specific call-site fingerprint, doesn't belong in the public template.
 # NOTE: airgradient-poll moved to LIFEOS/USER/CONFIG/PULSE.user.toml on 2026-07-17 —
-# polls the principal's own AirGradient sensors; shipped default-on it polled
-# nothing forever on fresh installs (public issue #1504, @tzioup).
+# polls a user's own sensors; shipped default-on it polled nothing forever on
+# fresh installs (public issue #1504, @tzioup). Machine-specific jobs live in the
+# user layer, never here — this file is the public template.
 
 [[job]]
 name = "memory-consolidation"
@@ -169,7 +223,7 @@ name = "assistant-heartbeat"
 schedule = "*/30 * * * *"
 type = "script"
 command = "bun run Assistant/checks/heartbeat.ts"
-output = "voice"
+output = "log"
 enabled = false
 
 [[job]]
@@ -177,7 +231,7 @@ name = "assistant-tasks"
 schedule = "* * * * *"
 type = "script"
 command = "bun run Assistant/checks/tasks.ts"
-output = "voice"
+output = "log"
 enabled = false
 
 [[job]]
@@ -203,7 +257,7 @@ name = "life-morning-brief"
 schedule = "0 7 * * *"
 type = "script"
 command = "bun run checks/life-morning-brief.ts"
-output = "voice"
+output = "log"
 enabled = true
 
 # ── Migration note (2026-05-03) ──

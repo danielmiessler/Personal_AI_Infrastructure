@@ -29,6 +29,8 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync, appendFileSync } from "fs";
 import { join, basename, dirname, extname } from "path";
 import { randomUUID } from "crypto";
+import { homedir } from "node:os";
+import { getDAName, getPrincipalName } from "../../hooks/lib/identity";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -37,7 +39,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const QUEUE_FILE = join(LIFEOS_DIR, "MEMORY", "MIGRATION", "migration-proposals.jsonl");
 
@@ -92,6 +94,10 @@ type Proposal = {
 
 // ─── Classification rules (keyword → target, with weight) ───
 
+// DA name resolved at runtime and regex-escaped, so the feedback rule matches
+// whatever the install's assistant is called.
+const DA_NAME_RE = getDAName().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const RULES: Array<{ target: Target; patterns: RegExp[]; weight: number }> = [
   // Foundational TELOS
   { target: "TELOS/MISSION.md", patterns: [/\bmission\b/i, /\bnorth[\s-]?star\b/i, /\bwhy I\b(work|build|do)/i, /\blife's?\s+work\b/i], weight: 3 },
@@ -135,7 +141,7 @@ const RULES: Array<{ target: Target; patterns: RegExp[]; weight: number }> = [
   { target: "MEMORY/KNOWLEDGE/Research", patterns: [/\bresearch\b/i, /\bstudy shows\b/i, /\baccording to\b/i], weight: 1 },
 
   // Feedback (AI collaboration preferences)
-  { target: "memory/feedback", patterns: [/\b(always|never|do not) (do|use|include)\b/i, /\bwhen (you|{{DA_NAME}})\b/i, /\bKai should\b/i, /\bfrom now on\b/i, /\brule:\b/i], weight: 3 },
+  { target: "memory/feedback", patterns: [/\b(always|never|do not) (do|use|include)\b/i, new RegExp(`\\bwhen (you|${DA_NAME_RE})\\b`, "i"), new RegExp(`\\b${DA_NAME_RE} should\\b`, "i"), /\bfrom now on\b/i, /\brule:\b/i], weight: 3 },
 ];
 
 // ─── Chunking ───
@@ -308,7 +314,7 @@ function main(): void {
   console.log(``);
   const unclear = proposals.filter((p) => p.proposed_target === "UNCLEAR");
   if (unclear.length) {
-    console.log(`⚠️  ${unclear.length} chunks unclear — will need {{PRINCIPAL_NAME}}'s routing decision.`);
+    console.log(`⚠️  ${unclear.length} chunks unclear — will need ${getPrincipalName()}'s routing decision.`);
   }
   const lowConf = proposals.filter((p) => p.classification_confidence < 0.4 && p.proposed_target !== "UNCLEAR");
   if (lowConf.length) {

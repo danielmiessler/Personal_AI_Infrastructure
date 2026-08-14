@@ -1,22 +1,19 @@
 ---
-version: 1.4.2
+version: 2.0.0
 ---
 
 # Terminal Tab State System
 
 ## Overview
 
-The LifeOS system uses Kitty terminal tab colors and title suffixes to provide instant visual feedback on session state. At a glance, you can see which tabs are working, completed, waiting for input, or have errors.
+Every Kitty tab shows two orthogonal signals, both drawn from the ONE ascent table (`LIFEOS/TOOLS/ascent.ts`):
 
-## State System
+- **The tab COLOR is the run's ascent state** — the same staging the Pulse phase list uses ({{PRINCIPAL_NAME}}, 2026-08-12: "tab colors the same as the color of the task in the phase list"). Traverse is gray (off-scheme — no ISA), then the arc escalates blue → green: marking → ascending → anchoring → camped → cairn. Tabs wear the dark register of each hue (`tabBg`); Pulse wears the brights (`color`). Same table row, two registers.
+- **A second emoji on the title is the ACTIVITY** — whether anything is moving and whether {{PRINCIPAL_NAME}} is the blocker: `⚡` working, `⏳` waiting on him (question or approval), `✅` done, `💤` quiet. Table: `TAB_ACTIVITY`; defaults derive from the state (`defaultTabActivity`), and only the question/approval stamps override with `⏳`.
 
-| State | Icon | Format | Suffix | Inactive Background | When |
-|-------|------|--------|--------|---------------------|------|
-| **Inference** | 🧠 | Normal | `…` | Purple `#1E0A3C` | AI thinking (Haiku/Sonnet inference) |
-| **Working** | ⚙️ | *Italic* | `…` | Orange `#804000` | Processing your request |
-| **Completed** | ✓ | Normal | (none) | Green `#022800` | Task finished successfully |
-| **Awaiting Input** | ❓ | **BOLD CAPS** | (none) | Teal `#0D4F4F` | AskUserQuestion tool used |
-| **Error** | ⚠ | Normal | `!` | Orange `#804000` | Error detected in response |
+Title shape: `{stateIcon}{activityGlyph} {description}` — e.g. `🧗⚡ Fixing tab colors.`, `🧗⏳ APPROVE: Bash git push…`, `🪨✅ Fixed tab colors`.
+
+**The 2026-08-12 fold:** the old generic color layer (working orange, thinking purple, native orange, question teal, blocked amber) is RETIRED. Every live stamp routes through `setAscentTab`, so a painted tab is always one of the six state colors; "waiting on you" is carried by the ⏳ glyph, not a special color. `TAB_COLORS` in `hooks/lib/tab-constants.ts` keeps the retired entries only for stale state files.
 
 **Text Colors:**
 - Active tab: White `#FFFFFF`
@@ -31,16 +28,16 @@ The LifeOS system uses Kitty terminal tab colors and title suffixes to provide i
 ### Two-Hook Architecture
 
 **1. UserPromptSubmit (Start of Work)**
-- Hook: `SessionAnalysis.hook.ts`
-- Sets title with `…` suffix
-- Sets background to orange (working)
-- Announces via voice server
+- Hook: `PromptProcessing.hook.ts`
+- Re-stamps a live run's ascent state, or `traverse` for un-ISA'd work (default `⚡`)
+- Announces via voice server (desktop channel)
 
 **2. Stop (End of Work)**
-- Hook: `SessionAnalysis.hook.ts` → `handlers/TabState.ts`
-- Detects final state (completed, awaiting input, error)
-- Sets appropriate suffix and color
-- Voice notification with completion message
+- Hook: `TabState.hook.ts` → `handlers/TabState.ts`
+- Stamps `cairn` (`🪨✅`) with a past-tense summary
+- Voice completion notification handled separately by `VoiceCompletion.hook.ts` (also registered on Stop)
+
+`TabState.hook.ts` additionally handles the PreToolUse/PostToolUse `AskUserQuestion` legs and PermissionRequest: both stamp `⏳` ON THE RUN'S ASCENT COLOR (carrying `previousTitle`/`previousAscent` for the restore), and the PostToolUse leg restores the prior state. `SessionAnalysis.hook.ts`, named here in earlier versions of this doc, is retired — see `ObservabilitySystem.md` § Session State Tracking.
 
 ### State Detection Logic
 
@@ -61,48 +58,22 @@ function detectResponseState(lastMessage, transcriptPath): ResponseState {
 
 ## Examples
 
-| Scenario | Tab Appearance | Notes |
-|----------|----------------|-------|
-| AI inference running | `🧠 Analyzing…` (purple when inactive) | Brain icon shows AI is thinking |
-| Processing request | `⚙️ 𝘍𝘪𝘹𝘪𝘯𝘨 𝘣𝘶𝘨…` (orange when inactive) | Gear icon + italic text |
-| Task completed | `✓Fixing bug` (green when inactive) | Checkmark, normal text |
-| Need clarification | `❓𝗤𝗨𝗘𝗦𝗧𝗜𝗢𝗡` (teal when inactive) | Bold ALL CAPS |
-| Error occurred | `⚠Fixing bug!` (orange when inactive) | Warning icon + exclamation |
+| Scenario | Tab Appearance | Inactive fill |
+|----------|----------------|---------------|
+| Untracked work in flight | `🥾⚡ Researching pet stores.` | Traverse dark gray `#3B4048` |
+| Run articulating done | `📐⚡ Marking the summit.` | Marking dark blue `#1E3A6F` |
+| Run building | `🧗⚡ Fixing auth bug.` | Ascending dark cyan `#0F4666` |
+| Probes running | `⚓⚡ Testing the hold.` | Anchoring dark teal `#135247` |
+| Question pending | `🧗⏳ Auth method` | The run's own state color |
+| Approval pending | `🧗⏳ APPROVE: Bash git push…` | The run's own state color |
+| Run gone quiet | `⛺💤 Fixing auth bug.` | Camped dim slate `#262B40` (off the gradient — a pause isn't progress) |
+| Turn finished | `🪨✅ Fixed auth bug` | Cairn dark green `#0A4D33` |
 
-**Note:** Active tab always shows dark blue (#002B80) background. State colors only visible when tab is inactive.
-
-### One session, watched through the tab
-
-Picture five tabs open across two projects. You type a prompt into tab three and switch away to read tab one. Here is the whole system doing its job, hands-off:
-
-- The moment you submit, tab three goes **orange with an italic gear** and a `…` suffix — it is working. You didn't touch it; the UserPromptSubmit hook painted it.
-- Mid-run the model stops to think, and the tab flips **purple with the 🧠 brain** — inference in flight — then back to orange when tool work resumes.
-- The run finishes clean, so at Stop the tab settles to **green with a ✓** and no suffix. From tab one, you see green in your peripheral vision and know tab three is done without reading a word.
-- Had the run instead asked you a question, the tab would be **teal, bold ALL CAPS** — the one color that means *you* are the blocker. Teal is the tab you walk back to first.
-
-The active tab you are actually looking at never changes color — it stays dark blue — so "which tab am I in" and "what state is everything else in" never fight for the same signal.
+**Note:** Active tab always shows dark blue (#002B80). State colors only visible when a tab is inactive — you see the whole hillside from whichever tab you're in: gray hasn't declared a route, blue-to-teal is climbing, ⏳ means you are the blocker, green is done.
 
 ### The state machine behind the paint
 
-```mermaid
-stateDiagram-v2
-    [*] --> Working: you submit a prompt
-    Working --> Inference: model starts thinking
-    Inference --> Working: back to tool work
-    Working --> Completed: response finished clean
-    Working --> AwaitingInput: it asks a question
-    Working --> Error: status reports a failure
-    AwaitingInput --> Working: you answer
-    Completed --> Working: next prompt
-    Error --> Working: next prompt
-```
-
-Every edge is driven by a hook, never by hand: the working and inference states come from `PromptProcessing.hook.ts` on submit, and the three terminal states — completed, awaiting-input, error — are chosen by `handlers/TabState.ts` at Stop from what the transcript actually shows. A green tab is a claim the run finished; a teal tab is a claim it needs you.
-
-### Text Formatting
-
-- **Working state:** Uses Unicode Mathematical Italic (`𝘈𝘉𝘊...`) for italic appearance
-- **Question state:** Uses Unicode Mathematical Bold (`𝗔𝗕𝗖...`) in ALL CAPS
+The color axis follows `deriveAscent()` — the same derivation the Pulse board uses, so a tab can never contradict a lane. The activity axis is stamped by whichever hook fired last: `PromptProcessing` (⚡ on submit), `TabState` PreToolUse/PermissionRequest (⏳) and PostToolUse (restore to ⚡), `handlers/TabState.ts` at Stop (✅ via cairn).
 
 ## Mode/Tier Token (title prefix) — RETIRED 2026-07-11
 
@@ -189,40 +160,7 @@ Tab painting was consolidated into one hook, `TabState.hook.ts`, on 2026-07-10 �
 
 ### Color Constants
 
-```typescript
-// hooks/lib/tab-constants.ts — single source of truth for tab colors/states
-working:   { inactiveBg: '#804000', inactiveFg: '#A0A0A0', label: 'orange' },
-thinking:  { inactiveBg: '#1E0A3C', inactiveFg: '#A0A0A0', label: 'purple' },
-// full state map + active-tab colors live in the same file
-const INACTIVE_TEXT = '#A0A0A0';        // Gray
-
-// In TabState.hook.ts PreToolUse branch (via lib/tab-constants.ts)
-const TAB_AWAITING_BG = '#0D4F4F';     // Dark teal (waiting for input)
-
-// In handlers/TabState.ts (via lib/tab-constants.ts)
-const TAB_COLORS = {
-  awaitingInput: '#0D4F4F', // Dark teal
-  completed: '#022800',     // Dark green
-  error: '#804000',         // Dark orange
-};
-
-// Tab icons and formatting
-const TAB_ICONS = {
-  inference: '🧠',   // Brain - AI thinking
-  working: '⚙️',     // Gear - processing (italic text)
-  completed: '✓',    // Checkmark
-  awaiting: '❓',    // Question (bold caps text)
-  error: '⚠',       // Warning
-};
-
-const TAB_SUFFIXES = {
-  inference: '…',
-  working: '…',
-  awaitingInput: '',  // No suffix, uses bold QUESTION
-  completed: '',
-  error: '!',
-};
-```
+ALL run-state colors and glyphs live in `LIFEOS/TOOLS/ascent.ts` — `ASCENT[state].tabBg/tabFg` (dark register) and `color` (Pulse brights), plus `TAB_ACTIVITY` for the ⚡/⏳/✅/💤 glyphs. Never restate the hex values in a consumer or in docs; `hooks/TabTitleComposition.test.ts` pins the staging. `hooks/lib/tab-constants.ts` keeps only `ACTIVE_TAB_BG` (#002B80), the idle entry, and retired legacy entries for stale state files.
 
 **Key Point:** `active_bg` is always set to `#002B80` (dark blue). State colors are applied to `inactive_bg` only.
 

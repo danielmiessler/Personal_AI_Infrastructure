@@ -86,7 +86,10 @@ export default function LedgerPage() {
     const load = () =>
       fetch("/api/ledger")
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-        .then((j) => alive && setData(j))
+        // Clear the error on success — the 60s poll recovers, but the error
+        // branch renders first and never released the page once it was set.
+        // ported from public PR #1735, @elhoim
+        .then((j) => { if (alive) { setData(j); setError(null); } })
         .catch((e) => alive && setError(String(e)));
     load();
     const t = setInterval(load, 60_000);

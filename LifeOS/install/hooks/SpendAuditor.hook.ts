@@ -1,9 +1,8 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.0
+ * @version 1.0.1
  * SpendAuditor.hook.ts — outcome-side spend verification (2026-07-16).
  *
- * Capability workstream ISC-24 (MEMORY/WORK/20260716-euphoric-surprise-isa-design).
  * The failure class: a HEAVY ask (design, analysis, research, assessment)
  * answered inline with zero capability use and no stated reason — the euphoric-
  * surprise "think deeply" miss and the Pocock "thorough analysis" miss both

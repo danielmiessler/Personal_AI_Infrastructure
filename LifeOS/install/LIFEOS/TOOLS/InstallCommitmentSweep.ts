@@ -12,8 +12,10 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
+import * as systemd from "./lib/SystemdUser";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const TEMPLATE = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.commitmentsweep.plist.template");
 const TARGET_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET = join(TARGET_DIR, "com.lifeos.commitmentsweep.plist");
@@ -75,8 +77,38 @@ function install(): void {
   }
 }
 
-function main() {
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive. Every line above is the launchd path and is unchanged;
+ * on darwin nothing in this section executes. This installer's macOS half has
+ * no --status branch, so --status stays Linux-only rather than being added to
+ * the darwin path, which must not change.
+ * ported from public PR #1698, @elhoim
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  const bunPath = await systemd.which("bun");
+  if (!bunPath) throw new Error("bun not found in PATH - install bun first");
+  return {
+    label: LABEL,
+    description: "LifeOS commitment sweep",
+    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "CommitmentSweep.ts")],
+    logPath: join(STATE_DIR, "com.lifeos.commitmentsweep.log"),
+    workingDirectory: join(HOME, ".claude"),
+    schedule: { kind: "calendar", hour: 7, minute: 0 },
+  };
+}
+
+async function linuxMain(args: string[]): Promise<void> {
+  const spec = await linuxSpec();
+  const log = (m: string) => console.log(`[InstallCommitmentSweep] ${m}`);
+  if (args.includes("--uninstall")) { await systemd.uninstall(spec, log); return; }
+  if (args.includes("--status")) { if (!(await systemd.status(spec, log))) process.exit(1); return; }
+  if (!(await systemd.install(spec, log))) process.exit(1);
+}
+
+async function main() {
   const args = process.argv.slice(2);
+  if (systemd.isLinux()) return linuxMain(args);
   if (args.includes("--uninstall")) {
     uninstall();
     process.exit(0);
@@ -84,4 +116,4 @@ function main() {
   install();
 }
 
-if (import.meta.main) main();
+if (import.meta.main) main().catch((err) => { console.error(`[InstallCommitmentSweep] Fatal: ${err}`); process.exit(1); });

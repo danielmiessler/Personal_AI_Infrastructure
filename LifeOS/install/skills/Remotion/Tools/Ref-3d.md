@@ -15,11 +15,9 @@ Only the following Remotion-specific rules need to be followed:
 First, the `@remotion/three` package needs to be installed.  
 If it is not, use the following command:
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/three # If project uses npm
-bunx remotion add @remotion/three # If project uses bun
-yarn remotion add @remotion/three # If project uses yarn
-pnpm exec remotion add @remotion/three # If project uses pnpm
+bunx remotion add @remotion/three
 ```
 
 ## Using ThreeCanvas

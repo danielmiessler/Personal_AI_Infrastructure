@@ -5,8 +5,9 @@ import { readFileSync, existsSync } from "node:fs";
 import { renderShell, renderPage, renderEmpty } from "../ui/render";
 import { readIndex, readPage } from "../lib/data-plane";
 import { loadAllManifests } from "../lib/manifest-loader";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const SNAP_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Snapshots");
 mkdirSync(SNAP_DIR, { recursive: true });
 

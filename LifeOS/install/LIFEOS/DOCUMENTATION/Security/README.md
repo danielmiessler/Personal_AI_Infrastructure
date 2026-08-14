@@ -1,5 +1,5 @@
 ---
-version: 1.8.1
+version: 1.8.2
 ---
 
 # LifeOS Security — Minimal v2
@@ -114,7 +114,7 @@ The nine release-flavored workflows in the release skill (`CreateShadowRelease`,
 
 Adding a pattern: append the regex line under the right section in `DENY_LIST.txt`. The next precheck run picks it up; the next `ShadowRelease.ts` build picks it up at startup. No code to edit.
 
-Hard exclusions (kept OUT of the deny-list, intentionally): the public repo clone URL, `github.com/<repo-owner>/LifeOS` (legitimate attribution), `fTtv3eikoepIosk8dTZ5` (Algorithm voice, intentionally shipped).
+Hard exclusions (kept OUT of the deny-list, intentionally): the public repo clone URL, `github.com/<repo-owner>/LifeOS` (legitimate attribution). (The former Algorithm-voice exclusion was retired 2026-08-05 — the phase-transition voice capability no longer exists, and the ID is now sanitized at release build like the other voice IDs.)
 
 ## What's NOT Here (and why)
 

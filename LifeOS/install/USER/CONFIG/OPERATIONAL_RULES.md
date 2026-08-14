@@ -39,3 +39,13 @@ The system prompt's Security Boundaries rule 7 and the Permission Boundaries wor
 
 ---
 *Keep each rule concrete and sourced to the moment you learned it. The most useful entries are the ones that encode a mistake you don't want to repeat.*
+
+## Model selection
+<!-- Referenced by the system prompt, AlgorithmNudge, ModelRungGuard, and models.ts.
+     Populated stub (public issue #1834, @DRAZY): edit the rungs to taste. -->
+
+- Three rungs. MAX to think, HIGH to execute, MEDIUM when execution is trivial.
+- MAX-class work is judgment, design, architecture, scoping, synthesis, second looks, and meta work on this system.
+- The main loop runs the top rung; `settings.json` pins it. Never ask which rung to use.
+- Execution legs may drop a rung, dispatched with a tier alias; escalate back up when a delegate hits a problem needing deeper reasoning.
+- Safe default if you never edit this: run everything on the session's pinned model.

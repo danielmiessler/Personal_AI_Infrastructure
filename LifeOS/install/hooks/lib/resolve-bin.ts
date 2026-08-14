@@ -10,12 +10,13 @@
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 
 export function resolveBun(): string {
   if (process.execPath && /\/bun$/.test(process.execPath)) return process.execPath;
   const viaWhich = typeof Bun !== "undefined" ? Bun.which("bun") : null;
   if (viaWhich) return viaWhich;
-  const home = process.env.HOME ?? "";
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
   for (const c of [join(home, ".bun/bin/bun"), "/opt/homebrew/bin/bun", "/usr/local/bin/bun"]) {
     if (existsSync(c)) return c;
   }

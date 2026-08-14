@@ -1,0 +1,4 @@
+{
+  "schema": "lifeos-cortex-index-policy/v1",
+  "policy": "no-index-v1"
+}

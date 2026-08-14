@@ -15,11 +15,9 @@ This will absolutely position the children.
 First, the @remotion/transitions package needs to be installed.  
 If it is not, use the following command:
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/transitions # If project uses npm
-bunx remotion add @remotion/transitions # If project uses bun
-yarn remotion add @remotion/transitions # If project uses yarn
-pnpm exec remotion add @remotion/transitions # If project uses pnpm
+bunx remotion add @remotion/transitions
 ```
 
 ## Example usage

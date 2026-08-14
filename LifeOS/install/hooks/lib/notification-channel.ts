@@ -27,13 +27,29 @@ export type NotificationChannel = 'desktop' | 'imessage' | string;
 const VOICE_LOG_PATH = paiPath('MEMORY', 'VOICE', 'voice-events.jsonl');
 
 /**
- * Read the current notification channel from the env. Defaults to 'desktop'
- * when unset — terminal/main-session behavior is preserved.
+ * Read the current notification channel from the env.
+ *
+ * Resolution (2026-08-14, scheduled-task voice leak):
+ *   1. Explicit LIFEOS_NOTIFICATION_CHANNEL always wins (imessage, headless, ...).
+ *   2. Unset + no terminal identity in the env → 'headless'. launchd/cron spawns
+ *      carry only HOME+PATH; an interactive session always inherits TERM (kitty,
+ *      Terminal.app, ssh). A session that was not spawned from a real terminal
+ *      must never reach the speaker, no matter what the model inside it does.
+ *   3. Otherwise 'desktop' — terminal/main-session behavior is preserved.
+ *
+ * Spawner contract: every LifeOS tool that spawns `claude --print` also sets
+ * LIFEOS_NOTIFICATION_CHANNEL=headless explicitly (Inference.ts, PULSE lib,
+ * CarrierProbe), because a headless child spawned FROM a terminal session
+ * inherits TERM and would otherwise pass the sniff.
  */
 export function getNotificationChannel(): NotificationChannel {
   const raw = process.env.LIFEOS_NOTIFICATION_CHANNEL;
-  if (!raw || raw.length === 0) return 'desktop';
-  return raw as NotificationChannel;
+  if (raw && raw.length > 0) return raw as NotificationChannel;
+  const env = process.env;
+  if (!env.TERM && !env.TERM_PROGRAM && !env.KITTY_WINDOW_ID && !env.SSH_TTY) {
+    return 'headless';
+  }
+  return 'desktop';
 }
 
 /**

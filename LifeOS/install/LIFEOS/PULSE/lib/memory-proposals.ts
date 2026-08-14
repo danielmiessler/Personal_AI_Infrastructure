@@ -7,8 +7,15 @@
  * inline 🧠 MEMORY line. (Formerly telegram-proposals — the Telegram
  * surfacing channel was removed 2026-07-15.)
  *
- * Spec: ISA MEMORY/WORK/20260522-223538_pai-hermes-parity-memory/ISA.md
- *       F7 (ISC-82..95).
+ * Decision path: the four `*Proposal` writers below are the shipped exit for a
+ * human-gated row — accept, reject, edit, or applied-elsewhere. `TERMINAL_STATUSES`
+ * is the single authority on which statuses are resolved; every consumer that
+ * counts or filters the queue imports it instead of hand-rolling a list (a
+ * hand-rolled list is how rejected/accepted rows stayed "pending" forever —
+ * public issue #1610, @xmasyx). The deterministic CLI over these writers is
+ * `LIFEOS/TOOLS/ProposalDecide.ts`; Pulse and Hermes surfaces are free to wrap
+ * the same functions rather than reimplementing the transitions.
+ * (public issues #1804, #1805, @catchingknives)
  */
 
 import { appendFileSync, existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -17,27 +24,67 @@ import { isAbsolute, join } from "node:path";
 import {
   PENDING_PROPOSALS_PATH,
   inferProposalKind,
+  pinProposalTargetFile,
   type ProposalTargetKind,
 } from "../../TOOLS/MemoryTypes";
+import { assertInsideUserData } from "../../TOOLS/lib/ForeignDataCheck";
 
 const HOME = process.env.HOME ?? homedir();
 const OBS_DIR = join(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY");
 const PROPOSAL_REPLIES_LOG_PATH = join(OBS_DIR, "proposal-replies.jsonl");
 const IDENTITY_PROPOSALS_LOG_PATH = join(OBS_DIR, "identity-proposals.jsonl");
 
+/**
+ * Lifecycle states:
+ *   pending           — fresh from MemorySystem.add, awaiting surface or auto-apply
+ *   sent              — surfaced to the principal; awaiting reply
+ *   accepted          — principal replied `yes`, edit applied
+ *   rejected          — principal replied `no`
+ *   edited            — principal replied `edit <text>`, alternate text applied
+ *   auto-applied      — confidence ≥ threshold; reviewer applied without surfacing
+ *   applied-elsewhere — the capture was correct but the content landed somewhere
+ *                       other than target_file (a skill, an ISA, a hook). The row
+ *                       is resolved; nothing is owed to target_file. Without this
+ *                       state the only honest options were a false `accepted` or
+ *                       a `rejected` that lies about a good capture
+ *                       (public issue #1804, @catchingknives).
+ */
+export type ProposalStatus =
+  | "pending"
+  | "sent"
+  | "accepted"
+  | "rejected"
+  | "edited"
+  | "auto-applied"
+  | "applied-elsewhere";
+
+/**
+ * The one authority on "this row is resolved". Consumers that count or filter
+ * the queue import this instead of writing their own list — the hand-rolled
+ * variants drifted apart and left resolved rows counted as pending
+ * (public issue #1805, @catchingknives).
+ *
+ * `pending` and `sent` are deliberately absent: `sent` means surfaced and still
+ * awaiting a decision. Any status not listed here (including a runtime value
+ * this union hasn't caught up with) counts as open, which is the safe default —
+ * an unknown row shows up for a human rather than disappearing.
+ */
+export const TERMINAL_STATUSES: readonly ProposalStatus[] = Object.freeze([
+  "accepted",
+  "rejected",
+  "edited",
+  "auto-applied",
+  "applied-elsewhere",
+]);
+
+export function isTerminalStatus(status: string): boolean {
+  return (TERMINAL_STATUSES as readonly string[]).includes(status);
+}
+
 export interface ProposalRow {
   id: string;
   ts: string;
-  /**
-   * Lifecycle states:
-   *   pending       — fresh from MemorySystem.add, awaiting surface or auto-apply
-   *   sent          — surfaced to the principal; awaiting reply
-   *   accepted      — principal replied `yes`, edit applied
-   *   rejected      — principal replied `no`
-   *   edited        — principal replied `edit <text>`, alternate text applied
-   *   auto-applied  — confidence ≥ threshold; reviewer applied without surfacing
-   */
-  status: "pending" | "sent" | "accepted" | "rejected" | "edited" | "auto-applied";
+  status: ProposalStatus;
   target_file: string;
   /**
    * P1 2026-05-25: proposal subtype discriminator. Tells the surfacer which
@@ -54,6 +101,8 @@ export interface ProposalRow {
   surfaced_at?: string;
   resolved_at?: string;
   applied_edit?: string;
+  /** Where the content actually landed, for `applied-elsewhere` rows. */
+  resolution_note?: string;
 }
 
 export type ProposalReply =
@@ -141,7 +190,10 @@ export function formatProposalMessage(p: ProposalRow, home: string = HOME): stri
 export function parseProposalReply(text: string): ProposalReply {
   const trimmed = text.trim();
   if (/^proposals?$/i.test(trimmed)) return { kind: "list" };
-  const m = trimmed.match(/^(yes|no|edit)\s*#?([\w-]+)(?:\s+(.+))?$/i);
+  // Separator is REQUIRED between keyword and id — a zero-length separator
+  // made "no idea what happened" parse as {kind:"no", id:"idea"} and swallowed
+  // ordinary messages ("Non ..." in Italian). (public issue #1844, @xmasyx)
+  const m = trimmed.match(/^(yes|no|edit)(?:\s+#?|#)([\w-]+)(?:\s+(.+))?$/i);
   if (!m) {
     const m2 = trimmed.match(/^#([\w-]+)\s+(yes|no|edit)(?:\s+(.+))?$/i);
     if (!m2) return { kind: null };
@@ -185,6 +237,13 @@ export function applyProposalEdit(targetFile: string, editText: string): { ok: t
   // credit @anikinsasha).
   const resolved = isAbsolute(targetFile) ? targetFile : join(HOME, ".claude", targetFile);
   if (!existsSync(resolved)) return { ok: false, reason: `target file missing: ${targetFile}` };
+  // Boundary (2026-08-11 incident class): a proposal edit is personal content —
+  // its target must physically resolve into the USER_DATA repo. pinProposalTargetFile
+  // already constrains the path lexically; this realpath check additionally
+  // refuses when the LIFEOS/USER symlink is broken or replaced by a real dir,
+  // which would land the edit inside the system tree.
+  const boundary = assertInsideUserData(resolved);
+  if (!boundary.ok) return { ok: false, reason: `proposal apply refused at the system/user boundary: ${boundary.reason}` };
   try {
     const current = readFileSync(resolved, "utf8");
     const sectionHeader = "## Memory-System Proposals";
@@ -204,4 +263,107 @@ export function applyProposalEdit(targetFile: string, editText: string): { ok: t
   } catch (e) {
     return { ok: false, reason: (e as Error)?.message ?? String(e) };
   }
+}
+
+// ── Decisions ──
+//
+// The exit path for a human-gated row. Before these, a proposal below the
+// auto-apply threshold had no shipped way to be resolved at all: the queue only
+// grew, and every surface that read it re-showed the same rows (public issues
+// #1804, #1805, @catchingknives). Each writer is one transition — apply-or-not,
+// then mark, then log — so a CLI, Pulse, or Hermes can offer the decision
+// without owning the state machine.
+
+export interface DecisionResult {
+  ok: boolean;
+  row?: ProposalRow;
+  reason?: string;
+}
+
+/** Fetch a row by id, refusing ids that are missing or already resolved. */
+function openRow(id: string, path: string): { ok: true; row: ProposalRow } | { ok: false; reason: string } {
+  const row = loadProposalQueue(path).find((r) => r.id === id);
+  if (!row) return { ok: false, reason: `no proposal with id ${id}` };
+  if (isTerminalStatus(row.status)) return { ok: false, reason: `proposal ${id} is already ${row.status}` };
+  return { ok: true, row };
+}
+
+/**
+ * Resolve the file a decision may write to. Pinned by kind the same way the
+ * reviewer's auto-apply path pins it, so a decision can never land an edit on a
+ * path the queue row didn't sanction (public PR #1563, @anikinsasha).
+ */
+function pinnedTargetFor(row: ProposalRow): string | null {
+  return pinProposalTargetFile(row.target_kind ?? inferProposalKind(row.target_file), row.target_file);
+}
+
+function resolve(
+  id: string,
+  status: ProposalStatus,
+  opts: { editText?: string; note?: string; path?: string },
+): DecisionResult {
+  const path = opts.path ?? PENDING_PROPOSALS_PATH;
+  const found = openRow(id, path);
+  if (!found.ok) return { ok: false, reason: found.reason };
+  const row = found.row;
+
+  const writes = status === "accepted" || status === "edited";
+  const editText = opts.editText ?? row.edit;
+  if (writes) {
+    const target = pinnedTargetFor(row);
+    if (target === null) {
+      return { ok: false, reason: `target_file '${row.target_file}' is not an allowed target for its kind` };
+    }
+    const applied = applyProposalEdit(target, editText);
+    if (!applied.ok) return { ok: false, reason: applied.reason };
+  }
+
+  const patch: Partial<ProposalRow> = { status, resolved_at: new Date().toISOString() };
+  if (writes) patch.applied_edit = editText;
+  if (opts.note) patch.resolution_note = opts.note;
+  const marked = markProposal(id, patch, path);
+  if (!marked) return { ok: false, reason: `proposal ${id} vanished from the queue mid-write` };
+
+  logProposalEvent({
+    id,
+    file: row.target_file,
+    edit: editText,
+    confidence: row.confidence,
+    status,
+    source: "decision",
+    ...(opts.note ? { note: opts.note } : {}),
+  });
+  return { ok: true, row: marked };
+}
+
+/** Apply the proposal's own text to its target file and close the row. */
+export function acceptProposal(id: string, path?: string): DecisionResult {
+  return resolve(id, "accepted", { path });
+}
+
+/** Close the row without writing anything. */
+export function rejectProposal(id: string, path?: string): DecisionResult {
+  return resolve(id, "rejected", { path });
+}
+
+/** Apply alternate text instead of the proposal's own, then close the row. */
+export function editProposal(id: string, editText: string, path?: string): DecisionResult {
+  const text = editText.trim();
+  if (!text) return { ok: false, reason: "edit text is empty" };
+  return resolve(id, "edited", { editText: text, path });
+}
+
+/**
+ * Close a row whose content already landed somewhere other than target_file.
+ * The note records where — it is the whole value of the state.
+ */
+export function markProposalAppliedElsewhere(id: string, note: string, path?: string): DecisionResult {
+  const where = note.trim();
+  if (!where) return { ok: false, reason: "applied-elsewhere needs a note saying where it landed" };
+  return resolve(id, "applied-elsewhere", { note: where, path });
+}
+
+/** Rows still awaiting a human decision, oldest first. */
+export function pendingProposals(path: string = PENDING_PROPOSALS_PATH): ProposalRow[] {
+  return loadProposalQueue(path).filter((r) => !isTerminalStatus(r.status));
 }

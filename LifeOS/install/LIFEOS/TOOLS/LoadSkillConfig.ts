@@ -4,7 +4,7 @@
  * LoadSkillConfig - Shared utility for loading skill configurations with user customizations
  *
  * Skills call this to load their JSON/YAML configs, which automatically merges
- * base config with user customizations from SKILLCUSTOMIZATIONS directory.
+ * base config with user customizations from the CUSTOMIZATIONS/SKILLS directory.
  *
  * Usage:
  *   import { loadSkillConfig } from '~/.claude/LIFEOS/TOOLS/LoadSkillConfig';
@@ -35,7 +35,7 @@ interface ExtendManifest {
 
 // Constants
 const HOME = homedir();
-const CUSTOMIZATION_DIR = join(HOME, '.claude', 'LIFEOS', 'USER', 'SKILLCUSTOMIZATIONS');
+const CUSTOMIZATION_DIR = join(HOME, '.claude', 'LIFEOS', 'USER', 'CUSTOMIZATIONS', 'SKILLS');
 
 /**
  * Deep merge two objects recursively

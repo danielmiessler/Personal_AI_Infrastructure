@@ -30,9 +30,9 @@ Each iteration is a full Algorithm cycle (OBSERVE → LEARN). The LEARN phase of
 
 ## What Happens
 
-Each iteration is a full Algorithm cycle (OBSERVE → THINK → PLAN → BUILD → EXECUTE → VERIFY → LEARN) with:
+Each iteration is a full Algorithm cycle (articulate → climb → verify → learn) with:
 - ISC criteria that evolve between iterations
-- Each cycle's LEARN phase informs the next cycle's OBSERVE
+- Each cycle's learnings inform the next cycle's scaffold
 - ISA tracks iteration count and cumulative improvements
 - Human approves/redirects between iterations
 

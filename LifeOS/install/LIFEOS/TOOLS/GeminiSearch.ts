@@ -24,6 +24,7 @@
  *
  * Options:
  *   --model <id>       Gemini model id (default: CROSS_VENDOR.geminiResearcher)
+ *   --pro              Use the top Gemini reasoning model (CROSS_VENDOR.gemini) — the Gemini agent's lane
  *   --no-search        Disable Google Search grounding (pure model answer)
  *   --system <prompt>  Prepend a system instruction
  *   --max-tokens <n>   Cap output tokens (default: 2048)
@@ -36,7 +37,7 @@
  * Exit codes: 0 ok, 1 error (missing key, API failure, empty response)
  *
  * @author LifeOS System
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import { readFileSync } from 'fs'
@@ -55,6 +56,7 @@ const USAGE = `Usage: bun ~/.claude/LIFEOS/TOOLS/GeminiSearch.ts [options] "<que
 
 Options:
   --model <id>       Gemini model id (default: ${CROSS_VENDOR.geminiResearcher})
+  --pro              Use the general-agent pin (${CROSS_VENDOR.gemini})
   --no-search        Disable Google Search grounding
   --system <prompt>  Prepend a system instruction
   --max-tokens <n>   Cap output tokens (default: 2048)
@@ -93,6 +95,7 @@ function parseArgs(argv: string[]): { opts: Opts; query: string } {
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case '--model': opts.model = argv[++i] ?? opts.model; break
+      case '--pro': opts.model = CROSS_VENDOR.gemini; break  // general-agent pin (Gemini agent)
       case '--no-search': opts.search = false; break
       case '--system': opts.system = argv[++i]; break
       case '--max-tokens': opts.maxTokens = Number(argv[++i]) || opts.maxTokens; break
@@ -116,10 +119,13 @@ async function gemini(query: string, opts: Opts): Promise<Parsed> {
   if (opts.search) body.tools = [{ google_search: {} }]
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] }
 
-  const res = await fetch(`${API_BASE}/${opts.model}:generateContent?key=${API_KEY}`, {
+  // Key rides the x-goog-api-key header, never the URL (URLs leak to logs,
+  // history, and referrers — OPERATIONAL_RULES; fixed 2026-08-12).
+  const res = await fetch(`${API_BASE}/${opts.model}:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120_000),
   })
 
   const data = await res.json() as any

@@ -1,10 +1,10 @@
 ---
-last_updated: 2026-07-11
+last_updated: 2026-08-08
 last_updated_by: da
-last_reviewed: 2026-07-11
+last_reviewed: 2026-08-08
 last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.3.3
+version: 1.4.3
 ---
 
 # Hook System
@@ -16,10 +16,10 @@ version: 1.3.3
 **Event-Driven Automation Infrastructure**
 
 **Location:** `~/.claude/hooks/`
-**Configuration:** `~/.claude/settings.json` (GENERATED — merged from `settings.system.json` + `LIFEOS/USER/CONFIG/settings.user.json` by `MergeSettings.ts`; for events the user file defines as a plain array — UserPromptSubmit, PostToolUse, PreToolUse, Stop, SessionEnd — the user array REPLACES the system array, so `settings.json` is the only registration truth)
+**Configuration:** `~/.claude/settings.json` (GENERATED — merged from `settings.system.json` + `LIFEOS/USER/CONFIG/settings.user.json` by `MergeSettings.ts`; for events the user file defines as a plain array — UserPromptSubmit, PostToolUse, PreToolUse, Stop, SessionEnd — the user array REPLACES the system array, so `settings.json` is the only registration truth. `settings.user.json` does not exist on a fresh install — `MergeSettings` no-ops cleanly until you create it to carry user-side overrides)
 **Status:** Active — hook counts below are hand-maintained (the `UpdateCounts.ts` count-cache write was removed 2026-05-06; statusline/Banner read live via `GetCounts.ts`)
 
-> **Post-consolidation state (2026-07-11 hooks-BPE pass).** 38 distinct `.hook.ts` files are registered in `settings.json` (39 counting `ContextReduction.hook.sh`), plus 2 Pulse HTTP routes; **49 `.hook.ts` files exist on disk (2026-07-29 count — includes `KnowledgeWriteGuard`, registered 2026-07-29; stale 30/46 figures flagged in public issues #1596/#1629, @anikinsasha/@elhoim).** The 11 files that are on disk but NOT registered directly are not dead — each is imported as a `run()`/`check()` module by a consolidating dispatcher and still runnable standalone via its own shim: `SystemFileGuard`, `CommunicationSkillGuard`, `EgressClassGuard` → `PreToolGuard`; `FormatGate`, `VerificationGate`, `ISACloseGate`, `ISAGate`, `WritingGate` → `StopGates`; `LoadMemory`, `MemoryDeltaSurface` → `MemoryTurnStart`; `SystemChangeSurface` → `PostToolObserver`. (`LoopDetector` graduated to a direct PostToolUse + PostToolUseFailure registration and is no longer dispatcher-only.) The consolidation retired `TheRouter` entirely (removed 2026-07-11) (mode/tier classification abolished; model rungs now live in `LIFEOS/TOOLS/models.ts` + `AgentInvocation.hook.ts`) and folded a family of single-purpose loggers/gates/painters into `EventLogger`, `TabState`, `StopGates`, `MemoryTurnStart`, `MemoryReviewFire`, and `PostToolObserver`. Details per event below.
+> **Post-consolidation state (2026-07-11 hooks-BPE pass).** 40 distinct `.hook.ts` files are registered in `settings.json` (41 counting `ContextReduction.hook.sh`), plus 2 Pulse HTTP routes; **52 `.hook.ts` files exist on disk (2026-08-08 count — includes `ComplexityRatchet`, registered 2026-08-08; `KnowledgeWriteGuard` registered 2026-07-29; stale 30/46 figures flagged in public issues #1596/#1629, @anikinsasha/@elhoim).** The 12 files that are on disk but NOT registered directly are not dead — each is imported as a `run()`/`check()` module by a consolidating dispatcher and still runnable standalone via its own shim: `SystemFileGuard`, `CommunicationSkillGuard`, `EgressClassGuard` → `PreToolGuard`; `FormatGate`, `VerificationGate`, `ISACloseGate`, `ISAFoldGate`, `ISAGate`, `WritingGate` → `StopGates`; `LoadMemory`, `MemoryDeltaSurface` → `MemoryTurnStart`; `SystemChangeSurface` → `PostToolObserver`. (`LoopDetector` graduated to a direct PostToolUse + PostToolUseFailure registration and is no longer dispatcher-only.) The consolidation retired `TheRouter` entirely (removed 2026-07-11) (mode/tier classification abolished; model rungs now live in `LIFEOS/TOOLS/models.ts` + `AgentInvocation.hook.ts`) and folded a family of single-purpose loggers/gates/painters into `EventLogger`, `TabState`, `StopGates`, `MemoryTurnStart`, `MemoryReviewFire`, and `PostToolObserver`. Details per event below.
 
 ---
 
@@ -34,7 +34,7 @@ The LifeOS hook system is an event-driven automation infrastructure built on the
 - **Security Validation** - Active (v5+, consolidated 2026-05-14) — Single `Safety.hook.ts` dispatching by `hook_event_name`: PermissionRequest gates outgoing tool calls via the shape classifier in `lib/safety-classifier.ts` (auto-allows safe shapes, neutral on dangerous/credential/injection); PostToolUse tags WebFetch/WebSearch responses with the "treat as data" warning + injection marker. Replaces the prior split between `SmartApprover.hook.ts` and `PromptInjection.hook.ts`. The v4.0 Inspector Pipeline was deleted 2026-05-06. See `LIFEOS/DOCUMENTATION/Security/README.md`.
 - **Multi-Agent Support** - Agent-specific hooks with voice routing
 - **Tab Titles** - Dynamic terminal tab updates with task context
-- **Unified Event Stream** - All hooks emit structured events to `events.jsonl` for real-time observability
+- **Unified Event Stream** - The advisory checkers emit structured events to `events.jsonl`, read back at SessionStart (see § Unified Event System for the emitters that participate)
 
 **Key Principle:** Most hooks run asynchronously and fail gracefully. Security hooks (e.g. `hooks/Safety.hook.ts`) are synchronous — the PermissionRequest path emits `decision: allow` JSON when safe (otherwise stdout is empty and the native engine prompts). All `.ts` hooks have `#!/usr/bin/env bun` shebangs and `+x` permissions — settings.json references them directly (e.g., `$HOME/.claude/hooks/Safety.hook.ts`) without a `bun` prefix. HTTP hooks (SkillGuard, AgentGuard) run via Pulse routes on `localhost:31337`.
 
@@ -69,6 +69,7 @@ Claude Code supports the following hook events:
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What They Do:**
 - `HookHealer.hook.ts` - Self-heals the registered-script exec-bit class: sweeps every script a settings hook execs directly, `chmod +x` on a missing exec bit, warns on a missing file/shebang. Registered via `bun <path>` so it is immune to losing its own exec bit. Writes `MEMORY/OBSERVABILITY/hook-healer.jsonl`.
@@ -104,21 +105,22 @@ Claude Code supports the following hook events:
     },
     {
       "hooks": [
-        { "type": "command", "command": "$HOME/.claude/hooks/ULWorkSync.hook.ts", "timeout": 60 }
+        { "type": "command", "command": "$HOME/.claude/hooks/ULWorkSync.hook.ts", "timeout": 60 }  // private maintainer hook — NOT shipped in the public release; a fresh install has no such block
       ]
     }
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What They Do:**
 - `WorkCompletionLearning.hook.ts` - Reads ISA.md frontmatter for work metadata and ISC section for criteria status, captures learning to `MEMORY/LEARNING/` for significant work sessions
 - `SessionCleanup.hook.ts` - Marks ISA.md frontmatter status→COMPLETED and sets completed_at timestamp, clears session state, resets tab, cleans session names
 - `UpdateCounts.hook.ts` - Updates system counts (skills, hooks, signals, workflows, files) displayed in the startup banner
-- `MemoryHealthGate.hook.ts` - Runs `MemoryHealthCheck.ts`: asserts all autonomic-memory hooks registered in BOTH settings files, code files present on disk, last reviewer fire within 7d, state file readable. Writes `memory-health.jsonl`; WARN/CRITICAL to stderr. Non-blocking. *(Moved from Stop to SessionEnd during the consolidation.)*
+- `MemoryHealthGate.hook.ts` - Runs `MemoryHealthCheck.ts`: asserts all autonomic-memory hooks registered in BOTH settings files, code files present on disk, last reviewer fire within 7d, state file readable. Writes `memory-health.jsonl`; WARN/CRITICAL to stderr. Non-blocking. *(Moved from Stop to SessionEnd in the 2026-07-11 consolidation, then also re-registered at Stop as an async second block — it runs on both events today; see Section 4.)*
 - `DocIntegrity.hook.ts` - Cross-reference + semantic drift checks + architecture-summary regen (`handlers/DocCrossRefIntegrity.ts`, `handlers/RebuildArchSummary.ts`); self-gates to a no-op when no system files changed. *(Moved from Stop to SessionEnd during the consolidation.)*
 - `IntegrityCheck.hook.ts` - Runs DocCrossRefIntegrity and SystemIntegrity checks at session end
-- `ULWorkSync.hook.ts` *(separate block, 60s timeout)* - Syncs UL GitHub-Issues work state at session end
+- `ULWorkSync.hook.ts` *(separate block, 60s timeout)* - Syncs the principal's GitHub-Issues work state at session end. Principal-specific (hardcodes a private repo) — NOT in the public release payload; a fresh install has no such block.
 
 > **Historical (retired 2026-07-11):** `RelationshipMemory.hook.ts` (captured relationship context to `MEMORY/RELATIONSHIP/`) is no longer registered and no longer on disk; relationship signal is carried by the autonomic memory reviewer instead.
 
@@ -132,19 +134,23 @@ Claude Code supports the following hook events:
 - Capture prompts for analysis
 - Detect ratings and sentiment
 
-**Current Hooks (fire order per settings.json — 6 hooks):**
+**Current Hooks (fire order per settings.json — 9 hooks):**
 ```json
 {
   "UserPromptSubmit": [
     { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/PromptProcessing.hook.ts", "timeout": 30, "async": true } ] },
     { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/SatisfactionCapture.hook.ts", "timeout": 20, "async": true } ] },
     { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/ReminderRouter.hook.ts", "timeout": 5, "async": true } ] },
+    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/VersionDrift.hook.ts", "timeout": 10, "async": true } ] },
     { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/DriftReminder.hook.ts", "timeout": 5, "async": true } ] },
     { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/MemoryTurnStart.hook.ts", "timeout": 8 } ] },
-    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts", "timeout": 5, "async": true } ] }
+    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts", "timeout": 5, "async": true } ] },
+    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/TimeContext.hook.ts", "timeout": 5, "async": true } ] },
+    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/ModelRungGuard.hook.ts", "timeout": 5, "async": true } ] }
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What They Do:**
 
@@ -165,6 +171,10 @@ Claude Code supports the following hook events:
 - Parses reminder-shaped prompts; routes to `gh issue create` with reminder labels
 - Async (timeout 5s)
 
+**VersionDrift.hook.ts** — Deterministic version-drift tooth (timeout 10s, async)
+- Diffs the core surface (`hooks/`, `skills/`, `LIFEOS/ALGORITHM/`, `LIFEOS/TOOLS/`, `agents/`, `commands/`, `LIFEOS/PULSE/`, `LIFEOS/ATLAS/`, `test/`, `LIFEOS/DOCUMENTATION/`, `settings.json`, `CLAUDE.md`, the system prompt) against the last `vX.Y.Z` tag; injects a `/vb` nag line when drift passes threshold
+- Quiet by design: silent when `LIFEOS/VERSION` already moved past the tag (bump in flight), silent below thresholds (10 changed core files, or any drift once the tag is >48h old), and at most one nag per 60 min. Zero inference; state at `MEMORY/STATE/version-drift-nag.json`
+
 **DriftReminder.hook.ts** — Deterministic voice/format drift nudges (added 2026-06-10)
 - Scans the Stop-hook last-response cache (`MEMORY/STATE/last-response.txt`) with the banned-vocab regex (`hooks/lib/banned-vocab.ts`), banner-presence check, and em-dash count
 - Fires at most one `DRIFT-REMINDER:` context line; budget 1-per-5-turns (`MEMORY/STATE/drift-reminder.json`); consecutive identical findings dedupe, a clean response re-arms; 30-min staleness guard. No LLM calls.
@@ -182,6 +192,14 @@ Claude Code supports the following hook events:
 - Deterministic, zero inference, <20ms hot path; subagent tool events silenced via primary-transcript gate
 - Registered on UserPromptSubmit (user settings, async) + PostToolUseFailure (system settings); PostToolUse reaches it via `PostToolObserver`'s import. Not a successor to the retired `SkillSurface.hook.ts` every-prompt top-3 line — routing nudges fire only on USE WHEN phrase match, driven by the 2026-07-11 dynamic-range audit's under-use finding
 
+**TimeContext.hook.ts** — Live per-turn wall clock (timeout 5s, async; ported from public PR #1511, credit @anikinsasha)
+- Emits a `<time-now>` line with weekday, date, time, zone, and a coarse part-of-day label. The harness `currentDate` context is date-only and anchored at session start, so a long session drifts; this recomputes every turn
+- Timezone from `settings.json` `principal.timezone`, falling back to UTC. Fails open — any error is swallowed and the turn proceeds without the line
+
+**ModelRungGuard.hook.ts** — Off-pin session detection (timeout 5s, async)
+- Compares the `model` pin in `settings.json` against the model on the last assistant message in the transcript, and reports when the session is running below the pinned rung
+- Reports only. A hook cannot set the main loop's carrier, so it names the sanctioned move from OPERATIONAL_RULES § Model selection (dispatch MAX-class work up with a tier alias) rather than asking for a `/model` change. Reads a tail of the transcript; no LLM calls; any error exits 0
+
 > **Historical — retired 2026-07-11 (hooks-BPE pass):**
 > - **`TheRouter.hook.ts` retired entirely** (commit `4dd0fbe19`). It owned per-prompt Mode + Tier classification (emitting `MODE: MINIMAL|NATIVE|ALGORITHM | TIER: E1-E5`); that whole scheme was abolished. There is no successor classifier — the model discovers difficulty from the work, and model rungs now live in `LIFEOS/TOOLS/models.ts` + `AgentInvocation.hook.ts`. Its deterministic router libs (`router-deterministic`, `router-classifier`, `RouterShadow`, `ai-speak-patterns`) were deleted with it.
 > - **`MemoryReviewTrigger.hook.ts` retired** (commit `4dd0fbe19`) — its per-prompt cadence tick was absorbed by `MemoryReviewFire` v2 at Stop.
@@ -197,7 +215,7 @@ Claude Code supports the following hook events:
 - Capture work summaries and learnings
 - **Update terminal tab with final state** (color + suffix based on outcome)
 
-**Current Hooks (fire order per settings.json — 6 hooks):**
+**Current Hooks (fire order per settings.json — 8 hooks across 2 blocks):**
 ```json
 {
   "Stop": [
@@ -207,13 +225,20 @@ Claude Code supports the following hook events:
         { "type": "command", "command": "$HOME/.claude/hooks/TabState.hook.ts" },
         { "type": "command", "command": "$HOME/.claude/hooks/VoiceCompletion.hook.ts" },
         { "type": "command", "command": "$HOME/.claude/hooks/ISARenderOnStop.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/SpendAuditor.hook.ts" },
         { "type": "command", "command": "$HOME/.claude/hooks/StopGates.hook.ts" },
         { "type": "command", "command": "$HOME/.claude/hooks/MemoryReviewFire.hook.ts" }
+      ]
+    },
+    {
+      "hooks": [
+        { "type": "command", "command": "$HOME/.claude/hooks/MemoryHealthGate.hook.ts", "timeout": 15, "async": true }
       ]
     }
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What They Do:**
 
@@ -235,22 +260,33 @@ Each Stop hook is a self-contained `.hook.ts` file that reads stdin via shared `
 - Reads the per-session state file written by `ISASync.hook.ts` on every ISA Edit/Write; for each ISA edited this turn spawns `ISARender.ts` ONLY IF the sibling `ISA.html` already exists (the ISA reached `phase: complete` at least once) — the doctrinal gate against constant remaking during authoring
 - Renders spawned detached, never awaited (<100ms budget)
 
+**`SpendAuditor.hook.ts`** — Outcome-side spend verification (added 2026-07-16)
+- Catches the failure class where a HEAVY ask (design, analysis, research, assessment) is answered inline with zero capability use and no stated reason. `AlgorithmNudge` catches the depth SIGNAL at prompt time; this checks the OUTCOME at Stop
+- Hot path only reads/writes a small state file and spawns a detached worker (<20ms target, always exit 0). The worker audits when any trigger fires: a `depth` nudge fired this session, a zero-Skill/zero-Agent session with a ≥200-char last prompt, or a work.json row that hit `phase=complete` in the last 10 minutes
+- **Never blocks, never exits non-zero, never runs inference on the hot path** — a Stop-blocking spend gate Goodharts into token dispatches, which is why the AlgorithmNudge depth-block variant was killed 2026-07-12. Verdicts land in `MEMORY/OBSERVABILITY/spend-audit.jsonl`; an underspend verdict at confidence ≥0.6 also writes `capability-incidents.jsonl`
+
 **`StopGates.hook.ts`** — the ONE Stop-event gate hook (consolidated 2026-07-11)
 - Reads stdin ONCE and evaluates the per-turn gates in order; each gate file still owns its logic and stays runnable standalone:
   1. `FormatGate.run()` — deterministic structural checks on the one LifeOS format (banner first, 🗣️ closer last, 🧠 line when a delta arrived)
   2. `VerificationGate.run()` — blocks done-claims lacking transcript evidence (T1 web-deploy / T2 flow / T3 appearance)
   3. `ISACloseGate.run()` — blocks a major-work completion claim on an active run whose ISA is provably stale (≥10 tool calls since last ISA edit via `toolCallsSinceIsaEditAbs`, no ISA edit this turn, no subagent); fires ONCE per session+run, honest "no ISA delta needed" statements pass (principal directive 2026-07-24; kill switch `ISACLOSEGATE_OFF=1`)
-  4. `ISAGate.run()` — blocks a close (`phase: complete` written this turn) on structural ISA violations (non-M/N progress, fog-at-complete, missing anchors_to); scoped to ISAs touched this turn — the structural tooth complementing ISACloseGate's staleness tooth
-  5. `WritingGate.run()` — blocks publication prose without a real Pangram run (strong signals)
+  4. `ISAFoldGate.run()` — D-50 enforcement (added 2026-07-29): prod mutated this turn + active run + ISA untouched + the reply silent on ISA state → block. Phrase-independent, so it sees the gap `ISACloseGate`'s completion regex cannot ("rigged and armed" isn't "done")
+  5. `ISAGate.run()` — blocks a close (`phase: complete` written this turn) on structural ISA violations (non-M/N progress, fog-at-complete, missing anchors_to); scoped to ISAs touched this turn — the structural tooth complementing ISACloseGate's staleness tooth
+  6. `WritingGate.run()` — blocks publication prose without a real Pangram run (strong signals)
 - The FIRST gate returning `decision:"block"` wins; the recovery turn re-runs all gates. Fails open per-gate so one gate's crash never silences the others
 - `OutputFormatGate.run()` was dropped from the chain 2026-07-11 (it was telemetry-only and policed the retired mode-banner system; voice/format drift is now `DriftReminder`'s job)
 
 **`MemoryReviewFire.hook.ts`** (v2) — owns the WHOLE memory-review cadence (consolidated 2026-07-11)
-- On every primary-session Stop: `turn_count += 1`, `last_message_at = now`; if `turn_count >= turn_threshold` AND minutes since last review `>= min_minutes_between`, spawn `MemoryReviewer.ts` detached and reset
+- On every primary-session Stop: **this session's** `turn_count += 1`, `last_message_at = now`; if that per-session `turn_count >= turn_threshold` AND minutes since the **global** last review `>= min_minutes_between`, spawn `MemoryReviewer.ts` detached and reset this session's counter
+- Cadence state is keyed per `session_id` (public issue #1711, @jacobo-ortiz) — a shared global counter let concurrent sessions reset and starve each other. The turn threshold is per-session; the minute floor stays global because it is the inference-volume guard
 - Absorbed the former `MemoryReviewTrigger` per-prompt tick — firing at Stop already IS the quiet moment the idle/debounce machinery approximated, so `pending_review` stays false forever (kept for statusline schema compat)
-- Subprocess is env-scrubbed (delete `ANTHROPIC_API_KEY` + `ANTHROPIC_AUTH_TOKEN`) to preserve subscription billing. State: `MEMORY/OBSERVABILITY/review-state.json`; params: `LIFEOS/USER/CONFIG/memory-review.json`
+- Subprocess is env-scrubbed (delete `ANTHROPIC_API_KEY` + `ANTHROPIC_AUTH_TOKEN`) to preserve subscription billing. State: `MEMORY/STATE/memory-review/<session_id>.json` (cadence, pruned after 7 days), mirrored to `MEMORY/OBSERVABILITY/review-state.json` for the statusline and health readers; params: `LIFEOS/USER/CONFIG/memory-review.json`
 
-> **Historical (moved off Stop 2026-07-11):** `DocIntegrity.hook.ts` and `MemoryHealthGate.hook.ts` now run at SessionEnd (see Section 2). `OutputFormatGate.hook.ts` was deleted (commit `4dd0fbe19`).
+**`MemoryHealthGate.hook.ts`** *(second Stop block; timeout 15, async)* — Autonomic-memory health check
+- Runs `MemoryHealthCheck.ts`: asserts every autonomic-memory hook is registered in BOTH settings files, the code files are on disk, the last reviewer fire was within 7 days, and the state file is readable
+- Writes `MEMORY/OBSERVABILITY/memory-health.jsonl`; WARN/CRITICAL to stderr. Non-blocking. Registered at **both** Stop (here) and SessionEnd (Section 2) — the Stop registration gives per-turn health, the SessionEnd one covers a session that ends without a further Stop
+
+> **Historical (moved off Stop 2026-07-11):** `DocIntegrity.hook.ts` now runs at SessionEnd (see Section 2). `MemoryHealthGate.hook.ts` also moved to SessionEnd in that pass and was later re-added at Stop as the async second block above, so it is registered on both events today. `OutputFormatGate.hook.ts` was deleted (commit `4dd0fbe19`).
 
 **Tab State System:** See `TerminalTabs.md` for complete documentation
 
@@ -280,6 +316,7 @@ Each Stop hook is a self-contained `.hook.ts` file that reads stdin via shared `
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **Security guard (active — `PreToolGuard.hook.ts`, the ONE PreToolUse blocking dispatcher, consolidated 2026-07-11):** Reads stdin ONCE and routes by tool to the three isolated blocker modules (each still runnable standalone via its own shim), FIRST block wins (`exit 2`, message to stderr → model):
 - `Write | Edit | MultiEdit` → `SystemFileGuard.check` (blocks deny-list USER content landing in a SYSTEM file; fail-OPEN)
@@ -306,7 +343,7 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
     { "matcher": "Agent", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/AgentInvocation.hook.ts" } ] },
     { "matcher": "WebFetch", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
     { "matcher": "WebSearch", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
-    { "matcher": "mcp__.*([Gg]mail|[Mm]ail|[Dd]rive|[Cc]alendar|[Ii]nbox).*", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
+    { "matcher": "mcp__.*", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
     { "matcher": "ToolSearch", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts", "timeout": 5 } ] },
     { "matcher": "AskUserQuestion", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/TabState.hook.ts" } ] },
     { "matcher": "Read", "hooks": [
@@ -318,10 +355,27 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
         { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 },
         { "type": "command", "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts" },
         { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 },
-        { "type": "command", "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts", "timeout": 5 }
+        { "type": "command", "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/ComplexityRatchet.hook.ts" }
     ] },
-    { "matcher": "Edit", "hooks": [ "…same six as Write…" ] },
-    { "matcher": "MultiEdit", "hooks": [ "…same six as Write…" ] },
+    { "matcher": "Edit", "hooks": [
+        { "type": "command", "command": "$HOME/.claude/hooks/ISASync.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 },
+        { "type": "command", "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/ComplexityRatchet.hook.ts" }
+    ] },
+    { "matcher": "MultiEdit", "hooks": [
+        { "type": "command", "command": "$HOME/.claude/hooks/ISASync.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts", "timeout": 30 },
+        { "type": "command", "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts" },
+        { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/ComplexityRatchet.hook.ts" }
+    ] },
     { "hooks": [
         { "type": "command", "command": "$HOME/.claude/hooks/PostToolObserver.hook.ts", "timeout": 5 },
         { "type": "command", "command": "$HOME/.claude/hooks/LoopDetector.hook.ts", "timeout": 5 },
@@ -333,12 +387,13 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What They Do:**
 
 **AgentInvocation.hook.ts** *(matcher `Agent`)* - Records subagent-stop with duration at the `PostToolUse:Agent` boundary (also captures subagent-start at `PreToolUse:Agent`); this is where `subagent_type`/`description` are reliably present.
 
-**Safety.hook.ts** *(matchers `WebFetch`, `WebSearch`, `mcp__…(Gmail|Mail|Drive|Calendar|Inbox)…`, `ToolSearch`)* - PostToolUse branch of the consolidated `Safety.hook.ts`: tags external content with the "treat as data" warning + injection marker. Same file dispatches the PermissionRequest branch (see Section: PermissionRequest).
+**Safety.hook.ts** *(matchers `WebFetch`, `WebSearch`, `mcp__.*`, `ToolSearch`)* - PostToolUse branch of the consolidated `Safety.hook.ts`: tags external content with the "treat as data" warning + injection marker. Same file dispatches the PermissionRequest branch (see Section: PermissionRequest).
 
 **TabState.hook.ts** *(matcher `AskUserQuestion`; formerly `QuestionAnswered.hook.ts`)* - Restores the tab to working/orange after the user answers. Same unified file handles the PreToolUse question branch and the Stop reset.
 
@@ -350,6 +405,8 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
 
 **KnowledgeWriteGuard.hook.ts** *(matchers `Write`, `Edit`, `MultiEdit`; 5s timeout; registered 2026-07-29, ported from public PR #1687, @elhoim)* - Schema feedback at the moment a Knowledge note is written. Advisory only: for writes under `MEMORY/KNOWLEDGE/<Type>/<slug>.md`, validates the note against the canonical schema and emits `additionalContext` naming violations and the sanctioned writer (`MemorySystem.renderInitialNote`) while the author is still in the loop — one edit now instead of a migration later (the SessionEnd `KnowledgeConformance` pass reports the same drift after the fact). NEVER blocks (the note is already on disk at PostToolUse); fail-silent on every path outside KNOWLEDGE.
 
+**ComplexityRatchet.hook.ts** *(matchers `Write`, `Edit`, `MultiEdit`; registered 2026-08-08)* - Advisory complexity-drift meter (inspired by github.com/0xwilliamortiz/ratchet). Measures the complexity a session ADDS — PostToolUse only ever sees new edits, so every pre-existing line of debt is the baseline for free — and reports drift back into the live session via `additionalContext`. v1 is advise-only: it never blocks (the tool has already run at PostToolUse), and fail-open is absolute — any parse, fs, or measurement error exits silently. `MODE` is the single extension point for a future guard/strict tier.
+
 **PostToolObserver.hook.ts** *(catch-all; the ONE sync catch-all hook, consolidated 2026-07-11)* - Dispatcher merging the sync catch-all modules that emit `additionalContext`, joined into one `hookSpecificOutput`:
 - `LoopDetector.run()` — exact-repeat / oscillation / hammering detection
 - `AlgorithmNudge.run()` — the Algorithm live nudge layer (run-scoped: agent-return / claim-close / stale-ISA / spend; always-on: late-ISA when no run is registered)
@@ -357,7 +414,7 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
 
 **EventLogger.hook.ts** *(catch-all; async; the unified observability writer, consolidated 2026-07-10)* - On PostToolUse writes the ground-truth audit to `MEMORY/OBSERVABILITY/tool-activity.jsonl` and bumps the ISA heartbeat; when `tool == Skill` also appends to `MEMORY/SKILLS/execution.jsonl`. Also spawns `LIFEOS/TOOLS/WorkReconcile.ts` detached at most once a minute (2026-07-20): the reconciler heals work.json rows whose ISA frontmatter changed outside ISASync's Write/Edit trigger (Bash edits, git ops) — phase/progress/criteria/title re-synced from the ISA, mtime-cached so unchanged files cost one stat. The same file dispatches PostToolUseFailure, StopFailure, and ConfigChange (see those events). Merged five former loggers: `ToolActivityTracker`, `SkillExecutionLog`, `ToolFailureTracker`, `StopFailureHandler`, `ConfigAudit`. Fail-open; never blocks a turn.
 
-> **Historical (retired 2026-07-11):** `ContentScanner.hook.ts` (v4.0 InjectionInspector on the global matcher) is gone — external-content tagging is the `Safety.hook.ts` PostToolUse branch, now scoped to the specific egress/read matchers above. `TelosSummarySync.hook.ts` retired (commit `4dd0fbe19`) — PRINCIPAL_TELOS regeneration is handled by `DerivedSync` / `GenerateTelosSummary.ts` outside the hook layer. `ToolActivityTracker.hook.ts` and `QuestionAnswered.hook.ts` were folded into `EventLogger` and `TabState` respectively.
+> **Historical (retired 2026-07-11):** `ContentScanner.hook.ts` (v4.0 InjectionInspector on the global matcher) is gone — external-content tagging is the `Safety.hook.ts` PostToolUse branch, now scoped to the named egress/read matchers above (`WebFetch`, `WebSearch`, `ToolSearch`, and every MCP tool via `mcp__.*` — the matcher was widened from the mail/drive/calendar subset to all MCP servers). `TelosSummarySync.hook.ts` retired (commit `4dd0fbe19`) — PRINCIPAL_TELOS regeneration is handled by `DerivedSync` / `GenerateTelosSummary.ts` outside the hook layer. `ToolActivityTracker.hook.ts` and `QuestionAnswered.hook.ts` were folded into `EventLogger` and `TabState` respectively.
 
 ---
 
@@ -368,19 +425,22 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
 - Identify flaky tools or recurring errors
 - Observability data for system health
 
-**Current Hooks (per settings.json — 2 hooks):**
+**Current Hooks (per settings.json — 3 hooks):**
 ```json
 {
   "PostToolUseFailure": [
     { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/EventLogger.hook.ts" } ] },
-    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts", "timeout": 5 } ] }
+    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts", "timeout": 5 } ] },
+    { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/LoopDetector.hook.ts", "timeout": 5 } ] }
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What They Do:**
 - `EventLogger.hook.ts` *(PostToolUseFailure branch; formerly `ToolFailureTracker.hook.ts`)* - Appends structured failure events (tool name, error message, truncated tool input, session ID, timestamp) to `MEMORY/OBSERVABILITY/tool-failures.jsonl`. Lightweight, file append only, no inference calls.
-- `AlgorithmNudge.hook.ts` - Fires the probe-failed nudge ("Claim wrong or code wrong? If the claim, update the ISA.") while an ALGORITHM-mode session is active.
+- `AlgorithmNudge.hook.ts` - Fires the probe-failed nudge ("Claim wrong or code wrong? If the claim, update the ISA.") on an active Algorithm run, plus the always-on capability row for a Doctor-tracked capability the manifest marks `broken`.
+- `LoopDetector.hook.ts` - Repeat-failure / hammering detection on the failing tool call. Direct registration here as well as the `PostToolUse` catch-all, so a tool that fails the same way repeatedly is caught on the failure path too.
 
 ---
 
@@ -412,6 +472,7 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What It Does:**
 - `EventLogger.hook.ts` *(ConfigChange branch; formerly `ConfigAudit.hook.ts`, merged 2026-07-10)* - Appends config change events (config key, old → new summary, session ID, timestamp) to `MEMORY/OBSERVABILITY/config-changes.jsonl`; flags sensitive keys (permissions, hooks, env, mcpServers). Lightweight, file append only, no inference calls.
@@ -427,7 +488,7 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
 
 ### 11. **PostCompact** *(not registered)*
 **When:** After Claude compacts context
-**Status:** Not present in `settings.json`; `RestoreContext.hook.ts` is no longer on disk. It historically restored critical context after compaction.
+**Status:** Not present in `settings.json`; `RestoreContext.hook.ts` was removed 2026-05-06 and no longer exists on disk. It historically restored critical context after compaction.
 
 ---
 
@@ -464,6 +525,7 @@ To restore: `git revert 31a4b9ad9` (or `git show pre-bpe-cuts-2026-05-06:hooks/T
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What It Does:**
 - `TaskGovernance.hook.ts` - Validates and governs task creation for ISC quality standards
@@ -489,9 +551,30 @@ To restore: `git revert 31a4b9ad9` (or `git show pre-bpe-cuts-2026-05-06:hooks/T
   ]
 }
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 **What It Does:**
 - `EventLogger.hook.ts` *(StopFailure branch; formerly `StopFailureHandler.hook.ts`, merged 2026-07-10)* - Captures abnormal-stop diagnostics (log-only) to `MEMORY/SECURITY/<YYYY>/<MM>/stop-failures-<YYYY-MM-DD>.jsonl`.
+
+---
+
+### 14a. **PermissionRequest**
+**When:** The native permission engine is about to prompt for a tool call
+**Status:** Active — `Safety.hook.ts` (PermissionRequest branch), 2 matcher blocks
+
+**Current Hooks (per settings.json — 1 hook, 2 matchers):**
+```json
+{
+  "PermissionRequest": [
+    { "matcher": "Write|Edit|MultiEdit|Bash", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts" } ] },
+    { "matcher": "mcp__.*", "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/Safety.hook.ts" } ] }
+  ]
+}
+```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
+
+**What It Does:**
+- `Safety.hook.ts` *(PermissionRequest branch)* - Shape-classifier auto-approve. `lib/safety-classifier.ts` allows safe shapes (read-only commands, dev binaries, trusted-workspace targets, pre-vetted MCP calls, shell control flow over data) by emitting `decision: allow` JSON; on dangerous, credential, or injection shapes it stays silent and the native engine prompts as normal. Writes a decision cache (`MEMORY/STATE/permission-cache.json`) and an observability trail (`MEMORY/OBSERVABILITY/permission-decisions.jsonl`). Same file as the PostToolUse content-tagging branch (Section 6); it dispatches on `hook_event_name`.
 
 ---
 
@@ -541,7 +624,7 @@ Hooks have access to all environment variables from `~/.claude/settings.json` `"
 
 ### Identity Configuration (Central to Install Wizard)
 
-**settings.json is the single source of truth for all daidentity/configuration.**
+**The canonical identity source is `LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml`, read via `LIFEOS/TOOLS/LifeosConfig.ts`.** The `daidentity` block in settings.json is a runtime mirror kept for transition safety — `hooks/lib/identity.ts` reads it first when present, then falls back to the config/identity files. Configure identity in the toml (or via `/interview`); the mirror below shows the settings.json shape hooks read:
 
 ```json
 {
@@ -551,8 +634,7 @@ Hooks have access to all environment variables from `~/.claude/settings.json` `"
     "displayName": "LifeOS",
     "color": "#3B82F6",
     "voices": {
-      "main": { "voiceId": "{YourElevenLabsVoiceId}", "stability": 0.85, "similarityBoost": 0.7 },
-      "algorithm": { "voiceId": "{AlgorithmVoiceId}" }
+      "main": { "voiceId": "{YourElevenLabsVoiceId}", "stability": 0.85, "similarityBoost": 0.7 }
     }
   },
   "principal": {
@@ -655,9 +737,8 @@ await fetch('http://localhost:31337/notify', {
 });
 ```
 
-**Agent-Specific Voices:**
-Configure voice IDs via `settings.json` daidentity section or environment variables.
-Each agent can have a unique ElevenLabs voice configured. See the Agents skill for voice registry.
+**Voices:**
+Voice IDs are configured canonically in `LIFEOS_CONFIG.toml` (`/interview` fills them); hooks read the `settings.json` runtime mirror. The DA's main voice is the speaker — there is no per-subagent voice routing to configure.
 
 ---
 
@@ -1310,10 +1391,10 @@ HOOK LIFECYCLE:
 6. Hook exits 0 (always succeeds)
 7. Claude Code continues
 
-HOOKS BY EVENT (11 events wired in settings.json; rebuilt from the generated
-settings.json 2026-07-11 hooks-BPE pass. 30 distinct .hook.ts registered
-[31 counting ContextReduction.hook.sh] + 2 Pulse HTTP routes; 38 .hook.ts on
-disk — the 8 unregistered are imported as run()/check() modules by dispatchers,
+HOOKS BY EVENT (11 events wired in settings.json; regenerated 2026-08-10 from the
+generated settings.json. 40 distinct .hook.ts registered
+[41 counting ContextReduction.hook.sh] + 2 Pulse HTTP routes; 52 .hook.ts on
+disk — the 12 unregistered are imported as run()/check() modules by dispatchers,
 noted [via X] below):
 
 SESSION START (3 hooks + 2 TOOLS):
@@ -1323,13 +1404,16 @@ SESSION START (3 hooks + 2 TOOLS):
   bun FreshnessCache.ts          (TOOL) warm pai-freshness cache [async]
   bun SettingsBackport.ts; MergeSettings.ts  (TOOLS) regenerate settings.json [async]
 
-USER PROMPT SUBMIT (6 hooks, in fire order):
-  PromptProcessing.hook.ts       Tab title + session naming via Haiku [async]
-  SatisfactionCapture.hook.ts    User satisfaction signal capture (reads last-response.txt) [async]
-  ReminderRouter.hook.ts         "remind me" parser → labeled GitHub issue [async]
-  DriftReminder.hook.ts          Deterministic voice/format drift nudge, no LLM [async]
-  MemoryTurnStart.hook.ts        ONE memory hook: LoadMemory [via X] + MemoryDeltaSurface [via X]
-  AlgorithmNudge.hook.ts         Algorithm live nudge (skill-routing always-on; principal-message in ALGORITHM sessions) [async]
+USER PROMPT SUBMIT (9 hooks, in fire order):
+  PromptProcessing.hook.ts       Tab title + session naming via Haiku [timeout 30, async]
+  SatisfactionCapture.hook.ts    User satisfaction signal capture (reads last-response.txt) [timeout 20, async]
+  ReminderRouter.hook.ts         "remind me" parser → labeled GitHub issue [timeout 5, async]
+  VersionDrift.hook.ts           Core surface drifted past last tag → surface /vb, no LLM [timeout 10, async]
+  DriftReminder.hook.ts          Deterministic voice/format drift nudge, no LLM [timeout 5, async]
+  MemoryTurnStart.hook.ts        ONE memory hook: LoadMemory [via X] + MemoryDeltaSurface [via X] [timeout 8]
+  AlgorithmNudge.hook.ts         Algorithm live nudge (skill-routing always-on; principal-message on a live run) [timeout 5, async]
+  TimeContext.hook.ts            Live per-turn wall-clock line, tz from settings.json [timeout 5, async]
+  ModelRungGuard.hook.ts         Reports a session running below the settings.json model pin [timeout 5, async]
 
 PRE TOOL USE (4 distinct hooks + 2 Pulse HTTP routes):
   ContextReduction.hook.sh       Context reduction via RTK — REWRITES command [Bash]
@@ -1342,11 +1426,11 @@ PRE TOOL USE (4 distinct hooks + 2 Pulse HTTP routes):
                                  EgressClassGuard.check [via X] on Bash. FIRST block wins (exit 2).
                                  [Bash|Write|Edit|MultiEdit]
 
-POST TOOL USE (12 distinct hooks):
+POST TOOL USE (13 distinct hooks):
   AgentInvocation.hook.ts        subagent_stop with duration [Agent]
-  Safety.hook.ts                 Tag external content as data [WebFetch, WebSearch,
-                                 mcp__.*(Gmail|Mail|Drive|Calendar|Inbox).*, ToolSearch] — same
-                                 file as PermissionRequest hook below; dispatches by event
+  Safety.hook.ts                 Tag external content as data [WebFetch, WebSearch, mcp__.*,
+                                 ToolSearch; timeout 5] — same file as PermissionRequest hook
+                                 below; dispatches by event
   TabState.hook.ts               Post-question tab restore [AskUserQuestion]
   ISAStaleWriteGuard.hook.ts     Stale-ISA write guard [Read, Write, Edit, MultiEdit]
   ISASync.hook.ts                ISA → work.json sync [Write, Edit, MultiEdit]
@@ -1354,22 +1438,27 @@ POST TOOL USE (12 distinct hooks):
   ConfigEvalFire.hook.ts         Config-eval trigger [Write, Edit, MultiEdit]
   AtlasEventCapture.hook.ts      Atlas asset-event capture [Write, Edit, MultiEdit, Bash; timeout 5]
   KnowledgeWriteGuard.hook.ts    Knowledge-note schema advisory [Write, Edit, MultiEdit; timeout 5]
+  ComplexityRatchet.hook.ts      Advisory complexity-drift meter, advise-only [Write, Edit, MultiEdit]
   PostToolObserver.hook.ts       ONE sync catch-all: LoopDetector [via X] + AlgorithmNudge [via X] + SystemChangeSurface [via X] (catch-all) [timeout 5]
   LoopDetector.hook.ts           Direct catch-all registration [timeout 5]
   EventLogger.hook.ts            Unified observability writer: tool-activity + skill-execution (catch-all) [async]
 
-POST TOOL USE FAILURE (2 hooks):
+POST TOOL USE FAILURE (3 hooks, in fire order):
   EventLogger.hook.ts            tool-failures.jsonl (formerly ToolFailureTracker)
-  AlgorithmNudge.hook.ts               probe-failed nudge [timeout 5]
+  AlgorithmNudge.hook.ts         probe-failed + broken-capability nudge [timeout 5]
+  LoopDetector.hook.ts           Repeat-failure / hammering detection [timeout 5]
 
-STOP (6 hooks, in fire order):
+STOP (8 hooks across 2 blocks, in fire order):
   LastResponseCache.hook.ts      Cache response for SatisfactionCapture + DriftReminder bridge
   TabState.hook.ts               Tab title/color reset after response (formerly ResponseTabReset)
   VoiceCompletion.hook.ts        Voice TTS (main sessions only)
   ISARenderOnStop.hook.ts        Re-render completed ISAs (only if ISA.html already exists)
-  StopGates.hook.ts              ONE gate hook: FormatGate, VerificationGate, ISACloseGate, ISAGate, WritingGate .run [via X] in order; FIRST block wins
+  SpendAuditor.hook.ts           Outcome-side spend verification, detached worker; never blocks
+  StopGates.hook.ts              ONE gate hook: FormatGate, VerificationGate, ISACloseGate, ISAFoldGate, ISAGate, WritingGate .run [via X] in order; FIRST block wins
   MemoryReviewFire.hook.ts       Owns the WHOLE memory-review cadence: tick at Stop, fire MemoryReviewer.ts
                                  detached (env-scrubbed) at turn_threshold ∧ min_minutes_between. pending_review always false now.
+  MemoryHealthGate.hook.ts       Autonomic-memory health assertions → memory-health.jsonl
+                                 [separate block; timeout 15, async] — also registered at SessionEnd
 
 STOP FAILURE (1 hook):
   EventLogger.hook.ts            Capture abnormal-stop diagnostics (formerly StopFailureHandler)
@@ -1395,10 +1484,10 @@ SESSION END (7 hooks):
   WorkCompletionLearning.hook.ts Work/learning capture to MEMORY/
   SessionCleanup.hook.ts         Mark WORK dir complete, clear state, reset tab
   UpdateCounts.hook.ts           Refresh system counts (skills, hooks, signals)
-  MemoryHealthGate.hook.ts       MemoryHealthCheck.ts: autonomic-memory registration/health assertions → memory-health.jsonl
+  MemoryHealthGate.hook.ts       MemoryHealthCheck.ts: autonomic-memory registration/health assertions → memory-health.jsonl (also registered at Stop)
   DocIntegrity.hook.ts           Cross-ref + arch-summary regen (self-gates when no system files changed)
   IntegrityCheck.hook.ts         System integrity checks
-  ULWorkSync.hook.ts             UL GitHub-Issues task sync [separate block; timeout 60]
+  ULWorkSync.hook.ts             Principal work-repo task sync [separate block; timeout 60] (private — NOT in the public release payload)
 
 NOT REGISTERED (event keys absent from settings.json; hook files also gone):
   PreCompact / PostCompact / InstructionsLoaded — see Sections 10, 11, 17.
@@ -1418,9 +1507,9 @@ KEY FILES:
 ~/.claude/settings.system.json       System-side hook/permission source (SYSTEM)
 ~/.claude/LIFEOS/USER/CONFIG/settings.user.json  User-side source (USER); its plain-array events REPLACE the system array
 ~/.claude/LIFEOS/TOOLS/MergeSettings.ts  Merges system + user → settings.json (runs async at SessionStart)
-~/.claude/hooks/                     Hook scripts (49 files: 48 .hook.ts + ContextReduction.hook.sh; 37 .hook.ts registered)
-~/.claude/hooks/handlers/            Handler modules (7 files)
-~/.claude/hooks/lib/                 Shared libraries (27 files)
+~/.claude/hooks/                     Hook scripts (53 files: 52 .hook.ts + ContextReduction.hook.sh; 40 .hook.ts registered)
+~/.claude/hooks/handlers/            Handler modules (9 files)
+~/.claude/hooks/lib/                 Shared libraries (32 files)
 ~/.claude/hooks/lib/learning-utils.ts Learning categorization
 ~/.claude/hooks/lib/time.ts          PST timestamp utilities
 ~/.claude/LIFEOS/MEMORY/WORK/               Work tracking
@@ -1448,6 +1537,7 @@ Payload: {"message":"...", "voice_id":"...", "title":"..."}
 Configure voice IDs in individual agent files (`agents/*.md` persona frontmatter)
 
 ```
+<!-- regenerated from settings.json 2026-08-10; public issues #1811 #1812, @tzioup -->
 
 ---
 
@@ -1549,6 +1639,12 @@ Alongside existing filesystem state writes (algorithm-state JSON, ISAs, session-
 
 ### Components
 
+| Component | Path | Role |
+|-----------|------|------|
+| Emitter | `hooks/lib/events.ts` | `appendEvent()` / `emitFindingSet()` — the shared writer every emitter uses |
+| Log | `LIFEOS/MEMORY/STATE/events.jsonl` | Append-only JSONL, never rotated |
+| Model-facing reader | `hooks/lib/advisory-readback.ts` | SessionStart digest of the current finding set, injected by `LoadContext.hook.ts` |
+| Shell reader | — | `tail -f` / `jq` (see § Consuming Events) |
 
 ### Usage in Hooks
 
@@ -1572,21 +1668,34 @@ Events use a dot-separated topic hierarchy for filtering. A `custom.*` escape ha
 
 ### Event Type Categories
 
-| Category | Types | Emitting Hooks |
-|----------|-------|----------------|
-| `work.*` | created, completed | ISASync, SessionCleanup |
-| `session.*` | named, completed | SessionCleanup |
-| `rating.*` | captured | SatisfactionCapture |
-| `learning.*` | captured | WorkCompletionLearning |
-| `voice.*` | sent | VoiceNotification |
-| `isa.*` | synced | ISASync |
-| `doc.*` | integrity | DocIntegrity |
-| `build.*` | rebuild | RebuildSkill (DocRebuild handler) |
-| `system.*` | integrity | IntegrityCheck |
-| `settings.*` | counts_updated | UpdateCounts |
-| `tab.*` | updated | TabState, PromptProcessing |
-| `hook.*` | error | Any hook (error reporting) |
-| `custom.*` | user-defined | Extensibility escape hatch |
+Types below are the ones actually written to `events.jsonl` by shipped code. The
+hierarchy is open — a new emitter picks a topic and calls `appendEvent()` — but this
+table lists emitters, not intentions: if a type is not here, nothing writes it.
+
+| Type | Emitter | Shape |
+|------|---------|-------|
+| `doc.integrity.memory_dir` | `handlers/MemoryDirIntegrity.ts` | finding set (see below) |
+| `doc.integrity.knowledge_conformance` | `handlers/KnowledgeConformance.ts` | finding set (see below) |
+| `custom.*` | — | escape hatch for local emitters |
+
+Other observability streams write their own files and are NOT part of this log:
+`OBSERVABILITY/*.jsonl` (EventLogger — tool activity, failures, config changes),
+`VOICE/voice-events.jsonl`, `OBSERVABILITY/subagent-events.jsonl`,
+`STATE/work-events.jsonl`, `ATLAS/events.jsonl`.
+
+### Finding-set events
+
+A checker that reports a set of problems uses `emitFindingSet()`, which adds
+`ok`, `finding_count`, and a `findings` array of `{ key, kind, detail }`.
+
+- **One event per completed check, carrying the full current set — including the
+  empty set.** An emitter that speaks only when it has findings can never say that
+  a problem was fixed, so the SessionStart digest shows it forever.
+- **No event on a skipped check.** No emission means "not re-checked, previous set
+  stands"; an empty set means "checked, all clear". Emitting the empty set from a
+  skip path silently clears findings nobody looked at.
+- **`key` is stable across runs and free of counts, timestamps, and ordinals** —
+  the readback compares key sets to decide whether anything changed.
 
 ### Consuming Events
 
@@ -1613,7 +1722,7 @@ watch(eventsPath, (eventType) => { /* read new lines */ });
 ---
 
 **Last Updated:** 2026-07-11
-**Status:** Production — unified `events.jsonl` log; `EventLogger.hook.ts` is now the single observability writer across PostToolUse/PostToolUseFailure/StopFailure/ConfigChange (count auto-computed by UpdateCounts.ts)
+**Status:** Production — unified `STATE/events.jsonl` log written through `hooks/lib/events.ts`, read at SessionStart by `hooks/lib/advisory-readback.ts` (gated on `dynamicContext.advisoryReadback`). Separately, `EventLogger.hook.ts` is the single writer of the `MEMORY/OBSERVABILITY/*.jsonl` streams across PostToolUse/PostToolUseFailure/StopFailure/ConfigChange (count auto-computed by UpdateCounts.ts) — a different store, not this log.
 **Maintainer:** LifeOS System
 
 ### Drift & Routing hooks (added 2026-06-10, Fable-prompt upgrades R1/R4)

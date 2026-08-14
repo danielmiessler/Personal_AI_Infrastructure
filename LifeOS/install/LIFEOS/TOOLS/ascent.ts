@@ -76,15 +76,34 @@ export interface AscentMeta {
   icon: string;
   /** Display name. Same word on every surface. */
   label: string;
-  /** Tab-title fallback when no task description is available. */
+  /**
+   * Tab-title fallback when no task description is available. MUST lead with
+   * the state's own label word — a fallback that says a different climb-verb
+   * than the label reads as a seventh, unofficial state (2026-08-13: a tab
+   * showed "Climbing." while the phase was Ascending). Pinned by ascent.test.ts.
+   */
   gerund: string;
   /** One-line meaning — tooltips, docs, `--explain`. */
   meaning: string;
-  /** Pulse lane/badge color (Tokyo Night palette). */
+  /**
+   * Pulse lane/badge color. Staged as a GRADIENT along the arc ({{PRINCIPAL_NAME}},
+   * 2026-08-12: "escalating from blue to green"): traverse is gray (off the
+   * scheme — no ISA, no route), then marking #7aa2f7 blue → ascending #7dcfff
+   * cyan → anchoring #73daca teal → cairn #34d399 emerald. Position in the
+   * climb IS the hue. CAMPED is deliberately OFF the ramp (#565f89 dim slate,
+   * ratified 2026-08-12): a run can camp at any point, so its color can't
+   * honestly encode progress — 💤 carries "paused", the slate just goes quiet.
+   */
   color: string;
-  /** Kitty inactive-tab background. Dark enough for #A0A0A0 text. */
+  /**
+   * Kitty inactive-tab background — the SAME HUE as `color`, darkened for the
+   * tab bar ({{PRINCIPAL_NAME}}, 2026-08-12: tabs follow the phase-list staging, but the
+   * raw board brights were "too light in the tabs"). Same gradient, dark
+   * register: gray → blue → cyan → teal → sage → green. A test in
+   * TabTitleComposition.test.ts pins the staging so the surfaces cannot drift.
+   */
   tabBg: string;
-  /** Kitty inactive-tab foreground. */
+  /** Kitty inactive-tab foreground. Dark fills carry the standard #A0A0A0. */
   tabFg: string;
   /** cmux sidebar log level. */
   cmux: 'info' | 'progress' | 'warning' | 'success' | 'error';
@@ -104,27 +123,27 @@ export const ASCENT: Record<AscentState, AscentMeta> = {
   marking: {
     icon: '📐', label: 'Marking', gerund: 'Marking the summit.',
     meaning: 'Articulating what done means — claims not yet on the hill.',
-    color: '#7dcfff', tabBg: '#0C2D48', tabFg: '#A0A0A0', cmux: 'progress', order: 1, dim: false, board: 'lane',
+    color: '#7aa2f7', tabBg: '#1E3A6F', tabFg: '#A0A0A0', cmux: 'progress', order: 1, dim: false, board: 'lane',
   },
   ascending: {
-    icon: '🧗', label: 'Ascending', gerund: 'Climbing.',
+    icon: '🧗', label: 'Ascending', gerund: 'Ascending.',
     meaning: 'On the wall — exploring, building, delegating; everything that moves the climb.',
-    color: '#e0af68', tabBg: '#78350F', tabFg: '#A0A0A0', cmux: 'info', order: 2, dim: false, board: 'lane',
+    color: '#7dcfff', tabBg: '#0F4666', tabFg: '#A0A0A0', cmux: 'info', order: 2, dim: false, board: 'lane',
   },
   anchoring: {
-    icon: '⚓', label: 'Anchoring', gerund: 'Testing the hold.',
+    icon: '⚓', label: 'Anchoring', gerund: 'Anchoring the hold.',
     meaning: 'Weighting a hold before trusting it — probes running, evidence landing.',
-    color: '#9ece6a', tabBg: '#14532D', tabFg: '#A0A0A0', cmux: 'success', order: 3, dim: false, board: 'lane',
+    color: '#73daca', tabBg: '#135247', tabFg: '#A0A0A0', cmux: 'success', order: 3, dim: false, board: 'lane',
   },
   camped: {
     icon: '⛺', label: 'Camped', gerund: 'Camped.',
     meaning: 'Quiet mid-hill — resumable, not dead.',
-    color: '#565f89', tabBg: '#1F2335', tabFg: '#A0A0A0', cmux: 'info', order: 4, dim: true, board: 'lane',
+    color: '#565f89', tabBg: '#262B40', tabFg: '#A0A0A0', cmux: 'info', order: 4, dim: true, board: 'lane',
   },
   cairn: {
     icon: '🪨', label: 'Cairn', gerund: 'Cairn set.',
     meaning: 'Closed out — every claim held; the marker proving the route went.',
-    color: '#34d399', tabBg: '#022800', tabFg: '#A0A0A0', cmux: 'success', order: 5, dim: true, board: 'lane',
+    color: '#34d399', tabBg: '#0A4D33', tabFg: '#A0A0A0', cmux: 'success', order: 5, dim: true, board: 'lane',
   },
   traverse: {
     // order 0: off-arc but LEADS the board — most real-time activity is
@@ -132,7 +151,7 @@ export const ASCENT: Record<AscentState, AscentMeta> = {
     // promoted from the Basic Tasks strip to a full lane 2026-07-28.
     icon: '🥾', label: 'Traverse', gerund: 'Traversing.',
     meaning: 'Live work with no ISA — moving, but no route declared.',
-    color: '#c0caf5', tabBg: '#292E42', tabFg: '#A0A0A0', cmux: 'info', order: 0, dim: false, board: 'lane',
+    color: '#abb2bf', tabBg: '#3B4048', tabFg: '#A0A0A0', cmux: 'info', order: 0, dim: false, board: 'lane',
   },
   idle: {
     icon: '', label: 'Idle', gerund: '',
@@ -144,6 +163,36 @@ export const ASCENT: Record<AscentState, AscentMeta> = {
 export const ASCENT_STATES = (Object.keys(ASCENT) as AscentState[]).sort(
   (a, b) => ASCENT[a].order - ASCENT[b].order,
 );
+
+/**
+ * Tab activity — the SECOND glyph on a Kitty tab title ({{PRINCIPAL_NAME}}, 2026-08-12:
+ * "an additional emoji to know if it's in a working or completed or waiting
+ * state"). Orthogonal to the ascent state: the state (color + first icon) says
+ * WHERE in the climb the run is; the activity glyph says whether anything is
+ * moving right now and whether {{PRINCIPAL_NAME}} is the blocker. One table, same contract
+ * as ASCENT — no consumer spells a glyph locally.
+ */
+export type TabActivity = 'working' | 'waiting' | 'done' | 'quiet';
+
+export const TAB_ACTIVITY: Record<TabActivity, { glyph: string; meaning: string }> = {
+  working: { glyph: '⚡', meaning: 'Actively working this second.' },
+  waiting: { glyph: '⏳', meaning: 'Blocked on the principal — a question or an approval.' },
+  done:    { glyph: '✅', meaning: 'Turn finished; nothing running.' },
+  quiet:   { glyph: '💤', meaning: 'Gone quiet — resumable, nothing moving.' },
+};
+
+/**
+ * The activity a state implies when the caller has nothing more specific:
+ * a cairn is done, a camp is quiet, idle shows nothing, everything else on
+ * the hill is working. Callers override only for `waiting` (question and
+ * approval stamps), which no state can imply on its own.
+ */
+export function defaultTabActivity(state: AscentState): TabActivity | null {
+  if (state === 'idle') return null;
+  if (state === 'cairn') return 'done';
+  if (state === 'camped') return 'quiet';
+  return 'working';
+}
 
 /** The brackets an ISA can actually declare, in arc order. */
 export const ASCENT_BRACKETS: AscentState[] = ['marking', 'ascending', 'cairn'];
@@ -362,14 +411,19 @@ export function ascentProgress(state: AscentState): number {
  */
 export const TITLE_PREFIX_GLYPHS: string[] = [
   ...ASCENT_STATES.map((s) => ASCENT[s].icon).filter(Boolean),
+  // Activity glyphs (2026-08-12) — ride directly after the state icon.
+  ...Object.values(TAB_ACTIVITY).map((a) => a.glyph),
   // Retired state glyphs (routefinding/roped/summit, folded 2026-07-30) — old
   // titles still carry them, so they strip forever.
   '🔭', '🪢', '🏔️',
-  '🧠', '⚙️', '⚙', '✓', '❓', '⚠', '👁️', '📋', '🔨', '⚡', '✅', '📚', '🧭',
+  '🧠', '⚙️', '⚙', '✓', '❓', '⚠', '👁️', '📋', '🔨', '📚', '🧭',
 ];
 
+// Strips a SEQUENCE of known glyphs (state icon + activity glyph, plus any
+// legacy stack), not just the first one — titles are `{icon}{activity} desc`
+// since 2026-08-12 and must never accrete glyphs across restamps.
 const PREFIX_RE = new RegExp(
-  `^(?:${TITLE_PREFIX_GLYPHS.map((g) => g.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*`,
+  `^(?:(?:${TITLE_PREFIX_GLYPHS.map((g) => g.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*)+`,
 );
 
 /** Strip a leading state glyph from a tab title. */

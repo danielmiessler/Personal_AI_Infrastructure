@@ -16,10 +16,12 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
+import * as systemd from "./lib/SystemdUser";
+import { homedir } from "node:os";
 
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.conveyor-runner.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.conveyor-runner.plist");
@@ -107,8 +109,37 @@ async function status(): Promise<void> {
   console.log(r.out);
 }
 
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive. Every line above is the launchd path and is unchanged;
+ * on darwin nothing in this section executes. KeepAlive + ThrottleInterval 30
+ * becomes Restart=always + RestartSec=30 on a Type=simple unit.
+ * ported from public PR #1698, @elhoim
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  const bunPath = await systemd.which("bun");
+  if (!bunPath) throw new Error("bun not found in PATH - install bun first");
+  return {
+    label: LABEL,
+    description: "LifeOS Conveyor stage engine",
+    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "Conveyor", "Runner.ts")],
+    logPath: join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "com.lifeos.conveyor-runner.log"),
+    workingDirectory: join(HOME, ".claude"),
+    schedule: { kind: "daemon", restartSec: 30 },
+  };
+}
+
+async function linuxMain(arg: string | undefined): Promise<void> {
+  const spec = await linuxSpec();
+  const log = (m: string) => console.log(`[InstallConveyorRunner] ${m}`);
+  if (arg === "--uninstall") { await systemd.uninstall(spec, log); return; }
+  if (arg === "--status") { if (!(await systemd.status(spec, log))) process.exit(1); return; }
+  if (!(await systemd.install(spec, log))) process.exit(1);
+}
+
 async function main(): Promise<void> {
   const arg = process.argv[2];
+  if (systemd.isLinux()) return linuxMain(arg);
   if (arg === "--uninstall") return uninstall();
   if (arg === "--status") return status();
   return install();

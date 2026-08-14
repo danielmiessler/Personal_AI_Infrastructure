@@ -19,10 +19,11 @@
 import { writeFile, mkdir, readFile } from "fs/promises";
 import { join } from "path";
 import { parseArgs } from "util";
+import { homedir } from "node:os";
 
 // LIFEOS_DIR already IS .../LIFEOS — fallback must match UpdateIndex.ts, else the
 // two tools fork the registry in a bare environment (found 2026-07-19 Ledger unification).
-const LIFEOS_DIR = process.env.LIFEOS_DIR || `${process.env.HOME}/.claude/LIFEOS`;
+const LIFEOS_DIR = process.env.LIFEOS_DIR || `${homedir()}/.claude/LIFEOS`;
 const UPDATES_DIR = join(LIFEOS_DIR, "MEMORY/SYSTEMUPDATES");
 const INDEX_PATH = join(UPDATES_DIR, "INDEX.md");
 
@@ -675,4 +676,10 @@ async function main() {
   console.log(`Change Type: ${changeType}`);
 }
 
-main().catch(console.error);
+// Exit non-zero on failure: IntegrityMaintenance.ts records a ledger entry on
+// `code === 0`, so swallowing the error into a 0 booked work that never happened.
+// ported from public PR #1737, @elhoim
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

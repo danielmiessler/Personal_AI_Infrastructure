@@ -14,11 +14,9 @@ If you have an existing `.srt` subtitle file, you can import it into Remotion us
 First, the @remotion/captions package needs to be installed.
 If it is not installed, use the following command:
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/captions # If project uses npm
-bunx remotion add @remotion/captions # If project uses bun
-yarn remotion add @remotion/captions # If project uses yarn
-pnpm exec remotion add @remotion/captions # If project uses pnpm
+bunx remotion add @remotion/captions
 ```
 
 ## Reading an .srt file

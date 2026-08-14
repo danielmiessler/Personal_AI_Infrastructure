@@ -4,7 +4,7 @@ last_updated_by: <da-name>
 convention: pai-freshness-v1
 last_reviewed: 2026-05-25T21:55:00Z
 last_reviewed_by: <principal>
-version: 1.1.3
+version: 1.1.5
 ---
 
 # Work System
@@ -15,7 +15,7 @@ version: 1.1.3
 
 ## Why this exists
 
-LifeOS does a lot of work. Before this redesign (2026-05-25), one out of 208 sessions in a month had landed in the work repo — a 0.5% capture rate. The principal's "system of record for all work" was structurally empty. Three independent failures combined: (a) the SessionEnd hook skipped NATIVE-mode sessions and most prompts now classify as NATIVE, (b) the hook wrote `Type:*`/`Status:*` prefixed labels that didn't exist in the repo so issues landed naked, (c) the hand-maintained TASKLIST.md hadn't been updated in five weeks. Capture was almost zero, render was wrong, the unified view was stale.
+LifeOS does a lot of work. Before this redesign (2026-05-25), only a single session out of the month's hundreds had landed in the work repo — a sub-1% capture rate. The principal's "system of record for all work" was structurally empty. Three independent failures combined: (a) the SessionEnd hook skipped NATIVE-mode sessions and most prompts now classify as NATIVE, (b) the hook wrote `Type:*`/`Status:*` prefixed labels that didn't exist in the repo so issues landed naked, (c) the hand-maintained TASKLIST.md hadn't been updated in five weeks. Capture was almost zero, render was wrong, the unified view was stale.
 
 The redesign closes all three loops at once and adds a fourth capture surface — a periodic sweep that catches what event-driven hooks miss.
 
@@ -177,7 +177,7 @@ A `<da-name>-can-take` label serves as the queue marker for "the DA should pick 
 | **System code (public)** | `~/.claude/LIFEOS/PULSE/`, `~/.claude/LIFEOS/TOOLS/`, generic capture hooks under `~/.claude/hooks/` | Modules, CLIs, generic hooks | YES — scrubbed, public-clean |
 | **Private components** | the work-tracking skill dir, `~/.claude/hooks/ULWorkSync.hook.ts` | Underscore-private skill + principal-specific SessionEnd capture hook (target the principal's private work repo) | NO — rsync-excluded from the public release payload, same as any underscore-prefixed private skill |
 | **User config** | `~/.claude/LIFEOS/USER/WORK/` | `labels.yml`, `config.yaml`, `work_repo.json`, `README.md` | NO — **created by work-system setup, not shipped.** These are USER-zone files excluded by containment; a fresh install has no `USER/WORK/` until setup writes it, so a missing file here is the pre-setup state, not a packaging bug. |
-| **Templates for new users** | the release skill's `RELEASE_TEMPLATES/WORK_REPO/` | README template, TASKLIST starter, .github/labels.yml, ISSUE_TEMPLATE, workflows | YES — placeholder substitution at user-setup time (planned, not yet built) |
+| **Templates for new users** | maintainer-side only, in the release skill's `RELEASE_TEMPLATES/WORK_REPO/` — **not yet in the release payload**, so there is no installed path for these | README template, TASKLIST starter, .github/labels.yml, ISSUE_TEMPLATE, workflows | NOT YET — placeholder substitution at user-setup time is planned, not built |
 | **Live repo** | The configured private GitHub repo | Issues, TASKLIST.md, README, SOPs, CHANGELOG | NO — user's private property |
 
 A new LifeOS user runs the work-tracking skill's `SetWorkRepo --bootstrap <owner/repo>` tool (planned). That single command verifies the repo is private, writes the privacy-attested `work_repo.json`, runs BootstrapLabels to seed the taxonomy, clones the template into the new repo with placeholder substitution, commits, and pushes. From that point the entire system points at their repo with zero code changes.
@@ -272,4 +272,3 @@ The point of the diagram is that capture and rendering are decoupled through one
 - Containment policy: `LIFEOS/DOCUMENTATION/Tools/Containment.md`
 - Pulse system: `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`
 - Work-tracking skill (private)
-- Redesign ISA (provenance): `LIFEOS/MEMORY/WORK/20260525-213259_ulwork-sync-redesign/ISA.md`

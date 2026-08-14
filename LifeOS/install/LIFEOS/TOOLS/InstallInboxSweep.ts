@@ -15,10 +15,11 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
+import { homedir } from "node:os";
 
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 // The template lives with the skill that owns the service — its scheduled
 // executable is skills/_INBOX/Tools/triage.ts, so a public LIFEOS/TOOLS copy
 // pointed across the boundary into a stripped skill (relocated 2026-07-25).

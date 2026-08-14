@@ -4,8 +4,9 @@ import { resolve, join, basename } from "node:path";
 import { renderShell, renderPage } from "../ui/render";
 import type { PageData } from "../Schema/PulseSchema";
 import { PageDataSchema } from "../Schema/PulseSchema";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const FIX_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Fixtures");
 const OUT_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Snapshots");
 mkdirSync(OUT_DIR, { recursive: true });

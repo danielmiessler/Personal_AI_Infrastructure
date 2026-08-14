@@ -33,8 +33,10 @@
  *   bun MutationTier.ts test                       (smoke test — exit 0 on pass)
  */
 
-import { resolve as pathResolve } from "node:path";
+// public issue #1747, @umair-a11y — isAbsolute()/sep instead of hardcoded "/"
+import { resolve as pathResolve, isAbsolute, sep } from "node:path";
 import { homedir } from "node:os";
+import { getPrincipalName } from "../../hooks/lib/identity";
 
 // ── Constants ──
 
@@ -56,8 +58,8 @@ const TIER_B_FILES: ReadonlySet<string> = new Set([
 
 /** Tier B: append-with-audit prefixes (any file beneath these dirs is Tier B). */
 const TIER_B_PREFIXES: readonly string[] = [
-  pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/KNOWLEDGE") + "/",
-  pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/IDEAS") + "/",
+  pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/KNOWLEDGE") + sep,
+  pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/IDEAS") + sep,
 ];
 
 /** Tier C: propose-only identity-doctrine files (exact-match paths). */
@@ -86,7 +88,7 @@ const TIER_C_FILES: ReadonlySet<string> = new Set([
  * explicitly raises its tier.
  */
 export function getTier(absolutePath: string): Tier {
-  if (!absolutePath.startsWith("/")) {
+  if (!isAbsolute(absolutePath)) {
     // Defensive: relative paths are always Tier D. The reviewer dispatcher
     // should resolve before classification, but we don't trust the caller.
     return "D";
@@ -154,7 +156,7 @@ function smokeTest(): number {
 
     // Tier B — KNOWLEDGE prefix
     {
-      path: pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/KNOWLEDGE/People/{{PRINCIPAL_NAME}}.md"),
+      path: pathResolve(CLAUDE_ROOT, `LIFEOS/MEMORY/KNOWLEDGE/People/${getPrincipalName()}.md`),
       expected: "B",
       why: "KNOWLEDGE/People/* is append-with-audit",
     },

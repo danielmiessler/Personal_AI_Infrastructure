@@ -14,6 +14,7 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import { loadConfig } from "./config.ts"
 import { DATA_ROOT } from "./paths.ts"
+import * as systemd from "../../TOOLS/lib/SystemdUser"
 
 const LABEL = "com.lifeos.conduit"
 const PLIST = join(homedir(), "Library", "LaunchAgents", `${LABEL}.plist`)
@@ -84,7 +85,37 @@ function status(): void {
   }
 }
 
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive: every line above is the launchd path and is unchanged.
+ * launchd keeps owning the job on darwin and systemd owns it on linux, so no
+ * install ever has two schedulers for one job.
+ * Translation rules live in ../../TOOLS/lib/SystemdUser.ts.
+ * ported from public PR #1698, @elhoim
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  return {
+    label: LABEL,
+    description: "LifeOS Conduit capture",
+    // BUN is process.execPath, already absolute — no `which` lookup needed.
+    exec: [BUN, CONDUIT, "capture"],
+    logPath: join(LOG_DIR, "conduit.out.log"),
+    errLogPath: join(LOG_DIR, "conduit.err.log"),
+    // Reads the same config key the plist does, so one setting drives both.
+    schedule: { kind: "interval", seconds: loadConfig().pollIntervalSec },
+  }
+}
+
+async function linuxMain(a: string | undefined): Promise<void> {
+  const spec = await linuxSpec()
+  const log = (m: string) => console.log(`[InstallConduit] ${m}`)
+  if (a === "--uninstall") { await systemd.uninstall(spec, log); return }
+  if (a === "--status") { if (!(await systemd.status(spec, log))) process.exit(1); return }
+  if (!(await systemd.install(spec, log))) process.exit(1)
+}
+
 const arg = process.argv[2]
-if (arg === "--uninstall") uninstall()
+if (systemd.isLinux()) await linuxMain(arg)
+else if (arg === "--uninstall") uninstall()
 else if (arg === "--status") status()
 else install()

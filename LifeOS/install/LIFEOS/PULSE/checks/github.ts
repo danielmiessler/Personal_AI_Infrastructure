@@ -10,8 +10,9 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import { dirname, join } from "path"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? ""
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const LEGACY_STATE_FILE = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "github-seen.json")
 const STATE_FILE = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "github-seen.jsonl")
 // Repos to monitor for new issues / activity. Override via LIFEOS_PULSE_REPOS

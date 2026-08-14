@@ -147,14 +147,31 @@ function installPlugin(): Change[] {
 
   const policyPath = join(PLUGIN_DEST, "policy.json");
   const beforePolicy = existsSync(policyPath) ? readFileSync(policyPath, "utf8") : null;
-  const policy = emitPolicy(policyPath, { launcherName: daName() });
+  const policy = emitPolicy(policyPath, { launcherName: daName(), trustedEgressDomains: trustedEgressDomains() });
   if (beforePolicy !== readFileSync(policyPath, "utf8")) {
     changes.push({
       what: "plugins/lifeos/policy.json",
-      detail: `${policy.denyRules.length} read rules, ${policy.shellDenyGlobs.length} shell globs`,
+      detail: `${policy.denyRules.length} read rules, ${policy.shellDenyGlobs.length} shell globs, ${policy.trustedEgressDomains.length} trusted egress hosts`,
     });
   }
   return changes;
+}
+
+/**
+ * Operator-trusted egress hosts, read from the USER tree at mount time so the
+ * shipped code stays install-generic. Shape: `{"domains": ["example.dev"]}`.
+ * Missing or malformed config degrades to the loopback-only defaults.
+ */
+function trustedEgressDomains(): string[] {
+  const path = join(INSTALL_ROOT, "LIFEOS", "USER", "CONFIG", "hermes-trusted-domains.json");
+  try {
+    if (!existsSync(path)) return [];
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as { domains?: unknown };
+    if (!Array.isArray(parsed.domains)) return [];
+    return parsed.domains.filter((d): d is string => typeof d === "string");
+  } catch {
+    return [];
+  }
 }
 
 /**

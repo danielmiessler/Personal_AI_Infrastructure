@@ -38,6 +38,11 @@ export interface TxEvent {
   resultText: string;
   /** True when the tool_result was an error or the result text signals failure. */
   isError: boolean;
+  /** The tool_result's RAW `is_error` flag, with no text heuristic mixed in.
+   * Ground truth for "the tool actually failed": a read-only command whose OUTPUT
+   * quotes failure words (`rg -n "exit 1"`) sets `isError` but never this.
+   * (ported from public PR #1738, @elhoim) */
+  isToolError: boolean;
   /** Doc-only edits (.md / MEMORY / ISA) don't count as code mutations. */
   isCode: boolean;
 }
@@ -163,7 +168,7 @@ export function parseTurnEvents(
       const resultText = res?.text ?? "";
       const isErrorFlag = res?.isError === true || (resultText ? ERROR_MARKERS.test(resultText) : false);
       const push = (kind: EventKind, target: string, isCode = false) =>
-        events.push({ seq: seq++, kind, tool: name, target, resultText, isError: isErrorFlag, isCode });
+        events.push({ seq: seq++, kind, tool: name, target, resultText, isError: isErrorFlag, isToolError: res?.isError === true, isCode });
 
       if (name === "Edit" || name === "Write" || name === "NotebookEdit") {
         const p = String(input.file_path ?? input.notebook_path ?? "");
@@ -181,7 +186,12 @@ export function parseTurnEvents(
           else push("interceptor-nav", extractHost(cmd));
         } else if (TEST_RE.test(cmd) && !/--dry-run/.test(cmd)) push("test-run", cmd.slice(0, 120));
         else if (PROBE_RE.test(cmd)) push("probe", extractHost(cmd));
-        else push("command", cmd.slice(0, 120)); // fallback: a plain command's failure must still be visible evidence
+        // Fallback: a plain command's failure must still be visible evidence.
+        // Kept long because ISAFoldGate matches PROD_MUTATION_RES against this
+        // text — at 120 chars a real `cd … && wrangler d1 execute … --remote
+        // --command "INSERT …"` was cut before its write verb and read as benign.
+        // (ported from public PR #1738, @elhoim)
+        else push("command", cmd.slice(0, 2000));
       } else if (name === "WebFetch") {
         push("probe", eTLD1(String(input.url ?? "")));
       } else if (name === "Read") {

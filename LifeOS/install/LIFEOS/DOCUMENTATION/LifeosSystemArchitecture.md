@@ -4,7 +4,7 @@ last_updated_by: da
 convention: pai-freshness-v1
 last_reviewed: 2026-05-04T18:27:00.870Z
 last_reviewed_by: {{PRINCIPAL_NAME}}
-version: 1.11.42
+version: 1.11.110
 ---
 
 # What LifeOS is and Why it Exists
@@ -52,7 +52,7 @@ LifeOS targets **AS3** on the [LifeOS Maturity Model](https://example.com/blog/p
 
 **Canonical thesis:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` — read this first when any framing question comes up. This architecture doc describes *how* the OS is built; the thesis doc describes *what* the OS is for.
 
-**Version:** LifeOS 7.28.3 | Algorithm v8.17.3 | Cortex (Memory) v8.3.0
+**Version:** LifeOS 7.40.4 | Algorithm v8.20.2 | Cortex (Memory) v8.3.0
 
 ---
 
@@ -110,7 +110,7 @@ The infrastructure serves the philosophy. If the philosophy is clear, the infras
 ~/.claude/                           # Claude Code native directory
   CLAUDE.md                          # Operational instructions (directly edited)
   settings.json                      # Runtime settings (directly edited)
-  LIFEOS_CONFIG.yaml                    # Credentials store for private skills (gitignored)
+  .env                               # Secrets (gitignored; canonical env — see OPERATIONAL_RULES)
   hooks/                             # Event lifecycle hooks
   skills/                            # All skills, each with SKILL.md
   agents/                            # Agent definitions
@@ -118,9 +118,8 @@ The infrastructure serves the philosophy. If the philosophy is clear, the infras
   channels/                          # Channel integrations
   plugins/                           # Plugin integrations
   LIFEOS/                               # System docs, tools, user context
-    Algorithm/                       # Algorithm versions + optimization modes
-    Components/                      # Source components for CLAUDE.md generation
-    Tools/                           # TypeScript utilities
+    ALGORITHM/                       # Algorithm versions (LATEST + v*.md doctrine)
+    TOOLS/                           # TypeScript utilities
     MEMORY/                          # Persistent memory stores
     USER/                            # User context (identity, contacts, projects)
 ```
@@ -217,7 +216,7 @@ The LifeOS live tree and the public release are structurally identical modulo a 
 **Three enforcement layers:**
 1. **Write-time** — `hooks/SystemFileGuard.hook.ts` (PreToolUse) blocks writes to SYSTEM files when content matches deny-list patterns. Fail-safe-open on hook errors. 19/19 tests pass. Primary defense.
 2. **PR-time** (Phase H, deferred) — GitHub Actions runs `DenyListCheck.ts` on every PR against the public repo.
-3. **Release-time** — the release tooling runs 19 gates (G1–G14 + G17 case-portability, G18 offensive-leak, G19 retired-capability leak; G1–G14: zone deletion, identity grep, CF ID grep, trufflehog, .env strays, private tokens, ref integrity, private-skill refs, username-path leak, staging boot, dashboard leak, template-only USER/MEMORY, hidden-file leakage, critical-artifact presence). Backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
+3. **Release-time** — the release tooling runs 23 gates (G1–G14 + G17 case-portability, G18 offensive-leak, G19 retired-capability leak, G20 root-runtime-state, G21 run-state leak, G22 staged refs, G23 placeholder leak, G24 foreign-data; G1–G14: zone deletion, identity grep, CF ID grep, trufflehog, .env strays, private tokens, ref integrity, private-skill refs, username-path leak, staging boot, dashboard leak, template-only USER/MEMORY, hidden-file leakage, critical-artifact presence). Backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
 
 **Two-repo sync** — there is no pre-push auto-sync git hook (stale claim corrected 2026-07-04). Both repos are committed, pushed, and version-tagged together by the private "push both repos" workflow (UpdateKaiRepo), which runs 4 boundary gates (USER-zone leak check, DenyListCheck, both-remotes-private confirmation, post-push HEAD verification).
 
@@ -232,9 +231,9 @@ LifeOS injects instructions into Claude Code sessions through a 4-layer hierarch
 ```
 Layer 1: SYSTEM PROMPT (highest authority, survives compaction)
   File: LIFEOS/LIFEOS_SYSTEM_PROMPT.md (via --append-system-prompt-file)
-  Contains: Constitutional rules -- identity, mode architecture, mode templates
-  (NATIVE/ALGORITHM/MINIMAL field structures), effort overrides, format mandate,
-  verification requirement, hard prohibitions, operational rules, security protocol.
+  Contains: Constitutional rules -- identity, the unified output format (modes and
+  their templates retired 2026-07-11), verification doctrine, hard prohibitions,
+  operational rules, security protocol.
 
 Layer 2: CLAUDE.MD (user context, loaded natively, survives compaction)
   File: ~/.claude/CLAUDE.md (directly edited)
@@ -253,11 +252,11 @@ Layer 4: DYNAMIC CONTEXT (session-specific, ephemeral, does NOT survive compacti
 
 ### Design Principles
 
-1. **System prompt = constitution.** Behavioral invariants — identity, mode architecture, mode templates, operational rules, verification doctrine, security protocol. Stable, cacheable.
+1. **System prompt = constitution.** Behavioral invariants — identity, the unified output format, operational rules, verification doctrine, security protocol. Stable, cacheable. (Mode architecture and mode templates retired 2026-07-11.)
 2. **CLAUDE.md = routing table.** Where everything lives. @-imports plus on-demand pointers into subsystem docs and {{PRINCIPAL_NAME}}'s content. No constitutional rules here — those live in the system prompt.
 3. **@Imports = rich context.** Who you are, what you know, system architecture map.
 4. **Dynamic context = session state.** What happened recently. Rebuilt each session.
-5. **PostCompact = belt and suspenders.** RestoreContext.hook.ts re-injects critical files after compaction.
+5. **Compaction recovery is harness-native.** The harness carries a summary plus unsummarized context into the next window, and CLAUDE.md `@`-imports re-supply identity/architecture context every session. (The former `RestoreContext.hook.ts` PostCompact hook was removed 2026-05-06 — no hook handles compaction.)
 6. **System prompt is primary-agent only.** Subagents get their agent definition body, not core LifeOS rules.
 
 ### Key File Paths
@@ -280,7 +279,7 @@ Each subsystem has its own detailed documentation. This section provides orienta
 
 **The 7-phase execution engine at the center of LifeOS.**
 
-Transitions from CURRENT STATE to IDEAL STATE via verifiable Ideal State Criteria (ISC): Observe -> Think -> Plan -> Build -> Execute -> Verify -> Learn. Supports three execution modes: interactive (human-in-the-loop), loop (autonomous), and optimize (hill-climbing against a metric). The Algorithm is versioned independently and self-improves through accumulated learning signals.
+Transitions from CURRENT STATE to IDEAL STATE via verifiable Ideal State Criteria (ISC). The 7-station phase walk and the interactive/loop/optimize mode system are RETIRED (2026-07-14 and 2026-07-11 — kept in `LIFEOS/ALGORITHM/archive/` as lineage): a run scopes, climbs, and closes claims on tool evidence, with spend discovered from the work. The Algorithm is versioned independently and self-improves through accumulated learning signals.
 
 - **Version:** whatever `LIFEOS/ALGORITHM/LATEST` says — the single source of truth; never pinned here (stale pins in this doc shipped three contradictory version facts, caught by the 2026-07-29 release audit)
 - **Location:** `LIFEOS/ALGORITHM/` (canonical pointer: `LATEST` → `v{X.Y.Z}.md`)
@@ -378,10 +377,10 @@ Task Tool Subagent Types are pre-built agents in Claude Code (Architect, Enginee
 
 **Direct editing of configuration files with shadow release for public sanitization.**
 
-Configuration files (`settings.json`, `CLAUDE.md`, `LIFEOS_SYSTEM_PROMPT.md`) are directly edited. `LIFEOS_CONFIG.yaml` remains as a credentials store for private skills. The Shadow Release system (`ShadowRelease.ts`) produces public staging via **containment**: rsync clone with hard exclusions → delete sensitive zones (USER, MEMORY, skills/_*) → overlay fixed public templates → scaffold → run five gates (zone deletion, identity grep, CF ID grep, trufflehog, .env strays). The shipped release is then emitted from that staging tree as the single self-contained `LifeOS/` skill (`EmitSkill.ts`) — the `.claude/` staging clone is an intermediate, not the published artifact.
+Configuration files (`settings.json`, `CLAUDE.md`, `LIFEOS_SYSTEM_PROMPT.md`) are directly edited. User config lives in `LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml` (read by `LIFEOS/TOOLS/LifeosConfig.ts`); secrets live only in `~/.claude/.env`. The Shadow Release system (`ShadowRelease.ts`) produces public staging via **containment**: rsync clone with hard exclusions → delete sensitive zones (USER, MEMORY, skills/_*) → overlay fixed public templates → scaffold → run the release gate set (G1–G14 + G17–G25). The shipped release is then emitted from that staging tree as the single self-contained `LifeOS/` skill (`EmitSkill.ts`) — the `.claude/` staging clone is an intermediate, not the published artifact.
 
 - **Status:** Active (containment-based since v5; retired filter-walker/reverse-templating)
-- **Location:** the release skill's `ShadowRelease` tool and its `RELEASE_TEMPLATES/` (settings.public.json, CLAUDE.public.md, USER/)
+- **Location:** maintainer tree only — the release skill's `ShadowRelease` tool and its `RELEASE_TEMPLATES/` (settings.public.json, CLAUDE.public.md, USER/). This is the machinery that BUILDS a release; it is a private skill and is absent from a public install.
 - **CLI:** `--create <version>`, `--update`, `--full`, `--check [--version <v>]`
 - **Full doc:** `LIFEOS/DOCUMENTATION/Config/ConfigSystem.md`
 
@@ -393,14 +392,14 @@ The model is the security boundary; the hook is a deterministic gate around it. 
 
 - **Status:** Active (Minimal v3, 2026-05-14 — SmartApprover + PromptInjection consolidated into Safety.hook.ts; shell-aware classifier added)
 - **Location:** `hooks/Safety.hook.ts`, `hooks/lib/safety-classifier.ts`
-- **Tests:** `hooks/lib/safety-classifier.test.ts` (91 cases), `hooks/Safety.smoke.test.ts` (23 cases)
+- **Tests:** `hooks/lib/safety-classifier.test.ts` (91 cases), `hooks/Safety.smoke.test.ts` (23 cases) — maintainer tree; test files are not in the release payload
 - **Full doc:** `LIFEOS/DOCUMENTATION/Security/README.md`
 
 ### Notification System
 
 **Voice and push notifications for workflows and task execution.**
 
-Voice feedback via ElevenLabs TTS when workflows start and complete. Context-aware announcements match the user's request style (questions get "Checking...", commands get "Creating..."). Fire-and-forget design -- notifications never block execution. Missing services do not cause errors. Voice is served by the unified Pulse daemon as `modules/voice.ts` -- the `/notify` endpoint lives at `localhost:31337`.
+Voice feedback via ElevenLabs TTS when workflows start and complete. Context-aware announcements match the user's request style (questions get "Checking...", commands get "Creating..."). Fire-and-forget design -- notifications never block execution. Missing services do not cause errors. Voice is served by the unified Pulse daemon as `VoiceServer/voice.ts` -- the `/notify` endpoint lives at `localhost:31337`.
 
 - **Status:** Active
 - **Location:**  (voice module inside unified Pulse daemon)
@@ -415,8 +414,8 @@ JSONL sources on local disk (tool-activity, tool-failures, voice-events, subagen
 - **Status:** Active
 - **Location:** `LIFEOS/PULSE/Observability/observability.ts` (server module inside unified Pulse daemon)
 - **Dashboard:** `localhost:31337` (Next.js static export at `Pulse/Observability/out`)
-- **Wiki:** `localhost:31337/pai` — system docs + knowledge archive browser + knowledge graph
-- **Security page:** `localhost:31337/security` provides full CRUD for `PATTERNS.yaml` and `SECURITY_RULES.md`
+- **Wiki:** `localhost:31337/docs` — system docs + knowledge archive browser + knowledge graph
+- **Security page:** `localhost:31337/security` shows the current three-layer model, the native `permissions.deny` list, hook detail, and the deployed-estate scan (the retired `PATTERNS.yaml`/`SECURITY_RULES.md` CRUD is gone)
 - **Deploy:** `cd Pulse/Observability && bun run build`, then `launchctl stop com.lifeos.pulse && launchctl start com.lifeos.pulse`
 - **Full doc:** `LIFEOS/DOCUMENTATION/Observability/ObservabilitySystem.md`
 
@@ -426,7 +425,7 @@ JSONL sources on local disk (tool-activity, tool-failures, voice-events, subagen
 
 LifeOS is the OS. Pulse is the Dashboard. Everything a human (or the DA) can *see* or *hear* about the LifeOS flows through Pulse: real-time observability, voice notifications, chat surfaces (iMessage, Siri), scheduled work, background worker state, DA heartbeat, and (as the dashboard grows) live views of current state vs ideal state, goal progress, workflows, and day-in-the-life preview. If a LifeOS with no dashboard would still be a LifeOS, and a dashboard with no OS behind it would be a widget — Pulse is what keeps the OS visible and interactive.
 
-**Implementation:** A single Bun process managed by launchd (`com.lifeos.pulse`), listening on port 31337. Pulse absorbed all previously separate daemon services into a module architecture: voice notifications (`modules/voice.ts`), observability server (`Observability/observability.ts`), iMessage bot (`modules/imessage.ts`), the Siri bridge (`modules/siri.ts`), and session hooks (`modules/hooks.ts`). (The Telegram bot module was removed entirely 2026-07-15.) Reads job definitions from PULSE.toml, evaluates cron schedules, executes due jobs (shell scripts or Claude CLI invocations), and routes output through existing notification channels. Circuit breaker pattern: 3 consecutive failures skip the job, with a 6h cooldown retry (2026-07-15) so transient outages never permanently kill a job.
+**Implementation:** A single Bun process managed by launchd (`com.lifeos.pulse`), listening on port 31337. Pulse absorbed all previously separate daemon services into a module architecture: voice notifications (`VoiceServer/voice.ts`), observability server (`Observability/observability.ts`), iMessage bot (`modules/imessage.ts`), the Siri bridge (`modules/siri.ts`), and session hooks (`modules/hooks.ts`). (The Telegram bot module was removed entirely 2026-07-15.) Reads job definitions from PULSE.toml, evaluates cron schedules, executes due jobs (shell scripts or Claude CLI invocations), and routes output through existing notification channels. Circuit breaker pattern: 3 consecutive failures skip the job, with a 6h cooldown retry (2026-07-15) so transient outages never permanently kill a job.
 
 - **Version:** 2.0.0
 - **Location:** `~/.claude/LIFEOS/PULSE/`
@@ -439,10 +438,10 @@ LifeOS is the OS. Pulse is the Dashboard. Everything a human (or the DA) can *se
 
 **Canonical shape of the USER/ directory — the biography-flat, PascalCase, frontmatter-driven schema every LifeOS user follows.**
 
-One concept = one file at `USER/` root. Multi-file concept = Capitalized directory at root with `README.md` as the narrative entry. Every `.md` carries YAML frontmatter (`category`, `kind`, `publish`, `review_cadence`, `last_updated`) that serves as the API between files and consumers (Pulse, Daemon, Interview, skills). Four `kind` values map to four React renderers (collection, narrative, reference, index). `publish: daemon|daemon-summary|public|false` is the universal broadcast contract consumed by `DaemonAggregator.ts`. Templates live at the release skill's `RELEASE_TEMPLATES/USER/` — shipped in public releases so new LifeOS users scaffold from the canonical shape.
+One concept = one file at `USER/` root. Multi-file concept = Capitalized directory at root with `README.md` as the narrative entry. Every `.md` carries YAML frontmatter (`category`, `kind`, `publish`, `review_cadence`, `last_updated`) that serves as the API between files and consumers (Pulse, Daemon, Interview, skills). Four `kind` values map to four React renderers (collection, narrative, reference, index). `publish: daemon|daemon-summary|public|false` is the universal broadcast contract consumed by `DaemonAggregator.ts`. The starter scaffold ships in the release payload at `install/USER/`, which is what `install.sh` lays down, so new LifeOS users scaffold from the canonical shape (maintainer-side source: the release skill's `RELEASE_TEMPLATES/USER/`).
 
 - **Spec:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsSchema.md`
-- **Templates:** the release skill's `RELEASE_TEMPLATES/USER/` (biography scaffold for new LifeOS users)
+- **Templates:** the release payload's `install/USER/` scaffold for new LifeOS users (maintainer-side source: the release skill's `RELEASE_TEMPLATES/USER/`)
 - **Indexer:** `LIFEOS/PULSE/modules/user-index.ts` (parses tree → `Pulse/state/user-index.json`)
 - **Dashboard:** `localhost:31337/life` (powered by the index)
 
@@ -463,7 +462,7 @@ Walks `USER/` (root + one level), parses frontmatter + body of each `.md`, compu
 Formalizes how Pulse instantiates, manages, and evolves a Digital Assistant. Replaces manual DA_IDENTITY.md editing with a structured YAML schema, adds proactive heartbeat evaluation (2-layer: free context gathering + cheap Haiku eval), natural-language scheduled tasks, and bounded identity growth over time. Supports multiple DAs via a registry with primary/worker roles.
 
 - **Status:** Active
-- **Location:** `~/.claude/LIFEOS/USER/DA/` (identity data), `~/.claude/` (runtime)
+- **Location:** `~/.claude/LIFEOS/USER/DIGITAL_ASSISTANT/` (identity data), `~/.claude/` (runtime)
 - **Full doc:** `LIFEOS/DOCUMENTATION/Pulse/DaSubsystem.md`, `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` (DA Module section)
 
 ### Browser Automation
@@ -483,7 +482,7 @@ Three composable primitives: Actions (A_ prefix, atomic units of work), Pipeline
 
 - **Status:** Active
 - **Source code:** `LIFEOS/USER/CUSTOMIZATIONS/ARBOL/` (Cloudflare Workers repo)
-- **Framework (Actions/Flows/Pipelines):** `LIFEOS/ARBOL/`
+- **Framework (Actions/Flows/Pipelines):** `LIFEOS/USER/CUSTOMIZATIONS/ARBOL/` (private USER zone; concept doc ships, implementation does not)
 - **Full doc:** `LIFEOS/DOCUMENTATION/Arbol/ArbolSystem.md`
 
 ### Feed System
@@ -522,14 +521,14 @@ Five states with distinct colors: Inference (purple), Working (orange), Complete
 | Document | Purpose |
 |----------|---------|
 | `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` | **Canonical LifeOS thesis** -- what LifeOS is for, the core loop, LifeOS-MM, RIoT lineage, respark |
-| `LIFEOS/DOCUMENTATION/Tools/Cli.md` | Algorithm CLI (loop/interactive/optimize modes) and Arbol CLI (actions/pipelines) |
+| `LIFEOS/DOCUMENTATION/Tools/Cli.md` | Arbol CLI (actions/pipelines); the former Algorithm CLI was retired 2026-07-14 |
 | `LIFEOS/DOCUMENTATION/Tools/CliFirstArchitecture.md` | CLI-First design pattern: build deterministic CLI tools first, then wrap with AI |
 | `LIFEOS/DOCUMENTATION/ISA/ISASystem.md` | ISA system architecture -- five identities, three-guardrail taxonomy, twelve-section body, six workflows, two homes, subsystem relationships |
 | `LIFEOS/DOCUMENTATION/ISA/ISAFormat.md` | ISA format specification v2.16.0 -- the single source of truth for every Algorithm run |
 | `LIFEOS/DOCUMENTATION/Tools/Tools.md` | CLI utilities reference: Inference.ts (low/medium/high/max), ActivityParser, and others |
 | `LIFEOS/DOCUMENTATION/Observability/ObservabilitySystem.md` | Full Pulse API reference (~40 endpoints) under "API Reference" section |
 | `LIFEOS/DOCUMENTATION/Work/WorkSystem.md` | Work System architecture — four capture surfaces → private GitHub repo → Pulse + TASKLIST + agent claim, single config under `USER/WORK/` |
-| `LIFEOS/DOCUMENTATION/Router/RouterSystem.md` | The Router — prompt→posture decision layer (classify → route-effort → select-model → dispatch); four-level `EFFORT_MODEL` abstraction, classifier contract, tier→level policy, cross-vendor egress ceilings |
+| `LIFEOS/DOCUMENTATION/Router/RouterSystem.md` | The Router (RETIRED 2026-07-11, history only) — the former prompt→posture decision layer; classifier and tier policy abolished with the mode/tier system. Surviving model routing lives in `LIFEOS/TOOLS/models.ts` (`EFFORT_MODEL`, cross-vendor egress ceilings) |
 
 ---
 
@@ -554,7 +553,7 @@ Five states with distinct colors: Inference (purple), Working (orange), Complete
 ```
 PRIVATE (never make public):
   ~/.claude/           -- hooks, skills, settings, agents, CLAUDE.md
-  ~/.claude/LIFEOS/       -- Algorithm, Components, Tools, MEMORY, Pulse (unified daemon)
+  ~/.claude/LIFEOS/       -- ALGORITHM, TOOLS, MEMORY, PULSE (unified daemon)
 
 PUBLIC (sanitized):
   ~/Projects/LIFEOS/      -- Sanitized examples, generic templates, community sharing
@@ -572,7 +571,7 @@ PUBLIC (sanitized):
 | Directory | Contains | Protection Level |
 |-----------|----------|------------------|
 | `LIFEOS/USER/` | Personal data, finances, health, contacts | RESTRICTED |
-| `LIFEOS/WORK/` | Customer data, consulting, client deliverables | RESTRICTED |
+| `LIFEOS/USER/WORK/` | Customer data, consulting, client deliverables | RESTRICTED |
 
 Content from USER/ and WORK/ must NEVER appear outside of them or in the public LifeOS repository.
 
@@ -585,13 +584,13 @@ System file inventory by pipeline. When you modify a file, trace its pipeline to
 | Pipeline | Key Files |
 |----------|-----------|
 | **Security** | `LIFEOS/LIFEOS_SYSTEM_PROMPT.md` § Security Protocol (constitutional rule), `settings.json` `permissions.deny` (native harness denylist), `hooks/Safety.hook.ts` (consolidated PermissionRequest + PostToolUse on WebFetch \| WebSearch), `hooks/lib/safety-classifier.ts` (shape catalog + shell-aware classifier with single-quote pre-pass). Deployed-estate monitoring is server-side: the Arbol infra-security scanner (hourly outsider scan), which IS the Bunker Security plane — one system, never a parallel build (private ops: `LIFEOS/USER/SECURITY/MONITORING.md`). **Incident response is credential-graph-driven** (2026-07-24): compromise-tier membership is matched by shape at run time across the env file AND the Atlas graph rather than an enumerated name list (the enumerated version silently missed a live mailbox credential for two months), the credential registry is generated rather than hand-maintained, and scoping an incident is a graph traversal (`atlas exposed <asset>`). `/ic` check 14 `credential-registry` fails on registry drift or unclassified credentials |
-| **Algorithm** | `Algorithm/LATEST` → `Algorithm/v{VERSION}.md` (currently v8.17.0; v8.4.3 was the claims restructure: Loop preamble + teeth-annotated done-claims + AlgorithmNudge event layer (unified 2026-07-11: run-scoped + always-on skill-routing/late-ISA/spend; depth-directive row added v8.4.0, 2026-07-12; Grok cross-vendor voice removed v8.4.1, 2026-07-13; execution-class Opus-delegate spend fact + always-on nudge row added v8.4.3, 2026-07-15; ISA close teeth added 2026-07-24 — StopGates now composes ISACloseGate (stale-ISA-at-completion block, fed by AlgorithmNudge's `toolCallsSinceIsaEditAbs`) and ISAGate (structural `phase: complete` block via `LIFEOS/TOOLS/ISAGate.ts`)); capabilities.md removed at v7, the system-prompt skill list is the sole capability inventory), `Algorithm/archive/mode-detection.md`, `hooks/ISASync.hook.ts` → `MEMORY/WORK/{slug}/ISA.md`, `skills/ISA/` (canonical Scaffold/Append/Reconcile workflows); **work registry event-sourced (2026-06-10):** all `work.json` writes go through `isa-utils.writeRegistry` → field-level diff events appended to `MEMORY/STATE/work-events.jsonl` (`hooks/lib/work-events.ts`) → locked fold to the derived `work.json` snapshot (offset-stamped, 1MB compaction); `readRegistry` serves snapshot+suffix live views; Pulse SSE triggers off `fs.watch` on STATE with the 100ms poll as fallback; model choice follows the role-based rung classes in OPERATIONAL_RULES § Model selection (2026-07-28: MAX to think, HIGH to execute scoped work, MEDIUM for trivial execution; 2026-07-29, v8.17.0: the MAIN LOOP is the top rung by config — `settings.json` pins `"model"` to the top-rung alias — so design and planning happen natively inline and the only elected rung move is the DOWNSHIFT for execution; the same-day v8.16.0 "elect MAX explicitly" rule is superseded because it produced a run that asked which rung to use and dispatched its design leg to the `Max` agent); `EFFORT_MODEL` in `LIFEOS/TOOLS/models.ts` remains the `Inference.ts --level` dial |
-| **Cortex (Memory)** | `hooks/WorkCompletionLearning.hook.ts`, `hooks/SatisfactionCapture.hook.ts` (RelationshipMemory hook deleted 7.0.0 — dead code), `Tools/KnowledgeHarvester.ts` → `MEMORY/KNOWLEDGE/`, `MEMORY/LEARNING/`; `Tools/SessionHarvester.ts --mine` → `KNOWLEDGE/_harvest-queue/`; `Tools/MemoryRetriever.ts` (BM25 retrieval over typed-item corpus including `_MEMORY.md` hot-layer files), `Tools/KnowledgeGraph.ts` (graph navigation) — read-only. **Autonomic loop (2026-05):** `hooks/MemoryTurnStart.hook.ts` (UserPromptSubmit) + `hooks/MemoryReviewFire.hook.ts` (Stop; cadence merged 2026-07-11) drive `Tools/MemoryReviewer.ts` on cadence (turn≥8 ∧ minutes≥30 ∧ idle≥2). Reviewer emits typed items routed by `Tools/MemorySystem.ts` (single `add(item)` API) over the `Tools/MemoryTypes.ts` registry; `Tools/MutationTier.ts` gates by tier A/B/C/D. Tier-C proposals enqueue to `MEMORY/OBSERVABILITY/pending-proposals.jsonl`; `PULSE/lib/memory-proposals.ts` owns queue I/O and edit application (Telegram surfacing removed 2026-07-15 — pending rows surface via Pulse and the 🧠 MEMORY line). `Tools/MemoryStatus.ts` is the read-only memory-status CLI. **kb-v3 knowledge schema (2026-07-05):** `Tools/KnowledgeSchema.ts` is the pure-data SoT for the KNOWLEDGE archive object-schema (`person\|company\|idea\|blog\|research` — distinct from the write-registry above) + body-safe parse/normalize/validate; `Tools/KnowledgeLint.ts` validates conformance (envelope % vs per-type completeness); `Tools/MigrateKnowledge.ts` migrated ~4,400 notes onto it (body-byte-preserving, idempotent, dry-run default); `Tools/KnowledgeQuery.ts` (`kb query`) filters/sorts on the now-consistent typed fields; `Tools/GenerateKnowledgeSchemaDoc.ts` regenerates `MEMORY/KNOWLEDGE/_schema.md` from the schema; `MemorySystem.renderInitialNote` emits the kb-v3 envelope so new autonomic notes are born conformant. |
+| **Algorithm** | `Algorithm/LATEST` → `Algorithm/v{VERSION}.md` (current version per `LATEST`, never restated here; v8.4.3 was the claims restructure: Loop preamble + teeth-annotated done-claims + AlgorithmNudge event layer (unified 2026-07-11: run-scoped + always-on skill-routing/late-ISA/spend; depth-directive row added v8.4.0, 2026-07-12; Grok cross-vendor voice removed v8.4.1, 2026-07-13; execution-class Opus-delegate spend fact + always-on nudge row added v8.4.3, 2026-07-15; ISA close teeth added 2026-07-24 — StopGates now composes ISACloseGate (stale-ISA-at-completion block, fed by AlgorithmNudge's `toolCallsSinceIsaEditAbs`) and ISAGate (structural `phase: complete` block via `LIFEOS/TOOLS/ISAGate.ts`)); capabilities.md removed at v7, the system-prompt skill list is the sole capability inventory), `Algorithm/archive/mode-detection.md`, `hooks/ISASync.hook.ts` → `MEMORY/WORK/{slug}/ISA.md`, `skills/ISA/` (canonical Scaffold/Append/Reconcile workflows); **work registry event-sourced (2026-06-10):** all `work.json` writes go through `isa-utils.writeRegistry` → field-level diff events appended to `MEMORY/STATE/work-events.jsonl` (`hooks/lib/work-events.ts`) → locked fold to the derived `work.json` snapshot (offset-stamped, 1MB compaction); `readRegistry` serves snapshot+suffix live views; Pulse SSE triggers off `fs.watch` on STATE with the 100ms poll as fallback; model choice follows the role-based rung classes in OPERATIONAL_RULES § Model selection (2026-07-28: MAX to think, HIGH to execute scoped work, MEDIUM for trivial execution; 2026-07-29, v8.17.0: the MAIN LOOP is the top rung by config — `settings.json` pins `"model"` to the top-rung alias — so design and planning happen natively inline and the only elected rung move is the DOWNSHIFT for execution; the same-day v8.16.0 "elect MAX explicitly" rule is superseded because it produced a run that asked which rung to use and dispatched its design leg to the `Max` agent); `EFFORT_MODEL` in `LIFEOS/TOOLS/models.ts` remains the `Inference.ts --level` dial |
+| **Cortex (Memory)** | `hooks/WorkCompletionLearning.hook.ts`, `hooks/SatisfactionCapture.hook.ts` (RelationshipMemory hook deleted 7.0.0 — dead code), `Tools/KnowledgeHarvester.ts` → `MEMORY/KNOWLEDGE/`, `MEMORY/LEARNING/`; `Tools/SessionHarvester.ts --mine` → `KNOWLEDGE/_harvest-queue/`; `Tools/MemoryRetriever.ts` (BM25 retrieval over typed-item corpus including `_MEMORY.md` hot-layer files), `Tools/KnowledgeGraph.ts` (graph navigation) — read-only. **Autonomic loop (2026-05):** `hooks/MemoryTurnStart.hook.ts` (UserPromptSubmit) + `hooks/MemoryReviewFire.hook.ts` (Stop; cadence merged 2026-07-11) drive `Tools/MemoryReviewer.ts` on cadence (turn≥8 ∧ minutes≥30 ∧ idle≥2). Reviewer emits typed items routed by `Tools/MemorySystem.ts` (single `add(item)` API) over the `Tools/MemoryTypes.ts` registry; `Tools/MutationTier.ts` gates by tier A/B/C/D. Tier-C proposals enqueue to `MEMORY/OBSERVABILITY/pending-proposals.jsonl`; `PULSE/lib/memory-proposals.ts` owns queue I/O and edit application (Telegram surfacing removed 2026-07-15 — pending rows surface via Pulse and the 🧠 MEMORY line). `Tools/MemoryStatus.ts` is the read-only memory-status CLI. **kb-v3 knowledge schema (2026-07-05):** `Tools/KnowledgeSchema.ts` is the pure-data SoT for the KNOWLEDGE archive object-schema (`person\|company\|idea\|blog\|research` — distinct from the write-registry above) + body-safe parse/normalize/validate; `Tools/KnowledgeLint.ts` validates conformance (envelope % vs per-type completeness); `Tools/MigrateKnowledge.ts` migrated the full archive onto it (body-byte-preserving, idempotent, dry-run default); `Tools/KnowledgeQuery.ts` (`kb query`) filters/sorts on the now-consistent typed fields; `Tools/GenerateKnowledgeSchemaDoc.ts` regenerates `MEMORY/KNOWLEDGE/_schema.md` from the schema; `MemorySystem.renderInitialNote` emits the kb-v3 envelope so new autonomic notes are born conformant. |
 | **Router** (RETIRED 2026-07-11) | Classify → route-effort stages retired 2026-07-11 with the mode/tier abolition (`TheRouter.hook.ts` deleted; MINIMAL/NATIVE/ALGORITHM + E1–E5 gone, no successor classifier). **Surviving model routing:** `LIFEOS/TOOLS/models.ts` `EFFORT_MODEL` maps level→model (max→fable / high→opus / medium→sonnet / low→haiku; `LEVEL_TO_HARNESS_EFFORT`; cross-vendor pins; egress-class ceilings) → **dispatch** via `model` param on `Agent()` / `Workflow agent()`; dispatches that omit it inherit the session default (no injector — `hooks/AgentInvocation.hook.ts` observes and logs only). `LIFEOS/TOOLS/Inference.ts` applies model selection to utility inference, and is the genuine `max`/Fable carrier (subprocess spawns `claude --model claude-fable-5`; Agent `model:fable` dispatch downgrades to Opus). It verifies the executed model against the JSON envelope's `modelUsage` and logs downgrades to `MEMORY/OBSERVABILITY/model-verification.jsonl` (v6.29.0 — reports what RAN, not what was requested). Full doc (history only): `LIFEOS/DOCUMENTATION/Router/RouterSystem.md` |
 | **Hooks** | `hooks/*.hook.ts`, `hooks/handlers/*.ts`, `hooks/lib/*.ts`, `settings.json` |
 | **Observability** | `hooks/EventLogger.hook.ts` (consolidated 2026-07-11 — absorbed ToolActivityTracker, ToolFailureTracker, SkillExecutionLog, ConfigAudit, StopFailureHandler; appends directly via `fs.appendFileSync`) → `MEMORY/OBSERVABILITY/*.jsonl` |
-| **Pulse** | `Pulse/pulse.ts` (port 31337), `Pulse/modules/{observability,hooks,wiki,imessage,siri,user-index,da,work,bunker}.ts`, `Pulse/PULSE.toml`, `Pulse/Observability/src/`, `Pulse/Assistant/module.ts` |
-| **Bunker** | Canonical home: `LIFEOS/PULSE/Bunker` inside this repo — code folded in, no separate repo (README + `ISA.md` there are the source docs; PROJECTS.md carries the routing row; data lives at `LIFEOS/USER/PULSE/Bunker`). Stale `~/Projects/bunker` path corrected 2026-07-29 — found via public PR #1627, @elhoim. The universal application harness — every app declares a `type` that composes cross-cutting components across six planes (data, control, observability, identity, security, commerce); **the Security plane IS the Arbol infra-security scanner** (server-side, hourly — the Arbol security system became Bunker's Security plane 2026-07-20; never build a parallel one, and every public deployment registers in BOTH the Bunker ISA and the scanner's curated inventory); the app's `bunker.isa.md` is simultaneously its spec, component manifest, executable test suite (`bunker test` runs the `## Test Strategy` probes), and **stored current state of the application** — "add a feature" = add claims to the ISA that don't hold yet. v0.1.0 spine (CLI `bin/bunker.ts`, `src/{adopt,config,isa,registry,test,admin}.ts`); adopted by samsaid, dariosaid, oursafe, shouldwecontrolopensource; surfaced in Pulse via `Pulse/modules/bunker.ts` + `/bunker` page. Design provenance: `MEMORY/WORK/20260708-chassis-application-harness/ISA.md` (E5), Pulse interface: `MEMORY/WORK/20260708-bunker-pulse-interface/ISA.md`. |
+| **Pulse** | `Pulse/pulse.ts` (port 31337), `Pulse/modules/{hooks,wiki,imessage,siri,user-index,work,bunker}.ts`, `Pulse/Observability/observability.ts`, `Pulse/VoiceServer/voice.ts`, `Pulse/PULSE.toml`, `Pulse/Observability/src/`, `Pulse/Assistant/module.ts` (DA subsystem — private-only, not in the release payload) |
+| **Bunker** | Canonical home: `LIFEOS/PULSE/Bunker` inside this repo — code folded in, no separate repo (README + `ISA.md` there are the source docs; PROJECTS.md carries the routing row; data lives at `LIFEOS/USER/PULSE/Bunker`). The implementation tree is private — NOT in the public release payload; the release ships the concept via `Bunker/BunkerSystem.md`. Stale `~/Projects/bunker` path corrected 2026-07-29 — found via public PR #1627, @elhoim. The universal application harness — every app declares a `type` that composes cross-cutting components across six planes (data, control, observability, identity, security, commerce); **the Security plane IS the Arbol infra-security scanner** (server-side, hourly — the Arbol security system became Bunker's Security plane 2026-07-20; never build a parallel one, and every public deployment registers in BOTH the Bunker ISA and the scanner's curated inventory); the app's `bunker.isa.md` is simultaneously its spec, component manifest, executable test suite (`bunker test` runs the `## Test Strategy` probes), and **stored current state of the application** — "add a feature" = add claims to the ISA that don't hold yet. v0.1.0 spine (CLI `bin/bunker.ts`, `src/{adopt,config,isa,registry,test,admin}.ts`); adopted by samsaid, dariosaid, oursafe, shouldwecontrolopensource; surfaced in Pulse via `Pulse/modules/bunker.ts` + `/bunker` page. |
 | **Work System** | Canonical doc: `LIFEOS/DOCUMENTATION/Work/WorkSystem.md`. Four capture surfaces → one private GitHub repo (system of record) → three readers. Single config: `USER/WORK/labels.yml` (canonical label taxonomy, additive — pushed to repo by the work-tracking skill's `BootstrapLabels` tool) + `USER/WORK/config.yaml` (kanban columns, poll cadence, `CAPTURE_NATIVE`/`CAPTURE_SWEEP` switches, project→property map) + `USER/WORK/work_repo.json` (gh-verified privacy attestation). Loader: `hooks/lib/work-config.ts` exposes `repo`, `kanbanColumns`, `captureNative`, `captureSweep`, `projectProperty(project)`. **Capture:** `hooks/ULWorkSync.hook.ts` (SessionEnd — ALGORITHM phase≥execute OR NATIVE-with-artifacts when `CAPTURE_NATIVE=true`, slug-keyed idempotency, label pre-filtering against repo's actual label set) + `hooks/ReminderRouter.hook.ts` (UserPromptSubmit — precision-biased `remind me to`/`research the`/`queue this for` triggers) + `LIFEOS/TOOLS/WorkSweep.ts` (launchd `com.lifeos.worksweep` every 60min via `LIFEOS/TOOLS/InstallWorkSweep.ts` → `~/Library/LaunchAgents/`; four sub-sweeps: untracked-session catch-up, stale-in-progress flagging, project-no-commit-in-14d check, TELOS active-goal-with-no-issue derivation; `--max-create N` safety cap; logs to `MEMORY/OBSERVABILITY/worksweep.jsonl`). **Readers:** `LIFEOS/PULSE/modules/work.ts` (kanban at `/api/work*` with legacy-label aliases + per-card source badge `pai-sync`/`auto-native`/`auto-sweep`/`reminder`/`manual`) + the work-tracking skill's `RegenerateTasklist` tool (auto-rebuilds TASKLIST.md from live issues, `--commit-push` flag, called from sweep) + manual `gh` agent claim flow. Templated — point a different `work_repo.json` at a different private repo and the entire system pivots, zero code changes. |
 | **Skills** | `skills/*/SKILL.md`, `skills/*/Workflows/*.md`, `skills/*/Tools/*.ts`, `USER/CUSTOMIZATIONS/SKILLS/` |
 | **Config** | `settings.json`, `CLAUDE.md`, `LIFEOS_SYSTEM_PROMPT.md` (directly edited) → release tooling clones the live tree, deletes private zones, overlays public templates + USER scaffold into staging, runs gates, then emits the shippable `LifeOS/` skill (`EmitSkill.ts`) from that staging |

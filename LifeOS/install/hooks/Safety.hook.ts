@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.3.14
+ * @version 1.3.15
  * Safety.hook.ts — unified safety/permissions hook.
  *
  * Single entry point dispatching by event:
@@ -276,15 +276,27 @@ function permissionRequest(input: {
 
 /**
  * Attacker-writable response sources get the data-not-instructions framing plus
- * the injection-shape scan. WebFetch/WebSearch (open web) always qualify. MCP
- * tools that surface third-party-authored content — mail, drive, calendar, inbox
- * bodies — qualify because an email or document body can carry an injection
- * payload (the security inventory's top-listed bypass: MCP responses previously
- * skipped the scan WebFetch output gets). Other MCP tools (e.g. Spotify) are not
- * attacker-writable in the prompt-injection sense, so they skip the scan to keep
- * latency and noise off those calls. The settings.json PostToolUse matcher only
- * routes WebFetch/WebSearch + the qualifying mcp__ names here; this gate is the
- * defensive in-code backstop so a broad future matcher can't silently widen it.
+ * the injection-shape scan. WebFetch/WebSearch (open web) always qualify. Every
+ * MCP tool qualifies BY DEFAULT: any MCP server can surface third-party-authored
+ * content (an email body, a Slack message, a meeting transcript, a document, a
+ * fetched page), which is the canonical indirect-injection vector.
+ *
+ * This is a default-on / denylist-of-known-safe design, NOT an allowlist of
+ * known-dangerous servers. Enumerating the dangerous servers is exactly how
+ * Slack (mcp__plugin_slack_slack__*) and Granola (mcp__granola__*) were missed —
+ * their message/transcript content is attacker-authored, but neither matched the
+ * old mail/drive/calendar/inbox regex. A newly-installed MCP server is now
+ * covered the moment it appears rather than silently skipped until someone
+ * remembers to list it. The known-safe set is deliberately EMPTY: a mismatched
+ * exemption (the reason the mail-type allowlist failed) is a real risk, whereas
+ * over-matching is not — the hook only ever PREPENDS a "treat as data" note and
+ * never blocks a call, so scanning a first-party MCP result is at worst one small
+ * annotation. When a server genuinely warrants exemption, prove it and add it
+ * here; until then, scan it.
+ *
+ * The PostToolUse matcher now routes all mcp__ + WebFetch/WebSearch/ToolSearch
+ * here; this in-code gate is the fail-safe backstop that also holds if the
+ * matcher is ever narrowed.
  */
 function isAttackerWritableSource(toolName: string): boolean {
   if (toolName === "WebFetch" || toolName === "WebSearch") return true;
@@ -295,11 +307,10 @@ function isAttackerWritableSource(toolName: string): boolean {
   // framing + injection-shape scan as WebFetch output. The full fix (a
   // ToolSchemaLoaded hook event) is an upstream Claude Code feature request.
   if (toolName === "ToolSearch") return true;
-  if (!toolName.startsWith("mcp__")) return false;
-  // dropbox: file content pulled from a sync service is attacker-writable for
-  // the same reason drive already is — shared folders and file requests let a
-  // stranger put text there. public PR #1654, @elhoim
-  return /gmail|mail|drive|calendar|inbox|dropbox/i.test(toolName);
+  // Every MCP server is attacker-writable by default. public PR #1654, @elhoim
+  // seeded a mail/drive/calendar/inbox/dropbox regex; that allowlist shape missed
+  // Slack and Granola, so it is replaced by default-on coverage here.
+  return toolName.startsWith("mcp__");
 }
 
 function annotate(input: { tool_name?: string; tool_response?: unknown }): void {

@@ -29,8 +29,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { parseMemoryContent } from "../../TOOLS/MemoryWriter";
+import { isTerminalStatus } from "../lib/memory-proposals";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE = join(HOME, ".claude");
 const OBS_DIR = join(CLAUDE, "LIFEOS/MEMORY/OBSERVABILITY");
 
@@ -233,12 +235,13 @@ function buildSnapshot() {
     health,
     lastFireCount: firesAll.length,
     recentFires: firesAll.slice(-5),
-    // Terminal statuses use the real union from lib/memory-proposals.ts — the
-    // old `!== "auto-applied"` counted rejected/accepted/edited rows as pending
-    // forever (public issue #1610, @xmasyx). "sent" stays counted: surfaced,
-    // awaiting a decision. "auto-apply-failed" (runtime drift) stays counted too.
-    pendingProposals: proposals.filter((p: any) =>
-      !["auto-applied", "accepted", "rejected", "edited"].includes(p.status)).length,
+    // Terminal statuses come from lib/memory-proposals.ts — the old inline list
+    // counted rejected/accepted/edited rows as pending forever (public issue
+    // #1610, @xmasyx) and then drifted from the union again once
+    // "applied-elsewhere" existed (public issue #1805, @catchingknives).
+    // "sent" stays counted: surfaced, awaiting a decision. So does any status
+    // the union hasn't caught up with — unknown means open, not invisible.
+    pendingProposals: proposals.filter((p: any) => !isTerminalStatus(p.status)).length,
     autoAppliedProposals: proposals.filter((p: any) => p.status === "auto-applied").length,
     proposalsRecent: proposals.slice(-5),
     principalMemory: principal,

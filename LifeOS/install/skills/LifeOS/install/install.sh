@@ -20,6 +20,25 @@
 #
 #   Local/offline install (no network):
 #     LIFEOS_SRC=/path/to/LIFEOS_RELEASES/<version> bash install.sh
+#
+#   Supply-chain handling — best-effort, and honest about where it stops
+#   (public issue #1726, @rpriven; fallback tag: #1694):
+#     • COMMIT-PINNED DOWNLOAD. Resolving a tag and then downloading
+#       archive/refs/tags/<tag>.tar.gz are two separate requests, and a tag can
+#       be force-moved in between (that is exactly how this repo publishes, see
+#       CreateRelease). So we resolve the tag to its commit SHA and download
+#       archive/<sha>.tar.gz — what was resolved is what is fetched. If SHA
+#       resolution fails we fall back to the tag tarball and SAY SO out loud.
+#     • CHECKSUM. GitHub publishes no checksum for these generated tarballs, so
+#       nothing here can verify the download against an upstream signature —
+#       full supply-chain verification is not achievable from this script alone.
+#       What it does: download to a file, sha256 it BEFORE extracting, and print
+#       the digest. Set LIFEOS_EXPECTED_SHA256=<hex> to hard-fail on a mismatch,
+#       using a value obtained out of band (a prior install, another machine,
+#       someone you trust). Caveat worth knowing: GitHub does not guarantee its
+#       generated archives are byte-stable forever — a server-side compression
+#       change alters the digest without the content changing. Compare digests
+#       across machines at the same point in time, not against an old note.
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -33,9 +52,13 @@ set -euo pipefail
 # LIFEOS_FALLBACK_TAG is stamped to the release version by EmitSkill at emit
 # time — never edit it by hand, and never trust it silently (2026-07-12: a
 # rate-limited API call silently installed v7.0.0 after v7.1.1 had shipped).
+# The value in SOURCE still has to name a real release: EmitSkill only rewrites
+# it on the emit path, and it had drifted to v7.3.2, a tag that was never
+# published — so any source-run install that reached the fallback 404'd
+# (public issue #1694). Corrected to the newest published release.
 # Repo owner/name is parameterized — set at publish time, never hard-coded here.
 LIFEOS_REPO="${LIFEOS_REPO:-danielmiessler/LifeOS}"
-LIFEOS_FALLBACK_TAG="v7.28.3"
+LIFEOS_FALLBACK_TAG="v7.40.4"
 if [ -n "${LIFEOS_VERSION:-}" ]; then
   LIFEOS_TAG="v${LIFEOS_VERSION}"
 elif [ -z "${LIFEOS_TAG:-}" ]; then
@@ -56,8 +79,21 @@ elif [ -z "${LIFEOS_TAG:-}" ]; then
     echo "WARNING: re-run later, or force one with LIFEOS_VERSION=x.y.z" >&2
   fi
 fi
+# Harden the resolved tag before it is used ANYWHERE: it flows into a download
+# URL below and, in migrate_rc, into rc-file content the user later sources. A
+# hostile release name or env override (e.g. $'v1\nalias pwn=...\n#') must never
+# reach either sink, so allow only GitHub's tag charset and reject empty. Runs
+# before the first interpolation on purpose.
+case "$LIFEOS_TAG" in
+  ""|*[!A-Za-z0-9._-]*)
+    printf 'FATAL: LIFEOS_TAG is empty or contains disallowed characters; refusing to continue: %s\n' \
+      "$(printf '%s' "$LIFEOS_TAG" | tr -d '\n\r' | cut -c1-80)" >&2
+    exit 1 ;;
+esac
 LIFEOS_VERSION="${LIFEOS_TAG#v}"
-LIFEOS_TARBALL_URL="${LIFEOS_TARBALL_URL:-https://github.com/${LIFEOS_REPO}/archive/refs/tags/${LIFEOS_TAG}.tar.gz}"
+# Only an explicit override is honoured here — the default URL is built in Step
+# 3, after the tag has been pinned to the commit SHA it resolved to.
+LIFEOS_TARBALL_URL="${LIFEOS_TARBALL_URL:-}"
 # Where the LifeOS skill dir lives inside the release tree:
 LIFEOS_RELEASE_SUBPATH="${LIFEOS_RELEASE_SUBPATH:-LifeOS}"
 # Local source override — point at a LIFEOS_RELEASES/<version> dir to install offline.
@@ -80,6 +116,14 @@ warn()    { printf "  ${YELLOW}⚠${RESET} %b\n" "$1"; }
 error()   { printf "  ${RED}✗${RESET} %b\n" "$1" >&2; }
 step()    { printf "\n${BOLD}${LIGHT_BLUE}▸ %s${RESET}\n" "$1"; }
 run()     { if [ "$DRY_RUN" = "1" ]; then echo "  [DRY-RUN] $*"; else "$@"; fi; }
+# sha256 of a file using whatever the platform ships — macOS has shasum, most
+# Linux distros have sha256sum, and some have both. Prints the bare hex digest,
+# or nothing at all when neither exists (callers must handle the empty string).
+sha256_of() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  fi
+}
 
 printf "\n  ${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n"
 printf "  ${BOLD}${DARK_BLUE}Life${BLUE}O${LIGHT_BLUE}S${RESET}   ${BOLD}the Life Operating System${RESET}      ${DIM}current state ${BLUE}→${DIM} ideal state${RESET}   ${DIM}·${RESET}   ${LIGHT_BLUE}v%s bootstrap${RESET}\n" "$LIFEOS_VERSION"
@@ -191,20 +235,83 @@ else
   if [ "$LIFEOS_REPO" = "OWNER/REPO" ]; then
     error "Network install needs LIFEOS_REPO set (owner/name), or use LIFEOS_SRC for a local install."; exit 1
   fi
-  run bash -c "curl -fsSL '$LIFEOS_TARBALL_URL' | tar -xzf - -C '$TMP_DIR'"
+  # Pin the download to the commit the tag pointed at AT RESOLUTION TIME. The
+  # tag→tarball gap is a real window here: releases force-move tags, so the two
+  # requests could disagree. Resolution is read-only, so it runs in dry-run too.
+  LIFEOS_COMMIT=""
+  if [ -z "$LIFEOS_TARBALL_URL" ]; then
+    # 1) API — the vnd.github.sha media type answers with the bare 40-char SHA.
+    LIFEOS_COMMIT="$(curl -fsSL -H 'Accept: application/vnd.github.sha' \
+      "https://api.github.com/repos/${LIFEOS_REPO}/commits/${LIFEOS_TAG}" 2>/dev/null \
+      | tr -d '[:space:]' || true)"
+    # 2) git ls-remote — no anonymous API rate limit. An annotated tag resolves
+    #    to the tag OBJECT on refs/tags/<tag>, so prefer the ^{} peeled line.
+    if ! printf '%s' "$LIFEOS_COMMIT" | grep -qE '^[0-9a-f]{40}$'; then
+      if command -v git >/dev/null 2>&1; then
+        LS_REMOTE="$(git ls-remote "https://github.com/${LIFEOS_REPO}.git" \
+          "refs/tags/${LIFEOS_TAG}" "refs/tags/${LIFEOS_TAG}^{}" 2>/dev/null || true)"
+        # `|| true` on both: a non-matching grep is a normal outcome here, and
+        # under `set -o pipefail` its exit 1 would abort the whole install.
+        LIFEOS_COMMIT="$(printf '%s\n' "$LS_REMOTE" | grep '\^{}$' | head -n 1 | cut -f1 || true)"
+        [ -n "$LIFEOS_COMMIT" ] || LIFEOS_COMMIT="$(printf '%s\n' "$LS_REMOTE" | head -n 1 | cut -f1 || true)"
+        LIFEOS_COMMIT="$(printf '%s' "$LIFEOS_COMMIT" | tr -d '[:space:]')"
+      fi
+    fi
+    if printf '%s' "$LIFEOS_COMMIT" | grep -qE '^[0-9a-f]{40}$'; then
+      LIFEOS_TARBALL_URL="https://github.com/${LIFEOS_REPO}/archive/${LIFEOS_COMMIT}.tar.gz"
+      info "Pinned ${LIFEOS_TAG} to commit ${LIFEOS_COMMIT}"
+    else
+      LIFEOS_COMMIT=""
+      LIFEOS_TARBALL_URL="https://github.com/${LIFEOS_REPO}/archive/refs/tags/${LIFEOS_TAG}.tar.gz"
+      warn "Could not resolve ${LIFEOS_TAG} to a commit SHA — downloading the TAG tarball instead."
+      warn "That tag can move between now and the download; check the printed sha256 if that matters to you."
+    fi
+  else
+    info "Using LIFEOS_TARBALL_URL override — no commit pinning."
+  fi
+
+  TARBALL="$TMP_DIR/lifeos-${LIFEOS_TAG}.tar.gz"
   if [ "$DRY_RUN" = "1" ]; then
-    # The run wrapper suppressed the download, so the postconditions below would
-    # abort the simulation against an empty TMP_DIR (Forge audit, 2026-07-30 —
-    # same class as the install_bun postcondition). Simulate the resolved path.
+    # The download is suppressed, so the postconditions below would abort the
+    # simulation against an empty TMP_DIR (Forge audit, 2026-07-30 — same class
+    # as the install_bun postcondition). Simulate the resolved path.
+    info "[DRY-RUN] Would download $LIFEOS_TARBALL_URL, sha256 it, then extract it"
     SRC_SKILL="$TMP_DIR/[dry-run-extracted]/$LIFEOS_RELEASE_SUBPATH"
     info "[DRY-RUN] Would extract the tarball and resolve the skill at .../$LIFEOS_RELEASE_SUBPATH"
   else
+    # Download to a FILE, hash it, THEN extract — never `curl | tar`, which
+    # extracts bytes nobody ever looked at and leaves nothing to compare.
+    curl -fsSL -o "$TARBALL" "$LIFEOS_TARBALL_URL" \
+      || { error "Download failed: $LIFEOS_TARBALL_URL"; exit 1; }
+    TARBALL_SHA256="$(sha256_of "$TARBALL")"
+    if [ -n "$TARBALL_SHA256" ]; then
+      printf "\n  ${BOLD}sha256 of the downloaded tarball${RESET}\n  ${BOLD}${LIGHT_BLUE}%s${RESET}\n" "$TARBALL_SHA256"
+      printf "  ${DIM}%s${RESET}\n\n" "$LIFEOS_TARBALL_URL"
+    else
+      warn "Neither shasum nor sha256sum is installed — cannot hash the download."
+    fi
+    if [ -n "${LIFEOS_EXPECTED_SHA256:-}" ]; then
+      if [ -z "$TARBALL_SHA256" ]; then
+        error "LIFEOS_EXPECTED_SHA256 is set but no sha256 tool is available — refusing to install unverified."; exit 1
+      fi
+      EXPECTED_SHA256="$(printf '%s' "$LIFEOS_EXPECTED_SHA256" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+      if [ "$EXPECTED_SHA256" != "$TARBALL_SHA256" ]; then
+        error "sha256 MISMATCH — refusing to install."
+        error "  expected: $EXPECTED_SHA256"
+        error "  actual:   $TARBALL_SHA256"
+        exit 1
+      fi
+      success "sha256 matches LIFEOS_EXPECTED_SHA256"
+    fi
+    tar -xzf "$TARBALL" -C "$TMP_DIR" \
+      || { error "Extraction failed — the download may be truncated or corrupt."; exit 1; }
+    rm -f "$TARBALL"
     EXTRACTED="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
     SRC_SKILL="$EXTRACTED/$LIFEOS_RELEASE_SUBPATH"
     [ -d "$SRC_SKILL" ] || { error "LifeOS skill not in tarball at $LIFEOS_RELEASE_SUBPATH"; exit 1; }
   fi
 fi
-success "Fetched ${LIFEOS_TAG}"
+if [ -n "${LIFEOS_COMMIT:-}" ]; then success "Fetched ${LIFEOS_TAG} (commit ${LIFEOS_COMMIT})"; else success "Fetched ${LIFEOS_TAG}"; fi
 
 # Back up the existing skill ONLY now that a usable source is in hand. Doing this
 # in Step 2 meant any Step 3 failure — an unset LIFEOS_REPO, a missing local
@@ -275,8 +382,9 @@ done
 # muscle-memory invocation keeps working — and add the canonical `lifeos` alias.
 # Detection is deliberately tight (only the two documented historical forms:
 # a /PAI/ path, or a bare `&& claude` launch); a current 7.x alias always
-# contains LIFEOS_SYSTEM_PROMPT and is never touched, and the valid Arbol CLI
-# alias (ARBOL/Actions/lifeos.ts) matches neither pattern. The rc is backed up
+# contains LIFEOS_SYSTEM_PROMPT and is never touched, and the maintainer-side
+# Arbol CLI alias (ARBOL/Actions/lifeos.ts — not shipped in the public payload)
+# matches neither pattern. The rc is backed up
 # first; the rewrite is idempotent (commented lines no longer match). Skip
 # entirely with LIFEOS_SKIP_ALIAS=1. Fish users: migrate the funcsaved alias
 # by hand (see INSTALL.md step 7).
@@ -284,6 +392,13 @@ step "5/6  Migrating launch aliases (pre-7.x upgrades)"
 CONFIG_ROOT="$(dirname "$LIFEOS_SKILLS_DIR")"
 LAUNCHER="$CONFIG_ROOT/LIFEOS/TOOLS/lifeos.ts"
 SYS_PROMPT="$CONFIG_ROOT/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"
+# Single-quote a value for safe embedding in shell source. A literal `'` is
+# closed, backslash-escaped and reopened (it's → 'it'\''s'). Needed because the
+# alias body is re-parsed by the shell: an unquoted $HOME with a space breaks the
+# launcher, and one with a quote corrupts the rc file — and by this point the old
+# working alias is already commented out, so the user is left with no alias.
+# Ported from public PR #1739, @elhoim.
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 migrate_rc() {
   local rc="$1" stale names n ts
   [ -f "$rc" ] || return 0
@@ -304,16 +419,19 @@ migrate_rc() {
     { print }
   ' "$rc" > "$rc.lifeos-tmp" && mv "$rc.lifeos-tmp" "$rc"
   if [ -f "$LAUNCHER" ]; then
-    local add_lifeos=1
+    local add_lifeos=1 alias_body
+    # Two levels of quoting for two levels of parsing: the inner shq protects the
+    # paths when the alias body runs, the outer one when the rc file is sourced.
+    alias_body="bun $(shq "$LAUNCHER") -s $(shq "$SYS_PROMPT")"
     printf '%s\n' $names | grep -qx lifeos && add_lifeos=0
     grep -E '^[[:space:]]*alias[[:space:]]+lifeos=' "$rc" 2>/dev/null | grep -q 'LIFEOS_SYSTEM_PROMPT' && add_lifeos=0
     {
       echo ""
       echo "# LifeOS ${LIFEOS_TAG} launch aliases (repointed from pre-7.x by install.sh)"
       for n in $names; do
-        echo "alias $n='bun $LAUNCHER -s $SYS_PROMPT'"
+        echo "alias $n=$(shq "$alias_body")"
       done
-      if [ "$add_lifeos" = "1" ]; then echo "alias lifeos='bun $LAUNCHER -s $SYS_PROMPT'"; fi
+      if [ "$add_lifeos" = "1" ]; then echo "alias lifeos=$(shq "$alias_body")"; fi
     } >> "$rc"
     success "Repointed $(echo $names | tr '\n' ' ')to the constituted 7.x launcher (backup: $(basename "$rc").lifeos-backup-$ts)"
   else

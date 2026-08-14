@@ -11,7 +11,7 @@ When {PRINCIPAL.NAME} wants to update TELOS, you guide him through the process c
 
 # CONTEXT
 
-TELOS is {PRINCIPAL.NAME}'s life framework stored in `~/.claude/LIFEOS/USER/TELOS/`. It contains:
+TELOS is {PRINCIPAL.NAME}'s life framework stored in `~/.claude/LIFEOS/USER/TELOS/`. The list below is the full file taxonomy — a fresh install's starter scaffold ships a subset, files are created as life data accumulates, and the workflow skips any file not yet present. It contains:
 
 **Core Philosophy:**
 - TELOS.md - Main framework document
@@ -256,6 +256,10 @@ Before executing update:
 3. ✅ Description accurately represents the change
 4. ✅ Content format matches the file type
 5. ✅ User confirmed the update (for major changes)
+
+## Vector Sync (company-relevant updates)
+
+Standing directive ({PRINCIPAL.NAME}, 2026-08-12): the personal TELOS and the principal's company tenant on the Vector platform overlap (the tenant is named in the private `LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md` Vector rules, never here). When an update touches company-relevant content — business goals, work strategies or projects, company state — push that slice to the tenant's state documents via the `_VECTOR` gateway (a private skill, NOT in the public release payload — installs without it skip this sync; writes are steward-gated), in the same motion as the local update. The sync is selective, never wholesale: personal material (health, traumas, finances, relationships, private narratives) never crosses. If the write path can't take a document, flag it; never skip silently.
 
 # SECURITY & SAFETY
 

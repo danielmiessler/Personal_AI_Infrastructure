@@ -66,7 +66,7 @@ Concrete triggers:
 | Workflow | Trigger | File |
 |----------|---------|------|
 | Oscillate | "aperture oscillation", "oscillate scope", "zoom in/out", "tactical vs strategic" | `Workflows/Oscillate.md` |
-| Oscillate | Algorithm OBSERVE/THINK selects ApertureOscillation capability | `Workflows/Oscillate.md` |
+| Oscillate | An Algorithm run selects the ApertureOscillation capability while scoping | `Workflows/Oscillate.md` |
 
 ## Quick Reference
 

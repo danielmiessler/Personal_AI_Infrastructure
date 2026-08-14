@@ -42,6 +42,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -50,7 +51,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
 // skills/, hooks/, settings.json live under CLAUDE_DIR.
 // MEMORY/, USER/ live under LIFEOS_DIR (which is CLAUDE_DIR/PAI).

@@ -667,7 +667,8 @@ ONE-OFF / QUICK PREVIEW: Keep white background (#FFFFFF)
 GOING INTO BLOG/WEBSITE: Remove background for transparency
 ```
 
-**For blog/website use** — use the **Images skill** for background removal:
+<!-- ported from public PR #1707 (commit 1), @anikinsasha — Images was retired into Art -->
+**For blog/website use** — use the **Art skill's** background-removal tool:
 
 ```bash
 bun ~/.claude/LIFEOS/TOOLS/RemoveBg.ts /path/to/mermaid-diagram.png

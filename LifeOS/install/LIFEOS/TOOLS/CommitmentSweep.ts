@@ -31,6 +31,7 @@ import { join } from "path";
 import { spawnSync } from "child_process";
 import { loadWorkConfig } from "../../hooks/lib/work-config";
 import { PULSE_BASE } from "../PULSE/endpoint";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -39,7 +40,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const OBS_DIR = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
 const OBS_LOG = join(OBS_DIR, "commitment-digest.jsonl");
@@ -131,7 +132,8 @@ function pulseNotify(message: string): boolean {
     [
       "-sk", "-X", "POST", PULSE_NOTIFY,
       "-H", "Content-Type: application/json",
-      "-d", JSON.stringify({ message, voice_enabled: true }),
+      // Cadence job: silent banner only — scheduled tasks never voice ({{PRINCIPAL_NAME}}, 2026-08-14)
+      "-d", JSON.stringify({ message, voice_enabled: false }),
       "--max-time", "8",
     ],
     { encoding: "utf8" },

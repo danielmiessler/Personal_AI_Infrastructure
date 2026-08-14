@@ -1,0 +1,11 @@
+# Helm Deck project session — TEMPLATE
+# Copy to ~/.config/kitty/sessions/<name>.kitty-session, replace <project>
+# and the path, pick a tab color. Jump to it with cmd+; g (Deck goto_session)
+# or browse sessions with cmd+; space (DeckBar).
+new_tab session:<project>
+layout splits
+cd ~/Projects/<project>
+launch --cwd=~/Projects/<project> --title <project> --env KITTY_SESSION_PROJECT=<project> zsh
+launch --location=vsplit --cwd=~/Projects/<project> --title <project>-side --env KITTY_SESSION_PROJECT=<project> zsh
+focus_matching_window title:^<project>$
+launch --type=background kitten @ set-tab-color --match title:^session:<project> active_bg=#7aa2f7 inactive_bg=#33467c

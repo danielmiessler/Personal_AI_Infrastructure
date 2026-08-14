@@ -179,8 +179,18 @@ export function parseToolUseBlocks(transcriptPath: string): FileChange[] {
 /**
  * Normalize an absolute path to relative (to LIFEOS_DIR).
  */
+/**
+ * Path-boundary prefix test: `p` is `root` itself or a descendant. A bare
+ * startsWith is a STRING test, not a path test — `~/.claude-backup` and
+ * `~/.claude/LIFEOS-backup` both passed it and got treated as live system
+ * changes (public issue #1797, @Steffen025).
+ */
+function isUnderDir(p: string, root: string): boolean {
+  return p === root || p.startsWith(root + '/');
+}
+
 function normalizeToRelativePath(absolutePath: string): string {
-  if (absolutePath.startsWith(LIFEOS_DIR)) {
+  if (isUnderDir(absolutePath, LIFEOS_DIR)) {
     return relative(LIFEOS_DIR, absolutePath);
   }
   return absolutePath;
@@ -223,7 +233,8 @@ export function categorizeChange(path: string): ChangeCategory | null {
   // system work. Measured on a live transcript: 9 file changes, 6 of them
   // hooks, all categorized null and reported "not significant".
   const absolutePath = path.startsWith('/') ? path : join(CLAUDE_DIR, path);
-  if (!absolutePath.startsWith(CLAUDE_DIR) && !absolutePath.startsWith(LIFEOS_DIR)) {
+  // Path-boundary test, not string prefix (public issue #1797, @Steffen025).
+  if (!isUnderDir(absolutePath, CLAUDE_DIR) && !isUnderDir(absolutePath, LIFEOS_DIR)) {
     return null;
   }
 

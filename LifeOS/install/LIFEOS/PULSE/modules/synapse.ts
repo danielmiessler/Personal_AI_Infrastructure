@@ -2,7 +2,7 @@
  * Synapse Pulse module — read-only surface over the Synapse input router (the capture/grade/route loop).
  *
  * Composes live numbers from four independent probes (each fail-soft):
- *   ledger    — the arbol-a-amber-ledger worker (/stats, /captures)
+ *   ledger    — the install's amber-ledger worker (/stats, /captures), discovered by name
  *   knowledge — MEMORY/KNOWLEDGE note counts by `created:` frontmatter
  *   bookmarks — SEEN_BOOKMARKS KV key count (Cloudflare API) + local _X state
  *   sheet     — per-path observed sends (cloud bookmark cron + surface saves);
@@ -46,25 +46,43 @@ function arbolCfg(key: string): string | null {
   }
 }
 
-/** Ledger worker base URL: env override, else name (USER wrangler) + subdomain (arbol config). */
+/** Every wrangler.jsonc under the USER Arbol Workers tree, discovered — this
+ *  file ships, so it names no per-instance worker directory. Which workers an
+ *  install has is that install's business; we find them by CONTENT (wrangler
+ *  `name:` fields, KV bindings), never by hardcoded dir name. */
+function workerConfigs(): string[] {
+  try {
+    return readdirSync(ARBOL_WORKERS, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => join(ARBOL_WORKERS, d.name, "wrangler.jsonc"))
+      .filter((p) => existsSync(p));
+  } catch { return []; }
+}
+
+/** Ledger worker base URL: env override, else discovered wrangler name (`*amber-ledger*`) + subdomain (arbol config). */
 function ledgerBase(): string | null {
   if (process.env.AMBER_LEDGER_URL) return process.env.AMBER_LEDGER_URL.replace(/\/$/, "");
   try {
-    const wrangler = readFileSync(join(ARBOL_WORKERS, "_A_AMBER_LEDGER", "wrangler.jsonc"), "utf8");
-    const name = wrangler.match(/"name":\s*"([^"]+)"/)?.[1];
-    const sub = arbolCfg("subdomain");
-    return name && sub ? `https://${name}.${sub}.workers.dev` : null;
+    for (const cfg of workerConfigs()) {
+      const name = readFileSync(cfg, "utf8").match(/"name":\s*"([^"]+)"/)?.[1];
+      if (!name || !name.includes("amber-ledger")) continue;
+      const sub = arbolCfg("subdomain");
+      return sub ? `https://${name}.${sub}.workers.dev` : null;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-/** SEEN_BOOKMARKS KV namespace id, read from the bookmarks worker's wrangler config. */
+/** SEEN_BOOKMARKS KV namespace id — discovered by BINDING NAME across the install's worker configs. */
 function seenBookmarksKvId(): string | null {
   try {
-    const wrangler = readFileSync(join(ARBOL_WORKERS, "_F_X_BOOKMARKS_SUMMARIZE", "wrangler.jsonc"), "utf8");
-    const m = wrangler.match(/"binding":\s*"SEEN_BOOKMARKS",\s*"id":\s*"([a-f0-9]+)"/s);
-    return m ? m[1] : null;
+    for (const cfg of workerConfigs()) {
+      const m = readFileSync(cfg, "utf8").match(/"binding":\s*"SEEN_BOOKMARKS",\s*"id":\s*"([a-f0-9]+)"/s);
+      if (m) return m[1];
+    }
+    return null;
   } catch {
     return null;
   }
@@ -262,16 +280,30 @@ async function compose(): Promise<any> {
           by_status: byStatus,
           captured: byStatus.captured ?? 0,
           routed: byStatus.routed ?? 0,
-          recent: (ledgerRecent?.captures ?? []).map((c: any) => ({
-            source: c.source,
-            score: c.score ?? null,
-            title: c.title || null,
-            url: c.url || null,
-            captured_at: c.captured_at,
-            status: c.status,
-            // the promoted KNOWLEDGE note, when `amber route` has written one
-            note: knowledge?.amber_notes?.[c.id] ?? null,
-          })),
+          recent: (ledgerRecent?.captures ?? []).map((c: any) => {
+            // routed_actions is a JSON array column; parse defensively.
+            let actions: string[] | null = null;
+            try {
+              const a = c.routed_actions ? JSON.parse(c.routed_actions) : null;
+              if (Array.isArray(a)) actions = a.filter((x) => typeof x === "string");
+            } catch { /* malformed — leave null */ }
+            return {
+              id: c.id,
+              source: c.source,
+              score: c.score ?? null,
+              title: c.title || null,
+              url: c.url || null,
+              author: c.author || null,
+              content_kind: c.content_kind || "other",
+              excerpt: c.excerpt || null,
+              grade_version: c.grade_version || null,
+              routed_actions: actions,
+              captured_at: c.captured_at,
+              status: c.status,
+              // the promoted KNOWLEDGE note, when `amber route` has written one
+              note: knowledge?.amber_notes?.[c.id] ?? null,
+            };
+          }),
         }
       : null,
     // amber_notes is join material for `recent`, not a dashboard number — keep the payload lean

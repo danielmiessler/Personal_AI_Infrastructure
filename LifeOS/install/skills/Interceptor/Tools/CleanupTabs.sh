@@ -22,7 +22,14 @@
 set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PREFS="$SKILL_DIR/preferences.env"
+# Preferences live in USER customizations, same as every sibling tool (Capture.sh,
+# PreflightIsolation.sh, EnsureTestProfile.sh, LaunchTestProfile.sh). Reading the
+# skill-local copy first meant this script could see a different pinned context
+# than the gate that authorizes it — and on a stock install, where the skill ships
+# only preferences.env.example, no context at all (exit 8 on every run).
+# public issue #1802, @catchingknives
+PREFS="${HOME}/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env"
+[[ -f "$PREFS" ]] || PREFS="$SKILL_DIR/preferences.env"
 
 DRY_RUN=0
 THRESHOLD=1
@@ -42,15 +49,41 @@ done
 [[ -f "$PREFS" ]] && source "$PREFS"
 CTX="${INTERCEPTOR_TEST_CONTEXT_ID:-}"
 if [[ -z "$CTX" ]]; then
-  echo "CleanupTabs.sh: INTERCEPTOR_TEST_CONTEXT_ID unset in preferences.env — refusing (no default-to-Default)." >&2
+  echo "CleanupTabs.sh: INTERCEPTOR_TEST_CONTEXT_ID unset in $PREFS — refusing (no default-to-Default)." >&2
   exit 8
 fi
-for deny in ${INTERCEPTOR_WORKING_PROFILE_IDS:-}; do
-  if [[ "$CTX" == "$deny" ]]; then
-    echo "CleanupTabs.sh: pinned context $CTX is on the working-profile deny-list — refusing." >&2
-    exit 7
-  fi
-done
+# The deny-list is documented comma-separated (preferences.env.example) and parsed
+# that way by PreflightIsolation.sh and Capture.sh, but was split here on whitespace
+# only: the documented value arrived as a single token, never matched, and this
+# guard — the only one on this path, since CleanupTabs does not call the preflight —
+# failed open. Test the whole value and both splits, a superset of either earlier
+# parse, so this can only ever add a refusal. The Default name check mirrors the
+# siblings and the exit-7 contract in this script's own header.
+# public issue #1802, @catchingknives
+deny_hit=""
+if printf '%s\n' "$CTX" | grep -qiE '(^|[^a-z])default([^a-z]|$)'; then
+  deny_hit="name matches Default"
+fi
+deny_raw="$(printf '%s' "${INTERCEPTOR_WORKING_PROFILE_IDS:-}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+if [[ -z "$deny_hit" && -n "$deny_raw" ]]; then
+  [[ "$deny_raw" == "$CTX" ]] && deny_hit="matches deny-list entry ($deny_raw)"
+  for sep in ',' $', \t'; do
+    [[ -n "$deny_hit" ]] && break
+    IFS="$sep" read -ra deny_ids <<< "$deny_raw"
+    for deny in "${deny_ids[@]:-}"; do
+      deny="$(printf '%s' "$deny" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      [[ -z "$deny" ]] && continue
+      if [[ "$CTX" == "$deny" ]]; then
+        deny_hit="matches deny-list entry ($deny)"
+        break
+      fi
+    done
+  done
+fi
+if [[ -n "$deny_hit" ]]; then
+  echo "CleanupTabs.sh: pinned context $CTX is a denied Default/working profile ($deny_hit) — refusing." >&2
+  exit 7
+fi
 
 # --- 2. confirm the pinned context is live; if not, nothing to clean ---
 contexts_now="$(interceptor contexts 2>&1 || true)"

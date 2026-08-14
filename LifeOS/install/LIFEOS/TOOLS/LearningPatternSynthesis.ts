@@ -36,6 +36,8 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import { homedir } from "node:os";
+import { getPrincipalName } from "../../hooks/lib/identity";
 import {
   FRUSTRATION_PATTERNS, SUCCESS_PATTERNS,
   collectObservabilityClusters, readPatchRegistry,
@@ -46,7 +48,7 @@ import {
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = path.join(homedir(), ".claude");
 const LIFEOS_DIR = path.join(CLAUDE_DIR, "LIFEOS");
 const MEMORY_DIR = path.join(LIFEOS_DIR, "MEMORY");
 const LEARNING_DIR = path.join(MEMORY_DIR, "LEARNING");
@@ -762,8 +764,8 @@ function renderHypothesisFile(c: HypothesisCandidate, priorChangelog: string[] =
     c.healing
       ? `Graduating this in Pulse promotes the fixture IF it is already green (the class got fixed); if still red, it stays a pending healing task. The deriver never writes code — it wrote a failing test. Fix the class through normal work, then \`bun LIFEOS/TOOLS/PromoteFixture.ts ${c.healing.pending_slug}\`.`
       : c.target_frame === "new"
-      ? `Start a new frame at \`MEMORY/WISDOM/FRAMES/${c.slug}.md\` if {{PRINCIPAL_NAME}} reviews and confirms the pattern.`
-      : `Append a section to \`MEMORY/WISDOM/FRAMES/${c.target_frame}.md\` under \`## Hypothesis-Sourced\` if {{PRINCIPAL_NAME}} graduates this hypothesis.`,
+      ? `Start a new frame at \`MEMORY/WISDOM/FRAMES/${c.slug}.md\` if ${getPrincipalName()} reviews and confirms the pattern.`
+      : `Append a section to \`MEMORY/WISDOM/FRAMES/${c.target_frame}.md\` under \`## Hypothesis-Sourced\` if ${getPrincipalName()} graduates this hypothesis.`,
     "",
     "## Changelog",
     "",

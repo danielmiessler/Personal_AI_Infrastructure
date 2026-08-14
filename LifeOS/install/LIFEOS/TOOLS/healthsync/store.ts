@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { appendFileSync, chmodSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 import type {
   Ctx,
   DayFile,
@@ -9,7 +10,7 @@ import type {
   TokenStore,
 } from "./types";
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const ENV_PATH = join(HOME, ".claude", ".env");
 const STATE_DIR = join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE");
 const DATA_DIR = join(HOME, ".claude", "LIFEOS", "USER", "HEALTH", "DATA");
@@ -36,13 +37,46 @@ function stripQuotes(value: string): string {
   return trimmed;
 }
 
-export function dayKeyLA(epochMs: number): string {
+const FALLBACK_TZ = "America/Los_Angeles";
+
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The IANA zone that defines a "day" for health data.
+ *
+ * Sleep and activity days are wall-clock local, so a hardcoded zone silently
+ * misfiled every record for anyone outside Pacific time — and shifted the
+ * boundary for the principal too while travelling. Resolution order is explicit
+ * override, then process TZ, then the host zone, then the historical default.
+ * public issue #1762, @jacobo-ortiz
+ */
+export function resolveTimeZone(): string {
+  const candidates = [
+    process.env.LIFEOS_HEALTH_TZ,
+    process.env.TZ,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ];
+  for (const candidate of candidates) {
+    const tz = candidate?.trim();
+    if (tz && isValidTimeZone(tz)) return tz;
+  }
+  return FALLBACK_TZ;
+}
+
+export function dayKey(epochMs: number, timeZone: string = resolveTimeZone()): string {
   if (!Number.isFinite(epochMs)) {
     throw new Error("epochMs must be finite");
   }
 
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -54,17 +88,17 @@ export function dayKeyLA(epochMs: number): string {
   const key = `${year}-${month}-${day}`;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-    throw new Error("failed to build LA day key");
+    throw new Error(`failed to build day key for ${timeZone}`);
   }
 
   return key;
 }
 
-export function isoNowLA(d: Date): string {
-  // Convert the LA wall-clock parts, then compare them with UTC to derive the
+export function isoNow(d: Date, timeZone: string = resolveTimeZone()): string {
+  // Convert the local wall-clock parts, then compare them with UTC to derive the
   // correct DST-aware offset for that instant.
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -77,7 +111,7 @@ export function isoNowLA(d: Date): string {
   const getPart = (type: string): string => {
     const value = parts.find((part) => part.type === type)?.value;
     if (value === undefined) {
-      throw new Error(`missing ${type} while formatting LA timestamp`);
+      throw new Error(`missing ${type} while formatting ${timeZone} timestamp`);
     }
     return value;
   };
@@ -104,6 +138,11 @@ export function isoNowLA(d: Date): string {
 
   return `${year}-${month}-${day}T${hour}:${minute}:${second}${sign}${offsetHour}:${offsetMinute}`;
 }
+
+// Historical names, kept so existing call sites read unchanged. They are no
+// longer LA-specific — both resolve the zone at call time. public issue #1762
+export const dayKeyLA = dayKey;
+export const isoNowLA = isoNow;
 
 export function parseEnv(text: string): Record<string, string> {
   const env: Record<string, string> = {};

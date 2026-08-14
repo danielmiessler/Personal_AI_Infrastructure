@@ -91,7 +91,8 @@ export function listSuites(type?: EvalType): EvalSuite[] {
     if (!existsSync(dirPath)) continue;
 
     for (const file of readdirSync(dirPath)) {
-      if (file.endsWith('.yaml')) {
+      // ported from public PR #1741, @elhoim — `.yml` is as valid a YAML suffix as `.yaml`
+      if (file.endsWith('.yaml') || file.endsWith('.yml')) {
         const suite = parseYaml(readFileSync(join(dirPath, file), 'utf-8')) as EvalSuite;
         suites.push(suite);
       }

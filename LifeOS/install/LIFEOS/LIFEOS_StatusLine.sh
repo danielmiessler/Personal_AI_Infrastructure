@@ -30,6 +30,28 @@ LIFEOS_DIR="${LIFEOS_DIR/#\~\//$HOME/}"
 # whatever repo the session runs in). Refuse to run rather than write garbage.
 case "$LIFEOS_DIR" in
     /*) ;;
+    # Windows drive-letter paths (C:\... or C:/...) are absolute, but they fail
+    # the /* test above, so Git Bash / MSYS installs fell straight through to the
+    # fail-closed arm and rendered a bare "LifeOS" forever.
+    # public issue #1746, @umair-a11y
+    # Normalize to POSIX here; cygpath when present, parameter expansion (the
+    # MSYS /c/... convention) otherwise. POSIX paths can never reach this arm —
+    # they matched /* already — and the #1463 fail-closed guard is re-applied to
+    # whatever comes out, so a normalization that fails still refuses to run.
+    [A-Za-z]:/*|[A-Za-z]:'\'*)
+        if command -v cygpath >/dev/null 2>&1; then
+            LIFEOS_DIR="$(cygpath -u "$LIFEOS_DIR" 2>/dev/null)"
+        else
+            _win_drive="${LIFEOS_DIR%%:*}"
+            _win_rest="${LIFEOS_DIR#*:}"
+            _win_rest="${_win_rest//\\//}"
+            LIFEOS_DIR="/$(printf '%s' "$_win_drive" | tr '[:upper:]' '[:lower:]')${_win_rest}"
+        fi
+        case "$LIFEOS_DIR" in
+            /*) ;;
+            *)  echo "LifeOS"; exit 0 ;;
+        esac
+        ;;
     *)  echo "LifeOS"; exit 0 ;;
 esac
 case "$LIFEOS_DIR" in
@@ -59,12 +81,23 @@ if [ -z "$BUN_BIN" ]; then
     done
 fi
 
+# Host-local scratch for caches this statusline both writes AND is the only
+# reader of. MEMORY/STATE can be synced across machines, so per-host churn there
+# (model name, IP-derived location, local weather, this machine's own Claude Code
+# version) shows up as noise everywhere else and can hand one host another
+# host's values. public issue #1702, @gangwaydigital
+# Deliberately NOT moved: session-names.json, session-name-cache.sh,
+# learning-cache.sh, capabilities-statusline.txt — other components write those,
+# so they stay on the shared path.
+STATUSLINE_LOCAL_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/lifeos-statusline"
+mkdir -p "$STATUSLINE_LOCAL_STATE" 2>/dev/null
+
 SETTINGS_FILE="$CLAUDE_HOME/settings.json"
 RATINGS_FILE="$LIFEOS_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
-MODEL_CACHE="$LIFEOS_DIR/MEMORY/STATE/model-cache.txt"
+MODEL_CACHE="$STATUSLINE_LOCAL_STATE/model-cache.txt"
 QUOTES_FILE="$LIFEOS_DIR/USER/PRINCIPAL/Quotes.txt"
-LOCATION_CACHE="$LIFEOS_DIR/MEMORY/STATE/location-cache.json"
-WEATHER_CACHE="$LIFEOS_DIR/MEMORY/STATE/weather-cache.json"
+LOCATION_CACHE="$STATUSLINE_LOCAL_STATE/location-cache.json"
+WEATHER_CACHE="$STATUSLINE_LOCAL_STATE/weather-cache.json"
 USAGE_CACHE="/tmp/pai-usage-${USER:-anon}.json"
 USAGE_LOCK="/tmp/pai-usage-${USER:-anon}.lock"   # P4: single-fetcher mutex (atomic mkdir; portable, no flock(1))
 LEARNING_CACHE="$LIFEOS_DIR/MEMORY/STATE/learning-cache.sh"
@@ -100,7 +133,7 @@ if [ -z "${USER_TZ:-}" ] && [ -r /etc/timezone ]; then
 fi
 USER_TZ="${USER_TZ:-UTC}"
 
-# LIFEOS_VERSION: read from PAI/VERSION (canonical, also read by install.sh,
+# LIFEOS_VERSION: read from LIFEOS/VERSION (canonical, also read by install.sh,
 # Banner.ts, _LIFEOS/Tools/UpdateLifeosVersion.ts, ShadowRelease.ts, install web
 # server). Same multi-path pattern as ALGO_VERSION below to survive
 # hook-spawn contexts where HOME/LIFEOS_DIR may not resolve.
@@ -256,13 +289,13 @@ if [ -f "/tmp/pai-sl-capture" ]; then
     rm -f "/tmp/pai-sl-capture" 2>/dev/null
 fi
 
-# Get DA name from settings (single source of truth)
+# DA name comes from the DA_NAME env var (harness-exported), default Assistant
 DA_NAME="${DA_NAME:-Assistant}"
 
 # Get user timezone from settings (for reset time display)
 USER_TZ="${USER_TZ:-UTC}"
 
-# LifeOS version was read from PAI/VERSION above; this is a defensive fallback.
+# LifeOS version was read from LIFEOS/VERSION above; this is a defensive fallback.
 LIFEOS_VERSION="${LIFEOS_VERSION:-—}"
 
 # ALGO_VERSION is set above from LATEST (single source of truth, v6.2.0+).
@@ -309,10 +342,49 @@ native_usage_7d_present="${native_usage_7d_present:-false}"
 # Without this: 83% raw looks fine but means ~1% usable remaining.
 COMPACTION_USABLE=835  # 83.5% × 10 for integer math precision
 
+# ── Skills description byte total ──────────────────────────────────────────
+# Shared by the startup estimate and the FILES SKILLS cell so both surfaces
+# report the same number. Sums each SKILL.md's frontmatter description line.
+# Session-cached: one awk pass per session.
+_SKILLS_SIZE_CACHE="/tmp/pai-skills-size-${session_id:-nosess}.sh"
+_compute_skills_desc_bytes() {
+    if [ -f "$_SKILLS_SIZE_CACHE" ]; then
+        # shellcheck disable=SC1090
+        source "$_SKILLS_SIZE_CACHE"
+    else
+        # nullglob: unmatched .plugins glob would otherwise pass as a literal
+        # path to awk, which silently emits nothing and zeros the total.
+        shopt -s nullglob 2>/dev/null
+        local _skill_md_files=("$CLAUDE_HOME"/skills/*/SKILL.md "$CLAUDE_HOME"/.plugins/*/skills/*/SKILL.md)
+        shopt -u nullglob 2>/dev/null
+        if [ "${#_skill_md_files[@]}" -gt 0 ]; then
+            _skills_total_bytes=$(awk '
+                FNR == 1 { done = 0 }
+                /^description:/ && !done {
+                    line = $0
+                    sub(/^description:[[:space:]]*"?/, "", line)
+                    sub(/"[[:space:]]*$/, "", line)
+                    n = split(FILENAME, parts, "/")
+                    sname = parts[n-1]
+                    total += 4 + length(sname) + length(line)
+                    done = 1
+                }
+                END { print total + 0 }
+            ' "${_skill_md_files[@]}" 2>/dev/null)
+        fi
+        _skills_total_bytes=${_skills_total_bytes:-0}
+        echo "_skills_total_bytes=$_skills_total_bytes" > "$_SKILLS_SIZE_CACHE" 2>/dev/null
+    fi
+    echo "$_skills_total_bytes"
+}
+
 # ── Startup context estimate (fresh calculation, no cross-session caching) ─
 # Before the first API call, Claude Code provides no token data. We estimate
 # from measured file sizes + per-item token costs.
-# Token ratio: ~3.5 chars/token for text content (bytes * 10 / 35).
+# RECONCILIATION CONTRACT: the on-disk file components use the SAME inputs and
+# SAME math as the FILES line (bytes / 4, same file set, same skills sum), so
+# the bar always reads ≥ STARTUP LOAD and the two visibly agree. Harness
+# overhead (base prompt, tool defs, git block, hooks) sits on top as constants.
 # ───────────────────────────────────────────────────────────────────────────
 startup_estimate=false
 if [ "$context_pct" = "0" ] && [ "$total_input" -eq 0 ] 2>/dev/null; then
@@ -336,25 +408,30 @@ if [ "$context_pct" = "0" ] && [ "$total_input" -eq 0 ] 2>/dev/null; then
         # each 200-500 tokens; deferred tool names list ~500 tokens)
         _est=$((_est + 12000))
 
-        # CLAUDE.md (loaded natively by Claude Code, ~3.5 chars/token)
-        [ -f "$CLAUDE_HOME/CLAUDE.md" ] && _est=$((_est + $(wc -c < "$CLAUDE_HOME/CLAUDE.md") * 10 / 35))
-
-        # System prompt (loaded via --append-system-prompt-file, ~3.5 chars/token)
-        [ -f "$LIFEOS_DIR/LIFEOS_SYSTEM_PROMPT.md" ] && _est=$((_est + $(wc -c < "$LIFEOS_DIR/LIFEOS_SYSTEM_PROMPT.md") * 10 / 35))
-
-        # loadAtStartup files (injected by LoadContext.hook.ts as system-reminders)
-        while IFS= read -r _f; do
-            [ -n "$_f" ] && [ -f "$LIFEOS_DIR/$_f" ] && _est=$((_est + $(wc -c < "$LIFEOS_DIR/$_f") * 10 / 35))
-        done < <(jq -r '.loadAtStartup.files[]? // empty' "$SETTINGS_FILE" 2>/dev/null)
+        # On-disk startup files — the SAME set and math as the FILES line below
+        # (bytes / 4): system prompt, CLAUDE.md, its @-imports. The old version
+        # read settings.json `.loadAtStartup.files` (empty since the v5.0 move
+        # to @-imports) at 3.5 chars/token, so it skipped the imports entirely
+        # and the bar could read BELOW the STARTUP LOAD subset it contains.
+        _startup_file_bytes=0
+        [ -f "$LIFEOS_DIR/LIFEOS_SYSTEM_PROMPT.md" ] && _startup_file_bytes=$((_startup_file_bytes + $(wc -c < "$LIFEOS_DIR/LIFEOS_SYSTEM_PROMPT.md")))
+        if [ -f "$CLAUDE_HOME/CLAUDE.md" ]; then
+            _startup_file_bytes=$((_startup_file_bytes + $(wc -c < "$CLAUDE_HOME/CLAUDE.md")))
+            while IFS= read -r _f; do
+                [ -n "$_f" ] && [ -f "$CLAUDE_HOME/$_f" ] && _startup_file_bytes=$((_startup_file_bytes + $(wc -c < "$CLAUDE_HOME/$_f")))
+            done < <(sed -n 's/^@//p' "$CLAUDE_HOME/CLAUDE.md" 2>/dev/null)
+        fi
 
         # Project memory files (CC native memory at ~/.claude/projects/*/memory/)
         for _f in "$HOME"/.claude/projects/*/memory/MEMORY.md; do
-            [ -f "$_f" ] && _est=$((_est + $(wc -c < "$_f") * 10 / 35))
+            [ -f "$_f" ] && _startup_file_bytes=$((_startup_file_bytes + $(wc -c < "$_f")))
         done
 
-        # Skill trigger descriptions (~150 tokens each — name, trigger phrases, examples)
-        _sk=$(jq -r '.counts.skills // 22' "$SETTINGS_FILE" 2>/dev/null || echo 22)
-        _est=$((_est + _sk * 150))
+        # Skill trigger descriptions — same measured sum (and session cache) as
+        # the FILES SKILLS cell, replacing the old flat 150-tokens-per-skill guess.
+        _startup_file_bytes=$((_startup_file_bytes + $(_compute_skills_desc_bytes)))
+
+        _est=$((_est + _startup_file_bytes / 4))
 
         # Custom agent descriptions (~200 tokens each — includes both user and plugin agents)
         # Use bash globs — ~10-20ms faster than `fd` forks.
@@ -378,7 +455,11 @@ if [ "$context_pct" = "0" ] && [ "$total_input" -eq 0 ] 2>/dev/null; then
         # gitStatus header, settings-based reminders)
         _est=$((_est + 3000))
 
-        context_pct=$((_est * 100 / context_max))
+        # One-decimal percentage — integer flooring made 3.7% render as 3%
+        # while STARTUP LOAD showed its subset at one decimal, which read as
+        # the bar being smaller than a component of itself.
+        _est_pct_x10=$((_est * 1000 / context_max))
+        context_pct="$((_est_pct_x10 / 10)).$((_est_pct_x10 % 10))"
         startup_tokens=$_est
 
         # Persist for this session's remaining pre-first-API ticks
@@ -404,7 +485,9 @@ fi
 # the 24h mtime cache is only a fallback for harnesses that omit it. The cache
 # was previously consulted before the parsed value, showing a stale version for
 # up to a day after an update (public issue #1588, @bnkath2o).
-_CC_VERSION_CACHE="$LIFEOS_DIR/MEMORY/STATE/cc-version-cache.txt"
+# Host-local: this is THIS machine's Claude Code version, never a synced fact.
+# public issue #1702, @gangwaydigital
+_CC_VERSION_CACHE="$STATUSLINE_LOCAL_STATE/cc-version-cache.txt"
 cc_version="${cc_version_json:-}"
 if [ -n "$cc_version" ]; then
     echo "$cc_version" > "$_CC_VERSION_CACHE" 2>/dev/null
@@ -547,9 +630,16 @@ else
     MODE="normal"
 fi
 
-# Content width: cap at 72 so wide terminals don't stretch, but narrow ones fit
+# Content width: cap so wide terminals don't stretch, but narrow ones fit.
+# The cap is configurable via LIFEOS_STATUSLINE_MAX_WIDTH; 0 disables the clamp
+# entirely and lets the separators span the full terminal. Default 72 keeps the
+# existing behavior byte-for-byte. public issue #1717, @xmasyx
+_max_width="${LIFEOS_STATUSLINE_MAX_WIDTH:-72}"
+case "$_max_width" in
+    ''|*[!0-9]*) _max_width=72 ;;
+esac
 content_width=$term_width
-[ "$content_width" -gt 72 ] && content_width=72
+[ "$_max_width" -gt 0 ] && [ "$content_width" -gt "$_max_width" ] && content_width=$_max_width
 [ "$content_width" -lt 10 ] && content_width=10
 
 _repeat_chars() {
@@ -582,7 +672,23 @@ sep() {
 # Results are sourced after `wait` at the end of the block.
 
 _parallel_tmp="/tmp/pai-parallel-$$"
+# Two-layer cleanup. The rm -rf near the end of this script is not reachable on
+# every invocation: Claude Code terminates a slow statusline, and at
+# refreshInterval=1 each killed render leaks its scratch dir forever.
+# ported from public PR #1767, @gcaspar
+#
+# 1. Entry-path sweep of dirs older than a minute. A live render finishes in well
+#    under a second, so anything older is orphaned. This is the only layer that
+#    covers SIGKILL, which cannot be trapped. Backgrounded to stay off the
+#    critical path. The trailing slash on /tmp/ is required, not cosmetic: on
+#    macOS /tmp is a symlink, and find(1) will not descend into a symlinked start
+#    point, so without it this silently matches nothing.
+# 2. A trap, which returns the dir promptly on the common signal path instead of
+#    leaving it for the next run to sweep. EXIT traps are reset in subshells, so
+#    the backgrounded blocks below cannot fire this and delete the dir mid-render.
+find /tmp/ -maxdepth 1 -type d -name 'pai-parallel-*' -mmin +1 -exec rm -rf {} + 2>/dev/null &
 mkdir -p "$_parallel_tmp"
+trap 'rm -rf "$_parallel_tmp" 2>/dev/null' EXIT INT TERM HUP
 NOW_EPOCH=$(date +%s)
 
 # --- PARALLEL BLOCK START ---
@@ -888,45 +994,68 @@ if [ "$MODE" = "normal" ]; then
                 fi
             fi
             if mkdir "$USAGE_LOCK" 2>/dev/null; then
-                echo "$$" > "$USAGE_LOCK/pid" 2>/dev/null   # ownership token (verified on release)
-                # Extract OAuth token — macOS Keychain or Linux credentials file
-                if [ "$(uname -s)" = "Darwin" ]; then
-                    cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
-                else
-                    cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
-                fi
-                token=$(echo "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+                # Fetch DETACHED, mirroring the location/weather refresh above.
+                # ported from public PR #1773, @asdf8675309
+                # The keychain read and the 3s curl must not sit on the render
+                # path. Claude Code kills a statusline render that overruns its
+                # refreshInterval, and killing one mid-`security` can strand the
+                # terminal in the canonical/no-echo mode that call put it in.
+                # </dev/null severs stdin so the fetch can never read the TTY.
+                #
+                # $$ inside a subshell still names the PARENT on bash 3.2 (no
+                # BASHPID), and that parent exits in milliseconds, so writing $$
+                # as the ownership token would let the next render's liveness
+                # check reap a lock whose fetch is still running. sh -c 'echo
+                # $PPID' returns the subshell's own pid — verified equal to the
+                # parent's $! on bash 3.2.57 (macOS).
+                (
+                    _fetch_pid=$(sh -c 'echo $PPID')
+                    echo "$_fetch_pid" > "$USAGE_LOCK/pid" 2>/dev/null   # ownership token (verified on release)
+                    # Release on EXIT so a killed fetch cannot leak the mutex,
+                    # and ONLY if we still own it — never nuke another holder's.
+                    trap 'if [ "$(cat "$USAGE_LOCK/pid" 2>/dev/null)" = "$_fetch_pid" ]; then rm -f "$USAGE_LOCK/pid" 2>/dev/null; rmdir "$USAGE_LOCK" 2>/dev/null; fi' EXIT
 
-                if [ -n "$token" ]; then
-                    usage_json=$(curl -s --max-time 3 \
-                        -H "Authorization: Bearer $token" \
-                        -H "Content-Type: application/json" \
-                        -H "anthropic-beta: oauth-2025-04-20" \
-                        "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
-
-                    # Fail CLOSED: install a new cache ONLY when the body is real JSON
-                    # with a five_hour field. A 429/5xx/HTML body fails this probe, so
-                    # last-known-good is never atomically overwritten with garbage (P5).
-                    if [ -n "$usage_json" ] && echo "$usage_json" | jq -e '.five_hour' >/dev/null 2>&1; then
-                        # Atomic write (P4): temp in the SAME dir (same fs => rename is
-                        # atomic), 0600, and never mv onto a followed symlink (the path
-                        # is predictable in a world-writable dir). Stamp fetched_at (P6).
-                        # mv ONLY if the temp is non-empty (defends jq-exit-0-empty).
-                        _tmp_cache="${USAGE_CACHE}.tmp.$$"
-                        if echo "$usage_json" | jq --argjson now "$_usage_now" '. + {fetched_at:$now}' > "$_tmp_cache" 2>/dev/null && [ -s "$_tmp_cache" ]; then
-                            chmod 600 "$_tmp_cache" 2>/dev/null
-                            [ -L "$USAGE_CACHE" ] && rm -f "$USAGE_CACHE" 2>/dev/null
-                            mv -f "$_tmp_cache" "$USAGE_CACHE" 2>/dev/null && _data_age=0
-                        fi
-                        rm -f "$_tmp_cache" 2>/dev/null
+                    # Extract OAuth token — macOS Keychain or Linux credentials file
+                    if [ "$(uname -s)" = "Darwin" ]; then
+                        cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+                    else
+                        cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
                     fi
-                fi
-                # Release ONLY if we still own the lock — never nuke another holder's.
-                if [ "$(cat "$USAGE_LOCK/pid" 2>/dev/null)" = "$$" ]; then
-                    rm -f "$USAGE_LOCK/pid" 2>/dev/null; rmdir "$USAGE_LOCK" 2>/dev/null
-                fi
+                    token=$(echo "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+
+                    if [ -n "$token" ]; then
+                        usage_json=$(curl -s --max-time 3 \
+                            -H "Authorization: Bearer $token" \
+                            -H "Content-Type: application/json" \
+                            -H "anthropic-beta: oauth-2025-04-20" \
+                            "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
+
+                        # Fail CLOSED: install a new cache ONLY when the body is real JSON
+                        # with a five_hour field. A 429/5xx/HTML body fails this probe, so
+                        # last-known-good is never atomically overwritten with garbage (P5).
+                        if [ -n "$usage_json" ] && echo "$usage_json" | jq -e '.five_hour' >/dev/null 2>&1; then
+                            # Atomic write (P4): temp in the SAME dir (same fs => rename is
+                            # atomic), 0600, and never mv onto a followed symlink (the path
+                            # is predictable in a world-writable dir). Stamp fetched_at (P6).
+                            # mv ONLY if the temp is non-empty (defends jq-exit-0-empty).
+                            _tmp_cache="${USAGE_CACHE}.tmp.${_fetch_pid}"
+                            if echo "$usage_json" | jq --argjson now "$_usage_now" '. + {fetched_at:$now}' > "$_tmp_cache" 2>/dev/null && [ -s "$_tmp_cache" ]; then
+                                chmod 600 "$_tmp_cache" 2>/dev/null
+                                [ -L "$USAGE_CACHE" ] && rm -f "$USAGE_CACHE" 2>/dev/null
+                                mv -f "$_tmp_cache" "$USAGE_CACHE" 2>/dev/null
+                            fi
+                            rm -f "$_tmp_cache" 2>/dev/null
+                        fi
+                    fi
+                ) </dev/null >/dev/null 2>&1 &
+                disown 2>/dev/null || true
             fi
             # Losers (mkdir failed): no fetch, no wait — fall through to last-known-good.
+            # The winner no longer waits either: _data_age keeps its pre-fetch
+            # value, so this render shows last-known-good with an honest age and
+            # the fresh data lands on the next tick. The forced-refetch
+            # bookkeeping below therefore restores _orig_age, which is correct —
+            # from this render's point of view the attempt has not landed yet.
         fi
         # Forced-refetch bookkeeping: a failed forced attempt restores the true
         # data age (a success already set _data_age=0), so staleness reporting
@@ -1051,9 +1180,10 @@ USAGEEOF
 fi
 
 # Quote line restored 2026-05-12 — replaced the dead ZenQuotes API path with a
-# curated 1024-line corpus at $LIFEOS_DIR/USER/PRINCIPAL/Quotes.txt. Selection is a
-# deterministic function of wall-clock time: (epoch / 60) % count. No network,
-# no cache, no refresh logic. Renderer lives at the bottom of the script.
+# curated corpus at $LIFEOS_DIR/USER/PRINCIPAL/Quotes.txt ("text|author" per line;
+# a starter set ships as a template, grow your own). Selection is a deterministic
+# function of wall-clock time: (epoch / 60) % count. No network, no cache, no
+# refresh logic; the renderer no-ops if the file is absent.
 
 # --- PARALLEL BLOCK END - wait for all to complete ---
 wait
@@ -1480,7 +1610,7 @@ if [ "$MODE" != "normal" ]; then
     case "$MODE" in
         nano)
             # Line 1: branding + context
-            printf "${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${CTX_PRIMARY}◉${RESET}${_pct_color}${_raw_pct}%%${RESET}
+            printf "${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${CTX_PRIMARY}◉${RESET}${_pct_color}${_raw_pct}%%${RESET}
 "
             # Line 2: git + learning
             [ "$is_git_repo" = "true" ] && printf "${GIT_PRIMARY}◈${RESET}${GIT_VALUE}${branch}${RESET} "
@@ -1489,7 +1619,7 @@ if [ "$MODE" != "normal" ]; then
             ;;
         micro)
             # Line 1: branding + context
-            printf "${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${CTX_PRIMARY}◉${RESET}${_pct_color}${_raw_pct}%%${RESET}
+            printf "${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${CTX_PRIMARY}◉${RESET}${_pct_color}${_raw_pct}%%${RESET}
 "
             # Line 2: git + learning
             printf "${GIT_PRIMARY}◈${RESET}${GIT_VALUE}${branch:-—}${RESET}"
@@ -1502,7 +1632,7 @@ if [ "$MODE" != "normal" ]; then
             ;;
         mini)
             # Line 1: branding + location/time
-            printf "${SLATE_600}──${RESET} ${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${SLATE_600}──${RESET} ${LIFEOS_CITY}${location_city}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_WEATHER}${weather_str}${RESET}
+            printf "${SLATE_600}──${RESET} ${LIFEOS_A}${LIFEOS_LOGO}${RESET}  ${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}──${RESET} ${LIFEOS_CITY}${location_city}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_TIME}${current_time}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_WEATHER}${weather_str}${RESET}
 "
             # Line 2: context bar (compact)
             _bar_w=20
@@ -1544,13 +1674,13 @@ _hdr_loc_plain="${_hdr_loc_plain}${location_city}"
 _hdr_ascent=""
 [ -n "$ascent_chip" ] && _hdr_ascent=" ${SLATE_600}│${RESET} ${ascent_chip}"
 if [ -n "$session_display" ]; then
-    printf "${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_SESSION}${session_display}${RESET}${_hdr_ascent}\n"
+    printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}│${RESET} ${LIFEOS_SESSION}${session_display}${RESET}${_hdr_ascent}\n"
 else
-    _hdr_left="LIFEOS │ ${_hdr_loc_plain}  ${current_time}  ${weather_str} "
+    _hdr_left="LifeOS │ ${_hdr_loc_plain}  ${current_time}  ${weather_str} "
     _hdr_fill=$((content_width - ${#_hdr_left}))
     [ "$_hdr_fill" -lt 2 ] && _hdr_fill=2
     _hdr_dashes=$(_repeat_chars "$_hdr_fill" "─")
-    printf "${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}${_hdr_dashes}${RESET}\n"
+    printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}${_hdr_dashes}${RESET}\n"
 fi
 printf "${SLATE_600}%s${RESET}\n" "$SEP_DASHED"
 
@@ -1821,23 +1951,43 @@ fi
 # now renders as the single 🧠 MEMORY line directly under STATE above; doc-review
 # cadence lives in Pulse and `memory insights`.)
 
-sep
-# Build harness display: "HAR: Pi 0.73.1" (Pi harness with its own version) or
-# "HAR: CC 2.1.150" (running under Claude Code directly — fold cc_version into HAR).
-_har_display="${harness_name}"
-if [ -n "$harness_version" ] && [ "$harness_version" != "unknown" ]; then
-    _har_display="${_har_display} ${harness_version}"
-elif [ -n "$cc_version" ] && [ "$cc_version" != "unknown" ]; then
-    _har_display="${_har_display} ${cc_version}"
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎤 INTERVIEW — actionable due-chip (2026-08-11). Successor to the removed
+# FRESHNESS grade line, designed around its two failure lessons: no letter
+# grades (illegible), and NOTHING on the render path but a cache read (the
+# 2026-05-08 perf ripout). Cache is written by `InterviewDue.ts --refresh`
+# (launchd com.lifeos.interviewdue, daily) and by the Interview skill itself.
+# Renders ONE amber line only when an interview is actually due; absent cache
+# or due=false renders nothing at all.
+# ═══════════════════════════════════════════════════════════════════════════════
+_interview_due_cache="$LIFEOS_DIR/USER/CACHE/interview-due.json"
+if [ -f "$_interview_due_cache" ]; then
+    _iv_row=$(jq -rc '[(.due // false), (.headline // "")] | @tsv' "$_interview_due_cache" 2>/dev/null)
+    _iv_due="${_iv_row%%$'\t'*}"
+    # Strip ESC bytes: @tsv escapes \t/\n but raw 0x1b passes through, and a
+    # poisoned cache could inject ANSI into the render (Max review 2026-08-11).
+    _iv_headline=$(printf '%s' "${_iv_row#*$'\t'}" | tr -d '\033')
+    if [ "$_iv_due" = "true" ]; then
+        _iv_amber='\033[38;2;251;191;36m'
+        _iv_line=$(printf 'INTERVIEW DUE · %s' "$_iv_headline" | tr '[:lower:]' '[:upper:]')
+        [ ${#_iv_line} -gt 68 ] && _iv_line="${_iv_line:0:67}…"
+        printf "🎤  ${_iv_amber}%s${RESET}\n" "$_iv_line"
+    fi
 fi
-# DEF MODEL is the session's DEFAULT main-loop model — the harness-reported
+
+sep
+# HARN segment removed entirely (principal 2026-08-12: label + value were
+# eating status line width for a near-constant fact). harness_name/versions
+# still parse above for other consumers.
+# DEFAULT MODEL is the session's DEFAULT main-loop model — the harness-reported
 # current model, which tracks /model directly (/model fable → FABLE). This is
 # deliberately NOT the level-routed EFFORT_MODEL pick (that lineup is the 🤖
-# mode line below); DEF answers "what does my /model say right now?".
+# mode line below); it answers "what does my /model say right now?".
+# Segment order LifeOS → ALGO → DEFAULT MODEL per principal 2026-08-13.
 _model_display="${model_name// context/}"
 # Model names render ALL CAPS to match the mode line below (principal 2026-07-06).
 _model_display=$(printf '%s' "$_model_display" | tr '[:lower:]' '[:upper:]')
-printf "${SLATE_400}HARN:${RESET} ${LIFEOS_A}${_har_display}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}DEF MODEL:${RESET} ${LIFEOS_A}${_model_display}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}LIFEOS:${RESET} ${LIFEOS_A}${LIFEOS_VERSION}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}ALGO:${RESET} ${LIFEOS_A}${ALGO_VERSION}${RESET}\n"
+printf "${SLATE_400}LifeOS:${RESET} ${LIFEOS_A}${LIFEOS_VERSION}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}ALGO:${RESET} ${LIFEOS_A}${ALGO_VERSION}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}DEFAULT MODEL:${RESET} ${LIFEOS_A}${_model_display}${RESET}\n"
 
 # ── AGENTS roster — LIVE readout of dispatched-agent models. Source of truth is
 # agent-starts.json, written by AgentInvocation.hook.ts (v1.3.1, observe-only).
@@ -1845,7 +1995,7 @@ printf "${SLATE_400}HARN:${RESET} ${LIFEOS_A}${_har_display}${RESET} ${SLATE_600
 # a rung lights BOLD only while work resolved to it is actually running (same
 # 300s cutoff as ▸ LIVE; the file accumulates orphans from killed agents, so
 # 5 min = "actually in flight"). Idle = every rung dim ("grayed out",
-# principal 2026-07-12). Distinct from DEF MODEL above (the main-loop model).
+# principal 2026-07-12). Distinct from DEFAULT MODEL above (the main-loop model).
 #
 # Model LABELS are READ from EFFORT_MODEL/CROSS_VENDOR in models.ts (single
 # source of truth) — a lineup flip re-labels the roster automatically.
@@ -1860,8 +2010,10 @@ printf "${SLATE_400}HARN:${RESET} ${LIFEOS_A}${_har_display}${RESET} ${SLATE_600
 #     model-verification.jsonl entry whose EXECUTED model is fable
 #     (Inference.ts post-hoc proof; a downgraded run has executed=opus
 #     and correctly does not light this rung).
-#   GPT-5.6 SOL     — live cross-vendor dispatch (forge/codexResearcher → OpenAI),
+#   SOL             — live cross-vendor dispatch (forge/codexResearcher → OpenAI),
 #     matched on the resolved model string.
+#   GROK            — live xAI dispatch (Grok agent → CROSS_VENDOR.grok), matched
+#     on the resolved model string; PUBLIC-data lane, no mix percentage.
 #
 # _pm_roster_states: pure, unit-testable. Args: $1 session model, $2 space-joined
 # live dispatch models, $3 fable-verified flag (0/1), $4 dispatch-executes-fable
@@ -1869,7 +2021,7 @@ printf "${SLATE_400}HARN:${RESET} ${LIFEOS_A}${_har_display}${RESET} ${SLATE_600
 # — 2 = live now, 0 = idle (dim). Several rungs can be live at once.
 _pm_roster_states() {
     local _session="$1" _live="$2" _fable="$3" _df="$4"
-    local s_max=0 s_high=0 s_med=0 s_low=0 s_forge=0 m
+    local s_max=0 s_high=0 s_med=0 s_low=0 s_forge=0 s_cyber=0 s_grok=0 s_gemini=0 m
     [ "$_fable" = "1" ] && s_max=2
     # The session (main-loop) model is ALWAYS active — light its rung whether or
     # not any agent is dispatched. This is what "ACTIVE" answers: the model you're
@@ -1882,6 +2034,9 @@ _pm_roster_states() {
     esac
     for m in $_live; do
         case "$m" in
+            *cyber*)        s_cyber=2 ;;
+            *grok*)         s_grok=2 ;;
+            *gemini*)       s_gemini=2 ;;
             *gpt-*)         s_forge=2 ;;
             *haiku*)        s_low=2 ;;
             *sonnet*)       s_med=2 ;;
@@ -1897,7 +2052,7 @@ _pm_roster_states() {
             *)              s_high=2 ;;
         esac
     done
-    printf '%s %s %s %s %s' "$s_max" "$s_high" "$s_med" "$s_low" "$s_forge"
+    printf '%s %s %s %s %s %s %s %s' "$s_max" "$s_high" "$s_med" "$s_low" "$s_forge" "$s_cyber" "$s_grok" "$s_gemini"
 }
 
 if [ "$MODE" = "normal" ]; then
@@ -1911,14 +2066,18 @@ if [ "$MODE" = "normal" ]; then
     _lbl_high=$(_em_lookup high);  _lbl_high="${_lbl_high:-OPUS}"
     _lbl_med=$(_em_lookup medium); _lbl_med="${_lbl_med:-SONNET}"
     _lbl_low=$(_em_lookup low);    _lbl_low="${_lbl_low:-HAIKU}"
-    # Cross-vendor labels: the full model string INCLUDING its codename suffix,
-    # uppercased — "GPT-5.6 SOL", not "GPT-5.6" (principal 2026-07-27: the
-    # statusline names the actual carrier, codename and all). The suffix is
-    # rendered space-separated for readability; the underlying pin in models.ts
-    # is untouched.
+    # Cross-vendor label: codename suffix only — "SOL", not "GPT-5.6 SOL"
+    # (principal 2026-08-06: SOL sits in the rung list between OPUS and FABLE;
+    # supersedes the 2026-07-27 full-carrier-name directive). The underlying
+    # pin in models.ts is untouched.
     _cv_block=$(sed -n '/export const CROSS_VENDOR/,/^}/p' "$_pm_models_ts" 2>/dev/null)
-    _cv_lookup() { printf '%s' "$_cv_block" | sed -n "s/^[[:space:]]*$1:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1 | sed 's/-\([a-z]*\)$/ \1/' | tr '[:lower:]' '[:upper:]'; }
-    _lbl_forge=$(_cv_lookup forge);         _lbl_forge="${_lbl_forge:-GPT-5.6 SOL}"
+    _cv_lookup() { printf '%s' "$_cv_block" | sed -n "s/^[[:space:]]*$1:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -1 | sed 's/.*-//' | tr '[:lower:]' '[:upper:]'; }
+    _lbl_forge=$(_cv_lookup forge);         _lbl_forge="${_lbl_forge:-SOL}"
+    _lbl_cyber="CYBER"
+    # GROK/GEMINI labels are hardcoded like CYBER — _cv_lookup's suffix-split
+    # would render CROSS_VENDOR "grok-4.6" as "4.6", which reads as nothing.
+    _lbl_grok="GROK"
+    _lbl_gemini="GEMINI"
     # Carrier fact from models.ts (CarrierProbe.ts-maintained): decides whether
     # fable-labeled/-inherited dispatches light FABLE or OPUS. Unreadable → false
     # (conservative: never claim Fable ran without the fact in hand).
@@ -1929,10 +2088,16 @@ if [ "$MODE" = "normal" ]; then
     # pre-v1.3.1 entries lack .model → treated as inherited).
     _agent_starts="$LIFEOS_DIR/MEMORY/OBSERVABILITY/agent-starts.json"
     _live_models=""
+    _live_types=""
     if [ -f "$_agent_starts" ]; then
         _live_models=$(jq -r --argjson cutoff "$(( (NOW_EPOCH - 300) * 1000 ))" '
             [to_entries[] | .value | select(.epoch > $cutoff)
              | (.model // "inherited")] | unique | join(" ")
+        ' "$_agent_starts" 2>/dev/null)
+        # Agent TYPES in the same window — feeds the MAX/FORGE agent panel.
+        _live_types=$(jq -r --argjson cutoff "$(( (NOW_EPOCH - 300) * 1000 ))" '
+            [to_entries[] | .value | select(.epoch > $cutoff)
+             | (.subagent_type // "")] | unique | join(" ")
         ' "$_agent_starts" 2>/dev/null)
     fi
     # Background/mailbox agents (2026-07-13): PostToolUse fires at spawn for
@@ -1948,7 +2113,10 @@ if [ "$MODE" = "normal" ]; then
         [ -z "$_bg_t" ] && continue
         _bg_count=$((_bg_count + 1))
         _bg_meta="${_bg_t%.jsonl}.meta.json"
-        [ -f "$_bg_meta" ] && _bg_models="$_bg_models $(jq -r '.model // "inherited"' "$_bg_meta" 2>/dev/null)"
+        if [ -f "$_bg_meta" ]; then
+            _bg_models="$_bg_models $(jq -r '.model // "inherited"' "$_bg_meta" 2>/dev/null)"
+            _live_types="$_live_types $(jq -r '(.agentType // "") + " " + (.customAgentType // "")' "$_bg_meta" 2>/dev/null)"
+        fi
     done <<< "$_bg_transcripts"
     [ -n "$_bg_models" ] && _live_models="$_live_models$_bg_models"
     # FABLE rung: a verified-executed Fable inference in the window. ISO-8601
@@ -1963,8 +2131,11 @@ if [ "$MODE" = "normal" ]; then
         [ "${_mv_hits:-0}" -gt 0 ] 2>/dev/null && _fable_recent=1
     fi
 
-    read -r _rs_max _rs_high _rs_med _rs_low _rs_forge \
+    read -r _rs_max _rs_high _rs_med _rs_low _rs_forge _rs_cyber _rs_grok _rs_gemini \
         <<< "$(_pm_roster_states "$model_name" "$_live_models" "$_fable_recent" "$_dispatch_fable")"
+    _rs_cyber="${_rs_cyber:-0}"
+    _rs_grok="${_rs_grok:-0}"
+    _rs_gemini="${_rs_gemini:-0}"
 
     # SESSION MIX (principal 2026-07-27) — the rung ladder alone answers "what is
     # running right now"; it cannot answer the question actually being asked of
@@ -1973,12 +2144,14 @@ if [ "$MODE" = "normal" ]; then
     # transcripts (main loop + every subagent) and returns each rung's share of
     # output tokens — real billed carriers, so a silently-downgraded dispatch
     # reports the model that truly ran. Incremental by byte offset, so this stays
-    # ~30ms on a multi-MB session. Percentages are Claude-rung-only and sum to
-    # 100; cross-vendor spend is invisible to these transcripts, so +GPT gets a
-    # used-flag and never a number.
-    mix_low=0; mix_medium=0; mix_high=0; mix_max=0; mix_forge=0
+    # ~30ms on a multi-MB session. All five buckets share ONE denominator and
+    # sum to 100 — SOL's tokens are measured from codex's own rollout logs,
+    # attributed by dispatch-window overlap (principal 2026-08-06: SOL gets a
+    # percentage like the rungs). mix_forge_used keeps the used-flag for a
+    # dispatch whose rollout tokens can't be read.
+    mix_low=0; mix_medium=0; mix_high=0; mix_max=0; mix_forge=0; mix_forge_used=0; mix_cyber=0; mix_grok=0; mix_gemini=0
     if [ -n "$session_id" ] && [ -n "$BUN_BIN" ]; then
-        eval "$("$BUN_BIN" "$LIFEOS_DIR/TOOLS/ModelMix.ts" --session "$session_id" 2>/dev/null | grep -E '^mix_(low|medium|high|max|forge)=[0-9]+$')"
+        eval "$("$BUN_BIN" "$LIFEOS_DIR/TOOLS/ModelMix.ts" --session "$session_id" 2>/dev/null | grep -E '^mix_(low|medium|high|max|forge|forge_used)=[0-9]+$')"
     fi
 
     # Three states, not two (principal 2026-07-27: "activate all the colored
@@ -1990,13 +2163,16 @@ if [ "$MODE" = "normal" ]; then
     [ "$_rs_med"   = "0" ] && [ "$mix_medium" -gt 0 ] 2>/dev/null && _rs_med=1
     [ "$_rs_high"  = "0" ] && [ "$mix_high"   -gt 0 ] 2>/dev/null && _rs_high=1
     [ "$_rs_max"   = "0" ] && [ "$mix_max"    -gt 0 ] 2>/dev/null && _rs_max=1
-    [ "$_rs_forge" = "0" ] && [ "$mix_forge"  -gt 0 ] 2>/dev/null && _rs_forge=1
+    if [ "$_rs_forge" = "0" ]; then
+        { [ "$mix_forge" -gt 0 ] 2>/dev/null || [ "$mix_forge_used" = "1" ]; } && _rs_forge=1
+    fi
 
     # Escalating rung ladder (principal directive 2026-07-06): a rung renders DIM
     # unless it has been used. The escalation lives in the hue — HAIKU green →
-    # SONNET blue → OPUS red → FABLE purple — with cross-vendor GPT-5.6 SOL
-    # (cyan) behind the divider. Untouched rungs show only a faint, dark tint;
-    # live rungs pop in full BOLD. No strong colors on untouched rungs, ever.
+    # SONNET blue → OPUS red → SOL cyan (OpenAI cross-vendor, in-list per
+    # principal 2026-08-06) → FABLE purple. Untouched rungs show only a faint,
+    # dark tint; live rungs pop in full BOLD. No strong colors on untouched
+    # rungs, ever.
     _ar_rung_c() {  # $1=rung(low|medium|high|max|forge) $2=state(2 live | 1 used | else dim)
         case "$1:$2" in
             low:2)    printf '\033[1;38;2;74;222;128m'  ;;  # LIVE: bold green-400
@@ -2014,6 +2190,15 @@ if [ "$MODE" = "normal" ]; then
             forge:2)  printf '\033[1;38;2;103;232;249m' ;;  # LIVE: bold cyan — OpenAI cross-vendor
             forge:1)  printf '\033[38;2;95;200;215m'    ;;  # USED: plain cyan
             forge:*)  printf '\033[2;38;2;85;160;175m'   ;;  # dim: muted cyan tint
+            cyber:2)  printf '\033[1;38;2;236;72;153m'  ;;  # LIVE: bold pink — CYBER lane
+            cyber:1)  printf '\033[38;2;200;60;130m'    ;;  # USED: plain pink
+            cyber:*)  printf '\033[2;38;2;150;85;120m'   ;;  # dim: muted pink tint
+            grok:2)   printf '\033[1;38;2;250;204;21m'  ;;  # LIVE: bold yellow — GROK public lane
+            grok:1)   printf '\033[38;2;210;175;30m'    ;;  # USED: plain yellow
+            grok:*)   printf '\033[2;38;2;160;140;70m'   ;;  # dim: muted yellow tint
+            gemini:2) printf '\033[1;38;2;249;115;22m'  ;;  # LIVE: bold orange — GEMINI public lane
+            gemini:1) printf '\033[38;2;215;105;35m'    ;;  # USED: plain orange
+            gemini:*) printf '\033[2;38;2;165;110;70m'   ;;  # dim: muted orange tint
         esac
     }
     # $4 = session share. Rendered in the rung's own USED tone so the number reads
@@ -2023,17 +2208,73 @@ if [ "$MODE" = "normal" ]; then
         printf "%b%s${RESET}" "$(_ar_rung_c "$2" "$1")" "$3"
         [ "${4:-0}" -gt 0 ] 2>/dev/null && printf "%b %s%%${RESET}" "$(_ar_rung_c "$2" 1)" "$4"
     }
-    _ar_line="${SLATE_400}ACTIVE:${RESET} "
+    # "ACTIVE:" label removed (principal 2026-08-12) — the ladder is self-evident.
+    _ar_line=""
     _ar_line+="$(_ar_tok "$_rs_low"   low    "$_lbl_low"  "$mix_low") "
     _ar_line+="$(_ar_tok "$_rs_med"   medium "$_lbl_med"  "$mix_medium") "
     _ar_line+="$(_ar_tok "$_rs_high"  high   "$_lbl_high" "$mix_high") "
+    # SOL sits in the list between OPUS and FABLE (principal 2026-08-06; the
+    # old behind-the-divider "+GPT-5.6 SOL" engine slot is retired), with a
+    # measured percentage from codex rollout logs sharing the rungs' denominator.
+    _ar_line+="$(_ar_tok "$_rs_forge" forge  "$_lbl_forge" "$mix_forge") "
+    # GEMINI lane: Google public-data agents (agents/Gemini.md + GeminiResearcher,
+    # both matching *gemini* on resolved models). Same two-state shape as GROK —
+    # no local token logs, so no mix percentage.
+    _ar_line+="$(_ar_tok "$_rs_gemini" gemini "$_lbl_gemini" "$mix_gemini") "
+    # GROK lane: xAI public-data agent (agents/Grok.md, CROSS_VENDOR.grok).
+    # PUBLIC data ceiling — non-sensitive dispatches only. Lights live via the
+    # agent-starts model match (*grok*); no mix percentage because unlike SOL
+    # there are no local token logs to measure, so mix_grok stays 0 and the
+    # lane is dim/live two-state until a measurement source exists.
+    _ar_line+="$(_ar_tok "$_rs_grok" grok "$_lbl_grok" "$mix_grok") "
+    # CYBER lane: the agent behind it is private, so its identity (detection
+    # regex + panel label) loads from a USER-zone overlay that never ships.
+    # No overlay → no lane; a public install renders MAX/FORGE only.
+    _cyber_agent_re=""; _cyber_agent_lbl=""
+    _cyber_overlay="$HOME/.claude/LIFEOS/USER/CUSTOMIZATIONS/StatusLineCyberLane.sh"
+    [ -f "$_cyber_overlay" ] && . "$_cyber_overlay"
+    [ -n "$_cyber_agent_lbl" ] && _ar_line+="$(_ar_tok "$_rs_cyber" cyber "$_lbl_cyber" "$mix_cyber") "
     _ar_line+="$(_ar_tok "$_rs_max"   max    "$_lbl_max"  "$mix_max")"
-    # Divider: the Claude rungs above are ONE family. Cross-vendor ENGINES
-    # (OpenAI, xAI) run alongside, not as rungs — each sits behind the divider
-    # as a "+engine" add-on. No percentage: its tokens never touch a Claude
-    # transcript, so a number here would be invented.
+
+    # ── MAX / FORGE agent panel (principal 2026-08-06): the two named heavy-
+    # analysis AGENTS render behind a pipe in their identity colors
+    # (agents/Max.md #A855F7 purple, agents/Forge.md #B45309 amber), with the
+    # SAME three-state treatment as the model rungs — dim idle, plain when
+    # used this session, bold when live — so one glance says whether the
+    # agents ran, right next to which models did. Live = agent-starts or bg
+    # meta types in the 300s window; used = this session's subagent metas.
+    _sess_types=""
+    for _d in "$HOME/.claude/projects"/*/"$session_id"/subagents; do
+        if [ -d "$_d" ]; then
+            _sess_types=$(cat "$_d"/*.meta.json 2>/dev/null | jq -r -s \
+                '[.[] | (.agentType // "") + " " + (.customAgentType // "")] | join(" ")' 2>/dev/null)
+            break
+        fi
+    done
+    _st_max=0; _st_forge=0; _st_cyber=0
+    printf '%s' "$_live_types" | grep -qiE '(^| )max( |$)'   && _st_max=2
+    printf '%s' "$_live_types" | grep -qiE '(^| )forge'      && _st_forge=2
+    [ -n "$_cyber_agent_re" ] && printf '%s' "$_live_types" | grep -qiE "$_cyber_agent_re" && _st_cyber=2
+    [ "$_st_max" = "0" ]    && printf '%s' "$_sess_types" | grep -qiE '(^| )max( |$)' && _st_max=1
+    [ "$_st_forge" = "0" ]  && printf '%s' "$_sess_types" | grep -qiE '(^| )forge'    && _st_forge=1
+    [ -n "$_cyber_agent_re" ] && [ "$_st_cyber" = "0" ] && printf '%s' "$_sess_types" | grep -qiE "$_cyber_agent_re" && _st_cyber=1
+    _ag_c() {  # $1=agent(max|forge|cyber) $2=state(2 live | 1 used | else dim)
+        case "$1:$2" in
+            max:2)    printf '\033[1;38;2;168;85;247m'  ;;  # LIVE: bold identity purple
+            max:1)    printf '\033[38;2;155;95;225m'    ;;  # USED: plain purple
+            max:*)    printf '\033[2;38;2;150;110;195m'  ;;  # dim: muted purple tint
+            forge:2)  printf '\033[1;38;2;245;158;11m'  ;;  # LIVE: bold bright amber
+            forge:1)  printf '\033[38;2;180;83;9m'      ;;  # USED: identity amber
+            forge:*)  printf '\033[2;38;2;150;105;60m'   ;;  # dim: muted amber tint
+            cyber:2)  printf '\033[1;38;2;239;68;68m'  ;;  # LIVE: bold identity red
+            cyber:1)  printf '\033[38;2;220;38;38m'    ;;  # USED: identity red
+            cyber:*)  printf '\033[2;38;2;150;70;70m'   ;;  # dim: muted red tint
+        esac
+    }
     _ar_line+=" ${SLATE_600}│${RESET} "
-    _ar_line+="$(_ar_tok "$_rs_forge" forge "+$_lbl_forge" 0)"
+    _ar_line+="$(printf '%bMAX%b' "$(_ag_c max "$_st_max")" "$RESET") "
+    _ar_line+="$(printf '%bFORGE%b' "$(_ag_c forge "$_st_forge")" "$RESET") "
+    [ -n "$_cyber_agent_lbl" ] && _ar_line+="$(printf '%b%s%b' "$(_ag_c cyber "$_st_cyber")" "$_cyber_agent_lbl" "$RESET")"
     printf "%b\n" "$_ar_line"
 fi
 
@@ -2098,12 +2339,14 @@ sep
 context_max="${context_max:-200000}"
 
 # Use raw percentage directly — matches /context command output
-raw_pct="${context_pct%%.*}"  # Remove decimals
+raw_pct="${context_pct%%.*}"  # Integer part — for bar fill and color thresholds
 [ -z "$raw_pct" ] && raw_pct=0
-display_pct="$raw_pct"
+# Display keeps one decimal so the bar reconciles with the STARTUP LOAD cell
+# (integer flooring made 3.7% read as 3% next to a 4.7% component).
+display_pct=$(LC_ALL=C printf '%.1f' "$context_pct" 2>/dev/null || echo "$raw_pct")
 
 # Color based on percentage (reuse get_usage_color for consistent thresholds)
-pct_color=$(get_usage_color "$display_pct")
+pct_color=$(get_usage_color "$raw_pct")
 
 # Calculate bar width dynamically from actual prefix/suffix lengths
 # Prefix: "◉ CONTEXT: " = 11 visible chars
@@ -2112,7 +2355,7 @@ _ctx_suffix_len=$(( 1 + ${#display_pct} + 1 ))
 bar_width=$(( content_width - 11 - _ctx_suffix_len ))
 [ "$bar_width" -lt 16 ] && bar_width=16
 
-bar=$(render_context_bar $bar_width $display_pct)
+bar=$(render_context_bar $bar_width $raw_pct)
 
 printf "${CTX_SECONDARY}CONTEXT:${RESET} ${bar} ${pct_color}${display_pct}%%${RESET}\n"
 
@@ -2203,38 +2446,10 @@ for _entry in "${_sorted_ctx_data[@]}"; do
     _ctx_files_color+=("${CTX_SECONDARY}${_name}(${RESET}${_pct_clr}${_pct_str}${RESET}${CTX_SECONDARY})${RESET}")
 done
 
-# Skills description budget — sum of injected skill description sizes vs the
-# Claude Code skill-listing budget (settings.json `skillListingBudgetFraction`,
-# default 0.15 = 15% of context window). Single awk pass, session-cached.
-# Format: skills(X.X% of budget) — prepended to FILES list at front.
-_SKILLS_SIZE_CACHE="/tmp/pai-skills-size-${session_id:-nosess}.sh"
-if [ -f "$_SKILLS_SIZE_CACHE" ]; then
-    # shellcheck disable=SC1090
-    source "$_SKILLS_SIZE_CACHE"
-else
-    # nullglob: unmatched .plugins glob would otherwise pass as a literal path
-    # to awk, which silently emits nothing and zeros the total.
-    shopt -s nullglob 2>/dev/null
-    _skill_md_files=("$CLAUDE_HOME"/skills/*/SKILL.md "$CLAUDE_HOME"/.plugins/*/skills/*/SKILL.md)
-    shopt -u nullglob 2>/dev/null
-    if [ "${#_skill_md_files[@]}" -gt 0 ]; then
-        _skills_total_bytes=$(awk '
-            FNR == 1 { done = 0 }
-            /^description:/ && !done {
-                line = $0
-                sub(/^description:[[:space:]]*"?/, "", line)
-                sub(/"[[:space:]]*$/, "", line)
-                n = split(FILENAME, parts, "/")
-                sname = parts[n-1]
-                total += 4 + length(sname) + length(line)
-                done = 1
-            }
-            END { print total + 0 }
-        ' "${_skill_md_files[@]}" 2>/dev/null)
-    fi
-    _skills_total_bytes=${_skills_total_bytes:-0}
-    echo "_skills_total_bytes=$_skills_total_bytes" > "$_SKILLS_SIZE_CACHE" 2>/dev/null
-fi
+# Skills description budget — sum of injected skill description sizes.
+# Computed by _compute_skills_desc_bytes (shared with the startup estimate so
+# the bar and this cell measure skills identically). Session-cached.
+_skills_total_bytes=$(_compute_skills_desc_bytes)
 
 # Skills percentage of context window — same denominator as other FILES entries
 # and as `/context`'s "Skills" row, so the numbers reconcile across surfaces.

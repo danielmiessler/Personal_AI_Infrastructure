@@ -124,9 +124,12 @@ function WikiLanding({ data }: { data: WikiIndex }) {
                 className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-3 transition-colors group"
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+                {/* Knowledge-archive entries (people, companies, ideas…) are personal;
+                    system docs stay readable in Observer mode. */}
                 <span
                   className="text-[13px] text-ink-2 group-hover:text-ink-1 transition-colors truncate"
                   style={{ fontFamily: "'concourse-t3', sans-serif" }}
+                  data-sensitive={page.category !== "system-doc" ? "" : undefined}
                 >
                   {page.title}
                 </span>
@@ -342,7 +345,12 @@ function LifeosPageInner() {
     "Unknown error";
 
   if (isViewingBookmark && bookmarkDetail) {
-    return <BookmarkViewer detail={bookmarkDetail} />;
+    // Bookmarks carry the principal's own notes — Observer mode blurs them.
+    return (
+      <div data-sensitive>
+        <BookmarkViewer detail={bookmarkDetail} />
+      </div>
+    );
   }
 
   if (isViewing && detail) {

@@ -1,6 +1,6 @@
 ---
 name: Daemon
-version: 1.0.21
+version: 1.0.25
 description: "Manage the public daemon profile — a digital representation of what you're working on. DaemonAggregator reads LifeOS sources (TELOS, KNOWLEDGE, PROJECTS, MEMORY/WORK, identity) → daemon-data.json. SecurityFilter strips names/paths/credentials via deterministic patterns (NOT LLM). Workflows: UpdateDaemon, ReadDaemon, PreviewDaemon, DeployDaemon. USE WHEN daemon, update daemon, daemon profile, deploy daemon, preview daemon, read daemon, public profile, digital presence. NOT FOR LifeOS system management."
 ---
 
@@ -115,7 +115,7 @@ skills/Daemon/
 | **Deploy script** | `~/Projects/daemon-dm/deploy.sh` |
 | **Public framework repo** | `~/Projects/daemon/` |
 | **Security classification** | `${LIFEOS_SKILL_DIR}/Docs/SecurityClassification.md` |
-| **Security overrides** | `${LIFEOS_USER_DIR}/SKILLCUSTOMIZATIONS/Daemon/SecurityOverrides.md` |
+| **Security overrides** | `${LIFEOS_USER_DIR}/CUSTOMIZATIONS/SKILLS/Daemon/SecurityOverrides.md` |
 
 ## Live Endpoints
 
@@ -133,7 +133,7 @@ skills/Daemon/
 
 ## Data Sources
 
-The DaemonAggregator reads from these LifeOS sources:
+The DaemonAggregator reads from these LifeOS sources. Every source is read only if present (`existsSync`-guarded) — installs using the unified single-file `TELOS.md` layout won't have the per-file TELOS sources below, and the aggregator skips them cleanly (`--sources` shows per-source OK/MISSING status):
 
 | Source | What's Extracted | Section |
 |--------|-----------------|---------|
@@ -195,7 +195,7 @@ User: "preview daemon"
 - **The live feed is public-exhaust only.** The worker polls blog RSS, Beehiiv (official API), YouTube RSS, GitHub public events, and the owner's own X posts — already-published content, zero privacy risk by construction. Never add a LifeOS-internal source to `feeds`.
 - **Beehiiv blocks RSS scrapers (403).** The newsletter source uses the official Beehiiv API (`type: "beehiiv"` + BEEHIIV_API_KEY worker secret), not the /feed URL.
 - **Serving is edge-dynamic, page shell is static.** /daemon-data.json and /feed.json are computed per-request by the worker (`run_worker_first`); the rest is static assets. Data changes still require `deploy.sh`; feed content refreshes itself.
-- **Public repo is a GENERATED template (2026-07-21, merge-back doctrine).** github.com/danielmiessler/Daemon main is a clean generic template published from a scrubbed staging copy — never push the working tree directly. The working framework lives at `~/Projects/daemon` (has {{PRINCIPAL_NAME}}'s analytics, Butterick fonts, favicons); the template excludes analytics, licensed fonts, favicons, and all personal content, and its identity is data-driven (owner_name/owner_handle/fork_url in daemon-data.json). Old Astro line preserved on branch `astro-archive`. To update the template: re-stage, run the identity/secret grep scan, ours-merge, fast-forward push.
+- **The upstream framework repo publishes a GENERATED template (merge-back doctrine).** Its main branch is a clean generic template published from a scrubbed staging copy, never a working tree pushed directly: the template excludes analytics, licensed fonts, favicons, and all personal content, and its identity is data-driven (owner_name/owner_handle/fork_url in daemon-data.json). The publish workflow is maintainer-side and does not ship; on an installed system your daemon content lives in your own private repo and only the framework is forkable.
 
 ## Execution Log
 

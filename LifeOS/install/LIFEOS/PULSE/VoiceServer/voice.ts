@@ -18,6 +18,7 @@ import { join } from "path"
 import { existsSync, readFileSync, rmSync } from "fs"
 import { log } from "../lib"
 import { disambiguateHomographs } from "../lib/homographs"
+import { homedir } from "node:os";
 
 // ── Public Config Interface ──
 
@@ -85,6 +86,9 @@ const FALLBACK_VOICE_SETTINGS: ElevenLabsVoiceSettings = {
 }
 
 const FALLBACK_VOLUME = 1.0
+
+// Hard ceiling on a single playback; a player past this is hung, not slow.
+const PLAYBACK_TIMEOUT_MS = 90_000
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "http://localhost",
@@ -163,7 +167,7 @@ function escapeRegex(str: string): string {
 }
 
 function loadPronunciations(customPath?: string): void {
-  const paiDir = join(process.env.HOME ?? "~", ".claude", "LIFEOS")
+  const paiDir = join(homedir(), ".claude", "LIFEOS")
   const userPronPath = customPath ?? join(paiDir, "USER", "PRINCIPAL", "PRONUNCIATIONS.json")
 
   try {
@@ -203,7 +207,7 @@ function applyPronunciations(text: string): string {
 // ── Voice Config from settings.json ──
 
 function loadVoiceConfigFromSettings(): LoadedVoiceConfig {
-  const settingsPath = join(process.env.HOME ?? "~", ".claude", "settings.json")
+  const settingsPath = join(homedir(), ".claude", "settings.json")
 
   try {
     if (!existsSync(settingsPath)) {
@@ -445,15 +449,30 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
   return new Promise((resolve, reject) => {
     const proc = spawn(player.path, player.buildArgs(tempFile, volume))
 
+    // Watchdog: a hung player must not wedge the serialized playback queue.
+    // 2026-08-13 incident — one afplay froze for 9h and silently blocked every
+    // voice message behind it while /voice/health stayed green. Longest real
+    // messages finish well under a minute, so 90s only fires on a genuine hang.
+    let timedOut = false
+    const watchdog = setTimeout(() => {
+      timedOut = true
+      log("error", `Voice: playback exceeded ${PLAYBACK_TIMEOUT_MS}ms — killing hung player`, { player: player.path })
+      proc.kill("SIGKILL")
+    }, PLAYBACK_TIMEOUT_MS)
+
     proc.on("error", (error) => {
+      clearTimeout(watchdog)
       log("error", "Voice: error playing audio", { error: String(error) })
       try { rmSync(tempFile, { force: true }) } catch {}
       reject(error)
     })
 
     proc.on("exit", (code) => {
+      clearTimeout(watchdog)
       try { rmSync(tempFile, { force: true }) } catch {}
-      if (code === 0) {
+      if (timedOut) {
+        reject(new Error(`audio player killed after ${PLAYBACK_TIMEOUT_MS}ms hang`))
+      } else if (code === 0) {
         resolve()
       } else {
         reject(new Error(`audio player exited with code ${code}`))
@@ -749,7 +768,7 @@ export async function handleVoiceRequest(req: Request): Promise<Response | null>
       // /notify/personality honest with whatever the user last selected.
       let voiceId: string | null = null
       try {
-        const settingsFile = join(process.env.HOME ?? "~", ".claude", "settings.json")
+        const settingsFile = join(homedir(), ".claude", "settings.json")
         const settings = JSON.parse(readFileSync(settingsFile, "utf-8"))
         const main = settings?.daidentity?.voices?.main
         const vid = (main?.voiceId || main?.VOICE_ID || main?.voice_id) as string | undefined

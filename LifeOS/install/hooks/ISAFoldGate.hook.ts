@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.0
+ * @version 1.0.2
  * ISAFoldGate.hook.ts — the D-50 gate: prod mutated, ISA untouched → fold before closing.
  *
  * Origin (2026-07-29, {{PRINCIPAL_NAME}}: "you were supposed to do that after the work finished — why
@@ -35,8 +35,9 @@ import { findActiveSessionByUUID } from "./lib/isa-utils";
 import { isaEditedThisTurn, ISA_ADDRESSED_RE } from "./ISACloseGate.hook";
 import { appendFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
+import { homedir } from "node:os";
 
-const LIFEOS = process.env.LIFEOS_DIR || join(process.env.HOME!, ".claude", "LIFEOS");
+const LIFEOS = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const OBS_PATH = join(LIFEOS, "MEMORY", "OBSERVABILITY", "isa-fold-gate.jsonl");
 
 /** Prod-mutating command shapes. Conservative and explicit: each one is a class this
@@ -49,11 +50,31 @@ const PROD_MUTATION_RES: RegExp[] = [
   /\s--apply\b/, // our importers' one write flag (ImportBackfill, ProvisionPortal, …)
 ];
 
+/** A search/display command whose ARGUMENTS routinely contain the exact strings
+ * PROD_MUTATION_RES hunts for — `rg -n "Tools/Release.ts"` is a grep, not a
+ * release. Only these three tests together are safe: the exemption applies solely
+ * to a single unchained invocation, so `rg x && wrangler secret put y` keeps its
+ * teeth, and none of these binaries can run a subcommand from argv (which is why
+ * `find`/`fd`/`awk`/`sed` are deliberately absent — they have -exec/system()).
+ *
+ * `less` and `bat` are absent for the same reason: both are pagers with shell
+ * escapes (`less` runs `!cmd` and honours LESSOPEN; `bat` shells out to its
+ * pager), so an exempted invocation is not a guaranteed read. EXEC_FLAG_RE
+ * covers the remaining argv-level escapes: any flag that hands the exempted
+ * binary a command to run turns a "grep" into arbitrary execution — `rg --pre
+ * <cmd>` / `--pre-glob`, `rg --hostname-bin <cmd>`, `ack --pager=<cmd>`. Testing
+ * the whole command for these is the tightest form of the same rule.
+ * (ported from public PR #1738, @elhoim; exemption tightened here) */
+const READ_ONLY_CMD_RE = /^\s*(rg|grep|egrep|fgrep|ag|ack|cat|head|tail|ls|wc)\b/;
+const SHELL_CHAIN_RE = /[;&|`\n]|\$\(/;
+const EXEC_FLAG_RE = /--(pre|pre-glob|hostname-bin|pager)\b/;
+
 export function prodMutations(ev: TxEvent[]): TxEvent[] {
   return ev.filter((e) => {
     if (e.isError) return false; // a failed attempt changed nothing
     if (e.kind === "deploy") return true;
     if (e.kind !== "command") return false;
+    if (READ_ONLY_CMD_RE.test(e.target) && !SHELL_CHAIN_RE.test(e.target) && !EXEC_FLAG_RE.test(e.target)) return false;
     // Match on the command text only, never its output.
     return PROD_MUTATION_RES.some((re) => re.test(e.target));
   });

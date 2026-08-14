@@ -13,8 +13,9 @@
 import { join } from "path"
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from "fs"
 import { getDAName } from "../../hooks/lib/identity"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? "~"
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
 const TASKS_DIR = join(LIFEOS_DIR, "PULSE", "state", "da")
 const TASKS_PATH = join(TASKS_DIR, "scheduled-tasks.jsonl")

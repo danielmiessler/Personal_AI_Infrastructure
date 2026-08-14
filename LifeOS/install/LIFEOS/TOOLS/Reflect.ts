@@ -11,9 +11,9 @@
  *
  * The worse defect was `within_budget`. Algorithm claim 15 checks spend via
  * "SELF + reflection within_budget", and self-attestation returned true in
- * 1,163 of 1,220 records (95.3%). Over the same period SpendAuditor — which
- * already runs on its own trigger set — returned 65 underspend against 19
- * match. Two contradicting signals with nothing joining them.
+ * nearly all records. Over the same period SpendAuditor — which already runs
+ * on its own trigger set — disagreed on the large majority of them. Two
+ * contradicting signals with nothing joining them.
  *
  * So `within_budget` is now DERIVED here and the caller cannot supply it:
  *   spend-audit verdict "match"                  -> true
@@ -41,10 +41,11 @@
  * written. A malformed record is never appended — that is the corpus gate.
  */
 
-import { existsSync, appendFileSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 
-const LIFEOS = process.env.LIFEOS_DIR ?? join(process.env.HOME ?? "~", ".claude", "LIFEOS");
+const LIFEOS = process.env.LIFEOS_DIR ?? join(homedir(), ".claude", "LIFEOS");
 const REFLECTIONS = join(LIFEOS, "MEMORY", "LEARNING", "REFLECTIONS", "algorithm-reflections.jsonl");
 const SPEND_AUDIT = join(LIFEOS, "MEMORY", "OBSERVABILITY", "spend-audit.jsonl");
 const SUBAGENT_EVENTS = join(LIFEOS, "MEMORY", "OBSERVABILITY", "subagent-events.jsonl");
@@ -139,7 +140,11 @@ export function validate(r: Partial<Reflection>): string[] {
   for (const f of ["ts", "session_id", "slug"] as const) {
     if (typeof r[f] !== "string" || !r[f]) errs.push(`${f} must be a non-empty string`);
   }
-  if (typeof r.iteration !== "number" || r.iteration < 0) errs.push("iteration must be a non-negative number");
+  // Number.isFinite, not just typeof: `Number("x")` is NaN, which is typeof
+  // "number" and fails every comparison, so `NaN < 0` waved it through — and
+  // JSON.stringify then wrote it as `null` into the corpus this gate protects.
+  // ported from public PR #1737, @elhoim
+  if (typeof r.iteration !== "number" || !Number.isFinite(r.iteration) || r.iteration < 0) errs.push("iteration must be a non-negative number");
   for (const f of ["claims_closed", "evidence_classes", "deploys"] as const) {
     if (!Array.isArray(r[f])) errs.push(`${f} must be an array`);
     else if ((r[f] as unknown[]).some((x) => typeof x !== "string")) errs.push(`${f} must contain only strings`);
@@ -221,6 +226,9 @@ if (import.meta.main) {
     console.log(line);
     process.exit(0);
   }
+  // ported from public PR #1737, @elhoim — appendFileSync does not create parents,
+  // so the very first reflection on a fresh install threw instead of writing.
+  mkdirSync(dirname(REFLECTIONS), { recursive: true });
   appendFileSync(REFLECTIONS, line + "\n", "utf8");
   const wb = record.within_budget === null ? "null (unaudited)" : String(record.within_budget);
   console.log(`✅ reflection appended · within_budget=${wb} · verdict=${spend.verdict ?? "none"} · dispatches=${spend.dispatches}`);

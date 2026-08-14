@@ -28,6 +28,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, existsSync, watch } from "fs"
 import { join, relative, basename, dirname } from "path"
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -36,7 +37,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const HOME = process.env.HOME ?? ""
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS")
 const USER_DIR = join(LIFEOS_DIR, "USER")
 const STATE_DIR = join(LIFEOS_DIR, "PULSE", "state")
@@ -141,7 +142,7 @@ const ROOT_FALLBACK: Record<string, { category: Category; kind: Kind; publish: P
   "PRONUNCIATIONS.md":       { category: "voice",    kind: "reference",  publish: "false" },
   "PRONUNCIATIONS.json":     { category: "voice",    kind: "reference",  publish: "false" },
   "DEFINITIONS.md":          { category: "mind",     kind: "reference",  publish: "daemon" },
-  "CORECONTENT.md":          { category: "mind",     kind: "reference",  publish: "false" },
+  "CANONICAL_CONTENT.md":    { category: "mind",     kind: "reference",  publish: "false" },
   "PRODUCTIVITY.md":         { category: "ops",      kind: "narrative",  publish: "false" },
   "ASSETMANAGEMENT.md":      { category: "ops",      kind: "reference",  publish: "false" },
   "FEED.md":                 { category: "ops",      kind: "reference",  publish: "false" },

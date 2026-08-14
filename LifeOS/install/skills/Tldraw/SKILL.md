@@ -1,6 +1,6 @@
 ---
 name: Tldraw
-version: 1.0.0
+version: 1.0.1
 description: Read, create, and edit tldraw .tldr canvas files deterministically — sketch hand-drawn-register diagrams (boxes, arrows, sticky notes, frames, text) directly into a canvas file the user opens in any tldraw surface, and read a rough canvas back as structured data to organize it. USE WHEN tldraw, .tldr file, whiteboard, canvas, sketch a diagram, hand-drawn diagram, draw this on a canvas, put this on the whiteboard, structure my canvas, organize my whiteboard, read my canvas, cluster my sticky notes. NOT FOR polished static images, infographics, or mermaid diagrams (use Art), web UI design (use Webdesign), programmatic video (use Remotion).
 ---
 

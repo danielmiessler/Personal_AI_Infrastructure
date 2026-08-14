@@ -143,7 +143,7 @@ Capture the subtle genius buried in the content.
 
 **Example work item structure:**
 ```
-~/.claude/LIFEOS/MEMORY/WORK/20260111-172408_extract-alpha-analysis/
+~/.claude/LIFEOS/MEMORY/WORK/{slug}/
 ├── raw-transcript.txt
 ├── deep thinking-notes.md
 ├── draft-insights.md

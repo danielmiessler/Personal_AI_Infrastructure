@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.3
+ * @version 1.0.5
  * PreToolGuard.hook.ts — the ONE PreToolUse blocking-guard dispatcher.
  *
  * Consolidation (2026-07-11, security-hook unification): merges the three
@@ -47,9 +47,12 @@
 
 import { readFileSync } from "node:fs";
 import { check as systemFileGuard } from "./SystemFileGuard.hook";
+import { check as bashSystemWriteGuard } from "./BashSystemWriteGuard.hook";
 import { check as isaStaleWriteGuard } from "./ISAStaleWriteGuard.hook";
 import { check as communicationSkillGuard } from "./CommunicationSkillGuard.hook";
 import { check as egressClassGuard } from "./EgressClassGuard.hook";
+import { check as publicPushGate } from "./PublicPushGate.hook";
+import { check as voiceEgressGuard } from "./VoiceEgressGuard.hook";
 
 type BlockResult = { block: true; message: string } | null;
 type GuardCheck = (input: any) => BlockResult;
@@ -103,7 +106,20 @@ function main(): never {
     tool === "Write" || tool === "Edit" || tool === "MultiEdit"
       ? [["SystemFileGuard", systemFileGuard], ["ISAStaleWriteGuard", isaStaleWriteGuard]]
       : tool === "Bash"
-        ? [["PlutilExtractGuard", plutilExtractGuard], ["CommunicationSkillGuard", communicationSkillGuard], ["EgressClassGuard", egressClassGuard]]
+        ? [
+            ["PlutilExtractGuard", plutilExtractGuard],
+            // 2026-08-14 scheduled-task voice leak: headless sessions' skill
+            // workflows curl the VoiceServer directly. No terminal, no voice.
+            ["VoiceEgressGuard", voiceEgressGuard],
+            // Ad-hoc public repos have zero gates while the release pipeline
+            // has a full set. Public-destined pushes scan first.
+            ["PublicPushGate", publicPushGate],
+            ["CommunicationSkillGuard", communicationSkillGuard],
+            ["EgressClassGuard", egressClassGuard],
+            // 2026-08-11: Bash heredocs were an unwatched pen into the SYSTEM tree —
+            // the deny-list guard now covers write-shaped commands too.
+            ["BashSystemWriteGuard", bashSystemWriteGuard],
+          ]
         : [];
 
   for (const [name, fn] of checks) {

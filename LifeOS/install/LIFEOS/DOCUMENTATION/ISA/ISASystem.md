@@ -2,7 +2,7 @@
 last_updated: 2026-07-23T00:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.5.2
+version: 1.5.4
 ---
 
 # The ISA — Ideal State Articulation
@@ -150,6 +150,8 @@ The ISA is one primitive with five simultaneous identities. Authors think of it 
 
 The five identities exist because pursuit is iterative. At scoping the ISA is articulation; during planning it is the work breakdown; during the build it is the contract being met; at verification it is the test harness; at learning it is the system of record being refined.
 
+**Every ISA shares one meta-ideal-state above its specific one: euphoric surprise in the human using the system.** The specific ideal state varies with the work; the universal one never does. `## Vision` is where the general target takes specific shape — what euphoric surprise looks like for this particular work — so every ISA hill-climbs toward two summits at once: its own claims, and that feeling.
+
 **The literal is the evidence anchor, not the optimization target.** When the principal has explicitly stated the goal, that literal is captured verbatim into frontmatter `principal_stated_goal:` and becomes the anchor every downstream gate verifies against. But the build optimizes for the *intent* the literal expresses, not its surface form. Hitting `p95=199ms` by exploiting a percentile-calculation edge case that drops 12% of requests passes the surface and fails the intent; cross-vendor audit is one probe that surfaces exactly this drift.
 
 ## Anatomy — the Sixteen-Section Body
@@ -286,7 +288,7 @@ The ISA is the artifact every other LifeOS subsystem orbits.
 - **Memory** (`LIFEOS/DOCUMENTATION/Memory/MemorySystem.md`) — task ISAs live under `MEMORY/WORK/{slug}/`; the Memory subsystem provides the directory structure and the WORK→LEARNING→KNOWLEDGE compaction lifecycle.
 - **Hooks** (`LIFEOS/DOCUMENTATION/Hooks/HookSystem.md`) — `ISASync.hook.ts` mirrors every ISA frontmatter change (`phase`, `progress`) to the dashboard's work registry; `CheckpointPerISC.hook.ts` auto-commits per-ISC transitions. Hooks only read the ISA; content is written by the AI via Edit/Write and the ISA skill.
 - **Pulse** (`LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md`) — renders ISA `phase` and `progress` in real time; the Climb view derives claims-closed-over-time from run data.
-- **Bunker** — for deployed applications, the project ISA is the app's state of record and health contract; its Test Strategy probes re-run on demand. `bunker test` reports a **claim probe-coverage** line ("N/M claims probe-covered") derived from claims-with-a-runnable-probe over total claims, and **surfaces malformed Test Strategy rows loudly** rather than silently skipping them — a green board over an under-probed ISA is itself a finding, and a table the parser can't read can no longer exit green (both landed 2026-07-24 in `Bunker/src/isa.ts` after the EIF zero-probe-green incident).
+- **Bunker** — for deployed applications, the project ISA is the app's state of record and health contract; its Test Strategy probes re-run on demand. `bunker test` reports a **claim probe-coverage** line ("N/M claims probe-covered") derived from claims-with-a-runnable-probe over total claims, and **surfaces malformed Test Strategy rows loudly** rather than silently skipping them — a green board over an under-probed ISA is itself a finding, and a table the parser can't read can no longer exit green (both landed 2026-07-24 in `Bunker/src/isa.ts` — private implementation — after the EIF zero-probe-green incident).
 - **Skills** (`LIFEOS/DOCUMENTATION/Skills/SkillSystem.md`) — the ISA skill is one skill among many, following the same canonical form as the rest of the skill system.
 
 ## Examples

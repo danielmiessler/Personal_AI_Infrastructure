@@ -146,7 +146,9 @@ export async function handleRequest(req: Request, pathname: string): Promise<Res
 
     if (id.startsWith(HYP_PREFIX)) {
       const slug = id.slice(HYP_PREFIX.length);
-      const res = verb === "accept" ? graduateHypothesis(slug, note) : rejectHypothesis(slug, note);
+      // graduateHypothesis is async since public PR #1736, @elhoim — without the
+      // await, `res` is a Promise and every response reports ok: undefined.
+      const res = verb === "accept" ? await graduateHypothesis(slug, note) : rejectHypothesis(slug, note);
       return jsonResponse(res, res.ok ? 200 : res.reason === "not_found" ? 404 : 409);
     }
     const res = setStatus(id, verb === "accept" ? "accepted" : "rejected", { note });

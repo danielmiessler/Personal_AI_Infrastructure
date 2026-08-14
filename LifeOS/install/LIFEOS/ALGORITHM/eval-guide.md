@@ -1,8 +1,10 @@
 ## Eval Guide — LLM-as-Judge Evaluation for Optimize Mode
 
+> **RETIRED 2026-07-11 — historical.** The optimize/ideate/loop mode system this guide served was retired with the rest of the mode architecture; nothing below is operative as mode doctrine (same status as the sibling `optimize-loop.md` and `ideate-loop.md`). The live eval framework is the assertion-first **Evals skill** (`skills/Evals/`); this file is kept because its 3-question test and mutation taxonomy still inform authoring `llm-assert` criteria there.
+
 Reference document for eval mode in the optimize loop. Defines how to write, validate, and use binary evaluation criteria for non-numeric optimization targets.
 
-> **Reconciliation (2026-07-16, Evals v2 rewrite).** The canonical eval framework is now the assertion-first `Evals` skill — `skills/Evals/Tools/{Assertions,Judge,EvalRunner}.ts` — aligned to Anthropic's "Demystifying evals for AI agents." A "binary evaluation criterion" here IS an `llm-assert` assertion there (a natural-language check the judge scores TRUE/FALSE), and this guide's 3-question test + mutation taxonomy still apply to authoring those. Use this guide for the **optimize loop's** LLM-as-judge convergence signal; use the Evals skill for suites, pass^k/pass@k, and the config-change regression. The two share the same judge discipline (reason-then-score, distinct judge model, Unknown→miss).
+> **Reconciliation (2026-07-16, Evals v2 rewrite).** The canonical eval framework is now the assertion-first `Evals` skill — `skills/Evals/Tools/{Assertions,Judge,EvalRunner}.ts` — aligned to Anthropic's "Demystifying evals for AI agents." A "binary evaluation criterion" here IS an `llm-assert` assertion there (a natural-language check the judge scores TRUE/FALSE), and this guide's 3-question test + mutation taxonomy still apply to authoring those. This guide served the retired **optimize loop's** LLM-as-judge convergence signal; everything live — suites, pass^k/pass@k, the config-change regression — belongs to the Evals skill. The two share the same judge discipline (reason-then-score, distinct judge model, Unknown→miss).
 
 ### When to Use Eval Mode
 

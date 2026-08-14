@@ -1,8 +1,8 @@
 ---
-last_updated: 2026-08-01T13:05:00-07:00
+last_updated: 2026-08-08T16:30:00-07:00
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.2.0
+version: 1.4.4
 ---
 
 # Hermes Sidecar — talk to your LifeOS as an agent
@@ -96,16 +96,23 @@ API, which tier-gates every write and surfaces it as a proposal — the same pat
 a terminal session uses. The agent never writes files; it calls an API bound by
 the same rules. Until this lands, the sidecar is read-plus-CLI only.
 
-**4. Provenance tainting** *(required before any channel)*. Content arriving
-from an untrusted source — an inbound message, a fetched page — is marked, and a
-turn that has consumed tainted input requires explicit approval for privileged
-tool calls. This is what stops "agent reads a malicious page" from becoming a
-compromise, and it is the hard gate on enabling the gateway.
+<!-- public issue #1725, @rpriven -->
+**4. Provenance tainting** *(built)*. Content arriving from an untrusted source
+— an inbound message, a fetched page — is wrapped and marked by the
+`transform_tool_result` hook, and the taint is sticky for the session. What
+shipped is stricter than the spec above: a tainted session doesn't prompt for
+approval on a privileged call, it refuses in code. A cron turn has no human to
+approve anything, so an approval prompt would resolve to nobody. This is what
+stops "agent reads a malicious page" from becoming a compromise.
 
 ### Honest limits
 
-- Controls 1 and 2 are real enforcement. Control 3 is not built yet; control 4
-  is not built yet, and **the gateway must not be enabled until it is.**
+- Controls 1, 2, and 4 are real enforcement — control 4 lives in `plugin/guard.py`
+  and is registered in `plugin/__init__.py` alongside the read guard. Control 3
+  is not built yet.
+- Build status is not the same as gateway posture. **The gateway stays off until
+  the tainting control has been exercised against a live inbound channel**, which
+  is a separate bar from the code existing.
 - Hermes' own docs are explicit that deny rules are "not a sandbox against a
   deliberately adversarial process." True isolation is a separate OS user or a
   container — which costs the seamless mount. Worth re-asking the day the
@@ -289,7 +296,10 @@ the supervisor and the state file continuously while being down nearly all the
 time. Uptime therefore comes from the live process, never from the state file's
 write age, which a flapping gateway refreshes forever.
 
-**Where it renders.**
+**Where it renders.** (The Pulse and menu-bar surfaces below run through the
+private `LIFEOS/PULSE/Assistant/` module, which is NOT in the public release
+payload — on a public install, `Services.ts status` and `Health.ts` are the
+shipped ways to read sidecar health.)
 
 - `bun LIFEOS/TOOLS/Services.ts status` — the gateway is a registered service
   under the `sidecar` category, like every other background service.
@@ -305,8 +315,71 @@ write age, which a flapping gateway refreshes forever.
 `$HERMES_HOME/cron/jobs.json`) and `hermesTicker()` (the scheduler's own
 liveness, reported apart from the job list because a healthy job list on a dead
 ticker is exactly the failure that looks fine). Both feed `aggregateTasks()` in
-`LIFEOS/PULSE/Assistant/module.ts` under `source: "hermes"`. Create and edit jobs
-with `hermes cron` — Pulse reports, it does not own them.
+`LIFEOS/PULSE/Assistant/module.ts` under `source: "hermes"` (the Assistant Pulse
+module is private — NOT in the public release payload). Create and edit jobs
+with `hermes cron` — Pulse reports, it does not own them. Hermes stores each
+job's `schedule` as an object (`{kind, expr|minutes, display}`), not a string;
+`hermesJobs()` handles both shapes because the object reaching `describeCron()`
+used to throw and the catch silently degraded the whole Hermes list to empty
+(found 2026-08-08).
+
+## Heartbeat — the proactive fast loop
+
+Heartbeat is the Hermes cron job that makes the sidecar *proactive* rather than
+scheduled-reactive: a 10-minute omnibus check that costs nothing when nothing is
+happening. It is the reference implementation of the **wake-gate pattern**, which
+is the standard for every high-frequency LifeOS job:
+
+> A deterministic script runs every tick and emits, as its final stdout line,
+> `{"wakeAgent": false}` to skip the LLM entirely or `{"wakeAgent": true}` with
+> findings above it. The Hermes scheduler honours this contract natively
+> (`_parse_wake_gate` in `cron/scheduler.py`). Model spend is per-event, never
+> per-cycle.
+
+**The pieces:**
+
+| Piece | Where | Job |
+|---|---|---|
+| `Tick.ts` | `LIFEOS/HERMES/Heartbeat/` | 10m deterministic check: calendar lookahead (meeting-prep candidates), unread-mail headers vs VIP/pattern rules, time-sensitive queue, optional location |
+| `ArtistScan.ts` | `LIFEOS/HERMES/Heartbeat/` | daily favorite-artist tour diff (Ticketmaster Discovery when `TICKETMASTER_API_KEY` is set; weekly agent web-sweep fallback otherwise) + weekly taste-adjacent discovery |
+| shims | `$HERMES_HOME/scripts/{heartbeat_tick,artist_scan}.sh` | 2-line bash wrappers; logic stays TypeScript in the LifeOS tree |
+| config | `LIFEOS/USER/CONFIG/heartbeat.json` | everything personal: VIP senders, importance patterns, quiet hours, home-region patterns, venue allowlist — code is install-generic |
+| state | `$HERMES_HOME/state/heartbeat/` | `prep-sent.json`, `seen-mail.json`, `queue.json`, `artist-events.json`, `ledger.jsonl` |
+
+**Delivery discipline (the interruption ceiling).** Findings that warrant
+interrupting land as a single concise iMessage from the agent turn. Everything
+else appends to `ledger.jsonl`, which the 08:00 morning-brief job reads as its
+"While You Slept" section — so quiet-hours findings and non-urgent items ride
+the brief instead of pinging. Slower jobs feed time-sensitive items into
+`queue.json` with a `dueAt`; the next tick past that time wakes the agent to
+deliver them contextually.
+
+**Location leg.** `location.enabled` ships `false`. It turns on only when a
+phone-side location feed exists (an iOS Shortcut posting to
+`state/heartbeat/location.json`); even then the agent only *proposes* public
+daemon updates against the venue allowlist until the approval pattern graduates.
+
+**What Heartbeat deliberately does not do:** duplicate any launchd or
+server-side monitor (Arbol security scanner, Bunker probes, backups), mutate
+mail, or send anything to anyone but the principal.
+
+**Heartbeat, the fast loop.** `LIFEOS/HERMES/Heartbeat/` holds the deterministic
+pre-run scripts for wake-gated cron jobs: `Tick.ts` (every 10 minutes —
+calendar lookahead, important-mail candidates, the time-sensitive queue, optional
+location) and `ArtistScan.ts` (daily tour-date diff for the music corpus's ⭐
+artists — Ticketmaster Discovery when `TICKETMASTER_API_KEY` is set, Bandsintown
+only once you configure a working app id (the shipped default id is known-dead),
+and a SOURCE_DEGRADED wake that has the agent web-sweep instead when no API works;
+home-region hits also enqueue into the time-sensitive queue). Each spends zero model tokens: it does cheap local/API
+checks and emits a wake-gate JSON line as its final stdout — `{"wakeAgent": false}`
+skips the LLM entirely per the Hermes scheduler contract; findings wake the agent
+with the findings injected as context. The scripts ship; the wiring does not:
+you create the cron jobs by hand with `hermes cron` (Mount.ts does not install
+them), config is personal at `LIFEOS/USER/CONFIG/heartbeat.json` (no shipped
+template — `Tick.ts` runs on safe defaults without it), and legs whose tools
+are absent (the private calendar skill, the `gws` mail CLI, an empty music
+corpus) skip silently. Non-interrupt findings append to the heartbeat ledger
+for the morning brief.
 
 Every Hermes read in a Pulse payload is best-effort: an absent install, an absent
 cron file, or unreadable JSON degrades to empty or `absent`, so a broken sidecar
@@ -383,7 +456,7 @@ than the coverage is worth. Both stay visible in Pulse and the menu bar.
 ```bash
 bun Health.ts --assert-live          # exit 1 only on down / flapping
 bun Health.ts --assert-no-restarter  # exit 1 while the looping job is loaded
-bun test Health.test.ts              # the flap detector's own regression suite
+bun test Health.test.ts              # flap-detector regression suite (maintainer tree — tests are not shipped)
 ```
 
 One adjacent thing that is *not* the sidecar: `skills/LifeOS/Tools/InstallEngine.ts`

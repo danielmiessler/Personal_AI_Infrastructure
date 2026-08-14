@@ -54,12 +54,24 @@ export default function ProjectsBoard({ group }: { group: ProjectGroup }) {
     );
   }, [group, q]);
 
+  // An empty group used to render a near-blank card that never said what fed it,
+  // so there was no way to tell a missing file from an empty one, or to find the
+  // file you were supposed to edit (public issue #1792, @waveman2020-sudo).
+  // Every group knows its own source path, so the empty state can just say it.
   if (group.projects.length === 0) {
+    const sourcePath = `~/.claude/LIFEOS/${group.source}`;
     return (
       <EmptyState
         icon={FolderGit2}
-        title={group.error ? `Couldn't read ${group.source}` : "No projects yet"}
-        hint={group.error ?? `No projects in ${group.source} yet.`}
+        title={group.error ? `Couldn't read ${group.source}` : `No projects in ${group.label} yet`}
+        hint={
+          <>
+            {group.error ? `${group.error}. ` : ""}
+            This board is generated from{" "}
+            <code className="text-ink-2">{sourcePath}</code> — add a row there, or ask your DA to
+            &ldquo;add this project to my projects file&rdquo;.
+          </>
+        }
       />
     );
   }

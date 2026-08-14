@@ -52,20 +52,20 @@ A single skill edit bumps both the skill's line and the umbrella: component and 
 
 ## The components (the tools)
 
-> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`, `skills/_CLOUDFLARE/`) are **private skills, absent from the public release** — those paths do not exist on a public install. The Ledger's concepts and registry format are public; the tooling that drives them ships only in the private tree.
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `<your-release-skill>/`, `skills/_CLOUDFLARE/`) are **private skills, absent from the public release** — those paths do not exist on a public install. The Ledger's concepts and registry format are public; the tooling that drives them ships only in the private tree.
 
 | Tool | Role |
 |------|------|
-| `skills/_LIFEOS/Tools/ClassifyChange.ts` | **Classify.** Diff since last tag → `patch \| feature \| major`; major always human-gated. |
-| `skills/_LIFEOS/Tools/UpdateLifeosVersion.ts` | **Bump the umbrella** (`LIFEOS/VERSION`). |
-| `skills/_LIFEOS/Tools/Bump{Algorithm,SystemPrompt,Hook,Skill,Doc}Versions.ts` | **Roll the touched component lines.** All run automatically inside `UpdateKaiRepo --bump`. The Algorithm bumper detects + syncs (never mints doctrine); the system-prompt bumper defaults patch (`--sp-level` elevates). |
+| `<your-release-skill>/Tools/ClassifyChange.ts` | **Classify.** Diff since last tag → `patch \| feature \| major`; major always human-gated. |
+| `<your-release-skill>/Tools/UpdateLifeosVersion.ts` | **Bump the umbrella** (`LIFEOS/VERSION`). |
+| `<your-release-skill>/Tools/Bump{Algorithm,SystemPrompt,Hook,Skill,Doc}Versions.ts` | **Roll the touched component lines.** All run automatically inside `UpdateKaiRepo --bump`. The Algorithm bumper detects + syncs (never mints doctrine); the system-prompt bumper defaults patch (`--sp-level` elevates). |
 | `LIFEOS/TOOLS/CreateUpdate.ts` | **Record.** Appends the change to the update registry (4–8-word real title enforced). |
-| `skills/_LIFEOS/Tools/UpdateIndex.ts` | **Index.** Regenerates `index.json` + `CHANGELOG.md` from the registry files. |
-| `skills/_LIFEOS/Tools/UpdateKaiRepo.ts` | **Sync + tag.** Verified two-repo private sync; `--bump` runs all bumpers and refuses feature/major without a fresh integrity stamp (`--skip-integrity` logged override). |
+| `<your-release-skill>/Tools/UpdateIndex.ts` | **Index.** Regenerates `index.json` + `CHANGELOG.md` from the registry files. |
+| `<your-release-skill>/Tools/UpdateKaiRepo.ts` | **Sync + tag.** Verified two-repo private sync; `--bump` runs all bumpers and refuses feature/major without a fresh integrity stamp (`--skip-integrity` logged override). |
 | `LIFEOS/TOOLS/LedgerDeployEvent.ts` | **Estate record.** Appends a deploy event (project, target, domain, git SHA, project version, ok/fail) to `deploys.jsonl` on every gated deploy. |
 | `hooks/VersionDrift.hook.ts` | **Drift tooth.** UserPromptSubmit nag (`⏫ VERSION-DRIFT`) at ≥10 changed core files since last `v*` tag, or any drift on a tag older than 48h. |
 
-Workflows that orchestrate them: `skills/_LIFEOS/Workflows/VersionBump.md` (`/vb` — the coordinator), `DocumentSession.md`, `DocumentationUpdate.md` (`/ud`), `IntegrityCheck.md` (`/ic`). The `rc` shortcut cuts a release candidate (integrity check → docs update → bump → cut).
+Workflows that orchestrate them: `<your-release-skill>/Workflows/VersionBump.md` (`/vb` — the coordinator), `DocumentSession.md`, `DocumentationUpdate.md` (`/ud`), `IntegrityCheck.md` (`/ic`). The `rc` shortcut cuts a release candidate (integrity check → docs update → bump → cut).
 
 ---
 
@@ -187,7 +187,7 @@ Classification is the fork the whole system turns on: it routes the change to it
 
 - Standing rule — this doc, § The scheme (a principal's `LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md` may restate it, but that file ships as a stub and is not the source)
 - Master architecture — `LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md` § Ledger
-- Version-bump coordinator — `skills/_LIFEOS/Workflows/VersionBump.md` (`/vb`)
+- Version-bump coordinator — `<your-release-skill>/Workflows/VersionBump.md` (`/vb`)
 - Deploy gate — `skills/_CLOUDFLARE/Workflows/Deploy.md` (records the estate event)
 - Registry — `LIFEOS/MEMORY/SYSTEMUPDATES/`
 - Algorithm component changelog — `LIFEOS/ALGORITHM/changelog.md`

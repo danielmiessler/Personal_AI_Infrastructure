@@ -29,6 +29,7 @@ import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { invariant } from "./Invariant";
 
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const DEPLOYS_PATH = join(LIFEOS_DIR, "MEMORY", "SYSTEMUPDATES", "deploys.jsonl");
@@ -85,8 +86,12 @@ function record(opts: { project: string; target: string; domain?: string; repo?:
     ok: opts.ok,
     ...(opts.note ? { note: opts.note } : {}),
   };
+  const line = JSON.stringify(event);
+  invariant(event.project.length > 0, "deploy event requires a non-empty project");
+  invariant(event.target.length > 0, "deploy event requires a non-empty target");
+  invariant(!line.includes("\n"), "deploy event must serialize to a single JSONL line");
   mkdirSync(join(LIFEOS_DIR, "MEMORY", "SYSTEMUPDATES"), { recursive: true });
-  appendFileSync(DEPLOYS_PATH, JSON.stringify(event) + "\n");
+  appendFileSync(DEPLOYS_PATH, line + "\n");
   return event;
 }
 

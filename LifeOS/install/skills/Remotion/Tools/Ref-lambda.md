@@ -7,7 +7,8 @@ metadata:
 
 # Remotion Lambda
 
-Render videos on AWS Lambda. Chunks render in parallel across hundreds of Lambda invocations, then the primary function stitches the output. A 3-minute video renders in ~30 seconds instead of minutes.
+<!-- public issue #1764, #1760, @jacobo-ortiz -->
+Render videos on AWS Lambda. Chunks render in parallel across up to 200 Lambda invocations — a hard cap, not a soft guideline; every render uses between 3 and 200 concurrent functions — then the primary function stitches the output. A 3-minute video renders in ~30 seconds instead of minutes.
 
 ## Prerequisites
 
@@ -96,9 +97,10 @@ while (true) {
 ## Constraints
 
 - **No AV1 on Lambda** — use h264, h265, vp8, vp9, or prores.
-- Max ~2 hours Full HD per render (5GB output limit).
-- Default 1000 concurrent Lambda per region (requestable higher from AWS).
-- Commercial use requires Remotion Cloud Rendering Units (paid license).
+- Render length is bounded by ephemeral disk, which defaults to 2048MB on Remotion 4.x — roughly 32 min at 1080p. Raise it with `--disk` (or `diskSizeInMb`) up to the 10GB AWS cap, which buys ~2h40m at 1080p. <!-- public issue #1764, #1760, @jacobo-ortiz -->
+- Max 200 concurrent Lambda functions per render (hard cap).
+- Default 1000 concurrent Lambda per region per account (requestable higher from AWS).
+- Licensing is by organization size, not by Lambda usage: the Free License covers individuals, non-profits and for-profit orgs with up to 3 employees, commercial use included. Above that, a Company License from remotion.pro. <!-- public issue #1753, @jacobo-ortiz -->
 
 ## When to use Lambda vs local
 
@@ -108,5 +110,7 @@ while (true) {
 ## Reference
 
 - Docs: https://www.remotion.dev/docs/lambda
-- Pricing: https://www.remotion.dev/docs/lambda/pricing
+- Cost example: https://www.remotion.dev/docs/lambda/cost-example <!-- public issue #1753, @jacobo-ortiz — /lambda/pricing 404s -->
+- Optimizing cost: https://www.remotion.dev/docs/lambda/optimizing-cost
+- Disk size and max video length: https://www.remotion.dev/docs/lambda/disk-size
 - IAM policy: https://www.remotion.dev/docs/lambda/permissions

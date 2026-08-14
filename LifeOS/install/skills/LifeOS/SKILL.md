@@ -1,6 +1,6 @@
 ---
 name: LifeOS
-version: 1.5.35
+version: 1.5.43
 description: Install and onboard a user into LifeOS — the Life Operating System (current state → ideal state via TELOS + the Algorithm). The agentic installer detects your OS + harness, wires hooks with permission, scaffolds your USER tree, pulls in sources you provide, and runs the TELOS / current→ideal interview that seeds your Pulse dashboard. USE WHEN install LifeOS, set up LifeOS, lifeos setup, lifeos-setup, lifeos interview, onboard me, run the interview, integrate LifeOS into my harness, update LifeOS, uninstall LifeOS, first-time setup, lifeos doctor, check my install, what capabilities are broken. NOT FOR building or cutting a LifeOS release (private release tooling), editing TELOS after onboarding (use Telos / Interview), or LifeOS system maintenance (use the private maintenance skill).
 disable-model-invocation: true
 argument-hint: "[setup|interview|doctor|update|uninstall]"
@@ -17,7 +17,7 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 > resolve in this copy.
 
 
-The install + onboarding surface for **LifeOS** — the Life Operating System (formerly LifeOS). One command takes a stranger on any harness from nothing to a working, personalized install whose Pulse dashboard already shows their current state vs ideal state — without making them adopt a whole new harness.
+The install + onboarding surface for **LifeOS** — the Life Operating System. One command takes a stranger on any harness from nothing to a working, personalized install whose Pulse dashboard already shows their current state vs ideal state — without making them adopt a whole new harness.
 
 ## How it ships
 
@@ -31,7 +31,7 @@ A terminal shortcut stays for Claude Code on macOS/Linux:
 curl -fsSL https://ourlifeos.ai/install.sh | bash
 ```
 
-Both are served from the skill's own single sources of truth — `INSTALL.md` at the skill root, `install/install.sh` for the shell path (which hands off to the agentic `/LifeOS setup`). Two versions coexist and mean different things: the frontmatter `version:` is this skill's own **component** line (bumped by `BumpSkillVersions` like every other skill), while the **distribution** version — what a user means by "LifeOS 7.x" — is the GitHub release tag and the `LIFEOS_RELEASES/<version>/` parent dir. Never read the component line as the release number. The payload (skills, hooks, system prompt, Algorithm, docs, runtime tools) rides along under `install/` and is placed during setup, with permission.
+Both are served from the skill's own single sources of truth — `INSTALL.md` at the skill root, `install/install.sh` for the shell path (which hands off to the agentic `/LifeOS setup`). Two versions coexist and mean different things: the frontmatter `version:` is this skill's own **component** line (bumped by the maintainer-side `BumpSkillVersions`, which does not ship in the release), while the **distribution** version — what a user means by "LifeOS 7.x" — is the GitHub release tag and the `LIFEOS_RELEASES/<version>/` parent dir. Never read the component line as the release number. The payload (skills, hooks, system prompt, Algorithm, docs, runtime tools) rides along under `install/` and is placed during setup, with permission.
 
 ## Workflow Routing
 
@@ -63,7 +63,7 @@ Default flow (`/LifeOS setup`): **Setup phase** (system integration) → transit
 
 ## Gotchas
 
-- **The frontmatter `version:` is the COMPONENT line, not the release.** Claude Code ignores it; `BumpSkillVersions` maintains it like every other skill. The DISTRIBUTION version is the tag + `LIFEOS_RELEASES/<version>/` + the `install.sh` fetch.
+- **The frontmatter `version:` is the COMPONENT line, not the release.** Claude Code ignores it; the maintainer-side `BumpSkillVersions` (not shipped) maintains it at the source repo. The DISTRIBUTION version is the tag + `LIFEOS_RELEASES/<version>/` + the `install.sh` fetch.
 - **`install.sh` is non-destructive by design.** It installs only the LifeOS skill and backs up only a prior LifeOS skill — never the user's other skills, hooks, or config. The whole point is "bolt on, don't take over."
 - **Hooks are installed imperatively, with permission.** A bare skill cannot auto-wire hooks; the setup workflow writes them into the user's harness explicitly, after showing what changes.
 - **Config is `.toml`, never `.yaml`.** `LifeosConfig.ts` reads TOML; the legacy `.yaml` template was retired 2026-06-19.

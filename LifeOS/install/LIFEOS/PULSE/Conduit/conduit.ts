@@ -16,6 +16,7 @@
 import { capture as captureAppFocus } from "./adapters/appFocus.ts";
 import { capture as captureClaude } from "./adapters/claudeSession.ts";
 import { capture as captureGit } from "./adapters/git.ts";
+import { capture as captureGithub, commitGithubCursor } from "./adapters/github.ts";
 import { DEFAULT_CONFIG, loadConfig } from "./config.ts";
 import { CONFIG_PATH, DATA_ROOT } from "./paths.ts";
 import { buildDailyRecord, renderMarkdown, writeDailyRecord } from "./rollup.ts";
@@ -44,6 +45,27 @@ function runCapture(): number {
       }
     } catch {
       /* one adapter down never aborts the poll */
+    }
+  }
+
+  // github is special-cased: its cursor must advance only over events that
+  // actually appended, and only AFTER they land (see commitGithubCursor). The
+  // adapter itself is a pure read.
+  if (config.sources.github) {
+    const appended: ConduitEvent[] = [];
+    try {
+      for (const e of captureGithub(config)) {
+        appendEvent(e);
+        events.push(e);
+        appended.push(e);
+      }
+    } catch {
+      /* one adapter down never aborts the poll */
+    }
+    try {
+      commitGithubCursor(appended);
+    } catch {
+      /* cursor commit is best-effort — a miss re-scans (SHA-deduped) next poll */
     }
   }
 

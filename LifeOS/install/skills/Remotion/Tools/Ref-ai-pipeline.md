@@ -14,7 +14,7 @@ Generate all ingredients (scene images, narration audio, captions) with AI, then
 ```
 Topic/Script
     │
-    ├── Art skill (Nano Banana Pro / GPT-Image-1) ──► scene-N.png in /public
+    ├── Art skill (Nano Banana Pro / GPT-Image-2) ──► scene-N.png in /public
     ├── ElevenLabs TTS ───────────────────────────► narration.mp3 in /public
     └── ElevenLabs STT (on narration.mp3) ────────► Caption[]
             │
@@ -68,7 +68,7 @@ See `Ref-elevenlabs-captions.md` for the caption pipeline details.
 ## Step 4 — Compose
 
 ```tsx
-import { AbsoluteFill, Sequence, staticFile, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Img, Sequence, staticFile, useVideoConfig } from 'remotion';
 import { Audio, Video } from '@remotion/media';
 import { createTikTokStyleCaptions } from '@remotion/captions';
 import captionsJson from '../public/captions.json';
@@ -83,10 +83,10 @@ export const AiVideo: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
       <Sequence from={0} durationInFrames={3 * fps}>
-        <img src={staticFile('scene-1.png')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <Img src={staticFile('scene-1.png')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </Sequence>
       <Sequence from={3 * fps} durationInFrames={3 * fps}>
-        <img src={staticFile('scene-2.png')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <Img src={staticFile('scene-2.png')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> {/* public issue #1764, #1760, @jacobo-ortiz — never native <img>, it tears frames */}
       </Sequence>
 
       <Audio src={staticFile('narration.mp3')} />

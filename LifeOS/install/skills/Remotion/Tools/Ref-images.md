@@ -107,10 +107,12 @@ This pattern is useful for:
 
 ## Getting image dimensions
 
-Use `getImageDimensions()` to get the dimensions of an image:
+<!-- public issue #1763, #1760, @jacobo-ortiz — getImageDimensions is in @remotion/media-utils, not remotion -->
+Use `getImageDimensions()` from `@remotion/media-utils` to get the dimensions of an image:
 
 ```tsx
-import { getImageDimensions, staticFile } from "remotion";
+import { getImageDimensions } from "@remotion/media-utils";
+import { staticFile } from "remotion";
 
 const { width, height } = await getImageDimensions(staticFile("photo.png"));
 ```
@@ -118,7 +120,8 @@ const { width, height } = await getImageDimensions(staticFile("photo.png"));
 This is useful for calculating aspect ratios or sizing compositions:
 
 ```tsx
-import { getImageDimensions, staticFile, CalculateMetadataFunction } from "remotion";
+import { getImageDimensions } from "@remotion/media-utils";
+import { staticFile, CalculateMetadataFunction } from "remotion";
 
 const calculateMetadata: CalculateMetadataFunction = async () => {
   const { width, height } = await getImageDimensions(staticFile("photo.png"));

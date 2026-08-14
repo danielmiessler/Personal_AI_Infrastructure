@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 3.1.0
+ * @version 3.2.2
  * TRIGGER: UserPromptSubmit (routing match, always-on) — also runs on PostToolUse via PostToolObserver and on PostToolUseFailure.
  * AlgorithmNudge — the Algorithm live nudge layer ("Events ask the rest").
  *
@@ -12,7 +12,6 @@
  *                       inline BEFORE building, on the top rung the main loop already runs
  *                       (settings.json pins it). Never ask which rung, never hand the design
  *                       leg to the Max agent — that is a second look, not a rung rental.
- *                       INC-20260729-max-rung-not-elected, both corrections.
  *   exec-delegation   — a sustained stretch of build calls (Edit/Write) with zero Agent
  *                       dispatches asks the down-rung question from OPERATIONAL_RULES
  *                       § Model selection: is this stretch judgment work that earns MAX,
@@ -67,8 +66,9 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSy
 import { join } from 'path';
 import { resolveBun } from './lib/resolve-bin';
 import { deriveAscent, type AscentState } from '../LIFEOS/TOOLS/ascent';
+import { homedir } from "node:os";
 
-const PAI = join(process.env.HOME || '', '.claude');
+const PAI = join(homedir(), '.claude');
 // Overridable so tests can PRODUCE a state-machine edge instead of hand-writing
 // its precondition, and so test runs stop appending to the production diagnostic
 // log (Forge delta audit H-B, M-E — the log was 7 lines, all of them test noise).
@@ -109,9 +109,9 @@ const CAPABILITIES_PATH = process.env.LIFEOS_CAPABILITIES_PATH
 const CAP_COOLDOWN_MS = 60 * 60 * 1000;    // per-capability; moment-of-need, never nagging
 const SILENCE_TRACE_THRESHOLD = 100;       // delegate events with zero primary before tracing
 
-// Destructive-infra ops (Algorithm claim 16, v8.7.0 — INC-20260717-ullive-dns-deletion:
-// deleting workers deleted the apex DNS record their custom domain owned;
-// every warm-cache probe passed while the world went NXDOMAIN).
+// Destructive-infra ops (Algorithm claim 16, v8.7.0 — deleting workers deleted the apex
+// DNS record their custom domain owned; every warm-cache probe passed while the world
+// went NXDOMAIN).
 // Matches Bash commands that delete cloud infra resources; fires the
 // ownership-enumeration + authority-re-list + baseline-parity question.
 export const DESTRUCTIVE_INFRA_RE = new RegExp([
@@ -169,6 +169,11 @@ interface NudgeState {
    *  Feeds exec-delegation: the one aggregate the model can't see from inside
    *  the stretch — how long it has been executing inline on the top rung. */
   buildCallsSinceDispatch?: number;
+  /** Consecutive tool calls of ANY non-dispatch kind since the last Agent
+   *  dispatch. Feeds sweep-delegation: catches the token-heavy Bash/Read/Grep
+   *  stretch the build counter is blind to (2026-08-02 audit: a whole
+   *  release-notes session ran 100% inline on MAX and never tripped a row). */
+  workCallsSinceDispatch?: number;
   lastNudgeAt: Record<string, number>;
   /** The primary conversation's transcript_path, recorded at UserPromptSubmit —
    *  the one event that never fires for subagents. Tool events whose
@@ -212,6 +217,7 @@ function loadState(sessionId: string): NudgeState {
     primaryEvents: s.primaryEvents ?? 0,
     silenceLogged: s.silenceLogged ?? false,
     buildCallsSinceDispatch: s.buildCallsSinceDispatch ?? 0,
+    workCallsSinceDispatch: s.workCallsSinceDispatch ?? 0,
     lastNudgeAt: s.lastNudgeAt ?? {},
     primaryTranscript: s.primaryTranscript,
   };
@@ -355,7 +361,13 @@ export function matchSkills(prompt: string, index: SkillIndex): Array<{ skill: s
         }
       } else if (phrase.length >= 6 && !ROUTE_STOPWORDS.has(phrase)) {
         try {
-          if (new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(p)) {
+          // Unicode-property lookarounds instead of \b: JS \b is ASCII-only,
+          // so any phrase or prompt with non-ASCII letters (accents, CJK,
+          // Cyrillic) silently never matched — a mute miss in the one nudge
+          // whose whole job is catching forgotten capabilities
+          // (public issue #1787, @xmasyx; fix confirmed by @waveman2020-sudo).
+          const esc = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          if (new RegExp(`(?<![\\p{L}\\p{N}_])${esc}(?![\\p{L}\\p{N}_])`, 'u').test(p)) {
             if (!best || phrase.length > best.length) best = phrase;
           }
         } catch { /* skip malformed */ }
@@ -408,10 +420,27 @@ function logRoutingFire(sessionId: string, prompt: string, matches: Array<{ skil
   } catch {}
 }
 
+/** Newest SKILL.md mtime on disk — one readdir + N stats. Staleness measured
+ *  only in TIME left a freshly created skill invisible to routing for up to
+ *  6h while every other check passed (public issue #1787, @xmasyx). */
+function newestSkillMtime(): number {
+  let newest = 0;
+  try {
+    for (const dir of readdirSync(SKILLS_DIR)) {
+      try {
+        const t = statSync(join(SKILLS_DIR, dir, 'SKILL.md')).mtimeMs;
+        if (t > newest) newest = t;
+      } catch { /* not a skill dir */ }
+    }
+  } catch { /* no skills dir */ }
+  return newest;
+}
+
 /** Load the index if fresh; kick a detached rebuild if stale/missing (never block). */
 function loadIndex(): SkillIndex | null {
   const idx = readJson<SkillIndex | null>(INDEX_PATH, null);
-  const stale = !idx || Date.now() - idx.builtAt > INDEX_MAX_AGE_MS;
+  const stale = !idx || Date.now() - idx.builtAt > INDEX_MAX_AGE_MS
+    || newestSkillMtime() > idx.builtAt;
   if (stale) {
     // Resolve bun absolutely: a detached rebuild spawned with the bare name
     // silently no-ops if bun isn't on the subprocess PATH, and the empty catch
@@ -427,7 +456,7 @@ function loadIndex(): SkillIndex | null {
       // self-heal must leave a trace something can see.
       try {
         appendFileSync(
-          join(process.env.HOME ?? '', '.claude/LIFEOS/MEMORY/OBSERVABILITY/hook-selfheal.jsonl'),
+          join(homedir(), '.claude/LIFEOS/MEMORY/OBSERVABILITY/hook-selfheal.jsonl'),
           JSON.stringify({ ts: new Date().toISOString(), hook: 'AlgorithmNudge', action: 'rebuild-index', bun, error: String(e) }) + '\n',
         );
       } catch { /* observability write itself is best-effort */ }
@@ -487,8 +516,8 @@ export function matchDepthDirective(prompt: string): string | null {
 // points UP for the work OPERATIONAL_RULES § Model selection reserves for MAX.
 //
 // Why this row is allowed to exist under the "rows may only ask about state the model cannot
-// observe from its own context" bound: the 2026-07-29 incident is the proof
-// (INC-20260729-max-rung-not-elected). Doctrine asserted MAX was the session default, so a
+// observe from its own context" bound: the 2026-07-29 incident is the proof.
+// Doctrine asserted MAX was the session default, so a
 // full authority-model build — new platform authority, cross-tenant read boundary, two
 // shipped editions — was designed and deployed a rung low without the run ever noticing.
 // The rung a run is on is precisely what it cannot see: no hook receives the session model,
@@ -549,7 +578,7 @@ export const DESIGN_CLASS_NUDGE =
   + 'the main loop there — so do not ask which model to use and do not rent a rung by dispatching '
   + 'the design leg to Max. Design it NATIVELY and inline, before building, then downshift by '
   + 'dispatch for the execution leg. Max is for an independent SECOND look, scaled to blast '
-  + 'radius, never a substitute for thinking (INC-20260729-max-rung-not-elected).';
+  + 'radius, never a substitute for thinking.';
 
 // ── Execution-delegation → downshift by dispatch (always-on) ─────────────────
 //
@@ -576,6 +605,20 @@ export const INHERITED_DISPATCH_NUDGE =
   'That dispatch carried no `model` field, so it inherits the MAX session rung. If it was an '
   + 'execution leg, pass the rung alias explicitly (OPERATIONAL_RULES § Model selection); if the '
   + 'task genuinely needed MAX, inheriting was the right call.';
+
+// The build counter above is blind to the other heavy-token shape: long Bash/Read/Grep
+// evidence sweeps. Measured 2026-08-02: an entire release-notes session ran ~25 inline calls
+// on MAX with zero dispatches and no row fired. Same BPE bound as exec-delegation — this is
+// a QUESTION about an aggregate the model can't see, not a classifier deciding what counts.
+const SWEEP_DELEGATION_THRESHOLD = 20;  // consecutive non-dispatch tool calls of any kind
+
+export const SWEEP_DELEGATION_NUDGE =
+  `${SWEEP_DELEGATION_THRESHOLD}+ consecutive inline tool calls, zero dispatches — the whole `
+  + 'stretch is riding the MAX rung. If a chunk of it is token-heavy mechanical work (bulk '
+  + 'reads, sweeps, migrations, reformatting), ship that leg a rung down with the escalation '
+  + 'contract in the brief (OPERATIONAL_RULES § Model selection) so the delegate can hand hard '
+  + 'judgment back up instead of grinding. If the stretch genuinely needs top-rung thinking, '
+  + 'carry on — make it a decision, not a default.';
 
 interface CapManifest {
   capabilities: Record<string, { state?: string }>;
@@ -760,16 +803,26 @@ export function run(input: HookInput): string | null {
       // gets the inherited-rung fact surfaced once per cooldown.
       if (DISPATCH_TOOLS.has(tool)) {
         state.buildCallsSinceDispatch = 0;
+        state.workCallsSinceDispatch = 0;
         const hasModel = typeof (input.tool_input as Record<string, unknown>)?.model === 'string';
         if (!hasModel && cooled(state, 'inherited-dispatch', now)) {
           fire(state, 'inherited-dispatch', now, INHERITED_DISPATCH_NUDGE, out);
         }
-      } else if (BUILD_TOOLS.has(tool)) {
-        state.buildCallsSinceDispatch = (state.buildCallsSinceDispatch ?? 0) + 1;
-        if (state.buildCallsSinceDispatch >= EXEC_DELEGATION_THRESHOLD
-          && cooled(state, 'exec-delegation', now)) {
-          state.buildCallsSinceDispatch = 0;
-          fire(state, 'exec-delegation', now, EXEC_DELEGATION_NUDGE, out);
+      } else {
+        state.workCallsSinceDispatch = (state.workCallsSinceDispatch ?? 0) + 1;
+        if (BUILD_TOOLS.has(tool)) {
+          state.buildCallsSinceDispatch = (state.buildCallsSinceDispatch ?? 0) + 1;
+          if (state.buildCallsSinceDispatch >= EXEC_DELEGATION_THRESHOLD
+            && cooled(state, 'exec-delegation', now)) {
+            state.buildCallsSinceDispatch = 0;
+            state.workCallsSinceDispatch = 0;  // one question per stretch, not two
+            fire(state, 'exec-delegation', now, EXEC_DELEGATION_NUDGE, out);
+          }
+        }
+        if (state.workCallsSinceDispatch >= SWEEP_DELEGATION_THRESHOLD
+          && cooled(state, 'sweep-delegation', now)) {
+          state.workCallsSinceDispatch = 0;
+          fire(state, 'sweep-delegation', now, SWEEP_DELEGATION_NUDGE, out);
         }
       }
 

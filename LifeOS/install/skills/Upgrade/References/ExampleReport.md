@@ -34,7 +34,7 @@ Everything interesting we found, ranked by how cool it is.
 
 | # | Recommendation | Prior Status | Evidence | LifeOS Relevance | Effort | Files Affected |
 |---|---------------|-------------|----------|---------------|--------|----------------|
-| 1 | Add PreToolUse additionalContext to security hooks | 🆕 NEW | `hooks/SecurityPipeline.hook.ts:42` returns binary deny/allow only | SecurityValidator currently hard-blocks commands — additionalContext enables reasoning-based security that adapts to context | Low | `hooks/SecurityValidator.hook.ts` |
+| 1 | Add PreToolUse additionalContext to security hooks | 🆕 NEW | `hooks/SecurityPipeline.hook.ts:42` (illustrative example — not a real file) returns binary deny/allow only | SecurityValidator currently hard-blocks commands — additionalContext enables reasoning-based security that adapts to context | Low | `hooks/SecurityValidator.hook.ts` |
 
 ### 🟠 HIGH — Integrate this week
 

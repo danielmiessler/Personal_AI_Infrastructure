@@ -5,11 +5,16 @@
  * PURPOSE:
  * Keeps the canonical "Directory Inventory" table in MemorySystem.md honest
  * by diffing it against the actual directory tree under LIFEOS/MEMORY/. Surfaces
- * drift in two directions:
+ * drift in three directions:
  *   - on-disk dir not listed in inventory (unknown subsystem)
- *   - inventory row marked "active" with no on-disk dir (missing subsystem)
+ *   - inventory row whose Status says it must exist, with no on-disk dir
+ *   - inventory row carrying a Status this checker does not recognise
  *
- * "reserved"-status rows are allowed to be empty or absent.
+ * The Status column decides whether absence is drift, and only a recognised
+ * value grants silence. `active` rows must exist; `on-demand`, `reserved` and
+ * `dormant archive` rows may be absent. Anything else is REPORTED, not exempted
+ * — previously every value other than `active` bought silence, so a typo and a
+ * deliberate exemption were indistinguishable.
  *
  * TRIGGER: SessionEnd hook (called from DocIntegrity.hook.ts)
  *
@@ -19,31 +24,26 @@
  *
  * WRITES:
  *   stderr (audit log with [MemoryDirIntegrity] tag)
- *   STATE/events.jsonl (typed event: doc.integrity.memory_dir)
+ *   STATE/events.jsonl (typed event: doc.integrity.memory_dir, via hooks/lib/events.ts)
+ *     Full finding set on every completed check, empty set included — that is what
+ *     lets the SessionStart readback show a fixed problem disappearing.
  *
  * SIDE EFFECTS:
  *   None — read-only check. Drift is a soft warning. The hook never blocks.
+ *
+ * Ported from public PR #1759, @anikinsasha (parse + status allowlist) and
+ * public PR #1758, @anikinsasha (finding-set emission).
  */
 
-import { readFileSync, readdirSync, existsSync, statSync, appendFileSync, mkdirSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { paiPath, getLifeosDir } from '../lib/paths';
+import { emitFindingSet } from '../lib/events';
 
 const TAG = '[MemoryDirIntegrity]';
 const LIFEOS_DIR = getLifeosDir();
 const MEMORY_DIR = join(LIFEOS_DIR, 'MEMORY');
 const INVENTORY_DOC = paiPath('DOCUMENTATION/Memory/MemorySystem.md');
-const EVENTS_FILE = join(MEMORY_DIR, 'STATE', 'events.jsonl');
-
-function emitEvent(payload: Record<string, unknown>): void {
-  try {
-    mkdirSync(join(MEMORY_DIR, 'STATE'), { recursive: true });
-    const event = { timestamp: new Date().toISOString(), ...payload };
-    appendFileSync(EVENTS_FILE, JSON.stringify(event) + '\n', 'utf-8');
-  } catch {
-    // Event log is best-effort — never let drift checking fail because of telemetry.
-  }
-}
 
 // Directories that exist on disk but are not subsystems and should be ignored.
 const IGNORED_NAMES = new Set(['.DS_Store', '.git', 'node_modules']);
@@ -53,12 +53,32 @@ const IGNORED_FILES = new Set(['README.md', '.DS_Store']);
 
 interface InventoryRow {
   name: string;       // e.g., "KNOWLEDGE" or "LEARNING"
-  klass: string;      // "core" | "skill-private" | "reserved"
-  status: string;     // "active" | "reserved"
+  klass: string;      // "core" | "skill-private"
+  status: string;     // as written in the table, verbatim — never normalised
 }
 
+/**
+ * Statuses whose absence from disk is normal, and which therefore grant silence:
+ *   on-demand      — a shipped writer creates it on first use
+ *   reserved       — nothing creates it and nothing reads it (reason required)
+ *   dormant archive — kept for recall; its writers are retired, nothing appends
+ *
+ * `active` is the one status that requires the directory to exist. Any value
+ * NOT in this set and not `active` is reported as unclassified rather than
+ * silently exempted.
+ */
+const MAY_BE_ABSENT = new Set(['on-demand', 'reserved', 'dormant archive']);
+const MUST_EXIST = new Set(['active']);
+const KNOWN_STATUS = new Set([...MUST_EXIST, ...MAY_BE_ABSENT]);
+
+/**
+ * One drift finding. `key` is its identity across runs — the SessionStart
+ * readback compares key sets to decide whether anything changed, so it holds
+ * the subsystem name and nothing that churns (no counts, no timestamps).
+ */
 interface DriftItem {
-  kind: 'unknown_on_disk' | 'missing_active' | 'inventory_unparseable';
+  kind: 'unknown_on_disk' | 'missing_active' | 'unclassified_status' | 'inventory_unparseable';
+  key: string;
   detail: string;
 }
 
@@ -71,47 +91,68 @@ interface DriftItem {
  *   |-----------|-------|--------|---------|-----------------|
  *   | `KNOWLEDGE/` | core | active | ... | ... |
  *
- * Each row's first column is a backtick-wrapped directory name with a
- * trailing slash. Class column is core/skill-private/reserved. Status is
- * active/reserved. We only care about the directory name, class, and status
- * for the drift check.
+ * Cells are read POSITIONALLY by splitting on `|` rather than matched with one
+ * pattern over the whole row. The difference is not cosmetic: the old pattern
+ * anchored the status cell as a single `[\w-]+` word, which silently DROPPED
+ * any row whose status contains a space — and a dropped row is invisible in
+ * both directions. `RELATIONSHIP/` (status `dormant archive`) fell out of the
+ * parse entirely, so its absence stopped being checked AND its directory on
+ * disk started reporting as an unknown subsystem on every single run.
+ * Reading the cell verbatim and judging it afterwards means an unrecognised
+ * status is a REPORT, never a disappearance.
  */
-function parseInventory(): InventoryRow[] | null {
-  if (!existsSync(INVENTORY_DOC)) {
-    console.error(`${TAG} Inventory doc not found: ${INVENTORY_DOC}`);
-    return null;
-  }
-
-  const content = readFileSync(INVENTORY_DOC, 'utf-8');
-
-  // Find the inventory section. We anchor on the section heading so we don't
-  // accidentally pick up the auto-memory-coexistence table further down.
+export function parseInventoryTable(content: string): InventoryRow[] | null {
+  // Anchor on the section heading so we don't pick up other tables in the file.
   const sectionMarker = '## Directory Inventory';
   const sectionStart = content.indexOf(sectionMarker);
-  if (sectionStart < 0) {
-    console.error(`${TAG} Could not find "${sectionMarker}" in inventory doc`);
-    return null;
-  }
+  if (sectionStart < 0) return null;
 
   const nextSection = content.indexOf('\n## ', sectionStart + sectionMarker.length);
   const section = nextSection > 0
     ? content.slice(sectionStart, nextSection)
     : content.slice(sectionStart);
 
-  // Match rows: `| `NAME/` | class | status | ... | ... |`
-  // Tolerate variations in whitespace and the trailing slash being optional.
-  const rowRegex = /^\|\s*`([\w_]+)\/?`\s*\|\s*([\w-]+)\s*\|\s*([\w-]+)\s*\|/gm;
+  // Bind to the inventory TABLE, not to the whole section. The section also
+  // contains prose tables (§ Status defines the Status vocabulary in a table of
+  // its own), and a whole-section scan reads those rows as inventory rows —
+  // caught live on 2026-08-05, when the § Status table's own `active` row was
+  // reported as a memory subsystem with an unrecognised status.
+  const lines = section.split('\n');
+  const headerIdx = lines.findIndex((l) => /^\|\s*Directory\s*\|\s*Class\s*\|\s*Status\s*\|/.test(l.trim()));
+  if (headerIdx < 0) return null;
 
   const rows: InventoryRow[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = rowRegex.exec(section)) !== null) {
-    rows.push({
-      name: match[1],
-      klass: match[2].trim(),
-      status: match[3].trim(),
-    });
+  // Consume the contiguous run of table lines and stop at the first line that
+  // is not one — the table ends where the table ends.
+  for (const line of lines.slice(headerIdx + 1)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('|')) break;
+
+    // Split on the pipes, drop the empty edges. Cells stay verbatim.
+    const cells = trimmed.split('|').slice(1, -1).map((c) => c.trim());
+    if (cells.length < 3) continue;
+
+    // Column 1 identifies the row: a backtick-wrapped dir name, trailing slash
+    // optional. Anything else is a header, a separator, or prose in a table.
+    const nameMatch = cells[0].match(/^`([\w_]+)\/?`$/);
+    if (!nameMatch) continue;
+
+    rows.push({ name: nameMatch[1], klass: cells[1], status: cells[2] });
   }
 
+  return rows;
+}
+
+/** Read the shipped doc and parse it. The IO half; the parse above is pure. */
+function parseInventory(): InventoryRow[] | null {
+  if (!existsSync(INVENTORY_DOC)) {
+    console.error(`${TAG} Inventory doc not found: ${INVENTORY_DOC}`);
+    return null;
+  }
+  const rows = parseInventoryTable(readFileSync(INVENTORY_DOC, 'utf-8'));
+  if (rows === null) {
+    console.error(`${TAG} Could not find a parseable "## Directory Inventory" table in ${INVENTORY_DOC}`);
+  }
   return rows;
 }
 
@@ -136,41 +177,17 @@ function listMemoryDirsOnDisk(): string[] {
   return dirs.sort();
 }
 
-export async function handleMemoryDirIntegrity(): Promise<void> {
-  const startTime = Date.now();
-  console.error(`${TAG} === Starting memory inventory drift check ===`);
-
-  const inventory = parseInventory();
-  if (inventory === null) {
-    const drift: DriftItem = {
-      kind: 'inventory_unparseable',
-      detail: `Failed to parse Directory Inventory from ${INVENTORY_DOC}. Drift check skipped.`,
-    };
-    console.error(`${TAG} [WARN] ${drift.detail}`);
-    emitEvent({
-      type: 'doc.integrity.memory_dir',
-      source: 'MemoryDirIntegrity',
-      drift: [drift],
-      ok: false,
-    });
-    return;
-  }
-
-  if (inventory.length === 0) {
-    console.error(`${TAG} [WARN] Inventory table parsed but contains zero rows. Check the table format in MemorySystem.md.`);
-    emitEvent({
-      type: 'doc.integrity.memory_dir',
-      source: 'MemoryDirIntegrity',
-      drift: [{ kind: 'inventory_unparseable', detail: 'Inventory parsed with zero rows' }],
-      ok: false,
-    });
-    return;
-  }
-
+/**
+ * Diff the inventory against the on-disk tree. Pure — the whole drift policy,
+ * independent of the filesystem, and the unit a test can drive directly.
+ *
+ * One row yields at most one finding: a row nobody classified is reported as
+ * unclassified rather than ALSO as missing, because the remedy is the same
+ * sentence either way and two lines for one row trains people to skim.
+ */
+export function computeDrift(inventory: InventoryRow[], onDisk: string[]): DriftItem[] {
   const inventoryByName = new Map<string, InventoryRow>();
   for (const row of inventory) inventoryByName.set(row.name, row);
-
-  const onDisk = listMemoryDirsOnDisk();
   const onDiskSet = new Set(onDisk);
 
   const drift: DriftItem[] = [];
@@ -187,22 +204,77 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     if (!inventoryByName.has(dir)) {
       drift.push({
         kind: 'unknown_on_disk',
+        key: `unknown_on_disk:${dir}`,
         detail: `MEMORY/${dir}/ exists but is not listed in MemorySystem.md Directory Inventory. Either add a row or remove the directory.`,
       });
     }
   }
 
-  // Direction 2: active inventory rows missing on disk. Non-active rows
-  // (reserved = not-yet-built; on-demand = created when the owning skill/tool
-  // first runs) are allowed to be absent — a fresh install has run nothing yet.
+  // Direction 2: rows nobody classified — reported whether or not the directory
+  // exists, because the row's absence policy is undefined until someone writes a
+  // recognised value, and an unrecognised value that grants silence is
+  // indistinguishable from a deliberate exemption.
+  //
+  // Direction 3: rows whose Status says the directory must already be there.
+  // Statuses in MAY_BE_ABSENT are allowed to be missing — a fresh install has
+  // run nothing yet, and a dormant archive may never have existed here.
   for (const row of inventory) {
-    if (row.status === 'active' && !onDiskSet.has(row.name)) {
+    if (!KNOWN_STATUS.has(row.status)) {
+      drift.push({
+        kind: 'unclassified_status',
+        key: `unclassified_status:${row.name}`,
+        detail: `Inventory row MEMORY/${row.name}/ has Status "${row.status}", which is not one of ${[...KNOWN_STATUS].map((v) => `\`${v}\``).join(', ')}. The row is enforced in neither direction until it carries a recognised Status — an unrecognised value is not an exemption. See MemorySystem.md § Directory Inventory § Status.`,
+      });
+      continue;
+    }
+    if (MUST_EXIST.has(row.status) && !onDiskSet.has(row.name)) {
       drift.push({
         kind: 'missing_active',
-        detail: `Inventory lists MEMORY/${row.name}/ as ${row.status} but directory does not exist on disk. Either create it or change the row's status to reserved/on-demand.`,
+        key: `missing_active:${row.name}`,
+        detail: `MEMORY/${row.name}/ does not exist on disk and the row is \`${row.status}\`. Create it, or give the row the Status that is actually true — but a row whose directory still has a shipped reader must not be reclassified to silence it (MemorySystem.md § Governance — reclassification).`,
       });
     }
   }
+
+  return drift;
+}
+
+export async function handleMemoryDirIntegrity(): Promise<void> {
+  const startTime = Date.now();
+  console.error(`${TAG} === Starting memory inventory drift check ===`);
+
+  const inventory = parseInventory();
+  if (inventory === null) {
+    const drift: DriftItem = {
+      kind: 'inventory_unparseable',
+      key: 'inventory_unparseable:doc',
+      detail: `Failed to parse Directory Inventory from ${INVENTORY_DOC}. Drift check skipped.`,
+    };
+    console.error(`${TAG} [WARN] ${drift.detail}`);
+    emitFindingSet({
+      type: 'doc.integrity.memory_dir',
+      source: 'MemoryDirIntegrity',
+      findings: [drift],
+    });
+    return;
+  }
+
+  if (inventory.length === 0) {
+    console.error(`${TAG} [WARN] Inventory table parsed but contains zero rows. Check the table format in MemorySystem.md.`);
+    emitFindingSet({
+      type: 'doc.integrity.memory_dir',
+      source: 'MemoryDirIntegrity',
+      findings: [{
+        kind: 'inventory_unparseable',
+        key: 'inventory_unparseable:zero_rows',
+        detail: 'Inventory parsed with zero rows',
+      }],
+    });
+    return;
+  }
+
+  const onDisk = listMemoryDirsOnDisk();
+  const drift = computeDrift(inventory, onDisk);
 
   // Report.
   if (drift.length === 0) {
@@ -214,14 +286,16 @@ export async function handleMemoryDirIntegrity(): Promise<void> {
     }
   }
 
-  emitEvent({
+  // Emitted on every completed check, empty set included — see the emission
+  // contract in hooks/lib/events.ts. Silence here would mean "not checked".
+  emitFindingSet({
     type: 'doc.integrity.memory_dir',
     source: 'MemoryDirIntegrity',
-    on_disk_count: onDisk.length,
-    inventory_count: inventory.length,
-    drift_count: drift.length,
-    drift,
-    ok: drift.length === 0,
+    findings: drift,
+    extra: {
+      on_disk_count: onDisk.length,
+      inventory_count: inventory.length,
+    },
   });
 
   const elapsed = Date.now() - startTime;

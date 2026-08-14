@@ -2,26 +2,26 @@
 last_updated: 2026-07-22T04:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.1.1
+version: 1.1.4
 ---
 
 # Atlas — the LifeOS Asset Graph
 
 > **Atlas is a graph-based current-state asset management system.** It maintains the current state of everything in the ecosystem as a queryable graph: Cloudflare workers, domains, DNS records, repos, projects, scanner targets, launchd services, machines, gear — one local SQLite system of record, reconciled from sources of authority, surfaced as the ATLAS tab in Pulse. It is the current-state half of the LifeOS thesis made concrete: before you can climb toward an ideal state you need an accurate picture of the state you're in.
 
-Modeled on CNCF Cartography's design (sync-and-expire collectors, per-source observations, first/last-seen stamps on every fact), rebuilt LifeOS-native: TypeScript, bun:sqlite, no server daemon, no Neo4j. Design hardened by a 2026-07-21 cross-vendor audit (see `LIFEOS/ATLAS/ISA.md` Decisions).
+Modeled on CNCF Cartography's design (sync-and-expire collectors, per-source observations, first/last-seen stamps on every fact), rebuilt LifeOS-native: TypeScript, bun:sqlite, no server daemon, no Neo4j. Design hardened by a 2026-07-21 cross-vendor audit (see the maintainer-side `LIFEOS/ATLAS/ISA.md` Decisions — per-instance state, not in the public release payload).
 
 ## Where things live
 
 | Piece | Path |
 |---|---|
 | CLI + store + collectors | `LIFEOS/ATLAS/` (`Atlas.ts`, `Store.ts`, `collectors/*.ts`) |
-| ISA (persistent state-of-record) | `LIFEOS/ATLAS/ISA.md` |
+| ISA (persistent state-of-record) | `LIFEOS/ATLAS/ISA.md` (maintainer-side; not in the public release payload) |
 | Database (SQLite, WAL) | `~/.local/state/lifeos/atlas/atlas.db` — **outside both git repos, by design** |
 | Redacted Pulse snapshot | `~/.local/state/lifeos/atlas/snapshot.json` |
 | Event hints | `~/.local/state/lifeos/atlas/events.jsonl` |
 | Hint hook | `hooks/AtlasEventCapture.hook.ts` (PostToolUse: Bash, Write, Edit, MultiEdit) |
-| Background service | `com.lifeos.atlas` (launchd: 15-min tick + WatchPaths on events file) |
+| Background service | `com.lifeos.atlas` — launchd (macOS, 15-min tick + WatchPaths on events file) or systemd --user timer (Linux, 15-min `OnUnitActiveSec`, no WatchPaths equivalent); installed by `LIFEOS/ATLAS/InstallAtlas.ts` |
 | Pulse | module `PULSE/modules/atlas.ts` → `GET /api/atlas`, `GET/POST /api/atlas/insights` → page `/atlas` (tier1 nav): live d3-force graph + Insights + Browse + Gaps tabs |
 | Insights cache | `MEMORY/STATE/atlas-insights.json` (Inference narrative, keyed by metric content hash) |
 | Tests | `LIFEOS/ATLAS/tests/store.test.ts` (sweep invariants) |
@@ -49,8 +49,11 @@ Modeled on CNCF Cartography's design (sync-and-expire collectors, per-source obs
 | `projects` | `USER/PROJECTS.md` main table | projects; SERVES → domains, DEPLOYED_FROM → repos |
 | `infra-inventory` | `ARBOL/Shared/infra-inventory.ts` (observed, never replaced) | targets, security-plane system node; MONITORS → domains, REGISTERED_IN |
 | `launchd` | `~/Library/LaunchAgents/com.{lifeos,pai}.*` (plutil always `-o -`) | services, this machine; RUNS_ON edges |
+| `systemd` | `~/.config/systemd/user/com.{lifeos,pai}.*.{service,timer}` (Linux sibling of `launchd` — unit files parsed directly, no subprocess) | services, this machine; RUNS_ON edges |
 | `gear` | `USER/GEAR.md` tables | devices with category/role |
 | `secrets` | the incident-response credential registry (`GenerateRegistry.ts --json`) + tier shapes (`DetectCriticalKeys.ts --format json`) | credentials (priority/cadence/vendor/dependencies attrs), orphaned credentials; HOLDS edges from this machine and from the config repo when the env file is tracked in it |
+
+`launchd` and `systemd` are platform-exclusive: `Atlas.ts` registers exactly one of them by `process.platform`, so a macOS install's collector set is unchanged and `atlas sync systemd` there fails as an unknown collector rather than reporting a permanently incomplete run.
 
 Worker credentials come from the `cloudflare` collector, not `secrets` — each script's `/settings` response lists its `secret_text` binding NAMES, and the provider is the authority. Source-grepping a worker repo finds a small fraction, because most worker secrets are pushed with `wrangler secret put` and appear in no file.
 
@@ -85,7 +88,7 @@ The join earned itself immediately: the first env↔graph reconciliation surface
 ## What it catches (live examples from first sync)
 
 - **Registration gaps:** `atlas unregistered` found 33 serving-but-uncurated domains on first run — apps with traffic but no auth-boundary assertions in the hourly scanner.
-- **Blast radius:** `atlas owns domain:example.com` lists the DNS records and hostnames a zone deletion would orphan — the exact query whose absence caused INC-20260717-ullive-dns-deletion.
+- **Blast radius:** `atlas owns domain:example.com` lists the DNS records and hostnames a zone deletion would orphan — the exact query whose absence caused the 2026-07-17 DNS-deletion incident.
 - **Drift:** an asset that stops being observed goes stale visibly (Pulse GAPS tab + lifecycle events) instead of silently vanishing.
 
 ## Pulse surfaces
@@ -100,4 +103,4 @@ The join earned itself immediately: the first env↔graph reconciliation surface
 
 ## Lineage
 
-Cartography (Lyft → CNCF Sandbox 2024) proved the model: typed nodes/edges, intel modules, sync-and-expire, drift detection. Atlas keeps the model and swaps the substrate — SQLite for Neo4j (the 2026-07-21 audit's concurrency finding: embedded columnar graph engines are single-write-process; SQLite WAL matches the multi-process no-daemon topology), TS collectors for Python modules, recursive CTEs for Cypher. Research trail: `MEMORY/WORK/20260721-cartography-asset-graph-research/ISA.md`.
+Cartography (Lyft → CNCF Sandbox 2024) proved the model: typed nodes/edges, intel modules, sync-and-expire, drift detection. Atlas keeps the model and swaps the substrate — SQLite for Neo4j (the 2026-07-21 audit's concurrency finding: embedded columnar graph engines are single-write-process; SQLite WAL matches the multi-process no-daemon topology), TS collectors for Python modules, recursive CTEs for Cypher.

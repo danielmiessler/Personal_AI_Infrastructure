@@ -53,6 +53,17 @@ dist/
 build/
 out/
 
+# ...except the Pulse dashboard's static export, which is a SHIPPED release
+# artifact, not a local build artifact. A fresh install must get a working
+# dashboard at localhost:31337 with no build step. The bare `out/` above silently
+# swallowed it for every release after the payload moved to LifeOS/install/ —
+# `git add -A LifeOS/` honors .gitignore, so 181 files were dropped at publish
+# while every release gate passed against the staging tree where they existed.
+# Order matters: git cannot re-include a file whose parent directory is excluded,
+# so the directory is un-ignored first, then its contents.
+!LifeOS/install/LIFEOS/PULSE/Observability/out/
+!LifeOS/install/LIFEOS/PULSE/Observability/out/**
+
 # Cache
 .cache/
 *.cache

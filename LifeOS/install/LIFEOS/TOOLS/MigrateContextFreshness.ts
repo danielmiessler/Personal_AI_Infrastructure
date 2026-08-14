@@ -18,6 +18,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 import { createHash } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { basename, dirname, join, relative } from "path";
+import { homedir } from "node:os";
 import {
   CONTEXT_FRESHNESS_REGISTRY,
   MARKER_RE,
@@ -32,7 +33,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const CLAUDE_DIR = dirname(LIFEOS_DIR);
 const SEED_ISO = "2026-05-03T23:00:00-07:00";
@@ -244,8 +245,72 @@ function printSummary(results: MigrationResult[]): void {
   }
 }
 
+// ─── State-file mode (--state) ────────────────────────────────────────────
+//
+// CURRENT_STATE/ and IDEAL_STATE/ dimension files already carry last_updated
+// in an older frontmatter dialect. This mode upserts only the pai-freshness-v1
+// membership fields (convention + last_updated_by) into the existing block,
+// preserving every existing field. Body content is sha256-verified unchanged.
+
+function stampStateFile(entry: ContextFile, dryRun: boolean): MigrationResult {
+  const file = basename(entry.path);
+  const original = readFileSync(entry.path, "utf-8");
+  const preHash = strippedHash(original);
+
+  const end = original.indexOf("\n---\n", 4);
+  if (!original.startsWith("---\n") || end === -1) {
+    return { file, path: entry.path, action: "failed", sha256Match: false,
+      bytesBefore: Buffer.byteLength(original), bytesAfter: Buffer.byteLength(original),
+      preHash, postHash: preHash, preview: [],
+      error: `${entry.path}: no frontmatter block — state files are expected to have one` };
+  }
+
+  let block = original.slice(4, end);
+  let action = "unchanged";
+  if (!/^convention:/m.test(block)) {
+    block += `\nconvention: pai-freshness-v1`;
+    action = "stamped";
+  }
+  if (!/^last_updated_by:/m.test(block)) {
+    block += `\nlast_updated_by: migration`;
+    action = "stamped";
+  }
+
+  const next = "---\n" + block + "\n---\n" + original.slice(end + 5);
+  const postHash = strippedHash(next);
+  const sha256Match = preHash === postHash;
+  if (!sha256Match) {
+    return { file, path: entry.path, action: "failed", sha256Match,
+      bytesBefore: Buffer.byteLength(original), bytesAfter: Buffer.byteLength(next),
+      preHash, postHash, preview: previewLines(next),
+      error: `content hash mismatch for ${entry.path}` };
+  }
+
+  if (!dryRun && next !== original) {
+    writeFileSync(entry.path, next);
+  }
+
+  return { file, path: entry.path, action, sha256Match,
+    bytesBefore: Buffer.byteLength(original), bytesAfter: Buffer.byteLength(next),
+    preHash, postHash, preview: previewLines(next) };
+}
+
 function main(): void {
   const dryRun = process.argv.includes("--dry-run");
+
+  if (process.argv.includes("--state")) {
+    const { stateFreshnessRegistry } = require("./TelosFreshness") as typeof import("./TelosFreshness");
+    const results = stateFreshnessRegistry().map((entry) => stampStateFile(entry, dryRun));
+    printSummary(results);
+    const failed = results.some((result) => result.error || !result.sha256Match);
+    if (failed) {
+      console.error("State migration completed with failures");
+      process.exit(1);
+    }
+    console.log(dryRun ? "\n(dry-run - no files written)" : "\nState files stamped.");
+    return;
+  }
+
   const targets = CONTEXT_FRESHNESS_REGISTRY.filter((entry) => entry.slug !== "telos");
   const results = targets.map((entry) => migrateFile(entry, dryRun));
 

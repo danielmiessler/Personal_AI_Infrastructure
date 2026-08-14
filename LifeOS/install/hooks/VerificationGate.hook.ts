@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.4
+ * @version 1.0.6
  * VerificationGate.hook.ts — task-aware verification gate (Stop).
  *
  * Replaces the deregistered SuccessClaimGate. Thesis: THE MESSAGE IS A CLAIM;
@@ -55,8 +55,9 @@ import {
 import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { createHash } from "crypto";
+import { homedir } from "node:os";
 
-const LIFEOS = process.env.LIFEOS_DIR || join(process.env.HOME!, ".claude", "LIFEOS");
+const LIFEOS = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const OBS_PATH = join(LIFEOS, "MEMORY", "OBSERVABILITY", "verification-gate.jsonl");
 const STATE_PATH = join(LIFEOS, "MEMORY", "STATE", "verification-gate-blocked.json");
 
@@ -72,8 +73,15 @@ export function splitIntoUnits(text: string): string[] {
   // claim vanished before any type could see it. That blind spot hit every type
   // carrying a version, IP, or decimal. Found 2026-07-31 by testing the gate
   // against the exact sentence it was built to catch.
+  //
+  // A newline is exempt from that protection and ALWAYS splits: no number is
+  // written across two lines, so the lookarounds only ever fused unrelated lines
+  // — a line ending in a digit followed by a line starting with one became a
+  // single unit, which both invented claims spanning two sentences and let a
+  // neighbouring line's hedge ("local", "not") suppress a real claim.
+  // (ported from public PR #1738, @elhoim)
   return text
-    .split(/(?<!\d)[.!?;,\n]+|[.!?;,\n]+(?!\d)/)
+    .split(/\n+|(?<!\d)[.!?;,]+|[.!?;,]+(?!\d)/)
     .map((u) => (u ?? "").trim())
     .filter(Boolean);
 }
@@ -214,18 +222,49 @@ const COMPLETION =
 const ACKNOWLEDGES_FAILURE =
   /\b(fail(s|ed|ure|ing)?|error(s|ed)?|traceback|exception|broke|broken|didn'?t\s+(work|run|parse)|couldn'?t|hit\s+a\s+(snag|wall)|blocked)\b/i;
 
-/** Returns the claiming unit iff the message asserts completion while the
- * turn's final tool event hard-failed and nothing succeeded after it. */
-export function contradictedCompletionUnit(message: string, evs: { isError: boolean; resultText: string }[]): string | null {
-  if (evs.length === 0) return null;
-  const last = evs[evs.length - 1]!;
-  if (!HARD_FAIL.test(last.resultText)) return null;
+/** Shared core: does the message claim completion while `resultText` carries
+ * hard-failure output? Independent of the exit flag — the two callers below
+ * gate on `is_error` in opposite directions. */
+function completionClaimOverFailingOutput(message: string, resultText: string): string | null {
+  if (!HARD_FAIL.test(resultText)) return null;
   const stripped = stripNoise(message);
   if (ACKNOWLEDGES_FAILURE.test(stripped)) return null; // honest about the failure ⇒ not a contradiction
   for (const u of splitIntoUnits(stripped).filter((u) => unitIsClaimable(u))) {
     if (COMPLETION.test(u)) return u;
   }
   return null;
+}
+
+/** Returns the claiming unit iff the message asserts completion while the
+ * turn's final tool event hard-failed and nothing succeeded after it.
+ *
+ * The raw `is_error` flag is required alongside the text match. HARD_FAIL alone
+ * reads the OUTPUT, so any command that merely quotes failure words fired it —
+ * a successful `rg -n "exit 1"` was a contradicted completion. Bash sets
+ * `is_error` on every non-zero exit, so the founding class (a traceback then a
+ * success claim) is untouched; what no longer fires is a command that printed
+ * failure text and still exited 0.
+ * (ported from public PR #1738, @elhoim) */
+export function contradictedCompletionUnit(message: string, evs: { isToolError: boolean; resultText: string }[]): string | null {
+  if (evs.length === 0) return null;
+  const last = evs[evs.length - 1]!;
+  if (!last.isToolError) return null;
+  return completionClaimOverFailingOutput(message, last.resultText);
+}
+
+/** The SUPPRESSED companion to contradictedCompletionUnit. Same shape, but for
+ * the case the `is_error` requirement deliberately lets through: the final tool
+ * event printed hard-failure output yet exited 0 (`cmd || true`, status-swallowing
+ * wrappers), then the message claimed completion. Requiring `is_error` fixed a
+ * real FP (a passing `rg -n "exit 1"`) but opened this hole; rather than reinstate
+ * a text-only BLOCK path (which re-opens that FP), the caller LOGS this to
+ * observability so the hole is visible and its real rate is measurable. Never
+ * blocks. */
+export function suppressedContradictionUnit(message: string, evs: { isToolError: boolean; resultText: string }[]): string | null {
+  if (evs.length === 0) return null;
+  const last = evs[evs.length - 1]!;
+  if (last.isToolError) return null; // that path is contradictedCompletionUnit's
+  return completionClaimOverFailingOutput(message, last.resultText);
 }
 
 // A terse liveness/works assertion with no flow noun in the unit ("both apps
@@ -338,6 +377,11 @@ export async function run(input: NonNullable<Awaited<ReturnType<typeof readHookI
         };
       }
       obs({ decision: "pass-dedupe", type: "TF" });
+    } else {
+      // Swallowed-status hole: final event printed hard-failure text but exited 0,
+      // so the block above (which requires is_error) can't fire. Log, never block.
+      const suppressed = suppressedContradictionUnit(message, ev);
+      if (suppressed) obs({ decision: "log-suppressed", type: "TF", reason: "hard-fail-text-but-exit-0", unit: suppressed });
     }
   }
 

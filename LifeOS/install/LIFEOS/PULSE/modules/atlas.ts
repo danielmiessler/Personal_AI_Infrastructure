@@ -44,10 +44,27 @@ export function health() {
 
 // ── Metrics + inference ───────────────────────────────────────────────
 
+const METRICS_TIMEOUT_MS = 30_000;
+
 async function metrics(): Promise<Record<string, unknown> | null> {
   const proc = Bun.spawn(["bun", ATLAS_CLI, "insights"], { stdout: "pipe", stderr: "pipe" });
-  const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-  if (code !== 0 || !out.trim()) return null;
+  // Drain stdout AND stderr concurrently, under a kill timer (same class as
+  // modules/work.ts): stderr was piped but never read, so a chatty `atlas
+  // insights` failure fills the OS pipe buffer, the child blocks on the write,
+  // and with no timeout the request hung forever while wedged children piled
+  // up on every uncached poll.
+  // ported from public PR #1736, @elhoim
+  const timer = setTimeout(() => { try { proc.kill(); } catch { /* already gone */ } }, METRICS_TIMEOUT_MS);
+  const [out, err, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  clearTimeout(timer);
+  if (code !== 0 || !out.trim()) {
+    console.log(`[${MODULE_NAME}] metrics failed (exit ${code}): ${err.slice(0, 200)}`);
+    return null;
+  }
   try {
     return JSON.parse(out);
   } catch {

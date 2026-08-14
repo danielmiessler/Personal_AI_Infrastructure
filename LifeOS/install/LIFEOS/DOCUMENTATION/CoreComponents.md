@@ -1,17 +1,17 @@
 ---
-last_updated: 2026-08-01
+last_updated: 2026-08-13
 last_updated_by: da
 last_reviewed: 2026-07-05
 last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.4.0
+version: 1.10.0
 ---
 
 # LifeOS Core Components
 
 LifeOS is the AI harness that moves you from where you are now to where you want to be — an intent engineering platform. Every task — shipping code, writing an essay, making a decision — is the same move, from **current state to ideal state**, pursued through verifiable iteration, with your ultimate intent conveyed into every run.
 
-That one loop is built from a set of components. They fall into two tiers. The **unique features** are the parts that make LifeOS what it is — you won't find this combination anywhere else. The **supporting components** are the subsystems that make the unique ones work.
+That one loop is built from a set of components — the **unique features** that make LifeOS what it is. You won't find this combination anywhere else. Anything a good harness already provides on its own (built-in subagents, for example) isn't listed here; this map is only the parts LifeOS adds.
 
 This doc is the canonical map. Each component links to its full reference.
 
@@ -19,7 +19,7 @@ This doc is the canonical map. Each component links to its full reference.
 
 ## The Unique Features
 
-The twelve things that make LifeOS LifeOS.
+The twenty-three things that make LifeOS LifeOS.
 
 ### 1. Current State → Ideal State
 
@@ -41,7 +41,7 @@ The loop under everything. Your ideal state is the top of the hill, broken into 
 
 ### 4. Euphoric Surprise
 
-The metric the whole climb aims at: a response so good you say it out loud, "OMG, this is brilliant," rated a 9 or 10. Naming Euphoric Surprise as the target keeps the bar higher than merely good enough, and it holds across everything you do, code, writing, a decision, a design, because every task climbs toward an ideal state, and this is what reaching it feels like.
+The metric the whole climb aims at: a response so good you say it out loud, "OMG, this is brilliant," rated a 9 or 10. Naming Euphoric Surprise as the target keeps the bar higher than merely good enough, and it holds across everything you do, code, writing, a decision, a design, because every task climbs toward an ideal state, and this is what reaching it feels like. It is the meta-ideal-state of every ISA: each ISA names the specific ideal state of one piece of work, and above every one sits this same universal goal, so every climb is toward both at once.
 
 → `LifeOs/LifeOsThesis.md`
 
@@ -57,37 +57,103 @@ The centerpiece. The unified thinking system that takes a vague request, turns i
 
 → `Algorithm/AlgorithmSystem.md`
 
-### 7. ISA System
+### 7. Arbol
+
+The execution layer, built from small Unix-like composable units — Actions do one thing, Pipelines compose them with structured context, Flows bind them to a schedule or event and route a checked result. Deterministic steps handle rules, validation, routing, storage, and checking; models handle only the explicit, bounded judgments they are asked to make. Useful work you can trigger, repeat, inspect, and improve — not uncontrolled autonomy.
+
+→ `Arbol/ArbolSystem.md`
+
+### 8. ISA System
 
 The Ideal State Artifact — one document that captures what "done" looks like as verifiable criteria. It works like a product spec, but general, for any task from code to art to strategy. It breaks the ideal state into discrete Ideal State Criteria (ISCs) that double as the test harness, so every Algorithm run reads, extends, and checks against one living document.
 
 → `ISA/ISASystem.md`
 
-### 8. The Skill System
+### 9. Bunker
+
+The universal application harness — a typed chassis every app sits inside. The app owns the experience (design, content, domain logic); Bunker owns the invisible layer: data and backups, deploys and rollback, health and uptime, identity, and an always-on security plane that probes the deployed surface hourly from the outside. Each app's ISA doubles as its component manifest and executable test suite — `bunker test` runs the spec's own probes — and every public deployment registers in both the health and security planes as part of the same motion as the deploy. The public release ships the concept doc; the reference implementation is private infrastructure you build your own harness against.
+
+→ `Bunker/BunkerSystem.md`
+
+### 10. Cortex
+
+The memory system — everything LifeOS knows, as a product of its own. Named for where the brain stores long-term memory: hooks and an autonomic reviewer consolidate what each session taught, and the tiered store keeps it — hot-layer facts, a typed knowledge graph, learnings, and work history — so every session starts smarter than the last.
+
+→ `Memory/MemorySystem.md`
+
+### 11. Synapse
+
+The input router. Anything that crosses your attention — a link, a video, a PDF, a spoken thought — enters through one capture contract, is preserved instantly in the amber ledger (the write-ahead journal), graded against what you're actually trying to do, and routed where it belongs. Nothing interesting gets away, and you can find it years later.
+
+→ `Synapse/SynapseSystem.md`
+
+### 12. Atlas
+
+The current state of everything you own. Domains, servers, apps, accounts, keys, and devices held as one graph rather than a list, so you can ask what you have, what depends on what, and what a single compromise would reach.
+
+→ `Atlas/AtlasSystem.md`
+
+### 13. Ledger
+
+The change-tracking system. Every change gets the right version and leaves a queryable record — system edits classified and bumped (Major.Feature.Patch across the OS and every component), an append-only update registry, integrity-gated shipping, drift nagging, and a deploy event for everything that ships anywhere. One place answers "what changed, when, at what version, verified how."
+
+→ `Ledger/LedgerSystem.md`
+
+### 14. The Skill System
 
 Self-activating, composable units of domain expertise. A skill is deterministic code wrapped in a natural-language trigger, so the right capability fires the moment you describe the task — no menu, no command to remember. There are over a hundred of them, and they compose.
 
 → `Skills/SkillSystem.md`
 
-### 9. The Hook System
+### 15. The Hook System
 
 Deterministic lifecycle interception. Hooks run at fixed points across a session — before a tool call, after output, at session start and stop — and enforce the rules a model can't be trusted to remember every time. This is how the system stays honest: the guardrails are code, not good intentions.
 
 → `Hooks/HookSystem.md`
 
-### 10. Pulse
+### 16. Pulse
 
 The Life Dashboard — the live surface onto the whole system. Pulse shows your current-to-ideal progress, what the system is working on right now, your memory and freshness state, and the health of every subsystem. It's how you *see* LifeOS run.
 
 → `Pulse/PulseSystem.md`
 
-### 11. Custom Spinner Verbs
+### 17. Observability
+
+The agents dashboard — a live kanban of every run and every agent working. Each run is a card that moves through the states of a climb (Traverse, Marking, Ascending, Anchoring, Camped, Cairn) carrying its ISA claim count, and a spotlight follows the active run: altitude over time, activity, and every claim as it opens and closes on evidence. Progress shows as verified claims, not log lines.
+
+→ `Observability/ObservabilitySystem.md`
+
+### 18. Voice
+
+Spoken notifications. The system talks to you — work milestones, completions, alerts — in a voice you choose, so you can stay in flow without watching the terminal.
+
+→ `Notifications/NotificationSystem.md`
+
+### 19. Learning
+
+Every run reflects on itself. What worked, what didn't, and what a smarter version would have done gets captured and fed back into how the system behaves next time.
+
+→ `Memory/MemorySystem.md`
+
+### 20. Security
+
+Privacy and safety are enforced, not assumed. Deterministic gates keep private data private, treat outside content as read-only, and block anything unsafe before it runs.
+
+→ `Security/README.md`
+
+### 21. Hermes Sidecar
+
+An optional second front door. Talk to your LifeOS from another channel — as an agent, not a fresh chatbot — with the same memory, identity, and security rules as a terminal session. One brain, reachable from more places.
+
+→ `Hermes/HermesSidecar.md`
+
+### 22. Custom Spinner Verbs
 
 The small touch that makes the system feel alive. While LifeOS works, the statusline shows a custom animated working-verb — your own vocabulary, colors, and animation — alongside rotating tips about the system. A distinctive, personal detail most tools never bother with.
 
 → `Spinner/SpinnerSystem.md`
 
-### 12. Custom Tooltips
+### 23. Custom Tooltips
 
 Context where you need it. The dashboard's tooltips and freshness indicators explain what each number, chart, and badge means the moment you hover — so the surface teaches itself instead of sending you to a manual.
 
@@ -95,63 +161,9 @@ Context where you need it. The dashboard's tooltips and freshness indicators exp
 
 ---
 
-## Supporting Components
-
-The subsystems the unique features are built on.
-
-### Cortex
-
-The memory system — everything LifeOS knows, as a product of its own. Named for where the brain stores long-term memory: hooks and an autonomic reviewer consolidate what each session taught, and the tiered store keeps it — hot-layer facts, a typed knowledge graph, learnings, and work history — so every session starts smarter than the last.
-
-→ `Memory/MemorySystem.md`
-
-### Synapse
-
-The input router. Anything that crosses your attention — a link, a video, a PDF, a spoken thought — enters through one capture contract, is preserved instantly in the amber ledger (the write-ahead journal), graded against what you're actually trying to do, and routed where it belongs. Nothing interesting gets away, and you can find it years later.
-
-→ `Synapse/SynapseSystem.md`
-
-### Atlas
-
-The current state of everything you own. Domains, servers, apps, accounts, keys, and devices held as one graph rather than a list, so you can ask what you have, what depends on what, and what a single compromise would reach.
-
-→ `Atlas/AtlasSystem.md`
-
-### Agents
-
-Parallel delegation. Hard work fans out to specialized agents — researchers, builders, adversarial reviewers — that run concurrently and report back, so the system thinks in parallel instead of one step at a time.
-
-→ `Agents/AgentSystem.md`
-
-### Voice
-
-Spoken notifications. The system talks to you — phase transitions, completions, alerts — in a voice you choose, so you can stay in flow without watching the terminal.
-
-→ `Notifications/NotificationSystem.md`
-
-### Learning
-
-Every run reflects on itself. What worked, what didn't, and what a smarter version would have done gets captured and fed back into how the system behaves next time.
-
-→ `Memory/MemorySystem.md`
-
-### Security
-
-Privacy and safety are enforced, not assumed. Deterministic gates keep private data private, treat outside content as read-only, and block anything unsafe before it runs.
-
-→ `Security/README.md`
-
-### Ledger
-
-The change-tracking system. Every change gets the right version and leaves a queryable record — system edits classified and bumped (Major.Feature.Patch across the OS and every component), an append-only update registry, integrity-gated shipping, drift nagging, and a deploy event for everything that ships anywhere. One place answers "what changed, when, at what version, verified how."
-
-→ `Ledger/LedgerSystem.md`
-
----
-
 ## How they fit together
 
-Current-state-to-ideal-state is the **why**, intent engineering is the **job**, and Euphoric Surprise is the **bar** it aims for. The Algorithm is the **engine** that runs it. Skills and hooks are the **machinery** that make each run capable and safe. Pulse, spinner verbs, and tooltips are how you **see and feel** it. Cortex, agents, voice, learning, security, and the ledger are the **foundation** underneath. Together they're the whole of what makes LifeOS work.
+Current-state-to-ideal-state is the **why**, intent engineering is the **job**, and Euphoric Surprise is the **bar** it aims for. The Algorithm is the **engine** that runs it, and Arbol **carries** bounded pieces of the work beyond the session, on triggers and schedules. Bunker is the **chassis** everything shipped runs inside. Skills and hooks are the **machinery** that make each run capable and safe. Cortex, Synapse, and Atlas are what it **knows** — what you've learned, what you've caught, what you own — and Ledger is the **record** of every change it makes. Pulse, spinner verbs, and tooltips are how you **see and feel** it, and voice is how it **speaks** to you. Learning is how every run **feeds** the next, security is the **gate** under all of it, and Hermes is the **second door** into the same brain. Together they're the whole of what makes LifeOS work.
 
 ---
 
@@ -179,7 +191,7 @@ The reinforcing point is that the map isn't a checklist every task must complete
 
 Same components, wildly different depth, because effort is read off the task, not fixed in advance. The map shows what's *available*; the work decides what's *used*.
 
-### The tiers, working together
+### The components, working together
 
 ```mermaid
 flowchart TD
@@ -191,7 +203,7 @@ flowchart TD
     HK --> OUT
     OUT --> P[Pulse: see it run]
     OUT --> M[Cortex + Learning: next run starts smarter]
-    FOUND[Foundation: agents, voice, security, ledger] -.->|underneath every run| ALG
+    FOUND[Voice, security, ledger] -.->|underneath every run| ALG
 ```
 
-The diagram sorts the two tiers by role: TELOS and the ISA aim the engine, skills and hooks make each run capable and safe, Pulse and Cortex are how you see it and how it compounds, and the supporting components sit underneath the whole climb.
+The diagram sorts the components by role: TELOS and the ISA aim the engine, skills and hooks make each run capable and safe, Pulse and Cortex are how you see it and how it compounds, and voice, security, and the ledger sit underneath the whole climb.

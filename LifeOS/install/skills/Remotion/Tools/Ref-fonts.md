@@ -16,11 +16,9 @@ The recommended way to use Google Fonts. It's type-safe and automatically blocks
 First, the @remotion/google-fonts package needs to be installed.
 If it is not installed, use the following command:
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/google-fonts # If project uses npm
-bunx remotion add @remotion/google-fonts # If project uses bun
-yarn remotion add @remotion/google-fonts # If project uses yarn
-pnpm exec remotion add @remotion/google-fonts # If project uses pnpm
+bunx remotion add @remotion/google-fonts
 ```
 
 ```tsx
@@ -64,11 +62,9 @@ For local font files, use the `@remotion/fonts` package.
 
 First, install @remotion/fonts:
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/fonts # If project uses npm
-bunx remotion add @remotion/fonts # If project uses bun
-yarn remotion add @remotion/fonts # If project uses yarn
-pnpm exec remotion add @remotion/fonts # If project uses pnpm
+bunx remotion add @remotion/fonts
 ```
 
 ### Loading a local font

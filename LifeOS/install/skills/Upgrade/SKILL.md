@@ -1,6 +1,6 @@
 ---
 name: Upgrade
-version: 1.1.18
+version: 1.1.26
 description: "Improve LifeOS from what the best practitioners are shipping around AI harnesses — Anthropic first (changelogs, docs, releases), then trusted creators, trending repos, and the system's own reflections — extracting concrete techniques and filtering them against verified current state so nothing already-done or rejected is re-recommended. USE WHEN upgrade, system upgrade, check Anthropic, new Claude features, algorithm upgrade, LifeOS upgrade, mine reflections."
 ---
 
@@ -37,18 +37,24 @@ Signal comes from two directions, and a good run uses both: **external** (what A
 
 | Workflow | Trigger | File |
 |----------|---------|------|
-| **Upgrade** | "check for upgrades", "check sources", "any updates", "check Anthropic", "check YouTube", "upgrade", "pai upgrade" | `Workflows/Upgrade.md` |
+| **Upgrade** | "check for upgrades", "check sources", "any updates", "check Anthropic", "check YouTube", "upgrade" | `Workflows/Upgrade.md` |
 | **MineReflections** | "mine reflections", "check reflections", "what have we learned", "internal improvements", "reflection insights" | `Workflows/MineReflections.md` |
 | **AlgorithmUpgrade** | "algorithm upgrade", "upgrade algorithm", "improve the algorithm", "algorithm improvements", "fix the algorithm" | `Workflows/AlgorithmUpgrade.md` |
 | **ResearchUpgrade** | "research this upgrade", "deep dive on [feature]", "further research" | `Workflows/ResearchUpgrade.md` |
 | **FindSources** | "find upgrade sources", "find new sources", "discover channels" | `Workflows/FindSources.md` |
-| **TwitterBookmarks** | "check bookmarks", "scan bookmarks", "twitter bookmarks", "X bookmarks", "bookmarks for upgrades", "what have I bookmarked" | `Workflows/TwitterBookmarks.md` |
+
+<!-- public issue #1750, @xmasyx — the TwitterBookmarks routing row was removed
+     here. Workflows/TwitterBookmarks.md is release-excluded (it depends on the
+     private _X skill), so on a public install the row advertised a route to a
+     file that does not ship. The workflow file itself is untouched and can
+     still be run directly; bookmark sweeps route through _X PullBookmarks
+     (`/tb`) and the BookmarkSweep launchd service. -->
 
 **Default workflow:** a bare "upgrade" or "check for upgrades" runs **Upgrade** (which includes reflection mining).
 
 ## The Contract (what every recommendation must satisfy)
 
-1. **Grounded in current state.** No recommendation without a Prior Status tag (🆕/🔶/💬/🚫) backed by file:line evidence gathered *this run*. Already-implemented items go to Skipped Content with evidence — that's the proof the prior-state check ran. Rejected ideas (`MEMORY/KNOWLEDGE/REJECTED/`) only resurface with a named reason the context changed.
+1. **Grounded in current state.** No recommendation without a Prior Status tag (🆕/🔶/💬/🚫) backed by file:line evidence gathered *this run*. Already-implemented items go to Skipped Content with evidence — that's the proof the prior-state check ran. Rejected ideas (`MEMORY/KNOWLEDGE/REJECTED/`) only resurface with a named reason the context changed. **This standard binds internal synthesis inference exactly as it binds external findings:** before any absence-claim earns a 🆕/CRITICAL tag, the thing claimed missing must be positively probed this run (grep/read for it), never inferred. A reported absence you did not check is a fabricated finding — the 2026-08-06 scan shipped a false CRITICAL across seven skills by grepping `context: fork` while never grepping `background:`. Internal inference is exempt from nothing.
 2. **A technique, not a pointer.** Quote or code-block the actual content; name the exact LifeOS file or component it improves; include What It Is and How It Helps LifeOS (≤2 concrete sentences each). The test: if "show me the technique" has no answer, it doesn't ship. Content with nothing extractable goes to Skipped with a reason — skip boldly rather than dilute.
 3. **Won't break what exists.** Check backward compatibility against current skills, hooks, and workflows before recommending adoption.
 4. **Formatted per the contract.** `References/OutputFormat.md` is the single source of truth for section order, Prior Status legend, table columns, and hard rules.

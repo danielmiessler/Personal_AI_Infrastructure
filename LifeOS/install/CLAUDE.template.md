@@ -1,4 +1,4 @@
-# LifeOS 7.28.3 — the Life Operating System
+# LifeOS 7.40.4 — the Life Operating System
 
 > **LifeOS is the AI harness that moves you from current state to ideal state — an intent engineering platform. The DA is the principal's AI assistant. Pulse is the Life Dashboard.**
 > Canonical thesis: `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`. Everyone running LifeOS names their own DA. LifeOS targets AS3 on the LifeOS Maturity Model, with lineage from "The Real Internet of Things" (2016).
@@ -43,6 +43,7 @@ This file is the **routing table** — it tells you where everything lives. The 
 - Ledger (change tracking: versioning, update registry, integrity gate, deploy events) — `Ledger/LedgerSystem.md`
 - Upgrades (the system-improvement queue) — `Upgrades/UpgradesSystem.md`
 - Atlas (current state of everything you own; `atlas` CLI, Pulse `/atlas`) — `Atlas/AtlasSystem.md`
+- Bunker (universal application harness — six planes, ISA-as-test-suite; concept doc, reference implementation not shipped) — `Bunker/BunkerSystem.md`
 - Synapse (input router — capture → amber ledger → grade vs TELOS → route) — `Synapse/SynapseSystem.md`
 - Conduit (sensory layer — local current-state capture, feeds memory + TELOS) — `Conduit/ConduitSystem.md`
 - Work system (capture surfaces → private GitHub Issues as system of record) — `Work/WorkSystem.md`
@@ -88,6 +89,8 @@ Populated during `/LifeOS setup`. Typical layout:
 - Freshness convention — see `LIFEOS/DOCUMENTATION/Freshness/FreshnessSystem.md`
 
 ## Principal — Work (paths under `LIFEOS/USER/`)
+
+> These are the conventional locations for your own content. A fresh install ships the scaffold, not the folders — create each one when you first put something in it.
 
 - Business — `BUSINESS/`
 - Health — `HEALTH/`

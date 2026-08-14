@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.1.0
+ * @version 1.1.1
  * ISACloseGate.hook.ts — ISA-freshness gate at major-work completion (Stop).
  *
  * Scope: completion of a major piece of work, not every sub-task — the nudge layer already
@@ -34,8 +34,9 @@ import { findActiveSessionByUUID } from "./lib/isa-utils";
 import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { createHash } from "crypto";
+import { homedir } from "node:os";
 
-const LIFEOS = process.env.LIFEOS_DIR || join(process.env.HOME!, ".claude", "LIFEOS");
+const LIFEOS = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const OBS_PATH = join(LIFEOS, "MEMORY", "OBSERVABILITY", "isa-close-gate.jsonl");
 const STATE_PATH = join(LIFEOS, "MEMORY", "STATE", "isa-close-gate-blocked.json");
 const NUDGE_STATE_DIR = join(LIFEOS, "MEMORY", "STATE", "isa-nudge");
@@ -56,7 +57,10 @@ export const ISA_ADDRESSED_RE =
   /\bISA(?:'s|s)?\s+(?:is\s+|was\s+|are\s+)?(?:already\s+)?(?:current|up[\s-]?to[\s-]?date|updated|unchanged|fresh|complete|closed|\d+\s*\/\s*\d+)\b|\bno\s+ISA\s+(?:update|delta|change)s?\s+(?:needed|required)\b|\bupdated?\s+the\s+ISA\b|\bISA\s+doesn'?t\s+need\b/i;
 
 export function completionUnit(message: string): string | null {
-  for (const u of splitIntoUnits(stripNoise(message)).filter(unitIsClaimable)) {
+  // Wrap the predicate — a bare reference hands Array.filter's index through as
+  // `opts`, so a number would be read for `opts.allowNarration`. The four call
+  // sites in VerificationGate.hook.ts all wrap. public issue #1766, @xmasyx
+  for (const u of splitIntoUnits(stripNoise(message)).filter((u) => unitIsClaimable(u))) {
     // Recipe tail ("Run the tests, then it's done") — the comma split leaves a
     // "then …" fragment that isn't a claim about work already finished.
     if (/^\s*(then|and\s+then|after\s+that|so\s+that)\b/i.test(u)) continue;
@@ -65,8 +69,23 @@ export function completionUnit(message: string): string | null {
   return null;
 }
 
+/** Write-shaped Bash commands that mutate a file in place. A python heredoc doing
+ *  `write_text`, a `sed -i`, an append, or a `git add <isa>` (staging proves a prior
+ *  write) all count — the Edit tool is not the only pen. 2026-08-11 false positive:
+ *  the ISA was updated via a python heredoc and committed in the SAME turn, and this
+ *  gate blocked anyway because it only read `edit` events (a gate reading a proxy —
+ *  the D-63 class — in our own hook). */
+const BASH_WRITE_RE = /(write_text|sed\s+-i\b|perl\s+-i\b|>>|\btee\b|git\s+add\b[^&|;]*ISA\.md)/;
+// ISA_PATH_RE is end-anchored (it classifies bare file paths); command TEXT needs a
+// mention match — an anchored regex against a 2000-char command is always false.
+const ISA_MENTION_RE = /(?:^|[\s/"'`])(?:ISA\.md|bunker\.isa\.md)\b/i;
+
 export function isaEditedThisTurn(ev: TxEvent[]): boolean {
-  return ev.some((e) => e.kind === "edit" && ISA_PATH_RE.test(e.target));
+  return ev.some(
+    (e) =>
+      (e.kind === "edit" && ISA_PATH_RE.test(e.target)) ||
+      (e.kind === "command" && !e.isToolError && ISA_MENTION_RE.test(e.target) && BASH_WRITE_RE.test(e.target)),
+  );
 }
 
 // ── State + telemetry (same shape as VerificationGate) ───────────────────────

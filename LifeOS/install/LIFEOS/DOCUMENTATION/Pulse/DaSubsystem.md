@@ -1,5 +1,5 @@
 ---
-version: 1.1.4
+version: 1.1.5
 ---
 
 # LifeOS Digital Assistant Subsystem
@@ -152,7 +152,7 @@ voice:
     speed: 1.1
     volume: 1.2
   algorithm:                    # Optional: separate voice for algorithm phases
-    voice_id: fTtv3eikoepIosk8dTZ5
+    voice_id: 21m00Tcm4TlvDq8ikWAM   # example — any ElevenLabs library voice
     stability: 0.3
     similarity_boost: 0.75
     style: 0.8
@@ -267,9 +267,9 @@ Current files map to the consolidated schema as follows:
 | Current File | New Location | Migration |
 |---|---|---|
 | `LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md` (legacy flat md) + legacy `DA_IDENTITY.yaml` schema companion | `LIFEOS/USER/DA/your-da/DA_IDENTITY.md` (single file with frontmatter) | Move structured fields into the file's leading YAML frontmatter; keep prose as the body. Delete the `.yaml` companion. |
-| `LIFEOS_CONFIG.yaml` DA section | `LIFEOS/USER/DA/your-da/DA_IDENTITY.md` frontmatter `voice` / `personality` keys | Move voice config into frontmatter; keep LIFEOS_CONFIG reference as pointer |
+| `LIFEOS_CONFIG.toml` DA section | `LIFEOS/USER/DA/your-da/DA_IDENTITY.md` frontmatter `voice` / `personality` keys | Move voice config into frontmatter; keep LIFEOS_CONFIG reference as pointer |
 
-The `LIFEOS_CONFIG.yaml` DA section becomes a thin pointer:
+The `LIFEOS_CONFIG.toml` DA section becomes a thin pointer:
 
 ```yaml
 DA:
@@ -285,7 +285,7 @@ ConfigRenderer reads the registry, opens the primary DA's `DA_IDENTITY.md`, pars
 
 ### Problem
 
-When someone installs LifeOS fresh, they need a DA identity. Currently this requires manually writing DA_IDENTITY.md and editing LIFEOS_CONFIG.yaml. The interview system automates this.
+When someone installs LifeOS fresh, they need a DA identity. Currently this requires manually writing DA_IDENTITY.md and editing LIFEOS_CONFIG.toml. The interview system automates this.
 
 ### Design
 
@@ -1006,7 +1006,7 @@ Tasks:
 - [P] Create `LIFEOS/USER/DA/` directory structure
 - [P] Write `DA_IDENTITY.yaml` schema (TypeScript interface + YAML)
 - [P] Write `_registry.yaml` schema
-- [ ] Create migration script: extract current DA_IDENTITY.md + LIFEOS_CONFIG.yaml DA section into `your-da/DA_IDENTITY.yaml`
+- [ ] Create migration script: extract current DA_IDENTITY.md + LIFEOS_CONFIG.toml DA section into `your-da/DA_IDENTITY.yaml`
 - [ ] Create `DA_IDENTITY.md` generator (YAML -> readable markdown for @import)
 - [ ] Update ConfigRenderer to read from DA registry
 - [ ] Verify: CLAUDE.md generation still works, iMessage still uses correct identity
@@ -1101,20 +1101,20 @@ Tasks:
 Current State:
   LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md          (flat markdown)
   LIFEOS/USER/DA_WRITING_STYLE.md     (separate file)
-  LIFEOS_CONFIG.yaml → DA section     (voice, personality)
+  LIFEOS_CONFIG.toml → DA section     (voice, personality)
 
 Step 1: Create directory structure
   mkdir -p LIFEOS/USER/DA/your-da
 
 Step 2: Run migration script
   bun LIFEOS/TOOLS/MigrateDAIdentity.ts
-  → Reads DA_IDENTITY.md, DA_WRITING_STYLE.md, LIFEOS_CONFIG.yaml
+  → Reads DA_IDENTITY.md, DA_WRITING_STYLE.md, LIFEOS_CONFIG.toml
   → Writes your-da/DA_IDENTITY.yaml (structured)
   → Writes _registry.yaml (your-da as primary)
   → Generates your-da/DA_IDENTITY.md (for backward compat)
   → Creates empty your-da/growth.jsonl, your-da/opinions.yaml, your-da/diary.jsonl
 
-Step 3: Update LIFEOS_CONFIG.yaml
+Step 3: Update LIFEOS_CONFIG.toml
   DA section becomes pointer:
     DA:
       REGISTRY: LIFEOS/USER/DA/_registry.yaml
@@ -1145,7 +1145,7 @@ Step 7: Enable DA module
 
 If the migration causes issues:
 
-1. ConfigRenderer falls back to reading LIFEOS_CONFIG.yaml DA section directly if registry path is missing
+1. ConfigRenderer falls back to reading LIFEOS_CONFIG.toml DA section directly if registry path is missing
 2. Old DA_IDENTITY.md remains importable for 30 days
 3. DA module can be disabled independently: `[da] enabled = false`
 4. No other Pulse modules depend on the DA module

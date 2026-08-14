@@ -90,6 +90,29 @@ export const SENSITIVE_READ_RULES: readonly DenyRule[] = [
 ];
 
 /**
+ * Read-only exceptions, consulted before denyRules but ONLY for the native
+ * read-class tools in READ_ONLY_TOOLS — write/edit/patch tools and every shell
+ * command still hit the full deny set. Scope is one directory: `cron/output/`
+ * is text the sidecar itself produced (job run output the agent needs to answer
+ * "what did the morning brief say"), 276 of the first 2,704 audited blocks. The
+ * scheduler's job DEFINITIONS (`cron/jobs.json`, the executions db) stay denied
+ * to every tool, and every write anywhere under `cron/` stays denied.
+ */
+export const READ_ALLOW_RULES: readonly DenyRule[] = [
+  { pattern: "**/.hermes/cron/output/**", reason: "sidecar-authored job output — readable, never writable" },
+];
+
+/** Native tools that can only READ; the read-allow exception applies to these alone. */
+export const READ_ONLY_TOOLS: readonly string[] = [
+  "read_file",
+  "read_file_raw",
+  "grep",
+  "search_files",
+  "list_files",
+  "glob",
+];
+
+/**
  * Shell commands are guarded separately by Hermes' own `approvals.deny`, which
  * matches command text before any bypass. These are the globs that list ships
  * with — kept here so one file is the whole policy.
@@ -136,13 +159,51 @@ export const SHELL_DENY_GLOBS: readonly string[] = [
   "*hermes run*",
   "*hermes-agent*",
   "*launchctl*",
+
+  // Pulse VoiceServer speaker endpoints. Hermes delivers replies over its own
+  // channels (iMessage, local output) — a desktop-speaker call from
+  // ANY Hermes session is a leak, and cron sessions reading their skill
+  // announcements aloud is exactly the 2026-08-14 incident (fifth recurrence:
+  // the LifeLog commitment-capture job spoke every SKILL.md "Running the X
+  // workflow" curl because the sidecar runtime has none of Claude Code's
+  // hooks). Denied wholesale, /voice/health included — the sidecar has no
+  // legitimate reason to reach the voice surface at all.
+  "*31337/notify*",
+  "*31337/pai*",
+  "*31337/voice*",
 ];
 
-/** Deny globs for an install's DA-named launcher. Kept out of the constant so no name ships. */
+/**
+ * Deny globs for an install's DA-named launcher. Kept out of the constant so no
+ * name ships. Command-POSITION forms only: the earlier catch-all `* <name> *`
+ * matched the DA's name as an ordinary word — 168 of the first 2,704 audited
+ * blocks were prose like "review new personal work {{DA_NAME}} messages" inside a
+ * printf. A launcher can only escape taint by being EXECUTED, which means the
+ * name sits at command position: line start, after a separator, inside a
+ * substitution, or behind an exec-style prefix. Those forms stay denied.
+ */
 export function launcherGlobs(launcherName: string): string[] {
   const n = launcherName.trim().toLowerCase();
   if (!n || !/^[a-z0-9_-]+$/.test(n)) return [];
-  return [`${n} *`, `*/${n} *`, `* ${n} *`, `*;${n} *`, `*|${n} *`, `*&${n} *`];
+  return [
+    `${n} *`, // command line starts with the launcher
+    `${n}`, // bare invocation, no args
+    `*/${n} *`, // path-qualified: ~/.local/bin/<name>
+    `*/${n}`,
+    `*;${n} *`, // after a separator
+    `*; ${n} *`,
+    `*|${n} *`,
+    `*| ${n} *`,
+    `*&${n} *`,
+    `*& ${n} *`,
+    `*$(${n} *`, // command substitution
+    `*\`${n} *`,
+    `*exec ${n} *`, // exec-style prefixes
+    `*sudo ${n} *`,
+    `*env ${n} *`,
+    `*xargs ${n} *`,
+    `*nohup ${n} *`,
+  ];
 }
 
 /**
@@ -289,9 +350,21 @@ export const INJECTION_SHAPE_PATTERNS: readonly string[] = [
   "(?i)curl [^|]*\\|\\s*(bash|sh|zsh|python)",
 ];
 
+/**
+ * Egress hosts whose responses are FIRST-party: the operator's own local
+ * services. A curl hitting only these does not mark its output as third-party
+ * text. Ship-generic default is loopback alone; an install extends the list
+ * via `LIFEOS/USER/CONFIG/hermes-trusted-domains.json` (read by Mount.ts at
+ * emit time, never named here). Matching in the guard is exact-or-dot-suffix
+ * and fails closed: unlisted host, unparseable URL, or empty list all taint.
+ */
+export const TRUSTED_EGRESS_DEFAULTS: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
+
 export interface GuardPolicy {
   version: number;
   denyRules: DenyRule[];
+  readAllowRules: DenyRule[];
+  readOnlyTools: readonly string[];
   pathBearingTools: Record<string, readonly string[]>;
   commandBearingTools: Record<string, readonly string[]>;
   shellDenyGlobs: readonly string[];
@@ -300,12 +373,16 @@ export interface GuardPolicy {
   privilegedTools: readonly string[];
   privilegedCommandGlobs: readonly string[];
   injectionShapePatterns: readonly string[];
+  trustedEgressDomains: readonly string[];
 }
 
-export function buildPolicy(opts: { launcherName?: string } = {}): GuardPolicy {
+export function buildPolicy(opts: { launcherName?: string; trustedEgressDomains?: readonly string[] } = {}): GuardPolicy {
+  const extra = (opts.trustedEgressDomains ?? []).map((d) => String(d).trim().toLowerCase()).filter(Boolean);
   return {
-    version: 3,
+    version: 5,
     denyRules: [...SENSITIVE_READ_RULES],
+    readAllowRules: [...READ_ALLOW_RULES],
+    readOnlyTools: READ_ONLY_TOOLS,
     pathBearingTools: PATH_BEARING_TOOLS,
     commandBearingTools: COMMAND_BEARING_TOOLS,
     shellDenyGlobs: [...SHELL_DENY_GLOBS, ...launcherGlobs(opts.launcherName ?? "")],
@@ -314,22 +391,30 @@ export function buildPolicy(opts: { launcherName?: string } = {}): GuardPolicy {
     privilegedTools: PRIVILEGED_TOOLS,
     privilegedCommandGlobs: PRIVILEGED_COMMAND_GLOBS,
     injectionShapePatterns: INJECTION_SHAPE_PATTERNS,
+    trustedEgressDomains: [...new Set([...TRUSTED_EGRESS_DEFAULTS, ...extra])],
   };
 }
 
 /** Emit the policy as JSON for the Python guard plugin to consume. */
-export function emitPolicy(destination: string, opts: { launcherName?: string } = {}): GuardPolicy {
+export function emitPolicy(
+  destination: string,
+  opts: { launcherName?: string; trustedEgressDomains?: readonly string[] } = {},
+): GuardPolicy {
   const policy = buildPolicy(opts);
   writeFileSync(destination, JSON.stringify(policy, null, 2) + "\n", "utf8");
   return policy;
 }
 
 if (import.meta.main) {
-  const dest = process.argv[2];
+  const argv = process.argv.slice(2);
+  const launcherIdx = argv.indexOf("--launcher");
+  const launcherName = launcherIdx !== -1 ? (argv[launcherIdx + 1] ?? "") : "";
+  const positional = argv.filter((a, i) => a !== "--launcher" && i !== launcherIdx + 1);
+  const dest = positional[0];
   if (!dest) {
-    process.stdout.write(JSON.stringify(buildPolicy(), null, 2) + "\n");
+    process.stdout.write(JSON.stringify(buildPolicy({ launcherName }), null, 2) + "\n");
   } else {
-    const p = emitPolicy(dest);
+    const p = emitPolicy(dest, { launcherName });
     console.log(`✓ policy v${p.version} — ${p.denyRules.length} read rules → ${dest}`);
   }
 }

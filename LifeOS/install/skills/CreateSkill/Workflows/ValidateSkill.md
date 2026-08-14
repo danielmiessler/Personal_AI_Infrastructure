@@ -170,6 +170,19 @@ Apply the bitter lesson test to the skill's instructions:
 
 ---
 
+## Step 5b: Official-Spec Drift Check (advisory)
+
+Our canonical format lives in `SkillSystem.md`, but the format it encodes is Anthropic's — and Anthropic revises it. Check the official surface so local doctrine can't silently drift from what the harness actually parses:
+
+- **Agent Skills docs:** https://code.claude.com/docs/en/skills
+- **Reference skills repo:** https://github.com/anthropics/skills
+
+Fetch the docs page and compare its frontmatter contract (recognized fields, description limits, loading behavior) against what `SkillSystem.md` and this workflow assert. Report any divergence as a finding with both sources quoted — drift here is a finding about OUR doctrine, not the skill under validation.
+
+This step is advisory: an unreachable URL gets a `⏳ skipped (unreachable)` note and validation continues; drift is reported, never auto-adopted. Route confirmed drift to the principal or an Upgrade-skill recommendation.
+
+---
+
 ## Step 6: Check Workflow Files
 
 ```bash
@@ -270,7 +283,7 @@ grep -l "Intent-to-Flag" ~/.claude/skills/[SkillName]/Workflows/*.md
 - [ ] No sensitive content (API keys, tokens, credentials, private URLs)
 - [ ] No personal references (author name, project names, personal domains, user-specific absolute paths)
 - [ ] `SkillHygieneGate.ts --skill <SkillName>` exits 0 (publish-clean, public and private alike)
-- [ ] Personal/user-specific content (if any) lives in `SKILLCUSTOMIZATIONS/`, not the skill body
+- [ ] Personal/user-specific content (if any) lives in `CUSTOMIZATIONS/SKILLS/`, not the skill body
 
 ### Structure
 - [ ] `Tools/` directory exists

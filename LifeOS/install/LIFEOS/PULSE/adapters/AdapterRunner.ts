@@ -10,8 +10,9 @@ import { inference } from "../../TOOLS/Inference";
 // legacy "fast"/"smart"/"standard" names Inference.ts deleted 2026-06-10, so
 // every build that reached inference threw (public PR #1648, @elhoim).
 import { modelToLevel } from "./model-level";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const OBSERVABILITY_DIR = resolve(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY");
 const RUNS_LOG = join(OBSERVABILITY_DIR, "adapter-runs.jsonl");
 

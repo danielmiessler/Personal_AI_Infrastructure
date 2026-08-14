@@ -84,7 +84,12 @@ function SkillsLanding({ skills }: { skills: SkillMeta[] }) {
         </p>
       )}
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+      {/* Private skills describe personal domains — Observer mode blurs them. */}
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+        data-sensitive={tab === "private" ? "" : undefined}
+      >
         {active.map((skill) => (
           <SkillCard key={skill.name} skill={skill} />
         ))}
@@ -138,8 +143,13 @@ function SkillDetailView({ skill }: { skill: SkillDetail }) {
   const btnBase =
     "inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium cursor-pointer";
 
+  const isPrivate = skill.name.startsWith("_") && skill.name === skill.name.toUpperCase();
+
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-4">
+    <div
+      className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-4"
+      data-sensitive={isPrivate ? "" : undefined}
+    >
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <Link href="/skills" className="text-ink-2 hover:text-ink-1">

@@ -168,7 +168,7 @@ Before executing this skill's substantive workflow, verify context sufficiency:
 Skip Step 0 when the skill is a pure transform (input → deterministic output, no interpretation) or a pure lookup.
 ```
 
-This is template-level — new skills include it by default. Retrofit of existing skills (Sales, WriteStory, Webdesign, etc.) is a follow-up tracked in `MEMORY/WORK/20260520-algorithm-v670-context-sufficiency/ISA.md`. Re-open trigger: first concrete skill-author commit of a Step 0 (then add `skills_with_step0: []` migration ledger).
+This is template-level — new skills include it by default. Retrofit of existing skills (Sales, WriteStory, Webdesign, etc.) is a follow-up (tracked on the maintainer machine — does not ship). Re-open trigger: first concrete skill-author commit of a Step 0 (then add `skills_with_step0: []` migration ledger).
 
 ## Step 5b: Public Release Readiness (MANDATORY)
 
@@ -323,7 +323,7 @@ If the description needs tuning, suggest `Workflows/OptimizeDescription.md`.
 
 ## Step 10: Version Awareness
 
-A new skill scaffolds with `version: 1.0.0` in its frontmatter (its own per-skill semver line) and is ALSO a **feature**-level OS change (see `## Versioning` in SKILL.md). Don't edit `LIFEOS/VERSION` here, and don't hand-bump the skill's `version:` — both bumps are applied at private-sync time by the `UpdateKaiRepo` ship flow (per-skill via `BumpSkillVersions.ts`, OS roll-up via the version-bump workflow).
+A new skill scaffolds with `version: 1.0.0` in its frontmatter (its own per-skill semver line) and is ALSO a **feature**-level OS change (see `## Versioning` in SKILL.md). Don't edit `LIFEOS/VERSION` here, and don't hand-bump the skill's `version:` — both bumps are applied at private-sync time by the `UpdateKaiRepo` ship flow (per-skill via `BumpSkillVersions.ts`, OS roll-up via the version-bump workflow). (On an installed system without that maintainer machinery, the scaffolded `version: 1.0.0` is already correct — later edits hand-bump per semver.)
 
 ## Done
 

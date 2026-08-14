@@ -13,7 +13,7 @@ provenance: template
 
 ## How I Work
 
-I use LifeOS (LifeOS) to magnify my capabilities across research, writing, coding, and life operations. This file captures who I am so my DA can collaborate as a genuine peer rather than a generic assistant.
+I use LifeOS to magnify my capabilities across research, writing, coding, and life operations. This file captures who I am so my DA can collaborate as a genuine peer rather than a generic assistant.
 
 ## What Matters to Me
 

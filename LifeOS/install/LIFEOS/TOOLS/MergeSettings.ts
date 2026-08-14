@@ -14,6 +14,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { atomicWriteText } from "../PULSE/lib/atomic-write";
+import { homedir } from "node:os";
 
 /**
  * Snapshot of the last merge output, written alongside every successful
@@ -618,7 +619,7 @@ async function runCli(argv: string[]): Promise<number> {
 
     // The harness exports env values verbatim — expand leading $HOME/${HOME}/~ so
     // LIFEOS_DIR et al. resolve to real paths on a fresh install (#1404 / #1422).
-    expandEnvHomeReferences(merged, process.env.HOME || "");
+    expandEnvHomeReferences(merged, homedir());
 
     const dropped = prunePermissionRules(merged);
     if (dropped.length > 0) {

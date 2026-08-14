@@ -11,8 +11,9 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
 import { parse as parseYaml } from "yaml";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,12 +96,12 @@ const LIFEOS_LIGHT = rgb(147, 197, 253);  // pale blue (base + steps)
 const LIFEOS_NAVY = rgb(30, 58, 138);     // dark navy (mid blocks)
 const LIFEOS_BRIGHT = rgb(37, 99, 235);   // bright blue (top cap)
 
-// LIFEOS wordmark — single source of truth for the header text, kept identical
-// to the status line (LIFEOS_StatusLine.sh: ${LIFEOS_P}LI${LIFEOS_A}FE${LIFEOS_I}OS).
-// All-caps, split LI/FE/OS across the same three blues. Every banner design uses
+// LifeOS wordmark — single source of truth for the header text, kept identical
+// to the status line (LIFEOS_StatusLine.sh: ${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS).
+// Mixed-case, split Li/fe/OS across the same three blues. Every banner design uses
 // this so the mark reads the same in the banner and the status line.
 const lifeosWordmark = (): string =>
-  `${rgb(37, 99, 235)}LI${RESET}${rgb(59, 130, 246)}FE${RESET}${rgb(147, 197, 253)}OS${RESET}`;
+  `${rgb(37, 99, 235)}Li${RESET}${rgb(59, 130, 246)}fe${RESET}${rgb(147, 197, 253)}OS${RESET}`;
 
 // grid layout (cols L\u2192R, rows top\u2192bottom): a staircase climbing to the top-right
 //   row1:  .    .    .    BRIGHT

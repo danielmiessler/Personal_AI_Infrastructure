@@ -104,6 +104,8 @@ async function spawnResearch(prompt: string, model: string, timeoutMs: number): 
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
   delete env.CLAUDECODE
+  // Headless subprocess: never the desktop voice channel (2026-08-14 leak).
+  env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || "headless"
 
   const proc = Bun.spawn(
     [

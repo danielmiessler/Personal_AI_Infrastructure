@@ -16,6 +16,7 @@ import {
   isoNowLA,
   loadState,
   loadTokens,
+  resolveTimeZone,
   saveTokens,
   timedFetch,
   writeDayFile,
@@ -193,11 +194,15 @@ export async function pull(ctx: Ctx): Promise<SourceResult> {
     return { ...base, authAttempted: auth.attempted, authFailed: auth.attempted };
   }
 
+  // The tz the API buckets sessions by must match the one the day keys are built
+  // from, or the from/to window straddles a different boundary than the response.
+  // public issue #1762, @jacobo-ortiz
+  const tz = resolveTimeZone();
   const to = dayKeyLA(ctx.now.getTime());
   const from = dayKeyLA(ctx.now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const url =
     `${CLIENT_API}/users/${auth.userId}/trends` +
-    `?tz=America/Los_Angeles&from=${from}&to=${to}` +
+    `?tz=${encodeURIComponent(tz)}&from=${from}&to=${to}` +
     `&include-main=false&include-all-sessions=true&model-version=v2`;
 
   let response: Response;

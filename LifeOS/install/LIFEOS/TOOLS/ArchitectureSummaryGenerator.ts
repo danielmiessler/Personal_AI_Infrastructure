@@ -21,6 +21,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -33,7 +34,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 // Configuration
 // ============================================================================
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || path.join(HOME, ".claude", "LIFEOS");
 const ARCH_SOURCE = path.join(LIFEOS_DIR, "DOCUMENTATION", "LifeosSystemArchitecture.md");
 const SUMMARY_OUTPUT = path.join(LIFEOS_DIR, "DOCUMENTATION", "ARCHITECTURE_SUMMARY.md");
@@ -158,7 +159,7 @@ const PIPELINE_ROUTER: Record<string, { what: string; doc: string }> = {
   "Config": { what: "settings.json, CLAUDE.md, system prompt; release tooling stages public artifacts", doc: "Config/ConfigSystem.md" },
   "Notifications": { what: "Voice notifications via Pulse to ElevenLabs, logged to VOICE events", doc: "Notifications/NotificationSystem.md" },
   "Doc Integrity": { what: "SessionEnd-hook cross-reference checks; regenerates this summary from the master doc", doc: "Hooks/HookSystem.md" },
-  "Bunker": { what: "Universal application harness — canonical repo ~/.claude/LIFEOS/PULSE/Bunker; app state-of-record bunker.isa.md; Pulse /bunker tab; Security plane IS the Arbol infra-security scanner (server-side, hourly)", doc: "LifeosSystemArchitecture.md" },
+  "Bunker": { what: "Universal application harness — app state-of-record bunker.isa.md; Pulse /bunker tab; Security plane IS the Arbol infra-security scanner (server-side, hourly); reference implementation is private — the release ships the concept doc", doc: "Bunker/BunkerSystem.md" },
   "Atlas": { what: "Graph-based asset management — the current state of everything owned; `atlas` CLI (owns/blast/unregistered), Pulse /atlas", doc: "Atlas/AtlasSystem.md" },
   "Ledger": { what: "Change-tracking authority — versioning, update registry, integrity gate, deploy events (the APPLIED half of the change pipeline)", doc: "Ledger/LedgerSystem.md" },
 };

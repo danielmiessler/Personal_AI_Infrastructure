@@ -2,7 +2,7 @@
 last_updated: 2026-07-23T19:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.0.2
+version: 1.0.3
 ---
 
 # The Upgrades System
@@ -30,14 +30,14 @@ Tool: `LIFEOS/TOOLS/Upgrades.ts` — `add | list | show | accept | reject | appl
 
 ## Sources (producers)
 
-> **Note:** `_`-prefixed skill paths referenced below (e.g. `skills/_LIFEOS/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
+> **Note:** `_`-prefixed skill paths referenced below (e.g. `<your-release-skill>/`) are **private skills, absent from the public release** — those paths do not exist on a public install.
 
 | Source | Producer | When |
 |---|---|---|
 | `directive` | `SatisfactionCapture.hook.ts` standing-directive leg | The turn {{PRINCIPAL_NAME}} says "from now on / in the future / always X / never X / new rule / {{DA_NAME}} should always…" — deterministic phrase match, no LLM |
-| `correction` | Same hook, correction leg | Any detected explicit correction (also writes the FAILURES incident, unchanged) |
+| `correction` | No longer written as of 2026-08-06 (was: same hook, correction leg) | The dual-write is gone because it filled the store with raw complaint text that nothing read. Corrections still write the FAILURES incident, and /algo turns that corpus into `algo-run` records with drafted recommendations. Historical `correction` records stay on disk, expired in place, and still parse |
 | `upgrade-skill` | `skills/Upgrade` Workflows (persist step) | Every 🔴/🟠/🟡 recommendation of a scan run |
-| `algo-run` | `skills/_LIFEOS/Workflows/AlgorithmImprovement.md` (persist step) | Every ranked proposal of an /algo pass |
+| `algo-run` | `<your-release-skill>/Workflows/AlgorithmImprovement.md` (persist step) | Every ranked proposal of an /algo pass |
 | `autonomous` | Nightly deriver (`LearningPatternSynthesis.ts --hypothesize`) | Unchanged — still writes `WISDOM/FRAMES/_hypotheses/`; the Pulse layer maps pending hypotheses into the queue as `source=autonomous`, and accept/reject proxy to graduate/reject (PromoteFixture flow intact) |
 | `manual` | `Upgrades.ts add` | Ad-hoc |
 

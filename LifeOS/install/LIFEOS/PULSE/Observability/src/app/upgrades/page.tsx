@@ -51,7 +51,7 @@ interface QueueResponse {
 type ViewId = "recommended" | "implemented" | "closed";
 
 const SOURCE_LABEL: Record<string, string> = {
-  directive: "{{PRINCIPAL_NAME}} said",
+  directive: "principal said",
   correction: "correction",
   "upgrade-skill": "upgrade scan",
   "algo-run": "/algo",

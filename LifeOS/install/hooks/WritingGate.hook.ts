@@ -37,6 +37,7 @@ import { readHookInput, parseTranscriptFromInput } from "./lib/hook-io";
 import { appendFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { createHash } from "crypto";
 import { dirname, join } from "path";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -45,7 +46,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const LIFEOS_DIR = process.env.LIFEOS_DIR || join(process.env.HOME!, ".claude", "LIFEOS");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const OBS_PATH = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "writing-gate.jsonl");
 const RUNS_PATH = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "pangram-runs.jsonl");
 const RUN_WINDOW_MS = 30 * 60 * 1000; // a run counts as "this turn" within 30 min
@@ -126,7 +127,7 @@ function freshRuns(): RunRec[] {
 function detectorAvailable(): boolean {
   if (process.env.PANGRAM_API_KEY) return true;
   try {
-    const env = readFileSync(join(process.env.HOME!, ".claude", ".env"), "utf8");
+    const env = readFileSync(join(homedir(), ".claude", ".env"), "utf8");
     return env.split("\n").some((l) => {
       if (!l.startsWith("PANGRAM_API_KEY=")) return false;
       return l.slice("PANGRAM_API_KEY=".length).replace(/^["']|["']$/g, "").trim().length > 0;

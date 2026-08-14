@@ -245,7 +245,7 @@ export function loadContactNames(contactsPath: string): string[] {
 }
 
 /**
- * Load security overrides from SKILLCUSTOMIZATIONS.
+ * Load security overrides from CUSTOMIZATIONS/SKILLS.
  */
 export function loadSecurityOverrides(overridesPath: string): FilterOptions {
   if (!existsSync(overridesPath)) return {};

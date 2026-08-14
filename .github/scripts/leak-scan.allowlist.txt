@@ -1,0 +1,68 @@
+# leak-scan allowlist — known-intentional matches that are safe in the public repo.
+# Format:
+#   path:<regex>   → skip this file entirely (matched against repo-relative path)
+#   line:<substr>  → skip any line containing this exact substring
+# Keep this file name-free too: use structural exceptions, not real sensitive values.
+
+# Frozen historical release snapshots — immutable, already public, not go-forward
+# surface. gitleaks still scans full git history for live secrets separately.
+path:^Releases/
+
+# Lockfiles and vendored assets carry no authored secrets and produce noise.
+path:(?:^|/)bun\.lock$
+path:(?:^|/)package-lock\.json$
+
+# Documented public vendor OAuth constants (mobile-app client id/secret, env-
+# overridable) — not personal secrets; comment in-file explains provenance.
+path:healthsync/eightsleep\.ts$
+
+# This scanner's own test file intentionally contains synthetic fixture patterns.
+path:leak-scan\.test\.ts$
+
+# Synthetic test fixtures and documentation examples (not live values).
+line:sk-abc123def456ghi789jkl012mno345
+line:10.0.2.90
+
+# Documentation commonly cites RFC-5737/example placeholders and doc emails.
+line:@example.com
+line:user@
+line:you@
+line:10.0.0.0
+line:192.168.1.1
+line:192.168.0.1
+
+# Repo front page: the README is the repo's own public attribution surface
+# (shields.io badges, clone/discussion URLs, walkthrough links) and saturates
+# any owner-name term at whole-file scan granularity. Secrets/paths/hosts rules
+# and gitleaks still scan it; only the injected-terms rule is skipped here.
+# Approved by Daniel 2026-07-12 during the 7.1.1 publish; the leak-scan
+# follow-up should replace this with an attribution-aware term rule.
+path:^README\.md$
+
+# Same class as the README: the repo's own public attribution / policy surface,
+# where the owner's already-public name and handle are REQUIRED, not a leak —
+# the MIT copyright holder, the GitHub Sponsors handle, and links to this repo.
+# Structural (name-free) exceptions per this file's rule.
+path:^LICENSE$
+path:^SECURITY\.md$
+path:^\.github/FUNDING\.yml$
+
+# v7.40.4 release reconciliation (2026-08-14) — audited-benign classes that the
+# 23 release gates + cross-vendor/in-family audits explicitly accept:
+
+# The public repo slug is required attribution and the installer's own pointer.
+line:danielmiessler/LifeOS
+
+# Deny-term derivation tool: embeds the public slug in its stay-public token
+# list by design (its in-file comment documents why).
+path:DeriveDenyHashes\.ts$
+
+# Boundary doc's synthetic teaching example of a hostname leak (name-free).
+line:workstation-7.home.lan
+
+# Code property/enum accesses that pattern-match .internal but are not hosts.
+line:it.href ?? it.internal
+line:EXIT.INTERNAL,"internal_error"
+
+# Generic-user test fixture path (deliberately /Users/anyone).
+line:/Users/anyone/

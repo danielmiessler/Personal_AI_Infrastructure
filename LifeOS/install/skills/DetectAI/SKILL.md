@@ -1,19 +1,21 @@
 ---
 name: DetectAI
-version: 1.0.0
-description: "Detects AI-generated writing two ways — a heuristic audit against a catalog of known AI writing patterns, and an empirical detection score from the Pangram API, calibrated against known-human baselines so the number means something. USE WHEN detect AI writing, is this AI, AI detection, AI detector, did an AI write this, check if this is AI generated, does this sound like AI, AI writing score, score for AI, pangram, scan for AI tells, flag AI patterns, AI-isms, how AI does this read, is this AI-detectable, compare drafts for AI-ness, human baseline. NOT FOR rewriting prose to strip AI patterns (a voice and authoring task), plagiarism detection, detecting AI-generated images/video/code, or judging whether writing is any good."
+version: 1.1.2
+description: "Detects AI-generated writing four ways — a heuristic audit against a catalog of known AI patterns, deterministic statistical signals (n-gram entropy, burstiness, repetition, stylometry — features never verdicts), an empirical Pangram score calibrated against known-human baselines, and a keyless scan for watermark and steganography signatures (invisible characters, homoglyphs, bidi, odd whitespace) in the bytes. USE WHEN detect AI writing, is this AI, AI detection, AI detector, did an AI write this, does this sound like AI, AI writing score, pangram, scan for AI tells, flag AI patterns, AI-isms, statistical AI signals, burstiness, text entropy, is this watermarked, detect watermark, steganography, zero-width chars, hidden characters, invisible unicode, compare drafts for AI-ness. NOT FOR rewriting prose to strip AI patterns (use a voice/authoring skill), plagiarism detection, detecting AI-generated images/video/code, or judging whether writing is any good."
 ---
 
 # DetectAI
 
 ## What It Does
 
-Answers one question — *how much does this text read as machine-generated?* — with two independent measures:
+Answers two questions — *how much does this read as machine-generated?* and *does it carry an embedded mark?* — with four independent measures:
 
 - **Heuristic audit.** Flags known AI tells (inflated vocabulary, the "not X, it's Y" tic, recycled transitions, uniform rhythm) against a severity-tiered pattern catalog. Free, instant, and it explains *why* each flag fired.
+- **Statistical signals.** A deterministic pass (`LIFEOS/TOOLS/StatSignals.ts`) measuring the keyless distributional tells the research literature rates real: n-gram entropy, type-token ratio, repetition structure — plus the weak-alone folklore tier (burstiness, paragraph uniformity, function-word stylometry), each labeled with its reliability. Features, never verdicts (arXiv:2310.15264: paraphrase degrades every keyless statistic). Free, no key.
 - **Empirical score.** Runs the text through the Pangram detection model and returns a real probability — AI% / AI-assisted% / human% — plus per-segment counts. Costs money, needs an API key, and doesn't care what your word list says.
+- **Watermark scan.** A keyless, deterministic pass for character-level covert channels — invisible chars, variation-selector/Tags-block steganography, homoglyphs, bidi, odd whitespace. Catches embedded marks that live in the bytes; by design it *cannot* read sampling-time statistical watermarks (SynthID, Kirchenbauer, Anthropic's announced mark), which are key-gated. Free, no key.
 
-The two disagree often, and that disagreement is the useful part. Text can clear every pattern on the list and still score 100% AI, which tells you the tells are structural, not lexical.
+The measures disagree often, and that disagreement is the useful part. Text can clear every pattern on the list and still score 100% AI, which tells you the tells are structural, not lexical — and a watermark hit is bytes-level proof regardless of what the other two say.
 
 ## The Problem
 
@@ -42,10 +44,11 @@ Full setup, alternatives, and troubleshooting (402/429 handling, endpoint overri
 
 | Workflow | Trigger | File |
 |----------|---------|------|
-| **Detect** | "scan for AI tells", "flag AI patterns", "does this sound like AI", "audit this for AI-isms" — heuristic, no key needed | `Workflows/Detect.md` |
+| **Detect** | "scan for AI tells", "flag AI patterns", "does this sound like AI", "audit this for AI-isms", "statistical signals", "burstiness", "entropy" — heuristic + deterministic statistical pass, no key needed | `Workflows/Detect.md` |
 | **Score** | "score this for AI", "is this AI generated", "AI detection score", "pangram", "compare these drafts" — empirical, needs key | `Workflows/Score.md` |
+| **Watermark** | "is this watermarked", "detect a watermark", "scan for hidden/invisible characters", "steganography", "zero-width chars" — keyless byte-level signature scan, no key needed | `Workflows/Watermark.md` |
 
-Asked simply "is this AI?" with a key configured, run both and report them side by side — the heuristic explains, the score measures.
+Asked simply "is this AI?" with a key configured, run both and report them side by side — the heuristic explains, the score measures. "Is this watermarked?" routes to Watermark, which answers a different question: whether a covert channel is embedded in the bytes, not whether the prose reads as AI.
 
 ## Gotchas
 

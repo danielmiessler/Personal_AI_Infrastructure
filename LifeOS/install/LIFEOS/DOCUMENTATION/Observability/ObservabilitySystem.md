@@ -1,5 +1,5 @@
 ---
-version: 1.6.0
+version: 1.8.4
 ---
 
 # The Observability System
@@ -49,12 +49,41 @@ JSONL Sources (local disk)
 | Reviewer fires | `MEMORY/OBSERVABILITY/reviewer-fires.jsonl` | — | `MemoryReviewFire.hook.ts` (Stop). Audit of when reviewer would fire if subprocess were unavailable. |
 | Memory writes (Tier A) | `MEMORY/OBSERVABILITY/memory-writes.jsonl` | — | `MemoryWriter.ts`. One row per set-overwrite to `_MEMORY.md` hot-layer files. Tracks evictions. |
 | Tier-B writes | `MEMORY/OBSERVABILITY/tier-b-writes.jsonl` | — | `MemorySystem.add()` routing. Audit row per logged-append to PROJECTS / CONTACTS / KNOWLEDGE / IDEAS (timestamp, type, bytes, path). |
-| Pending proposals (Tier C queue) | `MEMORY/OBSERVABILITY/pending-proposals.jsonl` | — | `MemorySystem.add()` for `type:proposal`. Status lifecycle: pending → sent → accepted/rejected/edited. Surfaced by `LIFEOS/PULSE/lib/memory-proposals.ts` on the Pulse dashboard and the inline 🧠 MEMORY line for accept/reject/edit. |
+| Pending proposals (Tier C queue) | `MEMORY/OBSERVABILITY/pending-proposals.jsonl` | — | `MemorySystem.add()` for `type:proposal`. Status lifecycle: pending → sent → accepted/rejected/edited/applied-elsewhere (or auto-applied without surfacing); `TERMINAL_STATUSES` in `LIFEOS/PULSE/lib/memory-proposals.ts` is the one authority on which of those count as resolved. Surfaced by that same lib on the Pulse dashboard and the inline 🧠 MEMORY line; decided via `bun LIFEOS/TOOLS/ProposalDecide.ts`. |
 | Identity proposals (archive) | `MEMORY/OBSERVABILITY/identity-proposals.jsonl` | — | `LIFEOS/PULSE/lib/memory-proposals.ts` surfacer. Archive of sent/accepted/rejected/edited proposals. |
 | Proposal replies | `MEMORY/OBSERVABILITY/proposal-replies.jsonl` | — | Pulse dashboard reply handler. Records accept/reject/edit interactions. |
 | Memory retrievals | `MEMORY/OBSERVABILITY/memory-retrievals.jsonl` | — | `MemoryRetriever.getRelevantContext()` (ISC-107..112; not yet populated as of 2026-05-23; infrastructure ready). Per-turn BM25 audit. |
 
 Per-source counts are configured inline in `Pulse/Observability/observability.ts`.
+
+## Cortex evidence-driven health
+
+The Cortex health extension is part of `LIFEOS/TOOLS/MemoryHealthCheck.ts`; `LIFEOS/TOOLS/CortexHealth.ts` collects and assesses its evidence. This is deliberately separate from `Cortex.ts status`: contract status reports local corpus shape, while health answers whether current reviewer, retrieval, proposal, observability, and optional-index evidence supports an operationally truthful result.
+
+```bash
+bun LIFEOS/TOOLS/MemoryHealthCheck.ts --json
+```
+
+The JSON report includes the effective `thresholds`, measured `evidence`, and non-OK `findings`. Existing health exit semantics remain 0/1/2 for ok/warn/critical. Missing evidence is WARN or CRITICAL, never green.
+
+| Evidence | Source and rule | Default threshold | Severity |
+|---|---|---:|---|
+| Latest reviewer run | Latest terminal `reviewer-runs.jsonl` row, plus newer run directories | success within 7 days | stale/missing WARN; latest failed, parse-failed, malformed, invalid, or timed-out CRITICAL |
+| Reviewer timeout | Newer run directory without terminal row | 10-minute grace | CRITICAL |
+| Retrieval | Latest `memory-retrievals.jsonl` row | 24 hours | missing, malformed, future, or stale WARN |
+| Proposals | Count rows with `status:"pending"` in `pending-proposals.jsonl` | greater than 10 | WARN; malformed evidence also WARN |
+| Observability retention | Recursive `.jsonl`/`.log` bytes and oldest mtime under `MEMORY/OBSERVABILITY/` | 256 MiB or 30 days | WARN |
+| Optional derived index | `lifeos-cortex-index/v1` manifest and measured hashes | 7-day freshness | stale WARN; invalid manifest or hash mismatch CRITICAL |
+
+The latest reviewer evidence wins over any number of earlier successes. Any malformed reviewer JSONL line is surfaced as parse failure rather than skipped. A nominal success must include `ok:true`, `parse_ok:true`, a run ID, and a valid timestamp; future timestamps cannot prove freshness.
+
+Index health distinguishes states that must not be conflated. The shipped `LIFEOS/CORTEX_INDEX_POLICY.json` is the affirmative `lifeos-cortex-index-policy/v1` marker for the healthy `no-index-v1` lexical baseline when no manifest exists. If both policy and manifest are missing, state is ambiguous and health warns `index-evidence-missing`; a malformed policy is CRITICAL. If a manifest exists, it supersedes the marker and health verifies its canonical SHA-256, derived-index SHA-256, contained relative index path, and `indexed_at`; canonical drift or index tampering is CRITICAL. No vector index currently exists.
+
+Threshold overrides must be finite and positive or health emits critical `cortex-threshold-invalid`; `NaN` cannot disable a check. Operational overrides are `CORTEX_RETRIEVAL_STALE_MS`, `CORTEX_PROPOSAL_BACKLOG`, `CORTEX_OBSERVABILITY_MAX_BYTES`, and `CORTEX_OBSERVABILITY_MAX_AGE_MS`. The report preserves the actual threshold and source-path evidence used for each finding.
+
+A read-only live check reports an overall verdict with per-check counts (critical/warn/ok) across reviewer freshness, index state, retrieval evidence, pending-proposal backlog against its threshold, and observability log age and size against their caps. Each run's report is point-in-time operational evidence, not a standing green claim.
+
+This health path is local and file-backed. It adds no cloud telemetry, MCP endpoint, daemon, Chroma/CMEM process, or network service. Full contract and privacy boundaries: [`../Memory/CortexContract.md`](../Memory/CortexContract.md).
 
 ## Event Format
 
@@ -108,23 +137,25 @@ The LifeOS Observatory is the local observability UI -- a Next.js 15.5 static ex
 |------|-----|---------|
 | Agents | `/agents` (default) | Work dashboard -- iterations, optimize, ideate, loops |
 | Knowledge | `/knowledge` | Knowledge archive browser |
-| Security | `/security` | Security system management -- patterns, rules, events, hooks |
+| Security | `/security` | Security system management -- patterns, rules, events, hooks. **Private install only — containment-zoned, not in the public payload.** |
 
 ### Security Page (`/security`)
+
+> **Not in the public release payload.** The security page's implementation is containment-zoned; this section documents the concept and the endpoint contract, not a route a fresh install serves.
 
 The security page provides full management of the LifeOS security system through four tabs:
 
 | Tab | Function |
 |-----|----------|
-| **Policy** | Edit `PATTERNS.yaml` -- blocked/alert/trusted commands, path protection tiers |
-| **Rules** | Edit `SECURITY_RULES.md` -- natural language BLOCK/ALLOW rules, currently disabled (saved via `POST /api/security/rules`) |
+| **Model** | The current three-layer model — constitutional rule + `settings.json` `permissions.deny` + `Safety.hook.ts` (the PATTERNS.yaml/SECURITY_RULES.md editor was retired 2026-05-06) |
+| **Deny List** | The native `permissions.deny` entries; edit in `settings.json` directly |
 | **Events** | Recent security events from `MEMORY/SECURITY/YYYY/MM/` |
 | **Hooks** | Hook health status with expandable descriptions |
 
 Additional features:
 
 - **Architecture visual** -- Inspector pipeline flow diagram displayed at top of page
-- **Injection defense** -- Shows InjectionInspector patterns and PromptInspector categories (injection, exfiltration, evasion, security_disable)
+- **Injection defense** -- Shows the `Safety.hook.ts` PostToolUse "treat as data" tagging of WebFetch/WebSearch content and its injection-shape markers
 - **Live editing** -- All changes write directly to disk and take effect on next tool call
 
 ### API Reference (all served by Pulse on `localhost:31337`)
@@ -157,10 +188,10 @@ All endpoints served by the Pulse daemon's observability module (`Observability/
 
 | Endpoint | Method | Purpose | Source |
 |----------|--------|---------|--------|
-| `/api/security` | GET | Combined: PATTERNS.yaml + SECURITY_RULES.md + events + hooks + PromptInspector patterns | observability |
-| `/api/security/patterns` | POST | Mutate PATTERNS.yaml (add/remove/edit patterns and paths) | observability |
-| `/api/security/rules` | POST | Save SECURITY_RULES.md content | observability |
+| `/api/security` | GET | Combined current model: the three security layers (constitutional rule + `permissions.deny` + `Safety.hook.ts`), native deny list, and hook detail | observability |
 | `/api/security/hooks-detail` | GET | Hook descriptions, events, blocking capability | observability |
+| `/api/security/attack-surface` | GET | Deployed-estate scan snapshot (404 when no scanner is configured on the install) | observability |
+| `/api/security/patterns`, `/api/security/rules` | POST | **Retired — HTTP 410 Gone.** PATTERNS.yaml/SECURITY_RULES.md were removed in the 2026-05-06 security simplification; edit `settings.json` `permissions.deny` directly | observability |
 
 **Knowledge**
 
@@ -178,7 +209,7 @@ All endpoints served by the Pulse daemon's observability module (`Observability/
 | `/api/wiki/search` | GET | Full-text search across system docs | `modules/wiki.ts` |
 | `/api/wiki/graph` | GET | Knowledge graph data for visualization | `modules/wiki.ts` |
 
-**DA (Digital Assistant)**
+**DA (Digital Assistant)** — *`Assistant/module.ts` is containment-zoned and does not ship in the public payload; these rows document the endpoint contract, not routes a fresh install serves.*
 
 | Endpoint | Method | Purpose | Source |
 |----------|--------|---------|--------|
@@ -225,10 +256,10 @@ Distinct from the event pipeline above, session state (active sessions, phase, p
 
 ```
 Writers (atomic read-modify-write via isa-utils.ts:writeRegistry)
-├─ SessionAnalysis.hook.ts      UserPromptSubmit → upsertSession (native or starting)
+├─ SessionAnalysis.hook.ts      RETIRED — file no longer exists; upsertSession is unowned
 ├─ EventLogger.hook.ts          PostToolUse → bumpLastToolActivity (30s debounced)
 ├─ ISASync.hook.ts              syncToWorkJson() → promote native entry to full ISA session
-└─ ISAAutoName.hook.ts          updateSessionNameInWorkJson()
+└─ ISAAutoName.hook.ts          RETIRED — file no longer exists
 
 Readers (both use identical mapping)
 ├─ Pulse Observability          localhost:31337 → observability.ts handleAlgorithmApi
@@ -236,10 +267,10 @@ Readers (both use identical mapping)
 ```
 
 **Display lanes:**
-- Mode `starting` → Algorithm tab, phase strip (OBSERVE/THINK/PLAN/BUILD/EXECUTE/VERIFY/LEARN).
+- Mode `starting` → Algorithm tab, phase strip (states derived from the one table in `LIFEOS/TOOLS/ascent.ts`).
 - Mode `native` → Native tab, no phase strip.
 
-**Classifier:** `SessionAnalysis.hook.ts` action regex (the `ALGO_ACTION_RE` symbol was deleted 2026-07-11 with the mode/tier system) — narrow 8-verb regex (`implement|build|create|architect|design|migrate|deploy|refactor`). Everything else that passes the trivia filter (`POSITIVE_PRAISE_WORDS`, `SYSTEM_TEXT_PATTERNS`, `MIN_PROMPT_LENGTH=3`) is native. Do not broaden — see `feedback_state_monitoring_requires_starting_gate.md`.
+**Classifier (historical — `SessionAnalysis.hook.ts` is retired and no longer ships):** its action regex (the `ALGO_ACTION_RE` symbol was deleted 2026-07-11 with the mode/tier system) — narrow 8-verb regex (`implement|build|create|architect|design|migrate|deploy|refactor`). Everything else that passes the trivia filter (`POSITIVE_PRAISE_WORDS`, `SYSTEM_TEXT_PATTERNS`, `MIN_PROMPT_LENGTH=3`) is native. Do not broaden — see `feedback_state_monitoring_requires_starting_gate.md`.
 
 **Staleness thresholds:** 5 min native, 10 min algorithm. Matched in both readers.
 
@@ -287,4 +318,5 @@ The gap between "it happened" and "you can see it" is one poll interval, and the
 
 ## See Also
 
+- `~/.claude/LIFEOS/DOCUMENTATION/Memory/CortexContract.md` — Cortex CLI contract, privacy limit, benchmark, and health evidence
 - `~/.claude/LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md` — Master LifeOS architecture reference

@@ -183,6 +183,25 @@ export function gateReport(isaPath: string): GateReport {
     });
   }
 
+  // A5 · broken edge graph (v2.21.0). Edges are optional forever — this fires
+  // only when edges EXIST and are broken (typo'd blocker, cycle), which would
+  // otherwise sit latent until someone happens to run IsaFrontier. Advisory,
+  // never blocking, per the edges-never-required constraint.
+  try {
+    const { parseClaims: parseFrontierClaims, validateEdges } = require("./IsaFrontier");
+    const fClaims = parseFrontierClaims(text);
+    if (fClaims.some((c: { after: string[] }) => c.after.length > 0)) {
+      const edgeErrors: string[] = validateEdges(fClaims);
+      if (edgeErrors.length) {
+        advisory.push({
+          code: "edge-graph-broken",
+          tier: "advisory",
+          message: `dependency edges don't resolve: ${edgeErrors.slice(0, 4).join("; ")}${edgeErrors.length > 4 ? "; …" : ""}. Fix or drop the (after:) references.`,
+        });
+      }
+    }
+  } catch { /* IsaFrontier unavailable — edges simply aren't checked here */ }
+
   return { isaPath, phase, hard, advisory, blocks: hard.length > 0 && phase === "complete" };
 }
 

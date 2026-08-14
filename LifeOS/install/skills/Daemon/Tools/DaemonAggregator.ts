@@ -42,9 +42,9 @@ const MEMORY_DIR = join(LIFEOS_DIR, "MEMORY");
 const TELOS_DIR = join(USER_DIR, "TELOS");
 const KNOWLEDGE_DIR = join(MEMORY_DIR, "KNOWLEDGE");
 const WORK_DIR = join(MEMORY_DIR, "WORK");
-const PROJECTS_FILE = join(USER_DIR, "PROJECTS", "PROJECTS.md");
-const IDENTITY_FILE = join(USER_DIR, "PRINCIPAL_IDENTITY.md");
-const CUSTOMIZATIONS_DIR = join(USER_DIR, "SKILLCUSTOMIZATIONS", "Daemon");
+const PROJECTS_FILE = join(USER_DIR, "PROJECTS.md");
+const IDENTITY_FILE = join(USER_DIR, "PRINCIPAL", "PRINCIPAL_IDENTITY.md");
+const CUSTOMIZATIONS_DIR = join(USER_DIR, "CUSTOMIZATIONS", "SKILLS", "Daemon");
 const USER_DAEMON_DIR = join(USER_DIR, "Daemon");
 
 // ─── Structurally Excluded Paths (NEVER read these) ───
@@ -77,13 +77,26 @@ function isExcluded(filePath: string): boolean {
   return EXCLUDED_PATHS.some((excluded) => resolved.startsWith(resolve(excluded)));
 }
 
-// ─── Public Projects List ───
+// ─── User Daemon Config (identity-bound values live in the private override,
+// never in this shipped file: CUSTOMIZATIONS/SKILLS/Daemon/config.json with
+// { public_projects: string[], location_default: string, extra_missions: string[] }) ───
 
-const PUBLIC_PROJECTS = [
-  "Website", "Fabric", "SecLists", "LifeOS", "Surface",
-  "Human 3.0", "UL Site", "Daemon", "Substrate", "Telos",
-  "TheAlgorithm", "FoundryServices", "Ladder", "LifeOS Marketing",
-];
+interface DaemonConfig { public_projects: string[]; location_default: string; extra_missions: string[] }
+function loadDaemonConfig(): DaemonConfig {
+  const fallback: DaemonConfig = { public_projects: [], location_default: "", extra_missions: [] };
+  const p = join(CUSTOMIZATIONS_DIR, "config.json");
+  if (!existsSync(p)) return fallback;
+  try {
+    const raw = JSON.parse(readFileSync(p, "utf-8"));
+    return {
+      public_projects: Array.isArray(raw.public_projects) ? raw.public_projects : [],
+      location_default: typeof raw.location_default === "string" ? raw.location_default : "",
+      extra_missions: Array.isArray(raw.extra_missions) ? raw.extra_missions : [],
+    };
+  } catch { return fallback; }
+}
+const DAEMON_CONFIG = loadDaemonConfig();
+const PUBLIC_PROJECTS = DAEMON_CONFIG.public_projects;
 
 // ─── Source Readers ───
 
@@ -120,10 +133,9 @@ function readMissions(): string {
     }
   }
 
-  // M2 reworded: mind upload aspiration without partner reference
-  publicMissions.push(
-    "M2: Explore the transfer and storage of human minds into digital formats for future continuity."
-  );
+  // Extra hand-curated public missions come from the private override config,
+  // never hardcoded here (identity-bound content stays out of the shipped skill).
+  publicMissions.push(...DAEMON_CONFIG.extra_missions);
 
   return publicMissions.join("\n");
 }
@@ -324,7 +336,7 @@ function generalizeTheme(slug: string): string | null {
   const words = slug.replace(/-/g, " ").toLowerCase();
 
   // Map specific patterns to general themes
-  const themeMap: Array<[RegExp, string]> = [
+  const themeMap: Array<[RegExp, string | null]> = [
     [/blog|post|writing|draft/, "Writing and content creation"],
     [/security|vuln|pentest|recon/, "Security research and assessment"],
     [/ai|llm|model|prompt/, "AI systems and development"],
@@ -505,7 +517,7 @@ export function aggregate(): DaemonUpdate {
   return {
     about,
     mission: telosParts.join("\n\n"),
-    current_location: (existing.current_location as string) || "San Francisco Bay Area",
+    current_location: (existing.current_location as string) || DAEMON_CONFIG.location_default,
     telos: telosParts.join("\n\n"),
     favorite_books: mergedBooks,
     favorite_movies: mergedMovies,

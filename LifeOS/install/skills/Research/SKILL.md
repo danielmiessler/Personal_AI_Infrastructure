@@ -1,6 +1,6 @@
 ---
 name: Research
-version: 1.5.13
+version: 1.5.16
 description: "Multi-agent web research with mandatory URL verification, confidence-tagged output, and four depth modes (quick to deep investigation). USE WHEN research, do research, quick research, extensive research, deep investigation, find information, investigate, extract alpha, analyze content, retrieve content, AI trends, enhance content, extract knowledge, web scraping, YouTube extraction, map landscape, competitive analysis, find it, find this, find this product, identify this, what is this, what's that thing, track down, locate, help me find, I can't find X online, can't find it online, source this — never substitute raw WebSearch/WebFetch for a multi-source find/identify/investigate request. NOT FOR people/company/entity deep background, academic papers (use ArXiv), JSON entity extraction, or content-adaptive wisdom extraction (use ExtractWisdom)."
 context: fork
 background: false
@@ -61,6 +61,8 @@ A single AI agent doing research has two failure modes that quietly wreck the re
 ## How It Works
 
 Multiple agents work in parallel and their findings get reconciled. Verification runs in three layers at zero added latency: each agent self-verifies its own URLs, a synthesis step cross-checks for conflicts, and dedicated verifier agents (Extensive/Deep) check findings with no access to the explorers' reasoning. Step 0 of every workflow routes sentiment questions to community scrapers before web search, and every URL is verified before delivery — a hallucinated link is a catastrophic failure.
+
+**Official anchor (drift check):** this skill's orchestrator-worker shape matches Anthropic's published architecture — [How we built our multi-agent research system](https://www.anthropic.com/engineering/built-multi-agent-research-system) (2025-06-13). When changing the orchestration itself (rosters, verifier layers, the `.mjs` ports — not on routine research runs), re-fetch that post and compare: it names lessons we may not have adopted yet (e.g. async agent coordination). Advisory only — report divergence, never auto-adopt; an unreachable URL never blocks anything.
 
 ## MANDATORY: URL Verification
 
@@ -166,7 +168,7 @@ See `Workflows/Verify.md` for full verification protocol.
 
 ## Deep Investigation Mode
 
-**Progressive iterative research** that builds a persistent knowledge vault. Works in both single-run (one cycle) and loop mode (Algorithm-driven iterations).
+**Progressive iterative research** that builds a persistent knowledge vault. Works in both single-run (one cycle) and iterative mode (Algorithm-driven iterations).
 
 **Concept:** Broad landscape → discover entities → score importance/effort → deep-dive one at a time → loop until coverage complete.
 
@@ -180,7 +182,7 @@ See `Workflows/Verify.md` for full verification protocol.
 "Do a deep investigation of the AI agent market"
 → Loads MarketResearch.md template
 → Iteration 1: Broad landscape + first entity deep-dive
-→ Loop mode: Each iteration deep-dives the next highest-priority entity
+→ Iterative mode: Each iteration deep-dives the next highest-priority entity
 → Exit: When all CRITICAL/HIGH entities researched + all categories covered
 ```
 

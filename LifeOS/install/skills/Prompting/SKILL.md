@@ -1,6 +1,6 @@
 ---
 name: Prompting
-version: 1.1.26
+version: 1.1.27
 description: "Meta-prompting standard library for generating, optimizing, and composing prompts programmatically via Standards, Handlebars Templates, and Tools; output is always a prompt to use elsewhere, not final content. USE WHEN meta-prompting, template generation, prompt optimization, prompt engineering, write a prompt, create system prompt, Handlebars template, eval prompt, judge prompt. NOT FOR generating final content (use the appropriate domain skill)."
 ---
 
@@ -169,6 +169,12 @@ The templating system eliminated **~35,000 tokens (65% reduction)** across LifeO
 - `Standards.md` - Complete prompt engineering guide
 - `Templates/README.md` - Template system overview
 - `Tools/RenderTemplate.ts` - Implementation details
+
+**Official anchors (drift check):** the two authoritative Anthropic sources this skill's standards derive from:
+- Prompt engineering: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview
+- Context engineering: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+
+When authoring or auditing `Standards.md` (not on routine template renders), fetch both and flag where our standards diverge from the current official guidance — these pages change with each model family, and standards written against an older one rot silently. Advisory only: report drift, never auto-adopt; unreachable URLs never block the work.
 
 **Research Foundation:**
 - Anthropic: "Claude 4.x Best Practices" (November 2025)

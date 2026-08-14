@@ -116,14 +116,40 @@ function parseCdpList(raw: string): any[] {
 }
 
 /**
- * The daemon derives a context id from the connect host, and mints an extra
- * URL-named alias on every navigation. The host-derived id is the only one
- * that stays valid across navigations, so pin it and pass it explicitly —
- * bare cdp calls hard-error once more than one context exists.
+ * The daemon names a manual-port context after the app it discovers, not after
+ * the connect host: 0.22 derived `cdp:127-0-0-1`, and 0.23 mints `cdp:app-<port>`
+ * when the target's URL has no hostname to derive from (ours launches on
+ * about:blank). Deriving the id here therefore failed every attach on 0.23 with
+ * "cdp context 'cdp:127-0-0-1' not found". Resolve it from what the daemon
+ * actually minted instead — the connect response carries it, with `cdp status`
+ * filtered to this instance's port as the fallback. Bare cdp calls still
+ * hard-error once more than one context exists, so it is passed explicitly.
+ * public issue #1802, @catchingknives
  */
-const CDP_CONTEXT = `cdp:${(process.env.INTERCEPTOR_VERIFY_CDP_HOST ?? '127.0.0.1').replace(/\./g, '-')}`
+let CDP_CONTEXT = ''
+
+/** Read the contextId out of the `cdp connect` response. */
+function contextFromConnect(connectOut: string): string | undefined {
+  try {
+    const id = parseCdp(connectOut)?.contextId
+    return typeof id === 'string' && id.startsWith('cdp:') ? id : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Fallback: the one context the daemon holds on this instance's own port. */
+async function contextFromStatus(): Promise<string> {
+  const { out } = await sh('interceptor', ['macos', 'cdp', 'status'])
+  const mine = parseCdpList(out).filter(
+    (c: any) => c?.port === PORT && typeof c?.contextId === 'string'
+  )
+  if (mine.length === 0) throw new Error(`no CDP context on port ${PORT} after connect`)
+  return (mine.find((c: any) => c.connection === 'connected') ?? mine[0]).contextId
+}
 
 async function cdp(method: string, params: Record<string, unknown> = {}): Promise<any> {
+  if (!CDP_CONTEXT) throw new Error('CDP context not resolved — attach() must run first')
   const { out } = await sh('interceptor', [
     'macos', 'cdp', 'raw', method, JSON.stringify(params), '--context', CDP_CONTEXT
   ])
@@ -182,15 +208,24 @@ function launch(): void {
   child.unref()
 }
 
-/** Attach CDP to the instance's page target, pruning stale alias contexts first. */
+/** Attach CDP to the instance's page target, then prune stale alias contexts. */
 async function attach(): Promise<void> {
   const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()
   const page = list.find((t: any) => t.type === 'page')
   if (!page) throw new Error('verification instance has no page target')
 
-  await sh('interceptor', ['macos', 'cdp', 'connect', String(PORT)])
+  const { out: connectOut } = await sh('interceptor', ['macos', 'cdp', 'connect', String(PORT)])
+  CDP_CONTEXT = contextFromConnect(connectOut) ?? (await contextFromStatus())
 
-  // Drop URL-named aliases left by earlier navigations so CDP_CONTEXT resolves.
+  const { out } = await sh('interceptor', [
+    'macos', 'cdp', 'attach', page.id, '--context', CDP_CONTEXT
+  ])
+  if (/^error:/m.test(out)) throw new Error(`attach failed: ${out.trim().slice(0, 200)}`)
+
+  // Prune URL-named aliases left by earlier navigations only AFTER the attach
+  // succeeded. Pruning first tore down the very context about to be used: on
+  // 0.23 the sole context on this port is the real one, not an alias.
+  // public issue #1802, @catchingknives
   const { out: statusOut } = await sh('interceptor', ['macos', 'cdp', 'status'])
   try {
     for (const c of parseCdpList(statusOut)) {
@@ -198,12 +233,7 @@ async function attach(): Promise<void> {
         await sh('interceptor', ['macos', 'cdp', 'detach', '--context', c.contextId])
       }
     }
-  } catch { /* no contexts yet on a cold start */ }
-
-  const { out } = await sh('interceptor', [
-    'macos', 'cdp', 'attach', page.id, '--context', CDP_CONTEXT
-  ])
-  if (/^error:/m.test(out)) throw new Error(`attach failed: ${out.trim().slice(0, 200)}`)
+  } catch { /* nothing to prune */ }
 }
 
 /**

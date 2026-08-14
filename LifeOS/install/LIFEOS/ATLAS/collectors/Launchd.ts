@@ -12,9 +12,18 @@ import type { AssetObs, CollectResult, Collector, EdgeObs } from "../Store";
 const AGENTS_DIR = join(homedir(), "Library/LaunchAgents");
 
 async function plutilRaw(keypath: string, plist: string): Promise<string | null> {
-  const proc = Bun.spawn(["plutil", "-extract", keypath, "raw", "-o", "-", plist], { stdout: "pipe", stderr: "pipe" });
-  const out = await new Response(proc.stdout).text();
-  return (await proc.exited) === 0 ? out.trim() : null;
+  try {
+    const proc = Bun.spawn(["plutil", "-extract", keypath, "raw", "-o", "-", plist], { stdout: "pipe", stderr: "pipe" });
+    const out = await new Response(proc.stdout).text();
+    return (await proc.exited) === 0 ? out.trim() : null;
+  } catch {
+    // ENOENT — plutil itself missing. AGENTS_DIR existing doesn't imply the
+    // platform's own tool does (e.g. a Linux box with stray com.lifeos.*.plist
+    // files but no plutil binary). Same "absent tool is a normal state, not a
+    // fault" class Github.ts already treats a missing `gh` as.
+    // ported from public PR #1743, @schmetti-dev
+    return null;
+  }
 }
 
 export const launchd: Collector = {

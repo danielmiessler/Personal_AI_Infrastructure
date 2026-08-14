@@ -1,5 +1,5 @@
 ---
-version: 1.2.1
+version: 1.2.3
 ---
 
 # LifeOS Containment Policy
@@ -7,7 +7,7 @@ version: 1.2.1
 > Containment zones draw the Life OS boundary at release time (`LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md`): the OS ships; the life never does.
 
 **Status:** Authoritative. Contributors and future DA sessions read this before adding a new file.
-**Enforcement:** two points. (1) The release pipeline's containment gates (G1-G14 + G17-G21, release-build time). (2) `hooks/SystemFileGuard.hook.ts` — a runtime PreToolUse Write/Edit gate that reads the same zone inventory (restored 2026-05-21 in Phase E of the system/user separation rebuild; it superseded the 2026-05-06 "release-build only" consolidation, which had removed the prospective `ContainmentGuard.hook.ts`).
+**Enforcement:** two points. (1) The release pipeline's containment gates (G1-G14 + G17-G25, release-build time). (2) `hooks/SystemFileGuard.hook.ts` — a runtime PreToolUse Write/Edit gate that reads the same zone inventory (restored 2026-05-21 in Phase E of the system/user separation rebuild; it superseded the 2026-05-06 "release-build only" consolidation, which had removed the prospective `ContainmentGuard.hook.ts`).
 **Zone inventory (authoritative):** `hooks/lib/containment-zones.ts` — the source of truth ShadowRelease imports.
 **Last updated:** 2026-05-10
 
@@ -64,8 +64,17 @@ A file outside every configured zone is a policy violation if it contains any of
 - **Identity** — absolute user paths, personal email, personal domain names, principal-specific hostnames
 - **Infrastructure IDs** — Cloudflare account or KV namespace IDs, ElevenLabs voice IDs, launchd bundle IDs, any UUID that identifies a specific account or resource
 - **Secrets** — API tokens, private keys (`.pem`, `.key`), session cookies, OAuth refresh tokens
+- **Private-tree references** — pointers to something only this machine has: a dated work-session path (`MEMORY/WORK/<date>-<slug>`) or a dated incident citation (`INC-<date>-<slug>`)
 
-The `ShadowRelease --check` gates enforce all three categories at release-build time; `SystemFileGuard.hook.ts` enforces the zone boundary at write time between releases.
+The `ShadowRelease --check` gates enforce all four categories at release-build time; `SystemFileGuard.hook.ts` enforces the zone boundary at write time between releases.
+
+### Writing rule: shipped prose keeps the lesson, never the citation
+
+The private-tree category is an **authoring** rule, so it is worth stating as one. When a rule, a gate, or a comment exists because something went wrong, the shipped file explains **what to do and why** — it never cites the private artifact that recorded it. A dated incident ID tells a public reader nothing except that something somewhere broke; the sentence "a DNS record was deleted without a restore plan, so destructive infra ops now require one" carries the entire value with none of the disclosure. Private files (anything inside a containment zone, and archived Algorithm snapshots) may cite freely — this rule binds only what ships.
+
+Two harms motivate it, and neither is visible to the identity or secret gates: the reference is **dangling** for every reader who is not the maintainer, and the slug itself **discloses operational history** — which project broke, when, and how. Structural references stay: the naming convention `INC-YYYYMMDD-<slug>.md`, the `MEMORY/LEARNING/INCIDENTS/` directory itself, and generic tree paths (`MEMORY/KNOWLEDGE/`, `MEMORY/STATE/`, undated `MEMORY/WORK/`) all describe structure every install has. Only the DATE makes a reference session-specific, which is why both gate patterns require one.
+
+Enforced by **G25 private-tree refs**. It was added 2026-08-14 after a publish review found 98 such references across 38 shipped files — content that every other gate and three independent audits had passed, because nothing was looking for pointers *into* the private tree (G8 and G22 look for private *skill* references only).
 
 The concrete patterns live in the release pipeline's `ShadowRelease.ts` (`IDENTITY_PATTERNS` + `CF_ID_PATTERNS`). When a new principal-specific string enters the threat model, add it there.
 
@@ -118,8 +127,8 @@ Record such files in `PATTERN_ALLOWLIST_FILES` in `hooks/lib/containment-zones.t
 
 1. **Zone review** — per the mandatory step above. Happens before anything else.
 2. **Source audit** — grep the live tree against the identity plus CF-ID pattern list. Every hit outside the configured zones is a policy violation; fix at source (sanitize, relocate, or allowlist with justification).
-3. **Staging build** — the release pipeline's `ShadowRelease.ts --create <version>` clones the live tree with hard rsync exclusions, deletes zone contents (preserving only top-level READMEs as scaffold), overlays the public `settings.json`, `CLAUDE.md`, and `LIFEOS_CONFIG.yaml` templates. This `.claude/` tree is an intermediate: `EmitSkill.ts` then reshapes it into the shippable `LifeOS/` skill, so the published release is that emitted skill, not the tree-clone itself.
-4. **The containment gates run against the staging tree (G1-G14 + G17-G21 — see the release pipeline's `GateKey` type for the canonical roster; G1-G14 listed here):**
+3. **Staging build** — the release pipeline's `ShadowRelease.ts --create <version>` clones the live tree with hard rsync exclusions, deletes zone contents (preserving only top-level READMEs as scaffold), overlays the public `settings.json`, `CLAUDE.md`, and `LIFEOS_CONFIG.toml` templates. This `.claude/` tree is an intermediate: `EmitSkill.ts` then reshapes it into the shippable `LifeOS/` skill, so the published release is that emitted skill, not the tree-clone itself.
+4. **The containment gates run against the staging tree (G1-G14 + G17-G25 — see the release pipeline's `GateKey` type for the canonical roster; G1-G14 listed here):**
     - **G1 — Zone deletion:** required public READMEs survive; forbidden personal files and persona dirs do not.
     - **G2 — Identity grep:** no identity patterns in the staging tree (except allowlisted files).
     - **G3 — CF ID grep:** no hardcoded CF account or KV namespace IDs (except allowlisted files).
@@ -161,7 +170,7 @@ Populated by the audit. Updated as files are sanitized or relocated.
 | `skills/CreateSkill/Workflows/ValidateSkill.md` | Lists example patterns a skill author should NOT hardcode | **KEEP** — legitimate exception |
 | `LIFEOS/TOOLS/SessionHarvester.ts` | Comment references derivation, not literal path | **KEEP** — uses `CLAUDE_DIR.replace(...)` dynamically |
 | `LIFEOS/TOOLS/gmail.ts` | Uses `homedir()` at runtime, not a literal path | **KEEP** — dynamic resolution |
-| `LIFEOS/PULSE/checks/health.ts` | Hardcoded site list for health monitoring | **TODO-REFACTOR** — move site list to `LIFEOS_CONFIG.yaml`, read at startup |
+| `LIFEOS/PULSE/checks/health.ts` | Hardcoded site list for health monitoring | **TODO-REFACTOR** — move site list to `LIFEOS_CONFIG.toml`, read at startup |
 | `agents/<agent>.md` | Write-permission path literals in agent definitions | **TODO-REFACTOR** — verify env-expansion support in Claude Code agent spec, then replace with `${HOME}/.claude/...` |
 
 ---

@@ -1,7 +1,7 @@
 ---
 name: ISA
-version: 1.0.21
-description: "Owns the Ideal State Artifact — the primitive holding a project or task's articulated ideal state; scaffolds, interviews, scores completeness, reconciles feature excerpts to master, seeds from a repo, and appends decisions/changelog/verification across a locked sixteen-section order. USE WHEN ISA, ISC, ideal state, ideal state criteria, project specification, hill-climb, articulating done, fog, not yet specified. NOT FOR creating new skills (use CreateSkill)."
+version: 1.1.2
+description: "Owns the Ideal State Artifact — the primitive holding a project or task's articulated ideal state; scaffolds, interviews, grills a half-formed idea into shape via checkpointed discovery, scores completeness, reconciles feature excerpts to master, seeds from a repo, and appends decisions/changelog/verification across a locked seventeen-section order. USE WHEN ISA, ISC, ideal state, ideal state criteria, project specification, hill-climb, articulating done, fog, not yet specified, grill me, discovery interview. NOT FOR creating new skills (use CreateSkill)."
 ---
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
@@ -29,19 +29,21 @@ description: "Owns the Ideal State Artifact — the primitive holding a project 
 
 The ISA is the single document that articulates "done" for any thing whose ideal state we are pursuing — a project, an application, a library, infrastructure, a work session, an art piece, a strategic decision. It serves five identities at once: ideal state articulation, test harness, build verification, done condition, system of record. This skill owns the canonical template, the workflows that generate and refine ISAs, and the example library.
 
+Every ISA shares one meta-ideal-state above its specific one: **euphoric surprise in the human using the system**. The specific ideal state varies with the work; the universal one never does. `## Vision` is where that general target takes specific shape — what euphoric surprise looks like for this particular work — so every ISA hill-climbs toward two summits at once.
+
 ## The Problem
 
 Most work starts without a written, testable definition of what finished looks like, so "done" drifts — the goal in your head at the start isn't the goal you settle for at the end, and there's no record of which one was right. Criteria stay vague enough that anything passes, decisions and dead ends get forgotten and re-litigated, and when work spans multiple sessions or multiple agents there's no shared source of truth for what's been verified. The ISA fixes "done" as a hard-to-vary explanation with atomic, probe-able criteria, a stable-ID structure that survives edits, and an audit trail of what was conjectured, refuted, and learned.
 
 ## How It Works
 
-The ISA is a single document with a locked sixteen-section body. A substance-scaled completeness gate decides which sections are required for a given piece of work, and six workflows generate, deepen, score, and reconcile the artifact across sessions and agents.
+The ISA is a single document with a locked seventeen-section body. A substance-scaled completeness gate decides which sections are required for a given piece of work, and six workflows generate, deepen, score, and reconcile the artifact across sessions and agents.
 
 ---
 
-## The Sixteen-Section Body (locked; spec v2.18.0, Algorithm v8.12.0)
+## The Seventeen-Section Body (locked; spec v2.19.0, Algorithm v8.19.0)
 
-Every ISA may have up to sixteen body sections. The substance-scaled completeness gate decides which are required for a given piece of work; sections never appear empty. **Order is fixed**. **Vocabulary (v8):** the criteria section is headed `## Claims` on new ISAs (`## Criteria` / `## ISC Criteria` legacy, still parsed); claim IDs may be `ISC-N` or short-form (`C1`, `A3`); anti-claims may live inline (`Anti:` prefix) or in a dedicated `## Anti-claims` section; the provenance section may be headed `## Verification` or `## Log`.
+Every ISA may have up to seventeen body sections. The substance-scaled completeness gate decides which are required for a given piece of work; sections never appear empty. **Order is fixed**. **Vocabulary (v8):** the criteria section is headed `## Claims` on new ISAs (`## Criteria` / `## ISC Criteria` legacy, still parsed); claim IDs may be `ISC-N` or short-form (`C1`, `A3`); anti-claims may live inline (`Anti:` prefix) or in a dedicated `## Anti-claims` section; the provenance section may be headed `## Verification` or `## Log`.
 
 | # | Section | Purpose | Written At |
 |---|---------|---------|------------|
@@ -61,6 +63,7 @@ Every ISA may have up to sixteen body sections. The substance-scaled completenes
 | 14 | `## Decisions` | Timestamped decision log including dead ends; `refined:` prefix for Goal/ISC restructures | any phase |
 | 15 | `## Learning` | Conjecture / refuted-by / learned / criterion-now entries — the Deutsch error-correction trail, written only when understanding changed (formerly `## Changelog`; **not** a changelog — see below) | learning |
 | 16 | `## Verification` | One-line provenance stub that each ISC passed — a commit hash, test name, or probe ref; collapsed on close, never a retained evidence paragraph | climbing → close |
+| 17 | `## Remaining Work` | **NEW v2.19.0** — concrete work this ISA still owes that was never an ISC of this run (follow-ups, handoffs, things noticed at close), one `- [ ] <work> — <why not an ISC / what it waits on>` line each. **Recording an item here IS a complete disposition** (no card also required). **Advisory, omit-when-empty, never gated, never counted toward coverage.** Backlog = unchecked ISCs ∪ unchecked Remaining Work. Distinct from fog (`## Not yet specified`); unchecked ISCs stay in `## Claims` (ID-Stability forbids moving them here) | learning |
 
 `## Dependencies`, `## Not yet specified`, and `## Bridge Criteria` are **conditional-required**: Dependencies/Bridge when the ISA has any `parent:`/`children:`/cross-ISA relationship, Not-yet-specified when the work genuinely has fog — omitted (like any empty section) otherwise. Multi-ISA trees are rare (<4% of archived ISAs) — full mechanics in `LIFEOS/DOCUMENTATION/ISA/ISAHierarchy.md`.
 
@@ -109,6 +112,7 @@ Match the verb in the request to a workflow. When ambiguous, default to Scaffold
 |---------------|----------|------|
 | "scaffold", "create", "generate", "new ISA from this prompt", "extract feature as ephemeral" | **Scaffold** | `Workflows/Scaffold.md` |
 | "interview me", "fill in the ISA", "deepen", "ask me questions" | **Interview** | `Workflows/Interview.md` |
+| "grill me", "grill", "discovery interview", "figure out the shape" | **Grill** | `Workflows/Grill.md` |
 | "check", "audit", "score this ISA", "is it complete?" | **CheckCompleteness** | `Workflows/CheckCompleteness.md` |
 | "reconcile", "merge feature file back", "ephemeral → master" | **Reconcile** | `Workflows/Reconcile.md` |
 | "seed", "bootstrap from this repo", "draft an ISA from existing code" | **Seed** | `Workflows/Seed.md` |
@@ -143,6 +147,7 @@ The highest-information-density part of this skill. Each entry captures a non-ob
 - **Test Strategy tables must carry the canonical six columns — `isc | type | check | threshold | tool | anchors_to`.** Bunker's parser reads `anchors_to` positionally at cell index 5, so a five-column table that drops `threshold` silently shifts the anchor into the `tool` slot; `ISAGate.ts` then hard-fails `anchors-missing` on rows that visibly show an anchor, and the message points at the anchors rather than at the column count. Drop `threshold` only by writing an empty cell, never by removing the column. (Hit live 2026-07-27 on the AS3 ISA: 14 rows flagged, every one of them anchored.)
 - **Probe placement follows the seam rule.** Test Strategy probes attach at the boundary where the thing meets its consumer, at the highest boundary that exercises the claim, agreed before building — never internals. Prefer existing boundaries; the fewer distinct probe boundaries, the more each proves. Full convention: `ISAFormat.md` § Probe placement.
 - **A design question's cheapest probe is a throwaway prototype.** Sketch, outline, stub, or runnable code — disposable, kept out of the main line; only the decision folds back (into the ISC, a Decisions row, and at most one decision-rich fragment inlined). Full convention: `ISAFormat.md` § Prototype-as-probe.
+- **Ordering edges are a trailing `(after: ID, ID)` parenthetical — and optional forever (v2.21.0).** When claims have REAL execution ordering, encode it as a trailing parenthetical on the claim line (`- [ ] C4: migrate rows (after: C2).`); `bun LIFEOS/TOOLS/IsaFrontier.ts frontier <isa>` then computes the takeable set, and `claim`/`release` give concurrent sessions atomic per-claim locks (central state under `MEMORY/STATE/isa-locks/`, never beside the ISA; the tool never writes the ISA file). Edges only where ordering is real — most ISAs need none, no gate requires them, and edging every claim to look thorough is decoration the frontier then has to walk. Backticked syntax mentions and mid-line parentheticals are ignored by the parser (only the trailing form binds); dropped/tombstoned blockers count as resolved, so a killed claim never blocks forever. A session sharing an ISA with other sessions claims before building and releases at close; solo runs skip the protocol entirely. Full convention: `ISAFormat.md` § Dependency edges and the frontier.
 - **Prefer test-first probes (red-before-build).** Where an ISC's probe is a *runnable* test (`bun-test`/`bun-property`/`bash`/`curl`/`SELECT`), write it so it FAILS before EXECUTE and passes after — the probe exists and is red before the build, green after. Probes that can only be a screenshot or manual check are exempt. This tightens the existing Inline-Verification Mandate from "name the probe" to "run the probe red first," and it is a rule about *when the probe is written/run* (the process), NOT a coding-craft instruction telling a capable model how to do TDD. (The structural kernel of Pocock's `tdd`, folded into the ISC layer; the red/green/refactor *mechanics* are deliberately NOT encoded — a competent coder does those unprompted.)
 
 ---

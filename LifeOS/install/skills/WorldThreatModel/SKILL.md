@@ -1,6 +1,6 @@
 ---
 name: WorldThreatModel
-version: 1.0.17
+version: 1.0.18
 description: "Persistent world-model harness that stress-tests ideas, strategies, and investments against 11 time horizons from 6 months to 50 years, each a deep analysis of geopolitics, tech, economics, society, and security, in Fast/Standard/Deep tiers. USE WHEN threat model, world model, test idea, future analysis, time horizon, stress test against future, long-term risk. NOT FOR single-shot idea attack (use RedTeam)."
 ---
 

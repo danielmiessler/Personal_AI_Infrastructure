@@ -24,10 +24,11 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
+import { homedir } from "node:os";
 
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LABEL = "com.lifeos.worksweep";
 const IS_LINUX = process.platform === "linux";
 

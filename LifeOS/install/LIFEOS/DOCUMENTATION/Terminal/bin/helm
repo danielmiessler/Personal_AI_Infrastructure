@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Helm — the LifeOS terminal. Ships with LifeOS; no separate checkout to track.
+set -euo pipefail
+# readlink -f only exists on macOS 12.3+ and GNU coreutils; fall back to a manual
+# one-hop resolve so an older machine still reports the right directory.
+_self="${BASH_SOURCE[0]}"
+if _resolved="$(readlink -f "$_self" 2>/dev/null)" && [[ -n "$_resolved" ]]; then
+  _self="$_resolved"
+elif [[ -L "$_self" ]]; then
+  _link="$(readlink "$_self")"
+  [[ "$_link" == /* ]] && _self="$_link" || _self="$(dirname "$_self")/$_link"
+fi
+HELM_DIR="$(cd "$(dirname "$_self")/.." && pwd)"
+
+case "${1:-help}" in
+  update)
+    echo "Helm ships with LifeOS — update LifeOS and Helm comes with it."
+    echo "Your kitty config is symlinked into the LifeOS tree, so an update applies immediately."
+    echo "Reload a running window with shift+cmd+r.";;
+  doctor)
+    command -v kitty >/dev/null && echo "✓ kitty installed" || echo "✗ kitty missing"
+    command -v bun >/dev/null && echo "✓ bun installed (live tab bar + session picker)" || echo "  note: bun absent — tab bar and session picker are inert"
+    # Hardcoded, matching install.sh: the config's helper scripts reference
+    # ~/.config/kitty by absolute path, so that is the only location that works.
+    # Verify the link TARGET, not just that a link exists: a dotfiles manager's own
+    # link, or a dangling one after the LifeOS tree moved, would otherwise report green.
+    if [[ "$(readlink "$HOME/.config/kitty" 2>/dev/null)" == "$HELM_DIR/kitty" ]]; then
+      echo "✓ config linked → $HELM_DIR/kitty"
+    elif [[ -L "$HOME/.config/kitty" ]]; then
+      echo "✗ ~/.config/kitty points at $(readlink "$HOME/.config/kitty"), not Helm (run install.sh)"
+    else
+      echo "✗ config not linked (run install.sh)"
+    fi
+    if [[ -n "${XDG_CONFIG_HOME:-}" && "${XDG_CONFIG_HOME}" != "$HOME/.config" ]]; then
+      echo "  note: XDG_CONFIG_HOME is set to $XDG_CONFIG_HOME, but Helm installs at ~/.config/kitty by design"
+    fi;;
+  *)
+    echo "helm — the Helm terminal"
+    echo "  helm doctor   check the install"
+    echo "  helm update   how updates reach Helm";;
+esac

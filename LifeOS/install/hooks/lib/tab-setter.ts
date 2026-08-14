@@ -18,11 +18,14 @@ import {
   ASCENT,
   ASCENT_GERUNDS,
   PHASE_TO_ASCENT,
+  TAB_ACTIVITY,
   ascentProgress,
+  defaultTabActivity,
   deriveAscent,
   stripAscentPrefix,
   type AscentInput,
   type AscentState,
+  type TabActivity,
 } from '../../LIFEOS/TOOLS/ascent';
 
 /** Detect if we're running inside cmux */
@@ -36,6 +39,7 @@ function stateToCmuxLogLevel(state: TabState): string {
     case 'thinking':  return 'progress';
     case 'working':   return 'info';
     case 'question':  return 'warning';
+    case 'blocked':   return 'warning';
     case 'completed': return 'success';
     case 'error':     return 'error';
     case 'idle':      return 'info';
@@ -77,6 +81,9 @@ function setCmuxState(title: string, state: TabState, ascent?: AscentState): voi
 // retired station strings that may still sit in a stale tab-state file.
 const GENERIC_PHASE_GERUNDS = new Set([
   ...ASCENT_GERUNDS,
+  // Retired ascent gerunds (renamed 2026-08-13 — a tab read "Climbing" while
+  // the official state is Ascending): strip forever from stale tab-state files.
+  'Climbing.', 'Testing the hold.',
   'Observing.', 'Thinking.', 'Planning.', 'Building.', 'Executing.',
   'Verifying.', 'Learning.', 'Complete.', 'Starting.', 'Scoping.',
   'Observing the user request.', 'Analyzing the problem space.',
@@ -196,6 +203,9 @@ interface SetTabOptions {
   /** Ascent state to carry across a transient stamp (e.g. question), so the
    * restore path can return to the run's real state instead of a generic one. */
   previousAscent?: AscentState;
+  /** Marks a permission-blocked stamp so the wildcard PostToolUse restore path
+   * can tell "blocked on approval" apart from every other transient state. */
+  blocked?: boolean;
   sessionId?: string;
 }
 
@@ -327,6 +337,7 @@ export function setTabState(opts: SetTabOptions): void {
       };
       if (previousTitle) stateData.previousTitle = previousTitle;
       if (previousAscent) stateData.previousAscent = previousAscent;
+      if (opts.blocked) stateData.blocked = true;
       writeFileSync(join(TAB_TITLES_DIR, `${windowId}.json`), JSON.stringify(stateData), 'utf-8');
     }
   } catch { /* silent */ }
@@ -339,7 +350,7 @@ export function setTabState(opts: SetTabOptions): void {
 /**
  * Read per-window state file. Returns null if not found or invalid.
  */
-export function readTabState(sessionId?: string): { title: string; state: TabState; previousTitle?: string; previousAscent?: AscentState; ascent?: AscentState } | null {
+export function readTabState(sessionId?: string): { title: string; state: TabState; previousTitle?: string; previousAscent?: AscentState; ascent?: AscentState; blocked?: boolean } | null {
   const kittyEnv = getKittyEnv(sessionId);
   const windowId = kittyEnv.windowId;
   if (!windowId) return null;
@@ -352,6 +363,7 @@ export function readTabState(sessionId?: string): { title: string; state: TabSta
       state: raw.state || 'idle',
       previousTitle: raw.previousTitle,
       previousAscent: raw.previousAscent as AscentState | undefined,
+      blocked: raw.blocked === true,
       // `phase` is the pre-2026-07-27 key; map it forward so a tab written by
       // the old code still re-stamps correctly on the next prompt.
       ascent: (raw.ascent || PHASE_TO_ASCENT[String(raw.phase || '').toLowerCase()]) as AscentState | undefined,
@@ -383,9 +395,19 @@ const SESSION_NOISE = new Set([
 export function getSessionOneWord(sessionId: string): string | null {
   try {
     const namesPath = paiPath('MEMORY', 'STATE', 'session-names.json');
-    if (!existsSync(namesPath)) return null;
-    const names = JSON.parse(readFileSync(namesPath, 'utf-8'));
-    const fullName = names[sessionId];
+    let names: Record<string, string> | null = null;
+    try {
+      if (existsSync(namesPath)) names = JSON.parse(readFileSync(namesPath, 'utf-8'));
+    } catch { names = null; }
+    if (!names) {
+      // Mid-rename/corrupt read: the writer keeps a .bak (see PromptProcessing
+      // writeSessionNames) — a transient miss here is how a completed tab got
+      // stamped with a bare state word (window 1, 2026-08-12).
+      const bakPath = namesPath + '.bak';
+      if (!existsSync(bakPath)) return null;
+      names = JSON.parse(readFileSync(bakPath, 'utf-8'));
+    }
+    const fullName = names?.[sessionId];
     if (!fullName) return null;
 
     const words = fullName.split(/\s+/).filter((w: string) => w.length > 0);
@@ -409,50 +431,112 @@ export function getSessionOneWord(sessionId: string): string | null {
 }
 
 /**
+ * Bare state words and transient stamps are never task descriptions. A title
+ * carrying one of these tells the user nothing ("🪨 WORKING" on a completed
+ * tab, found live 2026-08-12) — filter it and fall back to something honest.
+ */
+export function isDegenerateDesc(desc: string): boolean {
+  const d = (desc || '').trim();
+  if (!d) return true;
+  if (/^APPROVE:/i.test(d)) return true;
+  return /^(working|done|thinking|blocked|completed|idle|task complete)[.…]?$/i.test(d);
+}
+
+/**
+ * Pure title composition for setAscentTab — extracted so tests can replay the
+ * exact shipping logic against regression cases (the 🪨 WORKING tab).
+ *
+ * Title shape since 2026-08-12: `{stateIcon}{activityGlyph} {desc}` — the
+ * state icon says where in the climb, the activity glyph says whether work is
+ * moving (⚡), waiting on {{PRINCIPAL_NAME}} (⏳), done (✅), or quiet (💤). Defaults come
+ * from `defaultTabActivity`; only the question/approval stamps override.
+ */
+export function composeAscentTitle(
+  state: AscentState,
+  opts: {
+    summary?: string;
+    oneWord?: string | null;
+    currentTitle?: string | null;
+    activity?: TabActivity | null;
+    /** Use the summary verbatim as the description (approval stamps carry
+     * `APPROVE: …`, which the degenerate filter rightly bans everywhere else). */
+    literal?: boolean;
+  },
+): string {
+  const config = ASCENT[state];
+  const summary = opts.summary?.trim() || '';
+  const activity = opts.activity !== undefined ? opts.activity : defaultTabActivity(state);
+  const prefix = `${config.icon}${activity ? TAB_ACTIVITY[activity].glyph : ''}`;
+  if (state === 'cairn') {
+    // No summary extracted — the session name at least identifies the work;
+    // never a bare state word.
+    return `${prefix} ${summary || opts.oneWord || 'Done'}`;
+  }
+  if (state === 'idle') {
+    return opts.oneWord || 'Idle';
+  }
+  if (opts.literal && summary) {
+    return `${prefix} ${summary}`;
+  }
+  // Preserve the working description carried in from PromptProcessing or a
+  // prior phase — only the leading token+icon changes to show the new phase.
+  // stripPrefix removes token+icon; tolerate the legacy "ONE_WORD | desc"
+  // shape that may linger in pre-format-change state files.
+  let existingDesc = '';
+  if (opts.currentTitle) {
+    const pipeIdx = opts.currentTitle.indexOf(' | ');
+    existingDesc = pipeIdx !== -1
+      ? opts.currentTitle.slice(pipeIdx + 3).trim()
+      : stripPrefix(opts.currentTitle);
+  }
+  // Never carry over generic phase gerunds, state words, or approval stamps —
+  // they're not real task descriptions.
+  if (GENERIC_PHASE_GERUNDS.has(existingDesc) || isDegenerateDesc(existingDesc)) existingDesc = '';
+  // An explicit summary (e.g. a fresh iteration's gerund from PromptProcessing)
+  // overrides the carried-over desc; otherwise keep what the tab already shows.
+  const override = summary && !GENERIC_PHASE_GERUNDS.has(summary) && !isDegenerateDesc(summary) ? summary : '';
+  const desc = override || existingDesc || config.gerund;
+  return `${prefix} ${desc}`;
+}
+
+export interface AscentTabOptions {
+  /** Override the state-implied activity glyph (question/approval → 'waiting'). */
+  activity?: TabActivity | null;
+  /** Use the summary verbatim as the description (approval stamps). */
+  literal?: boolean;
+  /** Carry the pre-stamp title so a transient stamp (question/approval) can restore it. */
+  previousTitle?: string;
+  /** Carry the pre-stamp ascent state for the same restore path. */
+  previousAscent?: AscentState;
+  /** Marks a permission-blocked stamp for the wildcard PostToolUse restore. */
+  blocked?: boolean;
+}
+
+/**
  * Set tab title and color for an Algorithm run state.
- * Active format:   {ICON} {task description}
- * Cairn format:    🪨 {summary}
+ * Active format:   {ICON}{ACTIVITY} {task description}
+ * Cairn format:    🪨✅ {summary}
  *
  * Called whenever the run's derived ascent state changes. Every glyph, color and
  * fallback gerund comes from `LIFEOS/TOOLS/ascent.ts` — the same table Pulse and
- * the status line read, so a tab can never disagree with the board.
+ * the status line read, so a tab can never disagree with the board. Since
+ * 2026-08-12 the tab background IS the board color (ASCENT.tabBg === color),
+ * and the question/approval stamps route through here too, so every painted
+ * tab is one of the six run-state colors.
  */
-export function setAscentTab(state: AscentState, sessionId: string, summary?: string): void {
+export function setAscentTab(state: AscentState, sessionId: string, summary?: string, opts: AscentTabOptions = {}): void {
   const config = ASCENT[state];
   if (!config) return;
 
-  const oneWord = getSessionOneWord(sessionId) || 'WORKING';
   const kittyEnv = getKittyEnv(sessionId);
-
   const currentState = readTabState(sessionId);
-  const lead = (icon: string) => icon;
-
-  let title: string;
-  if (state === 'cairn') {
-    // No summary extracted — the session name at least identifies the work.
-    title = `${lead(config.icon)} ${summary || oneWord}`;
-  } else if (state === 'idle') {
-    title = oneWord;
-  } else {
-    // Preserve the working description carried in from PromptProcessing or a
-    // prior phase — only the leading token+icon changes to show the new phase.
-    // stripPrefix removes token+icon; tolerate the legacy "ONE_WORD | desc"
-    // shape that may linger in pre-format-change state files.
-    let existingDesc = '';
-    if (currentState?.title) {
-      const pipeIdx = currentState.title.indexOf(' | ');
-      existingDesc = pipeIdx !== -1
-        ? currentState.title.slice(pipeIdx + 3).trim()
-        : stripPrefix(currentState.title);
-    }
-    // Never carry over generic phase gerunds — they're not real task descriptions
-    if (GENERIC_PHASE_GERUNDS.has(existingDesc)) existingDesc = '';
-    // An explicit summary (e.g. a fresh iteration's gerund from PromptProcessing)
-    // overrides the carried-over desc; otherwise keep what the tab already shows.
-    const override = summary && summary.trim() && !GENERIC_PHASE_GERUNDS.has(summary.trim()) ? summary.trim() : '';
-    const desc = override || existingDesc || config.gerund;
-    title = `${lead(config.icon)} ${desc}`;
-  }
+  const title = composeAscentTitle(state, {
+    summary,
+    oneWord: getSessionOneWord(sessionId),
+    currentTitle: currentState?.title ?? null,
+    activity: opts.activity,
+    literal: opts.literal,
+  });
 
   // cmux path: use sidebar metadata instead of Kitty remote control
   if (isCmux()) {
@@ -512,13 +596,18 @@ export function setAscentTab(state: AscentState, sessionId: string, summary?: st
 
   try {
     if (!existsSync(TAB_TITLES_DIR)) mkdirSync(TAB_TITLES_DIR, { recursive: true });
-    writeFileSync(join(TAB_TITLES_DIR, `${windowId}.json`), JSON.stringify({
+    const stateData: Record<string, unknown> = {
       title,
       inactiveBg: config.tabBg,
       state: state === 'cairn' ? 'completed' : 'working',
       ascent: state,
       timestamp: new Date().toISOString(),
-    }), 'utf-8');
+    };
+    if (opts.activity !== undefined) stateData.activity = opts.activity;
+    if (opts.previousTitle) stateData.previousTitle = opts.previousTitle;
+    if (opts.previousAscent) stateData.previousAscent = opts.previousAscent;
+    if (opts.blocked) stateData.blocked = true;
+    writeFileSync(join(TAB_TITLES_DIR, `${windowId}.json`), JSON.stringify(stateData), 'utf-8');
   } catch { /* silent */ }
 }
 

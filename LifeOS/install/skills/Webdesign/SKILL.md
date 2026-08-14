@@ -1,6 +1,6 @@
 ---
 name: Webdesign
-version: 1.2.2
+version: 1.2.3
 description: "Design and integrate web interfaces via three paths: DirectDesign (write design inline with Anthropic frontend-design philosophy — the default workhorse), native /design + /design-sync Claude Code commands (preferred for code integration and design-system sync), or ClaudeDesign (drive claude.ai/design through Interceptor — experimental visual-review fallback). USE WHEN web design, UI design, create prototype, design system, design sync, redesign site, mockup, landing page, dashboard design, design-to-code, frontend design, polish UI, design audit, brutalist/editorial/retro UI. NOT FOR illustrations/logos (use Art) or video (use Remotion)."
 license: Complete terms in LICENSE.txt
 ---
@@ -96,7 +96,7 @@ For code-bound work (export, integration, design-system extraction/sync), **pref
 Path 1 (DirectDesign) needs nothing — no browser, no auth. Path 2 (native CLI) needs only a Claude subscription that includes Claude Design and a current Claude Code (`/update` if the commands don't show). **The checks below apply ONLY to Path 3 (ClaudeDesign via Interceptor):**
 
 1. **Interceptor skill available** — `which interceptor` returns a path. If not, instruct user to invoke `Skill("Interceptor")` setup first.
-2. **Authenticated claude.ai session** — the `interceptor-test` Chrome profile must be logged into claude.ai. ⚠️ It is NOT currently logged in (verified 2026-06-25 — the profile hits the marketing wall, not the app). A one-time headed login is required before any Path 3 workflow can run.
+2. **Authenticated claude.ai session** — the `interceptor-test` Chrome profile must be logged into claude.ai. Check at run time (an unauthenticated profile hits the marketing wall, not the app); if it isn't, a one-time headed login is required before any Path 3 workflow can run.
 3. **Claude Design access** — the Claude subscription must include Claude Design (Pro, Max, Team, or Enterprise with admin opt-in).
 4. **For `IntegrateIntoApp`**: parent-project path + framework identifier (next, astro, vitepress, vite-react, vue, vanilla) passed in context.
 

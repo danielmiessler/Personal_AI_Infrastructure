@@ -21,7 +21,6 @@
  */
 
 import { spawn, spawnSync } from "bun";
-import { getIdentity, getStartupCatchphrase } from "../../hooks/lib/identity";
 import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync } from "fs";
 import { homedir } from "os";
 import { join, basename } from "path";
@@ -45,8 +44,6 @@ const MCP_SHORTCUTS: Record<string, string> = {
   brightdata: "Brightdata-MCP.json",
   ap: "Apify-MCP.json",
   apify: "Apify-MCP.json",
-  cu: "ClickUp-MCP.json",
-  clickup: "ClickUp-MCP.json",
   dev: "dev-work.mcp.json",
   sec: "security.mcp.json",
   security: "security.mcp.json",
@@ -60,11 +57,10 @@ const MCP_SHORTCUTS: Record<string, string> = {
 // Profile descriptions
 const PROFILE_DESCRIPTIONS: Record<string, string> = {
   none: "No MCPs (maximum performance)",
-  minimal: "Essential MCPs (content, daemon, Foundry)",
+  minimal: "Essential MCPs (content, daemon)",
   "dev-work": "Development tools (Shadcn, Codex, Supabase)",
   security: "Security tools (httpx, naabu)",
   research: "Research tools (Brightdata, Apify)",
-  clickup: "Official ClickUp MCP (tasks, time tracking, docs)",
   full: "All available MCPs",
 };
 
@@ -110,9 +106,57 @@ function error(message: string): never {
   process.exit(1);
 }
 
-function notifyVoice(message: string) {
+// A Core-only install declines the hooks tree, so ../../hooks/lib/identity may
+// not exist on disk. Resolve it lazily and fall back to a nameless, voiceless
+// identity when it is absent (public issue #1694, @dissembler21-png). With the
+// hooks tree present this resolves exactly as the former static import did.
+type IdentityModule = typeof import("../../hooks/lib/identity");
+type Identity = ReturnType<IdentityModule["getIdentity"]>;
+
+const FALLBACK_IDENTITY: Identity = {
+  name: "LifeOS",
+  fullName: "LifeOS",
+  displayName: "LifeOS",
+  mainDAVoiceID: "",
+  color: "#3B82F6",
+};
+
+let identityModule: IdentityModule | null | undefined;
+
+async function loadIdentityModule(): Promise<IdentityModule | null> {
+  if (identityModule === undefined) {
+    try {
+      identityModule = await import("../../hooks/lib/identity");
+    } catch {
+      identityModule = null;
+    }
+  }
+  return identityModule;
+}
+
+async function getIdentity(): Promise<Identity> {
+  const mod = await loadIdentityModule();
+  if (!mod) return FALLBACK_IDENTITY;
+  try {
+    return mod.getIdentity();
+  } catch {
+    return FALLBACK_IDENTITY;
+  }
+}
+
+async function getStartupCatchphrase(): Promise<string> {
+  const mod = await loadIdentityModule();
+  if (!mod) return `${FALLBACK_IDENTITY.name} here, ready to go.`;
+  try {
+    return mod.getStartupCatchphrase();
+  } catch {
+    return `${FALLBACK_IDENTITY.name} here, ready to go.`;
+  }
+}
+
+async function notifyVoice(message: string) {
   // Fire and forget voice notification using Qwen3-TTS with personality
-  const identity = getIdentity();
+  const identity = await getIdentity();
   const personality = identity.personality;
 
   if (!personality?.baseVoice) {
@@ -434,7 +478,7 @@ function cmdWallpaper(args: string[]) {
   const success = setWallpaper(match);
   if (success) {
     log(`Wallpaper set to ${name}`, "✅");
-    notifyVoice(`Wallpaper changed to ${name}`);
+    void notifyVoice(`Wallpaper changed to ${name}`);
   } else {
     error("Failed to set wallpaper");
   }
@@ -508,7 +552,7 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
   // Reads daidentity.startupCatchphrase from settings.json so the user's
   // install-time catchphrase is actually honored. Falls back to the
   // historical "<name> here, ready to go." default when unset.
-  notifyVoice(`[🎯 focused] ${getStartupCatchphrase()}`);
+  void notifyVoice(`[🎯 focused] ${await getStartupCatchphrase()}`);
 
   // Launch Claude
   // BILLING: subscription, not API. Strip ANTHROPIC_API_KEY before spawn so the
@@ -703,7 +747,6 @@ COMMANDS:
 MCP SHORTCUTS:
   bd, brightdata           Bright Data scraping
   ap, apify                Apify automation
-  cu, clickup              Official ClickUp (tasks, time tracking, docs)
   dev                      Development tools
   sec, security            Security tools
   research                 Research tools (BD + Apify)

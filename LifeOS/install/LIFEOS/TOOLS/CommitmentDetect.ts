@@ -20,8 +20,12 @@
  */
 
 import { inference } from "./Inference";
+import { getPrincipalName } from "../../hooks/lib/identity";
 
-const SYSTEM_PROMPT = `You analyze outbound messages from {{PRINCIPAL_FULL_NAME}} to detect commitments — promises to do something, send something, deliver something, or follow up by a specific time.
+// Principal name resolved at runtime, never a literal: a hardcoded name ships
+// as an unsubstituted {{PRINCIPAL_FULL_NAME}} placeholder in the public
+// payload's live code (public issue #1770 §6 class, @bnkath2o; G23 gate).
+const SYSTEM_PROMPT = `You analyze outbound messages from ${getPrincipalName()} to detect commitments — promises to do something, send something, deliver something, or follow up by a specific time.
 
 A commitment has:
 - A subject (what is promised — concrete action or artifact)

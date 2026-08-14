@@ -42,7 +42,8 @@ LIFEOS_THEME.colors.textMuted     // #94a3b8 - Muted text
 
 // Typography
 LIFEOS_THEME.typography.title     // { fontSize: 72, fontWeight: 'bold' }
-LIFEOS_THEME.typography.subtitle  // { fontSize: 36 }
+LIFEOS_THEME.typography.subtitle  // { fontSize: 48 } — 36 is heading, see Tools/Theme.ts
+LIFEOS_THEME.typography.heading   // { fontSize: 36 }
 LIFEOS_THEME.typography.body      // { fontSize: 24 }
 
 // Animation

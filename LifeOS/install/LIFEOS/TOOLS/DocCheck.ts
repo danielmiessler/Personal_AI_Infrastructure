@@ -18,8 +18,9 @@
 import { readFileSync, statSync, existsSync, readdirSync } from 'fs';
 import { join, resolve, dirname, relative } from 'path';
 import { execSync } from 'child_process';
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || '';
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_DIR = join(HOME, '.claude');
 const LIFEOS_DIR = join(CLAUDE_DIR, 'LIFEOS');
 const HOOKS_DIR = join(CLAUDE_DIR, 'hooks');
@@ -164,7 +165,8 @@ function findDocs(): string[] {
   const secDir = join(LIFEOS_DIR, 'USER', 'SECURITY');
   try {
     for (const f of readdirSync(secDir)) {
-      if (f.endsWith('.md') || f.endsWith('.yaml')) docs.push(join(secDir, f));
+      // ported from public PR #1741, @elhoim — `.yml` is as valid a YAML suffix as `.yaml`
+      if (f.endsWith('.md') || f.endsWith('.yaml') || f.endsWith('.yml')) docs.push(join(secDir, f));
     }
   } catch { /* */ }
 

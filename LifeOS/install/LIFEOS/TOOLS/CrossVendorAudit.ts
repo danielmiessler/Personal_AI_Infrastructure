@@ -17,9 +17,10 @@
 
 import { spawn } from "node:child_process";
 import { readFile, writeFile, appendFile, mkdir, stat, rm, symlink } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, relative } from "node:path";
+import { CROSS_VENDOR } from "./models";
 
 const HOME = homedir();
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS");
@@ -127,10 +128,86 @@ Output ONLY this JSON on one line, no markdown, no prose, no preamble:
 
 {"verdict":"pass|concerns|fail","criticality":"high|medium|low","findings":[{"severity":"critical|warning|info","isc_ref":"ISC-N or null","issue":"...","evidence":"..."}],"blind_spots_surfaced":["..."],"model_used":"gpt-5.6-sol","tokens_used":0}`;
 
+const RELEASE_AUDIT_PROMPT = `You are an independent cross-vendor auditor for a public software release. The Claude-family executor, a full set of deterministic security gates, and a Claude-family reviewer have already signed off. Your job is to find what THEY missed — Anthropic-family blind spots they share.
+
+The bundle contains: the gate record (.shadow-state.json), a file manifest of the shipped payload, and the full text of the highest-risk and recently-changed files. Audit against these four criteria:
+ 1. Identity/secret leakage beyond the known-benign class (public voice IDs, bot handles, model IDs, and public repo URLs are NOT findings).
+ 2. Dangling internal references — a shipped file referencing a path absent from the manifest.
+ 3. Retired capabilities presented as live.
+ 4. Install coherence — version strings consistent across the installer copies shown.
+
+Known-benign by design (NOT findings): the installer's LIFEOS_REPO="\${LIFEOS_REPO:-OWNER/REPO}" placeholder in BOTH install.sh copies — this cut is private staging; the publish workflow (CreateRelease Step 1) substitutes the real owner/name before anything reaches the public repo, and the served installer at the public URL carries the substituted value. Also benign: references to private underscore-skills or private paths that carry the literal qualifier "NOT in the public release payload" with skip-if-absent guidance — that banner is the release gates' sanctioned convention for documenting an optional private integration, not an escaped dangling reference.
+
+Signal over noise. If there is nothing to flag, say so explicitly with "findings": []. Do not manufacture concerns.
+
+Output ONLY this JSON on one line, no markdown, no prose, no preamble:
+
+{"verdict":"pass|concerns|fail","criticality":"high|medium|low","findings":[{"severity":"critical|warning|info","isc_ref":null,"issue":"...","evidence":"..."}],"blind_spots_surfaced":["..."],"model_used":"<model>","tokens_used":0}`;
+
+// Always-bundled high-risk surfaces of a release payload, relative to its root.
+// These are where the two proven cross-vendor escapes lived (nested installer
+// copies, template files) plus the contract files every install executes.
+const RELEASE_CORE_FILES = [
+  "SKILL.md",
+  "INSTALL.md",
+  "install/install.sh",
+  "install/CLAUDE.template.md",
+  "install/skills/LifeOS/SKILL.md",
+  "install/skills/LifeOS/install/install.sh",
+  "install/skills/LifeOS/install/CLAUDE.template.md",
+];
+
+function walkPayload(root: string): string[] {
+  const out: string[] = [];
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) stack.push(full);
+      else out.push(relative(root, full));
+    }
+  }
+  return out.sort();
+}
+
+async function buildReleaseBundle(payloadDir: string, focus: string[]): Promise<string> {
+  const files = walkPayload(payloadDir);
+  const manifest = files.map((f) => `${f}`).join("\n");
+  const gateRecordPath = join(resolve(payloadDir, ".."), ".shadow-state.json");
+  const gateRecord = existsSync(gateRecordPath) ? await readFile(gateRecordPath, "utf8") : "(gate record not found)";
+
+  const sections: string[] = [
+    "===== GATE RECORD (.shadow-state.json — independently inspectable; the build gates + emit gates recorded here) =====",
+    gateRecord.slice(0, 12_000),
+    "",
+    `===== PAYLOAD MANIFEST (${files.length} files, sorted, COMPLETE — before reporting any file as absent, re-search this manifest for its exact basename) =====`,
+    manifest,
+    "",
+  ];
+  const bundled = new Set<string>();
+  for (const rel of [...RELEASE_CORE_FILES, ...focus]) {
+    if (bundled.has(rel)) continue;
+    const full = join(payloadDir, rel);
+    if (!existsSync(full)) { sections.push(`===== FILE ${rel} =====`, "(absent from payload)", ""); continue; }
+    bundled.add(rel);
+    const text = await readFile(full, "utf8");
+    sections.push(`===== FILE ${rel} =====`, text.slice(0, ARTIFACT_PER_FILE_CAP), "");
+  }
+  sections.push("===== AUDIT INSTRUCTIONS =====", RELEASE_AUDIT_PROMPT);
+  let bundle = sections.join("\n");
+  if (bundle.length > BUNDLE_CHAR_CAP) bundle = bundle.slice(0, BUNDLE_CHAR_CAP - 200) + "\n[TRUNCATED - bundle size cap]\n" + RELEASE_AUDIT_PROMPT;
+  return bundle;
+}
+
 interface Args {
   slug: string;
   /** Extra files to bundle beyond the ISA's `## Decisions` references. */
   extraArtifacts: string[];
+  /** Release mode: audit an emitted payload directory instead of an ISA. */
+  payload?: string;
+  /** Release mode: payload-relative files to bundle in full (the cut's delta). */
+  focus: string[];
 }
 
 interface AuditResponse {
@@ -142,10 +219,13 @@ interface AuditResponse {
   tokens_used?: number;
   cost_usd_est?: number;
   reason?: string;
+  /** Source files actually bundled for the auditor. 0 means the verdict rests on
+   *  the ISA text alone. public issue #1716, @xmasyx */
+  artifacts_bundled?: number;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Partial<Args> = { extraArtifacts: [] };
+  const args: Partial<Args> = { extraArtifacts: [], focus: [] };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--slug") args.slug = argv[++i];
     // --artifact may repeat. The `## Decisions` scrape only finds files the ISA
@@ -153,8 +233,15 @@ function parseArgs(argv: string[]): Args {
     // for a release cut — the thing under audit there is a payload the ISA never
     // enumerates. This lets the caller point the audit at what actually shipped.
     else if (argv[i] === "--artifact") (args.extraArtifacts as string[]).push(argv[++i]);
+    // Release mode: --payload <emitted LifeOS dir> [--focus <payload-relative path>]...
+    // Replaces the Forge-agent wrapper for release cuts (2026-08-03): the bundle
+    // rides stdin so codex never reads the filesystem — no staged copies, no
+    // path-isolation refusals, no mailbox loops. One bounded call, one verdict.
+    else if (argv[i] === "--payload") args.payload = argv[++i];
+    else if (argv[i] === "--focus") (args.focus as string[]).push(argv[++i]);
   }
-  if (!args.slug) throw new Error("--slug required");
+  if (args.payload && !args.slug) args.slug = `release-${resolve(args.payload).split("/").filter(Boolean).slice(-2, -1)[0] ?? "unknown"}`;
+  if (!args.slug) throw new Error("--slug required (or --payload <dir>)");
   return args as Args;
 }
 
@@ -168,7 +255,11 @@ async function readISA(slug: string): Promise<string> {
   return await readFile(path, "utf8");
 }
 
-async function readArtifacts(slug: string, isa: string, extra: string[] = []): Promise<string> {
+async function readArtifacts(
+  slug: string,
+  isa: string,
+  extra: string[] = [],
+): Promise<{ text: string; count: number }> {
   const paths = new Set<string>();
   for (const e of extra) {
     let p = e;
@@ -180,7 +271,12 @@ async function readArtifacts(slug: string, isa: string, extra: string[] = []): P
   const decisionsMatch = isa.match(/## Decisions\n([\s\S]*?)(?=\n## |\n---|\n*$)/);
   if (decisionsMatch) {
     const decisions = decisionsMatch[1];
-    const pathPattern = /`([~/][^\s`]+\.(?:ts|md|json|yaml|yml|tsx|jsx|js|txt))`/g;
+    // Source-language coverage: the original alternation was TS/web-only, so an
+    // ISA whose Decisions cited only .swift/.py/.go files bundled ZERO source and
+    // the audit still returned a verdict — a cross-vendor "pass" on the ISA text
+    // alone. public issue #1716, @xmasyx
+    const pathPattern =
+      /`([~/][^\s`]+\.(?:ts|md|json|yaml|yml|tsx|jsx|js|txt|swift|py|rs|go|java|kt|c|h|cc|cpp|hpp|m|mm|rb|php|sh|sql|toml))`/g;
     let match;
     while ((match = pathPattern.exec(decisions))) {
       let p = match[1];
@@ -189,7 +285,12 @@ async function readArtifacts(slug: string, isa: string, extra: string[] = []): P
     }
   }
 
-  if (paths.size === 0) return "(no artifacts: none passed via --artifact and no file references in ## Decisions)";
+  if (paths.size === 0) {
+    return {
+      text: "(no artifacts: none passed via --artifact and no file references in ## Decisions)",
+      count: 0,
+    };
+  }
 
   const chunks: string[] = [];
   let totalChars = 0;
@@ -206,7 +307,9 @@ async function readArtifacts(slug: string, isa: string, extra: string[] = []): P
     chunks.push(block);
     totalChars += block.length;
   }
-  return chunks.length > 0 ? chunks.join("\n") : "(no readable artifacts found)";
+  return chunks.length > 0
+    ? { text: chunks.join("\n"), count: chunks.length }
+    : { text: "(no readable artifacts found)", count: 0 };
 }
 
 async function readToolActivityTail(slug: string): Promise<string> {
@@ -307,7 +410,7 @@ function invokeCodex(bundle: string, schemaPath: string): Promise<{ stdout: stri
     env.CODEX_HOME = AUDIT_CODEX_HOME;
     const proc = spawn(
       CODEX_BIN,
-      ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--output-schema", schemaPath, "--model", "gpt-5.6-sol", "-"],
+      ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "--output-schema", schemaPath, "--model", CROSS_VENDOR.forge, "-"],
       { stdio: ["pipe", "pipe", "pipe"], env, cwd: tmpdir() }
     );
     let stdout = "";
@@ -344,6 +447,31 @@ function extractJSON(rawStdout: string): AuditResponse {
 function estimateCost(tokens: number): number {
   // GPT-5 class rough: $0.015/1K combined. Conservative.
   return +(tokens * 0.000015).toFixed(4);
+}
+
+/**
+ * Payload-relative path of the file with this basename, but ONLY when exactly one
+ * exists. Ambiguous basenames (SKILL.md, README.md, package.json) return null so a
+ * collision can never masquerade as a disproof.
+ */
+function findUniqueBasename(root: string, basename: string): string | null {
+  if (!basename) return null;
+  const stack = [root];
+  const hits: string[] = [];
+  while (stack.length) {
+    const dir = stack.pop() as string;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) stack.push(full);
+      else if (e.name === basename) {
+        hits.push(relative(root, full));
+        if (hits.length > 1) return null;
+      }
+    }
+  }
+  return hits[0] ?? null;
 }
 
 async function appendFinding(slug: string, response: AuditResponse, tier: string): Promise<void> {
@@ -425,21 +553,35 @@ async function main() {
     process.exit(0);
   }
 
-  let isa: string;
-  try {
-    isa = await readISA(args.slug);
-  } catch (err) {
-    const resp = { verdict: "error" as const, reason: (err as Error).message };
-    console.log(JSON.stringify(resp));
-    process.exit(1);
+  let bundle: string;
+  let tier = "release";
+  // Zero bundled source is invisible in the verdict otherwise: the audit reads
+  // the ISA and passes. Reported alongside the verdict so a zero reads as the
+  // warning it is. public issue #1716, @xmasyx
+  let artifactCount: number | null = null;
+  if (args.payload) {
+    if (!existsSync(args.payload)) {
+      console.log(JSON.stringify({ verdict: "error", reason: `payload dir not found: ${args.payload}` }));
+      process.exit(1);
+    }
+    bundle = await buildReleaseBundle(resolve(args.payload), args.focus);
+  } else {
+    let isa: string;
+    try {
+      isa = await readISA(args.slug);
+    } catch (err) {
+      const resp = { verdict: "error" as const, reason: (err as Error).message };
+      console.log(JSON.stringify(resp));
+      process.exit(1);
+    }
+    tier = extractTier(isa);
+    const [artifacts, toolTail] = await Promise.all([
+      readArtifacts(args.slug, isa, args.extraArtifacts),
+      readToolActivityTail(args.slug),
+    ]);
+    artifactCount = artifacts.count;
+    bundle = assembleBundle(isa, artifacts.text, toolTail);
   }
-
-  const tier = extractTier(isa);
-  const [artifacts, toolTail] = await Promise.all([
-    readArtifacts(args.slug, isa, args.extraArtifacts),
-    readToolActivityTail(args.slug),
-  ]);
-  const bundle = assembleBundle(isa, artifacts, toolTail);
 
   const schemaPath = await writeVerdictSchema();
   const { stdout, stderr, code } = await invokeCodex(bundle, schemaPath);
@@ -457,9 +599,70 @@ async function main() {
   }
 
   const parsed = extractJSON(stdout);
+  // Absence-claim post-check (7.38.2 cut): the carrier asserted a file was
+  // "missing from the manifest" that provably ships — an 80K-token bundle makes
+  // needle lookups unreliable, and a hallucinated absence blocks a clean cut.
+  // Any finding whose evidence names a payload-relative path that DOES exist in
+  // the shipped tree gets deterministically annotated as disproven.
+  if (args.payload && parsed.findings?.length) {
+    const payloadRoot = resolve(args.payload);
+    const ABSENCE_CLAIM = /\babsent|\bmissing|contains? no\b|includes? no\b|appears? nowhere|not (?:appear|present|in the (?:payload|manifest))/i;
+    let disprovenCount = 0;
+    for (const f of parsed.findings as Array<{ evidence: string; issue: string; disproven_paths?: string[] }>) {
+      const text = `${f.issue} ${f.evidence}`;
+      if (!ABSENCE_CLAIM.test(text)) continue;
+      // The absence must be claimed ABOUT A FILE (Max audit, 7.39.7 cut): the
+      // keyword alone also matches "X.ts is missing input validation", where the
+      // absent thing is code, not a file — that finding names one path, the path
+      // exists, and the whole claim got annotated disproven. Require payload-level
+      // absence language, so a code-property critique never enters this path.
+      // Anchored, not bare keywords (Max audit, 7.39.8 cut): bare "payload" also
+      // means the HTTP sense ("missing validation of the request payload") and bare
+      // "no file" matches inside "no filesystem", so a code-property critique could
+      // re-enter the very path this guard closes.
+      // Every alternative stays anchored to FILE-absence phrasing. A free-floating
+      // `no file\b` re-opened the hole (Max audit, 7.39.9 cut): it correctly stopped
+      // matching "no filesystem" but still matched code-property critiques like
+      // "performs no file locking" / "no file size limit".
+      if (!/(in|from|to) the (payload|manifest|shipped tree)|ships? nowhere|nowhere in the (payload|manifest|shipped tree)|no file (named|called|matching|at|with)\b/i.test(text)) continue;
+      // Every path-like token, absolute (install/...) or relative (Workflows/X.md);
+      // relative ones are re-anchored under any install/skills/<Skill>/ named in the finding.
+      const tokens = [...text.matchAll(/`?([\w-]+(?:\/[\w.-]+)+\.\w{1,5})`?/g)].map((m) => m[1]);
+      const skills = [...text.matchAll(/install\/skills\/([\w-]+)\//g)].map((m) => m[1]);
+      // EVERY named path must resolve, not merely one (7.39.6 cut): the carrier
+      // writes findings of the form "the manifest contains A but no B", and a
+      // first-match rule disproved the claim using A — the file the finding
+      // itself said was present — without ever testing B. Outcome happened to be
+      // correct that time; the logic would have auto-passed a real absence.
+      // Resolution per token is exact path, re-anchored under a named skill, or
+      // a UNIQUE basename anywhere (the carrier mangles prefixes like `~/.claude/`).
+      // Uniqueness is load-bearing (Max audit, 7.39.7 cut): a bare basename fallback
+      // resolves "skills/Foo/SKILL.md" against any of the ~100 other SKILL.md files
+      // and hands back a disproof of a claim nobody tested. One match or no match.
+      const resolvedPaths: string[] = [];
+      let allResolved = tokens.length > 0;
+      for (const t of tokens) {
+        const variants = [t, ...skills.map((s) => `install/skills/${s}/${t}`)];
+        const hit = variants.find((p) => existsSync(join(payloadRoot, p))) ?? findUniqueBasename(payloadRoot, t.split("/").pop() ?? "");
+        if (hit) resolvedPaths.push(hit);
+        else allResolved = false;
+      }
+      if (allResolved) { f.disproven_paths = resolvedPaths; disprovenCount++; }
+    }
+    // Filesystem truth outranks a model's read of a 100K-char manifest: when every
+    // finding rests on a disproven absence claim, the verdict is a pass, recorded
+    // with the disproof so the override is auditable (two hallucinated-absence
+    // blocks on the 7.38.2/7.38.3 cuts drove this).
+    if (disprovenCount === parsed.findings.length && parsed.verdict !== "pass") {
+      (parsed as { verdict: string }).verdict = "pass";
+      (parsed as { override_note?: string }).override_note =
+        `verdict downgraded from concerns/fail: all ${disprovenCount} finding(s) claimed absent paths that exist in the payload (see disproven_paths)`;
+    }
+  }
   if (parsed.tokens_used && !parsed.cost_usd_est) {
     parsed.cost_usd_est = estimateCost(parsed.tokens_used);
   }
+  if (artifactCount !== null) parsed.artifacts_bundled = artifactCount;
   await appendFinding(args.slug, parsed, tier);
   console.log(JSON.stringify(parsed));
 }

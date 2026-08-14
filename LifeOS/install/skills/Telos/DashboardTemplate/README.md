@@ -163,7 +163,7 @@ The Ask page uses Claude Haiku 4.5 via Anthropic API:
 
 **Environment Variable Required**:
 ```
-ANTHROPIC_API_KEY=sk-ant-api03-...
+ANTHROPIC_API_KEY=<your-anthropic-key>
 ```
 
 ## Dynamic File System

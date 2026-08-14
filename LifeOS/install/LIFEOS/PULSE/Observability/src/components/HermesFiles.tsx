@@ -58,6 +58,123 @@ interface HermesOverview {
   planes: Record<Plane, string>;
 }
 
+// ── Guard friction (mirrors LIFEOS/HERMES/LogAnalysis.ts) ──
+
+interface GuardFinding {
+  kind: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  detail: string;
+  count: number;
+  recommendation: string;
+}
+
+interface GuardLogAnalysis {
+  available: boolean;
+  windowDays: number;
+  totalBlocks: number;
+  lastTs: string | null;
+  byClass: Record<string, number>;
+  byDay: Array<{ day: string; total: number; taint: number; other: number }>;
+  topRules: Array<{ rule: string; cls: string; count: number; lastTs: string }>;
+  taintSources: Array<{ source: string; count: number; zeroShape: number }>;
+  findings: GuardFinding[];
+}
+
+const SEVERITY_DIM: Record<string, "err" | "warn" | "neutral"> = { high: "err", medium: "warn", low: "neutral" };
+
+/**
+ * The guard's audit trail, analyzed — which blocks are protection and which are
+ * friction. This panel is the improvement loop the principal asked for: every
+ * refused call is classified, retry loops and zero-evidence taints surface as
+ * findings, and each finding names its deterministic next step.
+ */
+function GuardFrictionPanel() {
+  const { data } = useQuery<GuardLogAnalysis>({
+    queryKey: ["hermes-log-analysis"],
+    queryFn: () => localApiCall("/api/hermes/log-analysis?days=14"),
+    refetchInterval: 120_000,
+  });
+
+  if (!data || !data.available) return null;
+
+  const classes = Object.entries(data.byClass).sort(([, a], [, b]) => b - a);
+  const maxDay = Math.max(1, ...data.byDay.map((d) => d.total));
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Guard friction"
+        icon={AlertTriangle}
+        meta={<span className="whitespace-nowrap">{data.totalBlocks} blocks · {data.windowDays}d</span>}
+      />
+      <div className="text-[12px] text-ink-3 mb-3">
+        Every tool call the guard refused, classified from <code className="mono">blocked.jsonl</code>. Findings
+        below are deterministic — retry loops, zero-evidence taints, and rules hot enough to be misshapen.
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap mb-4">
+        {classes.map(([cls, n]) => (
+          <Pill key={cls} dim={cls === "taint" ? "warn" : cls === "credential" ? "ok" : "neutral"}>
+            {cls} {n}
+          </Pill>
+        ))}
+      </div>
+
+      {data.byDay.length > 1 && (
+        <div className="flex items-end gap-[3px] h-16 mb-4">
+          {data.byDay.map((d) => (
+            <div key={d.day} className="flex-1 flex flex-col justify-end" title={`${d.day}: ${d.total} (${d.taint} taint)`}>
+              <div className="bg-amber-500/70 rounded-t-sm" style={{ height: `${(d.taint / maxDay) * 100}%` }} />
+              <div className="bg-line-2 rounded-b-sm" style={{ height: `${(d.other / maxDay) * 100}%` }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.findings.length === 0 ? (
+        <div className="flex items-center gap-2 text-[12px] text-ink-2">
+          <Check className="w-3.5 h-3.5" /> No friction findings in the window — remaining blocks look like real protection.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {data.findings.map((f) => (
+            <div key={`${f.kind}-${f.title}`} className="p-3 rounded-md bg-surface-1 border border-line-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Pill dim={SEVERITY_DIM[f.severity] ?? "neutral"}>{f.severity}</Pill>
+                <span className="text-[12px] font-medium">{f.title}</span>
+                <span className="text-[11px] text-ink-3 mono">×{f.count}</span>
+              </div>
+              <div className="mt-1 text-[12px] text-ink-2">{f.detail}</div>
+              <div className="mt-1 text-[12px] text-ink-3 flex items-start gap-1.5">
+                <ChevronRight className="w-3.5 h-3.5 mt-[1px] shrink-0" />
+                <span>{f.recommendation}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.topRules.length > 0 && (
+        <details className="mt-4">
+          <summary className="text-[12px] text-ink-3 cursor-pointer select-none">Top rules by hits</summary>
+          <table className="mt-2 w-full text-[12px]">
+            <tbody>
+              {data.topRules.map((r) => (
+                <tr key={r.rule} className="border-t border-line-2">
+                  <td className="py-1 pr-3 mono break-all">{r.rule}</td>
+                  <td className="py-1 pr-3 text-ink-3 whitespace-nowrap">{r.cls}</td>
+                  <td className="py-1 text-right mono">{r.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+    </Panel>
+  );
+}
+
 const PLANE_META: Record<Plane, { title: string; icon: typeof Cpu }> = {
   source: { title: "Source · what the soul is rendered from", icon: User },
   runtime: { title: "Runtime · the mounted install", icon: Boxes },
@@ -345,6 +462,8 @@ export default function HermesFiles() {
           </pre>
         )}
       </Panel>
+
+      <GuardFrictionPanel />
 
       {PLANE_ORDER.map((plane) => {
         const files = data.files.filter((f) => f.plane === plane);

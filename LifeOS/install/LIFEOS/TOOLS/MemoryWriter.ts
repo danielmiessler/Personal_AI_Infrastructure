@@ -122,13 +122,22 @@ export interface SetEntriesErrShrink {
   new_count: number;
 }
 
+export interface SetEntriesErrErosion {
+  ok: false;
+  code: "ESUSPECT_EROSION";
+  message: string;
+  prior_count: number;
+  new_count: number;
+}
+
 export type SetEntriesResult =
   | SetEntriesOk
   | SetEntriesErrAtCap
   | SetEntriesErrPath
   | SetEntriesErrLock
   | SetEntriesErrIO
-  | SetEntriesErrShrink;
+  | SetEntriesErrShrink
+  | SetEntriesErrErosion;
 
 export interface ReadResult {
   entries: string[];
@@ -442,30 +451,65 @@ function atomicWrite(filePath: string, content: string): true | SetEntriesErrIO 
 
 // ── Observability ──
 
+function appendWriteLog(row: Record<string, unknown>): void {
+  try {
+    mkdirSync(dirname(OBSERVABILITY_PATH), { recursive: true });
+    appendFileSync(OBSERVABILITY_PATH, JSON.stringify(row) + "\n", "utf8");
+  } catch {
+    // Observability is best-effort; never fail a write because logging failed.
+  }
+}
+
 function logWriteEvent(
   filePath: string,
   result: SetEntriesOk,
   updatedBy?: string,
 ): void {
-  try {
-    mkdirSync(dirname(OBSERVABILITY_PATH), { recursive: true });
-    const row = JSON.stringify({
-      ts: new Date().toISOString(),
-      file: filePath.replace(CLAUDE_ROOT + "/", ""),
-      updated_by: updatedBy ?? "unknown",
-      prior_count: result.prior_count,
-      new_count: result.new_count,
-      accepted: result.accepted,
-      dropped_malformed: result.dropped_malformed,
-      dropped_overlength: result.dropped_overlength,
-      dropped_duplicates: result.dropped_duplicates,
-      evictions: result.evictions,
-      additions: result.additions,
-    });
-    appendFileSync(OBSERVABILITY_PATH, row + "\n", "utf8");
-  } catch {
-    // Observability is best-effort; never fail a write because logging failed.
-  }
+  appendWriteLog({
+    ts: new Date().toISOString(),
+    file: filePath.replace(CLAUDE_ROOT + "/", ""),
+    updated_by: updatedBy ?? "unknown",
+    rejected: false,
+    prior_count: result.prior_count,
+    new_count: result.new_count,
+    accepted: result.accepted,
+    dropped_malformed: result.dropped_malformed,
+    dropped_overlength: result.dropped_overlength,
+    dropped_duplicates: result.dropped_duplicates,
+    evictions: result.evictions,
+    additions: result.additions,
+  });
+}
+
+/**
+ * Log a write the guard REFUSED, to the same log as accepted writes.
+ *
+ * The rejection has to be written here, not just returned: the memory-review
+ * hook spawns the reviewer with `stdio: "ignore"`, so a refusal that only
+ * travels back in the result object goes to /dev/null and the block is
+ * invisible to every surface meant to report it (public issue #1761,
+ * @jacobo-ortiz). The eviction and addition lists are logged in full — a
+ * blocked write is precisely the sample you need to tell erosion from
+ * consolidation later.
+ */
+function logRejectedWrite(
+  filePath: string,
+  rejection: { code: string; message: string; prior_count: number; new_count: number },
+  delta: { evictions: string[]; additions: string[] },
+  updatedBy?: string,
+): void {
+  appendWriteLog({
+    ts: new Date().toISOString(),
+    file: filePath.replace(CLAUDE_ROOT + "/", ""),
+    updated_by: updatedBy ?? "unknown",
+    rejected: true,
+    rejection_code: rejection.code,
+    rejection_message: rejection.message,
+    prior_count: rejection.prior_count,
+    new_count: rejection.new_count,
+    evictions: delta.evictions,
+    additions: delta.additions,
+  });
 }
 
 // ── Public API ──
@@ -540,7 +584,31 @@ export function setEntries(
           prior_count: priorEntries.length,
           new_count: newEntries.length,
         };
+        logRejectedWrite(abs, shrinkErr, { evictions, additions }, options.updatedBy);
         return shrinkErr;
+      }
+
+      // Slow-erosion guard (public issue #1761, @jacobo-ortiz): the shapes
+      // above only catch catastrophes. The failure that actually destroys
+      // memory is LLM re-transcription quietly dropping a few entries per
+      // cycle — each write ~10% smaller, each carrying additions, so nothing
+      // above fires; 12 durable rules died in 48h that way on a reporter's
+      // install. Net loss of EROSION_LIMIT+ entries in ONE write is blocked;
+      // deliberate consolidation passes with allowDrastic. Replayed against
+      // 94 historical writes by the reporter: 5 blocked, all genuine erosion,
+      // 0 false positives.
+      const EROSION_LIMIT = 2;
+      const netLoss = evictions.length - additions.length;
+      if (netLoss >= EROSION_LIMIT) {
+        const erosionErr: SetEntriesErrErosion = {
+          ok: false,
+          code: "ESUSPECT_EROSION",
+          message: `Refused: op would net-drop ${netLoss} entries (${priorEntries.length} → ${newEntries.length}: ${evictions.length} dropped, ${additions.length} added). Slow erosion via re-transcription is blocked. If this is deliberate consolidation, retry with allowDrastic: true.`,
+          prior_count: priorEntries.length,
+          new_count: newEntries.length,
+        };
+        logRejectedWrite(abs, erosionErr, { evictions, additions }, options.updatedBy);
+        return erosionErr;
       }
     }
 

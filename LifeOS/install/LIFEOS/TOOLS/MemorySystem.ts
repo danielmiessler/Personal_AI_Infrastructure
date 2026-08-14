@@ -53,6 +53,8 @@ import {
 import { dirname, resolve as pathResolve, join as pathJoin } from "node:path";
 import { homedir, hostname } from "node:os";
 
+import { invariant, InvariantViolation } from "./Invariant";
+
 import {
   TYPE_REGISTRY,
   isKnownType,
@@ -61,6 +63,8 @@ import {
   pinProposalTargetFile,
   ALWAYS_LOADED_KINDS,
   ALL_TYPES,
+  ALL_RELATED_TYPES,
+  ALL_PROPOSAL_KINDS,
   TIER_B_AUDIT_PATH,
   PRINCIPAL_MEMORY_PATH,
   type TypedItem,
@@ -75,6 +79,8 @@ import { addUpgrade } from "./Upgrades";
 import { getTier } from "./MutationTier";
 import { getRelevantContext, type RelevantResultItem } from "./MemoryRetriever";
 import { mintId, slugFromPath, SCHEMA_VERSION } from "./KnowledgeSchema";
+import { stripPrivateContent } from "./CaptureEnvelope";
+import { assertInsideUserData } from "./lib/ForeignDataCheck";
 
 // ── Constants ──
 
@@ -287,6 +293,11 @@ export function appendToTierBFile(filePath: string, content: string): { ok: true
       ? existing + "\n" + content
       : existing + content;
 
+    // A tier-B append may add content but never lose or reorder what was
+    // already on disk — this rewrite-then-rename path would corrupt silently.
+    invariant(newContent.startsWith(existing), "tier-B append must preserve existing content as a prefix");
+    invariant(newContent.endsWith(content), "tier-B append must end with the appended content");
+
     writeFileSync(tmpPath, newContent, "utf8");
     const fdSync = openSync(tmpPath, "r+");
     try { fsyncSync(fdSync); } finally { closeSync(fdSync); }
@@ -294,6 +305,7 @@ export function appendToTierBFile(filePath: string, content: string): { ok: true
 
     return { ok: true, bytes: Buffer.byteLength(content, "utf8") };
   } catch (e: any) {
+    if (e instanceof InvariantViolation) throw e; // impossible states die loud, never as typed errors
     return { ok: false, code: "EWRITE_FAILED", message: `Append failed: ${e?.message}`, underlying: e };
   } finally {
     try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
@@ -456,7 +468,7 @@ function addMemoryItem(item: TypedItem & { type: "memory" }, path: string): AddR
  * Render the `related:` YAML block for note frontmatter. LifeOS's KNOWLEDGE
  * graph uses this exact shape — preserving the convention means new notes
  * participate in the existing graph traversal infrastructure (KnowledgeGraph.ts,
- * Knowledge skill, 2-hop search) without any extra wiring.
+ * Cortex skill, 2-hop search) without any extra wiring.
  *
  * Empty array renders as `related: []` so the field is present and ready for
  * future enrichment by the reviewer.
@@ -652,6 +664,141 @@ function addNoteTypeItem(item: TypedItem & { type: "idea" | "knowledge" }, path:
   };
 }
 
+// ── Capture privacy boundary ──
+
+type SanitizedItemResult = { ok: true; item: TypedItem } | Extract<AddError, { code: "EINVAL_ITEM" }>;
+
+/**
+ * Clean every free-text field that can enter Cortex-controlled persistence.
+ * The native harness transcript is deliberately untouched; this copy is the
+ * only value allowed to proceed into routing, notes, queues, and indexes.
+ */
+export function sanitizeTypedItemForPersistence(item: TypedItem): SanitizedItemResult {
+  const invalid = (message: string): SanitizedItemResult => ({ ok: false, code: "EINVAL_ITEM", message });
+  if (!item || typeof item !== "object" || Array.isArray(item)) return invalid("item must be an object");
+
+  const raw = item as any;
+  const schemas: Record<string, readonly string[]> = {
+    memory: ["type", "actor", "op", "content", "entries", "provenance", "confidence"],
+    idea: ["type", "title", "content", "source_session", "confidence", "related"],
+    knowledge: ["type", "entity_type", "name", "content", "source_session", "confidence", "related"],
+    proposal: ["type", "target_file", "target_kind", "edit", "confidence", "rationale", "observed_across_sessions", "source_session"],
+  };
+  if (typeof raw.type !== "string" || !isKnownType(raw.type)) return invalid("invalid item type");
+  const allowed = new Set(schemas[raw.type]);
+  const unknown = Object.keys(raw).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) return invalid(`unknown field(s) for ${raw.type}: ${unknown.sort().join(", ")}`);
+
+  const MAX_WRITE_CHARS = 65_536;
+  const MAX_METADATA_CHARS = 1_024;
+  const CONTROL_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+  const FRONTMATTER_RE = /(?:^|\r?\n)[ \t]*---[ \t]*(?:\r?\n|$)/;
+  const COMMENT_RE = /<!--|-->/;
+  const checkString = (value: unknown, field: string, options: { required?: boolean; singleLine?: boolean; max?: number } = {}): string | SanitizedItemResult => {
+    if (typeof value !== "string") return invalid(`${field} must be a string`);
+    if (value.length > (options.max ?? MAX_WRITE_CHARS)) return invalid(`${field} exceeds size limit`);
+    if (options.required && value.trim().length === 0) return invalid(`${field} must not be empty`);
+    if (CONTROL_RE.test(value)) return invalid(`${field} contains control characters`);
+    if (options.singleLine && /[\r\n]/.test(value)) return invalid(`${field} must be single-line`);
+    if (FRONTMATTER_RE.test(value)) return invalid(`${field} contains frontmatter injection`);
+    if (COMMENT_RE.test(value)) return invalid(`${field} contains comment injection`);
+    return value;
+  };
+  const cleanText = (value: unknown, field: string, options: { required?: boolean; singleLine?: boolean; max?: number } = {}): string | SanitizedItemResult => {
+    if (typeof value !== "string") return invalid(`${field} must be a string`);
+    return checkString(stripPrivateContent(value), field, options);
+  };
+  const isError = (value: string | SanitizedItemResult): value is SanitizedItemResult => typeof value !== "string";
+
+  const cleaned: any = { ...raw };
+  for (const field of ["content", "edit", "title", "name", "rationale"] as const) {
+    if (raw[field] === undefined) continue;
+    const value = cleanText(raw[field], field, {
+      required: true,
+      singleLine: field === "title" || field === "name",
+      max: field === "title" || field === "name" ? MAX_METADATA_CHARS : MAX_WRITE_CHARS,
+    });
+    if (isError(value)) return value;
+    cleaned[field] = value;
+  }
+  if (raw.source_session !== undefined) {
+    const value = cleanText(raw.source_session, "source_session", { singleLine: true, max: MAX_METADATA_CHARS });
+    if (isError(value)) return value;
+    if (/[:#][ \t]|^[\-?:,\[\]{}#&*!|>"%@\x27\x60]/.test(value)) return invalid("source_session contains YAML-ambiguous syntax");
+    if (value.trim().length === 0) delete cleaned.source_session;
+    else cleaned.source_session = value;
+  }
+
+  if (raw.entries !== undefined) {
+    if (!Array.isArray(raw.entries)) return invalid("memory entries must be an array");
+    if (raw.entries.length > 48) return invalid("memory entries exceed the 48-entry cap — trim before re-submitting");
+    const entries: string[] = [];
+    for (const [index, entry] of raw.entries.entries()) {
+      const value = cleanText(entry, `entries[${index}]`, { required: true, singleLine: true, max: 256 });
+      if (isError(value)) return value;
+      entries.push(value);
+    }
+    cleaned.entries = entries;
+  }
+
+  if (raw.confidence !== undefined && (typeof raw.confidence !== "number" || !Number.isFinite(raw.confidence) || raw.confidence < 0 || raw.confidence > 1)) {
+    return invalid("confidence must be a finite number between 0 and 1");
+  }
+
+  if (raw.related !== undefined) {
+    if (!Array.isArray(raw.related)) return invalid("related must be an array");
+    if (raw.related.length > 64) return invalid("related exceeds size limit");
+    const links: RelatedLink[] = [];
+    for (const [index, link] of raw.related.entries()) {
+      if (!link || typeof link !== "object" || Array.isArray(link)) return invalid(`related[${index}] must be an object`);
+      const linkKeys = Object.keys(link);
+      if (linkKeys.some((key) => key !== "slug" && key !== "type")) return invalid(`related[${index}] has unknown fields`);
+      const slug = cleanText((link as any).slug, `related[${index}].slug`, { required: true, singleLine: true, max: 256 });
+      if (isError(slug)) return slug;
+      if (!/^[a-z0-9][a-z0-9._-]*$/i.test(slug)) return invalid(`related[${index}].slug is invalid`);
+      if (typeof (link as any).type !== "string" || !(ALL_RELATED_TYPES as readonly string[]).includes((link as any).type)) {
+        return invalid(`related[${index}].type is invalid`);
+      }
+      links.push({ slug, type: (link as any).type });
+    }
+    cleaned.related = links;
+  }
+
+  switch (raw.type) {
+    case "memory": {
+      if (raw.actor !== "principal" && raw.actor !== "assistant") return invalid("memory actor is invalid");
+      if (raw.op !== undefined && raw.op !== "add" && raw.op !== "set") return invalid("memory op is invalid");
+      if (raw.provenance !== undefined && !["explicit", "deduced", "inferred"].includes(raw.provenance)) return invalid("memory provenance is invalid");
+      if (raw.op === "set") {
+        if (!Array.isArray(cleaned.entries) || cleaned.entries.length === 0) return invalid("memory entries must be a non-empty array");
+      } else if (cleaned.content === undefined) {
+        return invalid("memory content must be a non-empty string");
+      }
+      break;
+    }
+    case "idea":
+      if (cleaned.title === undefined || cleaned.content === undefined) return invalid("idea requires title and content");
+      break;
+    case "knowledge":
+      if (!["person", "company", "research"].includes(raw.entity_type)) return invalid("knowledge entity_type is invalid");
+      if (cleaned.name === undefined || cleaned.content === undefined) return invalid("knowledge requires name and content");
+      break;
+    case "proposal":
+      if (typeof raw.target_file !== "string") return invalid("proposal target_file must be a string");
+      {
+        const target = checkString(raw.target_file, "target_file", { required: true, singleLine: true, max: 4_096 });
+        if (isError(target)) return target;
+        if (stripPrivateContent(target) !== target) return invalid("target_file contains private boundary markup");
+      }
+      if (raw.target_kind !== undefined && (typeof raw.target_kind !== "string" || !(ALL_PROPOSAL_KINDS as readonly string[]).includes(raw.target_kind))) return invalid("proposal target_kind is invalid");
+      if (cleaned.edit === undefined || cleaned.rationale === undefined) return invalid("proposal requires edit and rationale");
+      if (typeof raw.confidence !== "number") return invalid("proposal confidence is required");
+      if (raw.observed_across_sessions !== undefined && (!Number.isSafeInteger(raw.observed_across_sessions) || raw.observed_across_sessions < 1)) return invalid("observed_across_sessions must be a positive integer");
+      break;
+  }
+  return { ok: true, item: cleaned as TypedItem };
+}
+
 // ── Public API ──
 
 /**
@@ -673,12 +820,27 @@ export function add(item: TypedItem): AddResult {
     };
   }
 
+  const sanitized = sanitizeTypedItemForPersistence(item);
+  if (!sanitized.ok) return sanitized;
+  item = sanitized.item;
+
   const entry = TYPE_REGISTRY[item.type];
   let path: string;
   try {
     path = resolveStoragePath(item);
   } catch (e: any) {
     return { ok: false, code: "EINVAL_ITEM", message: `Storage path resolution failed: ${e?.message}` };
+  }
+
+  // Boundary (2026-08-11 lifelog incident class): every Cortex write target
+  // must physically resolve into the private USER_DATA repo. The resolvers all
+  // point through the LIFEOS/USER and LIFEOS/MEMORY symlinks; if a symlink is
+  // broken or replaced by a real directory, the same lexical path would land
+  // personal data inside the system tree — refuse instead. Realpath-based, so
+  // a symlinked component cannot defeat it.
+  const boundary = assertInsideUserData(path);
+  if (!boundary.ok) {
+    return { ok: false, code: "EWRITE_FAILED", message: `memory write refused at the system/user boundary: ${boundary.reason}` };
   }
 
   // Defense-in-depth: for direct writes (set-overwrite, append), the registry's

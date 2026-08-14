@@ -16,6 +16,7 @@
  */
 import { readFileSync, statSync, readdirSync } from "fs";
 import { join } from "path";
+import { homedir } from "node:os";
 
 type Sev = "high" | "med" | "low";
 const WEIGHT: Record<Sev, number> = { high: 3, med: 2, low: 1 };
@@ -138,7 +139,7 @@ console.log(`\n🔎 skill-linter — Bitter-Lesson drift scan: ${reports.length}
 const show = top > 0 ? flagged.slice(0, top) : flagged;
 for (const r of show) {
   const highs = r.findings.filter(f => f.sev === "high").length;
-  const tag = r.file.replace(process.env.HOME + "/", "~/");
+  const tag = r.file.replace(homedir() + "/", "~/");
   console.log(`▌ ${tag}   drift=${r.score}  (${highs} high)`);
   for (const f of r.findings) console.log(`    L${f.line} [${f.type}/${f.sev}] ${f.id}: ${f.msg}`);
   for (const h of r.heuristics) console.log(`    [file] [${h.type}/${h.sev}] ${h.msg}`);

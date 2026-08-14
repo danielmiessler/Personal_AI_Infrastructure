@@ -264,23 +264,41 @@
   }
 }
 
-/* Observer Mode — masks sensitive data (finances, health, business) */
+/* ── Observer Mode ─────────────────────────────────────────────────────────
+   The pre-paint script in layout.tsx + ObserverModeContext put
+   `observer-active` and `data-observer-scope` (full | fine | open) on <html>.
+   Route classification lives in src/lib/observer.ts — the one map. */
+
 [data-sensitive] {
   transition: filter 0.3s ease;
 }
 
-body.observer-active [data-sensitive] {
-  filter: blur(4px) saturate(0.3);
+/* Element-level blur on mixed ("fine") pages. 7px makes body text unreadable;
+   4px did not. */
+html.observer-active [data-sensitive] {
+  filter: blur(7px) saturate(0.3);
   user-select: none;
   pointer-events: none;
   position: relative;
 }
 
-body.observer-active [data-sensitive]::after {
+/* Hero-scale text needs more. */
+html.observer-active [data-sensitive="strong"] {
+  filter: blur(14px) saturate(0.3);
+}
+
+html.observer-active [data-sensitive]::after {
   content: "";
   position: absolute;
   inset: 0;
   background: rgba(30, 41, 59, 0.15);
   border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Wholly-personal pages: blur the entire content pane. Header/nav stay usable. */
+html.observer-active[data-observer-scope="full"] main {
+  filter: blur(16px) saturate(0.25);
+  user-select: none;
   pointer-events: none;
 }

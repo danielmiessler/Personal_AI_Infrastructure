@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.lifeos.pegwatch.plist.template - Source template. Install via:
+    bun ~/.claude/LIFEOS/TOOLS/InstallPegWatch.ts
+  Runs PegWatch.ts every 960s: pegged-CPU/GPU detection with cause heuristics
+  and a silent Pulse banner on findings. Template stays clean of
+  principal-specific paths so it ships in the public LifeOS release.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lifeos.pegwatch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{BUN}}</string>
+    <string>{{HOME}}/.claude/LIFEOS/TOOLS/PegWatch.ts</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>960</integer>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/pegwatch-launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/pegwatch-launchd.log</string>
+  <key>WorkingDirectory</key>
+  <string>{{HOME}}/.claude</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{BUN_DIR}}:{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>{{HOME}}</string>
+  </dict>
+</dict>
+</plist>

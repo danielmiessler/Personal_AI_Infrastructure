@@ -27,7 +27,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { SERVICES, cadenceOf, findPlist, loadedLabels } from "../../TOOLS/Services.ts";
+import { allServices, cadenceOf, findPlist, loadedLabels } from "../../TOOLS/Services.ts";
 import { checkHermesHealth, type HermesHealth } from "../../HERMES/Health.ts";
 
 const HOME = homedir();
@@ -53,7 +53,7 @@ export interface ScheduledJob {
 
 function localJobs(): ScheduledJob[] {
   const loaded = loadedLabels();
-  return SERVICES.map((svc) => {
+  return allServices().map((svc) => {
     const plist = findPlist(svc.label);
     // Three genuinely different conditions, and collapsing them is what made a
     // dead job indistinguishable from a healthy one:
@@ -158,16 +158,28 @@ function hermesJobs(): ScheduledJob[] {
     return list.map((j) => {
       const job = j as {
         id?: string; name?: string; prompt?: string;
-        schedule?: string; interval?: string; enabled?: boolean;
+        // Hermes ≥2026-07 stores schedule as {kind, expr?, minutes?, display};
+        // older installs stored a bare cron string. Handle both — an object
+        // reaching describeCron() threw, and the catch degraded EVERY hermes
+        // job to an empty list (found 2026-08-08, Heartbeat wiring).
+        schedule?: string | { display?: string; expr?: string; minutes?: number };
+        schedule_display?: string; interval?: string; enabled?: boolean;
+        no_agent?: boolean;
       };
+      const cadence =
+        typeof job.schedule === "string"
+          ? describeCron(job.schedule)
+          : job.schedule_display || job.schedule?.display ||
+            (job.schedule?.expr ? describeCron(job.schedule.expr) : "") ||
+            (job.schedule?.minutes ? `every ${job.schedule.minutes}m` : job.interval ?? "—");
       return {
         id: job.id || job.name || "job",
         title: job.name || job.prompt?.slice(0, 60) || "scheduled agent turn",
         executor: "hermes" as const,
-        cadence: job.schedule ? describeCron(job.schedule) : (job.interval ?? "—"),
+        cadence,
         state: (job.enabled === false ? "installed" : "running") as JobState,
         purpose: job.prompt?.slice(0, 160),
-        category: "agent",
+        category: job.no_agent ? "script" : "agent",
       };
     });
   } catch {

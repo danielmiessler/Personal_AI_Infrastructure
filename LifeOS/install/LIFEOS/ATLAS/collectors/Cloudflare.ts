@@ -52,6 +52,29 @@ async function cfOne(path: string, tok: string): Promise<any | null> {
   return body.success ? body.result : null;
 }
 
+/**
+ * Degrading wrapper around cf() for listing calls that can legitimately hit a
+ * token-scope gap (a narrowly-scoped CLOUDFLARE_API_TOKEN throws on
+ * workers/routes 403, then storage/kv/namespaces 401, discarding everything
+ * already gathered each time). One missing permission on one resource type must
+ * degrade that signal only, never the whole collector — matches Atlas's own
+ * doctrine ("a partial page, an API error → PARTIAL run, no sweep, prior state
+ * intact"), which the bare cf() calls didn't actually implement for this failure
+ * class. Sets `partial` via the caller-owned flag so the run reports incomplete
+ * (never sweeps) instead of claiming success over data it couldn't fully see.
+ *
+ * ported from public PR #1744, @schmetti-dev
+ */
+async function cfSoft(path: string, tok: string, label: string, onFail: () => void): Promise<unknown[]> {
+  try {
+    return await cf(path, tok);
+  } catch (err) {
+    onFail();
+    console.error(`[cloudflare] ${label} failed: ${(err as Error).message}`);
+    return [];
+  }
+}
+
 /** Bounded-concurrency map — keeps the per-worker fan-out from hammering the API. */
 async function mapPool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -103,6 +126,14 @@ export const cloudflare: Collector = {
     if (tok === null) return { complete: false, assets: [], edges: [] };
     const assets: AssetObs[] = [];
     const edges: EdgeObs[] = [];
+    // Set when a per-zone/per-resource call fails on a token-scope gap rather than
+    // a wholesale outage — everything gathered so far (and after) is still real
+    // and worth writing, but the run can't claim enumeration-complete, so it must
+    // never sweep (Store.applyRun's gate). A throw here would discard the WHOLE
+    // collector's output (zones/DNS/workers/KV/R2/D1) over one missing permission
+    // on one zone: a token lacking "Workers Routes:Read" turns a single zone's
+    // routes lookup into a total loss instead of a partial one.
+    let partial = false;
 
     const accounts = (await cf("/accounts", tok)) as Array<{ id: string; name: string }>;
     const acct = accounts[0];
@@ -116,13 +147,16 @@ export const cloudflare: Collector = {
     for (const z of zones) {
       assets.push({ kind: "domain", key: `domain:${z.name}`, name: z.name, attrs: { is_zone: true, zone_status: z.status } });
       // Zone worker ROUTES (pattern-based, not custom domains) — a real serving path.
-      const routes = ((await cf(`/zones/${z.id}/workers/routes`, tok)) as Array<{ pattern: string; script?: string }>) ?? [];
+      // Token-scope gaps are per-zone (a token can be scoped to some zones' Workers
+      // Routes permission and not others), so one zone's 403 degrades only this
+      // signal for that zone, never the rest of the collector.
+      const routes = (await cfSoft(`/zones/${z.id}/workers/routes`, tok, `routes lookup for zone ${z.name}`, () => { partial = true; })) as Array<{ pattern: string; script?: string }>;
       for (const rt of routes) {
         if (!rt.script) continue;
         const host = rt.pattern.replace(/^https?:\/\//, "").split("/")[0].replace(/^\*\./, "");
         if (host) edges.push({ kind: "ROUTE", srcKey: `cloudflare:worker:${rt.script}`, dstKey: `domain:${host}`, srcKind: "worker", dstKind: "domain" });
       }
-      const records = (await cf(`/zones/${z.id}/dns_records`, tok)) as Array<{ type: string; name: string; content: string; proxied?: boolean }>;
+      const records = (await cfSoft(`/zones/${z.id}/dns_records`, tok, `DNS records for zone ${z.name}`, () => { partial = true; })) as Array<{ type: string; name: string; content: string; proxied?: boolean }>;
       for (const r of records) {
         const key = `dns:${z.name}/${r.type}/${r.name}`;
         assets.push({ kind: "dns_record", key, name: `${r.type} ${r.name}`, attrs: { content: r.content, proxied: r.proxied ?? false } });
@@ -134,22 +168,22 @@ export const cloudflare: Collector = {
       }
     }
 
-    const kv = (await cf(`/accounts/${acct.id}/storage/kv/namespaces`, tok)) as Array<{ id: string; title: string }>;
+    const kv = (await cfSoft(`/accounts/${acct.id}/storage/kv/namespaces`, tok, "KV namespaces", () => { partial = true; })) as Array<{ id: string; title: string }>;
     for (const ns of kv) assets.push({ kind: "kv_namespace", key: `cloudflare:kv:${ns.id}`, name: ns.title });
 
-    const r2 = (await cf(`/accounts/${acct.id}/r2/buckets`, tok)) as Array<{ name?: string; buckets?: Array<{ name: string }> }>;
+    const r2 = (await cfSoft(`/accounts/${acct.id}/r2/buckets`, tok, "R2 buckets", () => { partial = true; })) as Array<{ name?: string; buckets?: Array<{ name: string }> }>;
     // Endpoint wraps the list: result = { buckets: [...] } → cf() returns [wrapper].
     const buckets = r2.flatMap((item) => (item.buckets ? item.buckets : item.name ? [{ name: item.name }] : []));
     for (const b of buckets) assets.push({ kind: "r2_bucket", key: `cloudflare:r2:${b.name}`, name: b.name });
 
-    const d1 = (await cf(`/accounts/${acct.id}/d1/database`, tok)) as Array<{ uuid: string; name: string }>;
+    const d1 = (await cfSoft(`/accounts/${acct.id}/d1/database`, tok, "D1 databases", () => { partial = true; })) as Array<{ uuid: string; name: string }>;
     for (const db of d1) assets.push({ kind: "d1_database", key: `cloudflare:d1:${db.name}`, name: db.name, attrs: { uuid: db.uuid } });
 
     // D1 assets are keyed by NAME but bindings reference the uuid — map it before the
     // worker loop so a binding can be resolved to the asset it actually points at.
     const d1ByUuid = new Map(d1.map((db) => [db.uuid, db.name]));
 
-    const workers = (await cf(`/accounts/${acct.id}/workers/scripts`, tok)) as Array<{ id: string; modified_on?: string }>;
+    const workers = (await cfSoft(`/accounts/${acct.id}/workers/scripts`, tok, "worker scripts", () => { partial = true; })) as Array<{ id: string; modified_on?: string }>;
     // Per-worker wiring: cron schedules, workers.dev enablement, and bindings
     // (service → CALLS edge, queue → consumer flag). Bounded fan-out.
     await mapPool(workers, 8, async (w) => {
@@ -210,7 +244,7 @@ export const cloudflare: Collector = {
       }
     });
 
-    const wDomains = (await cf(`/accounts/${acct.id}/workers/domains`, tok)) as Array<{ hostname: string; service: string; zone_name: string }>;
+    const wDomains = (await cfSoft(`/accounts/${acct.id}/workers/domains`, tok, "worker custom domains", () => { partial = true; })) as Array<{ hostname: string; service: string; zone_name: string }>;
     for (const d of wDomains) {
       assets.push({ kind: "domain", key: `domain:${d.hostname}`, name: d.hostname, attrs: { is_zone: false, worker_custom_domain: true } });
       edges.push({ kind: "SERVES", srcKey: `cloudflare:worker:${d.service}`, dstKey: `domain:${d.hostname}`, srcKind: "worker", dstKind: "domain" });
@@ -219,6 +253,6 @@ export const cloudflare: Collector = {
       }
     }
 
-    return { complete: true, assets, edges };
+    return { complete: !partial, assets, edges };
   },
 };

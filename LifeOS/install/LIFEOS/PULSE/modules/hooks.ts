@@ -139,5 +139,11 @@ function handleAgentGuard(body: {
 // ── Health ──
 
 export function hooksHealth(): { status: string; stats: HookStats } {
-  return { status: "ok", ...stats }
+  // Spreading `stats` at the top level put requests/skillGuard/agentGuard
+  // alongside `status` instead of under `stats`, so the returned object never
+  // matched the declared type and the health payload carried no `stats` key at
+  // all. The inner spread is deliberate: it hands back a snapshot rather than a
+  // live reference to the mutable counters.
+  // public issue #1765, @xmasyx
+  return { status: "ok", stats: { ...stats } }
 }

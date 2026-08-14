@@ -61,10 +61,28 @@ export const CONTAINMENT_ZONES: readonly ContainmentZone[] = [
       "Plugins/**",
       "Plugins/installed_plugins.json",
       "Plugins/known_marketplaces.json",
+      // public issue #1719, @catchingknives — pattern matching here is
+      // case-SENSITIVE (componentMatch uses ===/startsWith/endsWith). macOS
+      // hides this because the filesystem is case-insensitive, but Linux
+      // harnesses write a lowercase plugins/ and it fell outside every zone.
+      // Both spellings are carried: this install's real dir is capital-P, and
+      // an extra zone only ever excludes MORE from the public payload.
+      "plugins/**",
+      "plugins/installed_plugins.json",
+      "plugins/known_marketplaces.json",
       "debug/**",
       "debug",
+      // Classed sensitive at release time too (ShadowRelease RSYNC excludes +
+      // ROOT_RUNTIME_STATE_DENY) — keep both surfaces in agreement. Parity is
+      // enforced by test/regression/runtime-state-zone-parity.test.ts: every
+      // file-shaped ROOT_RUNTIME_STATE_DENY entry must be zone-covered.
+      "remote-settings.json",
+      "stats-cache.json",
+      "stats.json",
+      "ids.txt",
+      "checkpoint-repos.txt",
     ],
-    description: "Claude Code runtime install state written by the harness — plugin registry, history, and debug/ session transcripts (the debug/latest symlink and per-session .txt dumps; runtime output, never ships)",
+    description: "Claude Code runtime install state written by the harness — plugin registry (both Plugins/ and Linux's lowercase plugins/), history, remote-settings.json, and debug/ session transcripts (the debug/latest symlink and per-session .txt dumps; runtime output, never ships)",
   },
   {
     name: "private-infra",
@@ -74,6 +92,10 @@ export const CONTAINMENT_ZONES: readonly ContainmentZone[] = [
       "LIFEOS/PULSE/Plans/**",
       "LIFEOS/PULSE/logs/**",
       "LIFEOS/PULSE/state/**",
+      // The LIVE out/ (this machine's rendered dashboard state) never ships.
+      // The release DOES ship a dashboard bundle at the same path: ShadowRelease
+      // Phase E (buildStagedDashboard) rebuilds it fresh inside staging and G11
+      // scans the rendered HTML for identity. Zone = live tree; rebuild = payload.
       "LIFEOS/PULSE/Observability/out/**",
       "LIFEOS/PULSE/.playwright-cli/**",
       "LIFEOS/PULSE/Bunker/**",
@@ -93,7 +115,15 @@ export const CONTAINMENT_ZONES: readonly ContainmentZone[] = [
     patterns: [
       "skills/*/profile-data/**",
       "skills/*/state/**",
+      // Capital-case variants: real skill dirs are TitleCase (State/, Cache/, Logs/)
+      // and the matcher is case-sensitive, so the lowercase patterns alone MISSED
+      // them. RSYNC_EXCLUDES already covers these; keeping the zone in sync so
+      // DenyListCheck classifies them as private-zone, not a real-leak false alarm
+      // (2026-08-11 skill/data-separation audit).
+      "skills/*/State/**",
       "skills/*/cache/**",
+      "skills/*/Cache/**",
+      "skills/*/Logs/**",
       "skills/*/.playwright-cli/**",
       "skills/*/.cache/**",
       "skills/*/node_modules/**",

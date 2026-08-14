@@ -199,14 +199,24 @@ if printf '%s\n' "$REQUIRED_CONTEXT" | grep -qiE '(^|[^a-z])default([^a-z]|$)'; 
     deny_hit="name matches Default"
 fi
 if [ -z "$deny_hit" ] && [ -n "$WORKING_PROFILE_IDS" ]; then
-    IFS=',' read -ra _deny_ids <<< "$WORKING_PROFILE_IDS"
-    for _id in "${_deny_ids[@]}"; do
-        _id="$(printf '%s' "$_id" | sed 's/^[ \t]*//;s/[ \t]*$//')"
-        [ -z "$_id" ] && continue
-        if [ "$_id" = "$REQUIRED_CONTEXT" ]; then
-            deny_hit="matches working-profile deny-list entry ($_id)"
-            break
-        fi
+    # Comma is the documented separator, but a whitespace-separated value must not
+    # fail open here (it arrives as one token), and a single entry that itself
+    # contains spaces must still match whole. Test the whole value and both splits:
+    # a superset of the comma-only parse, so this can only add a refusal.
+    # public issue #1802, @catchingknives
+    _deny_raw="$(printf '%s' "$WORKING_PROFILE_IDS" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+    [ "$_deny_raw" = "$REQUIRED_CONTEXT" ] && deny_hit="matches working-profile deny-list entry ($_deny_raw)"
+    for _sep in ',' $', \t'; do
+        [ -n "$deny_hit" ] && break
+        IFS="$_sep" read -ra _deny_ids <<< "$_deny_raw"
+        for _id in "${_deny_ids[@]:-}"; do
+            _id="$(printf '%s' "$_id" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+            [ -z "$_id" ] && continue
+            if [ "$_id" = "$REQUIRED_CONTEXT" ]; then
+                deny_hit="matches working-profile deny-list entry ($_id)"
+                break
+            fi
+        done
     done
 fi
 
@@ -229,7 +239,25 @@ fi
 
 # --- 4. Extension freshness (graceful — warn if upstream reference is absent) ---
 
-EXT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/Extension"
+# The extension is not always the from-source pin beside the skill. The signed
+# installer — the recommended install route — puts it under /Library/Application
+# Support and never creates a source checkout, so knowing only the pin path made
+# this gate exit 9 on such a machine and print remediation it cannot perform
+# (Pin.sh needs $INTERCEPTOR_SRC/extension/dist to copy from). Resolve from an
+# ordered candidate list instead, and hard-fail below only when none exists.
+# public issue #1802, @catchingknives
+EXT_PIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/Extension"
+EXT_DIR=""
+for _cand in "${INTERCEPTOR_EXT_DIR:-}" "$EXT_PIN_DIR" "/Library/Application Support/Interceptor/extension"; do
+    [ -n "$_cand" ] || continue
+    if [ -f "$_cand/manifest.json" ]; then
+        EXT_DIR="$_cand"
+        break
+    fi
+done
+# No candidate found: fall back to the pin so the hard-fail below names the path
+# Pin.sh writes and Load Unpacked wants.
+[ -n "$EXT_DIR" ] || EXT_DIR="$EXT_PIN_DIR"
 PINNED_FROM="$EXT_DIR/PINNED_FROM.txt"
 UPSTREAM_DIST="${INTERCEPTOR_SRC:-$HOME/Projects/interceptor}/extension/dist"
 UPSTREAM_MANIFEST="$UPSTREAM_DIST/manifest.json"
@@ -253,7 +281,9 @@ PIN_SH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/Pin.sh"
 # public PR #1602, @asdf8675309
 if [ ! -f "$EXT_DIR/manifest.json" ]; then
     cat >&2 <<EOF
-[PreflightIsolation] FAIL: no pinned Extension at $EXT_DIR_DISP
+[PreflightIsolation] FAIL: no Extension found. Checked \$INTERCEPTOR_EXT_DIR, the pin
+at $EXT_DIR_DISP, and the signed-install path
+/Library/Application Support/Interceptor/extension
 
 WHY THIS MATTERS:
   Browser control needs the unpacked extension loaded from this directory. It is
@@ -272,10 +302,29 @@ EOF
     exit 9
 fi
 
+# Prefer the origin the pin was actually taken from (recorded in
+# PINNED_FROM.txt) when INTERCEPTOR_SRC is unset — the default checkout path
+# can hold a stale, unrelated tree (e.g. a leftover clone on a .pkg install),
+# and comparing the pin against it judges freshness against the wrong
+# reference. (public issue #1824, @xmasyx)
+if [ -z "${INTERCEPTOR_SRC:-}" ] && [ -f "$PINNED_FROM" ]; then
+    pinned_origin="$(grep -i '^Pinned from:' "$PINNED_FROM" | sed -E 's/^[^:]*: *//')"
+    case "$pinned_origin" in "~"*) pinned_origin="$HOME${pinned_origin#\~}";; esac
+    if [ -n "$pinned_origin" ] && [ -f "$pinned_origin/manifest.json" ]; then
+        UPSTREAM_DIST="$pinned_origin"
+        UPSTREAM_MANIFEST="$UPSTREAM_DIST/manifest.json"
+        UPSTREAM_DIST_DISP="$(rel_home "$UPSTREAM_DIST")"
+    fi
+fi
+
 if [ -f "$PINNED_FROM" ] && [ -f "$UPSTREAM_MANIFEST" ]; then
     pinned_version="$(grep -i '^Manifest version:' "$PINNED_FROM" | sed -E 's/.*: *//' | tr -d ' ')"
     upstream_version="$(grep '"version"' "$UPSTREAM_MANIFEST" | head -1 | sed -E 's/.*"version" *: *"([^"]+)".*/\1/')"
-    if [ -n "$pinned_version" ] && [ -n "$upstream_version" ] && [ "$pinned_version" != "$upstream_version" ]; then
+    # "Stale" means upstream is NEWER than the pin. Plain inequality also fired
+    # when the reference tree was OLDER (the stale-checkout case above), telling
+    # the user to re-pin DOWN to an older build. (public issue #1824, @xmasyx)
+    newest="$(printf '%s\n%s\n' "$pinned_version" "$upstream_version" | sort -V | tail -1)"
+    if [ -n "$pinned_version" ] && [ -n "$upstream_version" ] && [ "$pinned_version" != "$upstream_version" ] && [ "$newest" = "$upstream_version" ]; then
         cat >&2 <<EOF
 [PreflightIsolation] FAIL: pinned Extension (manifest $pinned_version) is stale vs upstream ($upstream_version).
 

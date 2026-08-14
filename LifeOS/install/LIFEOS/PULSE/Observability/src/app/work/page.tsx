@@ -105,7 +105,7 @@ function Banner({
             Current Focus
           </div>
           {focus ? (
-            <p className="text-2xl lg:text-3xl font-medium leading-snug text-ink-1" data-sensitive>
+            <p className="text-2xl lg:text-3xl font-medium leading-snug text-ink-1" data-sensitive="strong">
               {focus}
             </p>
           ) : (
@@ -165,7 +165,7 @@ function AlgorithmSessions({ sessions }: { sessions?: AlgorithmSession[] }) {
                   {phase}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate text-ink-1" title={s.task}>
+                  <div className="text-sm truncate text-ink-1" title={s.task} data-sensitive>
                     {s.task}
                   </div>
                   <div className="text-[12px] font-mono mt-0.5 truncate text-ink-3">{s.slug}</div>
@@ -316,7 +316,7 @@ function KanbanCard({ issue }: { issue: KanbanIssue }) {
       <div className="mono text-[12px] text-ink-3 mb-1">
         #{issue.number}
       </div>
-      <div className="text-[13px] font-medium leading-snug mb-1.5 text-ink-1" title={issue.title}>
+      <div className="text-[13px] font-medium leading-snug mb-1.5 text-ink-1" title={issue.title} data-sensitive>
         {cleanTitle(issue.title)}
       </div>
       {labels.length > 0 && (
@@ -635,7 +635,6 @@ function WorkList({ data }: { data: KanbanData }) {
                   background: isExpanded ? "var(--surface-3)" : undefined,
                 }}
                 className="work-row"
-                title={cleanTitle(it.title)}
               >
                 {/* status dot */}
                 <span
@@ -668,7 +667,7 @@ function WorkList({ data }: { data: KanbanData }) {
                   #{it.number}
                 </span>
                 {/* title */}
-                <span className="text-ink-1" style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                <span className="text-ink-1" style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={cleanTitle(it.title)} data-sensitive>
                   {cleanTitle(it.title)}
                 </span>
                 {/* type pill */}
@@ -719,11 +718,11 @@ function WorkList({ data }: { data: KanbanData }) {
               {isExpanded && (
                 <div className="border-b border-line-1 bg-surface-1" style={{ padding: "10px 16px 14px 16px" }}>
                   {it.principal_stated_goal && (
-                    <p style={{ fontSize: 12, fontStyle: "italic", color: "var(--freedom)", marginBottom: 8 }}>
+                    <p style={{ fontSize: 12, fontStyle: "italic", color: "var(--freedom)", marginBottom: 8 }} data-sensitive>
                       🎯 why: {it.principal_stated_goal}
                     </p>
                   )}
-                  <p className="text-ink-1" style={{ fontSize: 13, marginBottom: 8, lineHeight: 1.4 }}>{cleanTitle(it.title)}</p>
+                  <p className="text-ink-1" style={{ fontSize: 13, marginBottom: 8, lineHeight: 1.4 }} data-sensitive>{cleanTitle(it.title)}</p>
                   {(it.labels || []).filter((l) => !HIDDEN_LABELS.has(l)).length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
                       {(it.labels || []).filter((l) => !HIDDEN_LABELS.has(l)).map((l) => (
@@ -830,7 +829,7 @@ function WorkItemsPanel() {
   const meta = (
     <>
       <span className="text-xs text-ink-3 mono hidden sm:inline">
-        {total} issues · {data.config?.repo} · poll {data.config?.poll_interval_seconds}s
+        {total} issues · <span data-sensitive>{data.config?.repo}</span> · poll {data.config?.poll_interval_seconds}s
         {data.lastFetch && ` · last fetch ${new Date(data.lastFetch).toLocaleTimeString()}`}
       </span>
       <button

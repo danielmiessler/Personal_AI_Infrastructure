@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.3
+ * @version 1.0.4
  * HookHealer.hook.ts - Self-healing for the registered-script exec-bit class
  *
  * PURPOSE:
@@ -70,23 +70,29 @@ function hasShebang(p: string): boolean {
  * ~/.claude (chmod follows symlinks — a link inside pointing outside must
  * never be healed), only when needed.
  */
-function heal(p: string, source: string): boolean {
-  if (!p.startsWith(CLAUDE_DIR + '/')) return false;
-  if (!existsSync(p) || isExecutable(p)) return false;
+type HealResult = 'healed' | 'noop' | 'refused' | 'failed';
+
+function heal(p: string, source: string): HealResult {
+  if (!p.startsWith(CLAUDE_DIR + '/')) return 'noop';
+  if (!existsSync(p) || isExecutable(p)) return 'noop';
   try {
     const realClaudeDir = realpathSync(CLAUDE_DIR);
     const real = realpathSync(p);
     if (!real.startsWith(realClaudeDir + '/')) {
+      // A refusal must reach the operator, not just the JSONL — a refused dead
+      // hook otherwise fails every invocation with nothing ever printed. The
+      // containment rule itself is correct and stays; only the silence was the
+      // bug (public issue #1796, @bnkath2o). Callers surface this result.
       log({ event: 'containment-refused', path: p, resolved: real, source });
-      return false;
+      return 'refused';
     }
     chmodSync(real, statSync(real).mode | 0o111);
     log({ event: 'healed', path: real, source });
     console.error(`[HookHealer] chmod +x ${real}`);
-    return true;
+    return 'healed';
   } catch (err) {
     log({ event: 'heal-failed', path: p, source, error: String(err) });
-    return false;
+    return 'failed';
   }
 }
 
@@ -140,7 +146,12 @@ function sweep(): void {
       warnings.push(`no shebang: ${p}`);
       log({ event: 'no-shebang', path: p, source: 'sweep' });
     }
-    if (heal(p, 'sweep')) healed.push(p);
+    const result = heal(p, 'sweep');
+    if (result === 'healed') healed.push(p);
+    // Surface refusals and failures — a registered hook that stays dead is
+    // "needs attention", never silence (public issue #1796, @bnkath2o).
+    else if (result === 'refused') warnings.push(`not executable, heal refused (resolves outside ~/.claude — chmod it yourself): ${p}`);
+    else if (result === 'failed') warnings.push(`heal failed (see hook-healer.jsonl): ${p}`);
   }
   if (healed.length > 0 || warnings.length > 0) {
     const short = (s: string) => s.replace(CLAUDE_DIR + '/', '');
@@ -173,7 +184,13 @@ async function posttool(): Promise<void> {
   const fp = data?.tool_input?.file_path;
   if (typeof fp !== 'string') return;
   if (!fp.startsWith(CLAUDE_DIR + '/')) return;
-  if (existsSync(fp) && hasShebang(fp) && !isExecutable(fp)) heal(fp, 'posttool');
+  if (existsSync(fp) && hasShebang(fp) && !isExecutable(fp)) {
+    if (heal(fp, 'posttool') === 'refused') {
+      // posttool runs headless; stderr is the only operator-visible channel
+      // (public issue #1796, @bnkath2o).
+      console.error(`[HookHealer] refused to heal ${fp} — resolves outside ~/.claude; chmod it yourself if intended`);
+    }
+  }
 }
 
 async function main(): Promise<void> {

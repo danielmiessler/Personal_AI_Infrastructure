@@ -11,7 +11,7 @@ import { loadConfig } from "./config.ts";
 import { localDate, readDayEvents } from "./store.ts";
 import type { ConduitEventType } from "./types.ts";
 
-type SourceId = "appFocus" | "git" | "claudeSession";
+type SourceId = "appFocus" | "git" | "claudeSession" | "github";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -42,6 +42,12 @@ export const SOURCE_DESCRIPTORS: readonly SourceDescriptor[] = [
     label: "LifeOS sessions",
     captures: "Algorithm & session activity from the work-events log",
     eventType: "claude-session",
+  },
+  {
+    id: "github",
+    label: "GitHub activity",
+    captures: "Your commits & pull requests on GitHub — including remote/API work",
+    eventType: "github-pr",
   },
 ] as const;
 

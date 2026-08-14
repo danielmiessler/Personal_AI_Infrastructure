@@ -5,7 +5,7 @@
 // strings, no home paths, no vendored deps in git — with sensitive data living under
 // LIFEOS/USER/ instead of inside the skill?
 //
-// "Dirty" is defined by the canonical release deny-list (skills/_LIFEOS/DENY_LIST.txt);
+// "Dirty" is defined by the canonical release deny-list (<your-release-skill>/DENY_LIST.txt);
 // this gate never forks that pattern set, so skill-clean ≡ release-clean by
 // construction. Private skills reference LIFEOS/USER/ paths freely — that's the
 // pattern, not a violation (the deny-list contains no LIFEOS/USER path patterns).
@@ -58,13 +58,24 @@ function fail(msg: string): never {
 
 function loadDenyPatterns(): string[] {
   // The deny-list is identity DATA and lives under LIFEOS/USER/ (2026-07-25
-  // relocation — it was inside skills/_LIFEOS/, reached across the boundary by
+  // relocation — it was inside <your-release-skill>/, reached across the boundary by
   // this public tool). USER/ is rebuilt from templates at release, so on a tree
   // with no personal data the file is legitimately absent: there is nothing to
   // deny yet. Skip loudly — never hard-fail, never silently pass a security gate.
   if (!existsSync(DENY_LIST_PATH)) {
-    if (jsonOutput) console.log(JSON.stringify({ ok: true, skipped: true, reason: `no deny-list at ${DENY_LIST_PATH} — no personal data to protect yet` }));
-    else console.error(`SKIP: no deny-list at ${DENY_LIST_PATH} — nothing to scan against (expected on a tree with no personal data).`);
+    // "No plaintext deny-list" is NOT the same as "no personal data": a
+    // hash-only deny surface (DENY_HASHES.json) can exist alone, meaning
+    // personal data IS protected elsewhere and this gate simply cannot
+    // verify. Fail loud in that state instead of certifying cleanliness.
+    // (public issue #1833, @xmasyx)
+    const hashesPath = join(homedir(), ".claude", "LIFEOS", "USER", "SECURITY", "DENY_HASHES.json");
+    if (existsSync(hashesPath)) {
+      if (jsonOutput) console.log(JSON.stringify({ ok: false, skipped: true, error: `DENY_HASHES.json exists but DENY_LIST.txt is absent — personal data exists and this gate cannot scan without the plaintext list` }));
+      else console.error(`CANNOT VERIFY: ${hashesPath} exists but DENY_LIST.txt is absent — personal data exists on this tree and this gate cannot scan without the plaintext list. Restore DENY_LIST.txt or run the hash-based guard.`);
+      process.exit(1);
+    }
+    if (jsonOutput) console.log(JSON.stringify({ ok: true, skipped: true, reason: `no deny artifacts at all under LIFEOS/USER/SECURITY — no personal data to protect yet` }));
+    else console.error(`SKIP: no deny-list at ${DENY_LIST_PATH} and no DENY_HASHES.json — nothing to scan against (expected on a tree with no personal data).`);
     process.exit(0);
   }
   const patterns = readFileSync(DENY_LIST_PATH, "utf8")

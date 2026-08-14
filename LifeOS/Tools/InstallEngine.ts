@@ -60,7 +60,11 @@ export interface EnvDetection {
   ssh: boolean;
   bun: ToolInfo;
   git: ToolInfo;
-  /** A prior LifeOS/PAI install is present (settings.json exists in the config root). */
+  /**
+   * A prior LifeOS install is present. Keyed on `<configRoot>/LIFEOS/VERSION`,
+   * which only DeployCore writes — settings.json exists on any harness that has
+   * ever run, LifeOS or not (public issue #1727, @rpriven).
+   */
   existingInstall: boolean;
   /**
    * This IS the author's live source tree — refuse all mutation. Marker: the
@@ -181,7 +185,8 @@ export function detectEnv(): EnvDetection {
     ssh,
     bun: detectTool("bun", "bun --version"),
     git: detectTool("git", "git --version"),
-    existingInstall: existsSync(settingsPath),
+    // public issue #1727, @rpriven — LifeOS-specific marker, not settings.json.
+    existingInstall: existsSync(join(configRoot, "LIFEOS", "VERSION")),
     isDevTree: detectDevTree(configRoot),
     settingsExists: existsSync(settingsPath),
     claudeMdExists: existsSync(claudeMdPath),
@@ -326,7 +331,7 @@ export function scanSettingsHooks(settingsPath: string): SettingsHookScan {
 //  follows the proven logic from the legacy engine actions.ts.
 // ════════════════════════════════════════════════════════════════════
 
-import { cpSync, lstatSync, mkdirSync, readdirSync, readlinkSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, lstatSync, mkdirSync, readdirSync, readlinkSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 // Extended 2026-07-25 (Forge finding, v7.15.0 re-audit). The set stopped at .ts,
@@ -431,8 +436,13 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
       after = parts.join(value);
     }
     if (after !== before) {
+      // Preserve the original mode: writeFileSync creates the tmp at umask
+      // default (0644) and renameSync replaces the inode, so without this every
+      // substituted hook lost its exec bit — 10 wired hooks silently dead on a
+      // fresh install (public issue #1803, @mark-219).
+      const mode = statSync(filePath).mode & 0o7777;
       const tmp = filePath + ".lifeos.tmp";
-      writeFileSync(tmp, after);
+      writeFileSync(tmp, after, { mode });
       renameSync(tmp, filePath);
       modified++;
     }
@@ -441,6 +451,11 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (SKIP_DIRS.has(entry.name)) continue;
+      // Never substitute into the redistribution payload: rendering the nested
+      // skills/LifeOS/install/ copy bakes THIS user's identity into ~121
+      // template files that must stay generic for the next install.
+      // (public issue #1828, @Piroshki, root cause @DRAZY)
+      if (entry.name === "install" && dir.endsWith(join("skills", "LifeOS"))) continue;
       const child = join(dir, entry.name);
       if (entry.isDirectory()) walk(child);
       else if (entry.isFile()) processFile(child);
@@ -558,7 +573,7 @@ function mergeTree(src: string, dst: string, stamp: string): { copied: number; o
 export function setupUserSeparation(
   configRoot: string,
   configDir: string,
-): { action: "already-linked" | "linked" | "scaffolded-linked"; target: string; copied: number; overwritten?: number; preserved?: number; backup?: string; error?: string } {
+): { action: "already-linked" | "linked" | "scaffolded-linked" | "link-repair-failed"; target: string; copied: number; overwritten?: number; preserved?: number; backup?: string; error?: string } {
   const liveUserDir = join(configRoot, "LIFEOS", "USER");
   const dataUserDir = join(configDir, "USER");
 
@@ -569,13 +584,27 @@ export function setupUserSeparation(
     return { action: "already-linked", target: dataUserDir, copied: 0 };
   }
 
-  // Branch (a): already a correct symlink → no-op.
-  if (existsSync(liveUserDir)) {
-    const st = lstatSync(liveUserDir);
-    if (st.isSymbolicLink()) {
-      try {
-        if (readlinkSync(liveUserDir) === dataUserDir) return { action: "already-linked", target: dataUserDir, copied: 0 };
-      } catch { /* fall through to rebuild */ }
+  // Branch (a): inspect any symlink occupying liveUserDir. lstatSync does NOT
+  // follow the link, so it sees a DANGLING link (target moved, deleted, or
+  // restored from backup) that existsSync — which follows — reports as absent.
+  // Without this, a dangling link fell through every branch to symlinkSync on an
+  // occupied path, EEXIST'd, and returned a success-shaped "scaffolded-linked"
+  // action with the error buried in it. (Forge cross-vendor audit 2026-08-11, [C])
+  const liveLstat = lstatSync(liveUserDir, { throwIfNoEntry: false });
+  if (liveLstat?.isSymbolicLink()) {
+    let dest: string | null = null;
+    try { dest = readlinkSync(liveUserDir); } catch { /* unreadable link → treat as stale */ }
+    if (dest === dataUserDir && existsSync(liveUserDir)) {
+      // Correct link, target present → genuine no-op.
+      return { action: "already-linked", target: dataUserDir, copied: 0 };
+    }
+    // Wrong target, or dangling (target missing) → remove the stale link so the
+    // rebuild branches below recreate it. Unlinking a symlink never touches the
+    // target's contents.
+    try {
+      unlinkSync(liveUserDir);
+    } catch (err) {
+      return { action: "link-repair-failed", target: dataUserDir, copied: 0, error: `could not remove stale/dangling USER symlink at ${liveUserDir}: ${err instanceof Error ? err.message : String(err)}` };
     }
   }
 
@@ -601,7 +630,9 @@ export function setupUserSeparation(
     copied = merged.copied;
     try {
       mkdirSync(dirname(liveUserDir), { recursive: true });
-      symlinkSync(dataUserDir, liveUserDir);
+      // public issue #1730, @umair-a11y — "junction" lets Windows link a dir without
+      // elevation; the arg is ignored on POSIX.
+      symlinkSync(dataUserDir, liveUserDir, "junction");
       return { action: "linked", target: dataUserDir, copied, overwritten: merged.overwritten, preserved: merged.preserved, backup: backupDir };
     } catch (err) {
       return { action: "linked", target: dataUserDir, copied, overwritten: merged.overwritten, preserved: merged.preserved, backup: backupDir, error: `symlink creation failed (live USER preserved at ${backupDir}): ${err instanceof Error ? err.message : String(err)}` };
@@ -611,7 +642,8 @@ export function setupUserSeparation(
   // Branch (c): fresh install — scaffold the data home (if empty) + symlink.
   try {
     mkdirSync(dirname(liveUserDir), { recursive: true });
-    symlinkSync(dataUserDir, liveUserDir);
+    // public issue #1730, @umair-a11y — see junction note above.
+    symlinkSync(dataUserDir, liveUserDir, "junction");
     return { action: "scaffolded-linked", target: dataUserDir, copied };
   } catch (err) {
     return { action: "scaffolded-linked", target: dataUserDir, copied, error: `symlink creation failed: ${err instanceof Error ? err.message : String(err)}` };

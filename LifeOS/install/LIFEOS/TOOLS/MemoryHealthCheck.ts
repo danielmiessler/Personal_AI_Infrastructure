@@ -24,6 +24,9 @@
 import { existsSync, readFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseMemoryContent, read as memoryRead, BEGIN_MARKER, END_MARKER } from "./MemoryWriter";
+import { assessCortexEvidence, collectCortexEvidence } from "./CortexHealth";
+import { atomicWriteJSON } from "../PULSE/lib/atomic-write";
+import { homedir } from "node:os";
 
 // CLI script, not a library: the checks below run at module top level and end in
 // process.exit. Spawn it (MemoryHealthGate does); never import it.
@@ -31,8 +34,8 @@ if (!import.meta.main) {
   throw new Error("MemoryHealthCheck.ts is a CLI script with top-level side effects — spawn it via bun, never import it.");
 }
 
-const HOME = process.env.HOME || "";
-const CLAUDE = join(HOME, ".claude");
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
+const CLAUDE = process.env.CORTEX_HEALTH_ROOT || join(HOME, ".claude");
 const HOOKS_DIR = join(CLAUDE, "hooks");
 const TOOLS_DIR = join(CLAUDE, "LIFEOS/TOOLS");
 const OBS_DIR = join(CLAUDE, "LIFEOS/MEMORY/OBSERVABILITY");
@@ -328,7 +331,11 @@ if (existsSync(REVIEWER_RUNS)) {
   try {
     const recent = readFileSync(REVIEWER_RUNS, "utf-8").trim().split("\n").slice(-5)
       .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-    const failed = recent.filter((r: any) => r.ok === false || r.parse_ok === false);
+    const skips = recent.filter((r: any) => r.skipped === true);
+    const failed = recent.filter((r: any) => (r.ok === false || r.parse_ok === false) && r.skipped !== true);
+    // Skips are healthy no-ops individually, but an unbroken streak means the
+    // reviewer never finds anything to curate — that's an extractor problem.
+    if (recent.length >= 5 && skips.length === recent.length) add("reviewer-all-skips", "warn", `All last ${recent.length} reviewer runs skipped (nothing extracted) — check the exchange extractor.`, { skips: skips.length });
     const capDrops = recent.filter((r: any) =>
       Array.isArray(r?.dispatch_summary?.failures) &&
       r.dispatch_summary.failures.some((f: any) => String(f?.error || "").includes("EAT_CAP")));
@@ -337,6 +344,23 @@ if (existsSync(REVIEWER_RUNS)) {
     else if (failed.length === 0 && capDrops.length === 0) add("reviewer-healthy", "ok", "Recent reviewer runs completed cleanly.");
   } catch { /* non-fatal */ }
 }
+
+// F5: evidence-driven Cortex health. Paths and clock are injectable so tests never touch live state.
+function cortexThresholdEnv(name: string): number | undefined {
+  const raw = process.env[name]; if (raw === undefined || raw === "") return undefined;
+  const value = Number(raw); if (!Number.isFinite(value) || value <= 0) { add("cortex-threshold-invalid", "critical", `${name} must be finite and greater than zero.`, { name, value: raw }); return undefined; }
+  return value;
+}
+const retrievalStaleMs = cortexThresholdEnv("CORTEX_RETRIEVAL_STALE_MS");
+const proposalBacklog = cortexThresholdEnv("CORTEX_PROPOSAL_BACKLOG");
+const observabilityMaxBytes = cortexThresholdEnv("CORTEX_OBSERVABILITY_MAX_BYTES");
+const observabilityMaxAgeMs = cortexThresholdEnv("CORTEX_OBSERVABILITY_MAX_AGE_MS");
+const cortexEvidence = collectCortexEvidence({ root: CLAUDE, nowMs: process.env.CORTEX_HEALTH_NOW ? Date.parse(process.env.CORTEX_HEALTH_NOW) : Date.now(), thresholds: {
+  ...(retrievalStaleMs === undefined ? {} : { retrievalStaleMs }), ...(proposalBacklog === undefined ? {} : { proposalBacklog }),
+  ...(observabilityMaxBytes === undefined ? {} : { observabilityMaxBytes }), ...(observabilityMaxAgeMs === undefined ? {} : { observabilityMaxAgeMs }),
+}, indexManifest: process.env.CORTEX_INDEX_MANIFEST });
+const cortexAssessment = assessCortexEvidence(cortexEvidence);
+for (const finding of cortexAssessment.findings) add(finding.id, finding.severity, finding.message, finding.evidence);
 
 // SUMMARY
 const criticals = findings.filter(f => f.severity === "critical");
@@ -349,19 +373,33 @@ const report = {
   ts: new Date().toISOString(),
   overall,
   counts: { critical: criticals.length, warn: warns.length, ok: oks.length },
+  thresholds: cortexAssessment.thresholds,
+  evidence: cortexEvidence,
   findings: findings.filter(f => f.severity !== "ok"),
   ok_summary: oks.map(o => o.id),
 };
 
 // Append to observability log
 try {
+  if (process.env.CORTEX_HEALTH_NO_WRITE === "1") throw new Error("health log write disabled");
   if (!existsSync(OBS_DIR)) mkdirSync(OBS_DIR, { recursive: true });
   appendFileSync(HEALTH_LOG, JSON.stringify(report) + "\n");
 } catch (err) {
   // non-fatal
 }
 
-console.log(JSON.stringify(report, null, 2));
+// Optional machine-readable report for fixture/automation consumers. Keep this
+// separate from the append-only health log so CORTEX_HEALTH_NO_WRITE can disable
+// live observability writes without suppressing an explicitly requested report.
+try {
+  if (process.env.CORTEX_HEALTH_REPORT_PATH) {
+    atomicWriteJSON(process.env.CORTEX_HEALTH_REPORT_PATH, report);
+  }
+} catch {
+  // Preserve the CLI existing stdout, stderr, and health-derived exit semantics.
+}
+
+await Bun.write(Bun.stdout, JSON.stringify(report, null, 2) + "\n");
 
 if (overall === "critical") process.exit(2);
 if (overall === "warn") process.exit(1);

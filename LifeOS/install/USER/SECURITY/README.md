@@ -2,55 +2,39 @@
 provenance: template
 ---
 
-# SECURITY — Pattern Rules and Permission Cache
+# SECURITY — your install's security posture
 
-This directory holds the rules that gate every Bash, Write, Edit, and Read
-operation. The `SecurityPipeline.hook.ts` (PreToolUse) reads `PATTERNS.yaml`
-on every tool call and **fails closed** if the file is missing or corrupt.
-Treat this directory as load-bearing.
+Your LifeOS security is **three layers plus one consolidated hook** — the model
+itself is the boundary. There is no pattern file to maintain and nothing in this
+directory is load-bearing on a fresh install; the enforcement lives in the
+system prompt, `settings.json`, and one hook. Full model:
+`LIFEOS/DOCUMENTATION/Security/README.md`.
 
-## Files
+## The model
 
-| File | What it does |
-|------|---------------|
-| `PATTERNS.yaml` | Block / alert / trusted regex rules for Bash and path access. **Required.** |
-| `SECURITY_RULES.md` | Free-form policy doc — readable rules the LLM can quote when it asks for permission. Optional. |
-| `permission-cache.yaml` | Auto-managed by `Safety.hook.ts` (PermissionRequest path). Caches sha-keyed "allow" decisions per (tool, body). Don't edit by hand. |
+| Layer | Where | What it does |
+|-------|-------|--------------|
+| **L1 — Constitutional rule** | `LIFEOS/LIFEOS_SYSTEM_PROMPT.md` § Security Protocol | The model reads external content as data, refuses embedded instructions, reports injection attempts to you. This is the actual defense. |
+| **L2 — Native `permissions.deny`** | `settings.json` `permissions.deny` block | The Claude Code harness blocks irrecoverable shell/file ops *before* any model decision. Deterministic — edit these directly in `settings.json`. |
+| **L3 — `Safety.hook.ts`** | `hooks/Safety.hook.ts` + `hooks/lib/safety-classifier.ts` | One hook, two events. Its PermissionRequest path shape-classifies outgoing tool calls (allow safe shapes, stay neutral on dangerous ones so the harness prompts); its PostToolUse path tags every WebFetch/WebSearch result as data before it reaches the model. Advisory — L1 does the enforcing. |
 
-## Customization
+The permission classifier's allow-cache is `MEMORY/STATE/permission-cache.json`
+(sha-keyed, auto-managed — don't edit by hand); its decision log is
+`MEMORY/OBSERVABILITY/permission-decisions.jsonl`.
 
-The shipped `PATTERNS.yaml` is a generic safe default — it blocks
-catastrophic operations (recursive `rm /`, disk wipes, repository
-deletion, exfiltration of known credential prefixes) and alerts on
-suspicious patterns (curl-pipe-shell, force-push, drop database, etc.).
+> Historical note: an earlier design used a `SecurityPipeline.hook.ts` reading a
+> `PATTERNS.yaml` regex file with fail-closed blocking. That was removed on
+> 2026-05-06 (replaced by native `permissions.deny` + `Safety.hook.ts`) — if you
+> see it referenced anywhere, the reference is stale.
 
-To adapt it to your environment, edit the three sections:
+## What lives here
 
-- **`bash.trusted`** — patterns that should bypass all checks. Add tools
-  you use constantly that the alert rules would otherwise log noisily.
-- **`bash.blocked`** — patterns that must never execute. These are
-  silently denied; nothing prompts the user.
-- **`bash.alert`** — patterns that are allowed but logged for audit.
-- **`paths.zeroAccess` / `alertAccess` / `confirmAccess`** — file-path
-  rules. Read by the path inspector when a tool tries to touch a file.
-
-After editing, the next Bash call uses the new rules — no daemon restart
-needed (the inspector re-reads on every call).
-
-## Failure mode
-
-If `PATTERNS.yaml` is missing, malformed, or you accidentally delete the
-zero-access list, every Bash tool call returns:
-
-```
-[LifeOS SECURITY] 🚨 BLOCKED: CRITICAL: Security patterns file missing — fail-closed
-```
-
-Restore the file (the public default lives at `Templates/USER/SECURITY/`
-inside the `<your-release-skill>` skill, or pull a copy from a backup `.claude*` dir).
+On a fresh install this directory is essentially empty — that's expected. As you
+use LifeOS it may accumulate your own security operational notes (monitoring
+config, posture docs, assessment sessions). None of it gates tool calls; the
+three layers above do that.
 
 ## Privacy
 
-Nothing in this directory ships in a public LifeOS release. The release
-builder overlays a generic public default scaffold; your customized rules
-stay on your machine.
+Nothing in this directory ships in a public LifeOS release. The release builder
+overlays this generic scaffold; anything you author here stays on your machine.

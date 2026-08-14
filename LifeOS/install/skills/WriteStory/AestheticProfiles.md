@@ -7,7 +7,7 @@ Configurable prose style profiles that shape how the WriteStory skill writes. Ea
 1. The writer selects a base profile during Interview or BuildBible
 2. Profiles can be blended (e.g., "70% Adams, 30% Tolkien")
 3. Profiles affect the Prose layer but NOT the other six layers
-4. Custom profiles can be defined in WriteStory SKILLCUSTOMIZATIONS
+4. Custom profiles can be defined in WriteStory CUSTOMIZATIONS/SKILLS overrides
 
 ---
 

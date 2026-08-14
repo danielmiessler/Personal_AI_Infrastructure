@@ -104,7 +104,7 @@ The payload ships the launcher — `install/LIFEOS/TOOLS/lifeos.ts` — which sp
   ```
   fish: `alias lifeos "bun <configRoot>/LIFEOS/TOOLS/lifeos.ts -s <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md"; funcsave lifeos`. After this, **`lifeos` launches Claude WITH the constitution**; plain `claude` stays vanilla (which is fine — the user opts in by launching `lifeos`).
 
-  **Upgrade path — migrate stale pre-7.x aliases.** Pre-7.x installs wired a `pai` launch alias (`cd ~/.claude && claude`, or `bun ~/.claude/PAI/ACTIONS/pai.ts`). The `PAI/` tree no longer exists and the bare-`claude` form launches without the constitution, so check the rc for these, and (with permission, rc backed up) comment them out and repoint the SAME alias name at the launcher above — the human's muscle-memory `pai` keeps working. `install.sh` does this automatically at bootstrap; do it here when the human ran setup without the bootstrap script. Never touch an alias containing `LIFEOS_SYSTEM_PROMPT` (current) or `ARBOL/Actions/lifeos.ts` (the valid Arbol CLI alias).
+  **Upgrade path — migrate stale pre-7.x aliases.** Pre-7.x installs wired a `pai` launch alias (`cd ~/.claude && claude`, or `bun ~/.claude/PAI/ACTIONS/pai.ts`). The `PAI/` tree no longer exists and the bare-`claude` form launches without the constitution, so check the rc for these, and (with permission, rc backed up) comment them out and repoint the SAME alias name at the launcher above — the human's muscle-memory `pai` keeps working. `install.sh` does this automatically at bootstrap; do it here when the human ran setup without the bootstrap script. Never touch an alias containing `LIFEOS_SYSTEM_PROMPT` (current) or `ARBOL/Actions/lifeos.ts` (the maintainer-side Arbol CLI alias — that tree does not ship in the public payload, so if the string appears in an rc, leave it alone).
 
 - **Any other harness** — use that harness's own system-prompt flag against the same file. e.g. pi: `pi --append-system-prompt <configRoot>/LIFEOS/LIFEOS_SYSTEM_PROMPT.md`. If a harness has no system-prompt flag, load `LIFEOS_SYSTEM_PROMPT.md` through its context file (AGENTS.md / rules) as the closest equivalent, and tell your human plainly that the constitution is loading as context, not as a true system-prompt layer.
 
@@ -131,7 +131,7 @@ LifeOS installs in **two layers**, and you present them that way.
 | **Pulse** | the Life Dashboard — menu-bar app + `launchd` service on `:31337` | optional |
 | **worksweep / derivedsync** | background `launchd` jobs (work capture, derived-file sync) | optional |
 
-The `launchd` components (Pulse, worksweep, derivedsync) are macOS-only — skip them cleanly on Linux/Windows. Show your human this menu, take their picks, and deploy only those. The **Setup** workflow (step 9) drives the actual deployment of the chosen set and verifies each with real evidence (e.g. Pulse → `curl :31337/healthz` = 200). Everything ships in the payload; nothing activates without its matching yes.
+Pulse, worksweep, and derivedsync install as **launchd** agents on macOS and as **systemd --user** units on Linux — their installers dispatch on platform, so offer them on both (Windows has neither: skip cleanly there). The macOS menu-bar app is genuinely macOS-only. Show your human this menu, take their picks, and deploy only those. The **Setup** workflow (step 9) drives the actual deployment of the chosen set and verifies each with real evidence (e.g. Pulse → `curl :31337/healthz` = 200). Everything ships in the payload; nothing activates without its matching yes.
 
 ### 8.5 Capability check — probe what doctrine assumes (Doctor)
 
@@ -160,7 +160,7 @@ Run the **Setup** workflow (`Workflows/Setup.md`) to finish integration and veri
 | Harness / OS | Skill + USER data + Pulse | Always-on behavior (response format, memory loop, context injection) |
 |---|---|---|
 | **Claude Code — macOS / Linux** | ✅ | ✅ full (native hooks) |
-| **Claude Code — Windows** | ✅ (copy fallback where symlinks need admin) | ✅ full |
+| **Claude Code — Windows** | ✅ (USER tree links as a directory junction — no admin needed) | ✅ full |
 | **Cursor / Cline / Codex / Gemini / other** | ✅ | ⚠️ context loads every session via `AGENTS.md`; workflows run on request; always-on hooks not wired yet (roadmap) |
 | **Chat-only assistants (no files / no commands)** | ❌ | ❌ — install stops at the capability gate |
 
@@ -169,7 +169,7 @@ Full-doctrine features additionally depend on the external tools in step 8.5 (co
 ## Rules you must follow
 
 - **Additive, never clobbering.** Only add what's missing; never overwrite or delete a populated dir or a file you didn't create.
-- **Permission before every mutation.** Show the exact change; back up `settings.json` before editing it; wait for a yes.
+- **Permission before every mutation.** Show the exact change; back up `settings.json` before editing it; wait for a yes. One documented exception: the `install.sh` bootstrap, by invocation, migrates stale pre-7.x launch aliases (rc backed up first; skip with `LIFEOS_SKIP_ALIAS=1`) and appends capture rules to the config-root `.gitignore` — running the bootstrap is the consent for those two bounded setup mutations. AI-led setup steps after the bootstrap always ask.
 - **Never write a harness's config that it won't read.** Honest degrade beats an inert install.
 - **The launch command loads the constitution — don't skip it.** A plain `claude` session gets CLAUDE.md but not `LIFEOS_SYSTEM_PROMPT.md`. The `lifeos` command (step 7), or the harness's system-prompt flag, is what turns the operating contract on. Wire it, or the install is missing its whole constitutional layer.
 - **Refuse to run inside the LifeOS source repo** (detected via source-repo markers). Never mutate a maintainer's live system.

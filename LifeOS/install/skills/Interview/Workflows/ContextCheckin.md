@@ -19,14 +19,26 @@ curl -s -X POST http://localhost:31337/notify \
 
 ---
 
-## Step 1 — Read freshness BEFORE asking anything
+## Step 1 — Read freshness AND evidence BEFORE asking anything
 
-Two readers. Both at the start. The constitutional context is on file; we ground every prompt in what's there, never in what we'd ask if we had no idea.
+Four readers. All at the start. The context is on file and the observed data is in cache; we ground every prompt in both — never in what we'd ask if we had no idea, and never in file age alone when the data can say what changed.
 
 ```bash
 bun ~/.claude/LIFEOS/TOOLS/TelosFreshness.ts --json          # per-section TELOS
+bun ~/.claude/LIFEOS/TOOLS/TelosFreshness.ts --state         # CURRENT_STATE/ + IDEAL_STATE/ dimension files
 bun -e "import { readContextFreshness } from '$HOME/.claude/LIFEOS/TOOLS/TelosFreshness'; console.log(JSON.stringify(readContextFreshness(), null, 2))"
+bun ~/.claude/LIFEOS/TOOLS/StateEvidence.ts --markdown       # observed reality per domain (also refreshes the cache)
 ```
+
+If `StateEvidence` output is missing or its cache is older than a day, run `bun ~/.claude/LIFEOS/TOOLS/InterviewDue.ts --refresh` once and re-read — the interview must argue from today's data, not last week's.
+
+**Fifth reader — the work system (principal directive, 2026-08-12).** When the work-hub skill is installed (its repo is named in the private operational rules, never here), pull the open issue registry before reviewing Goals, Projects, or Ideas:
+
+```bash
+gh issue list -R <work-repo> --state open --limit 60
+```
+
+Open issues are CANDIDATES for the review: goal-mirror issues (`goal:GN` labels) must agree with the TELOS Goals section — a goal marked achieved in the interview closes its mirror issue in the same motion, and an open mirror for a dead goal is a contradiction to surface. Sweep/decision/project-check issues are evidence of what's actually being worked on, so the "anything missing from Projects?" prompt argues from them instead of asking blind.
 
 Or via Pulse (single round-trip):
 
@@ -35,7 +47,26 @@ curl -s http://localhost:31337/api/freshness | jq      # multi-file constitution
 curl -s http://localhost:31337/api/telos/freshness | jq # per-section TELOS
 ```
 
-Parse and combine into a single sorted list of stale items — TELOS sections AND constitutional files share the same conceptual surface from the principal's view. Sort most-stale-first by days-over-threshold.
+Parse and combine into a single sorted list of stale items — TELOS sections, constitutional files, AND state dimension files share the same conceptual surface from the principal's view. Sort most-stale-first by days-over-threshold.
+
+`bun ~/.claude/LIFEOS/TOOLS/InterviewScan.ts --json` produces this combined list already prioritized — state targets carry `domain`, `evidence_live`, and `evidence_days_since_review`, and an evidence-backed stale file outranks everything else in its phase. Prefer it over hand-merging.
+
+### Step 1.5 — The evidence pass (what makes this interview different)
+
+For every stale item whose `domain` is non-null, put the file's claims and the observed data side by side BEFORE asking anything. The evidence panel (`StateEvidence.ts --markdown`) carries the observed side: sleep hours, efficiency, HRV, resting HR, steps (Oura); creation vs consumption minutes and top apps (Conduit); sessions and commit cadence (work registry + git); recurring burn (expenses).
+
+The lead is the sharpest **contradiction** — a written claim the data refutes or confirms-out-of-date — not merely the oldest file. Claim-vs-evidence, stated plainly, with dates on both sides:
+
+> "**CURRENT_STATE/HEALTH.md** (last reviewed {N}d ago) says: *'{claim}'*. The data since then: {metric} averaged {value} over the last 30d (through {date}). That row is wrong/confirmed — here's the corrected line: *'{draft}'*. Take it, edit it, or leave it?"
+
+Rules for the evidence pass:
+
+- **Dates on both sides, always.** A claim without its review date and a metric without its observation window can't be honestly compared.
+- **The current.json day-label trap:** never quote `HEALTH/current.json`'s `day` as the sleep date — the evidence cache's `latest_sleep_record_day` is the actual date of the newest sleep record. Quote that.
+- **Dead sources are named, not papered over.** The evidence panel reports each source's liveness — name the dead ones it reports this run, never a remembered list. A claim whose only source is dead can be asked, not checked. Say which claims are checkable and which aren't.
+- **Confirmation matters as much as contradiction.** "You wrote 'sleeping poorly'; the last 30d average is {h}h at {e}% efficiency" may CONFIRM the claim — then the prompt is "still true, want the numbers in the file?"
+- **Metric identity matters.** Compare like with like: `rhr_avg_*` (Oura lowest sleeping HR) is the RHR comparator; `sleep_hr_avg_*` (average HR during sleep) runs higher and is NOT resting heart rate. Wrist HRV also reads lower than chest-strap numbers — name the instrument when the gap could be the sensor.
+- **Single-timestamp sources understate their skew.** The expense ledger exposes one `meta.updated` date, so money's "unexamined data" figure reflects the last ledger write, not months of history behind it — say "ledger last updated {date}" rather than leaning on the day count.
 
 If `readContextFreshness()` reports a file with `why: "no frontmatter"`, the migration hasn't been run on that file. Stop and prompt: *"<file> doesn't have the freshness convention yet. Want me to run `bun ~/.claude/LIFEOS/TOOLS/MigrateContextFreshness.ts` first?"*
 
@@ -98,6 +129,13 @@ For derived files: read the SOURCE — `PRINCIPAL_TELOS` review goes to `TELOS.m
 - **LIFEOS_SYSTEM_PROMPT.md** — constitutional rules: *"System prompt at {N}d. Want to review the operational rules section, or is anything constitutional pending?"* (for this file especially, default to surfacing rather than editing — this is the most load-bearing file in the system).
 - **PRINCIPAL_TELOS.md / ARCHITECTURE_SUMMARY.md** (auto-generated) — never edit directly. Route to the source file: *"PRINCIPAL_TELOS derives from TELOS.md — going there. TELOS.md last touched {N}d ago."*
 
+**State dimension files (`CURRENT_STATE/*.md`, `IDEAL_STATE/*.md`)** — the evidence register:
+
+- **Evidence-mapped and populated** (HEALTH, FINANCIAL, and the TELOS `## Current State` section): claim-vs-evidence per Step 1.5. I draft the corrected text from the data; the principal ratifies, edits, or declines. Every landed edit updates any inline dates.
+- **Evidence-backed but placeholder-dead** (ACTIVITY, CONSUMPTION, SNAPSHOT — TBD since scaffolding): the machinery can now write these. Present a full draft generated from the evidence (Conduit for ACTIVITY/CONSUMPTION, the health cache for SNAPSHOT's sleep/energy rows), and offer **ratify or retire** per file: *"ACTIVITY.md has said TBD for {N} months. Here's what Conduit can keep in it — {draft}. Adopt this as the file (I'll keep drafting it at each interview), or retire the file?"* Retiring means moving it to `TELOS/Backups/` and noting it in Decisions — never leaving a corpse that reads as claims.
+- **Not evidence-mapped** (SOCIAL, SIGNALS, RELATIONSHIPS, …): the classic register — read, quote, ask "what's actually true today?"
+- **IDEAL_STATE files**: handled in the ideal-state leg (Step 3.75), never as cold "review this file" prompts.
+
 ### 3c. Listen, then write
 
 The principal answers in natural language. The DA formats the answer into the file's structure:
@@ -110,6 +148,10 @@ The principal answers in natural language. The DA formats the answer into the fi
 
 Use the `Edit` tool with precise `old_string`/`new_string`.
 
+### 3c.5 — Ratification is the write gate (hard rule)
+
+No claims file — TELOS.md, constitutional, CURRENT_STATE, IDEAL_STATE — is written without the principal approving that specific edit in this conversation. Drafts are shown in full before landing. The cron path (`InterviewDue.ts --refresh`) writes caches only, never claims files; if a draft is declined, nothing lands and nothing is queued.
+
 ### 3d. Bump the review marker on every approved edit
 
 `last_reviewed:` is the freshness clock — explicitly distinct from `last_updated:`,
@@ -121,9 +163,12 @@ workflow (and equivalent principal-driven review flows) should call it.
 # TELOS section — section-level marker
 bun ~/.claude/LIFEOS/TOOLS/TelosFreshness.ts --bump <slug>
 
-# Constitutional file — review marker (NOT bumpContextTimestamp; that's for writes)
+# Constitutional file OR state dimension file — review marker
+# (NOT bumpContextTimestamp; that's for writes)
 bun -e "import { bumpReviewedTimestamp } from '$HOME/.claude/LIFEOS/TOOLS/TelosFreshness'; console.log(bumpReviewedTimestamp('<absolute-path>', 'user'))"
 ```
+
+State dimension files use the same `bumpReviewedTimestamp` — a ratified-or-declined-with-review walk of a CURRENT_STATE/IDEAL_STATE file counts as a review even when no edit landed (the principal looked and said "still right").
 
 Without this, files stay at grade F forever because no other path sets `last_reviewed:`.
 
@@ -141,6 +186,18 @@ curl -s -X POST http://localhost:31337/notify \
 > "Anything else for {file/section}, or move to {next stale item}?"
 
 The principal can say "next", "skip", "enough", "stop", "later" at any prompt. Honor it immediately. State persists in the files themselves; there's no separate session to save.
+
+---
+
+## Step 3.75 — The ideal-state leg (offer, never force)
+
+After the current-state pass — or immediately if the principal asks for it — offer the ideal-state review, grounded in the measured gap. The measured side comes from the evidence panel (Step 1); read the IDEAL_STATE file (or the TELOS `## Ideal State` section) and put the observed number beside each metric target yourself. (`ComputeGap.ts` is a v1 stub that only counts TBD markers — don't cite its "No gaps detected" as evidence; its real upgrade is tracked in the Interview ISA's Remaining Work.)
+
+Walk only IDEAL_STATE files that are cadence-expired (stale in `--state` output) or whose gap moved materially. Each target gets the measured value beside it:
+
+> "**IDEAL_STATE/HEALTH.md** targets HRV 75. Measured: 30d average {v} (through {date}), flat. Still the target, or re-baseline — and if still, does anything in the plan change?"
+
+Re-affirming without edits still bumps the review marker. Declining the whole leg ("later") is a stop signal like any other.
 
 ---
 
@@ -164,17 +221,35 @@ bun ~/.claude/LIFEOS/TOOLS/GenerateTelosSummary.ts 2>/dev/null || true
 bun ~/.claude/LIFEOS/TOOLS/ArchitectureSummaryGenerator.ts generate 2>/dev/null || true
 ```
 
+Record completion and refresh every cache the statusline and next session read — this is what silences the 🎤 chip:
+
+```bash
+bun ~/.claude/LIFEOS/TOOLS/InterviewDue.ts --mark-done
+```
+
 Send a Pulse `/reload` so the freshness cache invalidates:
 
 ```bash
 curl -s -X POST http://localhost:31337/reload > /dev/null 2>&1 &
 ```
 
+**Sync the work slice to Vector** (standing directive, {PRINCIPAL.NAME} 2026-08-12). If any ratified edit this run touched company-relevant content — business goals (revenue targets like G2), work strategies or projects, company state — push that slice to the principal's company tenant on the Vector platform (tenant named in the private `LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md` Vector rules, never here) through the Vector gateway (`_VECTOR`, a private skill NOT in the public release payload — installs without it skip this sync; writes are steward-gated). Selective by design: personal material (health, traumas, finances, relationships, private narratives) never crosses. The write path:
+
+```bash
+bun ~/.claude/skills/_VECTOR/Tools/Vector.ts propose-telos <section> "<Title>" --file <body.md>
+# sections: mission | goals | metrics | challenges | strategies | projects | team | budget
+```
+
+Each push lands as a DRAFT revision — the section reverts to draft and leaves Vector's governed answers until the principal re-approves it in the Vector web UI; say that in the wrap summary along with what synced. Translate, don't copy: rewrite the slice in company terms (a revenue goal belongs in Vector's goals section; sleep data does not). If auth is expired (`vector auth status`), ask for the one-click login rather than skipping silently.
+
 ---
 
 ## Rules
 
 - **Read context before asking. No exceptions.** Generic "what's your mission?" / "describe your projects" prompts are forbidden when files are populated.
+- **Evidence before age.** When a stale item has live evidence, the opening is claim-vs-evidence with dates on both sides — file age alone is the fallback, not the lead.
+- **Ratification is the write gate.** No claims file changes without the principal approving that edit in-conversation; cron writes caches only.
+- **Name what's checkable.** Claims with no telemetry behind them (dead sources) are asked, never "verified"; the dead source is named.
 - **Per-entry on typed-ID TELOS sections, file-level on constitutional files, source-targeted on derived files.**
 - **Staleness is information, not failure.** A 95-day-old file might still be right. The prompt is "still right?", not "you're behind."
 - **One question at a time.** Never dump three prompts in one turn.

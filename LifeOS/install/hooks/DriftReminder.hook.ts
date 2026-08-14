@@ -39,6 +39,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { firstBannedHit } from "./lib/banned-vocab";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -69,7 +70,7 @@ const DEFAULT_LINE_CAP = 15;
 // The principal asking for depth lifts the cap. His explicit call outranks the
 // default; nothing else does.
 const DEPTH_RE = /\b(extensive|thorough|comprehensive|exhaustive|deep[\s-]?dive|in[\s-]depth|detailed|long[\s-]form|full (?:analysis|report|breakdown|write[\s-]?up)|go deep|be verbose|everything (?:you|we) (?:know|have))\b/i;
-const LIFEOS_DIR = process.env.LIFEOS_DIR || join(process.env.HOME || "", ".claude", "LIFEOS");
+const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const LAST_RESPONSE_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "last-response.txt");
 const STATE_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "drift-reminder.json");
 const INITIAL_STATE: DriftState = {

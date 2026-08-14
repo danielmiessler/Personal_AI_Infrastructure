@@ -34,6 +34,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { atomicWriteText } from "../../LIFEOS/PULSE/lib/atomic-write";
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -44,7 +45,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 declare const Bun: { spawnSync: (cmd: string[], opts?: any) => any };
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS");
 const REPO_JSON_PATH = join(LIFEOS_DIR, "USER", "WORK", "work_repo.json");
 const COLUMNS_YAML_PATH = join(LIFEOS_DIR, "USER", "WORK", "config.yaml");

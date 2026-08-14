@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.4.1
+ * @version 1.4.3
  * SatisfactionCapture.hook.ts - Implicit & Explicit Satisfaction Rating
  *
  * PURPOSE:
@@ -45,6 +45,7 @@ import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../LIFEOS/TOOLS/FailureCapture';
 import { addUpgrade } from '../LIFEOS/TOOLS/Upgrades';
 import { addRatingPulse } from './lib/isa-utils';
+import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -76,7 +77,7 @@ interface RatingEntry {
 
 // ── Constants ──
 
-const BASE_DIR = process.env.LIFEOS_DIR || join(process.env.HOME!, '.claude', 'LIFEOS');
+const BASE_DIR = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const LAST_RESPONSE_CACHE = join(BASE_DIR, 'MEMORY', 'STATE', 'last-response.txt');
@@ -144,7 +145,14 @@ export function parseExplicitRating(prompt: string): { rating: number; comment?:
   if (fractionMatch) {
     const fRating = parseInt(fractionMatch[1], 10);
     const fRest = fractionMatch[2].replace(/^[\s!.,:;-]+/, '').trim() || undefined;
-    if (fRest && SENTENCE_STARTERS.test(fRest)) return null; // "2/10 items" is not a rating
+    // "2/10 items" is not a rating; neither is "2/10件" — SENTENCE_STARTERS is
+    // ASCII-only, so a non-ASCII lead-in reads as describing something rather
+    // than commenting on a score. Tested against the RAW tail, not the stripped
+    // one: adjacency is what separates the two. A CJK counter attaches with no
+    // space ("2/10件"), while a comment is separated ("10/10 素晴らしい") — the
+    // same adjacency rule the bare-digit guard below already applies.
+    // ported from public PR #1703, @takanorinishida
+    if (fRest && (SENTENCE_STARTERS.test(fRest) || /^[^\x00-\x7F]/.test(fractionMatch[2]))) return null;
     return { rating: fRating, comment: fRest };
   }
 
@@ -166,8 +174,12 @@ export function parseExplicitRating(prompt: string): { rating: number; comment?:
   // as a rating — tightening that would also catch "8 . nice", so it is
   // left alone rather than widened past this one concern.
   // public PR #1670, @asdf8675309
+  // That character class is ASCII-only, so non-ASCII text right after the digit
+  // slips through with the same "describing something, not rating it" shape —
+  // Japanese "2はあとで" ("item 2, later") is not a rating of 2.
+  // ported from public PR #1703, @takanorinishida
   const afterNumber = trimmed.slice(match[1].length);
-  if (afterNumber.length > 0 && /^[/.)\]\dA-Za-z]/.test(afterNumber)) return null;
+  if (afterNumber.length > 0 && /^[/.)\]\dA-Za-z]|^[^\x00-\x7F]/.test(afterNumber)) return null;
 
   if (rest && SENTENCE_STARTERS.test(rest)) return null;
 
@@ -499,20 +511,11 @@ async function main() {
             detailedContext: cachedResponse,
             sessionId,
           }).catch((err) => console.error(`[SatisfactionCapture] Correction capture error: ${err}`));
-          // Same signal, second consumer: a correction is also an upgrade candidate
-          // ({{PRINCIPAL_NAME}} 2026-07-23 — every correction triggers required upgrade thinking).
-          try {
-            addUpgrade({
-              claim: complaint.slice(0, 900),
-              source: 'correction',
-              current_state: 'Correction captured live; FAILURES incident holds the transcript context.',
-              confidence: 0.6,
-              session_id: sessionId,
-              evidence: [`session:${sessionId}`, 'failures-incident:same-turn'],
-            });
-          } catch (err) {
-            console.error(`[SatisfactionCapture] Correction→upgrade error: ${err}`);
-          }
+          // Correction→upgrade dual-write removed 2026-08-06: it filled the Upgrades
+          // store with raw complaint text (103 of 136 records, none consumed by anything).
+          // The 2026-07-23 "every correction triggers upgrade thinking" directive is
+          // served by this FAILURES capture — /algo clusters that corpus into real
+          // source=algo-run records with drafted recommendations.
         }
       }
     } catch (err) {

@@ -5,8 +5,8 @@
   "type": "module",
   "description": "LifeOS TOOLS runtime dependencies (graph layer over the memory system)",
   "dependencies": {
-    "graphology": "^0.25.4",
+    "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
-    "graphology-metrics": "^2.3.1"
+    "graphology-metrics": "^2.4.0"
   }
 }

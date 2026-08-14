@@ -90,11 +90,15 @@ import { Sequence } from 'remotion'
 
 ## Audio with Video
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — @remotion/media, and startFrom was renamed to trimBefore in 4.0.319 -->
+Use `<Audio>` / `<Video>` from `@remotion/media`. The versions exported by `remotion` are the legacy components. `trimBefore` takes frames, and cannot be combined with the old `startFrom`.
+
 ```typescript
-import { Audio, Video, staticFile } from 'remotion'
+import { Audio, Video } from '@remotion/media'
+import { staticFile } from 'remotion'
 
 <Video src={staticFile('video.mp4')} volume={0.5} />
-<Audio src={staticFile('music.mp3')} volume={0.3} startFrom={30} />
+<Audio src={staticFile('music.mp3')} volume={0.3} trimBefore={30} />
 ```
 
 ## Video Size Presets
@@ -125,9 +129,10 @@ import { Audio, Video, staticFile } from 'remotion'
 
 ## Reference Documentation
 
-For detailed patterns on specific topics, see:
+For detailed patterns on specific topics, see the flat `Ref-*.md` files:
 ```
-~/.claude/skills/Remotion/Tools/Reference/
+~/.claude/skills/Remotion/Tools/Ref-*.md
 ```
+<!-- public issue #1760, @jacobo-ortiz — Tools/Reference/ does not exist -->
 
 Topics include: animations, audio, 3d, charts, captions, fonts, transitions, and more.

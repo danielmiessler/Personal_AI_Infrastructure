@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.3
+ * @version 1.0.5
  * EventLogger.hook.ts - Unified observability event logger
  *
  * Consolidation (2026-07-10, {{PRINCIPAL_NAME}}'s hook consolidation): merges FIVE
@@ -49,6 +49,7 @@ import {
 import { dirname, join } from 'path';
 import { execFileSync, spawn } from 'child_process';
 import { paiPath, getSettingsPath } from './lib/paths';
+import { resolveBun } from './lib/resolve-bin';
 import { getISOTimestamp, getPSTDate, getYearMonth } from './lib/time';
 import { bumpLastToolActivity, bumpLastToolActivityByUUID } from './lib/isa-utils';
 import {
@@ -93,6 +94,12 @@ interface ToolUseInput {
   tool_name?: string;
   tool_input?: Record<string, unknown>;
   tool_response?: unknown;
+  // Present ONLY when the call originates from a subagent; absent in the main
+  // session. The only signal distinguishing delegated work from the operator's
+  // own session (session_id/transcript_path/cwd are byte-identical between the
+  // two), so dropping them destroys attribution (public issue #1806, @xmasyx).
+  agent_id?: string;
+  agent_type?: string;
 }
 
 const OBS_DIR = paiPath('MEMORY', 'OBSERVABILITY');
@@ -201,6 +208,9 @@ function handlePostToolUse(raw: string): void {
       session_id: data.session_id,
       tool_name: toolName,
       tool_input_preview: inputPreview,
+      // Subagent attribution when present (public issue #1806, @xmasyx).
+      ...(typeof data.agent_id === 'string' ? { agent_id: data.agent_id } : {}),
+      ...(typeof data.agent_type === 'string' ? { agent_type: data.agent_type } : {}),
       ...(groundTruth ? { ground_truth: groundTruth } : {}),
     };
 
@@ -232,10 +242,16 @@ function handlePostToolUse(raw: string): void {
         due = Date.now() - statSync(reconcileState).mtimeMs > 60_000;
       } catch { /* no state file yet — run it */ }
       if (due) {
-        const proc = spawn('bun', [paiPath('TOOLS', 'WorkReconcile.ts')], {
+        // Absolute bun path: a detached child inherits a minimal PATH, so the
+        // bare name ENOENTs. That failure arrives on the 'error' EVENT, past
+        // this sync try/catch — so it was swallowed, WorkReconcile never wrote
+        // its state file, and `due` stayed true on every single tool call.
+        // (ported from public PR #1738, @elhoim)
+        const proc = spawn(resolveBun(), [paiPath('TOOLS', 'WorkReconcile.ts')], {
           detached: true,
           stdio: 'ignore',
         });
+        proc.on('error', (err) => console.error('[WorkReconcile spawn]', err instanceof Error ? err.message : String(err)));
         proc.unref();
       }
     } catch { /* healing is best-effort; never break the logger */ }

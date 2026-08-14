@@ -1,6 +1,6 @@
 ---
 name: CreateSkill
-version: 1.1.28
+version: 1.1.31
 description: "Mandatory orchestrator for all LifeOS skill work — creating, editing, adding a workflow or tool, renaming, validating, or canonicalizing any skill. Handrolling skill files is forbidden; owns the full lifecycle: scaffold, validate, canonicalize, test, improve. USE WHEN create skill, new skill, make a skill, build a skill, set up a skill, private skill, make a X skill, add a workflow, add a tool, edit/change/update/rename a skill, skill frontmatter, validate skill, check skill, canonicalize, scaffold skill, test skill, improve skill, optimize description, skill not triggering, overtriggering. NOT FOR TypeScript CLI generation (use CreateCLI)."
 ---
 
@@ -134,7 +134,7 @@ If none of the above apply and the skill is fully generic — it can be `TitleCa
 
 A public skill can be made user-specific at runtime via `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/PREFERENCES.md`. The skill body stays generic; the user's customization file overlays per-instance context. Use this when a skill is fundamentally generic but benefits from per-user tweaks (preferred voice, default formats, personal taste).
 
-**Do not use SKILLCUSTOMIZATIONS to smuggle private content into a public skill.** If the skill *requires* private context to function (real customer name, real API account, real internal infra), it is a private skill — name it `_ALLCAPS` and stop.
+**Do not use CUSTOMIZATIONS/SKILLS to smuggle private content into a public skill.** If the skill *requires* private context to function (real customer name, real API account, real internal infra), it is a private skill — name it `_ALLCAPS` and stop.
 
 ### Allowed in Public Skills
 
@@ -441,7 +441,7 @@ Classify the change so the bump level is right (the SAME rubric applies to the p
 - **feature** — a new workflow or a new tool (a brand-new skill starts at 1.0.0, not a feature bump on itself). Additive, non-breaking.
 - **major** — renaming or removing the skill, or breaking its public contract or routing behavior. Human gate: stop and confirm before any major bump; never decide major on your own.
 
-**When the per-skill bump fires:** at private-sync time, not at edit time. The `UpdateKaiRepo` ship flow runs `BumpSkillVersions.ts` — for every `skills/<name>/` that changed since the last OS tag it scopes `ClassifyChange --path skills/<name>` and bumps that skill's `version:` (major held for confirm), recording each in the SYSTEMUPDATES registry. This catches workflow-body edits that never route through CreateSkill. You do NOT hand-bump `version:` here; the ship flow owns it. A skill edit is a **private-sync** change — never a release **cut** (staging only) or **publish** (public repo). Keep those three operations distinct.
+**When the per-skill bump fires:** at private-sync time, not at edit time. The `UpdateKaiRepo` ship flow runs `BumpSkillVersions.ts` — for every `skills/<name>/` that changed since the last OS tag it scopes `ClassifyChange --path skills/<name>` and bumps that skill's `version:` (major held for confirm), recording each in the SYSTEMUPDATES registry. This catches workflow-body edits that never route through CreateSkill. You do NOT hand-bump `version:` here; the ship flow owns it. (That ship flow is maintainer machinery and does not ship in the public release — on an installed system without it, hand-bump `version:` per the semver rubric above as part of your edit.) A skill edit is a **private-sync** change — never a release **cut** (staging only) or **publish** (public repo). Keep those three operations distinct.
 
 Public skills do not carry a separate version line — the release/emit carries each skill's private `version:` forward unchanged.
 

@@ -3,7 +3,7 @@ last_updated: 2026-06-13T00:00:00Z
 last_updated_by: LifeOS docs reframe wave (refs re-verified against live tree)
 convention: pai-freshness-v1
 applies_to: LifeOS v6.0.0+ (proposed)
-version: 1.2.5
+version: 1.2.7
 ---
 
 # System / User Boundary
@@ -104,7 +104,7 @@ Anything else — direct `Read('LIFEOS/USER/...')`, hardcoded voice IDs in modul
 
 ## Two-repo sync (post-Phase-G.1, 2026-05-22)
 
-The USER tree is its own private git repo: `~/.config/LIFEOS/USER/` → the user's `<your-username>/<your-user-data-repo>` (PRIVATE GitHub). The SYSTEM tree is `~/.claude/` → the user's `<your-username>/.claude` (PRIVATE GitHub). There is no pre-push auto-sync git hook (a stale claim corrected 2026-07-04): both repos are committed, pushed, and version-tagged together by the UpdateKaiRepo workflow ("push both repos"), which runs four boundary gates: (G1) USER-zone leak check on pending `~/.claude` changes, (G2) `DenyListCheck.ts` must return 0 real-leaks, (G3) both remotes confirmed private via `gh repo view --json isPrivate`, (G4) post-push HEAD verification on both repos via `git ls-remote`. **Pre-flight refuses to proceed if the public LifeOS repo appears in either remote** — this workflow is explicit private-only. Public LifeOS release goes through the shadow-release pipeline (`ShadowRelease.ts`) with the separate 19-gate sanitization; the shipped distribution unit is the single `LifeOS/` skill emitted from that staging tree, not the `.claude/` clone.
+The USER tree is its own private git repo: `~/.config/LIFEOS/USER/` → the user's `<your-username>/<your-user-data-repo>` (PRIVATE GitHub). The SYSTEM tree is `~/.claude/` → the user's `<your-username>/.claude` (PRIVATE GitHub). There is no pre-push auto-sync git hook (a stale claim corrected 2026-07-04): both repos are committed, pushed, and version-tagged together by the UpdateKaiRepo workflow ("push both repos"), which runs four boundary gates: (G1) USER-zone leak check on pending `~/.claude` changes, (G2) `DenyListCheck.ts` must return 0 real-leaks, (G3) both remotes confirmed private via `gh repo view --json isPrivate`, (G4) post-push HEAD verification on both repos via `git ls-remote`. **Pre-flight refuses to proceed if the public LifeOS repo appears in either remote** — this workflow is explicit private-only. Public LifeOS release goes through the shadow-release pipeline (`ShadowRelease.ts`) with the separate 23-gate sanitization; the shipped distribution unit is the single `LifeOS/` skill emitted from that staging tree, not the `.claude/` clone.
 
 ## Enforcement layers
 
@@ -112,7 +112,7 @@ The boundary is enforced at three independent layers; each catches different dri
 
 1. **Write-time (`SystemFileGuard.hook.ts`, Phase E).** Invoked by the `hooks/PreToolGuard.hook.ts` PreToolUse dispatcher on Write/Edit; blocks writes to SYSTEM files when the new content matches deny-list patterns. Fail-safe-open on hook errors. Primary defense — catches drift the moment it would land.
 2. **PR-time (GitHub Actions, Phase H).** Runs `DenyListCheck.ts` on every PR against the public repo. Blocks merge on any real-leak finding.
-3. **Release-time (`ShadowRelease.ts` 19 gates, existing).** Final backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
+3. **Release-time (`ShadowRelease.ts` 23 gates, existing).** Final backstop. Should consistently return zero findings if layers 1 and 2 are healthy.
 
 ## Migration phases
 

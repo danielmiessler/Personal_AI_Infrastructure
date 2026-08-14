@@ -17,18 +17,28 @@
  * the authority; `atlas owns` runs alongside it, never instead of it (Algorithm claim 16).
  */
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync } from "node:fs";
+// ported from public PR #1740, @elhoim
+import { atomicWriteText } from "../PULSE/lib/atomic-write";
 import { EVENTS_PATH, SNAPSHOT_PATH, Store, type Collector } from "./Store";
 import { cloudflare } from "./collectors/Cloudflare";
 import { github } from "./collectors/Github";
 import { projects } from "./collectors/Projects";
 import { infraInventory } from "./collectors/InfraInventory";
 import { launchd } from "./collectors/Launchd";
+import { systemd } from "./collectors/Systemd";
 import { gear } from "./collectors/Gear";
 import { secrets } from "./collectors/Secrets";
 
+// The two service collectors are platform-exclusive: exactly one is ever registered,
+// so a macOS install's collector set is byte-for-byte what it was before systemd
+// existed, and `atlas sync systemd` there fails loud as an unknown collector rather
+// than quietly reporting an incomplete run for a backend the machine cannot have.
+// ported from public PR #1743, @schmetti-dev
+const SERVICE_COLLECTOR = process.platform === "linux" ? systemd : launchd;
+
 const COLLECTORS: Record<string, Collector> = Object.fromEntries(
-  [cloudflare, github, projects, infraInventory, launchd, gear, secrets].map((c) => [c.name, c]),
+  [cloudflare, github, projects, infraInventory, SERVICE_COLLECTOR, gear, secrets].map((c) => [c.name, c]),
 );
 
 const FULL_SYNC_INTERVAL_MS = 60 * 60 * 1000;
@@ -57,7 +67,7 @@ async function runSync(names: string[], scope: string): Promise<number> {
         console.error(`✗ ${name}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-    writeFileSync(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
+    atomicWriteText(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
   } finally {
     store.close();
   }
@@ -174,7 +184,7 @@ switch (cmd) {
   }
   case "export": {
     const store = new Store();
-    writeFileSync(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
+    atomicWriteText(SNAPSHOT_PATH, JSON.stringify(store.exportSnapshot()));
     console.log(`snapshot → ${SNAPSHOT_PATH}`);
     store.close();
     break;

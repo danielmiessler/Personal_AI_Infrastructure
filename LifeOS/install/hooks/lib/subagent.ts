@@ -27,6 +27,10 @@ export function isSubagentContext(): boolean {
       process.env.CLAUDE_AGENT_TYPE ||
       process.env.CLAUDE_CODE_SUBAGENT_NAME ||
       process.env.CLAUDE_CODE_SUBAGENT_TYPE ||
+      // Forked subagents set ONLY the fork marker — none of the above.
+      // Without it, 8 hook consumers re-inject main-session context into
+      // forks that inherited it via cache. (public issue #1831, @DRAZY)
+      process.env.CLAUDE_CODE_FORK_SUBAGENT === '1' ||
       process.env.CLAUDE_AGENT_SDK === '1',
   );
 }

@@ -11,11 +11,9 @@ metadata:
 
 Install @remotion/layout-utils if it is not already installed:
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/layout-utils # If project uses npm
-bunx remotion add @remotion/layout-utils # If project uses bun
-yarn remotion add @remotion/layout-utils # If project uses yarn
-pnpm exec remotion add @remotion/layout-utils # If project uses pnpm
+bunx remotion add @remotion/layout-utils
 ```
 
 ## Measuring text dimensions

@@ -207,7 +207,7 @@ export function getCountryName(countryCode: string): string {
 
 /**
  * Clean page titles by trimming whitespace. Site/author-suffix stripping is
- * left to the principal's own customization (override via SKILLCUSTOMIZATIONS
+ * left to the principal's own customization (override via CUSTOMIZATIONS/SKILLS
  * or extend this function locally) — generic Pulse can't know which suffixes
  * any given user wants stripped.
  */

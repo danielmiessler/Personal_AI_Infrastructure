@@ -193,7 +193,7 @@ export function verifyExecutedModel(modelUsage: unknown, expectedTier: string): 
  * exact drift this catches and makes auditable. Logging must never break inference. */
 function logModelVerification(entry: Record<string, unknown>): void {
   try {
-    const dir = join(process.env.HOME || '', '.claude', 'LIFEOS', 'MEMORY', 'OBSERVABILITY');
+    const dir = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'OBSERVABILITY');
     mkdirSync(dir, { recursive: true });
     appendFileSync(join(dir, 'model-verification.jsonl'), JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n');
   } catch { /* observability must never break inference */ }
@@ -223,6 +223,10 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
     // either path leaks subscription work onto API-key billing. Scrub both.
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_AUTH_TOKEN;
+    // Headless subprocess: never the desktop voice channel, even when spawned
+    // from a terminal session whose TERM the child would inherit. Explicit
+    // channels (imessage, ...) pass through. (2026-08-14 scheduled voice leak.)
+    env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || 'headless';
     // Also scrub ANTHROPIC_BASE_URL: a local proxy (e.g. a LiteLLM gateway) would
     // still be targeted after the child loses its credentials above, so every
     // nested call fails auth (401) and retries until timeout. Force real Anthropic API.

@@ -519,7 +519,7 @@ async function fetchIndex(source: Source, state: State): Promise<Update[]> {
   }
 }
 
-// Recommendation engine - LifeOS LifeOS ecosystem focused
+// Recommendation engine - LifeOS ecosystem focused
 function generateRecommendation(update: Update): string {
   const { source, type, title, category } = update;
   const titleLower = title.toLowerCase();

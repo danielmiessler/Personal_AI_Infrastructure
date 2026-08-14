@@ -82,8 +82,12 @@ export function buildLiveSystemPrompt(): string {
 
 function resolveSuite(name: string): string | null {
   for (const dir of [USER_SUITES, SKILL_SUITES]) {
-    for (const p of [join(dir, `${name}.yaml`), join(dir, 'Regression', `${name}.yaml`), join(dir, 'Capability', `${name}.yaml`)]) {
-      if (existsSync(p)) return p;
+    // ported from public PR #1741, @elhoim — `.yml` is as valid a YAML suffix as
+    // `.yaml`, tried second so an existing `.yaml` keeps winning if both exist.
+    for (const ext of ['yaml', 'yml']) {
+      for (const p of [join(dir, `${name}.${ext}`), join(dir, 'Regression', `${name}.${ext}`), join(dir, 'Capability', `${name}.${ext}`)]) {
+        if (existsSync(p)) return p;
+      }
     }
   }
   return null;
@@ -112,6 +116,27 @@ export async function runSuite(name: string, override: Partial<EvalSuiteV2> = {}
     suite = { name, cases: [], ...override } as EvalSuiteV2;
   } else {
     return { suite: name, type: 'unknown', passed: false, score: 0, pass_to_k: 0, pass_at_k: 0, summary: `Suite not found: ${name}`, run_id: 'error', cases: [] };
+  }
+  // ported from public PR #1739, @elhoim
+  // Diagnose a v1 suite instead of dying on `for (const c of undefined)`. The
+  // legacy Suites/Regression/core-behaviors.yaml still uses the `tasks:` list,
+  // so running it threw a bare TypeError — and callers that catch broadly
+  // (ConfigEvalOnChange) turned that into a regression eval which silently never
+  // ran. The two formats are not mechanically convertible: UseCases/*.yaml
+  // define weighted graders and carry no `prompt`, so there is nothing for this
+  // single-shot runner to send. Say so rather than guess.
+  //
+  // Returned, not thrown (public issue #1752, @ozdreamwalk): an unrunnable suite
+  // is the same operational fact as a failing one, so it takes the same shape as
+  // the "Suite not found" path above — passed:false, run_id:'error', a named
+  // summary. Callers keep working unchanged; ConfigEvalOnChange still notifies,
+  // and the CLI still exits 1.
+  if (!Array.isArray(suite.cases) || suite.cases.length === 0) {
+    const legacy = (suite as unknown as { tasks?: unknown[] }).tasks;
+    const summary = Array.isArray(legacy)
+      ? `Suite '${name}' is in the legacy v1 format: it lists ${legacy.length} \`tasks:\` referencing Evals/UseCases/*.yaml, which define graders and no \`prompt\`. This runner needs v2 \`cases:\` with prompt/assert. Run a v2 suite (e.g. core-dispositions), or run this one through a UseCase-aware runner.`
+      : `Suite '${name}' has no \`cases:\` to run.`;
+    return { suite: name, type: 'unknown', passed: false, score: 0, pass_to_k: 0, pass_at_k: 0, summary, run_id: 'error', cases: [] };
   }
   const threshold = suite.pass_threshold ?? 0.75;
   const trials = suite.trials ?? 3;
@@ -146,7 +171,13 @@ export async function runSuite(name: string, override: Partial<EvalSuiteV2> = {}
       id: c.id,
       mean_score: trialResults.reduce((s, t) => s + t.score, 0) / trials,
       pass_at_k: passed > 0 ? 1 : 0,
-      pass_to_k: passed / trials,
+      // ported from public PR #1739, @elhoim
+      // pass^k is "every one of the k trials passed" — a reliability measure.
+      // passed/trials is the MEAN, which reported 2-of-3 as 67% where the true
+      // pass^k is 0, making a flaky case look like a mostly-passing one. Recorded
+      // scores drop wherever trials partially pass; that is the corrected
+      // semantics, not a regression — historical numbers are not comparable.
+      pass_to_k: passed === trials ? 1 : 0,
       trials: trialResults,
     });
   }

@@ -82,11 +82,40 @@
         ]
       },
       {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/Safety.hook.ts",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "ToolSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/Safety.hook.ts",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "AskUserQuestion",
         "hooks": [
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/TabState.hook.ts"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts"
           }
         ]
       },
@@ -99,12 +128,30 @@
           },
           {
             "type": "command",
+            "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts"
+          },
+          {
+            "type": "command",
             "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts",
             "timeout": 30
           },
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ComplexityRatchet.hook.ts"
           }
         ]
       },
@@ -117,12 +164,30 @@
           },
           {
             "type": "command",
+            "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts"
+          },
+          {
+            "type": "command",
             "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts",
             "timeout": 30
           },
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ComplexityRatchet.hook.ts"
           }
         ]
       },
@@ -135,12 +200,30 @@
           },
           {
             "type": "command",
+            "command": "$HOME/.claude/hooks/ISAStaleWriteGuard.hook.ts"
+          },
+          {
+            "type": "command",
             "command": "$HOME/.claude/hooks/CheckpointPerISC.hook.ts",
             "timeout": 30
           },
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/ConfigEvalFire.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/KnowledgeWriteGuard.hook.ts",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ComplexityRatchet.hook.ts"
           }
         ]
       },
@@ -160,6 +243,21 @@
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/PostToolObserver.hook.ts"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/LoopDetector.hook.ts",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts",
+            "timeout": 5
           }
         ]
       }
@@ -229,6 +327,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "$HOME/.claude/hooks/VersionDrift.hook.ts",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "$HOME/.claude/hooks/MemoryTurnStart.hook.ts",
             "timeout": 8
           }
@@ -251,6 +359,26 @@
             "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/TimeContext.hook.ts",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/ModelRungGuard.hook.ts",
+            "timeout": 5,
+            "async": true
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -267,6 +395,15 @@
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/AlgorithmNudge.hook.ts",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/LoopDetector.hook.ts",
             "timeout": 5
           }
         ]
@@ -344,11 +481,25 @@
           },
           {
             "type": "command",
+            "command": "$HOME/.claude/hooks/SpendAuditor.hook.ts"
+          },
+          {
+            "type": "command",
             "command": "$HOME/.claude/hooks/StopGates.hook.ts"
           },
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/MemoryReviewFire.hook.ts"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/MemoryHealthGate.hook.ts",
+            "timeout": 15,
+            "async": true
           }
         ]
       }

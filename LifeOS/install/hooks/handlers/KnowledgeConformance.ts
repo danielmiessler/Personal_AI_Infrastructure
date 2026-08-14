@@ -19,18 +19,24 @@
  *
  * WRITES:
  *   stderr (audit log with [KnowledgeConformance] tag)
- *   STATE/events.jsonl (typed event: doc.integrity.knowledge_conformance)
+ *   STATE/events.jsonl (typed event: doc.integrity.knowledge_conformance,
+ *     via hooks/lib/events.ts — full finding set on every completed check,
+ *     empty set included, so a repaired archive clears the SessionStart digest.
+ *     The no-KNOWLEDGE-dir early return emits NOTHING: it is a skip, not a
+ *     clean bill of health.)
  *
  * SIDE EFFECTS:
  *   None — read-only. Non-conformance is a soft warning and never blocks,
  *   matching MemoryDirIntegrity's contract.
  *
- * Ported from public PR #1686, @elhoim.
+ * Ported from public PR #1686, @elhoim; routed through the shared event
+ * emitter per public PR #1758, @anikinsasha.
  */
 
-import { readdirSync, readFileSync, existsSync, appendFileSync, mkdirSync } from 'fs';
+import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getLifeosDir } from '../lib/paths';
+import { emitFindingSet } from '../lib/events';
 import {
   parseNote,
   validate,
@@ -44,17 +50,6 @@ const TAG = '[KnowledgeConformance]';
 const LIFEOS_DIR = getLifeosDir();
 const MEMORY_DIR = join(LIFEOS_DIR, 'MEMORY');
 const KNOWLEDGE_DIR = join(MEMORY_DIR, 'KNOWLEDGE');
-const EVENTS_FILE = join(MEMORY_DIR, 'STATE', 'events.jsonl');
-
-function emitEvent(payload: Record<string, unknown>): void {
-  try {
-    mkdirSync(join(MEMORY_DIR, 'STATE'), { recursive: true });
-    const event = { timestamp: new Date().toISOString(), ...payload };
-    appendFileSync(EVENTS_FILE, JSON.stringify(event) + '\n', 'utf-8');
-  } catch {
-    // Event log is best-effort — never let a telemetry failure break the check.
-  }
-}
 
 export async function handleKnowledgeConformance(): Promise<void> {
   const startTime = Date.now();
@@ -109,16 +104,24 @@ export async function handleKnowledgeConformance(): Promise<void> {
   const pct = total > 0 ? ((conformant / total) * 100).toFixed(1) : '0.0';
   const ranked = Object.entries(violationCounts).sort((a, b) => b[1] - a[1]);
 
-  emitEvent({
+  // One finding per violation CLASS, not per note. The key is the violation
+  // text alone — the note tally lives in `detail`, because a key carrying a
+  // count re-fires the SessionStart digest on every run that fixes one note.
+  emitFindingSet({
     type: 'doc.integrity.knowledge_conformance',
     source: 'KnowledgeConformance',
-    total,
-    conformant,
-    non_conformant: nonConformant,
-    conformance_pct: Number(pct),
-    per_dir: byDir,
-    top_violations: ranked.slice(0, 5).map(([problem, count]) => ({ problem, count })),
-    ok: nonConformant === 0,
+    findings: ranked.map(([problem, count]) => ({
+      kind: 'off_schema',
+      key: `off_schema:${problem}`,
+      detail: `${count} note${count === 1 ? '' : 's'} off-schema: ${problem}. Repair: bun LIFEOS/TOOLS/MigrateKnowledge.ts`,
+    })),
+    extra: {
+      total,
+      conformant,
+      non_conformant: nonConformant,
+      conformance_pct: Number(pct),
+      per_dir: byDir,
+    },
   });
 
   if (nonConformant > 0) {

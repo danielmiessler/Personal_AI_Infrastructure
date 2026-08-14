@@ -10,7 +10,11 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * YouTubeApi.ts - YouTube Data API v3 client
  *
  * Usage:
- *   bun ~/.claude/skills/YouTube/Tools/YouTubeApi.ts <command> [options]
+ *   bun ~/.claude/LIFEOS/TOOLS/YouTubeApi.ts <command> [options]
+ *
+ * (The YouTube skill was retired; this tool moved to LIFEOS/TOOLS and the old
+ * invocation line no longer resolved — ported from public PR #1707 (commit 1),
+ * @anikinsasha.)
  *
  * Commands:
  *   channel              Get channel statistics

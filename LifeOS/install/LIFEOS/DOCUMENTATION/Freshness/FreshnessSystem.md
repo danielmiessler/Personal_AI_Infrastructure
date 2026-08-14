@@ -1,5 +1,5 @@
 ---
-version: 1.3.1
+version: 1.3.2
 ---
 
 # Freshness System
@@ -117,6 +117,10 @@ export function aggregateGrade(grades: FreshnessGrade[]): FreshnessGrade;
 // Registry
 export const CONTEXT_FRESHNESS_REGISTRY: ContextFile[];
 export const STALENESS_THRESHOLDS: Record<string, number>;
+
+// State-file surface (2026-08-11) — CURRENT_STATE/ + IDEAL_STATE/ dimension files
+export function stateFreshnessRegistry(): ContextFile[];   // dynamic glob; per-file `review_cadence:` fm overrides dir defaults (current 30d, ideal 90d); README/INDEX excluded
+export function readStateFreshness(): ContextFreshness;    // same shape as readContextFreshness, over the state registry
 ```
 
 The registry typed shape:
@@ -212,9 +216,9 @@ Pulse remains the canonical reader for the dashboard; the cache file is the cano
 
 ## Interview integration
 
-`/interview` runs the **ContextCheckin** workflow at `~/.claude/skills/Interview/Workflows/ContextCheckin.md`. The workflow:
+`/interview` runs the **ContextCheckin** workflow at `~/.claude/skills/Interview/Workflows/ContextCheckin.md`. Since 2026-08-11 the interview is evidence-grounded: `StateEvidence.ts` caches observed data per domain (`USER/CACHE/state-evidence.json`), `InterviewDue.ts` computes a deterministic due-verdict (`USER/CACHE/interview-due.json`, refreshed daily by launchd `com.lifeos.interviewdue`, rendered as the 🎤 statusline chip), and the conversation opens with claim-vs-evidence contradictions. `InterviewDue.ts --mark-done` at wrap records completion (`MEMORY/STATE/interview.json`) and silences the chip. The workflow:
 
-1. Reads `readContextFreshness()` plus `readTelosFreshness()` for the per-section detail.
+1. Reads `readContextFreshness()` plus `readTelosFreshness()` for the per-section detail, plus `readStateFreshness()` for the dimension files, plus the evidence cache.
 2. Identifies stale files and stale TELOS sections, sorted most-stale-first.
 3. Opens with the most-stale item as the lead — referencing the actual content, not asking generic fill prompts.
 4. For derived files (PRINCIPAL_TELOS, ARCHITECTURE_SUMMARY), routes review questions to the source.
@@ -304,4 +308,3 @@ The diagram is the file's whole life: the grade decays as the file ages toward i
 - Interview workflow: `skills/Interview/Workflows/ContextCheckin.md`
 - Generator (TELOS summary): `LIFEOS/TOOLS/GenerateTelosSummary.ts`
 - Generator (architecture summary): `LIFEOS/TOOLS/ArchitectureSummaryGenerator.ts`
-- ISA: `LIFEOS/MEMORY/WORK/20260504-statusline-freshness-cache/ISA.md`

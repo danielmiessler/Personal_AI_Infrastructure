@@ -1,5 +1,5 @@
 ---
-version: 1.6.2
+version: 1.6.3
 ---
 
 > This system is under active development. APIs, configuration formats, and features may change without notice.
@@ -192,10 +192,10 @@ Actions declare dependencies in `action.json` under `requires`. The runner injec
 
 | Action | Worker Name | Type |
 |--------|-------------|------|
-| `A_LABEL_AND_RATE` | `arbol-a-label-and-rate` | LLM |
-| `A_WRITE_TWITTER_POST` | `arbol-a-write-twitter-post` | LLM |
-| `A_EXTRACT_TRANSCRIPT` | `arbol-a-extract-transcript` | Sandbox |
-| `A_SEND_EMAIL` | `arbol-a-send-email` | Custom |
+| `A_RATE_ARTICLE` | `arbol-a-rate-article` | LLM |
+| `A_WRITE_SOCIAL_POST` | `arbol-a-write-social-post` | LLM |
+| `A_EXTRACT_CAPTIONS` | `arbol-a-extract-captions` | Sandbox |
+| `A_SEND_DIGEST` | `arbol-a-send-digest` | Custom |
 
 ### Running Actions
 
@@ -604,7 +604,7 @@ Authorization: Bearer YOUR_AUTH_TOKEN
 
 | Primitive | Naming Pattern | Example |
 |-----------|----------------|---------|
-| **Action** | `arbol-a-{kebab-case-name}` | `arbol-a-label-and-rate` |
+| **Action** | `arbol-a-{kebab-case-name}` | `arbol-a-rate-article` |
 | **Pipeline** | `arbol-p-{kebab-case-name}` | `arbol-p-example` |
 | **Flow** | `arbol-f-{kebab-case-name}` | `arbol-f-example` |
 

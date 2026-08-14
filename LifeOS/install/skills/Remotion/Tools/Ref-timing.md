@@ -71,9 +71,12 @@ const heavy = {damping: 15, stiffness: 80, mass: 2}; // Heavy, slow, small bounc
 The animation starts immediately by default.  
 Use the `delay` parameter to delay the animation by a number of frames.
 
+Pick one mechanism. Offsetting the frame and passing `delay` stacks both delays.
+<!-- public issue #1760, @jacobo-ortiz — ENTRANCE_DELAY was undefined and the two delays added up -->
+
 ```tsx
 const entrance = spring({
-  frame: frame - ENTRANCE_DELAY,
+  frame,
   fps,
   delay: 20,
 });
@@ -85,12 +88,13 @@ A `spring()` has a natural duration based on the physical properties.
 To stretch the animation to a specific duration, use the `durationInFrames` parameter.
 
 ```tsx
-const spring = spring({
+const stretched = spring({
   frame,
   fps,
   durationInFrames: 40,
 });
 ```
+<!-- public issue #1760, @jacobo-ortiz — the local const shadowed the imported spring() -->
 
 ### Combining spring() with interpolate()
 

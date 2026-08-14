@@ -20,8 +20,10 @@
 import { query } from "@anthropic-ai/claude-agent-sdk"
 import { buildLifeosContextBlock } from "../lib/lifeos-context"
 import { loadRemoteMcpServers, mcpStatusPromptLine } from "../lib/mcp-allowlist"
+import { homedir } from "node:os";
+import { getDAName, getPrincipalName } from "../../../hooks/lib/identity";
 
-const CWD = `${process.env.HOME}/.claude`
+const CWD = `${homedir()}/.claude`
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 60 min idle gap resets the SDK thread
 const SDK_TIMEOUT_MS = 50_000 // Shortcuts' Get Contents of URL times out ~60s; stay under it
 const MAX_TURNS = 10 // speed over depth — this is a spoken exchange, not a work session
@@ -117,7 +119,7 @@ async function runTurn(text: string): Promise<string> {
       preset: "claude_code",
       append: `\n\n${contextBlock}\n\n## SIRI MODE — HOW YOU RESPOND
 
-You are {{DA_NAME}}. {{PRINCIPAL_NAME}} is talking to you HANDS-FREE through Siri on his iPhone — driving, walking, AirPods in. Your reply will be read aloud by text-to-speech, word for word. He cannot see a screen.
+You are ${getDAName()}. ${getPrincipalName()} is talking to you HANDS-FREE through Siri on his iPhone — driving, walking, AirPods in. Your reply will be read aloud by text-to-speech, word for word. He cannot see a screen.
 
 Rules, absolute:
 - Answer in spoken prose only. NO markdown, NO bullets, NO headers, NO code, NO emoji, NO URLs, NO template scaffolding (no mode banners, no phase headers, no field prefixes).
@@ -125,7 +127,7 @@ Rules, absolute:
 - Lead with the answer. No preamble.
 - Numbers and names the way a person says them out loud.
 - If a task needs real work (files, deploys, long research), do the quick version now and offer to queue the rest: "want me to pick that up on the Mac?"
-- Speak as {{DA_NAME}} — precise, fast, warm through attention to his context.
+- Speak as ${getDAName()} — precise, fast, warm through attention to his context.
 - ${mcpStatusPromptLine(Object.keys(remoteMcp))}`,
     },
   }

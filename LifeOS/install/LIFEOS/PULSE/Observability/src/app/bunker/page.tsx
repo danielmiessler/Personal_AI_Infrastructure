@@ -378,7 +378,7 @@ function CostPanel() {
 }
 
 // ── Site Health: the cloud uptime leg. Every deployed site checked every 5 min
-// by the A_SITE_HEALTH worker (was a public dashboard, now authenticated and
+// by the site-health worker (was a public dashboard, now authenticated and
 // read into Pulse server-side). ──
 
 interface SiteRow { name: string; url: string; state: string; lastCheck: string; since: string; spark: number[] }
@@ -442,7 +442,7 @@ function SiteHealthPanel() {
             );
           })}
           <div className="text-[11px] tracking-[0.12em] text-ink-3" style={{ paddingTop: 6 }}>
-            LAST CLOUD CHECK {new Date(d.updatedAt).toLocaleString()} · arbol worker A_SITE_HEALTH · 5-min cron · authenticated
+            LAST CLOUD CHECK {new Date(d.updatedAt).toLocaleString()} · the site-health worker · 5-min cron · authenticated
           </div>
         </>
       )}
@@ -531,7 +531,7 @@ function ArbolPanel() {
             </button>
           )}
           <div className="text-[11px] tracking-[0.12em] text-ink-3" style={{ paddingTop: 6 }}>
-            LAST CLOUD SCAN {new Date(arbol.timestamp).toLocaleString()} · arbol worker F_INFRA_SECURITY · hourly cron
+            LAST CLOUD SCAN {new Date(arbol.timestamp).toLocaleString()} · the infra-security worker · hourly cron
           </div>
         </>
       )}

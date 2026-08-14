@@ -27,8 +27,9 @@
 import { readFileSync, statSync, existsSync, readdirSync, realpathSync } from 'fs';
 import { join, resolve, dirname, relative, extname, sep } from 'path';
 import { execSync } from 'child_process';
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || '';
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_DIR = join(HOME, '.claude');
 const LIFEOS_DIR = join(CLAUDE_DIR, 'LIFEOS');
 
@@ -589,10 +590,11 @@ const filesToReport = changed
     )
   : null;
 
-// Runtime-generated targets — data-plane / state JSON written at runtime (per
-// Pulse capture), not static docs. A doc referencing one is not a broken ref.
-// Mirrors the LIFEOS/PULSE/state source exclusion above, on the target side.
-const RUNTIME_TARGET_SUBSTRINGS = ['MEMORY/PULSE_DATA/'];
+// Runtime-generated targets — data-plane / state / observability files written
+// at runtime, not static docs. A doc referencing one is not a broken ref even
+// before the first write creates it (e.g. a documented JSONL stream that has
+// not fired yet). Mirrors the LIFEOS/PULSE/state source exclusion, target-side.
+const RUNTIME_TARGET_SUBSTRINGS = ['MEMORY/PULSE_DATA/', 'MEMORY/OBSERVABILITY/', 'MEMORY/STATE/'];
 
 /** Referrers whose references are imports, not descriptions — never stale-checked. */
 const CODE_REFERRER = /\.(ts|tsx|js|jsx|mjs|cjs|json)$/;

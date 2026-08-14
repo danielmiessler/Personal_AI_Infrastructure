@@ -16,7 +16,7 @@
 | Quick | Agent self-verification only | 0s added |
 | Standard | Self-verification + cross-check synthesis | ~2-3s |
 | Extensive | Self-verification + 2 dedicated verifier agents | 0s (parallel) |
-| Deep | Self-verification + Step 4.5 spot-check (loop mode) | ~10-15s/iteration |
+| Deep | Self-verification + Step 4.5 spot-check (iterative mode) | ~10-15s/iteration |
 
 **Confidence tags:** `[HIGH]` `[MED]` `[LOW]` `[CONFLICT]`
 

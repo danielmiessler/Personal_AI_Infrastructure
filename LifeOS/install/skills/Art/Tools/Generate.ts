@@ -26,6 +26,7 @@ import Replicate from "replicate";
 import { GoogleGenAI } from "@google/genai";
 import { writeFile, readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
+import { getDAName } from "../../../hooks/lib/identity";
 
 // ============================================================================
 // Environment Loading
@@ -109,7 +110,7 @@ interface CLIArgs {
   thumbnail?: boolean; // Generate additional thumbnail with #EAE9DF background for social previews
   workflow?: string; // Name of the Art workflow that constructed this call (REQUIRED unless freeformConfirmed)
   freeformConfirmed?: boolean; // Explicit opt-out of workflow discipline — logged to stderr
-  signature?: boolean; // Stamp the required "{{DA_NAME}}" signature (auto-on for Essay/blog-header; --no-signature opts out)
+  signature?: boolean; // Stamp the required DA-name signature (auto-on for Essay/blog-header; --no-signature opts out)
 }
 
 // ============================================================================
@@ -261,8 +262,8 @@ OPTIONS:
   --thumbnail                Generate BOTH transparent AND thumbnail versions for blog headers
                              Creates: output.png (transparent) + output-thumb.png (#EAE9DF background)
                              Automatically enables --remove-bg
-  --no-signature             Skip the "{{DA_NAME}}" signature stamp (auto-on for Essay/--thumbnail headers)
-  --signature                Force the "{{DA_NAME}}" signature stamp on (bottom-right, SignPainter-HouseScript cursive)
+  --no-signature             Skip the "${getDAName()}" signature stamp (auto-on for Essay/--thumbnail headers)
+  --signature                Force the "${getDAName()}" signature stamp on (bottom-right, SignPainter-HouseScript cursive)
   --creative-variations <n>  Generate N variations (appends -v1, -v2, etc. to output filename)
                              Use with the be-creative skill for true prompt diversity
                              CLI mode: generates N images with same prompt (tests model variability)
@@ -694,20 +695,20 @@ async function stampDaSignature(imagePath: string): Promise<void> {
     // Non-fatal — fall back to the 31pt default tuned for 1024px-wide headers.
   }
 
-  console.log('✍️  Stamping required "{{DA_NAME}}" signature (bottom-right, SignPainter-HouseScript, cursive)...');
+  console.log(`✍️  Stamping required "${getDAName()}" signature (bottom-right, SignPainter-HouseScript, cursive)...`);
   // Slight CCW rotation + tucked offset makes it sit like a hand-signed mark
   // inside the composition's lower-right rather than a corner caption.
   const command =
     `magick "${imagePath}" -gravity SouthEast ` +
     `-font "SignPainter-HouseScript" -pointsize ${pointsize} -fill "rgba(55,45,38,0.55)" ` +
-    `-annotate 352x352+44+30 "{{DA_NAME}}" "${imagePath}"`;
+    `-annotate 352x352+44+30 "${getDAName()}" "${imagePath}"`;
 
   try {
     await execAsync(command);
     console.log("✅ Signature stamped");
   } catch (error) {
     throw new CLIError(
-      `Failed to stamp {{DA_NAME}} signature: ${error instanceof Error ? error.message : String(error)}. ` +
+      `Failed to stamp ${getDAName()} signature: ${error instanceof Error ? error.message : String(error)}. ` +
         `SignPainter-HouseScript must be installed (default on macOS). Override font via the workflow if needed.`
     );
   }

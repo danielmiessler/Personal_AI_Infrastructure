@@ -20,6 +20,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { homedir } from "node:os";
 
 interface TestStep {
   step: string;
@@ -55,7 +56,7 @@ interface FeatureRegistry {
   };
 }
 
-const REGISTRY_DIR = join(process.env.HOME || '', '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'progress');
+const REGISTRY_DIR = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'progress');
 
 function getRegistryPath(project: string): string {
   // Prevent path traversal: project is joined into a filename, so restrict it

@@ -13,15 +13,19 @@ import { ASCENT, ASCENT_STATES, type AscentState } from '../../LIFEOS/TOOLS/asce
 // Each state carries its inactive-tab background AND text color. Dark backgrounds
 // use light gray text (#A0A0A0); light/bright backgrounds need dark text or the
 // gray washes out (the native-orange case — gray on #C2660A was ~1.5:1).
+// Since 2026-08-12 every LIVE stamp routes through setAscentTab, so painted
+// tabs only ever wear the six run-state colors from the ascent table ({{PRINCIPAL_NAME}}:
+// "tab colors the same as the color of the task in the phase list"). The
+// thinking/working/native/question/blocked entries below are RETIRED from all
+// hook paths — kept only so setTabState stays total over TabState for any
+// stale state file or out-of-tree caller; do not reintroduce them as stamps.
 export const TAB_COLORS = {
-  thinking:  { inactiveBg: '#1E0A3C', inactiveFg: '#A0A0A0', label: 'purple' },
-  working:   { inactiveBg: '#804000', inactiveFg: '#A0A0A0', label: 'orange' },
-  // Untracked working state — a lighter, brighter orange so no-ISA turns are
-  // visually distinct from a run's darker ascent colors. Dark text for
-  // legibility on the bright fill (~5:1 vs the gray's ~1.5:1).
-  native:    { inactiveBg: '#C2660A', inactiveFg: '#1A1206', label: 'native-orange' },
-  question:  { inactiveBg: '#0D4F4F', inactiveFg: '#A0A0A0', label: 'teal' },
-  completed: { inactiveBg: ASCENT.cairn.tabBg, inactiveFg: '#A0A0A0', label: 'green' },
+  thinking:  { inactiveBg: '#1E0A3C', inactiveFg: '#A0A0A0', label: 'purple' },        // RETIRED 2026-08-12
+  working:   { inactiveBg: '#804000', inactiveFg: '#A0A0A0', label: 'orange' },        // RETIRED 2026-08-12
+  native:    { inactiveBg: '#C2660A', inactiveFg: '#1A1206', label: 'native-orange' }, // RETIRED 2026-07-28
+  question:  { inactiveBg: '#0D4F4F', inactiveFg: '#A0A0A0', label: 'teal' },          // RETIRED 2026-08-12 (⏳ glyph carries it)
+  blocked:   { inactiveBg: '#B58900', inactiveFg: '#1A1206', label: 'amber' },         // RETIRED 2026-08-12 (⏳ glyph carries it)
+  completed: { inactiveBg: ASCENT.cairn.tabBg, inactiveFg: ASCENT.cairn.tabFg, label: 'green' },
   error:     { inactiveBg: '#804000', inactiveFg: '#A0A0A0', label: 'orange' },
   idle:      { inactiveBg: 'none',    inactiveFg: 'none',    label: 'default' },
 } as const;

@@ -26,10 +26,20 @@
  * RUNG LABELS come from EFFORT_MODEL/CURRENT in models.ts. A lineup change
  * re-labels this automatically; no edit here.
  *
+ * CROSS-VENDOR (Forge/CodexResearcher → OpenAI) spends tokens outside any
+ * Claude transcript. Its ground truth is the codex CLI's own rollout logs
+ * (~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl), whose token_count events are
+ * cumulative — the last one is the rollout's total. Attribution: a rollout
+ * belongs to this session when its lifetime overlaps a cross-vendor subagent
+ * transcript's [birth, mtime] window (±slop) — the transcripts never capture
+ * the codex session id, so window overlap is the strongest available link.
+ * The forge share joins the rung percentages in ONE denominator, so all five
+ * sum to 100 (principal 2026-08-06: SOL renders a percentage like the rungs).
+ *
  * KNOWN GAPS (deliberate, do not "fix" by guessing):
- *   - Cross-vendor (Forge/CodexResearcher → OpenAI) spends tokens outside any
- *     Claude transcript, so it gets a USED flag from the subagent meta files,
- *     never a percentage. Percentages are Claude-rung-only and sum to 100.
+ *   - A concurrent OTHER session dispatching codex inside the same window
+ *     would be co-attributed; single-principal use makes this rare, and
+ *     measured-but-coarse beats invented-precise.
  *   - `Inference.ts` subprocess calls are not in the transcript and carry no
  *     token counts in model-verification.jsonl. They are out of the mix; the
  *     statusline's separate 300s FABLE-live probe still reads that file.
@@ -49,8 +59,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync, rmSync, openSync, readSync, closeSync } from 'fs';
 import { join, dirname } from 'path';
 import { EFFORT_MODEL, CURRENT, CROSS_VENDOR, type EffortLevel, type ClaudeTier } from './models.ts';
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME || '';
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const PROJECTS_DIR = join(HOME, '.claude', 'projects');
 
 /**
@@ -69,13 +80,25 @@ const TIER_RUNG: Partial<Record<ClaudeTier, EffortLevel>> = Object.fromEntries(
   (Object.entries(EFFORT_MODEL) as [EffortLevel, ClaudeTier][]).map(([level, tier]) => [tier, level])
 );
 
-/** Agent types that execute on a non-Anthropic carrier — token spend invisible to transcripts. */
-const CROSS_VENDOR_AGENTS = new Set(Object.keys(CROSS_VENDOR).map(k => k.toLowerCase()));
+/**
+ * OpenAI-family subset ONLY, by pinned model prefix. crossVendorUsage() feeds
+ * the SOL (forge) mix and measures tokens from codex rollout logs — a Gemini
+ * or Grok dispatch matching the broad set would light SOL "used" for work
+ * OpenAI never did (latent since geminiResearcher; material once the Grok
+ * lane landed 2026-08-12).
+ */
+const OPENAI_CV_AGENTS = new Set(
+  Object.keys(CROSS_VENDOR).filter(k => CROSS_VENDOR[k].startsWith('gpt-')).map(k => k.toLowerCase())
+);
 
 export interface Mix {
   tokens: Record<EffortLevel, number>;
   calls: Record<EffortLevel, number>;
   pct: Record<EffortLevel, number>;
+  /** OpenAI output tokens measured from attributed codex rollouts. */
+  forgeTokens: number;
+  /** Forge's share of the SAME denominator as pct — all five sum to 100. */
+  forgePct: number;
   total: number;
   crossVendor: boolean;
   unknownModels: string[];
@@ -106,16 +129,17 @@ export function rungForModel(model: string): EffortLevel | null {
  * LEAST 1% — a real Fable dip that rounds to 0% would defeat the whole point.
  * The largest rung absorbs the rounding error so the row always sums to 100.
  */
-export function toPct(tokens: Record<EffortLevel, number>): Record<EffortLevel, number> {
-  const total = RUNGS.reduce((s, r) => s + tokens[r], 0);
-  const pct = zero();
+export function toPct<K extends string>(tokens: Record<K, number>): Record<K, number> {
+  const keys = Object.keys(tokens) as K[];
+  const total = keys.reduce((s, r) => s + tokens[r], 0);
+  const pct = Object.fromEntries(keys.map(k => [k, 0])) as Record<K, number>;
   if (total <= 0) return pct;
-  for (const r of RUNGS) {
+  for (const r of keys) {
     if (tokens[r] > 0) pct[r] = Math.max(1, Math.round((tokens[r] / total) * 100));
   }
-  const sum = RUNGS.reduce((s, r) => s + pct[r], 0);
+  const sum = keys.reduce((s, r) => s + pct[r], 0);
   if (sum !== 100) {
-    const biggest = RUNGS.reduce((a, b) => (tokens[a] >= tokens[b] ? a : b));
+    const biggest = keys.reduce((a, b) => (tokens[a] >= tokens[b] ? a : b));
     pct[biggest] = Math.max(0, pct[biggest] + (100 - sum));
   }
   return pct;
@@ -220,19 +244,106 @@ function findTranscript(sessionId: string): string | null {
   return null;
 }
 
-/** Cross-vendor work is invisible to transcripts — read it off the subagent meta files. */
-function usedCrossVendor(subagentDir: string): boolean {
-  if (!existsSync(subagentDir)) return false;
+/**
+ * Slop around a dispatch window: codex boots after the wrapper agent starts,
+ * and its rollout file can flush after the wrapper's transcript stops moving.
+ */
+const WINDOW_SLOP_MS = 120_000;
+
+/** Overridable so tests never read the real codex logs. */
+const codexSessionsDir = () =>
+  process.env.CODEX_SESSIONS_DIR || join(HOME, '.codex', 'sessions');
+
+interface CrossVendorUsage { used: boolean; outputTokens: number }
+
+/**
+ * Cross-vendor work is invisible to transcripts. The USED flag comes from the
+ * subagent meta files; the TOKEN count from codex's own rollout logs, matched
+ * by lifetime overlap with each cross-vendor subagent transcript's window
+ * (the transcripts never capture the codex session id).
+ */
+function crossVendorUsage(subagentDir: string): CrossVendorUsage {
+  if (!existsSync(subagentDir)) return { used: false, outputTokens: 0 };
+  let used = false;
+  const windows: Array<[number, number]> = [];
   for (const f of readdirSync(subagentDir)) {
     if (!f.endsWith('.meta.json')) continue;
     try {
       const meta = JSON.parse(readFileSync(join(subagentDir, f), 'utf-8'));
       const type = String(meta?.agentType ?? '').toLowerCase();
-      if (CROSS_VENDOR_AGENTS.has(type)) return true;
-      if (String(meta?.model ?? '').toLowerCase().startsWith('gpt-')) return true;
+      const custom = String(meta?.customAgentType ?? '').toLowerCase();
+      if (!OPENAI_CV_AGENTS.has(type) && !OPENAI_CV_AGENTS.has(custom)
+          && !String(meta?.model ?? '').toLowerCase().startsWith('gpt-')) continue;
+      used = true;
+      const transcript = join(subagentDir, f.replace(/\.meta\.json$/, '.jsonl'));
+      if (!existsSync(transcript)) continue;
+      const st = statSync(transcript);
+      windows.push([(st.birthtimeMs || st.mtimeMs) - WINDOW_SLOP_MS, st.mtimeMs + WINDOW_SLOP_MS]);
     } catch { /* unreadable meta is not evidence of anything */ }
   }
-  return false;
+  if (windows.length === 0) return { used, outputTokens: 0 };
+  return { used, outputTokens: rolloutTokensIn(windows) };
+}
+
+/**
+ * Sum output tokens of every codex rollout whose lifetime overlaps a window.
+ * Rollout filenames stamp their start in LOCAL time (rollout-<ts>-<uuid>.jsonl,
+ * verified 2026-08-06: an 18-26-03 filename opens with an 01:26Z first event),
+ * and the day dirs are local dates — iterate days by calendar date, not 24h
+ * steps, so a DST boundary cannot skip a dir.
+ */
+function rolloutTokensIn(windows: Array<[number, number]>): number {
+  const root = codexSessionsDir();
+  if (!existsSync(root)) return 0;
+  const lo = Math.min(...windows.map(w => w[0]));
+  const hi = Math.max(...windows.map(w => w[1]));
+  let sum = 0;
+  const day = new Date(lo);
+  day.setHours(0, 0, 0, 0);
+  for (; day.getTime() <= hi; day.setDate(day.getDate() + 1)) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dir = join(root, String(day.getFullYear()), pad(day.getMonth() + 1), pad(day.getDate()));
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      const m = f.match(/^rollout-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-[0-9a-f-]{36}\.jsonl$/);
+      if (!m) continue;
+      const start = new Date(m[1].replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3')).getTime();
+      const p = join(dir, f);
+      let mtime: number;
+      try { mtime = statSync(p).mtimeMs; } catch { continue; }
+      if (!windows.some(([a, b]) => start <= b && mtime >= a)) continue;
+      sum += lastRolloutOutputTokens(p);
+    }
+  }
+  return sum;
+}
+
+/**
+ * A rollout's token_count events are CUMULATIVE — the last one is the total.
+ * Read only the tail: rollouts reach MB and the statusline ticks every 5s.
+ */
+function lastRolloutOutputTokens(path: string): number {
+  try {
+    const size = statSync(path).size;
+    const offset = Math.max(0, size - 128 * 1024);
+    const fd = openSync(path, 'r');
+    let text: string;
+    try {
+      const buf = Buffer.alloc(size - offset);
+      const read = readSync(fd, buf, 0, buf.length, offset);
+      text = buf.subarray(0, read).toString('utf-8');
+    } finally { closeSync(fd); }
+    const lines = text.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].includes('"token_count"')) continue;
+      try {
+        const e = JSON.parse(lines[i]);
+        const out = Number(e?.payload?.info?.total_token_usage?.output_tokens ?? 0);
+        if (out > 0) return out;
+      } catch { /* clipped line at the tail boundary — keep scanning back */ }
+    }
+  } catch { /* rollout unreadable — count nothing rather than guess */ }
+  return 0;
 }
 
 /**
@@ -253,7 +364,7 @@ function pruneState(dir: string): void {
 }
 
 export function computeMix(sessionId: string, transcriptOverride?: string): Mix {
-  const empty: Mix = { tokens: zero(), calls: zero(), pct: zero(), total: 0, crossVendor: false, unknownModels: [] };
+  const empty: Mix = { tokens: zero(), calls: zero(), pct: zero(), forgeTokens: 0, forgePct: 0, total: 0, crossVendor: false, unknownModels: [] };
   const main = transcriptOverride ?? findTranscript(sessionId);
   if (!main || !existsSync(main)) return empty;
 
@@ -281,12 +392,19 @@ export function computeMix(sessionId: string, transcriptOverride?: string): Mix 
     pruneState(STATE_DIR);
   } catch { /* best-effort cache; correctness does not depend on the write */ }
 
+  const cv = crossVendorUsage(subagentDir);
+  // ONE denominator across all five buckets (principal 2026-08-06): SOL's
+  // share and the Claude rungs' shares sum to 100 together.
+  const combined = toPct({ ...state.tokens, forge: cv.outputTokens });
+  const { forge: forgePct, ...rungPct } = combined;
   return {
     tokens: state.tokens,
     calls: state.calls,
-    pct: toPct(state.tokens),
-    total: RUNGS.reduce((s, r) => s + state.tokens[r], 0),
-    crossVendor: usedCrossVendor(subagentDir),
+    pct: rungPct as Record<EffortLevel, number>,
+    forgeTokens: cv.outputTokens,
+    forgePct,
+    total: RUNGS.reduce((s, r) => s + state.tokens[r], 0) + cv.outputTokens,
+    crossVendor: cv.used,
     unknownModels: state.unknownModels,
   };
 }
@@ -308,8 +426,10 @@ if (import.meta.main) {
   if (argv.includes('--json')) {
     console.log(JSON.stringify(mix, null, 2));
   } else {
-    // Shell-eval contract consumed by LIFEOS_StatusLine.sh.
+    // Shell-eval contract consumed by LIFEOS_StatusLine.sh. mix_forge is a
+    // PERCENTAGE (same denominator as the rungs); mix_forge_used keeps the
+    // used-flag so an attributed-but-unmeasured dispatch still lights the rung.
     const out = RUNGS.map(r => `mix_${r}=${mix.pct[r]}`).join('\n');
-    console.log(`${out}\nmix_total=${mix.total}\nmix_forge=${mix.crossVendor ? 1 : 0}`);
+    console.log(`${out}\nmix_total=${mix.total}\nmix_forge=${mix.forgePct}\nmix_forge_used=${mix.crossVendor ? 1 : 0}`);
   }
 }

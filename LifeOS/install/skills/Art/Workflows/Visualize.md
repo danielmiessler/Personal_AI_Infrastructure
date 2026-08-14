@@ -90,12 +90,13 @@ STYLE: Excalidraw whiteboard sketch with rich graphics
 ```
 DEFAULT: Light Cream/Sepia #F5E6D3 (matches blog aesthetic)
 WHITE ONLY IF: User explicitly requests "white background" in prompt
-TRANSPARENT: Use Images skill to remove background for overlay use
+TRANSPARENT: Use RemoveBg.ts (Art skill) to remove background for overlay use
 ```
 
 **Light Cream (#F5E6D3) is the DEFAULT background.** Only use white (#FFFFFF) if the user explicitly requests it.
 
-**For transparent background** — use the **Images skill** for background removal:
+<!-- ported from public PR #1707 (commit 1), @anikinsasha — Images was retired into Art -->
+**For transparent background** — use the **Art skill's** background-removal tool:
 
 ```bash
 bun ~/.claude/LIFEOS/TOOLS/RemoveBg.ts /path/to/visualization.png

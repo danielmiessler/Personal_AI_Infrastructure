@@ -17,16 +17,24 @@ import {
   BookOpen,
   FileText,
   CircleCheck,
+  Film,
+  MessageCircle,
+  ScrollText,
+  StickyNote,
+  Wrench,
+  FolderGit2,
+  Mail,
+  ChevronRight,
+  ExternalLink,
+  type LucideIcon,
 } from "lucide-react";
 import {
   PageShell,
   PageHeader,
   Panel,
-  PanelHeader,
   StatTile,
   TabBar,
   Pill,
-  EmptyState,
   dimStyle,
   type Dim,
   type TabSpec,
@@ -50,10 +58,16 @@ import {
  */
 
 interface RecentCapture {
+  id: string;
   source: string;
   score: number | null;
   title: string | null;
   url: string | null;
+  author: string | null;
+  content_kind: string;
+  excerpt: string | null;
+  grade_version: string | null;
+  routed_actions: string[] | null;
   captured_at: string;
   status: string;
   note: { category: string; slug: string } | null;
@@ -119,10 +133,17 @@ const TABS: TabSpec<TabId>[] = [
 type StreamKind = "capture" | "note" | "issue";
 interface StreamItem {
   kind: StreamKind;
+  id: string; // capture uuid, note slug, or issue url — unique key + expand anchor
   origin: string; // ledger source, "knowledge", or "x-bookmarks"
   title: string;
   href: string | null; // external link
   internal: string | null; // in-Pulse link (knowledge wiki)
+  contentKind: string | null; // article|video|tweet|paper|note|tool|project|newsletter|other (captures only)
+  author: string | null;
+  excerpt: string | null;
+  gradeVersion: string | null;
+  actions: string[] | null; // routed_actions — where routing actually sent it
+  status: string | null; // captured | graded | routed (captures only)
   score: number | null;
   routed: boolean;
   note: { category: string; slug: string } | null;
@@ -145,12 +166,81 @@ function ago(ts: string | null | undefined): string {
 
 const nf = (n: number | null | undefined) => (n === null || n === undefined ? "—" : n.toLocaleString());
 
+function domainOf(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 // Synapse's own hue (money token) marks captures; notes ride the ok token, issues the relationships token.
 const KIND_DIM: Record<StreamKind, Dim> = {
   capture: "money",
   note: "ok",
   issue: "relationships",
 };
+
+// One icon per ledger content_kind — the at-a-glance "what is this" signal.
+const CONTENT_KIND_ICON: Record<string, LucideIcon> = {
+  article: FileText,
+  video: Film,
+  tweet: MessageCircle,
+  paper: ScrollText,
+  note: StickyNote,
+  tool: Wrench,
+  project: FolderGit2,
+  newsletter: Mail,
+  other: CircleDot,
+};
+
+// routed_actions values → human labels + tint. Unknown actions prettify from snake_case.
+const ACTION_META: Record<string, { label: string; dim: Dim }> = {
+  create_knowledge_idea_entry: { label: "knowledge idea", dim: "ok" },
+  create_knowledge_research_entry: { label: "knowledge research", dim: "ok" },
+  create_work_issue: { label: "work issue", dim: "relationships" },
+  create_blog_seed: { label: "blog seed", dim: "creative" },
+  add_feed_source: { label: "feed source", dim: "freedom" },
+  send_to_newsletter_sheet: { label: "newsletter sheet", dim: "freedom" },
+};
+function actionMeta(a: string): { label: string; dim: Dim } {
+  return ACTION_META[a] ?? { label: a.replace(/_/g, " "), dim: "neutral" };
+}
+
+// Score bands: what routing considers worth acting on reads green, the middle amber, the rest muted.
+function scoreDim(score: number): Dim {
+  return score >= 8 ? "ok" : score >= 5 ? "warn" : "neutral";
+}
+
+/** The capture lifecycle as a 3-segment track: captured → graded → routed.
+ *  Filled segments show how far the item got; the next segment pulses while
+ *  the 30-min router hasn't picked it up yet. */
+function LifecycleTrack({ status, score }: { status: string; score: number | null }) {
+  const stage = status === "routed" ? 3 : status === "graded" || score !== null ? 2 : 1;
+  const segs: { dim: Dim; label: string }[] = [
+    { dim: "money", label: "captured" },
+    { dim: "relationships", label: "graded" },
+    { dim: "ok", label: "routed" },
+  ];
+  return (
+    <span
+      className="inline-flex items-center gap-[3px] shrink-0"
+      title={`${segs[stage - 1].label} — captured → graded → routed`}
+    >
+      {segs.map((s, i) => (
+        <span
+          key={s.label}
+          className={i === stage ? "w-3 h-[5px] rounded-full animate-pulse" : "w-3 h-[5px] rounded-full"}
+          style={{
+            background: i < stage ? `var(--${s.dim === "ok" ? "ok" : s.dim})` : "rgba(168,165,200,0.18)",
+            opacity: i < stage ? 0.9 : 1,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
 
 // The five-stage loop, rendered as a horizontal flow with live counts.
 function FlowStage({ name, desc, count, dim }: { name: string; desc: string; count?: string; dim: Dim }) {
@@ -168,6 +258,8 @@ export default function SynapsePage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("stream");
   const [originFilter, setOriginFilter] = useState<string>("all");
+  const [stateFilter, setStateFilter] = useState<"all" | "waiting" | "routed">("all");
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const [, forceTick] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -217,10 +309,17 @@ export default function SynapsePage() {
       if (c.note) promotedSlugs.add(c.note.slug);
       items.push({
         kind: "capture",
+        id: c.id,
         origin: c.source,
         title: c.title || c.url || "(text note)",
         href: c.url,
         internal: null,
+        contentKind: c.content_kind || "other",
+        author: c.author,
+        excerpt: c.excerpt,
+        gradeVersion: c.grade_version,
+        actions: c.routed_actions,
+        status: c.status,
         score: c.score,
         routed: c.status === "routed",
         note: c.note,
@@ -232,10 +331,17 @@ export default function SynapsePage() {
       if (promotedSlugs.has(n.slug)) continue;
       items.push({
         kind: "note",
+        id: `note:${n.category}/${n.slug}`,
         origin: "knowledge",
         title: n.title,
         href: null,
         internal: wikiPageUrl(encodeURIComponent(n.category), encodeURIComponent(n.slug)),
+        contentKind: null,
+        author: null,
+        excerpt: null,
+        gradeVersion: null,
+        actions: null,
+        status: null,
         score: null,
         routed: false,
         note: null,
@@ -245,10 +351,17 @@ export default function SynapsePage() {
     for (const i of data.bookmarks?.recent_issues ?? []) {
       items.push({
         kind: "issue",
+        id: `issue:${i.issue}`,
         origin: "x-bookmarks",
         title: `X bookmark → work issue #${i.issue}`,
         href: i.url,
         internal: null,
+        contentKind: null,
+        author: null,
+        excerpt: null,
+        gradeVersion: null,
+        actions: null,
+        status: null,
         score: null,
         routed: false,
         note: null,
@@ -264,7 +377,12 @@ export default function SynapsePage() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [stream]);
 
-  const visible = originFilter === "all" ? stream : stream.filter((i) => i.origin === originFilter);
+  const visible = stream.filter((i) => {
+    if (originFilter !== "all" && i.origin !== originFilter) return false;
+    if (stateFilter === "waiting") return i.kind === "capture" && !i.routed;
+    if (stateFilter === "routed") return i.kind === "capture" && i.routed;
+    return true;
+  });
 
   return (
     <PageShell className="max-w-[1200px]">
@@ -312,7 +430,7 @@ export default function SynapsePage() {
             <span><span className="text-ink-1 tabular-nums font-medium">{nf(B?.cloud_parsed ?? null)}</span> bookmarks / 90d</span>
           </div>
 
-          {/* Origin filter chips */}
+          {/* Origin + state filter chips */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => setOriginFilter("all")}
@@ -331,56 +449,183 @@ export default function SynapsePage() {
                 {o} <span className="tabular-nums opacity-70">{n}</span>
               </button>
             ))}
+            <span className="w-px h-4 bg-line-2 mx-1" />
+            {(["waiting", "routed"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStateFilter(stateFilter === s ? "all" : s)}
+                className="text-[11px] px-2.5 py-1 rounded-full transition-colors"
+                style={dimStyle(s === "routed" ? "ok" : "warn", stateFilter === s)}
+              >
+                {s}
+              </button>
+            ))}
           </div>
 
           {/* The feed */}
-          <Panel className="p-0 divide-y divide-line-1">
+          <Panel className="p-0 divide-y divide-line-1 overflow-hidden">
             {visible.length === 0 && <div className="p-4 text-sm text-ink-3">Nothing caught yet.</div>}
-            {visible.map((it, idx) => (
-              <div key={idx} className="flex items-center gap-3 px-4 py-2.5 text-sm min-w-0">
-                <CircleDot className="w-3 h-3 shrink-0" style={{ color: `var(--${it.kind === "capture" ? "money" : it.kind === "note" ? "ok" : "relationships"})` }} />
-                <span className="shrink-0 hidden sm:inline-flex">
-                  <Pill dim={KIND_DIM[it.kind]} className="text-[10px] uppercase tracking-wider px-1.5 py-0.5">
-                    {it.kind}
-                  </Pill>
-                </span>
-                <span className="mono text-[12px] text-ink-3 shrink-0 w-24 truncate">{it.origin}</span>
-                <span className="flex-1 truncate text-ink-2">
-                  {it.href ? (
-                    <a href={it.href} target="_blank" rel="noreferrer" className="hover:text-ink-1 hover:underline">
-                      {it.title}
-                    </a>
-                  ) : it.internal ? (
-                    <a href={it.internal} className="hover:text-ink-1 hover:underline">
-                      {it.title}
-                    </a>
-                  ) : (
-                    it.title
-                  )}
-                </span>
-                {it.note && (
-                  <a
-                    href={wikiPageUrl(encodeURIComponent(it.note.category), encodeURIComponent(it.note.slug))}
-                    className="shrink-0 flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80"
-                    style={dimStyle("ok", true)}
+            {visible.map((it) => {
+              const KindIcon =
+                it.kind === "note" ? Library : it.kind === "issue" ? Bookmark : CONTENT_KIND_ICON[it.contentKind ?? "other"] ?? CircleDot;
+              const domain = domainOf(it.href);
+              const isOpen = expanded === it.id;
+              const expandable = it.kind === "capture";
+              const titleLink = it.href ?? it.internal;
+              return (
+                <div key={it.id} className={isOpen ? "bg-surface-3" : "transition-colors hover:bg-surface-3"}>
+                  {/* ── Row ── */}
+                  <div
+                    className={expandable ? "flex items-center gap-3 px-4 py-2.5 min-w-0 cursor-pointer select-none" : "flex items-center gap-3 px-4 py-2.5 min-w-0"}
+                    onClick={expandable ? () => setExpanded(isOpen ? null : it.id) : undefined}
                   >
-                    <Library className="w-3 h-3" />
-                    note
-                  </a>
-                )}
-                {it.routed && (
-                  <span className="shrink-0 hidden md:flex items-center gap-1 text-[11px] text-ok">
-                    <CircleCheck className="w-3 h-3" /> routed
-                  </span>
-                )}
-                {it.score !== null && (
-                  <span className="shrink-0 text-[11px] tabular-nums px-1.5 py-0.5 rounded" style={dimStyle("relationships", true)}>
-                    {it.score}/10
-                  </span>
-                )}
-                <span className="shrink-0 whitespace-nowrap text-[12px] text-ink-3 tabular-nums">{ago(it.ts)}</span>
-              </div>
-            ))}
+                    {/* kind badge */}
+                    <span
+                      className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={dimStyle(KIND_DIM[it.kind], true)}
+                      title={it.kind === "capture" ? `${it.contentKind} capture` : it.kind}
+                    >
+                      <KindIcon className="w-3.5 h-3.5" />
+                    </span>
+
+                    {/* title + meta, two lines */}
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate text-sm text-ink-1 leading-tight">
+                        {titleLink ? (
+                          <a
+                            href={titleLink}
+                            target={it.href ? "_blank" : undefined}
+                            rel={it.href ? "noreferrer" : undefined}
+                            className="hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {it.title}
+                          </a>
+                        ) : (
+                          it.title
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5 min-w-0 overflow-hidden whitespace-nowrap">
+                        <span className="mono shrink-0">{it.origin}</span>
+                        {it.contentKind && it.contentKind !== "other" && (
+                          <><span className="opacity-50">·</span><span className="shrink-0">{it.contentKind}</span></>
+                        )}
+                        {domain && <><span className="opacity-50">·</span><span className="truncate">{domain}</span></>}
+                        {it.author && <><span className="opacity-50">·</span><span className="truncate">{it.author}</span></>}
+                        {/* routing destinations, inline */}
+                        {(it.actions?.length ?? 0) > 0 &&
+                          it.actions!.map((a) => {
+                            const m = actionMeta(a);
+                            return (
+                              <span key={a} className="hidden sm:inline-flex items-center gap-0.5 shrink-0 whitespace-nowrap" style={{ color: `var(--${m.dim === "neutral" ? "ink-2" : m.dim})` }}>
+                                <ArrowRight className="w-2.5 h-2.5 shrink-0" />
+                                {m.label}
+                              </span>
+                            );
+                          })}
+                        {it.routed && it.actions !== null && it.actions.length === 0 && (
+                          <span className="hidden sm:inline shrink-0 whitespace-nowrap opacity-70">→ held in amber</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* note promotion */}
+                    {it.note && (
+                      <a
+                        href={wikiPageUrl(encodeURIComponent(it.note.category), encodeURIComponent(it.note.slug))}
+                        className="shrink-0 hidden sm:flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80"
+                        style={dimStyle("ok", true)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Library className="w-3 h-3" />
+                        note
+                      </a>
+                    )}
+
+                    {/* score */}
+                    {it.score !== null && (
+                      <span
+                        className="shrink-0 text-[11px] tabular-nums font-medium px-1.5 py-0.5 rounded"
+                        style={dimStyle(scoreDim(it.score), true)}
+                        title={`graded ${it.score}/10 against TELOS`}
+                      >
+                        {it.score}
+                      </span>
+                    )}
+
+                    {/* lifecycle */}
+                    {it.kind === "capture" && it.status ? (
+                      <LifecycleTrack status={it.status} score={it.score} />
+                    ) : (
+                      <span className="shrink-0 hidden md:flex items-center gap-1 text-[11px]" style={{ color: `var(--${it.kind === "note" ? "ok" : "relationships"})` }}>
+                        <CircleCheck className="w-3 h-3" />
+                        {it.kind === "note" ? "curated" : "issue"}
+                      </span>
+                    )}
+
+                    <span className="shrink-0 whitespace-nowrap text-[12px] text-ink-3 tabular-nums w-14 text-right">{ago(it.ts)}</span>
+                    {expandable && (
+                      <ChevronRight className={isOpen ? "w-3.5 h-3.5 shrink-0 text-ink-3 rotate-90 transition-transform" : "w-3.5 h-3.5 shrink-0 text-ink-3 transition-transform"} />
+                    )}
+                  </div>
+
+                  {/* ── Expanded detail ── */}
+                  {isOpen && (
+                    <div className="px-4 pb-3.5 pl-14 flex flex-col gap-2.5 text-[12px]">
+                      {it.excerpt && (
+                        <p className="text-ink-2 leading-relaxed max-w-3xl border-l-2 border-line-2 pl-3">
+                          {it.excerpt}
+                          {it.excerpt.length >= 240 ? "…" : ""}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-ink-3">
+                        <span>
+                          state{" "}
+                          <span className="text-ink-1 font-medium">{it.status}</span>
+                        </span>
+                        <span>
+                          score{" "}
+                          <span className="text-ink-1 font-medium tabular-nums">{it.score !== null ? `${it.score}/10` : "ungraded"}</span>
+                          {it.gradeVersion && <span className="opacity-70"> · {it.gradeVersion}</span>}
+                        </span>
+                        <span className="flex items-center gap-1.5 flex-wrap">
+                          routed to{" "}
+                          {(it.actions?.length ?? 0) > 0 ? (
+                            it.actions!.map((a) => {
+                              const m = actionMeta(a);
+                              return (
+                                <span key={a} className="px-1.5 py-0.5 rounded text-[11px]" style={dimStyle(m.dim, true)}>
+                                  {m.label}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-ink-2">{it.routed ? "nowhere — held in amber (below action bar)" : "not yet routed"}</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-ink-3">
+                        <span className="mono text-[11px] opacity-70">{it.id}</span>
+                        {it.href && (
+                          <a href={it.href} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-ink-1" onClick={(e) => e.stopPropagation()}>
+                            <ExternalLink className="w-3 h-3" /> open source
+                          </a>
+                        )}
+                        {it.note && (
+                          <a
+                            href={wikiPageUrl(encodeURIComponent(it.note.category), encodeURIComponent(it.note.slug))}
+                            className="flex items-center gap-1 hover:text-ink-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Library className="w-3 h-3" /> open knowledge note
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </Panel>
           <p className="text-[12px] text-ink-3">
             Merged live from three feeds: ledger captures (last 50), Knowledge Archive notes (30d), and X-bookmark work
@@ -545,7 +790,7 @@ export default function SynapsePage() {
               <div className="hidden lg:flex items-center text-ink-3"><ArrowRight className="w-4 h-4" /></div>
               <FlowStage
                 name="Grade"
-                desc="scored against TELOS — is this good for what {{PRINCIPAL_NAME}} is actually doing?"
+                desc="scored against TELOS — is this good for what the principal is actually doing?"
                 dim="relationships"
               />
               <div className="hidden lg:flex items-center text-ink-3"><ArrowRight className="w-4 h-4" /></div>

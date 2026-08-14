@@ -2,7 +2,7 @@
 last_updated: 2026-07-24T17:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 2.2.3
+version: 2.2.4
 ---
 
 # The Algorithm — the LifeOS Thinking System
@@ -36,6 +36,8 @@ Enhancement never stops. Every capability in the system — context gathering, t
 The whole point of a run is **euphoric surprise**: the principal got exactly the output he wanted, in the right amount of time, for the right amount of spend. Not "technically what was asked." Not "impressive but three days late." The target has three axes — right output, right time, right cost — and missing any one misses it.
 
 This matters because it makes quality a *bounded* objective. A system aimed only at output quality gold-plates; a system aimed only at speed ships slop. Euphoric surprise forces the trade-off to be made consciously on every run, and the completion contract checks it explicitly: the spend matched the task, and breaks in either direction were surfaced, never silent.
+
+Euphoric surprise is also the **meta-ideal-state of every ISA**. Each ISA articulates the specific ideal state of one piece of work; above every one sits this same universal goal — euphoric surprise in the human using the system. An ISA's `## Vision` section is where the general target takes specific shape: what that surprise looks like for this particular work. This is why a run can close every claim and still fail — hitting the specific ideal state while leaving the user flat misses the summit the whole system exists to reach.
 
 ## Dynamic range: spend is discovered, never predicted
 

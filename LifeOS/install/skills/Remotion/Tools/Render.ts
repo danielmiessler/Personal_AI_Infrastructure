@@ -164,19 +164,46 @@ export async function renderStill(options: {
 /**
  * List all compositions in a Remotion project
  *
+ * `remotion compositions` requires an entry point and has no `--json` flag. It
+ * prints a fixed-width table to stdout, preceded by Bun's "You are running
+ * Remotion with Bun" banner and bundling progress — so the output is parsed
+ * line by line rather than handed to JSON.parse.
+ * // public issue #1763, #1760, @jacobo-ortiz
+ *
+ * @param entryPoint - Remotion entry point, e.g. `src/index.ts`
  * @param projectDir - Project directory (defaults to cwd)
  * @returns Array of compositions
+ * @throws If the CLI fails or its output cannot be recognised
  */
-export async function listCompositions(projectDir?: string): Promise<Composition[]> {
+export async function listCompositions(entryPoint: string, projectDir?: string): Promise<Composition[]> {
   const cwd = projectDir || process.cwd()
 
+  let output: string
   try {
-    const result = await $`bunx remotion compositions --json`.cwd(cwd).text()
-    return JSON.parse(result)
+    output = await $`bunx remotion compositions ${entryPoint}`.cwd(cwd).text()
   } catch (error: any) {
-    console.error('Failed to list compositions:', error.message)
-    return []
+    throw new Error(`remotion compositions failed for entry point "${entryPoint}": ${error.message || String(error)}`)
   }
+
+  if (!output.includes('The following compositions are available')) {
+    throw new Error(`Unrecognised output from remotion compositions:\n${output}`)
+  }
+
+  // Row form: <id> <fps> <width>x<height> <durationInFrames> (<n> sec).
+  // Stills print an empty fps column and the word "Still" instead of a duration.
+  const row = /^(\S+)\s+(?:(\d+)\s+)?(\d+)x(\d+)\s+(?:Still|(\d+)\s+\([\d.]+\s+sec\))\s*$/
+
+  return output
+    .split('\n')
+    .map((line) => line.match(row))
+    .filter((match): match is RegExpMatchArray => match !== null)
+    .map((match) => ({
+      id: match[1],
+      fps: match[2] ? Number(match[2]) : 0,
+      width: Number(match[3]),
+      height: Number(match[4]),
+      durationInFrames: match[5] ? Number(match[5]) : 1
+    }))
 }
 
 /**
@@ -201,21 +228,35 @@ export async function startStudio(options?: {
   console.log(`Remotion Studio starting at http://localhost:${options?.port || 3000}`)
 }
 
+/** The 22 templates `create-video` accepts, each passed as its own flag. */
+export type RemotionTemplate =
+  | 'blank' | 'hello-world' | 'next' | 'vercel' | 'next-no-tailwind' | 'next-pages-dir'
+  | 'recorder' | 'prompt-to-motion-graphics' | 'javascript' | 'render-server' | 'electron'
+  | 'react-router' | 'three' | 'still' | 'audiogram' | 'music-visualization'
+  | 'prompt-to-video' | 'skia' | 'overlay' | 'code-hike' | 'stargazer' | 'tiktok'
+
 /**
  * Create a new Remotion project
+ *
+ * Canonical form is `create-video --yes --<template> <directory>` — the template
+ * is a flag, not the value of `--template`, and the directory comes last.
+ * `--yes` requires a template flag, so one is always sent.
+ * // public issue #1763, #1760, @jacobo-ortiz
  *
  * @param options - Project creation options
  */
 export async function createProject(options: {
   name: string
-  template?: 'blank' | 'hello-world' | 'three' | 'audiogram' | 'tts'
+  template?: RemotionTemplate
   outputDir?: string
 }): Promise<{ success: boolean; path: string; error?: string }> {
-  const args: string[] = ['bunx', 'create-video@latest', options.name]
-
-  if (options.template) {
-    args.push('--template', options.template)
-  }
+  const args: string[] = [
+    'bunx',
+    'create-video@latest',
+    '--yes',
+    `--${options.template ?? 'blank'}`,
+    options.name
+  ]
 
   const cwd = options.outputDir || process.cwd()
 
@@ -255,34 +296,71 @@ export async function upgrade(projectDir?: string): Promise<{ success: boolean; 
 }
 
 /**
- * Get video metadata using Mediabunny
+ * Get video metadata with ffprobe
+ *
+ * There is no `remotion parse-video` subcommand, and `@remotion/media-utils` is
+ * browser-side, so neither works from Node. ffprobe is already a pipeline
+ * dependency and reads the file directly.
+ * // public issue #1763, #1760, @jacobo-ortiz
+ *
+ * @throws If ffprobe fails or the file carries no video stream
  */
 export async function getVideoMetadata(videoPath: string): Promise<{
   width: number
   height: number
   durationInSeconds: number
   fps: number
-} | null> {
+}> {
+  let raw: string
   try {
-    // This requires @remotion/media-utils in the project
-    const result = await $`bunx remotion parse-video ${videoPath} --json`.text()
-    return JSON.parse(result)
-  } catch {
-    return null
+    raw = await $`ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate:format=duration -of json ${videoPath}`.text()
+  } catch (error: any) {
+    throw new Error(`ffprobe failed for ${videoPath}: ${error.message || String(error)}`)
+  }
+
+  const probe = JSON.parse(raw)
+  const stream = probe.streams?.[0]
+  if (!stream) throw new Error(`No video stream found in ${videoPath}`)
+
+  // r_frame_rate is a rational string such as "30000/1001"
+  const [numerator, denominator] = String(stream.r_frame_rate ?? '').split('/')
+  const fps = Number(numerator) / Number(denominator)
+  const durationInSeconds = Number(probe.format?.duration)
+
+  if (!Number.isFinite(fps)) throw new Error(`ffprobe reported no frame rate for ${videoPath}`)
+  if (!Number.isFinite(durationInSeconds)) throw new Error(`ffprobe reported no duration for ${videoPath}`)
+
+  return {
+    width: Number(stream.width),
+    height: Number(stream.height),
+    durationInSeconds,
+    fps
   }
 }
 
 /**
- * Get audio duration using Mediabunny
+ * Get audio duration in seconds with ffprobe
+ *
+ * Same reasoning as getVideoMetadata — `remotion parse-audio` does not exist.
+ * // public issue #1763, #1760, @jacobo-ortiz
+ *
+ * @throws If ffprobe fails or the file carries no audio stream
  */
-export async function getAudioDuration(audioPath: string): Promise<number | null> {
+export async function getAudioDuration(audioPath: string): Promise<number> {
+  let raw: string
   try {
-    const result = await $`bunx remotion parse-audio ${audioPath} --json`.text()
-    const data = JSON.parse(result)
-    return data.durationInSeconds
-  } catch {
-    return null
+    raw = await $`ffprobe -v error -select_streams a:0 -show_entries stream=codec_type:format=duration -of json ${audioPath}`.text()
+  } catch (error: any) {
+    throw new Error(`ffprobe failed for ${audioPath}: ${error.message || String(error)}`)
   }
+
+  const probe = JSON.parse(raw)
+  if (!probe.streams?.[0]) throw new Error(`No audio stream found in ${audioPath}`)
+
+  const durationInSeconds = Number(probe.format?.duration)
+  if (!Number.isFinite(durationInSeconds)) throw new Error(`ffprobe reported no duration for ${audioPath}`)
+
+  return durationInSeconds
 }
 
 // CLI entry point
@@ -315,7 +393,13 @@ if (import.meta.main) {
     }
 
     case 'list': {
-      const compositions = await listCompositions(args[1])
+      const entryPoint = args[1]
+      if (!entryPoint) {
+        console.error('Usage: bun run index.ts list <entryPoint> [projectDir]')
+        process.exit(1)
+      }
+
+      const compositions = await listCompositions(entryPoint, args[2])
       console.log(JSON.stringify(compositions, null, 2))
       break
     }
@@ -340,12 +424,12 @@ Remotion CLI Wrapper
 
 Commands:
   render <compositionId> <outputPath> [--crf N] [--fps N] [--codec TYPE]
-  list [projectDir]
+  list <entryPoint> [projectDir]
   create <name> [template]
 
 Examples:
   bun run index.ts render my-video out/video.mp4 --crf 18
-  bun run index.ts list
+  bun run index.ts list src/index.ts
   bun run index.ts create new-project hello-world
 `)
   }

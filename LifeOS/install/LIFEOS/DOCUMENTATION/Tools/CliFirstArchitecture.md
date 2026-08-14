@@ -1,5 +1,5 @@
 ---
-version: 1.3.0
+version: 1.3.1
 ---
 
 # CLI-First Architecture Pattern
@@ -425,7 +425,7 @@ const failures = await bash('evals query runs --status failed --json');
 
 The stateless MCP redesign (sessions removed, Sampling/Roots/Logging deprecated, servers reduced to request/response calls) confirmed the bet this document makes: a tool should be a simple, deterministic callable. The protocol retreated to the shape a CLI already has. That settles the boundary question:
 
-- **Consume via CLI.** Any capability *our own harness* uses gets a deterministic CLI, not an MCP server. Schemas stay out of context, behavior is testable without a protocol layer, and the tool survives spec revisions untouched. Wrapping a third-party API for our own use = CLI, every time (the ClickUp pattern).
+- **Consume via CLI.** Any capability *our own harness* uses gets a deterministic CLI, not an MCP server. Schemas stay out of context, behavior is testable without a protocol layer, and the tool survives spec revisions untouched. Wrapping a third-party API for our own use = CLI, every time (a third-party PM tool's API, a vendor SaaS API — same answer).
 
 - **Serve via MCP.** Any capability we expose to *external clients* — claude.ai connectors, other people's harnesses, anything that isn't this system — speaks MCP (Vector's `/mcp` gateway is the canonical example). A CLI can't serve a remote client, and MCP owns the things a CLI never will: per-user OAuth, interactive apps, enterprise-managed auth.
 

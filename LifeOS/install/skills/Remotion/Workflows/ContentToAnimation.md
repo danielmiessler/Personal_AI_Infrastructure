@@ -362,7 +362,8 @@ Cannot proceed - fix logical issues before rendering
 
 **MANDATORY: Apply LifeOS Theme**
 ```typescript
-import { LIFEOS_THEME } from '~/.claude/skills/Remotion/theme'
+// public issue #1760, @jacobo-ortiz — the theme file is Tools/Theme.ts
+import { LIFEOS_THEME } from '~/.claude/skills/Remotion/Tools/Theme'
 
 // All components MUST use:
 // - LIFEOS_THEME.colors for all colors
@@ -377,8 +378,8 @@ import { LIFEOS_THEME } from '~/.claude/skills/Remotion/theme'
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ STEP 5: RENDER                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ 1. Install dependencies: npm install                                        │
-│ 2. Render: npx remotion render {composition-id} "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.mp4     │
+│ 1. Install dependencies: bun install                                        │
+│ 2. Render: bunx remotion render {composition-id} "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.mp4    │
 │ 3. Open for preview: open "${LIFEOS_DOWNLOADS_DIR:-$HOME/Downloads}"/{name}.mp4                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -547,4 +548,4 @@ User: animate this content: "The three pillars of AI safety are..."
 This workflow inherits visual theming from Art preferences:
 - Load: `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Art/PREFERENCES.md`
 - Apply: Charcoal aesthetic, purple accents, organic animations
-- Reference: `~/.claude/`
+- Reference: `~/.claude/skills/Art/Examples/` <!-- public issue #1760, @jacobo-ortiz — path was truncated mid-string -->

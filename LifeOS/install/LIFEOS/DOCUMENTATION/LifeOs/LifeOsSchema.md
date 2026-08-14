@@ -1,16 +1,29 @@
 ---
-version: 1.1.1
+version: 1.1.2
 ---
 
 # Life OS Schema
 
-> **The canonical shape of the USER directory in LifeOS.**
+> ## ⚠️ SUPERSEDED AS A LAYOUT SPEC — read this first
+>
+> **The layout described below is not what LifeOS installs.** The **installed layout is canonical**: what `install.sh` lays down in `LIFEOS/USER/`, and what a running system reads. Where this document and the installed tree disagree, the installed tree wins. Do not rename anything to match this page. *(public issue #1720, @catchingknives)*
+>
+> What is actually canonical:
+>
+> - **`ALL_CAPS` names, not PascalCase.** `PRINCIPAL_IDENTITY.md`, `WRITINGSTYLE.md`, `PROJECTS.md` — §2's PascalCase rule was never adopted.
+> - **Domain directories sit at `USER/` root:** `PRINCIPAL/`, `DIGITAL_ASSISTANT/`, `TELOS/`, `HEALTH/`, `FINANCES/`, `BUSINESS/`, `WORK/`, `SECURITY/`, `CONFIG/`, `CUSTOMIZATIONS/`.
+> - **`TELOS/` holds the goal files plus `CURRENT_STATE/` and `IDEAL_STATE/`**, each carrying its own domain files (`HEALTH.md`, `INFRASTRUCTURE.md`, `FINANCIAL.md`, …). Those are state snapshots and are distinct from the root `HEALTH/` and `FINANCES/` directories.
+> - **The operative frontmatter convention is `pai-freshness-v1`** (`last_updated`, `last_updated_by`, `convention`, `last_reviewed`, `last_reviewed_by`) — see `LIFEOS/DOCUMENTATION/Freshness/FreshnessSystem.md`. It is **not** the five-field `category`/`kind`/`publish`/`review_cadence`/`last_updated` contract in §3 below.
+>
+> The body is kept as history: it records the shape that was designed in April 2026 and the reasoning behind it, and §4–§5 still describe how Pulse groups and renders files where those fields are present. Treat it as a design document, not as a spec to conform to.
+
+> **The originally proposed shape of the USER directory in LifeOS.**
 >
 > Everything your DA knows about you lives in one flat, biography-style tree. This spec defines the rules every LifeOS user follows — so the same Pulse dashboard, the same Interview skill, the same Daemon aggregator, and the same skills work for everyone out of the box.
 
-**Status:** Draft v1.0 · 2026-04-16
-**Applies to:** `LIFEOS/USER/` in every LifeOS installation
-**Companion docs:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` (the why), `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` (the dashboard), the release templates' `USER/` starter scaffold
+**Status:** Superseded as a layout spec · drafted 2026-04-16 · superseded 2026-08-07
+**Applies to:** historical — for the live shape, read an installed `LIFEOS/USER/` tree
+**Companion docs:** `LIFEOS/DOCUMENTATION/LifeOs/LifeOsThesis.md` (the why), `LIFEOS/DOCUMENTATION/Pulse/PulseSystem.md` (the dashboard), `LIFEOS/DOCUMENTATION/Freshness/FreshnessSystem.md` (the operative frontmatter convention), and the `USER/` starter scaffold the LifeOS release skill ships at `install/USER/`
 
 ---
 
@@ -28,7 +41,7 @@ The USER/ root should read like a biography — not a filing cabinet. Walking in
 |---|---|
 | **PascalCase, always.** No underscores, no ALL_CAPS, no kebab-case. | `PrincipalIdentity.md`, not `PRINCIPAL_IDENTITY.md` or `principal-identity.md` |
 | **Multi-word → single joined word, camel caps.** | `WritingStyle.md`, `AssetManagement.md`, `CoreContent.md` |
-| **Directories follow the same rule.** | `Health/`, `Business/`, `SkillCustomizations/` |
+| **Directories follow the same rule.** | `Health/`, `Business/`, `Customizations/` |
 | **Semantic names, not generic.** | `Music.md` (not `Bands.md`), `Food.md` (not `FoodPreferences.md`) |
 
 ## 3. Frontmatter Contract
@@ -270,7 +283,7 @@ USER/
   # domain directories
   Telos/  Health/  Finances/  Business/  Work/  Relationships/  Daemon/  Security/
   # infrastructure directories (system-operational, not life content)
-  Config/  Credentials/  SkillCustomizations/  Terminal/  Workflows/
+  Config/  Credentials/  Customizations/  Terminal/  Workflows/
   Actions/  Flows/  Pipelines/  Arbol/  BrowserState/
 ```
 

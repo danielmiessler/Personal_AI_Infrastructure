@@ -1,6 +1,6 @@
 ---
 name: Remotion
-version: 1.2.14
+version: 1.2.15
 description: "Creates programmatic video with React via Remotion — compositions, sequences, and motion graphics animated with useCurrentFrame() and rendered to MP4. USE WHEN video, animation, motion graphics, video rendering, React video, render video, animate content, make a short, create animations, video overlay, explainer video, animated explainer, content to video, programmatic video. NOT FOR static images, diagrams, or illustrations (use Art), tight-cut filler removal from raw talking-head recordings (that is video editing, not motion graphics), or audio-only podcast cleaning (use AudioEditor)."
 ---
 

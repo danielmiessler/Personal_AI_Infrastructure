@@ -1,5 +1,5 @@
 ---
-version: 1.9.3
+version: 1.9.4
 ---
 
 # LifeOS Tools - CLI Utilities Reference
@@ -599,7 +599,13 @@ When adding a new utility tool to this system:
 
 1. **Add tool file:** Place `.ts` or `.py` file directly in `~/.claude/LIFEOS/TOOLS/`
    - Use **Title Case** for filenames (e.g., `GetTranscript.ts`, not `get-transcript.ts`)
-   - Keep the directory flat - NO subdirectories
+   - Keep the directory flat — a single-file tool goes directly in `TOOLS/`, never in a folder of its own.
+     Subdirectories are the named exception, not a free choice: `Conveyor/` (a multi-file subsystem) and
+     `lib/` (helpers shared across tools) are sanctioned, and a handful of other multi-file subsystems
+     have since followed the same pattern. Adding a new one means documenting it here first.
+     <!-- ported from public PR #1707 (commit 1), @anikinsasha — the bare "NO subdirectories"
+          rule contradicted the tree it described -->
+
 
 2. **Document here:** Add section to this file with:
    - Tool location (e.g., `~/.claude/`)
@@ -814,7 +820,7 @@ The default bias is toward the bottom-left branch: most needs are one command, a
 ## Related Documentation
 
 - **Architecture**: `~/.claude/LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md` (master architecture reference)
-- **CLI Tools**: `~/.claude/LIFEOS/DOCUMENTATION/Tools/Cli.md` (Algorithm CLI, Arbol CLI)
+- **CLI Tools**: `~/.claude/LIFEOS/DOCUMENTATION/Tools/Cli.md` (Arbol CLI; the former Algorithm CLI was retired 2026-07-14)
 
 ---
 

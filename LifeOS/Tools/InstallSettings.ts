@@ -23,6 +23,7 @@
 import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { atomicWriteText } from "./lib/atomic-write";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import { detectDevTree } from "./InstallEngine";
 
 interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
@@ -33,7 +34,7 @@ function parseArgs(): Args {
     const i = a.indexOf(flag);
     return i >= 0 && a[i + 1] && !a[i + 1].startsWith("--") ? a[i + 1] : undefined;
   };
-  const home = process.env.HOME || "";
+  const home = process.env.HOME || homedir(); // public issue #1729, @umair-a11y
   return {
     configRoot: get("--config-root") || process.env.CLAUDE_CONFIG_DIR || join(home, ".claude"),
     skillRoot: get("--skill-root") || join(import.meta.dir, ".."),
@@ -66,7 +67,7 @@ function expandEnvBlock(settings: Record<string, unknown>, home: string): number
 }
 
 const args = parseArgs();
-const home = process.env.HOME || "";
+const home = process.env.HOME || homedir(); // public issue #1729, @umair-a11y
 const templatePath = join(args.skillRoot, "install", "settings.system.json");
 const targetPath = join(args.configRoot, "settings.json");
 

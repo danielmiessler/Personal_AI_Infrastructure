@@ -193,7 +193,8 @@ function isSystemFileModified(modifiedFiles: Set<string>): boolean {
       if (CLAUDE_EXCLUDED.some(ex => relPath.includes(ex))) continue;
 
       if (relPath.startsWith('hooks/') && (relPath.endsWith('.ts') || relPath.endsWith('.sh'))) return true;
-      if (relPath.startsWith('skills/') && (relPath.endsWith('.md') || relPath.endsWith('.ts') || relPath.endsWith('.yaml') || relPath.endsWith('.yml'))) return true;
+      // .tsx counts as system source too (ported from public PR #1742, @elhoim).
+      if (relPath.startsWith('skills/') && (relPath.endsWith('.md') || relPath.endsWith('.ts') || relPath.endsWith('.tsx') || relPath.endsWith('.yaml') || relPath.endsWith('.yml'))) return true;
       if (relPath === 'settings.json') return true;
       if (relPath === 'CLAUDE.md') return true;
       if (relPath.startsWith('agents/') && relPath.endsWith('.md')) return true;
@@ -207,7 +208,8 @@ function isSystemFileModified(modifiedFiles: Set<string>): boolean {
       const relPath = filePath.slice(LIFEOS_DIR.length + 1);
       if (LIFEOS_EXCLUDED.some(ex => relPath.includes(ex))) continue;
 
-      if ((relPath.startsWith('PAI/') || relPath.includes('skills/')) && (relPath.endsWith('.md') || relPath.endsWith('.ts') || relPath.endsWith('.yaml') || relPath.endsWith('.yml'))) return true;
+      // .tsx counts as system source too (ported from public PR #1742, @elhoim).
+      if ((relPath.startsWith('PAI/') || relPath.includes('skills/')) && (relPath.endsWith('.md') || relPath.endsWith('.ts') || relPath.endsWith('.tsx') || relPath.endsWith('.yaml') || relPath.endsWith('.yml'))) return true;
       if (relPath.includes('/Tools/') && relPath.endsWith('.ts')) return true;
       if (relPath.includes('/Workflows/') && relPath.endsWith('.md')) return true;
       continue;
@@ -315,7 +317,7 @@ function checkLibFileRefs(docsToCheck: string[], libsOnDisk: Set<string>): Drift
  */
 function checkSystemDocRefs(docsToCheck: string[], systemDocsOnDisk: Set<string>): DriftItem[] {
   const drift: DriftItem[] = [];
-  // Match backtick-wrapped or plain doc references in PAI/ (both old skills/PAI/ and new PAI/ paths)
+  // Match backtick-wrapped or plain doc references under LifeOS/ (legacy skills/LifeOS/ included)
   const sysDocRefRegex = /(?:`|'|")(?:~\/\.(?:claude|config\/PAI)\/)?(?:skills\/)?LifeOS\/([\w/]+\.md)(?:`|'|")/g;
 
   for (const docFile of docsToCheck) {
@@ -339,8 +341,8 @@ function checkSystemDocRefs(docsToCheck: string[], systemDocsOnDisk: Set<string>
         drift.push({
           doc: docFile,
           pattern: 'system_doc_ref',
-          reference: `PAI/${refTarget}`,
-          issue: `References "PAI/${refTarget}" but file does not exist`,
+          reference: `LifeOS/${refTarget}`,
+          issue: `References "LifeOS/${refTarget}" but file does not exist`,
         });
       }
     }

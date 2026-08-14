@@ -33,6 +33,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, readdirSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { tmpdir } from "os";
+import { homedir } from "node:os";
 
 // X's own limits — the reason this tool exists is that violating them silently
 // produces a post with no video rather than an error.
@@ -238,7 +239,7 @@ async function main() {
         offsetInWorkFile = args.start;
       }
     } else {
-      workFile = resolve(args.source.replace(/^~/, process.env.HOME!));
+      workFile = resolve(args.source.replace(/^~/, homedir()));
       if (!existsSync(workFile)) die(`source file not found: ${workFile}`);
       offsetInWorkFile = args.start;
     }
@@ -259,7 +260,7 @@ async function main() {
     if (args.captions) {
       let srtText: string | undefined;
       if (args.srt) {
-        const p = resolve(args.srt.replace(/^~/, process.env.HOME!));
+        const p = resolve(args.srt.replace(/^~/, homedir()));
         if (!existsSync(p)) die(`--srt file not found: ${p}`);
         srtText = readFileSync(p, "utf-8");
       } else if (isUrl) {
@@ -283,12 +284,12 @@ async function main() {
     }
 
     // Output path
-    let out = args.out ? resolve(args.out.replace(/^~/, process.env.HOME!)) : undefined;
+    let out = args.out ? resolve(args.out.replace(/^~/, homedir())) : undefined;
     if (!out) {
       const workDir = Bun.spawnSync(["bun", join(import.meta.dir, "current-work-dir.ts")]);
       const base = workDir.exitCode === 0 && workDir.stdout.toString().trim()
         ? join(workDir.stdout.toString().trim(), "clips")
-        : join(process.env.HOME!, "Downloads");
+        : join(homedir(), "Downloads");
       out = join(base, `clip-${fmtTime(args.start).replace(/[:.]/g, "")}-${fmtTime(args.end).replace(/[:.]/g, "")}.mp4`);
     }
     mkdirSync(dirname(out), { recursive: true });

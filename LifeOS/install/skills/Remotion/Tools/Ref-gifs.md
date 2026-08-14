@@ -86,11 +86,9 @@ Use the `style` prop for additional CSS (use `width` and `height` props for sizi
 
 Use `getGifDurationInSeconds()` from `@remotion/gif` to get the duration of a GIF.
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/gif # If project uses npm
-bunx remotion add @remotion/gif # If project uses bun
-yarn remotion add @remotion/gif # If project uses yarn
-pnpm exec remotion add @remotion/gif # If project uses pnpm
+bunx remotion add @remotion/gif
 ```
 
 ```tsx
@@ -119,11 +117,9 @@ const calculateMetadata: CalculateMetadataFunction = async () => {
 
 If `<AnimatedImage>` does not work (only supported in Chrome and Firefox), you can use `<Gif>` from `@remotion/gif` instead.
 
+<!-- public issue #1764, #1760, @jacobo-ortiz — bunx only, per CriticalRules §10 -->
 ```bash
-npx remotion add @remotion/gif # If project uses npm
-bunx remotion add @remotion/gif # If project uses bun
-yarn remotion add @remotion/gif # If project uses yarn
-pnpm exec remotion add @remotion/gif # If project uses pnpm
+bunx remotion add @remotion/gif
 ```
 
 ```tsx
@@ -135,4 +131,4 @@ export const MyComposition = () => {
 };
 ```
 
-The `<Gif>` component has the same props as `<AnimatedImage>` but only supports GIF files.
+The `<Gif>` component takes largely the same props as `<AnimatedImage>`, but the two are not interchangeable: `<Gif>` supports only GIF files and does support `onLoad`, while `<AnimatedImage>` also handles AVIF, APNG and WebP, drops `onLoad`, and depends on the `ImageDecoder` Web API (limited browser support). <!-- public issue #1760, @jacobo-ortiz -->

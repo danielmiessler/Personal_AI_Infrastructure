@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lifeos.dev/schemas/cortex/v1",
+  "title": "LifeOS Cortex v1 response envelope",
+  "description": "The complete response envelope emitted by every portable Cortex CLI command.",
+  "oneOf": [
+    { "$ref": "#/$defs/success" },
+    { "$ref": "#/$defs/failure" }
+  ],
+  "$defs": {
+    "baseProperties": {
+      "schema": { "const": "lifeos-cortex/v1" },
+      "command": { "type": "string" }
+    },
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "ok", "command", "data", "error"],
+      "properties": {
+        "schema": { "const": "lifeos-cortex/v1" },
+        "ok": { "const": true },
+        "command": { "type": "string" },
+        "data": {},
+        "error": { "type": "null" }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "ok", "command", "data", "error"],
+      "properties": {
+        "schema": { "const": "lifeos-cortex/v1" },
+        "ok": { "const": false },
+        "command": { "type": "string" },
+        "data": { "type": "null" },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

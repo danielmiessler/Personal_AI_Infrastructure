@@ -32,8 +32,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } fr
 import { join } from "path";
 import { execSync } from "child_process";
 import { PULSE_BASE } from "../PULSE/endpoint";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS");
 const OBS_DIR = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
 const LEDGER_PATH = join(OBS_DIR, "anthropic-cost.jsonl");
@@ -329,7 +330,8 @@ async function voiceAlert(message: string): Promise<void> {
     await fetch(`${PULSE_BASE}/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, voice_enabled: true }),
+      // Cadence job: silent banner only — scheduled tasks never voice ({{PRINCIPAL_NAME}}, 2026-08-14)
+      body: JSON.stringify({ message, voice_enabled: false }),
       signal: AbortSignal.timeout(3000),
     });
   } catch {

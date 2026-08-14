@@ -2,7 +2,7 @@
 last_updated: 2026-06-13T01:30:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.0.4
+version: 1.0.5
 ---
 
 # RenamePlan — PAI → LifeOS
@@ -14,7 +14,7 @@ version: 1.0.4
      it renamed. -->
 
 
-> The staged plan for renaming the system and (eventually) the public repo to **LifeOS**. The machine-readable companion is `RenameMap.json` in this directory — rename tooling AND the privacy/scrub gates consume that file, never hardcoded token lists. Full inventory evidence: `LIFEOS/MEMORY/WORK/20260613-lifeos-refocus-and-system-cleanup/analysis/naming.md`.
+> The staged plan for renaming the system and (eventually) the public repo to **LifeOS**. The machine-readable companion is `RenameMap.json` in this directory — rename tooling AND the privacy/scrub gates consume that file, never hardcoded token lists.
 
 ## The one rule
 

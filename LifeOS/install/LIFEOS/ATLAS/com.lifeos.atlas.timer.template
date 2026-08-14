@@ -1,0 +1,20 @@
+# com.lifeos.atlas.timer.template — fires `atlas tick` every 15 minutes (approximates
+# the launchd StartInterval; Atlas.ts's own lastFullSyncAt() gate means most ticks just
+# process hint events cheaply and only run a real full sync once an hour is due).
+#
+# NOTE: this timer has no equivalent of the launchd plist's WatchPaths on the hint file,
+# so on Linux a captured mutation waits for the next tick rather than syncing immediately.
+# Hints are a latency optimization, never a source of facts — reconciliation still heals.
+#
+# ported from public PR #1743, @schmetti-dev
+[Unit]
+Description=Run LifeOS Atlas tick every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=900
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

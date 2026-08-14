@@ -1,7 +1,16 @@
 #!/usr/bin/env bun
 /**
- * @version 1.5.5
+ * @version 1.6.0
  * AgentInvocation.hook.ts — Agent (Task) subagent lifecycle tracker.
+ *
+ * v1.6.0 (2026-08-11, /algo pass #2 NP7): an omitted `model` used to log the
+ * literal string "inherited", which made the dispatch tier mix uncomputable —
+ * 21 of the ~180 dispatches since 08-01 were black holes. Now an inherited
+ * dispatch resolves to the session's live carrier via ModelRungGuard's
+ * liveModel() (transcript tail, sidechain rows skipped) and logs it with
+ * level "session-inherited". When the transcript can't answer (first turn,
+ * nested agent-in-agent spawns whose rows are all sidechain), the record
+ * honestly keeps "inherited" — never a guess. Observation only, unchanged.
  *
  * v1.5.3 (2026-07-24): MODEL-CHECK ADVISORY REMOVED. v1.5.0 emitted a
  * PreToolUse advisory whenever a dispatch carried no model, citing the rule
@@ -53,6 +62,7 @@ import { homedir } from 'os';
 import { paiPath } from './lib/paths';
 import { getISOTimestamp } from './lib/time';
 import { EFFORT_MODEL, CROSS_VENDOR } from '../LIFEOS/TOOLS/models';
+import { liveModel } from './ModelRungGuard.hook';
 
 interface AgentToolInput {
   subagent_type?: string;
@@ -92,6 +102,7 @@ interface ToolHookInput {
   tool_name?: string;
   tool_input?: AgentToolInput;
   tool_response?: unknown;
+  transcript_path?: string;
 }
 
 const OBS_DIR = paiPath('MEMORY', 'OBSERVABILITY');
@@ -146,6 +157,18 @@ async function main() {
     if (!isPost) {
       const now = Date.now();
       const dispatch = resolveDispatch(subagentType, input.model);
+
+      // NP7 (2026-08-11): resolve an inherited dispatch to the session's live
+      // carrier so the tier mix is computable from telemetry. liveModel() reads
+      // the transcript tail and skips sidechain rows; when it can't answer
+      // (first turn, nested spawns) the record keeps the honest 'inherited'.
+      if (dispatch.model === 'inherited') {
+        const carrier = liveModel(data.transcript_path);
+        if (carrier) {
+          dispatch.model = carrier;
+          dispatch.level = 'session-inherited';
+        }
+      }
 
       const starts = readStarts();
       starts[key] = {

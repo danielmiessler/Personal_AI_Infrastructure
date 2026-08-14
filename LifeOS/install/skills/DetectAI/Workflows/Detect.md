@@ -1,6 +1,6 @@
-# Detect — Heuristic AI-Pattern Audit
+# Detect — Heuristic AI-Pattern Audit + Statistical Signals
 
-Flag the AI tells in a piece of text and explain each one. No edits, no API calls, no cost.
+Flag the AI tells in a piece of text and explain each one, and measure the keyless statistical signals underneath the prose. No edits, no API calls, no cost.
 
 ## Voice Notification
 
@@ -17,6 +17,16 @@ Running **Detect** in **DetectAI**...
 
 Read `~/.claude/LIFEOS/DOCUMENTATION/Writing/AIWritingPatterns.md` before auditing. It holds the severity tiers (P0/P1/P2), the full word-replacement tables, the pattern categories, and the context tolerance matrix. Auditing from memory produces a shallower, less consistent report than auditing against the catalog.
 
+## Statistical Signal Pass
+
+Run the deterministic signals alongside the pattern audit:
+
+```bash
+bun ~/.claude/LIFEOS/TOOLS/StatSignals.ts --file <path>   # or --text / stdin; --json for machine output
+```
+
+It measures n-gram entropy, type-token ratio, and repetition (the tier the research rates real-but-imperfect) plus burstiness, paragraph uniformity, and function-word ratio (weak alone — the GPTZero-class folklore tier). Every value carries its tier; nothing emits a verdict. These catch the *structural* tells the word list cannot see — a text can clear every pattern below and still show flat rhythm and low entropy. Under ~100 words the tool flags itself unreliable; skip the numbers there. For the model-based zero-shot detectors (DetectGPT, Binoculars) that need reference-LM logprobs, `--explain` states why they're absent — the empirical seat is the Score workflow.
+
 ## Ideal State
 
 A finished audit is one where:
@@ -25,6 +35,7 @@ A finished audit is one where:
 - Every flag names its pattern category and severity tier.
 - Every flag is marked **clear problem** or **judgment call**. Some AI-associated patterns are effective writing, and a report that demands all of them be fixed is worse than useless — it trains the writer to ignore the tool.
 - The context profile is stated up front (blog, LinkedIn, newsletter, documentation, fiction). Tolerance differs by venue; the same em-dash density that's fine in an essay is a flag in a LinkedIn post.
+- The statistical pass ran (on samples past ~100 words) and its signals appear with their tier labels, read as features feeding the assessment, never as a standalone verdict.
 - Nothing is rewritten. This workflow reports.
 
 ## Output Format

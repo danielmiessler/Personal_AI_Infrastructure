@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.1.0
+ * @version 1.1.1
  * ISAStaleWriteGuard.hook.ts — stop a whole-file Write from silently discarding
  * ISA changes the writing session never saw.
  *
@@ -24,8 +24,7 @@
  * NOT A LOCK. Nothing is acquired, held, or released. The guard compares a content
  * hash against the hash this session last observed; a crashed, killed, or abandoned
  * session leaves nothing behind that could block a later one. This is the property
- * that keeps it un-fragile, and it is asserted as an anti-claim in the ISA
- * (MEMORY/WORK/20260728-isa-stale-write-guard/ISA.md).
+ * that keeps it un-fragile, and it is asserted as an anti-claim in the ISA.
  *
  * NOT A TICKET SYSTEM. No assignee, no `claimed_by`, no HITL/AFK, no ticket types.
  * The ISA format is untouched — no new section, key, or model-written marker. The

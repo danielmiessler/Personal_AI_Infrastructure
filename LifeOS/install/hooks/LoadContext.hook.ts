@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.6.30
+ * @version 1.6.31
  * LoadContext.hook.ts - Inject LifeOS dynamic context into Claude's Context (SessionStart)
  *
  * LifeOS v5.0 Context Architecture:
@@ -13,6 +13,7 @@
  * - Injects dynamic, session-specific context:
  *   - Relationship context (recent opinions + notes)
  *   - Learning readback (signals, wisdom, failure patterns)
+ *   - Advisory readback (last session's doc/memory integrity findings)
  *   - Active work summary (last 48h sessions + tracked projects)
  *
  * TRIGGER: SessionStart
@@ -38,17 +39,46 @@
  * - Skipped for subagents: Yes
  */
 
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, realpathSync } from 'fs';
 import { join } from 'path';
-import { getLifeosDir, getSettingsPath } from './lib/paths';
+import { getClaudeDir, getLifeosDir, getSettingsPath } from './lib/paths';
 import { recordSessionStart } from './lib/notifications';
 import { loadWisdomFrames } from './lib/learning-readback';
-import { findArtifactPath } from './lib/isa-utils';
+import { loadAdvisoryDigest } from './lib/advisory-readback';
 import { isSubagentContext } from './lib/subagent';
+import { isDesktopChannel, getNotificationChannel } from './lib/notification-channel';
+import { PHASE_TO_ASCENT } from '../LIFEOS/TOOLS/ascent';
+
+/**
+ * The phases that mean a run is finished, derived from the ONE ascent table
+ * rather than hand-listed here (extracted from public PR #1714, @anikinsasha).
+ * `cairn` is the terminal bracket, so `learn` and `complete` resolve into this
+ * set today and any future terminal phase joins it for free. Hand-listing is
+ * exactly how two consumers ended up asserting the retired 8-station enum and
+ * reading a modern run as "nothing has happened yet" — see the note on
+ * `phaseHasWorkStarted` in ascent.ts.
+ */
+const TERMINAL_PHASES = new Set(
+  Object.entries(PHASE_TO_ASCENT)
+    .filter(([, bracket]) => bracket === 'cairn')
+    .map(([phase]) => phase),
+);
+
+/**
+ * True when an ISA's declared `status:`/`phase:` means done. ISAs carry either
+ * key: the legacy `status: COMPLETED` and the current `phase: complete|learn`.
+ * Routing both through one predicate is what stops a finished session from
+ * holding an ACTIVE WORK slot forever.
+ */
+function isTerminalWorkState(value: string): boolean {
+  const v = value.toLowerCase().trim();
+  return v === 'completed' || TERMINAL_PHASES.has(v);
+}
 
 interface DynamicContextConfig {
   relationshipContext?: boolean;
   learningReadback?: boolean;
+  advisoryReadback?: boolean;
   activeWorkSummary?: boolean;
 }
 
@@ -152,11 +182,40 @@ interface WorkSession {
 }
 
 /**
+ * Every WORK tree this install writes session dirs into, deduped by resolved
+ * path (extracted from public PR #1714, @anikinsasha).
+ *
+ * Sessions do not all land in one tree: `<LIFEOS_DIR>/MEMORY/WORK` is the
+ * primary (a symlink into the private USER data repo on this install), and
+ * `~/.claude/MEMORY/WORK` is the second tree some sessions create directly.
+ * Scanning only one starves this block of exactly the work it exists to
+ * surface. Resolving through realpath before deduping matters here: the two
+ * candidates ARE the same directory on installs where LIFEOS_DIR sits under
+ * ~/.claude, and scanning it twice would double every row.
+ */
+function getWorkRoots(paiDir: string): string[] {
+  const candidates = [join(paiDir, 'MEMORY', 'WORK'), join(getClaudeDir(), 'MEMORY', 'WORK')];
+  const seen = new Set<string>();
+  const roots: string[] = [];
+  for (const dir of candidates) {
+    if (!existsSync(dir)) continue;
+    let resolved = dir;
+    try {
+      resolved = realpathSync(dir);
+    } catch { /* unresolvable — dedupe on the literal path */ }
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    roots.push(dir);
+  }
+  return roots;
+}
+
+/**
  * Scan recent WORK/ directories (last 48h) for active sessions.
  */
 function getRecentWorkSessions(paiDir: string): WorkSession[] {
-  const workDir = join(paiDir, 'MEMORY', 'WORK');
-  if (!existsSync(workDir)) return [];
+  const workRoots = getWorkRoots(paiDir);
+  if (workRoots.length === 0) return [];
 
   let sessionNames: Record<string, string> = {};
   const namesPath = join(paiDir, 'MEMORY', 'STATE', 'session-names.json');
@@ -172,14 +231,18 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
   const seenSessionIds = new Set<string>();
 
   try {
-    const allDirs = readdirSync(workDir, { withFileTypes: true })
-      .filter(d => d.isDirectory() && /^\d{8}-\d{6}_/.test(d.name))
-      .map(d => d.name)
-      .sort()
-      .reverse()
+    // Newest 30 across BOTH trees. The dir-name prefix is a chronological
+    // timestamp, so a descending name sort is a descending time sort and the
+    // window `break` below is the real bound — the cap just keeps the scan cheap.
+    const allDirs = workRoots
+      .flatMap(root =>
+        readdirSync(root, { withFileTypes: true })
+          .filter(d => d.isDirectory() && /^\d{8}-\d{6}_/.test(d.name))
+          .map(d => ({ name: d.name, root })))
+      .sort((a, b) => b.name.localeCompare(a.name))
       .slice(0, 30);
 
-    for (const dirName of allDirs) {
+    for (const { name: dirName, root: workDir } of allDirs) {
       const match = dirName.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})_(.+)$/);
       if (!match) continue;
 
@@ -195,17 +258,25 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
       let status = 'UNKNOWN';
       let rawTitle = slug.replace(/-/g, ' ');
       let sessionId: string | undefined;
-      const isaPath = findArtifactPath(dirName);
+      // Resolve the artifact inside THIS dir's own tree. The shared
+      // findArtifactPath() is pinned to one WORK root, so it misresolves every
+      // dir that came from the other one.
+      let isaPath: string | null = join(dirPath, 'ISA.md');
+      if (!existsSync(isaPath)) isaPath = join(dirPath, 'PRD.md');
+      if (!existsSync(isaPath)) isaPath = null;
       const metaPath = join(dirPath, 'META.yaml');
 
       if (isaPath) {
-        // v4.0+: Read from ISA.md / PRD.md frontmatter
+        // v4.0+: Read from ISA.md / PRD.md frontmatter. Modern ISAs carry
+        // `phase:`; `status:` is the legacy key, and wins when both are present.
         try {
           const head = readFileSync(isaPath, 'utf-8').substring(0, 600);
           const statusMatch = head.match(/^status:\s*"?(\w+)"?/m);
+          const phaseMatch = head.match(/^phase:\s*"?([\w-]+)"?/m);
           const titleMatch = head.match(/^title:\s*"?(.+?)"?\s*$/m);
           const sessionIdMatch = head.match(/^session_id:\s*"?(.+?)"?\s*$/m);
           if (statusMatch) status = statusMatch[1];
+          else if (phaseMatch) status = phaseMatch[1];
           if (titleMatch) rawTitle = titleMatch[1];
           if (sessionIdMatch) sessionId = sessionIdMatch[1]?.trim();
         } catch { /* skip */ }
@@ -226,7 +297,10 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
 
       try {
 
-        if (status === 'COMPLETED') continue;
+        // ONE terminal vocabulary. This filter used to hardcode COMPLETED, so a
+        // modern ISA sitting at `phase: complete` (or `learn`) kept occupying an
+        // ACTIVE WORK slot for 48h after it finished.
+        if (isTerminalWorkState(status)) continue;
         if (rawTitle.toLowerCase().startsWith('tasknotification') || rawTitle.length < 10) continue;
         if (sessionId && seenSessionIds.has(sessionId)) continue;
         if (sessionId) seenSessionIds.add(sessionId);
@@ -238,7 +312,7 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
         let isa: WorkSession['isa'] = null;
         try {
           // v4.1: ISA.md at root; v4.0: PRD.md at root; pre-v4.0: PRD-*.md.
-          // findArtifactPath already covers v4.0/v4.1; fall back to date-stamped
+          // isaPath above already covers v4.0/v4.1; fall back to date-stamped
           // PRD-*.md files only when neither ISA.md nor PRD.md is present.
           let artifactFile: string | null = isaPath;
           if (!artifactFile) {
@@ -398,9 +472,23 @@ async function main() {
 
     // Tab reset is handled by KittyEnvPersist.hook.ts (runs before this hook)
 
-    // Record session start time for notification timing
+    // Record session start time for notification timing. This runs for EVERY
+    // channel, remote included — the session did start, and the notification
+    // timing that reads this is not the thing being withheld below.
     recordSessionStart();
     console.error('⏱️ Session start time recorded');
+
+    // Remote-channel sessions (iMessage, etc. — see lib/notification-channel.ts)
+    // serve someone through a bot surface. Injecting the principal's
+    // relationship notes, wisdom frames, advisory findings and active work
+    // summary into that context is the same class of leak as a desktop /notify
+    // fired from a remote turn. One guard here covers every loader below,
+    // present and future.
+    if (!isDesktopChannel()) {
+      console.error(`📵 Remote channel (${getNotificationChannel()}) - skipping dynamic context injection`);
+      console.log('\n✅ LifeOS session ready...');
+      process.exit(0);
+    }
 
     // Load settings for dynamic context controls
     const settings = loadSettings();
@@ -439,11 +527,26 @@ async function main() {
       console.error('⏭️ Skipped learning readback (disabled)');
     }
 
+    // Advisory readback: last session's integrity findings, delivered here
+    // because SessionEnd — where they are produced — cannot inject context.
+    // Emits only on a changed finding set, plus a slow re-announce; steady
+    // state is zero characters.
+    let advisoryContext = '';
+    if (isDynamicEnabled(settings, 'advisoryReadback')) {
+      const digest = loadAdvisoryDigest();
+      advisoryContext = digest ? '\n## Advisory Findings\n\n' + digest : '';
+      if (digest) {
+        console.error(`🩺 Loaded advisory digest (${advisoryContext.length} chars)`);
+      }
+    } else {
+      console.error('⏭️ Skipped advisory readback (disabled)');
+    }
+
     // Inject dynamic context if we have any
-    if (relationshipContext || learningContext) {
+    if (relationshipContext || learningContext || advisoryContext) {
       const message = `<system-reminder>
 LifeOS Dynamic Context (Auto-loaded at Session Start)
-${relationshipContext ?? ''}${learningContext ? '\n---\n' + learningContext : ''}
+${relationshipContext ?? ''}${learningContext ? '\n---\n' + learningContext : ''}${advisoryContext ? '\n---\n' + advisoryContext : ''}
 ---
 Dynamic context loaded. Constitutional rules are in the system prompt (LIFEOS/LIFEOS_SYSTEM_PROMPT.md). Operational procedures are in CLAUDE.md.
 </system-reminder>`;
@@ -451,7 +554,18 @@ Dynamic context loaded. Constitutional rules are in the system prompt (LIFEOS/LI
       console.log(message);
       console.log('\n✅ LifeOS dynamic context loaded...');
     } else {
-      console.log('\n✅ LifeOS session ready...');
+      // Name the enabled-but-empty sources instead of emitting a bare success
+      // line: on a fresh install every dynamic source is empty by construction,
+      // and a 28-byte "ready" was indistinguishable from the loaders working
+      // (public issue #1712, @jacobo-ortiz). Presence is not delivery.
+      const emptySources: string[] = [];
+      if (isDynamicEnabled(settings, 'relationshipContext')) emptySources.push('relationship-notes');
+      if (isDynamicEnabled(settings, 'learningReadback')) emptySources.push('wisdom-frames');
+      if (isDynamicEnabled(settings, 'advisoryReadback')) emptySources.push('advisory-findings');
+      const note = emptySources.length
+        ? ` (no dynamic context yet — enabled sources empty: ${emptySources.join(', ')})`
+        : '';
+      console.log(`\n✅ LifeOS session ready...${note}`);
     }
 
     // Active work summary

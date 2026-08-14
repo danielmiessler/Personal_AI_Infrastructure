@@ -29,7 +29,10 @@ import { PageShell, PageHeader, Panel, PanelHeader, StatTile, Pill } from "@/com
 // ────────── Types ──────────
 
 interface HomeData {
-  oneSentence: string;
+  oneSentence: string | null;
+  updated?: string | null;
+  updatedBy?: string | null;
+  domains?: Array<{ name: string; summary: string; body: string }>;
   current: {
     mood?: string;
     energy?: string;
@@ -221,11 +224,11 @@ function DomainCard({
     <Link href={href} className="h-full">
       <Panel hover className={`h-full group flex flex-col gap-2${pulse ? " pulse" : ""}`} style={{ borderLeft: `3px solid ${color}` }}>
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Icon className="w-4 h-4" color={color} />
-            <h2 className="text-[14px] font-medium uppercase tracking-wider text-ink-3">{title}</h2>
+          <div className="flex items-center gap-2 min-w-0">
+            <Icon className="w-4 h-4 shrink-0" color={color} />
+            <h2 className="text-[14px] font-medium uppercase tracking-wider text-ink-3 whitespace-nowrap truncate">{title}</h2>
           </div>
-          <ArrowUpRight className="w-4 h-4 text-ink-3 transition-colors" />
+          <ArrowUpRight className="w-4 h-4 shrink-0 text-ink-3 transition-colors" />
         </div>
         {headline ? (
           <>
@@ -243,30 +246,73 @@ function DomainCard({
 
 // ────────── Sections ──────────
 
+const DOMAIN_DIMENSION: Record<string, Dimension> = {
+  health: "health",
+  finances: "money",
+  money: "money",
+  relationships: "relationships",
+  "digital assistant": "freedom",
+  work: "creative",
+  business: "creative",
+  rhythms: "rhythms",
+};
+
 function NarrativeBanner({ home }: { home: HomeData | null }) {
   if (!home) return <Panel className="h-24 animate-pulse" />;
   const mood = parseMoodToScore(home.current?.mood);
   const energy = parseRatio(home.current?.energy);
   const focus = home.current?.focus ? 70 : null; // focus depth is categorical — render existence as 70
+  const hasRings = mood !== null || energy !== null || focus !== null;
+  const domains = home.domains ?? [];
   return (
     <Panel className="p-8">
       <div className="flex items-start justify-between gap-8 flex-wrap">
-        <div className="flex-1 min-w-0 max-w-3xl">
-          <div className="text-[13px] uppercase tracking-widest mb-3 text-ink-3">How is life going</div>
-          <p className="text-2xl lg:text-3xl font-medium leading-snug text-ink-1" data-sensitive>
-            {home.oneSentence}
-          </p>
+        <div className="flex-1 min-w-0 max-w-4xl">
+          <div className="text-[13px] uppercase tracking-widest mb-3 text-ink-3">
+            How is life going
+            {home.updated && <span className="ml-3 normal-case tracking-normal">as of {home.updated}{home.updatedBy ? ` · via ${home.updatedBy}` : ""}</span>}
+          </div>
+          {home.oneSentence ? (
+            <p className="text-2xl lg:text-3xl font-medium leading-snug text-ink-1" data-sensitive>
+              {home.oneSentence}
+            </p>
+          ) : domains.length > 0 ? (
+            <div className="space-y-4" data-sensitive>
+              {domains.map(d => {
+                const color = DIMENSION_COLOR[DOMAIN_DIMENSION[d.name.toLowerCase()] ?? "freedom"];
+                return (
+                  <div key={d.name} className="flex items-start gap-4">
+                    <span
+                      className="text-[12px] uppercase tracking-wider shrink-0 w-32 mt-1 font-medium"
+                      style={{ color }}
+                    >
+                      {d.name}
+                    </span>
+                    <p className="text-sm leading-relaxed text-ink-1 min-w-0" title={d.body}>
+                      {d.summary}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-3 italic">
+              No Current State yet — run an interview or add a Current State section to Telos.
+            </p>
+          )}
           {home.current?.top_intent && (
             <p className="mt-4 text-sm text-ink-2" data-sensitive>
               <span>Top intent:</span> {home.current.top_intent}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-6" data-sensitive>
-          <RingMetric label="Mood" score={mood} valueText={home.current?.mood} />
-          <RingMetric label="Energy" score={energy} valueText={home.current?.energy} />
-          <RingMetric label="Focus" score={focus} valueText={home.current?.focus} />
-        </div>
+        {hasRings && (
+          <div className="flex items-center gap-6" data-sensitive>
+            <RingMetric label="Mood" score={mood} valueText={home.current?.mood} />
+            <RingMetric label="Energy" score={energy} valueText={home.current?.energy} />
+            <RingMetric label="Focus" score={focus} valueText={home.current?.focus} />
+          </div>
+        )}
       </div>
       {(home.current?.location || home.current?.sleep_last_night || home.current?.calendar_load) && (
         <div className="mt-6 flex flex-wrap gap-2 text-xs pt-4 border-t border-line-1" data-sensitive>

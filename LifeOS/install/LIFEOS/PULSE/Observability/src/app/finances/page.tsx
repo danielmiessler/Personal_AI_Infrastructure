@@ -149,6 +149,7 @@ interface FinancesDataV2 {
     jsonl_path: string;
   };
   insights?: SpendInsights;
+  currency?: string;
   // v1 legacy fields (still populated)
   accounts?: Section[];
   goals?: Section[];
@@ -183,20 +184,58 @@ interface FinancesDataV2 {
 
 // ─── Formatting ───
 
-function fmtHero(dollars: number | null | undefined): string {
-  const n = Number(dollars) || 0;
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `$${Math.round(n / 1000)}K`;
-  if (n >= 1_000) {
-    const k = n / 1000;
-    return k % 1 === 0 ? `$${k.toFixed(0)}K` : `$${k.toFixed(1)}K`;
+// Deterministic symbols for the currencies LifeOS ships sample data for —
+// checked first so the default ("USD" when [principal].currency is unset)
+// resolves to the exact literal this page always used, independent of the
+// server's ICU/locale environment. Any other ISO 4217 code falls through to
+// Intl as a best-effort lookup.
+// ported from public PR #1777, @takanorinishida and public PR #1801, @prafed
+const CURRENCY_SYMBOL_FALLBACK: Record<string, string> = { USD: "$", JPY: "¥", EUR: "€", GBP: "£" };
+
+function resolveCurrencySymbol(currency: string): string {
+  const known = CURRENCY_SYMBOL_FALLBACK[currency.toUpperCase()];
+  if (known) return known;
+  try {
+    const parts = new Intl.NumberFormat(undefined, { style: "currency", currency }).formatToParts(0);
+    return parts.find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
   }
-  return `$${Math.round(n).toLocaleString()}`;
 }
 
-function fmtExact(dollars: number | null | undefined): string {
-  const n = Number(dollars) || 0;
-  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+// Module-level rather than component state: fmtHero is also called from
+// SankeyNode, a plain function recharts invokes directly (not a component in
+// the tree), so it has no access to hooks or props threaded from FinancesPage.
+// Defaults to "$" — the literal every version of this page has rendered — so
+// an install with no [principal].currency configured, or a request that
+// hasn't resolved yet, is byte-identical to before currency support existed.
+let currencySymbol = "$";
+
+function setCurrency(currency: string | undefined | null): void {
+  currencySymbol = resolveCurrencySymbol(currency || "USD");
+}
+
+function fmtHero(amount: number | null | undefined): string {
+  const n = Number(amount) || 0;
+  // Threshold on magnitude, not the signed value. A negative net is a real,
+  // common case here (the card renders red ink when spending exceeds income),
+  // and it missed every `>=` check, falling through to the unabridged digit
+  // string — "$-2,120,000" sitting next to a sibling KPI reading "$2.1M".
+  // ported from public PR #1778, @takanorinishida
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${sign}${currencySymbol}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}${currencySymbol}${Math.round(abs / 1000)}K`;
+  if (abs >= 1_000) {
+    const k = abs / 1000;
+    return k % 1 === 0 ? `${sign}${currencySymbol}${k.toFixed(0)}K` : `${sign}${currencySymbol}${k.toFixed(1)}K`;
+  }
+  return `${sign}${currencySymbol}${Math.round(abs).toLocaleString()}`;
+}
+
+function fmtExact(amount: number | null | undefined): string {
+  const n = Number(amount) || 0;
+  return `${currencySymbol}${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function fmtPct(rate: number | null | undefined): string {
@@ -391,7 +430,7 @@ function IncomeHero({
         <span
           className="text-5xl font-medium tabular-nums"
           style={{ color: "var(--money)", letterSpacing: "-0.02em" }}
-          data-sensitive
+          data-sensitive="strong"
         >
           {fmtHero(data.annual)}
         </span>
@@ -530,7 +569,7 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
             <YAxis
               stroke="var(--ink-3)"
               fontSize={11}
-              tickFormatter={(v) => `$${Math.round(v / 1000)}K`}
+              tickFormatter={(v) => `${currencySymbol}${Math.round(v / 1000)}K`}
             />
             <Tooltip
               contentStyle={{
@@ -1403,7 +1442,10 @@ export default function FinancesPage() {
   useEffect(() => {
     fetch("/api/life/finances")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setData)
+      .then((json: FinancesDataV2) => {
+        setCurrency(json.currency);
+        setData(json);
+      })
       .catch((e) => setError(String(e)));
   }, []);
 

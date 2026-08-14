@@ -14,8 +14,10 @@
 
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
+import { getPrincipalName } from "../../hooks/lib/identity";
 
-const HOME = process.env.HOME!;
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const KNOWLEDGE_DIR = join(HOME, ".claude/LIFEOS/MEMORY/KNOWLEDGE/Blogs");
 const URL_FILE = "/tmp/tlp-urls.txt";
 const FAILED_FILE = "/tmp/tlp-failed.txt";
@@ -474,7 +476,7 @@ function buildArchiveIndex(urls: string[]): string {
   lines.push("## Thesis");
   lines.push("");
   lines.push(
-    "TLP's body of work is one of the most influential cultural-criticism corpora of the late-Web-2.0 era — themes of narcissism, advertising, the disavowal of agency, and the medicalization of identity that became central to {{PRINCIPAL_NAME}}'s own framing. Preserving the full archive locally insulates the corpus against link-rot and makes every essay browsable inside Pulse."
+    `TLP's body of work is one of the most influential cultural-criticism corpora of the late-Web-2.0 era — themes of narcissism, advertising, the disavowal of agency, and the medicalization of identity that became central to ${getPrincipalName()}'s own framing. Preserving the full archive locally insulates the corpus against link-rot and makes every essay browsable inside Pulse.`
   );
   lines.push("");
   lines.push("## Evidence");

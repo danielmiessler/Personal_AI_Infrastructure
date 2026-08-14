@@ -4,7 +4,7 @@ last_updated_by: da
 convention: pai-freshness-v1
 last_reviewed: 2026-05-25T18:45:00Z
 last_reviewed_by: {{PRINCIPAL_NAME}}
-version: 1.1.3
+version: 1.1.4
 ---
 
 # Curation Coverage — what LifeOS autonomic systems touch
@@ -57,9 +57,8 @@ These files are Tier D from the memory subsystem's POV (untouchable by the revie
 | `DOCUMENTATION/ARCHITECTURE_SUMMARY.md` | `LIFEOS/TOOLS/ArchitectureSummaryGenerator.ts` | `DocIntegrity.hook.ts` on SessionEnd | Per session end |
 | `MEMORY/WORK/**/ISA.md` | `hooks/ISASync.hook.ts` | Algorithm phase transitions | Per Edit (debounced 30s) |
 | `MEMORY/LEARNING/**` | `WorkCompletionLearning`, `SatisfactionCapture`, `FailureCapture` hooks | UserPromptSubmit, Stop, tool failures | Per event |
-| `MEMORY/RELATIONSHIP/**` | `RelationshipMemory.hook.ts` | UserPromptSubmit | Per turn (batched) |
 | `MEMORY/WISDOM/**` | `WisdomFrameUpdater`, `WisdomCrossFrameSynthesizer` | Algorithm LEARN phase | Per LEARN; planned monthly cron in P3 |
-| `MEMORY/SECURITY/**` | `SecurityPipeline.hook.ts` | Tool calls | Per event |
+| `MEMORY/SECURITY/**` | `Safety.hook.ts` (PermissionRequest path) | Tool calls | Per event |
 | `MEMORY/OBSERVABILITY/**` | Many hooks (EventLogger, MemoryReviewer, etc.) | Tool events | Continuous |
 | `MEMORY/STATE/work.json` | `hooks/ISASync.hook.ts` | Phase transitions | Per change |
 | `MEMORY/STATE/session-names.json` | `LIFEOS/TOOLS/SessionRename.ts` (manual), `SessionAnalysis` (auto-name) | First prompt at session start; manual rename | One-shot per session |
@@ -79,7 +78,7 @@ These files are Tier D AND have no other writer. {{PRINCIPAL_NAME}} writes direc
 | `USER/BUSINESS/**`, `USER/HEALTH/**`, `USER/FINANCES/**` | Domain-specific, principal-curated |
 | `USER/INTEGRATIONS/*.yaml` | Per-skill config; principal-curated |
 | `USER/WORK/config.yaml` | Work-hub config; principal-curated |
-| `USER/CUSTOMIZATIONS/**`, `USER/SKILLCUSTOMIZATIONS/**` | Per-skill customizations; principal-curated |
+| `USER/CUSTOMIZATIONS/**` | Per-skill customizations; principal-curated |
 | All of `LIFEOS/DOCUMENTATION/` source files (except auto-generated summary) | Architecture docs; principal-curated (the ArchitectureSummary derives FROM these) |
 | `CLAUDE.md`, `LIFEOS_SYSTEM_PROMPT.md` | Constitutional layer; principal-curated |
 | `hooks/`, `skills/`, `Algorithm/`, `Tools/` source | Code; principal-curated (the system has no auto-codegen path) |

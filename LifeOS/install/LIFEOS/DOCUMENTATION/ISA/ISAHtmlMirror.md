@@ -2,7 +2,7 @@
 last_updated: 2026-07-23T00:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.4.6
+version: 1.4.10
 ---
 
 # ISA HTML Mirror
@@ -13,7 +13,7 @@ The ISA is the canonical articulation of "done" for any Algorithm run. It lives 
 
 **The UL Technical theme is the official HTML format for every ISA in the system going forward.** Tokyo-Night-Storm-derived dark navy ground (`--ul-bg-base: #0d1325`), JetBrains Mono throughout, lavender-white type, calm cyan/violet accents, status-pill ISC rows that read "OPEN / DONE / WIP / ANTI / ANTE" at a glance. Lives at `~/.claude/LIFEOS/TOOLS/ISARender/template.css`.
 
-**Lineage.** The theme was specified by the Pulse-side parent design at `MEMORY/WORK/20260513-pulse-ul-theme-2-hackery-dark-blue/ISA.md` (token palette, naming convention, dimension preservation rules) and applied to the ISA mirror surface by `MEMORY/WORK/20260513-isa-html-mirror-redesign-dark-hackery/ISA.md` plus the status-clarity refinement at `MEMORY/WORK/20260513-isa-template-status-clarity-canonize-backfill/ISA.md`.
+**Lineage.** The theme was specified by the Pulse-side parent design (token palette, naming convention, dimension preservation rules) and applied to the ISA mirror surface, plus a status-clarity refinement.
 
 **Replaces.** The prior `UL Engineering Register v2.1.0` (sepia/parchment, EB Garamond) shipped 2026-05-12 and was deprecated 2026-05-13. Every existing `MEMORY/WORK/*/ISA.html` has been backfilled to the new theme; no UL Engineering Register renders remain on disk.
 
@@ -178,5 +178,4 @@ Before the `complete` transition the mirror never fires; after it, the sibling s
 
 - `LIFEOS/DOCUMENTATION/ISA/ISASystem.md` — twelve-section body, five identities, three-guardrail taxonomy
 - `LIFEOS/DOCUMENTATION/ISA/ISAFormat.md` — file-shape contract (frontmatter spec, locked section order)
-- `LIFEOS/ALGORITHM/v8.17.3.md` — the algorithm that produces ISAs, phase progression source
-- `LIFEOS/MEMORY/WORK/20260512-isa-html-mirror-system/ISA.md` — the ISA that designed this system
+- `LIFEOS/ALGORITHM/v8.20.2.md` — the algorithm that produces ISAs, phase progression source

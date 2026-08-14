@@ -21,6 +21,22 @@ import { getIdentity } from '../../hooks/lib/identity';
 
 const DA_IDENTITY = getIdentity();
 
+// Voice-line (🗣️) extraction patterns, in trust order (issue #1829 + the
+// 2026-08-14 landed-set security review). The NAME-ANCHORED pattern is tried
+// first — quoted third-party content can carry a 🗣️ marker, and what matches
+// here gets SPOKEN, so the configured identity stays the primary anchor. The
+// generic pattern (any ≤32-char name, colon REQUIRED) is a fallback for the
+// misconfigured-name case only, and never fires when the anchored form matched.
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function voiceLinePatterns(): RegExp[] {
+  const pats: RegExp[] = [];
+  if (DA_IDENTITY.name) {
+    pats.push(new RegExp(`🗣️\\s*\\*{0,2}${escapeRe(DA_IDENTITY.name)}:\\*{0,2}\\s*(.+?)(?:\\n|$)`, 'gi'));
+  }
+  pats.push(new RegExp(`🗣️\\s*\\*{0,2}[^:\\n]{1,32}:\\*{0,2}\\s*(.+?)(?:\\n|$)`, 'gi'));
+  return pats;
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -194,7 +210,7 @@ export function extractVoiceCompletion(text: string): string {
 
   // Use global flag and find LAST match (voice line is at end of response)
   const completedPatterns = [
-    new RegExp(`🗣️\\s*\\*{0,2}${DA_IDENTITY.name}:?\\*{0,2}\\s*(.+?)(?:\\n|$)`, 'gi'),
+    ...voiceLinePatterns(),
     /🎯\s*\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/gi,
   ];
 
@@ -226,7 +242,7 @@ export function extractCompletionPlain(text: string): string {
 
   // Use global flag and find LAST match (voice line is at end of response)
   const completedPatterns = [
-    new RegExp(`🗣️\\s*\\*{0,2}${DA_IDENTITY.name}:?\\*{0,2}\\s*(.+?)(?:\\n|$)`, 'gi'),
+    ...voiceLinePatterns(),
     /🎯\s*\*{0,2}COMPLETED:?\*{0,2}\s*(.+?)(?:\n|$)/gi,
   ];
 
@@ -275,7 +291,7 @@ export function extractStructuredSections(text: string): StructuredResponse {
     results: /✅\s*RESULTS:\s*(.+?)(?:\n|$)/i,
     status: /📊\s*STATUS:\s*(.+?)(?:\n|$)/i,
     next: /➡️\s*NEXT:\s*(.+?)(?:\n|$)/i,
-    completed: new RegExp(`(?:🗣️\\s*${DA_IDENTITY.name}:|🎯\\s*COMPLETED:)\\s*(.+?)(?:\\n|$)`, 'i'),
+    completed: new RegExp(`(?:🗣️\\s*[^:\\n]{1,32}:|🎯\\s*COMPLETED:)\\s*(.+?)(?:\\n|$)`, 'i'),
   };
 
   for (const [key, pattern] of Object.entries(patterns)) {

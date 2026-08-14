@@ -17,8 +17,9 @@
 import { join, resolve } from "path"
 import { copyFileSync, existsSync, mkdirSync } from "fs"
 import { PULSE_BASE } from "./endpoint"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? "~"
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
 const PULSE_DIR = join(LIFEOS_DIR, "PULSE")
 
@@ -138,7 +139,7 @@ async function setupGitHubApp(workerName: string): Promise<{
   console.log(`
   Create a GitHub App for this worker:
   1. Go to: https://github.com/settings/apps/new
-  2. App name: pai-worker-${workerName}
+  2. App name: lifeos-worker-${workerName}
   3. Homepage URL: ${ghHomepage}
   4. Uncheck Webhook (Active)
   5. Permissions:
@@ -168,7 +169,7 @@ async function setupGitHubApp(workerName: string): Promise<{
   console.log(`
   Find your installation ID:
   1. Go to: https://github.com/settings/installations
-  2. Click "Configure" on pai-worker-${workerName}
+  2. Click "Configure" on lifeos-worker-${workerName}
   3. The URL ends with /installations/XXXXX — that number is the ID
   `)
 
@@ -269,7 +270,7 @@ enabled = true
     `GITHUB_INSTALLATION_ID=${opts.installationId}`,
     ``,
     `# Anthropic`,
-    `# ANTHROPIC_API_KEY=sk-ant-...`,
+    `# ANTHROPIC_API_KEY=<your-anthropic-key>`,
     ``,
   ]
 
@@ -284,101 +285,14 @@ enabled = true
   ok(".env written")
 }
 
-// ── Step 5: Local HTTPS Setup (hosts file + mkcert) ──
-
-async function setupLocalHTTPS(): Promise<void> {
-  heading("Step 5: Local HTTPS (mkcert)")
-
-  // Check if 'pai' hostname is in /etc/hosts
-  const hostsContent = await Bun.file("/etc/hosts").text()
-  const hasLifeosHost = /^\s*127\.0\.0\.1\s+.*\bpai\b/m.test(hostsContent)
-
-  if (!hasLifeosHost) {
-    console.log(`
-  The 'pai' hostname needs to be added to /etc/hosts.
-  This requires sudo. The following line will be appended:
-
-    127.0.0.1\tpai
-  `)
-    const confirm = await prompt("Add 'pai' to /etc/hosts? (y/n):")
-    if (confirm.toLowerCase() === "y") {
-      const proc = Bun.spawn(["sudo", "bash", "-c", `echo '127.0.0.1\tpai' >> /etc/hosts`], {
-        stdout: "inherit",
-        stderr: "inherit",
-        stdin: "inherit",
-      })
-      const code = await proc.exited
-      if (code === 0) {
-        ok("Added 'pai' to /etc/hosts")
-      } else {
-        warn("Failed to update /etc/hosts — add manually: 127.0.0.1  pai")
-      }
-    } else {
-      warn("Skipped — add manually: echo '127.0.0.1  pai' | sudo tee -a /etc/hosts")
-    }
-  } else {
-    ok("'pai' hostname already in /etc/hosts")
-  }
-
-  // Check for mkcert
-  const whichProc = Bun.spawn(["which", "mkcert"], { stdout: "pipe", stderr: "pipe" })
-  const whichCode = await whichProc.exited
-
-  if (whichCode !== 0) {
-    console.log(`
-  mkcert is needed for local HTTPS. Installing via Homebrew...
-  `)
-    const brewProc = Bun.spawn(["brew", "install", "mkcert"], {
-      stdout: "inherit",
-      stderr: "inherit",
-    })
-    const brewCode = await brewProc.exited
-    if (brewCode !== 0) {
-      warn("Failed to install mkcert — install manually: brew install mkcert")
-      warn("Then run: mkcert -install && cd Pulse/certs && mkcert pai localhost 127.0.0.1")
-      return
-    }
-  }
-  ok("mkcert available")
-
-  // Install local CA into system trust store
-  console.log("\n  Installing local CA into system trust store...")
-  const caProc = Bun.spawn(["mkcert", "-install"], {
-    stdout: "inherit",
-    stderr: "inherit",
-  })
-  await caProc.exited
-  ok("Local CA installed in system trust store")
-
-  // Generate certs
-  const certsDir = join(PULSE_DIR, "certs")
-  const certPath = join(certsDir, "pai+2.pem")
-
-  if (existsSync(certPath)) {
-    ok("TLS certificates already exist")
-  } else {
-    mkdirSync(certsDir, { recursive: true })
-    const certProc = Bun.spawn(["mkcert", "pai", "localhost", "127.0.0.1"], {
-      cwd: certsDir,
-      stdout: "inherit",
-      stderr: "inherit",
-    })
-    const certCode = await certProc.exited
-    if (certCode === 0) {
-      ok("TLS certificates generated for: pai, localhost, 127.0.0.1")
-      ok(`Cert: ${join(certsDir, "pai+2.pem")}`)
-      ok(`Key:  ${join(certsDir, "pai+2-key.pem")}`)
-      ok("Expires in 2 years — regenerate with: cd Pulse/certs && mkcert pai localhost 127.0.0.1")
-    } else {
-      warn("Failed to generate certificates")
-    }
-  }
-}
-
-// ── Step 6: Install launchd Service ──
+// ── Step 5: Install launchd Service ──
+// (The former Step 5 "Local HTTPS (mkcert)" was removed 2026-08-10: Pulse's TLS
+// support was retired (pulse.ts marks the tls config "unused — TLS removed"), so
+// the hosts entry and mkcert certificates it generated served nothing — a dead
+// flow that also shipped a retired-brand hostname string. Max payload audit W5.)
 
 async function installService(force = false): Promise<void> {
-  heading("Step 6: Installing launchd Service")
+  heading("Step 5: Installing launchd Service")
 
   // Create directories
   for (const dir of ["state", "logs"]) {
@@ -419,10 +333,10 @@ async function installService(force = false): Promise<void> {
   }
 }
 
-// ── Step 7: Health Check ──
+// ── Step 6: Health Check ──
 
 async function healthCheck(): Promise<void> {
-  heading("Step 7: Health Check")
+  heading("Step 6: Health Check")
 
   // Wait for Pulse to start
   await Bun.sleep(3_000)
@@ -483,7 +397,6 @@ ${"═".repeat(50)}`)
     force,
   })
 
-  await setupLocalHTTPS()
   await installService(force)
   await healthCheck()
 

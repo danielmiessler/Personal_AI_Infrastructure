@@ -20,7 +20,7 @@ const HOME = process.env.HOME ?? homedir();
 const CLAUDE_ROOT = join(HOME, ".claude");
 const DEFAULT_DENY_LIST_PATH = join(CLAUDE_ROOT, "LIFEOS/USER/SECURITY/DENY_LIST.txt");
 // USER/SECURITY, not skills/_LIFEOS: on a public install, running the shipped
-// DeriveDenyHashes used to CREATE skills/_LIFEOS/, whose existence is exactly
+// DeriveDenyHashes used to CREATE <your-release-skill>/, whose existence is exactly
 // the detectDevTree marker that disables seven installer tools (public issue
 // #1689, @christauff).
 const DEFAULT_HASHES_PATH = join(CLAUDE_ROOT, "LIFEOS/USER/SECURITY/DENY_HASHES.json");

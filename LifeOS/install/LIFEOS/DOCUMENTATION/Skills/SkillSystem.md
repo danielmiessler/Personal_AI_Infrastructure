@@ -4,7 +4,7 @@ last_updated_by: da
 last_reviewed: 2026-07-02
 last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.6.2
+version: 1.6.3
 ---
 
 # Custom Skill System
@@ -92,7 +92,7 @@ ls -1 ~/.claude/skills/ | grep '^_'      # Private (_ALLCAPS)
 ```
 
 **Pattern for per-user layering in public skills:**
-A public skill can be templated to load runtime customizations from `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/PREFERENCES.md`. The skill body stays generic; the customization file overlays per-instance context. **Do not use SKILLCUSTOMIZATIONS to smuggle private content into a public skill** — if the skill *requires* private context to function, it must be renamed `_ALLCAPS`.
+A public skill can be templated to load runtime customizations from `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/<SkillName>/PREFERENCES.md`. The skill body stays generic; the customization file overlays per-instance context. **Do not use CUSTOMIZATIONS/SKILLS to smuggle private content into a public skill** — if the skill *requires* private context to function, it must be renamed `_ALLCAPS`.
 
 **NEVER hardcode personal data in public skills.**
 
@@ -171,8 +171,8 @@ description: "What this customization adds"
 
 | Content Type | Location | Example |
 |--------------|----------|---------|
-| User preferences | `SKILLCUSTOMIZATIONS/{Skill}/PREFERENCES.md` | Art style, color palette |
-| Named configurations | `SKILLCUSTOMIZATIONS/{Skill}/[name].md` | Character specs, voice configs |
+| User preferences | `CUSTOMIZATIONS/SKILLS/{Skill}/PREFERENCES.md` | Art style, color palette |
+| Named configurations | `CUSTOMIZATIONS/SKILLS/{Skill}/[name].md` | Character specs, voice configs |
 | Skill logic | `skills/{Skill}/SKILL.md` | Generic, shareable skill code |
 
 ### Creating a Customization

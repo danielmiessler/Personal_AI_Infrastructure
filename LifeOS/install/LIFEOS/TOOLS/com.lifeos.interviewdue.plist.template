@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.lifeos.interviewdue.plist.template - Source template. Install via:
+    bun ~/.claude/LIFEOS/TOOLS/InstallInterviewDue.ts
+  Runs InterviewDue refresh daily at 07:10 (plus once at load): rebuilds the
+  state-evidence, freshness, and interview-due caches that feed the statusline
+  interview chip. Cache writes only - never touches claims files. The installer
+  substitutes placeholders, writes the materialized plist to
+  ~/Library/LaunchAgents/, and bootstraps it with launchctl. This template
+  stays clean of principal-specific paths so it ships in the public release.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lifeos.interviewdue</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{BUN}}</string>
+    <string>{{HOME}}/.claude/LIFEOS/TOOLS/InterviewDue.ts</string>
+    <string>--refresh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>7</integer>
+    <key>Minute</key>
+    <integer>10</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/interview-due.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/interview-due.log</string>
+  <key>WorkingDirectory</key>
+  <string>{{HOME}}/.claude</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{BUN_DIR}}:{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>{{HOME}}</string>
+  </dict>
+</dict>
+</plist>

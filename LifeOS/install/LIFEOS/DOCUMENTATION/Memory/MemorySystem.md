@@ -1,8 +1,8 @@
 ---
-last_updated: 2026-08-01T00:00:00Z
+last_updated: 2026-08-02T00:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 2.0.0
+version: 2.1.5
 status: named-and-documented
 ---
 
@@ -39,8 +39,7 @@ Hook Events trigger domain-specific captures:
     ├── Algorithm (AI) → WORK/
     ├── SatisfactionCapture → LEARNING/SIGNALS/
     ├── WorkCompletionLearning → LEARNING/
-    ├── RelationshipMemory → RELATIONSHIP/
-    ├── EventLogger (tool-activity / tool-failures / config-changes) / TeammateIdle → OBSERVABILITY/
+    ├── EventLogger (tool-activity / tool-failures / config-changes) → OBSERVABILITY/
     ├── Pulse voice handler → VOICE/
     └── SecurityPipeline → SECURITY/
     ↓
@@ -56,11 +55,27 @@ Harvesting (periodic):
     └── WisdomCrossFrameSynthesizer → WISDOM/PRINCIPLES/ (cross-frame principles)
     ↓
 Retrieval & Navigation (on-demand):
-    ├── MemoryRetriever → compressed context from KNOWLEDGE/ (BM25 search + LLM compression)
+    ├── MemoryRetriever → compressed context from KNOWLEDGE/ + LEARNING/ (BM25 search + LLM compression)
     └── KnowledgeGraph → associative traversal over KNOWLEDGE/ (tags + wikilinks + related fields)
 ```
 
 **Key insight:** Hooks write directly to specialized directories. There is no intermediate "firehose" layer — Claude Code's `projects/` serves that purpose natively. Retrieval tools read the same markdown files without any intermediate index or database.
+
+### Portable local Cortex contract (v1)
+
+`LIFEOS/TOOLS/Cortex.ts` exposes Cortex as a versioned, agent-neutral local Bun CLI. The implemented commands are `status`, `search`, `timeline`, `get`, `export`, `rebuild`, `remember`, and `propose`. Read commands use progressive disclosure: search and timeline return compact cards (`id`, type, dates, provenance, score, estimated fetch tokens), while get/export return full sanitized content only for explicit IDs. Filters cover type, source, session, and created-date ranges; listings report exact totals and deterministic pagination; optional recency weighting and graph expansion are caller-selected and resource-bounded.
+
+Every command emits one `lifeos-cortex/v1` JSON envelope. The published schema is `LIFEOS/TOOLS/schemas/lifeos-cortex-v1.schema.json`; semantic exits distinguish success (0), internal failure (1), not found (3), invalid input/integrity (4), and write or governance refusal (5). Options are strict: unknown, duplicate, missing-value, or command-inapplicable options fail rather than being ignored.
+
+`LIFEOS/TOOLS/CortexAdapter.ts` ships the in-process adapter factory for `claude`, `hermes`, `codex`, and `subagent`. Adapter calls are read-only by default: every remember/propose call must individually opt in with `{allowWrite:true}`, corresponding to the CLI's explicit recognized `--adapter` plus `--allow-write`. Command/type binding is enforced before dispatch: `remember` accepts `memory|idea|knowledge`; `propose` accepts only `proposal`. Authorized items then delegate to `MemorySystem.add()` so the existing mutation tiers, proposal approval, target pinning, audit trail, snapshots, and shrink guard remain authoritative. `export` is read-only stdout serialization, not a filesystem writer.
+
+Canonical Markdown/JSONL remains the source of truth. Cortex allows the intentional top-level `LIFEOS/MEMORY` symlink, resolves and pins its canonical target, and rejects nested symlinks or escapes. The shipped `LIFEOS/CORTEX_INDEX_POLICY.json` affirmatively declares `no-index-v1`: BM25 reads canonical files, `status` reports no indexes, and `rebuild --from-canonical` produces equal deterministic SHA-256 record-view digests without creating an index. A missing policy plus missing manifest warns rather than silently turning green. There is no CMEM, Chroma, SQLite FTS, vector index, cloud sync, external telemetry, MCP server, or Cortex daemon.
+
+`CaptureEnvelope.ts` provides the concrete `ingestCaptureEnvelope(input, consumer)` helper, which sanitizes through `createCaptureEnvelope` before invoking the consumer. It is source-neutral. Both legacy transcript capture writers are envelope-migrated (2026-08-03): `MemoryReviewer.ts` ingests transcript text via `transcriptCaptureEnvelope` and `SessionHarvester.ts` via its `ingestTranscriptText` boundary, each binding source/channel/captured_at/session provenance and making private-span stripping structural; harvester outputs (harvest-queue JSON, LEARNING files) carry that provenance. Probes: `test/tools/cortex/writers.test.ts`. The versioned benchmark imports the production validity/ranking/card functions, shares one ranking between full-fetch and card-first disclosure paths, and can write only an explicit versioned report under `MEMORY/BENCHMARKS/`. The verified live artifact is `LIFEOS/MEMORY/BENCHMARKS/cortex-benchmark-v1-20260802.json`; see the contract for its point-in-time metrics and non-claims.
+
+The privacy boundary removes case-insensitive, nested `<private>...</private>` spans before reviewer inference/debug artifacts, typed persistence, canonical ranking, get, export, and rebuild; unclosed opening tags fail closed. Validity is `valid_from` inclusive and `valid_until` exclusive, with malformed windows excluded. **Native harness transcripts may retain `<private>` content outside Cortex's control for the documented 30-day retention period**: Cortex leaves transcript bytes untouched and sanitizes its controlled copy. This is not transcript redaction.
+
+Full command syntax, limits, privacy scope, benchmark method, vector evidence gate, and truthful health thresholds: [`CortexContract.md`](./CortexContract.md).
 
 ---
 
@@ -70,7 +85,7 @@ The autonomic mutation loop sits on top of the existing Memory subsystem invento
 
 **Health gate & per-turn indicator (2026-05-24 addendum):**
 
-- `LIFEOS/TOOLS/MemoryHealthCheck.ts` — 22-check CLI. Verifies hook files on disk, hooks registered in BOTH `settings.system.json` AND `settings.json` (catches the regression class where edits to the derived file silently revert at SessionStart), state file readable, last reviewer fire within 7 days, at least one historical reviewer run captured, both `_MEMORY.md` files present. Exit 0/1/2 = ok/warn/critical. Writes per-invocation row to `MEMORY/OBSERVABILITY/memory-health.jsonl`.
+- `LIFEOS/TOOLS/MemoryHealthCheck.ts` — evidence-driven CLI. Verifies hook files and registrations in BOTH `settings.system.json` AND `settings.json`, state and hot-layer files, reviewer/retrieval evidence, proposal backlog, observability retention, and optional-index integrity. The JSON report includes measured evidence and effective thresholds; exit 0/1/2 = ok/warn/critical. Missing evidence never produces green. Writes a per-invocation row to `MEMORY/OBSERVABILITY/memory-health.jsonl`.
 - `hooks/MemoryHealthGate.hook.ts` — Stop-chain hook running the check on every turn end. WARN/CRITICAL surfaces to stderr. Non-blocking.
 - `<lifeos-memory-delta>` additionalContext block — `MemoryDeltaSurface.hook.ts` (invoked at UserPromptSubmit by `MemoryTurnStart.hook.ts`) emits it **change-only** as one verbatim `🧠 MEMORY` line, and adds `<lifeos-memory-health>` when the latest `memory-health.jsonl` row is CRITICAL. (`MemoryReviewTrigger`'s every-UserPromptSubmit `<autonomic-memory>` frozen banner — which carried `turns_since_last_review`, `pending_review`, `last_review_*`, `cadence`, etc. — was retired/merged 2026-07-11; see Superseded.)
 - Render contract in `LIFEOS/LIFEOS_SYSTEM_PROMPT.md` (v3.0.0, one-format): the DA renders the hook-fed `🧠 MEMORY:` line verbatim when a `<lifeos-memory-delta>` block is present that turn, omits it otherwise — change-only; the model never computes the line. (The seven-state every-turn render table retired with the NATIVE mode template, 2026-07-11.)
@@ -134,20 +149,20 @@ Defined in `LIFEOS/TOOLS/MutationTier.ts` — code-only allowlist, default-deny 
 - **`LIFEOS/TOOLS/MemoryTypes.ts`** — type registry. Resolvers for storage path per item.
 - **`LIFEOS/TOOLS/MemoryWriter.ts`** — set-overwrite primitive for Tier A memory files. Atomic rename, lock sidecar, prefix soft-convention, dedupe, cap enforcement.
 - **`LIFEOS/TOOLS/MemorySystem.ts`** — the single public API. `add(item)` routes by type; `find(query, options)` returns BM25 top-K.
-- **`LIFEOS/TOOLS/MemoryRetriever.ts`** — BM25 retriever over the typed-item corpus including the two hot-layer memory files. Pure-function, no LLM call, ~30ms over 500+ notes.
+- **`LIFEOS/TOOLS/MemoryRetriever.ts`** — BM25 retriever over the typed-item corpus: KNOWLEDGE notes, the `LEARNING/` tree, and the two hot-layer memory files. Pure-function, no LLM call. Every hit carries a `noteClass` (`knowledge` / `learning` / `memory`) and learning notes score at 0.7x so historical records never outrank curated knowledge on an equal match (public issue #1776, @umair-a11y). The CLI searches all of LEARNING (~12k notes); the per-turn hot path takes a recency-bounded slice (`HOT_PATH_LEARNING_LIMIT`, currently 500) because LEARNING is ~8x the KNOWLEDGE corpus and grows monotonically — measured ~207ms per call against ~138ms for KNOWLEDGE alone.
 - **`LIFEOS/TOOLS/MemoryReviewer.ts`** — the autonomic centerpiece. Single-pass orchestrator: locate most-recent harness transcript, extract last N exchanges, call `Inference.ts` (Sonnet, env-scrubbed subscription billing, `--tools ""`), parse `{items:[...]}` JSON, route each typed item through `MemorySystem.add()`.
 - **`LIFEOS/TOOLS/MutationTier.ts`** — tier classifier. Pure function, no config file (code-only allowlist).
 - **`LIFEOS/TOOLS/MemoryStatus.ts`** — read-only memory-status viewer for terminal use.
 - **`hooks/MemoryReviewFire.hook.ts`** — Stop handler, v2 (2026-07-11: tick + decide + fire in one pass; absorbed the MemoryReviewTrigger cadence gate). Increments turn count, sets `pending_review=true` when cadence gates fire.
 - **`LIFEOS/PULSE/lib/lifeos-context.ts`** — `buildLifeosContextBlock()` adds `## PRINCIPAL MEMORY` and `## DA MEMORY` blocks to the per-turn LifeOS CONTEXT injection (mtime-cached 60s).
-- **`LIFEOS/PULSE/lib/memory-proposals.ts`** — proposal queue API (renamed from `telegram-proposals.ts`, same API); surfaces Tier-C proposals on the Pulse dashboard and the inline 🧠 MEMORY line for accept/reject/edit. High-confidence (≥ 0.70) proposals still auto-apply.
+- **`LIFEOS/PULSE/lib/memory-proposals.ts`** — proposal queue API (renamed from `telegram-proposals.ts`, same API); surfaces Tier-C proposals on the Pulse dashboard and the inline 🧠 MEMORY line, and owns the four decision writers (accept / reject / edit / applied-elsewhere) plus `TERMINAL_STATUSES`. High-confidence (≥ 0.70) proposals still auto-apply; everything below the threshold is resolved by a human through `bun LIFEOS/TOOLS/ProposalDecide.ts`, which any Pulse or Hermes surface can wrap.
 
 ### Reviewer cadence
 
-State at `MEMORY/OBSERVABILITY/review-state.json`. Trigger conditions are AND-gated; defaults in `USER/CONFIG/memory-review.json`:
+Cadence state is **per session** at `MEMORY/STATE/memory-review/<session_id>.json`, so concurrent sessions cannot reset or starve each other's turn counter (public issue #1711, @jacobo-ortiz). `MEMORY/OBSERVABILITY/review-state.json` is still written every Stop as a mirror for the statusline, `MemoryStatus.ts`, `MemoryHealthCheck.ts` and Pulse; its `last_review_at` is the load-bearing global clock, its turn count is display-only. Stale per-session files are pruned after 7 days. Trigger conditions are AND-gated; defaults in `USER/CONFIG/memory-review.json`:
 
-- `turn_count >= 8` AND
-- `minutes_since_last_review >= 30` AND
+- `turn_count >= 8` — **per session** (has this conversation moved enough to be worth reviewing?) AND
+- `minutes_since_last_review >= 30` — **global across sessions** (the inference-volume guard; a per-session cap would let N sessions run N reviews per window) AND
 - `idle_minutes >= 2`
 
 When all three hold, the next Stop hook spawns the reviewer subprocess. New UserPromptSubmit before Stop cancels (debounce — Honcho's dream-scheduler pattern, vendored).
@@ -181,7 +196,7 @@ Reports hot-layer file utilization, corpus sizes, pending-proposals depth, revie
 
 ## Curation + Visibility + Recoverability (2026-06-06, Hermes/Honcho parity — CANONICAL)
 
-Source ISA: `LIFEOS/MEMORY/WORK/20260605-203000_memory-alive-hermes-curation/ISA.md`. This supersedes the prior 2026-05-28 `<autonomic-memory>` banner and the every-turn heartbeat-enforcement approach (both are gone — see *Superseded* below).
+This supersedes the prior 2026-05-28 `<autonomic-memory>` banner and the every-turn heartbeat-enforcement approach (both are gone — see *Superseded* below).
 
 The autonomic loop now genuinely **adjusts** and is **visible**, fixing the two defects that made the prior build look complete while it was silently frozen.
 
@@ -191,7 +206,7 @@ The reviewer runs in **curation mode**: it reads the file's CURRENT entries (`re
 
 ### Data-loss guard (in-lock)
 
-set-overwrite has a whole-file blast radius. `MemoryWriter.setEntries` computes a **catastrophic-shrink guard IN-LOCK** (against the just-read prior state, race-free): it blocks a result that is near-empty (`< 3` entries) OR a mass deletion (`>50%` dropped) **with zero additions**, while ALLOWING honest large consolidation (many drops accompanied by additions). `ESUSPECT_SHRINK` is the error; `allowDrastic` opts out for legitimate restores. (This guard exists because a cross-vendor audit wiped the live file with an empty `op:"set"` — it's now structurally impossible.)
+set-overwrite has a whole-file blast radius. `MemoryWriter.setEntries` computes a **catastrophic-shrink guard IN-LOCK** (against the just-read prior state, race-free): it blocks a result that is near-empty (`< 3` entries) OR a mass deletion (`>50%` dropped) **with zero additions**, while ALLOWING honest large consolidation (many drops accompanied by additions). `ESUSPECT_SHRINK` is the error; `allowDrastic` opts out for legitimate restores. (This guard exists because a cross-vendor audit wiped the live file with an empty `op:"set"` — it's now structurally impossible.) A second in-lock guard catches **slow erosion** (public issue #1761, @jacobo-ortiz): a single write that net-drops 2+ entries returns `ESUSPECT_EROSION` and logs the full delta to the write-log — re-transcription bleed passed the catastrophic checks every time (each write ~10% smaller, each carrying additions) until 12 durable rules died in 48h on a reporter's install. Deliberate consolidation passes with `allowDrastic: true`.
 
 ### Per-write snapshots (recoverability)
 
@@ -211,7 +226,7 @@ Every Tier-A write calls `snapshotBeforeWrite` — the prior file content is cop
 
 ### Health detection
 
-`MemoryHealthCheck.ts` (run on Stop by `MemoryHealthGate.hook.ts`) now also detects the silent-failure class: **cap-pressure** (`≥44/48` → warn) and **reviewer failures** (recent runs with `ok:false`/`parse_ok:false` → warn; any `EAT_CAP` drop in a dispatch → CRITICAL, the real data-loss signal).
+`MemoryHealthCheck.ts` (run on Stop by `MemoryHealthGate.hook.ts`) detects both legacy memory pressure and the evidence-driven Cortex failure classes. Cap pressure at `≥44/48` warns and any `EAT_CAP` dispatch drop is CRITICAL. Independently, the latest reviewer run overrides prior successes: failed, parse-failed, timed-out, malformed, or schema-invalid evidence is CRITICAL; stale or absent evidence warns. Retrieval staleness, proposal backlog, observability retention, and optional-index freshness warn at the thresholds in [`CortexContract.md`](./CortexContract.md), while an invalid or mismatched existing index is CRITICAL. Verified `no-index-v1` remains healthy.
 
 ### Superseded
 
@@ -267,24 +282,24 @@ Verdict: fresh-with-misses
 
 ## Directory Inventory (authoritative)
 
-This is the canonical list of every directory under `~/.claude/LIFEOS/MEMORY/`. The `MemoryDirIntegrity.ts` drift handler (called by `DocIntegrity.hook.ts` on SessionEnd) parses this table and warns whenever the on-disk tree contains a directory not listed here, or this table lists a directory that no longer exists. Add new memory subsystems by adding a row to this table FIRST, then creating the directory.
+This is the canonical list of every directory under `~/.claude/LIFEOS/MEMORY/`. The `MemoryDirIntegrity.ts` drift handler (called by `DocIntegrity.hook.ts` on SessionEnd) parses this table and warns whenever the on-disk tree contains a directory not listed here, or this table lists a directory that is supposed to be there and is not. **Status decides whether absence is drift, and only a recognised Status value grants silence** — see § Status below. Add new memory subsystems by adding a row to this table FIRST, then creating the directory.
 
 | Directory | Class | Status | Purpose | Primary writers |
 |-----------|-------|--------|---------|-----------------|
-| `KNOWLEDGE/` | core | active | Curated knowledge archive (People / Companies / Ideas / Research) | Algorithm LEARN, KnowledgeHarvester, manual `/knowledge add` |
+| `KNOWLEDGE/` | core | active | Curated knowledge archive (People / Companies / Ideas / Research) | Algorithm LEARN, KnowledgeHarvester, manual `/knowledge add` (routes via the Cortex skill) |
 | `WORK/` | core | active | Per-session work directories with ISA.md as source of truth | Algorithm execution, ISASync, SessionCleanup |
 | `LEARNING/` | core | active | Categorized learnings (SYSTEM/ALGORITHM/FAILURES/SYNTHESIS/REFLECTIONS/SIGNALS) | SatisfactionCapture, WorkCompletionLearning, SessionHarvester, FailureCapture, LearningPatternSynthesis |
 | `WISDOM/` | core | active | Level-3 compounding wisdom — FRAMES/, PRINCIPLES/, META/ | Algorithm LEARN, WisdomFrameUpdater, WisdomCrossFrameSynthesizer |
 | `RESEARCH/` | core | active | Agent research outputs and OSINT dossiers | Agent task completions, OSINT workflows |
-| `SECURITY/` | core | active | Security audit events (blocks, confirmations, alerts) | SecurityPipeline.hook.ts |
+| `SECURITY/` | core | active | Security audit events (blocks, confirmations, alerts) | `EventLogger.hook.ts` |
 | `STATE/` | core | active | Ephemeral runtime state (algorithms, sessions, kitty, tab-titles, events.jsonl) | Many hooks; see STATE/ section |
-| `OBSERVABILITY/` | core | active | Structured event/metric JSONL feeds for the Observability pipeline (NOT auto-rotated today; rotation queued with the sensor-loop iteration) | EventLogger (tool-activity/tool-failures/config-changes), TeammateIdle, observability-transport, ComputeGap, CostTracker, syslog (Pulse), HomeSensorDetector, Speedtest |
+| `OBSERVABILITY/` | core | active | Structured event/metric JSONL feeds for the Observability pipeline (NOT auto-rotated today; rotation queued with the sensor-loop iteration) | EventLogger (tool-activity/tool-failures/config-changes), ComputeGap, CostTracker, syslog (Pulse), HomeSensorDetector, Speedtest |
 | `VOICE/` | core | active | Voice notification audit log (ElevenLabs events) | Pulse pulse.ts voice handler |
 | `RELATIONSHIP/` | core | dormant archive | Daily principal↔DA interaction notes, opinions, reflections. Last write 2026-07-08; all three writers retired in the 2026-07-11 hooks-BPE pass (`RelationshipMemory.hook.ts`, `RelationshipReflect.ts`, `OpinionTracker.ts` are gone from disk). Relationship signal is carried by the autonomic memory reviewer now; the tree is kept for recall, not appended to. | (none — read-only archive) |
 | `VERIFICATION/` | core | active | Cross-vendor audit findings (Forge audit mode) | CrossVendorAudit |
-| `TEAMS/` | core | active | Team configuration and membership snapshots | TeammateIdle, manual writes |
+| `TEAMS/` | core | active | Team configuration and membership snapshots | ShadowRelease (release-time snapshot), manual writes |
 | `SKILLS/` | core | active | Skill-execution telemetry log | ShadowRelease (test-shadow-release), skill instrumentation |
-| `SYSTEMUPDATES/` | core | active | Architecture change history | Manual via CreateUpdate.ts |
+| `SYSTEMUPDATES/` | core | active | Architecture change history | `CreateUpdate.ts`, `ActivityParser.ts --generate` |
 | `PLANS/` | core | active | Implementation plan documents (multi-session) | Manual + agent writes |
 | `REFERENCE/` | core | active | Reference materials and specs preserved for recall | Manual writes |
 | `BOOKMARKS/` | core | on-demand | External bookmark state (X/Twitter sync) — created when the skill first runs | the X bookmarks skill's PullBookmarks workflow |
@@ -299,12 +314,31 @@ This is the canonical list of every directory under `~/.claude/LIFEOS/MEMORY/`. 
 | `RAW/` | core | reserved | Reserved capture surface — firehose role retired in v7.0; stub README retained for taxonomy stability | (none active) |
 | `_<skill>/` | skill-private | on-demand | Per-skill private state (e.g. sensor data, device inventory, assessment artifacts) — created when the owning skill first runs; internal schema owned by that skill | the owning skill |
 | `_BROWSER_STATE/` | skill-private | reserved | Legacy browser-skill profile/cookie scratch — that skill retired 2026-07-04; dir retained for taxonomy stability | (none active) |
+| `UPGRADES/` | core | active | System-improvement queue — the PENDING half of the change pipeline (records/) | `LIFEOS/TOOLS/Upgrades.ts`, `SatisfactionCapture.hook.ts` |
+| `BENCHMARKS/` | core | on-demand | Versioned Cortex retrieval benchmark reports — created when a benchmark is run | `LIFEOS/TOOLS/CortexBenchmark.ts` |
 | `PULSE_DATA/` | core | active | Pulse v2 Data Plane materialized JSON (e.g. goals.json + .meta.json) | Pulse adapters via RebuildAll |
 
 **Class definitions:**
 - **core** — top-level LifeOS subsystem; written by core hooks/pipelines; documented in this file.
 - **skill-private** — `_X`-prefixed directory owned by an individual skill named `_X`. Content schema is the skill's responsibility, not the core memory system. The drift hook recognizes any `_`-prefixed dir by this convention — they are NOT enumerated by name here (naming private skills in a shipping doc would leak them); full documentation lives in the owning skill's SKILL.md.
-- **reserved** — directory exists in the taxonomy and ships with public releases (via `ShadowRelease.ts` FLAT_README_ROOTS) but is not currently written by any core component. Either stays reserved or gets removed in a future migration.
+
+### Status
+
+Status is the enforceable half of a row: it tells `MemoryDirIntegrity.ts` whether the directory's ABSENCE is drift. The vocabulary is closed — these four values and nothing else.
+
+| Status | Absence means | Use it when |
+|--------|---------------|-------------|
+| `active` | **drift, reported** | A shipped component writes the directory and it is expected on every install. |
+| `on-demand` | normal | A shipped writer creates the directory on first use; a fresh install has not run it yet. |
+| `dormant archive` | normal | The tree is kept for recall; its writers are retired and nothing appends. |
+| `reserved` | normal | Nothing creates it and nothing reads it. The row must state why it is kept. |
+
+Two properties of the checker follow from this table, and both are deliberate:
+
+- **An unrecognised Status is reported, never exempted.** Before 2026-08-05 any value other than `active` bought silence, so a misspelling and a deliberate exemption were indistinguishable, and the only way to quiet a row was a value nobody had defined.
+- **Status cells are read verbatim, positionally.** A multi-word value like `dormant archive` is legal. It used to drop the whole row out of the parse — which silently removed the directory from the unknown-subsystem check too, so `RELATIONSHIP/` reported as an unknown directory on every run while its own absence went unchecked.
+
+**Governance — reclassification.** A row may not be moved to a silent Status while a shipped component still reads its directory, unless the same change gives that reader an empty state. Silencing the checker is not the same as the subsystem being optional, and a reader that assumes a directory exists will fail on the install where the quieted row let it not exist.
 
 **Adding a memory subsystem:** Add a row above, create the directory with a one-page README, and (if it has structured frequency) add a writer reference to the Hook Integration table below. The drift hook will accept the new directory on next Stop.
 
@@ -341,7 +375,7 @@ This is the actual "firehose" — every message, tool call, and response. LifeOS
 **Format:** Markdown files with a single flat, typed **kb-v3 frontmatter envelope** — `id`, `type`, `title`, `tags`, `status`, `quality`, `source_name`/`source_url`/`source_author`/`source_date`/`source_kind`/`source_session`, `created`/`updated`, typed `related`, `convention: kb-v3`. The contract lives in `LIFEOS/TOOLS/KnowledgeSchema.ts` (single source of truth); `_schema.md` is GENERATED from it via `GenerateKnowledgeSchemaDoc.ts`.
 **Purpose:** Browsable, organized, AND queryable archive of entities we'd look up by name — harvested from sessions and manual captures
 
-**5 object types:** People, Companies, Ideas, **Blogs** (archived external posts — ~85% of the corpus), Research. `type: X` on disk; topic is a tag. (Bookmarks are `status: inbox` + `source_kind: bookmark`, not a 6th type.)
+**5 object types:** People, Companies, Ideas, **Blogs** (archived external posts — the large majority of the corpus), Research. `type: X` on disk; topic is a tag. (Bookmarks are `status: inbox` + `source_kind: bookmark`, not a 6th type.)
 **The lookup test:** "Would {{PRINCIPAL_NAME}} look this up by name?" — if yes, it's knowledge. If not, it belongs in WORK/ or LEARNING/.
 **Research vs. Ideas:** If it involved multiple sources, parallel investigation, verification, and produced a comprehensive dataset — it's research. A single insight or thesis is an idea. Research entries link to full output in WORK/.
 **What doesn't belong:** Task logs, algorithm reflections, ISA checklists, verification stubs → WORK/ and LEARNING/, not KNOWLEDGE/
@@ -352,10 +386,14 @@ This is the actual "firehose" — every message, tool call, and response. LifeOS
 
 **Key principle:** Algorithm LEARN phase writes directly with proper schemas (best context to capture what was learned). Harvester validates against schema and handles maintenance. Topic (security, AI, business) is a tag on the entity, not a separate domain.
 
+**The Cortex skill (2026-08-13):** all interactive memory operations live in ONE consolidated public skill, `skills/Cortex` — the eleven archive operations (status, search, add, harvest, develop, ingest, contradictions, graph, retrieve, mine, distill) plus `recall` (prior sessions/ISAs/conversations via `skills/Cortex/Tools/ContextSearch.ts`, `/cs`). The standalone Knowledge and ContextSearch skills are retired; `/knowledge …` triggers still route here. Consolidation grain: one skill per named subsystem, never a mega-skill.
+
+**Distill (2026-08-13):** the weekly read-out lane — the archive was write-heavy/read-rarely, so `com.lifeos.distill` (Sun 09:00, also `/knowledge distill`) harvests the week's notes into a ≤10-item cited digest at `MEMORY/DIGESTS/`, routing each item to the system of record that owns it: content candidates → labeled work-repo issues, system improvements → the Upgrades store, archive health → report-only. Distill is a router, not a destination — it never mints or edits KNOWLEDGE notes, and `MEMORY/STATE/distill.json` guarantees nothing surfaces twice. Engine: `LIFEOS/TOOLS/KnowledgeDistill.ts` (gather/mark/run/status; headless synthesis via `Inference.ts`); per-install destinations in `USER/CUSTOMIZATIONS/SKILLS/Cortex/DistillConfig.json`.
+
 **kb-v3 schema toolchain (2026-07-05):** the archive migrated from three competing frontmatter dialects (v2.0 / pai-memory-v1 / an undocumented blog-import dialect) onto ONE enforced contract. The toolchain lives in `LIFEOS/TOOLS/`:
 - **`KnowledgeSchema.ts`** — pure-data source of truth (Core Envelope + per-type required fields + relation vocab) + body-safe parse/normalize/validate. Deliberately separate from the memory-WRITE registry in `MemoryTypes.ts` (that's `memory|idea|knowledge|proposal`; this is the archive object-schema `person|company|idea|blog|research`).
 - **`KnowledgeLint.ts`** — conformance validator, splitting envelope-conformance (~100%) from per-type source completeness. Karpathy's "Lint," made real.
-- **`MigrateKnowledge.ts`** — the idempotent, body-byte-preserving migration that brought all ~4,400 notes onto kb-v3 (dry-run default; deterministic ids; reversible via git in the user-data repo).
+- **`MigrateKnowledge.ts`** — the idempotent, body-byte-preserving migration that brought the full archive (thousands of notes) onto kb-v3 (dry-run default; deterministic ids; reversible via git in the user-data repo).
 - **`KnowledgeQuery.ts`** (`kb query`) — filter/sort on type, tag, source-name/author/date/kind, status, created-range, quality, title, typed relations; table/json/count/slugs. The queryability payoff, and the archive is now Obsidian-Bases-queryable for free.
 - **`GenerateKnowledgeSchemaDoc.ts`** — regenerates `_schema.md` FROM the schema so the human doc can't drift from the code.
 - **`MemorySystem.renderInitialNote`** now emits the kb-v3 envelope (was pai-memory-v1), so new autonomic notes are born conformant. Design + rationale lives in the session's work-directory ISA.
@@ -401,7 +439,7 @@ This is the actual "firehose" — every message, tool call, and response. LifeOS
 - `LEARNING/SYSTEM/YYYY-MM/` — LIFEOS/tooling learnings (infrastructure issues)
 - `LEARNING/ALGORITHM/YYYY-MM/` — Task execution learnings (approach errors)
 - `LEARNING/SYNTHESIS/YYYY-MM/` — Aggregated pattern analysis (weekly/monthly reports)
-- `LEARNING/REFLECTIONS/algorithm-reflections.jsonl` — Algorithm performance reflections. Written by `LIFEOS/TOOLS/Reflect.ts` (schema 9), never by hand: hand-appending is what drifted the corpus (one malformed line made the whole file unstreamable by jq, and self-attested `within_budget` returned true in 95% of records while the spend auditor disagreed). The required `reflection` field carries the self-critique channel (successor of the legacy Q1/Q2/Q3 questions, which were orphaned in the 2026-07-11→07-24 schema 7/8 era and restored as one field in schema 9, 2026-07-28).
+- `LEARNING/REFLECTIONS/algorithm-reflections.jsonl` — Algorithm performance reflections. Written by `LIFEOS/TOOLS/Reflect.ts` (schema 9), never by hand: hand-appending is what drifted the corpus (one malformed line made the whole file unstreamable by jq, and self-attested `within_budget` returned true in nearly all records while the spend auditor disagreed). The required `reflection` field carries the self-critique channel (successor of the legacy Q1/Q2/Q3 questions, which were orphaned in the 2026-07-11→07-24 schema 7/8 era and restored as one field in schema 9, 2026-07-28).
 - `LEARNING/SIGNALS/ratings.jsonl` — All user satisfaction ratings
 
 **Categorization logic:**
@@ -479,7 +517,7 @@ This is the actual "firehose" — every message, tool call, and response. LifeOS
 
 ### SECURITY/ — Security Events (Active — v3.0)
 
-**What populates it:** `SecurityPipeline.hook.ts` on tool validation
+**What populates it:** `Safety.hook.ts` (PermissionRequest path) on tool-call classification
 **Content:** Security audit events (blocks, confirmations, alerts)
 **Format:** `SECURITY/security-events.jsonl`
 **Purpose:** Security decision audit trail
@@ -633,18 +671,14 @@ An append-only JSONL file where hooks emit structured, typed events alongside th
 | WorkCompletionLearning.hook.ts | SessionEnd | LEARNING/ (significant work) |
 | SessionCleanup.hook.ts | SessionEnd | WORK/ISA.md (status→COMPLETED), clears STATE |
 | SatisfactionCapture.hook.ts | UserPromptSubmit | LEARNING/SIGNALS/, LEARNING/, FAILURES/ (1-3) |
-| RelationshipMemory.hook.ts | UserPromptSubmit / Stop | RELATIONSHIP/YYYY-MM/YYYY-MM-DD.md |
 | EventLogger.hook.ts | PostToolUse (catch-all) | OBSERVABILITY/tool-activity.jsonl (always) + SKILLS/execution.jsonl (Skill) |
 | EventLogger.hook.ts | PostToolUseFailure | OBSERVABILITY/tool-failures.jsonl |
 | EventLogger.hook.ts | ConfigChange (settings.json edits) | OBSERVABILITY/config-changes.jsonl |
 | EventLogger.hook.ts | StopFailure | SECURITY/YYYY/MM/stop-failures-*.jsonl (log-only) |
-| TeammateIdle.hook.ts | (idle) | OBSERVABILITY/teammate-events.jsonl, TEAMS/ |
-| SecurityPipeline.hook.ts | PreToolUse | SECURITY/ |
 | Pulse voice handler | (HTTP /notify) | VOICE/voice-events.jsonl |
-| PreCompact.hook.ts | PreCompact | stdout (handover context) |
 | DocIntegrity.hook.ts | SessionEnd | (no MEMORY writes — runs DocCrossRefIntegrity + RebuildArchSummary + MemoryDirIntegrity) |
 
-> **Note:** All hooks listed above also emit typed events to `STATE/events.jsonl` via `appendEvent()`. See [../Hooks/HookSystem.md § Unified Event System](../Hooks/HookSystem.md) for event types and consumer details.
+> **Note:** The advisory checkers — `MemoryDirIntegrity` and `KnowledgeConformance` — emit typed events to `STATE/events.jsonl` via `hooks/lib/events.ts`. The other hooks in this table write their own stores and do not participate in that log. See [../Hooks/HookSystem.md § Unified Event System](../Hooks/HookSystem.md) for event types and consumer details.
 
 ## Harvesting & Retrieval Tools
 
@@ -655,7 +689,7 @@ An append-only JSONL file where hooks emit structured, typed events alongside th
 | KnowledgeHarvester.ts | Validate schemas, maintenance, contradictions | KNOWLEDGE/, auto-memory | KNOWLEDGE/ |
 | LearningPatternSynthesis.ts | Aggregate ratings into patterns | LEARNING/SIGNALS/ | LEARNING/SYNTHESIS/ |
 | FailureCapture.ts | Full context dumps for low ratings | projects/, SIGNALS/ | LEARNING/FAILURES/ |
-| MemoryRetriever.ts | BM25 search + LLM compression for context retrieval | KNOWLEDGE/ | (stdout — read-only) |
+| MemoryRetriever.ts | BM25 search + LLM compression for context retrieval | KNOWLEDGE/, LEARNING/ | (stdout — read-only) |
 | KnowledgeGraph.ts | Associative graph navigation over tags/wikilinks | KNOWLEDGE/ | (stdout — read-only) |
 | WisdomDomainClassifier.ts | Route requests to relevant frames | WISDOM/FRAMES/ | (stdout — read-only) |
 | WisdomFrameUpdater.ts | Update frames with new observations | WISDOM/FRAMES/ | WISDOM/FRAMES/ |
@@ -676,8 +710,9 @@ The `MemoryDirIntegrity.ts` handler (run from `DocIntegrity.hook.ts` on SessionE
 1. Lists every directory under `~/.claude/LIFEOS/MEMORY/` (one level deep, excluding `.git`, `.DS_Store`, etc.)
 2. Parses the Directory Inventory table in this file
 3. Reports any directory on disk not in the table (**unknown subsystem**)
-4. Reports any directory in the table not on disk (**missing subsystem** — only flagged for `active` rows; `reserved` rows are allowed to be empty or absent)
-5. Logs to stderr with `[MemoryDirIntegrity]` tag and emits a `doc.integrity.memory_dir` event to `STATE/events.jsonl`
+4. Reports any directory in the table not on disk (**missing subsystem** — flagged for `active` rows only; `on-demand`, `dormant archive` and `reserved` rows are allowed to be absent, per § Status)
+5. Reports any row whose Status is not one of the four recognised values (**unclassified row**) — an unrecognised value is not an exemption
+6. Logs to stderr with `[MemoryDirIntegrity]` tag and emits a `doc.integrity.memory_dir` event to `STATE/events.jsonl` — the full finding set on every completed check, empty set included, which is what lets a fixed finding disappear from the SessionStart advisory digest
 
 If the handler reports drift, the fix is to either (a) add the new subsystem to the inventory table above, or (b) remove the stray directory from disk. Drift is a soft warning; the hook never blocks.
 
@@ -694,13 +729,13 @@ Algorithm (AI) → WORK/{timestamp}_{slug}/ISA.md   (ISASync.hook.ts mirrors to 
     ↓
 [Work happens — AI writes ISA directly, ISASync keeps work.json + KV in sync]
     ↓
-[If context compacts] → PreCompact.hook.ts → stdout handover (preserved through compaction)
+[If context compacts] → PreCompact.hook.ts (retired — file no longer exists) → stdout handover (preserved through compaction)
     ↓
 SatisfactionCapture → LEARNING/SIGNALS/ + LEARNING/
     ↓
 WorkCompletionLearning → LEARNING/ (for significant work, reads ISA.md frontmatter)
     ↓
-SessionEnd hooks → SessionCleanup marks the matching work.json entry phase=complete; ULWorkSync pushes the ISA to gh issue in WORK.REPO
+SessionEnd hooks → SessionCleanup marks the matching work.json entry phase=complete; ULWorkSync (private maintainer hook — not shipped in the public release) pushes the ISA to gh issue in WORK.REPO
 
 [Periodic harvesting]
     ↓
@@ -913,7 +948,7 @@ bun run ~/.claude/hooks/handlers/MemoryDirIntegrity.ts
 - Removed archive functionality from lifeos.ts (Claude Code handles 30-day cleanup)
 
 **2026-01-11:** v6.1 — Removed RECOVERY system
-- Deleted RECOVERY/ directory (5GB of redundant snapshots)
+- Deleted RECOVERY/ directory (multiple GB of redundant snapshots)
 - Removed RecoveryJournal.hook.ts, recovery-engine.ts, snapshot-manager.ts
 - Git provides all necessary rollback capability
 
@@ -960,10 +995,10 @@ Claude Code ships a built-in auto-memory feature: `~/.claude/projects/<project>/
 
 LifeOS doesn't control auto-dream activation. With auto-memory disabled there is nothing in that directory for it to consolidate.
 
-### PreCompact Hook
-**What:** Preserves active work context before conversation compaction
-**Hook:** `PreCompact.hook.ts` (matcher: `"*"`)
-**Captures:** Active task, ISA summary, files modified, key decisions, session ID
+### PreCompact Hook (retired)
+**What:** Preserved active work context before conversation compaction
+**Hook:** `PreCompact.hook.ts` — retired, file no longer exists
+**Captured:** Active task, ISA summary, files modified, key decisions, session ID
 **Output:** Structured handover note on stdout, preserved through compaction
 
 ### LifeOS Memory Surfaces (harness auto-memory disabled)
@@ -973,11 +1008,11 @@ LifeOS doesn't control auto-dream activation. With auto-memory disabled there is
 | LifeOS WORK/ | Algorithm + hooks | Task tracking, ISAs, ISC | On demand via LoadContext |
 | LifeOS LEARNING/ | Hooks + harvesters | Ratings, failures, synthesis | On demand via dynamic context |
 | LifeOS WISDOM/ | Algorithm LEARN + harvesters | Frames, principles, frame health | OBSERVE phase reads frames; on-demand |
-| LifeOS RELATIONSHIP/ | RelationshipMemory hook | Daily {{PRINCIPAL_NAME}}↔{{DA_NAME}} notes | LoadContext (recent notes block) |
+| LifeOS RELATIONSHIP/ | (writer retired 2026-07-11 — legacy notes retained) | Daily principal↔DA notes | LoadContext (guarded read; no new notes) |
 | LifeOS OBSERVABILITY/ | Many hooks | Tool activity, costs, config audits | Pulse dashboards |
 | LifeOS VOICE/ | Pulse voice handler | Voice notification audit | On demand |
 | LifeOS STATE/ | Hooks | Ephemeral runtime state | On demand |
-| PreCompact | Hook | Work-in-progress handover | Before compaction |
+| PreCompact | Hook (retired) | Work-in-progress handover | Before compaction |
 
 ---
 
@@ -1027,6 +1062,7 @@ The loop is the whole design: conversation is the raw input, the reviewer distil
 
 ## Related Documentation
 
+- **Portable Cortex contract, privacy, benchmark, and health:** [`CortexContract.md`](./CortexContract.md)
 - **Hook System:** `../Hooks/HookSystem.md`
 - **Architecture:** `../LifeosSystemArchitecture.md`
 - **ISA format:** `../ISAFormat.md`
@@ -1034,6 +1070,6 @@ The loop is the whole design: conversation is the raw input, the reviewer distil
 
 ### Retrieval absence statements + tag-match semantics (2026-06-10)
 
-Both retrieval CLIs now state absence affirmatively instead of returning silence: `MemoryRetriever.ts` prints `No prior work found on "<query>" in the knowledge corpus.` and ContextSearch prints an equivalent line naming its five searched sources. Implemented in the retrieval layer — the model is never asked to assert absences it can't know.
+Both retrieval CLIs now state absence affirmatively instead of returning silence: `MemoryRetriever.ts` prints `No prior work found on "<query>" in the knowledge corpus.` and the Cortex recall CLI (`ContextSearch.ts`) prints an equivalent line naming its five searched sources. Implemented in the retrieval layer — the model is never asked to assert absences it can't know.
 
 Semantic change in `MemoryRetriever.ts` tag matching: reverse containment (query-term ⊇ tag) now requires tag length ≥ 4. Short tags (`ai`, `sec`) still match via exact/forward containment; what's gone is garbage terms swallowing short tags, which had made the zero-hit branch unreachable.

@@ -27,11 +27,14 @@ export async function sendMessage(
   for (const chunk of chunks) {
     const escaped = escapeForAppleScript(chunk)
 
-    // Use buddy-based send — works reliably on modern macOS
+    // Use buddy-based send. The old object-specifier form
+    // (`participant targetService handle "..."`) no longer resolves on
+    // current macOS; `participant "..." of targetService` works on both.
+    // (ported from public PR #1835, @J0UH)
     const script = `
 tell application "Messages"
   set targetService to 1st account whose service type = iMessage
-  set targetBuddy to participant targetService handle "${escapeForAppleScript(handle)}"
+  set targetBuddy to participant "${escapeForAppleScript(handle)}" of targetService
   send "${escaped}" to targetBuddy
 end tell`
 

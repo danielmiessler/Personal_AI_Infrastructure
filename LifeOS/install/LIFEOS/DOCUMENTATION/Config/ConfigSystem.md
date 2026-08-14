@@ -1,5 +1,5 @@
 ---
-version: 1.4.1
+version: 1.4.4
 ---
 
 # LifeOS Configuration
@@ -37,9 +37,9 @@ LifeOS configuration follows the **system/user separation** contract (`LIFEOS/DO
 | File | Tree | Purpose |
 |------|------|---------|
 | `settings.json` | SYSTEM (generated) | Merged at SessionStart by `MergeSettings.ts` from `settings.system.json` + `settings.user.json`. Read-only at runtime — manual edits get overwritten next session. |
-| `settings.system.json` | SYSTEM | Defaults: permissions, env, daidentity defaults, notifications, tips. (Hooks live here in the live/dev tree, but the SHIPPED `install/settings.system.json` omits the `hooks` block — hooks ride separately in `install/hooks/hooks.json`, applied by InstallHooks at setup. `delete base.hooks` in `EmitSkill.ts` strips it at emit.) Ships in public LifeOS. |
+| `settings.system.json` | SYSTEM | Defaults: permissions, env, notifications, tips (identity lives in `LIFEOS_CONFIG.toml`, not here). (Hooks live here in the live/dev tree, but the SHIPPED `install/settings.system.json` omits the `hooks` block — hooks ride separately in `install/hooks/hooks.json`, applied by InstallHooks at setup. `delete base.hooks` in `EmitSkill.ts` strips it at emit.) Ships in public LifeOS. |
 | `LIFEOS/USER/CONFIG/settings.user.json` | USER | Per-principal overlay: identity values, voice IDs, principal name + timezone, custom `spinnerVerbs` + `spinnerTipsOverride`, env overrides. Deep-merged into system defaults; USER always wins. |
-| `CLAUDE.md` | SYSTEM (with USER `@`-imports) | Routing table + top-level `@`-imports of USER identity files. Public release template at the release skill's `RELEASE_TEMPLATES/CLAUDE.public.md`. |
+| `CLAUDE.md` | SYSTEM (with USER `@`-imports) | Routing table + top-level `@`-imports of USER identity files. Ships in the release payload as `install/CLAUDE.template.md` (maintainer-side source: the release skill's `RELEASE_TEMPLATES/CLAUDE.public.md`). |
 | `LIFEOS/LIFEOS_SYSTEM_PROMPT.md` | SYSTEM | Constitutional rules (system prompt layer, loaded via `--append-system-prompt-file`). |
 | `LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md` | USER | Per-principal operational rules: repo conventions, env paths, vendor-specific doctrine (Cloudflare token, deploy semantics). `@`-imported directly from `CLAUDE.md` — CC does not follow transitive `@`-imports. |
 | `LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml` | USER | Typed user config (identity name/pronunciation/timezone, integration credentials, paths). Read via `LifeosConfig.load()`. |
@@ -89,14 +89,14 @@ The two repos (`~/.claude` and the `~/.config/LIFEOS/USER` data repo) are commit
 
 ## Public releases
 
-The Shadow Release system (the release skill's `ShadowRelease` tool) produces public staging at `~/.claude/LIFEOS/LIFEOS_RELEASES/{VERSION}/.claude/` via **containment** — clone the live tree, delete sensitive zones (USER, MEMORY, private underscore-prefixed skills), overlay fixed public templates from the release skill's `RELEASE_TEMPLATES/` (including `CLAUDE.public.md` + `settings.public.json`), run 19 gates (G1–G14 + G17 case-portability, G18 offensive-leak, G19 retired-capability leak; G1–G14: zone deletion, identity grep, CF ID grep, trufflehog, .env strays, private tokens, ref integrity, private-skill refs, username-path leak, staging boot, dashboard leak, template-only USER/MEMORY, hidden-file leakage, critical-artifact presence). Write `.shadow-state.json` report. `EmitSkill.ts` then reshapes this `.claude/` staging into the shippable `{VERSION}/LifeOS/` skill (and drops the staging clone) — the published distribution unit is that one self-contained skill, not the `.claude/` tree. Staging is isolated from `~/Projects/LIFEOS/`; public publish is a separate explicit step.
+The Shadow Release system (the release skill's `ShadowRelease` tool) produces public staging at `~/.claude/LIFEOS/LIFEOS_RELEASES/{VERSION}/.claude/` via **containment** — clone the live tree, delete sensitive zones (USER, MEMORY, private underscore-prefixed skills), overlay fixed public templates from the release skill's `RELEASE_TEMPLATES/` (including `CLAUDE.public.md` + `settings.public.json`), run 23 gates (G1–G14 + G17 case-portability, G18 offensive-leak, G19 retired-capability leak, G20 root-runtime-state, G21 run-state leak, G22 staged-reference validation over the scrubbed payload, G23 placeholder-leak scan of shipped code, G24 foreign-data scan (absolute-path mirrors + personal-transcript signatures) <!-- public issue #1590, @anikinsasha -->; G1–G14: zone deletion, identity grep, CF ID grep, trufflehog, .env strays, private tokens, ref integrity, private-skill refs, username-path leak, staging boot, dashboard leak, template-only USER/MEMORY, hidden-file leakage, critical-artifact presence). Write `.shadow-state.json` report. `EmitSkill.ts` then reshapes this `.claude/` staging into the shippable `{VERSION}/LifeOS/` skill (and drops the staging clone) — the published distribution unit is that one self-contained skill, not the `.claude/` tree. Staging is isolated from `~/Projects/LIFEOS/`; public publish is a separate explicit step.
 
 The release skill's workflows:
 - **ReviewContainmentZones** — reconcile zone module against live tree (mandatory before any release build).
 - **CreateShadowRelease** — fresh build at a version (Step 0 is zone review).
 - **UpdateShadowRelease** (`/ur`) — full rebuild at current version.
-- **CheckReleaseSecurity** — read-only 19-gate validation against existing staging.
-- **CreateRelease** — public publish (Stage 2, requires all 19 gates green).
+- **CheckReleaseSecurity** — read-only 23-gate validation against existing staging.
+- **CreateRelease** — public publish (Stage 2, requires all 23 gates green).
 
 ## Migration history
 

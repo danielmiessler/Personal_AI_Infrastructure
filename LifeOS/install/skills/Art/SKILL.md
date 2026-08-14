@@ -1,6 +1,6 @@
 ---
 name: Art
-version: 1.5.18
+version: 1.5.23
 description: "Static visual content across 20+ formats — diagrams, mermaid, infographics, D3 dashboards, comics, icons, wallpaper — via Nano Banana Pro (default), Nano Banana, and Flux. USE WHEN art, illustration, diagram, flowchart, infographic, header image, blog social thumbnail, visualize, generate image, mermaid, architecture diagram, comic, icon, blog art, framework diagram, D3 chart, remove background, wallpaper. NOT FOR locked house-style YouTube/channel/video thumbnails, video or animation (use Remotion), or web UI design and integrated frontend layout (use Webdesign)."
 ---
 
@@ -48,20 +48,17 @@ The bare image model produces inconsistent, off-style output when handed a freef
 
 ## How It Works
 
-A complete visual content system for illustrations, diagrams, and other static visuals. Each request picks a matching workflow file first, follows its prompt template, then calls `Generate.ts` with `--workflow=<name>` plus model/size/output flags. Two layers enforce that the workflow was followed (`Generate.ts` itself and the `ArtWorkflowGuard.hook.ts` PreToolUse hook), output always lands in $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for preview, and blog headers run with `--thumbnail` to produce both the transparent PNG and the sepia-backed social thumbnail.
+A complete visual content system for illustrations, diagrams, and other static visuals. Each request picks a matching workflow file first, follows its prompt template, then calls `Generate.ts` with `--workflow=<name>` plus model/size/output flags. `Generate.ts` itself enforces that the workflow was followed, output always lands in $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for preview, and blog headers run with `--thumbnail` to produce both the transparent PNG and the sepia-backed social thumbnail.
 
 ## 🛑 STRUCTURAL ENFORCEMENT — `--workflow=<name>` IS REQUIRED
 
-**This rule used to be markdown-only and was silently ignored, producing 12 rejected diagrams in one session (incident 2026-04-30, see ISA `MEMORY/WORK/20260430-180000_art-skill-freeform-enforcement`). It now lives in code.**
+**This rule used to be markdown-only and was silently ignored, producing 12 rejected diagrams in one session (incident 2026-04-30). It now lives in code.**
 
-Two layers enforce it:
-
-1. **`Generate.ts` itself** refuses to run unless you pass `--workflow=<name>` (or the explicit `--freeform-confirmed` opt-out). It exits non-zero with the workflow lookup table.
-2. **`ArtWorkflowGuard.hook.ts`** (PreToolUse Bash) blocks any Bash command containing `Art/Tools/Generate.ts` without `--workflow=` or `--freeform-confirmed`, with exit code 2 and the same lookup table.
+**`Generate.ts` itself** refuses to run unless you pass `--workflow=<name>` (or the explicit `--freeform-confirmed` opt-out). It exits non-zero with the workflow lookup table.
 
 **The flow that works:** read the matching workflow file → follow its prompt template → invoke `Generate.ts` with `--workflow=<that-workflow-name>` plus your model/prompt/size flags. The `--workflow=<name>` flag is your explicit assertion "I read the workflow and followed it."
 
-**The flow that's blocked:** composing a freeform prompt and shipping it directly to `Generate.ts`. Both layers above will refuse.
+**The flow that's blocked:** composing a freeform prompt and shipping it directly to `Generate.ts`. `Generate.ts` will refuse.
 
 ### Most Common Failure Mode (don't repeat it)
 
@@ -108,7 +105,7 @@ bun ~/.claude/skills/Art/Tools/Generate.ts \
 | Embossed logo wallpaper | `Workflows/EmbossedLogoWallpaper.md` |
 | Generic visualization (none of the above fit) | `Workflows/Visualize.md` |
 
-**The ONLY exception:** the user explicitly says "freeform" / "skip the workflow" / "just run Generate.ts directly with this prompt: ...". In that case, pass `--freeform-confirmed` to `Generate.ts` (which logs the explicit opt-out to stderr for audit). Without that explicit instruction from the user, ALWAYS pick the matching workflow and pass `--workflow=<name>` — both `Generate.ts` and `ArtWorkflowGuard.hook.ts` will refuse the call otherwise.
+**The ONLY exception:** the user explicitly says "freeform" / "skip the workflow" / "just run Generate.ts directly with this prompt: ...". In that case, pass `--freeform-confirmed` to `Generate.ts` (which logs the explicit opt-out to stderr for audit). Without that explicit instruction from the user, ALWAYS pick the matching workflow and pass `--workflow=<name>` — `Generate.ts` will refuse the call otherwise.
 
 If no workflow matches the request, **stop and surface to the user** before generating — propose either (a) the closest existing workflow, (b) using `Visualize.md` as the generic catch-all, or (c) creating a new workflow first via the `CreateSkill` skill. Do not improvise.
 
@@ -217,7 +214,7 @@ Check `~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Art/PREFERENCES.md` for:
 
 ## Image Generation
 
-**Default model:** Check user customization at `SKILLCUSTOMIZATIONS/Art/PREFERENCES.md`
+**Default model:** Check user customization at `CUSTOMIZATIONS/SKILLS/Art/PREFERENCES.md`
 **Fallback:** nano-banana-pro (Gemini 3 Pro)
 
 ### Model-Specific Size Requirements

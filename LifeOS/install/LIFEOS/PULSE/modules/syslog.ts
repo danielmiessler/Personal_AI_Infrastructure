@@ -15,8 +15,9 @@
 import { createSocket, type Socket } from "dgram"
 import { appendFileSync, mkdirSync, existsSync, statSync, readFileSync } from "fs"
 import { dirname, join } from "path"
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? ""
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const MODULE_NAME = "syslog"
 const DEFAULT_PORT = 5514
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB rotation threshold

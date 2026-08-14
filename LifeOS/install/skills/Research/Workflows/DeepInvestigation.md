@@ -1,6 +1,6 @@
 # Deep Investigation Workflow
 
-**Mode:** Iterative progressive research | **Single-run or Loop mode**
+**Mode:** Iterative progressive research | **Single-run or Iterative mode**
 
 ## 🚨 CRITICAL: URL Verification Required
 
@@ -18,7 +18,7 @@ See `SKILL.md` for full URL Verification Protocol.
 - User says "deep investigation", "investigate [topic]", "deep research on [market/landscape/domain]"
 - Competitive analysis, market mapping, threat landscape, technology survey
 - Any research that benefits from **iterative deepening** — broad discovery first, then progressively deeper dives on the most important entities
-- User explicitly requests loop mode research
+- User explicitly requests iterative mode research
 
 ## How It Works
 
@@ -31,7 +31,7 @@ Iteration 3+: Continue until coverage gates pass
 ```
 
 **Single-run mode:** Completes one full cycle (landscape through first deep dive).
-**Loop mode:** The Algorithm's loop mechanism drives iterations. Each iteration reads previous artifacts and deepens coverage. The workflow is stateless — all state lives in artifacts on disk.
+**Iterative mode:** The Algorithm's loop mechanism drives iterations. Each iteration reads previous artifacts and deepens coverage. The workflow is stateless — all state lives in artifacts on disk.
 
 ---
 
@@ -62,7 +62,7 @@ IF continuation:
   IF all gates pass → EXIT (report completion)
 ```
 
-**This is the key to loop mode.** The Algorithm re-runs the full workflow each iteration, but the workflow itself checks what's already done and jumps to the right phase. No loop control logic here — just artifact-aware resumption.
+**This is the key to iterative mode.** The Algorithm re-runs the full workflow each iteration, but the workflow itself checks what's already done and jumps to the right phase. No loop control logic here — just artifact-aware resumption.
 
 ---
 
@@ -267,9 +267,9 @@ Save to: `vault/{Category}/{entity-slug}.md`
 
 ---
 
-### Step 4.5: Verify Entity Profile (Loop Mode Only)
+### Step 4.5: Verify Entity Profile (Iterative Mode Only)
 
-**In loop mode**, before the Progress Check, spot-check the entity profile for quantitative claims:
+**In iterative mode**, before the Progress Check, spot-check the entity profile for quantitative claims:
 
 1. Scan the profile for numbers, dates, and percentages
 2. Pick the 2-3 most important quantitative claims
@@ -313,7 +313,7 @@ IF both gates PASS:
 
 IF either gate FAILS:
   → Report to Algorithm's VERIFY phase: "Coverage incomplete"
-  → The Algorithm's loop mode will trigger next iteration
+  → The Algorithm's iterative mode will trigger next iteration
   → Next iteration re-enters this workflow at Step 0 (which detects continuation)
 ```
 
@@ -321,9 +321,9 @@ IF either gate FAILS:
 
 ---
 
-## Single-Run vs Loop Mode
+## Single-Run vs Iterative Mode
 
-| Aspect | Single-Run | Loop Mode |
+| Aspect | Single-Run | Iterative Mode |
 |--------|-----------|-----------|
 | Iterations | 1 | Algorithm-controlled (N turns) |
 | Coverage | Landscape + first deep dive | Full breadth + depth gates |
@@ -331,9 +331,9 @@ IF either gate FAILS:
 | Best for | Quick overview + top entity | Comprehensive investigation |
 | Time | 3-5 minutes | 15-60 minutes (varies by domain) |
 
-**In single-run mode:** Complete Steps 1-4 (landscape through one deep dive), then report what was accomplished and what remains PENDING for a future loop-mode run.
+**In single-run mode:** Complete Steps 1-4 (landscape through one deep dive), then report what was accomplished and what remains PENDING for a future iterative-mode run.
 
-**In loop mode:** The Algorithm iterates. Each iteration enters at Step 0, detects state, and does the next unit of work. Typical iteration pattern:
+**In iterative mode:** The Algorithm iterates. Each iteration enters at Step 0, detects state, and does the next unit of work. Typical iteration pattern:
 - Iteration 1: Steps 1-4 (landscape, discover, evaluate, first deep dive)
 - Iteration 2-N: Steps 0→4 (detect state, maybe discover more, evaluate, deep dive next)
 - Final iteration: Step 0→5 (detect state, gates pass, produce summary)

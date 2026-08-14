@@ -144,8 +144,15 @@ const STREAMS: StreamDef[] = [
   },
   {
     file: "writing-gate.jsonl",
-    toEvent: r => r.decision === "block"
-      ? { classId: "wgate:block", ts: r.ts, source: "writing-gate", detail: `strong=${r.strong} weak=${r.weak}`, sessionId: r.session_id }
+    // The hook's `decision: "block"` is its RESPONSE to the harness; the row it
+    // appends carries the telemetry vocabulary (hooks/WritingGate.hook.ts writes
+    // block-strong-no-run / pass-run-verified / telemetry-weak / no-content /
+    // skip-recovery / telemetry-no-detector). Matching the literal "block"
+    // dropped every writing-gate block from this ledger. Prefix-match so new
+    // block-* reasons land here without a third place to edit.
+    // ported from public PR #1737, @elhoim
+    toEvent: r => String(r.decision ?? "").startsWith("block")
+      ? { classId: "wgate:block", ts: r.ts, source: "writing-gate", detail: `strong=${r.strong ?? 0} weak=${r.weak ?? 0}`, sessionId: r.session_id }
       : null,
   },
   {

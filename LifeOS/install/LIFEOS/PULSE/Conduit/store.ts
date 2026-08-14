@@ -3,7 +3,7 @@
  * JSONL append is atomic enough for single-line writes; no locking needed for a
  * single-writer launchd poll.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, rmdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { EVENTS_DIR, STATE_PATH, dailyPathsFor, eventsPathFor } from "./paths.ts";
 import type { ConduitEvent } from "./types.ts";
@@ -59,11 +59,36 @@ export function readState(): ConduitState {
 }
 
 const STATE_LOCK = `${STATE_PATH}.lock`;
+const STATE_LOCK_PID = join(STATE_LOCK, "pid");
+
+/** Liveness of the process that currently holds the lock.
+ * `false` = a PID is recorded and that process is gone (provably stale);
+ * `true` = recorded and alive (genuine contention);
+ * `null` = no readable PID yet (holder just mkdir'd, hasn't stamped) — treat as alive. */
+function lockOwnerAlive(): boolean | null {
+  let pid: number;
+  try {
+    pid = parseInt(readFileSync(STATE_LOCK_PID, "utf8").trim(), 10);
+  } catch {
+    return null; // no stamp yet
+  }
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  try {
+    process.kill(pid, 0); // signal 0 = existence check, kills nothing
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "ESRCH" ? false : true; // EPERM ⇒ alive but not ours
+  }
+}
 
 /**
- * Cross-process critical section via atomic mkdir. Best-effort: after a bounded wait it
- * proceeds anyway (a stale lock never wedges the poll), and the atomic tmp+rename write
- * below still guarantees no reader ever sees a torn file.
+ * Cross-process critical section via atomic mkdir. On failure to acquire within the
+ * deadline it NEVER proceeds unlocked — that would be exactly the lost-update this
+ * lock exists to prevent (a manual run vs. the launchd poll racing a read-modify-write).
+ * The critical section is microseconds, so a full 2s wait almost always means the holder
+ * died mid-section: reclaim the lock ONLY when the owner PID is provably gone, otherwise
+ * throw so the caller's next poll retries cleanly. The atomic tmp+rename write below still
+ * guarantees no reader ever sees a torn file.
  */
 function withStateLock<T>(fn: () => T): T {
   const deadline = Date.now() + 2000;
@@ -77,15 +102,31 @@ function withStateLock<T>(fn: () => T): T {
       Bun.sleepSync(20);
     }
   }
+  if (!held && lockOwnerAlive() === false) {
+    // Provably-stale lock (holder crashed without releasing). Reclaim it once.
+    try {
+      rmSync(STATE_LOCK, { recursive: true, force: true });
+      mkdirSync(STATE_LOCK);
+      held = true;
+    } catch {
+      /* lost the reclaim race to another poll — fall through to the throw */
+    }
+  }
+  if (!held) {
+    throw new Error("conduit: state lock held by a live process after 2s; skipping write to avoid a lost update (next poll retries)");
+  }
+  try {
+    writeFileSync(STATE_LOCK_PID, String(process.pid)); // stamp owner for staleness checks
+  } catch {
+    /* best-effort stamp; absence just means a future timeout treats us as alive */
+  }
   try {
     return fn();
   } finally {
-    if (held) {
-      try {
-        rmdirSync(STATE_LOCK);
-      } catch {
-        /* ignore */
-      }
+    try {
+      rmSync(STATE_LOCK, { recursive: true, force: true });
+    } catch {
+      /* ignore */
     }
   }
 }

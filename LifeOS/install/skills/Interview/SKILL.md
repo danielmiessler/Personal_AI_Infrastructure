@@ -1,7 +1,7 @@
 ---
 name: Interview
-version: 1.1.9
-description: "Reads seven constitutional files (TELOS, DA_IDENTITY, PRINCIPAL_IDENTITY, PROJECTS, system prompt, PRINCIPAL_TELOS, ARCHITECTURE_SUMMARY) via TelosFreshness, surfaces stalest items, drives contextual peer conversation. Routes to ContextCheckin; falls back to Phase0Setup on fresh install. ContextAudit surfaces TBD markers. USE WHEN /interview, resume interview, context check-in, telos check-in, what's stale, freshness check, fresh LifeOS install, configure DA name, review TELOS, quarterly context refresh. NOT FOR single edits (Telos), bulk intake (Migrate), identity-only."
+version: 1.1.13
+description: "Evidence-grounded context refresh: reads constitutional files, TELOS, and CURRENT_STATE/IDEAL_STATE dimension files via TelosFreshness, pulls observed data (Oura sleep/HRV, Conduit app-time, work registry, git, expenses via StateEvidence), and drives a peer conversation that opens with claim-vs-evidence contradictions, drafts corrections for ratification, and closes with a ComputeGap-grounded ideal-state review. Routes to ContextCheckin; Phase0Setup on fresh install. USE WHEN /interview, resume interview, context check-in, telos check-in, what's stale, stale data, freshness check, update current state, update my current state, state sync, statusline says interview due, interview due, review TELOS, update ideal state, quarterly context refresh, fresh LifeOS install, configure DA name. NOT FOR single edits (Telos), bulk intake (Migrate), identity-only."
 disable-model-invocation: true
 ---
 
@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 ## What It Does
 
-Interview reads your constitutional files — TELOS, identity, projects, system prompt, architecture — checks their freshness, surfaces the stalest items, and drives a contextual peer conversation to refresh them. On a populated system it runs a context check-in; on a fresh install it falls back to first-time setup.
+Interview reads your constitutional files — TELOS, identity, projects, system prompt, architecture — plus the CURRENT_STATE and IDEAL_STATE dimension files, checks their freshness, and confronts stale claims with observed data: Oura sleep/HRV/RHR, Conduit creation-vs-consumption time, the work registry, git cadence, and the expense ledger. The conversation opens with the sharpest claim-vs-evidence contradiction, drafts corrections you ratify, offers to populate the files the machinery can write, and closes with an ideal-state review grounded in the measured gap. On a fresh install it falls back to first-time setup. The 🎤 statusline chip (fed by `InterviewDue.ts`, daily launchd refresh) says when one is due; wrapping with `--mark-done` clears the cadence reason, and the skew/staleness reasons clear as their files are actually reviewed.
 
 ## The Problem
 
@@ -47,6 +47,9 @@ bun ~/.claude/LIFEOS/TOOLS/InterviewScan.ts --json | jq '[.targets[] | select(.p
 
 ## Gotchas
 
+- **The current.json day-label trap.** `USER/HEALTH/current.json` labels itself with today's `day` while its `last_night` block may carry the newest *available* sleep record, days older. Quote the evidence cache's `latest_sleep_record_day`, never the label.
+- **Not every health source is live.** The evidence panel (`StateEvidence.ts`) computes per-source liveness at run time — quote its live/dead map, never a remembered one. Claims whose only source is dead can be asked, not checked — say so instead of implying verification.
+- **`InterviewDue.ts --mark-done` at wrap is what silences the 🎤 statusline chip.** Skipping it leaves the chip nagging with the interview already done — the cadence clock reads `MEMORY/STATE/interview.json`, not file mtimes.
 - **Migration must run once before TelosCheckin works.** A TELOS without YAML frontmatter (no `last_updated:`) returns `fileUpdated: null` and every section reads as stale. Run `bun ~/.claude/LIFEOS/TOOLS/MigrateTelosFreshness.ts` once; idempotent and content-preserving (verifies sha256 of stripped content).
 - **The slug is normalized:** "Current State" → `current_state`, "Wrong (Things I've been wrong about)" → `wrong`, "2036 — A Day in the Life…" → `2036`. Always run heading text through `sectionSlug()` from `TelosFreshness.ts`.
 - **Pulse caches freshness for 60s.** After bumping, the next `/api/telos/freshness/summary` call returns the cached value until invalidation. Send `/reload` (POST) to invalidate the cache immediately, or wait 60s.

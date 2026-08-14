@@ -3,7 +3,8 @@
 // in LIFEOS_DIR/LIFEOS_CONFIG_DIR/PROJECTS_DIR resolves to a shadow dir (#1404 / PR #1451, author jbmml).
 for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
   const __v = process.env[__k];
-  if (__v && /^\$\{?HOME\}?(\/|$)/.test(__v)) process.env[__k] = __v.replace(/^\$\{?HOME\}?/, process.env.HOME ?? "~");
+  // public issue #1729, @umair-a11y — homedir() instead of "~"/"" (HOME is unset on Windows)
+  if (__v && /^\$\{?HOME\}?(\/|$)/.test(__v)) process.env[__k] = __v.replace(/^\$\{?HOME\}?/, process.env.HOME ?? homedir());
 }
 
 /**
@@ -18,12 +19,31 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  */
 
 import { join, resolve } from "node:path";
+import { lstatSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import { checkSymlinkContract, detectDevTree, setupUserSeparation } from "./InstallEngine";
+
+/** Canonical on-disk path, or null when the path does not exist. */
+function realPath(p: string): string | null {
+  try {
+    return realpathSync(p);
+  } catch {
+    return null;
+  }
+}
+
+function isSymlink(p: string): boolean {
+  try {
+    return lstatSync(p).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
   const v = process.env[k];
-  if (v && /^\$\{?HOME\}?(\/|$)/.test(v)) process.env[k] = v.replace(/^\$\{?HOME\}?/, process.env.HOME ?? "~");
+  if (v && /^\$\{?HOME\}?(\/|$)/.test(v)) process.env[k] = v.replace(/^\$\{?HOME\}?/, process.env.HOME ?? homedir());
 }
 
 
@@ -33,7 +53,7 @@ function main(): void {
     const i = a.indexOf(f);
     return i >= 0 && a[i + 1] && !a[i + 1].startsWith("--") ? a[i + 1] : undefined;
   };
-  const home = process.env.HOME || "";
+  const home = process.env.HOME || homedir(); // public issue #1729, @umair-a11y
   const configRoot = get("--config-root") || process.env.CLAUDE_CONFIG_DIR || join(home, ".claude");
   const configDir = get("--config-dir") || process.env.LIFEOS_CONFIG_DIR || join(home, ".config", "LIFEOS");
   const apply = a.includes("--apply");
@@ -51,6 +71,30 @@ function main(): void {
   const linkDst = resolve(join(configDir, "USER"));
   if (linkSrc === linkDst) {
     console.log(JSON.stringify({ ok: false, refused: "self-link", detail: `LIFEOS_CONFIG_DIR resolves USER separation to itself (${linkSrc}) — set LIFEOS_CONFIG_DIR to a location outside the harness tree (default: ~/.config/LIFEOS).` }, null, 2));
+    process.exit(2);
+  }
+
+  // Both sides already name one directory. The resolve() check above is lexical,
+  // so an install whose link target spells that directory differently — a
+  // symlinked home, /private canonicalization, a relative link — fell through to
+  // the rebuild path and died EEXIST creating a symlink over itself, stranding a
+  // .pre-link-backup tree. Public issue #1694, @dissembler21-png.
+  const realSrc = realPath(linkSrc);
+  if (realSrc !== null && realSrc === realPath(linkDst)) {
+    if (isSymlink(linkSrc)) {
+      console.log(JSON.stringify({
+        ok: true,
+        action: "already-linked",
+        target: linkDst,
+        copied: 0,
+        contract: { passed: true, detail: `${linkSrc} already resolves to ${realSrc}` },
+      }, null, 2));
+      process.exit(0);
+    }
+    // Not a symlink, yet the same directory: configDir reaches back inside the
+    // harness tree. Same hazard as the lexical self-link above — migrating would
+    // rename the live tree out from under its own destination.
+    console.log(JSON.stringify({ ok: false, refused: "self-link", detail: `${linkSrc} and ${linkDst} are the same directory (${realSrc}) — set LIFEOS_CONFIG_DIR to a location outside the harness tree (default: ~/.config/LIFEOS).` }, null, 2));
     process.exit(2);
   }
 

@@ -109,32 +109,32 @@ FOCUS QUESTION: What are the subsystems of the LifeOS Algorithm, and how do they
 
 CONCEPTS (general → specific):
 - Algorithm (root)
-- Phases, ISC Quality System, ISA, Capabilities
-- OBSERVE, THINK, PLAN, BUILD, EXECUTE, VERIFY, LEARN
+- Claims Loop, ISC Quality System, ISA, Capabilities
+- Scaffolding, Climbing, Verification, Learning
 - FeedbackMemoryConsult, Advisor, LiveProbe, ConflictSurfacing
 - IterativeDepth, ApertureOscillation, FirstPrinciples, Council, RedTeam, Science, SystemsThinking, RootCauseAnalysis
 
 PROPOSITIONS:
-- Algorithm → [has phases] → {OBSERVE, THINK, ..., LEARN}
+- Algorithm → [runs as] → Claims Loop
 - Algorithm → [uses] → ISA
 - Algorithm → [enforces] → ISC Quality System
-- OBSERVE → [selects] → Capabilities
+- Scaffolding → [selects] → Capabilities
 - Capabilities → [include thinking skills] → {IterativeDepth, FirstPrinciples, ..., SystemsThinking, RootCauseAnalysis}
-- THINK → [invokes] → Thinking skills
-- VERIFY → [enforces] → Verification Doctrine
+- Climbing → [invokes] → Thinking skills
+- Verification → [enforces] → Verification Doctrine
 - Verification Doctrine → [includes] → {LiveProbe, Advisor, ConflictSurfacing}
-- PLAN → [begins with] → FeedbackMemoryConsult
-- LEARN → [writes to] → Knowledge Archive
+- Scaffolding → [begins with] → FeedbackMemoryConsult
+- Learning → [writes to] → Knowledge Archive
 
 CROSS-LINKS:
-- ISC Quality System → [gates exit of] → OBSERVE  (governance cross-link)
+- ISC Quality System → [gates] → Scaffolding  (governance cross-link)
 - Advisor → [re-invoked by] → ConflictSurfacing (recursion cross-link)
-- LEARN → [informs future] → OBSERVE (next-session cross-link)
+- Learning → [informs future] → Scaffolding (next-session cross-link)
 
 INSIGHTS:
-- The Algorithm is not linear — OBSERVE and LEARN are connected across sessions via Knowledge Archive.
+- The Algorithm is not linear — learning and scaffolding are connected across sessions via Knowledge Archive.
 - The Verification Doctrine has an internal loop (ConflictSurfacing re-invokes Advisor), which is a first-order structural protection against motivated reasoning.
-- Thinking capabilities are selected in OBSERVE but invoked in THINK — separation of concerns.
+- Thinking capabilities are selected while scaffolding but invoked while climbing — separation of concerns.
 ```
 
 ## Common Mistakes

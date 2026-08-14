@@ -1,5 +1,5 @@
 ---
-version: 1.4.0
+version: 1.4.1
 ---
 
 # The Notification System
@@ -90,10 +90,10 @@ curl -s -X POST http://localhost:31337/notify \
 - `message` - The spoken text (workflow and skill name)
 - `voice_id` - ElevenLabs voice ID (default: {DA_IDENTITY.NAME}'s voice)
 - `title` - Display name for the notification
-- `phase` (optional, 2026-04-16+) - Uppercase Algorithm phase (`OBSERVE`, `THINK`, `PLAN`, `BUILD`, `EXECUTE`, `VERIFY`, `LEARN`, `COMPLETE`). When present, triggers dual-source phase tracking — the endpoint (a) appends a `phaseHistory` entry with `source: "voice"`, (b) updates top-level `session.phase` (lowercase), and (c) calls `setPhaseTab(phase, sessionUUID)` to update the terminal tab icon/color. All three fire together so the UI never goes stale between ISA edits.
-- `slug` (optional, 2026-04-16+) - The ISA session slug. Used to route the phase write to the correct session. When absent, falls back to most-recently-updated non-complete session within 2-hour window.
+- `phase` (optional) - ISA phase marker for session tracking. The phase vocabulary lives in ONE place — `LIFEOS/TOOLS/ascent.ts` (see `LIFEOS/DOCUMENTATION/Algorithm/AscentStates.md`); it is never hand-listed in a consumer or a doc. (The 8-station uppercase enum this parameter originally carried was retired 2026-07-14.)
+- `slug` (optional) - The ISA session slug. Used to route the phase write to the correct session. When absent, falls back to most-recently-updated non-complete session within 2-hour window.
 
-**Dual-source phase tracking:** `/notify` is the first-fires/always-fires signal for Algorithm phase transitions. ISASync hook is the rich-but-sometimes-skipped signal from ISA frontmatter edits. Both feed `phaseHistory` via `hooks/lib/isa-utils.ts::appendPhase()` — same phase + different source = upgrade to `source: "merged"`. **Both also write top-level `session.phase` and call `setPhaseTab()`** (voice did this starting 2026-04-18; ISASync already did). See `LIFEOS/MEMORY/KNOWLEDGE/Ideas/dual-source-event-tracking-pattern.md` and `feedback_voice_must_update_top_level_phase.md`.
+**Phase tracking:** `/notify` and the ISASync hook (ISA frontmatter edits) both feed session phase tracking; the ascent table in `LIFEOS/TOOLS/ascent.ts` derives every icon, color, and label from the phase key.
 
 ---
 
@@ -102,6 +102,8 @@ curl -s -X POST http://localhost:31337/notify \
 **Workflow voice announcements are inline curls** — skills and workflows POST `curl -s -X POST http://localhost:31337/notify` at their own notable moments (skill invocation, long-run milestones). The per-phase announcement table keyed to effort tiers was retired with the modes/tiers system on 2026-07-11; how much a run narrates is discovered from the work, not read off a tier.
 
 **Task completion voice** is handled by `VoiceCompletion.hook.ts` → `handlers/VoiceNotification.ts`, which extracts the `🗣️` line from the response and POSTs to the Pulse `/notify` endpoint at `http://localhost:31337`.
+
+**Scheduled/cadence jobs never voice-notify** (principal directive, 2026-08-14). `/notify` defaults voice ON, so every cadence caller (launchd, cron, Hermes jobs, recurring tools) passes `voice_enabled: false` explicitly. A PULSE cron job with `output = "voice"` is suppressed by `dispatchSingle` in `LIFEOS/PULSE/lib.ts` unless `PULSE_CRON_VOICE=1` is set. Cadence channels are the silent banner, logs, or NotifyPrincipal SMS; interactive-session voice (workflow curls, completion 🗣️) is unaffected.
 
 ---
 
@@ -113,7 +115,7 @@ curl -s -X POST http://localhost:31337/notify \
 
 **The DA is the only speaker.** Subagents never emit voice — the DA narrates every completion, so there is no per-subagent voice routing to configure. The `voiceId:`/`voice:` frontmatter in `agents/*.md` has **no consumer in code** (verified 2026-07-27: nothing under `hooks/`, `LIFEOS/TOOLS/`, or `LIFEOS/PULSE/` parses agent frontmatter for voice); it is persona flavor, not configuration, and two agents currently share one ID without consequence.
 
-**Authoritative voice config:** `~/.claude/settings.json` → `daidentity.voices.main.voiceId`. The former "Priya (Artist)" row was removed 2026-07-27 — that agent does not exist.
+**Voice config:** canonical in `LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml` `[da.voices.main]`; hooks read the runtime mirror at `~/.claude/settings.json` → `daidentity.voices.main.voiceId`. The former "Priya (Artist)" row was removed 2026-07-27 — that agent does not exist.
 
 ---
 

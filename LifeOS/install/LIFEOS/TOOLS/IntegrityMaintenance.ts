@@ -24,6 +24,7 @@ import { join, basename, dirname } from 'path';
 import { inference } from './Inference';
 import { getIdentity } from '../../hooks/lib/identity';
 import { PULSE_BASE } from '../PULSE/endpoint';
+import { homedir } from "node:os";
 
 // ============================================================================
 // Types
@@ -109,9 +110,9 @@ interface UpdateData {
 // Constants
 // ============================================================================
 
-const LIFEOS_DIR = process.env.HOME + '/.claude/LIFEOS';
+const LIFEOS_DIR = homedir() + '/.claude/LIFEOS';
 // NOT under LIFEOS_DIR — skills/ lives at the ~/.claude root, not under LIFEOS/.
-const CREATE_UPDATE_SCRIPT = join(process.env.HOME || '', '.claude/LIFEOS/TOOLS/CreateUpdate.ts');
+const CREATE_UPDATE_SCRIPT = join(homedir(), '.claude/LIFEOS/TOOLS/CreateUpdate.ts');
 
 // Words that indicate generic/bad titles - reject these
 const GENERIC_TITLE_PATTERNS = [
@@ -614,7 +615,7 @@ async function generateNarrativeWithAI(
     .map(c => `- ${c.path} (${c.category || 'other'})`)
     .join('\n');
 
-  const prompt = `You are analyzing a Claude Code session to generate documentation for a LifeOS (LifeOS) system update.
+  const prompt = `You are analyzing a Claude Code session to generate documentation for a LifeOS system update.
 
 ## Session Transcript (most recent messages)
 ${contextSummary}
@@ -721,7 +722,7 @@ async function generateVerboseNarrative(
         future_impact: aiNarrative.future_impact,
         future_bullets: aiNarrative.future_bullets,
         verification_steps: aiNarrative.verification_steps,
-        verification_commands: [`bun ~/.claude/skills/_LIFEOS/Tools/UpdateSearch.ts recent 5`],
+        verification_commands: [`ls -t ~/.claude/LIFEOS/MEMORY/SYSTEMUPDATES | head`],
         confidence: 'high',
       },
       aiTitle: aiNarrative.title,
@@ -751,7 +752,7 @@ async function generateVerboseNarrative(
       future_impact: `The ${changeType.replace('_', ' ')} will use updated behavior.`,
       future_bullets: ['Changes are active for future sessions'],
       verification_steps: ['Changes applied via automatic detection'],
-      verification_commands: [`bun ~/.claude/skills/_LIFEOS/Tools/UpdateSearch.ts recent 5`],
+      verification_commands: [`ls -t ~/.claude/LIFEOS/MEMORY/SYSTEMUPDATES | head`],
       confidence: 'medium',
     },
   };

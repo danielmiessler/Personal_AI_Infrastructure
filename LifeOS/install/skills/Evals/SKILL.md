@@ -1,6 +1,6 @@
 ---
 name: Evals
-version: 1.2.26
+version: 1.2.29
 description: "Assertion-first AI eval framework aligned to Anthropic's 'Demystifying evals for AI agents' — typed deterministic asserts + a forced-structured LLM judge over an input→assert case schema, pass^k/pass@k, capability vs regression suites, subscription-billed. USE WHEN eval, evaluate, benchmark, regression test, assertion, assert, llm-rubric, judge, pass@k, pass^k, grade output, compare prompts/models, test agent. NOT FOR scientific-method framing (use Science), property/mutation testing of code (use Hardening), or live UI verification (use Interceptor)."
 context: fork
 background: false
@@ -13,6 +13,8 @@ background: false
 An eval gives an AI an input, then applies **assertions** to its output to measure success (Anthropic's definition). A case is `{id, prompt, assert:[...]}`. Each assertion is either **deterministic** (code, fast/free) or **model-graded** (an LLM judge). Cases run multiple trials; we report **pass^k** (all trials pass — the honest metric for a reliability-critical agent) and **pass@k** (any trial passes). Everything routes through `Inference.ts` — subscription-billed, no API-key path, no external deps.
 
 Grounded in Anthropic's current doctrine — [Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents), [Define success criteria / develop tests](https://platform.claude.com/docs/en/docs/build-with-claude/develop-tests), and the `skill-creator` `{text, passed, evidence}` assertion convention. The typed-assert layer is promptfoo-shaped but our own TS.
+
+**Freshness contract:** "aligned to Anthropic's doctrine" is a live claim, not a snapshot. When designing a new suite class or touching the `## Doctrine` section below, re-fetch the Demystifying-evals doc and flag where it has moved past what's encoded here. Advisory only — report divergence, never auto-adopt, and an unreachable URL never blocks a run.
 
 ## The canonical path (v2)
 
@@ -78,7 +80,7 @@ Identity-bound suites (e.g. {{DA_NAME}}'s dispositions) live in `LIFEOS/USER/CUS
 
 ## Doctrine (from Anthropic — encode, don't restate)
 
-- **Grade the output/outcome, not the path.** Tool-call-sequence asserts are brittle and demoted to opt-in; the everyday suite grades what the agent produced. The legacy `core-behaviors` suite (tool-sequence graded) is retained only as an example of this anti-pattern.
+- **Grade the output/outcome, not the path.** Tool-call-sequence asserts are brittle and demoted to opt-in; the everyday suite grades what the agent produced. The legacy `core-behaviors` suite (tool-sequence graded) is retained only as an example of this anti-pattern — it is a v1 `tasks:` file and is not runnable by `EvalRunner`, which reports it as a named error rather than attempting it.
 - **Capability starts low** (a hill to climb); **regression targets ~100%**; passing capability cases **graduate** into regression.
 - **pass^k for reliability**, pass@k where one success suffices.
 - **Partial credit** via assert weights. **Balance** should-do and should-not cases — one-sided evals create one-sided optimization.
@@ -87,8 +89,8 @@ Identity-bound suites (e.g. {{DA_NAME}}'s dispositions) live in `LIFEOS/USER/CUS
 
 ## Harness integration
 
-- **Config-change regression:** `hooks/ConfigEvalFire.hook.ts` → `LIFEOS/TOOLS/ConfigEvalOnChange.ts` fires the configured dispositions suite when a behaviour-defining file changes (default `core-behaviors`; override via `LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Evals/config.json` `config_change_suite` — identity-bound suites live in that USER layer, never the public tree); regressions notify Pulse. Non-blocking, subscription-billed, debounced.
-- **ISA / Algorithm:** an eval suite is the operational form of an ISA claim's falsifier — see `LIFEOS/MEMORY/WORK/20260716-eval-system-integration/ISA.md` for the integration map.
+- **Config-change regression:** `hooks/ConfigEvalFire.hook.ts` → `LIFEOS/TOOLS/ConfigEvalOnChange.ts` fires the configured dispositions suite when a behaviour-defining file changes (default `core-dispositions`, the runnable v2 suite; override via `LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Evals/config.json` `config_change_suite` — identity-bound suites live in that USER layer, never the public tree); regressions notify Pulse. Non-blocking, subscription-billed, debounced.
+- **ISA / Algorithm:** an eval suite is the operational form of an ISA claim's falsifier (integration map kept on the maintainer machine — session notes, does not ship).
 
 ## Legacy (v1, superseded)
 

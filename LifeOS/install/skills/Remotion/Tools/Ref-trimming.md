@@ -14,7 +14,7 @@ A negative `from` value shifts time backwards, making the animation start partwa
 ```tsx
 import { Sequence, useVideoConfig } from "remotion";
 
-const fps = useVideoConfig();
+const { fps } = useVideoConfig(); // public issue #1760, @jacobo-ortiz
 
 <Sequence from={-0.5 * fps}>
   <MyAnimation />

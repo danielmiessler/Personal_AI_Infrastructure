@@ -5,7 +5,7 @@
  * Universal sources:
  *  - Patch RSS at https://patch.com/<state-slug>/<city-slug>/feed
  *  - Google News topic search keyed on "<city>, <state>"
- *  - Optional regional outlet RSS via SKILLCUSTOMIZATIONS PREFERENCES.md
+ *  - Optional regional outlet RSS via CUSTOMIZATIONS/SKILLS PREFERENCES.md
  *
  * v1 actually attempts Patch RSS — it's the most reliable universal source.
  */

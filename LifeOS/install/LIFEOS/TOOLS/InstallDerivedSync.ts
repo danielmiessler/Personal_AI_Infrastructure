@@ -9,6 +9,8 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, realpathSync } from "fs";
 import { join } from "path";
+import * as systemd from "./lib/SystemdUser";
+import { homedir } from "node:os";
 
 type SpawnProcess = {
   stdout: ReadableStream<Uint8Array> | null;
@@ -33,7 +35,7 @@ type LaunchctlResult = {
   ms: number;
 };
 
-const HOME = process.env.HOME || "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.derivedsync.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.derivedsync.plist");
@@ -142,8 +144,54 @@ async function status(): Promise<void> {
   console.log(r.out);
 }
 
+/* ── systemd --user backend (Linux only) ────────────────────────────────────
+ * Strictly additive. Every line above is the launchd path and is unchanged;
+ * on darwin nothing in this section executes. WatchPaths becomes a .path unit
+ * with one PathModified= per directory.
+ * ported from public PR #1698, @elhoim
+ * ------------------------------------------------------------------------- */
+
+async function linuxSpec(): Promise<systemd.UnitSpec> {
+  const bunPath = await systemd.which("bun");
+  if (!bunPath) throw new Error("bun not found in PATH - install bun first");
+  // realpathSync, matching the {{USER_DIR}} substitution the plist path uses:
+  // LIFEOS/USER is a symlink into the private config repo, and watching the
+  // link rather than its target would never fire on a write to the real file.
+  const userDir = realpathSync(join(HOME, ".claude", "LIFEOS", "USER"));
+  return {
+    label: LABEL,
+    description: "LifeOS derived-file sync",
+    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "DerivedSync.ts")],
+    logPath: join(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY", "derived-sync-systemd.log"),
+    workingDirectory: join(HOME, ".claude"),
+    schedule: {
+      kind: "watch",
+      // Mirrors the plist's WatchPaths array. A missing directory is dropped:
+      // systemd refuses to start a .path unit naming a path that isn't there.
+      paths: [
+        userDir,
+        join(userDir, "TELOS"),
+        join(userDir, "TELOS", "IDEAL_STATE"),
+        join(userDir, "TELOS", "CURRENT_STATE"),
+        join(userDir, "PRINCIPAL"),
+        join(userDir, "DIGITAL_ASSISTANT"),
+        join(userDir, "CONFIG"),
+      ].filter((p) => existsSync(p)),
+    },
+  };
+}
+
+async function linuxMain(arg: string | undefined): Promise<void> {
+  const spec = await linuxSpec();
+  const log = (m: string) => console.log(`[InstallDerivedSync] ${m}`);
+  if (arg === "--uninstall") { await systemd.uninstall(spec, log); return; }
+  if (arg === "--status") { if (!(await systemd.status(spec, log))) process.exit(1); return; }
+  if (!(await systemd.install(spec, log))) process.exit(1);
+}
+
 async function main(): Promise<void> {
   const arg = process.argv[2];
+  if (systemd.isLinux()) return linuxMain(arg);
   if (arg === "--uninstall") return uninstall();
   if (arg === "--status") return status();
   return install();

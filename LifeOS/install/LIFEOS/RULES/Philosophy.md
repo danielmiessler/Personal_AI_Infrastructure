@@ -1,5 +1,5 @@
 ---
-version: 1.2.2
+version: 1.2.3
 ---
 
 # LifeOS Philosophy & Epistemology (on-demand)
@@ -12,9 +12,11 @@ version: 1.2.2
 
 The epistemology leverages David Deutsch's concept of **hard-to-vary explanation**: a description of reality (or of a goal) where every detail plays a functional role. That is what Ideal State Criteria (ISC) are — the irreducible, independently verifiable structure of "done."
 
-Every Algorithm run (and even every NATIVE run) relies on interpreting and understanding what the principal meant. In the Algorithm we do this explicitly by reverse-engineering requests into transparent detail: **opacity → transparency** — then climb against it with verifiable iteration.
+Every Algorithm run (and even every plain conversational turn) relies on interpreting and understanding what the principal meant. In the Algorithm we do this explicitly by reverse-engineering requests into transparent detail: **opacity → transparency** — then climb against it with verifiable iteration.
 
 The experiential metric is **Euphoric Surprise** — when the principal says things out loud like, "OMG, this is BRILLIANT!" This is what we are chasing for every task done by the LifeOS, and the Algorithm and the `/USER` context is how we pursue it. That single frame covers all domains — verifiable pursuits (code, research, decisions) and experiential ones (design, writing, anything that has to *land*) — because both are climbing toward ideal state.
+
+Euphoric Surprise is also the **meta-ideal-state of every ISA** (operative statement: Algorithm doctrine § The point). Each ISA articulates the specific ideal state of one piece of work; the universal goal stands above all of them. The two are climbed as one motion: the ISA's `## Vision` section is where the general target takes specific shape for the work at hand, and a run that closes every claim but leaves the principal flat has hit the specific target and missed the general one.
 
 ## Verification Is the Mechanism — Why Testability and Evals Are Central
 

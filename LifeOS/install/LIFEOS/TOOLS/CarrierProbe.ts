@@ -100,6 +100,8 @@ function runChild(): Promise<{ envelope: Record<string, unknown> | null; raw: st
     // Anthropic's precedence chain, and bun auto-loads ~/.claude/.env. Scrub.
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_AUTH_TOKEN;
+    // Headless subprocess: never the desktop voice channel (2026-08-14 leak).
+    env.LIFEOS_NOTIFICATION_CHANNEL = env.LIFEOS_NOTIFICATION_CHANNEL || 'headless';
     delete env.ANTHROPIC_BASE_URL;
 
     const prompt =

@@ -8,14 +8,15 @@
  * Routes (all under /api/bunker):
  *   GET  /api/bunker          → { apps[], summary, lastFetch, stale }
  *   GET  /api/bunker/status   → module health
- *   GET  /api/bunker/arbol    → cloud infra-security scan (Arbol F_INFRA_SECURITY last report)
+ *   GET  /api/bunker/arbol    → cloud infra-security scan (the Arbol scanner's last report)
  *   POST /api/bunker/refresh  → force an immediate re-scan
  */
 
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME ?? "";
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const MODULE = "bunker";
 // Bunker CODE folded under Pulse (data/code separation); DATA (shots) lives in
 // the USER config tree, so shot images are read from there, never from BUNKER_DIR.
@@ -126,7 +127,7 @@ export function health(): { status: string; details?: Record<string, unknown> } 
   };
 }
 
-// ── Arbol cloud infra-security (F_INFRA_SECURITY worker) ──
+// ── Arbol cloud infra-security (infra-security worker) ──
 // The hourly cloud scanner is part of the same uptime/security stack Bunker
 // fronts. This proxies its last report so the token stays server-side and the
 // tab shows cloud health next to the local probe results. Worker URL is derived
@@ -139,33 +140,54 @@ interface ArbolReport { timestamp: string; summary: { pass: number; fail: number
 let arbolCache: { at: number; report: ArbolReport } | null = null;
 let pentestCache: { at: number; online: boolean } | null = null;
 
-// pentest_worker is an optional key naming the account's pentest-orchestrator
-// worker. The name stays in the private config file — never in this source —
-// so shipped code carries no private-security identifiers (G18).
-function arbolConfig(): { subdomain: string; token: string; pentestWorker?: string } | null {
+// Every deployed worker NAME is an install-private fact and lives in the
+// private config file — never in this source — so shipped code carries no
+// private-infrastructure identifiers (G18). `pentest_worker` was already
+// config-sourced; `security_worker` and `site_health_worker` joined it after
+// Max's 7.31.5 audit found their kebab-case names hardcoded two lines below a
+// comment claiming exactly this property. Defaults are generic shapes, not
+// this install's names: an install with different names sets the keys.
+const DEFAULT_SECURITY_WORKER = "infra-security";
+const DEFAULT_SITE_HEALTH_WORKER = "site-health";
+function arbolConfig(): { subdomain: string; token: string; pentestWorker?: string; securityWorker: string; siteHealthWorker: string } | null {
   try {
     const y = readFileSync(join(HOME, ".config", "arbol", "config.yaml"), "utf8");
     const subdomain = y.match(/^subdomain:\s*"?([^"\n]+)"?/m)?.[1]?.trim();
     const token = y.match(/^auth_token:\s*"?([^"\n]+)"?/m)?.[1]?.trim();
     const pentestWorker = y.match(/^pentest_worker:\s*"?([^"\n]+)"?/m)?.[1]?.trim();
+    const securityWorker = y.match(/^security_worker:\s*"?([^"\n]+)"?/m)?.[1]?.trim() || DEFAULT_SECURITY_WORKER;
+    const siteHealthWorker = y.match(/^site_health_worker:\s*"?([^"\n]+)"?/m)?.[1]?.trim() || DEFAULT_SITE_HEALTH_WORKER;
     if (!subdomain || !token) return null;
-    return { subdomain, token, pentestWorker };
+    return { subdomain, token, pentestWorker, securityWorker, siteHealthWorker };
   } catch { return null; }
 }
 
-async function fetchArbolReport(): Promise<ArbolReport | null> {
-  if (arbolCache && Date.now() - arbolCache.at < 5 * 60_000) return arbolCache.report;
+// Three outcomes the panel must tell apart. Collapsing them to a single `null`
+// (the old return type) made "no security system installed" and "scanner is
+// down" render identically as a BLANK panel — and a blank security panel reads
+// as "no findings / all clear", the most dangerous possible misread (a blank
+// card is broken, not acceptable — OPERATIONAL_RULES § Deploy & verify). The
+// caller now renders `unreachable` as a red/degraded card face, never empty.
+type ArbolFetch =
+  | { state: "ok"; report: ArbolReport }
+  | { state: "not-configured" }
+  | { state: "unreachable"; reason: string };
+
+async function fetchArbol(): Promise<ArbolFetch> {
+  if (arbolCache && Date.now() - arbolCache.at < 5 * 60_000) return { state: "ok", report: arbolCache.report };
   const cfg = arbolConfig();
-  if (!cfg) return null;
+  if (!cfg) return { state: "not-configured" };
   try {
-    const r = await fetch(`https://arbol-f-infra-security.${cfg.subdomain}.workers.dev/report`, {
+    const r = await fetch(`https://${cfg.securityWorker}.${cfg.subdomain}.workers.dev/report`, {
       headers: { Authorization: `Bearer ${cfg.token}` },
     });
-    if (!r.ok) return null;
+    if (!r.ok) return { state: "unreachable", reason: `scanner returned HTTP ${r.status}` };
     const report = (await r.json()) as ArbolReport;
     arbolCache = { at: Date.now(), report };
-    return report;
-  } catch { return null; }
+    return { state: "ok", report };
+  } catch (e) {
+    return { state: "unreachable", reason: `scanner fetch failed: ${(e as Error)?.message ?? "network error"}` };
+  }
 }
 
 async function pentestOnline(): Promise<boolean | null> {
@@ -213,7 +235,7 @@ function securityForApp(appName: string, report: ArbolReport): AppSecurity | nul
   };
 }
 
-// ── Cloud site-health (A_SITE_HEALTH worker) ──
+// ── Cloud site-health (site-health worker) ──
 // The hourly-cron cloud uptime checker over every deployed site. Its data used
 // to be a public no-auth dashboard; it's now authenticated and read here
 // server-side so the roster and uptime history stay private and live in Pulse.
@@ -227,7 +249,7 @@ async function siteHealthReport(): Promise<Response> {
   const cfg = arbolConfig();
   if (!cfg) return Response.json({ error: "arbol not configured (~/.config/arbol/config.yaml)" }, { status: 503 });
   try {
-    const r = await fetch(`https://arbol-a-site-health.${cfg.subdomain}.workers.dev/status`, {
+    const r = await fetch(`https://${cfg.siteHealthWorker}.${cfg.subdomain}.workers.dev/status`, {
       headers: { Authorization: `Bearer ${cfg.token}` },
     });
     if (!r.ok) return Response.json({ error: `site-health worker HTTP ${r.status}` }, { status: 502 });
@@ -259,9 +281,15 @@ async function siteHealthReport(): Promise<Response> {
 // rollup when configured; worker names are [a-z0-9-] so direct interpolation
 // into the regex is safe.
 function monitorWorkersRe(): RegExp {
-  const extra = arbolConfig()?.pentestWorker;
-  const base = "site-health|infra-security|send-email";
-  return new RegExp(extra ? `${base}|${extra}` : base);
+  // Built from the SAME config-sourced names the report fetchers use, so an
+  // install whose workers are named differently still gets them costed. The
+  // hardcoded pair here survived the 7.31.5 config refactor two functions
+  // above and would have silently omitted both workers from the cost card on
+  // every non-default install (Max audit, 7.31.6).
+  const cfg = arbolConfig();
+  const names = [cfg?.securityWorker, cfg?.siteHealthWorker, "send-email", cfg?.pentestWorker]
+    .filter((n): n is string => Boolean(n));
+  return new RegExp(names.join("|"));
 }
 // Workers Paid: $5/mo flat includes 10M requests; $0.30 per additional million.
 const CF_INCLUDED_REQUESTS = 10_000_000;
@@ -328,10 +356,12 @@ async function costReport(): Promise<Response> {
 // banner never renders — data/code separation: this is generic system code that
 // only lights up when a real security source exists behind it.
 async function criticalBanner(): Promise<Response> {
-  const cfg = arbolConfig();
-  if (!cfg) return Response.json({ configured: false });
-  const report = await fetchArbolReport();
-  if (!report) return Response.json({ configured: true, reachable: false, count: 0, items: [] });
+  const res = await fetchArbol();
+  if (res.state === "not-configured") return Response.json({ configured: false });
+  // Configured but the scanner didn't answer — surface it so the banner can show
+  // "security status unknown" rather than silently reading as all-clear.
+  if (res.state === "unreachable") return Response.json({ configured: true, reachable: false, reason: res.reason, count: 0, items: [] });
+  const report = res.report;
   const crit = report.checks.filter((c) => c.status === "fail" && (c.severity === "critical" || c.severity === "high"));
   return Response.json({
     configured: true,
@@ -345,14 +375,14 @@ async function criticalBanner(): Promise<Response> {
 }
 
 async function arbolReport(): Promise<Response> {
-  const report = await fetchArbolReport();
-  if (!report) {
-    const cfg = arbolConfig();
+  const res = await fetchArbol();
+  if (res.state !== "ok") {
     return Response.json(
-      { error: cfg ? "arbol worker unreachable" : "arbol not configured (~/.config/arbol/config.yaml)" },
-      { status: cfg ? 502 : 503 },
+      { error: res.state === "unreachable" ? `arbol worker unreachable: ${res.reason}` : "arbol not configured (~/.config/arbol/config.yaml)" },
+      { status: res.state === "unreachable" ? 502 : 503 },
     );
   }
+  const report = res.report;
   const failing = report.checks.filter((c) => c.status === "fail");
   const bySeverity: Record<string, number> = {};
   for (const c of failing) bySeverity[c.severity] = (bySeverity[c.severity] ?? 0) + 1;
@@ -410,12 +440,20 @@ export async function handleRequest(req: Request, pathname: string): Promise<Res
     }
     // Fold the cloud security grade into each app so every bay carries
     // "when was the last security check, and is it green/orange/red".
-    const report = await fetchArbolReport();
+    const arbol = await fetchArbol();
+    const report = arbol.state === "ok" ? arbol.report : null;
     const apps = (state.cache.apps ?? []).map((a: any) => ({
       ...a,
       security: report ? securityForApp(a.name, report) : null,
     }));
-    return Response.json({ ...state.cache, apps, lastFetch: state.lastFetch?.toISOString() ?? null });
+    // Panel-level security-source state so the card face can render a red/degraded
+    // "scanner unreachable" indicator instead of a blank panel that reads as
+    // all-clear. `not-configured` stays silent (no security system installed).
+    const security_source =
+      arbol.state === "ok" ? { state: "ok" as const, timestamp: arbol.report.timestamp }
+      : arbol.state === "unreachable" ? { state: "unreachable" as const, reason: arbol.reason }
+      : { state: "not-configured" as const };
+    return Response.json({ ...state.cache, apps, security_source, lastFetch: state.lastFetch?.toISOString() ?? null });
   }
 
   return Response.json({ error: "Not found" }, { status: 404 });

@@ -3,7 +3,7 @@
  * KnowledgeSchema — the single source of truth for the LifeOS Knowledge Archive
  * note schema (the "kb-v3" contract).
  *
- * WHY THIS EXISTS (design: MEMORY/WORK/20260704-knowledge-schema-upgrade-design/DESIGN.md):
+ * WHY THIS EXISTS:
  * the archive had THREE competing frontmatter dialects with nothing enforcing any
  * of them (v2.0 28% / pai-memory-v1 2.7% / undocumented blog-import 69%), so it
  * couldn't be queried on the dimensions that matter (source, author, tags, dates,

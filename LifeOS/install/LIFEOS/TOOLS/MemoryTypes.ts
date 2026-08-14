@@ -217,13 +217,27 @@ export const ALWAYS_LOADED_KINDS: ReadonlySet<ProposalTargetKind> = Object.freez
 ) as ReadonlySet<ProposalTargetKind>;
 
 /**
+ * The reviewer emits target_file as free text and sometimes writes `~/…`
+ * instead of the expanded home path (2026-08-10 run failure: a valid DA_IDENTITY
+ * proposal was rejected for the tilde alone). Expand it before any allowlist
+ * comparison; the allowlist itself stays absolute.
+ */
+export function normalizeProposalTargetFile(targetFile: string): string {
+  if (targetFile === "~" || targetFile.startsWith("~/")) {
+    return pathJoin(homedir(), targetFile.slice(1));
+  }
+  return targetFile;
+}
+
+/**
  * Reverse lookup — derive a proposal kind from a target file path. Returns
  * 'identity' as the sane default for legacy proposals that only carry a
  * target_file (no target_kind), so the v8.1 wire format keeps working.
  */
 export function inferProposalKind(targetFile: string): ProposalTargetKind {
+  const normalized = normalizeProposalTargetFile(targetFile);
   for (const [kind, files] of Object.entries(PROPOSAL_KIND_TO_FILES) as [ProposalTargetKind, readonly string[]][]) {
-    if (files.includes(targetFile)) return kind;
+    if (files.includes(normalized)) return kind;
   }
   return "identity";
 }
@@ -244,9 +258,16 @@ export function inferProposalKind(targetFile: string): ProposalTargetKind {
  */
 export function pinProposalTargetFile(kind: ProposalTargetKind, suppliedTargetFile: string): string | null {
   const allowed = PROPOSAL_KIND_TO_FILES[kind];
-  if (!allowed || allowed.length === 0) return suppliedTargetFile;
+  // Default-deny for an unknown/unmapped kind (Max review 2026-08-10, INFO #1):
+  // PROPOSAL_KIND_TO_FILES is exhaustive over ProposalTargetKind and every entry
+  // is non-empty, so this branch is only reachable via a runtime string that
+  // isn't a real kind (e.g. a hand-written queue row). Passing its supplied path
+  // through unchanged would let such a row write anywhere; return null so the
+  // caller refuses, matching the multi-file branch's out-of-allowlist behavior.
+  if (!allowed || allowed.length === 0) return null;
   if (allowed.length === 1) return allowed[0];
-  return allowed.includes(suppliedTargetFile) ? suppliedTargetFile : null;
+  const normalized = normalizeProposalTargetFile(suppliedTargetFile);
+  return allowed.includes(normalized) ? normalized : null;
 }
 
 export function isKnownProposalKind(k: string): k is ProposalTargetKind {
@@ -498,6 +519,12 @@ function smokeTest(): number {
   check("infer: CONTACTS → contacts",             inferProposalKind(CONTACTS_PATH) === "contacts");
   check("infer: unknown path defaults to identity (legacy compat)",
     inferProposalKind("/tmp/random.md") === "identity");
+  check("infer: tilde-prefixed DA_IDENTITY resolves (2026-08-10 reviewer failure shape)",
+    inferProposalKind("~/.claude/LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md") === "identity");
+  check("pin: tilde-prefixed DA_IDENTITY pins to the absolute canonical path",
+    pinProposalTargetFile("identity", "~/.claude/LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md") === DA_IDENTITY_PATH);
+  check("pin: out-of-set identity path still rejected after normalization",
+    pinProposalTargetFile("identity", "~/.claude/evil.md") === null);
 
   // 14b. pinProposalTargetFile — single-file kinds pin (supplied path ignored),
   //      identity validates within its set, out-of-set identity → null (reject).

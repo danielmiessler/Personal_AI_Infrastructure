@@ -4,7 +4,7 @@ last_updated_by: da
 convention: pai-freshness-v1
 last_reviewed: 2026-05-08T01:30:00.000Z
 last_reviewed_by: <principal>
-version: 1.1.9
+version: 1.1.13
 ---
 
 # LifeOS Testing Doctrine
@@ -15,7 +15,7 @@ version: 1.1.9
 
 > **Status (public installs):** the harness and `test/` tree described here are NOT yet included in the public release payload (public issue #1550) — releases through 7.3.6 shipped them; the 7.4+ single-skill `install/` layout dropped them, and re-inclusion is a pending packaging decision. On a public install, treat this doctrine as the specification the system is converging on: `bun test` remains the canonical probe wherever a test exists, and the harness here is the Phase 1 skeleton (243 lines, 18 exports), not the full Bun-scale harness the table below describes as its inspiration.
 
-This document is the result of a deep analysis of how the Bun project itself (`oven-sh/bun`) achieves its reputation for thorough test coverage and harness discipline, mapped onto LifeOS's TypeScript surface. Citations to Bun source are inline; the full research lives at `~/.claude/LIFEOS/MEMORY/WORK/20260507-bun-testing-doctrine-analysis/ISA.md`.
+This document is the result of a deep analysis of how the Bun project itself (`oven-sh/bun`) achieves its reputation for thorough test coverage and harness discipline, mapped onto LifeOS's TypeScript surface. Citations to Bun source are inline.
 
 ---
 
@@ -401,7 +401,7 @@ The checkbox is downstream of a real exit code, never upstream of it. A failing 
 
 ## Cross-references
 
-- Algorithm doctrine on ISA-as-test-harness: `~/.claude/LIFEOS/ALGORITHM/v8.17.3.md` § Doctrine (line 17)
+- Algorithm doctrine on ISA-as-test-harness: `~/.claude/LIFEOS/ALGORITHM/v8.20.2.md` § Doctrine (line 17)
 - ISA format spec: `~/.claude/LIFEOS/DOCUMENTATION/ISA/ISAFormat.md`
 - Bun test docs: <https://bun.sh/docs/cli/test>, <https://bun.sh/docs/test/writing>, <https://bun.sh/docs/test/lifecycle>, <https://bun.sh/docs/test/snapshots>, <https://bun.sh/docs/test/coverage>, <https://bun.sh/docs/test/mocks>
 - Bun's own test doctrine: <https://github.com/oven-sh/bun/blob/main/test/CLAUDE.md>

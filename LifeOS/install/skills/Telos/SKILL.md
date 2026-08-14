@@ -1,6 +1,6 @@
 ---
 name: Telos
-version: 1.0.45
+version: 1.0.46
 description: "Dual-context skill: Personal TELOS reads and updates goals, beliefs, narratives, strategies, and more with timestamped backups; Project TELOS analyzes .md/.csv directories for dependency chains, bottlenecks, and alignment, generating reports, narrative points, or dashboards. USE WHEN Telos, life goals, projects, dependencies, update TELOS, narrative points, McKinsey report, dashboard, what am I wrong about, life frames, mental models. NOT FOR conversational constitutional review (use Interview)."
 ---
 

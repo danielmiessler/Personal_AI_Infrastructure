@@ -100,12 +100,21 @@ Produces:
 - `dist/interceptor-bridge` — bare Swift binary (macOS only, full mode)
 - `dist/interceptor-bridge.app` — `.app` bundle with Sparkle.framework embedded
 
-### 4. Install Binaries
+### 4. Install Binaries (atomic — never `cp` over the live files)
+
+The `com.interceptor.daemon` LaunchAgent (`KeepAlive`) respawns the daemon every 5s. A plain `cp` over the installed binary exposes a half-written or stale-signed file to those respawns, and taskgated SIGKILL-loops every attempt (`OS_REASON_CODESIGNING`) until the copy completes — 92 crash reports in one window on 2026-08-10, similar burst 2026-08-07. Stage, sign, then `mv` (atomic rename) so every spawn ever sees only a complete signed binary:
 
 ```bash
-cp "$INTERCEPTOR_SRC"/dist/interceptor /opt/homebrew/bin/
-cp "$INTERCEPTOR_SRC"/daemon/interceptor-daemon /opt/homebrew/bin/
+cp "$INTERCEPTOR_SRC"/dist/interceptor            /opt/homebrew/bin/.interceptor.new
+cp "$INTERCEPTOR_SRC"/daemon/interceptor-daemon   /opt/homebrew/bin/.interceptor-daemon.new
+codesign --force --sign - /opt/homebrew/bin/.interceptor.new
+codesign --force --sign - /opt/homebrew/bin/.interceptor-daemon.new
+mv -f /opt/homebrew/bin/.interceptor.new          /opt/homebrew/bin/interceptor
+mv -f /opt/homebrew/bin/.interceptor-daemon.new   /opt/homebrew/bin/interceptor-daemon
+launchctl kickstart -k "gui/$(id -u)/com.interceptor.daemon"   # pick up the new inode
 ```
+
+Verify: `codesign --verify -v /opt/homebrew/bin/interceptor-daemon` exits 0, and `launchctl print "gui/$(id -u)/com.interceptor.daemon" | grep -E 'pid|last exit'` shows a live pid with no `OS_REASON_CODESIGNING` exit.
 
 ### 4a. Pin the Built Extension
 
@@ -124,6 +133,17 @@ Re-pin after every build:
 ```bash
 bash ~/.claude/skills/Interceptor/Tools/Pin.sh
 ```
+
+**Gotcha (2026-08-07, 0.22.37 → 0.23.3):** `extension/dist/` is gitignored, so macOS Finder-duplicate cruft (`icon128 3.png`, `tesseract-core-simd-lstm 2.wasm` — a space then a digit before the extension) can accumulate there across builds. `bun run build` does NOT remove it. Those spaces break `Pin.sh`'s `xargs shasum` content-hash loop (line 56, unquoted), so Pin.sh dies under `set -e` **after** rsyncing the new manifest into `Extension/` but **before** rewriting `PINNED_FROM.txt` — leaving the pin inconsistent (new manifest, stale `PINNED_FROM.txt` version + SHA). Clean the cruft from source first, then re-pin:
+
+```bash
+find "$INTERCEPTOR_SRC"/extension/dist \( -name "* 2.*" -o -name "* 3.*" \) -delete
+bash ~/.claude/skills/Interceptor/Tools/Pin.sh   # exit 0, prints "✓ pinned + scrubbed (v<X>, sha …)"
+```
+
+Confirm `Extension/PINNED_FROM.txt` shows the new `Manifest version:` and a fresh `Pinned at:`. (Durable fix would quote line 56's loop like the leak-guard's `-print0` at line 69.)
+
+**Self-updater note (0.23.x):** upstream added a top-level `interceptor update` (user-initiated check + Sparkle background auto-check; `interceptor update status` shows the feed). **We do not use it** — it replaces the installed binary and would drop our unupstreamed `screenshot --save` patch. Build from source per this workflow until the patch lands upstream.
 
 `Pin.sh` rsyncs `dist/` → `Extension/`, **scrubs absolute home paths** that esbuild bakes into bundled JS (the `__dirname` literal in CommonJS wrappers → `"."`), regenerates `PINNED_FROM.txt` with a relative source path, and exits non-zero if any absolute home path survives. It reads the same `INTERCEPTOR_SRC` variable set in step 0.
 

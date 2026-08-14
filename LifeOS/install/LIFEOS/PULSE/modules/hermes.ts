@@ -40,6 +40,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { checkHermesHealth, type HermesHealth } from "../../HERMES/Health.ts";
+import { analyzeGuardLog } from "../../HERMES/LogAnalysis.ts";
 import { assertClean, scrubPaths } from "../../HERMES/RenderSoul.ts";
 
 const MODULE_NAME = "hermes";
@@ -436,6 +437,24 @@ export async function handleRequest(req: Request, pathname: string): Promise<Res
         code: "Install-generic and publicly shipped. Writes are refused if they contain a home path or a credential.",
       },
     });
+  }
+
+  // Guard friction analysis — recomputed from the live audit trail on every
+  // view, so the improvement queue can never go stale. Absent logs degrade to
+  // an empty analysis inside analyzeGuardLog itself.
+  if (method === "GET" && pathname === "/api/hermes/log-analysis") {
+    const daysRaw = Number(new URL(req.url).searchParams.get("days"));
+    const days = Number.isFinite(daysRaw) && daysRaw >= 1 && daysRaw <= 90 ? Math.floor(daysRaw) : 14;
+    try {
+      const analysis = analyzeGuardLog({ days });
+      return Response.json({
+        ...analysis,
+        logPath: scrubPaths(analysis.logPath),
+        topRules: analysis.topRules.map((r) => ({ ...r, rule: scrubPaths(r.rule) })),
+      });
+    } catch (err) {
+      return Response.json({ available: false, error: scrubPaths(String(err)) }, { status: 200 });
+    }
   }
 
   if (pathname.startsWith("/api/hermes/file/")) {

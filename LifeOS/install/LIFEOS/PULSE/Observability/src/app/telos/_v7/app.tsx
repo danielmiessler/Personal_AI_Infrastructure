@@ -371,10 +371,13 @@ function App() {
             />
           </div>
         )}
-        {view === "tree"  && <TreeView {...common} />}
-        {view === "graph" && <GraphView {...common} />}
+        {/* All TELOS content is personal — data-sensitive so Observer mode blurs
+            it while page chrome (header, section nav, view controls, footer)
+            stays visible. Wrappers replicate .frame's column gap. */}
+        {view === "tree"  && <div data-sensitive><TreeView {...common} /></div>}
+        {view === "graph" && <div data-sensitive><GraphView {...common} /></div>}
         {view === "columns" && (
-          <>
+          <div data-sensitive style={{ display: "flex", flexDirection: "column", gap: 48 }}>
             <Hero telos={telos} tone={tweaks.vals.narrativeTone} showIds={showIds} onTrace={trace} openFile={openFile} isPersonalized={isPersonalized} />
             <Problems {...common} />
             <MissionGoals
@@ -392,7 +395,7 @@ function App() {
             <Stranded telos={telos} showIds={showIds} openFile={openFile} />
             <SubTabs telos={telos} openFile={openFile} />
             <Preferences telos={telos} openFile={openFile} />
-          </>
+          </div>
         )}
         <footer className="ftr">
           <span>LifeOS · Life Operating System</span>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.4.6
+ * @version 1.4.7
  * VoiceCompletion.hook.ts — Send completion voice line to TTS server
  *
  * PURPOSE:
@@ -95,7 +95,10 @@ async function main() {
     if (fromLastMsg) {
       parsed.voiceCompletion = fromLastMsg;
     } else {
-      // Final fallback: extract first meaningful sentence from last_assistant_message
+      // Final fallback: extract first meaningful sentence from last_assistant_message.
+      // Log it — a silent fallback spoke CHANGE bullets for six days on one
+      // install before anyone noticed. (public issue #1829, @MatiasBarboza)
+      console.error('[VoiceCompletion] no 🗣️ line extracted — falling back to summary extraction');
       const fallback = extractFallbackSummary(input.last_assistant_message);
       if (fallback) {
         parsed.voiceCompletion = fallback;

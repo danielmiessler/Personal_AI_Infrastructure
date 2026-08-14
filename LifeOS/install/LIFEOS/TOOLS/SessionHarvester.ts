@@ -23,12 +23,14 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { getLearningCategory, isLearningCapture } from "../../hooks/lib/learning-utils";
+import { ingestCaptureEnvelope } from "./CaptureEnvelope";
+import { homedir } from "node:os";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = path.join(process.env.HOME!, ".claude");
+const CLAUDE_DIR = path.join(homedir(), ".claude");
 // Derive the project slug dynamically from CLAUDE_DIR (works on macOS and Linux)
 // macOS: ${HOME}/.claude → ${HARNESS_USER_DIR}
 // Linux: ${HOME}/.claude → ${HARNESS_USER_DIR}
@@ -209,6 +211,28 @@ function extractTextContent(content: string | Array<any>): string {
   return '';
 }
 
+// Envelope provenance for everything this tool captures: harness transcripts.
+const CAPTURE_SOURCE = "claude";
+const CAPTURE_CHANNEL = "transcript";
+
+/**
+ * The Cortex-controlled transcript ingestion boundary. All transcript-derived
+ * content crosses the source-neutral capture envelope, which strips private
+ * spans before any pattern matching, persistence, or downstream processing.
+ */
+function ingestTranscriptText(sessionId: string, timestamp: string, raw: string): string {
+  return ingestCaptureEnvelope(
+    {
+      source: CAPTURE_SOURCE,
+      channel: CAPTURE_CHANNEL,
+      timestamps: { captured_at: timestamp },
+      session_id: sessionId,
+      content: raw,
+    },
+    (envelope) => envelope.content,
+  );
+}
+
 function matchesPatterns(text: string, patterns: RegExp[]): { matches: boolean; matchedPattern: string | null } {
   for (const pattern of patterns) {
     if (pattern.test(text)) {
@@ -237,10 +261,9 @@ function harvestLearnings(sessionPath: string): HarvestedLearning[] {
 
       if (!entry.message?.content) continue;
 
-      const textContent = extractTextContent(entry.message.content);
-      if (!textContent || textContent.length < 20) continue;
-
       const timestamp = entry.timestamp || new Date().toISOString();
+      const textContent = ingestTranscriptText(sessionId, timestamp, extractTextContent(entry.message.content));
+      if (!textContent || textContent.length < 20) continue;
 
       // Check for corrections (user messages)
       if (entry.type === 'user') {
@@ -319,10 +342,9 @@ function mineMemories(sessionPath: string): MinedMemory[] {
       if (!entry.message?.content) continue;
       if (entry.type !== 'user' && entry.type !== 'assistant') continue;
 
-      const textContent = extractTextContent(entry.message.content);
-      if (!textContent || textContent.length < 20) continue;
-
       const timestamp = entry.timestamp || new Date().toISOString();
+      const textContent = ingestTranscriptText(sessionId, timestamp, extractTextContent(entry.message.content));
+      if (!textContent || textContent.length < 20) continue;
 
       for (const [memType, patterns] of Object.entries(MINING_PATTERN_MAP) as [MemoryType, RegExp[]][]) {
         let matchCount = 0;
@@ -415,6 +437,12 @@ function writeToQueue(mem: MinedMemory): string {
     sourcePattern: mem.sourcePattern,
     sourcePath: mem.sessionId,
     minedAt: now.toISOString(),
+    provenance: {
+      source: CAPTURE_SOURCE,
+      channel: CAPTURE_CHANNEL,
+      captured_at: mem.timestamp,
+      session_id: mem.sessionId,
+    },
   };
 
   fs.writeFileSync(filepath, JSON.stringify(candidate, null, 2));
@@ -456,6 +484,7 @@ function formatLearningFile(learning: HarvestedLearning): string {
 **Timestamp:** ${learning.timestamp}
 **Category:** ${learning.category}
 **Source Pattern:** ${learning.source}
+**Provenance:** source=${CAPTURE_SOURCE} channel=${CAPTURE_CHANNEL} captured_at=${learning.timestamp} session_id=${learning.sessionId}
 
 ---
 

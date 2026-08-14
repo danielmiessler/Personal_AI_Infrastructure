@@ -111,13 +111,32 @@ export function findLatestISA(): string | null {
 /** @deprecated use findLatestISA — alias kept so older imports keep compiling. */
 export const findLatestPRD = findLatestISA;
 
+/**
+ * Strip a trailing YAML comment from a raw scalar — but only when the `#` sits
+ * OUTSIDE quotes. `phase: complete   # REQUIRED` (ISAFormat.md's own template
+ * style) must parse as `complete`, while `task: "fix #1787"` keeps its `#1787`.
+ * (public issue #1792, @waveman2020-sudo)
+ */
+function stripTrailingYamlComment(raw: string): string {
+  let inSingle = false, inDouble = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (ch === '#' && !inSingle && !inDouble && (i === 0 || raw[i - 1] === ' ' || raw[i - 1] === '\t')) {
+      return raw.slice(0, i).trimEnd();
+    }
+  }
+  return raw;
+}
+
 export function parseFrontmatter(content: string): Record<string, string> | null {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return null;
   const fm: Record<string, string> = {};
   for (const line of match[1].split('\n')) {
     const idx = line.indexOf(':');
-    if (idx > 0) fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+    if (idx > 0) fm[line.slice(0, idx).trim()] = stripTrailingYamlComment(line.slice(idx + 1).trim()).replace(/^["']|["']$/g, '');
   }
   return fm;
 }
@@ -272,7 +291,11 @@ export function parseCriteriaList(content: string): CriterionEntry[] {
       // ISC-N | domain-prefixed (ADM-1, CH-10, H-AVAIL, CRS-PAGE) | short (C1, A3).
       // The domain-prefixed alt accepts a LETTER suffix (H-AVAIL) not just digits
       // — H3/Vector use alphabetic claim IDs that the digits-only pattern missed.
-      const ID_RE = '(ISC-[\\w-]+|[A-Z]{1,6}-[A-Z0-9][\\w-]*|[A-Z]{1,4}-?\\d+)';
+      // Dots included (ISC-2.1, C4.2): split-claim IDs are blessed by the
+      // ID-Stability Rule (`ISC-N.M`) but the dot-less pattern dropped them, so
+      // a split claim was frontier-visible yet invisible on the board
+      // (2026-08-13, Forge F5 on the IsaFrontier build).
+      const ID_RE = '(ISC-[\\w.-]+|[A-Z]{1,6}-[A-Z0-9][\\w.-]*|[A-Z]{1,4}-?\\d+(?:\\.\\d+)*)';
       let textMatch = line.match(new RegExp(`^- \\[[ x]\\]\\s*${ID_RE}(?:\\s+\\[([A-Za-z]+)\\](?:\\[\\w+\\])?)?:\\s*(.*)`));
 
       // Fallback: no trailing `:` — e.g. `- [x] ISC-1 description`,
@@ -863,6 +886,19 @@ export function syncToWorkJson(fm: Record<string, string>, isaPath: string, cont
             `frontmatter=${fmDone}/${fmTotal} body=${bodyDone}/${bodyTotal} ` +
             `isa=${relativeIsa}: frontmatter and body disagree — one is stale`,
           );
+          // console.error from a hook has no captor — give the warning a real
+          // sink so the disagreement is inspectable. (public issue #1839,
+          // @jacobo-ortiz)
+          try {
+            mkdirSync(join(paiPath('MEMORY'), 'OBSERVABILITY'), { recursive: true });
+            appendFileSync(
+              paiPath('MEMORY', 'OBSERVABILITY', 'isa-progress-mismatch.jsonl'),
+              JSON.stringify({
+                ts: new Date().toISOString(), slug: fm.slug, isa: relativeIsa,
+                frontmatter: `${fmDone}/${fmTotal}`, body: `${bodyDone}/${bodyTotal}`,
+              }) + '\n',
+            );
+          } catch { /* logging must never break the sync */ }
         }
       }
     }

@@ -4,7 +4,7 @@ last_updated_by: da
 last_reviewed: 2026-07-02
 last_reviewed_by: da
 convention: pai-freshness-v1
-version: 1.7.4
+version: 1.7.6
 ---
 
 # Pulse — the Life Dashboard
@@ -44,7 +44,7 @@ Each subsystem runs in its own crash-isolated loop within the single Pulse proce
 | **Assets** | Read-only unified inventory surface over the existing asset stores. Holds zero data — parses the source files on every request. | `modules/assets.ts` |
 | **Atlas** | Read-only surface over the Atlas asset graph (current state of everything owned). Powers the `/atlas` tab. | `modules/atlas.ts` |
 | **Books** | Read-only surface over `USER/BOOKS.md`. Parses the USER file per request. | `modules/books.ts` |
-| **Bunker** | Feeds the `/bunker` tab. Shells out to the Bunker CLI (`LIFEOS/PULSE/Bunker`), which is the source of truth. | `modules/bunker.ts` |
+| **Bunker** | Feeds the `/bunker` tab. Shells out to the Bunker CLI (`LIFEOS/PULSE/Bunker` — private implementation, NOT in the public release payload; the module no-ops without it), which is the source of truth. | `modules/bunker.ts` |
 | **Conduit** | Read-only dashboard over Conduit's daily records. Reads only from `USER/CONDUIT` — capture itself is the launchd job. | `modules/conduit.ts` |
 | **Content** | Feeds the CONTENT tab (Conveyor board) from the content ledger at `MEMORY/STATE/content-pipeline/events.jsonl`. | `modules/content.ts` |
 | **Doctor** | Read-only System Health surface (2026-07-12, #1461). Serves `GET /api/doctor` → `{ manifest, heartbeat, reconcile }` from the advisory caches written by `LIFEOS/TOOLS/Doctor.ts`; shells `Doctor.ts --reconcile` (30s cache). Holds zero truth of its own. Rendered by `SystemHealthPanel.tsx` on the **System → Hooks** page: capability states + fix commands, doctor heartbeat age (red past 7 days — a dead checker must be loud), and hook reconciliation. Diagnostic register, no scores. | `modules/doctor.ts` |
@@ -674,7 +674,7 @@ Pulse includes an integrated HTTP hook validation server as the `hooks` module (
 ### Behavior
 
 - **Fail-open:** If Pulse is unreachable, Claude Code treats hooks as non-blocking success. This is acceptable for skill-guard (minor annoyance) and agent-guard (warning only). These Pulse HTTP routes are the ONLY implementation — the standalone `.hook.ts` files (`SkillGuard.hook.ts`, `AgentExecutionGuard.hook.ts`) were deleted.
-- **Security hooks stay as command hooks:** `SecurityPipeline.hook.ts` uses `process.exit(2)` for hard-blocking. HTTP hooks would fail-open on connection failure, which is unacceptable for security operations.
+- **Security hooks stay as command hooks:** `Safety.hook.ts` runs in-process (no network) for its permission classification. HTTP hooks would fail-open on connection failure, which is unacceptable for security operations.
 - **Port:** 31337 (shared with all Pulse modules), bound to 127.0.0.1 only.
 
 ### Hook Configuration
@@ -759,10 +759,10 @@ The observability module serves all dashboard data. Full API reference with all 
 | Category | Endpoints | Purpose |
 |----------|-----------|---------|
 | Core Observability | `/api/observability/*`, `/api/events/recent` | Session state, events, voice logs, tool failures |
-| Algorithm & Sessions | `/api/algorithm`, `/api/algorithm/stream` (SSE), `/api/agents` | Work sessions, subagents, learning signals. `/api/novelty` + `/api/ladder` handlers retained UI-less — surfaces archived as future work 2026-07-08 (`MEMORY/WORK/20260708-hypotheses-novelty-ladder-integration/DESIGN.md`) |
+| Algorithm & Sessions | `/api/algorithm`, `/api/algorithm/stream` (SSE), `/api/agents` | Work sessions, subagents, learning signals. `/api/novelty` + `/api/ladder` handlers retained UI-less — surfaces archived as future work 2026-07-08 |
 | Life Dashboard | `/api/life/home`, `/api/life/health`, `/api/life/finances`, `/api/life/business`, `/api/life/work`, `/api/life/goals` | Narrative + domain data powering the `/life` biography dashboard |
 | LifeOS Index | `/api/user-index[?filter=stats\|publish\|stale\|gaps]` | Typed JSON of USER/ tree produced by `modules/user-index.ts` — spec: `LIFEOS/DOCUMENTATION/LifeOs/LifeOsSchema.md` |
-| Security | `/api/security`, `/api/security/patterns`, `/api/security/rules`, `/api/security/hooks-detail` | PATTERNS.yaml + SECURITY_RULES.md CRUD |
+| Security | `/api/security`, `/api/security/hooks-detail`, `/api/security/attack-surface` | Three-layer security model, deny list, hook detail, deployed-estate scan (the `/patterns` + `/rules` POST endpoints are retired — HTTP 410) |
 | Knowledge | `/api/knowledge`, `/api/knowledge/:domain/:slug` | Knowledge archive read/write |
 | Wiki | `/api/wiki`, `/api/wiki/search`, `/api/wiki/graph` | System docs, full-text search, knowledge graph (wikilink-based; CLI `KnowledgeGraph.ts` provides richer graph with tags + related fields) |
 | DA | `/assistant/*` | Identity, tasks, diary, opinions, personality |
@@ -797,8 +797,6 @@ Note: static catalogs baked into a page or module (e.g. Synapse's 11-input list 
 - **Disable:** `LIFEOS_NO_SSE=1` env var → 503 on the endpoint, dashboard falls back to legacy 2s polling identically to pre-change behavior.
 - **Dashboard contract:** `useAlgorithmState` hook tries SSE on mount; on three consecutive `onerror` events drops the EventSource and reverts polling to 2s. While SSE is connected, polling drops to 30s (safety net).
 - **Atomic emitter:** `ISASync.hook.ts` writes the current session's phase into `work.json` when the ISA frontmatter `phase:` field changes. (The `AlgoPhase.ts` phase CLI was retired 2026-07-14 in the agents-dashboard deep strip; until 2026-07-11 a `TheRouter.hook.ts` pre-emit via `markAlgorithmStarting` closed the wrong-phase window at session start — both are gone, so the first `ISASync` write sets the phase.)
-
-Full architectural reasoning in `MEMORY/WORK/20260524-072107_pulse-agents-realtime-phase-tracking/ISA.md`.
 
 ---
 

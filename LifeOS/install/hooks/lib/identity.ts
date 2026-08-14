@@ -1,21 +1,31 @@
 /**
- * Central Identity Loader
- * Single source of truth for DA (Digital Assistant) and Principal identity
+ * Central Identity Loader — the one module hooks and tools import for DA
+ * (Digital Assistant) and Principal identity.
  *
- * Reads from frontmatter in:
- *   - LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md (canonical DA identity)
- *   - LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md  (canonical Principal identity)
+ * Read order (what the code below actually does): LIFEOS_CONFIG.toml FIRST for
+ * every field it carries, then the legacy chain for everything else and for
+ * installs with no config yet:
+ *   - settings.json daidentity/principal runtime mirror
+ *   - LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md frontmatter
+ *   - LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md frontmatter
  *
- * Falls back to settings.json daidentity/principal blocks for transition safety.
- * All hooks and tools should import from here.
+ * The CANONICAL config source is LIFEOS/USER/CONFIG/LIFEOS_CONFIG.toml (read
+ * via LIFEOS/TOOLS/LifeosConfig.ts); the settings.json mirror exists so hooks
+ * resolve identity without parsing markdown on every event.
  */
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
-import { loadLifeosConfig } from '../../LIFEOS/TOOLS/LifeosConfig';
+import {
+  loadLifeosConfig,
+  type LifeosDa,
+  type LifeosPrincipal,
+} from '../../LIFEOS/TOOLS/LifeosConfig';
+import { homedir } from "node:os";
 
-const HOME = process.env.HOME!;
+// HOME ?? USERPROFILE: Windows defines only the latter (public issue #1694, @dissembler21-png)
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const SETTINGS_PATH = join(HOME, '.claude/settings.json');
 
 // Identity-file paths derive from LifeosConfig's userDir. On fresh installs where
@@ -171,10 +181,56 @@ function mapFrontmatterPersonality(traits: any, baseVoice: string | undefined): 
 
 /**
  * Get DA (Digital Assistant) identity.
- * Reads settings.daidentity first (canonical runtime read point),
- * falls back to DA_IDENTITY.md frontmatter (authoring source).
+ *
+ * LIFEOS_CONFIG.toml `[da]` wins for every field it carries. It is the typed
+ * loader, it is where setup tells the principal to name their DA, and
+ * LifeosConfig itself refuses to load without a non-empty `[da].name` — so it
+ * is the one source guaranteed to be both present and current.
+ *
+ * The settings.daidentity → DA_IDENTITY.md frontmatter → DEFAULT_IDENTITY chain
+ * below stays the fallback: it covers the fields config does not carry
+ * (personality traits, base voice), and an install that has no config yet
+ * resolves exactly as it did before.
+ *
+ * public PR #1781, @anikinsasha
  */
 export function getIdentity(): Identity {
+  const base = legacyIdentity();
+
+  let da: LifeosDa | undefined;
+  try {
+    da = loadLifeosConfig().da;
+  } catch {
+    return base; // no config yet (fresh install) — legacy chain governs
+  }
+  if (!da?.name) return base;
+
+  const main = da.voices?.main;
+  return {
+    ...base,
+    name: da.name,
+    fullName: da.fullName || da.name,
+    displayName: da.displayName || da.name,
+    color: da.color || base.color,
+    mainDAVoiceID: main?.voiceId || base.mainDAVoiceID,
+    voice: main
+      ? {
+          stability: main.stability ?? 0,
+          similarityBoost: main.similarityBoost ?? 0,
+          style: main.style ?? 0,
+          speed: main.speed ?? 1,
+          useSpeakerBoost: main.useSpeakerBoost ?? false,
+          volume: main.volume,
+        }
+      : base.voice,
+  };
+}
+
+/**
+ * The pre-config resolution chain: settings.daidentity (runtime read point),
+ * then DA_IDENTITY.md frontmatter (authoring source), then the placeholder.
+ */
+function legacyIdentity(): Identity {
   const settings = loadSettings();
   const daidentity = (settings.daidentity || {}) as any;
   const voices = daidentity.voices || {};
@@ -212,9 +268,33 @@ export function getIdentity(): Identity {
 
 /**
  * Get Principal (human owner) identity.
- * Reads frontmatter from PRINCIPAL_IDENTITY.md first, falls back to settings.principal.
+ *
+ * Same contract as getIdentity(): LIFEOS_CONFIG.toml `[principal]` wins, and
+ * LifeosConfig requires a non-empty name and timezone there. The
+ * PRINCIPAL_IDENTITY.md frontmatter → settings.principal chain is the fallback.
+ *
+ * public PR #1781, @anikinsasha
  */
 export function getPrincipal(): Principal {
+  const base = legacyPrincipal();
+
+  let p: LifeosPrincipal | undefined;
+  try {
+    p = loadLifeosConfig().principal;
+  } catch {
+    return base; // no config yet (fresh install) — legacy chain governs
+  }
+  if (!p?.name) return base;
+
+  return {
+    name: p.name,
+    pronunciation: p.pronunciation || base.pronunciation,
+    timezone: p.timezone || base.timezone,
+  };
+}
+
+/** The pre-config chain: PRINCIPAL_IDENTITY.md frontmatter, then settings. */
+function legacyPrincipal(): Principal {
   const fm = loadPrincipalFrontmatter();
   const core = fm.core ?? {};
 
@@ -283,42 +363,6 @@ export function getDefaultIdentity(): Identity {
 
 export function getDefaultPrincipal(): Principal {
   return { ...DEFAULT_PRINCIPAL };
-}
-
-/**
- * Algorithm voice — reads settings.daidentity.voices.algorithm first (canonical),
- * falls back to DA_IDENTITY.md frontmatter voice.algorithm (authoring source).
- */
-export function getAlgorithmVoice(): { voiceId: string; voiceName: string; stability: number; similarityBoost: number; style: number; speed: number; useSpeakerBoost: boolean; volume?: number } | null {
-  const settings = loadSettings();
-  const settingsAlgo = (settings.daidentity as any)?.voices?.algorithm;
-  if (settingsAlgo?.voiceId) {
-    return {
-      voiceId: settingsAlgo.voiceId,
-      voiceName: settingsAlgo.voiceName || 'Algorithm Voice',
-      stability: settingsAlgo.stability ?? 0.3,
-      similarityBoost: settingsAlgo.similarityBoost ?? 0.75,
-      style: settingsAlgo.style ?? 0.8,
-      speed: settingsAlgo.speed ?? 1.2,
-      useSpeakerBoost: settingsAlgo.useSpeakerBoost ?? true,
-      volume: settingsAlgo.volume,
-    };
-  }
-
-  // Fallback: DA_IDENTITY.md frontmatter (authoring source)
-  const fm = loadDaFrontmatter();
-  const algo = fm.voice?.algorithm;
-  if (!algo?.voice_id) return null;
-  return {
-    voiceId: algo.voice_id,
-    voiceName: algo.voice_name || 'Algorithm Voice',
-    stability: algo.stability ?? 0.3,
-    similarityBoost: algo.similarity_boost ?? 0.75,
-    style: algo.style ?? 0.8,
-    speed: algo.speed ?? 1.2,
-    useSpeakerBoost: algo.use_speaker_boost ?? true,
-    volume: algo.volume,
-  };
 }
 
 export function getVoiceProsody(): VoiceProsody | undefined {

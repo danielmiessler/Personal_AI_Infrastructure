@@ -15,5 +15,7 @@
 export default {
   name: "hermes",
   type: "cli",
+  // Per-install state: the ISA is created by the running install (run-state
+  // never ships in a release), so this path resolves only once one exists.
   isa: "./ISA.md",
 };

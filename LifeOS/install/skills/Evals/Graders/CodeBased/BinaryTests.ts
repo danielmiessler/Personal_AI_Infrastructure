@@ -67,7 +67,8 @@ export class BinaryTestsGrader extends BaseGrader {
   private detectTestCommand(file: string): string {
     if (file.endsWith('.py')) return 'python -m pytest';
     if (file.endsWith('.ts')) return 'bun test';
-    if (file.endsWith('.js')) return 'node --test';
+    // ported from public PR #1742, @elhoim — ESM/CJS test files are still node --test
+    if (file.endsWith('.js') || file.endsWith('.mjs') || file.endsWith('.cjs')) return 'node --test';
     if (file.endsWith('.go')) return 'go test';
     if (file.endsWith('.rs')) return 'cargo test --';
     return 'bun test';  // Default

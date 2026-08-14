@@ -225,7 +225,7 @@ async function main() {
       process.exit(1);
     }
   } catch (error) {
-    console.error(`❌ Error running TruffleHog: ${error.message}`);
+    console.error(`❌ Error running TruffleHog: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 }

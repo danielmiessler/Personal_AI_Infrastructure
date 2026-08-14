@@ -29,6 +29,8 @@ import { join } from "path"
 import { appendFile, mkdir, rename } from "fs/promises"
 import { stripModeScaffolding, hasModeScaffolding } from "../lib/strip-mode-scaffolding"
 import { loadRemoteMcpServers, mcpStatusPromptLine } from "../lib/mcp-allowlist"
+import { homedir } from "node:os";
+import { getDAName } from "../../../hooks/lib/identity";
 
 // BILLING: Strip ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN before any SDK
 // query() call — both outrank OAuth in Anthropic's auth precedence chain.
@@ -62,7 +64,7 @@ export interface IMessageHealth {
 
 // ── Module State ──
 
-const HOME = process.env.HOME ?? ""
+const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const CWD = join(HOME, ".claude")
 const STATE_DIR = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "imessage")
 const LOGS_DIR = join(HOME, ".claude", "LIFEOS", "PULSE", "logs", "imessage")
@@ -123,7 +125,7 @@ async function appendChatLog(
     hour: "2-digit",
     minute: "2-digit",
   })
-  const entry = `\n### ${ts}\n**${handle}:** ${userMsg}\n\n**{{DA_NAME}}:** ${botMsg}\n\n---\n`
+  const entry = `\n### ${ts}\n**${handle}:** ${userMsg}\n\n**${getDAName()}:** ${botMsg}\n\n---\n`
   await appendFile(chatLogPath, entry).catch(() => {})
 }
 
@@ -188,7 +190,7 @@ This surface replaces the constitutional output format for this turn — the ban
 DO NOT emit ANY of these:
 - Box dividers: \`═══ LifeOS ═══════════════════════════\` or any \`═══\` line
 - Algorithm phase headers: \`━━━ 👁️ OBSERVE ━━━ 1/7\` and equivalents
-- Template field prefixes: \`📃 CONTENT:\`, \`🔧 CHANGE:\`, \`✅ VERIFY:\`, \`📋 SUMMARY:\`, \`🗒️ TASK:\`, \`🗣️ {{DA_NAME}}:\`
+- Template field prefixes: \`📃 CONTENT:\`, \`🔧 CHANGE:\`, \`✅ VERIFY:\`, \`📋 SUMMARY:\`, \`🗒️ TASK:\`, \`🗣️ ${getDAName()}:\`
 - Any other scaffolding from CLAUDE.md mode templates
 
 A belt-and-suspenders egress sanitizer (LIFEOS/PULSE/lib/strip-mode-scaffolding.ts) strips these markers if you emit them — but cleaner to never emit them.

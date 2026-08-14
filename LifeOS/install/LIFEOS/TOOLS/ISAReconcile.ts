@@ -10,16 +10,21 @@
 // pass. ISA frontmatter is ground truth (Algorithm v6.3.0 doctrine); work.json
 // converges to it, never the other way.
 //
+// RETIRED: `--abandon-old-verify` used to rewrite stranded verify-phase ISAs to
+// `phase: complete`. That erased the backlog signal instead of surfacing it — a
+// run that never finished was recorded as finished, and the only evidence it
+// stalled was gone. Stranded ISAs are now reported as `stranded-verify` and
+// left exactly as they are. THIS SWEEP NEVER WRITES AN ISA FILE.
+// Extracted from public PR #1714, @anikinsasha.
+//
 // Usage:
 //   bun run ~/.claude/LIFEOS/TOOLS/ISAReconcile.ts                       (default: --audit)
 //   bun run ~/.claude/LIFEOS/TOOLS/ISAReconcile.ts --audit               (report drift, no writes)
 //   bun run ~/.claude/LIFEOS/TOOLS/ISAReconcile.ts --fix                 (sync drift into work.json)
-//   bun run ~/.claude/LIFEOS/TOOLS/ISAReconcile.ts --fix --abandon-old-verify
-//     also marks stranded phase:verify ISAs >7d old as phase:complete (writes ISA frontmatter)
 //   bun run ~/.claude/LIFEOS/TOOLS/ISAReconcile.ts --json                (machine-readable)
 //
 
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from "fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import {
   ARTIFACT_FILENAME,
@@ -27,15 +32,24 @@ import {
   parseFrontmatter,
   syncToWorkJson,
   readRegistry,
-  writeFrontmatterField,
   WORK_DIR,
 } from "../../hooks/lib/isa-utils";
 
 const args = process.argv.slice(2);
 const fix = args.includes("--fix");
 const audit = !fix || args.includes("--audit");
-const abandonOldVerify = args.includes("--abandon-old-verify");
 const asJson = args.includes("--json");
+
+// The retired flag announces itself rather than no-op'ing silently — a cron
+// entry or runbook still passing it should learn that it stopped meaning
+// anything, not quietly get different behaviour.
+if (args.includes("--abandon-old-verify")) {
+  console.error(
+    "[ISAReconcile] --abandon-old-verify is RETIRED: rewriting stranded ISAs to " +
+      "phase:complete recorded unfinished runs as finished and erased the backlog signal. " +
+      "Stranded ISAs are reported as-is. Proceeding without it.",
+  );
+}
 
 // Scope the sync window. ISAs older than this many days are reported but
 // never written to work.json (avoids resurrecting hundreds of historical
@@ -55,7 +69,7 @@ interface DriftRow {
   inWorkJson: boolean;
   ageDays: number;
   status: DriftStatus;
-  action: "noop" | "synced" | "abandoned-then-synced" | "skipped";
+  action: "noop" | "synced" | "skipped";
 }
 
 function findISAPath(slug: string): string | null {
@@ -106,7 +120,7 @@ const errorList: string[] = [];
 for (const { slug, path } of sortedSlugs) {
   scanned++;
   try {
-    let content = readFileSync(path, "utf-8");
+    const content = readFileSync(path, "utf-8");
     const fm = parseFrontmatter(content);
     if (!fm || !fm.slug) {
       errors++;
@@ -139,15 +153,8 @@ for (const { slug, path } of sortedSlugs) {
       } else if (isOldCompleted) {
         action = "skipped";
       } else if (status === "stranded-verify") {
-        if (abandonOldVerify) {
-          content = writeFrontmatterField(content, "phase", "complete");
-          writeFileSync(path, content);
-          const fmFixed = parseFrontmatter(content)!;
-          syncToWorkJson(fmFixed, path, content);
-          action = "abandoned-then-synced";
-        } else {
-          action = "skipped";
-        }
+        // Reported, never rewritten — a stalled run stays visibly stalled.
+        action = "skipped";
       } else {
         syncToWorkJson(fm, path, content);
         action = "synced";
@@ -218,7 +225,7 @@ if (audit && !fix) {
   console.log(`${otherDrift} total drift/orphan rows | ${recentDrift} within --max-age-days=${MAX_AGE_DAYS}.`);
   console.log(`\nRun with --fix to sync drift/orphans (≤${MAX_AGE_DAYS}d) into work.json.`);
   if (strandedCount > 0) {
-    console.log(`Add --abandon-old-verify to also mark stranded verify-phase ISAs as phase:complete.`);
+    console.log(`Stranded ISAs are reported, never rewritten — resume or close them by hand.`);
   }
 }
 

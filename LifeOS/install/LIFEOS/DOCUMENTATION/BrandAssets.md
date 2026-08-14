@@ -28,7 +28,7 @@ Blues: light-blue wordmark/blocks (`Life`), bright-blue accent (`OS` and lead bl
 ## Where they live
 
 - Site: `ourlifeos.ai` → `public/lifeos-logo-full.png` (nav), `public/lifeos-logo-graphical.png` (hero center).
-- Public repo + release: `RELEASE_TEMPLATES/lifeos-logo-full.png` → ships as the README header.
+- Public repo: `images/lifeos-logo-full.png` → the README header (maintainer-side source: the release skill's `RELEASE_TEMPLATES/lifeos-logo-full.png`).
 
 ---
 

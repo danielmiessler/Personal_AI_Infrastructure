@@ -2,7 +2,7 @@
 last_updated: 2026-07-28T00:00:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 2.0.1
+version: 2.0.4
 status: named-and-documented
 ---
 
@@ -14,7 +14,7 @@ status: named-and-documented
 
 > **Renamed from Amber, 2026-07-28.** The old name described only one stage — preservation — while the system's real identity is the router. The metaphor survives at the scope it earned: the append-only journal is still called the **amber ledger**, because an insect in amber is preserved perfectly, permanently, the moment it's caught, and that is precisely the ledger's guarantee. Prior doc: `DOCUMENTATION/Amber/AmberSystem.md` (see git history).
 
-> **Claims live in the ISA.** This doc explains; `LIFEOS/SYNAPSE/ISA.md` carries the subsystem's claims with the probes that would falsify them. The concrete instance map — hostnames, worker URLs, the newsletter sheet — lives in the USER-zone ISA per `LIFEOS/DOCUMENTATION/SystemUserBoundary.md`. Deployed infrastructure keeps its internal names (`arbol-a-amber-ledger` worker, `amber` D1, `com.lifeos.amberroute` launchd job, the `amber` CLI): identity is what changed, not plumbing.
+> **Claims live in the ISA.** This doc explains; the maintainer-side `LIFEOS/SYNAPSE/ISA.md` (a per-instance state file, not in the public release payload) carries the subsystem's claims with the probes that would falsify them. The concrete instance map — hostnames, worker URLs, the newsletter sheet — lives in the USER-zone ISA per `LIFEOS/DOCUMENTATION/SystemUserBoundary.md`. Deployed infrastructure keeps its internal names (the capture-ledger worker, `amber` D1, `com.lifeos.amberroute` launchd job, the `amber` CLI): identity is what changed, not plumbing.
 
 ---
 
@@ -63,7 +63,7 @@ Everything that can drop a signal into Synapse. Each is real unless marked `road
 
 | # | Input | Trigger | LifeOS component | Status |
 |---|-------|---------|------------------|--------|
-| 1 | **Summarize hotkey** | browser hotkey on any page | Arbol `arbol-a-summarize` | live |
+| 1 | **Summarize hotkey** | browser hotkey on any page | an Arbol summarization action | live |
 | 2 | **Bookmarks → idea-issues** | bookmark sweep (`tb`) | the X bookmarks skill → `Type:queue` work issues | live |
 | 3 | **Bookmarks → summarize (cloud)** | hourly cron | Arbol bookmark-summarize worker → sheet | live |
 | 4 | **Harvest → Knowledge** | `/ha` on a URL/video/text | the harvest skill → Arbol harvest + classify workers | live |
@@ -177,7 +177,7 @@ Synapse is the routing and orchestration layer that makes these pieces one syste
 
 ## Roadmap
 
-The roadmap is claims, not prose: `LIFEOS/SYNAPSE/ISA.md` carries every phase with the probe that would falsify it — input breadth (one gesture from every surface), content-type fidelity (transcript for video, body for articles, extracted text for PDFs), the skill, and closing the newsletter loop (ledger as source, sheet as generated view). Phases 1–2 (the ledger, auto-routing) shipped 2026-07-08 and are live-verified.
+The roadmap is claims, not prose: the maintainer-side `LIFEOS/SYNAPSE/ISA.md` (not in the public release payload) carries every phase with the probe that would falsify it — input breadth (one gesture from every surface), content-type fidelity (transcript for video, body for articles, extracted text for PDFs), the skill, and closing the newsletter loop (ledger as source, sheet as generated view). Phases 1–2 (the ledger, auto-routing) shipped 2026-07-08 and are live-verified.
 
 ---
 
@@ -214,8 +214,8 @@ sequenceDiagram
 
 ## Cross-References
 
-- Subsystem claims: `LIFEOS/SYNAPSE/ISA.md`
-- Capture endpoint: `LIFEOS/USER/CUSTOMIZATIONS/ARBOL/summarize/`
+- Subsystem claims: `LIFEOS/SYNAPSE/ISA.md` (maintainer-side per-instance state; not in the public release payload)
+- Capture endpoint: `LIFEOS/USER/CUSTOMIZATIONS/ARBOL/summarize/` (per-install private infrastructure — NOT in the public release payload; each install wires its own)
 - TELOS-graded routing: the Arbol harvest + harvest-classify workers, writer `LIFEOS/TOOLS/HarvestExecutor.ts`
 - Knowledge Archive schema: `LIFEOS/MEMORY/KNOWLEDGE/_schema.md` (kb-v3, `idea` note type)
 - Work System: `LIFEOS/DOCUMENTATION/Work/WorkSystem.md`

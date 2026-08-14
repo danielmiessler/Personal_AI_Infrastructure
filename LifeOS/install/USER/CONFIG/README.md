@@ -12,11 +12,11 @@ single source of truth for "where does my stuff live and how do I authenticate."
 
 | File | What it holds |
 |------|----------------|
-| `LIFEOS_CONFIG.yaml` | The main config — projects directory, default temperature unit, integration toggles. |
+| `LIFEOS_CONFIG.toml` | The main config — projects directory, default temperature unit, integration toggles. |
 
 ## Where credentials actually live
 
-`LIFEOS_CONFIG.yaml` itself does **not** store credentials. Secrets live in
+`LIFEOS_CONFIG.toml` itself does **not** store credentials. Secrets live in
 two places:
 
 - **`~/.claude/.env`** — environment variables (`ELEVENLABS_API_KEY`,
@@ -26,16 +26,16 @@ two places:
   OAuth, AWS profiles, etc.). The directory does not exist by default;
   create it on demand and `chmod 700` it.
 
-`LIFEOS_CONFIG.yaml` references these by path, never by value. That keeps
+`LIFEOS_CONFIG.toml` references these by path, never by value. That keeps
 secrets out of any file that gets accidentally committed or shared.
 
 ## Customization
 
-Open `LIFEOS_CONFIG.yaml` and update:
+Open `LIFEOS_CONFIG.toml` and update:
 
-- `projectsDir` — where your code projects live (default `~/Projects`).
-- `temperatureUnit` — `celsius` or `fahrenheit`.
-- Any integration-specific blocks added by skills you install.
+- `[principal]` / `[da]` — your identity and your DA's name and voice.
+- `[paths]` — where your code projects live.
+- Any integration-specific blocks (`[integrations.*]`) added by skills you install.
 
 The installer writes sensible defaults during the configuration step.
 You only need to edit this file when you want to change a default or

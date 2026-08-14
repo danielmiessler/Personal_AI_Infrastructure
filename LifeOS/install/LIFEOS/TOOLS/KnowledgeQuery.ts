@@ -2,11 +2,10 @@
 /**
  * KnowledgeQuery — the `kb query` surface over the Knowledge Archive.
  *
- * This is the payoff of the kb-v3 migration (design:
- * MEMORY/WORK/20260704-knowledge-schema-upgrade-design/DESIGN.md): now that
+ * This is the payoff of the kb-v3 migration: now that
  * every note carries the same flat typed frontmatter, the archive is a database.
  * Filter/sort on source, author, tags, dates, type, quality, status, and typed
- * relations — deterministic, no LLM, over all ~4,400 notes in well under a second.
+ * relations — deterministic, no LLM, over the full archive (thousands of notes) in well under a second.
  * Uses the canonical KnowledgeSchema parser so there's one parser of record.
  *
  * Query surface (all AND-combined; repeatable/comma where noted):

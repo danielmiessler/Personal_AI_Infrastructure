@@ -115,6 +115,11 @@ const FORMAT_EXTENSIONS: Record<string, string> = {
   opus: "opus",
   flac: "flac",
   aac: "aac",
+  // pcm is accepted from the server but is raw 16-bit samples with no header
+  // (24kHz, known out of band) — file players can't demux it from extension
+  // alone, so configuring response_format = "pcm" will synthesize and then
+  // fail playback on most setups. Prefer mp3/wav unless the playback path is
+  // custom-built for raw PCM.
   pcm: "pcm",
 }
 

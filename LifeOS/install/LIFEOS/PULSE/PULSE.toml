@@ -87,7 +87,8 @@ enabled = true
 #   base_url = "http://127.0.0.1:8880"   # server root, or its /v1 base
 #   voice = "am_michael"                 # provider's own voice ID
 #   model = "kokoro"
-#   # response_format = "mp3"            # mp3 (default), wav, opus, flac, aac, pcm
+#   # response_format = "mp3"            # mp3 (default), wav, opus, flac, aac
+#   #                                    # (pcm accepted but unplayable by stock players — see providers.ts)
 #   # timeout_ms = 10000                 # generation budget
 #   # health_path = "/health"            # liveness path, relative to the root
 #   # health_timeout_ms = 2000           # liveness budget

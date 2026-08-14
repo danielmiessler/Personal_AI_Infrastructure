@@ -88,7 +88,9 @@ enabled = true
 #   voice = "am_michael"                 # provider's own voice ID
 #   model = "kokoro"
 #   # response_format = "mp3"            # mp3 (default), wav, opus, flac, aac, pcm
-#   # timeout_ms = 15000
+#   # timeout_ms = 10000                 # generation budget
+#   # health_path = "/health"            # liveness path, relative to the root
+#   # health_timeout_ms = 2000           # liveness budget
 #   # api_key = "${LOCAL_TTS_KEY}"       # sent as a bearer token when set
 #
 #   [[voice.providers]]
@@ -97,12 +99,23 @@ enabled = true
 #   # model = "eleven_turbo_v2_5"
 #   # api_key = "${ELEVENLABS_API_KEY}"  # defaults to the module-level key
 #
+# Each rung is probed for liveness before it is asked to speak — a cheap GET
+# of the server root's /health (2s budget), where ANY HTTP response counts as
+# reachable. A 404 is fine: non-Kokoro OpenAI-shaped servers have no /health,
+# and the question is only whether anything is listening. Connection refused
+# and timeout are the hard failures, and skipping those rungs cheaply is the
+# point — otherwise a dead first provider burns its full 10s generation budget
+# on every single notification. ElevenLabs is not probed over the network; its
+# liveness is whether a key is configured, the same test the pre-chain path made.
+#
 # `openai-compatible` targets POST {base_url}/v1/audio/speech with
-# {model, voice, input, response_format} and expects raw audio bytes back —
-# the OpenAI speech contract, which Kokoro-FastAPI and LocalAI both implement.
+# {model, input, voice, response_format, speed, stream} and expects RAW AUDIO
+# BYTES back, never JSON — the OpenAI speech contract, which Kokoro-FastAPI and
+# LocalAI both implement. A JSON body on a 200 is treated as a failure.
 # `stream: false` is sent on every request: Kokoro-FastAPI streams by default,
 # and a streamed reply returns 200 before generation finishes, so a failure
 # mid-sentence would arrive as truncated audio instead of falling through.
+# The 10s generation default reflects Kokoro on CPU at ~1.3-2x realtime.
 #
 # Kokoro voice IDs are `{lang}{gender}_{name}`. On the male English side its
 # own quality grades put `am_fenrir`, `am_michael` and `am_puck` at the top and

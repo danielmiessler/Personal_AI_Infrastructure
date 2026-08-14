@@ -42,6 +42,8 @@ The Pulse dashboard's static export is now actually in the release. Every prior 
 - Cortex consolidation. The memory system's skills merged into one, with a weekly Distill pass that compresses accumulated knowledge before it silts up.
 - Helm ships self-contained. The LifeOS terminal (kitty config layer, installer, app wrapper) now lives inside the release, with its installer hardened through three rounds of destructive-edge review.
 - New skills: Novelty (evolutionary explanation-discovery for hard problems), SecurityMarketData (curated cybersecurity market intelligence), Vitals (macOS performance diagnostics), Share (self-hosted file sharing), and DetectAI grew deterministic statistical signals plus keyless watermark and steganography scanning.
+- Hermes gained a zero-token heartbeat: calendar, mail, and queue ticks every ten minutes as pre-run scripts, so the sidecar stays current without burning a single model call.
+- Vulnerability management now cross-references CISA KEV with a page-now override, and a new advisory ComplexityRatchet meter flags complexity drift on every edit without ever blocking one.
 - Bunker joined the core component roster: the universal application harness's concept docs ship, with the reference implementation staying private by design.
 
 ## For the people who asked "should I upgrade?"

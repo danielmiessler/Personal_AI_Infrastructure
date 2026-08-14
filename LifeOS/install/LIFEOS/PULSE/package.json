@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run pulse.ts",
+    "test": "bun test",
     "install-service": "bash manage.sh install",
     "status": "bash manage.sh status"
   },

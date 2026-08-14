@@ -64,6 +64,51 @@ da = false
 [voice]
 enabled = true
 
+# ── Voice provider chain (optional) ──
+#
+# Left unset, voice behaves exactly as it always has: ElevenLabs, keyed by
+# ELEVENLABS_API_KEY, voices resolved from settings.json daidentity.voices.
+#
+# Define `[[voice.providers]]` blocks to get an ordered failover chain instead.
+# The first provider that returns audio speaks; any failure (non-2xx, timeout,
+# connection refused) falls through to the next. If every provider fails, the
+# desktop notification still goes out and /notify answers 502 — the daemon
+# never dies because a TTS box is down.
+#
+# A chain brings its own credentials, so an install with no ElevenLabs key at
+# all is valid as long as the chain does not contain an `elevenlabs` entry.
+#
+# Local-first, hosted fallback. The local half here is Kokoro-FastAPI
+# (`ghcr.io/remsky/kokoro-fastapi-cpu:v0.7.2`, default port 8880) — pin the tag,
+# `latest` moves weekly:
+#
+#   [[voice.providers]]
+#   type = "openai-compatible"
+#   base_url = "http://127.0.0.1:8880"   # server root, or its /v1 base
+#   voice = "am_michael"                 # provider's own voice ID
+#   model = "kokoro"
+#   # response_format = "mp3"            # mp3 (default), wav, opus, flac, aac, pcm
+#   # timeout_ms = 15000
+#   # api_key = "${LOCAL_TTS_KEY}"       # sent as a bearer token when set
+#
+#   [[voice.providers]]
+#   type = "elevenlabs"
+#   # voice = "..."                      # overrides the resolved voice ID here only
+#   # model = "eleven_turbo_v2_5"
+#   # api_key = "${ELEVENLABS_API_KEY}"  # defaults to the module-level key
+#
+# `openai-compatible` targets POST {base_url}/v1/audio/speech with
+# {model, voice, input, response_format} and expects raw audio bytes back —
+# the OpenAI speech contract, which Kokoro-FastAPI and LocalAI both implement.
+# `stream: false` is sent on every request: Kokoro-FastAPI streams by default,
+# and a streamed reply returns 200 before generation finishes, so a failure
+# mid-sentence would arrive as truncated audio instead of falling through.
+#
+# Kokoro voice IDs are `{lang}{gender}_{name}`. On the male English side its
+# own quality grades put `am_fenrir`, `am_michael` and `am_puck` at the top and
+# `am_adam` at the bottom; blends are expressed in the same `voice` string,
+# weighted — `voice = "am_fenrir(2)+am_michael(1)"`.
+
 [imessage]
 enabled = false
 

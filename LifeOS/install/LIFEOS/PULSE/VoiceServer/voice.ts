@@ -19,6 +19,17 @@ import { existsSync, readFileSync, rmSync } from "fs"
 import { log } from "../lib"
 import { disambiguateHomographs } from "../lib/homographs"
 import { homedir } from "node:os";
+import {
+  DEFAULT_ELEVENLABS_MODEL,
+  elevenLabsSynthesize,
+  extensionForFormat,
+  normalizeProviders,
+  providerLabel,
+  synthesizeViaChain,
+  type ElevenLabsVoiceSettings,
+  type SynthesisResult,
+  type VoiceProviderConfig,
+} from "./providers"
 
 // ── Public Config Interface ──
 
@@ -27,17 +38,16 @@ export interface VoiceConfig {
   elevenlabs_api_key?: string
   default_voice_id?: string
   pronunciations_path?: string
+  /**
+   * Ordered provider chain from PULSE.toml `[voice].providers`. Raw because it
+   * arrives straight off the TOML parser; normalizeProviders validates it.
+   * Absent or empty means "no chain" — the legacy ElevenLabs path stays in
+   * charge, byte-for-byte.
+   */
+  providers?: unknown
 }
 
 // ── Internal Types ──
-
-interface ElevenLabsVoiceSettings {
-  stability: number
-  similarity_boost: number
-  style?: number
-  speed?: number
-  use_speaker_boost?: boolean
-}
 
 interface VoiceEntry {
   voiceId: string
@@ -74,6 +84,7 @@ let pronunciationRules: CompiledRule[] = []
 let voiceConfig: LoadedVoiceConfig = { defaultVoiceId: "", voices: {}, voicesByVoiceId: {}, desktopNotifications: true }
 let defaultVoiceId = ""
 let initialized = false
+let providerChain: VoiceProviderConfig[] = []
 
 // ── Constants ──
 
@@ -319,41 +330,52 @@ function escapeForAppleScript(input: string): string {
 
 // ── TTS Generation ──
 
+/**
+ * Pronunciation + homograph preprocessing. Split out of generateSpeech so the
+ * provider chain applies it exactly once, no matter how many providers it has
+ * to try — re-running the rules per attempt could double-substitute.
+ */
+function preprocessForSpeech(text: string): string {
+  const pronouncedText = applyPronunciations(disambiguateHomographs(text))
+  if (pronouncedText !== text) {
+    log("info", `Voice pronunciation: "${text}" -> "${pronouncedText}"`)
+  }
+  return pronouncedText
+}
+
 async function generateSpeech(
   text: string,
   voiceId: string,
   voiceSettings: ElevenLabsVoiceSettings,
 ): Promise<ArrayBuffer> {
-  const apiKey = moduleConfig.elevenlabs_api_key
-  if (!apiKey) throw new Error("ElevenLabs API key not configured")
-
-  const pronouncedText = applyPronunciations(disambiguateHomographs(text))
-  if (pronouncedText !== text) {
-    log("info", `Voice pronunciation: "${text}" -> "${pronouncedText}"`)
-  }
-
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Accept: "audio/mpeg",
-      "Content-Type": "application/json",
-      "xi-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      text: pronouncedText,
-      model_id: "eleven_turbo_v2_5",
-      voice_settings: voiceSettings,
-    }),
+  return await elevenLabsSynthesize({
+    text: preprocessForSpeech(text),
+    voiceId,
+    settings: voiceSettings,
+    apiKey: moduleConfig.elevenlabs_api_key,
+    modelId: DEFAULT_ELEVENLABS_MODEL,
   })
+}
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
-  }
-
-  return await response.arrayBuffer()
+/**
+ * Chain equivalent of generateSpeech. Returns null when every provider failed,
+ * which the caller treats as "stay silent" rather than as an exception.
+ */
+async function generateSpeechViaChain(
+  text: string,
+  voiceId: string,
+  voiceSettings: ElevenLabsVoiceSettings,
+): Promise<SynthesisResult | null> {
+  return await synthesizeViaChain(
+    providerChain,
+    {
+      text: preprocessForSpeech(text),
+      elevenLabsVoiceId: voiceId,
+      elevenLabsSettings: voiceSettings,
+      elevenLabsApiKey: moduleConfig.elevenlabs_api_key,
+    },
+    log,
+  )
 }
 
 // ── Audio Playback ──
@@ -435,7 +457,11 @@ function enqueuePlayback(task: () => Promise<void>): Promise<void> {
   return next
 }
 
-async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOLUME): Promise<void> {
+async function playAudio(
+  audioBuffer: ArrayBuffer,
+  volume: number = FALLBACK_VOLUME,
+  format = "mp3",
+): Promise<void> {
   const player = resolveAudioPlayer()
   if (!player) {
     const tried = process.platform === "darwin" ? "afplay" : "ffplay/mpg123/paplay/aplay"
@@ -443,7 +469,9 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
     return
   }
 
-  const tempFile = `/tmp/voice-${Date.now()}.mp3`
+  // The extension matters: the Linux players sniff it to pick a demuxer, so a
+  // wav body in a .mp3 file plays as noise.
+  const tempFile = `/tmp/voice-${Date.now()}.${extensionForFormat(format)}`
   await Bun.write(tempFile, audioBuffer)
 
   return new Promise((resolve, reject) => {
@@ -528,7 +556,12 @@ async function sendNotification(
   let voicePlayed = false
   let voiceError: string | undefined
 
-  if (voiceEnabled && moduleConfig.elevenlabs_api_key) {
+  // A configured chain owns synthesis and brings its own credentials, so it is
+  // not gated on an ElevenLabs key — an install running only a local Kokoro box
+  // has none. With no chain, the gate is exactly what it always was.
+  const chainConfigured = providerChain.length > 0
+
+  if (voiceEnabled && (chainConfigured || moduleConfig.elevenlabs_api_key)) {
     try {
       const voice = voiceId || defaultVoiceId
 
@@ -586,9 +619,22 @@ async function sendNotification(
         volume: resolvedVolume,
       })
 
-      const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings)
-      await enqueuePlayback(() => playAudio(audioBuffer, resolvedVolume))
-      voicePlayed = true
+      if (chainConfigured) {
+        const result = await generateSpeechViaChain(safeMessage, voice, resolvedSettings)
+        if (result) {
+          await enqueuePlayback(() => playAudio(result.audio, resolvedVolume, result.format))
+          voicePlayed = true
+        } else {
+          // Every provider failed. synthesizeViaChain already logged each one,
+          // so this only records the outcome for the /notify response — the
+          // notification itself still goes out.
+          voiceError = "all voice providers failed"
+        }
+      } else {
+        const audioBuffer = await generateSpeech(safeMessage, voice, resolvedSettings)
+        await enqueuePlayback(() => playAudio(audioBuffer, resolvedVolume))
+        voicePlayed = true
+      }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       log("error", "Voice: failed to generate/play speech", { error: msg })
@@ -632,7 +678,9 @@ export function startVoice(config: VoiceConfig): void {
     return
   }
 
-  if (!config.elevenlabs_api_key) {
+  providerChain = normalizeProviders(config.providers, log)
+
+  if (!config.elevenlabs_api_key && providerChain.length === 0) {
     log("warn", "Voice module: ELEVENLABS_API_KEY not set in config or env")
   }
 
@@ -654,6 +702,7 @@ export function startVoice(config: VoiceConfig): void {
     pronunciationRules: pronunciationRules.length,
     configuredVoices: Object.keys(voiceConfig.voices),
     apiKeyConfigured: !!config.elevenlabs_api_key,
+    ...(providerChain.length > 0 ? { providerChain: providerChain.map(providerLabel) } : {}),
   })
 }
 
@@ -664,7 +713,10 @@ export function voiceHealth(): Record<string, unknown> {
   return {
     initialized,
     enabled: moduleConfig.enabled,
-    voice_system: "ElevenLabs",
+    // Unchanged when no chain is configured, so existing health consumers see
+    // exactly the string they saw before.
+    voice_system: providerChain.length > 0 ? "chain" : "ElevenLabs",
+    ...(providerChain.length > 0 ? { providers: providerChain.map(providerLabel) } : {}),
     default_voice_id: defaultVoiceId,
     api_key_configured: !!moduleConfig.elevenlabs_api_key,
     pronunciation_rules: pronunciationRules.length,

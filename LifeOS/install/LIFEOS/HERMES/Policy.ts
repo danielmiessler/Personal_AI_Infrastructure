@@ -409,7 +409,9 @@ if (import.meta.main) {
   const argv = process.argv.slice(2);
   const launcherIdx = argv.indexOf("--launcher");
   const launcherName = launcherIdx !== -1 ? (argv[launcherIdx + 1] ?? "") : "";
-  const positional = argv.filter((a, i) => a !== "--launcher" && i !== launcherIdx + 1);
+  const positional = argv.filter(
+    (a, i) => a !== "--launcher" && (launcherIdx === -1 || i !== launcherIdx + 1),
+  );
   const dest = positional[0];
   if (!dest) {
     process.stdout.write(JSON.stringify(buildPolicy({ launcherName }), null, 2) + "\n");

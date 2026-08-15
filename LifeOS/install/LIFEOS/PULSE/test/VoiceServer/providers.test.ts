@@ -389,6 +389,14 @@ describe("openAiCompatibleSynthesize", () => {
     expect(stub.requests[0].stream).toBe(false)
   })
 
+  test("omits the stream field entirely when sendStreamFlag is false (strict OpenAI)", async () => {
+    const stub = startStub(() => audioResponse())
+
+    await openAiCompatibleSynthesize({ text: "hello", baseUrl: stub.url, sendStreamFlag: false })
+
+    expect("stream" in stub.requests[0]).toBe(false)
+  })
+
   test("sends a blend expression verbatim", async () => {
     const stub = startStub(() => audioResponse())
 

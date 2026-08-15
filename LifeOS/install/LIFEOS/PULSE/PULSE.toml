@@ -93,6 +93,9 @@ enabled = true
 #   # health_path = "/health"            # liveness path, relative to the root
 #   # health_timeout_ms = 2000           # liveness budget
 #   # api_key = "${LOCAL_TTS_KEY}"       # sent as a bearer token when set
+#   # send_stream_flag = false           # omit Kokoro's stream:false for a STRICT
+#   #                                    # OpenAI endpoint that rejects the field
+#   #                                    # (default true — keep it for Kokoro)
 #
 #   [[voice.providers]]
 #   type = "elevenlabs"

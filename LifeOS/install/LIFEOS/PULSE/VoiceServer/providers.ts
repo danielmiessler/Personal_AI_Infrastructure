@@ -46,6 +46,14 @@ export interface OpenAiCompatibleProviderConfig {
   /** Liveness path, relative to the server root. Defaults to /health. */
   health_path?: string
   health_timeout_ms?: number
+  /**
+   * Whether to send Kokoro's `stream: false` request field. Defaults to true —
+   * Kokoro-FastAPI streams by default and a streamed reply hides mid-generation
+   * failures behind a 200. Set false for a STRICT OpenAI-compatible endpoint
+   * (OpenAI itself) that rejects the unknown `stream` field and would otherwise
+   * fail every request.
+   */
+  send_stream_flag?: boolean
 }
 
 export type VoiceProviderConfig = ElevenLabsProviderConfig | OpenAiCompatibleProviderConfig
@@ -167,6 +175,10 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined
+}
+
 /**
  * Turn the raw `[voice].providers` TOML value into a validated chain.
  *
@@ -220,6 +232,7 @@ export function normalizeProviders(raw: unknown, log?: Logger): VoiceProviderCon
         timeout_ms: asNumber(record.timeout_ms),
         health_path: asString(record.health_path),
         health_timeout_ms: asNumber(record.health_timeout_ms),
+        send_stream_flag: asBoolean(record.send_stream_flag),
       })
       return
     }
@@ -375,23 +388,31 @@ export async function openAiCompatibleSynthesize(opts: {
   speed?: number
   apiKey?: string
   timeoutMs?: number
+  /** Send Kokoro's `stream: false`. Defaults to true; false omits the field
+   *  entirely for a strict OpenAI endpoint that would reject it. */
+  sendStreamFlag?: boolean
 }): Promise<{ audio: ArrayBuffer; format: string }> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (opts.apiKey) headers.Authorization = `Bearer ${opts.apiKey}`
 
   const requestedFormat = opts.responseFormat ?? DEFAULT_RESPONSE_FORMAT
 
+  const body: Record<string, unknown> = {
+    model: opts.model ?? DEFAULT_OPENAI_MODEL,
+    input: opts.text,
+    voice: opts.voice ?? DEFAULT_OPENAI_VOICE,
+    response_format: requestedFormat,
+    speed: Number.isFinite(opts.speed) ? opts.speed : DEFAULT_SPEED,
+  }
+  // Kokoro needs stream:false to keep failures in the status code (see above);
+  // a strict OpenAI target sets send_stream_flag:false so the unknown field is
+  // omitted rather than 400'd. Default (undefined) keeps the Kokoro-safe field.
+  if (opts.sendStreamFlag !== false) body.stream = false
+
   const response = await fetch(speechEndpoint(opts.baseUrl), {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      model: opts.model ?? DEFAULT_OPENAI_MODEL,
-      input: opts.text,
-      voice: opts.voice ?? DEFAULT_OPENAI_VOICE,
-      response_format: requestedFormat,
-      speed: Number.isFinite(opts.speed) ? opts.speed : DEFAULT_SPEED,
-      stream: false,
-    }),
+    body: JSON.stringify(body),
     signal: opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined,
   })
 
@@ -469,6 +490,7 @@ export async function synthesizeViaChain(
         speed: ctx.elevenLabsSettings.speed,
         apiKey: provider.api_key,
         timeoutMs: provider.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+        sendStreamFlag: provider.send_stream_flag,
       })
       log?.("info", `Voice: provider[${i}] ${label} synthesized ${audio.byteLength} bytes as ${format}`)
       return { audio, format, provider: label }

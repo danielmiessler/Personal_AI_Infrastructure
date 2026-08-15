@@ -26,7 +26,7 @@
  *   import { listSessions, grepTranscripts, toolStats, fileTouches } from './Trajectory'
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "fs";
 import { basename, join } from "path";
 
 // ============================================================================
@@ -158,7 +158,9 @@ export function findTranscripts(root: string = defaultRoot()): TranscriptFile[] 
     const dir = join(root, project);
     let entries: string[];
     try {
-      if (!statSync(dir).isDirectory()) continue;
+      // lstat, not stat: a symlinked project dir under the root could point the
+      // walk at an arbitrary tree, escaping the confinement this tool promises.
+      if (!lstatSync(dir).isDirectory()) continue;
       entries = readdirSync(dir);
     } catch {
       continue; // unreadable project dir is not a reason to fail the query
@@ -167,7 +169,9 @@ export function findTranscripts(root: string = defaultRoot()): TranscriptFile[] 
       if (!entry.endsWith(".jsonl")) continue;
       const path = join(dir, entry);
       try {
-        const st = statSync(path);
+        // lstat rejects a symlinked .jsonl that resolves outside the root; only
+        // a real regular file beneath <root>/<project> is ever read.
+        const st = lstatSync(path);
         if (!st.isFile()) continue;
         out.push({ uuid: basename(entry, ".jsonl"), project, path, mtime: st.mtime });
       } catch {

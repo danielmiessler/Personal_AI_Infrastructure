@@ -8,7 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, utimesSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, utimesSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
@@ -135,6 +135,32 @@ describe("findTranscripts", () => {
     writeTranscript("-work-b", "bbbb2222", [userText("2026-08-11T10:00:00.000Z", "x")], 3_000_000);
     writeTranscript("-work-a", "aaaa1111", [userText("2026-08-10T10:00:00.000Z", "x")], 2_000_000);
     expect(findTranscripts(root).map((f) => f.uuid)).toEqual(["aaaa1111", "bbbb2222"]);
+  });
+
+  test("does not follow a symlinked .jsonl that escapes the root", () => {
+    // A secret outside the root; a symlink beneath it named like a transcript.
+    const outside = mkdtempSync(join(tmpdir(), "traj-outside-"));
+    const secret = join(outside, "secret.jsonl");
+    writeFileSync(secret, JSON.stringify({ type: "user", message: { content: "SECRET" } }) + "\n");
+    mkdirSync(join(root, "-work-a"), { recursive: true });
+    symlinkSync(secret, join(root, "-work-a", "cccc3333.jsonl"));
+    try {
+      // The symlink is rejected: the escaping file never enters the result set.
+      expect(findTranscripts(root).map((f) => f.uuid)).not.toContain("cccc3333");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("does not follow a symlinked project dir that escapes the root", () => {
+    const outside = mkdtempSync(join(tmpdir(), "traj-outside-dir-"));
+    writeFileSync(join(outside, "dddd4444.jsonl"), "{}\n");
+    symlinkSync(outside, join(root, "-escape"));
+    try {
+      expect(findTranscripts(root).map((f) => f.uuid)).not.toContain("dddd4444");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 });
 

@@ -31,6 +31,11 @@ import {
   type VoiceProviderConfig,
 } from "./providers"
 
+// $HOME wins over homedir() so a runtime override (the test suite's sandbox
+// HOME, a containerized run) is honoured; homedir() is the fallback when the
+// variable is absent.
+const homeDir = () => process.env.HOME || homedir()
+
 // ── Public Config Interface ──
 
 export interface VoiceConfig {
@@ -178,7 +183,7 @@ function escapeRegex(str: string): string {
 }
 
 function loadPronunciations(customPath?: string): void {
-  const paiDir = join(homedir(), ".claude", "LIFEOS")
+  const paiDir = join(homeDir(), ".claude", "LIFEOS")
   const userPronPath = customPath ?? join(paiDir, "USER", "PRINCIPAL", "PRONUNCIATIONS.json")
 
   try {
@@ -218,7 +223,7 @@ function applyPronunciations(text: string): string {
 // ── Voice Config from settings.json ──
 
 function loadVoiceConfigFromSettings(): LoadedVoiceConfig {
-  const settingsPath = join(homedir(), ".claude", "settings.json")
+  const settingsPath = join(homeDir(), ".claude", "settings.json")
 
   try {
     if (!existsSync(settingsPath)) {
@@ -820,7 +825,7 @@ export async function handleVoiceRequest(req: Request): Promise<Response | null>
       // /notify/personality honest with whatever the user last selected.
       let voiceId: string | null = null
       try {
-        const settingsFile = join(homedir(), ".claude", "settings.json")
+        const settingsFile = join(homeDir(), ".claude", "settings.json")
         const settings = JSON.parse(readFileSync(settingsFile, "utf-8"))
         const main = settings?.daidentity?.voices?.main
         const vid = (main?.voiceId || main?.VOICE_ID || main?.voice_id) as string | undefined

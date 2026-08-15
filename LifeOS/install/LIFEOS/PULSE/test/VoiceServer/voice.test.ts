@@ -36,12 +36,14 @@ const sandboxHome = mkdtempSync(join(tmpdir(), "lifeos-voice-test-"))
 let startVoice: typeof import("../../VoiceServer/voice").startVoice
 let voiceHealth: typeof import("../../VoiceServer/voice").voiceHealth
 let handleVoiceRequest: typeof import("../../VoiceServer/voice").handleVoiceRequest
+let selectPlayer: typeof import("../../VoiceServer/voice").selectPlayer
 
 beforeAll(async () => {
   const mod = await import("../../VoiceServer/voice")
   startVoice = mod.startVoice
   voiceHealth = mod.voiceHealth
   handleVoiceRequest = mod.handleVoiceRequest
+  selectPlayer = mod.selectPlayer
 
   process.env.HOME = sandboxHome
   process.env.PATH = ""
@@ -234,5 +236,26 @@ describe("provider chain configured", () => {
     // 502 is the pre-chain contract for "notification sent, TTS did not".
     expect(response?.status).toBe(502)
     expect(await response!.json()).toMatchObject({ status: "error", notification_sent: true })
+  })
+})
+
+describe("selectPlayer — format-aware fallback", () => {
+  const noop = () => []
+  const ffplay = { cmd: "ffplay", supports: true as const, buildArgs: noop }
+  const mpg123 = { cmd: "mpg123", supports: new Set(["mp3"]), buildArgs: noop }
+  const aplay = { cmd: "aplay", supports: new Set(["wav"]), buildArgs: noop }
+
+  test("ffplay wins for any format when present", () => {
+    expect(selectPlayer([ffplay, mpg123, aplay], "opus")?.cmd).toBe("ffplay")
+    expect(selectPlayer([ffplay, mpg123, aplay], "mp3")?.cmd).toBe("ffplay")
+  })
+
+  test("a wav body skips the MPEG-only mpg123 for aplay", () => {
+    // The exact audit case: no ffplay, mpg123 first but incompatible.
+    expect(selectPlayer([mpg123, aplay], "wav")?.cmd).toBe("aplay")
+  })
+
+  test("returns null when no available player decodes the format", () => {
+    expect(selectPlayer([mpg123], "flac")).toBeNull()
   })
 })

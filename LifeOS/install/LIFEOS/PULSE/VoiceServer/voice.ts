@@ -386,12 +386,33 @@ async function generateSpeechViaChain(
 // ── Audio Playback ──
 
 // Platform-aware audio player resolution. macOS ships afplay; Linux has no
-// single standard, so try the common CLI players in order. ffplay/mpg123 handle
-// the MP3 that ElevenLabs returns; paplay/aplay are last-resort fallbacks.
-// Resolved once and cached. #1412 — hardcoding afplay ENOENT'd on Linux.
+// single standard, so try the common CLI players in order. #1412 — hardcoding
+// afplay ENOENT'd on Linux.
+//
+// Now the provider chain can return wav/flac/opus/aac, not just ElevenLabs mp3,
+// player choice must account for the FORMAT: mpg123 plays only MPEG, aplay only
+// WAV, so a cached mpg123 would fail a wav body even with aplay installed.
+// ffplay handles every format and stays first; `supports` gates the narrower
+// fallbacks. ffplay (the ffmpeg CLI) is the recommended install for full format
+// coverage — we can only prefer it, not bundle it.
 interface AudioPlayer {
   path: string
   buildArgs: (file: string, volume: number) => string[]
+}
+
+interface PlayerCandidate {
+  cmd: string
+  /** Formats this player can decode; `true` = anything we emit. */
+  supports: true | ReadonlySet<string>
+  buildArgs: (file: string, volume: number) => string[]
+}
+
+/** First available player that can decode `format`. Pure — takes the resolved
+ *  candidate list so it is unit-testable without probing PATH. */
+export function selectPlayer(available: PlayerCandidate[], format: string): PlayerCandidate | null {
+  return (
+    available.find((p) => p.supports === true || p.supports.has(format)) ?? null
+  )
 }
 
 // (public PR #1548, @m8ryx) `volume` is a multiplier where 1.0 is normal,
@@ -403,52 +424,58 @@ function scaleVolume(volume: number, max: number): number {
   return Math.min(max, Math.round(volume * max))
 }
 
-let resolvedPlayer: AudioPlayer | null | undefined = undefined
+// Per-player format capability, conservative to documented decoders:
+//   ffplay/afplay — everything we emit    mpg123 — MPEG only
+//   paplay — libsndfile (wav, flac)       aplay — WAV/PCM only
+const PLAYER_CANDIDATES: PlayerCandidate[] =
+  process.platform === "darwin"
+    ? [{ cmd: "afplay", supports: true, buildArgs: (file, volume) => ["-v", volume.toString(), file] }]
+    : [
+        {
+          cmd: "ffplay",
+          supports: true,
+          // ffplay -h: "-volume volume  set startup volume 0=min 100=max"
+          buildArgs: (file, volume) => [
+            "-nodisp",
+            "-autoexit",
+            "-loglevel",
+            "quiet",
+            "-volume",
+            String(scaleVolume(volume, 100)),
+            file,
+          ],
+        },
+        // mpg123 scales with -f, but its range was not verified here; left as-is
+        // rather than guessing a factor.
+        { cmd: "mpg123", supports: new Set(["mp3"]), buildArgs: (file) => ["-q", file] },
+        {
+          cmd: "paplay",
+          supports: new Set(["wav", "flac"]),
+          // paplay --help: "--volume=VOLUME  Specify the initial (linear) volume
+          // in range 0...65536"
+          buildArgs: (file, volume) => [`--volume=${scaleVolume(volume, 65536)}`, file],
+        },
+        // aplay has no volume-set option (only --disable-softvol), so volume
+        // cannot be honoured on this fallback.
+        { cmd: "aplay", supports: new Set(["wav"]), buildArgs: (file) => ["-q", file] },
+      ]
 
-function resolveAudioPlayer(): AudioPlayer | null {
-  if (resolvedPlayer !== undefined) return resolvedPlayer
+// Which candidate binaries are actually on PATH — the expensive probe, cached
+// once. Selection by format is cheap and runs per playback.
+let availableCandidates: PlayerCandidate[] | undefined = undefined
 
-  const candidates: Array<{ cmd: string; buildArgs: (file: string, volume: number) => string[] }> =
-    process.platform === "darwin"
-      ? [{ cmd: "afplay", buildArgs: (file, volume) => ["-v", volume.toString(), file] }]
-      : [
-          {
-            cmd: "ffplay",
-            // ffplay -h: "-volume volume  set startup volume 0=min 100=max"
-            buildArgs: (file, volume) => [
-              "-nodisp",
-              "-autoexit",
-              "-loglevel",
-              "quiet",
-              "-volume",
-              String(scaleVolume(volume, 100)),
-              file,
-            ],
-          },
-          // mpg123 scales with -f, but its range was not verified here; left as-is
-          // rather than guessing a factor.
-          { cmd: "mpg123", buildArgs: (file) => ["-q", file] },
-          {
-            cmd: "paplay",
-            // paplay --help: "--volume=VOLUME  Specify the initial (linear) volume
-            // in range 0...65536"
-            buildArgs: (file, volume) => [`--volume=${scaleVolume(volume, 65536)}`, file],
-          },
-          // aplay has no volume-set option (only --disable-softvol), so volume
-          // cannot be honoured on this fallback.
-          { cmd: "aplay", buildArgs: (file) => ["-q", file] },
-        ]
-
-  for (const c of candidates) {
+function availablePlayers(): PlayerCandidate[] {
+  if (availableCandidates !== undefined) return availableCandidates
+  availableCandidates = PLAYER_CANDIDATES.flatMap((c) => {
     const path = Bun.which(c.cmd)
-    if (path) {
-      resolvedPlayer = { path, buildArgs: c.buildArgs }
-      return resolvedPlayer
-    }
-  }
+    return path ? [{ ...c, cmd: path }] : [] // resolve to the absolute path for spawn
+  })
+  return availableCandidates
+}
 
-  resolvedPlayer = null
-  return resolvedPlayer
+function resolveAudioPlayer(format: string): AudioPlayer | null {
+  const chosen = selectPlayer(availablePlayers(), format)
+  return chosen ? { path: chosen.cmd, buildArgs: chosen.buildArgs } : null
 }
 
 // Serialize playback so concurrent /notify calls don't overlap on the speaker.
@@ -467,10 +494,15 @@ async function playAudio(
   volume: number = FALLBACK_VOLUME,
   format = "mp3",
 ): Promise<void> {
-  const player = resolveAudioPlayer()
+  const player = resolveAudioPlayer(format)
   if (!player) {
+    const present = availablePlayers().map((p) => p.cmd).join(", ") || "none"
     const tried = process.platform === "darwin" ? "afplay" : "ffplay/mpg123/paplay/aplay"
-    log("warn", `Voice: no audio player found (tried ${tried}) on ${process.platform} — skipping playback`)
+    log(
+      "warn",
+      `Voice: no installed player decodes ${format} on ${process.platform} — skipping playback. ` +
+        `Tried ${tried}; present: ${present}. Install ffplay (ffmpeg) for full format support.`,
+    )
     return
   }
 

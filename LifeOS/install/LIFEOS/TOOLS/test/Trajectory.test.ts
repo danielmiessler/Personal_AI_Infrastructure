@@ -228,6 +228,15 @@ describe("content helpers", () => {
     expect(out.endsWith("…")).toBe(true);
     expect(excerpt("a\n\n  b", /b/)).toBe("a b");
   });
+
+  test("excerpt keeps the real match when the pattern matches whitespace late", () => {
+    // A newline-matching pattern far past the head. The old code re-ran the
+    // regex on flattened text, missed, and showed index 0 (no match visible).
+    const long = "x".repeat(200) + "A\nB" + "y".repeat(200);
+    const out = excerpt(long, /\n/);
+    expect(out).toContain("A B");
+    expect(out.startsWith("…")).toBe(true);
+  });
 });
 
 // ── sessions ──
@@ -516,6 +525,12 @@ describe("parseSince", () => {
   test("garbage throws rather than silently scanning everything", () => {
     expect(() => parseSince("not-a-date", now)).toThrow("unparseable date");
     expect(() => parseSince("48x", now)).toThrow("unparseable date");
+  });
+
+  test("an out-of-range calendar day is rejected, not normalized", () => {
+    // new Date(2026,1,31) rolls forward to March 3; the round-trip check catches it.
+    expect(() => parseSince("2026-02-31", now)).toThrow("unparseable date");
+    expect(() => parseSince("2026-13-01", now)).toThrow("unparseable date");
   });
 });
 

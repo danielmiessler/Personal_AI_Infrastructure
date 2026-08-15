@@ -431,15 +431,16 @@ const EXCERPT_PAD = 60;
 export function excerpt(text: string, pattern: RegExp): string {
   pattern.lastIndex = 0;
   const m = pattern.exec(text);
-  const flat = text.replace(/\s+/g, " ").trim();
-  if (!m) return flat.slice(0, EXCERPT_PAD * 2);
-  // Re-find in the flattened text so the window lines up with what is printed.
-  pattern.lastIndex = 0;
-  const flatMatch = pattern.exec(flat);
-  const index = flatMatch ? flatMatch.index : 0;
-  const start = Math.max(0, index - EXCERPT_PAD);
-  const end = Math.min(flat.length, index + (flatMatch?.[0].length ?? 0) + EXCERPT_PAD);
-  return (start > 0 ? "…" : "") + flat.slice(start, end) + (end < flat.length ? "…" : "");
+  if (!m) return text.replace(/\s+/g, " ").trim().slice(0, EXCERPT_PAD * 2);
+  // Window around the match's real position in the ORIGINAL text, then flatten
+  // only that window for display. Re-running the regex on flattened text used to
+  // miss whenever the pattern matched whitespace (a literal newline, \s+), so
+  // flatMatch was null and the excerpt silently fell back to the head of the
+  // string — an excerpt that did not contain the match it claimed.
+  const start = Math.max(0, m.index - EXCERPT_PAD);
+  const end = Math.min(text.length, m.index + m[0].length + EXCERPT_PAD);
+  const flat = text.slice(start, end).replace(/\s+/g, " ").trim();
+  return (start > 0 ? "…" : "") + flat + (end < text.length ? "…" : "");
 }
 
 export function toolStats(opts: QueryOptions = {}): ToolStat[] {
@@ -674,8 +675,14 @@ export function parseSince(raw: string, now: Date = new Date()): Date {
   }
   const bareDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
   if (bareDate) {
-    const d = new Date(Number(bareDate[1]), Number(bareDate[2]) - 1, Number(bareDate[3]));
-    if (Number.isNaN(d.getTime())) throw new UsageError(`unparseable date: ${raw}`);
+    const [y, mo, da] = [Number(bareDate[1]), Number(bareDate[2]), Number(bareDate[3])];
+    const d = new Date(y, mo - 1, da);
+    // The multi-arg Date constructor NORMALIZES an out-of-range day (2026-02-31
+    // becomes March 3) instead of returning NaN, so isNaN alone would accept a
+    // date the user never meant. Round-trip the components and reject on drift.
+    if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) {
+      throw new UsageError(`unparseable date: ${raw}`);
+    }
     return d;
   }
   const d = new Date(raw);

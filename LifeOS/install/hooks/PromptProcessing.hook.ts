@@ -43,7 +43,7 @@ import { inference } from '../LIFEOS/TOOLS/Inference';
 import { getIdentity, getPrincipal } from './lib/identity';
 import { isValidWorkingTitle, getWorkingFallback, trimToValidTitle } from './lib/output-validators';
 import { getSessionOneWord, readTabState, setAscentTab } from './lib/tab-setter';
-import { paiPath } from './lib/paths';
+import { paiPath, getClaudeDir } from './lib/paths';
 import { updateSessionNameInWorkJson, upsertSession } from './lib/isa-utils';
 import { isDesktopChannel, logSkippedVoice, getNotificationChannel } from './lib/notification-channel';
 import { PULSE_BASE } from '../LIFEOS/PULSE/endpoint';
@@ -671,7 +671,10 @@ function storeName(sessionId: string, label: string, source: string): void {
 /** Find Claude Code's session JSONL path for a given session ID. */
 function findSessionJsonl(sessionId: string): string | null {
   try {
-    for (const dir of [paiPath('projects'), paiPath('Projects')]) {
+    // Transcripts belong to the harness and live at <claudeDir>/projects, NOT under
+    // LIFEOS/. paiPath() resolves against getLifeosDir(), so paiPath('projects') is
+    // <claudeDir>/LIFEOS/projects — a directory that does not exist in any install.
+    for (const dir of [join(getClaudeDir(), 'projects'), join(getClaudeDir(), 'Projects')]) {
       if (!existsSync(dir)) continue;
       const r = Bun.spawnSync(['find', dir, '-maxdepth', '2', '-name', `${sessionId}.jsonl`],
         { stdout: 'pipe', stderr: 'pipe', timeout: 2000 });

@@ -1,8 +1,19 @@
 # com.lifeos.atlas.service.template — oneshot unit that runs `atlas tick`.
 # Widened PATH so bun/gh resolve regardless of install method (homebrew, ~/.bun, linuxbrew).
 # ported from public PR #1743, @schmetti-dev
+#
+# StartLimitIntervalSec/Burst: this unit is now also triggered by
+# com.lifeos.atlas.path (see that template), so it can fire several times in
+# quick succession during a legitimate burst of activity, not just on the
+# 15-minute timer. Darwin's equivalent (ThrottleInterval=60) only delays extra
+# runs; systemd's default start-limit (5 starts/10s) instead fails the unit
+# into start-limit-hit, which refuses further starts until a manual
+# `systemctl --user reset-failed`. Widening the window gives normal bursts
+# room while still catching a true self-trigger loop within a minute.
 [Unit]
 Description=LifeOS Atlas asset-graph tick (events-then-hourly-full-sync)
+StartLimitIntervalSec=60
+StartLimitBurst=20
 
 [Service]
 Type=oneshot

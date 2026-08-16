@@ -12,10 +12,15 @@
  *     ~/Library/LaunchAgents/com.lifeos.atlas.plist, runs `launchctl bootstrap`.
  *     15-minute StartInterval plus WatchPaths on the hint file, so a mutation
  *     captured by AtlasEventCapture.hook.ts triggers a targeted sync at once.
- *   linux: substitutes into com.lifeos.atlas.{service,timer}.template, writes them
- *     to ~/.config/systemd/user/, enables the timer with `systemctl --user`, and
- *     runs `loginctl enable-linger` so it survives logout. systemd has no WatchPaths
- *     equivalent here — hints wait for the next tick, which only costs latency.
+ *   linux: substitutes into com.lifeos.atlas.{service,timer,path}.template, writes
+ *     them to ~/.config/systemd/user/, enables the timer + path unit with
+ *     `systemctl --user`, and runs `loginctl enable-linger` so both survive logout.
+ *     The path unit is systemd's WatchPaths equivalent: it fires `atlas tick`
+ *     immediately when events.jsonl changes, same fast-path as darwin, instead of
+ *     waiting out the 15-minute timer. It watches the hint file specifically, not
+ *     the whole state directory — see com.lifeos.atlas.path.template for why.
+ *     Path units don't fire on enable (no RunAtLoad equivalent), so install also
+ *     runs one manual tick to match darwin's RunAtLoad-on-install behavior.
  *
  * The darwin path is a second branch beside linux, never a replacement. Both are
  * idempotent: install tears down the prior unit before bootstrapping the fresh one.
@@ -41,10 +46,14 @@ const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, `${LABEL}.plist`);
 // linux (systemd --user)
 const SERVICE_TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "ATLAS", "com.lifeos.atlas.service.template");
 const TIMER_TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "ATLAS", "com.lifeos.atlas.timer.template");
+const PATH_UNIT_TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "ATLAS", "com.lifeos.atlas.path.template");
 const SYSTEMD_USER_DIR = join(HOME, ".config", "systemd", "user");
 const TARGET_SERVICE = join(SYSTEMD_USER_DIR, `${LABEL}.service`);
 const TARGET_TIMER = join(SYSTEMD_USER_DIR, `${LABEL}.timer`);
+const TARGET_PATH_UNIT = join(SYSTEMD_USER_DIR, `${LABEL}.path`);
 const TIMER_UNIT = `${LABEL}.timer`;
+const PATH_UNIT = `${LABEL}.path`;
+const SERVICE_UNIT = `${LABEL}.service`;
 
 async function run(cmd: string[]): Promise<{ ok: boolean; out: string; err: string }> {
   const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
@@ -181,9 +190,21 @@ async function status(): Promise<void> {
 
 // ── linux (systemd --user) ──
 
+/** Enable + start a unit, logging and exiting on failure. Shared by the timer and path-unit enable steps. */
+async function enableUnit(unit: string, humanLabel: string): Promise<void> {
+  const r = await run(["systemctl", "--user", "enable", "--now", unit]);
+  if (!r.ok) {
+    console.error(`[InstallAtlas] enable --now ${humanLabel} failed: ${r.err.trim()}`);
+    process.exit(1);
+  }
+  console.log(`[InstallAtlas] systemd ${humanLabel} enabled — ${unit} active`);
+}
+
 async function installLinux(): Promise<void> {
-  if (!existsSync(SERVICE_TEMPLATE_PATH) || !existsSync(TIMER_TEMPLATE_PATH)) {
-    console.error(`[InstallAtlas] template missing — expected ${SERVICE_TEMPLATE_PATH} and ${TIMER_TEMPLATE_PATH}`);
+  if (!existsSync(SERVICE_TEMPLATE_PATH) || !existsSync(TIMER_TEMPLATE_PATH) || !existsSync(PATH_UNIT_TEMPLATE_PATH)) {
+    console.error(
+      `[InstallAtlas] template missing — expected ${SERVICE_TEMPLATE_PATH}, ${TIMER_TEMPLATE_PATH}, and ${PATH_UNIT_TEMPLATE_PATH}`,
+    );
     process.exit(1);
   }
   const { bunPath, path } = await detected();
@@ -192,25 +213,29 @@ async function installLinux(): Promise<void> {
 
   // Idempotent teardown (ignore failures — first install has nothing to remove)
   await run(["systemctl", "--user", "disable", "--now", TIMER_UNIT]);
+  await run(["systemctl", "--user", "disable", "--now", PATH_UNIT]);
 
   writeFileSync(TARGET_SERVICE, materialize(SERVICE_TEMPLATE_PATH, bunPath, path));
   writeFileSync(TARGET_TIMER, materialize(TIMER_TEMPLATE_PATH, bunPath, path));
+  writeFileSync(TARGET_PATH_UNIT, materialize(PATH_UNIT_TEMPLATE_PATH, bunPath, path));
   console.log(`[InstallAtlas] wrote ${TARGET_SERVICE}`);
   console.log(`[InstallAtlas] wrote ${TARGET_TIMER}`);
+  console.log(`[InstallAtlas] wrote ${TARGET_PATH_UNIT}`);
 
   await run(["systemctl", "--user", "daemon-reload"]);
 
   // Survive logout/reboot. An empty username would make `enable-linger` fail, so skip loudly.
   const lingerUser = await username();
   if (lingerUser) await run(["loginctl", "enable-linger", lingerUser]);
-  else console.warn("[InstallAtlas] could not resolve username via 'id -un' — skipping loginctl enable-linger (timer may not survive logout)");
+  else console.warn("[InstallAtlas] could not resolve username via 'id -un' — skipping loginctl enable-linger (timer/path unit may not survive logout)");
 
-  const r = await run(["systemctl", "--user", "enable", "--now", TIMER_UNIT]);
-  if (!r.ok) {
-    console.error(`[InstallAtlas] enable --now failed: ${r.err.trim()}`);
-    process.exit(1);
-  }
-  console.log(`[InstallAtlas] systemd timer enabled — ${TIMER_UNIT} active`);
+  await enableUnit(TIMER_UNIT, "timer");
+  await enableUnit(PATH_UNIT, "path watcher");
+
+  // Path units start watching but don't fire immediately (no RunAtLoad equivalent) —
+  // run the service once manually so install gets darwin's "sync now" parity.
+  const first = await run(["systemctl", "--user", "start", SERVICE_UNIT]);
+  console.log(`[InstallAtlas] initial tick ${first.ok ? "OK" : "FAILED: " + first.err.trim()}`);
 
   const list = await run(["systemctl", "--user", "list-timers", TIMER_UNIT, "--no-pager"]);
   if (list.ok) console.log(list.out.trim());
@@ -218,8 +243,9 @@ async function installLinux(): Promise<void> {
 
 async function uninstallLinux(): Promise<void> {
   await run(["systemctl", "--user", "disable", "--now", TIMER_UNIT]);
+  await run(["systemctl", "--user", "disable", "--now", PATH_UNIT]);
   let removed = false;
-  for (const f of [TARGET_SERVICE, TARGET_TIMER]) {
+  for (const f of [TARGET_SERVICE, TARGET_TIMER, TARGET_PATH_UNIT]) {
     if (existsSync(f)) {
       try { unlinkSync(f); console.log(`[InstallAtlas] removed ${f}`); removed = true; } catch {}
     }
@@ -231,9 +257,13 @@ async function uninstallLinux(): Promise<void> {
 async function statusLinux(): Promise<void> {
   const r = await run(["systemctl", "--user", "status", TIMER_UNIT, "--no-pager"]);
   console.log(r.out || r.err);
+  const p = await run(["systemctl", "--user", "status", PATH_UNIT, "--no-pager"]);
+  console.log(p.out || p.err);
   const list = await run(["systemctl", "--user", "list-timers", TIMER_UNIT, "--no-pager"]);
   if (list.ok) console.log(list.out.trim());
-  if (!r.ok) process.exit(1);
+  // Both units must be healthy — a dead path watcher silently loses the fast
+  // path back to 15-minute-latency polling, which a timer-only exit code hides.
+  if (!r.ok || !p.ok) process.exit(1);
 }
 
 function unsupported(): never {

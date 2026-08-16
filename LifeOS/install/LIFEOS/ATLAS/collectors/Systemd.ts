@@ -48,19 +48,21 @@ export const systemd: Collector = {
     // a machine without this dir (macOS, or a fresh Linux box pre-install) reports
     // incompleteness rather than a permanent sync failure.
     if (!existsSync(UNITS_DIR)) return { complete: false, assets: [], edges: [] };
-    const files = readdirSync(UNITS_DIR).filter((f) => /^com\.(lifeos|pai)\..*\.(service|timer)$/.test(f));
-    // Group by label (strip .service/.timer) so a paired unit reports one asset
-    // with both its schedule (from the .timer) and its exec (from the .service).
-    const labels = new Map<string, { service?: string; timer?: string }>();
+    const files = readdirSync(UNITS_DIR).filter((f) => /^com\.(lifeos|pai)\..*\.(service|timer|path)$/.test(f));
+    // Group by label (strip .service/.timer/.path) so a paired unit reports one
+    // asset with its schedule (from the .timer), its exec (from the .service),
+    // and whether it also has an event-triggered fast path (from the .path unit).
+    const labels = new Map<string, { service?: string; timer?: string; path?: string }>();
     for (const f of files) {
-      const isTimer = f.endsWith(".timer");
-      const label = f.replace(/\.(service|timer)$/, "");
+      const label = f.replace(/\.(service|timer|path)$/, "");
       const entry = labels.get(label) ?? {};
-      if (isTimer) entry.timer = f; else entry.service = f;
+      if (f.endsWith(".timer")) entry.timer = f;
+      else if (f.endsWith(".path")) entry.path = f;
+      else entry.service = f;
       labels.set(label, entry);
     }
 
-    for (const [label, { service, timer }] of labels) {
+    for (const [label, { service, timer, path: pathUnit }] of labels) {
       let onUnitActiveSec: number | null = null;
       let onBootSec: string | null = null;
       let persistent = false;
@@ -78,6 +80,7 @@ export const systemd: Collector = {
         attrs: {
           service_unit: service ?? null,
           timer_unit: timer ?? null,
+          path_unit: pathUnit ?? null,
           on_unit_active_sec: onUnitActiveSec,
           on_boot_sec: onBootSec,
           persistent,

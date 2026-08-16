@@ -1,0 +1,21 @@
+# com.lifeos.atlas.path.template — systemd --user path unit, the Linux sibling
+# of the darwin plist's WatchPaths. Fires `atlas tick` immediately when
+# events.jsonl changes instead of waiting out the 15-minute timer, matching
+# darwin's fast-path behavior instead of accepting the latency gap.
+#
+# Watches EVENTS_PATH specifically — NOT the whole Atlas state directory,
+# which Atlas's own tick rewrites (db/wal/snapshot.json) on every run.
+# Watching the directory self-triggers a restart loop that trips systemd's
+# default start-limit within seconds, since every tick's own writes would
+# re-arm the watch. Watching the single hint file avoids that: the tick that
+# consumes and renames events.jsonl (see Atlas.ts's atomic claim) does not
+# touch the file at this exact path again until a new hint is captured.
+[Unit]
+Description=LifeOS Atlas watcher — fires on events.jsonl changes
+
+[Path]
+PathModified={{HOME}}/.local/state/lifeos/atlas/events.jsonl
+Unit=com.lifeos.atlas.service
+
+[Install]
+WantedBy=default.target

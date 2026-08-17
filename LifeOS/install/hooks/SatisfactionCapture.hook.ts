@@ -93,6 +93,13 @@ const MAX_BARE_DIGIT_COMMENT = 80;
 // (e.g. "2/10 items done", "3 of the files"). Shared by the fraction and generic parsers.
 const SENTENCE_STARTERS = /^(items?|things?|steps?|files?|lines?|bugs?|issues?|errors?|times?|minutes?|hours?|days?|seconds?|percent|%|th\b|st\b|nd\b|rd\b|of\b|in\b|at\b|to\b|the\b|a\b|an\b)/i;
 
+// Verb-shaped counterpart to SENTENCE_STARTERS, for the bare-digit path only.
+// A leading digit followed by an imperative is a user answering a numbered
+// question ("1 go", "2 re-register"), not rating the work: a rating comment
+// evaluates, an answer commands. Leading punctuation is skipped so the common
+// "1, yes fix properly" and "1 - go" forms are covered too.
+const IMPERATIVE_STARTERS = /^[,;:\-\s]*\s*(go\b|yes\b|no\b|ok\b|okay\b|sure\b|do\b|does\b|don'?t\b|proceed\b|continue\b|approved?\b|confirm\w*\b|agreed?\b|correct\b|commit\b|push\b|run\b|fix\b|build\b|add\b|remove\b|delete\b|skip\b|defer\b|park\b|hold\b|stop\b|wait\b|turn on\b|turn off\b|enable\b|disable\b|file it\b|send it\b|ship it\b|make\b|use\b|try\b|check\b|show\b|tell\b|give\b|start\b|apply\b|revert\b|retry\b)/i;
+
 // ── Stdin Reader ──
 
 async function readStdinWithTimeout(timeout: number = 5000): Promise<string> {
@@ -191,6 +198,23 @@ export function parseExplicitRating(prompt: string): { rating: number; comment?:
   // unambiguous rating syntax and are deliberately NOT capped.
   // public PR #1670, @asdf8675309
   if (rest && rest.length > MAX_BARE_DIGIT_COMMENT) return null;
+
+  // The short-comment case #1670 could not separate by length. "1 go" and "8 nice"
+  // are the same shape and both well under the cap, so the cap never sees them —
+  // but they are not the same KIND of text. A rating comment evaluates the work;
+  // an answer to a numbered question commands it. SENTENCE_STARTERS already draws
+  // this line for nouns ("1 of the files"); this is the verb-shaped counterpart.
+  //
+  // Observed on one install: 40 of 152 ledger rows carried rating 1, the second
+  // largest bucket, and the comments read "go", "yes", ") approved". Ratings <= 3
+  // also write a permanent failure capture, so each one recorded a complaint that
+  // was never made and fed it to the learning loop.
+  //
+  // Deliberately one-directional, per this function's stated preference for a
+  // missed rating over a false positive: "1 fix your formatting" is a real
+  // complaint that this will now miss. That trade is the documented one — a miss
+  // loses a ledger row, a false positive writes a permanent failure record.
+  if (rest && IMPERATIVE_STARTERS.test(rest)) return null;
 
   return { rating, comment: rest };
 }

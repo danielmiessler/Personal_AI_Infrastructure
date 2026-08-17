@@ -144,16 +144,76 @@ function envKey(name: string): string | null {
 
 const RECLAIM_BACKUP_DIR = join(STATE_DIR, 'reclaimed-shadow-backups');
 
+/**
+ * Roots worth searching for shadow-$HOME trees.
+ *
+ * NOT `$HOME`. Upstream walks the bare home directory six levels deep, pruning only
+ * node_modules/.git/Library, which means every `doctor` run descends into Desktop,
+ * Movies, Pictures, Documents and Downloads. On macOS that raises a TCC prompt naming
+ * those folders and attributing it to `bun` (find is bun's child) — which is exactly what
+ * it did here on 2026-08-17, from a routine post-upgrade health check.
+ *
+ * The walk was never needed at that width. Shadow trees appear where a SESSION RAN, so
+ * the config root plus the registered project directories is the complete search space,
+ * and it is also strictly more accurate: a project nested deeper than six levels below
+ * home is invisible to the upstream version and found by this one.
+ */
+const TCC_PROTECTED = ['Desktop', 'Documents', 'Downloads', 'Movies', 'Pictures', 'Music']
+  .map((d) => join(HOME, d));
+
+/** Roots skipped for living under a TCC-protected folder. Reported, never silently dropped. */
+const skippedShadowRoots: string[] = [];
+
+function shadowSearchRoots(): string[] {
+  const roots = new Set<string>([CONFIG_ROOT]);
+  for (const dir of ['Projects', 'code', 'Developer', 'src']) {
+    const p = join(HOME, dir);
+    if (existsSync(p)) roots.add(p);
+  }
+  // The project registry is the authority on where work actually lives; consulting it
+  // before searching is the standing rule this function used to break.
+  try {
+    const registry = join(CONFIG_ROOT, 'LIFEOS/USER/PROJECTS/project-registry.yaml');
+    if (existsSync(registry)) {
+      for (const m of readFileSync(registry, 'utf8').matchAll(/^\s*base_path:\s*["']?([^"'\n]+)/gm)) {
+        const p = m[1].trim().replace(/^~(?=\/|$)/, HOME);
+        if (p.startsWith(HOME) && existsSync(p)) roots.add(p);
+      }
+    }
+  } catch { /* registry optional — the config root alone is still a valid search */ }
+
+  // A registered project can legitimately sit inside Desktop/Documents/etc, and searching
+  // it would raise the same TCC prompt this fix exists to stop. Skip those, but SAY SO:
+  // a silently narrowed search reads as "covered everything" when it did not.
+  const kept: string[] = [];
+  for (const r of roots) {
+    if (TCC_PROTECTED.some((p) => r === p || r.startsWith(p + '/'))) skippedShadowRoots.push(r);
+    else kept.push(r);
+  }
+  return kept;
+}
+
 async function findShadowHomeDirs(): Promise<string[]> {
   // `find` for guaranteed availability; prune heavy/irrelevant dirs and our
   // own reclaim backups (which contain moved '$HOME' dirs by construction —
   // without the prune every past reclaim would re-trigger detection forever).
-  const r = await run([
-    'find', HOME, '-maxdepth', '6',
-    '(', '-name', 'node_modules', '-o', '-name', '.git', '-o', '-name', 'Library', '-o', '-path', RECLAIM_BACKUP_DIR, ')', '-prune',
-    '-o', '-type', 'd', '-name', '$HOME', '-print',
-  ], 60_000);
-  return r.out ? r.out.split('\n').filter(Boolean) : [];
+  const out: string[] = [];
+  for (const root of shadowSearchRoots()) {
+    const r = await run([
+      'find', root, '-maxdepth', '6',
+      '(', '-name', 'node_modules', '-o', '-name', '.git', '-o', '-name', 'Library', '-o', '-path', RECLAIM_BACKUP_DIR, ')', '-prune',
+      '-o', '-type', 'd', '-name', '$HOME', '-print',
+    ], 60_000);
+    if (r.out) out.push(...r.out.split('\n').filter(Boolean));
+  }
+  if (skippedShadowRoots.length) {
+    process.stderr.write(
+      `[doctor] shadow-$HOME search skipped ${skippedShadowRoots.length} registered root(s) under ` +
+      `TCC-protected folders (would prompt for file access): ${skippedShadowRoots.join(', ')}\n` +
+      `[doctor] search them deliberately with: find <path> -maxdepth 6 -type d -name '$HOME'\n`,
+    );
+  }
+  return [...new Set(out)];
 }
 
 // Disposable state — never worth merging (issue #1485's cache list).

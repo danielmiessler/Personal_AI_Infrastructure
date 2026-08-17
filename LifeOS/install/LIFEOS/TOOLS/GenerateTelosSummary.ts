@@ -693,15 +693,23 @@ function generate(): string {
     '',
     '> Auto-generated from TELOS source files. Do not edit manually.',
     `> Generated: ${now} | Sources: MISSION, GOALS, PROBLEMS, STRATEGIES, PROJECTS, NARRATIVES, CHALLENGES, WRONG, TRAUMAS, MODELS, WISDOM`,
-    '',
-    '## Missions',
-    '',
-    ...missions,
-    '',
-    '## Active Goals (2026)',
-    '',
-    ...goals.active,
   ];
+
+  // Same guard as Core Models and Active Projects below (public issue #1559): an
+  // unconditional empty section is exactly the shape ContextAudit's empty-section
+  // check reports as `critical`, so emitting one makes the generator produce a file
+  // its own auditor condemns. On a fresh install every TELOS source is still a
+  // template, which is precisely when these are empty.
+  if (missions.length > 0) {
+    lines.push('', '## Missions', '', ...missions);
+  }
+
+  // Deferred/completed are rendered below as their own lines, so the heading must
+  // survive when active is empty but either of those has content — otherwise those
+  // lines would appear under no heading at all.
+  if (goals.active.length > 0 || goals.deferred.length > 0 || goals.completed.length > 0) {
+    lines.push('', '## Active Goals (2026)', '', ...goals.active);
+  }
 
   if (goals.deferred.length > 0) {
     // Compress deferred goals to a single inline line — they're not active and don't need full bullets
@@ -720,16 +728,13 @@ function generate(): string {
     lines.push('', `_Completed this year (full text in TELOS/GOALS.md): ${completedIds}_`);
   }
 
-  lines.push(
-    '',
-    '## Problems Being Solved',
-    '',
-    ...problems,
-    '',
-    '## Strategies',
-    '',
-    ...strategies,
-  );
+  if (problems.length > 0) {
+    lines.push('', '## Problems Being Solved', '', ...problems);
+  }
+
+  if (strategies.length > 0) {
+    lines.push('', '## Strategies', '', ...strategies);
+  }
 
   // Conditional like Core Models: an unconditional empty section is the shape
   // ContextAudit's empty-section check exists to catch (public issue #1559).
@@ -737,23 +742,19 @@ function generate(): string {
     lines.push('', '## Active Projects', '', ...projects);
   }
 
-  lines.push(
-    '',
-    '## Active Narratives',
-    '',
-    ...narratives.primary,
-  );
+  // Secondary narratives are appended after this block, so the heading must survive
+  // when primary is empty but secondary is not.
+  if (narratives.primary.length > 0 || narratives.secondary.length > 0) {
+    lines.push('', '## Active Narratives', '', ...narratives.primary);
+  }
 
   if (narratives.secondary.length > 0) {
     lines.push(...narratives.secondary.map(n => `- ${n}`));
   }
 
-  lines.push(
-    '',
-    '## Personal Challenges',
-    '',
-    ...challenges,
-  );
+  if (challenges.length > 0) {
+    lines.push('', '## Personal Challenges', '', ...challenges);
+  }
 
   if (traumas.length > 0) {
     lines.push('', '## Formative Experiences (Traumas)', '', ...traumas);

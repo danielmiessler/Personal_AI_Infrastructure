@@ -104,6 +104,23 @@ function* readJsonl(path: string): IterableIterator<Record<string, unknown>> {
   }
 }
 
+// Claude Code writes the same assistant message into several transcript files
+// (sidechains, resumed sessions, worktree copies), so summing every `usage`
+// block counts one API call many times. Measured on a real corpus: 292,757
+// requestId occurrences for 139,447 unique calls, a 2.10x inflation that put
+// billed input ~1.8x above ccusage, which dedupes on the same key.
+// Entries without a requestId cannot be keyed, so they are kept.
+function makeDedup(): (o: Record<string, unknown>) => boolean {
+  const seen = new Set<string>();
+  return (o) => {
+    const id = o.requestId;
+    if (typeof id !== "string" || id === "") return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  };
+}
+
 function mainLogs(): string[] {
   return glob(join(homedir(), ".claude/projects/*/*.jsonl"));
 }
@@ -151,10 +168,12 @@ function computeCostTotals(): CostTotals {
     write_1h: 0,
     write_5m: 0,
   };
+  const fresh = makeDedup();
   for (const f of mainLogs()) {
     for (const o of readJsonl(f)) {
       const m = o.message as Record<string, unknown> | undefined;
       if (!m || typeof m !== "object" || m.role !== "assistant") continue;
+      if (!fresh(o)) continue;
       const u = (m.usage as Record<string, unknown>) ?? {};
       T.cache_read += Number(u.cache_read_input_tokens ?? 0);
       T.uncached += Number(u.input_tokens ?? 0);
@@ -518,6 +537,7 @@ function analyze(files: string[]): SplitResult {
     per_session: [],
   };
   const bump = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
+  const fresh = makeDedup();
   for (const f of files) {
     let fc = 0;
     for (const o of readJsonl(f)) {
@@ -526,6 +546,7 @@ function analyze(files: string[]): SplitResult {
       const role = m.role as string | undefined;
       const u = m.usage as Record<string, unknown> | undefined;
       if (u && typeof u === "object" && role === "assistant") {
+        if (!fresh(o)) continue;
         R.calls += 1;
         fc += 1;
         const ui = Number(u.input_tokens ?? 0);
@@ -714,6 +735,7 @@ function runReread(jsonOut: boolean): void {
   const uniq = new Map<string, number>();
   const cumu = new Map<string, number>();
   let measured = 0;
+  const fresh = makeDedup();
   const bump = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
 
   for (const f of mainLogs()) {
@@ -746,10 +768,12 @@ function runReread(jsonOut: boolean): void {
           bump(ctx, "system", sp);
           first = false;
         }
-        measured +=
-          Number(u.cache_read_input_tokens ?? 0) +
-          Number(u.cache_creation_input_tokens ?? 0) +
-          Number(u.input_tokens ?? 0);
+        if (fresh(o)) {
+          measured +=
+            Number(u.cache_read_input_tokens ?? 0) +
+            Number(u.cache_creation_input_tokens ?? 0) +
+            Number(u.input_tokens ?? 0);
+        }
         for (const [k, v] of ctx) bump(cumu, k, v);
         const ot = Number(u.output_tokens ?? 0);
         let tc = 0;

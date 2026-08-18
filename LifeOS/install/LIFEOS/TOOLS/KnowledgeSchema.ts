@@ -165,6 +165,27 @@ export interface ParsedNote {
 }
 
 const KEY_LINE = /^([A-Za-z_][\w-]*):(.*)$/;
+const FLUSH_SEQ_ITEM = /^-(?:\s|$)/;
+const INDENTED_SEQ_ITEM = /^\s+-\s/;
+/** Key for a standalone `# comment` line. NUL can't occur in a real YAML key. */
+const STANDALONE_COMMENT_KEY = "\0comment";
+
+/**
+ * True when appending `line` would give one block BOTH column-0 and same-level
+ * indented sequence items. Each indentation is legal alone; together no YAML
+ * reader can load the block. A genuinely NESTED sequence is legal and must not
+ * be flagged — its parent key opens a block, so the preceding line is a bare
+ * `key:` with no value.
+ */
+function mixesSequenceIndentation(raw: string, line: string): boolean {
+  if (!INDENTED_SEQ_ITEM.test(line) || !/\n-(?:\s|$)/.test(raw)) return false;
+  const prev = raw.split("\n").filter((l) => l.trim().length > 0).pop() ?? "";
+  const indentOf = (s: string) => s.length - s.trimStart().length;
+  if (/^\s*[A-Za-z_][\w-]*:\s*$/.test(prev)) return false; // parent key opens a nested block
+  if (indentOf(prev) > indentOf(line)) return false; // still inside a deeper nested node
+  if (INDENTED_SEQ_ITEM.test(prev) && indentOf(prev) === indentOf(line)) return false; // same nested sequence
+  return true;
+}
 
 /**
  * Parse a note into ordered frontmatter fields + a verbatim body. Only the FIRST
@@ -206,14 +227,34 @@ export function parseNote(content: string): ParsedNote {
     }
     const m = line.match(KEY_LINE);
     const isContinuation = /^\s/.test(line);
+    const isBlockSequenceItem = FLUSH_SEQ_ITEM.test(line);
+    const isComment = line.startsWith("#");
     if (m && !isContinuation) {
       if (cur) fields.push(cur);
       const valuePart = m[2].replace(/^ /, ""); // drop the single space after the colon if present
       cur = { key: m[1], raw: line, scalar: valuePart.length > 0 ? valuePart : undefined };
     } else if (isContinuation && cur) {
       // continuation line (block value like related:) — attach to current
+      if (mixesSequenceIndentation(cur.raw, line)) malformed = true;
       cur.raw += "\n" + line;
       cur.scalar = undefined;
+    } else if (isBlockSequenceItem && cur !== null && cur.scalar === undefined) {
+      // A `- item` at column 0 belongs to the open block above it — YAML allows a
+      // sequence at its parent's indentation. But a block carrying BOTH
+      // indentations is unloadable by any YAML reader, so flag it rather than let
+      // the migrator stamp `convention: kb-v3` on a note nothing can parse.
+      if (/\n\s+-\s/.test(cur.raw)) malformed = true;
+      cur.raw += "\n" + line;
+    } else if (isComment) {
+      if (cur !== null && cur.scalar === undefined) {
+        cur.raw += "\n" + line;
+      } else {
+        // Standalone, NOT merged into the scalar above: merging clears that
+        // field's `scalar`, which makes normalize treat it as absent, re-mint it,
+        // and drop the comment text entirely.
+        if (cur) fields.push(cur);
+        cur = { key: STANDALONE_COMMENT_KEY, raw: line };
+      }
     } else {
       // Orphan: a non-blank, non-key line with no field to attach to → this is
       // NOT real YAML frontmatter. Flag it; the migrator must not rewrite.
@@ -634,6 +675,45 @@ Body.
   // #6 quoted/commented enum values pass (no false positive).
   const quoted = parseNote('---\nid: kb_x\ntype: "idea"\ntitle: X\ntags: [a]\nquality: 5\ncreated: 2026-01-01\nupdated: 2026-01-01\nconvention: "kb-v3"\n---\nb\n');
   check("#6 quoted type/convention not false-flagged", !validate(quoted, "x", "idea").some((v) => v.key === "type" || v.key === "convention"));
+
+  // ── Forge legal-YAML parser hardening (2026-08-17) — lock-in regressions ──
+  const unindentedSequenceNote = "---\ntitle: X\nrelated:\n- slug: foo\n  type: supports\n- slug: bar\n  type: extends\n---\nbody\n";
+  const unindentedSequence = parseNote(unindentedSequenceNote);
+  const unindentedRelated = unindentedSequence.fields.find((f) => f.key === "related")?.raw;
+  check("#7 unindented sequence not malformed", unindentedSequence.malformed === false);
+  check("#7 unindented sequence lines stay with related", unindentedRelated === "related:\n- slug: foo\n  type: supports\n- slug: bar\n  type: extends", unindentedRelated);
+  check("#7 unindented sequence round-trips byte-identically", serializeNote(unindentedSequence.fields, unindentedSequence.body) === unindentedSequenceNote);
+
+  const standaloneCommentNote = "---\ntitle: X\nquality: 6\n# (ripple-update 2026-05-19: linked X)\nstatus: seedling\n---\nbody\n";
+  const standaloneComment = parseNote(standaloneCommentNote);
+  check("#8 standalone comment not malformed", standaloneComment.malformed === false);
+  check("#8 field above comment keeps scalar", scalarValue(standaloneComment.fields, "quality") === "6");
+  check("#8 field below comment stays independent", scalarValue(standaloneComment.fields, "status") === "seedling");
+  check("#8 standalone comment round-trips byte-identically", serializeNote(standaloneComment.fields, standaloneComment.body) === standaloneCommentNote);
+  const normalizedComment = normalize(standaloneComment, "x", "idea");
+  const serializedComment = serializeNote(normalizedComment.fields, standaloneComment.body);
+  check("#8 normalize preserves standalone comment", serializedComment.includes("# (ripple-update 2026-05-19: linked X)"));
+  check("#8 normalize preserves field above comment", scalarValue(normalizedComment.fields, "quality") === "6");
+
+  const blockCommentNote = "---\ntitle: X\nrelated:\n- slug: foo\n# keep this edge context\n  type: supports\n---\nbody\n";
+  const blockComment = parseNote(blockCommentNote);
+  check("#9 comment inside block not malformed", blockComment.malformed === false);
+  check("#9 comment inside block round-trips byte-identically", serializeNote(blockComment.fields, blockComment.body) === blockCommentNote);
+
+  check("#10 sequence without preceding block is malformed", parseNote("---\n- item\n---\nbody\n").malformed === true);
+  check("#10 sequence after scalar is malformed", parseNote("---\ntitle: X\n- item\n---\nbody\n").malformed === true);
+
+  // #11 one block cannot carry BOTH indentations — each is legal alone, together
+  // no YAML reader loads it, so the migrator must not stamp it conformant.
+  const mixedTail = "---\ntitle: X\nrelated:\n- slug: a\n  type: extends\n  - slug: b\n    type: related\n---\nbody\n";
+  check("#11 column-0 then indented sequence is malformed", parseNote(mixedTail).malformed === true);
+  check("#11 mixed block still round-trips byte-identically", serializeNote(parseNote(mixedTail).fields, parseNote(mixedTail).body) === mixedTail);
+  const mixedHead = "---\ntitle: X\nrelated:\n  - slug: a\n    type: extends\n- slug: b\n  type: related\n---\nbody\n";
+  check("#11 indented then column-0 sequence is malformed", parseNote(mixedHead).malformed === true);
+  // NEGATIVE: a genuinely nested sequence under a column-0 item is legal YAML.
+  const nested = "---\ntitle: X\nrelated:\n- slug: a\n  aliases:\n    - one\n    - two\n---\nbody\n";
+  check("#11 legal nested sequence not flagged", parseNote(nested).malformed === false);
+  check("#11 legal nested sequence round-trips", serializeNote(parseNote(nested).fields, parseNote(nested).body) === nested);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   return fail === 0 ? 0 : 1;

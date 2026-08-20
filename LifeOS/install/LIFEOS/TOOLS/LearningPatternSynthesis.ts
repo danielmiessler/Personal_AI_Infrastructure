@@ -442,12 +442,24 @@ function listPeopleSlugs(): Set<string> {
 }
 
 function violatesPrivacy(text: string, peopleSlugs: Set<string>): boolean {
+  // Word-boundary matching, not substring. KNOWLEDGE/People can legitimately
+  // contain very short slugs (an initial, a nickname); with `includes()`, a
+  // single-letter slug matches almost any text, so every candidate hypothesis
+  // is privacy-blocked and the deriver silently never emits — the failure mode
+  // is a clean `emitted=0`, indistinguishable from "nothing to report".
+  // Boundary matching preserves the guard's intent: claims that actually name
+  // a person still block.
   const norm = text.toLowerCase();
   for (const slug of peopleSlugs) {
-    // Slug typically `firstname-lastname`; check for both joined and space-separated.
-    const flat = slug.replace(/-/g, "");
-    const spaced = slug.replace(/-/g, " ");
-    if (norm.includes(spaced) || norm.includes(flat)) return true;
+    // Slug may be `firstname-lastname` or `firstname_lastname`; check the
+    // separator-normalized and joined forms.
+    const spaced = slug.replace(/[-_]/g, " ").trim();
+    const flat = slug.replace(/[-_]/g, "");
+    for (const needle of new Set([spaced, flat])) {
+      if (!needle) continue;
+      const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${esc}\\b`, "i").test(norm)) return true;
+    }
   }
   return false;
 }

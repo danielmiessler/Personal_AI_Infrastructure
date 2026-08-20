@@ -38,7 +38,10 @@ export default function RootLayout({
           <ObserverScope />
           <CommandPalette />
           <TemplateOnboarding />
-          <main className="min-h-screen max-w-[1920px] mx-auto w-full overflow-x-hidden relative">
+          {/* The header is sticky, not overlaid, so the space left for content is the viewport
+              minus the header — `min-h-screen` here made every page a full viewport TALLER than
+              its container and pushed a scrollbar onto pages that fit. */}
+          <main className="min-h-[calc(100vh_-_var(--app-header-h,calc(3.5rem_+_1px)))] max-w-[1920px] mx-auto w-full overflow-x-hidden relative">
             {children}
           </main>
         </Providers>

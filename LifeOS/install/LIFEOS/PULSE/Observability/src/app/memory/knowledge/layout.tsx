@@ -35,7 +35,7 @@ export default function KnowledgeLayout({ children }: { children: React.ReactNod
   const memoryTree = data?.tree ? filterMemoryTree(data.tree) : [];
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)]">
+    <div className="flex h-[calc(100vh_-_var(--app-header-h,calc(3.5rem_+_1px)))]">
       <WikiSidebar tree={memoryTree} onSearchClick={() => openPalette("wiki")} />
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>

@@ -77,7 +77,7 @@ export default function WikiMeta({
   const colors = CATEGORY_COLORS[category] || CATEGORY_COLORS["system-doc"];
 
   return (
-    <aside className="w-56 shrink-0 border-l border-line-1 bg-surface-1 overflow-y-auto h-[calc(100vh-3.5rem)] p-4 space-y-5">
+    <aside className="w-56 shrink-0 border-l border-line-1 bg-surface-1 overflow-y-auto h-[calc(100vh_-_var(--app-header-h,calc(3.5rem_+_1px)))] p-4 space-y-5">
       {/* Category badge */}
       <div>
         <span

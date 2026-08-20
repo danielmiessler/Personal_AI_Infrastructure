@@ -188,7 +188,7 @@ function TreeItem({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
 
 export default function WikiSidebar({ tree, onSearchClick }: WikiSidebarProps) {
   return (
-    <aside className="w-64 shrink-0 border-r border-line-1 bg-surface-1 overflow-y-auto h-[calc(100vh-3.5rem)]">
+    <aside className="w-64 shrink-0 border-r border-line-1 bg-surface-1 overflow-y-auto h-[calc(100vh_-_var(--app-header-h,calc(3.5rem_+_1px)))]">
       {/* Search trigger */}
       <div className="p-3 border-b border-line-1">
         <button

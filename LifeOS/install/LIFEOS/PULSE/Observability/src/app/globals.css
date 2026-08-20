@@ -102,11 +102,34 @@
   * {
     @apply border-border;
   }
-  html, body {
+  :root {
+    /* Rendered height of AppHeader, for anything sizing itself against the space BELOW it.
+       This is a FALLBACK for first paint only — AppHeader measures itself and overwrites this
+       on the root element, because the real height is not a constant here: tier 1 is
+       `min-h-14` around a `flex-wrap` nav that grows a row when items wrap, and tier 2 renders
+       only inside /system. The fallback is tier 1 at its minimum (`min-h-14` + a 1px border-b),
+       which is the shortest the header is ever drawn, so a pane is briefly too tall rather
+       than clipped before hydration.
+
+       Every consumer ALSO repeats this value as a `var()` fallback, and that is not redundancy:
+       an unresolved custom property is invalid at computed-value time, so the whole declaration
+       is dropped and the pane silently reverts to `auto` height with no error anywhere. Repeating
+       it means a tree that takes those components without this stylesheet degrades to a correct
+       constant instead of a collapsed layout. Change this value and the six `var()` fallbacks
+       together — `rg 'var\(--app-header-h' src/` finds them. */
+    --app-header-h: calc(3.5rem + 1px);
+  }
+  html {
     overflow-x: hidden; /* Prevent horizontal scroll on mobile */
   }
   body {
     @apply bg-background text-foreground;
+    /* `clip`, not `hidden`, and this is load-bearing for AppHeader. Any non-`visible` overflow
+       makes `body` a scroll container, and `position: sticky` resolves against its nearest
+       scrolling ancestor — so the header's `sticky top-0` was pinning itself to a box that never
+       scrolls (the viewport scrolls, `body` does not) and travelled off-screen with the content.
+       `clip` clips identically without creating a scroll container. */
+    overflow-x: clip;
     font-family: 'concourse-t3', 'Concourse T3', system-ui, sans-serif;
     font-size: 17px;
     line-height: 1.55;

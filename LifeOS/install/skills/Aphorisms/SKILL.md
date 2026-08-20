@@ -2,15 +2,15 @@
 name: Aphorisms
 version: 1.1.20
 description: "Curated aphorism collection with CRUD — content-based matching, themed search, thinker research, DB maintenance. Quotes organized by author/theme/context/usage to prevent repetition. Four workflows: FindAphorism, AddAphorism, ResearchThinker, SearchAphorisms. Themes: Stoicism, Wisdom, Truth-seeking, Excellence, Resilience, Curiosity. USE WHEN aphorism, quote, find a quote, research thinker, add aphorism, quote for newsletter, what did X say about, quote bank. NOT FOR creative writing or social posts."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Aphorisms/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Aphorisms" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

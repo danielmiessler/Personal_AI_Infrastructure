@@ -2,15 +2,15 @@
 name: Sales
 version: 1.0.28
 description: "Transforms product documentation into sales-ready packages — a story explanation, charcoal gestural sketch art, and talking points — via a narrative-arc pipeline. USE WHEN sales, proposal, pitch deck, value proposition, sales narrative, sales deck, sales package, turn this into a pitch, create a sales story, sales materials, product pitch, transform docs to sales, sales script. NOT FOR Hormozi $100M frameworks, value equation, irresistible offer, or VOC mining, standalone diagrams or illustrations (use Art), or platform social posts."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Sales/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Sales" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

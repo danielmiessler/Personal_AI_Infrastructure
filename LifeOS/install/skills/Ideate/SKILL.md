@@ -4,12 +4,13 @@ version: 1.0.19
 description: "Evolutionary ideation engine — loop-controlled multi-cycle idea generation through phases of dreaming, cross-domain stealing, recombination, fitness testing, selection, and Lamarckian meta-learning, producing ranked novel solution candidates with provenance. USE WHEN ideate, id8, novel ideas, evolve ideas, dream up solutions, innovate, breakthrough ideas, idea evolution, multi-cycle creativity, need genuinely new approaches. NOT FOR quick single-pass brainstorming (use BeCreative)."
 context: fork
 background: false
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-Before executing, check for user customizations at:
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Ideate/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Ideate" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
 # Ideate — The Cognitive Progress Engine
 

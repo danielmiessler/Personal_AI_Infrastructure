@@ -2,14 +2,15 @@
 name: ApertureOscillation
 version: 1.0.9
 description: "3-pass scope oscillation that holds a question constant while shifting zoom — narrow/tactical, wide/strategic, then synthesis — to surface design tensions, scope recommendations, and coherence assessments invisible at any single zoom level. USE WHEN aperture oscillation, oscillate scope, zoom in and out, tactical vs strategic, scope framing, design tension, system coherence check, local vs global design, wrong scope, scope negotiation. NOT FOR lens rotation across angles (use IterativeDepth)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ApertureOscillation/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ApertureOscillation" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 
 # ApertureOscillation

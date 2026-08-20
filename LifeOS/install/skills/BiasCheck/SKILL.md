@@ -3,14 +3,15 @@ name: BiasCheck
 version: 1.0.3
 description: "Three-layer bias analysis on any URL, file, or text — auto-fetches the content and any cited study, then audits data-level biases, source conflicts of interest, and journalism-added distortions, separating what the data supports from what's editorialized. USE WHEN bias analysis, analyze bias, bias check, check this study, who funded this, is this source biased, fact-check article, methodological flaws, source credibility, what's wrong with this claim. NOT FOR psychological author analysis, research synthesis (use Research), entity due diligence."
 disallowed-tools: Edit, Write, NotebookEdit
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/BiasCheck/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/BiasCheck" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any `PREFERENCES.md` or additional reference files found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any `PREFERENCES.md` or additional reference files found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 # BiasCheck
 

@@ -2,16 +2,17 @@
 name: LocalIntelligence
 version: 1.0.9
 description: "Generic civic intelligence aggregator for any US city — daily local digest of construction permits, crime, new businesses, public officials, legislation, elections, arrests, and local news, keyed off principal's Hometown. Writes JSON consumed by Pulse LOCAL tab. Crime delegates to a dedicated crime-stats skill. Workflows: DailyBrief, Construction, Crime, Business, Officials, Legislation, Elections, Arrests, News. USE WHEN local news, hometown news, council meeting, building permits, mayor, ballot measures, ordinance, recent arrests, civic intel, local digest. NOT FOR national news or arbitrary-city crime."
+allowed-tools: Bash(find:*)
 ---
 
 # LocalIntelligence
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/LocalIntelligence/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/LocalIntelligence" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any `PREFERENCES.md`, optional source-list overrides, or per-source API keys (e.g., OpenStates, Google News topic ID). These override defaults. If the directory does not exist, proceed with skill defaults — universal sources only.
+If any paths are listed above, read and apply any `PREFERENCES.md`, optional source-list overrides, or per-source API keys (e.g., OpenStates, Google News topic ID). These override defaults. If the directory does not exist, proceed with skill defaults — universal sources only.
 
 **`sources.json`** in the same directory is the deterministic per-city source list (RSS feeds, local JSON APIs) consumed by `Tools/UserSources.ts` on every refresh — see `Tools/UserSources.help.md` for the schema. City-specific URLs belong there, never in this skill.
 

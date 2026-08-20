@@ -2,15 +2,15 @@
 name: USMetrics
 version: 1.0.20
 description: "Analyze and update 68 US economic and social indicators from five government APIs (FRED, EIA, Treasury, BLS, Census) across 10 categories: GDP, Inflation, Employment, Housing, Consumer Finance, Markets, Trade, Government/Fiscal, Demographics, Health. Two workflows: UpdateData, GetCurrentState (10y/5y/2y/1y trend analysis). USE WHEN GDP, inflation, unemployment, economic metrics, gas prices, how is the economy, refresh data, FRED, US metrics, economic trends. NOT FOR pathogen surveillance."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/USMetrics/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/USMetrics" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

@@ -2,15 +2,15 @@
 name: PrivateInvestigator
 version: 1.1.18
 description: "Ethical people-finding and identity verification via parallel research agents across people-search sites, social media, public records, and reverse phone/email/image/username lookups, with confidence-scored results requiring 3+ matching identifiers. USE WHEN find person, locate person, reconnect, lost contact, old friend, reverse phone lookup, who owns this email, reverse image search, find by username, verify identity, people search, public-data background check, who is this caller. NOT FOR structured due-diligence or company/entity intelligence investigations, or general web research synthesis (use Research)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/PrivateInvestigator/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/PrivateInvestigator" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

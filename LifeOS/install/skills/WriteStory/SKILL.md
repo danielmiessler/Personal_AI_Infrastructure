@@ -2,6 +2,7 @@
 name: WriteStory
 version: 1.1.10
 description: "Scaffolding that helps a writer build a story they already want to tell — fills in structure, hidden wound, theme, and prose from the writer's own material across seven narrative layers, deriving the spine from their notes as proposals they ratify. Bans generic AI patterns; scales short story to multi-book series. USE WHEN write story, fiction, novel, chapter, story bible, character arc, plot outline, creative writing, worldbuilding, draft story, help me write my story, develop my novel, layer my story, build out my book, I have notes for a story. NOT FOR narrative summaries of real content."
+allowed-tools: Bash(find:*)
 ---
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
@@ -101,10 +102,10 @@ WriteStory augments a creator. It never substitutes for one. This is the rule th
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/WriteStory/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/WriteStory" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply:
+If any paths are listed above, read and apply:
 - `PREFERENCES.md` — default genre, aesthetic, voice
 - `projects/<book-slug>/` — saved interviews and the Story Bible ISA for each book in progress
 

@@ -2,6 +2,7 @@
 name: ThreatModel
 version: 1.0.1
 description: Defensive threat modeling and risk management for your own estate — map where sensitive data lives across your asset graph, run compromise scenarios (what a hacked asset exposes, its blast radius, how you'd respond), and maintain a persistent risk register with likelihood×impact scoring, owners, mitigations, and review cadence via a deterministic CLI. All real data stays in your private USER tree; this skill is code only. USE WHEN threat model, threat modeling, risk register, risk assessment, what if X got hacked, compromise scenario, blast radius, sensitive data map, where is our sensitive data, data classification, risk review, add a risk, accept a risk, security risk posture. NOT FOR active pentesting or exploitation (use an offensive-security skill), world-scale futures stress-testing of ideas (use WorldThreatModel), or executing incident response (use your incident-response runbooks — this skill plans them).
+allowed-tools: Bash(find:*)
 ---
 
 # ThreatModel
@@ -10,10 +11,10 @@ Threat modeling for the estate you actually run. Three moves: classify where sen
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ThreatModel/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ThreatModel" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply `PREFERENCES.md` (data locations, sensitive-data class priorities, response runbook cross-references). If not, proceed with defaults.
+If any paths are listed above, read and apply `PREFERENCES.md` (data locations, sensitive-data class priorities, response runbook cross-references). If not, proceed with defaults.
 
 ## Data/Code Separation (safety gate)
 

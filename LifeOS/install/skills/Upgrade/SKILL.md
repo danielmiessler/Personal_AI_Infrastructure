@@ -2,14 +2,15 @@
 name: Upgrade
 version: 1.1.26
 description: "Improve LifeOS from what the best practitioners are shipping around AI harnesses — Anthropic first (changelogs, docs, releases), then trusted creators, trending repos, and the system's own reflections — extracting concrete techniques and filtering them against verified current state so nothing already-done or rejected is re-recommended. USE WHEN upgrade, system upgrade, check Anthropic, new Claude features, algorithm upgrade, LifeOS upgrade, mine reflections."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Upgrade/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Upgrade" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

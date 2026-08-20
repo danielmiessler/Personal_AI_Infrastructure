@@ -2,14 +2,15 @@
 name: Fabric
 version: 1.1.19
 description: "Execute any of 240+ specialized prompt patterns natively across Extraction, Summarization, Analysis, Creation, Improvement, Security, Rating. Common: extract_wisdom, create_threat_model, analyze_claims, improve_writing, review_code, mermaid, youtube_summary. CLI used only for YouTube transcript (-y) and URL fallback (-u). Two workflows: ExecutePattern, UpdatePatterns. USE WHEN fabric, fabric pattern, run fabric, update patterns, threat model, analyze claims, improve writing, review code, mermaid, STRIDE, sigma rules. NOT FOR multi-agent investigation (Research) or content-adaptive extraction (ExtractWisdom)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Fabric/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Fabric" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## Voice Notification
 

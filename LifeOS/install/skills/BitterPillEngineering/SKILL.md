@@ -2,14 +2,15 @@
 name: BitterPillEngineering
 version: 1.0.10
 description: "Audits any AI instruction set for over-prompting using the core test — would a smarter model make this rule unnecessary? Applies Five Questions to every rule (Claude already does this? Contradiction? Redundant? One-off fix? Vague?) then classifies as CUT/RESOLVE/MERGE/EVALUATE/SHARPEN/MOVE/KEEP. Workflows: Audit (full system, token savings), QuickCheck (single file). Principle: less scaffolding = better output. USE WHEN BPE, bitter pill, audit setup, over-prompting, trim instructions, dead weight, simplify setup, clean up CLAUDE.md. NOT FOR attacking logical flaws in ideas (use RedTeam)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/BitterPillEngineering/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/BitterPillEngineering" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## Voice Notification
 

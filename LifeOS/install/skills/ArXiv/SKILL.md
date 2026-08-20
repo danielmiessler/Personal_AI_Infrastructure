@@ -2,15 +2,15 @@
 name: ArXiv
 version: 1.0.9
 description: "Search and retrieve arXiv academic papers by topic, category, or paper ID — with AlphaXiv-enriched AI-generated overviews. Uses arXiv Atom API across cs.AI/cs.LG/cs.CL/cs.CR/cs.MA/cs.SE/cs.IR. Three workflows: Latest, Search, Paper. USE WHEN arxiv, papers, latest papers, research papers, recent ML papers, paper lookup, summarize paper, latest LLM papers, AI safety papers, cs.AI latest. NOT FOR general research (Research), URL parsing, or annual reports."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ArXiv/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ArXiv" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

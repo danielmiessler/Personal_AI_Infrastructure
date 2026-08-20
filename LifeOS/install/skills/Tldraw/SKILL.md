@@ -2,6 +2,7 @@
 name: Tldraw
 version: 1.0.1
 description: Read, create, and edit tldraw .tldr canvas files deterministically — sketch hand-drawn-register diagrams (boxes, arrows, sticky notes, frames, text) directly into a canvas file the user opens in any tldraw surface, and read a rough canvas back as structured data to organize it. USE WHEN tldraw, .tldr file, whiteboard, canvas, sketch a diagram, hand-drawn diagram, draw this on a canvas, put this on the whiteboard, structure my canvas, organize my whiteboard, read my canvas, cluster my sticky notes. NOT FOR polished static images, infographics, or mermaid diagrams (use Art), web UI design (use Webdesign), programmatic video (use Remotion).
+allowed-tools: Bash(find:*)
 ---
 
 # Tldraw
@@ -10,10 +11,10 @@ Deterministic read/write for tldraw canvases. The `.tldr` format is plain JSON (
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Tldraw/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Tldraw" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md found there (default canvas directory, preferred colors/register, default open surface). If not, proceed with defaults.
+If any paths are listed above, read and apply any PREFERENCES.md found there (default canvas directory, preferred colors/register, default open surface). If not, proceed with defaults.
 
 ## Voice Notification
 

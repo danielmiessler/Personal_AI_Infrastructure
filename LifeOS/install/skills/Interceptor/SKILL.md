@@ -2,14 +2,15 @@
 name: Interceptor
 description: "Real Chrome/Brave + macOS Computer Use from inside the browser — zero CDP fingerprint, real sessions; mandatory for visual deploy verification. Drive clickwork yourself. USE WHEN verify deploy, confirm UI, screenshot verification, computer use, macos automation, debug web, troubleshoot, visual check, motion/animation bug, jank, transition stutter, scrub a flow, console logs/errors, runtime/JS/react errors, mismatch warning, network traffic/log, HAR/pcapng export, hydration/blank-page debug, flash then blank/page broken, why is this not working/what's happening on the page, authenticated page, bot detection bypass, reproduce bug, drive native app, about to ask the operator to click/navigate/fill a form/log in/approve OAuth, OAuth consent flow, complete a web login, do this in your browser. NOT FOR residential-proxy crawling (BrightData) or social actor scraping (Apify)."
 version: 4.3.18
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

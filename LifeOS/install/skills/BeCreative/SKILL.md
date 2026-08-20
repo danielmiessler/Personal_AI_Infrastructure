@@ -2,15 +2,15 @@
 name: BeCreative
 version: 1.1.21
 description: "Divergent ideation and corpus expansion via Verbalized Sampling plus extended thinking — single-shot generates several internally diverse candidates and surfaces the strongest, or expands a seed corpus into a diverse dataset for evals and test sets. USE WHEN be creative, brainstorm, divergent ideas, creative solutions, maximum creativity, tree of thoughts, radically different, name this, creative angle, expand this corpus, synthetic data, generate diverse examples, create test set. NOT FOR multi-cycle evolutionary ideation with Lamarckian meta-learning (use Ideate)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/BeCreative/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/BeCreative" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

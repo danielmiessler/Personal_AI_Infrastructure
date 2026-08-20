@@ -2,22 +2,22 @@
 name: Art
 version: 1.5.23
 description: "Static visual content across 20+ formats — diagrams, mermaid, infographics, D3 dashboards, comics, icons, wallpaper — via Nano Banana Pro (default), Nano Banana, and Flux. USE WHEN art, illustration, diagram, flowchart, infographic, header image, blog social thumbnail, visualize, generate image, mermaid, architecture diagram, comic, icon, blog art, framework diagram, D3 chart, remove background, wallpaper. NOT FOR locked house-style YouTube/channel/video thumbnails, video or animation (use Remotion), or web UI design and integrated frontend layout (use Webdesign)."
+allowed-tools: Bash(find:*)
 ---
 
 # Art Skill
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Art/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Art" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply:
+If any paths are listed above, read and apply:
 - `PREFERENCES.md` - Aesthetic preferences, default model, output location
 - `CharacterSpecs.md` - Character design specifications
 - `SceneConstruction.md` - Scene composition guidelines
 
-These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

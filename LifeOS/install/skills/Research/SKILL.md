@@ -4,6 +4,7 @@ version: 1.5.16
 description: "Multi-agent web research with mandatory URL verification, confidence-tagged output, and four depth modes (quick to deep investigation). USE WHEN research, do research, quick research, extensive research, deep investigation, find information, investigate, extract alpha, analyze content, retrieve content, AI trends, enhance content, extract knowledge, web scraping, YouTube extraction, map landscape, competitive analysis, find it, find this, find this product, identify this, what is this, what's that thing, track down, locate, help me find, I can't find X online, can't find it online, source this — never substitute raw WebSearch/WebFetch for a multi-source find/identify/investigate request. NOT FOR people/company/entity deep background, academic papers (use ArXiv), JSON entity extraction, or content-adaptive wisdom extraction (use ExtractWisdom)."
 context: fork
 background: false
+allowed-tools: Bash(find:*)
 ---
 
 ## ⚠️ MANDATORY TRIGGER
@@ -23,11 +24,10 @@ background: false
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Research/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Research" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

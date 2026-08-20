@@ -2,15 +2,15 @@
 name: Science
 version: 1.1.18
 description: "The scientific method as a universal problem-solving algorithm — goal-first, plural falsifiable hypotheses, designed experiments, and honest measurement, scaling from TDD to feature validation to MVP launch. USE WHEN think about, figure out, experiment, iterate, optimize, hypothesis, science, full cycle, quick diagnosis, structured investigation, how do we test, analyze results. NOT FOR multi-angle lens passes (use IterativeDepth)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Science/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Science" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 ## 🚨 MANDATORY: Voice Notification (REQUIRED BEFORE ANY ACTION)
 

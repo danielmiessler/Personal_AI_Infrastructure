@@ -2,14 +2,15 @@
 name: ExtractWisdom
 version: 1.1.16
 description: "Content-adaptive wisdom extraction that reads content first, detects which wisdom domains are present, and builds custom sections around them, with five depth levels and mandatory contrarian takes; pulls YouTube via fabric and articles via WebFetch. USE WHEN extract wisdom, analyze video, analyze podcast, extract insights, key takeaways, summarize interview, distill content. NOT FOR static Fabric extract_wisdom pattern (use Fabric)."
+allowed-tools: Bash(find:*)
 ---
 
 ## Customization
 
-**Before executing, check for user customizations at:**
-`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ExtractWisdom/`
+**User customizations for this skill** (resolved at invocation — empty means none):
+!`find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/ExtractWisdom" -mindepth 1 -maxdepth 1 2>/dev/null; true`
 
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
+If any paths are listed above, read and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If nothing is listed, proceed with skill defaults.
 
 # ExtractWisdom — Dynamic Content Extraction
 

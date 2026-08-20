@@ -27,7 +27,7 @@ export interface CortexEvidence {
   reviewer?: ReviewerEvidence;
   retrieval?: RetrievalEvidence;
   proposals?: { pending: number; evidence: string; available?: boolean; malformedLines?: number[] };
-  observability?: { bytes: number; oldestMs: number | null; evidence: string; files?: number; available?: boolean };
+  observability?: { bytes: number; newestMs: number | null; evidence: string; files?: number; available?: boolean };
   index?: { status: "absent" | "no-index-v1" | "ok" | "mismatch" | "invalid"; manifest?: string; policy?: string; measuredAt?: number; canonicalHash?: string; manifestCanonicalHash?: string; indexHash?: string; manifestIndexHash?: string; indexPath?: string; indexedAt?: string; ageMs?: number };
   thresholds?: CortexThresholds;
 }
@@ -94,7 +94,7 @@ export function assessCortexEvidence(input: CortexEvidence): CortexAssessment {
   else if (!input.retrieval.ts || !Number.isFinite(Date.parse(input.retrieval.ts)) || typeof input.retrieval.queryHash !== "string" || input.retrieval.queryHash.length === 0 || !nonNegativeInteger(input.retrieval.returnedCount) || !nonNegativeFinite(input.retrieval.durationMs)) add("retrieval-evidence-invalid", "warn", "Retrieval evidence lacks a valid affirmative operation result.", input.retrieval);
   else { const ageMs = input.nowMs - Date.parse(input.retrieval.ts); if (ageMs < 0) add("retrieval-future", "warn", "Retrieval timestamp is in the future and cannot prove freshness.", { ...input.retrieval, ageMs }); else if (ageMs > thresholds.retrievalStaleMs) add("retrieval-stale", "warn", `Retrieval evidence exceeds ${thresholds.retrievalStaleMs}ms freshness window.`, { ...input.retrieval, ageMs, thresholdMs: thresholds.retrievalStaleMs }); }
   if (!input.proposals || input.proposals.available === false) add("proposal-evidence-missing", "warn", "Proposal evidence is absent.", input.proposals); else { if (input.proposals.malformedLines?.length) add("proposal-evidence-malformed", "warn", "Proposal JSONL is malformed.", input.proposals); if (input.proposals.pending > thresholds.proposalBacklog) add("proposal-backlog-high", "warn", `Pending proposal backlog ${input.proposals.pending} exceeds threshold ${thresholds.proposalBacklog}.`, { ...input.proposals, threshold: thresholds.proposalBacklog }); }
-  if (!input.observability || input.observability.available === false) add("observability-evidence-missing", "warn", "Observability evidence is absent.", input.observability); else { if (input.observability.bytes > thresholds.observabilityMaxBytes) add("observability-bytes-exceeded", "warn", `Observability logs use ${input.observability.bytes} bytes, above ${thresholds.observabilityMaxBytes}.`, { ...input.observability, maxBytes: thresholds.observabilityMaxBytes }); if (input.observability.oldestMs != null) { const ageMs = input.nowMs - input.observability.oldestMs; if (ageMs > thresholds.observabilityMaxAgeMs) add("observability-age-exceeded", "warn", `Oldest observability log is ${ageMs}ms old, above ${thresholds.observabilityMaxAgeMs}.`, { ...input.observability, ageMs, maxAgeMs: thresholds.observabilityMaxAgeMs }); } }
+  if (!input.observability || input.observability.available === false) add("observability-evidence-missing", "warn", "Observability evidence is absent.", input.observability); else { if (input.observability.bytes > thresholds.observabilityMaxBytes) add("observability-bytes-exceeded", "warn", `Observability logs use ${input.observability.bytes} bytes, above ${thresholds.observabilityMaxBytes}.`, { ...input.observability, maxBytes: thresholds.observabilityMaxBytes }); if (input.observability.newestMs != null) { const ageMs = input.nowMs - input.observability.newestMs; if (ageMs > thresholds.observabilityMaxAgeMs) add("observability-stale", "warn", `No observability write for ${ageMs}ms, above ${thresholds.observabilityMaxAgeMs} — telemetry pipeline may be dead; check hook wiring.`, { ...input.observability, ageMs, maxAgeMs: thresholds.observabilityMaxAgeMs }); } }
   if (!input.index || input.index.status === "absent") add("index-evidence-missing", "warn", "Index state is ambiguous.", input.index); else if (input.index.status === "mismatch" || input.index.status === "invalid") add(input.index.status === "mismatch" ? "index-integrity-mismatch" : "index-manifest-invalid", "critical", "Index integrity evidence failed.", input.index); else if (input.index.status === "ok" && (input.index.ageMs == null || input.index.ageMs < 0)) add("index-freshness-invalid", "warn", "Index freshness is not measurable.", input.index); else if (input.index.status === "ok" && input.index.ageMs! > thresholds.indexStaleMs) add("index-stale", "warn", "Index exceeds freshness threshold.", input.index);
   const overall: Severity = findings.some(f => f.severity === "critical") ? "critical" : findings.some(f => f.severity === "warn") ? "warn" : "ok";
   return { overall, findings, thresholds };
@@ -139,19 +139,19 @@ function reviewerEvidence(obs: string, nowMs: number, thresholds: CortexThreshol
 }
 
 function observabilityEvidence(obs: string): CortexEvidence["observability"] {
-  if (!existsSync(obs)) return { bytes: 0, oldestMs: null, files: 0, evidence: obs, available: false };
-  let bytes = 0; let oldestMs: number | null = null; let files = 0;
+  if (!existsSync(obs)) return { bytes: 0, newestMs: null, files: 0, evidence: obs, available: false };
+  let bytes = 0; let newestMs: number | null = null; let files = 0;
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) walk(path);
       else if (entry.isFile() && (entry.name.endsWith(".jsonl") || entry.name.endsWith(".log"))) {
-        const st = statSync(path); bytes += st.size; files++; oldestMs = oldestMs == null ? st.mtimeMs : Math.min(oldestMs, st.mtimeMs);
+        const st = statSync(path); bytes += st.size; files++; newestMs = newestMs == null ? st.mtimeMs : Math.max(newestMs, st.mtimeMs);
       }
     }
   };
   walk(obs);
-  return { bytes, oldestMs, files, evidence: obs, available: files > 0 };
+  return { bytes, newestMs, files, evidence: obs, available: files > 0 };
 }
 
 export function canonicalCorpusDigest(memoryRoot: string): { digest: string; files: number; bytes: number } {

@@ -597,7 +597,7 @@ function principalDisplayName(): string {
   }
   if (coreName) return coreName;
   try {
-    const settings = JSON.parse(readFileSync(join(homedir(), '.claude', 'settings.json'), 'utf-8'));
+    const settings = JSON.parse(readFileSync(join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'settings.json'), 'utf-8'));
     const name = settings?.principal?.name;
     if (typeof name === 'string' && name.trim() && !looksLikeToken(name)) return name.trim();
   } catch { /* no settings.json — fall through */ }

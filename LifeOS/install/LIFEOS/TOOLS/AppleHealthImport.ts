@@ -45,7 +45,7 @@ const HOME = process.env.HOME ?? "~";
 //
 // Complementary path, not a rival: LIFEOS/TOOLS/healthsync/apple.ts is the CONTINUOUS sync
 // (iPhone Shortcut JSON -> DayFiles under USER/HEALTH/DATA). This is the bulk backup import.
-const DEFAULT_OUT = join(HOME, ".claude", "LIFEOS", "USER", "HEALTH", "APPLE_HEALTH.md");
+const DEFAULT_OUT = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "USER", "HEALTH", "APPLE_HEALTH.md");
 const DEFAULT_DAYS = 90;
 
 /**

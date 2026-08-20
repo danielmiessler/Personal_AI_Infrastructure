@@ -1,4 +1,7 @@
 #!/bin/bash
+
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+LIFEOS_DIR="${LIFEOS_DIR:-$CLAUDE_CONFIG_DIR/LIFEOS}"
 # LifeOS Pulse Menu Bar — Install Script
 # Builds, deploys, removes old Monitor, installs launchd plist, launches
 
@@ -64,7 +67,7 @@ echo "  Installed $APP_DEST"
 echo "[6/6] Installing LaunchAgent..."
 
 # Substitute __HOME__ placeholder with actual home directory
-sed "s|__HOME__|$HOME_DIR|g" "$PLIST_SRC" > "$PLIST_DST"
+sed -e "s|__HOME__|$HOME_DIR|g" -e "s|__CLAUDE_CONFIG_DIR__|$CLAUDE_CONFIG_DIR|g" -e "s|__LIFEOS_DIR__|$LIFEOS_DIR|g" "$PLIST_SRC" > "$PLIST_DST"
 echo "  Installed $PLIST_DST"
 
 # Ensure logs directory exists

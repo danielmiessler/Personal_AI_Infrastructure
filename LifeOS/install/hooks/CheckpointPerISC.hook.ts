@@ -31,7 +31,7 @@ import { isForeignToSystemRepo, looksLikePersonalTranscript } from '../LIFEOS/TO
 // '#' comments and blank
 // lines are ignored. Tilde and $HOME prefixes are expanded as a quality-of-
 // life feature so users can write `~/Projects/foo` instead of the long form.
-const ALLOWLIST_PATH = join(homedir(), '.claude', 'checkpoint-repos.txt');
+const ALLOWLIST_PATH = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'checkpoint-repos.txt');
 const GIT_TIMEOUT_MS = 5000;
 
 interface CheckpointState {
@@ -244,9 +244,9 @@ async function main() {
   // dir — skill trees must stay publishable-clean and the sidecar carries
   // absolute paths + SHAs, which trips SkillHygieneGate (found 2026-08-11,
   // interview-evidence upgrade). Everything else keeps the beside-the-ISA path.
-  const skillsPrefix = join(homedir(), '.claude', 'skills') + '/';
+  const skillsPrefix = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'skills') + '/';
   const inSkillTree = slugDir.startsWith(skillsPrefix);
-  const skillStateDir = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'checkpoints');
+  const skillStateDir = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY', 'STATE', 'checkpoints');
   if (inSkillTree) mkdirSync(skillStateDir, { recursive: true });
   const stateFile = inSkillTree
     ? join(skillStateDir, `skill-${slug}.checkpoint-state.json`)

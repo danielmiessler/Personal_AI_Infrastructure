@@ -574,8 +574,8 @@ function formatResults(
 // dual-tier prefetch, no graph traversal on hot path).
 
 const MEMORY_FILES: ReadonlyArray<{ path: string; title: string }> = [
-  { path: path.join(HOME, ".claude", "LIFEOS", "USER", "PRINCIPAL", "PRINCIPAL_MEMORY.md"), title: "Principal Memory" },
-  { path: path.join(HOME, ".claude", "LIFEOS", "USER", "DIGITAL_ASSISTANT", "DA_MEMORY.md"), title: "DA Memory" },
+  { path: path.join(process.env.LIFEOS_DIR || path.join(HOME, ".claude", "LIFEOS"), "USER", "PRINCIPAL", "PRINCIPAL_MEMORY.md"), title: "Principal Memory" },
+  { path: path.join(process.env.LIFEOS_DIR || path.join(HOME, ".claude", "LIFEOS"), "USER", "DIGITAL_ASSISTANT", "DA_MEMORY.md"), title: "DA Memory" },
 ];
 
 const RELEVANT_CACHE_TTL_MS = 60_000;

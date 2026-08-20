@@ -1,8 +1,12 @@
 #!/bin/bash
+
+# Install root. CLAUDE_CONFIG_DIR is the harness's own override for where the
+# config dir lives; fall back to ~/.claude so a default install is unchanged.
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$CLAUDE_CONFIG_DIR}"
 # LifeOS Pulse — Process Management
 # Usage: manage.sh {start|stop|restart|status|install|uninstall}
 
-PULSE_DIR="$HOME/.claude/LIFEOS/PULSE"
+PULSE_DIR="$CLAUDE_CONFIG_DIR/LIFEOS/PULSE"
 PLIST_NAME="com.lifeos.pulse"
 PLIST_SRC="$PULSE_DIR/$PLIST_NAME.plist"
 PLIST_DST="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
@@ -43,7 +47,7 @@ case "$1" in
       if [ ! -f "$PLIST_DST" ]; then
         # Substitute __HOME__ + __BUN_PATH__ placeholders (public template);
         # no-op on plists that already have literal paths.
-        sed -e "s|__HOME__|$HOME|g" -e "s|__BUN_PATH__|$BUN_PATH|g" "$PLIST_SRC" > "$PLIST_DST"
+        sed -e "s|__HOME__|$HOME|g" -e "s|__BUN_PATH__|$BUN_PATH|g" -e "s|__CLAUDE_CONFIG_DIR__|$CLAUDE_CONFIG_DIR|g" -e "s|__LIFEOS_DIR__|$LIFEOS_DIR|g" "$PLIST_SRC" > "$PLIST_DST"
       fi
       launchctl load "$PLIST_DST" 2>/dev/null
       echo "LifeOS Pulse started"
@@ -118,7 +122,7 @@ case "$1" in
       sleep 1
       # Substitute __HOME__ + __BUN_PATH__ placeholders (public template);
       # no-op on service files that already have literal paths.
-      sed -e "s|__HOME__|$HOME|g" -e "s|__BUN_PATH__|$BUN_PATH|g" "$SERVICE_SRC" > "$SERVICE_DST"
+      sed -e "s|__HOME__|$HOME|g" -e "s|__BUN_PATH__|$BUN_PATH|g" -e "s|__CLAUDE_CONFIG_DIR__|$CLAUDE_CONFIG_DIR|g" -e "s|__LIFEOS_DIR__|$LIFEOS_DIR|g" "$SERVICE_SRC" > "$SERVICE_DST"
       # Ensure user services survive logout/reboot (no-op if already enabled)
       loginctl enable-linger "$USER" 2>/dev/null || true
       systemctl --user daemon-reload
@@ -136,7 +140,7 @@ case "$1" in
 
       # Substitute __HOME__ + __BUN_PATH__ placeholders (public template);
       # no-op on plists that already have literal paths.
-      sed -e "s|__HOME__|$HOME|g" -e "s|__BUN_PATH__|$BUN_PATH|g" "$PLIST_SRC" > "$PLIST_DST"
+      sed -e "s|__HOME__|$HOME|g" -e "s|__BUN_PATH__|$BUN_PATH|g" -e "s|__CLAUDE_CONFIG_DIR__|$CLAUDE_CONFIG_DIR|g" -e "s|__LIFEOS_DIR__|$LIFEOS_DIR|g" "$PLIST_SRC" > "$PLIST_DST"
       launchctl load "$PLIST_DST"
     fi
 

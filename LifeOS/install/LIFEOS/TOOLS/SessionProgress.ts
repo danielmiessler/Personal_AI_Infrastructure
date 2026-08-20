@@ -45,7 +45,7 @@ interface SessionProgress {
 }
 
 // Progress files are now in STATE/progress/ (consolidated from MEMORY/PROGRESS/)
-const PROGRESS_DIR = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'progress');
+const PROGRESS_DIR = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY', 'STATE', 'progress');
 
 function getProgressPath(project: string): string {
   return join(PROGRESS_DIR, `${project}-progress.json`);

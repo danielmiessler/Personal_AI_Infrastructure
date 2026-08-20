@@ -14,12 +14,16 @@
     <true/>
     <key>EnvironmentVariables</key>
     <dict>
+      <key>CLAUDE_CONFIG_DIR</key>
+      <string>__CLAUDE_CONFIG_DIR__</string>
+      <key>LIFEOS_DIR</key>
+      <string>__LIFEOS_DIR__</string>
         <key>LIFEOS_PULSE_DIR</key>
-        <string>__HOME__/.claude/LIFEOS/PULSE</string>
+        <string>__LIFEOS_DIR__/PULSE</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>__HOME__/.claude/LIFEOS/PULSE/logs/menubar-stdout.log</string>
+    <string>__LIFEOS_DIR__/PULSE/logs/menubar-stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>__HOME__/.claude/LIFEOS/PULSE/logs/menubar-stderr.log</string>
+    <string>__LIFEOS_DIR__/PULSE/logs/menubar-stderr.log</string>
 </dict>
 </plist>

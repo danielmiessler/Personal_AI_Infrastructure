@@ -35,7 +35,7 @@ import { PULSE_BASE } from "../PULSE/endpoint";
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS");
+const LIFEOS_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"));
 const OBS_DIR = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
 const LEDGER_PATH = join(OBS_DIR, "anthropic-cost.jsonl");
 const CALL_SITES_PATH = join(OBS_DIR, "anthropic-call-sites.json");
@@ -131,11 +131,11 @@ async function fetchApiSpend(): Promise<{ month_used_usd: number | null; source:
 
 // Paths we scan (source-of-truth for LifeOS-local billing risk)
 const SCAN_ROOTS = [
-  join(HOME, ".claude", "LIFEOS", "PULSE"),
-  join(HOME, ".claude", "LIFEOS", "TOOLS"),
-  join(HOME, ".claude", "LIFEOS", "USER"),
-  join(HOME, ".claude", "skills"),
-  join(HOME, ".claude", "hooks"),
+  join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE"),
+  join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "TOOLS"),
+  join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "USER"),
+  join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills"),
+  join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "hooks"),
 ];
 
 // Paths to exclude from scan

@@ -56,7 +56,7 @@ interface FeatureRegistry {
   };
 }
 
-const REGISTRY_DIR = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'progress');
+const REGISTRY_DIR = join(process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS'), 'MEMORY', 'STATE', 'progress');
 
 function getRegistryPath(project: string): string {
   // Prevent path traversal: project is joined into a filename, so restrict it

@@ -22,7 +22,9 @@ import { homedir } from "node:os";
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.conveyor-runner.plist.template");
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS");
+const TEMPLATE_PATH = join(LIFEOS_DIR, "TOOLS", "com.lifeos.conveyor-runner.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.conveyor-runner.plist");
 const LABEL = "com.lifeos.conveyor-runner";
@@ -62,6 +64,8 @@ async function install(): Promise<void> {
   const template = readFileSync(TEMPLATE_PATH, "utf-8");
   const materialized = template
     .replace(/\{\{HOME\}\}/g, HOME)
+    .replace(/\{\{CLAUDE_CONFIG_DIR\}\}/g, CLAUDE_CONFIG_DIR)
+    .replace(/\{\{LIFEOS_DIR\}\}/g, LIFEOS_DIR)
     .replace(/\{\{BUN\}\}/g, bunPath)
     .replace(/\{\{BUN_DIR\}\}/g, bunDir);
   if (!existsSync(LAUNCH_AGENTS_DIR)) mkdirSync(LAUNCH_AGENTS_DIR, { recursive: true });
@@ -122,8 +126,8 @@ async function linuxSpec(): Promise<systemd.UnitSpec> {
   return {
     label: LABEL,
     description: "LifeOS Conveyor stage engine",
-    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "Conveyor", "Runner.ts")],
-    logPath: join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "com.lifeos.conveyor-runner.log"),
+    exec: [bunPath, join(LIFEOS_DIR, "TOOLS", "Conveyor", "Runner.ts")],
+    logPath: join(LIFEOS_DIR, "MEMORY", "STATE", "com.lifeos.conveyor-runner.log"),
     workingDirectory: join(HOME, ".claude"),
     schedule: { kind: "daemon", restartSec: 30 },
   };

@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Install root. CLAUDE_CONFIG_DIR is the harness's own override for where the
+# config dir lives; fall back to ~/.claude so a default install is unchanged.
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$CLAUDE_CONFIG_DIR}"
 # ═══════════════════════════════════════════════════════════════════════════════
 # LifeOS Status Line — Responsive display with 4 modes by terminal width:
 #   nano (<35), micro (35-54), mini (55-79), normal (80+)
@@ -18,9 +22,9 @@ if [ -z "$HOME" ]; then
     [ -z "$HOME" ] && HOME="$(eval echo "~$(id -un)" 2>/dev/null)"
 fi
 
-LIFEOS_DIR="${LIFEOS_DIR:-$HOME/.claude/LIFEOS}"
+LIFEOS_DIR="${LIFEOS_DIR:-$CLAUDE_CONFIG_DIR/LIFEOS}"
 # Claude Code injects settings.json env values without shell expansion (LifeOS#1404):
-# a shipped value of "$HOME/.claude/LIFEOS" arrives literal. Expand it here.
+# a shipped value of "$CLAUDE_CONFIG_DIR/LIFEOS" arrives literal. Expand it here.
 LIFEOS_DIR="${LIFEOS_DIR/#\$HOME/$HOME}"
 LIFEOS_DIR="${LIFEOS_DIR/#\$\{HOME\}/$HOME}"
 LIFEOS_DIR="${LIFEOS_DIR/#\~\//$HOME/}"
@@ -58,7 +62,7 @@ case "$LIFEOS_DIR" in
     *'$HOME'*|*'${HOME}'*|*'~'*) echo "LifeOS"; exit 0 ;;
 esac
 
-CLAUDE_HOME="$HOME/.claude"
+CLAUDE_HOME="$CLAUDE_CONFIG_DIR"
 
 # BUN_BIN — defensive only. MEASURED 2026-07-27: the statusline inherits the
 # full interactive PATH (/opt/homebrew/bin included), so a bare `bun` resolves
@@ -140,7 +144,7 @@ USER_TZ="${USER_TZ:-UTC}"
 LIFEOS_VERSION=""
 for _pai_v_path in \
     "$LIFEOS_DIR/VERSION" \
-    "$HOME/.claude/LIFEOS/VERSION" \
+    "$CLAUDE_CONFIG_DIR/LIFEOS/VERSION" \
     "/Users/$(id -un 2>/dev/null)/.claude/LIFEOS/VERSION" \
     "$(eval echo ~"$(id -un 2>/dev/null)")/.claude/LIFEOS/VERSION"; do
     if [ -n "$_pai_v_path" ] && [ -f "$_pai_v_path" ]; then
@@ -156,7 +160,7 @@ LIFEOS_VERSION="${LIFEOS_VERSION:-—}"
 ALGO_VERSION=""
 for _algo_path in \
     "$LIFEOS_DIR/ALGORITHM/LATEST" \
-    "$HOME/.claude/LIFEOS/ALGORITHM/LATEST" \
+    "$CLAUDE_CONFIG_DIR/LIFEOS/ALGORITHM/LATEST" \
     "/Users/$(id -un 2>/dev/null)/.claude/LIFEOS/ALGORITHM/LATEST" \
     "$(eval echo ~"$(id -un 2>/dev/null)")/.claude/LIFEOS/ALGORITHM/LATEST"; do
     if [ -n "$_algo_path" ] && [ -f "$_algo_path" ]; then
@@ -191,10 +195,10 @@ USAGE_SCOPED_TTL=180     # Fast lane for the scoped-model (FABLE) window when TH
 USAGE_HARD_EXPIRY=21600  # P5: 6h. Show last-known-good (dimmed + stale badge) until here, then hide —
                          # replaces the old 1800s cliff that deleted the cache and vanished the counters.
 
-# Source .env for API keys. Canonical location is $HOME/.claude/.env (which is
-# typically a symlink to $HOME/.config/LIFEOS/.env). The historical $HOME/.claude/LIFEOS/.env
+# Source .env for API keys. Canonical location is $CLAUDE_CONFIG_DIR/.env (which is
+# typically a symlink to $HOME/.config/LIFEOS/.env). The historical $CLAUDE_CONFIG_DIR/LIFEOS/.env
 # path is wrong and has been removed everywhere else — do not reintroduce it.
-[ -f "$HOME/.claude/.env" ] && source "$HOME/.claude/.env"
+[ -f "$CLAUDE_CONFIG_DIR/.env" ] && source "$CLAUDE_CONFIG_DIR/.env"
 
 # Cross-platform file mtime (seconds since epoch). Detect stat flavor once;
 # probing both variants on every mtime check is expensive on macOS.
@@ -882,7 +886,7 @@ if [ "$MODE" != "nano" ]; then
     # Hook count flows through GetCounts.ts — same source banner uses. --single hooks
     # short-circuits all other walks (~20ms). Don't reintroduce inline jq here.
     _hooks_cnt=0
-    [ -n "$BUN_BIN" ] && _hooks_cnt=$("$BUN_BIN" "$HOME/.claude/LIFEOS/TOOLS/GetCounts.ts" --single hooks 2>/dev/null || echo 0)
+    [ -n "$BUN_BIN" ] && _hooks_cnt=$("$BUN_BIN" "$CLAUDE_CONFIG_DIR/LIFEOS/TOOLS/GetCounts.ts" --single hooks 2>/dev/null || echo 0)
 
     _ratings_cnt=0
     [ -f "$RATINGS_FILE" ] && _ratings_cnt=$(wc -l < "$RATINGS_FILE" 2>/dev/null | tr -d ' ')
@@ -1019,7 +1023,7 @@ if [ "$MODE" = "normal" ]; then
                     if [ "$(uname -s)" = "Darwin" ]; then
                         cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
                     else
-                        cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
+                        cred_json=$(cat "$CLAUDE_CONFIG_DIR/.credentials.json" 2>/dev/null)
                     fi
                     token=$(echo "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
 
@@ -2106,7 +2110,7 @@ if [ "$MODE" = "normal" ]; then
     # the last 2 min IS a live agent; its .meta.json carries the model. Depth
     # is fixed (projects/<slug>/<session>/subagents/*), so the find is bounded
     # (~30ms). Run ONCE; _bg_transcripts/_bg_count are reused by ▸ LIVE below.
-    _bg_transcripts=$(find "$HOME/.claude/projects" -mindepth 4 -maxdepth 4 -path '*/subagents/agent-*.jsonl' -mmin -2 2>/dev/null)
+    _bg_transcripts=$(find "$CLAUDE_CONFIG_DIR/projects" -mindepth 4 -maxdepth 4 -path '*/subagents/agent-*.jsonl' -mmin -2 2>/dev/null)
     _bg_count=0
     _bg_models=""
     while IFS= read -r _bg_t; do
@@ -2231,7 +2235,7 @@ if [ "$MODE" = "normal" ]; then
     # regex + panel label) loads from a USER-zone overlay that never ships.
     # No overlay → no lane; a public install renders MAX/FORGE only.
     _cyber_agent_re=""; _cyber_agent_lbl=""
-    _cyber_overlay="$HOME/.claude/LIFEOS/USER/CUSTOMIZATIONS/StatusLineCyberLane.sh"
+    _cyber_overlay="$CLAUDE_CONFIG_DIR/LIFEOS/USER/CUSTOMIZATIONS/StatusLineCyberLane.sh"
     [ -f "$_cyber_overlay" ] && . "$_cyber_overlay"
     [ -n "$_cyber_agent_lbl" ] && _ar_line+="$(_ar_tok "$_rs_cyber" cyber "$_lbl_cyber" "$mix_cyber") "
     _ar_line+="$(_ar_tok "$_rs_max"   max    "$_lbl_max"  "$mix_max")"
@@ -2244,7 +2248,7 @@ if [ "$MODE" = "normal" ]; then
     # agents ran, right next to which models did. Live = agent-starts or bg
     # meta types in the 300s window; used = this session's subagent metas.
     _sess_types=""
-    for _d in "$HOME/.claude/projects"/*/"$session_id"/subagents; do
+    for _d in "$CLAUDE_CONFIG_DIR/projects"/*/"$session_id"/subagents; do
         if [ -d "$_d" ]; then
             _sess_types=$(cat "$_d"/*.meta.json 2>/dev/null | jq -r -s \
                 '[.[] | (.agentType // "") + " " + (.customAgentType // "")] | join(" ")' 2>/dev/null)
@@ -2301,7 +2305,7 @@ fi
 # _bg_transcripts is computed by the single find in the ACTIVE block above
 # (normal mode); in narrower modes that block never ran, so compute it here.
 if [ -z "${_bg_count:-}" ]; then
-    _bg_transcripts=$(find "$HOME/.claude/projects" -mindepth 4 -maxdepth 4 -path '*/subagents/agent-*.jsonl' -mmin -2 2>/dev/null)
+    _bg_transcripts=$(find "$CLAUDE_CONFIG_DIR/projects" -mindepth 4 -maxdepth 4 -path '*/subagents/agent-*.jsonl' -mmin -2 2>/dev/null)
 fi
 while IFS= read -r _bg_t; do
     [ -z "$_bg_t" ] && continue
@@ -2778,7 +2782,7 @@ fi
 
 if [ "$MODE" = "normal" ]; then
     # Live login email from ~/.claude.json (.oauthAccount.emailAddress updates on /login)
-    _acct_email=$(jq -r '.oauthAccount.emailAddress // empty' "$HOME/.claude.json" 2>/dev/null)
+    _acct_email=$(jq -r '.oauthAccount.emailAddress // empty' "$CLAUDE_CONFIG_DIR.json" 2>/dev/null)
     [ -n "$_acct_email" ] && printf "${SLATE_500}${_acct_email}${RESET}\n"
 fi
 

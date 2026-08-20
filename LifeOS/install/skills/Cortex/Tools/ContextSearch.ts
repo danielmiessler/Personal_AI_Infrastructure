@@ -479,7 +479,7 @@ async function searchProjectIsas(tokens: string[], since: Date | null, until: Da
 async function searchJsonl(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
   if (tokens.length === 0 || !existsSync(PROJECTS_ROOT)) return [];
   const realDir = PROJECTS_ROOT;
-  if (!realDir.startsWith(join(HOME, ".claude", "projects"))) return [];
+  if (!realDir.startsWith(join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "projects"))) return [];
   const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const out = await ripgrep(pattern, realDir, ["--glob", "*.jsonl", "-c"]);
   const byFile = new Map<string, { hits: number; path: string }>();

@@ -62,7 +62,7 @@ import { EFFORT_MODEL, CURRENT, CROSS_VENDOR, type EffortLevel, type ClaudeTier 
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const PROJECTS_DIR = join(HOME, '.claude', 'projects');
+const PROJECTS_DIR = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, '.claude'), 'projects');
 
 /**
  * Resolved per call, not at import: the statusline and the tests both set

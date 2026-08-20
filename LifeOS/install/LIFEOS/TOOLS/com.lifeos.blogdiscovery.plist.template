@@ -23,7 +23,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>{{BUN}}</string>
-    <string>{{HOME}}/.claude/LIFEOS/TOOLS/BlogDiscovery.ts</string>
+    <string>{{LIFEOS_DIR}}/TOOLS/BlogDiscovery.ts</string>
     <string>harvest</string>
     <string>--batch</string>
     <string>300</string>
@@ -50,16 +50,20 @@
   <integer>60</integer>
 
   <key>StandardOutPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.blogdiscovery.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/STATE/com.lifeos.blogdiscovery.log</string>
 
   <key>StandardErrorPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/STATE/com.lifeos.blogdiscovery.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/STATE/com.lifeos.blogdiscovery.log</string>
 
   <key>WorkingDirectory</key>
-  <string>{{HOME}}/.claude</string>
+  <string>{{CLAUDE_CONFIG_DIR}}</string>
 
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CLAUDE_CONFIG_DIR</key>
+    <string>{{CLAUDE_CONFIG_DIR}}</string>
+    <key>LIFEOS_DIR</key>
+    <string>{{LIFEOS_DIR}}</string>
     <key>PATH</key>
     <string>{{BUN_DIR}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>

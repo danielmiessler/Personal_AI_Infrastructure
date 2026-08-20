@@ -45,7 +45,7 @@ import { existsSync, appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
-const LIFEOS = process.env.LIFEOS_DIR ?? join(homedir(), ".claude", "LIFEOS");
+const LIFEOS = process.env.LIFEOS_DIR ?? join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"));
 const REFLECTIONS = join(LIFEOS, "MEMORY", "LEARNING", "REFLECTIONS", "algorithm-reflections.jsonl");
 const SPEND_AUDIT = join(LIFEOS, "MEMORY", "OBSERVABILITY", "spend-audit.jsonl");
 const SUBAGENT_EVENTS = join(LIFEOS, "MEMORY", "OBSERVABILITY", "subagent-events.jsonl");

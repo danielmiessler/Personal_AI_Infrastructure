@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Install root. CLAUDE_CONFIG_DIR is the harness's own override for where the
+# config dir lives; fall back to ~/.claude so a default install is unchanged.
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$CLAUDE_CONFIG_DIR}"
 # EnsureTestProfile.sh — make the Interceptor test context available, auto-launching
 # the CONFIGURED test profile window if it isn't connected. Sanctioned auto-recovery
 # for the "context not connected" preflight failures (exit 5 / 6) ONLY.
@@ -22,7 +26,7 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PREFS="${HOME}/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env"
+PREFS="$CLAUDE_CONFIG_DIR/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env"
 # shellcheck disable=SC1090
 [ -f "$PREFS" ] && . "$PREFS"
 

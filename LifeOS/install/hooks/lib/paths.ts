@@ -51,7 +51,7 @@ export function getLifeosDir(): string {
     return expandPath(envLifeosDir);
   }
 
-  return join(homedir(), '.claude', 'LIFEOS');
+  return join(getClaudeDir(), 'LIFEOS');
 }
 
 /**
@@ -59,14 +59,27 @@ export function getLifeosDir(): string {
  *
  * Plugin install: CLAUDE_PLUGIN_ROOT is the flattened plugin root that plays the
  * live ~/.claude role (skills/ and hooks/ sit directly under it, matching live
- * .claude/skills and .claude/hooks). Live default: ~/.claude — byte-identical to
- * pre-plugin behavior, since CLAUDE_PLUGIN_ROOT is unset on a normal install.
+ * .claude/skills and .claude/hooks).
+ *
+ * Relocated install: CLAUDE_CONFIG_DIR is the harness's own override for where the
+ * config dir lives. An install that is not at ~/.claude sets it, and every
+ * settings/skills/hooks/agents lookup has to follow it — those names exist in both
+ * trees, so ignoring it reads the wrong file instead of failing.
+ *
+ * Live default: ~/.claude — byte-identical to previous behavior, since both env
+ * vars are unset on a normal install.
  */
 export function getClaudeDir(): string {
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
 
   if (pluginRoot) {
     return expandPath(pluginRoot);
+  }
+
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+
+  if (configDir) {
+    return expandPath(configDir);
   }
 
   return join(homedir(), '.claude');

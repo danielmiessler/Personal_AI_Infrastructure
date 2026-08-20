@@ -16,7 +16,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>{{BUN}}</string>
-    <string>{{HOME}}/.claude/LIFEOS/TOOLS/DerivedSync.ts</string>
+    <string>{{LIFEOS_DIR}}/TOOLS/DerivedSync.ts</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -33,13 +33,17 @@
   <key>ThrottleInterval</key>
   <integer>30</integer>
   <key>StandardOutPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/derived-sync-launchd.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/OBSERVABILITY/derived-sync-launchd.log</string>
   <key>StandardErrorPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/derived-sync-launchd.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/OBSERVABILITY/derived-sync-launchd.log</string>
   <key>WorkingDirectory</key>
-  <string>{{HOME}}/.claude</string>
+  <string>{{CLAUDE_CONFIG_DIR}}</string>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CLAUDE_CONFIG_DIR</key>
+    <string>{{CLAUDE_CONFIG_DIR}}</string>
+    <key>LIFEOS_DIR</key>
+    <string>{{LIFEOS_DIR}}</string>
     <key>PATH</key>
     <string>{{BUN_DIR}}:{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>

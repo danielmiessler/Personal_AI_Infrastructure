@@ -72,7 +72,7 @@ export interface ObservabilityConfig {
 // ── Path Construction ──
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const LIFEOS_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"))
 const MEMORY_DIR = join(LIFEOS_DIR, "MEMORY")
 
 const WORK_JSON_PATH = join(MEMORY_DIR, "STATE", "work.json")
@@ -82,7 +82,7 @@ const SUBAGENT_EVENTS_PATH = join(MEMORY_DIR, "OBSERVABILITY", "subagent-events.
 const VOICE_EVENTS_PATH = join(MEMORY_DIR, "VOICE", "voice-events.jsonl")
 const TOOL_FAILURES_PATH = join(MEMORY_DIR, "OBSERVABILITY", "tool-failures.jsonl")
 const TOOL_ACTIVITY_PATH = join(MEMORY_DIR, "OBSERVABILITY", "tool-activity.jsonl")
-const SETTINGS_PATH = join(HOME, ".claude", "settings.json")
+const SETTINGS_PATH = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "settings.json")
 const LADDER_DIR = join(HOME, "Projects", "Ladder")
 
 const DEFAULT_DASHBOARD_DIR = join(LIFEOS_DIR, "PULSE", "Observability", "out")
@@ -191,7 +191,7 @@ function getDashboardDir(): string {
   const dir = config.dashboard_dir ?? DEFAULT_DASHBOARD_DIR
   // Resolve relative paths against Pulse directory
   if (!dir.startsWith("/")) {
-    return join(HOME, ".claude", "LIFEOS", "PULSE", dir)
+    return join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", dir)
   }
   return dir
 }

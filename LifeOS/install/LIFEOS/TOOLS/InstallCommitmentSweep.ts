@@ -16,10 +16,12 @@ import * as systemd from "./lib/SystemdUser";
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const TEMPLATE = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.commitmentsweep.plist.template");
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS");
+const TEMPLATE = join(LIFEOS_DIR, "TOOLS", "com.lifeos.commitmentsweep.plist.template");
 const TARGET_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET = join(TARGET_DIR, "com.lifeos.commitmentsweep.plist");
-const STATE_DIR = join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE");
+const STATE_DIR = join(LIFEOS_DIR, "MEMORY", "STATE");
 const LABEL = "com.lifeos.commitmentsweep";
 
 function uid(): string {
@@ -52,7 +54,9 @@ function install(): void {
   mkdirSync(STATE_DIR, { recursive: true });
 
   const raw = readFileSync(TEMPLATE, "utf8");
-  const materialized = raw.replaceAll("__HOME__", HOME);
+  const materialized = raw.replaceAll("__HOME__", HOME)
+    .replaceAll("__CLAUDE_CONFIG_DIR__", CLAUDE_CONFIG_DIR)
+    .replaceAll("__LIFEOS_DIR__", LIFEOS_DIR);
   writeFileSync(TARGET, materialized, { mode: 0o644 });
   console.log(`[InstallCommitmentSweep] wrote ${TARGET}`);
 
@@ -91,7 +95,7 @@ async function linuxSpec(): Promise<systemd.UnitSpec> {
   return {
     label: LABEL,
     description: "LifeOS commitment sweep",
-    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "CommitmentSweep.ts")],
+    exec: [bunPath, join(LIFEOS_DIR, "TOOLS", "CommitmentSweep.ts")],
     logPath: join(STATE_DIR, "com.lifeos.commitmentsweep.log"),
     workingDirectory: join(HOME, ".claude"),
     schedule: { kind: "calendar", hour: 7, minute: 0 },

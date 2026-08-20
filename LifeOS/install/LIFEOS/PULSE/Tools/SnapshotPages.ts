@@ -8,7 +8,7 @@ import { loadAllManifests } from "../lib/manifest-loader";
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const SNAP_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Snapshots");
+const SNAP_DIR = resolve(process.env.LIFEOS_DIR || resolve(HOME, ".claude", "LIFEOS"), "PULSE", "Schema", "Snapshots");
 mkdirSync(SNAP_DIR, { recursive: true });
 
 const idx = readIndex();

@@ -20,7 +20,8 @@ import { PULSE_BASE } from "./endpoint"
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS")
 const PULSE_DIR = join(LIFEOS_DIR, "PULSE")
 
 // ── Helpers ──
@@ -274,7 +275,7 @@ enabled = true
     ``,
   ]
 
-  const envPath = join(HOME, ".claude", ".env")
+  const envPath = join(CLAUDE_CONFIG_DIR, ".env")
   if (existsSync(envPath)) {
     warn(`.env already exists — appending worker config`)
     const existing = await Bun.file(envPath).text()
@@ -313,6 +314,8 @@ async function installService(force = false): Promise<void> {
   // file is deny-list clean; the installed copy is per-user materialized.
   const template = await Bun.file(plistSrc).text()
   const materialized = template.split("__HOME__").join(HOME)
+    .split("__CLAUDE_CONFIG_DIR__").join(CLAUDE_CONFIG_DIR)
+    .split("__LIFEOS_DIR__").join(LIFEOS_DIR)
   const written = await writeConfigPreserving(plistDst, materialized, {
     force,
     onOverwrite: ({ backupPath }) =>
@@ -410,7 +413,7 @@ ${"═".repeat(50)}
   Time: ${Math.floor(elapsed / 60)}m ${elapsed % 60}s
 
   Next steps:
-  - Verify ANTHROPIC_API_KEY is set in ${join(HOME, ".claude", ".env")}
+  - Verify ANTHROPIC_API_KEY is set in ${join(CLAUDE_CONFIG_DIR, ".env")}
   - Create a test issue with label "status:ready" in one of your repos
   - Watch: tail -f ${join(PULSE_DIR, "logs", "pulse-stdout.log")}
   - Status: ${join(PULSE_DIR, "manage.sh")} status

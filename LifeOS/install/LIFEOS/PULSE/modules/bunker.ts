@@ -20,7 +20,7 @@ const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const MODULE = "bunker";
 // Bunker CODE folded under Pulse (data/code separation); DATA (shots) lives in
 // the USER config tree, so shot images are read from there, never from BUNKER_DIR.
-const BUNKER_DIR = process.env.BUNKER_DIR || join(HOME, ".claude", "LIFEOS", "PULSE", "Bunker");
+const BUNKER_DIR = process.env.BUNKER_DIR || join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", "Bunker");
 const BUNKER_BIN = join(BUNKER_DIR, "bin", "bunker.ts");
 const BUNKER_SHOTS_DIR = join(HOME, ".config", "LIFEOS", "USER", "PULSE", "Bunker", "shots");
 
@@ -302,7 +302,7 @@ function cfCreds(): { acct: string; token: string } | null {
   let token = process.env.CLOUDFLARE_API_TOKEN;
   if (!acct || !token) {
     try {
-      const env = readFileSync(join(HOME, ".claude", ".env"), "utf8");
+      const env = readFileSync(join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env"), "utf8");
       acct ||= env.match(/^CLOUDFLARE_ACCOUNT_ID=["']?([^"'\n]+)/m)?.[1];
       token ||= env.match(/^CLOUDFLARE_API_TOKEN=["']?([^"'\n]+)/m)?.[1];
     } catch { /* no env file */ }

@@ -62,7 +62,7 @@ export function scoreRisk(likelihood: number, impact: number): { score: number; 
 
 export function resolveDataDir(): string {
   const dir = resolve(
-    process.env.THREATMODEL_DATA_DIR ?? join(homedir(), ".claude", "LIFEOS", "USER", "SECURITY", "THREATMODEL"),
+    process.env.THREATMODEL_DATA_DIR ?? join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "USER", "SECURITY", "THREATMODEL"),
   );
   // Structural code/data separation: never allow the register inside a skill tree.
   const probe = existsSync(dir) ? realpathSync(dir) : dir;

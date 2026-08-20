@@ -31,7 +31,7 @@ import { join } from "path"
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const LIFEOS_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"))
 const USER_DIR = join(LIFEOS_DIR, "USER")
 const TELOS_DIR = join(USER_DIR, "TELOS")
 
@@ -83,8 +83,8 @@ const REGISTRY: Record<string, SourceSpec[]> = {
     { name: "KNOWLEDGE/", path: join(LIFEOS_DIR, "MEMORY", "KNOWLEDGE"), expand: true },
   ],
   hooks: [
-    { name: "hooks/", path: join(HOME, ".claude", "hooks"), expand: true },
-    { name: "settings.json", path: join(HOME, ".claude", "settings.json") },
+    { name: "hooks/", path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "hooks"), expand: true },
+    { name: "settings.json", path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "settings.json") },
   ],
   algorithm: [
     { name: "ALGORITHM/", path: join(LIFEOS_DIR, "ALGORITHM"), expand: true },
@@ -93,10 +93,10 @@ const REGISTRY: Record<string, SourceSpec[]> = {
     { name: "OPERATIONAL_RULES.md", path: join(USER_DIR, "CONFIG", "OPERATIONAL_RULES.md") },
   ],
   skills: [
-    { name: "skills/", path: join(HOME, ".claude", "skills"), expand: true },
+    { name: "skills/", path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills"), expand: true },
   ],
   agents: [
-    { name: "agents/", path: join(HOME, ".claude", "agents"), expand: true },
+    { name: "agents/", path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "agents"), expand: true },
   ],
   docs: [
     { name: "DOCUMENTATION/", path: join(LIFEOS_DIR, "DOCUMENTATION"), expand: true },
@@ -112,7 +112,7 @@ const REGISTRY: Record<string, SourceSpec[]> = {
   ],
   synapse: [
     { name: "KNOWLEDGE/Ideas/", path: join(LIFEOS_DIR, "MEMORY", "KNOWLEDGE", "Ideas"), expand: true },
-    { name: "_X/State/", path: join(HOME, ".claude", "skills", "_X", "State") },
+    { name: "_X/State/", path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills", "_X", "State") },
   ],
   ledger: [
     { name: "SYSTEMUPDATES/index.json", path: join(LIFEOS_DIR, "MEMORY", "SYSTEMUPDATES", "index.json") },

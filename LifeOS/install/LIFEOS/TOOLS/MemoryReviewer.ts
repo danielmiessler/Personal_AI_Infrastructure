@@ -57,7 +57,7 @@ import {
 // ── Constants ──
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
-const HARNESS_PROJECTS_DIR = pathResolve(homedir(), ".claude", "projects");
+const HARNESS_PROJECTS_DIR = pathResolve(process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude"), "projects");
 const RUNS_LOG_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/reviewer-runs.jsonl");
 const RUNS_DEBUG_DIR = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/reviewer-runs");
 const REVIEW_CONFIG_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/CONFIG/memory-review.json");

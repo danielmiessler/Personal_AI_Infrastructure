@@ -105,7 +105,7 @@ const REGISTRY: RegistryTarget[] = [
   { phase: 0, path: join(LIFEOS_DIR, "PULSE", "PULSE.toml"), name: "PULSE.toml/voice", category: "setup", leverage: 9,
     prompts: ["Main DA voice — pick from ElevenLabs library, or stick with default Rachel (21m00Tcm4TlvDq8ikWAM)?",
               "Want voice notifications on by default? (default: yes)"] },
-  { phase: 0, path: join(HOME, ".claude", ".env"), name: ".env/credentials", category: "setup", leverage: 10,
+  { phase: 0, path: join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env"), name: ".env/credentials", category: "setup", leverage: 10,
     prompts: ["ANTHROPIC_API_KEY — required for inference. Paste here (will write to .env, won't echo back)?",
               "ELEVENLABS_API_KEY — required for voice notifications. Skip if you don't want voice.",
               "GH_TOKEN — optional, only if you want the work pipeline. Skip if not using GitHub issues.",

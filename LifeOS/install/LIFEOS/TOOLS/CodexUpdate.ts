@@ -22,7 +22,7 @@ import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const PKG = "@openai/codex";
-const LOG = join(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY", "codex-update.jsonl");
+const LOG = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "MEMORY", "OBSERVABILITY", "codex-update.jsonl");
 
 function codexVersion(): string | null {
   const r = spawnSync("codex", ["--version"], { encoding: "utf-8" });

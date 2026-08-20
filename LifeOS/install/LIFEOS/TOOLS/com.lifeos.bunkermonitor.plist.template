@@ -49,6 +49,10 @@
 
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CLAUDE_CONFIG_DIR</key>
+    <string>{{CLAUDE_CONFIG_DIR}}</string>
+    <key>LIFEOS_DIR</key>
+    <string>{{LIFEOS_DIR}}</string>
     <key>PATH</key>
     <string>{{BUN_DIR}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>

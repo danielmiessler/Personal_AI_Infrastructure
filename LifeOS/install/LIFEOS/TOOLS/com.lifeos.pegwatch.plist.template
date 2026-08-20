@@ -14,20 +14,24 @@
   <key>ProgramArguments</key>
   <array>
     <string>{{BUN}}</string>
-    <string>{{HOME}}/.claude/LIFEOS/TOOLS/PegWatch.ts</string>
+    <string>{{LIFEOS_DIR}}/TOOLS/PegWatch.ts</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
   <integer>960</integer>
   <key>StandardOutPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/pegwatch-launchd.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/OBSERVABILITY/pegwatch-launchd.log</string>
   <key>StandardErrorPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/pegwatch-launchd.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/OBSERVABILITY/pegwatch-launchd.log</string>
   <key>WorkingDirectory</key>
-  <string>{{HOME}}/.claude</string>
+  <string>{{CLAUDE_CONFIG_DIR}}</string>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CLAUDE_CONFIG_DIR</key>
+    <string>{{CLAUDE_CONFIG_DIR}}</string>
+    <key>LIFEOS_DIR</key>
+    <string>{{LIFEOS_DIR}}</string>
     <key>PATH</key>
     <string>{{BUN_DIR}}:{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>HOME</key>

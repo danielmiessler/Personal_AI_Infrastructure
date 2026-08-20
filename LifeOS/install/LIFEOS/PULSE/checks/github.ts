@@ -13,8 +13,8 @@ import { dirname, join } from "path"
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const LEGACY_STATE_FILE = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "github-seen.json")
-const STATE_FILE = join(HOME, ".claude", "LIFEOS", "PULSE", "state", "github-seen.jsonl")
+const LEGACY_STATE_FILE = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", "state", "github-seen.json")
+const STATE_FILE = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE", "state", "github-seen.jsonl")
 // Repos to monitor for new issues / activity. Override via LIFEOS_PULSE_REPOS
 // env var (comma-separated "owner/name" pairs). Empty default keeps fresh
 // installs from polling repos the user hasn't opted into.

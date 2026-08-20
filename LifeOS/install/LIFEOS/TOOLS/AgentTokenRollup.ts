@@ -22,7 +22,7 @@ import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
-const PROJECTS = join(homedir(), '.claude', 'projects');
+const PROJECTS = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects');
 
 interface Usage {
   input_tokens?: number;

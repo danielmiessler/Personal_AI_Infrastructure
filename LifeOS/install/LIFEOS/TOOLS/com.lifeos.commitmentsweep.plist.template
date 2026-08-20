@@ -22,7 +22,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/bun</string>
-    <string>__HOME__/.claude/LIFEOS/TOOLS/CommitmentSweep.ts</string>
+    <string>__LIFEOS_DIR__/TOOLS/CommitmentSweep.ts</string>
   </array>
 
   <!-- RunAtLoad true so a missed nightly fires at next login — a laptop asleep
@@ -42,16 +42,20 @@
   <integer>60</integer>
 
   <key>StandardOutPath</key>
-  <string>__HOME__/.claude/LIFEOS/MEMORY/STATE/com.lifeos.commitmentsweep.log</string>
+  <string>__LIFEOS_DIR__/MEMORY/STATE/com.lifeos.commitmentsweep.log</string>
 
   <key>StandardErrorPath</key>
-  <string>__HOME__/.claude/LIFEOS/MEMORY/STATE/com.lifeos.commitmentsweep.log</string>
+  <string>__LIFEOS_DIR__/MEMORY/STATE/com.lifeos.commitmentsweep.log</string>
 
   <key>WorkingDirectory</key>
-  <string>__HOME__/.claude</string>
+  <string>__CLAUDE_CONFIG_DIR__</string>
 
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CLAUDE_CONFIG_DIR</key>
+    <string>__CLAUDE_CONFIG_DIR__</string>
+    <key>LIFEOS_DIR</key>
+    <string>__LIFEOS_DIR__</string>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>

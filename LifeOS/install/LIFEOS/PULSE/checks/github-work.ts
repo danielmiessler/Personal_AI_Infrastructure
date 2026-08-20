@@ -15,7 +15,7 @@ import { SignJWT, importPKCS8 } from "jose"
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const PULSE_DIR = join(HOME, ".claude", "LIFEOS", "PULSE")
+const PULSE_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "PULSE")
 const STATE_FILE = join(PULSE_DIR, "state", "work-token.json")
 
 // ── Worker Config (from PULSE.toml [worker] section) ──

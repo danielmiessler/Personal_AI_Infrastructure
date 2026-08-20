@@ -127,7 +127,7 @@ function freshRuns(): RunRec[] {
 function detectorAvailable(): boolean {
   if (process.env.PANGRAM_API_KEY) return true;
   try {
-    const env = readFileSync(join(homedir(), ".claude", ".env"), "utf8");
+    const env = readFileSync(join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), ".env"), "utf8");
     return env.split("\n").some((l) => {
       if (!l.startsWith("PANGRAM_API_KEY=")) return false;
       return l.slice("PANGRAM_API_KEY=".length).replace(/^["']|["']$/g, "").trim().length > 0;

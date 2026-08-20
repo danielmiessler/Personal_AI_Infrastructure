@@ -29,9 +29,9 @@ import { dirname, join } from "node:path";
 import { invariant } from "./Invariant";
 
 const HOME = homedir();
-const OBS_DIR = join(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY");
+const OBS_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "MEMORY", "OBSERVABILITY");
 const LOG_PATH = join(OBS_DIR, "pegwatch.jsonl");
-const STATE_PATH = join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "pegwatch.json");
+const STATE_PATH = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "MEMORY", "STATE", "pegwatch.json");
 const PULSE_NOTIFY = "http://localhost:31337/notify";
 
 const GPU_PEG = 90; // % — both samples must reach it

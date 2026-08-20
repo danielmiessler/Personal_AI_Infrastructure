@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Install root. CLAUDE_CONFIG_DIR is the harness's own override for where the
+# config dir lives; fall back to ~/.claude so a default install is unchanged.
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$CLAUDE_CONFIG_DIR}"
 # PreflightIsolation.sh — hard gate before any browser command lands in Chrome.
 #
 # Guarantees, enforced in code, that an interceptor browser verb cannot route to
@@ -43,7 +47,7 @@ set -euo pipefail
 # Source per-machine USER customizations if present (Chrome profile dir name,
 # pinned context ID, working-profile deny-list). Lives outside the public skill
 # body so the skill stays generic.
-USER_PREFS="${HOME}/.claude/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env"
+USER_PREFS="$CLAUDE_CONFIG_DIR/LIFEOS/USER/CUSTOMIZATIONS/SKILLS/Interceptor/preferences.env"
 if [ -f "$USER_PREFS" ]; then
     # shellcheck disable=SC1090
     . "$USER_PREFS"

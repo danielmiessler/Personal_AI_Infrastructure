@@ -623,7 +623,7 @@ async function main(): Promise<void> {
   // installs. Probe before spawning: an unconditional spawn of a missing script made
   // every public install log a Bun "module not found" at the end of every sweep.
   if (!dryRun) {
-    const regenTool = join(HOME, ".claude", "skills", "_ULWORK", "Tools", "RegenerateTasklist.ts");
+    const regenTool = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), "skills", "_ULWORK", "Tools", "RegenerateTasklist.ts");
     if (existsSync(regenTool)) {
       const proc = Bun.spawn(["bun", regenTool, "--commit-push"], {
         stdout: "inherit", stderr: "inherit", timeout: 30000,

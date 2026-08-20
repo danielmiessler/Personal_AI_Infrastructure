@@ -18,7 +18,7 @@ const LOOKAHEAD_MS = 30 * 60 * 1000
 function loadEnv(): Record<string, string> {
   const env: Record<string, string> = {}
   try {
-    const content = readFileSync(join(HOME, ".claude", ".env"), "utf-8")
+    const content = readFileSync(join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env"), "utf-8")
     for (const line of content.split("\n")) {
       const match = line.match(/^([^#=]+)=(.*)$/)
       if (match) {

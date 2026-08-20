@@ -31,7 +31,7 @@ import { readHometown, NoHometownError } from "./Hometown.ts"
 import { loadUserSources, fetchSourceItems, type UserSource } from "./UserSources.ts"
 import type { Digest, FetchResult, Item, SectionKey } from "./Types.ts"
 
-const DATA_DIR = join(homedir(), ".claude", "LIFEOS", "MEMORY", "DATA", "LocalIntelligence")
+const DATA_DIR = join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "MEMORY", "DATA", "LocalIntelligence")
 const SECTION_KEYS: SectionKey[] = [
   "construction", "crime", "business", "officials",
   "legislation", "elections", "arrests", "news",

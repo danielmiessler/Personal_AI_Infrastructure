@@ -20,7 +20,7 @@ import { mkdirSync, writeFileSync, appendFileSync, readFileSync, existsSync } fr
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const CACHE_DIR = join(HOME, ".claude", "LIFEOS", "MEMORY", "_AIRGRADIENT")
+const CACHE_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"), "MEMORY", "_AIRGRADIENT")
 const LATEST = join(CACHE_DIR, "latest.json")
 const HISTORY = join(CACHE_DIR, "history.jsonl")
 
@@ -29,7 +29,7 @@ const API_BASE = "https://api.airgradient.com/public/api/v1"
 // Bun auto-loads .env from CWD only; Pulse cron runs from LIFEOS/PULSE/, so the
 // symlink at ~/.claude/.env isn't picked up. Read it directly if env is empty.
 function loadTokenFromDotenv(): string | null {
-  const envPath = join(HOME, ".claude", ".env")
+  const envPath = join(process.env.CLAUDE_CONFIG_DIR || join(HOME, ".claude"), ".env")
   if (!existsSync(envPath)) return null
   try {
     const raw = readFileSync(envPath, "utf8")

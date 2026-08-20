@@ -12,8 +12,10 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 const HOME = homedir();
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS");
 const LABEL = "com.lifeos.pegwatch";
-const TEMPLATE = join(HOME, ".claude", "LIFEOS", "TOOLS", `${LABEL}.plist.template`);
+const TEMPLATE = join(LIFEOS_DIR, "TOOLS", `${LABEL}.plist.template`);
 const TARGET = join(HOME, "Library", "LaunchAgents", `${LABEL}.plist`);
 
 async function sh(cmd: string[]): Promise<{ exit: number; out: string }> {

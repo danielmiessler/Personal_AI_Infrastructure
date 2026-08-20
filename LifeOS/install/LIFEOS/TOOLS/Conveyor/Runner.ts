@@ -40,7 +40,7 @@ import {
 
 const LIFEOS = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
 const ARTIFACT_DIR = join(LIFEOS, 'MEMORY', 'STATE', 'content-pipeline', 'artifacts');
-const TRANSCRIBE = join(homedir(), '.claude', 'skills', 'AudioEditor', 'Tools', 'Transcribe.ts');
+const TRANSCRIBE = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'skills', 'AudioEditor', 'Tools', 'Transcribe.ts');
 const LEASE_MS = Number(process.env.CONVEYOR_LEASE_MS || 30 * 60 * 1000);
 const MAX_ATTEMPTS = Number(process.env.CONVEYOR_MAX_ATTEMPTS || 3);
 const POLL_MS = Number(process.env.CONVEYOR_RUNNER_POLL_MS || 20_000);

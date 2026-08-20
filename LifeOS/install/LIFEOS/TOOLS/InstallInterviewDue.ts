@@ -36,7 +36,9 @@ type LaunchctlResult = {
 };
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "TOOLS", "com.lifeos.interviewdue.plist.template");
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS");
+const TEMPLATE_PATH = join(LIFEOS_DIR, "TOOLS", "com.lifeos.interviewdue.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, "com.lifeos.interviewdue.plist");
 const LABEL = "com.lifeos.interviewdue";
@@ -92,7 +94,7 @@ async function install(): Promise<void> {
   console.log(`[InstallInterviewDue] detected bun at ${bunPath}`);
   const template = readFileSync(TEMPLATE_PATH, "utf-8");
   const materialized = template
-    .replace(/\{\{HOME\}\}/g, HOME)
+    .replace(/\{\{HOME\}\}/g, HOME).replace(/\{\{CLAUDE_CONFIG_DIR\}\}/g, CLAUDE_CONFIG_DIR).replace(/\{\{LIFEOS_DIR\}\}/g, LIFEOS_DIR)
     .replace(/\{\{BUN\}\}/g, bunPath)
     .replace(/\{\{BUN_DIR\}\}/g, bunDir);
   if (!existsSync(LAUNCH_AGENTS_DIR)) mkdirSync(LAUNCH_AGENTS_DIR, { recursive: true });
@@ -153,8 +155,8 @@ async function linuxSpec(): Promise<systemd.UnitSpec> {
   return {
     label: LABEL,
     description: "LifeOS interview-due cache refresh",
-    exec: [bunPath, join(HOME, ".claude", "LIFEOS", "TOOLS", "InterviewDue.ts"), "--refresh"],
-    logPath: join(HOME, ".claude", "LIFEOS", "MEMORY", "OBSERVABILITY", "interview-due.log"),
+    exec: [bunPath, join(LIFEOS_DIR, "TOOLS", "InterviewDue.ts"), "--refresh"],
+    logPath: join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "interview-due.log"),
     workingDirectory: join(HOME, ".claude"),
     schedule: { kind: "calendar", hour: 7, minute: 10 },
   };

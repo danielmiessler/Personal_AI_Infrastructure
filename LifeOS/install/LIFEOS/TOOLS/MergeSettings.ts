@@ -23,10 +23,7 @@ import { homedir } from "node:os";
  * edits that haven't been merged yet never read as "drift" and never get
  * clobbered back into the overlay (the 2026-07-11 hooks-BPE incident).
  */
-export const MERGE_SNAPSHOT_PATH = path.join(
-  os.homedir(),
-  ".claude",
-  "LIFEOS",
+export const MERGE_SNAPSHOT_PATH = path.join(process.env.LIFEOS_DIR || path.join(os.homedir(), ".claude", "LIFEOS"),
   "MEMORY",
   "STATE",
   "settings-merge-snapshot.json",
@@ -588,7 +585,7 @@ async function runCli(argv: string[]): Promise<number> {
   // sat dead for days. Warn loudly whenever a root-level copy exists that is
   // not the canonical file. This runs BEFORE the fresh-install no-op guard:
   // canonical-absent + root-stray-present is exactly the footgun case.
-  const rootStray = path.join(os.homedir(), ".claude", "settings.user.json");
+  const rootStray = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude"), "settings.user.json");
   if (existsSync(rootStray) && path.resolve(rootStray) !== path.resolve(options.userPath)) {
     process.stderr.write(
       `⚠️  MergeSettings: ${rootStray} exists but is NOT read by the merge.\n` +

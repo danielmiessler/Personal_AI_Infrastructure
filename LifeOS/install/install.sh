@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Install root. CLAUDE_CONFIG_DIR is the harness's own override for where the
+# config dir lives; fall back to ~/.claude so a default install is unchanged.
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$CLAUDE_CONFIG_DIR}"
 # ═══════════════════════════════════════════════════════════════════
 #   LifeOS — One-Line Bootstrap Installer
 #   curl -fsSL https://ourlifeos.ai/install.sh | bash
@@ -192,9 +196,9 @@ success "bun ($(command -v bun), v$(bun --version 2>/dev/null))"
 # ─── Step 2: Detect harness (no clobber) ─────────────────────────
 step "2/6  Detecting your harness"
 if [ -z "$LIFEOS_SKILLS_DIR" ]; then
-  if [ -d "$HOME/.claude" ]; then LIFEOS_SKILLS_DIR="$HOME/.claude/skills"
+  if [ -d "$CLAUDE_CONFIG_DIR" ]; then LIFEOS_SKILLS_DIR="$CLAUDE_CONFIG_DIR/skills"
   elif [ -d "$HOME/.config/claude" ]; then LIFEOS_SKILLS_DIR="$HOME/.config/claude/skills"
-  else LIFEOS_SKILLS_DIR="$HOME/.claude/skills"; fi
+  else LIFEOS_SKILLS_DIR="$CLAUDE_CONFIG_DIR/skills"; fi
 fi
 info "Skills dir: ${BOLD}${LIFEOS_SKILLS_DIR/#$HOME/~}${RESET}"
 TARGET="$LIFEOS_SKILLS_DIR/LifeOS"

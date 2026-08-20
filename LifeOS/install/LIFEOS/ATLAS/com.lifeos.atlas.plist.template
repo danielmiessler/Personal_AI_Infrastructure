@@ -27,11 +27,15 @@
   <key>ProgramArguments</key>
   <array>
     <string>{{BUN}}</string>
-    <string>{{HOME}}/.claude/LIFEOS/ATLAS/Atlas.ts</string>
+    <string>{{LIFEOS_DIR}}/ATLAS/Atlas.ts</string>
     <string>tick</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CLAUDE_CONFIG_DIR</key>
+    <string>{{CLAUDE_CONFIG_DIR}}</string>
+    <key>LIFEOS_DIR</key>
+    <string>{{LIFEOS_DIR}}</string>
     <key>HOME</key>
     <string>{{HOME}}</string>
     <key>PATH</key>
@@ -48,10 +52,10 @@
   <key>ThrottleInterval</key>
   <integer>60</integer>
   <key>WorkingDirectory</key>
-  <string>{{HOME}}/.claude</string>
+  <string>{{CLAUDE_CONFIG_DIR}}</string>
   <key>StandardOutPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/atlas-launchd.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/OBSERVABILITY/atlas-launchd.log</string>
   <key>StandardErrorPath</key>
-  <string>{{HOME}}/.claude/LIFEOS/MEMORY/OBSERVABILITY/atlas-launchd.log</string>
+  <string>{{LIFEOS_DIR}}/MEMORY/OBSERVABILITY/atlas-launchd.log</string>
 </dict>
 </plist>

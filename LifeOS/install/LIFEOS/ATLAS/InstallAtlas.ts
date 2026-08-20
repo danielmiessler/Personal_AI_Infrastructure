@@ -29,18 +29,20 @@ import { join } from "path";
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
 const HOME = process.env.HOME || "";
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS");
 const LABEL = "com.lifeos.atlas";
 const IS_LINUX = process.platform === "linux";
 const IS_MACOS = process.platform === "darwin";
 
 // darwin (launchd)
-const TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "ATLAS", "com.lifeos.atlas.plist.template");
+const TEMPLATE_PATH = join(LIFEOS_DIR, "ATLAS", "com.lifeos.atlas.plist.template");
 const LAUNCH_AGENTS_DIR = join(HOME, "Library", "LaunchAgents");
 const TARGET_PLIST = join(LAUNCH_AGENTS_DIR, `${LABEL}.plist`);
 
 // linux (systemd --user)
-const SERVICE_TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "ATLAS", "com.lifeos.atlas.service.template");
-const TIMER_TEMPLATE_PATH = join(HOME, ".claude", "LIFEOS", "ATLAS", "com.lifeos.atlas.timer.template");
+const SERVICE_TEMPLATE_PATH = join(LIFEOS_DIR, "ATLAS", "com.lifeos.atlas.service.template");
+const TIMER_TEMPLATE_PATH = join(LIFEOS_DIR, "ATLAS", "com.lifeos.atlas.timer.template");
 const SYSTEMD_USER_DIR = join(HOME, ".config", "systemd", "user");
 const TARGET_SERVICE = join(SYSTEMD_USER_DIR, `${LABEL}.service`);
 const TARGET_TIMER = join(SYSTEMD_USER_DIR, `${LABEL}.timer`);
@@ -111,7 +113,7 @@ function unitPath(bunDir: string, ghDir: string | null): string {
 
 function materialize(templatePath: string, bunPath: string, path: string): string {
   return readFileSync(templatePath, "utf-8")
-    .replace(/\{\{HOME\}\}/g, HOME)
+    .replace(/\{\{HOME\}\}/g, HOME).replace(/\{\{CLAUDE_CONFIG_DIR\}\}/g, CLAUDE_CONFIG_DIR).replace(/\{\{LIFEOS_DIR\}\}/g, LIFEOS_DIR)
     .replace(/\{\{BUN\}\}/g, bunPath)
     .replace(/\{\{PATH\}\}/g, path);
 }

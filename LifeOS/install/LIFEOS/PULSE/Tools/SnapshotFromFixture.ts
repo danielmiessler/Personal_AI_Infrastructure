@@ -7,8 +7,8 @@ import { PageDataSchema } from "../Schema/PulseSchema";
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const FIX_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Fixtures");
-const OUT_DIR = resolve(HOME, ".claude", "LIFEOS", "PULSE", "Schema", "Snapshots");
+const FIX_DIR = resolve(process.env.LIFEOS_DIR || resolve(HOME, ".claude", "LIFEOS"), "PULSE", "Schema", "Fixtures");
+const OUT_DIR = resolve(process.env.LIFEOS_DIR || resolve(HOME, ".claude", "LIFEOS"), "PULSE", "Schema", "Snapshots");
 mkdirSync(OUT_DIR, { recursive: true });
 
 const fixtures = readdirSync(FIX_DIR).filter((f) => f.endsWith(".json") && !f.startsWith("invalid"));

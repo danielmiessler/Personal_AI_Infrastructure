@@ -16,7 +16,7 @@ import { getRelevantContext } from "../../TOOLS/MemoryRetriever"
 import { homedir } from "node:os";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
-const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
+const LIFEOS_DIR = join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"))
 
 // Ceiling on the per-turn LifeOS memory injection — fits DA + PRINCIPAL
 // identity + TELOS + active sessions + the two _MEMORY.md hot-layer files

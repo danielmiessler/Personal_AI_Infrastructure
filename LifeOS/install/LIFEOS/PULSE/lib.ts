@@ -75,9 +75,7 @@ export interface DaemonConfig {
 // written here is automatically stripped from shadow releases. That's the
 // structural privacy lever — no separate scrub policy needed.
 
-export const USER_CRON_PATH = join(
-  homedir(),
-  ".claude", "LIFEOS", "USER", "CONFIG", "PULSE.user.toml",
+export const USER_CRON_PATH = join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "USER", "CONFIG", "PULSE.user.toml",
 )
 
 export interface JobState {
@@ -580,7 +578,7 @@ export async function spawnScript(command: string, timeoutMs = 60_000): Promise<
   const proc = Bun.spawn([BASH_PATH, "-c", command], {
     stdout: "pipe",
     stderr: "pipe",
-    cwd: join(homedir(), ".claude", "LIFEOS", "PULSE"),
+    cwd: join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "PULSE"),
     env: { ...process.env },
   })
 

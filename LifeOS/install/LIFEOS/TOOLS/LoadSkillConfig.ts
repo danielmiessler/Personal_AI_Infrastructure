@@ -35,7 +35,7 @@ interface ExtendManifest {
 
 // Constants
 const HOME = homedir();
-const CUSTOMIZATION_DIR = join(HOME, '.claude', 'LIFEOS', 'USER', 'CUSTOMIZATIONS', 'SKILLS');
+const CUSTOMIZATION_DIR = join(process.env.LIFEOS_DIR || join(HOME, '.claude', 'LIFEOS'), 'USER', 'CUSTOMIZATIONS', 'SKILLS');
 
 /**
  * Deep merge two objects recursively

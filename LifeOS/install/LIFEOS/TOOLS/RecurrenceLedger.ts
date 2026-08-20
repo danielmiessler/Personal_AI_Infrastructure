@@ -35,7 +35,7 @@ import * as path from "path";
 import { homedir } from "os";
 
 // ── Paths (LIFEOS_DIR override mirrors the hook/test convention) ────────────
-const LIFEOS_DIR = process.env.LIFEOS_DIR ?? path.join(homedir(), ".claude", "LIFEOS");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? path.join(process.env.LIFEOS_DIR || path.join(homedir(), ".claude", "LIFEOS"));
 const MEMORY_DIR = path.join(LIFEOS_DIR, "MEMORY");
 const OBS_DIR = path.join(MEMORY_DIR, "OBSERVABILITY");
 const FAILURES_DIR = path.join(MEMORY_DIR, "LEARNING", "FAILURES");

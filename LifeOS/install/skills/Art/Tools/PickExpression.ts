@@ -21,7 +21,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const DIR = join(homedir(), ".claude", "LIFEOS", "USER", "CUSTOMIZATIONS", "SKILLS", "Art", "HeadshotExamples");
+const DIR = join(process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"), "USER", "CUSTOMIZATIONS", "SKILLS", "Art", "HeadshotExamples");
 
 // sentiment -> headshot filename (without .png), with topic keywords that route to it.
 const MAP: Array<{ sentiment: string; file: string; keywords: string[] }> = [

@@ -52,6 +52,8 @@ import { homedir } from "node:os";
 declare const Bun: { spawn: (cmd: string[], opts?: any) => any };
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(HOME, ".claude");
+const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(CLAUDE_CONFIG_DIR, "LIFEOS");
 export const UNIT_DIR = join(HOME, ".config", "systemd", "user");
 
 /* ── Schedules, one per launchd shape ───────────────────────────────────── */
@@ -405,7 +407,7 @@ export function logPathFromPlist(templatePath: string, fallback: string): string
     const xml = readFileSync(templatePath, "utf-8");
     const m = xml.match(/<key>StandardOutPath<\/key>\s*<string>([^<]+)<\/string>/);
     if (!m) return fallback;
-    return m[1].replace(/\{\{HOME\}\}/g, HOME);
+    return m[1].replace(/\{\{HOME\}\}/g, HOME).replace(/\{\{CLAUDE_CONFIG_DIR\}\}/g, CLAUDE_CONFIG_DIR).replace(/\{\{LIFEOS_DIR\}\}/g, LIFEOS_DIR);
   } catch {
     return fallback;
   }

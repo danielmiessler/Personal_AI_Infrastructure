@@ -60,7 +60,7 @@ const LIFEOS_DIR = process.env.LIFEOS_DIR
       /^\$\{?HOME\}?(?=\/|$)/,
       HOME,
     )
-  : join(HOME, ".claude", "LIFEOS");
+  : join(process.env.LIFEOS_DIR || join(HOME, ".claude", "LIFEOS"));
 const STATE_DIR = join(LIFEOS_DIR, "MEMORY", "STATE");
 const OBS_DIR = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
 const CACHE_PATH = join(STATE_DIR, "permission-cache.json");

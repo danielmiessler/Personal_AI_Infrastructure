@@ -2267,15 +2267,28 @@ function parseCurrencyCell(cell: string): number {
   return plain ? parseFloat(plain[0]) : 0
 }
 
-function parseGoals(content: string): { id: string, text: string }[] {
+function parseGoals(content: string): { id: string, text: string, progress?: number }[] {
+  // Explicit-ID goals come in two shapes: bullet form (- **G0**: …) and
+  // heading form (### G0: …) — unified-TELOS installs often write headings.
   const withIds = content.split("\n")
-    .filter(l => /^[-*]\s*\*{0,2}G\d+\*{0,2}:/.test(l))
+    .filter(l => /^(?:[-*]\s*|#{2,4}\s+)\*{0,2}G\d+\*{0,2}:/.test(l))
     .map(l => {
       const m = l.match(/\*{0,2}(G\d+)\*{0,2}:\s*(.+)/)
       return m ? { id: m[1], text: m[2].trim() } : null
     })
-    .filter(Boolean) as { id: string, text: string }[]
-  if (withIds.length > 0) return withIds
+    .filter(Boolean) as { id: string, text: string, progress?: number }[]
+  if (withIds.length > 0) {
+    // Hand-set progress: a `- Progress: N%` bullet inside the goal's H3 block —
+    // the contract the /life goals card hint promises. Percent only,
+    // deliberately no milestone machinery.
+    const progressById = new Map<string, number>()
+    for (const block of content.split(/^### /m).slice(1)) {
+      const head = block.match(/^\*{0,2}(G\d+)\*{0,2}:/)
+      const prog = block.match(/^[-*]\s*\*{0,2}Progress\*{0,2}:\s*(\d{1,3})\s*%/im)
+      if (head && prog) progressById.set(head[1], Math.min(100, parseInt(prog[1], 10)))
+    }
+    return withIds.map(g => progressById.has(g.id) ? { ...g, progress: progressById.get(g.id) } : g)
+  }
   // ID-less prose fallback (unified TELOS, 2026-06-09 contract: explicit IDs
   // win, prose paragraphs get positional IDs — same rule as
   // GenerateTelosSummary.paragraphItems). Without this, /api/life/home renders
@@ -2305,6 +2318,31 @@ function parseSections(content: string): { heading: string, body: string }[] {
     if (body) sections.push({ heading, body })
   }
   if (sections.length > 0) return sections
+
+  // Unified-TELOS section bodies carry their entries as H3s (### M1: …) with
+  // a trailing "### <Topic> notes" block; treat ID-form H3s as the entries and
+  // fold everything after a notes heading away, instead of falling through to
+  // the paragraph fallback (which shreds Summary/References lines into fake
+  // entries into fake missions on /life).
+  const h3Entries: { heading: string, body: string }[] = []
+  const h3Parts = content.split(/^### /m)
+  for (const part of h3Parts.slice(1)) {
+    const newline = part.indexOf("\n")
+    const heading = (newline === -1 ? part : part.slice(0, newline)).trim()
+    // Field labels are structure, not content: drop the **Summary:** prefix and
+    // **References:** lines so consumers (e.g. /life card subtitles) get prose.
+    const body = (newline === -1 ? "" : part.slice(newline + 1))
+      .replace(/^\s*\*\*Summary:\*\*\s*/im, "")
+      .replace(/^\s*\*\*References:\*\*[^\n]*$/gim, "")
+      .trim()
+    if (/^[A-Z]{1,4}\d+[a-z]?\s*:/.test(heading)) h3Entries.push({ heading, body })
+  }
+  if (h3Entries.length > 0) return h3Entries
+
+  // Bullet-form sections carry the same trailing notes block (### Wisdom notes)
+  // — meta-commentary, not an entry. Cut it before the bullet/paragraph pass.
+  const notesIdx = content.search(/^###\s+.*\bnotes\s*$/im)
+  if (notesIdx >= 0) content = content.slice(0, notesIdx)
 
   const lines = content.split("\n")
   let currentBullet: { heading: string, body: string } | null = null
@@ -2440,7 +2478,7 @@ function handleLifeHome(): Response {
     const { updated, updatedBy, domains } = parseCurrentDomains(current)
     const actions = parseNumberedList(current, "Next likely actions")
     const goals = parseGoals(goalsRaw).slice(0, 3)
-    const sparkNames = sparksRaw.split("\n").filter(l => l.startsWith("### ")).map(l => l.replace(/^###\s*/, ""))
+    const sparkNames = parseSparkBullets(sparksRaw)
     const randomSpark = sparkNames.length > 0 ? sparkNames[Math.floor(Math.random() * sparkNames.length)] : null
     const timelineBlocks = timelineRaw.split("\n").filter(l => l.startsWith("### ")).length
 
@@ -2997,8 +3035,12 @@ async function handleLifeGrowth(): Promise<Response> {
 function handleLifeWork(): Response {
   try {
     const projectsContent = readMd(PROJECTS_FILE)
+    // Scope the table scan to the "## Active projects" section when present —
+    // other tables in the registry (authored tools, aliases) otherwise leak
+    // their header rows in as projects ("Tool | Path" rendered as a project).
+    const activeScope = projectsContent.split(/^## /m).find((s) => /^(active )?projects( table)?\s*$/i.test(s.split("\n", 1)[0] ?? "")) ?? projectsContent
     // Parse project table rows
-    let projectLines = projectsContent.split("\n")
+    let projectLines = activeScope.split("\n")
       .filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("Project"))
       .map(l => {
         const cols = l.split("|").map(c => c.trim()).filter(Boolean)
@@ -3104,7 +3146,7 @@ function handleLifeGoals(): Response {
       traumas: parseSections(traumas),
       status: parseSections(status),
       telosProjects: parseSections(telosProjects),
-      sparks: sparks.split("\n").filter(l => l.startsWith("### ")).map(l => l.replace(/^###\s*/, "")),
+      sparks: parseSparkBullets(sparks),
       timeline2036Blocks: timeline2036.split("\n").filter(l => l.startsWith("### ")).length,
       timeline2036Raw: timeline2036,
       telosMasterRaw: telosMaster,
@@ -3469,6 +3511,15 @@ function telosSectionOrFile(sections: Record<string, string>, sectionKey: string
   return sections[sectionKey] || readMd(join(TELOS_DIR, legacyFile))
 }
 
+// Sparks are bold-lead bullets ("- **Gardening** — ...") in TELOS.md § Sparks.
+// The legacy SPARKS.md used H3s as category headers, so H3-parsing surfaced
+// categories instead of sparks.
+function parseSparkBullets(raw: string): string[] {
+  return raw.split("\n")
+    .filter(l => /^[-*]\s+\*\*/.test(l))
+    .map(l => l.replace(/^[-*]\s+/, "").replace(/\*\*/g, "").trim())
+}
+
 function parseTelosUnified(): Record<string, string> {
   const telosPath = join(TELOS_DIR, "TELOS.md")
   const content = readMd(telosPath)
@@ -3613,14 +3664,19 @@ function buildPreferencesFromTelos(): {
   const books = parseBullets(readMd(join(TELOS_DIR, "BOOKS.md"))).slice(0, 8)
   const movies = parseBullets(readMd(join(TELOS_DIR, "MOVIES.md"))).slice(0, 8)
   const authors = parseBullets(readMd(join(TELOS_DIR, "AUTHORS.md"))).slice(0, 8)
-  if (books.length === 0 && movies.length === 0 && authors.length === 0) return null
+  const hobbies = parseBullets(readMd(join(TELOS_DIR, "HOBBIES.md"))).slice(0, 8)
+  // Aphorisms live in the unified TELOS.md § Wisdom when present; the
+  // legacy WISDOM.md file remains the fallback.
+  const wisdomRaw = parseTelosUnified()["wisdom"] || readMd(join(TELOS_DIR, "WISDOM.md"))
+  const aphorisms = parseBullets(wisdomRaw).filter((a) => !/^\(sample\)/i.test(a)).slice(0, 8)
+  if (books.length === 0 && movies.length === 0 && authors.length === 0 && hobbies.length === 0 && aphorisms.length === 0) return null
   return {
     books,
     films: movies,
     anime: [],
     characters: [],
-    aphorisms: [],
-    hobbies: [],
+    aphorisms,
+    hobbies,
     literature: authors,
   }
 }
@@ -4062,7 +4118,8 @@ function cleanWorkTitle(raw: string): string {
 }
 
 function agentFromLabels(labels: string[] | undefined): string {
-  const l = (labels ?? []).find((x) => x.startsWith("agent:"))
+  // Label case follows the repo taxonomy ("Agent:Ada"), so match case-insensitively.
+  const l = (labels ?? []).find((x) => x.toLowerCase().startsWith("agent:"))
   if (!l) return ""
   const name = l.slice("agent:".length)
   return name.charAt(0).toUpperCase() + name.slice(1)
@@ -4227,7 +4284,11 @@ async function handleTelosOverview(): Promise<Response> {
           addresses: refsByPrefix(g.references, "P"),
           kpi: pickBulletValue(g.body, "KPI") ?? "",
           target: pickBulletValue(g.body, "Target") ?? "",
-          pct: 0,
+          // Same hand-set `- Progress: N%` bullet parseGoals reads for /life.
+          pct: (() => {
+            const m = (pickBulletValue(g.body, "Progress") ?? "").match(/(\d{1,3})\s*%/)
+            return m ? Math.min(100, parseInt(m[1], 10)) : 0
+          })(),
           delta: null,
           dims: [],
           metrics: [],

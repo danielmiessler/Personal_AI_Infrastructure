@@ -69,7 +69,7 @@ interface UserIndex {
 }
 
 interface GoalsData {
-  goals?: Array<{ id: string; text: string }>;
+  goals?: Array<{ id: string; text: string; progress?: number }>;
   mission?: Array<{ heading: string; body: string }>;
   problems?: Array<{ heading: string; body: string }>;
   status?: Array<{ heading: string; body: string }>;
@@ -418,13 +418,27 @@ function ActiveGoals({ goals }: { goals: GoalsData | null }) {
             <div key={g.id} className="flex items-center gap-4">
               <span className="text-xs mono text-ink-3 w-8 shrink-0">{g.id}</span>
               <span className="text-sm flex-1 truncate text-ink-1" title={g.text}>{g.text}</span>
-              <Pill dim="relationships" className="shrink-0">active</Pill>
+              {typeof g.progress === "number" ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-24 h-1.5 rounded-full bg-line-1 overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${g.progress}%`, background: DIMENSION_COLOR.relationships }}
+                    />
+                  </div>
+                  <span className="text-xs mono text-ink-3 w-9 text-right">{g.progress}%</span>
+                </div>
+              ) : (
+                <Pill dim="relationships" className="shrink-0">active</Pill>
+              )}
             </div>
           ))}
         </div>
-        <div className="mt-4 pt-4 text-xs text-ink-3 italic border-t border-line-1">
-          Progress tracking appears once each goal has a `progress` field in Telos/Goals.md
-        </div>
+        {items.every(g => typeof g.progress !== "number") && (
+          <div className="mt-4 pt-4 text-xs text-ink-3 italic border-t border-line-1">
+            Progress tracking appears once a goal carries a `- Progress: N%` line in TELOS.md § Goals
+          </div>
+        )}
       </Panel>
     </section>
   );
@@ -461,7 +475,7 @@ function NextActionsSpark({ home }: { home: HomeData | null }) {
         {spark ? (
           <p className="text-base font-serif italic leading-relaxed text-ink-1">{spark}</p>
         ) : (
-          <p className="text-xs text-ink-3 italic">Sparks surfaces random entries from Telos/Sparks.md</p>
+          <p className="text-xs text-ink-3 italic">Spark surfaces a random entry from TELOS.md § Sparks</p>
         )}
       </Panel>
     </section>

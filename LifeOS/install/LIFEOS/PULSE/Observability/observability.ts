@@ -4125,6 +4125,20 @@ function agentFromLabels(labels: string[] | undefined): string {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
+// Optional per-item metadata labels from the work repo taxonomy:
+// "Strategy:S4" links the item to a TELOS strategy, "Feeds:money" names a
+// life dimension it feeds, "Property:acme" groups items into a project row.
+function labelValue(labels: string[] | undefined, prefix: string): string {
+  const l = (labels ?? []).find((x) => x.toLowerCase().startsWith(prefix.toLowerCase()))
+  return l ? l.slice(prefix.length) : ""
+}
+
+function labelValues(labels: string[] | undefined, prefix: string): string[] {
+  return (labels ?? [])
+    .filter((x) => x.toLowerCase().startsWith(prefix.toLowerCase()))
+    .map((x) => x.slice(prefix.length))
+}
+
 function etaFromAge(ageHours: number | undefined): string {
   if (typeof ageHours !== "number") return ""
   return ageHours < 48 ? `${Math.round(ageHours)}h` : `${Math.round(ageHours / 24)}d`
@@ -4138,23 +4152,35 @@ function buildProjectsFromStatus(inFlight: WorkApiItem[]): OverviewProject[] | n
   const projects: OverviewProject[] = []
 
   if (inFlight.length > 0) {
-    projects.push({
-      id: "WORK",
-      title: "Work in flight",
-      strategy: "",
-      dims: [],
-      // Any thread older than a week without closing gets an amber row and
-      // ambers the card — staleness is visible, not judged.
-      status: inFlight.some((w) => (w.ageHours ?? 0) > 168) ? "amber" : "green",
-      work: inFlight.map((w) => ({
-        id: w.slug || String(w.number ?? ""),
-        title: cleanWorkTitle(w.title ?? ""),
-        strategy: "",
-        eta: etaFromAge(w.ageHours),
-        status: (w.ageHours ?? 0) > 168 ? "amber" : "green",
-        owner: agentFromLabels(w.labels),
-      })),
-    })
+    // One project row per Property:* label (acme, internal…); items
+    // without one share a generic "Work in flight" row.
+    const byProperty = new Map<string, WorkApiItem[]>()
+    for (const w of inFlight) {
+      const prop = labelValue(w.labels, "Property:").toLowerCase()
+      const key = prop || "work"
+      byProperty.set(key, [...(byProperty.get(key) ?? []), w])
+    }
+    for (const [prop, items] of byProperty) {
+      const strategies = [...new Set(items.map((w) => labelValue(w.labels, "Strategy:")).filter(Boolean))]
+      const dims = [...new Set(items.flatMap((w) => labelValues(w.labels, "Feeds:").map((d) => d.toLowerCase())))]
+      projects.push({
+        id: prop.toUpperCase(),
+        title: prop === "work" ? "Work in flight" : prop.charAt(0).toUpperCase() + prop.slice(1),
+        strategy: strategies[0] ?? "",
+        dims,
+        // Any thread older than a week without closing gets an amber row and
+        // ambers the card — staleness is visible, not judged.
+        status: items.some((w) => (w.ageHours ?? 0) > 168) ? "amber" : "green",
+        work: items.map((w) => ({
+          id: w.slug || String(w.number ?? ""),
+          title: cleanWorkTitle(w.title ?? ""),
+          strategy: labelValue(w.labels, "Strategy:"),
+          eta: etaFromAge(w.ageHours),
+          status: (w.ageHours ?? 0) > 168 ? "amber" : "green",
+          owner: agentFromLabels(w.labels),
+        })),
+      })
+    }
   }
 
   for (const [name, s] of apps) {

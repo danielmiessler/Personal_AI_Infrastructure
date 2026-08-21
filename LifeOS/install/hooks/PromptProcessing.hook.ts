@@ -671,7 +671,7 @@ function storeName(sessionId: string, label: string, source: string): void {
 /** Find Claude Code's session JSONL path for a given session ID. */
 function findSessionJsonl(sessionId: string): string | null {
   try {
-    for (const dir of [paiPath('projects'), paiPath('Projects')]) {
+    for (const dir of [join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects')]) {
       if (!existsSync(dir)) continue;
       const r = Bun.spawnSync(['find', dir, '-maxdepth', '2', '-name', `${sessionId}.jsonl`],
         { stdout: 'pipe', stderr: 'pipe', timeout: 2000 });

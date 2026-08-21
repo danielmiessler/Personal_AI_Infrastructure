@@ -99,11 +99,5 @@ convention: pai-freshness-v1
 
 - (sample) A lesson you've learned that guides you.
 
-## Sparks (fuel, not outcomes)
-
-- **(sample) A hobby or practice** — one line on why it refuels you.
-
-- **(sample) A second spark** — goals are outcomes; sparks are the things that refuel you whether or not they produce anything.
-
 ---
-*This file is the canonical TELOS. The DA and Pulse read it directly; the split files in this folder (MISSION.md, GOALS.md, …) are legacy samples that will be superseded as you fill in your real TELOS via the interview. Shape notes: goals are H3 blocks so their `- Progress: N%` bullet can render as a bar; Energy wants an "(N/10)" rating; the `<!-- updated -->` marker feeds the freshness display; sparks are bold-lead bullets.*
+*This file is the canonical TELOS. The DA and Pulse read it directly; the split files in this folder (MISSION.md, GOALS.md, …) are legacy samples that will be superseded as you fill in your real TELOS via the interview. Shape notes: goals are H3 blocks so their `- Progress: N%` bullet can render as a bar; Energy wants an "(N/10)" rating; the `<!-- updated -->` marker feeds the freshness display. Sparks live in `SPARKS.md` beside this file (bold-lead bullets under H3 category headings — the Spark card and the morning voice brief both read it); a `## Sparks` section here would take precedence over that file if you prefer one document.*

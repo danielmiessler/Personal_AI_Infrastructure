@@ -475,7 +475,7 @@ function NextActionsSpark({ home }: { home: HomeData | null }) {
         {spark ? (
           <p className="text-base font-serif italic leading-relaxed text-ink-1">{spark}</p>
         ) : (
-          <p className="text-xs text-ink-3 italic">Spark surfaces a random entry from TELOS.md § Sparks</p>
+          <p className="text-xs text-ink-3 italic">Spark surfaces a random entry from SPARKS.md (or a Sparks section in TELOS.md)</p>
         )}
       </Panel>
     </section>

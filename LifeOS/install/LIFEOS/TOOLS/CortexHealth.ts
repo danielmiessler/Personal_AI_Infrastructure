@@ -43,13 +43,25 @@ function hasExactKeys(value: Record<string, unknown>, allowed: readonly string[]
 function nonNegativeInteger(value: unknown): value is number { return Number.isInteger(value) && (value as number) >= 0; }
 function nonNegativeFinite(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value) && value >= 0; }
 
+const DISPATCH_REQUIRED = ["total", "by_type", "succeeded", "failed", "failures", "proposals_auto_applied", "proposals_auto_apply_failed"] as const;
+const DISPATCH_OPTIONAL = ["skipped_guard", "skips"] as const;
+const DISPATCH_ALLOWED = [...DISPATCH_REQUIRED, ...DISPATCH_OPTIONAL] as const;
+
 function validDispatchSummary(value: unknown): boolean {
-  if (!isPlainObject(value) || !hasExactKeys(value, ["total", "by_type", "succeeded", "failed", "failures", "skipped_guard", "skips", "proposals_auto_applied", "proposals_auto_apply_failed"])) return false;
-  if (![value.total, value.succeeded, value.failed, value.skipped_guard, value.proposals_auto_applied, value.proposals_auto_apply_failed].every(nonNegativeInteger)) return false;
+  if (!isPlainObject(value) || !hasExactKeys(value, DISPATCH_ALLOWED, DISPATCH_REQUIRED)) return false;
+  // 7.40.4 writer emits skipped_guard + skips. Pre-7.40.4 writers omit both.
+  // Missing pair = zero guard refusals (same fact the new writer records as 0 / []).
+  // One field without the other is a partial/corrupt row — reject.
+  const hasGuard = Object.prototype.hasOwnProperty.call(value, "skipped_guard");
+  const hasSkips = Object.prototype.hasOwnProperty.call(value, "skips");
+  if (hasGuard !== hasSkips) return false;
+  const skippedGuard = hasGuard ? value.skipped_guard : 0;
+  const skips = hasSkips ? value.skips : [];
+  if (![value.total, value.succeeded, value.failed, skippedGuard, value.proposals_auto_applied, value.proposals_auto_apply_failed].every(nonNegativeInteger)) return false;
   // A guard refusal (ESUSPECT_EROSION — the MemoryWriter blocking a net-drop) is a healthy
   // skip, not a failure: a valid run has every item either succeeded or guard-skipped, and
   // zero hard failures. Fail-closed strictness (failed=0, failures empty) is unchanged.
-  if (value.failed !== 0 || value.proposals_auto_apply_failed !== 0 || value.total !== (value.succeeded as number) + (value.skipped_guard as number) || !Array.isArray(value.failures) || value.failures.length !== 0 || !Array.isArray(value.skips)) return false;
+  if (value.failed !== 0 || value.proposals_auto_apply_failed !== 0 || value.total !== (value.succeeded as number) + (skippedGuard as number) || !Array.isArray(value.failures) || value.failures.length !== 0 || !Array.isArray(skips)) return false;
   if (!isPlainObject(value.by_type) || !Object.keys(value.by_type).every((key) => ["memory", "idea", "knowledge", "proposal"].includes(key)) || !Object.values(value.by_type).every(nonNegativeInteger)) return false;
   const byTypeTotal = Object.values(value.by_type).reduce<number>((sum, count) => sum + (count as number), 0);
   return byTypeTotal === value.total && (value.proposals_auto_applied as number) <= ((value.by_type.proposal as number | undefined) ?? 0);
@@ -210,3 +222,32 @@ export function collectCortexEvidence(options: CollectCortexOptions): CortexEvid
     retrieval: retrieval.malformedLines.length ? { status: "invalid", evidence: retrievalLog, malformedLines: retrieval.malformedLines } : validRetrievalRow(retrievalLast) ? { status: "ok", ts: retrievalLast.ts as string, queryHash: retrievalLast.query_hash as string, returnedCount: retrievalLast.returned_count as number, durationMs: retrievalLast.duration_ms as number, evidence: `${retrievalLog}:latest` } : retrievalLast ? { status: "invalid", evidence: `${retrievalLog}:latest` } : { status: "missing", evidence: retrievalLog },
     proposals: { pending: proposals.rows.filter(row => row.status === "pending").length, evidence: proposalLog, available: proposals.exists, malformedLines: proposals.malformedLines }, observability: observabilityEvidence(obs), index: indexEvidence(memoryRoot, manifest, join(options.root, "LIFEOS/CORTEX_INDEX_POLICY.json"), nowMs) };
 }
+
+function smokeTest(): number {
+  console.log("CortexHealth smoke test starting…");
+  let pass = 0, fail = 0;
+  const check = (name: string, ok: boolean) => {
+    if (ok) { pass++; console.log(`  ✓ ${name}`); }
+    else { fail++; console.error(`  ✗ ${name}`); }
+  };
+  const pre7404 = {
+    total: 3, by_type: { memory: 2, proposal: 1 }, succeeded: 3, failed: 0, failures: [],
+    proposals_auto_applied: 1, proposals_auto_apply_failed: 0,
+  };
+  const v7404zero = { ...pre7404, skipped_guard: 0, skips: [] };
+  const v7404skip = {
+    total: 1, by_type: { memory: 1 }, succeeded: 0, failed: 0, failures: [],
+    skipped_guard: 1, skips: [{ index: 0, type: "memory", reason: "ESUSPECT_EROSION: blocked" }],
+    proposals_auto_applied: 0, proposals_auto_apply_failed: 0,
+  };
+  check("pre-7.40.4 summary (no skip fields) is valid", validDispatchSummary(pre7404));
+  check("7.40.4 summary with zero skips is valid", validDispatchSummary(v7404zero));
+  check("7.40.4 summary with a guard skip is valid", validDispatchSummary(v7404skip));
+  check("hard failure is invalid", !validDispatchSummary({ ...v7404zero, failed: 1, failures: [{ index: 0, type: "memory", error: "x" }], succeeded: 2 }));
+  check("one skip field without the other is invalid", !validDispatchSummary({ ...pre7404, skipped_guard: 0 }));
+  check("unknown key is invalid", !validDispatchSummary({ ...v7404zero, extra: 1 }));
+  console.log(`CortexHealth smoke: ${pass} passed, ${fail} failed`);
+  return fail === 0 ? 0 : 1;
+}
+
+if (import.meta.main) process.exit(smokeTest());

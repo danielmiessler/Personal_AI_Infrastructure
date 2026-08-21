@@ -85,8 +85,11 @@ function resolveTargetPath(target: string): string {
     return join(LIFEOS_DIR, target.startsWith("USER/") ? target : target);
   }
   if (target === "memory/feedback") {
-    // Feedback memories live outside LifeOS dir in projects/${HARNESS_USER_DIR}/memory/
-    return join(HOME, ".claude", "projects", "${HARNESS_USER_DIR}", "memory");
+    // Feedback memories live outside the LifeOS dir under projects/<cwd-slug>/memory/.
+    // The slug is derived the same way SessionHarvester.ts does (CLAUDE_DIR path
+    // slugified), never the literal "${HARNESS_USER_DIR}" placeholder.
+    const cwdSlug = join(HOME, ".claude").replace(/[\/.]/g, "-");
+    return join(HOME, ".claude", "projects", cwdSlug, "memory");
   }
   return join(LIFEOS_DIR, target);
 }

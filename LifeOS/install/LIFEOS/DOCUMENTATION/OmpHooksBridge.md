@@ -21,6 +21,8 @@ Hooks are invoked exactly as Claude Code invokes them: `sh -c <command>` with th
 
 **Context injection.** Any `additionalContext` a hook returns (e.g. `<lifeos-memory-delta>`, rule updates) is queued and injected as a system message before the next LLM call via the `context` event — the omp equivalent of Claude Code's implicit injection.
 
+**Voice.** The `VoiceCompletion` hook requires a Claude transcript, which omp doesn't produce, so the bridge adds an omp-native voice path: at `turn_end` it reads the session log, extracts the final `🗣️ <DA>:` closer, and speaks it through Pulse's `/notify` (ElevenLabs). Same semantics as Claude Code — no `🗣️` line means silence. Disable with `OMP_VOICE=0`; override the voice id with `OMP_VOICE_ID`.
+
 **Safety.** A hook returning `deny` blocks the tool. `ask` shows a UI confirm; headless runs fail closed (deny). Hook failures are logged, never crash the session. Per-hook timeout 30s.
 
 ## Install
@@ -66,7 +68,7 @@ Per-event hook execution in the same run: SessionStart 5 · UserPromptSubmit 24 
 
 ## Known limitations
 
-- `transcript_path` is empty — hooks that parse the Claude transcript (e.g. LastResponseCache, StopGates) degrade gracefully (they log, don't crash).
+- `transcript_path` is empty — hooks that parse the Claude transcript (e.g. LastResponseCache, StopGates) degrade gracefully (they log, don't crash); the voice line is handled by the omp-native path instead of `VoiceCompletion`.
 - UserPromptSubmit receives a placeholder prompt (the omp `input` event is not yet wired) — prompt-text analysis hooks run with reduced signal.
 - Hooks run sequentially; heavy prompt-side hooks (inference) add ~1–2s per turn.
 - Changes take effect from the next session start.

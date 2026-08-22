@@ -32,7 +32,7 @@
  * never crash the session. Per-hook timeout 30s.
  */
 
-import { appendFileSync, readFileSync } from "fs";
+import { appendFileSync, readFileSync, statSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
@@ -41,6 +41,8 @@ const HOME = homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR ?? join(HOME, ".claude");
 const SETTINGS_PATH = join(LIFEOS_DIR, "settings.json");
 const LOG_PATH = process.env.OMP_BRIDGE_LOG ?? join(HOME, ".omp", "lifeos-bridge.log");
+const PULSE_NOTIFY = "http://127.0.0.1:31337/notify";
+const VOICE_ID = process.env.OMP_VOICE_ID ?? "fTtv3eikoepIosk8dTZ5";
 const HOOK_TIMEOUT_MS = 30_000;
 
 interface HookReg {
@@ -253,6 +255,62 @@ function toolCcName(name: string): string {
 
 let pendingContext: string[] = [];
 
+/** omp-native voice line: the VoiceCompletion hook needs a Claude transcript,
+ *  which omp doesn't have — extract the 🗣️ closer from the session log instead. */
+function extractVoiceLine(text: string): string | null {
+  const lines = text.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const m = lines[i].match(/^🗣️\s*<[^>]*>:\s*(.+)$/);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+function newestSessionJsonl(): string | null {
+  const root = join(HOME, ".omp", "agent", "sessions");
+  let newest: string | null = null;
+  let newestMs = 0;
+  try {
+    for (const rel of new Bun.Glob("**/*.jsonl").scanSync({ cwd: root })) {
+      const full = join(root, rel);
+      const st = statSync(full);
+      if (st.mtimeMs > newestMs) {
+        newestMs = st.mtimeMs;
+        newest = full;
+      }
+    }
+  } catch { /* no sessions dir yet */ }
+  return newest;
+}
+
+function readLastAssistantText(): string {
+  const file = newestSessionJsonl();
+  if (!file) return "";
+  try {
+    const lines = readFileSync(file, "utf8").trim().split("\n");
+    let last = "";
+    for (const line of lines) {
+      let parsed: unknown;
+      try { parsed = JSON.parse(line); } catch { continue; }
+      if (!parsed || typeof parsed !== "object") continue;
+      if (!("message" in parsed)) continue;
+      const msg = parsed.message;
+      if (!msg || typeof msg !== "object") continue;
+      if (!("role" in msg) || msg.role !== "assistant") continue;
+      if (!("content" in msg) || !Array.isArray(msg.content)) continue;
+      const text = msg.content
+        .filter((c: unknown): c is { text: string } =>
+          !!c && typeof c === "object" && "text" in c && typeof c.text === "string")
+        .map((c) => c.text)
+        .join("\n");
+      if (text) last = text;
+    }
+    return last;
+  } catch {
+    return "";
+  }
+}
+
 export default function lifeosBridge(pi: ExtensionAPI): void {
   log({ event: "bridge_init", hooks: registry.length, lifeosDir: LIFEOS_DIR });
 
@@ -370,6 +428,23 @@ export default function lifeosBridge(pi: ExtensionAPI): void {
       const parsed = parseOutput(res.out);
       if (parsed.context) pendingContext.push(parsed.context);
       log({ hook: hookName(reg.command), cc: "Stop", ok: res.ok, ms: res.ms, err: res.err || null, context: !!parsed.context });
+    }
+    // omp-native voice: VoiceCompletion.hook.ts requires a Claude transcript;
+    // extract the 🗣️ closer from the session log and speak it via Pulse.
+    if (process.env.OMP_VOICE === "0") return;
+    const line = extractVoiceLine(readLastAssistantText());
+    if (!line) return;
+    const t0 = Date.now();
+    try {
+      const res = await fetch(PULSE_NOTIFY, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: line, voice_id: VOICE_ID }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      log({ voice: res.ok ? "sent" : "failed", status: res.status, ms: Date.now() - t0, line: line.slice(0, 40) });
+    } catch (e) {
+      log({ voice: "failed", err: String(e).slice(0, 120) });
     }
   });
 

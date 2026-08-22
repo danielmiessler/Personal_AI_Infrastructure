@@ -677,13 +677,34 @@ type MatcherGroup = { matcher?: string; hooks?: HookEntry[]; [k: string]: unknow
 type HooksMap = Record<string, MatcherGroup[]>;
 
 /**
- * Normalize a hook command for dedup: collapse the harness/PAI path-var forms to
- * a single canonical token and squeeze whitespace, so the same hook expressed as
- * `${LIFEOS_DIR}/x`, `$LIFEOS_DIR/x`, or `~/.claude/x` dedupes to one.
+ * Every spelling of the install root, collapsed to one token for dedup. ORDER MATTERS:
+ * the `${CLAUDE_CONFIG_DIR:-…}` default forms must match WHOLE, ahead of the bare
+ * ~/.claude / $HOME/.claude they contain, so an upgrade dedupes a stale `$HOME/.claude/x`
+ * entry against the new templated form of the same hook. LIFEOS_DIR / CLAUDE_PROJECT_DIR /
+ * CLAUDE_PLUGIN_ROOT stay in the set — dropping any would un-dedupe hooks written that way.
+ */
+const ROOT_FORMS: RegExp[] = [
+  /\$\{CLAUDE_CONFIG_DIR:-\$HOME\/\.claude\}/,
+  /\$\{CLAUDE_CONFIG_DIR:-\$\{HOME\}\/\.claude\}/,
+  /\$\{CLAUDE_CONFIG_DIR:-~\/\.claude\}/,
+  /\$\{?CLAUDE_CONFIG_DIR\}?/,
+  /\$\{?LIFEOS_DIR\}?/,
+  /\$\{?CLAUDE_PROJECT_DIR\}?/,
+  /\$\{?CLAUDE_PLUGIN_ROOT\}?/,
+  /~\/\.claude/,
+  /\$HOME\/\.claude/,
+  /\$\{HOME\}\/\.claude/,
+];
+const ROOT_PATTERN = new RegExp(ROOT_FORMS.map((r) => r.source).join("|"), "g");
+
+/**
+ * Normalize a hook command for dedup: collapse any install-root spelling (see ROOT_FORMS)
+ * to `§ROOT§` and squeeze whitespace, so the same hook expressed as `${LIFEOS_DIR}/x`,
+ * `$HOME/.claude/x`, or `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/x` all dedupe to one.
  */
 function normalizeCommand(cmd: string): string {
   return cmd
-    .replace(/\$\{?LIFEOS_DIR\}?|\$\{?CLAUDE_PROJECT_DIR\}?|\$\{?CLAUDE_PLUGIN_ROOT\}?|~\/\.claude|\$HOME\/\.claude|\$\{HOME\}\/\.claude/g, "§ROOT§")
+    .replace(ROOT_PATTERN, "§ROOT§")
     .replace(/\s+/g, " ")
     .trim();
 }

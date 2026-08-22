@@ -62,7 +62,7 @@ import { join } from 'path';
 import { getISOTimestamp, getPSTDate } from './lib/time';
 import { getLearningCategory } from './lib/learning-utils';
 import { findArtifactPath, findActiveSessionByUUID } from './lib/isa-utils';
-import { homedir } from "node:os";
+import { getLifeosDir } from './lib/paths';
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -71,7 +71,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 
-const BASE_DIR = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
+const BASE_DIR = getLifeosDir();
 const MEMORY_DIR = join(BASE_DIR, 'MEMORY');
 const WORK_DIR = join(MEMORY_DIR, 'WORK');
 const LEARNING_DIR = join(MEMORY_DIR, 'LEARNING');

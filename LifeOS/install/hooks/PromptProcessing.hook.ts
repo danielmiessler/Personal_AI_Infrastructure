@@ -43,11 +43,10 @@ import { inference } from '../LIFEOS/TOOLS/Inference';
 import { getIdentity, getPrincipal } from './lib/identity';
 import { isValidWorkingTitle, getWorkingFallback, trimToValidTitle } from './lib/output-validators';
 import { getSessionOneWord, readTabState, setAscentTab } from './lib/tab-setter';
-import { paiPath } from './lib/paths';
+import { paiPath, getClaudeDir, getLifeosDir } from './lib/paths';
 import { updateSessionNameInWorkJson, upsertSession } from './lib/isa-utils';
 import { isDesktopChannel, logSkippedVoice, getNotificationChannel } from './lib/notification-channel';
 import { PULSE_BASE } from '../LIFEOS/PULSE/endpoint';
-import { homedir } from "node:os";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -82,7 +81,7 @@ function appendPromptProcessingTelemetry(entry: Record<string, unknown>): void {
 
 // ── Constants ──
 
-const BASE_DIR = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
+const BASE_DIR = getLifeosDir();
 const SESSION_NAMES_PATH = paiPath('MEMORY', 'STATE', 'session-names.json');
 const LOCK_PATH = SESSION_NAMES_PATH + '.lock';
 const MIN_PROMPT_LENGTH = 3;
@@ -859,7 +858,7 @@ function isKnownCommandOrSkill(token: string): boolean {
   const lower = token.toLowerCase();
   try {
     const { readdirSync } = require('fs') as typeof import('fs');
-    const claudeDir = join(homedir(), '.claude');
+    const claudeDir = getClaudeDir();
     for (const f of readdirSync(join(claudeDir, 'commands'))) {
       if (f.toLowerCase() === `${lower}.md`) return true;
     }

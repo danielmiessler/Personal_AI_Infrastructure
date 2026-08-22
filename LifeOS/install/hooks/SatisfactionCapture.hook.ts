@@ -45,7 +45,7 @@ import { getISOTimestamp, getPSTComponents } from './lib/time';
 import { captureFailure } from '../LIFEOS/TOOLS/FailureCapture';
 import { addUpgrade } from '../LIFEOS/TOOLS/Upgrades';
 import { addRatingPulse } from './lib/isa-utils';
-import { homedir } from "node:os";
+import { getLifeosDir } from './lib/paths';
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -77,7 +77,7 @@ interface RatingEntry {
 
 // ── Constants ──
 
-const BASE_DIR = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
+const BASE_DIR = getLifeosDir();
 const SIGNALS_DIR = join(BASE_DIR, 'MEMORY', 'LEARNING', 'SIGNALS');
 const RATINGS_FILE = join(SIGNALS_DIR, 'ratings.jsonl');
 const LAST_RESPONSE_CACHE = join(BASE_DIR, 'MEMORY', 'STATE', 'last-response.txt');

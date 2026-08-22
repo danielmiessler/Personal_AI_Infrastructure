@@ -21,7 +21,13 @@ import {
   RELATION_VOCAB, SOURCE_KINDS, STATUS_VALUES, SCHEMA_VERSION,
 } from "./KnowledgeSchema";
 
-const OUT = pathResolve(homedir(), ".claude/LIFEOS/MEMORY/KNOWLEDGE/_schema.md");
+// Honor CLAUDE_CONFIG_DIR so a relocated install writes the schema under its own
+// config root, not the global ~/.claude. Inlined rather than importing
+// hooks/lib/paths.getClaudeDir(): that helper lives in the HOOKS runtime tree and a
+// LIFEOS/TOOLS script does not reach across into it — sibling TOOLS (Doctor.ts) use
+// this same one-liner, so it is the local convention.
+const CLAUDE_ROOT = process.env.CLAUDE_CONFIG_DIR || pathResolve(homedir(), ".claude");
+const OUT = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/KNOWLEDGE/_schema.md");
 
 /** Absolute path of the generated doc — importers compare against it. */
 export const SCHEMA_DOC_PATH = OUT;

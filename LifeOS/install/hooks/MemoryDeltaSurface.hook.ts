@@ -32,10 +32,10 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
 import { resolve as pathResolve, dirname } from "node:path";
-import { homedir } from "node:os";
 import { isSubagentContext as isSubagent } from './lib/subagent';
+import { getClaudeDir } from './lib/paths';
 
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = getClaudeDir();
 const WRITES_LOG = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/memory-writes.jsonl");
 const CURSOR = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/memory-delta-cursor.json");
 const HEALTH_LOG = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/memory-health.jsonl");
@@ -153,7 +153,7 @@ function criticalHealthLine(): string | null {
       .filter((f: any) => f.severity === "critical")
       .map((f: any) => f.message)
       .slice(0, 3);
-    return `🩺 MEMORY HEALTH: CRITICAL — ${blockers.join(" · ") || `${last.counts?.critical ?? "?"} blocker(s)`}. Fix: bun ~/.claude/LIFEOS/TOOLS/MemoryHealthCheck.ts`;
+    return `🩺 MEMORY HEALTH: CRITICAL — ${blockers.join(" · ") || `${last.counts?.critical ?? "?"} blocker(s)`}. Fix: bun ${pathResolve(CLAUDE_ROOT, "LIFEOS/TOOLS/MemoryHealthCheck.ts")}`;
   } catch {
     return null;
   }

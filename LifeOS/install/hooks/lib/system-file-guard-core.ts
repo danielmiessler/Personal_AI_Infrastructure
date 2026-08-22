@@ -12,12 +12,11 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { isContained, isPatternAllowlisted, relativeToClaudeRoot } from "./containment-zones";
+import { getClaudeDir } from "./paths";
 
-const HOME = process.env.HOME ?? homedir();
-const CLAUDE_ROOT = join(HOME, ".claude");
+const CLAUDE_ROOT = getClaudeDir();
 const DEFAULT_DENY_LIST_PATH = join(CLAUDE_ROOT, "LIFEOS/USER/SECURITY/DENY_LIST.txt");
 // USER/SECURITY, not skills/_LIFEOS: on a public install, running the shipped
 // DeriveDenyHashes used to CREATE <your-release-skill>/, whose existence is exactly

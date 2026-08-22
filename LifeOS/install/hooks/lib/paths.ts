@@ -31,7 +31,8 @@ export function expandPath(path: string): string {
  * Priority:
  *   1. CLAUDE_PLUGIN_ROOT (plugin install) → <root>/PAI
  *   2. LIFEOS_DIR env var (expanded)
- *   3. ~/.claude/LIFEOS  (live default — byte-identical to pre-plugin behavior)
+ *   3. <getClaudeDir()>/LIFEOS — honors CLAUDE_CONFIG_DIR, else ~/.claude/LIFEOS
+ *      (live default — byte-identical to pre-plugin behavior)
  *
  * The CLAUDE_PLUGIN_ROOT guard MUST precede the LIFEOS_DIR check: in a packed
  * plugin, bin/pai exports LIFEOS_DIR equal to CLAUDE_PLUGIN_ROOT (the flattened
@@ -51,22 +52,35 @@ export function getLifeosDir(): string {
     return expandPath(envLifeosDir);
   }
 
-  return join(homedir(), '.claude', 'LIFEOS');
+  return join(getClaudeDir(), 'LIFEOS');
 }
 
 /**
  * Get the Claude Code home directory.
  *
- * Plugin install: CLAUDE_PLUGIN_ROOT is the flattened plugin root that plays the
- * live ~/.claude role (skills/ and hooks/ sit directly under it, matching live
- * .claude/skills and .claude/hooks). Live default: ~/.claude — byte-identical to
- * pre-plugin behavior, since CLAUDE_PLUGIN_ROOT is unset on a normal install.
+ * Priority:
+ *   1. CLAUDE_PLUGIN_ROOT (plugin install) — the flattened plugin root that
+ *      plays the live ~/.claude role (skills/ and hooks/ sit directly under it,
+ *      matching live .claude/skills and .claude/hooks).
+ *   2. CLAUDE_CONFIG_DIR (relocated config root) — the same relocation the
+ *      install tools and every other runtime module already honor (Doctor.ts,
+ *      PULSE Conduit/paths.ts). Without it the hooks pin to ~/.claude even under
+ *      a relocated install, so their commands resolve to the global dir (none of
+ *      the copied scripts) and MergeSettings rewrites the global settings.json.
+ *   3. ~/.claude — live default, byte-identical to pre-plugin behavior since
+ *      neither env var is set on a normal install.
  */
 export function getClaudeDir(): string {
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
 
   if (pluginRoot) {
     return expandPath(pluginRoot);
+  }
+
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+
+  if (configDir) {
+    return expandPath(configDir);
   }
 
   return join(homedir(), '.claude');

@@ -24,6 +24,7 @@ import { readFileSync, existsSync, writeFileSync, statSync, realpathSync, mkdirS
 import { execFileSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { homedir } from 'node:os';
+import { getClaudeDir, getLifeosDir, getSkillsDir } from './lib/paths';
 import { parseFrontmatter, parseCriteriaList, ARTIFACT_FILENAME, LEGACY_ARTIFACT_FILENAME } from './lib/isa-utils';
 import { isForeignToSystemRepo, looksLikePersonalTranscript } from '../LIFEOS/TOOLS/lib/ForeignDataCheck';
 
@@ -31,7 +32,7 @@ import { isForeignToSystemRepo, looksLikePersonalTranscript } from '../LIFEOS/TO
 // '#' comments and blank
 // lines are ignored. Tilde and $HOME prefixes are expanded as a quality-of-
 // life feature so users can write `~/Projects/foo` instead of the long form.
-const ALLOWLIST_PATH = join(homedir(), '.claude', 'checkpoint-repos.txt');
+const ALLOWLIST_PATH = join(getClaudeDir(), 'checkpoint-repos.txt');
 const GIT_TIMEOUT_MS = 5000;
 
 interface CheckpointState {
@@ -154,7 +155,7 @@ function runTouchedPaths(repo: string, startedMs: number): string[] {
   });
 }
 
-const SYSTEM_REPO = join(homedir(), '.claude');
+const SYSTEM_REPO = getClaudeDir();
 
 function isSystemRepo(repo: string): boolean {
   try { return realpathSync(repo) === realpathSync(SYSTEM_REPO); }
@@ -244,9 +245,9 @@ async function main() {
   // dir — skill trees must stay publishable-clean and the sidecar carries
   // absolute paths + SHAs, which trips SkillHygieneGate (found 2026-08-11,
   // interview-evidence upgrade). Everything else keeps the beside-the-ISA path.
-  const skillsPrefix = join(homedir(), '.claude', 'skills') + '/';
+  const skillsPrefix = getSkillsDir() + '/';
   const inSkillTree = slugDir.startsWith(skillsPrefix);
-  const skillStateDir = join(homedir(), '.claude', 'LIFEOS', 'MEMORY', 'STATE', 'checkpoints');
+  const skillStateDir = join(getLifeosDir(), 'MEMORY', 'STATE', 'checkpoints');
   if (inSkillTree) mkdirSync(skillStateDir, { recursive: true });
   const stateFile = inSkillTree
     ? join(skillStateDir, `skill-${slug}.checkpoint-state.json`)

@@ -27,13 +27,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
 import { readHookInput, parseTranscriptFromInput } from "./lib/hook-io";
+import { getLifeosDir } from './lib/paths';
 
-const HOME = homedir();
-const PROJECTS_MD = join(HOME, ".claude/LIFEOS/USER/PROJECTS.md");
-const INVENTORY_TS = join(HOME, ".claude/LIFEOS/USER/CUSTOMIZATIONS/ARBOL/Shared/infra-inventory.ts");
-const STATE_DIR = join(HOME, ".claude/LIFEOS/MEMORY/STATE");
+const PROJECTS_MD = join(getLifeosDir(), "USER/PROJECTS.md");
+const INVENTORY_TS = join(getLifeosDir(), "USER/CUSTOMIZATIONS/ARBOL/Shared/infra-inventory.ts");
+const STATE_DIR = join(getLifeosDir(), "MEMORY/STATE");
 const STATE_PATH = join(STATE_DIR, "deploy-registration-gate.json");
 
 // wrangler deploy trigger lines: `  <domain> (custom domain)` — wrangler emits

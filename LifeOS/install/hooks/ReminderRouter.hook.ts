@@ -25,10 +25,9 @@ import { getDAName } from "./lib/identity"
 import { createHash } from "crypto";
 import { join, dirname } from "path";
 import { loadWorkConfig } from "./lib/work-config";
-import { homedir } from "node:os";
+import { getLifeosDir } from './lib/paths';
 
-const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
-const STATE_PATH = join(HOME, ".claude", "LIFEOS", "MEMORY", "STATE", "reminder-router-seen.json");
+const STATE_PATH = join(getLifeosDir(), "MEMORY", "STATE", "reminder-router-seen.json");
 
 interface HookInput {
   session_id?: string;

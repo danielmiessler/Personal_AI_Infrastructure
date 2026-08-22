@@ -22,10 +22,11 @@
  *   (dry-run by default — reports the plan per target without writing)
  */
 
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { copyMissing, detectDevTree } from "./InstallEngine";
+import { atomicWriteText } from "./lib/atomic-write";
 
 // Runtime top-level entries this tool does NOT deploy:
 //  - USER           shipped separately as a scaffold (ScaffoldUser) + symlinked (LinkUser)
@@ -184,7 +185,7 @@ function scaffoldMemory(configRoot: string, apply: boolean): DeployResult {
     if (!apply) {
       r.actions.push(`bun ${generator}`);
     } else {
-      const proc = Bun.spawnSync(["bun", generator], { stdout: "pipe", stderr: "pipe" });
+      const proc = Bun.spawnSync(["bun", generator], { stdout: "pipe", stderr: "pipe", env: { ...process.env, CLAUDE_CONFIG_DIR: configRoot } });
       if (proc.exitCode === 0) r.copied++;
       else r.failures.push(`GenerateKnowledgeSchemaDoc exited ${proc.exitCode}: ${proc.stderr.toString().trim()}`);
     }
@@ -325,6 +326,53 @@ function deployNestedDependencies(payloadInstall: string, configRoot: string, ap
   return r;
 }
 
+/**
+ * (f) system settings layer: install/settings.system.json → configRoot/settings.system.json.
+ *
+ * The gap this fills: settings.json is a GENERATED artifact — the SessionStart MergeSettings
+ * hook rebuilds it every session by merging <configRoot>/settings.system.json (this file) with
+ * the USER overlay, and SettingsBackport + IntegrityCheck read the same path. But no prior Setup
+ * step ever PLACED it — InstallSettings writes the payload's CONTENT into settings.json, never
+ * the source layer itself — so the merge/backport machinery silently had no system source on a
+ * fresh install. Latent on the default ~/.claude; guaranteed to bite a relocated root, which has
+ * no global tree to fall back on. This step deploys the source layer the machinery assumes.
+ *
+ * Relocation: the payload pins `env.LIFEOS_DIR` to "$HOME/.claude/LIFEOS". On a relocated root
+ * that GLOBAL value — re-injected via the regenerated settings.json — would override the
+ * launcher's relocated LIFEOS_DIR and drag LIFEOS-data resolution back to ~/.claude. So we
+ * repoint it at THIS config root on the way in. Default installs keep the shipped string
+ * byte-for-byte. (LIFEOS_CONFIG_DIR is the USER-data location, chosen independently, so it is
+ * left alone.) Additive: never clobbers an existing, possibly user-tuned, system layer.
+ */
+function deploySystemSettings(payloadInstall: string, configRoot: string, apply: boolean): DeployResult {
+  const src = join(payloadInstall, "settings.system.json");
+  const dst = join(configRoot, "settings.system.json");
+  const r: DeployResult = { what: "system-settings", src, dst, present: existsSync(src), copied: 0, actions: [], blockers: [], failures: [] };
+  if (!r.present) {
+    r.blockers.push(`system settings missing: ${src} — point --skill-root at a staged release`);
+    return r;
+  }
+  const relocatedLifeosDir = configRoot === join(process.env.HOME || homedir(), ".claude")
+    ? undefined                                   // default root: ship the payload string as-is
+    : join(configRoot, "LIFEOS");
+  if (existsSync(dst)) return r;                  // additive — never overwrite a populated layer
+  if (!apply) {
+    r.actions.push(relocatedLifeosDir ? `write ${dst} (env.LIFEOS_DIR → ${relocatedLifeosDir})` : `copy ${src} → ${dst}`);
+    return r;
+  }
+  try {
+    const settings = JSON.parse(readFileSync(src, "utf8")) as Record<string, unknown>;
+    if (relocatedLifeosDir && settings.env && typeof settings.env === "object") {
+      (settings.env as Record<string, unknown>).LIFEOS_DIR = relocatedLifeosDir;
+    }
+    atomicWriteText(dst, JSON.stringify(settings, null, 2) + "\n");
+    r.copied = 1;
+  } catch (err) {
+    r.failures.push(`settings.system.json deploy failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  return r;
+}
+
 function main(): void {
   const a = process.argv.slice(2);
   const home = process.env.HOME || homedir();
@@ -349,6 +397,7 @@ function main(): void {
     scaffoldMemory(configRoot, apply),
     deployDependencies(payloadInstall, configRoot, apply),
     deployNestedDependencies(payloadInstall, configRoot, apply),
+    deploySystemSettings(payloadInstall, configRoot, apply),
   ];
 
   // A missing required payload source (blocker) or a copy failure is a hard

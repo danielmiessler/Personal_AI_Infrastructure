@@ -28,9 +28,10 @@
 import { homedir } from "node:os";
 import { resolve, join } from "node:path";
 import { classifyTarget, loadPatterns, scanForFirstHit } from "./lib/system-file-guard-core";
+import { getClaudeDir } from './lib/paths';
 
 const HOME = process.env.HOME ?? homedir();
-const CLAUDE_ROOT = join(HOME, ".claude");
+const CLAUDE_ROOT = getClaudeDir();
 
 interface HookInput {
   tool_input?: { command?: unknown };

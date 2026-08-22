@@ -23,17 +23,27 @@
 import { spawn, spawnSync } from "bun";
 import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unlinkSync, lstatSync } from "fs";
 import { homedir } from "os";
-import { join, basename } from "path";
+import { join, basename, resolve } from "path";
 import { PULSE_BASE } from "../PULSE/endpoint";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const CLAUDE_DIR = join(homedir(), ".claude");
+// The config root this launcher belongs to. It ships at
+// <configRoot>/LIFEOS/TOOLS/lifeos.ts, so it self-locates its own root and
+// exports it as CLAUDE_CONFIG_DIR for the spawned Claude (see launchEnv below) —
+// that is what makes a relocated install actually run inside its own path
+// instead of the global ~/.claude. An explicit CLAUDE_CONFIG_DIR still wins.
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || resolve(import.meta.dir, "..", "..");
+// LIFEOS data dir under the resolved root. Computed inline, NOT via the hooks
+// runtime's paths.getLifeosDir(): that helper READS the env vars this launcher is
+// about to SET (LIFEOS_DIR / CLAUDE_CONFIG_DIR), so calling it here would be
+// circular — and it lives in the hooks tree, which a TOOL does not import across into.
+const LIFEOS_DIR = join(CLAUDE_DIR, "LIFEOS");
 const MCP_DIR = join(CLAUDE_DIR, "MCPs");
 const ACTIVE_MCP = join(CLAUDE_DIR, ".mcp.json");
-const BANNER_SCRIPT = join(homedir(), ".claude", "LIFEOS", "TOOLS", "Banner.ts");
+const BANNER_SCRIPT = join(LIFEOS_DIR, "TOOLS", "Banner.ts");
 const VOICE_SERVER = `${PULSE_BASE}/notify/personality`;
 const WALLPAPER_DIR = join(homedir(), "Projects", "Wallpaper");
 // Note: RAW archiving removed - Claude Code handles its own cleanup (30-day retention in projects/)
@@ -434,7 +444,7 @@ function setWallpaper(filename: string): boolean {
  * public PR #1637, @elhoim
  */
 function cmdDoctor(args: string[]) {
-  const doctor = join(CLAUDE_DIR, "LIFEOS", "TOOLS", "Doctor.ts");
+  const doctor = join(LIFEOS_DIR, "TOOLS", "Doctor.ts");
   const result = spawnSync(["bun", doctor, ...args], {
     stdin: "inherit", stdout: "inherit", stderr: "inherit",
   });
@@ -500,7 +510,7 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
 
   // LifeOS System Prompt — constitutional rules appended to Claude Code's system prompt
   // These rules get highest instruction authority (system prompt layer > CLAUDE.md layer)
-  const systemPromptFile = options.systemPrompt ?? join(CLAUDE_DIR, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");
+  const systemPromptFile = options.systemPrompt ?? join(LIFEOS_DIR, "LIFEOS_SYSTEM_PROMPT.md");
   if (existsSync(systemPromptFile)) {
     args.push("--append-system-prompt-file", systemPromptFile);
   }
@@ -561,6 +571,10 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
   const launchEnv = { ...process.env };
   delete launchEnv.ANTHROPIC_API_KEY;
   launchEnv.CLAUDE_CODE_WORKFLOWS = "1";
+  // Pin Claude Code and every hook to THIS config root, so a relocated install
+  // resolves settings, skills, hooks, and LIFEOS data inside its own path.
+  launchEnv.CLAUDE_CONFIG_DIR = CLAUDE_DIR;
+  launchEnv.LIFEOS_DIR = LIFEOS_DIR;
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
     env: launchEnv,
@@ -701,7 +715,7 @@ async function cmdPrompt(prompt: string) {
 
   // Same constitutional layer as interactive launches — without this, one-shots
   // ran bare Claude Code (CLAUDE.md only, no output format, no security protocol).
-  const systemPromptFile = join(CLAUDE_DIR, "LIFEOS", "LIFEOS_SYSTEM_PROMPT.md");
+  const systemPromptFile = join(LIFEOS_DIR, "LIFEOS_SYSTEM_PROMPT.md");
   if (existsSync(systemPromptFile)) {
     args.push("--append-system-prompt-file", systemPromptFile);
   }
@@ -711,6 +725,9 @@ async function cmdPrompt(prompt: string) {
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
   delete env.ANTHROPIC_API_KEY;
   env.CLAUDE_CODE_WORKFLOWS = "1";
+  // Pin Claude Code and every hook to THIS config root (see interactive launch).
+  env.CLAUDE_CONFIG_DIR = CLAUDE_DIR;
+  env.LIFEOS_DIR = LIFEOS_DIR;
   const proc = spawn(args, {
     stdio: ["inherit", "inherit", "inherit"],
     env,

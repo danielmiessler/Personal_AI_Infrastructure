@@ -22,11 +22,11 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve as pathResolve } from "node:path";
-import { homedir } from "node:os";
 import { isSubagentContext as isSubagentInvocation } from './lib/subagent';
 import { parseMemoryContent } from "../LIFEOS/TOOLS/MemoryWriter";
+import { getClaudeDir } from './lib/paths';
 
-const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
+const CLAUDE_ROOT = getClaudeDir();
 const PRINCIPAL_MEMORY = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/PRINCIPAL/PRINCIPAL_MEMORY.md");
 const DA_MEMORY = pathResolve(CLAUDE_ROOT, "LIFEOS/USER/DIGITAL_ASSISTANT/DA_MEMORY.md");
 

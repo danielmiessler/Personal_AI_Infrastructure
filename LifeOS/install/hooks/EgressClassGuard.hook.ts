@@ -20,11 +20,10 @@
 
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { homedir } from "node:os";
 import { evaluateEgress } from "./lib/egress-class-core";
+import { getLifeosDir } from './lib/paths';
 
-const HOME = process.env.HOME ?? homedir();
-const LOG_PATH = join(HOME, ".claude/LIFEOS/MEMORY/OBSERVABILITY/egress-decisions.jsonl");
+const LOG_PATH = join(getLifeosDir(), "MEMORY/OBSERVABILITY/egress-decisions.jsonl");
 
 interface HookInput {
   session_id?: string;

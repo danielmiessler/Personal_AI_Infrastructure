@@ -34,9 +34,9 @@ import { findActiveSessionByUUID } from "./lib/isa-utils";
 import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { createHash } from "crypto";
-import { homedir } from "node:os";
+import { getLifeosDir } from './lib/paths';
 
-const LIFEOS = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
+const LIFEOS = getLifeosDir();
 const OBS_PATH = join(LIFEOS, "MEMORY", "OBSERVABILITY", "isa-close-gate.jsonl");
 const STATE_PATH = join(LIFEOS, "MEMORY", "STATE", "isa-close-gate-blocked.json");
 const NUDGE_STATE_DIR = join(LIFEOS, "MEMORY", "STATE", "isa-nudge");

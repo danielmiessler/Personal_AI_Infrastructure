@@ -26,10 +26,11 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { getLifeosDir } from './lib/paths';
 
 const HOME = process.env.HOME ?? homedir();
-const PATTERN_FILE = join(HOME, ".claude/LIFEOS/USER/SECURITY/PublicScrubPatterns.txt");
-const CACHE_FILE = join(HOME, ".claude/LIFEOS/MEMORY/STATE/public-push-gate.json");
+const PATTERN_FILE = join(getLifeosDir(), "USER/SECURITY/PublicScrubPatterns.txt");
+const CACHE_FILE = join(getLifeosDir(), "MEMORY/STATE/public-push-gate.json");
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const HISTORY_SCAN_MAX_COMMITS = 400;
 

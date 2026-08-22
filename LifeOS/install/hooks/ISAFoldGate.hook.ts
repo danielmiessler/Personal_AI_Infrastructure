@@ -35,9 +35,9 @@ import { findActiveSessionByUUID } from "./lib/isa-utils";
 import { isaEditedThisTurn, ISA_ADDRESSED_RE } from "./ISACloseGate.hook";
 import { appendFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
-import { homedir } from "node:os";
+import { getLifeosDir } from './lib/paths';
 
-const LIFEOS = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
+const LIFEOS = getLifeosDir();
 const OBS_PATH = join(LIFEOS, "MEMORY", "OBSERVABILITY", "isa-fold-gate.jsonl");
 
 /** Prod-mutating command shapes. Conservative and explicit: each one is a class this

@@ -50,11 +50,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
-import { homedir } from "node:os";
+import { getLifeosDir } from './lib/paths';
 
 type BlockResult = { block: true; message: string } | null;
 
-const STATE_DIR = join(homedir(), ".claude/LIFEOS/MEMORY/STATE/isa-session-view");
+const STATE_DIR = join(getLifeosDir(), "MEMORY/STATE/isa-session-view");
 const PRUNE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**

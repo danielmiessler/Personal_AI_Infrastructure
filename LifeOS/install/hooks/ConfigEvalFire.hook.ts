@@ -19,10 +19,10 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
-import { homedir } from 'node:os';
 import { isSubagentContext as isSubagent } from './lib/subagent';
+import { getClaudeDir } from './lib/paths';
 
-const CLAUDE_ROOT = resolve(homedir(), '.claude');
+const CLAUDE_ROOT = getClaudeDir();
 const RUNNER = resolve(CLAUDE_ROOT, 'LIFEOS/TOOLS/ConfigEvalOnChange.ts');
 const STATE = resolve(CLAUDE_ROOT, 'LIFEOS/MEMORY/OBSERVABILITY/config-eval-state.json');
 const DEBOUNCE_MINUTES = 5;

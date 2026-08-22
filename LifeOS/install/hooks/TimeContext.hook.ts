@@ -16,12 +16,12 @@
  * without the line — a timestamp is nice-to-have, never worth blocking.
  */
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { getSettingsPath } from './lib/paths';
 
 try {
   let TZ = "UTC";
   try {
-    const s = JSON.parse(readFileSync(`${homedir()}/.claude/settings.json`, "utf8"));
+    const s = JSON.parse(readFileSync(getSettingsPath(), "utf8"));
     if (s?.principal?.timezone) TZ = s.principal.timezone;
   } catch {
     // keep UTC

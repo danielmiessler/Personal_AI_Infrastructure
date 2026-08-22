@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.0.1
 ---
 
 # OmpHooksBridge — LifeOS hooks in omp (Oh My Pi)
@@ -21,7 +21,7 @@ Hooks are invoked exactly as Claude Code invokes them: `sh -c <command>` with th
 
 **Context injection.** Any `additionalContext` a hook returns (e.g. `<lifeos-memory-delta>`, rule updates) is queued and injected as a system message before the next LLM call via the `context` event — the omp equivalent of Claude Code's implicit injection.
 
-**Voice.** The `VoiceCompletion` hook requires a Claude transcript, which omp doesn't produce, so the bridge adds an omp-native voice path: at `turn_end` it reads the session log, extracts the final `🗣️ <DA>:` closer, and speaks it through Pulse's `/notify` (ElevenLabs). Same semantics as Claude Code — no `🗣️` line means silence. Disable with `OMP_VOICE=0`; override the voice id with `OMP_VOICE_ID`.
+**Voice.** The `VoiceCompletion` hook requires a Claude transcript, which omp doesn't produce, so the bridge adds an omp-native voice path: at `turn_end` it reads the turn's own final assistant message and extracts the final `🗣️ <DA>:` closer (angle brackets optional — both `🗣️ <ZEN>:` and `🗣️ ZEN:` are accepted), and speaks it through Pulse's `/notify` (ElevenLabs). Same semantics as Claude Code — no `🗣️` line means silence. Disable with `OMP_VOICE=0`; override the voice id with `OMP_VOICE_ID`.
 
 **Safety.** A hook returning `deny` blocks the tool. `ask` shows a UI confirm; headless runs fail closed (deny). Hook failures are logged, never crash the session. Per-hook timeout 30s.
 

@@ -32,7 +32,7 @@
  * never crash the session. Per-hook timeout 30s.
  */
 
-import { appendFileSync, readFileSync, statSync } from "fs";
+import { appendFileSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
@@ -256,59 +256,32 @@ function toolCcName(name: string): string {
 let pendingContext: string[] = [];
 
 /** omp-native voice line: the VoiceCompletion hook needs a Claude transcript,
- *  which omp doesn't have — extract the 🗣️ closer from the session log instead. */
+ *  which omp doesn't have — extract the 🗣️ closer from the message that just
+ *  completed the turn instead. */
 function extractVoiceLine(text: string): string | null {
   const lines = text.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].match(/^🗣️\s*<[^>]*>:\s*(.+)$/);
+    // Accept both `🗣️ <ZEN>:` and `🗣️ ZEN:` — the constitution template's
+    // `<DA>` is a placeholder, and TranscriptParser.extractVoiceCompletion
+    // accepts both. Angle-bracket-only matching silently dropped every closer
+    // written without brackets, so sessions spoke nothing. (2026-08-22)
+    const m = lines[i].match(/^🗣️\s*(?:<[^>]{1,32}>|[^:\n]{1,32})\s*:\s*(.+)$/);
     if (m) return m[1].trim();
   }
   return null;
 }
 
-function newestSessionJsonl(): string | null {
-  const root = join(HOME, ".omp", "agent", "sessions");
-  let newest: string | null = null;
-  let newestMs = 0;
-  try {
-    for (const rel of new Bun.Glob("**/*.jsonl").scanSync({ cwd: root })) {
-      const full = join(root, rel);
-      const st = statSync(full);
-      if (st.mtimeMs > newestMs) {
-        newestMs = st.mtimeMs;
-        newest = full;
-      }
-    }
-  } catch { /* no sessions dir yet */ }
-  return newest;
-}
-
-function readLastAssistantText(): string {
-  const file = newestSessionJsonl();
-  if (!file) return "";
-  try {
-    const lines = readFileSync(file, "utf8").trim().split("\n");
-    let last = "";
-    for (const line of lines) {
-      let parsed: unknown;
-      try { parsed = JSON.parse(line); } catch { continue; }
-      if (!parsed || typeof parsed !== "object") continue;
-      if (!("message" in parsed)) continue;
-      const msg = parsed.message;
-      if (!msg || typeof msg !== "object") continue;
-      if (!("role" in msg) || msg.role !== "assistant") continue;
-      if (!("content" in msg) || !Array.isArray(msg.content)) continue;
-      const text = msg.content
-        .filter((c: unknown): c is { text: string } =>
-          !!c && typeof c === "object" && "text" in c && typeof c.text === "string")
-        .map((c) => c.text)
-        .join("\n");
-      if (text) last = text;
-    }
-    return last;
-  } catch {
-    return "";
+function assistantMessageText(msg: unknown): string {
+  if (!msg || typeof msg !== "object") return "";
+  if (!("content" in msg)) return "";
+  const content = msg.content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c: unknown): c is { text?: string } => !!c && typeof c === "object" && "text" in c)
+      .map((c) => c.text ?? "")
+      .join("\n");
   }
+  return typeof content === "string" ? content : "";
 }
 
 export default function lifeosBridge(pi: ExtensionAPI): void {
@@ -415,7 +388,7 @@ export default function lifeosBridge(pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("turn_end", async () => {
+  pi.on("turn_end", async (event: { message?: unknown }) => {
     log({ event: "turn_end" });
     for (const reg of forEvent("Stop")) {
       const res = await runHook(reg, {
@@ -429,10 +402,12 @@ export default function lifeosBridge(pi: ExtensionAPI): void {
       if (parsed.context) pendingContext.push(parsed.context);
       log({ hook: hookName(reg.command), cc: "Stop", ok: res.ok, ms: res.ms, err: res.err || null, context: !!parsed.context });
     }
-    // omp-native voice: VoiceCompletion.hook.ts requires a Claude transcript;
-    // extract the 🗣️ closer from the session log and speak it via Pulse.
+    // omp-native voice: VoiceCompletion.hook.ts needs a Claude transcript omp
+    // doesn't have. Speak the turn's OWN final message — the old path read the
+    // newest session log globally, so with parallel sessions it picked the
+    // wrong session's line (or none) and voice silently died. (2026-08-22)
     if (process.env.OMP_VOICE === "0") return;
-    const line = extractVoiceLine(readLastAssistantText());
+    const line = extractVoiceLine(assistantMessageText(event?.message));
     if (!line) return;
     const t0 = Date.now();
     try {

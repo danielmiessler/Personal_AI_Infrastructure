@@ -27,10 +27,12 @@ export function isSubagentContext(): boolean {
       process.env.CLAUDE_AGENT_TYPE ||
       process.env.CLAUDE_CODE_SUBAGENT_NAME ||
       process.env.CLAUDE_CODE_SUBAGENT_TYPE ||
-      // Forked subagents set ONLY the fork marker — none of the above.
-      // Without it, 8 hook consumers re-inject main-session context into
-      // forks that inherited it via cache. (public issue #1831, @DRAZY)
-      process.env.CLAUDE_CODE_FORK_SUBAGENT === '1' ||
+      // CLAUDE_CODE_FORK_SUBAGENT is NOT a runtime fork marker — it is the
+      // FEATURE-ENABLE flag for forked subagents, and settings.system.json sets
+      // it globally in `env`. Every session therefore carried it, this function
+      // returned true unconditionally, and all nine consumer hooks silently
+      // no-oped. A fork inherits the parent env anyway, so the flag cannot
+      // discriminate a fork from its parent even in principle.
       process.env.CLAUDE_AGENT_SDK === '1',
   );
 }

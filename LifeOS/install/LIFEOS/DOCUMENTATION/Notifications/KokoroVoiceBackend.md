@@ -87,11 +87,15 @@ Bind the toggle to a hotkey with [skhd](https://github.com/koekeishiya/skhd):
 
 ```
 # ~/.config/skhd/skhdrc   (this path takes priority over ~/.skhdrc)
-cmd + shift - m : /Users/<you>/.bun/bin/bun /Users/<you>/.claude/LIFEOS/TOOLS/VoiceMute.ts toggle
+cmd + shift - m : /Users/<you>/.claude/LIFEOS/TOOLS/voice-mute-toggle.sh
 ```
 
+`voice-mute-toggle.sh` is a dependency-free bash flip of the same state file,
+made for hotkey daemons: skhd runs with a minimal `PATH` (no `~/.bun` or brew),
+so pointing it at bun tends to break. `VoiceMute.ts` remains the richer CLI.
+
 Gotchas worth knowing:
-- **Use absolute paths** - skhd runs with a minimal `PATH` (no `~/.bun` or brew).
+- **Use absolute paths** - even for the shell script, for the same `PATH` reason.
 - **`~/.config/skhd/skhdrc` shadows `~/.skhdrc`** - if a hotkey seems to ignore
   your edits, you're probably editing the wrong file.
 - **macOS "Secure Keyboard Entry"** (a checkbox in your terminal's app menu, not

@@ -71,6 +71,9 @@ export interface HookInput {
   session_id?: string;
   tool_name?: string;
   tool_input?: { file_path?: string };
+  /** Subagent stamp on hook input — a forked subagent carries "fork". */
+  agent_id?: string;
+  agent_type?: string;
 }
 
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
@@ -113,7 +116,7 @@ function writeLedger(path: string, ledger: Ledger): void {
 
 export function run(input: HookInput): string | null {
   try {
-    if (isSubagent()) return null;
+    if (isSubagent(input)) return null;
     const tool = input.tool_name ?? "";
     if (!WRITE_TOOLS.has(tool)) return null;
     const filePath = input.tool_input?.file_path;

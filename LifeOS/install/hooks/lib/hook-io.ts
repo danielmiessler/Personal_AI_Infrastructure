@@ -30,6 +30,12 @@ export interface HookInput {
    * VerificationGate.hook.ts for canonical usage.
    */
   stop_hook_active?: boolean;
+  /** Present only on subagent hook input — the delegate's id. */
+  agent_id?: string;
+  /** Present only on subagent hook input; a forked subagent carries "fork". */
+  agent_type?: string;
+  /** SessionStart only: startup | resume | clear | compact | fork. */
+  source?: string;
 }
 
 /**

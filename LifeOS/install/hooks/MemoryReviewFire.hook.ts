@@ -200,18 +200,21 @@ function logFire(payload: Record<string, unknown>): void {
  * fired. Read it so the reviewer analyzes THIS session's transcript instead
  * of guessing via globally-newest-mtime, which grabs a concurrent session's
  * transcript whenever two sessions overlap (public issue #1495, @christauff).
+ * `input` is the whole payload — the subagent guard reads its agent stamp,
+ * the only marker a forked subagent sets (see lib/subagent.ts).
  */
-function readHookInput(): { sessionId: string | null; transcriptPath: string | null } {
+function readHookInput(): { sessionId: string | null; transcriptPath: string | null; input: unknown } {
   try {
     const raw = readFileSync(0, "utf8");
-    if (!raw.trim()) return { sessionId: null, transcriptPath: null };
+    if (!raw.trim()) return { sessionId: null, transcriptPath: null, input: null };
     const j = JSON.parse(raw);
     return {
       sessionId: typeof j.session_id === "string" ? j.session_id : null,
       transcriptPath: typeof j.transcript_path === "string" ? j.transcript_path : null,
+      input: j,
     };
   } catch {
-    return { sessionId: null, transcriptPath: null };
+    return { sessionId: null, transcriptPath: null, input: null };
   }
 }
 
@@ -240,9 +243,9 @@ function spawnReviewer(turnsReviewed: number, transcriptPath: string | null): { 
 
 function main(): void {
   try {
-    if (isSubagent()) process.exit(0);
+    const { sessionId, transcriptPath, input } = readHookInput();
+    if (isSubagent(input)) process.exit(0);
 
-    const { sessionId, transcriptPath } = readHookInput();
     const nowMs = Date.now();
     const now = new Date(nowMs).toISOString();
     const config = loadConfig();

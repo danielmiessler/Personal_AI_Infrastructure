@@ -41,15 +41,17 @@ function isSentinel(path: string): boolean {
   return /(^|\/)CLAUDE\.md$/.test(path);
 }
 
-function readInput(): { filePath: string | null } {
+// `input` is the whole parsed payload — the subagent guard reads its agent stamp,
+// which is the only marker a forked subagent sets (see lib/subagent.ts).
+function readInput(): { filePath: string | null; input: unknown } {
   try {
     const raw = readFileSync(0, 'utf8');
-    if (!raw.trim()) return { filePath: null };
+    if (!raw.trim()) return { filePath: null, input: null };
     const j = JSON.parse(raw);
     const fp = j?.tool_input?.file_path;
-    return { filePath: typeof fp === 'string' ? fp : null };
+    return { filePath: typeof fp === 'string' ? fp : null, input: j };
   } catch {
-    return { filePath: null };
+    return { filePath: null, input: null };
   }
 }
 
@@ -76,9 +78,9 @@ function saveLastFire(iso: string): void {
 
 function main(): void {
   try {
-    if (isSubagent()) process.exit(0);
+    const { filePath, input } = readInput();
+    if (isSubagent(input)) process.exit(0);
 
-    const { filePath } = readInput();
     if (!filePath || !isSentinel(filePath)) process.exit(0);
     if (minutesSince(loadLastFire()) < DEBOUNCE_MINUTES) process.exit(0);
     if (!existsSync(RUNNER)) process.exit(0);

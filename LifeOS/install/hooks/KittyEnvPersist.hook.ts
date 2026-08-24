@@ -20,21 +20,24 @@ import { isSubagentContext } from './lib/subagent';
 
 const paiDir = getLifeosDir();
 
-// Skip for subagents
-if (isSubagentContext()) process.exit(0);
-
 // Read session_id + source from stdin (SessionStart hook input)
-// source ∈ {"startup", "resume", "compact", "clear"}; absent on older CC versions.
+// source ∈ {"startup", "resume", "compact", "clear", "fork"}; absent on older CC versions.
 let sessionId = '';
 let source = '';
+let parsed: unknown = null;
 try {
   const raw = readFileSync(0, 'utf-8');
   if (raw) {
-    const parsed = JSON.parse(raw);
-    sessionId = String(parsed.session_id || '');
-    source = String(parsed.source || '');
+    const json = JSON.parse(raw);
+    parsed = json;
+    sessionId = String(json.session_id || '');
+    source = String(json.source || '');
   }
 } catch { /* best-effort */ }
+
+// Skip for subagents — a fork announces itself as `source: "fork"` on stdin and
+// nowhere in the env, so this reads the payload above (see lib/subagent.ts).
+if (isSubagentContext(parsed)) process.exit(0);
 
 // Persist Kitty environment for hooks that run later without terminal context
 const kittyListenOn = process.env.KITTY_LISTEN_ON;

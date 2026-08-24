@@ -213,8 +213,13 @@ function main(): void {
   // of exiting 1 on every derivedsync run (public issue #1488). The consumer
   // (hooks/lib/system-file-guard-core.ts) already fails open on a missing
   // DENY_HASHES.json, so nothing is lost.
-  if (!existsSync(join(CLAUDE, "skills", "_LIFEOS"))) {
-    console.log("[DeriveDenyHashes] skills/_LIFEOS absent (public install) — skipping hash write");
+  // Fix 2026-08-23: since #1689 the filter's home is USER/SECURITY and the
+  // consumer ships in hooks/lib — a public install WITH that consumer present
+  // both has a home for the filter and a guard reading it, so only skip when
+  // the consumer is missing too (predicate was stale, pre-relocation).
+  const consumerPresent = existsSync(join(CLAUDE, "hooks", "lib", "system-file-guard-core.ts"));
+  if (!existsSync(join(CLAUDE, "skills", "_LIFEOS")) && !consumerPresent) {
+    console.log("[DeriveDenyHashes] skills/_LIFEOS absent and no hash consumer installed — skipping hash write");
     return;
   }
 

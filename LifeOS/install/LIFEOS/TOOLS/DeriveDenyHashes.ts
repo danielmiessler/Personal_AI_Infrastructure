@@ -28,7 +28,7 @@
  * token, so filtering here keeps the scan precise. Tune ALLOWLIST/STOPWORDS with
  * --show-tokens.
  */
-import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync, lstatSync, realpathSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync, realpathSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname, sep } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
@@ -244,14 +244,20 @@ function main(): void {
   // outside the tree. Resolve both sides and refuse anything not contained.
   const userRoot = realpathSync(join(CLAUDE, "LIFEOS", "USER"));
   const outDir = realpathSync(dirname(OUT_PATH));
-  let outIsSymlink = false;
-  try { outIsSymlink = lstatSync(OUT_PATH).isSymbolicLink(); } catch { /* absent is fine */ }
-  if ((outDir !== userRoot && !outDir.startsWith(userRoot + sep)) || outIsSymlink) {
-    console.error(`[DeriveDenyHashes] refusing write: ${OUT_PATH} resolves outside the USER root or is a symlink`);
+  if (outDir !== userRoot && !outDir.startsWith(userRoot + sep)) {
+    console.error(`[DeriveDenyHashes] refusing write: ${OUT_PATH} resolves outside the USER root`);
     process.exit(1);
   }
-  writeFileSync(OUT_PATH, JSON.stringify(payload, null, 0) + "\n");
-  console.log(`[DeriveDenyHashes] wrote ${hashes.length} salted hashes -> ${OUT_PATH} (no plaintext)`);
+  // Write temp-then-rename ON THE RESOLVED DIR: rename replaces the directory
+  // entry, so a statically crafted DENY_HASHES.json that is a symlink or hard
+  // link to a file elsewhere is replaced, never followed/truncated. Threat
+  // model boundary: an attacker mutating the tree concurrently mid-run already
+  // has code execution as this user and is out of scope.
+  const finalPath = join(outDir, "DENY_HASHES.json");
+  const tmpPath = join(outDir, `.DENY_HASHES.json.tmp-${process.pid}`);
+  writeFileSync(tmpPath, JSON.stringify(payload, null, 0) + "\n");
+  renameSync(tmpPath, finalPath);
+  console.log(`[DeriveDenyHashes] wrote ${hashes.length} salted hashes -> ${finalPath} (no plaintext)`);
 }
 
 if (import.meta.main) main();

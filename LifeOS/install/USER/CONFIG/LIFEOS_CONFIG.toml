@@ -40,3 +40,29 @@ token_env_var = "CLOUDFLARE_API_TOKEN"
 [paths]
 user_dir = "~/.claude/LIFEOS/USER"
 projects_dir = "~/Projects"
+
+[launch]
+# Where a `lifeos` session starts. These values are the built-in defaults and
+# reproduce stock behaviour exactly: every session cd's to the config root. An
+# older config with no [launch] block behaves identically.
+#
+#   "config-root"        cd to default_dir (this default)
+#   "stay"               stay in the launch directory, always
+#   "stay-if-permitted"  stay when under a permitted root, else default_dir
+cwd_mode = "config-root"
+
+# Where config-root mode lands, and where --home forces a session regardless
+# of the current directory.
+default_dir = "~/.claude"
+
+# Only consulted in stay-if-permitted mode. Accepts literal paths ("~/...",
+# "/...", "${HOME}/...") and @-sentinels:
+#
+#   @config-root     the config root (~/.claude)
+#   @config-paths    [paths].user_dir and [paths].projects_dir, above
+#   @settings-allow  roots parsed from settings.json permissions.allow Edit() rules
+#
+# Matching is lexical and prefix-based against the visible path, so "~/Projects"
+# matches "~/Projects/thing" but not "~/Projects-old". No globbing. An unknown
+# sentinel is an error, not a silent skip. See DOCUMENTATION/Config/ConfigSystem.md.
+permitted_roots = ["@config-root", "@config-paths"]

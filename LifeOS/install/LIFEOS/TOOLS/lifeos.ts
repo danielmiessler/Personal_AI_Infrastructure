@@ -25,6 +25,7 @@ import { existsSync, readFileSync, writeFileSync, readdirSync, symlinkSync, unli
 import { homedir } from "os";
 import { join, basename } from "path";
 import { PULSE_BASE } from "../PULSE/endpoint";
+import { loadLifeosLaunch, type LifeosLaunch } from "./LifeosConfig";
 
 // ============================================================================
 // Configuration
@@ -104,6 +105,112 @@ export function inMainCheckoutWithWorktrees(): boolean {
 function error(message: string): never {
   console.error(`❌ ${message}`);
   process.exit(1);
+}
+
+// ============================================================================
+// Launch directory
+// ============================================================================
+
+// The path the user SEES. process.cwd() reconstructs the canonical physical
+// path -- the kernel holds the cwd as a directory reference, not a string -- so
+// a symlinked route is lost there. $PWD carries it, and process.chdir() never
+// touches $PWD.
+//
+// PWD is not realpath-validated: `lifeos` is a shell alias, so bash sets it
+// immediately before exec. The fallback covers the direct `bun .../lifeos.ts`
+// invocation INSTALL.md documents, where PWD may be absent.
+export function visibleCwd(): string {
+  return process.env.PWD ?? process.cwd();
+}
+
+function isUnderPermittedRoot(cwd: string, roots: string[]): boolean {
+  for (const root of roots) {
+    if (cwd === root) {
+      return true;
+    }
+    // Re-append the separator stripped at load, so "~/Projects" does not match
+    // "~/Projects-old".
+    const prefix = root.endsWith("/") ? root : `${root}/`;
+    if (cwd.startsWith(prefix)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Absolute directory the session should start in.
+ *
+ * Pure -- no filesystem, no process state; everything arrives as an argument,
+ * so the whole decision table is exercisable as string logic with no fixtures
+ * (public issue #1526: a knob that looks live but is not).
+ *
+ * Precedence: --local -> --home -> LIFEOS_CWD_MODE -> [launch].cwd_mode ->
+ * built-in "config-root".
+ */
+export function resolveLaunchDir(input: {
+  flags: { local?: boolean; home?: boolean };
+  cwd: string;
+  config: LifeosLaunch;
+  env: Record<string, string | undefined>;
+}): string {
+  if (input.flags.local) {
+    return input.cwd;
+  }
+  if (input.flags.home) {
+    return input.config.defaultDir;
+  }
+
+  // `||` not `??`: an empty LIFEOS_CWD_MODE counts as unset.
+  const mode = input.env.LIFEOS_CWD_MODE || input.config.cwdMode;
+  switch (mode) {
+    case "stay":
+      return input.cwd;
+    case "stay-if-permitted":
+      // Lexical match against the VISIBLE path: no realpath on either side.
+      // Resolving would make a symlinked project directory stop matching the
+      // root the user typed.
+      return isUnderPermittedRoot(input.cwd, input.config.permittedRoots)
+        ? input.cwd
+        : input.config.defaultDir;
+    case "config-root":
+      return input.config.defaultDir;
+    default:
+      // config.cwdMode is validated at config load, so only the env var can
+      // land here.
+      throw new Error(
+        `lifeos: LIFEOS_CWD_MODE is "${mode}" -- valid modes are config-root, stay, stay-if-permitted`,
+      );
+  }
+}
+
+/**
+ * The destination-keyed half of the main-checkout guard (public PR #1579,
+ * @asdf8675309): does this launch land in the current directory, and has the
+ * user not overridden the check?
+ *
+ * Split out from inMainCheckoutWithWorktrees() so the decision is testable
+ * without a git fixture, and so short-circuiting keeps the two git subprocesses
+ * off the common path.
+ */
+export function mainCheckoutGuardApplies(
+  launchDir: string,
+  cwd: string,
+  env: Record<string, string | undefined>,
+  defaultDir: string,
+): boolean {
+  // The configured default destination is ALWAYS exempt, even when it equals
+  // the cwd. Without this a stock install can lock itself out: default_dir is
+  // ~/.claude, that directory is commonly a git repo, and the tooling creates
+  // .claude/worktrees there as a side effect of agent isolation, so every
+  // launch from it would error out.
+  //
+  // The guard means "you asked to STAY somewhere that is probably the wrong
+  // branch". Arriving at default_dir is not that.
+  if (launchDir === defaultDir) {
+    return false;
+  }
+  return launchDir === cwd && env.LIFEOS_ALLOW_ROOT !== "1";
 }
 
 // A Core-only install declines the hooks tree, so ../../hooks/lib/identity may
@@ -489,7 +596,7 @@ function cmdWallpaper(args: string[]) {
 // Commands
 // ============================================================================
 
-async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: string; local?: boolean; systemPrompt?: string; passthrough?: string[] }) {
+async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: string; local?: boolean; home?: boolean; systemPrompt?: string; passthrough?: string[] }) {
   // CLAUDE.md is now static — no build step needed.
   // Algorithm spec is loaded on-demand when Algorithm mode triggers.
   // (InstantiatePAI.ts is retired — kept for reference only)
@@ -524,22 +631,35 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
     }
   }
 
-  // Guard (public PR #1579, @asdf8675309): --local launches Claude in the
-  // CURRENT directory. If that's a repo's main checkout (not a worktree) and
-  // the repo uses .claude/worktrees, the whole session would run on whatever
-  // stale branch the root is parked on. Refuse unless explicitly overridden.
-  if (options.local && process.env.LIFEOS_ALLOW_ROOT !== "1" && inMainCheckoutWithWorktrees()) {
+  const launchConfig = loadLifeosLaunch();
+  const launchDir = resolveLaunchDir({
+    flags: { local: options.local, home: options.home },
+    cwd: visibleCwd(),
+    config: launchConfig,
+    env: process.env,
+  });
+
+  // Guard (public PR #1579, @asdf8675309), keyed on the DESTINATION rather than
+  // on --local: the hazard is where the session LANDS, not why. If that
+  // destination is a repo's main checkout (not a worktree) and the repo uses
+  // .claude/worktrees, the session runs on whatever stale branch the root is
+  // parked on. Keyed on the flag, the guard would stop protecting anyone who
+  // sets cwd_mode to a staying mode.
+  if (
+    mainCheckoutGuardApplies(launchDir, visibleCwd(), process.env, launchConfig.defaultDir) &&
+    inMainCheckoutWithWorktrees()
+  ) {
     error(
       "You're in the main checkout root, not a worktree.\n" +
-        "   A --local session here runs on whatever branch the root is parked on.\n" +
+        "   A session here runs on whatever branch the root is parked on.\n" +
         "   cd into a worktree first, or set LIFEOS_ALLOW_ROOT=1 to override.",
     );
   }
 
-  // Change to LifeOS directory unless --local flag is set
-  if (!options.local) {
-    process.chdir(CLAUDE_DIR);
-  }
+  // Existence stays out of the resolver: chdir is atomic (no TOCTOU) and
+  // distinguishes ENOENT / ENOTDIR / EACCES where a boolean cannot. Let the raw
+  // error surface.
+  process.chdir(launchDir);
 
   // Flags this CLI doesn't model (e.g. --fork-session) reach `claude` verbatim
   // after a bare `--`. Without it the parser's default branch swallowed every
@@ -712,7 +832,32 @@ async function cmdPrompt(prompt: string) {
     args.push("--append-system-prompt-file", systemPromptFile);
   }
 
-  process.chdir(CLAUDE_DIR);
+  // The launch directory is a property of the invocation, not of whether the
+  // session is interactive, so a one-shot honours cwd_mode too. cmdPrompt takes
+  // only the prompt, so the flag set is empty and the config does the work.
+  const launchConfig = loadLifeosLaunch();
+  const launchDir = resolveLaunchDir({
+    flags: {},
+    cwd: visibleCwd(),
+    config: launchConfig,
+    env: process.env,
+  });
+
+  // Same destination-keyed guard as cmdLaunch: a one-shot on a stale
+  // main-checkout branch is the same failure with less warning, since there is
+  // no session to notice it in.
+  if (
+    mainCheckoutGuardApplies(launchDir, visibleCwd(), process.env, launchConfig.defaultDir) &&
+    inMainCheckoutWithWorktrees()
+  ) {
+    error(
+      "You're in the main checkout root, not a worktree.\n" +
+        "   A session here runs on whatever branch the root is parked on.\n" +
+        "   cd into a worktree first, or set LIFEOS_ALLOW_ROOT=1 to override.",
+    );
+  }
+
+  process.chdir(launchDir);
 
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
   env.PWD = process.cwd();
@@ -738,6 +883,7 @@ USAGE:
   lifeos -r, --resume [id]  Resume a session (interactive picker, or a specific session ID)
   lifeos -s, --system-prompt  System prompt file to append (default: LIFEOS_SYSTEM_PROMPT.md)
   lifeos -l, --local       Stay in current directory (don't cd to ~/.claude)
+  lifeos --home            Go to the configured default_dir regardless of cwd
   lifeos -- <flags...>     Forward everything after -- straight to \`claude\`
 
 COMMANDS:
@@ -800,7 +946,7 @@ async function main() {
   // and the default branch below would otherwise silently drop it all over again
   // (public issue #1690, @catchingknives).
   const KNOWN_FLAGS = new Set([
-    "-m", "--mcp", "-r", "--resume", "-s", "--system-prompt", "-l", "--local",
+    "-m", "--mcp", "-r", "--resume", "-s", "--system-prompt", "-l", "--local", "--home",
     "-v", "--version", "-h", "--help", "-p", "-w", "--wallpaper", "--",
   ]);
   if (args[0].startsWith("-") && !KNOWN_FLAGS.has(args[0])) {
@@ -813,6 +959,7 @@ async function main() {
   let resume = false;
   let resumeId: string | undefined;
   let local = false;
+  let home = false;
   let systemPrompt: string | undefined;
   let command: string | undefined;
   let subCommand: string | undefined;
@@ -853,6 +1000,10 @@ async function main() {
       case "-l":
       case "--local":
         local = true;
+        break;
+      // No short form: -h is taken by --help.
+      case "--home":
+        home = true;
         break;
       case "-v":
       case "--version":
@@ -942,11 +1093,22 @@ async function main() {
       break;
     default:
       // Launch with options
-      await cmdLaunch({ mcp, resume, resumeId, local, systemPrompt, passthrough });
+      await cmdLaunch({ mcp, resume, resumeId, local, home, systemPrompt, passthrough });
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// Guarded so the pure helpers above can be imported without launching a
+// session -- the same pattern LifeosConfig.ts uses.
+if (import.meta.main) {
+  main().catch((e) => {
+    // Config validation throws carry actionable messages naming the offending
+    // key, and console.error(e) on an Error prints the stack instead, burying
+    // them. Route Errors through the same formatter every other user-facing
+    // failure uses; keep the raw dump for non-Error throws.
+    if (e instanceof Error && e.message) {
+      error(e.message);
+    }
+    console.error(e);
+    process.exit(1);
+  });
+}

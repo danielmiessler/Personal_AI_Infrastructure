@@ -61,6 +61,52 @@ LifeOS configuration follows the **system/user separation** contract (`LIFEOS/DO
 3. **Skills** — private `_*` skills that need credentials/integration data read `LIFEOS_CONFIG.toml` via `LifeosConfig.load()` (e.g. a home-automation skill reads its Homebridge token; the network skill reads UniFi creds).
 4. **CLAUDE.md `@`-imports** — at session start, CC loads files referenced by top-level `@`-imports in `CLAUDE.md` (ARCHITECTURE_SUMMARY, PRINCIPAL_TELOS, PRINCIPAL_IDENTITY, DA_IDENTITY, PROJECTS, OPERATIONAL_RULES). CC does NOT follow transitive `@`-imports from inside imported files, so identity files must be listed in `CLAUDE.md` directly.
 
+## The `[launch]` block — where a session starts
+
+`LIFEOS_CONFIG.toml` carries an optional `[launch]` table that decides which directory `lifeos` puts a session in. Historically the launcher hardcoded `process.chdir(CLAUDE_DIR)`, so every session landed in `~/.claude` regardless of where the terminal was — which meant the Bash tool, `EventLogger`'s git snapshot, `ForgeProgress`'s `codex exec --cd`, `SecretScan`'s default target, and Serena's project matching all operated on the LifeOS install rather than the project actually being worked in.
+
+**The governing property: the default reproduces stock behaviour byte for byte.** No config file, no `[launch]` block, or an absent `cwd_mode` all resolve to "cd to the config root". Nobody's behaviour changes until they opt in.
+
+### Modes
+
+| `cwd_mode` | Behaviour |
+|---|---|
+| `config-root` | cd to `default_dir`. STOCK, and the default when the key is absent. |
+| `stay` | Stay in the launch directory, always. |
+| `stay-if-permitted` | Stay when the launch directory is under a permitted root, otherwise cd to `default_dir`. |
+
+`default_dir` defaults to the config root (`~/.claude`). It is the configured landing directory: set it to anything else and both `config-root` mode and the `--home` flag follow it.
+
+### Precedence
+
+`--local` → `--home` → `LIFEOS_CWD_MODE` env var → `[launch].cwd_mode` → built-in `config-root`. `--local` forces staying in the current directory; `--home` forces `default_dir`. An empty `LIFEOS_CWD_MODE` counts as unset; an unrecognised one is a hard error rather than a silent fallback.
+
+### Permitted roots
+
+`permitted_roots` is consulted only in `stay-if-permitted` mode, and accepts literal paths and `@`-sentinels:
+
+| Sentinel | Expands to |
+|---|---|
+| `@config-root` | the config root (`~/.claude`) |
+| `@config-paths` | `[paths].user_dir` and `[paths].projects_dir` |
+| `@settings-allow` | roots parsed from the MERGED `settings.json` `permissions.allow` `Edit()` rules |
+
+`@settings-allow` matches an `Edit(<path>/**)` rule whose `<path>` is ROOTED — it begins with `~/` or `/`. Rules carrying a wildcard anywhere other than the trailing `/**` are SKIPPED, because a leading `**/` form is a pattern rather than a rooted path and treating it as a root would add a meaningless entry; relative rules are skipped for the same reason. The merged `settings.json` is the right input rather than `settings.user.json`, since the effective permission set is what the user actually experiences.
+
+**"Known root" semantics.** Matching is lexical and prefix-based against the VISIBLE path (`$PWD`, not `process.cwd()`), with the trailing separator re-appended — so `~/Projects` matches `~/Projects/thing` but NOT `~/Projects-old`. A directory equal to a root exactly counts as under it. There is no globbing, and no realpath on either side: resolving would make a symlinked project directory stop matching the root the user actually typed. An ABSENT `permitted_roots` falls back to `["@config-root", "@config-paths"]`; an EMPTY one (`[]`) means nothing is permitted, so `stay-if-permitted` always lands on `default_dir`.
+
+### Validation
+
+The whole block is validated at config LOAD, regardless of which mode is active, so a typo in `permitted_roots` surfaces at the next launch rather than three weeks later when the mode changes. Accepted path forms are `~/...`, absolute `/...`, and `${VAR}/...` or `$VAR/...` drawn from a bounded allowlist (`HOME`, `LIFEOS_DIR`, `PROJECTS_DIR`). Rejected, each naming the offending key: any `..` segment, a relative path, anything containing `*`, an unknown `@sentinel`, and an allowlisted variable that is unset or empty. That last one is a hard error because naive expansion of an unset `${LIFEOS_DIR}` would yield `""`, turning `${LIFEOS_DIR}/x` into `/x` — a root-level prefix matching nearly everything.
+
+`@` is RESERVED as a prefix: a literal path beginning with `@` is not supported. An unknown sentinel is a hard error listing the valid set, never a silent skip — a dropped typo would narrow the permitted set invisibly and quietly change where sessions land.
+
+Existence is deliberately NOT checked at load. The split is that config load validates SYNTAX (pure string work) while `chdir` validates REALITY (does this directory exist right now, can we enter it) — so a `default_dir` on an automounted or network path does not fail validation at a moment when it is legitimately absent.
+
+### The main-checkout guard
+
+The worktree guard is keyed on the DESTINATION rather than on `--local`: the hazard is a property of where the session lands, not of why. Keyed on the flag, it would silently stop protecting anyone who set `cwd_mode` to a staying mode — exactly the population that most needs it. `LIFEOS_ALLOW_ROOT=1` still overrides.
+
 ## Editing
 
 - **Identity / voice / principal name / per-machine integrations** → edit `LIFEOS/USER/CONFIG/settings.user.json` (USER overlay) or `LIFEOS_CONFIG.toml`. Takes effect next SessionStart.

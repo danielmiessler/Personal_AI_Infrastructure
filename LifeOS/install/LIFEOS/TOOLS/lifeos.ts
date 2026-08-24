@@ -559,6 +559,12 @@ async function cmdLaunch(options: { mcp?: string; resume?: boolean; resumeId?: s
   // interactive session uses OAuth (`claude /login`) instead of API-key billing.
   // Mirrors the protection in cmdPrompt() — same hazard, same fix.
   const launchEnv = { ...process.env };
+  // chdir() moves the process but never touches PWD, a shell convention rather
+  // than kernel state -- so without this the child inherits a PWD naming the
+  // launch-time directory while its actual cwd is elsewhere. Bash recomputes an
+  // inherited PWD that is not a valid alias for its real directory, which is
+  // why it has been invisible.
+  launchEnv.PWD = process.cwd();
   delete launchEnv.ANTHROPIC_API_KEY;
   launchEnv.CLAUDE_CODE_WORKFLOWS = "1";
   const proc = spawn(args, {
@@ -709,6 +715,7 @@ async function cmdPrompt(prompt: string) {
   process.chdir(CLAUDE_DIR);
 
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
+  env.PWD = process.cwd();
   delete env.ANTHROPIC_API_KEY;
   env.CLAUDE_CODE_WORKFLOWS = "1";
   const proc = spawn(args, {

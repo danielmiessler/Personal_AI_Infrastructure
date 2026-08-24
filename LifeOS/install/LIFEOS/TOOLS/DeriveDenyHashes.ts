@@ -28,9 +28,9 @@
  * token, so filtering here keeps the scan precise. Tune ALLOWLIST/STOPWORDS with
  * --show-tokens.
  */
-import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync, lstatSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, sep } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 
 const HOME = process.env.HOME || homedir();
@@ -238,6 +238,18 @@ function main(): void {
   // Create the output dir first — absent on fresh installs, and a throw here
   // aborts the whole DerivedSync pass (public PR #1652, @elhoim).
   mkdirSync(dirname(OUT_PATH), { recursive: true });
+  // The USER root is legitimately a symlink (XDG mount, SystemUserBoundary.md),
+  // but nothing below it may be: a restored or untrusted USER tree carrying
+  // SECURITY/ or DENY_HASHES.json as a symlink would redirect this write
+  // outside the tree. Resolve both sides and refuse anything not contained.
+  const userRoot = realpathSync(join(CLAUDE, "LIFEOS", "USER"));
+  const outDir = realpathSync(dirname(OUT_PATH));
+  let outIsSymlink = false;
+  try { outIsSymlink = lstatSync(OUT_PATH).isSymbolicLink(); } catch { /* absent is fine */ }
+  if ((outDir !== userRoot && !outDir.startsWith(userRoot + sep)) || outIsSymlink) {
+    console.error(`[DeriveDenyHashes] refusing write: ${OUT_PATH} resolves outside the USER root or is a symlink`);
+    process.exit(1);
+  }
   writeFileSync(OUT_PATH, JSON.stringify(payload, null, 0) + "\n");
   console.log(`[DeriveDenyHashes] wrote ${hashes.length} salted hashes -> ${OUT_PATH} (no plaintext)`);
 }

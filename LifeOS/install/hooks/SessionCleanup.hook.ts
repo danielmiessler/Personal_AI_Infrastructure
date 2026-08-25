@@ -86,12 +86,31 @@ function clearSessionWork(sessionId?: string): void {
       // findArtifactPath prefers ISA.md and falls back to legacy PRD.md.
       if (isaPath && existsSync(isaPath)) {
         let isaContent = readFileSync(isaPath, 'utf-8');
-        isaContent = isaContent.replace(/^phase:.*$/m, 'phase: complete');
+
+        // A session ending is not a claim closing. Derive the phase from claim
+        // state so work in flight keeps a phase the continuity surfaces can see.
+        const openClaims = (isaContent.match(/^- \[ \]/gm) || []).length;
+        const closedClaims = (isaContent.match(/^- \[x\]/gm) || []).length;
+        const phase = openClaims > 0
+          ? (closedClaims > 0 ? 'climbing' : 'scoping')
+          : 'complete';
+
+        isaContent = isaContent.replace(/^phase:.*$/m, `phase: ${phase}`);
         isaContent = isaContent.replace(/^updated:.*$/m, `updated: ${getISOTimestamp()}`);
-        isaContent = isaContent.replace(/^status: ACTIVE$/m, 'status: COMPLETED');
-        isaContent = isaContent.replace(/^completed_at: null$/m, `completed_at: "${getISOTimestamp()}"`);
+        if (openClaims > 0) {
+          // progress must not go stale while the ISA stays open
+          isaContent = isaContent.replace(
+            /^progress:.*$/m, `progress: ${closedClaims}/${closedClaims + openClaims}`);
+        } else {
+          isaContent = isaContent.replace(/^status: ACTIVE$/m, 'status: COMPLETED');
+          isaContent = isaContent.replace(/^completed_at: null$/m, `completed_at: "${getISOTimestamp()}"`);
+        }
         writeFileSync(isaPath, isaContent, 'utf-8');
         marked = true;
+        if (openClaims > 0) {
+          console.error(`[SessionCleanup] ${isaPath}: left phase: ${phase} — ` +
+            `${openClaims} claim(s) still open. A session ending does not close claims.`);
+        }
       }
 
       // Legacy fallback: update META.yaml if it exists

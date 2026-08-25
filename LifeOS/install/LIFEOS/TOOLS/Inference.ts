@@ -260,6 +260,9 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
       '--effort', config.effort,  // Opus 4.8 respects effort strictly; tune intelligence vs. token spend per level
       ...(hasImages ? ['--allowedTools', 'Read'] : ['--tools', '']),
       '--output-format', 'json',
+      // Verbose on turns the JSON envelope into an array (anthropics/claude-code#84784),
+      // and --setting-sources '' doesn't suppress it. Force it off.
+      '--settings', '{"verbose":false}',
       '--exclude-dynamic-system-prompt-sections',  // v3.23 C2: cache-friendly prompt prefix (claude-code v2.1.98+)
       '--setting-sources', '',
       ...systemPromptArgs,

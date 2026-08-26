@@ -1,0 +1,67 @@
+name: Bug report
+description: A defect with a version, a location, a repro on a clean tree, and proof the check would have gone red.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Five fields make a report cheap to accept. The first four say what is broken and where. The fifth, the negative control, is what turns a patch review into a bug reproduction: it states the defect without reference to any fix, so a maintainer can see the failure before reading a line of proposed code.
+
+        Redact before you paste. DA output carries your home path, your name, and sometimes your own data. `/Users/you/.claude/...` reads fine.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: LifeOS version, plus the component version when the defect lives in one.
+      placeholder: LifeOS 7.40.4 / Cortex
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What is broken
+      description: One paragraph on the behaviour, not the remedy.
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Where (file:line)
+      description: The line the defect lives on. Add the reader and the writer when the two disagree.
+      placeholder: LIFEOS/TOOLS/CortexHealth.ts:206
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro on a clean tree
+      description: Commands someone can run against a fresh install of the version above, and what they will see. No local patches, no personal config.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: negative-control
+    attributes:
+      label: Negative control
+      description: >
+        How you proved the check would have gone red. Run the probe against the unpatched version and paste the failing output, phrased without reference to any fix, e.g. "on unpatched 7.40.4 the retriever returns 5 ranked results and writes 0 evidence rows". A probe that has never been red is an assertion wearing the clothes of a verification.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested fix
+      description: Optional. A diff, or the shape of one. Say plainly if it is untested.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched open and closed issues for this defect.
+          required: true
+        - label: The repro runs against a clean tree of the version above, not against my modified install.
+          required: true
+        - label: "I removed personal data from the pasted output — real names, absolute home paths, tokens, my own content."
+          required: true

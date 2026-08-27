@@ -1095,6 +1095,12 @@ Tasks:
 
 ## 9. Migration Plan
 
+> **Format note.** This plan was drafted while the schema still lived in a sibling
+> `DA_IDENTITY.yaml`. Section 1 retired that two-file split — the schema is now YAML
+> frontmatter inside `DA_IDENTITY.md` itself. Read the steps below that write or
+> deprecate a `.yaml` as writing the frontmatter of the single file. `MigrateDAIdentity.ts`
+> is not part of the release payload.
+
 ### Step-by-Step Migration for the primary DA
 
 ```

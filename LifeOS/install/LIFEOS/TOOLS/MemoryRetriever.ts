@@ -436,10 +436,23 @@ function extractExcerpt(note: KnowledgeNote, queryTerms: string[]): string {
   const paragraphs = body.split(/\n\n+/).filter((p) => p.trim().length > 30);
   if (paragraphs.length === 0) return body.substring(0, MAX_EXCERPT_CHARS);
 
-  let bestParagraph = paragraphs[0];
+  // A heading-only block carries no payload: the result header already renders the
+  // note title, so returning a heading as the excerpt spends a retrieval slot on a
+  // line the caller has printed already. Covers ATX ("## Thesis") and setext (a
+  // title underlined with equals signs or hyphens).
+  const isHeadingOnly = (p: string) => {
+    const lines = p.trim().split("\n").filter((l) => l.trim() !== "");
+    if (lines.length === 0) return false;
+    const isAtx = (l: string) => /^\s*#{1,6}\s/.test(l);
+    if (lines.every(isAtx)) return true;
+    return lines.length === 2 && !isAtx(lines[0]!) && /^\s*(=+|-+)\s*$/.test(lines[1]!);
+  };
+
+  let bestIndex = -1;
   let bestDensity = 0;
 
-  for (const para of paragraphs) {
+  for (let i = 0; i < paragraphs.length; i++) {
+    const para = paragraphs[i]!;
     const paraLower = para.toLowerCase();
     let hits = 0;
     for (const term of queryTerms) {
@@ -450,11 +463,27 @@ function extractExcerpt(note: KnowledgeNote, queryTerms: string[]): string {
     const density = hits / para.split(/\s+/).length;
     if (density > bestDensity) {
       bestDensity = density;
-      bestParagraph = para;
+      bestIndex = i;
     }
   }
 
-  return bestParagraph.substring(0, MAX_EXCERPT_CHARS);
+  const firstProse = paragraphs.find((p) => !isHeadingOnly(p));
+
+  // Nothing matched: every density is 0, so the old code returned paragraphs[0] —
+  // the note title for any note opening with a heading over 30 chars. Prefer prose.
+  if (bestIndex === -1) return (firstProse ?? paragraphs[0]!).substring(0, MAX_EXCERPT_CHARS);
+
+  // The match landed on a heading: return the prose that heading introduces, so a
+  // query hitting a section title yields that section rather than an unrelated one.
+  if (isHeadingOnly(paragraphs[bestIndex]!)) {
+    const following = paragraphs.slice(bestIndex + 1).find((p) => !isHeadingOnly(p));
+    if (following) return following.substring(0, MAX_EXCERPT_CHARS);
+    // Nothing follows it (trailing heading, or a note that is all headings). Return
+    // the matched heading rather than reaching back for unrelated earlier prose: it
+    // is thinner, but it tells the reader which section actually matched.
+  }
+
+  return paragraphs[bestIndex]!.substring(0, MAX_EXCERPT_CHARS);
 }
 
 // ============================================================================

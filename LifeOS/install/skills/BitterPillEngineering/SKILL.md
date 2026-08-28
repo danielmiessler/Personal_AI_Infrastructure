@@ -81,7 +81,7 @@ User: "I trimmed my rules, check if anything's still redundant"
 - Claude's built-in system prompt changes across versions — what was "default behavior" 3 months ago may not be now. When in doubt, test rather than assume.
 - Rules that seem redundant with defaults may have been added because Claude was inconsistent about following the default. Check failure history before cutting.
 - "One-off fix" rules sometimes prevent recurring failures. Check if the failure pattern is truly gone before removing.
-- The `loadAtStartup` list in settings.json and `postCompactRestore.fullFiles` must stay in sync — if you remove a file from one, check the other.
+- Startup context comes from CLAUDE.md `@`-imports plus the `dynamicContext` settings key — `loadAtStartup` was retired at v5.0's move to `@`-imports, and `postCompactRestore` no longer ships in any settings file. A reference to either in an instruction file is dead weight to flag, not a sync obligation.
 - **Deterministic drift detection exists:** `bun ~/.claude/LIFEOS/TOOLS/SkillDriftLint.ts --dir skills/ [--strict] [--top N]` (ported from @rpriven, public issue #1523). Advisory-only V1/V2 pattern scan — use it to FIND candidates mechanically, then judge each against the four keep-classes with this skill's questions. Drift grows back after every cut; the linter is the continuous check, this skill is the judgment.
 
 ## The Five Questions

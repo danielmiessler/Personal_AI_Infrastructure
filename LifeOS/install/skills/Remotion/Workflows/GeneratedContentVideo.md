@@ -19,7 +19,7 @@ End-to-end AI video generation: topic or script → scene images + narration + c
 ## Prerequisites
 
 - `ELEVENLABS_API_KEY` in environment
-- Art skill configured (Nano Banana Pro or GPT-Image-2) <!-- public issue #1760, @jacobo-ortiz -->
+- Art skill configured (Nano Banana Pro) <!-- public issue #1760, @jacobo-ortiz -->
 - Existing Remotion project OR this workflow will create one
 
 ## Execution Steps

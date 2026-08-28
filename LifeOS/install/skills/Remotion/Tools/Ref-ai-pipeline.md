@@ -14,7 +14,7 @@ Generate all ingredients (scene images, narration audio, captions) with AI, then
 ```
 Topic/Script
     │
-    ├── Art skill (Nano Banana Pro / GPT-Image-2) ──► scene-N.png in /public
+    ├── Art skill (Nano Banana Pro) ──────────────► scene-N.png in /public
     ├── ElevenLabs TTS ───────────────────────────► narration.mp3 in /public
     └── ElevenLabs STT (on narration.mp3) ────────► Caption[]
             │

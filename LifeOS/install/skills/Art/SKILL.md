@@ -40,11 +40,11 @@ These override default behavior. If the directory does not exist, proceed with s
 
 ## What It Does
 
-Generates static visual content across 20+ formats — blog headers, technical and architecture diagrams, frameworks, taxonomies, timelines, comparisons, stat cards, comics, icons, wallpapers, D3 charts, Mermaid diagrams — using Flux, Nano Banana Pro (Gemini 3 Pro), and GPT-Image-2. Every request routes through a named workflow that encodes the technique and palette, output stages to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for review first, and blog headers ship both a transparent inline version and an opaque social thumbnail.
+Generates static visual content across 20+ formats — blog headers, technical and architecture diagrams, frameworks, taxonomies, timelines, comparisons, stat cards, comics, icons, wallpapers, D3 charts, Mermaid diagrams — using Flux and Nano Banana Pro (Gemini 3 Pro). Every request routes through a named workflow that encodes the technique and palette, output stages to $LIFEOS_DOWNLOADS_DIR (default ~/Downloads/ when unset) for review first, and blog headers ship both a transparent inline version and an opaque social thumbnail.
 
 ## The Problem
 
-The bare image model produces inconsistent, off-style output when handed a freeform prompt — one session shipped 12 rejected diagrams because the prompt skipped the workflow that holds the composition rules. Different formats need different models (text-heavy cards want GPT-Image-2; editorial headers want Nano Banana Pro), different size formats, and different transparency handling. Without a fixed routing-and-staging discipline, you get wrong sizes, opaque headers that bleed over the page background, and images pushed straight to a repo before anyone looked at them. This skill makes the workflow, the model choice, and the Downloads-first review mandatory in code, not just in markdown.
+The bare image model produces inconsistent, off-style output when handed a freeform prompt — one session shipped 12 rejected diagrams because the prompt skipped the workflow that holds the composition rules. Different formats need different models (text-heavy cards and editorial headers want Nano Banana Pro), different size formats, and different transparency handling. Without a fixed routing-and-staging discipline, you get wrong sizes, opaque headers that bleed over the page background, and images pushed straight to a repo before anyone looked at them. This skill makes the workflow, the model choice, and the Downloads-first review mandatory in code, not just in markdown.
 
 ## How It Works
 

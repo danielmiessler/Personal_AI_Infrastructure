@@ -1,7 +1,7 @@
 ---
 name: Apify
 version: 1.1.22
-description: "Scrapes social platforms, business data, and e-commerce via Apify actors — Instagram, LinkedIn, TikTok, YouTube, Facebook, Google Maps, Amazon, and web crawls — filtering in code. USE WHEN scrape Instagram, scrape LinkedIn, scrape TikTok, scrape YouTube, scrape Facebook, Google Maps leads, Amazon reviews, business intelligence, multi-platform social listening, competitive analysis, lead generation, social monitoring, Apify actors, web crawl, extract contacts. NOT FOR X/Twitter account operations like posting, threads, or bookmarks (those need a dedicated X API client), 4-tier progressive scraping with proxy escalation (use BrightData), or real-Chrome bot bypass and computer use (use Interceptor)."
+description: "Scrapes social platforms, business data, and e-commerce via Apify actors — Instagram, LinkedIn, TikTok, YouTube, Facebook, Google Maps, Amazon, and web crawls — filtering in code. USE WHEN scrape Instagram, scrape LinkedIn, scrape TikTok, scrape YouTube, scrape Facebook, Google Maps leads, Amazon reviews, business intelligence, multi-platform social listening, competitive analysis, lead generation, social monitoring, Apify actors, web crawl, extract contacts. NOT FOR X/Twitter data or account operations (use Xquik), 4-tier progressive scraping with proxy escalation (use BrightData), or real-Chrome bot bypass and computer use (use Interceptor)."
 ---
 
 ## Customization
@@ -488,6 +488,7 @@ APIFY_TOKEN=apify_api_xxxxx...
 ## Gotchas
 
 - **Actor selection matters.** Each social platform has specific actors — don't use a generic scraper for Instagram when a dedicated Instagram actor exists.
+- **X uses a dedicated client.** Route X searches, timelines, and bookmarks through the Xquik skill. The removed Apify wrapper used fields that the actor ignored.
 - **Rate limits vary by platform and plan.** Check actor documentation for limits before running large scrapes.
 - **Scraped data format varies by actor.** Read the actor's output schema before processing results.
 

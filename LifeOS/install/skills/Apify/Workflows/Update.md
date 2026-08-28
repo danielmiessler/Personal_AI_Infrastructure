@@ -49,7 +49,6 @@ Review commonly used actors for updates:
 | Actor | Purpose | Check For |
 |-------|---------|-----------|
 | apify/instagram-scraper | Instagram posts/profiles | Schema changes |
-| apify/twitter-scraper | Twitter/X data | API changes |
 | apify/google-maps-scraper | Business data | New fields |
 | apify/web-scraper | General scraping | New options |
 
@@ -75,7 +74,6 @@ Maintain list of tested actors:
 | Actor | Last Tested | Status |
 |-------|-------------|--------|
 | instagram-scraper | 2026-01 | Working |
-| twitter-scraper | 2026-01 | Working |
 | google-maps | 2026-01 | Working |
 
 ## Version Tracking

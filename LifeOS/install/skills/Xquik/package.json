@@ -1,0 +1,9 @@
+{
+  "name": "@lifeos/xquik",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test Tools/Xquik.test.ts"
+  }
+}

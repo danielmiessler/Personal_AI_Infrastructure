@@ -34,7 +34,13 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * STORAGE:
  *   Reads MEMORY/KNOWLEDGE/{People,Companies,Ideas,Research}/*.md  (class: knowledge)
  *   Reads MEMORY/LEARNING/ ** /*.md recursively                    (class: learning)
- *   NEVER writes or modifies files — read-only tool.
+ *   NEVER writes or modifies memory content — read-only over the corpus.
+ *   Appends one evidence row per retrieval to
+ *   MEMORY/OBSERVABILITY/memory-retrievals.jsonl (observability, not content —
+ *   the producer contract MemorySystem.md documents and CortexHealth's
+ *   `retrieval-missing` check verifies; public issue #1910). Writes are
+ *   confined to MEMORY/OBSERVABILITY and fail-open: on a read-only tree the
+ *   tool behaves exactly as before (one stderr notice, results unchanged).
  *
  * ============================================================================
  */
@@ -44,6 +50,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -668,6 +675,71 @@ function discoverAllItems(): KnowledgeNote[] {
   return [...discoverNotes(), ...discoverLearningNotes(HOT_PATH_LEARNING_LIMIT), ...loadMemoryFiles()];
 }
 
+// ============================================================================
+// Retrieval evidence (public issue #1910, previously #1848)
+// ============================================================================
+
+const OBSERVABILITY_DIR = path.join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
+const RETRIEVALS_LOG = path.join(OBSERVABILITY_DIR, "memory-retrievals.jsonl");
+// CortexHealth reads the whole file on every health pass, so the log must stay
+// small. ~512KB is thousands of rows; on overflow keep only the newest 1000.
+const RETRIEVALS_LOG_MAX_BYTES = 512 * 1024;
+const RETRIEVALS_LOG_KEEP_ROWS = 1000;
+
+/**
+ * Append one retrieval-evidence row to memory-retrievals.jsonl — the producer
+ * contract MemorySystem.md documents ("Per-turn retrievals | MemoryRetriever")
+ * and CortexHealth's `retrieval-missing` warn verifies. Until this existed the
+ * warn could never clear (public issue #1910).
+ *
+ * Row shape matches CortexHealth.validRetrievalRow EXACTLY (exact-key check):
+ *   { ts, query_hash, returned_count, duration_ms, top_score? }
+ *
+ * Privacy: the query TEXT is never stored — only a truncated sha256 of the
+ * trim+lowercase form. A short or low-entropy query remains guessable from
+ * its hash by dictionary attack; acceptable for a local, user-owned
+ * observability log (same exposure class as the transcript itself). The hash
+ * is a stable-enough identity for evidence reading; it is NOT a dedup key,
+ * so Unicode/whitespace variants hashing differently is acceptable.
+ * Fail-open: evidence is best-effort; a logging failure must never break a
+ * retrieval (same doctrine as the turn-start hook's retriever call). A broken
+ * producer is not fully silent: the first failure per process warns on stderr,
+ * and CortexHealth's `retrieval-missing` check is the durable outer signal.
+ * Concurrency: rotation uses a per-process tmp name + atomic rename; two
+ * concurrent rotators can drop a handful of freshly-appended rows, which is
+ * acceptable for evidence (freshness matters, completeness does not).
+ */
+let retrievalLogWarned = false;
+function logRetrievalEvidence(query: string, returnedCount: number, durationMs: number, topScore?: number): void {
+  try {
+    fs.mkdirSync(OBSERVABILITY_DIR, { recursive: true });
+    try {
+      if (fs.statSync(RETRIEVALS_LOG).size > RETRIEVALS_LOG_MAX_BYTES) {
+        const kept = fs.readFileSync(RETRIEVALS_LOG, "utf-8").split("\n").filter(Boolean).slice(-RETRIEVALS_LOG_KEEP_ROWS);
+        const tmp = `${RETRIEVALS_LOG}.${process.pid}.${Date.now()}.tmp`;
+        fs.writeFileSync(tmp, kept.join("\n") + "\n");
+        fs.renameSync(tmp, RETRIEVALS_LOG);
+      }
+    } catch { /* log absent or unstatable — appendFileSync below creates it */ }
+    const row: Record<string, unknown> = {
+      ts: new Date().toISOString(),
+      query_hash: createHash("sha256").update(query.trim().toLowerCase()).digest("hex").slice(0, 16),
+      returned_count: returnedCount,
+      duration_ms: Math.max(0, durationMs),
+    };
+    if (topScore !== undefined && Number.isFinite(topScore) && topScore >= 0) row.top_score = topScore;
+    fs.appendFileSync(RETRIEVALS_LOG, JSON.stringify(row) + "\n");
+  } catch (e) {
+    // Fail-open — but not silently forever: one stderr line per process, so a
+    // permanently broken producer is visible in hook/CLI logs while retrieval
+    // itself keeps working.
+    if (!retrievalLogWarned) {
+      retrievalLogWarned = true;
+      console.error(`[MemoryRetriever] retrieval-evidence logging failed (retrieval unaffected): ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+}
+
 /**
  * Synchronous, in-process BM25 retrieval over the typed-item corpus. Returns
  * top-K results above the score threshold, plus a markdown block ready for
@@ -694,11 +766,20 @@ export function getRelevantContext(
   const excerptChars = options.excerptChars ?? RELEVANT_EXCERPT_CHARS;
   const typeFilter = options.typeFilter;
 
+  // Every exit path is a real retrieval outcome (cache hits and empty results
+  // included), so every exit logs evidence — freshness is the health signal,
+  // not hit quality (issue #1910).
+  const t0 = Date.now();
+  const finish = (result: GetRelevantContextResult): GetRelevantContextResult => {
+    logRetrievalEvidence(query, result.results.length, Date.now() - t0, result.results[0]?.score);
+    return result;
+  };
+
   // Cache check — key on query + options
   const cacheKey = JSON.stringify({ q: query.trim().toLowerCase(), topK, threshold, excerptChars, typeFilter });
   const cached = relevantCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < RELEVANT_CACHE_TTL_MS) {
-    return { ...cached.result, cached: true };
+    return finish({ ...cached.result, cached: true });
   }
 
   const empty: GetRelevantContextResult = { results: [], markdownBlock: "", totalSearched: 0, cached: false };
@@ -706,13 +787,13 @@ export function getRelevantContext(
   const queryTerms = tokenize(query);
   if (queryTerms.length === 0) {
     relevantCache.set(cacheKey, { ts: Date.now(), result: empty });
-    return empty;
+    return finish(empty);
   }
 
   const allNotes = discoverAllItems();
   if (allNotes.length === 0) {
     relevantCache.set(cacheKey, { ts: Date.now(), result: { ...empty, totalSearched: 0 } });
-    return empty;
+    return finish(empty);
   }
 
   const avgDocLength = allNotes.reduce((sum, n) => sum + n.wordCount, 0) / allNotes.length;
@@ -731,7 +812,7 @@ export function getRelevantContext(
   if (scored.length === 0) {
     const result = { ...empty, totalSearched: allNotes.length };
     relevantCache.set(cacheKey, { ts: Date.now(), result });
-    return result;
+    return finish(result);
   }
 
   const results: RelevantResultItem[] = scored.map(({ note, score }) => {
@@ -746,7 +827,7 @@ export function getRelevantContext(
   const markdownBlock = formatRelevantBlock(results);
   const result: GetRelevantContextResult = { results, markdownBlock, totalSearched: allNotes.length, cached: false };
   relevantCache.set(cacheKey, { ts: Date.now(), result });
-  return result;
+  return finish(result);
 }
 
 /**
@@ -869,8 +950,12 @@ async function main(): Promise<void> {
 
   // Discover all notes. The CLI searches the FULL LEARNING tree — unlike the
   // per-turn hot path, it is user-initiated and can afford the read.
+  const t0 = Date.now();
   const notes = [...discoverNotes(), ...discoverLearningNotes()];
   if (notes.length === 0) {
+    // An empty corpus is still a completed retrieval — log it, or a fresh
+    // install that only ever uses the CLI could never clear retrieval-missing.
+    logRetrievalEvidence(query, 0, Date.now() - t0);
     console.log(`No prior work found on "${query}" in the knowledge corpus.`);
     process.exit(0);
   }
@@ -891,6 +976,9 @@ async function main(): Promise<void> {
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, topN);
+
+  // CLI searches are retrievals too — same evidence log as the hot path.
+  logRetrievalEvidence(query, scored.length, Date.now() - t0, scored[0]?.score);
 
   if (scored.length === 0) {
     console.log(`No prior work found on "${query}" in the knowledge corpus.`);

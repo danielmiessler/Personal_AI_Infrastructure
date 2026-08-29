@@ -17,7 +17,7 @@ Exhaustive reference of AI writing tells for auditing and rewriting content. Use
 Not all AI-isms are equal. Prioritize by tier during audits.
 
 ### P0 — Credibility killers (fix immediately)
-- **Negations of any shape** — defining something by what it is NOT on the way to what it is. Hard ban in the principal's voice (2026-07-30). Covers the pair-form ("Von Neumann wasn't predicting AI. He was pointing at a horizon."), the trailing clause ("a claim about us, not about the machine"), and the setup-question ("the question isn't X. It's Y."). **A literal regex for `It's not X. It's Y.` under-catches badly** — four instances shipped to production after an audit using one reported zero. Read every `not` / `n't` / `never` / `rather than` / `instead of` and restate it positively. Quoted material is exempt. Full rule + rewrite table: `WRITINGSTYLE.md` § No Negations, Ever.
+- **Negations of any shape** — defining something by what it is NOT on the way to what it is. Hard ban in the principal's voice (2026-07-30). Covers the pair-form ("Von Neumann wasn't predicting AI. He was pointing at a horizon."), the trailing clause ("a claim about us, not about the machine"), and the setup-question ("the question isn't X. It's Y."). **A literal regex for `It's not X. It's Y.` under-catches badly** — four instances shipped to production after an audit using one reported zero. Read every `not` / `n't` / `never` / `rather than` / `instead of` and restate it positively. Quoted material is exempt.
 - Cutoff disclaimers ("As of my last update", "I don't have access to real-time data")
 - Chatbot artifacts ("I hope this helps!", "Great question!", "Feel free to reach out")
 - Sycophantic tone ("Excellent point!", "You're absolutely right!")

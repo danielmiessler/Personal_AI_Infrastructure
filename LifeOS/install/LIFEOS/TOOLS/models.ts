@@ -2,7 +2,7 @@
 /**
  * MODELS — the tables code imports when it needs to name a model.
  *
- * Doctrine lives in OPERATIONAL_RULES § Model selection and Algorithm §Spend, never here.
+ * Doctrine lives in `OPERATIONAL_RULES § Model selection` and Algorithm §Spend, never here.
  * This file holds data, not policy.
  *
  * Prefer a tier ALIAS ("opus"/"sonnet"/"haiku"/"fable") everywhere: the `claude` CLI resolves

@@ -240,7 +240,7 @@ When `dispatched_since_last_turn > 0` and the latest reviewer run dispatched at 
 - `knowledge` / `idea` types → file slug (without `.md`).
 - `proposal` type → target file path.
 
-`LIFEOS_SYSTEM_PROMPT.md` § 🧠 MEMORY indicator's ACTIVE-state row extended: when the banner shows a `└── +N just landed` line, the heartbeat line in `📃 CONTENT` (NATIVE) or SUMMARY CONTENT (ALGORITHM) must append the verbatim suffix (truncated to 60 chars).
+`LIFEOS_SYSTEM_PROMPT.md § Output Format` ACTIVE-state row extended: when the banner shows a `└── +N just landed` line, the heartbeat line in `📃 CONTENT` (NATIVE) or SUMMARY CONTENT (ALGORITHM) must append the verbatim suffix (truncated to 60 chars).
 
 ### 4. `memory insights [--days N]` CLI
 

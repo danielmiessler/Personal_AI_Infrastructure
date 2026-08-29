@@ -1,7 +1,7 @@
 /**
  * events.ts — shared emitter and reader for the unified event log.
  *
- * HookSystem.md § Unified Event System has documented `appendEvent()` as the
+ * `HookSystem.md § Unified Event System` has documented `appendEvent()` as the
  * hook-facing emitter since v5.0.0, but no such function ever shipped: every
  * writer of `MEMORY/STATE/events.jsonl` inlined its own `appendFileSync`. This
  * library is that documented API, plus the reader half the log never had.

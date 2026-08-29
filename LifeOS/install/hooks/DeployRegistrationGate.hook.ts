@@ -3,7 +3,7 @@
  * @version 1.0.1
  * DeployRegistrationGate.hook.ts — new-public-site registration teeth.
  *
- * Contract (OPERATIONAL_RULES § Bunker registration): a wrangler deploy that attaches a
+ * Contract (BunkerSystem.md § The registration rule): a wrangler deploy that attaches a
  * CUSTOM DOMAIN in this session must leave the session with that domain
  * registered in BOTH:
  *   1. LIFEOS/USER/PROJECTS.md                     (the projects table row)
@@ -11,7 +11,7 @@
  *      (Bunker security plane, curated target)
  * Bunker's observability plane (adopt/sync-cloud) is process, not a greppable
  * artifact, so the two checkable artifacts above are the gate's scope — the
- * doctrine checklist in OPERATIONAL_RULES § Bunker registration carries the rest.
+ * registration workflow in `BunkerSystem.md § The registration rule` carries the rest.
  *
  * Deterministic: domains are read from wrangler's own deploy trigger lines in
  * the transcript (two-space-indented domain followed by a custom-domain marker,
@@ -91,7 +91,7 @@ export async function run(
           reason:
             `UNREGISTERED PUBLIC DEPLOY [DeployRegistrationGate]. This session deployed a worker with the custom domain ` +
             `"${d}", but it was never registered in: ${missing.join(" AND ")}. Every public site is registered in the same ` +
-            `motion as its deploy (OPERATIONAL_RULES § Bunker registration): add the missing registration(s), run ` +
+            `motion as its deploy (BunkerSystem.md § The registration rule): add the missing registration(s), run ` +
             `\`bunker adopt\` + \`bunker sync-cloud --deploy\` if not yet adopted, then restate. Fires once per domain per session.`,
         };
       }

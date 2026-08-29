@@ -8,7 +8,7 @@
  *   depth-directive   — a plain-language depth directive in a NO-RUN turn signals the turn
  *                       IS a run; doctrine claims 10/15 only have teeth once one exists.
  *   design-class      — authority/security-boundary or architecture work points at
- *                       OPERATIONAL_RULES § Model selection: design the thing NATIVELY and
+ *                       `OPERATIONAL_RULES § Model selection`: design the thing NATIVELY and
  *                       inline BEFORE building, on the top rung the main loop already runs
  *                       (settings.json pins it). Never ask which rung, never hand the design
  *                       leg to the Max agent — that is a second look, not a rung rental.
@@ -513,7 +513,7 @@ export function matchDepthDirective(prompt: string): string | null {
 // ── Design-class work → elect the top rung (always-on) ───────────────────────
 //
 // The mirror of execution-class: that row points DOWN a rung for mechanical work, this one
-// points UP for the work OPERATIONAL_RULES § Model selection reserves for MAX.
+// points UP for the work `OPERATIONAL_RULES § Model selection` reserves for MAX.
 //
 // Why this row is allowed to exist under the "rows may only ask about state the model cannot
 // observe from its own context" bound: the 2026-07-29 incident is the proof.

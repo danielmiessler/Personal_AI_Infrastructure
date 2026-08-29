@@ -236,7 +236,7 @@ function localBookmarkState(): {
   return { local_seen, issues_created, issues_skipped, recent_issues: recent_issues.slice(0, 40) };
 }
 
-// The input catalog mirrors SynapseSystem.md §Inputs — static topology, joined
+// The input catalog mirrors `SynapseSystem.md § Inputs` — static topology, joined
 // with live per-source ledger counts at request time.
 const INPUTS = [
   { n: 1, name: "Summarize hotkey", trigger: "browser hotkey on any page", component: "summarize worker", status: "live", ledger_sources: [] as string[] },

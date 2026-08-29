@@ -520,9 +520,9 @@ function checkReferences(): void {
     }
     const rc = JSON.parse(raw);
     const s = rc.summary || {};
-    note = `${rc.scannedRefs ?? '?'} refs across ${rc.scannedFiles ?? '?'} files: ${s.missing ?? 0} missing, ${s.stale ?? 0} stale, ${s.orphan ?? 0} orphan`;
+    note = `${rc.scannedRefs ?? '?'} refs across ${rc.scannedFiles ?? '?'} files: ${s.missing ?? 0} missing, ${s.missing_anchor ?? 0} missing anchors, ${s.stale ?? 0} stale, ${s.orphan ?? 0} orphan`;
     for (const f of rc.findings || []) {
-      const isMissing = (f.kind || f.type) === 'missing';
+      const isMissing = ['missing', 'missing_anchor'].includes(f.kind || f.type);
       findings.push({
         detail: `${f.kind || f.type}: ${f.ref ?? f.reference ?? ''} in ${f.file ?? f.referrer ?? '?'}`,
         blocking: isMissing,

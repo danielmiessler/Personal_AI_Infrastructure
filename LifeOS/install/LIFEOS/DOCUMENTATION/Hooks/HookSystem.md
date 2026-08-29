@@ -198,7 +198,7 @@ Claude Code supports the following hook events:
 
 **ModelRungGuard.hook.ts** — Off-pin session detection (timeout 5s, async)
 - Compares the `model` pin in `settings.json` against the model on the last assistant message in the transcript, and reports when the session is running below the pinned rung
-- Reports only. A hook cannot set the main loop's carrier, so it names the sanctioned move from OPERATIONAL_RULES § Model selection (dispatch MAX-class work up with a tier alias) rather than asking for a `/model` change. Reads a tail of the transcript; no LLM calls; any error exits 0
+- Reports only. A hook cannot set the main loop's carrier, so it names the sanctioned move from `OPERATIONAL_RULES § Model selection` (dispatch MAX-class work up with a tier alias) rather than asking for a `/model` change. Reads a tail of the transcript; no LLM calls; any error exits 0
 
 > **Historical — retired 2026-07-11 (hooks-BPE pass):**
 > - **`TheRouter.hook.ts` retired entirely** (commit `4dd0fbe19`). It owned per-prompt Mode + Tier classification (emitting `MODE: MINIMAL|NATIVE|ALGORITHM | TIER: E1-E5`); that whole scheme was abolished. There is no successor classifier — the model discovers difficulty from the work, and model rungs now live in `LIFEOS/TOOLS/models.ts` + `AgentInvocation.hook.ts`. Its deterministic router libs (`router-deterministic`, `router-classifier`, `RouterShadow`, `ai-speak-patterns`) were deleted with it.

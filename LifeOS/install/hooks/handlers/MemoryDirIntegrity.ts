@@ -231,7 +231,7 @@ export function computeDrift(inventory: InventoryRow[], onDisk: string[]): Drift
       drift.push({
         kind: 'missing_active',
         key: `missing_active:${row.name}`,
-        detail: `MEMORY/${row.name}/ does not exist on disk and the row is \`${row.status}\`. Create it, or give the row the Status that is actually true — but a row whose directory still has a shipped reader must not be reclassified to silence it (MemorySystem.md § Governance — reclassification).`,
+        detail: `MEMORY/${row.name}/ does not exist on disk and the row is \`${row.status}\`. Create it, or give the row the Status that is actually true — but a row whose directory still has a shipped reader must not be reclassified to silence it (MemorySystem.md § Directory Inventory § Status).`,
       });
     }
   }

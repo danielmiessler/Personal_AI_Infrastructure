@@ -59,7 +59,7 @@ const GATES: Array<[string, GateFn]> = [
   // touched this turn (legacy files never retroactively gated). Complements
   // ISACloseGate (stale-ISA) with a different, structural tooth.
   ["ISAGate", isaStructureGate],
-  // DeployRegistrationGate (OPERATIONAL_RULES § Bunker registration): a custom-domain
+  // DeployRegistrationGate (BunkerSystem.md § The registration rule): a custom-domain
   // wrangler deploy this session must be registered in PROJECTS.md + the ARBOL
   // curated inventory before the turn ends. Fires once per domain per session.
   ["DeployRegistrationGate", deployRegistrationGate],

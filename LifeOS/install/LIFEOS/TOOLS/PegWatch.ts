@@ -8,7 +8,7 @@
  * cause from the live process table, and surfaces a recommendation:
  *   - appends a JSONL record to MEMORY/OBSERVABILITY/pegwatch.jsonl (every run)
  *   - on a peg: Pulse banner via /notify with voice_enabled:false (cadence job
- *     — never voice, OPERATIONAL_RULES § Background work), deduped to one
+ *     — never voice, NotificationSystem.md § Voice Notifications During Work), deduped to one
  *     alert per cause per hour via MEMORY/STATE/pegwatch.json
  *
  * GPU attribution is dynamic, never an app-signature table: per-process GPU

@@ -25,9 +25,10 @@
  */
 
 import { readFileSync, statSync, existsSync, readdirSync, realpathSync } from 'fs';
-import { join, resolve, dirname, relative, extname, sep } from 'path';
+import { join, resolve, dirname, relative, extname, sep, basename } from 'path';
 import { execSync } from 'child_process';
 import { homedir } from "node:os";
+import { scanSectionAnchors } from "./lib/section-anchors";
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CLAUDE_DIR = join(HOME, '.claude');
@@ -524,7 +525,7 @@ function extractRefs(content: string, referringFile: string): RefHit[] {
 function getChangedFiles(): Set<string> {
   try {
     const diff = execSync(
-      'git diff --name-only HEAD 2>/dev/null; git diff --cached --name-only 2>/dev/null',
+      'git diff --no-renames --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null',
       { cwd: CLAUDE_DIR, encoding: 'utf-8' }
     );
     return new Set(diff.split('\n').filter(Boolean).map(f => resolve(CLAUDE_DIR, f)));
@@ -536,7 +537,7 @@ function getChangedFiles(): Set<string> {
 // ── Main ──
 
 interface Finding {
-  type: 'missing' | 'stale' | 'orphan';
+  type: 'missing' | 'missing_anchor' | 'stale' | 'orphan';
   file: string;   // relative to CLAUDE_DIR
   line: number | null;
   ref: string | null;
@@ -577,6 +578,34 @@ for (const file of allFiles) {
     scannedRefs++;
     if (r.exists) referenced.add(r.resolved);
   }
+}
+
+// Section anchors in LifeOS core and hooks are references too. Validate only the explicit
+// `File[.md] § Section` shape: bare section symbols are also used for laws,
+// RFC grammar, and local prose links, where guessing a target would create noise.
+const sectionAnchorScan = scanSectionAnchors(allFiles.flatMap((file) => {
+  try { return [{ path: file, content: readFileSync(file, 'utf-8') }]; }
+  catch { return []; }
+}));
+scannedRefs += sectionAnchorScan.scannedReferences;
+for (const finding of sectionAnchorScan.findings) {
+  const changedMissingTarget = changed && finding.reason === 'missing_target' && [...changed].some((target) => {
+    const relTarget = relative(CLAUDE_DIR, target).replaceAll('\\', '/').toLocaleLowerCase('en-US');
+    const cited = finding.target.replaceAll('\\', '/').toLocaleLowerCase('en-US');
+    return cited.includes('/') ? relTarget === cited || relTarget.endsWith('/' + cited) : basename(relTarget) === cited;
+  });
+  if (changed && !changed.has(finding.file) && !finding.targetPaths.some((target) => changed.has(target)) && !changedMissingTarget) continue;
+  findings.push({
+    type: 'missing_anchor',
+    file: relative(CLAUDE_DIR, finding.file),
+    line: finding.line,
+    ref: finding.ref,
+    resolved: finding.target,
+    detail: finding.reason === 'ambiguous_target'
+      ? `ambiguous section target: ${finding.targetPaths.map((target) => relative(CLAUDE_DIR, target)).join(', ')}`
+      : finding.reason === 'missing_target' ? 'section target not found' : undefined,
+    label: 'section-anchor',
+  });
 }
 
 // Filter for --changed: keep only refs from changed files OR refs whose target changed
@@ -702,6 +731,7 @@ const uniqueFindings = [...uniq.values()];
 
 const elapsedMs = Date.now() - startedAt;
 const missing = uniqueFindings.filter(f => f.type === 'missing');
+const missingAnchors = uniqueFindings.filter(f => f.type === 'missing_anchor');
 const stale = uniqueFindings.filter(f => f.type === 'stale');
 const orphan = uniqueFindings.filter(f => f.type === 'orphan');
 
@@ -712,6 +742,7 @@ const summary = {
   findings: uniqueFindings,
   summary: {
     missing: missing.length,
+    missing_anchor: missingAnchors.length,
     stale: stale.length,
     orphan: orphan.length,
   },
@@ -725,6 +756,10 @@ if (jsonOutput) {
     for (const f of missing) {
       console.error(`  ${f.file}:${f.line} → ${f.ref}`);
     }
+  }
+  if (missingAnchors.length > 0) {
+    console.error(`\n❌ MISSING SECTION ANCHORS (${missingAnchors.length}):`);
+    for (const f of missingAnchors) console.error(`  ${f.file}:${f.line} → ${f.ref}`);
   }
   if (stale.length > 0) {
     console.error(`\n⚠️  STALE (${stale.length}):`);
@@ -740,7 +775,7 @@ if (jsonOutput) {
   }
   if (!quiet || uniqueFindings.length > 0) {
     console.error(
-      `\nReferenceCheck: ${scannedFiles} files, ${scannedRefs} refs, ${missing.length} missing, ${stale.length} stale, ${orphan.length} orphan — ${elapsedMs}ms`
+      `\nReferenceCheck: ${scannedFiles} files, ${scannedRefs} refs, ${missing.length} missing, ${missingAnchors.length} missing anchors, ${stale.length} stale, ${orphan.length} orphan — ${elapsedMs}ms`
     );
   }
   if (uniqueFindings.length === 0 && !quiet) {
@@ -748,4 +783,4 @@ if (jsonOutput) {
   }
 }
 
-process.exit(missing.length > 0 ? 1 : 0);
+process.exit(missing.length + missingAnchors.length > 0 ? 1 : 0);

@@ -166,7 +166,7 @@ function arbolConfig(): { subdomain: string; token: string; pentestWorker?: stri
 // (the old return type) made "no security system installed" and "scanner is
 // down" render identically as a BLANK panel — and a blank security panel reads
 // as "no findings / all clear", the most dangerous possible misread (a blank
-// card is broken, not acceptable — OPERATIONAL_RULES § Deploy & verify). The
+// card is broken, not acceptable — Verification.md § Evidence coverage). The
 // caller now renders `unreachable` as a red/degraded card face, never empty.
 type ArbolFetch =
   | { state: "ok"; report: ArbolReport }

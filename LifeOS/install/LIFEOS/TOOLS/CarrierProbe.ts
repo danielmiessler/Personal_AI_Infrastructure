@@ -2,8 +2,8 @@
 /**
  * CarrierProbe.ts — end-to-end probe of the Agent-dispatch carrier reality.
  *
- * THE FACT UNDER TEST (canonical home: models.ts § CARRIER REALITY +
- * DISPATCH_EXECUTES_FABLE): does an Agent dispatch with model "fable" execute
+ * THE FACT UNDER TEST (canonical home: DISPATCH_EXECUTES_FABLE in models.ts):
+ * does an Agent dispatch with model "fable" execute
  * genuine Fable? The Fable-carrier safety rule, the statusline's dispatch-rung
  * mapping, and Algorithm §Spend all rest on this fact staying current. Harness
  * updates flip it silently (it flipped 2026-07-12, caught by this tool's first

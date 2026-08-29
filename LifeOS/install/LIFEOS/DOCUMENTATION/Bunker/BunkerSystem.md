@@ -61,7 +61,7 @@ Bunker is where the ISA System meets running software. The Algorithm climbs towa
 
 ## Cross-references
 
-- Master architecture entry: `LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md` § Pipeline Topology (Bunker row)
+- Master architecture entry: `LIFEOS/DOCUMENTATION/LifeosSystemArchitecture.md § Pipeline Topology` (Bunker row)
 - Component map: `LIFEOS/DOCUMENTATION/CoreComponents.md`
 - ISA format: `LIFEOS/DOCUMENTATION/ISA/ISAFormat.md`
 - Source docs (private implementation tree, not in the release payload): `LIFEOS/PULSE/Bunker/README.md` + `LIFEOS/PULSE/Bunker/ISA.md`

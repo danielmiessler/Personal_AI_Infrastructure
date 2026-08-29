@@ -17,7 +17,7 @@
 //   status   <isa> [--json]                    full map: closed/open/blocked/taken/stale
 //   validate <isa>                             edge integrity only (cycles, unknown IDs)
 //
-// Doctrine: ISAFormat.md § Dependency edges and the frontier (v2.21.0),
+// Doctrine: `ISAFormat.md § Dependency edges and the frontier` (v2.21.0),
 // Algorithm v8.20.0.
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, realpathSync, renameSync } from 'fs';
@@ -160,8 +160,7 @@ function paiRoot(): string {
 export function lockDirFor(isaPath: string, root = paiRoot()): string {
   // realpathSync, never bare resolve: LIFEOS/MEMORY is a symlink, so the same
   // ISA reached by its two legal paths must hash to ONE lock dir or two
-  // sessions each "atomically" win the same claim (Forge F1; the exact class
-  // OPERATIONAL_RULES § Path boundary checks names). Fallback to resolve only
+  // sessions each "atomically" win the same claim (Forge F1). Fallback to resolve only
   // when the file doesn't exist yet (library callers in tests).
   let canonical: string;
   try { canonical = realpathSync(resolve(isaPath)); } catch { canonical = resolve(isaPath); }

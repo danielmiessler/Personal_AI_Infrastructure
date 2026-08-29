@@ -23,7 +23,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  *
  * What it does NOT do: change the model. A hook cannot set the main loop's
  * carrier — only `/model` and launch flags can. So this reports the gap and
- * names the sanctioned move (OPERATIONAL_RULES § Model selection: MAX-class
+ * names the sanctioned move (`OPERATIONAL_RULES § Model selection`: MAX-class
  * work reaches MAX via a tier-alias dispatch, fired immediately, never by
  * asking {{PRINCIPAL_NAME}} to flip a dial).
  *
@@ -184,7 +184,7 @@ async function main(): Promise<void> {
       // this file).
       emit(
         `⚠️ MODEL RUNG: this session is running '${model}' (${live}), ${gap} rung below the ` +
-          `'${pin}' pin in settings.json. Per OPERATIONAL_RULES § Model selection, MAX-class work ` +
+          `'${pin}' pin in settings.json. Per (OPERATIONAL_RULES § Model selection), MAX-class work ` +
           `(judgment, design, architecture, scoping, synthesis, meta work on LifeOS) does NOT run here: ` +
           `dispatch it now with the '${pin}' tier alias. Do not ask which rung to use, and do not ask ` +
           `the principal to change /model.`,

@@ -164,7 +164,7 @@ function appendObs(rec: Record<string, unknown>): void {
 const BLOCK_REASON =
   "WRITING-AUDIT GAP. This response ships authored outbound prose (a post / draft / marketing copy) and " +
   "there is NO record the AI detector actually ran on it this turn. Any writing produced for the principal must go " +
-  "through a writing-audit skill AND the detector before it is shown (OPERATIONAL_RULES.md § Authored content). " +
+  "through a writing-audit skill AND the detector before it is shown. " +
   "The gate checks for a real PangramScore.ts run on the draft — a typed token does NOT satisfy it. Before " +
   "stopping: (1) run the writing-audit skill's DETECT mode on the draft and fix every P0/P1 in the right voice; " +
   "(2) run `bun ~/.claude/LIFEOS/TOOLS/PangramScore.ts --file <draft>` on the ACTUAL draft text so the run is " +

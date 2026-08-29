@@ -183,10 +183,31 @@ if [ -z "$OUT" ]; then
     rand="$$"
     OUT="${LIFEOS_DOWNLOADS_DIR:-${HOME}/Downloads}/interceptor-capture-${ts}-${rand}.png"
 fi
-mkdir -p "$(dirname "$OUT")"
+OUT_BASE="$(basename "$OUT")"
+if [ "$OUT_BASE" = "." ] || [ "$OUT_BASE" = ".." ] \
+    || [ -d "$OUT" ] || [ "${OUT%/}" != "$OUT" ]; then
+    echo "Capture.sh: --out must name an image file, not a directory: $OUT" >&2
+    exit 2
+fi
+OUT_DIR="$(dirname "$OUT")"
+case "$OUT_DIR" in
+    /*) ;;
+    *) OUT_DIR="$PWD/$OUT_DIR" ;;
+esac
+mkdir -p "$OUT_DIR"
+OUT_DIR="$(CDPATH='' cd -P -- "$OUT_DIR" && pwd -P)"
+OUT="$OUT_DIR/$OUT_BASE"
+
+# `interceptor screenshot --save` writes into its current working directory and
+# returns the actual filePath. Stage beside the final output so the successful
+# mv is an atomic same-filesystem publication; a failed retry never destroys a
+# pre-existing review artifact at $OUT.
+STAGE_DIR="$(mktemp -d "$OUT_DIR/.interceptor-capture.XXXXXX")"
+STAGE_DIR_REAL="$(cd "$STAGE_DIR" && pwd -P)"
+trap 'rm -rf -- "$STAGE_DIR"' EXIT
 
 # Build common flag arrays.
-SS_FLAGS=(--context "$CTX" --save --out "$OUT")
+SS_FLAGS=(--context "$CTX" --save)
 [ "$FULL" -eq 1 ] && SS_FLAGS+=(--full)
 
 # --- helpers ---
@@ -195,10 +216,6 @@ navigate_if_needed() {
         interceptor open --context "$CTX" "$TARGET_URL" >/dev/null 2>&1 || return 1
     fi
     return 0
-}
-
-image_landed() {
-    [ -s "$OUT" ]
 }
 
 # --- degeneracy guard ---------------------------------------------------------
@@ -230,13 +247,14 @@ guard_skipped() {
 }
 
 content_ok() {
-    [ -s "$OUT" ] || return 1
+    local image="$1"
+    [ -s "$image" ] || return 1
     if ! command -v magick >/dev/null 2>&1; then
         guard_skipped "imagemagick-absent"
         return 0
     fi
     local sd
-    sd="$(magick "$OUT" -format '%[fx:standard_deviation]' info: 2>/dev/null)"
+    sd="$(magick "$image" -format '%[fx:standard_deviation]' info: 2>/dev/null)"
     if [ -z "$sd" ]; then
         guard_skipped "stddev-probe-empty"
         return 0
@@ -245,21 +263,46 @@ content_ok() {
     awk -v s="$sd" -v t="$MIN_STDDEV" 'BEGIN{ exit !((s+0) >= (t+0)) }'
 }
 
-# interceptor screenshot prints JSON including "filePath" — the path it ACTUALLY
-# wrote. The --pixel path (captureVisibleTab) ignores --out and saves to a
-# daemon-chosen temp path, so after every capture we reconcile: if $OUT wasn't
-# populated, lift the real file from filePath into $OUT. This is what makes the
-# working pixel fallback actually satisfy the wrapper's contract.
+# `interceptor --json screenshot` prints JSON including "filePath" — the path it ACTUALLY
+# wrote below the staging CWD. Validate that path before publishing it; stdout is
+# data from another process and must not be allowed to move an arbitrary file.
+STAGED_IMAGE=""
 resolve_saved() {
-    local out_text="$1" fp
-    [ -s "$OUT" ] && return 0
-    fp="$(printf '%s\n' "$out_text" | grep -oE '"filePath"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')"
-    if [ -n "$fp" ] && [ -s "$fp" ]; then
-        # mv, not cp: cp left the daemon-chosen temp file behind as a full-size
-        # stray duplicate on every --pixel capture (public PR #1535, @anikinsasha)
-        mv -f "$fp" "$OUT" 2>/dev/null && return 0
+    local out_text="$1" fp fp_dir
+    STAGED_IMAGE=""
+    # Parse the machine-readable stdout rather than regex-matching its string
+    # representation: valid paths may contain quotes or backslashes.
+    if ! fp="$(printf '%s\n' "$out_text" | bun -e '
+const text = await Bun.stdin.text();
+const value = JSON.parse(text);
+const path = value?.data?.filePath ?? value?.filePath;
+if (typeof path === "string" && path.length > 0) {
+  process.stdout.write(path);
+  process.exit(0);
+}
+process.exit(1);
+')"; then
+        return 1
     fi
-    return 1
+    [ -n "$fp" ] || return 1
+    case "$fp" in
+        /*) ;;
+        *) fp="$STAGE_DIR/$fp" ;;
+    esac
+    [ -f "$fp" ] && [ ! -L "$fp" ] && [ -s "$fp" ] || return 1
+    fp_dir="$(CDPATH='' cd -P -- "$(dirname "$fp")" 2>/dev/null && pwd -P)" || return 1
+    [ "$fp_dir" = "$STAGE_DIR_REAL" ] || return 1
+    STAGED_IMAGE="$fp"
+    return 0
+}
+
+publish_saved() {
+    [ -n "$STAGED_IMAGE" ] && [ -s "$STAGED_IMAGE" ] || return 1
+    # rename(2) replaces a destination symlink instead of following a symlink
+    # to a directory as `mv` does. This closes the capture-time TOCTOU window.
+    SRC="$STAGED_IMAGE" DST="$OUT" bun -e \
+        'require("node:fs").renameSync(process.env.SRC, process.env.DST)'
+    [ -f "$OUT" ] && [ ! -L "$OUT" ]
 }
 
 # Returns 0 if stderr text signals a stale-extension / runner.js load failure.
@@ -273,25 +316,32 @@ heal_bridge() {
 }
 
 dom_capture() {
-    interceptor screenshot "${SS_FLAGS[@]}" 2>&1
+    (cd "$STAGE_DIR" && interceptor --json screenshot "${SS_FLAGS[@]}" 2>"$STAGE_DIR/interceptor.stderr")
 }
 
+# Pinned Interceptor fe94108 handles every successful `screenshot --save`
+# response centrally in cli/index.ts: DOM and --pixel dataUrl payloads are both
+# written with Bun.write(filename) in process.cwd(), which is STAGE_DIR here.
 pixel_capture() {
-    interceptor screenshot "${SS_FLAGS[@]}" --pixel 2>&1
+    (cd "$STAGE_DIR" && interceptor --json screenshot "${SS_FLAGS[@]}" --pixel 2>"$STAGE_DIR/interceptor.stderr")
 }
 
 # --- 5/6/7. capture with bounded recovery. DOM-first, then a single classified
 # recovery move. NOTE: the wedge path (heal_bridge → pixel → daemon respawn →
 # pixel-or-dom) can issue up to ~4 run_one calls total; non-wedge paths issue 2.
 # A degenerate DOM frame is treated as a failure so it escalates to --pixel. ---
-attempt=0
 err=""
+last_failure="capture"
 
 # The interceptor CLI exits 0 even on "native port disconnected", so success is
 # decided by an image actually landing (after path reconciliation), NOT exit code.
 run_one() {
     # $1 = path: "dom" or "pixel"
-    rm -f "$OUT" 2>/dev/null || true
+    # Keep the 0700 directory created by mktemp; recreating it under the caller's
+    # umask can expose a sensitive staged screenshot to other local users.
+    find "$STAGE_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+    STAGED_IMAGE=""
+    last_failure="capture"
     if ! navigate_if_needed; then
         err="navigation to $TARGET_URL failed"
         return 1
@@ -306,19 +356,25 @@ run_one() {
         # Landing is necessary but NOT sufficient — a blank/degenerate frame is a
         # failed capture, not a success. Reject it so the DOM path escalates to
         # --pixel and a genuinely-blank final frame fails hard (exit 12).
-        if content_ok; then
-            return 0
+        if content_ok "$STAGED_IMAGE"; then
+            if publish_saved; then
+                return 0
+            fi
+            last_failure="publication"
+            err="validated image could not be atomically published to $OUT"
+            return 1
         fi
+        last_failure="degenerate"
         err="degenerate/blank image on $1 capture (std-dev < ${MIN_STDDEV}) — page unhydrated or mid entrance-animation"
         return 1
     fi
-    err="$out_text"
+    err="$(cat "$STAGE_DIR/interceptor.stderr" 2>/dev/null || true)
+$out_text"
     return 1
 }
 
 # Attempt 1. --pixel forces the real compositor frame (known dark/animated pages);
 # otherwise DOM-render first (engineered-robust default, needs no foreground).
-attempt=1
 if [ "$FORCE_PIXEL" -eq 1 ]; then
     if run_one pixel; then
         printf '%s\n' "$OUT"
@@ -344,7 +400,6 @@ fi
 
 # Wedge signatures: timeout / native port disconnected → try the OTHER capture
 # path (different WS message type often unwedges), else one daemon respawn.
-attempt=2
 if printf '%s' "$err" | grep -qiE 'timeout|timed out|native port disconnected|not reachable'; then
     # "native port disconnected" IS the dead/wedged bridge — heal it first, then
     # swap to --pixel (captureVisibleTab; different path that survives a bridge wedge).
@@ -378,11 +433,7 @@ else
 fi
 
 # Final guard: distinguish nothing-landed (exit 9) from landed-but-blank (exit 12).
-if image_landed; then
-    if content_ok; then
-        printf '%s\n' "$OUT"
-        exit 0
-    fi
+if [ "$last_failure" = "degenerate" ]; then
     cat >&2 <<EOF
 Capture.sh: BLANK/DEGENERATE capture (exit 12) — an image landed but is near-uniform
 (std-dev < ${MIN_STDDEV}). This is NOT a verified capture. The page most likely has not

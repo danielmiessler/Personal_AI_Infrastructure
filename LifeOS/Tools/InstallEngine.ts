@@ -332,7 +332,7 @@ export function scanSettingsHooks(settingsPath: string): SettingsHookScan {
 // ════════════════════════════════════════════════════════════════════
 
 import { cpSync, lstatSync, mkdirSync, readdirSync, readlinkSync, renameSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, basename } from "node:path";
 
 // Extended 2026-07-25 (Forge finding, v7.15.0 re-audit). The set stopped at .ts,
 // so every Pulse component and the built Next bundle were invisible to
@@ -410,6 +410,57 @@ export interface TemplateVars {
 }
 
 /**
+ * Shared traversal for `substituteTree` and `checkSurvivingPlaceholders`: one
+ * walk, one skip policy, so substitution and verification can never drift
+ * apart. They previously had separate walks — the checker's copy skipped only
+ * SKIP_DIRS, so it flagged the redistribution payload tokens that substitution
+ * had (correctly) left generic, and Setup.md's "substitution and verification
+ * share one traversal" claim was untrue (public issue #1993).
+ *
+ * Skips SKIP_DIRS plus the nested payload (`install/` directly under
+ * `skills/LifeOS`): rendering that copy bakes THIS user's identity into ~121
+ * template files that must stay generic for the next install
+ * (public issue #1828, @Piroshki, root cause @DRAZY).
+ */
+/** True when `dir`'s trailing PATH SEGMENTS equal `tail` — unlike a plain
+ * string endsWith, "myskills/LifeOS" does NOT match ["skills","LifeOS"]. */
+function endsWithSegments(dir: string, tail: readonly string[]): boolean {
+  const parts = dir.split(/[\\/]/).filter(Boolean);
+  if (parts.length < tail.length) return false;
+  return tail.every((seg, i) => parts[parts.length - tail.length + i] === seg);
+}
+
+/** The engine's own source file: doc comments here legitimately show token
+ * literals, and rewriting them personalizes the machinery (noisy diffs,
+ * misleading docs). The constructed IDENTITY_PLACEHOLDERS table below is the
+ * functional protection; skipping the file keeps it byte-stable too.
+ * (public issues #1874, #1993) */
+function isEngineOwnSource(dir: string, fileName: string): boolean {
+  return fileName === "InstallEngine.ts" && endsWithSegments(dir, ["skills", "LifeOS", "Tools"]);
+}
+
+function walkTemplateTree(rootDir: string, processFile: (filePath: string) => void): void {
+  const walk = (dir: string): void => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      if (entry.name === "install" && endsWithSegments(dir, ["skills", "LifeOS"])) continue;
+      if (entry.isFile() && isEngineOwnSource(dir, entry.name)) continue;
+      const child = join(dir, entry.name);
+      if (entry.isDirectory()) walk(child);
+      else if (entry.isFile()) processFile(child);
+    }
+  };
+  if (existsSync(rootDir) && lstatSync(rootDir).isFile()) {
+    // File-shaped root: apply the same self-skip so a caller pointing the walk
+    // AT the engine file cannot rewrite it either.
+    if (!isEngineOwnSource(dirname(rootDir), basename(rootDir))) processFile(rootDir);
+  } else {
+    walk(rootDir);
+  }
+}
+
+/**
  * Walk a tree and replace `{{PLACEHOLDER}}` tokens in template-extension files.
  * Atomic per-file (tmp + rename). Skips node_modules/.git/LIFEOS_INSTALL/MEMORY.
  * (Simplified from engine actions.ts substituteTemplates.)
@@ -447,22 +498,7 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
       modified++;
     }
   };
-  const walk = (dir: string): void => {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      // Never substitute into the redistribution payload: rendering the nested
-      // skills/LifeOS/install/ copy bakes THIS user's identity into ~121
-      // template files that must stay generic for the next install.
-      // (public issue #1828, @Piroshki, root cause @DRAZY)
-      if (entry.name === "install" && dir.endsWith(join("skills", "LifeOS"))) continue;
-      const child = join(dir, entry.name);
-      if (entry.isDirectory()) walk(child);
-      else if (entry.isFile()) processFile(child);
-    }
-  };
-  if (existsSync(rootDir) && lstatSync(rootDir).isFile()) processFile(rootDir);
-  else walk(rootDir);
+  walkTemplateTree(rootDir, processFile);
   return { scanned, modified, applied };
 }
 
@@ -472,10 +508,22 @@ export function substituteTree(rootDir: string, vars: TemplateVars): { scanned: 
  * `{{TOKEN}}` forms (Art's thumbnail templating, Fabric pattern bodies, prose
  * about placeholders), so a blanket `{{[A-Z_]+}}` sweep is noise, not a signal.
  */
-const IDENTITY_PLACEHOLDERS = [
-  "{{DA_NAME}}", "{{DA_FULL_NAME}}", "{{PRINCIPAL_NAME}}", "{{PRINCIPAL_FULL_NAME}}",
-  "{{PRIMARY_VOICE_ID}}", "{{SECONDARY_VOICE_ID}}", "{{LIFEOS_VERSION}}",
+// Built from parts so this module's own source never contains a substitutable
+// token literal. InstallEngine.ts lives INSIDE configRoot
+// (skills/LifeOS/Tools/), so the full-tree Setup step 9(d) pass rewrote this
+// very table into the user's literal name/voice values. The in-process
+// verification still passed (the module was loaded before its file was
+// rewritten), but every later import — Doctor's identity check — then scanned
+// the tree for the literal values ("Vlad", and the empty string when a voice
+// id is unconfigured, whose split-matching yields millions of "survivors").
+// Self-immunity here fixes every invocation shape — no traversal exclusion
+// can protect a file that IS the walk root. (public issues #1874, #1993)
+const IDENTITY_TOKEN_NAMES = [
+  "DA_NAME", "DA_FULL_NAME", "PRINCIPAL_NAME", "PRINCIPAL_FULL_NAME",
+  "PRIMARY_VOICE_ID", "SECONDARY_VOICE_ID", "LIFEOS_VERSION",
 ] as const;
+const IDENTITY_PLACEHOLDERS: readonly string[] =
+  IDENTITY_TOKEN_NAMES.map((name) => "{{" + name + "}}");
 
 /**
  * Post-substitution verification: report any identity placeholder still present
@@ -500,21 +548,16 @@ export function checkSurvivingPlaceholders(rootDir: string): {
     let src: string;
     try { src = readFileSync(filePath, "utf-8"); } catch { return; }
     for (const placeholder of IDENTITY_PLACEHOLDERS) {
+      // Invariant guard: with the constructed table above this cannot trigger,
+      // but it makes the checker safe against any future edit reintroducing a
+      // falsy entry — splitting on "" counts every character as a survivor,
+      // which is issue #1993's 2.5M-survivors failure mode.
+      if (!placeholder) continue;
       const count = src.split(placeholder).length - 1;
       if (count > 0) { files.push({ file: filePath, placeholder, count }); total += count; }
     }
   };
-  const walk = (dir: string): void => {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      const child = join(dir, entry.name);
-      if (entry.isDirectory()) walk(child);
-      else if (entry.isFile()) processFile(child);
-    }
-  };
-  if (existsSync(rootDir) && lstatSync(rootDir).isFile()) processFile(rootDir);
-  else walk(rootDir);
+  walkTemplateTree(rootDir, processFile);
   return { passed: total === 0, files, total };
 }
 

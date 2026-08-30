@@ -3,12 +3,13 @@
  * Health — one deterministic read of whether the Hermes sidecar is actually up.
  *
  * The sidecar is a separate process tree with its own supervisor, so "is it
- * running" has three independent answers that can disagree, and the disagreement
+ * running" has four independent answers that can disagree, and the disagreement
  * is the interesting part:
  *
  *   1. the supervisor (launchd/systemd) thinks it has a job
  *   2. `gateway_state.json` says a pid was running as of some timestamp
  *   3. that pid is, right now, alive
+ *   4. `state/gateway.heartbeat` says the event loop ticked recently
  *
  * A gateway in a crash loop satisfies (1) and (2) continuously while being down
  * essentially all the time — which is exactly how it went unnoticed on
@@ -36,7 +37,15 @@ export const RESTARTER_LABEL = "ai.hermes.gateway-restarter";
 const FLAP_WINDOW_MS = 10 * 60 * 1000;
 const FLAP_THRESHOLD = 4;
 
-/** Beyond this, `gateway_state.json` is describing a world that no longer exists. */
+/**
+ * Beyond this, the liveness stamp is describing a world that no longer exists.
+ *
+ * Measured against `state/gateway.heartbeat`, NOT `gateway_state.json`. The
+ * latter is only rewritten at turn boundaries (gateway/run.py's
+ * `_persist_active_agents`), so an idle gateway nobody has messaged legitimately
+ * never touches it and read as `degraded` after 15 minutes of perfect health.
+ * The heartbeat is the event-loop tick and keeps moving without traffic.
+ */
 const STATE_STALE_MS = 15 * 60 * 1000;
 
 export type HermesStatus =
@@ -192,7 +201,16 @@ export function checkHermesHealth(): HermesHealth {
   const stateUpdatedAt = (state?.updated_at as string) ?? null;
   const activeAgents = typeof state?.active_agents === "number" ? (state.active_agents as number) : null;
 
-  const stateAgeMs = stateUpdatedAt ? Date.now() - Date.parse(stateUpdatedAt) : null;
+  // Trust the heartbeat only when it belongs to the pid just probed: a leftover
+  // file from a dead gateway must never vouch for a live one.
+  const heartbeat = readJson(join(home, "state", "gateway.heartbeat"));
+  const heartbeatAt = pid !== null && heartbeat?.pid === pid ? ((heartbeat?.updated_at as string) ?? null) : null;
+  const livenessAt = heartbeatAt ?? stateUpdatedAt;
+  // Date.parse returns NaN on anything it does not recognise, and `NaN > STALE`
+  // is false — an unreadable stamp would silently disable the staleness check
+  // and report a healthy gateway. Unknown age is a problem, not a pass.
+  const livenessMs = livenessAt ? Date.parse(livenessAt) : Number.NaN;
+  const livenessAgeMs = Number.isFinite(livenessMs) ? Date.now() - livenessMs : null;
   const uptimeSeconds = pidAlive && pid !== null ? processUptimeSeconds(pid) : null;
 
   const problems: string[] = [];
@@ -204,8 +222,11 @@ export function checkHermesHealth(): HermesHealth {
   if (!supervised) problems.push(`no ${GATEWAY_LABEL} job registered with the supervisor`);
   if (!pidAlive) problems.push(pid === null ? "no gateway pid recorded" : `recorded pid ${pid} is not running`);
   if (recentStarts >= FLAP_THRESHOLD) problems.push(`${recentStarts} gateway starts in the last 10 minutes`);
-  if (pidAlive && stateAgeMs !== null && stateAgeMs > STATE_STALE_MS) {
-    problems.push(`gateway_state.json last written ${Math.round(stateAgeMs / 60000)}m ago`);
+  const livenessSource = heartbeatAt ? "state/gateway.heartbeat" : "gateway_state.json";
+  if (pidAlive && livenessAt && livenessAgeMs === null) {
+    problems.push(`${livenessSource} has an unreadable updated_at (${livenessAt})`);
+  } else if (pidAlive && livenessAgeMs !== null && livenessAgeMs > STATE_STALE_MS) {
+    problems.push(`${livenessSource} last written ${Math.round(livenessAgeMs / 60000)}m ago`);
   }
   for (const p of platforms) {
     if (p.state === "fatal") problems.push(`${p.name}: ${p.errorMessage || p.errorCode || "fatal"}`);

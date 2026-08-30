@@ -18,8 +18,8 @@
  * not a filesystem-walk cache.
  */
 
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import { getLifeosDir } from '../lib/paths';
 import { homedir } from "node:os";
@@ -100,6 +100,7 @@ async function refreshUsageCache(paiDir: string): Promise<void> {
       }
     }
 
+    mkdirSync(dirname(usageCachePath), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
     writeFileSync(usageCachePath, JSON.stringify(data, null, 2) + '\n');
     console.error(`[UpdateCounts] Usage cache refreshed: 5H=${(data.five_hour as any)?.utilization}% 7D=${(data.seven_day as any)?.utilization}%`);
   } catch {

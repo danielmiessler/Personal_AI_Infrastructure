@@ -12,8 +12,8 @@
  * itself trip the curation guards — it's a recovery path, not a curation write.
  */
 
-import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve as pathResolve } from "node:path";
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve as pathResolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { parseMemoryContent } from "./MemoryWriter";
 
@@ -59,6 +59,7 @@ function main(): void {
     if (!existsSync(src)) { console.error(`Snapshot not found: ${arg}`); process.exit(1); }
     const which = arg.startsWith("PRINCIPAL_MEMORY") ? "principal" : "da";
     const content = readFileSync(src, "utf8");
+    mkdirSync(dirname(TARGETS[which]), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
     writeFileSync(TARGETS[which], content, "utf8");
     console.log(`Restored ${which} from ${arg} (${countEntries(content)} entries).`);
     return;

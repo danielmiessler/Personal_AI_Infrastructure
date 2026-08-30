@@ -23,9 +23,9 @@
  *   { date, messages, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens,
  *     totalTokens, costUsd, models: { <model>: { messages, totalTokens, costUsd } } }
  */
-import { existsSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync, statSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const OBS_DIR = join(CLAUDE_DIR, "LIFEOS", "MEMORY", "OBSERVABILITY");
@@ -205,6 +205,7 @@ function main() {
     console.log(`[UsageAggregator] --dry-run: not writing ${OUT_PATH}`);
     return;
   }
+  mkdirSync(dirname(OUT_PATH), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
   writeFileSync(OUT_PATH, days.map((d) => JSON.stringify(d)).join("\n") + "\n");
   console.log(`[UsageAggregator] wrote ${days.length} day-rows → ${OUT_PATH}`);
 }

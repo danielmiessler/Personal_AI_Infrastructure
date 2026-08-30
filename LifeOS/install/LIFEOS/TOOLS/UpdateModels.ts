@@ -21,8 +21,8 @@
  * ============================================================================
  */
 
-import { readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { readFileSync, writeFileSync, appendFileSync, readdirSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
 import { CURRENT, EFFORT_MODEL, CLAUDE_ID_PATTERN, type ClaudeTier } from "./models";
 
 const CLAUDE_DIR = join(import.meta.dir, "..", "..");
@@ -144,6 +144,7 @@ export function emitModelProposal(
     note: "Propose-only. New Claude model ID detected; review, then run the action command to bump the registry.",
   };
   try {
+    mkdirSync(dirname(logPath), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
     appendFileSync(logPath, JSON.stringify(row) + "\n");
   } catch {
     writeFileSync(logPath, JSON.stringify(row) + "\n");

@@ -47,7 +47,7 @@
  *   bun ProposalGC.ts --route        # advisory: flag hook-, skill-, or project-scoped entries
  *   bun ProposalGC.ts --json
  */
-import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { classifyScope, loadScopeTables, type ProposalScope, type ScopeTables } from "./ProposalScope";
 
@@ -271,6 +271,7 @@ function countBy(rs: Removal[]): Record<string, number> {
 }
 function appendLog(obj: unknown) {
   const { appendFileSync } = require("node:fs");
+  mkdirSync(dirname(OBS_LOG), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
   appendFileSync(OBS_LOG, JSON.stringify(obj) + "\n", "utf8");
 }
 

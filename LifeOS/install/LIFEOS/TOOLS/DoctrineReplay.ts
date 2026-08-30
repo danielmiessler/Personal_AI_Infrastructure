@@ -19,8 +19,8 @@
  *   bun DoctrineReplay.ts sample [--n 24] [--out <path>]   # emit manifest JSON
  *   bun DoctrineReplay.ts sample --json                    # manifest to stdout only
  */
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 
 const WORK_DIR = join(homedir(), ".claude/LIFEOS/MEMORY/WORK");
@@ -147,6 +147,7 @@ function main() {
 
   const json = JSON.stringify(manifest, null, 2);
   if (outIdx >= 0) {
+    mkdirSync(dirname(args[outIdx + 1]), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
     writeFileSync(args[outIdx + 1], json, "utf8");
     console.log(`manifest → ${args[outIdx + 1]} (${picked.length}/${n} sampled from ${all.length})`);
   }

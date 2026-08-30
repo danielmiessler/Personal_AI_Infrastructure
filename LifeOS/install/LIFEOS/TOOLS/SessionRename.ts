@@ -33,8 +33,8 @@
  *   bun SessionRename.ts list                          (show 10 most-recent sessions)
  */
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { resolve as pathResolve, join as pathJoin } from "node:path";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { resolve as pathResolve, join as pathJoin, dirname } from "node:path";
 import { homedir } from "node:os";
 // Registry access goes through the isa-utils choke point (2026-06-10) — the
 // event-sourced write path. This file previously carried a duplicate
@@ -77,6 +77,9 @@ function loadNames(): Record<string, string> {
 
 function writeNames(names: Record<string, string>): void {
   const tmp = `${SESSION_NAMES_JSON}.tmp`;
+  // MEMORY/STATE may not exist: git cannot track an empty directory, so a fresh
+  // clone or a migration arrives without it and every rename lands nowhere.
+  mkdirSync(dirname(SESSION_NAMES_JSON), { recursive: true });
   writeFileSync(tmp, JSON.stringify(names, null, 2), "utf8");
   renameSync(tmp, SESSION_NAMES_JSON);
 }

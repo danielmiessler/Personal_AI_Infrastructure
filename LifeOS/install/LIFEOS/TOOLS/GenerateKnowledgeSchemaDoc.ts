@@ -13,8 +13,8 @@
  *   bun GenerateKnowledgeSchemaDoc.ts --stdout   # print, don't write
  */
 
-import { writeFileSync } from "node:fs";
-import { resolve as pathResolve } from "node:path";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { resolve as pathResolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import {
   ENVELOPE, CANONICAL_TYPES, TYPE_TO_DIR, PER_TYPE_REQUIRED,
@@ -111,6 +111,7 @@ export function render(): string {
 function main() {
   const doc = render();
   if (process.argv.includes("--stdout")) { console.log(doc); return; }
+  mkdirSync(dirname(OUT), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
   writeFileSync(OUT, doc, "utf8");
   console.log(`✓ wrote ${OUT.replace(homedir(), "~")} (${doc.split("\n").length} lines, generated from KnowledgeSchema.ts)`);
 }

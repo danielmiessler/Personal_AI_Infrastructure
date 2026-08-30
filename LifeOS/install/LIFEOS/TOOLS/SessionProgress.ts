@@ -9,8 +9,8 @@
  *   bun run ~/.claude/LIFEOS/TOOLS/SessionProgress.ts <command> [options]
  */
 
-import { existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { homedir } from "node:os";
 
 interface Decision {
@@ -59,6 +59,7 @@ function loadProgress(project: string): SessionProgress | null {
 
 function saveProgress(progress: SessionProgress): void {
   progress.updated = new Date().toISOString();
+  mkdirSync(dirname(getProgressPath(progress.project)), { recursive: true }); // git cannot track an empty dir, so this path is absent on a fresh clone
   writeFileSync(getProgressPath(progress.project), JSON.stringify(progress, null, 2));
 }
 

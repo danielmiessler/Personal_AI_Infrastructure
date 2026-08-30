@@ -127,14 +127,39 @@ const WORD_NUMBERS: Record<string, number> = {
 
 // ── Explicit Rating Detection ──
 
-export function parseExplicitRating(prompt: string): { rating: number; comment?: string } | null {
+// Enumerated-option markers in the previous response. A bare "1" or "2" replying to a
+// response that offered choices is a SELECTION, not a rating.
+const OPTION_MENU_PATTERNS: readonly RegExp[] = [
+  /^\s*(?:\*\*)?\(?[1-9a-e][.)]\s/m,   // "1. ", "1) ", "(a) ", "**2. "
+  /\boption\s+[1-9a-e]\b/i,            // "option 2"
+  /\(\s*[a-e]\s*\)/,                   // inline "(a) ... (b) ..."
+];
+
+function lastResponseOfferedOptions(lastResponse: string): boolean {
+  if (!lastResponse) return false;
+  return OPTION_MENU_PATTERNS.some(re => re.test(lastResponse));
+}
+
+// On one install this parser produced 8 false positives out of 8 explicit ratings ever
+// recorded — zero genuine. Two failure modes, neither covered by the #1670/#1703 guards
+// ("1 commit and push" still parses as 1/10):
+//   1. Numbered instructions — a trailing comment is only honoured on the "N/10" form.
+//   2. Option selections — bare numbers are rejected when the previous response offered a menu.
+// Real ratings still work: "8", "8/10", "8/10 nice catch", "eight".
+export function parseExplicitRating(
+  prompt: string,
+  lastResponse: string = '',
+): { rating: number; comment?: string } | null {
   const trimmed = prompt.trim();
+  const menuOffered = lastResponseOfferedOptions(lastResponse);
 
   // Check word-form ratings first (e.g., "ten", "Eight")
   const lowerTrimmed = trimmed.toLowerCase();
   for (const [word, num] of Object.entries(WORD_NUMBERS)) {
     if (lowerTrimmed === word || lowerTrimmed.startsWith(word + ' ') || lowerTrimmed.startsWith(word + '!')) {
       const rest = trimmed.slice(word.length).trim().replace(/^[!.,]+/, '').trim() || undefined;
+      if (rest) return null;          // "one commit and push" is an instruction
+      if (menuOffered) return null;   // a reply to an offered menu is a selection
       return { rating: num, comment: rest };
     }
   }
@@ -191,6 +216,13 @@ export function parseExplicitRating(prompt: string): { rating: number; comment?:
   // unambiguous rating syntax and are deliberately NOT capped.
   // public PR #1670, @asdf8675309
   if (rest && rest.length > MAX_BARE_DIGIT_COMMENT) return null;
+
+  // A bare number carries no evidence of intent, so anything trailing it is
+  // treated as an instruction ("1 commit and push"), not a rating comment.
+  if (rest) return null;
+
+  // A bare number replying to an offered menu is a selection, not a score.
+  if (menuOffered) return null;
 
   return { rating, comment: rest };
 }
@@ -406,7 +438,8 @@ async function main() {
 
     // ── FAST PATH: Explicit rating (checked BEFORE the length skip so a bare
     // "9"/"10" — length 1-2 — is still captured; #1182). ──
-    const explicitResult = parseExplicitRating(prompt);
+    const lastResponseForParse = getLastResponse();
+    const explicitResult = parseExplicitRating(prompt, lastResponseForParse);
 
     if (!explicitResult && prompt.length < MIN_PROMPT_LENGTH) {
       console.error('[SatisfactionCapture] Prompt too short, skipping');
@@ -415,7 +448,7 @@ async function main() {
 
     if (explicitResult) {
       console.error(`[SatisfactionCapture] Explicit rating: ${explicitResult.rating}`);
-      const lastResponse = getLastResponse();
+      const lastResponse = lastResponseForParse;
       const entry: RatingEntry = {
         timestamp: getISOTimestamp(),
         rating: explicitResult.rating,

@@ -353,7 +353,19 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
         return;
       }
 
-      const envelope = parsedEnvelope as Record<string, unknown>;
+      // The CLI emits EITHER a single result object OR a JSON array of stream
+      // events whose last `type:"result"` element carries the envelope. Claude
+      // Code 2.1.246 returns the array form; before this, an array fell through
+      // the object check above (arrays are objects), `envelope.result` read
+      // undefined, and every programmatic caller died on "missing result field".
+      // That silently killed the memory reviewer from 2026-08-16 onward.
+      // Select the terminal result element rather than assuming either shape.
+      const envelope = (Array.isArray(parsedEnvelope)
+        ? (parsedEnvelope.filter(
+            (e): e is Record<string, unknown> =>
+              typeof e === 'object' && e !== null && (e as Record<string, unknown>).type === 'result',
+          ).at(-1) ?? parsedEnvelope.at(-1) ?? {})
+        : parsedEnvelope) as Record<string, unknown>;
       const stopReason = envelope.stop_reason;
       const resultText = typeof envelope.result === 'string' ? envelope.result : undefined;
 

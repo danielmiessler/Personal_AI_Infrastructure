@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.1.2
+ * @version 1.2.0
  * MemoryTurnStart.hook.ts — the ONE UserPromptSubmit memory hook.
  *
  * Consolidation (2026-07-11, hooks BPE pass): merges the three per-prompt
@@ -9,9 +9,12 @@
  * and concatenates output. Order matches the old registration order:
  *
  *   1. MemoryReviewTrigger.run()  — cadence tick (state only, no output)
- *   2. LoadMemory.run()           — <lifeos-memory> hot-layer injection
- *   3. MemoryDeltaSurface.run()   — <lifeos-memory-health>? + <lifeos-memory-delta>
+ *   2. MemoryDeltaSurface.run()   — <lifeos-memory-health>? + <lifeos-memory-delta>
+ *   3. LoadMemory.run()           — <lifeos-memory> hot-layer injection
  *   4. getRelevantContext(prompt) — <lifeos-ground> task-scoped BM25 retrieval
+ *
+ * Emission order (see below): the two VERBATIM-contract blocks now
+ * precede the unbounded hot layer so a preview truncation cannot drop them.
  *
  * Step 4 (public issue #1573, @christauff): the ranked retriever previously
  * fired only on remote channels (ln), never on the CLI turn path — so prior
@@ -106,12 +109,21 @@ if (isSubagent()) process.exit(0);
   // by construction; a concurrent session's turn must not clear this one's.
   try { clearSystemDelta(sessionId); } catch {}
 
+  // Order is load-bearing. The composed payload runs ~12 KB,
+  // which exceeds the harness inline budget: the whole thing is persisted to a
+  // file and the model sees only a ~2 KB preview. <lifeos-memory-health> and
+  // <lifeos-memory-delta> are the two blocks whose ENTIRE contract is "render
+  // this VERBATIM", and emitting them last put them at byte ~9,776 of 12,226 —
+  // outside every preview. They are short and bounded (one line each), so they
+  // are emitted FIRST and the unbounded hot layer follows. Measured before the
+  // change: delta at 9,776, preview cut at 2,048. Do not reorder these back.
+  const delta = deltaSurface();
+  if (delta) process.stdout.write(delta);
+
   if (shouldInject(sessionId)) {
     const memory = loadMemory();
     if (memory) process.stdout.write(memory);
   }
-  const delta = deltaSurface();
-  if (delta) process.stdout.write(delta);
 
   // Task-scoped retrieval (public issue #1573, @christauff) — CLI parity with
   // the remote-channel ln() path. Empty markdownBlock (below threshold, empty

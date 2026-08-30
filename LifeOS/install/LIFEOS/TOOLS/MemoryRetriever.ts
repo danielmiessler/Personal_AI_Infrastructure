@@ -44,6 +44,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -685,7 +686,54 @@ function discoverAllItems(): KnowledgeNote[] {
  *   excerptChars — max excerpt length per result (default 500)
  *   typeFilter   — restrict to one type
  */
+const RETRIEVALS_LOG = path.join(HOME, ".claude/LIFEOS/MEMORY/OBSERVABILITY/memory-retrievals.jsonl");
+
+/**
+ * Append one row of retrieval evidence.
+ *
+ * CortexHealth and MemoryStatus have always READ memory-retrievals.jsonl, and
+ * MemoryHealthCheck warns when no row is fresher than its window. Nothing has
+ * ever written the file: on 2026-08-26 a repo-wide grep found three references,
+ * all readers, and the path did not exist on disk. So the check was correct and
+ * the writer was simply absent — the retriever fired on every turn (the live
+ * payload carried <lifeos-ground> at byte 10,162) and left no trace.
+ *
+ * Schema is fixed by CortexHealth's validRetrievalRow: exactly ts, query_hash,
+ * returned_count, duration_ms, and optional top_score. Extra keys make the row
+ * INVALID, which is a louder failure than a missing one — do not add fields
+ * here without changing that validator first. The query itself is never
+ * written, only a hash: this log is freshness evidence, not a query history.
+ */
+function logRetrieval(startMs: number, query: string, returned: number, topScore?: number): void {
+  try {
+    const row: Record<string, unknown> = {
+      ts: new Date().toISOString(),
+      query_hash: createHash("sha256").update(query).digest("hex").slice(0, 16),
+      returned_count: returned,
+      duration_ms: Math.max(0, Date.now() - startMs),
+    };
+    if (typeof topScore === "number" && Number.isFinite(topScore) && topScore >= 0) row.top_score = topScore;
+    fs.mkdirSync(path.dirname(RETRIEVALS_LOG), { recursive: true });
+    fs.appendFileSync(RETRIEVALS_LOG, JSON.stringify(row) + "\n", "utf8");
+  } catch { /* best-effort — evidence logging never breaks a turn */ }
+}
+
+/**
+ * Public entry point. Times the retrieval, delegates, and records the evidence
+ * row on EVERY call including cache hits: the question the health check asks is
+ * "did retrieval run this turn?", and a cache hit is still a turn that ran it.
+ */
 export function getRelevantContext(
+  query: string,
+  options: { topK?: number; threshold?: number; excerptChars?: number; typeFilter?: string } = {},
+): GetRelevantContextResult {
+  const startedAt = Date.now();
+  const result = computeRelevantContext(query, options);
+  logRetrieval(startedAt, query, result.results.length, result.results[0]?.score);
+  return result;
+}
+
+function computeRelevantContext(
   query: string,
   options: { topK?: number; threshold?: number; excerptChars?: number; typeFilter?: string } = {},
 ): GetRelevantContextResult {

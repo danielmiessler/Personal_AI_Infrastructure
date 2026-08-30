@@ -596,11 +596,43 @@ function tsSlug(): string {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
+const REVIEW_STATE_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/review-state.json");
+
+/**
+ * Stamp `last_review_at` when a review actually completes.
+ *
+ * Before this, only MemoryReviewFire.hook.ts wrote that field, and only at the
+ * moment it decided to SPAWN. So a review that ran by any other path — a manual
+ * run, a retry, a recovery after the hook was suppressed — left the field frozen.
+ * Measured 2026-08-26: reviewer-runs.jsonl held two runs from that morning, one
+ * of them fully successful, while review-state.json still read 2026-08-16 and
+ * MemoryHealthCheck reported the autonomic loop stuck for ten days.
+ *
+ * Two things were wrong, not one: the health report was misleading, AND
+ * `min_minutes_between` is computed from this same field, so a completed review
+ * did not count against the rate cap and the hook could immediately spawn a
+ * duplicate. The event "a review finished" is what the field means, so the
+ * reviewer is where it belongs. Skipped runs are not reviews and do not stamp.
+ */
+function stampLastReviewAt(row: Record<string, unknown>): void {
+  if (row.ok !== true || row.skipped === true) return;
+  try {
+    let state: Record<string, unknown> = {};
+    if (existsSync(REVIEW_STATE_PATH)) {
+      try { state = JSON.parse(readFileSync(REVIEW_STATE_PATH, "utf8")) as Record<string, unknown>; } catch { state = {}; }
+    }
+    state.last_review_at = typeof row.ts === "string" ? row.ts : new Date().toISOString();
+    mkdirSync(dirname(REVIEW_STATE_PATH), { recursive: true });
+    writeFileSync(REVIEW_STATE_PATH, JSON.stringify(state, null, 2) + "\n", "utf8");
+  } catch { /* best-effort — never fail a review over its own bookkeeping */ }
+}
+
 function logRunSummary(row: Record<string, unknown>): void {
   try {
     mkdirSync(dirname(RUNS_LOG_PATH), { recursive: true });
     appendFileSync(RUNS_LOG_PATH, JSON.stringify(row) + "\n", "utf8");
   } catch { /* best-effort */ }
+  stampLastReviewAt(row);
 }
 
 function writeRunDebug(runId: string, files: Record<string, string>): void {

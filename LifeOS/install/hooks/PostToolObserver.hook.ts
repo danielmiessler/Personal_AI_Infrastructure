@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.3
+ * @version 1.1.0
  * TRIGGER: PostToolUse (catchall, matcher "") — must stay on the empty matcher so it fires on EVERY tool call.
  * PostToolObserver.hook.ts — the ONE sync catchall PostToolUse hook.
  *
@@ -22,6 +22,7 @@
 import { run as loopDetector } from "./LoopDetector.hook";
 import { run as algorithmNudge } from "./AlgorithmNudge.hook";
 import { run as systemChangeSurface } from "./SystemChangeSurface.hook";
+import { isSubagentContext, type SubagentHookInput } from "./lib/subagent";
 
 /** The ⚙️ line follows the 🧠 contract: computed by the hook, echoed verbatim.
  *  Stating that beside the line is what keeps it from being paraphrased. */
@@ -46,6 +47,12 @@ async function readStdin(): Promise<string> {
   if (!raw.trim()) process.exit(0);
   let input: Record<string, unknown>;
   try { input = JSON.parse(raw); } catch { process.exit(0); }
+
+  // A fork's hook process carries NO subagent env markers and shares the
+  // parent's session_id, so the env-only test returned false and this
+  // composer injected main-session nudges and the ⚙️ SYSTEM line into forks. The
+  // payload's agent_id/agent_type is the only reliable signal; pass it through.
+  if (isSubagentContext(input as SubagentHookInput)) process.exit(0);
 
   const parts: string[] = [];
   try { const m = loopDetector(input as never); if (m) parts.push(m); } catch {}

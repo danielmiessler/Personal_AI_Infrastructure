@@ -19,17 +19,37 @@
  * is unset, so the union cannot false-positive there.
  */
 
-/** True when this process is a subagent/delegate rather than the main session. */
-export function isSubagentContext(): boolean {
+/**
+ * Hook payload fields that identify delegated work. PostToolUse carries these
+ * ONLY for subagent calls; they are absent in the main session.
+ */
+export interface SubagentHookInput {
+  agent_id?: unknown;
+  agent_type?: unknown;
+}
+
+/**
+ * True when this process is a subagent/delegate rather than the main session.
+ *
+ * Pass the hook's parsed stdin payload whenever you have it.
+ * The environment union below CANNOT see a fork: measured live,
+ * a fork's PostToolUse hook process had every marker unset — including
+ * CLAUDE_CODE_FORK_SUBAGENT — and shared the parent's session_id byte for byte.
+ * The only signal that distinguished the two was agent_id/agent_type in the
+ * hook payload itself. Env markers are kept because they still identify the
+ * non-fork delegate families and standalone runs, where no payload exists.
+ */
+export function isSubagentContext(hookInput?: SubagentHookInput | null): boolean {
+  if (hookInput && (hookInput.agent_id || hookInput.agent_type)) return true;
   const projectDir = process.env.CLAUDE_PROJECT_DIR || '';
   return Boolean(
     projectDir.includes('/.claude/Agents/') ||
       process.env.CLAUDE_AGENT_TYPE ||
       process.env.CLAUDE_CODE_SUBAGENT_NAME ||
       process.env.CLAUDE_CODE_SUBAGENT_TYPE ||
-      // Forked subagents set ONLY the fork marker — none of the above.
-      // Without it, 8 hook consumers re-inject main-session context into
-      // forks that inherited it via cache. (public issue #1831, @DRAZY)
+      // Kept for any runtime that DOES set this, but insufficient on its own:
+      // a fork was observed with no marker set at all, which is why the
+      // hookInput check above exists. (public issue #1831)
       process.env.CLAUDE_CODE_FORK_SUBAGENT === '1' ||
       process.env.CLAUDE_AGENT_SDK === '1',
   );

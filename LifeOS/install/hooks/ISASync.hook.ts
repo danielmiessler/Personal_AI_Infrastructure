@@ -153,7 +153,13 @@ async function main(): Promise<string | null> {
   // without a phase edit. Per-session dedupe file; subagents never emit (their
   // ISA edits would strip-spam their own contexts, which helps nobody).
   let stripDelta: string | null = null;
-  if (input.session_id && fm.slug && !isSubagentContext()) {
+  // Payload-aware: a fork's env carries no subagent marker and shares the
+  // parent's session_id, so the env-only test returned false inside a fork and
+  // this strip was injected into the fork's OWN transcript. Scope note:
+  // syncToWorkJson above is deliberately NOT behind this test and never was — a
+  // fork editing an ISA is real work on the run and its progress should land in
+  // work.json. Only the strip is per-context, so only the strip is gated.
+  if (input.session_id && fm.slug && !isSubagentContext(input)) {
     try {
       const stripDir = join(homedir(), '.claude/LIFEOS/MEMORY/STATE/ascent-strip');
       const stripFile = join(stripDir, `${String(input.session_id).replace(/[^\w-]/g, '')}.json`);

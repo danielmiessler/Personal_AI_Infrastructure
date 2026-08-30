@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.1
+ * @version 1.1.0
  * ConfigEvalFire — PostToolUse(Write|Edit) hook that fires the {{DA_NAME}} behavioural
  * regression suite when a behaviour-defining file changes.
  *
@@ -41,13 +41,16 @@ function isSentinel(path: string): boolean {
   return /(^|\/)CLAUDE\.md$/.test(path);
 }
 
-function readInput(): { filePath: string | null } {
+function readInput(): { filePath: string | null; agent_id?: unknown; agent_type?: unknown } {
   try {
     const raw = readFileSync(0, 'utf8');
     if (!raw.trim()) return { filePath: null };
     const j = JSON.parse(raw);
     const fp = j?.tool_input?.file_path;
-    return { filePath: typeof fp === 'string' ? fp : null };
+    // agent_id/agent_type are carried through for the subagent test: a fork
+    // editing a sentinel would otherwise spawn the whole behavioural suite,
+    // because the env-only test cannot see a fork.
+    return { filePath: typeof fp === 'string' ? fp : null, agent_id: j?.agent_id, agent_type: j?.agent_type };
   } catch {
     return { filePath: null };
   }
@@ -76,9 +79,10 @@ function saveLastFire(iso: string): void {
 
 function main(): void {
   try {
-    if (isSubagent()) process.exit(0);
+    const input = readInput();
+    if (isSubagent(input)) process.exit(0);
 
-    const { filePath } = readInput();
+    const { filePath } = input;
     if (!filePath || !isSentinel(filePath)) process.exit(0);
     if (minutesSince(loadLastFire()) < DEBOUNCE_MINUTES) process.exit(0);
     if (!existsSync(RUNNER)) process.exit(0);

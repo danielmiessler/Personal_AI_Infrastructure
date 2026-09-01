@@ -1,8 +1,8 @@
 ---
-last_updated: 2026-07-22T04:00:00Z
+last_updated: 2026-09-01T19:30:00Z
 last_updated_by: da
 convention: pai-freshness-v1
-version: 1.1.4
+version: 1.1.5
 ---
 
 # Atlas — the LifeOS Asset Graph
@@ -52,6 +52,7 @@ Modeled on CNCF Cartography's design (sync-and-expire collectors, per-source obs
 | `systemd` | `~/.config/systemd/user/com.{lifeos,pai}.*.{service,timer}` (Linux sibling of `launchd` — unit files parsed directly, no subprocess) | services, this machine; RUNS_ON edges |
 | `gear` | `USER/GEAR.md` tables | devices with category/role |
 | `secrets` | the incident-response credential registry (`GenerateRegistry.ts --json`) + tier shapes (`DetectCriticalKeys.ts --format json`) | credentials (priority/cadence/vendor/dependencies attrs), orphaned credentials; HOLDS edges from this machine and from the config repo when the env file is tracked in it |
+| `docker` | local Docker daemon (`docker ps -aq` + one batched `docker inspect`; degrades when the CLI or daemon is absent) | containers — all states, not just running — with image/state/ports/networks/mounts/restart-policy/compose-project attrs; RUNS_ON edges to this machine |
 
 `launchd` and `systemd` are platform-exclusive: `Atlas.ts` registers exactly one of them by `process.platform`, so a macOS install's collector set is unchanged and `atlas sync systemd` there fails as an unknown collector rather than reporting a permanently incomplete run.
 

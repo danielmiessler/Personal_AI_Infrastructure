@@ -29,6 +29,7 @@ import { launchd } from "./collectors/Launchd";
 import { systemd } from "./collectors/Systemd";
 import { gear } from "./collectors/Gear";
 import { secrets } from "./collectors/Secrets";
+import { docker } from "./collectors/Docker";
 
 // The two service collectors are platform-exclusive: exactly one is ever registered,
 // so a macOS install's collector set is byte-for-byte what it was before systemd
@@ -38,7 +39,7 @@ import { secrets } from "./collectors/Secrets";
 const SERVICE_COLLECTOR = process.platform === "linux" ? systemd : launchd;
 
 const COLLECTORS: Record<string, Collector> = Object.fromEntries(
-  [cloudflare, github, projects, infraInventory, SERVICE_COLLECTOR, gear, secrets].map((c) => [c.name, c]),
+  [cloudflare, github, projects, infraInventory, SERVICE_COLLECTOR, gear, secrets, docker].map((c) => [c.name, c]),
 );
 
 const FULL_SYNC_INTERVAL_MS = 60 * 60 * 1000;

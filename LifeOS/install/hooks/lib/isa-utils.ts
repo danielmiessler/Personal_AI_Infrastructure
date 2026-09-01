@@ -41,12 +41,16 @@ export function hashBody(content: string): string {
 /** Append one Decisions row to the body. Inserts under `## Decisions` heading,
  *  creating the section if missing. v6.9.0 invariant: every auto-rewind logs
  *  one row so the principal can audit the rewind inline. */
-function appendDecisionRow(content: string, ts: string, newIteration: number): string {
+export function appendDecisionRow(content: string, ts: string, newIteration: number): string {
   const row = `- D-auto-${ts}: Auto-resumed from complete to learn at ${ts} — iteration ${newIteration}`;
   const decisionsRe = /(\n## Decisions\n)([\s\S]*?)(\n## |\n---\n|$)/;
   const match = content.match(decisionsRe);
   if (match) {
-    return content.replace(decisionsRe, `${match[1]}${match[2].trimEnd()}\n${row}\n${match[3]}`);
+    // Function replacer, not a string: the existing Decisions body (match[2]) is
+    // full of literal dollar amounts, and a string replacement would interpret
+    // `$1`/`$2`/`$&` inside them as regex backreferences — a `$14,000` became
+    // `<group-1>4,000`, duplicating and shredding the section (2026-09-01 incident).
+    return content.replace(decisionsRe, () => `${match[1]}${match[2].trimEnd()}\n${row}\n${match[3]}`);
   }
   // No Decisions section yet — append before the learning-trail section if present
   // (## Learning, or the legacy ## Changelog alias for pre-rename ISAs), else end.

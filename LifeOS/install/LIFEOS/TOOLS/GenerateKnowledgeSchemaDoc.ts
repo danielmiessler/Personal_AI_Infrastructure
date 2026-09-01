@@ -88,6 +88,10 @@ export function render(): string {
   L.push("");
   L.push("Bookmarks are NOT a type: an unprocessed saved URL is `status: inbox` + `source_kind: bookmark` on the type it will become; `ingest` promotes it.");
   L.push("");
+  L.push("A `book` note is ABOUT a book — the book itself is the entity you'd look up later; a single insight you took from a book is `type: idea` (or whatever it is), with the book credited in `source_author`/`source_name`.");
+  L.push("");
+  L.push("A `blog` note IS the post — the article's own text archived whole as the artifact; a note capturing what a post taught you is its own type (usually `idea`) with `source_kind: blog` carrying the provenance.");
+  L.push("");
 
   L.push("## Querying");
   L.push("");

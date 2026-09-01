@@ -476,11 +476,19 @@ export function validate(parsed: ParsedNote, _slug: string, dirType: CanonicalTy
     else if (isEmptyField(f)) v.push({ key, problem: "required field is empty" });
   }
 
-  // type value
-  const t = deq(get("type"));
-  if (t && !(CANONICAL_TYPES as readonly string[]).includes(t)) {
-    v.push({ key: "type", problem: `"${t}" not a canonical type` });
+  // select-field values — EVERY select in the envelope declares a closed enum, so
+  // enforce them all. Checking only `type` left the other `values` lists as
+  // decoration: an off-vocabulary `source_kind` passed a fully clean lint.
+  for (const f of ENVELOPE) {
+    if (f.format !== "select" || !f.values) continue;
+    const val = deq(get(f.key));
+    if (val && !f.values.includes(val)) {
+      v.push({ key: f.key, problem: `"${val}" not a valid ${f.key} (${f.values.join(" | ")})` });
+    }
   }
+
+  // type vs directory
+  const t = deq(get("type"));
   if (t && (CANONICAL_TYPES as readonly string[]).includes(t) && t !== dirType) {
     // type disagrees with directory
     v.push({ key: "type", problem: `type "${t}" ≠ dir type "${dirType}"` });
@@ -634,6 +642,15 @@ Body.
   // #6 quoted/commented enum values pass (no false positive).
   const quoted = parseNote('---\nid: kb_x\ntype: "idea"\ntitle: X\ntags: [a]\nquality: 5\ncreated: 2026-01-01\nupdated: 2026-01-01\nconvention: "kb-v3"\n---\nb\n');
   check("#6 quoted type/convention not false-flagged", !validate(quoted, "x", "idea").some((v) => v.key === "type" || v.key === "convention"));
+
+  // #7 every select enum is enforced, not just `type`. An off-vocabulary
+  // `source_kind` used to pass validate() clean because only `type` was checked.
+  const badKind = parseNote('---\nid: kb_x\ntype: idea\ntitle: X\ntags: [a]\nquality: 5\nsource_kind: external\ncreated: 2026-01-01\nupdated: 2026-01-01\nconvention: kb-v3\n---\nb\n');
+  check("#7 off-vocabulary source_kind flagged", validate(badKind, "x", "idea").some((v) => v.key === "source_kind"));
+  const badStatus = parseNote('---\nid: kb_x\ntype: idea\ntitle: X\ntags: [a]\nquality: 5\nstatus: sprouting\ncreated: 2026-01-01\nupdated: 2026-01-01\nconvention: kb-v3\n---\nb\n');
+  check("#7 off-vocabulary status flagged", validate(badStatus, "x", "idea").some((v) => v.key === "status"));
+  const goodKind = parseNote('---\nid: kb_x\ntype: idea\ntitle: X\ntags: [a]\nquality: 5\nsource_kind: "video"\nstatus: seedling\ncreated: 2026-01-01\nupdated: 2026-01-01\nconvention: kb-v3\n---\nb\n');
+  check("#7 in-vocabulary select values pass", !validate(goodKind, "x", "idea").some((v) => v.key === "source_kind" || v.key === "status"));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   return fail === 0 ? 0 : 1;

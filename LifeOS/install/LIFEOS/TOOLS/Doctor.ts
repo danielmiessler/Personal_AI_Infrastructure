@@ -41,6 +41,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync, readdirS
 import { join, basename } from 'path';
 import { createHash, randomBytes } from 'crypto';
 import { homedir } from "node:os";
+import { elevenLabsMessage } from './lib/ElevenLabsError';
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const CONFIG_ROOT = process.env.CLAUDE_CONFIG_DIR || join(HOME, '.claude');
@@ -80,10 +81,15 @@ interface CapSpec {
   // Returns null when the capability has no local configuration at all —
   // network probing it would be pre-consent egress (never allowed).
   configured: () => boolean;
-  probeOffline: () => Promise<{ ok: boolean; detail: string }>;
-  probeNetwork?: () => Promise<{ ok: boolean; detail: string }>;
+  probeOffline: () => Promise<ProbeResult>;
+  probeNetwork?: () => Promise<ProbeResult>;
   fixCmd: string;
 }
+
+// A probe may override the capability's static fixCmd when it has diagnosed a
+// specific cause whose remedy differs (e.g. an exhausted vendor quota is not a
+// misconfigured voice id). Absent → the CapSpec's fixCmd applies.
+interface ProbeResult { ok: boolean; detail: string; fixCmd?: string }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -441,14 +447,33 @@ const CAPS: CapSpec[] = [
         clearTimeout(timer);
         if (res.ok) return { ok: true, detail: 'TTS round-trip OK (real synthesis on the notification path)' };
         const errText = (await res.text()).slice(0, 200);
+        // Monthly character quota exhausted — the key and voice are fine, and
+        // swapping the voice id does nothing. Surface ElevenLabs' own message
+        // (it names the quota and remaining credits) and point at the plan.
+        if (errText.includes('quota_exceeded')) {
+          const msg = elevenLabsMessage(errText) ?? 'monthly character quota exceeded';
+          return {
+            ok: false,
+            detail: `ElevenLabs quota exceeded — ${msg}`,
+            fixCmd: 'wait for the ElevenLabs monthly quota reset, or add credits / upgrade the plan at elevenlabs.io (key and voice id are fine)',
+          };
+        }
         if (errText.includes('famous_voice_not_permitted')) {
-          return { ok: false, detail: 'configured voice is a famous voice — not usable via API TTS' };
+          return {
+            ok: false,
+            detail: 'configured voice is a famous voice — not usable via API TTS',
+            fixCmd: 'set ELEVENLABS_VOICE_ID to a premade or cloned voice in <configRoot>/.env (famous voices are blocked on the API)',
+          };
         }
         // Plan-tier restriction, not quota (public issue #1496, @waveman2020-sudo):
         // free-tier keys 402 with paid_plan_required on ANY library voice — swapping
         // voices or waiting for quota reset does not fix it.
         if (errText.includes('paid_plan_required')) {
-          return { ok: false, detail: 'free-tier ElevenLabs plan cannot use library voices via API — upgrade the plan or use a premade/cloned voice' };
+          return {
+            ok: false,
+            detail: 'free-tier ElevenLabs plan cannot use library voices via API',
+            fixCmd: 'upgrade the ElevenLabs plan, or set ELEVENLABS_VOICE_ID to a premade/cloned voice in <configRoot>/.env',
+          };
         }
         return { ok: false, detail: `TTS failed (${res.status}): ${errText.slice(0, 120)}` };
       } catch {
@@ -715,7 +740,7 @@ async function probeAll(network: boolean): Promise<Manifest> {
     m.capabilities[cap.id] = {
       state: res.ok ? 'live' : 'broken',
       checkedAt: new Date().toISOString(), ttlHours: cap.ttlHours,
-      detail: res.detail, fixCmd: res.ok ? null : cap.fixCmd, probeClass,
+      detail: res.detail, fixCmd: res.ok ? null : (res.fixCmd ?? cap.fixCmd), probeClass,
     };
   }
   saveManifest(m);

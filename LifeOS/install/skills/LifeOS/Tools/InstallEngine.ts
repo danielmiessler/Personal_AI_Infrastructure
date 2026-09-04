@@ -491,14 +491,16 @@ const IDENTITY_PLACEHOLDERS = [
  * or abort.
  */
 export function checkSurvivingPlaceholders(rootDir: string): {
-  passed: boolean; files: Array<{ file: string; placeholder: string; count: number }>; total: number;
+  passed: boolean; files: Array<{ file: string; placeholder: string; count: number }>; total: number; scanned: number;
 } {
   const files: Array<{ file: string; placeholder: string; count: number }> = [];
   let total = 0;
+  let scanned = 0;
   const processFile = (filePath: string): void => {
     if (!TEMPLATE_EXTENSIONS.has(fileExtension(filePath))) return;
     let src: string;
     try { src = readFileSync(filePath, "utf-8"); } catch { return; }
+    scanned++;
     for (const placeholder of IDENTITY_PLACEHOLDERS) {
       const count = src.split(placeholder).length - 1;
       if (count > 0) { files.push({ file: filePath, placeholder, count }); total += count; }
@@ -515,7 +517,9 @@ export function checkSurvivingPlaceholders(rootDir: string): {
   };
   if (existsSync(rootDir) && lstatSync(rootDir).isFile()) processFile(rootDir);
   else walk(rootDir);
-  return { passed: total === 0, files, total };
+  // A scan that reached zero template files cannot vouch for anything: a mis-rooted or
+  // nonexistent rootDir must FAIL the Setup 9(d) gate, not pass it.
+  return { passed: scanned > 0 && total === 0, files, total, scanned };
 }
 
 /**

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question, idea, or release feedback
+    url: https://github.com/danielmiessler/LifeOS/discussions
+    about: Discussions is the place for questions, feature ideas, and "should I upgrade?". Defects belong in issues.

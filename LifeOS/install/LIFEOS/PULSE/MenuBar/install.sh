@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOME_DIR="$HOME"
 APP_NAME="LifeOS Pulse"
+BINARY_NAME="LifeOS Pulse"
 APP_DIR="$HOME_DIR/Applications"
 APP_DEST="$APP_DIR/$APP_NAME.app"
 OLD_APP="$APP_DIR/PAI Monitor.app"
@@ -70,8 +71,37 @@ echo "  Installed $PLIST_DST"
 # Ensure logs directory exists
 mkdir -p "$HOME_DIR/.claude/LIFEOS/PULSE/logs"
 
-launchctl load "$PLIST_DST"
-echo "  Loaded $PLIST_LABEL"
+# `launchctl load` is the legacy API: it prints "Load failed: N: ..." to stderr
+# but still exits 0, so `set -e` cannot see it. Use the domain-target API, which
+# returns a real exit status, and bootout first so a stale registration of the
+# same label cannot fail the bootstrap with EX 5 (Input/output error).
+DOMAIN="gui/$(id -u)"
+launchctl bootout "$DOMAIN/$PLIST_LABEL" 2>/dev/null || true
+
+if ! launchctl bootstrap "$DOMAIN" "$PLIST_DST"; then
+    echo "  ERROR: launchctl bootstrap failed for $PLIST_LABEL" >&2
+    echo "  The menu bar is NOT installed. Plist: $PLIST_DST" >&2
+    exit 1
+fi
+echo "  Bootstrapped $PLIST_LABEL"
+
+# A successful bootstrap only means launchd accepted the job definition.
+# Confirm the process actually came up before claiming the menu bar is running.
+BINARY_PATH="$APP_DEST/Contents/MacOS/$BINARY_NAME"
+for _ in $(seq 1 10); do
+    if pgrep -f "$BINARY_PATH" >/dev/null 2>&1; then
+        RUNNING=1
+        break
+    fi
+    sleep 0.5
+done
+
+if [ "${RUNNING:-0}" -ne 1 ]; then
+    echo "  ERROR: $PLIST_LABEL was bootstrapped but no process is running." >&2
+    echo "  Check $HOME_DIR/.claude/LIFEOS/PULSE/logs/menubar-stderr.log" >&2
+    launchctl print "$DOMAIN/$PLIST_LABEL" 2>&1 | grep -E "last exit code|state =" >&2 || true
+    exit 1
+fi
 
 echo ""
 echo "=== Installation complete ==="

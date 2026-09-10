@@ -34,7 +34,9 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * STORAGE:
  *   Reads MEMORY/KNOWLEDGE/{People,Companies,Ideas,Research}/*.md  (class: knowledge)
  *   Reads MEMORY/LEARNING/ ** /*.md recursively                    (class: learning)
- *   NEVER writes or modifies files — read-only tool.
+ *   NEVER writes or modifies memory files — read-only over the corpus.
+ *   The one write is an audit row per hot-path retrieval, appended to
+ *   MEMORY/OBSERVABILITY/memory-retrievals.jsonl (see recordRetrieval).
  *
  * ============================================================================
  */
@@ -44,6 +46,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -65,6 +68,17 @@ const DOMAINS = ["People", "Companies", "Ideas", "Research"];
 // (public issue #1776, @umair-a11y). It is walked recursively because entries
 // live in dated subdirs (FAILURES/2026-07/<slug>/CONTEXT.md).
 const LEARNING_DIR = path.join(LIFEOS_DIR, "MEMORY", "LEARNING");
+
+// Per-turn retrieval audit stream. Designed in ISC-107..112 (May 2026) and
+// documented in MemorySystem.md + ObservabilitySystem.md as "written by
+// MemoryRetriever", but the writer never landed; CortexHealth.ts (7.40.4)
+// then began WARNing on its absence, so every install sat permanently amber.
+// Row shape is pinned by CortexHealth.validRetrievalRow: exactly
+// {ts, query_hash, returned_count, duration_ms} plus optional top_score.
+// The raw query is never persisted — it is the principal's prompt — only a
+// hash, which is enough to correlate repeated retrievals.
+const OBSERVABILITY_DIR = path.join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
+const RETRIEVALS_LOG = path.join(OBSERVABILITY_DIR, "memory-retrievals.jsonl");
 
 // BM25 parameters
 const BM25_K1 = 1.5;
@@ -685,6 +699,29 @@ function discoverAllItems(): KnowledgeNote[] {
  *   excerptChars — max excerpt length per result (default 500)
  *   typeFilter   — restrict to one type
  */
+/**
+ * Append one audit row for a hot-path retrieval. Best-effort and silent: the
+ * retriever sits on every turn's critical path, so a full disk or a missing
+ * OBSERVABILITY dir must never turn into a thrown error or a stderr line.
+ * Cache hits are deliberately not recorded — the stream audits BM25 runs,
+ * and a hit does no ranking work.
+ */
+function recordRetrieval(row: { query_hash: string; returned_count: number; duration_ms: number; top_score?: number }): void {
+  try {
+    fs.mkdirSync(OBSERVABILITY_DIR, { recursive: true });
+    const line: Record<string, unknown> = {
+      ts: new Date().toISOString(),
+      query_hash: row.query_hash,
+      returned_count: row.returned_count,
+      duration_ms: Math.round(row.duration_ms * 1000) / 1000,
+    };
+    if (row.top_score !== undefined) line.top_score = row.top_score;
+    fs.appendFileSync(RETRIEVALS_LOG, JSON.stringify(line) + "\n", "utf8");
+  } catch {
+    /* observability must never break retrieval */
+  }
+}
+
 export function getRelevantContext(
   query: string,
   options: { topK?: number; threshold?: number; excerptChars?: number; typeFilter?: string } = {},
@@ -701,18 +738,32 @@ export function getRelevantContext(
     return { ...cached.result, cached: true };
   }
 
+  // Every uncached exit below funnels through finish() so the audit row is
+  // written exactly once per BM25 run, including the empty-result paths —
+  // an empty retrieval is still evidence the retriever ran this turn.
+  const startedAt = performance.now();
+  const queryHash = createHash("sha256").update(cacheKey).digest("hex").slice(0, 16);
+  const finish = (result: GetRelevantContextResult, topScore?: number): GetRelevantContextResult => {
+    relevantCache.set(cacheKey, { ts: Date.now(), result });
+    recordRetrieval({
+      query_hash: queryHash,
+      returned_count: result.results.length,
+      duration_ms: performance.now() - startedAt,
+      top_score: topScore,
+    });
+    return result;
+  };
+
   const empty: GetRelevantContextResult = { results: [], markdownBlock: "", totalSearched: 0, cached: false };
 
   const queryTerms = tokenize(query);
   if (queryTerms.length === 0) {
-    relevantCache.set(cacheKey, { ts: Date.now(), result: empty });
-    return empty;
+    return finish(empty);
   }
 
   const allNotes = discoverAllItems();
   if (allNotes.length === 0) {
-    relevantCache.set(cacheKey, { ts: Date.now(), result: { ...empty, totalSearched: 0 } });
-    return empty;
+    return finish({ ...empty, totalSearched: 0 });
   }
 
   const avgDocLength = allNotes.reduce((sum, n) => sum + n.wordCount, 0) / allNotes.length;
@@ -729,9 +780,7 @@ export function getRelevantContext(
   scored = scored.slice(0, topK);
 
   if (scored.length === 0) {
-    const result = { ...empty, totalSearched: allNotes.length };
-    relevantCache.set(cacheKey, { ts: Date.now(), result });
-    return result;
+    return finish({ ...empty, totalSearched: allNotes.length });
   }
 
   const results: RelevantResultItem[] = scored.map(({ note, score }) => {
@@ -745,8 +794,7 @@ export function getRelevantContext(
 
   const markdownBlock = formatRelevantBlock(results);
   const result: GetRelevantContextResult = { results, markdownBlock, totalSearched: allNotes.length, cached: false };
-  relevantCache.set(cacheKey, { ts: Date.now(), result });
-  return result;
+  return finish(result, scored[0].score);
 }
 
 /**
@@ -779,6 +827,91 @@ export function clearRelevantCache(): void {
 }
 
 // ============================================================================
+// Self-test
+// ============================================================================
+
+/**
+ * `bun MemoryRetriever.ts test` — hermetic check that the retrieval audit
+ * stream is actually produced, and produced in the shape CortexHealth
+ * enforces. Exists because the stream was documented and health-checked for
+ * months before any writer existed, and no test noticed: the check had a
+ * fixture-free WARN path and nothing exercised the producer. This closes
+ * that loop by running the real hot-path entry point against a throwaway
+ * corpus and validating the result with the real health module.
+ *
+ * Runs the probe in a child process so LIFEOS_DIR can be repointed at the
+ * fixture — the corpus paths are resolved once at module load, by design.
+ */
+async function selfTest(): Promise<number> {
+  const os = await import("node:os");
+  const { collectCortexEvidence, assessCortexEvidence } = await import("./CortexHealth");
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "memory-retriever-test-"));
+  const lifeosDir = path.join(root, "LIFEOS");
+  const ideas = path.join(lifeosDir, "MEMORY", "KNOWLEDGE", "Ideas");
+  fs.mkdirSync(ideas, { recursive: true });
+  fs.writeFileSync(
+    path.join(ideas, "fixture.md"),
+    "---\ntype: idea\ntitle: Retrieval audit fixture\ntags: [fixture, audit]\n---\n\n" +
+      "The retrieval audit fixture exists so the self-test has a note that matches the probe query about audit fixtures.\n",
+  );
+
+  let failures = 0;
+  const fail = (msg: string) => { failures++; console.error(`  FAIL ${msg}`); };
+  const pass = (msg: string) => console.log(`  ok   ${msg}`);
+
+  try {
+    // Three hot-path calls in one process: a hit, the same query again (cache
+    // hit, must NOT log), and a query with no matches (empty path, MUST log).
+    const probe = spawnSync("bun", [import.meta.path, "--probe", "retrieval audit fixture"], {
+      env: { ...process.env, LIFEOS_DIR: lifeosDir },
+      encoding: "utf8",
+    });
+    if (probe.status !== 0) {
+      fail(`probe exited ${probe.status}: ${probe.stderr}`);
+      return 1;
+    }
+    const report = JSON.parse(probe.stdout.trim()) as { hit: number; secondCached: boolean; miss: number };
+    report.hit > 0 ? pass(`hit query returned ${report.hit} result(s)`) : fail("hit query returned nothing");
+    report.secondCached ? pass("repeat query served from cache") : fail("repeat query was not cached");
+    report.miss === 0 ? pass("nonsense query returned nothing") : fail(`nonsense query returned ${report.miss}`);
+
+    const log = path.join(lifeosDir, "MEMORY", "OBSERVABILITY", "memory-retrievals.jsonl");
+    if (!fs.existsSync(log)) { fail(`audit log not written: ${log}`); return 1; }
+    const rows = fs.readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    rows.length === 2 ? pass("exactly 2 rows for 3 calls (cache hit not recorded)") : fail(`expected 2 rows, got ${rows.length}`);
+
+    for (const [i, row] of rows.entries()) {
+      const keys = Object.keys(row).sort().join(",");
+      const okKeys = keys === "duration_ms,query_hash,returned_count,ts" || keys === "duration_ms,query_hash,returned_count,top_score,ts";
+      okKeys ? pass(`row ${i} has the pinned key set (${keys})`) : fail(`row ${i} has unexpected keys: ${keys}`);
+      /^[0-9a-f]{16}$/.test(row.query_hash) ? pass(`row ${i} query_hash is a 16-hex prefix, not the raw query`) : fail(`row ${i} query_hash malformed: ${row.query_hash}`);
+    }
+    rows[0].returned_count > 0 && rows[0].top_score !== undefined ? pass("hit row carries returned_count and top_score") : fail("hit row missing count/score");
+    rows[1].returned_count === 0 && rows[1].top_score === undefined ? pass("miss row has returned_count 0 and no top_score") : fail("miss row shape wrong");
+
+    // The real health module must accept what the real writer produced.
+    const evidence = collectCortexEvidence({ root });
+    evidence.retrieval.status === "ok" ? pass(`CortexHealth reads retrieval evidence as "${evidence.retrieval.status}"`) : fail(`CortexHealth retrieval status: ${evidence.retrieval.status}`);
+    const retrievalFindings = assessCortexEvidence(evidence).findings.filter((f) => f.id.startsWith("retrieval") && f.severity !== "ok");
+    retrievalFindings.length === 0 ? pass("no retrieval findings from assessCortexEvidence") : fail(`retrieval findings: ${retrievalFindings.map((f) => f.id).join(", ")}`);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+
+  console.log(failures === 0 ? "\nPASS" : `\nFAIL (${failures})`);
+  return failures === 0 ? 0 : 1;
+}
+
+/** Child side of selfTest(): exercise getRelevantContext three ways, report as JSON. */
+function probe(query: string): void {
+  const a = getRelevantContext(query, { topK: 5, threshold: 0.2 });
+  const b = getRelevantContext(query, { topK: 5, threshold: 0.2 });
+  const c = getRelevantContext("zzqxv wvvqz", { topK: 5, threshold: 0.2 });
+  console.log(JSON.stringify({ hit: a.results.length, secondCached: b.cached, miss: c.results.length }));
+}
+
+// ============================================================================
 // Help
 // ============================================================================
 
@@ -791,6 +924,7 @@ USAGE:
   bun MemoryRetriever.ts "query string" --top 5            Return top 5 (default: 3)
   bun MemoryRetriever.ts "query string" --raw              Skip compression, return raw excerpts
   bun MemoryRetriever.ts "query string" --budget 800       Token budget for output (default: 500)
+  bun MemoryRetriever.ts test                              Hermetic self-test of the retrieval audit stream
   bun MemoryRetriever.ts --help                            Show this help
 
 OPTIONS:
@@ -822,6 +956,11 @@ EXAMPLES:
 // ============================================================================
 
 async function main(): Promise<void> {
+  // Subcommand dispatch ahead of parseArgs, same shape as MemoryReviewer.ts.
+  if (process.argv[2] === "test") {
+    process.exit(await selfTest());
+  }
+
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {
@@ -829,6 +968,7 @@ async function main(): Promise<void> {
       raw: { type: "boolean", short: "r", default: false },
       budget: { type: "string", short: "b" },
       help: { type: "boolean", short: "h", default: false },
+      probe: { type: "boolean", default: false },
     },
     allowPositionals: true,
     strict: true,
@@ -840,6 +980,12 @@ async function main(): Promise<void> {
   }
 
   const query = positionals.join(" ").trim();
+
+  // Hidden child-process entry used only by `test`; never a user-facing mode.
+  if (values.probe) {
+    probe(query);
+    return;
+  }
   if (!query) {
     console.error("Error: Query string required.\n");
     printHelp();

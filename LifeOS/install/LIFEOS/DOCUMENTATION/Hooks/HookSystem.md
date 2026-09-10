@@ -382,7 +382,8 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
         { "type": "command", "command": "$HOME/.claude/hooks/EventLogger.hook.ts", "timeout": 5, "async": true }
     ] },
     { "matcher": "Bash", "hooks": [
-        { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 }
+        { "type": "command", "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts", "timeout": 5 },
+        { "type": "command", "command": "$HOME/.claude/hooks/BashWriteRelay.hook.ts", "timeout": 20 }
     ] }
   ]
 }
@@ -396,6 +397,13 @@ Each check is wrapped in its own try/catch so one guard throwing can never suppr
 **Safety.hook.ts** *(matchers `WebFetch`, `WebSearch`, `mcp__.*`, `ToolSearch`)* - PostToolUse branch of the consolidated `Safety.hook.ts`: tags external content with the "treat as data" warning + injection marker. Same file dispatches the PermissionRequest branch (see Section: PermissionRequest).
 
 **TabState.hook.ts** *(matcher `AskUserQuestion`; formerly `QuestionAnswered.hook.ts`)* - Restores the tab to working/orange after the user answers. Same unified file handles the PreToolUse question branch and the Stop reset.
+
+**BashWriteRelay.hook.ts** *(matcher `Bash`)* - Replay the Write-shaped hooks for files a Bash call wrote
+- Closes upstream #2079: `defaultMode: auto` steers file writes to Bash, and ISASync, CheckpointPerISC, ConfigEvalFire and SystemChangeSurface watch only Write/Edit/MultiEdit, so a heredoc-written ISA never reached work.json
+- Detects changes by mtime on a bounded set of watched roots (doctrine, prompt, ALGORITHM, RULES, TOOLS, hooks, skills, settings, USER identity files, MEMORY/WORK ISAs, plus ISA paths already in work.json) since its last run for the session; never parses the command
+- First Bash call of a session only records a baseline; a change set over 40 files is logged and skipped; each changed file is replayed through the four hooks with a synthesized Write payload and their `additionalContext` is concatenated
+- State `MEMORY/STATE/bash-write-relay/{session}.json`, log `MEMORY/OBSERVABILITY/bash-write-relay.jsonl`; always exits 0
+- Limit: detection is per session by time window, so with two sessions writing under `~/.claude` at once a sibling session's write between two of this session's Bash calls is attributed here. The ⚙️ line is disclosure, not authority; a transcript cross-check would close it
 
 **ISASync.hook.ts** *(matchers `Write`, `Edit`, `MultiEdit`)* - ISA Frontmatter → work.json Sync
 - Fires after Write/Edit/MultiEdit to ISA files in `MEMORY/WORK/`; syncs ISA frontmatter (status, title, effort) to `MEMORY/STATE/work.json`; non-blocking, fire-and-forget

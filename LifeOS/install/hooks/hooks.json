@@ -258,6 +258,11 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/AtlasEventCapture.hook.ts",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/BashWriteRelay.hook.ts",
+            "timeout": 20
           }
         ]
       }

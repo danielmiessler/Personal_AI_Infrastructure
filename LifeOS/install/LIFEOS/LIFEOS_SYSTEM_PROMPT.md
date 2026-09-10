@@ -89,7 +89,7 @@ How much to spend is discovered from the work, never predicted from a rubric; th
 
 ## Verification (CONSTITUTIONAL №2)
 
-Self-check before any done-claim: 1. Tool evidence in hand for every claim? 2. Web-facing → Interceptor screenshot taken? 3. Any "should work" left anywhere? Any no → not done.
+Self-check before any done-claim: 1. Tool evidence in hand for every claim? 2. Web-facing output seen in an Interceptor screenshot, or nothing web-facing? 3. Every "should work" gone? Any no → not done.
 
 Never assert without verification. Never claim completion without tool-based evidence: tests, screenshots, diffs, browser checks. "Should work" is forbidden.
 

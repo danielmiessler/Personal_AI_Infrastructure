@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 3.2.2
+ * @version 3.3.0
  * TRIGGER: UserPromptSubmit (routing match, always-on) — also runs on PostToolUse via PostToolObserver and on PostToolUseFailure.
  * AlgorithmNudge — the Algorithm live nudge layer ("Events ask the rest").
  *
@@ -81,7 +81,10 @@ const SKILLS_DIR = join(PAI, 'skills');
 const INDEX_PATH = join(PAI, 'LIFEOS', 'MEMORY', 'STATE', 'skill-usewhen-index.json');
 
 const STALE_ISA_THRESHOLD = 15;            // tool calls with zero ISA edits (run-scoped)
-const LATE_ISA_THRESHOLD = 25;             // tool calls with NO registered run (always-on, once)
+const LATE_ISA_THRESHOLD = 25;             // tool calls with NO registered run (always-on)
+const LATE_ISA_REARM = 3 * LATE_ISA_THRESHOLD; // re-arm budget while still no run (upstream #2074: the
+                                            // only reset lived inside the run-closed branch, so a session
+                                            // that never registered a run was nudged once, then never)
 const COOLDOWN_MS = 5 * 60 * 1000;         // default per-nudge-type
 const ROUTE_COOLDOWN_MS = 60 * 60 * 1000;  // per-skill routing cooldown
 const INDEX_MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -155,6 +158,9 @@ interface NudgeState {
   toolCallsSinceISAEditAbs: number;
   toolCallsTotal: number;
   lateISAFired: boolean;
+  /** toolCallsTotal at the last late-ISA fire; the row re-arms LATE_ISA_REARM
+   *  calls later while no run is registered (upstream #2074). */
+  lateISAFiredAtCalls?: number;
   /** True while an OPEN run is bound to this session. The open→closed edge
    *  restarts the untracked-work clock (Forge audit H1). */
   runWasOpen?: boolean;
@@ -212,6 +218,7 @@ function loadState(sessionId: string): NudgeState {
     toolCallsSinceISAEditAbs: s.toolCallsSinceISAEditAbs ?? (s as any).toolCallsSinceIsaEditAbs ?? 0,
     toolCallsTotal: s.toolCallsTotal ?? 0,
     lateISAFired: s.lateISAFired ?? (s as any).lateIsaFired ?? false,
+    lateISAFiredAtCalls: s.lateISAFiredAtCalls ?? 0,
     runWasOpen: s.runWasOpen ?? false,
     delegateEvents: s.delegateEvents ?? 0,
     primaryEvents: s.primaryEvents ?? 0,
@@ -830,6 +837,7 @@ export function run(input: HookInput): string | null {
 
       if (active) {
         state.runWasOpen = true;
+        state.lateISAFired = false; // a registered run is the answer the late-ISA row was asking for
         // stale-ISA counter
         state.toolCallsSinceISAEdit = isISAEdit ? 0 : state.toolCallsSinceISAEdit + 1;
         state.toolCallsSinceISAEditAbs = isISAEdit ? 0 : state.toolCallsSinceISAEditAbs + 1;
@@ -855,7 +863,12 @@ export function run(input: HookInput): string | null {
         // CALLS, and 25 of those elapse in under a minute on parallel blocks. It
         // also bounds the row when a run's progress oscillates around N/N, which
         // reopens and recloses it repeatedly (Forge delta audit M-A, M-B).
-        if (!state.lateISAFired
+        // Re-arm on a tool-call budget, not only on run close (upstream #2074):
+        // a session that never registers a run is exactly the one this row is
+        // for, and "once" meant one nudge at call 25 then silence for 231 more.
+        const rearmed = state.lateISAFired
+          && (state.toolCallsTotal - (state.lateISAFiredAtCalls ?? 0)) >= LATE_ISA_REARM;
+        if ((!state.lateISAFired || rearmed)
           && state.toolCallsTotal >= LATE_ISA_THRESHOLD
           && cooled(state, 'late-isa', now)) {
           // ALWAYS-ON: late-ISA. This deep with no open run is either genuinely
@@ -863,6 +876,7 @@ export function run(input: HookInput): string | null {
           // substantive work before the ISA appeared) — or a run that closed and
           // kept going, which needs the opposite instruction.
           state.lateISAFired = true;
+          state.lateISAFiredAtCalls = state.toolCallsTotal;
           const closed = closedRunFor(sessionId);
           const text = closed
             ? `${LATE_ISA_THRESHOLD}+ tool calls since your run closed at ${closed.progress || 'its last claim'}. The work didn't stop when the ISA did — reopen it with the claims this stretch is actually proving, or scaffold a new one.`

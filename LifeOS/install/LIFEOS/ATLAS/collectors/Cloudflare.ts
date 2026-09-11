@@ -20,13 +20,13 @@ function token(): string | null {
   return m ? m[1] : null;
 }
 
-async function cf(path: string, tok: string): Promise<unknown[]> {
+async function cf(path: string, tok: string, extra?: Record<string, string>): Promise<unknown[]> {
   const out: unknown[] = [];
   let page = 1;
   for (;;) {
     const sep = path.includes("?") ? "&" : "?";
     const res = await fetch(`${API}${path}${sep}per_page=50&page=${page}`, {
-      headers: { Authorization: `Bearer ${tok}` },
+      headers: { Authorization: `Bearer ${tok}`, ...extra },
     });
     if (!res.ok) throw new Error(`CF ${path} -> ${res.status}`);
     const body = (await res.json()) as {
@@ -65,9 +65,9 @@ async function cfOne(path: string, tok: string): Promise<any | null> {
  *
  * ported from public PR #1744, @schmetti-dev
  */
-async function cfSoft(path: string, tok: string, label: string, onFail: () => void): Promise<unknown[]> {
+async function cfSoft(path: string, tok: string, label: string, onFail: () => void, extra?: Record<string, string>): Promise<unknown[]> {
   try {
-    return await cf(path, tok);
+    return await cf(path, tok, extra);
   } catch (err) {
     onFail();
     console.error(`[cloudflare] ${label} failed: ${(err as Error).message}`);
@@ -171,10 +171,32 @@ export const cloudflare: Collector = {
     const kv = (await cfSoft(`/accounts/${acct.id}/storage/kv/namespaces`, tok, "KV namespaces", () => { partial = true; })) as Array<{ id: string; title: string }>;
     for (const ns of kv) assets.push({ kind: "kv_namespace", key: `cloudflare:kv:${ns.id}`, name: ns.title });
 
-    const r2 = (await cfSoft(`/accounts/${acct.id}/r2/buckets`, tok, "R2 buckets", () => { partial = true; })) as Array<{ name?: string; buckets?: Array<{ name: string }> }>;
-    // Endpoint wraps the list: result = { buckets: [...] } → cf() returns [wrapper].
-    const buckets = r2.flatMap((item) => (item.buckets ? item.buckets : item.name ? [{ name: item.name }] : []));
-    for (const b of buckets) assets.push({ kind: "r2_bucket", key: `cloudflare:r2:${b.name}`, name: b.name });
+    // R2 buckets are partitioned by JURISDICTION, and a listing only ever returns the
+    // one it was asked for. The default listing cannot see an `eu` bucket at all — it
+    // returns 200 with an empty array, which is indistinguishable from "this account
+    // has no buckets". Jurisdiction travels as the `cf-r2-jurisdiction` HEADER, never
+    // as a query parameter: `?jurisdiction=eu` is accepted and silently ignored, so the
+    // obvious fix yields exactly the same empty list as the bug it was meant to repair.
+    // Found 2026-09-11 on an estate where every bucket is `--jurisdiction eu`: three
+    // live buckets had been invisible to the graph since this collector was written.
+    // `fnv` is deliberately NOT probed — it is FedRAMP-only and 403s for an ordinary
+    // account, which would set `partial` forever and stop the collector ever sweeping.
+    const R2_JURISDICTIONS: Array<{ id: string; header?: Record<string, string> }> = [
+      { id: "default" },
+      { id: "eu", header: { "cf-r2-jurisdiction": "eu" } },
+    ];
+    for (const j of R2_JURISDICTIONS) {
+      const r2 = (await cfSoft(`/accounts/${acct.id}/r2/buckets`, tok, `R2 buckets (${j.id})`, () => { partial = true; }, j.header)) as Array<{ name?: string; buckets?: Array<{ name: string }> }>;
+      // Endpoint wraps the list: result = { buckets: [...] } → cf() returns [wrapper].
+      const buckets = r2.flatMap((item) => (item.buckets ? item.buckets : item.name ? [{ name: item.name }] : []));
+      // Keyed by NAME ONLY, never name+jurisdiction: a worker's r2_bucket binding carries
+      // `bucket_name` and nothing else, so datastoreTarget() could not resolve a
+      // jurisdiction-qualified key and every DEPENDS_ON edge to a bucket would break.
+      // Jurisdiction rides as an attribute instead. Two buckets sharing a name across
+      // jurisdictions is possible in theory; a binding could not disambiguate such a
+      // pair either, so nothing is lost that the API itself makes available.
+      for (const b of buckets) assets.push({ kind: "r2_bucket", key: `cloudflare:r2:${b.name}`, name: b.name, attrs: { jurisdiction: j.id } });
+    }
 
     const d1 = (await cfSoft(`/accounts/${acct.id}/d1/database`, tok, "D1 databases", () => { partial = true; })) as Array<{ uuid: string; name: string }>;
     for (const db of d1) assets.push({ kind: "d1_database", key: `cloudflare:d1:${db.name}`, name: db.name, attrs: { uuid: db.uuid } });

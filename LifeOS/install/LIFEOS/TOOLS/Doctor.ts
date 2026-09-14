@@ -630,6 +630,12 @@ function hookInterpreterProblems(): string[] {
     try { mode = statSync(resolved).mode; } catch {}
     const name = basename(resolved);
     if (!(mode & 0o111)) { problems.push(`${name}: not executable (chmod +x)`); continue; }
+    // A native executable (Mach-O / ELF, e.g. iTerm2's compiled cc-status
+    // status-line helper) needs no shebang; exec() runs it directly. Only
+    // scripts do, so check the magic bytes before demanding a `#!` line.
+    let magic = Buffer.alloc(0);
+    try { magic = readFileSync(resolved).subarray(0, 4); } catch {}
+    if (isNativeBinary(magic)) continue;
     let head = '';
     try { head = readFileSync(resolved, 'utf8').slice(0, 200).split('\n')[0]; } catch {}
     if (!head.startsWith('#!')) { problems.push(`${name}: no #! shebang`); continue; }
@@ -644,6 +650,14 @@ function hookInterpreterProblems(): string[] {
     }
   }
   return problems;
+}
+
+/** True when the first four bytes are an ELF, Mach-O (32/64, either byte order) or fat/universal header. */
+function isNativeBinary(magic: Buffer): boolean {
+  if (magic.length < 4) return false;
+  const be = magic.readUInt32BE(0);
+  return be === 0x7f454c46 || be === 0xfeedface || be === 0xfeedfacf ||
+    be === 0xcefaedfe || be === 0xcffaedfe || be === 0xcafebabe || be === 0xbebafeca;
 }
 
 // ── manifest io ──────────────────────────────────────────────────────────────

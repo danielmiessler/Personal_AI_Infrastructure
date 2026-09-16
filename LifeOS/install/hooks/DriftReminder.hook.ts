@@ -7,7 +7,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 }
 
 /**
- * @version 1.2.0
+ * @version 1.2.1
  * TRIGGER: UserPromptSubmit
  * DriftReminder — pre-write format contract for the LifeOS output format.
  *
@@ -170,16 +170,24 @@ interface FormatMeasure {
   emDashes: number;
   banner: boolean;
   closer: boolean;
+  // The 🗣️ closer's name slot must resolve to the DA identity file's name.
+  // Anchored to the LAST VISIBLE line (the real closer), never "last line
+  // containing the emoji" — a response that quotes the emoji in a body bullet
+  // to discuss the format must not be misread as a leaked placeholder.
+  daPlaceholder: boolean;
   banned: string | null;
 }
 
 function measure(text: string): FormatMeasure {
   const prose = stripCode(text);
+  const visible = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  const closerLine = visible[visible.length - 1] ?? "";
   return {
     lines: prose.split("\n").filter((l) => l.trim().length > 0).length,
     emDashes: countEmDashes(prose),
     banner: MODE_BANNERS.some((banner) => text.includes(banner)),
     closer: /🗣️/.test(text),
+    daPlaceholder: closerLine.includes("🗣️") && closerLine.includes("<DA>"),
     banned: firstBannedHit(text),
   };
 }
@@ -190,6 +198,7 @@ function breaksIn(m: FormatMeasure, cap: number | null): string[] {
   if (!m.banner) out.push("no banner");
   if (!m.closer) out.push("no closer");
   if (m.emDashes > 2) out.push(`${m.emDashes} em-dashes`);
+  if (m.daPlaceholder) out.push("literal '<DA>' in closer (must be the DA name)");
   if (m.banned) out.push(`banned word '${m.banned}'`);
   if (cap !== null && m.lines > cap) out.push(`${m.lines} lines (cap ${cap})`);
   return out;

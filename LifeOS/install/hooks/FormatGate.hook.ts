@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @version 1.0.1
+ * @version 1.0.2
  * FormatGate.hook.ts — deterministic Stop-hook teeth for the LifeOS output
  * format (system prompt § Output Format).
  *
@@ -50,7 +50,7 @@ const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS"
 const OBS_PATH = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "format-gate.jsonl");
 
 export interface FormatViolation {
-  code: "no-banner" | "no-closer" | "missing-memory-line" | "missing-system-line" | "too-many-emdashes";
+  code: "no-banner" | "no-closer" | "da-placeholder" | "missing-memory-line" | "missing-system-line" | "too-many-emdashes";
   detail: string;
 }
 
@@ -123,6 +123,12 @@ export function checkFormat(
   }
   if (!CLOSER.test(lines[lines.length - 1])) {
     return { code: "no-closer", detail: "last visible line is not the 🗣️ closer" };
+  }
+  // The closer's name slot must resolve from the DA identity file. A literal
+  // "<DA>" on the closer line means the substitution never happened. Closer
+  // line only — quoting "<DA>" in prose to discuss the format is legitimate.
+  if (/<DA>/.test(lines[lines.length - 1])) {
+    return { code: "da-placeholder", detail: "closer line contains literal <DA> placeholder — must be the name from the DA identity file" };
   }
   if (opts.memoryDelta && !MEMORY_LINE.test(message)) {
     return { code: "missing-memory-line", detail: "a memory-delta arrived this turn but no 🧠 MEMORY: line was rendered" };

@@ -37,6 +37,7 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { homedir } from "node:os";
+import { ALL_DIRS } from "./KnowledgeSchema.ts";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -149,7 +150,10 @@ const MAX_NOTES_PER_HARVEST_DEFAULT = 5;
 const MAX_NOTES_BACKFILL = 50;
 const SEEDLING_EXPIRY_DAYS = 90;
 
-const DOMAINS = ["People", "Companies", "Ideas", "Research"];
+// The archive has six note types (kb-v3 CANONICAL_TYPES). Hardcoding four meant a
+// Books or Blogs note was walked by nothing and vanished from the graph with no
+// error. KnowledgeSchema.ALL_DIRS is the declared single source; use it.
+const DOMAINS = ALL_DIRS;
 
 // Object type classification keywords
 const TYPE_KEYWORDS: Record<string, string[]> = {

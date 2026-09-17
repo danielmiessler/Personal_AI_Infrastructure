@@ -34,6 +34,7 @@ import { parseArgs } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { homedir } from "node:os";
+import { ALL_DIRS } from "./KnowledgeSchema.ts";
 
 // Normalize env path vars that Claude Code injects without shell expansion (LifeOS#1404)
 for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
@@ -49,7 +50,10 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 const LIFEOS_DIR = process.env.LIFEOS_DIR || path.join(HOME, ".claude", "LIFEOS");
 const KNOWLEDGE_DIR = path.join(LIFEOS_DIR, "MEMORY", "KNOWLEDGE");
-const DOMAINS = ["People", "Companies", "Ideas", "Research"];
+// The archive has six note types (kb-v3 CANONICAL_TYPES). Hardcoding four meant a
+// Books or Blogs note was walked by nothing and vanished from the graph with no
+// error. KnowledgeSchema.ALL_DIRS is the declared single source; use it.
+const DOMAINS = ALL_DIRS;
 const SKIP_FILES = new Set(["_index.md", "_schema.md", "_log.md"]);
 const SKIP_DIRS = new Set(["_archive", "_embeddings", "_harvest-queue"]);
 

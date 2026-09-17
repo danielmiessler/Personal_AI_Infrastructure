@@ -226,6 +226,14 @@ export function normalizeProposalTargetFile(targetFile: string): string {
   if (targetFile === "~" || targetFile.startsWith("~/")) {
     return pathJoin(homedir(), targetFile.slice(1));
   }
+  // The reviewer also emits repo-relative paths ("LIFEOS/USER/PRINCIPAL/…"),
+  // which never match the absolute allowlist. Same bug class as the tilde above,
+  // seen again 2026-09-17 when a valid PRINCIPAL_IDENTITY proposal was rejected
+  // and failed the whole reviewer run. Resolve against ~/.claude so the
+  // comparison is absolute-vs-absolute regardless of which form arrives.
+  if (!targetFile.startsWith("/")) {
+    return pathResolve(CLAUDE_ROOT, targetFile);
+  }
   return targetFile;
 }
 

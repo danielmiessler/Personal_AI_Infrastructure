@@ -93,6 +93,36 @@ STATUSLINE_LOCAL_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/lifeos-statusline"
 mkdir -p "$STATUSLINE_LOCAL_STATE" 2>/dev/null
 
 SETTINGS_FILE="$CLAUDE_HOME/settings.json"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION VISIBILITY TOGGLES — normal (80+ col) mode only
+# ─────────────────────────────────────────────────────────────────────────────
+# Set false to hide a section. The values below are script defaults; per-user
+# overrides live in settings.json and WIN over these, so they survive LifeOS
+# version upgrades that overwrite this script:
+#   "preferences": { "statusline": { "sections": { "state": false, ... } } }
+# Keys: header state effort doctor memory interview versions agents context
+#       usage account quote
+SHOW_HEADER=true      # LIFEOS │ location, time, weather (+ dashed rule)
+SHOW_STATE=true       # STATE: Human-3.0 dimension meters (TELOS gap %)
+SHOW_EFFORT=true      # ⚡ live reasoning-effort scale
+SHOW_DOCTOR=true      # capability-regression delta line (silent when healthy)
+SHOW_MEMORY=true      # 🧠 memory autonomic-loop health line
+SHOW_INTERVIEW=true   # 🎤 interview-due chip (silent when nothing is due)
+SHOW_VERSIONS=true    # DEFAULT MODEL / LIFEOS / ALGO version line
+SHOW_AGENTS=true      # ACTIVE model roster + ▸ LIVE in-flight dispatches
+SHOW_CONTEXT=true     # CONTEXT bar + FILES breakdown + STARTUP LOAD
+SHOW_USAGE=true       # 📊 5HR/WK rate-limit windows + billing source
+SHOW_ACCOUNT=true     # logged-in Anthropic account email
+SHOW_QUOTE=true       # closing quote line
+# settings.json override: only keys present in the file emit assignments, and
+# values normalize to literal true/false (anything non-false shows), so a
+# malformed value can never inject into the eval.
+eval "$(jq -r '(.preferences.statusline.sections // {}) | to_entries[]
+  | select(.key | test("^[a-z]+$"))
+  | "SHOW_" + (.key | ascii_upcase) + "=" + (if .value == false then "false" else "true" end)
+' "$SETTINGS_FILE" 2>/dev/null)"
+
 RATINGS_FILE="$LIFEOS_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
 MODEL_CACHE="$STATUSLINE_LOCAL_STATE/model-cache.txt"
 QUOTES_FILE="$LIFEOS_DIR/USER/PRINCIPAL/Quotes.txt"
@@ -652,9 +682,33 @@ SEP_SOLID=$(_repeat_chars "$content_width" "─")
 SEP_DASHED=$(_repeat_chars "$content_width" "┄")
 SEP_DOT=$(_repeat_chars "$content_width" "·")
 
-# Separator line helper — generates ─ repeated to content_width
+# Content tracking for the section toggles above: a divider between two
+# hidden (or empty) sections has nothing to divide, so it must not print.
+# Several sections (DOCTOR/MEMORY/INTERVIEW) render conditionally on a data
+# file's presence even when their SHOW_* flag is true, so a static "is the
+# section before me enabled" rule can't cover every case — every section that
+# actually emits a visible line sets _had_output=true, and sep()/sep_dot()
+# print ONLY when something has appeared since the last divider, then reset
+# the flag. This collapses a leading divider (nothing printed yet, e.g. when
+# SHOW_HEADER and SHOW_STATE are both false) and back-to-back dividers (a
+# hidden section sandwiched between two shown ones) to nothing.
+_had_output=false
+
+# Separator line helper — generates ─ repeated to content_width. No-op when
+# nothing has printed since the last separator (see _had_output above).
 sep() {
-    printf "${SLATE_600}%s${RESET}\n" "$SEP_SOLID"
+    if [ "$_had_output" = true ]; then
+        printf "${SLATE_600}%s${RESET}\n" "$SEP_SOLID"
+        _had_output=false
+    fi
+}
+
+# Dotted-divider counterpart to sep() — same collapse-when-empty behavior.
+sep_dot() {
+    if [ "$_had_output" = true ]; then
+        printf "${SLATE_600}%s${RESET}\n" "$SEP_DOT"
+        _had_output=false
+    fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -904,7 +958,7 @@ COUNTSEOF
 } &
 fi
 
-if [ "$MODE" = "normal" ]; then
+if [ "$MODE" = "normal" ] && [ "$SHOW_USAGE" = true ]; then
 {
     # 5. Usage data — prefer native rate_limits from statusline JSON input (v2.1.80+),
     #    fall back to OAuth API fetch. Native field eliminates 429 risk entirely.
@@ -1198,7 +1252,7 @@ rm -rf "$_parallel_tmp" 2>/dev/null
 
 # Supplement missing reset timestamps from OAuth cache when native rate_limits
 # omits resets_at (happens in some Claude Code sessions)
-if [ "$MODE" = "normal" ] && { [ -z "${usage_5h_reset:-}" ] || [ -z "${usage_7d_reset:-}" ]; } && [ -f "$USAGE_CACHE" ]; then
+if [ "$MODE" = "normal" ] && [ "$SHOW_USAGE" = true ] && { [ -z "${usage_5h_reset:-}" ] || [ -z "${usage_7d_reset:-}" ]; } && [ -f "$USAGE_CACHE" ]; then
     eval "$(jq -r '
         "_cache_usage_5h_reset=" + (.five_hour.resets_at // "" | @sh) + "\n" +
         "_cache_usage_7d_reset=" + (.seven_day.resets_at // "" | @sh)
@@ -1657,6 +1711,7 @@ fi
 # NORMAL MODE: Full multi-line output (80+ columns)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_HEADER" = true ]; then
 # Output LifeOS branding line: LifeOS │ CITY, STATE 🇺🇸  HH:MM  ☁️ temp [│ session]
 # City + state arrive uppercased from the location prefetch; flag is rendered there too.
 _hdr_loc=""
@@ -1683,6 +1738,8 @@ else
     printf "${LIFEOS_P}Li${LIFEOS_A}fe${LIFEOS_I}OS${RESET} ${SLATE_600}│${RESET} ${_hdr_loc}  ${LIFEOS_TIME}${current_time}${RESET}  ${LIFEOS_WEATHER}${weather_str}${RESET} ${SLATE_600}${_hdr_dashes}${RESET}\n"
 fi
 printf "${SLATE_600}%s${RESET}\n" "$SEP_DASHED"
+_had_output=true
+fi  # SHOW_HEADER
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE: STATE METER — dimension meters toward Ideal State
@@ -1716,6 +1773,7 @@ _tier_color() {
     fi
 }
 
+if [ "$SHOW_STATE" = true ]; then
 _LIFEOS_STATE_JSON="$LIFEOS_DIR/USER/TELOS/LIFEOS_STATE.json"
 # Five Human-3.0 surface dimensions. creative + freedom render as separate
 # columns (CREATIVITY, FREEDOM) — unabridged words. finances reads from
@@ -1762,6 +1820,8 @@ for _i in "${!_dims[@]}"; do
     [ "$_i" -lt $((${#_dims[@]} - 1)) ] && printf " ${SLATE_600}│${RESET} "
 done
 printf "\n"
+_had_output=true
+fi  # SHOW_STATE
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # EFFORT — live reasoning effort scale. Renders below STATE, above MEMORY.
@@ -1769,6 +1829,7 @@ printf "\n"
 # principal directive — modes/tiers are no longer surfaced.
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_EFFORT" = true ]; then
 _pai_level=""
 
 # LEVEL reflects the harness's LIVE reasoning effort, straight from the
@@ -1809,8 +1870,9 @@ _pm_level_c() {
     esac
 }
 
-# Dotted divider between STATE and MODE.
-printf "${SLATE_600}%s${RESET}\n" "$SEP_DOT"
+# Dotted divider between STATE and MODE. Collapses to nothing when HEADER/
+# STATE above are both hidden (or produced no output) — see sep_dot().
+sep_dot
 
 # Effort line only — mode enumeration removed 2026-07-11 (no more modes/tiers).
 _pm_line="⚡ ${RESET}"
@@ -1830,6 +1892,8 @@ for _pm_l in LOW MEDIUM HIGH XHIGH MAX ULTRA; do
 done
 
 printf "%b\n" "$_pm_line"
+_had_output=true
+fi  # SHOW_EFFORT
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DOCTOR — delta-only capability line (#1461 v2 design). Renders ONLY when a
@@ -1838,10 +1902,11 @@ printf "%b\n" "$_pm_line"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _doctor_sidecar="$LIFEOS_DIR/MEMORY/STATE/capabilities-statusline.txt"
-if [ "$MODE" = "normal" ] && [ -s "$_doctor_sidecar" ]; then
+if [ "$MODE" = "normal" ] && [ -s "$_doctor_sidecar" ] && [ "$SHOW_DOCTOR" = true ]; then
     # Color via %b (escape codes), file content via %s so a tampered sidecar
     # can't inject terminal escape sequences through the status line.
     printf "%b%s%b\n" "${YELLOW:-}" "$(cat "$_doctor_sidecar")" "${RESET:-}"
+    _had_output=true
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1866,7 +1931,7 @@ _recency_str() {
     else echo "${m}m"; fi
 }
 
-if [ "$MODE" = "normal" ] && [ -f "$_review_state_file" ]; then
+if [ "$MODE" = "normal" ] && [ -f "$_review_state_file" ] && [ "$SHOW_MEMORY" = true ]; then
     _mem_turns=$(jq -r '.turn_count_since_last_review // 0' "$_review_state_file" 2>/dev/null)
     _mem_pending=$(jq -r '.pending_review // false' "$_review_state_file" 2>/dev/null)
     _mem_last_review=$(jq -r '.last_review_at // ""' "$_review_state_file" 2>/dev/null)
@@ -1943,6 +2008,7 @@ if [ "$MODE" = "normal" ] && [ -f "$_review_state_file" ]; then
     # Icon-only label (2026-06-11): 🧠 alone, no "MEMORY" text — brain icon per
     # principal preference; the line content carries the meaning.
     printf "🧠  ${_mem_color}%s${RESET}\n" "$_mem_line"
+    _had_output=true
 fi
 
 # (Constitutional-file review-grade FRESHNESS line removed 2026-05-28. It graded
@@ -1961,7 +2027,7 @@ fi
 # or due=false renders nothing at all.
 # ═══════════════════════════════════════════════════════════════════════════════
 _interview_due_cache="$LIFEOS_DIR/USER/CACHE/interview-due.json"
-if [ -f "$_interview_due_cache" ]; then
+if [ -f "$_interview_due_cache" ] && [ "$SHOW_INTERVIEW" = true ]; then
     _iv_row=$(jq -rc '[(.due // false), (.headline // "")] | @tsv' "$_interview_due_cache" 2>/dev/null)
     _iv_due="${_iv_row%%$'\t'*}"
     # Strip ESC bytes: @tsv escapes \t/\n but raw 0x1b passes through, and a
@@ -1972,6 +2038,7 @@ if [ -f "$_interview_due_cache" ]; then
         _iv_line=$(printf 'INTERVIEW DUE · %s' "$_iv_headline" | tr '[:lower:]' '[:upper:]')
         [ ${#_iv_line} -gt 68 ] && _iv_line="${_iv_line:0:67}…"
         printf "🎤  ${_iv_amber}%s${RESET}\n" "$_iv_line"
+        _had_output=true
     fi
 fi
 
@@ -1984,10 +2051,13 @@ sep
 # deliberately NOT the level-routed EFFORT_MODEL pick (that lineup is the 🤖
 # mode line below); it answers "what does my /model say right now?".
 # Segment order LifeOS → ALGO → DEFAULT MODEL per principal 2026-08-13.
+if [ "$SHOW_VERSIONS" = true ]; then
 _model_display="${model_name// context/}"
 # Model names render ALL CAPS to match the mode line below (principal 2026-07-06).
 _model_display=$(printf '%s' "$_model_display" | tr '[:lower:]' '[:upper:]')
 printf "${SLATE_400}LifeOS:${RESET} ${LIFEOS_A}${LIFEOS_VERSION}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}ALGO:${RESET} ${LIFEOS_A}${ALGO_VERSION}${RESET} ${SLATE_600}│${RESET} ${SLATE_400}DEFAULT MODEL:${RESET} ${LIFEOS_A}${_model_display}${RESET}\n"
+_had_output=true
+fi  # SHOW_VERSIONS
 
 # ── AGENTS roster — LIVE readout of dispatched-agent models. Source of truth is
 # agent-starts.json, written by AgentInvocation.hook.ts (v1.3.1, observe-only).
@@ -2055,7 +2125,7 @@ _pm_roster_states() {
     printf '%s %s %s %s %s %s %s %s' "$s_max" "$s_high" "$s_med" "$s_low" "$s_forge" "$s_cyber" "$s_grok" "$s_gemini"
 }
 
-if [ "$MODE" = "normal" ]; then
+if [ "$MODE" = "normal" ] && [ "$SHOW_AGENTS" = true ]; then
     # Resolve rung → model NAME from models.ts (same source the AgentInvocation
     # hook reads). Fallbacks keep the line honest if models.ts is unreadable in
     # a hook-spawn context.
@@ -2276,6 +2346,7 @@ if [ "$MODE" = "normal" ]; then
     _ar_line+="$(printf '%bFORGE%b' "$(_ag_c forge "$_st_forge")" "$RESET") "
     [ -n "$_cyber_agent_lbl" ] && _ar_line+="$(printf '%b%s%b' "$(_ag_c cyber "$_st_cyber")" "$_cyber_agent_lbl" "$RESET")"
     printf "%b\n" "$_ar_line"
+    _had_output=true
 fi
 
 # Live IN-FLIGHT dispatches — written by AgentInvocation.hook.ts at PreToolUse:Agent,
@@ -2311,7 +2382,7 @@ while IFS= read -r _bg_t; do
     _live_agents+=("${_la:-agent|}")
 done <<< "${_bg_transcripts:-}"
 _live_count=${#_live_agents[@]}
-if [ "${_live_count:-0}" -gt 0 ] 2>/dev/null; then
+if [ "${_live_count:-0}" -gt 0 ] 2>/dev/null && [ "$SHOW_AGENTS" = true ]; then
     _live_noun="agent"; [ "$_live_count" -gt 1 ] && _live_noun="agents"
     _la_tok() {  # $1="type|description" → colored token
         local _t="${1%%|*}" _b="${1#*|}"
@@ -2328,6 +2399,7 @@ if [ "${_live_count:-0}" -gt 0 ] 2>/dev/null; then
             printf "    %b\n" "$(_la_tok "$_la")"
         done
     fi
+    _had_output=true
 fi
 sep
 
@@ -2335,6 +2407,7 @@ sep
 # LINE 1: CONTEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+if [ "$SHOW_CONTEXT" = true ]; then
 # Context display — show percentage and bar (no token counts)
 context_max="${context_max:-200000}"
 
@@ -2358,9 +2431,10 @@ bar_width=$(( content_width - 11 - _ctx_suffix_len ))
 bar=$(render_context_bar $bar_width $raw_pct)
 
 printf "${CTX_SECONDARY}CONTEXT:${RESET} ${bar} ${pct_color}${display_pct}%%${RESET}\n"
+_had_output=true
 
 # Thin separator between context bar and files
-printf "${SLATE_600}%s${RESET}\n" "$SEP_DOT"
+sep_dot
 
 # Context files line — system prompt (loaded via --append-system-prompt-file)
 # plus @imports from CLAUDE.md (v5.0: static files loaded via @imports, not loadAtStartup).
@@ -2546,7 +2620,9 @@ if [ "$_ctx_count" -gt 0 ]; then
 
     printf "  "
     printf '%b\n' "${_output}"
+    _had_output=true
 fi
+fi  # SHOW_CONTEXT
 sep
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2564,13 +2640,14 @@ usage_7d_int=${usage_7d%%.*}
 # (reflected in usage_state); OAuth presence comes from its cache (also reflected
 # in usage_state by the producer). Never use cache-file existence as a data proxy
 # — that hid genuine native 0% (Failure 2) and is independent of the live data.
-if [ "${usage_state:-absent}" = "api" ]; then
+if [ "$SHOW_USAGE" = true ] && [ "${usage_state:-absent}" = "api" ]; then
     # API-key billing: subscription windows don't exist for this account —
     # show the billing source and live session cost from stdin's cost object.
     _api_cost=$(awk -v c="${session_cost_usd:-0}" 'BEGIN{printf "%.2f", c+0}')
     printf "📊 ${USAGE_PRIMARY}API${RESET} ${USAGE_LABEL}SESSION${RESET} ${SLATE_300}\$${_api_cost}${RESET}\n"
+    _had_output=true
     sep
-elif [ "${usage_state:-absent}" != "absent" ]; then
+elif [ "$SHOW_USAGE" = true ] && [ "${usage_state:-absent}" != "absent" ]; then
     # Parse reset timestamps and show absolute reset times (e.g., "TODAY@1500", "THU@0900")
     # Split into day/time parts for two-tone amber coloring
     reset_5h_day="—"; reset_5h_time=""; reset_7d_day="—"; reset_7d_time=""
@@ -2769,6 +2846,7 @@ elif [ "${usage_state:-absent}" != "absent" ]; then
     printf '%b' "${_5h_label_color}5H${RESET} ${_bar_5h} ${_7d_label_color}WK${RESET} ${_bar_7d}${scoped_fmt} ${_billing_fmt}"
     [ -n "$stale_suffix" ] && printf '%b' "$stale_suffix"
     printf "\n"
+    _had_output=true
     sep
 fi
 
@@ -2776,17 +2854,17 @@ fi
 # LINE 6.5: LOGGED-IN ACCOUNT (normal mode only) — light gray, above the quote
 # ═══════════════════════════════════════════════════════════════════════════════
 
-if [ "$MODE" = "normal" ]; then
+if [ "$MODE" = "normal" ] && [ "$SHOW_ACCOUNT" = true ]; then
     # Live login email from ~/.claude.json (.oauthAccount.emailAddress updates on /login)
     _acct_email=$(jq -r '.oauthAccount.emailAddress // empty' "$HOME/.claude.json" 2>/dev/null)
-    [ -n "$_acct_email" ] && printf "${SLATE_500}${_acct_email}${RESET}\n"
+    [ -n "$_acct_email" ] && printf "${SLATE_500}${_acct_email}${RESET}\n" && _had_output=true
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LINE 7: QUOTE (normal mode only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-if [ "$MODE" = "normal" ] && [ -f "$QUOTES_FILE" ]; then
+if [ "$MODE" = "normal" ] && [ -f "$QUOTES_FILE" ] && [ "$SHOW_QUOTE" = true ]; then
     # Curated corpus, deterministic time-based selection — same quote for each
     # 60-second window, no cache, no network.
     quote_count=$(wc -l < "$QUOTES_FILE" 2>/dev/null | tr -d ' ')

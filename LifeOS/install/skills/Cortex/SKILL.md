@@ -1,7 +1,7 @@
 ---
 name: Cortex
 version: 2.1.2
-description: "Operate Cortex, the LifeOS memory system — the typed Knowledge Archive (People, Companies, Ideas, Research with typed related: links) plus recall of prior work sessions, ISAs, and conversations. Search, add, harvest, develop, ingest, distill, graph-navigate, recall. USE WHEN cortex, knowledge, knowledge base, search knowledge, what do we know about, archive, harvest, knowledge status, develop note, add to knowledge, ingest, contradictions, knowledge graph, retrieve, mine conversations, distill, weekly digest, cortex digest, context search, prior work, recall, remember, previous sessions, context recovery, what did we do, find session, search history, resume, pick up where we left off, cold start, yesterday's work, last week, the one about. NOT FOR published-content semantic search across blog/newsletter/X/LinkedIn, or one-shot URL/YouTube ingestion via the Arbol harvester pipeline."
+description: "Operate Cortex, the LifeOS memory system — the typed Knowledge Archive (People, Companies, Ideas, Research, Blogs, Books with typed related: links) plus recall of prior work sessions, ISAs, and conversations. Search, add, harvest, develop, ingest, distill, graph-navigate, recall. USE WHEN cortex, knowledge, knowledge base, search knowledge, what do we know about, archive, harvest, knowledge status, develop note, add to knowledge, ingest, contradictions, knowledge graph, retrieve, mine conversations, distill, weekly digest, cortex digest, context search, prior work, recall, remember, previous sessions, context recovery, what did we do, find session, search history, resume, pick up where we left off, cold start, yesterday's work, last week, the one about. NOT FOR published-content semantic search across blog/newsletter/X/LinkedIn, or one-shot URL/YouTube ingestion via the Arbol harvester pipeline."
 argument-hint: [search|add|harvest|develop|ingest|distill|recall|contradictions|graph|retrieve|mine|<query>]
 context: fork
 background: false
@@ -104,7 +104,7 @@ If no results found, say so and suggest checking the full MEMORY/ system or runn
 
 Create a new note manually in the specified entity type.
 
-1. Validate type is one of: People, Companies, Ideas, Research
+1. Validate type is one of: People, Companies, Ideas, Research, Blogs, Books
 2. Ask for a title (or use remaining args after type)
 3. Generate kebab-case filename from title
 4. **MANDATORY: Find 2-3 related notes first.** Before writing the new note, grep existing Knowledge for related entities by topic/tags/name. This becomes the `related:` frontmatter array. No Knowledge note ships without typed links. See Canonical Linking Requirement below.
@@ -124,7 +124,7 @@ bun ~/.claude/LIFEOS/TOOLS/KnowledgeHarvester.ts index
 
 **Every write must include:**
 
-1. **`related:` frontmatter array** — 2-4 typed entries linking to other Knowledge entries (any domain: People, Companies, Ideas, Research)
+1. **`related:` frontmatter array** — 2-4 typed entries linking to other Knowledge entries (any domain: People, Companies, Ideas, Research, Blogs, Books)
 2. **Body wikilinks** — 1-3 `[[slug]]` references woven into the prose where natural (Implications, Evidence, or Context sections)
 
 **9 relationship types** (pick the most accurate, prefer specific over generic):
@@ -226,7 +226,7 @@ Summarize the source in 2-3 sentences. Identify key entities, claims, and insigh
 
 ### Step 2 — Classify and create primary note
 
-Determine entity type (People, Companies, Ideas, or Research) using the classification rules in `_schema.md`. Most ingested sources become Ideas.
+Determine entity type (People, Companies, Ideas, Research, Blogs, or Books) using the classification rules in `_schema.md`. Most ingested sources become Ideas.
 
 Create the primary note using the schema for that type:
 - Generate kebab-case slug from title (max 60 chars)

@@ -149,7 +149,7 @@ const MAX_NOTES_PER_HARVEST_DEFAULT = 5;
 const MAX_NOTES_BACKFILL = 50;
 const SEEDLING_EXPIRY_DAYS = 90;
 
-const DOMAINS = ["People", "Companies", "Ideas", "Research"];
+const DOMAINS = ["People", "Companies", "Ideas", "Research", "Blogs", "Books"];
 
 // Object type classification keywords
 const TYPE_KEYWORDS: Record<string, string[]> = {

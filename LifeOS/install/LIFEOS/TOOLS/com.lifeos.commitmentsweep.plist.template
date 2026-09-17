@@ -3,7 +3,10 @@
   com.lifeos.commitmentsweep.plist.template — Source template. Install via:
     bun ~/.claude/LIFEOS/TOOLS/InstallCommitmentSweep.ts
 
-  The installer reads $HOME at install time, substitutes /Users/__USER__ placeholders,
+  The installer reads $HOME at install time, substitutes __HOME__ placeholders,
+  and resolves bun via `which bun` into {{BUN}}/{{BUN_DIR}} — matching
+  com.lifeos.worksweep. Never hardcode an install path: a hardcoded
+  /opt/homebrew/bin/bun makes launchd exit 78 wherever bun lives in ~/.bun/bin.
   writes the materialized plist to ~/Library/LaunchAgents/, and bootstraps it
   with launchctl. This template stays clean of principal-specific paths so it
   ships in the public LifeOS release.
@@ -21,7 +24,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/opt/homebrew/bin/bun</string>
+    <string>{{BUN}}</string>
     <string>__HOME__/.claude/LIFEOS/TOOLS/CommitmentSweep.ts</string>
   </array>
 
@@ -53,7 +56,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>{{BUN_DIR}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>
     <string>__HOME__</string>
   </dict>

@@ -10,7 +10,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { spawnSync } from "child_process";
 import * as systemd from "./lib/SystemdUser";
 import { homedir } from "node:os";
@@ -51,8 +51,24 @@ function install(): void {
   mkdirSync(TARGET_DIR, { recursive: true });
   mkdirSync(STATE_DIR, { recursive: true });
 
+  // Resolve bun rather than trusting a hardcoded path — same detection
+  // com.lifeos.worksweep already uses. A hardcoded /opt/homebrew/bin/bun makes
+  // launchd exit 78 (EX_CONFIG) on any install where bun lives elsewhere
+  // (~/.bun/bin, asdf), and it fails silently: the job loads, never runs, and
+  // writes an empty log.
+  const which = spawnSync("bash", ["-lc", "command -v bun"], { encoding: "utf8" });
+  const bunPath = (which.stdout || "").trim();
+  if (!bunPath || !existsSync(bunPath)) {
+    console.error(`[InstallCommitmentSweep] bun not found in PATH — install bun first`);
+    process.exit(1);
+  }
+  console.log(`[InstallCommitmentSweep] detected bun at ${bunPath}`);
+
   const raw = readFileSync(TEMPLATE, "utf8");
-  const materialized = raw.replaceAll("__HOME__", HOME);
+  const materialized = raw
+    .replaceAll("__HOME__", HOME)
+    .replaceAll("{{BUN_DIR}}", dirname(bunPath))
+    .replaceAll("{{BUN}}", bunPath);
   writeFileSync(TARGET, materialized, { mode: 0o644 });
   console.log(`[InstallCommitmentSweep] wrote ${TARGET}`);
 

@@ -526,14 +526,21 @@ const CAPS: CapSpec[] = [
   {
     id: 'fabric',
     title: 'Prompt patterns (fabric)',
-    powers: "the Fabric skill's pattern library and YouTube transcript fetch",
+    powers: "the Fabric skill's YouTube transcript fetch (-y) and URL fallback (-u); the pattern library itself runs natively without it",
     ttlHours: 24 * 7,
     configured: () => true,
-    probeOffline: async () =>
-      which('fabric')
-        ? { ok: true, detail: 'fabric on PATH' }
-        : { ok: false, detail: 'fabric not on PATH — pattern runs fall back to native prompting' },
-    fixCmd: 'see the fabric project for install',
+    // Homebrew ships danielmiessler/fabric as `fabric-ai`, because the `fabric`
+    // formula is the unrelated Python SSH tool. Accept either name: checking
+    // only `fabric` reported a working install as broken (issue #2152).
+    // Patterns run natively from skills/Fabric/Patterns either way — the binary
+    // is needed only for YouTube transcripts (-y) and URL fallback (-u).
+    probeOffline: async () => {
+      const found = ['fabric', 'fabric-ai'].find((b) => which(b));
+      return found
+        ? { ok: true, detail: `${found} on PATH` }
+        : { ok: false, detail: 'fabric not on PATH — patterns still run natively; -y/-u unavailable' };
+    },
+    fixCmd: 'brew install fabric-ai   (NOT `fabric` — that is the Python SSH tool)',
   },
   {
     id: 'jq',

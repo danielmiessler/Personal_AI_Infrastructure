@@ -69,6 +69,56 @@ function asStringArray(v: unknown): string[] {
 }
 
 /** Evaluate one deterministic assertion against the output text. */
+/**
+ * Index of the bracket closing the one at `start`, or -1 when it never closes.
+ * String-aware, so a bracket inside a JSON string value is not counted.
+ */
+function matchingBracket(s: string, start: number): number {
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '{' || c === '[') stack.push(c);
+    else if (c === '}' || c === ']') {
+      const open = stack.pop();
+      if (!open) return -1;
+      if ((c === '}' && open !== '{') || (c === ']' && open !== '[')) return -1;
+      if (stack.length === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * True when any balanced {...} / [...] span in the output parses as JSON.
+ * A single greedy match (first opening bracket to last closing bracket) fails
+ * on ordinary output: a markdown link or an `item[3]` after the JSON swallows
+ * the fragment and the whole assertion goes red.
+ */
+function containsJsonFragment(output: string): boolean {
+  for (let i = 0; i < output.length; i++) {
+    const c = output[i];
+    if (c !== '{' && c !== '[') continue;
+    const end = matchingBracket(output, i);
+    if (end < 0) continue;
+    try {
+      JSON.parse(output.slice(i, end + 1));
+      return true;
+    } catch {
+      // Not this span; keep scanning.
+    }
+  }
+  return false;
+}
+
 export function evaluateDeterministic(output: string, a: Assertion): AssertResult {
   const weight = a.weight ?? 1;
   const negated = a.type.startsWith('not-');
@@ -134,11 +184,7 @@ export function evaluateDeterministic(output: string, a: Assertion): AssertResul
       }
       break;
     case 'contains-json': {
-      passed = /[{[][\s\S]*[}\]]/.test(output) && (() => {
-        const m = output.match(/[{[][\s\S]*[}\]]/);
-        if (!m) return false;
-        try { JSON.parse(m[0]); return true; } catch { return false; }
-      })();
+      passed = containsJsonFragment(output);
       reason = passed ? 'contains a JSON fragment' : 'no valid JSON fragment';
       break;
     }
@@ -177,6 +223,10 @@ if (import.meta.main) {
     { out: '{"a":1}', a: { type: 'is-json' }, want: true },
     { out: 'nope', a: { type: 'is-json' }, want: false },
     { out: 'prefix {"a":1} suffix', a: { type: 'contains-json' }, want: true },
+    { out: 'Result: {"status":"ok"}\n\nSee [the docs](https://example.dev) for details.', a: { type: 'contains-json' }, want: true },
+    { out: 'Here is the payload: {"a":1} and the id is item[3].', a: { type: 'contains-json' }, want: true },
+    { out: '{"note":"a } brace inside a string"} trailing ]', a: { type: 'contains-json' }, want: true },
+    { out: 'no json at all, just [brackets] and {braces}', a: { type: 'contains-json' }, want: false },
     { out: 'short', a: { type: 'max-length', threshold: 10 }, want: true },
     { out: 'this is quite long', a: { type: 'max-length', threshold: 5 }, want: false },
     { out: 'should work', a: { type: 'not-contains', value: 'should work' }, want: false },

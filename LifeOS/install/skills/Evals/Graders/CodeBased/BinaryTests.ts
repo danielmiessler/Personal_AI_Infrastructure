@@ -5,7 +5,22 @@
 
 import { BaseGrader, registerGrader, type GraderContext } from '../Base.ts';
 import type { GraderConfig, GraderResult, BinaryTestsParams } from '../../Types/index.ts';
-import { $ } from 'bun';
+
+// Windows has no /bin/sh; cmd takes /c where POSIX shells take -c.
+const SHELL_PREFIX = process.platform === 'win32' ? ['cmd', '/c'] : ['/bin/sh', '-c'];
+
+async function drainStream(stream: ReadableStream<Uint8Array> | null, ms = 2000): Promise<string> {
+  if (!stream) return '';
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      new Response(stream).text(),
+      new Promise<string>((resolve) => { timer = setTimeout(() => resolve(''), ms); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export class BinaryTestsGrader extends BaseGrader {
   type = 'binary_tests' as const;
@@ -30,16 +45,29 @@ export class BinaryTestsGrader extends BaseGrader {
         // Detect test command based on file extension
         const command = params.test_command ?? this.detectTestCommand(testFile);
 
-        const result = await $`cd ${workingDir} && timeout ${Math.ceil(timeout/1000)} ${command} ${testFile}`
-          .quiet()
-          .nothrow();
+        // Run through a shell rather than a tagged template: the interpolation
+        // would escape a multi-word test command into one argv token. The old
+        // form also shelled out to `timeout`, which is GNU coreutils and absent
+        // on a stock macOS box, so every file was graded failed there.
+        const proc = Bun.spawn([...SHELL_PREFIX, `${command} ${testFile}`], {
+          cwd: workingDir,
+          stdout: 'pipe',
+          stderr: 'pipe',
+          timeout,
+          killSignal: 'SIGKILL',
+        });
+        const exitCode = await proc.exited;
+        // A killed shell can leave an orphan child holding the pipe open, so the
+        // drain is capped rather than awaited outright — otherwise the timeout
+        // above buys nothing.
+        const [stdout, stderr] = await Promise.all([drainStream(proc.stdout), drainStream(proc.stderr)]);
 
-        const passed = result.exitCode === 0;
+        const passed = exitCode === 0;
         results.push({
           file: testFile,
           passed,
-          output: result.stdout.toString().slice(-500),  // Last 500 chars
-          error: passed ? undefined : result.stderr.toString().slice(-500),
+          output: stdout.slice(-500),  // Last 500 chars
+          error: passed ? undefined : stderr.slice(-500),
         });
       } catch (e) {
         results.push({

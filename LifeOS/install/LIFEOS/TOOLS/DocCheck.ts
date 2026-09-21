@@ -32,17 +32,23 @@ const quiet = args.includes('--quiet');
 
 // ── Path Reference Extraction ──
 
+// Case matters (public issue #1541, @tzioup): the shipped tree is LIFEOS/, and
+// the LifeOS/-cased alternative these patterns carried never matched anything,
+// so the main backticked reference class and every @-import went unchecked.
+// ReferenceCheck.ts was fixed for this; these were left behind. Both casings
+// are listed now: a legacy LifeOS/-cased reference is itself broken and should
+// still be reported rather than skipped.
 const PATH_PATTERNS = [
   // Backtick-quoted paths: `LIFEOS/DOCUMENTATION/Hooks/HookSystem.md`, `hooks/PromptInjection.hook.ts`
-  /`((?:LifeOS|hooks|skills|agents|Pulse|USER|MEMORY|Components|Algorithm|Tools)\/[\w/.@-]+\.\w+)`/g,
+  /`((?:LIFEOS|LifeOS|hooks|skills|agents|Pulse|USER|MEMORY|Components|Algorithm|Tools)\/[\w/.@-]+\.\w+)`/g,
   // Backtick-quoted paths with ~/.claude/ prefix
   /`~\/\.claude\/([\w/.@-]+\.\w+)`/g,
   // Backtick-quoted paths with $HOME/.claude/ prefix
   /`\$HOME\/\.claude\/([\w/.@-]+\.\w+)`/g,
   // @-imports: @LIFEOS/USER/FILE.md
-  /^@(LifeOS\/[\w/.@-]+\.md)/gm,
+  /^@((?:LIFEOS|LifeOS)\/[\w/.@-]+\.md)/gm,
   // Table cell paths: | `path` | or | path |
-  /\|\s*`?((?:LifeOS|hooks|skills|Pulse|USER)\/[\w/.@-]+\.\w+)`?\s*\|/g,
+  /\|\s*`?((?:LIFEOS|LifeOS|hooks|skills|Pulse|USER)\/[\w/.@-]+\.\w+)`?\s*\|/g,
   // Arrow notation in TOPOLOGY.md: → file: `path`
   /→\s+[\w\s]+:\s+`([\w/.@-]+\.\w+)`/g,
 ];

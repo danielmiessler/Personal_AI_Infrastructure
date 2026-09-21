@@ -85,9 +85,16 @@ function appliedTs(entry: string): string {
   return m ? m[1].trim() : "";
 }
 
-/** Substantive core of an entry (first ~60 normalized chars) for absorption test. */
-function core(entry: string): string {
-  return normalize(entry).slice(0, 60);
+/**
+ * Absorption test: the ENTIRE normalized entry must already appear in the
+ * canonical body. A prefix match is not proof of absorption — the reviewer
+ * routinely restates an existing rule in order to extend it, and a prefix
+ * test reads that restatement as redundancy and deletes the extension with
+ * it. The 30-char floor keeps a one-word fragment from matching anything.
+ */
+function absorbed(entry: string, bodyNorm: string): boolean {
+  const norm = normalize(entry);
+  return norm.length >= 30 && bodyNorm.includes(norm);
 }
 
 function gcFile(relPath: string): { removals: Removal[]; nextContent: string | null } {
@@ -115,7 +122,7 @@ function gcFile(relPath: string): { removals: Removal[]; nextContent: string | n
     if (/\[SUPERSEDED/i.test(e.text)) {
       removals.push({ file: relPath, reason: "superseded", text: e.text.trim() });
       removeIdx.add(e.i);
-    } else if (core(e.text).length >= 30 && bodyNorm.includes(core(e.text))) {
+    } else if (absorbed(e.text, bodyNorm)) {
       removals.push({ file: relPath, reason: "absorbed", text: e.text.trim() });
       removeIdx.add(e.i);
     }

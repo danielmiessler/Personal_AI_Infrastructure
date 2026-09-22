@@ -1017,7 +1017,55 @@ if [ "$MODE" = "normal" ]; then
 
                     # Extract OAuth token — macOS Keychain or Linux credentials file
                     if [ "$(uname -s)" = "Darwin" ]; then
-                        cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+                        # The keychain holds MORE THAN ONE item under this service
+                        # name, told apart by account. Claude Code (verified on
+                        # 2.1.278) leaves a legacy acct="claude-code-user" item whose
+                        # accessToken and refreshToken are EMPTY STRINGS beside the
+                        # live acct="$USER" item it refreshes every session. A lookup
+                        # naming only the service returns whichever item the keychain
+                        # yields first, so on those installs the fetch below
+                        # authenticates with "" and fails. It fails SILENTLY: a cache
+                        # that never lands just stops enriching, so the scoped
+                        # per-model pill and the EXT indicator disappear while 5H/WK
+                        # keep rendering from the native payload. Take the first item
+                        # that actually carries a token, and remember which account
+                        # won so later renders go straight to it.
+                        _kc_hint_file="/tmp/pai-kc-acct-${USER:-anon}"
+                        _kc_hint=$(cat "$_kc_hint_file" 2>/dev/null)
+                        cred_json=""
+                        for _kc_acct in "$_kc_hint" "${USER:-}" "claude-code-user" "__bare__"; do
+                            [ -n "$_kc_acct" ] || continue
+                            if [ "$_kc_acct" = "__bare__" ]; then
+                                _kc_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+                            else
+                                _kc_json=$(security find-generic-password -s "Claude Code-credentials" -a "$_kc_acct" -w 2>/dev/null)
+                            fi
+                            if [ -n "$(echo "$_kc_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)" ]; then
+                                cred_json="$_kc_json"
+                                [ "$_kc_acct" = "__bare__" ] || ( umask 077; printf '%s' "$_kc_acct" > "$_kc_hint_file" 2>/dev/null )
+                                break
+                            fi
+                        done
+                        if [ -z "$cred_json" ]; then
+                            # Every known account came back empty, so the layout moved
+                            # again. Enumerate the items under this service and try
+                            # each. That costs one dump-keychain, and only on a layout
+                            # change: the winner above is cached for every later run.
+                            while IFS= read -r _kc_acct; do
+                                [ -n "$_kc_acct" ] || continue
+                                _kc_json=$(security find-generic-password -s "Claude Code-credentials" -a "$_kc_acct" -w 2>/dev/null)
+                                if [ -n "$(echo "$_kc_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)" ]; then
+                                    cred_json="$_kc_json"
+                                    ( umask 077; printf '%s' "$_kc_acct" > "$_kc_hint_file" 2>/dev/null )
+                                    break
+                                fi
+                            done <<KCACCTS
+$(security dump-keychain 2>/dev/null |
+  awk '/"acct"<blob>="/ {v=$0; sub(/.*="/,"",v); sub(/"$/,"",v)}
+       /"svce"<blob>="Claude Code-credentials/ {print v}' |
+  awk '!seen[$0]++')
+KCACCTS
+                        fi
                     else
                         cred_json=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
                     fi
@@ -1045,6 +1093,12 @@ if [ "$MODE" = "normal" ]; then
                                 mv -f "$_tmp_cache" "$USAGE_CACHE" 2>/dev/null
                             fi
                             rm -f "$_tmp_cache" 2>/dev/null
+                        else
+                            # Nothing usable came back. Drop the cached account so the
+                            # next render re-probes the keychain rather than retrying a
+                            # credential that may have been rotated or moved. Re-probing
+                            # is three lookups; wedging on a dead token is invisible.
+                            rm -f "/tmp/pai-kc-acct-${USER:-anon}" 2>/dev/null
                         fi
                     fi
                 ) </dev/null >/dev/null 2>&1 &

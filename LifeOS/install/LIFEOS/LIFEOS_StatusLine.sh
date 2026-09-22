@@ -1141,6 +1141,22 @@ KCACCTS
         ' "$USAGE_CACHE" 2>/dev/null
     }
 
+    # Name-only emitter for a cache past USAGE_HARD_EXPIRY. Enough to draw a
+    # dimmed placeholder where the scoped pill belongs, and deliberately no
+    # percentage: a stale number a reader could mistake for live data is worse
+    # than no number. The model name survives in the expired cache even when
+    # the figures no longer mean anything.
+    _emit_cache_unavailable() {
+        [ -f "$USAGE_CACHE" ] || return 0
+        jq -r '
+            ([.limits[]? | select(.scope.model? != null)] | first) as $sc |
+            if $sc == null then "" else
+            "usage_scoped_name=" + (($sc.scope.model.display_name // "") | ascii_upcase | @sh) + "\n" +
+            "usage_scoped_unavailable=true"
+            end
+        ' "$USAGE_CACHE" 2>/dev/null
+    }
+
     # Per-session billing detection. The keychain is NOT a reliable signal here:
     # a coexisting subscription-era session refreshes its OAuth token back into
     # the shared keychain entry (observed live 2026-07-14, mixed-auth sessions).
@@ -1190,6 +1206,12 @@ USAGEEOF
                 ' "$USAGE_CACHE" >> "$_parallel_tmp/usage.sh" 2>/dev/null
             fi
             _emit_cache_enrichment >> "$_parallel_tmp/usage.sh"
+        else
+            # Too old to trust, so the scoped window and the EXT indicator have
+            # no source this tick. Say so rather than dropping them: an omitted
+            # pill is indistinguishable from an account that has no scoped
+            # window at all, which is exactly how a broken fetch sits unnoticed.
+            _emit_cache_unavailable >> "$_parallel_tmp/usage.sh"
         fi
     elif [ "$has_native_rate_limits" != "true" ] && [ "$_session_has_responses" = "true" ]; then
         # API-key billing: responses have landed yet no rate_limits object ever
@@ -2784,6 +2806,11 @@ elif [ "${usage_state:-absent}" != "absent" ]; then
         fi
         _bar_scoped=$(render_usage_meter "$usage_scoped_int" "$_rsc_txt")
         scoped_fmt=" ${_scoped_label_color}${usage_scoped_name}${RESET} ${_bar_scoped}"
+    elif [ "${usage_scoped_unavailable:-false}" = "true" ] && [ -n "${usage_scoped_name:-}" ]; then
+        # Cache past hard expiry: hold the slot with a dimmed name and a dash so
+        # a dead fetch reads as "no data" instead of "no such window".
+        [ "$usage_scoped_name" = "FABLE" ] && usage_scoped_name="FB"
+        scoped_fmt=" ${USAGE_STALE}${usage_scoped_name} -${RESET}"
     fi
     # Billing source indicator — colored = actively billing, slate-dim = inactive.
     # Three-way: SUB (subscription), EXT (Anthropic extra usage credits), API

@@ -66,11 +66,37 @@ const SERIES_NAMES: Record<string, string> = {
   "FYFSD": "Federal Deficit",
 };
 
+// Series whose values are already percentages (rates). They are displayed with a % sign and
+// their changes are reported in percentage points (pp), not as a percent-of-a-percent
+// (which produced lines like "Fed Funds Rate: +807% over 10 years").
+export const RATE_SERIES = new Set<string>([
+  "A191RL1Q225SBEA", "UNRATE", "CIVPART", "PSAVERT", "MORTGAGE30US",
+  "FEDFUNDS", "DGS10", "DGS2", "DRCCLACBS",
+]);
+
+// Trend horizons reported in the analysis, in years.
+export const HORIZONS = { "10y": 10, "5y": 5, "2y": 2, "1y": 1 } as const;
+export type Horizon = keyof typeof HORIZONS;
+
+export type ChangeUnit = "pp" | "%";
+
+// Display scale per change unit: dead band for a "→" arrow, the 10-year move that counts as a
+// "significant move", the minimum 1-year move for a momentum call, and display decimals.
+const SCALE: Record<ChangeUnit, { flat: number; extreme: number; minMove: number; decimals: number }> = {
+  "pp": { flat: 0.1, extreme: 2, minMove: 0.5, decimals: 2 },
+  "%": { flat: 2, extreme: 50, minMove: 5, decimals: 1 },
+};
+
+// The start observation of a trend window must sit within half the series' typical spacing of
+// its target date, but never closer than this floor, which covers weekends and holidays in
+// daily series.
+const MIN_START_GAP_MS = 3 * 86_400_000;
+
 // ============================================================================
 // DATA FETCHING
 // ============================================================================
 
-interface Observation {
+export interface Observation {
   date: string;
   value: number;
 }
@@ -80,31 +106,33 @@ interface SeriesResult {
   name: string;
   observations: Observation[];
   latest: Observation | null;
-  trends: {
-    "10y": TrendStat | null;
-    "5y": TrendStat | null;
-    "2y": TrendStat | null;
-    "1y": TrendStat | null;
-  };
+  trends: Record<Horizon, TrendStat | null>;
 }
 
-interface TrendStat {
+export interface TrendStat {
   start: number;
   end: number;
+  startDate: string;
+  endDate: string;
   change: number;
   pctChange: number;
+  /** The change in the series' own reporting unit: percentage points for rates, percent otherwise. */
+  delta: number;
+  unit: ChangeUnit;
   direction: "↑" | "↓" | "→";
 }
 
-async function fetchFredSeries(seriesId: string, years: number = 10): Promise<SeriesResult | null> {
+export async function fetchFredSeries(seriesId: string, years: number = 10): Promise<SeriesResult | null> {
   if (!FRED_API_KEY) {
     console.error("FRED_API_KEY not set");
     return null;
   }
 
+  // Fetch one extra year so the longest window (latest observation minus `years`) always has a
+  // real start candidate even when the latest observation lags today by a few months.
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setFullYear(startDate.getFullYear() - years);
+  startDate.setFullYear(startDate.getFullYear() - years - 1);
 
   const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&observation_start=${startDate.toISOString().split('T')[0]}&observation_end=${endDate.toISOString().split('T')[0]}`;
 
@@ -117,17 +145,15 @@ async function fetchFredSeries(seriesId: string, years: number = 10): Promise<Se
 
     const observations: Observation[] = data.observations
       .filter((o: any) => o.value !== ".")
-      .map((o: any) => ({ date: o.date, value: parseFloat(o.value) }));
+      .map((o: any) => ({ date: o.date, value: parseFloat(o.value) }))
+      .sort((a: Observation, b: Observation) => a.date.localeCompare(b.date));
 
     const latest = observations[observations.length - 1] || null;
 
-    // Calculate trends
-    const trends = {
-      "10y": calculateTrend(observations, 10),
-      "5y": calculateTrend(observations, 5),
-      "2y": calculateTrend(observations, 2),
-      "1y": calculateTrend(observations, 1),
-    };
+    const isRate = RATE_SERIES.has(seriesId);
+    const trends = Object.fromEntries(
+      Object.entries(HORIZONS).map(([k, y]) => [k, calculateTrend(observations, y, isRate)]),
+    ) as SeriesResult["trends"];
 
     return {
       id: seriesId,
@@ -142,24 +168,60 @@ async function fetchFredSeries(seriesId: string, years: number = 10): Promise<Se
   }
 }
 
-function calculateTrend(observations: Observation[], years: number): TrendStat | null {
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - years);
+const dateMs = (o: Observation) => Date.parse(o.date); // ISO date-only strings parse as UTC
 
-  const filtered = observations.filter(o => new Date(o.date) >= cutoff);
-  if (filtered.length < 2) return null;
+/**
+ * How far the start observation may sit from its target date: half the series' typical
+ * spacing (median gap between consecutive observations), floored at MIN_START_GAP_MS.
+ * Monthly data gets ~15 days, quarterly ~45, annual ~183, daily and weekly the 3-day floor.
+ */
+function startTolerance(observations: Observation[]): number {
+  const gaps = observations.slice(1).map((o, i) => dateMs(o) - dateMs(observations[i])).sort((a, b) => a - b);
+  const median = gaps[Math.floor(gaps.length / 2)] ?? 0;
+  return Math.max(MIN_START_GAP_MS, median / 2);
+}
 
-  const start = filtered[0].value;
-  const end = filtered[filtered.length - 1].value;
+/**
+ * Trend over `years`, anchored to the LATEST observation (not to today).
+ *
+ * The start point is the observation nearest to (latest.date - years). Anchoring to the
+ * latest observation matters because monthly/quarterly series lag the calendar by 1-3
+ * months: anchoring to today and taking the first observation after the cutoff produced
+ * 9-month "1Y" windows for CPI and 6-month "1Y" windows for GDP. Missing observations
+ * (FRED ".") cannot shift the start either, because the nearest point is chosen by date
+ * distance rather than by list position, and a start that is not within tolerance of the
+ * target yields null instead of a mislabelled window.
+ *
+ * `observations` must be sorted ascending by date.
+ */
+export function calculateTrend(observations: Observation[], years: number, isRate = false): TrendStat | null {
+  if (observations.length < 2) return null;
+
+  const latest = observations[observations.length - 1];
+  const target = new Date(dateMs(latest));
+  target.setUTCFullYear(target.getUTCFullYear() - years);
+  const targetMs = target.getTime();
+
+  let startObs = observations[0];
+  let bestGap = Math.abs(dateMs(startObs) - targetMs);
+  for (let i = 1; i < observations.length - 1; i++) {
+    const gap = Math.abs(dateMs(observations[i]) - targetMs);
+    if (gap < bestGap) {
+      bestGap = gap;
+      startObs = observations[i];
+    }
+  }
+  if (bestGap > startTolerance(observations)) return null;
+
+  const start = startObs.value;
+  const end = latest.value;
   const change = end - start;
-  const pctChange = (change / Math.abs(start)) * 100;
+  const pctChange = start === 0 ? NaN : (change / Math.abs(start)) * 100;
+  const unit: ChangeUnit = isRate ? "pp" : "%";
+  const delta = isRate ? change : pctChange;
+  const direction = !Number.isFinite(delta) || Math.abs(delta) < SCALE[unit].flat ? "→" : delta > 0 ? "↑" : "↓";
 
-  let direction: "↑" | "↓" | "→";
-  if (Math.abs(pctChange) < 2) direction = "→";
-  else if (pctChange > 0) direction = "↑";
-  else direction = "↓";
-
-  return { start, end, change, pctChange, direction };
+  return { start, end, startDate: startObs.date, endDate: latest.date, change, pctChange, delta, unit, direction };
 }
 
 async function fetchEIAGasPrice(): Promise<{ value: number; date: string } | null> {
@@ -185,9 +247,9 @@ async function fetchEIAGasPrice(): Promise<{ value: number; date: string } | nul
 // ANALYSIS GENERATION
 // ============================================================================
 
-function formatValue(value: number, seriesId: string): string {
+export function formatValue(value: number, seriesId: string): string {
   // Format based on series type
-  if (["UNRATE", "CIVPART", "PSAVERT", "MORTGAGE30US", "FEDFUNDS", "DGS10", "DGS2", "DRCCLACBS"].includes(seriesId)) {
+  if (RATE_SERIES.has(seriesId)) {
     return `${value.toFixed(1)}%`;
   }
   if (seriesId === "GDPC1") {
@@ -207,7 +269,17 @@ function formatValue(value: number, seriesId: string): string {
   return value.toFixed(2);
 }
 
-function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value: number; date: string } | null): string {
+/** Signed change with the unit's decimals: "+3.4%" or "-0.20pp"; "—" for a non-finite value. */
+export function formatDelta(value: number, unit: ChangeUnit): string {
+  if (!Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(SCALE[unit].decimals)}${unit}`;
+}
+
+export function formatChange(t: TrendStat | null): string {
+  return t ? formatDelta(t.delta, t.unit) : "—";
+}
+
+export function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value: number; date: string } | null): string {
   const now = new Date().toISOString().replace('T', ' ').split('.')[0];
 
   let md = `# US Economic State Analysis
@@ -229,7 +301,7 @@ function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value:
   const fedfunds = results.get("FEDFUNDS");
 
   if (unrate?.latest) {
-    md += `- **Unemployment** at ${formatValue(unrate.latest.value, "UNRATE")} (${unrate.trends["1y"]?.direction || "→"} YoY)\n`;
+    md += `- **Unemployment** at ${formatValue(unrate.latest.value, "UNRATE")} (${formatChange(unrate.trends["1y"])} YoY ${unrate.trends["1y"]?.direction || "→"})\n`;
   }
   if (cpi?.trends["1y"]) {
     md += `- **Inflation (CPI)** running ${cpi.trends["1y"].pctChange.toFixed(1)}% YoY\n`;
@@ -267,10 +339,7 @@ function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value:
     for (const id of cat.ids) {
       const r = results.get(id);
       if (r?.latest && r.trends["1y"]) {
-        const changeStr = r.trends["1y"].pctChange >= 0
-          ? `+${r.trends["1y"].pctChange.toFixed(1)}%`
-          : `${r.trends["1y"].pctChange.toFixed(1)}%`;
-        md += `| ${cat.name} | ${r.name} | ${formatValue(r.latest.value, id)} | ${changeStr} | ${r.trends["1y"].direction} |\n`;
+        md += `| ${cat.name} | ${r.name} | ${formatValue(r.latest.value, id)} | ${formatChange(r.trends["1y"])} | ${r.trends["1y"].direction} |\n`;
       }
     }
   }
@@ -302,11 +371,8 @@ function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value:
     for (const id of cat.ids) {
       const r = results.get(id);
       if (r?.latest) {
-        const t10 = r.trends["10y"] ? `${r.trends["10y"].pctChange >= 0 ? "+" : ""}${r.trends["10y"].pctChange.toFixed(1)}%` : "—";
-        const t5 = r.trends["5y"] ? `${r.trends["5y"].pctChange >= 0 ? "+" : ""}${r.trends["5y"].pctChange.toFixed(1)}%` : "—";
-        const t2 = r.trends["2y"] ? `${r.trends["2y"].pctChange >= 0 ? "+" : ""}${r.trends["2y"].pctChange.toFixed(1)}%` : "—";
-        const t1 = r.trends["1y"] ? `${r.trends["1y"].pctChange >= 0 ? "+" : ""}${r.trends["1y"].pctChange.toFixed(1)}%` : "—";
-        md += `| ${r.name} | ${formatValue(r.latest.value, id)} | ${t10} | ${t5} | ${t2} | ${t1} |\n`;
+        const cells = (Object.keys(HORIZONS) as Horizon[]).map(k => formatChange(r.trends[k])).join(" | ");
+        md += `| ${r.name} | ${formatValue(r.latest.value, id)} | ${cells} |\n`;
       }
     }
     md += `\n`;
@@ -373,10 +439,9 @@ function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value:
   // Check for extremes
   const extremes: string[] = [];
   for (const [id, r] of results) {
-    if (r.trends["10y"]) {
-      if (Math.abs(r.trends["10y"].pctChange) > 50) {
-        extremes.push(`- **${r.name}**: ${r.trends["10y"].pctChange > 0 ? "+" : ""}${r.trends["10y"].pctChange.toFixed(0)}% over 10 years (significant move)`);
-      }
+    const t10 = r.trends["10y"];
+    if (t10 && Math.abs(t10.delta) > SCALE[t10.unit].extreme) {
+      extremes.push(`- **${r.name}**: ${formatChange(t10)} over 10 years (significant move)`);
     }
   }
 
@@ -394,13 +459,18 @@ function generateMarkdown(results: Map<string, SeriesResult>, gasPrice: { value:
   // Look for acceleration/deceleration
   const shifts: string[] = [];
   for (const [id, r] of results) {
-    if (r.trends["5y"] && r.trends["1y"]) {
-      const fiveYrAnnual = r.trends["5y"].pctChange / 5;
-      const oneYr = r.trends["1y"].pctChange;
-      if (Math.abs(oneYr) > Math.abs(fiveYrAnnual) * 2 && Math.abs(oneYr) > 5) {
-        shifts.push(`- **${r.name}**: Accelerating (1Y: ${oneYr.toFixed(1)}% vs 5Y avg: ${fiveYrAnnual.toFixed(1)}%/yr)`);
-      } else if (Math.abs(oneYr) < Math.abs(fiveYrAnnual) / 2 && Math.abs(fiveYrAnnual) > 5) {
-        shifts.push(`- **${r.name}**: Decelerating (1Y: ${oneYr.toFixed(1)}% vs 5Y avg: ${fiveYrAnnual.toFixed(1)}%/yr)`);
+    const t5 = r.trends["5y"];
+    const t1 = r.trends["1y"];
+    if (t5 && t1) {
+      // Last year against the 5-year average annual move, in the series' own unit.
+      const fiveYrAnnual = t5.delta / 5;
+      const oneYr = t1.delta;
+      const minMove = SCALE[t1.unit].minMove;
+      const vs = `(1Y: ${formatDelta(oneYr, t1.unit)} vs 5Y avg: ${formatDelta(fiveYrAnnual, t1.unit)}/yr)`;
+      if (Math.abs(oneYr) > Math.abs(fiveYrAnnual) * 2 && Math.abs(oneYr) > minMove) {
+        shifts.push(`- **${r.name}**: Accelerating ${vs}`);
+      } else if (Math.abs(oneYr) < Math.abs(fiveYrAnnual) / 2 && Math.abs(fiveYrAnnual) > minMove) {
+        shifts.push(`- **${r.name}**: Decelerating ${vs}`);
       }
     }
   }
@@ -514,4 +584,6 @@ Environment:
   }
 }
 
-main();
+if (import.meta.main) {
+  main();
+}

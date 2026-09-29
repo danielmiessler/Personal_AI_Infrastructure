@@ -40,3 +40,11 @@ token_env_var = "CLOUDFLARE_API_TOKEN"
 [paths]
 user_dir = "~/.claude/LIFEOS/USER"
 projects_dir = "~/Projects"
+
+# [cortex]
+# Session transcripts recall searches (skills/Cortex/Tools/SessionRoots.ts). Default:
+# Claude Code only. Setting the list replaces the default, so keep the claude entry.
+# session_roots = [
+#   { harness = "claude", dir = "~/.claude/projects" },
+#   { harness = "codex",  dir = "~/.codex/sessions" },
+# ]

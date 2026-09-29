@@ -4,6 +4,7 @@ declare const Bun: any;
 import { readFileSync, statSync, existsSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir } from "node:os";
+import { sessionRoots, transcriptFiles, type SessionHead } from "./SessionRoots";
 
 const HOME = homedir();
 const LIFEOS_DIR = join(HOME, ".claude");
@@ -26,7 +27,11 @@ const STOPWORDS = new Set([
 
 type Source = "work.json" | "session-names.json" | "work-dir" | "isa-body" | "project-isa" | "jsonl";
 
-/** All Claude Code transcript dirs (one per cwd ever worked in). */
+/**
+ * All Claude Code transcript dirs (one per cwd ever worked in). Only the
+ * session-names lookup uses this: session-names.json is keyed by Claude
+ * session UUIDs. Everything else walks every configured session root.
+ */
 function projectDirs(): string[] {
   if (!existsSync(PROJECTS_ROOT)) return [];
   return readdirSync(PROJECTS_ROOT, { withFileTypes: true })
@@ -48,29 +53,23 @@ function jsonlIndex(): Map<string, string> {
 }
 
 /**
- * Real cwd of each project dir, recovered from the `cwd` field of a transcript
- * line (the dir name's slug encoding is lossy, so decode from data instead).
- * Used to find `<project>/ISA.md` — the ISA home for anything with persistent
+ * Working directories recovered from session transcripts in every configured
+ * root (the Claude dir slug is lossy, so decode from data instead). Used to
+ * find `<project>/ISA.md` — the ISA home for anything with persistent
  * identity, which lives exactly where MEMORY/WORK-rooted search never looked.
+ * A repo only ever opened in another harness is found through that harness's
+ * root.
  */
 function discoveredProjectCwds(): string[] {
   const cwds = new Set<string>();
-  for (const dir of projectDirs()) {
-    let newest: { path: string; mtime: number } | null = null;
-    try {
-      for (const f of readdirSync(dir)) {
-        if (!f.endsWith(".jsonl")) continue;
-        const p = join(dir, f);
-        const mt = statSync(p).mtimeMs;
-        if (!newest || mt > newest.mtime) newest = { path: p, mtime: mt };
-      }
-    } catch { continue; }
-    if (!newest) continue;
-    try {
-      const head = readFileSync(newest.path, "utf8").slice(0, 16_384);
-      const m = head.match(/"cwd"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-      if (m) cwds.add(JSON.parse(`"${m[1]}"`));
-    } catch { /* unreadable transcript — skip */ }
+  for (const root of sessionRoots()) {
+    const files = root.parser.discoveryFiles?.(root.dir) ?? transcriptFiles(root.dir);
+    for (const f of files) {
+      try {
+        const cwd = root.parser.head(f)?.cwd;
+        if (cwd) cwds.add(cwd);
+      } catch { /* unreadable transcript — skip */ }
+    }
   }
   return [...cwds];
 }
@@ -88,6 +87,7 @@ interface Result {
   recencyDays: number | null;
   snippet?: string;
   path?: string;
+  harness?: string;
 }
 
 interface Args {
@@ -371,9 +371,10 @@ function rgCommand(): { exe: string; argv0?: string } {
   return { exe: "rg" };
 }
 
-async function ripgrep(pattern: string, dir: string, extra: string[] = []): Promise<string> {
+async function ripgrep(pattern: string, dir: string | string[], extra: string[] = []): Promise<string> {
   const { exe, argv0 } = rgCommand();
-  const proc = Bun.spawn([exe, "--no-heading", "--line-number", "-i", ...extra, pattern, dir], {
+  const dirs = Array.isArray(dir) ? dir : [dir];
+  const proc = Bun.spawn([exe, "--no-heading", "--line-number", "-i", ...extra, pattern, ...dirs], {
     stdout: "pipe",
     stderr: "pipe",
     ...(argv0 ? { argv0 } : {}),
@@ -477,82 +478,62 @@ async function searchProjectIsas(tokens: string[], since: Date | null, until: Da
 }
 
 async function searchJsonl(tokens: string[], since: Date | null, until: Date | null = null): Promise<Result[]> {
-  if (tokens.length === 0 || !existsSync(PROJECTS_ROOT)) return [];
-  const realDir = PROJECTS_ROOT;
-  if (!realDir.startsWith(join(HOME, ".claude", "projects"))) return [];
+  if (tokens.length === 0) return [];
   const pattern = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const out = await ripgrep(pattern, realDir, ["--glob", "*.jsonl", "-c"]);
-  const byFile = new Map<string, { hits: number; path: string }>();
-  for (const line of out.split("\n")) {
-    if (!line) continue;
-    const m = line.match(/^(.+?):(\d+)$/);
-    if (!m) continue;
-    const p = m[1]!;
-    const hits = parseInt(m[2]!, 10);
-    byFile.set(p, { hits, path: p });
-  }
-  const results: Result[] = [];
-  const sorted = [...byFile.entries()].sort((a, b) => b[1].hits - a[1].hits).slice(0, 30);
   const re = new RegExp(pattern, "i");
-  for (const [path, info] of sorted) {
-    let snippet: string | undefined;
-    let firstUserTimestamp: Date | null = null;
-    let mtime: Date | null = null;
-    try {
-      mtime = new Date(statSync(path).mtime);
-    } catch {}
-    try {
-      const text = readFileSync(path, "utf8");
-      let nlIdx = -1;
-      while (true) {
-        const start = nlIdx + 1;
-        nlIdx = text.indexOf("\n", start);
-        const ln = nlIdx === -1 ? text.slice(start) : text.slice(start, nlIdx);
-        if (ln.length > 0) {
-          if (!firstUserTimestamp || !snippet) {
-            try {
-              if (ln.includes('"type":"user"')) {
-                const j = JSON.parse(ln);
-                if (j.type === "user") {
-                  if (!firstUserTimestamp && j.timestamp) {
-                    const t = new Date(j.timestamp);
-                    if (!Number.isNaN(t.getTime())) firstUserTimestamp = t;
-                  }
-                  if (!snippet && re.test(ln)) {
-                    const c = j?.message?.content;
-                    let userText = "";
-                    if (typeof c === "string") userText = c;
-                    else if (Array.isArray(c)) {
-                      for (const p of c) if (p?.type === "text") userText += " " + (p.text ?? "");
-                    }
-                    userText = userText.trim();
-                    if (userText && !userText.startsWith("<") && re.test(userText)) {
-                      snippet = userText.replace(/\s+/g, " ").slice(0, 200);
-                    }
-                  }
-                }
-              }
-            } catch {}
-          }
-          if (firstUserTimestamp && snippet) break;
-        }
-        if (nlIdx === -1) break;
+  const results: Result[] = [];
+  // Each root is ranked on its own, so a busy harness cannot crowd another out of the
+  // 30 transcripts read per search.
+  for (const root of sessionRoots()) {
+    if (!existsSync(root.dir)) continue;
+    const out = await ripgrep(pattern, root.dir, ["--glob", "*.jsonl", "-c"]);
+    const hitsByFile = new Map<string, number>();
+    for (const line of out.split("\n")) {
+      const m = line.match(/^(.+?):(\d+)$/);
+      if (m) hitsByFile.set(m[1]!, parseInt(m[2]!, 10));
+    }
+    const candidates: { path: string; hits: number; head: SessionHead }[] = [];
+    for (const [path, hits] of [...hitsByFile.entries()].sort((a, b) => b[1] - a[1])) {
+      if (candidates.length >= 30) break;
+      let head: SessionHead | null = null;
+      try { head = root.parser.head(path); } catch {}
+      if (head) candidates.push({ path, hits, head }); // null: the parser skips it (e.g. a subagent rollout)
+    }
+    // Only lines that carry a turn marker AND a query token can yield a snippet. Pull
+    // exactly those out with ripgrep, a few transcripts at a time, so memory stays
+    // bounded instead of reading every candidate in full.
+    const turn = root.parser.turnPattern;
+    const both = `(?:${turn}).*(?:${pattern})|(?:${pattern}).*(?:${turn})`;
+    const cap = root.parser.maxTurnLineBytes ? ["--max-columns", String(root.parser.maxTurnLineBytes)] : [];
+    const snippetFor = async (path: string, head: SessionHead): Promise<string | undefined> => {
+      const lines = (await ripgrep(both, path, ["--no-line-number", ...cap])).split("\n");
+      for (const t of root.parser.turns(lines, head)) {
+        if (t.text && !t.text.startsWith("<") && re.test(t.text)) return t.text.replace(/\s+/g, " ").slice(0, 200);
       }
-    } catch {}
-    const dt = firstUserTimestamp ?? mtime;
-    if (!passSinceFilter(dt, since, until)) continue;
-    if (!snippet) continue;
-    const { multiplier, days } = recencyMultiplier(dt);
-    const uuid = basename(path).replace(/\.jsonl$/, "");
-    results.push({
-      source: ["jsonl"],
-      slug: uuid,
-      sessionUuid: uuid,
-      score: info.hits * multiplier,
-      recencyDays: days,
-      snippet,
-      path,
-    });
+      return undefined;
+    };
+    for (let i = 0; i < candidates.length; i += 4) {
+      const batch = candidates.slice(i, i + 4);
+      const snippets = await Promise.all(batch.map((c) => snippetFor(c.path, c.head)));
+      batch.forEach(({ path, hits, head }, k) => {
+        const snippet = snippets[k];
+        let mtime: Date | null = null;
+        try { mtime = new Date(statSync(path).mtime); } catch {}
+        const dt = head.timestamp ?? mtime;
+        if (!snippet || !passSinceFilter(dt, since, until)) return;
+        const { multiplier, days } = recencyMultiplier(dt);
+        results.push({
+          source: ["jsonl"],
+          slug: head.sessionId,
+          sessionUuid: head.sessionId,
+          score: hits * multiplier,
+          recencyDays: days,
+          snippet,
+          path,
+          harness: root.harness,
+        });
+      });
+    }
   }
   results.sort((a, b) => b.score - a.score);
   return results.slice(0, 100);
@@ -588,6 +569,7 @@ function dedupe(all: Result[]): Result[] {
       if (r.progress && !existing.progress) existing.progress = r.progress;
       if (r.effort && !existing.effort) existing.effort = r.effort;
       if (r.path && !existing.path) existing.path = r.path;
+      if (r.harness && !existing.harness) existing.harness = r.harness;
       if (r.recencyDays !== null && (existing.recencyDays === null || r.recencyDays < existing.recencyDays)) {
         existing.recencyDays = r.recencyDays;
       }
@@ -620,6 +602,7 @@ function formatPretty(query: string, results: Result[], stats: Record<string, nu
       r.phase ? `phase: ${r.phase}` : null,
       r.progress ? `progress: ${r.progress}` : null,
       r.effort ? `effort: ${r.effort}` : null,
+      r.harness && r.harness !== "claude" ? `harness: ${r.harness}` : null,
       r.recencyDays !== null ? `${r.recencyDays.toFixed(1)}d ago` : null,
       `score: ${r.score.toFixed(2)}`,
       `sources: ${r.source.join(",")}`,
@@ -636,7 +619,7 @@ function formatPretty(query: string, results: Result[], stats: Record<string, nu
 }
 
 function absenceMessage(query: string): string {
-  return `No prior work found on "${query}" (searched work.json, session names, work dirs, ISA bodies, project ISAs, and conversation logs across all project dirs).`;
+  return `No prior work found on "${query}" (searched work.json, session names, work dirs, ISA bodies, project ISAs, and conversation logs across all configured session roots).`;
 }
 
 async function main() {

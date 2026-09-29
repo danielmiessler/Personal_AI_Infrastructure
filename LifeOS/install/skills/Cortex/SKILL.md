@@ -490,8 +490,8 @@ Flag patterns: `--limit N` · `--since YYYY-MM-DD` · `--json | jq '.results[0]'
 
 - Token-overlap scoring, not substring matching — queries hit sessions sharing ≥1 non-stopword token, so half-remembered phrasing works.
 - `today`/`yesterday`/`last week`/`N days ago`/`YYYY-MM-DD` parse out as bounded date filters; remaining tokens still score content.
-- JSONL date = first user-message timestamp, not file mtime (mtime drifts on re-read); session-names.json entries fall back to mtime.
-- JSONL search is restricted to this install's own conversation directory by design.
+- JSONL date = first user-message timestamp (Codex: the rollout's session start), not file mtime (mtime drifts on re-read); session-names.json entries fall back to mtime.
+- JSONL search covers the configured session roots: Claude Code transcripts by default, plus other harnesses listed under `[cortex] session_roots` in `LIFEOS_CONFIG.toml` (Codex ships a parser; see `Tools/SessionRoots.ts`). Each root is ranked separately, so one harness cannot crowd another out of the 30 transcripts read per query. Codex subagent rollouts (guardian reviews, spawned workers) are skipped.
 - No persistent index — every query rescans (~1–2s total); an opt-in cached index is the v2 if scale demands.
 
 ---

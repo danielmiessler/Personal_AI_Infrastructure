@@ -350,6 +350,7 @@ Phases 2–5 are tracked separately as PROJECTS.md entries; they're not part of 
 - ❌ Reading real `~/.claude/LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md` from a test. Use a fixture.
 - ❌ Spawning real `claude` subprocess in a test. Use a fixture-replay subprocess.
 - ❌ Inventing an `acceptance.yaml` or `acceptance.ts` parallel to the ISA. The ISA IS the test harness.
+- ❌ Closing a claim on a log field, error string, or exit-code message without first checking that the field can vary. A capture path that records the same artifact on every failure is not evidence. See § The instrument must be able to report failure.
 
 ---
 
@@ -379,6 +380,33 @@ The rule is mechanical: the `tool` column starts with `bun test`, so `[ ]` → `
 - **An agent's answer quality** ("the summary keeps every key fact") → `Skill("Evals")`. That's judging a transcript, not asserting a return value.
 
 Reaching for `bun test` on a DOM claim, or Interceptor on a pure function, is the wrong instrument — the claim would close on evidence that doesn't actually test it.
+
+### The instrument must be able to report failure
+
+Choosing the right probe is not enough. The probe has to be able to carry the answer back. A capture path that records the same text no matter what happened reports silence, and silence reads as pass.
+
+The common shape is a truncated subprocess `stderr`. When a child process throws, its stderr opens with the runtime's source preamble, so the head of the buffer is the same on every failure and the cause sits at the tail:
+
+```ts
+// The child threw, so its stderr begins with Bun's own source preamble:
+//   12 |   return JSON.parse(raw);
+//                   ^ SyntaxError: Unexpected end of JSON input
+// WRONG — slice(0, 200) keeps the head, which is the preamble, never the cause.
+state.last_error = res.stderr.slice(0, 200);
+
+// RIGHT — drop the "NN | source" lines, keep the tail, which is the diagnosis.
+state.last_error = res.stderr
+  .split(/\r?\n/)
+  .filter((l) => l.trim() && !/^\s*\d+\s*\|/.test(l))
+  .slice(-3)
+  .join(" / ");
+```
+
+The check is one question: **would this field differ if the cause were different?** Run the probe against a second, known-different failure and compare the stored text. If both failures produce the same record, the field is an artifact and any claim resting on it is unclosed, whatever the checkbox says.
+
+Mutation testing (`skills/Hardening`) asks whether a test would fail if the code were wrong. This asks whether the record would differ if the cause were different. They are separate questions and a suite can pass the first while failing the second.
+
+This is the evidence-side companion to Rule 11. There, a test must produce the edge rather than hand-write the state. Here, the capture must produce the diagnosis rather than a fixed preamble.
 
 ### A criterion becoming verified
 

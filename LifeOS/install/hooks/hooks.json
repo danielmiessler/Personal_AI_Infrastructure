@@ -374,6 +374,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "$HOME/.claude/hooks/TimeGapAwareness.hook.ts",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "$HOME/.claude/hooks/ModelRungGuard.hook.ts",
             "timeout": 5,
             "async": true

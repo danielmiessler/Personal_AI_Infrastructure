@@ -143,6 +143,47 @@ export function paiUserDir(): string {
   }
 }
 
+// ─────────── Calendar days in the principal's timezone ───────────
+
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+function dayFormatter(tz: string): Intl.DateTimeFormat {
+  let f = dayFormatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+    dayFormatters.set(tz, f);
+  }
+  return f;
+}
+
+/**
+ * The principal's IANA timezone from LIFEOS_CONFIG.toml, or "UTC" when the config is
+ * missing/invalid or names a zone Intl does not know. Never throws, so Pulse request
+ * paths and launchd jobs can call it unguarded (same shape as paiUserDir()).
+ */
+export function principalTimeZone(): string {
+  try {
+    const tz = loadLifeosConfig().principal.timezone;
+    dayFormatter(tz); // RangeError on an unknown zone, caught below
+    return tz;
+  } catch {
+    return "UTC";
+  }
+}
+
+/**
+ * Calendar day ("YYYY-MM-DD") of an instant in the given zone, or null when the
+ * timestamp does not parse. Pass a full timestamp (offset or Z), never a date-only
+ * key: a bare "YYYY-MM-DD" parses as UTC midnight and lands a day early west of UTC.
+ */
+export function dayKey(timestamp: string, tz: string): string | null {
+  if (typeof timestamp !== "string" || !timestamp) return null;
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = dayFormatter(tz).formatToParts(d);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 // ─────────── Validation ───────────
 
 function validateAndNormalize(raw: unknown, path: string): LifeosConfig {

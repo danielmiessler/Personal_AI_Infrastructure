@@ -13,6 +13,7 @@
 import { join } from "path"
 import { existsSync, readFileSync } from "fs"
 import { homedir } from "node:os";
+import { dayKey, principalTimeZone } from "../../TOOLS/LifeosConfig"
 
 const HOME = process.env.HOME ?? process.env.USERPROFILE ?? homedir()
 const LIFEOS_DIR = join(HOME, ".claude", "LIFEOS")
@@ -91,10 +92,11 @@ function handleCostApi(url: URL): Response {
     totalTokens += s.totalTokens ?? 0
   }
 
-  // Aggregate by day
+  // Aggregate by day (cut in the principal's timezone)
+  const tz = principalTimeZone()
   const dailyCosts: Record<string, number> = {}
   for (const s of filtered) {
-    const day = (s.lastTimestamp || s.firstTimestamp || "").slice(0, 10)
+    const day = dayKey(s.lastTimestamp || s.firstTimestamp, tz)
     if (day) dailyCosts[day] = (dailyCosts[day] ?? 0) + (s.costTotal ?? 0)
   }
 
@@ -187,15 +189,16 @@ function handleFailuresApi(): Response {
   const totalCalls = activity.length + failures.length
   const overallRate = totalCalls > 0 ? Math.round((totalFailures / totalCalls) * 10000) / 100 : 0
 
-  // Daily failure trend (last 7 days)
+  // Daily failure trend (last 7 days, cut in the principal's timezone)
+  const tz = principalTimeZone()
   const dailyFailures: Record<string, number> = {}
   const dailyTotal: Record<string, number> = {}
   for (const f of failures) {
-    const day = (f.timestamp || "").slice(0, 10)
+    const day = dayKey(f.timestamp, tz)
     if (day) dailyFailures[day] = (dailyFailures[day] ?? 0) + 1
   }
   for (const a of activity) {
-    const day = (a.timestamp || "").slice(0, 10)
+    const day = dayKey(a.timestamp, tz)
     if (day) dailyTotal[day] = (dailyTotal[day] ?? 0) + 1
   }
 

@@ -16,6 +16,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { dayKey, principalTimeZone } from "../../TOOLS/LifeosConfig";
 
 const MODULE_NAME = "usage";
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
@@ -67,10 +68,11 @@ function sumDays(days: DayAgg[]): Totals {
 }
 function round2(t: Totals): Totals { return { ...t, costUsd: Math.round(t.costUsd * 100) / 100 }; }
 
-/** ISO date string N days before today (UTC). */
+/** Date key N days before today, where "today" is the principal's local day (see dayKey). */
 function daysAgo(n: number): string {
-  const ms = Date.now() - n * 86_400_000;
-  return new Date(ms).toISOString().slice(0, 10);
+  const d = new Date(`${dayKey(new Date().toISOString(), principalTimeZone())}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
 }
 function isoWeek(date: string): string {
   const d = new Date(date + "T00:00:00Z");

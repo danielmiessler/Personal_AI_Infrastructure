@@ -19,19 +19,22 @@
  *   1. MEMORY/OBSERVABILITY/session-costs.jsonl  — historical per-session rollup (has real cost); froze ~2026-04-16
  *   2. ~/.claude/projects/<proj>/*.jsonl (+ subagents/) — live raw transcripts (~5-day window); cost via price table
  *
- * OUTPUT: MEMORY/OBSERVABILITY/usage-daily.jsonl — one line per day, sorted:
+ * OUTPUT: MEMORY/OBSERVABILITY/usage-daily.jsonl — one line per day (cut in the principal's timezone), sorted:
  *   { date, messages, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens,
  *     totalTokens, costUsd, models: { <model>: { messages, totalTokens, costUsd } } }
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { dayKey, principalTimeZone } from "./LifeosConfig";
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const OBS_DIR = join(CLAUDE_DIR, "LIFEOS", "MEMORY", "OBSERVABILITY");
 const SESSION_COSTS = join(OBS_DIR, "session-costs.jsonl");
 const PROJECTS_DIR = join(CLAUDE_DIR, "projects");
 const OUT_PATH = join(OBS_DIR, "usage-daily.jsonl");
+// Day boundaries follow [principal].timezone in LIFEOS_CONFIG.toml (UTC when unset or unknown).
+const TIME_ZONE = principalTimeZone();
 
 // Price per MILLION tokens (USD). Approximate list prices; used only for the live
 // transcript window (historical days carry real cost from session-costs.jsonl).
@@ -63,10 +66,6 @@ interface DayAgg {
 const byDay = new Map<string, DayAgg>();
 const countedSessions = new Set<string>();
 
-function dayOf(ts: string): string | null {
-  const m = /^(\d{4}-\d{2}-\d{2})/.exec(ts || "");
-  return m ? m[1] : null;
-}
 function ensureDay(date: string): DayAgg {
   let d = byDay.get(date);
   if (!d) {
@@ -89,7 +88,7 @@ function ingestSessionCosts(): number {
     if (!line.trim()) continue;
     let r: any;
     try { r = JSON.parse(line); } catch { continue; }
-    const date = dayOf(r.firstTimestamp);
+    const date = dayKey(r.firstTimestamp, TIME_ZONE);
     if (!date) continue;
     if (r.sessionId) countedSessions.add(r.sessionId);
     sessions++;
@@ -157,7 +156,7 @@ function ingestTranscripts(): { files: number; messages: number } {
       try { r = JSON.parse(line); } catch { continue; }
       if (r.type !== "assistant" || !r.message?.usage) continue;
       if (r.sessionId && countedSessions.has(r.sessionId)) continue; // de-dup vs session-costs
-      const date = dayOf(r.timestamp);
+      const date = dayKey(r.timestamp, TIME_ZONE);
       if (!date) continue;
       const model: string = r.message.model || "unknown";
       const u = r.message.usage;

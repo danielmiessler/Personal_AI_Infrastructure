@@ -135,7 +135,9 @@ async function run(cmd: string[], label: string): Promise<string> {
 }
 
 function requireBinary(bin: string, why: string): void {
-  const found = Bun.spawnSync(["which", bin]).exitCode === 0;
+  // Bun.which, not a spawned `which`: Windows has no which.exe outside Git Bash,
+  // so spawnSync threw ENOENT with ffmpeg installed (public issue #2295).
+  const found = Bun.which(bin) !== null;
   if (!found) die(`${bin} not installed — needed to ${why}. brew install ${bin}`);
 }
 

@@ -89,6 +89,21 @@ function tryExec(cmd: string): string | null {
   }
 }
 
+/**
+ * Absolute path of a binary on PATH, or null. Never `command -v` through
+ * tryExec on Windows: execSync runs cmd.exe there, which has no `command`
+ * built-in, so every probe failed and DetectEnv reported bun, git and the
+ * harness binary missing while running on bun (public issue #2295).
+ * Bun.which is cross-platform and PATHEXT-aware (finds npm's claude.cmd);
+ * the shell probes are the fallback when this file runs outside bun.
+ */
+function findBin(name: string): string | null {
+  const bun = (globalThis as { Bun?: { which(bin: string): string | null } }).Bun;
+  if (bun) return bun.which(name);
+  const out = tryExec(process.platform === "win32" ? `where ${name}` : `command -v ${name}`);
+  return out ? out.split(/\r?\n/)[0] : null;
+}
+
 export function detectOS(): OsInfo {
   const platform: Platform =
     process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "windows" : "linux";
@@ -109,7 +124,7 @@ export function detectOS(): OsInfo {
 }
 
 export function detectTool(name: string, versionCmd: string): ToolInfo {
-  const path = tryExec(`command -v ${name}`);
+  const path = findBin(name);
   if (!path) return { installed: false };
   const out = tryExec(versionCmd);
   const m = out?.match(/(\d+\.\d+[.\d]*)/);
@@ -133,7 +148,7 @@ export function detectHarness(home: string): HarnessInfo {
     { name: "cursor", root: join(home, ".cursor"), skills: "skills", bin: "cursor" },
     { name: "openclaw", root: join(home, ".openclaw"), skills: "skills", bin: "openclaw" },
   ];
-  const hasBin = (c: (typeof candidates)[number]) => !!tryExec(`command -v ${c.bin}`);
+  const hasBin = (c: (typeof candidates)[number]) => !!findBin(c.bin);
   const info = (c: (typeof candidates)[number], confidence: HarnessInfo["confidence"]): HarnessInfo => ({
     name: c.name,
     configRoot: c.root,

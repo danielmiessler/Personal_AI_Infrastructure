@@ -17,10 +17,16 @@
  *     label: "TELOS context",
  *     daysOld: 0,
  *     tier: "fresh" | "aging" | "stale" | "unknown",
- *     perFile: [{ name, date, source }],
+ *     perFile: [{ name, date, source, ageMinutes?, expectedEveryMinutes? }],
+ *     ageMinutes?: 840,           // present when a source declares a cadence:
+ *     expectedEveryMinutes?: 15,  // the source furthest behind its cadence
  *   }
  *
- * Tier mapping: ≤7d fresh · ≤30d aging · >30d stale · null unknown.
+ * Tier mapping: ≤7d fresh · ≤30d aging · >30d stale · null unknown, measured on
+ * the most recent source. A source that declares `expectedEveryMinutes` (a
+ * machine-written ledger with a known cadence) is also measured in minutes
+ * against that cadence (≤2× fresh · ≤10× aging · >10× stale), and the worse of
+ * the two verdicts is the tab's tier.
  *
  * Unregistered tabs return `tier: "unknown"` with HTTP 200 — never 404, so
  * the client pill stays visible across all routes.
@@ -39,16 +45,24 @@ const TELOS_DIR = join(USER_DIR, "TELOS")
 //
 // Each entry lists files (or directories) whose mtime contributes to the
 // tab's freshness. Globs are expanded shallowly: a directory entry contributes
-// every direct *.md file. Missing files are silently ignored — the tab can
-// still render `unknown` rather than 500.
+// every direct *.md, *.json, *.jsonl, *.yaml and *.yml file. Missing files are
+// silently ignored — the tab can still render `unknown` rather than 500.
 
-interface SourceSpec {
+export interface SourceSpec {
   /** Display name shown in tooltip (short — under 30 chars). */
   name: string
   /** Absolute path on disk. */
   path: string
-  /** When `true`, expand to direct *.md children at runtime. */
+  /** When `true`, expand to direct *.md / *.json / *.jsonl / *.yaml / *.yml children at runtime. */
   expand?: boolean
+  /**
+   * Minutes between writes of a machine-written source (a ledger a job rewrites,
+   * a job's state file). When set, the source's age is also judged against this
+   * cadence via `tierFromCadence`. Applies to file entries, not to the children
+   * of an expanded directory; a path listed here and again through an expansion
+   * counts once, keeping the cadence.
+   */
+  expectedEveryMinutes?: number
 }
 
 const REGISTRY: Record<string, SourceSpec[]> = {
@@ -109,6 +123,13 @@ const REGISTRY: Record<string, SourceSpec[]> = {
   ],
   performance: [
     { name: "MEMORY/OBSERVABILITY/", path: join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY"), expand: true },
+    // The tab's ledgers are machine-written, so they are also judged against the cadence of
+    // their writers. The cost-aggregation job (PULSE.toml, every 15 min) appends to
+    // session-costs.jsonl only when a new session appears but rewrites its state file on
+    // every run, so that file is the job's heartbeat; usage-daily.jsonl is rebuilt nightly by
+    // the opt-in com.lifeos.usage-aggregator launchd job and is absent until that is installed.
+    { name: "Performance/aggregator-state.json", path: join(LIFEOS_DIR, "PULSE", "Performance", "aggregator-state.json"), expectedEveryMinutes: 15 },
+    { name: "OBSERVABILITY/usage-daily.jsonl", path: join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY", "usage-daily.jsonl"), expectedEveryMinutes: 24 * 60 },
   ],
   synapse: [
     { name: "KNOWLEDGE/Ideas/", path: join(LIFEOS_DIR, "MEMORY", "KNOWLEDGE", "Ideas"), expand: true },
@@ -158,6 +179,7 @@ interface ResolvedSource {
   path: string
   exists: boolean
   mtime: Date | null
+  expectedEveryMinutes?: number
 }
 
 function resolveSpec(spec: SourceSpec): ResolvedSource[] {
@@ -170,7 +192,7 @@ function resolveSpec(spec: SourceSpec): ResolvedSource[] {
     let entries: string[] = []
     try {
       // ported from public PR #1741, @elhoim — `.yml` is as valid a YAML suffix as `.yaml`
-      entries = readdirSync(spec.path).filter((e) => e.endsWith(".md") || e.endsWith(".json") || e.endsWith(".yaml") || e.endsWith(".yml"))
+      entries = readdirSync(spec.path).filter((e) => e.endsWith(".md") || e.endsWith(".json") || e.endsWith(".jsonl") || e.endsWith(".yaml") || e.endsWith(".yml"))
     } catch {
       // unreadable dir — record as missing
       return [{ name: spec.name, path: spec.path, exists: false, mtime: null }]
@@ -192,7 +214,7 @@ function resolveSpec(spec: SourceSpec): ResolvedSource[] {
     }
     return out
   }
-  return [{ name: spec.name, path: spec.path, exists: true, mtime: stat.mtime }]
+  return [{ name: spec.name, path: spec.path, exists: true, mtime: stat.mtime, expectedEveryMinutes: spec.expectedEveryMinutes }]
 }
 
 // Pull `last_reviewed` (preferred) or `last_updated` from a markdown file's
@@ -229,6 +251,22 @@ function tierFromDays(daysOld: number | null): "fresh" | "aging" | "stale" | "un
   return "stale"
 }
 
+// A machine-written source is judged against its own cadence: within twice the
+// cadence it is on time, within ten times it is lagging, beyond that it stopped.
+function tierFromCadence(ageMinutes: number, expectedEveryMinutes: number): "fresh" | "aging" | "stale" {
+  if (ageMinutes <= 2 * expectedEveryMinutes) return "fresh"
+  if (ageMinutes <= 10 * expectedEveryMinutes) return "aging"
+  return "stale"
+}
+
+const TIER_RANK: Record<FreshnessPayload["tier"], number> = { unknown: 0, fresh: 1, aging: 2, stale: 3 }
+
+function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  if (minutes < 1440) return `${Math.round(minutes / 60)} h`
+  return `${Math.round(minutes / 1440)} d`
+}
+
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
@@ -237,15 +275,21 @@ interface FreshnessFilePayload {
   name: string
   date: string | null
   source: "state" | "content" | "filename" | "mtime" | "unknown"
+  /** Minutes since the last write and the declared cadence; only on sources that declare one. */
+  ageMinutes?: number
+  expectedEveryMinutes?: number
 }
 
-interface FreshnessPayload {
+export interface FreshnessPayload {
   tabId: string
   dataDate: string | null
   label: string
   daysOld: number | null
   tier: "fresh" | "aging" | "stale" | "unknown"
   perFile: FreshnessFilePayload[]
+  /** The cadence source furthest behind its cadence; only when the tab declares one that exists. */
+  ageMinutes?: number
+  expectedEveryMinutes?: number
 }
 
 function computeTabFreshness(tabId: string): FreshnessPayload {
@@ -260,11 +304,24 @@ function computeTabFreshness(tabId: string): FreshnessPayload {
       perFile: [],
     }
   }
-  const resolved = specs.flatMap((s) => resolveSpec(s))
+  return computeFreshness(tabId, specs)
+}
+
+/** Freshness of an explicit source list; the registry-independent core, exported for tests. */
+export function computeFreshness(tabId: string, specs: SourceSpec[]): FreshnessPayload {
+  // A path listed explicitly and again through a directory expansion counts once,
+  // and the entry carrying a cadence wins whatever the registry order.
+  const byPath = new Map<string, ResolvedSource>()
+  for (const r of specs.flatMap((s) => resolveSpec(s))) {
+    const prev = byPath.get(r.path)
+    if (!prev || (r.expectedEveryMinutes && !prev.expectedEveryMinutes)) byPath.set(r.path, r)
+  }
   const perFile: FreshnessFilePayload[] = []
   let mostRecent: Date | null = null
   let anyExist = false
-  for (const r of resolved) {
+  let lagging: { name: string; ageMinutes: number; expectedEveryMinutes: number } | null = null
+  const now = Date.now()
+  for (const r of byPath.values()) {
     if (!r.exists || !r.mtime) {
       perFile.push({ name: r.name, date: null, source: "unknown" })
       continue
@@ -273,18 +330,34 @@ function computeTabFreshness(tabId: string): FreshnessPayload {
     // Prefer frontmatter date for .md files
     const fmDate = r.path.endsWith(".md") ? readFrontmatterDate(r.path) : null
     const effective = fmDate ?? r.mtime
-    perFile.push({
+    const file: FreshnessFilePayload = {
       name: r.name,
       date: isoDate(effective),
       source: fmDate ? "content" : "mtime",
-    })
+    }
+    if (r.expectedEveryMinutes) {
+      const ageMinutes = Math.floor((now - effective.getTime()) / 60_000)
+      file.ageMinutes = ageMinutes
+      file.expectedEveryMinutes = r.expectedEveryMinutes
+      if (!lagging || ageMinutes / r.expectedEveryMinutes > lagging.ageMinutes / lagging.expectedEveryMinutes) {
+        lagging = { name: r.name, ageMinutes, expectedEveryMinutes: r.expectedEveryMinutes }
+      }
+    }
+    perFile.push(file)
     if (!mostRecent || effective > mostRecent) mostRecent = effective
   }
   const daysOld = mostRecent
-    ? Math.floor((Date.now() - mostRecent.getTime()) / 86_400_000)
+    ? Math.floor((now - mostRecent.getTime()) / 86_400_000)
     : null
-  const tier = tierFromDays(anyExist ? daysOld : null)
-  const label = anyExist ? `${perFile.filter((p) => p.date).length} of ${perFile.length} sources dated` : "no sources on disk"
+  let tier = tierFromDays(anyExist ? daysOld : null)
+  let label = anyExist ? `${perFile.filter((p) => p.date).length} of ${perFile.length} sources dated` : "no sources on disk"
+  if (lagging) {
+    const cadenceTier = tierFromCadence(lagging.ageMinutes, lagging.expectedEveryMinutes)
+    if (TIER_RANK[cadenceTier] > TIER_RANK[tier]) {
+      tier = cadenceTier
+      label = `${lagging.name} written ${formatMinutes(lagging.ageMinutes)} ago, expected every ${formatMinutes(lagging.expectedEveryMinutes)}`
+    }
+  }
   return {
     tabId,
     dataDate: mostRecent ? isoDate(mostRecent) : null,
@@ -292,6 +365,7 @@ function computeTabFreshness(tabId: string): FreshnessPayload {
     daysOld,
     tier,
     perFile,
+    ...(lagging ? { ageMinutes: lagging.ageMinutes, expectedEveryMinutes: lagging.expectedEveryMinutes } : {}),
   }
 }
 

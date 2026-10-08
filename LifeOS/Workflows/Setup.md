@@ -28,7 +28,7 @@ The skill ships everything for both tiers in its payload; nothing activates with
 ### — LifeOS Core (steps 4–6, 8; one consent) —
 
 4. **System overlay** — place the harness-root system files (each `existsSync`-guarded — never clobber a populated harness):
-   - `install/CLAUDE.template.md` → `CLAUDE.md` (the routing table; its identity `@`-imports ship dormant as `# @LIFEOS/USER/...` and are activated later by `ActivateImports`).
+   - `install/CLAUDE.template.md` → `CLAUDE.md` (the routing table; its identity `@`-imports ship dormant as `<!-- @LIFEOS/USER/... -->` and are activated later by `ActivateImports`; an HTML comment is the dormant form because Claude Code resolves `@path` inside a `# ` heading line).
    - `install/LIFEOS/LIFEOS_SYSTEM_PROMPT.md` → the system prompt. This is the real, public-clean system prompt shipped in the payload — used directly, no separate template.
    - **settings → `bun Tools/InstallSettings.ts`** (dry-run first, then `--apply`): places `install/settings.system.json` → `settings.json` (the system half — WITHOUT hooks; `InstallHooks` owns hooks). The tool expands `$HOME`/`~` in `env` values at write time — the harness injects env values verbatim (#1404/#1451), so a hand copy ships literal `$HOME/...` strings that create a real `$HOME/` junk directory at runtime. Never copy this file by hand.
    - Substitute `{{LIFEOS_VERSION}}` / `{{DA_NAME}}` / `{{PRINCIPAL_NAME}}` placeholders in the files placed by THIS step (the engine's `substituteTree`). Note the scope: skills and the LIFEOS runtime don't exist yet — they land in 4.5 — so this pass cannot reach them. The full-tree pass and its verification are step 9(d), and that is what makes the install identity-correct.

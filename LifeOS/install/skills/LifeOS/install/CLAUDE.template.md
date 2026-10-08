@@ -6,11 +6,11 @@
 @LIFEOS/DOCUMENTATION/ARCHITECTURE_SUMMARY.md
 # Identity @-imports below are activated by the agentic `/LifeOS setup` (via `skills/LifeOS/Tools/ActivateImports.ts`) once the principal scaffolds USER files.
 # Claude Code does not follow transitive @-imports, so each must be listed here directly.
-# @LIFEOS/USER/TELOS/PRINCIPAL_TELOS.md
-# @LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md
-# @LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md
-# @LIFEOS/USER/PROJECTS.md
-# @LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md
+<!-- @LIFEOS/USER/TELOS/PRINCIPAL_TELOS.md -->
+<!-- @LIFEOS/USER/PRINCIPAL/PRINCIPAL_IDENTITY.md -->
+<!-- @LIFEOS/USER/DIGITAL_ASSISTANT/DA_IDENTITY.md -->
+<!-- @LIFEOS/USER/PROJECTS.md -->
+<!-- @LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md -->
 
 ## Constitutional layer
 

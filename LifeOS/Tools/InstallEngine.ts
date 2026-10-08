@@ -748,10 +748,12 @@ export function activateImports(claudeMdPath: string, configRoot: string): { act
   const skipped: string[] = [];
   if (!existsSync(claudeMdPath)) return { activated, skipped };
   const lines = readFileSync(claudeMdPath, "utf-8").split("\n");
-  // Two dormant-import conventions: the public CLAUDE.md ships `# @LIFEOS/USER/...`
-  // (hash-prefixed so the @ isn't at line-start and Claude Code skips it); the
-  // older form is `<!-- @LIFEOS/USER/... -->`. Activation strips the prefix so the
-  // import sits at line-start and resolves.
+  // Two dormant-import conventions, both accepted. The shipped template uses
+  // `<!-- @LIFEOS/USER/... -->`: Claude Code skips imports inside an HTML comment.
+  // The hash-prefixed `# @LIFEOS/USER/...` form is still matched so CLAUDE.md files
+  // from older installs activate, but it was never dormant: Claude Code resolves
+  // `@path` inside a heading line, so it loaded the USER templates at every
+  // session start (public issue #2296). Activation strips the wrapper either way.
   const commented = /^\s*#\s+(@[\w./-]+)\s*$|^\s*<!--\s*(@[\w./-]+)\s*-->\s*$/;
   const out = lines.map((line) => {
     const m = line.match(commented);

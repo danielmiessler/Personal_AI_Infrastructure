@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
- * PerplexitySearch.ts - Perplexity Sonar API web research client
+ * PerplexitySearch.ts - Perplexity Agent API web research client
  *
- * Real-time, grounded web research with inline citations via Perplexity's Sonar
- * models. Returns a synthesized answer plus a numbered citation list. Used by the
- * Research skill / PerplexityResearcher agent as the primary web-research tool.
+ * Real-time, grounded web research with inline citations via Perplexity's
+ * Agent API (POST /v1/agent). Returns a synthesized answer plus a numbered
+ * citation list. Used by the Research skill / PerplexityResearcher agent as the
+ * primary web-research tool.
  *
  * Usage:
  *   bun ~/.claude/LIFEOS/TOOLS/PerplexitySearch.ts "<query>"
@@ -15,16 +16,20 @@
  *   bun ~/.claude/LIFEOS/TOOLS/PerplexitySearch.ts --json "<query>"
  *
  * Models:
- *   sonar            Fast, grounded, real-time web (default)
- *   sonar-pro        Higher quality, deeper synthesis
- *   sonar-reasoning  Chain-of-thought reasoning + citations
+ *   sonar (default), sonar-pro, sonar-reasoning, sonar-reasoning-pro,
+ *   sonar-deep-research   legacy Sonar names, all sent as perplexity/sonar,
+ *                         Perplexity's own model on the Agent API
+ *   <provider>/<model>    any Agent API model id, passed through
+ *   fast|low|medium|high|xhigh
+ *                         Agent API preset, passed through; presets run on
+ *                         models Perplexity selects, which may be third-party
  *
  * Options:
- *   --model <id>       Sonar model id (default: sonar)
+ *   --model <id>       legacy name, Agent API model id or preset (default: sonar)
  *   --recency <span>   Freshness filter: hour | day | week | month | year
  *   --system <prompt>  Override the system prompt
- *   --max-tokens <n>   Cap output tokens (default: 2048)
- *   --json             Emit raw API JSON
+ *   --max-tokens <n>   Cap output tokens (default: 2048 for a model; a preset's own cap)
+ *   --json             Emit {content, citations, usage} as JSON
  *
  * Environment:
  *   PERPLEXITY_API_KEY   Perplexity API key (required)
@@ -32,7 +37,7 @@
  * Exit codes: 0 ok, 1 error (missing key, API failure, empty response)
  *
  * @author LifeOS System
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import { readFileSync } from 'fs'
@@ -64,8 +69,23 @@ function loadEnv(): Record<string, string> {
 
 const env = loadEnv()
 const API_KEY = process.env.PERPLEXITY_API_KEY || env.PERPLEXITY_API_KEY
-const API_URL = 'https://api.perplexity.ai/chat/completions'
+const API_URL = 'https://api.perplexity.ai/v1/agent'
 const DEFAULT_MODEL = 'sonar'
+const DEFAULT_SYSTEM = 'Be precise and concise. Include inline citations.'
+const DEFAULT_MAX_TOKENS = 2048
+
+// Legacy Sonar names all map to perplexity/sonar, so existing callers stay on a
+// Perplexity model. Perplexity's migration guide suggests presets instead, but
+// presets run on models Perplexity selects (often third-party) at a higher price;
+// callers who want one pass the preset name explicitly.
+const LEGACY_MODELS = new Set(['sonar', 'sonar-pro', 'sonar-reasoning', 'sonar-reasoning-pro', 'sonar-deep-research'])
+const PRESETS = new Set(['fast', 'low', 'medium', 'high', 'xhigh'])
+
+function resolveModel(id: string): { model: string } | { preset: string } {
+  if (LEGACY_MODELS.has(id)) return { model: 'perplexity/sonar' }
+  if (PRESETS.has(id)) return { preset: id }
+  return { model: id }
+}
 
 interface Parsed { content: string; citations: string[]; usage: any }
 
@@ -73,8 +93,8 @@ function parseArgs(argv: string[]) {
   const opts = {
     model: DEFAULT_MODEL,
     recency: '',
-    system: 'Be precise and concise. Include inline citations.',
-    maxTokens: 2048,
+    system: '',
+    maxTokens: 0,
     json: false,
   }
   const rest: string[] = []
@@ -91,18 +111,18 @@ function parseArgs(argv: string[]) {
 }
 
 async function perplexity(query: string, opts: ReturnType<typeof parseArgs>['opts']): Promise<Parsed> {
-  const body: Record<string, unknown> = {
-    model: opts.model,
-    messages: [
-      { role: 'system', content: opts.system },
-      { role: 'user', content: query },
-    ],
-    max_tokens: opts.maxTokens,
-    temperature: 0.2,
-    return_citations: true,
-    return_images: false,
-  }
-  if (opts.recency) body.search_recency_filter = opts.recency
+  const webSearch: Record<string, unknown> = { type: 'web_search' }
+  if (opts.recency) webSearch.filters = { search_recency_filter: opts.recency }
+  const target = resolveModel(opts.model)
+  const explicitModel = 'model' in target
+  const body: Record<string, unknown> = { ...target, input: query }
+  // A preset ships its own instructions, output cap and tools, and any field sent
+  // alongside it overrides that default; so send ours only for an explicit model,
+  // or when the caller set them. A model needs web_search listed to search at all.
+  if (explicitModel || opts.recency) body.tools = [webSearch]
+  if (explicitModel || opts.system) body.instructions = opts.system || DEFAULT_SYSTEM
+  if (explicitModel || opts.maxTokens) body.max_output_tokens = opts.maxTokens || DEFAULT_MAX_TOKENS
+  if (explicitModel) body.temperature = 0.2
 
   const res = await fetch(API_URL, {
     method: 'POST',
@@ -118,16 +138,37 @@ async function perplexity(query: string, opts: ReturnType<typeof parseArgs>['opt
   if (!res.ok || data.error) {
     throw new Error(typeof data.error === 'string' ? data.error : (data.error?.message || `HTTP ${res.status}`))
   }
+  if (data.status === 'failed' || data.status === 'cancelled') throw new Error(`response ${data.status}`)
+  if (data.status === 'incomplete') {
+    console.error(`${colors.yellow}Warning: response incomplete (output cap reached?)${colors.reset}`)
+  }
 
-  const content = data.choices?.[0]?.message?.content ?? ''
-  const citations = Array.isArray(data.citations) ? data.citations : []
+  const output: any[] = Array.isArray(data.output) ? data.output : []
+  const parts = output
+    .filter((item) => item.type === 'message')
+    .flatMap((item) => item.content ?? [])
+    .filter((part: any) => part.type === 'output_text')
+  const content = parts.map((part: any) => part.text ?? '').join('')
+
+  // Citations: url_citation annotations when present. Otherwise the search results,
+  // placed by their id, because inline [n] markers in the answer refer to that id.
+  const urls = (list: any[]) => list.map((x) => x?.url).filter((u): u is string => typeof u === 'string')
+  let citations = [...new Set(urls(parts.flatMap((part: any) => part.annotations ?? []).filter((a: any) => a.type === 'url_citation')))]
+  if (!citations.length) {
+    const results: any[] = output.filter((item) => item.type === 'search_results').flatMap((item) => item.results ?? [])
+    const byId: string[] = []
+    for (const r of results) {
+      if (Number.isInteger(r?.id) && r.id > 0 && typeof r.url === 'string') byId[r.id - 1] ??= r.url
+    }
+    citations = byId.length ? Array.from(byId, (u) => u ?? '') : [...new Set(urls(results))]
+  }
   return { content: content.trim(), citations, usage: data.usage ?? {} }
 }
 
 const USAGE = `Usage: bun ~/.claude/LIFEOS/TOOLS/PerplexitySearch.ts [options] "<query>"
 
 Options:
-  --model <name>     sonar | sonar-pro | sonar-reasoning   (default: sonar)
+  --model <name>     sonar (legacy names map to perplexity/sonar) | <provider/model> | <preset>   (default: sonar)
   --recency <span>   hour | day | week | month | year      (bias toward fresh sources)
   --json             machine-readable output
   -h, --help         this message — costs nothing, sends no request`

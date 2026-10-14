@@ -194,15 +194,24 @@ export function extractRecentExchanges(transcriptPath: string, maxExchanges: num
   const MAX_MSG_CHARS = 2000;
   const cap = (s: string): string =>
     s.length > MAX_MSG_CHARS ? s.slice(0, MAX_MSG_CHARS) + " …[truncated]" : s;
+  // A reply that uses tools is written as one transcript event per text block,
+  // and its conclusion is the last block. Join the whole run of assistant
+  // events; over budget, keep the opening framing and the full ending.
+  const ASSISTANT_HEAD_CHARS = 500;
+  const capReply = (s: string): string =>
+    s.length > MAX_MSG_CHARS
+      ? s.slice(0, ASSISTANT_HEAD_CHARS) + " …[truncated]… " + s.slice(-(MAX_MSG_CHARS - ASSISTANT_HEAD_CHARS))
+      : s;
   const exchanges: Exchange[] = [];
   for (let i = 0; i < events.length; i++) {
-    if (events[i].role === "user") {
-      const next = events[i + 1];
-      if (next && next.role === "assistant") {
-        exchanges.push({ user: cap(events[i].text), assistant: cap(next.text), ts: events[i].ts });
-        i++; // skip the assistant turn
-      }
+    if (events[i].role !== "user") continue;
+    const reply: string[] = [];
+    let j = i + 1;
+    while (j < events.length && events[j].role === "assistant") reply.push(events[j++].text);
+    if (reply.length > 0) {
+      exchanges.push({ user: cap(events[i].text), assistant: capReply(reply.join("\n\n")), ts: events[i].ts });
     }
+    i = j - 1;
   }
 
   // Return last N
@@ -863,7 +872,27 @@ async function smokeTest(): Promise<number> {
     }
   } catch { /* ignore */ }
 
-  // 8. Real harness transcript — extract some exchanges (read-only probe)
+  // 8. A reply split around a tool call keeps its conclusion
+  {
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(pathJoin(tmpdir(), "reviewer-extract-"));
+    const path = pathJoin(dir, "split-reply.jsonl");
+    writeFileSync(path, [
+      JSON.stringify({ timestamp: "2026-05-23T22:30:00Z", message: { role: "user", content: "Why does save fail?" } }),
+      JSON.stringify({ timestamp: "2026-05-23T22:30:05Z", message: { role: "assistant", content: [{ type: "text", text: "Reproducing first." }, { type: "tool_use", id: "t1", name: "Bash", input: {} }] } }),
+      JSON.stringify({ timestamp: "2026-05-23T22:30:06Z", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] } }),
+      JSON.stringify({ timestamp: "2026-05-23T22:30:30Z", message: { role: "assistant", content: [{ type: "text", text: "Root cause: the parent column is a string." }] } }),
+      JSON.stringify({ timestamp: "2026-05-23T22:31:00Z", message: { role: "user", content: "Thanks" } }),
+      JSON.stringify({ timestamp: "2026-05-23T22:31:05Z", message: { role: "assistant", content: [{ type: "text", text: "You're welcome." }] } }),
+    ].join("\n"), "utf8");
+    const split = extractRecentExchanges(path, 5);
+    rmSync(dir, { recursive: true, force: true });
+    check("extract: split reply keeps its conclusion", split.length === 2 && split[0].assistant.includes("Root cause"), JSON.stringify(split.map((e) => e.assistant)));
+    check("extract: next exchange still pairs", split[1]?.user === "Thanks" && split[1]?.assistant === "You're welcome.");
+  }
+
+  // 9. Real harness transcript — extract some exchanges (read-only probe)
   const realTranscript = findMostRecentTranscript();
   if (realTranscript) {
     const real = extractRecentExchanges(realTranscript, 3);

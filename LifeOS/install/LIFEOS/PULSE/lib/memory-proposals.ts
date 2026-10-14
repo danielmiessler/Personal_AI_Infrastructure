@@ -229,6 +229,31 @@ function stampTarget(absPath: string): void {
   }
 }
 
+const tableCells = (line: string): number => line.trim().replace(/^\||\|$/g, "").split("|").length;
+
+/**
+ * A proposal whose edit is a markdown table row (the `projects` kind) belongs in
+ * the target's table, not under the proposals section as a bullet, where no
+ * table reader sees it. Inserts after the last row of the first table with the
+ * same column count; returns null when there is no such table.
+ */
+export function insertTableRow(current: string, row: string): string | null {
+  const trimmed = row.trim();
+  if (!/^\|.*\|$/.test(trimmed)) return null;
+  const width = tableCells(trimmed);
+  const lines = current.split("\n");
+  for (let i = 0; i + 1 < lines.length; i++) {
+    const header = lines[i].trim();
+    if (!header.startsWith("|") || !/^\|?\s*:?-{3,}/.test(lines[i + 1].trim())) continue;
+    if (tableCells(header) !== width) continue;
+    let end = i + 2;
+    while (end < lines.length && lines[end].trim().startsWith("|")) end++;
+    lines.splice(end, 0, trimmed);
+    return lines.join("\n");
+  }
+  return null;
+}
+
 export function applyProposalEdit(targetFile: string, editText: string): { ok: true } | { ok: false; reason: string } {
   // A proposal's targetFile is root-relative (e.g. "LIFEOS/USER/CONFIG/OPERATIONAL_RULES.md").
   // Resolve it against ~/.claude so it works regardless of the process CWD: the Pulse server runs
@@ -250,7 +275,10 @@ export function applyProposalEdit(targetFile: string, editText: string): { ok: t
     const ts = new Date().toISOString();
     const entry = `\n- ${editText} <!-- applied: ${ts} -->`;
     let next: string;
-    if (current.includes(sectionHeader)) {
+    const intoTable = insertTableRow(current, editText);
+    if (intoTable !== null) {
+      next = intoTable;
+    } else if (current.includes(sectionHeader)) {
       next = current.replace(sectionHeader, `${sectionHeader}\n${entry.trim()}`);
     } else {
       next = current.trimEnd() + `\n\n${sectionHeader}\n\n${entry.trim()}\n`;

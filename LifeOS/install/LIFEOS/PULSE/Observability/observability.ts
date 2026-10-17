@@ -2749,6 +2749,29 @@ function buildSnapshotFromCurrentState(): Array<{ id: string; label: string; v: 
   return out.length > 0 ? out : null
 }
 
+function loadTelosSections(content: string): Record<string, string> {
+  const sections: Record<string, string> = {}
+  const lines = content.split('\n')
+  let title: string | null = null
+  let body: string[] = []
+  const flush = () => {
+    if (title === null) return
+    sections[title.toLowerCase()] = body.join('\n').trim()
+  }
+  for (const line of lines) {
+    const m = line.match(/^##\s+(.+?)\s*$/)
+    if (m) {
+      flush()
+      title = m[1].replace(/\s*[—–-].*$/, '').replace(/\s*\(.*\)\s*$/, '').trim()
+      body = []
+    } else if (title !== null) {
+      body.push(line)
+    }
+  }
+  flush()
+  return sections
+}
+
 function buildPreferencesFromTelos(): {
   books: string[]
   films: string[]
@@ -2758,9 +2781,22 @@ function buildPreferencesFromTelos(): {
   hobbies: string[]
   literature: string[]
 } | null {
-  const books = parseBullets(readMd(join(TELOS_DIR, "BOOKS.md"))).slice(0, 8)
-  const movies = parseBullets(readMd(join(TELOS_DIR, "MOVIES.md"))).slice(0, 8)
-  const authors = parseBullets(readMd(join(TELOS_DIR, "AUTHORS.md"))).slice(0, 8)
+  let books = parseBullets(readMd(join(TELOS_DIR, "BOOKS.md"))).slice(0, 8)
+  let movies = parseBullets(readMd(join(TELOS_DIR, "MOVIES.md"))).slice(0, 8)
+  let authors = parseBullets(readMd(join(TELOS_DIR, "AUTHORS.md"))).slice(0, 8)
+  
+  // Fallback: read from unified TELOS.md sections if per-file consolidation incomplete
+  if (books.length === 0 || movies.length === 0 || authors.length === 0) {
+    const telosPath = join(TELOS_DIR, "TELOS.md")
+    const telosContent = readMd(telosPath)
+    if (telosContent) {
+      const sections = loadTelosSections(telosContent)
+      if (books.length === 0) books = parseBullets(sections["books"] ?? "").slice(0, 8)
+      if (movies.length === 0) movies = parseBullets(sections["movies"] ?? "").slice(0, 8)
+      if (authors.length === 0) authors = parseBullets(sections["authors"] ?? "").slice(0, 8)
+    }
+  }
+  
   if (books.length === 0 && movies.length === 0 && authors.length === 0) return null
   return {
     books,

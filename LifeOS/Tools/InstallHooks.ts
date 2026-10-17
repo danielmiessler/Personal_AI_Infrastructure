@@ -16,12 +16,12 @@
 
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { detectDevTree, mergeHooks } from "./InstallEngine";
+import { detectDevTree, filterHooksForHarness, inferHarnessFromRoot, KNOWN_HARNESSES, mergeHooks, rewriteClaudeRoot, type HooksMap, type HookEntry, type MatcherGroup, type Harness } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
-interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
+interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; harness?: string; allowClaudeRoot: boolean; }
 
 function parseArgs(): Args {
   const a = process.argv.slice(2);
@@ -35,7 +35,42 @@ function parseArgs(): Args {
     skillRoot: get("--skill-root") || join(import.meta.dir, ".."),
     apply: a.includes("--apply"),
     allowDev: a.includes("--allow-dev"),
+    // The target harness (from DetectEnv.harness.name). When omitted it is
+    // INFERRED from the config root (inferHarnessFromRoot) — an explicit flag
+    // always wins; the inference keeps a bare `--config-root ~/.adal` call from
+    // silently writing the Claude hook set into AdaL's settings.
+    harness: get("--harness"),
+    allowClaudeRoot: a.includes("--allow-claude-root"),
   };
+}
+
+/**
+ * hooks.json ships the canonical Claude Code command form (`$HOME/.claude/...`).
+ * Any other config root (AdaL's ~/.adal, a CLAUDE_CONFIG_DIR override, an
+ * OpenCode/Cursor install) must get those prefixes rewritten to the real root,
+ * else the scripts are copied into <configRoot>/hooks/ while settings.json
+ * points at $HOME/.claude/hooks/ — every wired hook resolves into the wrong
+ * tree. Also accepts the `${HOME}/.claude/` and `~/.claude/` spellings. The
+ * substituted path is single-quoted for the shell, so spaces, apostrophes, and
+ * shell metacharacters in a home path can neither split the command nor inject
+ * into it (POSIX shells — the payload's `$HOME` form already presupposes a
+ * POSIX hook shell). Idempotent: when the root IS ~/.claude (resolved, so
+ * trailing slashes and `..` segments normalize away) the map is returned
+ * untouched, and the Claude Code path stays byte-identical to before.
+ */
+function rewriteHookCommandPaths(incoming: HooksMap, configRoot: string, home: string): HooksMap {
+  const out: HooksMap = {};
+  for (const [event, groups] of Object.entries(incoming)) {
+    out[event] = (Array.isArray(groups) ? groups : []).map((g: MatcherGroup) => ({
+      ...g,
+      hooks: (Array.isArray(g.hooks) ? g.hooks : []).map((h: HookEntry) =>
+        typeof h.command === "string"
+          ? { ...h, command: rewriteClaudeRoot(h.command, configRoot, home, true) }
+          : h,
+      ),
+    }));
+  }
+  return out;
 }
 
 function countFilesRec(dir: string): number {
@@ -50,7 +85,47 @@ function countFilesRec(dir: string): number {
 }
 
 function main(): void {
-  const { configRoot, skillRoot, apply, allowDev } = parseArgs();
+  const { configRoot, skillRoot, apply, allowDev, harness: harnessArg, allowClaudeRoot } = parseArgs();
+  const home = process.env.HOME || homedir();
+
+  // Harness: an explicit --harness wins and must be KNOWN — a typo'd value fails
+  // LOUD rather than silently skipping the capability filter (an unrecognized
+  // name disabling the filter is exactly the failure mode this flag prevents).
+  // Otherwise infer from the config root.
+  let harness: Harness;
+  if (harnessArg !== undefined) {
+    if (!(KNOWN_HARNESSES as readonly string[]).includes(harnessArg)) {
+      console.log(JSON.stringify({ ok: false, error: `unknown harness "${harnessArg}" — expected one of: ${KNOWN_HARNESSES.join(", ")}` }, null, 2));
+      process.exit(2);
+    }
+    harness = harnessArg as Harness;
+  } else {
+    harness = inferHarnessFromRoot(configRoot, home);
+  }
+
+  const canonicalClaudeRoot = resolve(join(home, ".claude"));
+
+  // Hook SCRIPTS are Claude-Code-root-bound today: most resolve the LifeOS tree
+  // as ~/.claude in code (no env override), so on any OTHER root they fail open
+  // (no-op on missing paths) — keyed on the ROOT, not the harness name: a
+  // claude-code install relocated via CLAUDE_CONFIG_DIR has the same problem.
+  const scriptsRootBound = resolve(configRoot) !== canonicalClaudeRoot;
+  // And when a Claude Code LifeOS install co-exists, those scripts would act on
+  // THAT tree instead of this one — a silent cross-harness write path.
+  const claudeCodeLifeosDetected =
+    harness !== "claude-code" && existsSync(join(home, ".claude", "LIFEOS", "VERSION"));
+
+  // Trust-gate: the dry-run always succeeds and shows the plan (with the
+  // warnings); the APPLY refuses unless explicitly overridden — mirroring the
+  // dev-tree refusal + --allow-dev pattern above. An AI-driven installer may
+  // ignore a JSON warning field; it cannot ignore exit code 2.
+  if (apply && claudeCodeLifeosDetected && !allowClaudeRoot) {
+    console.log(JSON.stringify({
+      ok: false, refused: "claude-root-coinstall",
+      detail: `a Claude Code LifeOS install exists at ${join(home, ".claude")} — the hook scripts installed here resolve ~/.claude in code and would act on THAT tree, not ${configRoot}. Re-run with --allow-claude-root only if you consciously want the shared-tree behavior.`,
+    }, null, 2));
+    process.exit(2);
+  }
 
   if (detectDevTree(configRoot) && !allowDev) {
     console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a LifeOS source tree (dev-tree marker present) — refusing to mutate. Use --allow-dev only in a sandbox.` }, null, 2));
@@ -62,7 +137,15 @@ function main(): void {
     console.log(JSON.stringify({ ok: false, error: `payload hooks.json not found at ${hooksJsonPath}` }, null, 2));
     process.exit(1);
   }
-  const incoming = JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {};
+  const incoming = rewriteHookCommandPaths(JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {}, configRoot, home);
+
+  // Reduce to what the target harness can actually load BEFORE counting or
+  // merging. For harnesses with a restricted hook profile (AdaL: six command
+  // events only — it rejects unknown event names at startup and supports no
+  // non-command hook types) this drops the rest and reports exactly what was
+  // dropped, so the trust-gate shows the user the true final state of their
+  // settings.json rather than a plan the harness would refuse to boot.
+  const { filtered, droppedEvents, droppedEntries } = filterHooksForHarness(incoming, harness as Parameters<typeof filterHooksForHarness>[1]);
 
   // The hook SCRIPTS (*.hook.ts|sh + lib/**) live beside hooks.json in the payload.
   // Merging hooks.json into settings.json wires commands that point at these files,
@@ -93,9 +176,18 @@ function main(): void {
   }
   const existingHooks = (settings.hooks && typeof settings.hooks === "object" ? settings.hooks : {}) as Record<string, never>;
 
-  const { merged, added, skipped } = mergeHooks(existingHooks as never, incoming);
+  const { merged, added, skipped } = mergeHooks(existingHooks as never, filtered);
 
-  const report = { ok: true, apply, settingsPath, added, skipped, events: Object.keys(merged).length, hooksDestDir, hookFiles };
+  const report = {
+    ok: true, apply, harness, settingsPath, added, skipped, droppedEvents, droppedEntries,
+    events: Object.keys(merged).length, hooksDestDir, hookFiles,
+    ...(scriptsRootBound || claudeCodeLifeosDetected
+      ? {
+          scriptRootNote: "hook scripts resolve the LifeOS tree as ~/.claude in code (no env override); on this config root they fail open until hooks become root-portable upstream" + (claudeCodeLifeosDetected ? " — WARNING: a Claude Code LifeOS install was detected, so these scripts would act on THAT tree, not this one" : ""),
+          claudeCodeLifeosDetected,
+        }
+      : {}),
+  };
 
   if (!apply) {
     console.log(JSON.stringify({ ...report, dryRun: true, note: "no changes written; re-run with --apply after permission" }, null, 2));

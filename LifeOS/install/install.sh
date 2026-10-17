@@ -194,6 +194,7 @@ step "2/6  Detecting your harness"
 if [ -z "$LIFEOS_SKILLS_DIR" ]; then
   if [ -d "$HOME/.claude" ]; then LIFEOS_SKILLS_DIR="$HOME/.claude/skills"
   elif [ -d "$HOME/.config/claude" ]; then LIFEOS_SKILLS_DIR="$HOME/.config/claude/skills"
+  elif [ -d "$HOME/.adal" ]; then LIFEOS_SKILLS_DIR="$HOME/.adal/skills"
   else LIFEOS_SKILLS_DIR="$HOME/.claude/skills"; fi
 fi
 info "Skills dir: ${BOLD}${LIFEOS_SKILLS_DIR/#$HOME/~}${RESET}"

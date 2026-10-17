@@ -5,7 +5,7 @@
  * from the now-retired pre-6.x GUI installer engine (detect logic + types):
  * no web/electron wizard, no separate types module, plus
  * the bare-skill extras the wizard never needed — harness detection (the skill
- * installs into Claude Code / Hermes / Cursor / OpenClaw) and dev-tree refusal
+ * installs into Claude Code / Hermes / Cursor / OpenClaw / AdaL) and dev-tree refusal
  * (never mutate the author's source repo).
  *
  * All detection here is READ-ONLY and non-destructive. The 7 setup Tools import
@@ -34,7 +34,30 @@ export interface ToolInfo {
   path?: string;
 }
 
-export type Harness = "claude-code" | "opencode" | "hermes" | "cursor" | "openclaw" | "unknown";
+/**
+ * Single source of truth for the harness set: detection facts for every harness
+ * in ONE table. The `Harness` union, `KNOWN_HARNESSES`, and `detectHarness`'s
+ * candidate list are ALL derived from it — adding a harness is one entry here
+ * and nothing else (DetectEnv output, InstallHooks `--harness` validation, and
+ * the hook-capability profile all key off this shape). Order is priority: on a
+ * multi-harness machine the first root+bin match wins.
+ */
+const HARNESS_DEFS = [
+  { name: "claude-code", envRoot: () => process.env.CLAUDE_CONFIG_DIR, dir: ".claude", skills: "skills", bin: "claude" },
+  { name: "opencode", envRoot: () => process.env.OPENCODE_CONFIG_DIR, dir: join(".config", "opencode"), skills: "skills", bin: "opencode" },
+  { name: "hermes", envRoot: () => undefined, dir: ".hermes", skills: "skills", bin: "hermes" },
+  { name: "cursor", envRoot: () => undefined, dir: ".cursor", skills: "skills", bin: "cursor" },
+  { name: "openclaw", envRoot: () => undefined, dir: ".openclaw", skills: "skills", bin: "openclaw" },
+  // AdaL (adal-cli, https://docs.sylph.ai): config root ~/.adal, folder skills
+  // at ~/.adal/skills, hooks in ~/.adal/settings.json. No documented config-dir
+  // env override as of CLI v1.10 (verified: no ADAL_CONFIG* in the runtime), so
+  // envRoot stays unset (unlike claude-code's CLAUDE_CONFIG_DIR).
+  { name: "adal", envRoot: () => undefined, dir: ".adal", skills: "skills", bin: "adal" },
+] as const;
+
+export type Harness = (typeof HARNESS_DEFS)[number]["name"] | "unknown";
+
+export const KNOWN_HARNESSES: readonly Harness[] = HARNESS_DEFS.map((d) => d.name);
 
 export interface HarnessInfo {
   name: Harness;
@@ -126,13 +149,12 @@ export function detectTool(name: string, versionCmd: string): ToolInfo {
  * binary match is reported as confidence "assumed", never as fact.
  */
 export function detectHarness(home: string): HarnessInfo {
-  const candidates: Array<{ name: Harness; root: string; skills: string; bin: string }> = [
-    { name: "claude-code", root: process.env.CLAUDE_CONFIG_DIR || join(home, ".claude"), skills: "skills", bin: "claude" },
-    { name: "opencode", root: process.env.OPENCODE_CONFIG_DIR || join(home, ".config", "opencode"), skills: "skills", bin: "opencode" },
-    { name: "hermes", root: join(home, ".hermes"), skills: "skills", bin: "hermes" },
-    { name: "cursor", root: join(home, ".cursor"), skills: "skills", bin: "cursor" },
-    { name: "openclaw", root: join(home, ".openclaw"), skills: "skills", bin: "openclaw" },
-  ];
+  const candidates = HARNESS_DEFS.map((d) => ({
+    name: d.name,
+    root: d.envRoot() || join(home, d.dir),
+    skills: d.skills,
+    bin: d.bin,
+  }));
   const hasBin = (c: (typeof candidates)[number]) => !!tryExec(`command -v ${c.bin}`);
   const info = (c: (typeof candidates)[number], confidence: HarnessInfo["confidence"]): HarnessInfo => ({
     name: c.name,
@@ -151,6 +173,18 @@ export function detectHarness(home: string): HarnessInfo {
   }
   // Default assumption when nothing is present yet (a clean machine pre-bootstrap).
   return { name: "claude-code", configRoot: join(home, ".claude"), skillsDir: join(home, ".claude", "skills"), confidence: "assumed" };
+}
+
+/**
+ * Infer the harness from a config root path — the fallback when InstallHooks is
+ * called without --harness. Matches each harness's canonical dir; returns
+ * "claude-code" when nothing matches (which also covers CLAUDE_CONFIG_DIR-style
+ * custom roots — a custom root is still a Claude Code install, just relocated).
+ */
+export function inferHarnessFromRoot(configRoot: string, home: string): Harness {
+  const resolved = resolve(configRoot);
+  const match = HARNESS_DEFS.find((d) => resolve(join(home, d.dir)) === resolved);
+  return (match?.name ?? "claude-code") as Harness;
 }
 
 /**
@@ -672,9 +706,9 @@ export function checkSymlinkContract(configRoot: string, configDir: string): { p
 
 // ── Hooks merge (InstallHooks core — the one genuinely-new piece) ──
 
-type HookEntry = { type?: string; command?: string; url?: string; [k: string]: unknown };
-type MatcherGroup = { matcher?: string; hooks?: HookEntry[]; [k: string]: unknown };
-type HooksMap = Record<string, MatcherGroup[]>;
+export type HookEntry = { type?: string; command?: string; url?: string; [k: string]: unknown };
+export type MatcherGroup = { matcher?: string; hooks?: HookEntry[]; [k: string]: unknown };
+export type HooksMap = Record<string, MatcherGroup[]>;
 
 /**
  * Normalize a hook command for dedup: collapse the harness/PAI path-var forms to
@@ -735,6 +769,116 @@ export function mergeHooks(existing: HooksMap, incoming: HooksMap): { merged: Ho
     }
   }
   return { merged, added, skipped };
+}
+
+/**
+ * Hook-event capability profiles for harnesses that accept a SUBSET of the
+ * Claude Code hook set. A harness absent from this map is assumed to accept
+ * everything the payload wires (the payload is authored for Claude Code).
+ *
+ * AdaL (verified against https://docs.sylph.ai/customize/lifecycle-hooks, CLI
+ * v1.10) defines exactly six events and — deliberately, so a typo cannot
+ * silently disable a guardrail — REJECTS an unknown event name or invalid hook
+ * shape at startup. It also only supports `type: "command"` hooks (no `http`,
+ * `prompt`, or `agent` types). So merging the Claude Code payload verbatim into
+ * `~/.adal/settings.json` would make every AdaL launch fail until hand-repaired:
+ * the payload also wires SessionStart, SessionEnd, TaskCreated, ConfigChange,
+ * and StopFailure, and carries `type: "http"` entries. InstallHooks filters
+ * through `filterHooksForHarness` before merging — never write what the target
+ * harness would reject.
+ */
+export const HARNESS_SUPPORTED_HOOK_EVENTS: Partial<Record<Harness, readonly string[]>> = {
+  adal: [
+    "PreToolUse", "PostToolUse", "PostToolUseFailure",
+    "UserPromptSubmit", "PermissionRequest", "Stop",
+  ],
+};
+
+export interface HarnessHookFilter {
+  /** The incoming map reduced to what the harness can actually load. */
+  filtered: HooksMap;
+  /** Event names removed wholesale — the harness does not define them. */
+  droppedEvents: string[];
+  /** Non-command entries dropped INSIDE supported events, per event (e.g. http). */
+  droppedEntries: Record<string, number>;
+}
+
+/**
+ * Reduce an incoming hooks map to what `harness` can load. Pass-through (with
+ * empty drop reports) for any harness without a restricted profile, so the
+ * Claude Code path is byte-identical to the pre-filter behavior. Within a
+ * supported event, only explicit `type: "command"` entries survive (AdaL's
+ * schema requires `type` and only accepts `"command"`); matcher groups that
+ * filter to empty are dropped, and an event whose groups all drop is omitted.
+ * Pure — no I/O, no mutation of the input.
+ */
+export function filterHooksForHarness(incoming: HooksMap, harness: Harness): HarnessHookFilter {
+  const supported = HARNESS_SUPPORTED_HOOK_EVENTS[harness];
+  if (!supported) return { filtered: incoming ?? {}, droppedEvents: [], droppedEntries: {} };
+  const allowed = new Set(supported);
+  const filtered: HooksMap = {};
+  const droppedEvents: string[] = [];
+  const droppedEntries: Record<string, number> = {};
+  for (const [event, groups] of Object.entries(incoming ?? {})) {
+    if (!allowed.has(event)) {
+      droppedEvents.push(event);
+      continue;
+    }
+    let dropped = 0;
+    const keptGroups = (Array.isArray(groups) ? groups : [])
+      .map((g) => {
+        // Malformed matcher groups are counted as dropped entries, never thrown
+        // on — a corrupt payload must not crash the trust-gate mid-install.
+        if (!g || typeof g !== "object") { dropped += 1; return null; }
+        const hooks = Array.isArray(g.hooks) ? g.hooks : [];
+        // Only explicit `type: "command"` survives: the sole restricted profile
+        // today is AdaL, whose schema REQUIRES `type` and accepts only
+        // "command" (Claude Code defaults a missing type to command, but the
+        // claude-code path takes the pass-through branch above and is never
+        // filtered — and the canonical payload always sets type explicitly).
+        const kept = hooks.filter((h) => !!h && h.type === "command");
+        dropped += hooks.length - kept.length;
+        return { ...g, hooks: kept };
+      })
+      .filter((g) => g !== null && Array.isArray(g.hooks) && g.hooks.length > 0);
+    if (dropped > 0) droppedEntries[event] = dropped;
+    if (keptGroups.length > 0) filtered[event] = keptGroups;
+  }
+  return { filtered, droppedEvents, droppedEntries };
+}
+
+/**
+ * Rewrite the payload's canonical `$HOME/.claude/` root prefix to the real
+ * config root, in any of its four spellings: `$HOME/.claude/`, `${HOME}/.claude/`,
+ * `~/.claude/`, and the expanded absolute `<home>/.claude/` (that last one
+ * catches values already run through `expandLeadingHome`, so the two transforms
+ * compose in either order). Also rewrites the bare root with no trailing path.
+ * No-op when the config root IS the canonical `~/.claude` — the Claude Code
+ * path stays byte-identical to the pre-rewrite behavior.
+ *
+ * `shell: true` single-quotes the replacement — hook commands are
+ * shell-evaluated, so metacharacters in the root would split or inject.
+ * Env values are injected verbatim by the harness (no shell) and take the
+ * raw root. Pure — string in, string out, no I/O.
+ *
+ * (PR #2326, live-install finding: `InstallSettings` expanded `$HOME` in
+ * `env.LIFEOS_DIR` but left the `.claude` segment, so an AdaL install got
+ * `env.LIFEOS_DIR = <home>/.claude/LIFEOS` — a tree the runtime never wrote.
+ * One root-rewrite primitive, shared by the hooks and settings installers.)
+ */
+export function rewriteClaudeRoot(value: string, configRoot: string, home: string, shell = false): string {
+  if (resolve(configRoot) === resolve(join(home, ".claude"))) return value;
+  const root = shell
+    ? `'${configRoot.replace(/\/+$/, "").replace(/'/g, `'\\''`)}'`
+    : configRoot.replace(/\/+$/, "");
+  const absPrefix = join(home, ".claude");
+  const BARE = ["$HOME/.claude", "${HOME}/.claude", "~/.claude", absPrefix];
+  if (BARE.includes(value)) return root;
+  return value
+    .split("$HOME/.claude/").join(`${root}/`)
+    .split("${HOME}/.claude/").join(`${root}/`)
+    .split("~/.claude/").join(`${root}/`)
+    .split(`${absPrefix}/`).join(`${root}/`);
 }
 
 /**

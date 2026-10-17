@@ -21,7 +21,19 @@ import {
   RELATION_VOCAB, SOURCE_KINDS, STATUS_VALUES, SCHEMA_VERSION,
 } from "./KnowledgeSchema";
 
-const OUT = pathResolve(homedir(), ".claude/LIFEOS/MEMORY/KNOWLEDGE/_schema.md");
+// Root resolution: honor the real config root instead of hardcoding `~/.claude`.
+// Two runtimes call this tool: the installer (DeployCore passes CLAUDE_CONFIG_DIR,
+// the engine-wide config-root env — the name is the canonical config-dir
+// contract, not a Claude-only guarantee) and hooks/tools at session time
+// (AdaL's settings env injects LIFEOS_DIR but no CLAUDE_CONFIG_DIR, so the
+// runtime context resolves through LIFEOS_DIR's parent). Deliberately NOT
+// LIFEOS_CONFIG_DIR — that points at the USER-data home (~/.config/LIFEOS), a
+// different tree. (PR #2326 — on AdaL's ~/.adal the hardcoded path made
+// `DeployCore --apply` fail ENOENT on a fresh install.)
+const CONFIG_ROOT = process.env.CLAUDE_CONFIG_DIR
+  || (process.env.LIFEOS_DIR ? pathResolve(process.env.LIFEOS_DIR, "..") : "")
+  || pathResolve(homedir(), ".claude");
+const OUT = pathResolve(CONFIG_ROOT, "LIFEOS/MEMORY/KNOWLEDGE/_schema.md");
 
 /** Absolute path of the generated doc — importers compare against it. */
 export const SCHEMA_DOC_PATH = OUT;
@@ -37,7 +49,7 @@ export function render(): string {
   L.push(`# Knowledge Archive Schema — ${SCHEMA_VERSION}`);
   L.push("");
   L.push("> **Generated from `LIFEOS/TOOLS/KnowledgeSchema.ts` — do not edit by hand.**");
-  L.push("> Regenerate: `bun ~/.claude/LIFEOS/TOOLS/GenerateKnowledgeSchemaDoc.ts`.");
+  L.push(`> Regenerate: \`bun ${CONFIG_ROOT}/LIFEOS/TOOLS/GenerateKnowledgeSchemaDoc.ts\`.`);
   L.push("> The code is the single source of truth; `KnowledgeLint.ts` enforces this contract, `MigrateKnowledge.ts` brings old notes onto it, and new notes are born on it via `MemorySystem.renderInitialNote`.");
   L.push("");
   L.push("The archive stores **entities** — things you'd look up later. Every note is one of the object types below, carries the **Core Envelope** of flat typed frontmatter, and links to others via typed `related:` edges. Topic is a **tag**, entity is a **type**.");
@@ -92,11 +104,11 @@ export function render(): string {
   L.push("## Querying");
   L.push("");
   L.push("```bash");
-  L.push("bun ~/.claude/LIFEOS/TOOLS/KnowledgeQuery.ts --source-author \"<name>\"");
-  L.push("bun ~/.claude/LIFEOS/TOOLS/KnowledgeQuery.ts --type idea --tag security --created-after 2026-05");
-  L.push("bun ~/.claude/LIFEOS/TOOLS/KnowledgeQuery.ts --related-type contradicts --slugs");
-  L.push("bun ~/.claude/LIFEOS/TOOLS/KnowledgeQuery.ts --quality-max 2 --count   # stubs to enrich");
-  L.push("bun ~/.claude/LIFEOS/TOOLS/KnowledgeLint.ts                            # conformance");
+  L.push(`bun ${CONFIG_ROOT}/LIFEOS/TOOLS/KnowledgeQuery.ts --source-author "<name>"`);
+  L.push(`bun ${CONFIG_ROOT}/LIFEOS/TOOLS/KnowledgeQuery.ts --type idea --tag security --created-after 2026-05`);
+  L.push(`bun ${CONFIG_ROOT}/LIFEOS/TOOLS/KnowledgeQuery.ts --related-type contradicts --slugs`);
+  L.push(`bun ${CONFIG_ROOT}/LIFEOS/TOOLS/KnowledgeQuery.ts --quality-max 2 --count   # stubs to enrich`);
+  L.push(`bun ${CONFIG_ROOT}/LIFEOS/TOOLS/KnowledgeLint.ts                            # conformance`);
   L.push("```");
   L.push("");
   L.push("The archive is markdown+YAML, so once fields are consistent, Obsidian Bases queries `KNOWLEDGE/` as a database with zero extra code.");

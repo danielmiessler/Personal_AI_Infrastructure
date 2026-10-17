@@ -49,7 +49,7 @@ Default flow (`/LifeOS setup`): **Setup phase** (system integration) → transit
 
 ## The two phases
 
-**Setup (logistics, first).** Detect OS + harness → scan for conflicts and surface them → install prerequisites → overlay the system templates → scaffold the USER tree + link it → **trust-gated hook install** (show the exact change, back up `settings.json`, wait for yes) → activate the identity imports → verify with two evidence classes. Adapts to OS (macOS/Linux/Windows) and harness (Claude Code / Hermes / Cursor / OpenClaw).
+**Setup (logistics, first).** Detect OS + harness → scan for conflicts and surface them → install prerequisites → overlay the system templates → scaffold the USER tree + link it → **trust-gated hook install** (show the exact change, back up `settings.json`, wait for yes) → activate the identity imports → verify with two evidence classes. Adapts to OS (macOS/Linux/Windows) and harness (Claude Code / Hermes / Cursor / OpenClaw / AdaL).
 
 **Interview (meaning, second).** Name the DA → principal identity → TELOS current state → TELOS ideal state → **pull in external sources the user provides** (existing notes, configs, exports) to enrich USER context → seed Pulse. By the end, the config tree is populated and Pulse shows real data, not empty scaffolding.
 

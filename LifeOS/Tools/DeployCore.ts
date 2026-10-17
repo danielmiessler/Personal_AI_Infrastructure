@@ -184,7 +184,11 @@ function scaffoldMemory(configRoot: string, apply: boolean): DeployResult {
     if (!apply) {
       r.actions.push(`bun ${generator}`);
     } else {
-      const proc = Bun.spawnSync(["bun", generator], { stdout: "pipe", stderr: "pipe" });
+      // CLAUDE_CONFIG_DIR is the engine-wide config-root env: the generator
+      // resolves its output path from it (with a ~/.claude fallback), so a
+      // fresh install on any harness root generates into ITS tree. Belt and
+      // braces alongside the generator's own resolution.
+      const proc = Bun.spawnSync(["bun", generator], { stdout: "pipe", stderr: "pipe", env: { ...process.env, CLAUDE_CONFIG_DIR: configRoot } });
       if (proc.exitCode === 0) r.copied++;
       else r.failures.push(`GenerateKnowledgeSchemaDoc exited ${proc.exitCode}: ${proc.stderr.toString().trim()}`);
     }

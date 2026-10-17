@@ -117,6 +117,15 @@ function main(): void {
   const hooksDestDir = join(configRoot, "hooks");
   const hookFiles = countFilesRec(hooksPayloadDir);
 
+  // Hook SCRIPTS are Claude-Code-root-bound today: most resolve the LifeOS tree
+  // as homedir()/.claude in code (no env override), so on any other config root
+  // they fail open (no-op on missing paths) — or, if a Claude Code LifeOS
+  // install exists, they would act on THAT tree instead of this harness's.
+  // Surface both facts in the report so the trust-gate shows real functionality,
+  // not just valid settings. (See INSTALL.md §6 "AdaL".)
+  const claudeCodeLifeosDetected =
+    harness !== "claude-code" && existsSync(join(process.env.HOME || homedir(), ".claude", "LIFEOS", "VERSION"));
+
   const settingsPath = join(configRoot, "settings.json");
   let settings: Record<string, unknown> = {};
   if (existsSync(settingsPath)) {
@@ -139,7 +148,16 @@ function main(): void {
 
   const { merged, added, skipped } = mergeHooks(existingHooks as never, filtered);
 
-  const report = { ok: true, apply, harness, settingsPath, added, skipped, droppedEvents, droppedEntries, events: Object.keys(merged).length, hooksDestDir, hookFiles };
+  const report = {
+    ok: true, apply, harness, settingsPath, added, skipped, droppedEvents, droppedEntries,
+    events: Object.keys(merged).length, hooksDestDir, hookFiles,
+    ...(harness !== "claude-code"
+      ? {
+          scriptRootNote: "hook scripts resolve the LifeOS tree as ~/.claude in code (no env override); on this config root they fail open until hooks become root-portable upstream" + (claudeCodeLifeosDetected ? " — WARNING: a Claude Code LifeOS install was detected, so these scripts would act on THAT tree, not this one" : ""),
+          claudeCodeLifeosDetected,
+        }
+      : {}),
+  };
 
   if (!apply) {
     console.log(JSON.stringify({ ...report, dryRun: true, note: "no changes written; re-run with --apply after permission" }, null, 2));

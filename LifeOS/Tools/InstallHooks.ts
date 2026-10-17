@@ -18,10 +18,10 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync,
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { detectDevTree, mergeHooks } from "./InstallEngine";
+import { detectDevTree, filterHooksForHarness, KNOWN_HARNESSES, mergeHooks, type HooksMap, type HookEntry, type MatcherGroup } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
-interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
+interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; harness: string; }
 
 function parseArgs(): Args {
   const a = process.argv.slice(2);
@@ -35,7 +35,35 @@ function parseArgs(): Args {
     skillRoot: get("--skill-root") || join(import.meta.dir, ".."),
     apply: a.includes("--apply"),
     allowDev: a.includes("--allow-dev"),
+    // The target harness (from DetectEnv.harness.name). Defaults to claude-code —
+    // the payload's native format — so existing invocations are unchanged.
+    harness: get("--harness") || "claude-code",
   };
+}
+
+/**
+ * hooks.json ships the canonical Claude Code command form (`$HOME/.claude/...`).
+ * Any other config root (AdaL's ~/.adal, a CLAUDE_CONFIG_DIR override, an
+ * OpenCode/Cursor install) must get those prefixes rewritten to the real root,
+ * else the scripts are copied into <configRoot>/hooks/ while settings.json
+ * points at $HOME/.claude/hooks/ — every wired hook resolves into the wrong
+ * tree. Idempotent: when the root IS ~/.claude the map is returned untouched,
+ * so the Claude Code path is byte-identical to before.
+ */
+function rewriteHookCommandPaths(incoming: HooksMap, configRoot: string, home: string): HooksMap {
+  if (configRoot === join(home, ".claude")) return incoming;
+  const out: HooksMap = {};
+  for (const [event, groups] of Object.entries(incoming)) {
+    out[event] = (groups ?? []).map((g: MatcherGroup) => ({
+      ...g,
+      hooks: (Array.isArray(g.hooks) ? g.hooks : []).map((h: HookEntry) =>
+        typeof h.command === "string"
+          ? { ...h, command: h.command.split("$HOME/.claude/").join(`${configRoot}/`) }
+          : h,
+      ),
+    }));
+  }
+  return out;
 }
 
 function countFilesRec(dir: string): number {
@@ -50,7 +78,15 @@ function countFilesRec(dir: string): number {
 }
 
 function main(): void {
-  const { configRoot, skillRoot, apply, allowDev } = parseArgs();
+  const { configRoot, skillRoot, apply, allowDev, harness } = parseArgs();
+
+  // A typo'd --harness must fail LOUD, not fall through to "unknown profile →
+  // merge everything": an unrecognized name silently disabling the capability
+  // filter is exactly the failure mode this flag exists to prevent.
+  if (!(KNOWN_HARNESSES as readonly string[]).includes(harness)) {
+    console.log(JSON.stringify({ ok: false, error: `unknown harness "${harness}" — expected one of: ${KNOWN_HARNESSES.join(", ")}` }, null, 2));
+    process.exit(2);
+  }
 
   if (detectDevTree(configRoot) && !allowDev) {
     console.log(JSON.stringify({ ok: false, refused: "dev-tree", detail: `${configRoot} is a LifeOS source tree (dev-tree marker present) — refusing to mutate. Use --allow-dev only in a sandbox.` }, null, 2));
@@ -62,7 +98,15 @@ function main(): void {
     console.log(JSON.stringify({ ok: false, error: `payload hooks.json not found at ${hooksJsonPath}` }, null, 2));
     process.exit(1);
   }
-  const incoming = JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {};
+  const incoming = rewriteHookCommandPaths(JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {}, configRoot, process.env.HOME || homedir());
+
+  // Reduce to what the target harness can actually load BEFORE counting or
+  // merging. For harnesses with a restricted hook profile (AdaL: six command
+  // events only — it rejects unknown event names at startup and supports no
+  // non-command hook types) this drops the rest and reports exactly what was
+  // dropped, so the trust-gate shows the user the true final state of their
+  // settings.json rather than a plan the harness would refuse to boot.
+  const { filtered, droppedEvents, droppedEntries } = filterHooksForHarness(incoming, harness as Parameters<typeof filterHooksForHarness>[1]);
 
   // The hook SCRIPTS (*.hook.ts|sh + lib/**) live beside hooks.json in the payload.
   // Merging hooks.json into settings.json wires commands that point at these files,
@@ -93,9 +137,9 @@ function main(): void {
   }
   const existingHooks = (settings.hooks && typeof settings.hooks === "object" ? settings.hooks : {}) as Record<string, never>;
 
-  const { merged, added, skipped } = mergeHooks(existingHooks as never, incoming);
+  const { merged, added, skipped } = mergeHooks(existingHooks as never, filtered);
 
-  const report = { ok: true, apply, settingsPath, added, skipped, events: Object.keys(merged).length, hooksDestDir, hookFiles };
+  const report = { ok: true, apply, harness, settingsPath, added, skipped, droppedEvents, droppedEntries, events: Object.keys(merged).length, hooksDestDir, hookFiles };
 
   if (!apply) {
     console.log(JSON.stringify({ ...report, dryRun: true, note: "no changes written; re-run with --apply after permission" }, null, 2));

@@ -5,7 +5,7 @@
  * from the now-retired pre-6.x GUI installer engine (detect logic + types):
  * no web/electron wizard, no separate types module, plus
  * the bare-skill extras the wizard never needed — harness detection (the skill
- * installs into Claude Code / Hermes / Cursor / OpenClaw) and dev-tree refusal
+ * installs into Claude Code / Hermes / Cursor / OpenClaw / AdaL) and dev-tree refusal
  * (never mutate the author's source repo).
  *
  * All detection here is READ-ONLY and non-destructive. The 7 setup Tools import
@@ -34,7 +34,17 @@ export interface ToolInfo {
   path?: string;
 }
 
-export type Harness = "claude-code" | "opencode" | "hermes" | "cursor" | "openclaw" | "unknown";
+/**
+ * The harness set, in one place — the union type is derived from this array, so
+ * adding a harness means adding it here AND to `detectHarness`'s candidate list;
+ * DetectEnv output, InstallHooks `--harness` validation, and the hook-capability
+ * profile below all key off this shape (no second hand-maintained list).
+ */
+export const KNOWN_HARNESSES = [
+  "claude-code", "opencode", "hermes", "cursor", "openclaw", "adal",
+] as const;
+
+export type Harness = (typeof KNOWN_HARNESSES)[number] | "unknown";
 
 export interface HarnessInfo {
   name: Harness;
@@ -132,6 +142,11 @@ export function detectHarness(home: string): HarnessInfo {
     { name: "hermes", root: join(home, ".hermes"), skills: "skills", bin: "hermes" },
     { name: "cursor", root: join(home, ".cursor"), skills: "skills", bin: "cursor" },
     { name: "openclaw", root: join(home, ".openclaw"), skills: "skills", bin: "openclaw" },
+    // AdaL (adal-cli, https://docs.sylph.ai): config root ~/.adal, folder skills
+    // at ~/.adal/skills, hooks in ~/.adal/settings.json. No documented config-dir
+    // env override as of CLI v1.10, so the root is fixed (unlike claude-code's
+    // CLAUDE_CONFIG_DIR special case above).
+    { name: "adal", root: join(home, ".adal"), skills: "skills", bin: "adal" },
   ];
   const hasBin = (c: (typeof candidates)[number]) => !!tryExec(`command -v ${c.bin}`);
   const info = (c: (typeof candidates)[number], confidence: HarnessInfo["confidence"]): HarnessInfo => ({
@@ -672,9 +687,9 @@ export function checkSymlinkContract(configRoot: string, configDir: string): { p
 
 // ── Hooks merge (InstallHooks core — the one genuinely-new piece) ──
 
-type HookEntry = { type?: string; command?: string; url?: string; [k: string]: unknown };
-type MatcherGroup = { matcher?: string; hooks?: HookEntry[]; [k: string]: unknown };
-type HooksMap = Record<string, MatcherGroup[]>;
+export type HookEntry = { type?: string; command?: string; url?: string; [k: string]: unknown };
+export type MatcherGroup = { matcher?: string; hooks?: HookEntry[]; [k: string]: unknown };
+export type HooksMap = Record<string, MatcherGroup[]>;
 
 /**
  * Normalize a hook command for dedup: collapse the harness/PAI path-var forms to
@@ -735,6 +750,74 @@ export function mergeHooks(existing: HooksMap, incoming: HooksMap): { merged: Ho
     }
   }
   return { merged, added, skipped };
+}
+
+/**
+ * Hook-event capability profiles for harnesses that accept a SUBSET of the
+ * Claude Code hook set. A harness absent from this map is assumed to accept
+ * everything the payload wires (the payload is authored for Claude Code).
+ *
+ * AdaL (verified against https://docs.sylph.ai/customize/lifecycle-hooks, CLI
+ * v1.10) defines exactly six events and — deliberately, so a typo cannot
+ * silently disable a guardrail — REJECTS an unknown event name or invalid hook
+ * shape at startup. It also only supports `type: "command"` hooks (no `http`,
+ * `prompt`, or `agent` types). So merging the Claude Code payload verbatim into
+ * `~/.adal/settings.json` would make every AdaL launch fail until hand-repaired:
+ * the payload also wires SessionStart, SessionEnd, TaskCreated, ConfigChange,
+ * and StopFailure, and carries `type: "http"` entries. InstallHooks filters
+ * through `filterHooksForHarness` before merging — never write what the target
+ * harness would reject.
+ */
+export const HARNESS_SUPPORTED_HOOK_EVENTS: Partial<Record<Harness, readonly string[]>> = {
+  adal: [
+    "PreToolUse", "PostToolUse", "PostToolUseFailure",
+    "UserPromptSubmit", "PermissionRequest", "Stop",
+  ],
+};
+
+export interface HarnessHookFilter {
+  /** The incoming map reduced to what the harness can actually load. */
+  filtered: HooksMap;
+  /** Event names removed wholesale — the harness does not define them. */
+  droppedEvents: string[];
+  /** Non-command entries dropped INSIDE supported events, per event (e.g. http). */
+  droppedEntries: Record<string, number>;
+}
+
+/**
+ * Reduce an incoming hooks map to what `harness` can load. Pass-through (with
+ * empty drop reports) for any harness without a restricted profile, so the
+ * Claude Code path is byte-identical to the pre-filter behavior. Within a
+ * supported event, only explicit `type: "command"` entries survive (AdaL's
+ * schema requires `type` and only accepts `"command"`); matcher groups that
+ * filter to empty are dropped, and an event whose groups all drop is omitted.
+ * Pure — no I/O, no mutation of the input.
+ */
+export function filterHooksForHarness(incoming: HooksMap, harness: Harness): HarnessHookFilter {
+  const supported = HARNESS_SUPPORTED_HOOK_EVENTS[harness];
+  if (!supported) return { filtered: incoming ?? {}, droppedEvents: [], droppedEntries: {} };
+  const allowed = new Set(supported);
+  const filtered: HooksMap = {};
+  const droppedEvents: string[] = [];
+  const droppedEntries: Record<string, number> = {};
+  for (const [event, groups] of Object.entries(incoming ?? {})) {
+    if (!allowed.has(event)) {
+      droppedEvents.push(event);
+      continue;
+    }
+    let dropped = 0;
+    const keptGroups = (Array.isArray(groups) ? groups : [])
+      .map((g) => {
+        const hooks = Array.isArray(g.hooks) ? g.hooks : [];
+        const kept = hooks.filter((h) => h.type === "command");
+        dropped += hooks.length - kept.length;
+        return { ...g, hooks: kept };
+      })
+      .filter((g) => Array.isArray(g.hooks) && g.hooks.length > 0);
+    if (dropped > 0) droppedEntries[event] = dropped;
+    if (keptGroups.length > 0) filtered[event] = keptGroups;
+  }
+  return { filtered, droppedEvents, droppedEntries };
 }
 
 /**

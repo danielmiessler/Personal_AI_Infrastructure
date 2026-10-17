@@ -51,7 +51,7 @@ Stars help more people find the project and keep it moving. It takes one click.
 
 ## Install
 
-**Give it to your AI.** LifeOS is installed *by* an AI, so the install is just a prompt. Paste this into your AI coding harness — Claude Code, Cursor, Codex, Hermes, or any capable agent — and it does the whole setup for you:
+**Give it to your AI.** LifeOS is installed *by* an AI, so the install is just a prompt. Paste this into your AI coding harness — Claude Code, Cursor, Codex, Hermes, AdaL, or any capable agent — and it does the whole setup for you:
 
 ```
 Read https://ourlifeos.ai/install and install LifeOS for me.

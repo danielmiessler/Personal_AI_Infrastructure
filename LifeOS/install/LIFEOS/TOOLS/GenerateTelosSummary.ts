@@ -79,7 +79,10 @@ function loadTelosSections(): Record<string, string> {
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (m) {
       flush();
-      title = m[1].replace(/\s*[—–-].*$/, '').replace(/\s*\(.*\)\s*$/, '').trim();
+      title = m[1]
+        .replace(/\s*\(.*\)\s*$/, "")
+        .replace(/\s+[—–-]\s+.*$/, "")
+        .trim();
       body = [];
     } else if (title !== null) {
       body.push(line);

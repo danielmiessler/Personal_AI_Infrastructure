@@ -3610,9 +3610,11 @@ function buildPreferencesFromTelos(): {
   hobbies: string[]
   literature: string[]
 } | null {
-  const books = parseBullets(readMd(join(TELOS_DIR, "BOOKS.md"))).slice(0, 8)
-  const movies = parseBullets(readMd(join(TELOS_DIR, "MOVIES.md"))).slice(0, 8)
-  const authors = parseBullets(readMd(join(TELOS_DIR, "AUTHORS.md"))).slice(0, 8)
+  // Same unified-section-or-file precedence as the TELOS overview: TELOS.md first, legacy files as fallback.
+  const sections = parseTelosUnified()
+  const books = parseBullets(telosSectionOrFile(sections, "books", "BOOKS.md")).slice(0, 8)
+  const movies = parseBullets(telosSectionOrFile(sections, "movies", "MOVIES.md")).slice(0, 8)
+  const authors = parseBullets(telosSectionOrFile(sections, "authors", "AUTHORS.md")).slice(0, 8)
   if (books.length === 0 && movies.length === 0 && authors.length === 0) return null
   return {
     books,

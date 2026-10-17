@@ -848,6 +848,40 @@ export function filterHooksForHarness(incoming: HooksMap, harness: Harness): Har
 }
 
 /**
+ * Rewrite the payload's canonical `$HOME/.claude/` root prefix to the real
+ * config root, in any of its four spellings: `$HOME/.claude/`, `${HOME}/.claude/`,
+ * `~/.claude/`, and the expanded absolute `<home>/.claude/` (that last one
+ * catches values already run through `expandLeadingHome`, so the two transforms
+ * compose in either order). Also rewrites the bare root with no trailing path.
+ * No-op when the config root IS the canonical `~/.claude` — the Claude Code
+ * path stays byte-identical to the pre-rewrite behavior.
+ *
+ * `shell: true` single-quotes the replacement — hook commands are
+ * shell-evaluated, so metacharacters in the root would split or inject.
+ * Env values are injected verbatim by the harness (no shell) and take the
+ * raw root. Pure — string in, string out, no I/O.
+ *
+ * (PR #2326, live-install finding: `InstallSettings` expanded `$HOME` in
+ * `env.LIFEOS_DIR` but left the `.claude` segment, so an AdaL install got
+ * `env.LIFEOS_DIR = <home>/.claude/LIFEOS` — a tree the runtime never wrote.
+ * One root-rewrite primitive, shared by the hooks and settings installers.)
+ */
+export function rewriteClaudeRoot(value: string, configRoot: string, home: string, shell = false): string {
+  if (resolve(configRoot) === resolve(join(home, ".claude"))) return value;
+  const root = shell
+    ? `'${configRoot.replace(/\/+$/, "").replace(/'/g, `'\\''`)}'`
+    : configRoot.replace(/\/+$/, "");
+  const absPrefix = join(home, ".claude");
+  const BARE = ["$HOME/.claude", "${HOME}/.claude", "~/.claude", absPrefix];
+  if (BARE.includes(value)) return root;
+  return value
+    .split("$HOME/.claude/").join(`${root}/`)
+    .split("${HOME}/.claude/").join(`${root}/`)
+    .split("~/.claude/").join(`${root}/`)
+    .split(`${absPrefix}/`).join(`${root}/`);
+}
+
+/**
  * Uncomment the identity `@`-imports in a CLAUDE.md, each guarded by existsSync
  * of its symlink-resolved target under configRoot. Lines shipped as
  * `<!-- @LIFEOS/USER/... -->` are activated to `@LIFEOS/USER/...` only when the target

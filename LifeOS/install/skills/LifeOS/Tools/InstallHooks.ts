@@ -18,7 +18,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync,
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { detectDevTree, filterHooksForHarness, inferHarnessFromRoot, KNOWN_HARNESSES, mergeHooks, type HooksMap, type HookEntry, type MatcherGroup, type Harness } from "./InstallEngine";
+import { detectDevTree, filterHooksForHarness, inferHarnessFromRoot, KNOWN_HARNESSES, mergeHooks, rewriteClaudeRoot, type HooksMap, type HookEntry, type MatcherGroup, type Harness } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
 interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; harness?: string; allowClaudeRoot: boolean; }
@@ -59,21 +59,13 @@ function parseArgs(): Args {
  * untouched, and the Claude Code path stays byte-identical to before.
  */
 function rewriteHookCommandPaths(incoming: HooksMap, configRoot: string, home: string): HooksMap {
-  if (resolve(configRoot) === resolve(join(home, ".claude"))) return incoming;
-  const root = `'${configRoot.replace(/\/+$/, "").replace(/'/g, `'\\''`)}'`;
   const out: HooksMap = {};
   for (const [event, groups] of Object.entries(incoming)) {
     out[event] = (Array.isArray(groups) ? groups : []).map((g: MatcherGroup) => ({
       ...g,
       hooks: (Array.isArray(g.hooks) ? g.hooks : []).map((h: HookEntry) =>
         typeof h.command === "string"
-          ? {
-              ...h,
-              command: h.command
-                .split("$HOME/.claude/").join(`${root}/`)
-                .split("${HOME}/.claude/").join(`${root}/`)
-                .split("~/.claude/").join(`${root}/`),
-            }
+          ? { ...h, command: rewriteClaudeRoot(h.command, configRoot, home, true) }
           : h,
       ),
     }));

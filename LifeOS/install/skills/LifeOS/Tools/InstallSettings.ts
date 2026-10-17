@@ -24,7 +24,7 @@ import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { atomicWriteText } from "./lib/atomic-write";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { detectDevTree } from "./InstallEngine";
+import { detectDevTree, rewriteClaudeRoot } from "./InstallEngine";
 
 interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; }
 
@@ -53,17 +53,26 @@ export function expandLeadingHome(value: string, home: string): string {
   return value;
 }
 
-function expandEnvBlock(settings: Record<string, unknown>, home: string): number {
+function expandEnvBlock(settings: Record<string, unknown>, home: string, configRoot: string): { expanded: number; rewritten: number } {
   const env = settings.env;
-  if (!env || typeof env !== "object") return 0;
-  let n = 0;
+  if (!env || typeof env !== "object") return { expanded: 0, rewritten: 0 };
+  let expanded = 0;
+  let rewritten = 0;
   for (const [k, v] of Object.entries(env as Record<string, unknown>)) {
     if (typeof v === "string") {
-      const expanded = expandLeadingHome(v, home);
-      if (expanded !== v) { (env as Record<string, unknown>)[k] = expanded; n++; }
+      const afterExpand = expandLeadingHome(v, home);
+      if (afterExpand !== v) { (env as Record<string, unknown>)[k] = afterExpand; expanded++; }
+      // Root-rewrite AFTER expansion: the payload's LifeOS paths are written
+      // against the canonical `~/.claude` root; on any other config root the
+      // `.claude` segment must follow the tree, or `env.LIFEOS_DIR` lands on a
+      // directory the runtime never writes (PR #2326 live-install finding).
+      // Order-independent by design — rewriteClaudeRoot also matches the
+      // already-expanded absolute spelling.
+      const afterRewrite = rewriteClaudeRoot(afterExpand, configRoot, home);
+      if (afterRewrite !== afterExpand) { (env as Record<string, unknown>)[k] = afterRewrite; rewritten++; }
     }
   }
-  return n;
+  return { expanded, rewritten };
 }
 
 const args = parseArgs();
@@ -81,9 +90,9 @@ if (!existsSync(templatePath)) {
 }
 
 const template = JSON.parse(readFileSync(templatePath, "utf8")) as Record<string, unknown>;
-const expandedCount = expandEnvBlock(template, home);
+const { expanded: expandedCount, rewritten: rewrittenCount } = expandEnvBlock(template, home, args.configRoot);
 
-const report: Record<string, unknown> = { ok: true, apply: args.apply, target: targetPath, envValuesExpanded: expandedCount };
+const report: Record<string, unknown> = { ok: true, apply: args.apply, target: targetPath, envValuesExpanded: expandedCount, envRootsRewritten: rewrittenCount };
 
 if (!existsSync(targetPath)) {
   report.mode = "create";

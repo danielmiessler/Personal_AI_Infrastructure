@@ -83,7 +83,7 @@ These rules govern **visual layout** — how content is arranged on the page. Th
 
 ## The Algorithm
 
-Substantial work — anything where "done" needs articulating, building, or verifying — runs the Algorithm loop. **First action for such work:** Read `~/.claude/LIFEOS/ALGORITHM/LATEST` for the version string `V`, then Read `~/.claude/LIFEOS/ALGORITHM/v${V}.md` and follow it: the work climbs against an ISA, claims close on tool evidence, the run leaves its trail. (LATEST is the single source of truth for the version.) Trivial and conversational turns skip it — no ISA, no ceremony, just the format above.
+Substantial work — anything where "done" needs articulating, building, or verifying — runs the Algorithm loop. **First action for such work:** Read `${LIFEOS_DIR}/ALGORITHM/LATEST` (the harness root's LIFEOS tree — `LIFEOS_DIR` is injected via settings `env`) for the version string `V`, then Read `${LIFEOS_DIR}/ALGORITHM/v${V}.md` and follow it: the work climbs against an ISA, claims close on tool evidence, the run leaves its trail. (LATEST is the single source of truth for the version.) Trivial and conversational turns skip it — no ISA, no ceremony, just the format above.
 
 How much to spend is discovered from the work, never predicted from a rubric; the principal steers in plain language ("go heavy", "quick pass"), which outranks my judgment. **Which intelligence rung to run on is the exception** — that follows the role-based classes in `OPERATIONAL_RULES.md` § Model selection, moved via native routing (tier aliases on dispatch, `/model`). Only the primary DA runs the Algorithm; subagents execute their briefs.
 

@@ -8,7 +8,7 @@ LifeOS is AI-native, so the install is too. You hand this file (or its link) to 
 
 ## For you (the human) — 10 seconds
 
-Paste this to your AI — Claude Code, Cursor, Cline, Codex, Gemini CLI, or any coding assistant that can read files and run commands:
+Paste this to your AI — Claude Code, Cursor, AdaL, Cline, Codex, Gemini CLI, or any coding assistant that can read files and run commands:
 
 > **Read https://ourlifeos.ai/install and install LifeOS for me.**
 
@@ -32,7 +32,7 @@ You are installing LifeOS for your human. The install is **additive**: you touch
 
 You need to be able to (1) read and write files on this machine, and (2) run shell commands. If you cannot do both — for example you're a chat-only assistant with no filesystem or command execution — **stop now** and tell your human:
 
-> "I can't install LifeOS from here — I don't have file and command access on your machine. Run this from a coding harness like Claude Code, Cursor, Cline, Codex, or Gemini CLI, or use the terminal shortcut on the install page."
+> "I can't install LifeOS from here — I don't have file and command access on your machine. Run this from a coding harness like Claude Code, Cursor, AdaL, Cline, Codex, or Gemini CLI, or use the terminal shortcut on the install page."
 
 Do not begin a partial install you can't finish.
 
@@ -51,7 +51,7 @@ Fetch the pinned LifeOS release for the repo and version on the install page (th
 bun Tools/DetectEnv.ts
 ```
 
-Read its output. It reports the OS (macOS / Linux / Windows), the harness (Claude Code / Cursor / Cline / Codex / Gemini / other), the config root, and whether LifeOS is already present. **Every path below comes from this — don't assume `~/.claude` or any single harness.**
+Read its output. It reports the OS (macOS / Linux / Windows), the harness (Claude Code / Cursor / AdaL / Cline / Codex / Gemini / other), the config root, and whether LifeOS is already present. **Every path below comes from this — don't assume `~/.claude` or any single harness.**
 
 ### 3. Scan for conflicts (read-only)
 
@@ -86,6 +86,8 @@ Both are dry-run without `--apply`, same as the previous step. Creates the perso
 This is the one place harnesses genuinely differ. Show the exact change and get a yes.
 
 - **Claude Code** — run `bun Tools/InstallHooks.ts --apply` (merges the hook set into `settings.json`, backing it up first) and `bun Tools/ActivateImports.ts --apply` (turns on the identity context imports). **Both need `--apply`** — without it they print a plan and write nothing. This is what lights up the always-on behavior: the LifeOS response format, the memory loop, and per-turn context injection.
+
+- **AdaL** — AdaL supports hooks natively, but only six command-type events (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `UserPromptSubmit`, `PermissionRequest`, `Stop`), and it **rejects an unknown event name at startup** (a typo cannot silently disable a guardrail — but that also means a merged event it doesn't know breaks every launch). Run `bun Tools/InstallHooks.ts --config-root ~/.adal --harness adal --apply` (dry-run first, then `--apply` after a yes) — the tool merges exactly what AdaL can boot with, rewrites the payload's `$HOME/.claude/` command paths to `~/.adal/`, and reports every drop (`droppedEvents` / `droppedEntries`). Tell your human plainly which legs are dropped (`SessionStart`, `SessionEnd`, `TaskCreated`, `ConfigChange`, `StopFailure`, and the `type: "http"` entries): memory capture, voice, and nudges that ride those events won't fire on AdaL. **Restart AdaL afterward** — hooks load at startup. Context loads via AdaL's `--system-prompt-file` launch flag and workspace `AGENTS.md` (no `@`-import support, so skip `ActivateImports`' Claude-Code mechanism).
 
 - **Any other harness (Cursor / Cline / Codex / Gemini / other)** — LifeOS's always-on behavior is enforced by Claude Code *hooks*, which are a Claude Code mechanism. They don't auto-wire on other harnesses **yet**. So instead:
   1. Write an `AGENTS.md` (or the harness's own context file — e.g. `.cursor/rules`) that points the harness at the LifeOS tree, so it loads the LifeOS context every session.
@@ -161,6 +163,7 @@ Run the **Setup** workflow (`Workflows/Setup.md`) to finish integration and veri
 |---|---|---|
 | **Claude Code — macOS / Linux** | ✅ | ✅ full (native hooks) |
 | **Claude Code — Windows** | ✅ (USER tree links as a directory junction — no admin needed) | ✅ full |
+| **AdaL** | ✅ | ⚠️ partial — six command-type hook events wire natively (`InstallHooks --harness adal`); SessionStart/SessionEnd-class legs dropped (AdaL rejects unknown events at startup); context loads via `--system-prompt-file` + `AGENTS.md` |
 | **Cursor / Cline / Codex / Gemini / other** | ✅ | ⚠️ context loads every session via `AGENTS.md`; workflows run on request; always-on hooks not wired yet (roadmap) |
 | **Chat-only assistants (no files / no commands)** | ❌ | ❌ — install stops at the capability gate |
 

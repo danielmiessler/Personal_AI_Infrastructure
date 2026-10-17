@@ -176,6 +176,18 @@ export function detectHarness(home: string): HarnessInfo {
 }
 
 /**
+ * Infer the harness from a config root path — the fallback when InstallHooks is
+ * called without --harness. Matches each harness's canonical dir; returns
+ * "claude-code" when nothing matches (which also covers CLAUDE_CONFIG_DIR-style
+ * custom roots — a custom root is still a Claude Code install, just relocated).
+ */
+export function inferHarnessFromRoot(configRoot: string, home: string): Harness {
+  const resolved = resolve(configRoot);
+  const match = HARNESS_DEFS.find((d) => resolve(join(home, d.dir)) === resolved);
+  return (match?.name ?? "claude-code") as Harness;
+}
+
+/**
  * Dev-tree refusal marker. The private maintenance skill (`skills/_LIFEOS`) exists
  * ONLY in the author's source repo — never in a public install (release tooling
  * strips all `_ALLCAPS` skills). Its presence means "this is the live source;
@@ -815,12 +827,20 @@ export function filterHooksForHarness(incoming: HooksMap, harness: Harness): Har
     let dropped = 0;
     const keptGroups = (Array.isArray(groups) ? groups : [])
       .map((g) => {
+        // Malformed matcher groups are counted as dropped entries, never thrown
+        // on — a corrupt payload must not crash the trust-gate mid-install.
+        if (!g || typeof g !== "object") { dropped += 1; return null; }
         const hooks = Array.isArray(g.hooks) ? g.hooks : [];
-        const kept = hooks.filter((h) => h.type === "command");
+        // Only explicit `type: "command"` survives: the sole restricted profile
+        // today is AdaL, whose schema REQUIRES `type` and accepts only
+        // "command" (Claude Code defaults a missing type to command, but the
+        // claude-code path takes the pass-through branch above and is never
+        // filtered — and the canonical payload always sets type explicitly).
+        const kept = hooks.filter((h) => !!h && h.type === "command");
         dropped += hooks.length - kept.length;
         return { ...g, hooks: kept };
       })
-      .filter((g) => Array.isArray(g.hooks) && g.hooks.length > 0);
+      .filter((g) => g !== null && Array.isArray(g.hooks) && g.hooks.length > 0);
     if (dropped > 0) droppedEntries[event] = dropped;
     if (keptGroups.length > 0) filtered[event] = keptGroups;
   }

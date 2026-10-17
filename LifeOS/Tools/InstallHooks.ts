@@ -16,12 +16,12 @@
 
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { detectDevTree, filterHooksForHarness, KNOWN_HARNESSES, mergeHooks, type HooksMap, type HookEntry, type MatcherGroup } from "./InstallEngine";
+import { detectDevTree, filterHooksForHarness, inferHarnessFromRoot, KNOWN_HARNESSES, mergeHooks, type HooksMap, type HookEntry, type MatcherGroup, type Harness } from "./InstallEngine";
 import { atomicWriteText } from "./lib/atomic-write";
 
-interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; harness: string; }
+interface Args { configRoot: string; skillRoot: string; apply: boolean; allowDev: boolean; harness?: string; allowClaudeRoot: boolean; }
 
 function parseArgs(): Args {
   const a = process.argv.slice(2);
@@ -35,9 +35,12 @@ function parseArgs(): Args {
     skillRoot: get("--skill-root") || join(import.meta.dir, ".."),
     apply: a.includes("--apply"),
     allowDev: a.includes("--allow-dev"),
-    // The target harness (from DetectEnv.harness.name). Defaults to claude-code —
-    // the payload's native format — so existing invocations are unchanged.
-    harness: get("--harness") || "claude-code",
+    // The target harness (from DetectEnv.harness.name). When omitted it is
+    // INFERRED from the config root (inferHarnessFromRoot) — an explicit flag
+    // always wins; the inference keeps a bare `--config-root ~/.adal` call from
+    // silently writing the Claude hook set into AdaL's settings.
+    harness: get("--harness"),
+    allowClaudeRoot: a.includes("--allow-claude-root"),
   };
 }
 
@@ -47,18 +50,30 @@ function parseArgs(): Args {
  * OpenCode/Cursor install) must get those prefixes rewritten to the real root,
  * else the scripts are copied into <configRoot>/hooks/ while settings.json
  * points at $HOME/.claude/hooks/ — every wired hook resolves into the wrong
- * tree. Idempotent: when the root IS ~/.claude the map is returned untouched,
- * so the Claude Code path is byte-identical to before.
+ * tree. Also accepts the `${HOME}/.claude/` and `~/.claude/` spellings. The
+ * substituted path is single-quoted for the shell, so spaces, apostrophes, and
+ * shell metacharacters in a home path can neither split the command nor inject
+ * into it (POSIX shells — the payload's `$HOME` form already presupposes a
+ * POSIX hook shell). Idempotent: when the root IS ~/.claude (resolved, so
+ * trailing slashes and `..` segments normalize away) the map is returned
+ * untouched, and the Claude Code path stays byte-identical to before.
  */
 function rewriteHookCommandPaths(incoming: HooksMap, configRoot: string, home: string): HooksMap {
-  if (configRoot === join(home, ".claude")) return incoming;
+  if (resolve(configRoot) === resolve(join(home, ".claude"))) return incoming;
+  const root = `'${configRoot.replace(/\/+$/, "").replace(/'/g, `'\\''`)}'`;
   const out: HooksMap = {};
   for (const [event, groups] of Object.entries(incoming)) {
-    out[event] = (groups ?? []).map((g: MatcherGroup) => ({
+    out[event] = (Array.isArray(groups) ? groups : []).map((g: MatcherGroup) => ({
       ...g,
       hooks: (Array.isArray(g.hooks) ? g.hooks : []).map((h: HookEntry) =>
         typeof h.command === "string"
-          ? { ...h, command: h.command.split("$HOME/.claude/").join(`${configRoot}/`) }
+          ? {
+              ...h,
+              command: h.command
+                .split("$HOME/.claude/").join(`${root}/`)
+                .split("${HOME}/.claude/").join(`${root}/`)
+                .split("~/.claude/").join(`${root}/`),
+            }
           : h,
       ),
     }));
@@ -78,13 +93,45 @@ function countFilesRec(dir: string): number {
 }
 
 function main(): void {
-  const { configRoot, skillRoot, apply, allowDev, harness } = parseArgs();
+  const { configRoot, skillRoot, apply, allowDev, harness: harnessArg, allowClaudeRoot } = parseArgs();
+  const home = process.env.HOME || homedir();
 
-  // A typo'd --harness must fail LOUD, not fall through to "unknown profile →
-  // merge everything": an unrecognized name silently disabling the capability
-  // filter is exactly the failure mode this flag exists to prevent.
-  if (!(KNOWN_HARNESSES as readonly string[]).includes(harness)) {
-    console.log(JSON.stringify({ ok: false, error: `unknown harness "${harness}" — expected one of: ${KNOWN_HARNESSES.join(", ")}` }, null, 2));
+  // Harness: an explicit --harness wins and must be KNOWN — a typo'd value fails
+  // LOUD rather than silently skipping the capability filter (an unrecognized
+  // name disabling the filter is exactly the failure mode this flag prevents).
+  // Otherwise infer from the config root.
+  let harness: Harness;
+  if (harnessArg !== undefined) {
+    if (!(KNOWN_HARNESSES as readonly string[]).includes(harnessArg)) {
+      console.log(JSON.stringify({ ok: false, error: `unknown harness "${harnessArg}" — expected one of: ${KNOWN_HARNESSES.join(", ")}` }, null, 2));
+      process.exit(2);
+    }
+    harness = harnessArg as Harness;
+  } else {
+    harness = inferHarnessFromRoot(configRoot, home);
+  }
+
+  const canonicalClaudeRoot = resolve(join(home, ".claude"));
+
+  // Hook SCRIPTS are Claude-Code-root-bound today: most resolve the LifeOS tree
+  // as ~/.claude in code (no env override), so on any OTHER root they fail open
+  // (no-op on missing paths) — keyed on the ROOT, not the harness name: a
+  // claude-code install relocated via CLAUDE_CONFIG_DIR has the same problem.
+  const scriptsRootBound = resolve(configRoot) !== canonicalClaudeRoot;
+  // And when a Claude Code LifeOS install co-exists, those scripts would act on
+  // THAT tree instead of this one — a silent cross-harness write path.
+  const claudeCodeLifeosDetected =
+    harness !== "claude-code" && existsSync(join(home, ".claude", "LIFEOS", "VERSION"));
+
+  // Trust-gate: the dry-run always succeeds and shows the plan (with the
+  // warnings); the APPLY refuses unless explicitly overridden — mirroring the
+  // dev-tree refusal + --allow-dev pattern above. An AI-driven installer may
+  // ignore a JSON warning field; it cannot ignore exit code 2.
+  if (apply && claudeCodeLifeosDetected && !allowClaudeRoot) {
+    console.log(JSON.stringify({
+      ok: false, refused: "claude-root-coinstall",
+      detail: `a Claude Code LifeOS install exists at ${join(home, ".claude")} — the hook scripts installed here resolve ~/.claude in code and would act on THAT tree, not ${configRoot}. Re-run with --allow-claude-root only if you consciously want the shared-tree behavior.`,
+    }, null, 2));
     process.exit(2);
   }
 
@@ -98,7 +145,7 @@ function main(): void {
     console.log(JSON.stringify({ ok: false, error: `payload hooks.json not found at ${hooksJsonPath}` }, null, 2));
     process.exit(1);
   }
-  const incoming = rewriteHookCommandPaths(JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {}, configRoot, process.env.HOME || homedir());
+  const incoming = rewriteHookCommandPaths(JSON.parse(readFileSync(hooksJsonPath, "utf-8"))?.hooks ?? {}, configRoot, home);
 
   // Reduce to what the target harness can actually load BEFORE counting or
   // merging. For harnesses with a restricted hook profile (AdaL: six command
@@ -116,15 +163,6 @@ function main(): void {
   const hooksPayloadDir = join(skillRoot, "install", "hooks");
   const hooksDestDir = join(configRoot, "hooks");
   const hookFiles = countFilesRec(hooksPayloadDir);
-
-  // Hook SCRIPTS are Claude-Code-root-bound today: most resolve the LifeOS tree
-  // as homedir()/.claude in code (no env override), so on any other config root
-  // they fail open (no-op on missing paths) — or, if a Claude Code LifeOS
-  // install exists, they would act on THAT tree instead of this harness's.
-  // Surface both facts in the report so the trust-gate shows real functionality,
-  // not just valid settings. (See INSTALL.md §6 "AdaL".)
-  const claudeCodeLifeosDetected =
-    harness !== "claude-code" && existsSync(join(process.env.HOME || homedir(), ".claude", "LIFEOS", "VERSION"));
 
   const settingsPath = join(configRoot, "settings.json");
   let settings: Record<string, unknown> = {};
@@ -151,7 +189,7 @@ function main(): void {
   const report = {
     ok: true, apply, harness, settingsPath, added, skipped, droppedEvents, droppedEntries,
     events: Object.keys(merged).length, hooksDestDir, hookFiles,
-    ...(harness !== "claude-code"
+    ...(scriptsRootBound || claudeCodeLifeosDetected
       ? {
           scriptRootNote: "hook scripts resolve the LifeOS tree as ~/.claude in code (no env override); on this config root they fail open until hooks become root-portable upstream" + (claudeCodeLifeosDetected ? " — WARNING: a Claude Code LifeOS install was detected, so these scripts would act on THAT tree, not this one" : ""),
           claudeCodeLifeosDetected,

@@ -35,16 +35,29 @@ export interface ToolInfo {
 }
 
 /**
- * The harness set, in one place — the union type is derived from this array, so
- * adding a harness means adding it here AND to `detectHarness`'s candidate list;
- * DetectEnv output, InstallHooks `--harness` validation, and the hook-capability
- * profile below all key off this shape (no second hand-maintained list).
+ * Single source of truth for the harness set: detection facts for every harness
+ * in ONE table. The `Harness` union, `KNOWN_HARNESSES`, and `detectHarness`'s
+ * candidate list are ALL derived from it — adding a harness is one entry here
+ * and nothing else (DetectEnv output, InstallHooks `--harness` validation, and
+ * the hook-capability profile all key off this shape). Order is priority: on a
+ * multi-harness machine the first root+bin match wins.
  */
-export const KNOWN_HARNESSES = [
-  "claude-code", "opencode", "hermes", "cursor", "openclaw", "adal",
+const HARNESS_DEFS = [
+  { name: "claude-code", envRoot: () => process.env.CLAUDE_CONFIG_DIR, dir: ".claude", skills: "skills", bin: "claude" },
+  { name: "opencode", envRoot: () => process.env.OPENCODE_CONFIG_DIR, dir: join(".config", "opencode"), skills: "skills", bin: "opencode" },
+  { name: "hermes", envRoot: () => undefined, dir: ".hermes", skills: "skills", bin: "hermes" },
+  { name: "cursor", envRoot: () => undefined, dir: ".cursor", skills: "skills", bin: "cursor" },
+  { name: "openclaw", envRoot: () => undefined, dir: ".openclaw", skills: "skills", bin: "openclaw" },
+  // AdaL (adal-cli, https://docs.sylph.ai): config root ~/.adal, folder skills
+  // at ~/.adal/skills, hooks in ~/.adal/settings.json. No documented config-dir
+  // env override as of CLI v1.10 (verified: no ADAL_CONFIG* in the runtime), so
+  // envRoot stays unset (unlike claude-code's CLAUDE_CONFIG_DIR).
+  { name: "adal", envRoot: () => undefined, dir: ".adal", skills: "skills", bin: "adal" },
 ] as const;
 
-export type Harness = (typeof KNOWN_HARNESSES)[number] | "unknown";
+export type Harness = (typeof HARNESS_DEFS)[number]["name"] | "unknown";
+
+export const KNOWN_HARNESSES: readonly Harness[] = HARNESS_DEFS.map((d) => d.name);
 
 export interface HarnessInfo {
   name: Harness;
@@ -136,18 +149,12 @@ export function detectTool(name: string, versionCmd: string): ToolInfo {
  * binary match is reported as confidence "assumed", never as fact.
  */
 export function detectHarness(home: string): HarnessInfo {
-  const candidates: Array<{ name: Harness; root: string; skills: string; bin: string }> = [
-    { name: "claude-code", root: process.env.CLAUDE_CONFIG_DIR || join(home, ".claude"), skills: "skills", bin: "claude" },
-    { name: "opencode", root: process.env.OPENCODE_CONFIG_DIR || join(home, ".config", "opencode"), skills: "skills", bin: "opencode" },
-    { name: "hermes", root: join(home, ".hermes"), skills: "skills", bin: "hermes" },
-    { name: "cursor", root: join(home, ".cursor"), skills: "skills", bin: "cursor" },
-    { name: "openclaw", root: join(home, ".openclaw"), skills: "skills", bin: "openclaw" },
-    // AdaL (adal-cli, https://docs.sylph.ai): config root ~/.adal, folder skills
-    // at ~/.adal/skills, hooks in ~/.adal/settings.json. No documented config-dir
-    // env override as of CLI v1.10, so the root is fixed (unlike claude-code's
-    // CLAUDE_CONFIG_DIR special case above).
-    { name: "adal", root: join(home, ".adal"), skills: "skills", bin: "adal" },
-  ];
+  const candidates = HARNESS_DEFS.map((d) => ({
+    name: d.name,
+    root: d.envRoot() || join(home, d.dir),
+    skills: d.skills,
+    bin: d.bin,
+  }));
   const hasBin = (c: (typeof candidates)[number]) => !!tryExec(`command -v ${c.bin}`);
   const info = (c: (typeof candidates)[number], confidence: HarnessInfo["confidence"]): HarnessInfo => ({
     name: c.name,

@@ -196,6 +196,13 @@
   ],
   "changelogs": [
     {
+      "name": "LifeOS Accepted Changes (between releases)",
+      "url": "https://raw.githubusercontent.com/danielmiessler/LifeOS/refs/heads/main/ACCEPTED_CHANGES.md",
+      "priority": "HIGH",
+      "type": "changelog",
+      "note": "Fixes accepted since the last release, generated from closing comments by Tools/AcceptedChanges.ts. The releases-first repo source (#1868) is silent between releases; this is that gap. One fetch instead of crawling the tracker."
+    },
+    {
       "name": "Claude Code CHANGELOG",
       "url": "https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md",
       "priority": "HIGH",

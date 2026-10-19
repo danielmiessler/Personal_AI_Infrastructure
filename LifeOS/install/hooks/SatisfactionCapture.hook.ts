@@ -235,12 +235,19 @@ const CORRECTION_PHRASES = [
 const WORK_REFERENCE = /\b(you|your|it|code|banner|test|tests|build|hook|hooks|file|page|deploy|fix|script|output|response)\b/;
 const WORK_PROFANITY = /\b(fucking|wtf|what the fuck)\b/;
 
+// Quoted lines and code are text the principal is showing, not saying, so they
+// must not count as a correction or a standing directive.
+function feedbackProse(prompt: string): string {
+  return prompt.replace(/```[\s\S]*?```/g, ' ').replace(/`[^`\n]*`/g, ' ')
+    .split('\n').filter(line => !/^\s*>/.test(line)).join('\n').trim();
+}
+
 export function detectExplicitCorrection(prompt: string): string | null {
   const trimmed = prompt.trim();
   if (trimmed.length < 10) return null;        // too short to be a real complaint
   if (trimmed.startsWith('/')) return null;    // slash command
 
-  const norm = trimmed.toLowerCase().replace(/[‘’ʼ`]/g, "'");
+  const norm = feedbackProse(trimmed).toLowerCase().replace(/[‘’ʼ`]/g, "'");
 
   // Unambiguous correction opener
   if (/^no[,.]/.test(norm) || /^nope\b/.test(norm)) return trimmed;
@@ -278,7 +285,7 @@ export function detectStandingDirective(prompt: string): string | null {
   const trimmed = prompt.trim();
   if (trimmed.length < 15) return null;      // too short to carry a real rule
   if (trimmed.startsWith('/')) return null;  // slash command
-  const norm = trimmed.toLowerCase().replace(/[‘’ʼ`]/g, "'");
+  const norm = feedbackProse(trimmed).toLowerCase().replace(/[‘’ʼ`]/g, "'");
   for (const re of DIRECTIVE_PATTERNS) {
     if (re.test(norm)) return trimmed;
   }

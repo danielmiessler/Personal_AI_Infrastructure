@@ -11,7 +11,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync } from "fs";
 import { homedir } from "os";
 import { join, relative } from "path";
 
-export const MAX_FILES = 10_000;
+export const MAX_FILES = 50_000;
 export interface Finding { cls: string; path: string; detail: string }
 
 const TS = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;

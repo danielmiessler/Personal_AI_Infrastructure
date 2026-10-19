@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { enumerateCanonicalCorpus, runCortex } from "./Cortex";
+import { CANONICAL_CORPUS_LIMITS, enumerateCanonicalCorpus, runCortex } from "./Cortex";
 
 const note = (dir: string, name: string, fm: string, body = "widget") => writeFileSync(join(dir, name), `---\n${fm}\n---\n${body}\n`);
 function corpus() {
@@ -63,4 +63,8 @@ test("structure problems stay fatal even when reads are lenient", async () => {
   const r = await runCortex(["status", "--memory-root", root]);
   expect(r.exitCode).toBe(4);
   expect(r.envelope.error?.message).toContain("symlink");
+});
+
+test("file limit matches the record limit", () => {
+  expect(CANONICAL_CORPUS_LIMITS.MAX_FILES).toBe(CANONICAL_CORPUS_LIMITS.MAX_RECORDS);
 });

@@ -9,7 +9,7 @@ export const SCHEMA = "lifeos-cortex/v1" as const;
 export const EXIT = { OK: 0, INTERNAL: 1, NOT_FOUND: 3, INVALID_INPUT: 4, WRITE_REFUSED: 5 } as const;
 export const LIMITS = { QUERY_CHARS: 2048, QUERY_TERMS: 64, PAGE_SIZE: 100, GRAPH_NODES: 100, GRAPH_TOKENS: 50_000, IDS: 100, WRITE_BYTES: 262_144 } as const;
 // Fail-closed limits for the complete canonical corpus, checked before content reads.
-export const CANONICAL_CORPUS_LIMITS = { MAX_FILES: 10_000, MAX_FILE_BYTES: 8 * 1024 * 1024, MAX_TOTAL_BYTES: 128 * 1024 * 1024, MAX_RECORDS: 50_000 } as const;
+export const CANONICAL_CORPUS_LIMITS = { MAX_FILES: 50_000, MAX_FILE_BYTES: 8 * 1024 * 1024, MAX_TOTAL_BYTES: 512 * 1024 * 1024, MAX_RECORDS: 50_000 } as const;
 const ADAPTERS = new Set(["claude", "hermes", "codex", "subagent"]);
 const COMMANDS = new Set(["status", "search", "timeline", "get", "export", "remember", "propose", "rebuild"]);
 

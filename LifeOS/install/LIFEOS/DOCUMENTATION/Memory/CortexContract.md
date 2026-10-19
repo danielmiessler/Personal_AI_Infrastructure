@@ -136,10 +136,10 @@ Search and timeline cards contain `id`, `type`, `created`, `updated`, `provenanc
 | Timeline `before` / `after` | 0–100 each |
 | Graph expansion | 100 nodes and 50,000 estimated tokens |
 | Explicit `get` / `export` IDs | 100 |
-| Canonical corpus files | 10,000 |
+| Canonical corpus files | 50,000 (matches the record limit) |
 | Canonical records | 50,000 |
 | Canonical file size | 8 MiB each; an oversized file is skipped |
-| Canonical corpus bytes | 128 MiB total. Disk bytes read, and the stand-in for memory: each call loads and tokenizes every record |
+| Canonical corpus bytes | 512 MiB total. Disk bytes read, and the stand-in for memory: each call loads and tokenizes every record |
 | CLI write payload | 262,144 bytes |
 | Typed-item free-text field | 65,536 characters |
 | Typed metadata string | 1,024 characters |

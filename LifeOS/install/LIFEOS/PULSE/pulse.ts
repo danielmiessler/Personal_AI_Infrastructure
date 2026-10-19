@@ -846,6 +846,7 @@ async function main() {
 
       // Hook routes: /hooks/*
       if (pathname.startsWith("/hooks/")) {
+        if (config.hooks?.enabled === false) return new Response("", { status: 200 })
         const resp = await handleHooksRequestAsync(req, pathname)
         if (resp) return resp
       }

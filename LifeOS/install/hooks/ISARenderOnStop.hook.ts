@@ -19,7 +19,6 @@
  */
 
 import { readFileSync, existsSync, unlinkSync } from 'fs';
-import { spawn } from 'child_process';
 import { homedir } from 'os';
 import { join, dirname } from 'path';
 
@@ -91,9 +90,12 @@ for (const isaPath of edited) {
     continue;
   }
   try {
-    const proc = spawn('bun', [ISA_RENDER, isaPath], {
+    // Bun.spawn throws synchronously when bun is missing, so the catch below records spawn-failed.
+    const proc = Bun.spawn(['bun', ISA_RENDER, isaPath], {
       detached: true,
-      stdio: 'ignore',
+      stdin: 'ignore',
+      stdout: 'ignore',
+      stderr: 'ignore',
     });
     proc.unref();
     rendered.push(isaPath);

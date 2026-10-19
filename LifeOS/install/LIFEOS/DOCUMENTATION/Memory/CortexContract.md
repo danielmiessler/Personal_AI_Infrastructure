@@ -24,7 +24,11 @@ bun LIFEOS/TOOLS/Cortex.ts <command> [arguments] [options]
 
 The root resolves in this order: the test/runtime override, `--memory-root`, `CORTEX_MEMORY_ROOT`, then `~/.claude/LIFEOS/MEMORY`. The intentional top-level canonical alias is allowed: Cortex resolves it once with `realpath`, verifies the target is a directory, pins that resolved directory as the trust boundary, and reports the pinned path in status. This is how the default `LIFEOS/MEMORY` symlink into the private user-data repository works; callers do not need to resolve it manually.
 
-Symlinks **beneath** the pinned root remain forbidden. Nested directory/file symlinks, realpath escapes, duplicate IDs, malformed JSONL, impossible timestamps, and non-regular canonical files fail with `integrity_error` and exit 4. A verified live `status` resolves the default alias to the private user-data repository under `~/.config/LIFEOS/USER/MEMORY` and reports the pinned path plus the canonical record count.
+Symlinks **beneath** the pinned root remain forbidden. Nested directory/file symlinks, realpath escapes, non-regular canonical files, and the corpus size limits (below) fail with `integrity_error` and exit 4: these are safety checks and always fail closed.
+
+**Per-record problems are skipped and reported by default.** Duplicate IDs (the first file in path order wins), malformed JSONL rows, impossible timestamps, an `updated` earlier than `created`, an incoherent validity window, invalid UTF-8, control characters, and a file over the per-file byte limit skip only that record or file. The command still succeeds, and `data.skipped` carries `{count, items: [{path, reason}]}` (first 20) on every command, with a one-line warning on stderr. Pass `--strict` to any read command (`status`, `search`, `timeline`, `get`, `export`, `rebuild`) to keep the previous behavior, where the first bad record fails the command with `integrity_error` and exit 4. Library callers of `enumerateCanonicalCorpus` stay strict unless they pass `{ strict: false }`; `CortexHealth` and `CortexBenchmark` do not, so a skipped record cannot hide inside a health or benchmark result. `CortexHealth.collectCortexEvidence({ scanCorpus: true })` adds a `corpus-unreadable-notes` warning when any note would be skipped.
+
+**Repairing skipped records.** `LIFEOS/TOOLS/CortexIntegrityScan.ts` lists every problem at once. `LIFEOS/TOOLS/CortexHeal.ts` repairs the ones with one right answer (`updated` before `created`, a literal `null` validity field, a duplicate ID, control characters) and quarantines the rest to `<corpus>/_heal/<stamp>/quarantine/`. It is a dry run by default; `--apply` first copies every touched file to `<corpus>/_heal/<stamp>/original/` and writes a manifest, and `--revert <stamp>` restores them. Cortex itself stays read-only. A verified live `status` resolves the default alias to the private user-data repository under `~/.config/LIFEOS/USER/MEMORY` and reports the pinned path plus the canonical record count.
 
 ## Response envelope and semantic exits
 
@@ -132,6 +136,10 @@ Search and timeline cards contain `id`, `type`, `created`, `updated`, `provenanc
 | Timeline `before` / `after` | 0–100 each |
 | Graph expansion | 100 nodes and 50,000 estimated tokens |
 | Explicit `get` / `export` IDs | 100 |
+| Canonical corpus files | 50,000 (matches the record limit) |
+| Canonical records | 50,000 |
+| Canonical file size | 8 MiB each; an oversized file is skipped |
+| Canonical corpus bytes | 512 MiB total. Disk bytes read, and the stand-in for memory: each call loads and tokenizes every record |
 | CLI write payload | 262,144 bytes |
 | Typed-item free-text field | 65,536 characters |
 | Typed metadata string | 1,024 characters |

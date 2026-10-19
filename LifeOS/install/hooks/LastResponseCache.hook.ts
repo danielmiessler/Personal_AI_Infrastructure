@@ -20,7 +20,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  */
 
 import { readHookInput, parseTranscriptFromInput } from './lib/hook-io';
-import { writeFileSync } from 'fs';
+import { atomicWriteText } from '../LIFEOS/PULSE/lib/atomic-write';
 import { join } from 'path';
 import { homedir } from "node:os";
 
@@ -46,7 +46,7 @@ async function main() {
     try {
       const paiDir = process.env.LIFEOS_DIR || join(homedir(), '.claude', 'LIFEOS');
       const cachePath = join(paiDir, 'MEMORY', 'STATE', 'last-response.txt');
-      writeFileSync(cachePath, lastResponse.slice(0, 2000), 'utf-8');
+      atomicWriteText(cachePath, lastResponse.slice(0, 2000), 0o600);
     } catch (err) {
       console.error('[LastResponseCache] Failed to write:', err);
     }

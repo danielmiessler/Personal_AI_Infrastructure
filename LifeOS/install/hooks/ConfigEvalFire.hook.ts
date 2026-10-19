@@ -19,6 +19,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { isSubagentContext as isSubagent } from './lib/subagent';
 
@@ -69,8 +70,8 @@ function loadLastFire(): string | null {
 
 function saveLastFire(iso: string): void {
   mkdirSync(dirname(STATE), { recursive: true });
-  const tmp = `${STATE}.tmp`;
-  writeFileSync(tmp, JSON.stringify({ last_fire: iso }, null, 2) + '\n');
+  const tmp = `${STATE}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(tmp, JSON.stringify({ last_fire: iso }, null, 2) + '\n', { flag: 'wx' });
   renameSync(tmp, STATE);
 }
 

@@ -66,6 +66,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSy
 import { join } from 'path';
 import { resolveBun } from './lib/resolve-bin';
 import { deriveAscent, type AscentState } from '../LIFEOS/TOOLS/ascent';
+import { atomicWriteText } from '../LIFEOS/PULSE/lib/atomic-write';
 import { homedir } from "node:os";
 
 const PAI = join(homedir(), '.claude');
@@ -226,7 +227,7 @@ function loadState(sessionId: string): NudgeState {
 function saveState(sessionId: string, state: NudgeState): void {
   try {
     mkdirSync(STATE_DIR, { recursive: true });
-    writeFileSync(join(STATE_DIR, `${sessionId}.json`), JSON.stringify(state));
+    atomicWriteText(join(STATE_DIR, `${sessionId}.json`), JSON.stringify(state), 0o600);
   } catch {}
 }
 

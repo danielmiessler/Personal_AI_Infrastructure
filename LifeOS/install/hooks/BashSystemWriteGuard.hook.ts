@@ -71,10 +71,13 @@ export function resolveCandidate(token: string, cmd: string): string | null {
 }
 
 export function systemWriteTargets(cmd: string): string[] {
+  // Shell quoting joins these literal segments into one apostrophe before executing inline code.
+  // Decode the same literal sequence for target discovery; the deny scan still uses the original command.
+  const targetText = cmd.split("'\"'\"'").join("'");
   const out: string[] = [];
   for (const re of TARGET_RES) {
     re.lastIndex = 0;
-    for (let m = re.exec(cmd); m; m = re.exec(cmd)) {
+    for (let m = re.exec(targetText); m; m = re.exec(targetText)) {
       const abs = resolveCandidate(m[1]!, cmd);
       if (!abs) continue;
       if (classifyTarget(abs, CLAUDE_ROOT).classification === "system") out.push(abs);

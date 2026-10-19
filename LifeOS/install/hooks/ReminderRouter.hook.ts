@@ -5,21 +5,23 @@
  *
  * Parses the incoming prompt for narrow, precision-biased reminder/research/queue
  * intent. When the prompt clearly says "remind me to X" / "research the Y paper" /
- * "queue this for later", the hook spawns a fire-and-forget gh CLI call that opens
- * a labeled issue in the configured WORK.REPO. Non-matching prompts incur a single
+ * "queue this for later", the hook runs the gh CLI to open a labeled issue in the
+ * configured WORK.REPO. Non-matching prompts incur a single
  * regex test and exit immediately — no measurable added latency on the common path.
  *
  * Design contract:
  *   - PRECISION over recall. We accept false negatives (missed soft hints) before
  *     we accept false positives (a normal coding question turning into an issue).
  *   - Idempotent within a session — same prompt text hashed → routed once.
+ *     The hash is recorded only after gh succeeds, so a failed attempt retries.
  *   - Always exit 0; never block the prompt. The reminder is a side effect.
  *   - Skip silently when WORK.REPO is unset.
  *
  * Issue body includes the original prompt verbatim and any parsed absolute date.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, mkdirSync } from "fs";
+import { atomicWriteText } from "../LIFEOS/PULSE/lib/atomic-write";
 import { getDAName } from "./lib/identity"
 
 import { createHash } from "crypto";
@@ -149,7 +151,7 @@ function markRouted(sessionId: string, promptHash: string): void {
   // Cap: keep last 64 hashes per session.
   if (data[sessionId].length > 64) data[sessionId] = data[sessionId].slice(-64);
   mkdirSync(dirname(STATE_PATH), { recursive: true });
-  writeFileSync(STATE_PATH, JSON.stringify(data));
+  atomicWriteText(STATE_PATH, JSON.stringify(data), 0o600);
 }
 
 // ── Issue creation ──────────────────────────────────────────────────────────
@@ -189,15 +191,20 @@ function buildIssue(match: RouteMatch, prompt: string): { title: string; body: s
   return { title, body, labels };
 }
 
-async function createIssueDetached(repo: string, title: string, body: string, labels: string[]): Promise<void> {
+async function createIssue(repo: string, title: string, body: string, labels: string[]): Promise<boolean> {
   const labelArgs = labels.flatMap((l) => ["--label", l]);
-  // Detached so we never block the prompt; gh runs in the background.
+  // The registered hook runs asynchronously with a 5-second timeout, so gh gets 4 seconds.
+  // Record delivery after the command succeeds.
   const proc = Bun.spawn(
     ["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body, ...labelArgs],
-    { stdout: "ignore", stderr: "pipe", timeout: 8000 },
+    { stdout: "ignore", stderr: "pipe", timeout: 4000 },
   );
-  // We do not await exited — fire-and-forget.
-  proc.exited.catch(() => undefined);
+  const [exitCode, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
+  if (exitCode !== 0) {
+    console.error(`[ReminderRouter] issue creation failed (exit ${exitCode}): ${stderr.trim().slice(0, 200)}`);
+    return false;
+  }
+  return true;
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -226,10 +233,9 @@ async function main(): Promise<void> {
   if (alreadyRouted(sessionId, promptHash)) {
     process.exit(0);
   }
-  markRouted(sessionId, promptHash);
-
   const { title, body, labels } = buildIssue(match, prompt);
-  await createIssueDetached(cfg.repo, title, body, labels);
+  if (!await createIssue(cfg.repo, title, body, labels)) process.exit(0);
+  markRouted(sessionId, promptHash);
 
   console.error(`[ReminderRouter] routed ${match.kind} → ${cfg.repo}: ${title}`);
   process.exit(0);

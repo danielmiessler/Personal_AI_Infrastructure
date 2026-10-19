@@ -129,6 +129,7 @@ function parseTranscript(transcriptPath: string): {
 } {
   const entries: TranscriptEntry[] = [];
   const toolCalls: ToolCall[] = [];
+  const toolCallsById = new Map<string, ToolCall>();
   const conversations: { role: string; content: string; timestamp?: string }[] = [];
 
   try {
@@ -143,13 +144,23 @@ function parseTranscript(transcriptPath: string): {
 
         // Extract conversations
         if (entry.type === 'user' && entry.message?.content) {
-          const text = contentToText(entry.message.content);
+          const blocks = entry.message.content;
+          const text = contentToText(Array.isArray(blocks)
+            ? blocks.filter((block: any) => block?.type === 'text')
+            : blocks);
           if (text) {
             conversations.push({
               role: 'user',
               content: text,
               timestamp: entry.timestamp,
             });
+          }
+          if (Array.isArray(blocks)) {
+            for (const block of blocks as any[]) {
+              if (block?.type !== 'tool_result' || !block.tool_use_id) continue;
+              const call = toolCallsById.get(block.tool_use_id);
+              if (call) call.output = contentToText(block.content);
+            }
           }
         }
 
@@ -167,11 +178,13 @@ function parseTranscript(transcriptPath: string): {
           if (Array.isArray(entry.message.content)) {
             for (const block of entry.message.content as any[]) {
               if (block.type === 'tool_use') {
-                toolCalls.push({
+                const call = {
                   name: block.name,
                   input: block.input,
                   timestamp: entry.timestamp,
-                });
+                };
+                toolCalls.push(call);
+                if (block.id) toolCallsById.set(block.id, call);
               }
             }
           }

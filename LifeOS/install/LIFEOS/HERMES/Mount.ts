@@ -54,6 +54,17 @@ interface Change {
   detail: string;
 }
 
+/**
+ * Return the line index after a top-level YAML block. Blank lines, indented lines, and
+ * column-zero comments stay inside the block: Hermes writes section banners between the
+ * keys of one mapping, and ending the block at a banner duplicates the keys after it.
+ */
+function blockEnd(lines: string[], start: number): number {
+  let end = start + 1;
+  while (end < lines.length && (lines[end]!.trim() === "" || /^[\s#]/.test(lines[end]!))) end++;
+  return end;
+}
+
 /** Set or replace a top-level scalar key without creating a duplicate. */
 function setTopLevelKey(yaml: string, key: string, value: string): { yaml: string; changed: boolean } {
   const re = new RegExp(`^${key}\\s*:.*$`, "m");
@@ -103,8 +114,7 @@ function ensureApprovals(yaml: string): { yaml: string; changed: boolean } {
     const start = lines.findIndex((l) => /^approvals:\s*$/.test(l));
     if (start === -1) return { yaml, changed: false };
 
-    let end = start + 1;
-    while (end < lines.length && (lines[end]!.trim() === "" || /^\s/.test(lines[end]!))) end++;
+    const end = blockEnd(lines, start);
 
     const denyAt = lines.slice(start + 1, end).findIndex((l) => /^\s{2}deny:\s*$/.test(l));
     if (denyAt === -1) return { yaml, changed: false }; // no deny list to own
@@ -194,8 +204,7 @@ function ensurePluginEnabled(yaml: string): { yaml: string; changed: boolean } {
     return { yaml: `${yaml.replace(/\n*$/, "")}\nplugins:\n  enabled:\n    - lifeos\n`, changed: true };
   }
 
-  let end = start + 1;
-  while (end < lines.length && (lines[end]!.trim() === "" || /^\s/.test(lines[end]!))) end++;
+  const end = blockEnd(lines, start);
 
   const enabledAt = lines.slice(start + 1, end).findIndex((l) => /^\s{2}enabled:\s*$/.test(l));
   if (enabledAt === -1) {
@@ -208,7 +217,8 @@ function ensurePluginEnabled(yaml: string): { yaml: string; changed: boolean } {
   while (after < end && /^\s+-\s/.test(lines[after]!)) entries.push(lines[after++]!);
   if (entries.some((e) => /^\s+-\s+lifeos\s*$/.test(e))) return { yaml, changed: false };
 
-  const next = [...lines.slice(0, enabledLine + 1), "    - lifeos", ...lines.slice(enabledLine + 1)].join("\n");
+  const indentation = entries[0]?.match(/^\s+/)?.[0] ?? "    ";
+  const next = [...lines.slice(0, enabledLine + 1), `${indentation}- lifeos`, ...lines.slice(enabledLine + 1)].join("\n");
   return { yaml: next, changed: true };
 }
 

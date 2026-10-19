@@ -122,11 +122,11 @@ const MAX_ITEMS = 6;
 export function renderSystemLine(entries: ChangeEntry[]): string | null {
   if (entries.length === 0) return null;
 
-  // Deduplicate by label, keeping the richest detail seen for it.
+  // Deduplicate by label, retaining the latest observed detail.
   const byLabel = new Map<string, ChangeEntry>();
   for (const e of entries) {
     const prior = byLabel.get(e.label);
-    if (!prior || (!prior.detail && e.detail)) byLabel.set(e.label, e);
+    if (!prior || e.detail || !prior.detail) byLabel.set(e.label, e);
   }
 
   const sorted = [...byLabel.values()].sort(

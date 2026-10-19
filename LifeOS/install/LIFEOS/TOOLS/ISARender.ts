@@ -13,10 +13,11 @@
  * Interceptor tabs without opening new ones; refresh failure is non-fatal.
  */
 
-import { readFileSync, writeFileSync, existsSync, statSync, renameSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { resolve, dirname, basename, join } from "node:path";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
+import { atomicWriteText } from "../PULSE/lib/atomic-write";
 import { ASCENT, ASCENT_BRACKETS, PHASE_TO_ASCENT, type AscentState } from "./ascent";
 
 const HOME = process.env.HOME || homedir();
@@ -702,9 +703,7 @@ ${inner}
   if (args.stdout) { process.stdout.write(html); return; }
 
   // Atomic write
-  const tmpPath = outPath + ".tmp";
-  writeFileSync(tmpPath, html, "utf-8");
-  renameSync(tmpPath, outPath);
+  atomicWriteText(outPath, html);
 
   let refreshInfo: { refreshed: number; warning?: string } = { refreshed: 0 };
   if (!args.noRefresh) refreshInfo = await refreshInterceptorTabs(outPath);

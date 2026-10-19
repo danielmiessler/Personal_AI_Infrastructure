@@ -18,9 +18,10 @@
  * @version 1.0.2
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { atomicWriteText } from "../LIFEOS/PULSE/lib/atomic-write";
 
 const CLAUDE_DIR = join(homedir(), ".claude");
 const VERSION_FILE = join(CLAUDE_DIR, "LIFEOS", "VERSION");
@@ -66,7 +67,7 @@ function recentlyNagged(): boolean {
 
 function markNagged(count: number, tag: string): void {
   mkdirSync(dirname(STATE_FILE), { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify({ ts: new Date().toISOString(), count, tag }) + "\n");
+  atomicWriteText(STATE_FILE, JSON.stringify({ ts: new Date().toISOString(), count, tag }) + "\n", 0o600);
 }
 
 function main(): void {

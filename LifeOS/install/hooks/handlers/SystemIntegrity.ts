@@ -15,9 +15,10 @@
  * - Deduplicates identical change sets
  */
 
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { join } from 'path';
+import { atomicWriteText } from '../../LIFEOS/PULSE/lib/atomic-write';
 import { paiPath } from '../lib/paths';
 
 import {
@@ -60,7 +61,7 @@ function updateIntegrityState(changes: FileChange[]): void {
       cooldown_until: getCooldownEndTime(),
     };
 
-    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    atomicWriteText(STATE_FILE, JSON.stringify(state, null, 2), 0o600);
     console.error('[SystemIntegrity] Updated state file');
   } catch (error) {
     console.error('[SystemIntegrity] Failed to update state:', error);

@@ -32,7 +32,8 @@ import { run as loadMemory } from "./LoadMemory.hook";
 import { run as deltaSurface } from "./MemoryDeltaSurface.hook";
 import { getRelevantContext } from "../LIFEOS/TOOLS/MemoryRetriever";
 import { clearLedger as clearSystemDelta } from "./SystemChangeSurface.hook";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { atomicWriteText } from "../LIFEOS/PULSE/lib/atomic-write";
 import { createHash } from "node:crypto";
 import { resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
@@ -70,10 +71,10 @@ function shouldInject(sessionId: string): boolean {
   const inject = !state || state.lastHash !== hash || state.turnsSinceInject >= REFRESH_TURNS;
   try {
     mkdirSync(STATE_DIR, { recursive: true });
-    writeFileSync(statePath, JSON.stringify({
+    atomicWriteText(statePath, JSON.stringify({
       lastHash: hash,
       turnsSinceInject: inject ? 0 : (state!.turnsSinceInject + 1),
-    }), "utf8");
+    }), 0o600);
   } catch { /* best-effort — on state failure we fall back to injecting */ }
   return inject;
 }

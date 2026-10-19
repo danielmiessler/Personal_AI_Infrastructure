@@ -31,10 +31,11 @@
  * --level low; the pass may take ~90s and every step is try/caught.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { resolveBun } from './lib/resolve-bin';
 import { paiPath } from './lib/paths';
+import { atomicWriteText } from '../LIFEOS/PULSE/lib/atomic-write';
 import { getISOTimestamp } from './lib/time';
 
 const STATE_PATH = paiPath('MEMORY', 'STATE', 'spend-audit-state.json');
@@ -384,7 +385,7 @@ function shouldAudit(sessionId: string, now: number): boolean {
   if (allow) state[sessionId] = now;
   try {
     mkdirSync(join(STATE_PATH, '..'), { recursive: true });
-    writeFileSync(STATE_PATH, JSON.stringify(state));
+    atomicWriteText(STATE_PATH, JSON.stringify(state), 0o600);
   } catch { /* state is best-effort */ }
   return allow;
 }

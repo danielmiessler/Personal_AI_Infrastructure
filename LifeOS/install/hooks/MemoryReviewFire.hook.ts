@@ -38,11 +38,12 @@
  * Failure mode: any error logs to stderr and exits 0 (never block Stop).
  */
 
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { dirname, join, resolve as pathResolve } from "node:path";
 import { homedir } from "node:os";
 import { isSubagentContext as isSubagent } from './lib/subagent';
+import { atomicWriteText } from '../LIFEOS/PULSE/lib/atomic-write';
 
 const CLAUDE_ROOT = pathResolve(homedir(), ".claude");
 const STATE_PATH = pathResolve(CLAUDE_ROOT, "LIFEOS/MEMORY/OBSERVABILITY/review-state.json");
@@ -102,9 +103,7 @@ function loadState(): ReviewState {
 
 function saveState(state: ReviewState): void {
   mkdirSync(dirname(STATE_PATH), { recursive: true });
-  const tmp = `${STATE_PATH}.tmp`;
-  writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
-  renameSync(tmp, STATE_PATH);
+  atomicWriteText(STATE_PATH, JSON.stringify(state, null, 2) + "\n", 0o600);
 }
 
 // ── Per-session cadence state (public issue #1711, @jacobo-ortiz) ────────────
@@ -155,9 +154,7 @@ function loadSessionState(sessionId: string | null): SessionReviewState {
 function saveSessionState(sessionId: string | null, state: SessionReviewState): void {
   const p = sessionStatePath(sessionId);
   mkdirSync(dirname(p), { recursive: true });
-  const tmp = `${p}.tmp`;
-  writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
-  renameSync(tmp, p);
+  atomicWriteText(p, JSON.stringify(state, null, 2) + "\n", 0o600);
 }
 
 /**
@@ -261,22 +258,27 @@ function main(): void {
 
     if (due) {
       const turnsReviewed = session.turn_count_since_last_review;
-      const { spawned, reason } = spawnReviewer(turnsReviewed, transcriptPath);
-      logFire({ ts: now, turns_since_last_review: turnsReviewed, spawned, reason, session_id: sessionId, transcript_path: transcriptPath });
       session.turn_count_since_last_review = 0;
       session.last_review_at = now;
       global.last_review_at = now;
+      global.turn_count_since_last_review = 0;
+      global.last_message_at = now;
+      // A failed or interrupted admission consumes the same global cadence as a failed spawn.
+      // Publish that admission before a detached child can produce a durable result.
+      saveState(global);
+      saveSessionState(sessionId, session);
+      const { spawned, reason } = spawnReviewer(turnsReviewed, transcriptPath);
+      logFire({ ts: now, turns_since_last_review: turnsReviewed, spawned, reason, session_id: sessionId, transcript_path: transcriptPath });
       pruneSessionStates(sessionStatePath(sessionId), nowMs);
+    } else {
+      saveSessionState(sessionId, session);
+      // Mirror for the statusline / MemoryStatus / MemoryHealthCheck / Pulse.
+      // Schema is unchanged; the turn count reflects whichever session wrote last
+      // and is display-only, while last_review_at above is the real rate cap.
+      global.turn_count_since_last_review = session.turn_count_since_last_review;
+      global.last_message_at = now;
+      saveState(global);
     }
-
-    saveSessionState(sessionId, session);
-
-    // Mirror for the statusline / MemoryStatus / MemoryHealthCheck / Pulse.
-    // Schema is unchanged; the turn count reflects whichever session wrote last
-    // and is display-only, while last_review_at above is the real rate cap.
-    global.turn_count_since_last_review = session.turn_count_since_last_review;
-    global.last_message_at = now;
-    saveState(global);
   } catch (e) {
     process.stderr.write(`MemoryReviewFire error: ${(e as Error)?.message || String(e)}\n`);
   }

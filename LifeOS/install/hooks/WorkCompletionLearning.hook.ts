@@ -59,6 +59,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { createHash } from 'node:crypto';
 import { getISOTimestamp, getPSTDate } from './lib/time';
 import { getLearningCategory } from './lib/learning-utils';
 import { findArtifactPath, findActiveSessionByUUID } from './lib/isa-utils';
@@ -166,8 +167,7 @@ function parseYaml(content: string): WorkMeta {
   return meta as WorkMeta;
 }
 
-function getMonthDir(category: 'SYSTEM' | 'ALGORITHM'): string {
-  const now = new Date();
+function getMonthDir(category: 'SYSTEM' | 'ALGORITHM', now: Date): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
 
@@ -180,18 +180,19 @@ function getMonthDir(category: 'SYSTEM' | 'ALGORITHM'): string {
   return monthDir;
 }
 
-function writeLearning(workMeta: WorkMeta, idealContent: string, closed: number, total: number): void {
+function writeLearning(workMeta: WorkMeta, idealContent: string, closed: number, total: number, workSlug: string): void {
   const category = getLearningCategory(workMeta.title);
-  const monthDir = getMonthDir(category);
-
-  const dateStr = getPSTDate();
-  const timeStr = new Date().toISOString().split('T')[1].slice(0, 5).replace(':', '');
-  const titleSlug = workMeta.title
+  const started = new Date(workMeta.created_at || '');
+  const origin = Number.isFinite(started.getTime()) ? started : new Date();
+  const monthDir = getMonthDir(category, origin);
+  const dateStr = getPSTDate(origin);
+  const identity = createHash('sha256').update(workMeta.session_id + '\0' + workSlug).digest('hex').slice(0, 16);
+  const titleSlug = workSlug
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .slice(0, 30);
 
-  const filename = `${dateStr}_${timeStr}_work_${titleSlug}.md`;
+  const filename = `${dateStr}_${identity}_work_${titleSlug}.md`;
   const filepath = join(monthDir, filename);
 
   // Don't overwrite existing learnings
@@ -347,7 +348,7 @@ async function main() {
     // file used to render "**Session:** undefined".
     workMeta.title = workMeta.title || workMeta.task || active.session?.task || slug;
     workMeta.session_id = workMeta.session_id || sessionId || 'unknown';
-    workMeta.created_at = workMeta.created_at || workMeta.started;
+    workMeta.created_at = workMeta.created_at || workMeta.started || active.session?.started;
 
     // Significance is "the run closed at least one claim" — the one durable
     // signal an ISA actually records. The previous test asked for a files-changed
@@ -360,7 +361,7 @@ async function main() {
     // CLAUDE_EFFORT dial, so a low-effort session silently skipped capture
     // (Forge cross-vendor audit, 2026-07-24).
     if (hasSignificantWork) {
-      writeLearning(workMeta, idealContent, closedClaims, totalClaims);
+      writeLearning(workMeta, idealContent, closedClaims, totalClaims, slug);
     } else {
       console.error('[WorkCompletionLearning] No claims closed this session, skipping learning capture');
     }

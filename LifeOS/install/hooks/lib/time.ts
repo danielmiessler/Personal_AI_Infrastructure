@@ -39,9 +39,8 @@ export function getPSTTimestamp(): string {
 /**
  * Get date only: "YYYY-MM-DD"
  */
-export function getPSTDate(): string {
+export function getPSTDate(date: Date = new Date()): string {
   const timezone = getTimezone();
-  const date = new Date();
   const localDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
 
   const year = localDate.getFullYear();

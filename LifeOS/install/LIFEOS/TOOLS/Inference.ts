@@ -422,10 +422,14 @@ async function inferenceAttempt(options: InferenceOptions, modelOverride?: strin
         // when the LLM wraps a JSON array inside markdown or explanatory text
         // that happens to contain braces. By trying both candidates and
         // validating with JSON.parse, we handle arrays and objects reliably.
+        // The whole output is tried first, then the match that starts earlier, so a
+        // one-item array like [{...}] is not returned as its inner object.
         const objectMatch = output.match(/\{[\s\S]*\}/);
         const arrayMatch = output.match(/\[[\s\S]*\]/);
 
-        for (const candidate of [objectMatch?.[0], arrayMatch?.[0]]) {
+        const extracted = (arrayMatch?.index ?? Infinity) < (objectMatch?.index ?? Infinity)
+          ? [arrayMatch?.[0], objectMatch?.[0]] : [objectMatch?.[0], arrayMatch?.[0]];
+        for (const candidate of [output, ...extracted]) {
           if (!candidate) continue;
           try {
             const parsed = JSON.parse(candidate);

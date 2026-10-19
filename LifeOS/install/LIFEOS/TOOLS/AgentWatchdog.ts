@@ -10,7 +10,7 @@ for (const __k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
  * AgentWatchdog.ts — Monitor script for detecting hung background agents
  *
  * Designed to run inside the Monitor tool. Watches tool-activity.jsonl for
- * silence while agents are active per subagent-starts.json.
+ * silence while agents are active per agent-starts.json.
  *
  * Emits alert lines to stdout (= Monitor notifications) when no tool calls
  * detected for THRESHOLD seconds with active agents.
@@ -38,7 +38,7 @@ for (const k of ["LIFEOS_DIR", "LIFEOS_CONFIG_DIR", "PROJECTS_DIR"]) {
 const LIFEOS_DIR = process.env.LIFEOS_DIR || join(homedir(), ".claude", "LIFEOS");
 const OBS_DIR = join(LIFEOS_DIR, "MEMORY", "OBSERVABILITY");
 const ACTIVITY_FILE = join(OBS_DIR, "tool-activity.jsonl");
-const STARTS_FILE = join(OBS_DIR, "subagent-starts.json");
+const STARTS_FILE = join(OBS_DIR, "agent-starts.json");
 
 const SILENCE_THRESHOLD_S = 90;
 const CHECK_INTERVAL_S = 15;
@@ -50,10 +50,10 @@ function getActiveAgents(): { count: number; names: string[] } {
   try {
     if (!existsSync(STARTS_FILE)) return { count: 0, names: [] };
     const data = JSON.parse(readFileSync(STARTS_FILE, "utf-8"));
-    const entries = Object.entries(data) as [string, { type: string }][];
+    const entries = Object.entries(data) as [string, { subagent_type: string }][];
     return {
       count: entries.length,
-      names: entries.map(([id, info]) => `${info.type}(${id.slice(0, 8)})`),
+      names: entries.map(([id, info]) => `${info.subagent_type}(${id.slice(0, 8)})`),
     };
   } catch {
     return { count: 0, names: [] };

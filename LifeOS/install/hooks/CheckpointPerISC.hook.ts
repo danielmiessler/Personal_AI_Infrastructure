@@ -21,7 +21,7 @@
  */
 
 import { readFileSync, existsSync, writeFileSync, statSync, realpathSync, mkdirSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { parseFrontmatter, parseCriteriaList, ARTIFACT_FILENAME, LEGACY_ARTIFACT_FILENAME } from './lib/isa-utils';
@@ -33,6 +33,57 @@ import { isForeignToSystemRepo, looksLikePersonalTranscript } from '../LIFEOS/TO
 // life feature so users can write `~/Projects/foo` instead of the long form.
 const ALLOWLIST_PATH = join(homedir(), '.claude', 'checkpoint-repos.txt');
 const GIT_TIMEOUT_MS = 5000;
+const HOOK_DEADLINE = Date.now() + 25000;
+// Verification shares a budget below the registered 30-second hook deadline.
+const COMMIT_TIMEOUT_MS = 20000;
+
+async function verifiedCommit(repo: string, args: string[], deadline: number): Promise<void> {
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) throw new Error('checkpoint verification timed out');
+  await new Promise<void>((resolve, reject) => {
+    // A process group includes repository hooks and their child processes.
+    const child = spawn('git', ['-C', repo, ...args], {
+      detached: true, stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    let timedOut = false;
+    let closed = false;
+    let cleanupDone = false;
+    const failTimeout = () => {
+      if (closed && cleanupDone) reject(new Error('checkpoint verification timed out'));
+    };
+    const signalGroup = (signal: NodeJS.Signals) => {
+      if (child.pid === undefined) return;
+      try { process.kill(-child.pid, signal); }
+      catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+          console.error('[CheckpointPerISC] verifier cleanup failed:', error);
+        }
+      }
+    };
+    child.stderr.on('data', (data: Buffer) => {
+      stderr = (stderr + data.toString('utf8')).slice(-8000);
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      // Git handles TERM and removes its index lock before stubborn children are killed.
+      signalGroup('SIGTERM');
+      setTimeout(() => {
+        signalGroup('SIGKILL');
+        cleanupDone = true;
+        failTimeout();
+      }, 250);
+    }, remaining);
+    child.on('error', (error: Error) => { clearTimeout(timer); reject(error); });
+    child.on('close', (code: number | null) => {
+      closed = true;
+      if (timedOut) { failTimeout(); return; }
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `git commit exited with ${code}`));
+    });
+  });
+}
 
 interface CheckpointState {
   committed_iscs: string[];
@@ -85,9 +136,11 @@ function saveState(stateFile: string, state: CheckpointState): void {
 }
 
 function gitRun(repo: string, args: string[]): string {
+  const remaining = HOOK_DEADLINE - Date.now();
+  if (remaining <= 0) throw new Error('checkpoint hook deadline exceeded');
   return execFileSync('git', ['-C', repo, ...args], {
     encoding: 'utf-8',
-    timeout: GIT_TIMEOUT_MS,
+    timeout: Math.min(GIT_TIMEOUT_MS, remaining),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }
@@ -190,17 +243,18 @@ export function filterForeignPaths(repo: string, paths: string[]): string[] {
   });
 }
 
-function commitInRepo(repo: string, iscId: string, slug: string, description: string, startedMs: number): string | null {
+// Returns the commit SHA, '' when this run touched nothing to commit, or null when the commit failed.
+async function commitInRepo(repo: string, iscId: string, slug: string, description: string, startedMs: number, deadline: number): Promise<string | null> {
   try {
     const paths = filterForeignPaths(repo, runTouchedPaths(repo, startedMs));
-    if (paths.length === 0) return null;
+    if (paths.length === 0) return '';
     gitRun(repo, ['add', '--', ...paths]);
     // iscId already has the canonical "ISC-<N>" form (or "ISC-<N>-A-<M>" for
     // anti-criteria) per parseCriteriaList — use it verbatim, do not re-prefix.
     const subject = `${iscId} (${slug}): ${sanitizeMessage(description)}`;
-    // --no-verify skips husky/pre-commit hooks; --no-gpg-sign avoids GPG
-    // passphrase prompts that would hang the session blocking on stdin.
-    gitRun(repo, ['commit', '-m', subject, '--quiet', '--no-verify', '--no-gpg-sign']);
+    // Repository hooks run. --no-gpg-sign avoids GPG passphrase prompts that
+    // would hang the session blocking on stdin.
+    await verifiedCommit(repo, ['commit', '-m', subject, '--quiet', '--no-gpg-sign'], deadline);
     const sha = gitRun(repo, ['rev-parse', 'HEAD']).trim();
     return sha;
   } catch (err: unknown) {
@@ -278,7 +332,9 @@ async function main() {
     return;
   }
 
+  const commitDeadline = Math.min(HOOK_DEADLINE, Date.now() + COMMIT_TIMEOUT_MS);
   for (const isc of newlyChecked) {
+    let failed = false;
     for (const repo of allowlist) {
       if (!existsSync(repo)) {
         console.error(`[CheckpointPerISC] repo not found: ${repo}`);
@@ -289,10 +345,11 @@ async function main() {
         continue;
       }
       if (!hasChanges(repo)) continue;
-      const sha = commitInRepo(repo, isc.id, slug, isc.description, startedMs);
-      if (sha) state.last_commit_sha[repo] = sha;
+      const sha = await commitInRepo(repo, isc.id, slug, isc.description, startedMs, commitDeadline);
+      if (sha === null) failed = true;
+      else if (sha) state.last_commit_sha[repo] = sha;
     }
-    state.committed_iscs.push(isc.id);
+    if (!failed) state.committed_iscs.push(isc.id);
   }
 
   saveState(stateFile, state);

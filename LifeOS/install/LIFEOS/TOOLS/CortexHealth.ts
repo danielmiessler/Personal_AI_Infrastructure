@@ -2,6 +2,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSyn
 import { dirname, join, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { loadCanonicalRecords } from "./Cortex";
+import { scan } from "./CortexIntegrityScan";
 
 export type Severity = "ok" | "warn" | "critical";
 export interface HealthFinding { id: string; severity: Severity; message: string; evidence?: any; }
@@ -30,6 +31,8 @@ export interface CortexEvidence {
   observability?: { bytes: number; oldestMs: number | null; evidence: string; files?: number; available?: boolean };
   index?: { status: "absent" | "no-index-v1" | "ok" | "mismatch" | "invalid"; manifest?: string; policy?: string; measuredAt?: number; canonicalHash?: string; manifestCanonicalHash?: string; indexHash?: string; manifestIndexHash?: string; indexPath?: string; indexedAt?: string; ageMs?: number };
   thresholds?: CortexThresholds;
+  /** Notes Cortex reads would skip. Optional so callers that never scanned the corpus are unchanged. */
+  corpus?: { files: number; findings: number; byClass: Record<string, number>; examples: string[]; evidence: string };
 }
 export interface CortexAssessment { overall: Severity; findings: HealthFinding[]; thresholds: CortexThresholds; }
 
@@ -96,6 +99,7 @@ export function assessCortexEvidence(input: CortexEvidence): CortexAssessment {
   if (!input.proposals || input.proposals.available === false) add("proposal-evidence-missing", "warn", "Proposal evidence is absent.", input.proposals); else { if (input.proposals.malformedLines?.length) add("proposal-evidence-malformed", "warn", "Proposal JSONL is malformed.", input.proposals); if (input.proposals.pending > thresholds.proposalBacklog) add("proposal-backlog-high", "warn", `Pending proposal backlog ${input.proposals.pending} exceeds threshold ${thresholds.proposalBacklog}.`, { ...input.proposals, threshold: thresholds.proposalBacklog }); }
   if (!input.observability || input.observability.available === false) add("observability-evidence-missing", "warn", "Observability evidence is absent.", input.observability); else { if (input.observability.bytes > thresholds.observabilityMaxBytes) add("observability-bytes-exceeded", "warn", `Observability logs use ${input.observability.bytes} bytes, above ${thresholds.observabilityMaxBytes}.`, { ...input.observability, maxBytes: thresholds.observabilityMaxBytes }); if (input.observability.oldestMs != null) { const ageMs = input.nowMs - input.observability.oldestMs; if (ageMs > thresholds.observabilityMaxAgeMs) add("observability-age-exceeded", "warn", `Oldest observability log is ${ageMs}ms old, above ${thresholds.observabilityMaxAgeMs}.`, { ...input.observability, ageMs, maxAgeMs: thresholds.observabilityMaxAgeMs }); } }
   if (!input.index || input.index.status === "absent") add("index-evidence-missing", "warn", "Index state is ambiguous.", input.index); else if (input.index.status === "mismatch" || input.index.status === "invalid") add(input.index.status === "mismatch" ? "index-integrity-mismatch" : "index-manifest-invalid", "critical", "Index integrity evidence failed.", input.index); else if (input.index.status === "ok" && (input.index.ageMs == null || input.index.ageMs < 0)) add("index-freshness-invalid", "warn", "Index freshness is not measurable.", input.index); else if (input.index.status === "ok" && input.index.ageMs! > thresholds.indexStaleMs) add("index-stale", "warn", "Index exceeds freshness threshold.", input.index);
+  if (input.corpus?.findings) add("corpus-unreadable-notes", "warn", `${input.corpus.findings} canonical finding(s) make Cortex skip notes or refuse to run (${Object.entries(input.corpus.byClass).map(([k, v]) => `${k}:${v}`).join(", ")}). Preview the repair with \`bun LIFEOS/TOOLS/CortexHeal.ts\`, apply it with \`--apply\`.`, input.corpus);
   const overall: Severity = findings.some(f => f.severity === "critical") ? "critical" : findings.some(f => f.severity === "warn") ? "warn" : "ok";
   return { overall, findings, thresholds };
 }
@@ -198,7 +202,15 @@ function indexEvidence(memoryRoot: string, manifest: string, policy: string, now
 }
 function validatedThresholds(overrides: Partial<CortexThresholds> = {}): CortexThresholds { for (const [key, value] of Object.entries(overrides)) if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${key} must be finite and > 0`); return { ...DEFAULT_CORTEX_THRESHOLDS, ...overrides }; }
 
-export interface CollectCortexOptions { root: string; nowMs?: number; thresholds?: Partial<CortexThresholds>; indexManifest?: string; }
+function corpusEvidence(memoryRoot: string): CortexEvidence["corpus"] {
+  try {
+    const { files, findings } = scan(memoryRoot), byClass: Record<string, number> = {};
+    for (const f of findings) byClass[f.cls] = (byClass[f.cls] ?? 0) + 1;
+    return { files, findings: findings.length, byClass, examples: findings.slice(0, 5).map((f) => `${f.cls} ${f.path}`), evidence: memoryRoot };
+  } catch { return undefined; }
+}
+/** `scanCorpus` reads the whole canonical corpus (about 0.3 s and 150 MB on 10,000 notes), so it is off unless asked for. */
+export interface CollectCortexOptions { root: string; nowMs?: number; thresholds?: Partial<CortexThresholds>; indexManifest?: string; scanCorpus?: boolean; }
 export function collectCortexEvidence(options: CollectCortexOptions): CortexEvidence {
   const nowMs = options.nowMs ?? Date.now();
   const thresholds = validatedThresholds(options.thresholds);
@@ -206,7 +218,7 @@ export function collectCortexEvidence(options: CollectCortexOptions): CortexEvid
   const retrievalLog = join(obs, "memory-retrievals.jsonl"), retrieval = readJsonl(retrievalLog), retrievalLast = retrieval.rows.at(-1);
   const proposalLog = join(obs, "pending-proposals.jsonl"), proposals = readJsonl(proposalLog);
   const manifest = options.indexManifest ?? join(memoryRoot, "INDEX/index-manifest.json");
-  return { nowMs, thresholds, reviewer: reviewerEvidence(obs, nowMs, thresholds),
+  return { nowMs, thresholds, corpus: options.scanCorpus ? corpusEvidence(memoryRoot) : undefined, reviewer: reviewerEvidence(obs, nowMs, thresholds),
     retrieval: retrieval.malformedLines.length ? { status: "invalid", evidence: retrievalLog, malformedLines: retrieval.malformedLines } : validRetrievalRow(retrievalLast) ? { status: "ok", ts: retrievalLast.ts as string, queryHash: retrievalLast.query_hash as string, returnedCount: retrievalLast.returned_count as number, durationMs: retrievalLast.duration_ms as number, evidence: `${retrievalLog}:latest` } : retrievalLast ? { status: "invalid", evidence: `${retrievalLog}:latest` } : { status: "missing", evidence: retrievalLog },
     proposals: { pending: proposals.rows.filter(row => row.status === "pending").length, evidence: proposalLog, available: proposals.exists, malformedLines: proposals.malformedLines }, observability: observabilityEvidence(obs), index: indexEvidence(memoryRoot, manifest, join(options.root, "LIFEOS/CORTEX_INDEX_POLICY.json"), nowMs) };
 }

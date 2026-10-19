@@ -49,6 +49,11 @@ function fail(command: string, exitCode: number, code: string, message: string):
 
 class IntegrityError extends Error {}
 function integrity(message: string): never { throw new IntegrityError(message); }
+// A problem confined to one record or file. Lenient reads skip it and report it; --strict keeps it fatal.
+// Structure and limit problems (symlinks, root escapes, non-regular files, corpus size) stay plain integrity errors.
+class RecordError extends IntegrityError {}
+function recordProblem(message: string): never { throw new RecordError(message); }
+export interface CortexSkipped { path: string; reason: string }
 function isWithin(root: string, path: string): boolean { return path === root || path.startsWith(root + sep); }
 function checkedRealpath(path: string, rootReal: string): string {
   const stat = lstatSync(path);
@@ -103,20 +108,20 @@ function validTimestamp(value: string): boolean {
   return match[4] === undefined || (Number(match[4]) <= 23 && Number(match[5]) <= 59 && Number(match[6] ?? 0) <= 59);
 }
 function validateRecord(record: CortexRecord): CortexRecord {
-  if (!record.id.trim()) integrity(`Canonical record has an empty ID at ${record.provenance.path}`);
-  for (const [name, value] of [["created", record.created], ["updated", record.updated]] as const) if (!validTimestamp(value)) integrity(`Invalid ${name} timestamp for ${record.id}: ${value}`);
-  for (const [name, value] of [["valid_from", record.valid_from], ["valid_until", record.valid_until]] as const) if (value != null && !validTimestamp(value)) integrity(`Invalid ${name} timestamp for ${record.id}: ${value}`);
-  if (Date.parse(record.updated) < Date.parse(record.created)) integrity(`Canonical record ${record.id} is updated before it was created`);
-  if (record.valid_from != null && record.valid_until != null && Date.parse(record.valid_from) >= Date.parse(record.valid_until)) integrity(`Canonical record ${record.id} has an incoherent validity window`);
+  if (!record.id.trim()) recordProblem(`Canonical record has an empty ID at ${record.provenance.path}`);
+  for (const [name, value] of [["created", record.created], ["updated", record.updated]] as const) if (!validTimestamp(value)) recordProblem(`Invalid ${name} timestamp for ${record.id}: ${value}`);
+  for (const [name, value] of [["valid_from", record.valid_from], ["valid_until", record.valid_until]] as const) if (value != null && !validTimestamp(value)) recordProblem(`Invalid ${name} timestamp for ${record.id}: ${value}`);
+  if (Date.parse(record.updated) < Date.parse(record.created)) recordProblem(`Canonical record ${record.id} is updated before it was created`);
+  if (record.valid_from != null && record.valid_until != null && Date.parse(record.valid_from) >= Date.parse(record.valid_until)) recordProblem(`Canonical record ${record.id} has an incoherent validity window`);
   return record;
 }
 function assertCanonicalText(content: string, path: string): void {
-  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u.test(content) || /[\uD800-\uDFFF]/u.test(content)) integrity(`Canonical text contains forbidden control or malformed Unicode at ${path}`);
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u.test(content) || /[\uD800-\uDFFF]/u.test(content)) recordProblem(`Canonical text contains forbidden control or malformed Unicode at ${path}`);
 }
 function readCanonicalUtf8(path: string, label: string): string {
   let content: string;
   try { content = new TextDecoder("utf-8", { fatal: true }).decode(readFileSync(path)); }
-  catch { integrity(`Canonical text is not valid UTF-8 at ${label}`); }
+  catch { recordProblem(`Canonical text is not valid UTF-8 at ${label}`); }
   assertCanonicalText(content!, label);
   return content!;
 }
@@ -157,60 +162,76 @@ function canonicalFiles(root: string): string[] {
   if (existsSync(nested)) return filesUnder(nested, root);
   return filesUnder(root, root);
 }
-export function enumerateCanonicalCorpus(root: string): { root: string; files: string[]; records: CortexRecord[] } {
+function parseJsonlRow(rawLine: string, location: string, canonicalRoot: string, path: string): CortexRecord {
+  assertCanonicalText(rawLine, location);
+  const sanitized = sanitizeContent(rawLine, {});
+  let row: any;
+  try { row = JSON.parse(sanitized); } catch { recordProblem(`Malformed JSONL at ${location}`); }
+  if (!row || typeof row !== "object" || Array.isArray(row)) recordProblem(`JSONL row must be an object at ${location}`);
+  const allowed = new Set(["id","type","title","created","updated","source_kind","source","source_session","content","related","valid_from","valid_until"]);
+  if (Object.keys(row).some(key => !allowed.has(key))) recordProblem(`JSONL row has unknown fields at ${location}`);
+  for (const key of ["id","type","title","created","updated","content"] as const) if (typeof row[key] !== "string" || !row[key].trim()) recordProblem(`JSONL ${key} must be a non-empty string at ${location}`);
+  for (const key of ["source_kind","source"] as const) if (row[key] !== undefined && (typeof row[key] !== "string" || !row[key].trim())) recordProblem(`JSONL ${key} must be a non-empty string at ${location}`);
+  if (row.source_session !== undefined && row.source_session !== null && typeof row.source_session !== "string") recordProblem(`JSONL source_session must be a string or null at ${location}`);
+  if (row.related !== undefined && (!Array.isArray(row.related) || row.related.some((id: unknown) => typeof id !== "string" || !id.trim()))) recordProblem(`JSONL related must contain only non-empty string IDs at ${location}`);
+  if (row.valid_from != null && typeof row.valid_from !== "string") recordProblem(`JSONL valid_from must be a string at ${location}`);
+  if (row.valid_until != null && typeof row.valid_until !== "string") recordProblem(`JSONL valid_until must be a string at ${location}`);
+  for (const value of Object.values(row)) if (typeof value === "string") assertCanonicalText(value, location);
+  for (const id of row.related ?? []) assertCanonicalText(id, location);
+  return validateRecord({ id: row.id, type: row.type, title: row.title, created: row.created, updated: row.updated, provenance: { source: row.source_kind ?? row.source ?? "canonical", session: row.source_session ?? null, path: relative(canonicalRoot, path) }, content: sanitizeContent(row.content, row), related: row.related ?? [], valid_from: row.valid_from ?? null, valid_until: row.valid_until ?? null });
+}
+/** Strict (the default for library callers) throws on the first bad record. Lenient skips bad records and lists them in `skipped`; structure and size limits are fatal either way. */
+export function enumerateCanonicalCorpus(root: string, options: { strict?: boolean } = {}): { root: string; files: string[]; records: CortexRecord[]; skipped: CortexSkipped[] } {
+  const strict = options.strict !== false;
   const canonicalRoot = pinCanonicalRoot(root);
-  const files = canonicalFiles(canonicalRoot), records: CortexRecord[] = [], ids = new Map<string, string>();
+  const files = canonicalFiles(canonicalRoot), records: CortexRecord[] = [], ids = new Map<string, string>(), skipped: CortexSkipped[] = [];
+  const skip = (path: string, error: unknown) => {
+    if (strict || !(error instanceof RecordError)) throw error;
+    skipped.push({ path, reason: error.message });
+  };
   if (files.length > CANONICAL_CORPUS_LIMITS.MAX_FILES) integrity(`Canonical corpus exceeds file count limit (${CANONICAL_CORPUS_LIMITS.MAX_FILES})`);
   let totalBytes = 0;
+  const readable: string[] = [];
   for (const path of files) {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink() || !stat.isFile()) integrity(`Canonical path is not a regular file: ${path}`);
-    if (stat.size > CANONICAL_CORPUS_LIMITS.MAX_FILE_BYTES) integrity(`Canonical file exceeds per-file byte limit (${CANONICAL_CORPUS_LIMITS.MAX_FILE_BYTES}): ${relative(canonicalRoot, path)}`);
+    if (stat.size > CANONICAL_CORPUS_LIMITS.MAX_FILE_BYTES) { skip(relative(canonicalRoot, path), new RecordError(`Canonical file exceeds per-file byte limit (${CANONICAL_CORPUS_LIMITS.MAX_FILE_BYTES}): ${relative(canonicalRoot, path)}`)); continue; }
     totalBytes += stat.size;
     if (totalBytes > CANONICAL_CORPUS_LIMITS.MAX_TOTAL_BYTES) integrity(`Canonical corpus exceeds total byte limit (${CANONICAL_CORPUS_LIMITS.MAX_TOTAL_BYTES})`);
+    readable.push(path);
   }
   const addRecord = (record: CortexRecord) => {
     if (records.length >= CANONICAL_CORPUS_LIMITS.MAX_RECORDS) integrity(`Canonical corpus exceeds record count limit (${CANONICAL_CORPUS_LIMITS.MAX_RECORDS})`);
+    const prior = ids.get(record.id);
+    if (prior) { skip(record.provenance.path, new RecordError(`Duplicate canonical ID ${record.id}: ${prior} and ${record.provenance.path}`)); return; }
+    ids.set(record.id, record.provenance.path);
     records.push(record);
   };
-  for (const path of files) {
-    if (path.endsWith(".md")) addRecord(parseMarkdown(path, canonicalRoot));
-    else for (const [index, rawLine] of readCanonicalUtf8(path, relative(canonicalRoot, path)).split(/\r?\n/).entries()) {
+  for (const path of readable) {
+    const rel = relative(canonicalRoot, path);
+    if (path.endsWith(".md")) { try { addRecord(parseMarkdown(path, canonicalRoot)); } catch (error) { skip(rel, error); } continue; }
+    let text: string;
+    try { text = readCanonicalUtf8(path, rel); } catch (error) { skip(rel, error); continue; }
+    for (const [index, rawLine] of text.split(/\r?\n/).entries()) {
       if (!rawLine.trim()) continue;
-      const location = `${relative(canonicalRoot, path)}:${index + 1}`;
-      assertCanonicalText(rawLine, location);
-      const sanitized = sanitizeContent(rawLine, {});
-      let row: any;
-      try { row = JSON.parse(sanitized); } catch { integrity(`Malformed JSONL at ${location}`); }
-      if (!row || typeof row !== "object" || Array.isArray(row)) integrity(`JSONL row must be an object at ${location}`);
-      const allowed = new Set(["id","type","title","created","updated","source_kind","source","source_session","content","related","valid_from","valid_until"]);
-      if (Object.keys(row).some(key => !allowed.has(key))) integrity(`JSONL row has unknown fields at ${location}`);
-      for (const key of ["id","type","title","created","updated","content"] as const) if (typeof row[key] !== "string" || !row[key].trim()) integrity(`JSONL ${key} must be a non-empty string at ${location}`);
-      for (const key of ["source_kind","source"] as const) if (row[key] !== undefined && (typeof row[key] !== "string" || !row[key].trim())) integrity(`JSONL ${key} must be a non-empty string at ${location}`);
-      if (row.source_session !== undefined && row.source_session !== null && typeof row.source_session !== "string") integrity(`JSONL source_session must be a string or null at ${location}`);
-      if (row.related !== undefined && (!Array.isArray(row.related) || row.related.some((id: unknown) => typeof id !== "string" || !id.trim()))) integrity(`JSONL related must contain only non-empty string IDs at ${location}`);
-      if (row.valid_from != null && typeof row.valid_from !== "string") integrity(`JSONL valid_from must be a string at ${location}`);
-      if (row.valid_until != null && typeof row.valid_until !== "string") integrity(`JSONL valid_until must be a string at ${location}`);
-      for (const value of Object.values(row)) if (typeof value === "string") assertCanonicalText(value, location);
-      for (const id of row.related ?? []) assertCanonicalText(id, location);
-      addRecord(validateRecord({ id: row.id, type: row.type, title: row.title, created: row.created, updated: row.updated, provenance: { source: row.source_kind ?? row.source ?? "canonical", session: row.source_session ?? null, path: relative(canonicalRoot, path) }, content: sanitizeContent(row.content, row), related: row.related ?? [], valid_from: row.valid_from ?? null, valid_until: row.valid_until ?? null }));
+      const location = `${rel}:${index + 1}`;
+      try { addRecord(parseJsonlRow(rawLine, location, canonicalRoot, path)); } catch (error) { skip(location, error); }
     }
   }
-  for (const record of records) { const prior = ids.get(record.id); if (prior) integrity(`Duplicate canonical ID ${record.id}: ${prior} and ${record.provenance.path}`); ids.set(record.id, record.provenance.path); }
-  return { root: canonicalRoot, files, records };
+  return { root: canonicalRoot, files, records, skipped };
 }
 export function loadCanonicalRecords(root: string): CortexRecord[] { return enumerateCanonicalCorpus(root).records; }
 
 type Parsed = { command: string; options: Map<string, string | true>; positionals: string[] };
 const VALUE_OPTIONS = new Set(["--memory-root", "--adapter", "--type", "--source", "--session", "--from", "--to", "--page", "--page-size", "--recency", "--expand", "--max-nodes", "--max-tokens", "--anchor", "--before", "--after"]);
-const BOOL_OPTIONS = new Set(["--allow-write", "--from-canonical"]);
+const BOOL_OPTIONS = new Set(["--allow-write", "--from-canonical", "--strict"]);
 const ALLOWED: Record<string, Set<string>> = {
-  status: new Set(["--memory-root", "--adapter"]),
-  search: new Set(["--memory-root", "--adapter", "--type", "--source", "--session", "--from", "--to", "--page", "--page-size", "--recency", "--expand", "--max-nodes", "--max-tokens"]),
-  timeline: new Set(["--memory-root", "--adapter", "--type", "--source", "--session", "--from", "--to", "--page", "--page-size", "--anchor", "--before", "--after"]),
-  get: new Set(["--memory-root", "--adapter"]), export: new Set(["--memory-root", "--adapter"]),
+  status: new Set(["--memory-root", "--adapter", "--strict"]),
+  search: new Set(["--memory-root", "--adapter", "--strict", "--type", "--source", "--session", "--from", "--to", "--page", "--page-size", "--recency", "--expand", "--max-nodes", "--max-tokens"]),
+  timeline: new Set(["--memory-root", "--adapter", "--strict", "--type", "--source", "--session", "--from", "--to", "--page", "--page-size", "--anchor", "--before", "--after"]),
+  get: new Set(["--memory-root", "--adapter", "--strict"]), export: new Set(["--memory-root", "--adapter", "--strict"]),
   remember: new Set(["--memory-root", "--adapter", "--allow-write"]), propose: new Set(["--memory-root", "--adapter", "--allow-write"]),
-  rebuild: new Set(["--memory-root", "--adapter", "--from-canonical"]),
+  rebuild: new Set(["--memory-root", "--adapter", "--from-canonical", "--strict"]),
 };
 function parseArguments(args: string[]): Parsed | string {
   const command = args[0] ?? "";
@@ -258,7 +279,15 @@ function paged(items: CortexCard[], parsed: Parsed) { const page=positiveInt(opt
 function expandGraph(records: CortexRecord[], startId: string, maxNodes: number, maxTokens: number) { const byId=new Map(records.map(r=>[r.id,r])); const start=byId.get(startId); if(!start)return null; const queue=[start],seen=new Set<string>(),items:CortexCard[]=[];let est=0;while(queue.length&&items.length<maxNodes){const current=queue.shift()!;if(seen.has(current.id))continue;seen.add(current.id);const next=toCortexCard(current,0);if(est+next.est_tokens>maxTokens)break;items.push(next);est+=next.est_tokens;for(const id of current.related){const linked=byId.get(id);if(linked&&!seen.has(id))queue.push(linked);}}return{items,est_tokens:est,truncated:queue.length>0}; }
 export function canonicalCorpusDigest(records: CortexRecord[]): string { const normalized=records.slice().sort((a,b)=>a.id.localeCompare(b.id)).map(r=>({id:r.id,type:r.type,title:r.title,created:r.created,updated:r.updated,provenance:r.provenance,content:r.content,related:r.related,valid_from:r.valid_from??null,valid_until:r.valid_until??null})); return createHash("sha256").update(JSON.stringify(normalized)).digest("hex"); }
 
+/** Reads skip bad records by default and report them as `data.skipped`; `--strict` restores fail-closed reads. */
 export async function runCortex(args: string[], runtime: CortexRuntime = {}): Promise<CortexRunResult> {
+  const sink = { skipped: [] as CortexSkipped[] };
+  const result = await runCortexCommand(args, runtime, sink);
+  const data = result.envelope.data as Record<string, unknown> | null;
+  if (sink.skipped.length && result.envelope.ok && data && typeof data === "object" && !Array.isArray(data)) data.skipped = { count: sink.skipped.length, items: sink.skipped.slice(0, 20) };
+  return result;
+}
+async function runCortexCommand(args: string[], runtime: CortexRuntime, sink: { skipped: CortexSkipped[] }): Promise<CortexRunResult> {
   const command = args[0] ?? "";
   const parsedResult = parseArguments(args);
   if (typeof parsedResult === "string") return fail(command, EXIT.INVALID_INPUT, "invalid_input", parsedResult);
@@ -281,7 +310,7 @@ export async function runCortex(args: string[], runtime: CortexRuntime = {}): Pr
   if(command==="timeline"&&parsed.positionals.length) return fail(command,EXIT.INVALID_INPUT,"invalid_input","timeline accepts no positional arguments");
   if((command==="get"||command==="export")&&(parsed.positionals.length===0||parsed.positionals.length>LIMITS.IDS)) return fail(command,EXIT.INVALID_INPUT,"invalid_input",`${command} requires one or more explicit IDs (maximum ${LIMITS.IDS})`);
   const requestedRoot=resolve(runtime.memoryRoot??opt(parsed,"--memory-root")??process.env.CORTEX_MEMORY_ROOT??join(homedir(),".claude/LIFEOS/MEMORY"));
-  let memoryRoot=requestedRoot, records:CortexRecord[];try{const corpus=enumerateCanonicalCorpus(requestedRoot);memoryRoot=corpus.root;records=corpus.records;}catch(error){if(error instanceof IntegrityError)return fail(command,EXIT.INVALID_INPUT,"integrity_error",error.message);return fail(command,EXIT.INTERNAL,"internal_error",error instanceof Error?error.message:String(error));}
+  let memoryRoot=requestedRoot, records:CortexRecord[];try{const corpus=enumerateCanonicalCorpus(requestedRoot,{strict:parsed.options.has("--strict")});memoryRoot=corpus.root;records=corpus.records;sink.skipped=corpus.skipped;}catch(error){if(error instanceof IntegrityError)return fail(command,EXIT.INVALID_INPUT,"integrity_error",error.message);return fail(command,EXIT.INTERNAL,"internal_error",error instanceof Error?error.message:String(error));}
   if(command==="status")return ok(command,{canonical:{root:memoryRoot,records:records.length},mode:"local-read-only",indexes:[]});
   if(command==="rebuild"){const canonical=canonicalCorpusDigest(records);const rebuilt=canonicalCorpusDigest(JSON.parse(JSON.stringify(records)));return ok(command,{format:"lifeos-cortex-canonical-rebuild/v1",canonical_digest:canonical,rebuilt_digest:rebuilt,equivalent:canonical===rebuilt,records:records.length,indexes:[]});}
   const validRecords=activeCortexRecords(records);
@@ -299,5 +328,5 @@ export async function runCortex(args: string[], runtime: CortexRuntime = {}): Pr
   const byId=new Map(validRecords.map(r=>[r.id,r]));const chosen=parsed.positionals.map(id=>byId.get(id)).filter((r):r is CortexRecord=>Boolean(r));if(chosen.length!==parsed.positionals.length)return fail(command,EXIT.NOT_FOUND,"not_found","One or more records were not found");return ok(command,{format:"lifeos-cortex-export/v1",items:chosen});
 }
 
-async function main(){const result=await runCortex(process.argv.slice(2));process.stdout.write(JSON.stringify(result.envelope)+"\n");process.exit(result.exitCode);}
+async function main(){const result=await runCortex(process.argv.slice(2));process.stdout.write(JSON.stringify(result.envelope)+"\n");const skipped=(result.envelope.data as {skipped?:{count:number}}|null)?.skipped?.count;if(skipped)process.stderr.write(`cortex: skipped ${skipped} unreadable record(s); run status for the list, or pass --strict to fail on them\n`);process.exit(result.exitCode);}
 if(import.meta.main||resolve(process.argv[1]??"")===resolve(import.meta.path))await main();

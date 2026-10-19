@@ -35,6 +35,7 @@
  * interpolation). Tagged doctrine versions are immutable by construction: the
  * writer refuses to overwrite an existing v*.md.
  */
+import { inference as runInference } from "../../TOOLS/Inference";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
@@ -45,7 +46,6 @@ const HOME = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const LIFEOS_DIR = join(HOME, "LIFEOS");
 const ALGO_DIR = join(LIFEOS_DIR, "ALGORITHM");
 const STATE_PATH = join(LIFEOS_DIR, "MEMORY", "STATE", "algorithm-tab-summary.json");
-const INFERENCE = join(LIFEOS_DIR, "TOOLS", "Inference.ts");
 // The USER tree is a symlink into the private USER-data repo — commits for
 // files that resolve there must land in THAT repo, not ~/.claude.
 const USER_REPO = join(homedir(), ".config", "LIFEOS", "USER");
@@ -306,17 +306,12 @@ async function chainHash(): Promise<string> {
 /* ── Inference ── */
 
 async function inference(level: "low" | "high", system: string, user: string, timeoutMs: number): Promise<string | null> {
-  const proc = Bun.spawn(
-    ["bun", INFERENCE, "--level", level, "--timeout", String(timeoutMs), system, user],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  const [out, err, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (code !== 0 || !out.trim()) {
-    console.log(`[${MODULE_NAME}] inference(${level}) failed (exit ${code}): ${err.slice(0, 300)}`);
+  // Prompts stay off argv: the overview prompt carries every chain file, and Linux
+  // limits one argument to 128 KiB (E2BIG). Inference.ts sends them on stdin or a temp file.
+  const result = await runInference({ level, systemPrompt: system, userPrompt: user, timeout: timeoutMs });
+  const out = result.output;
+  if (!result.success || !out.trim()) {
+    console.log(`[${MODULE_NAME}] inference(${level}) failed: ${(result.error ?? "empty output").slice(0, 300)}`);
     return null;
   }
   // Strip trailing meta-commentary paragraphs the subprocess sometimes appends.

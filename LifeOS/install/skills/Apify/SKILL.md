@@ -408,7 +408,7 @@ const top = profile.latestPosts
 #### LinkedIn
 - `scrapeLinkedInProfile(input)` - Profile + experience + email
 - `searchLinkedInJobs(input)` - Job listings
-- `scrapeLinkedInPosts(input)` - Posts from profile/company
+- `scrapeLinkedInPosts(input)` - Posts from profile/company. Stays on `supreme_coder/linkedin-post` unless `LIFEOS_LINKEDIN_POSTS_ACTOR` is exactly `johnvc/linkedin-posts-api`. That optional path sends `profileUrls` and `maxPostsPerProfile` (1 to 200) and maps `postId`, `postUrl`, `text`, `authorName`, `authorUrl`, `authorHeadline`, `numLikes`, `numComments`, `numShares`, and `datePosted` onto the same post fields. Rows whose `result_type` is not `post` are dropped. [Actor](https://apify.com/johnvc/linkedin-posts-api). [Alpha OSINT](https://alphaosint.com/).
 
 #### TikTok
 - `scrapeTikTokProfile(input)` - Profile + videos

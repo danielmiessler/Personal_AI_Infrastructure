@@ -10,6 +10,11 @@
  */
 
 import { Apify } from '../../index'
+import {
+  linkedInPostsActorInput,
+  linkedInPostsFromItems,
+  resolveLinkedInPostsActor
+} from './linkedinPostsAdapter'
 import type {
   UserProfile,
   Post,
@@ -404,15 +409,12 @@ export async function scrapeLinkedInPosts(
   options?: ActorRunOptions
 ): Promise<LinkedInPost[]> {
   const apify = new Apify()
+  const actorId = resolveLinkedInPostsActor(process.env.LIFEOS_LINKEDIN_POSTS_ACTOR)
 
   // COST GOTCHA (2026-07-21): this actor bills per scraped post and its real
   // input cap is `limitPerSource` — `maxPosts` is ignored and an uncapped run
   // scraped 784 posts ($1.58). Always pass limitPerSource.
-  const run = await apify.callActor('supreme_coder/linkedin-post', {
-    urls: [input.profileUrl],
-    limitPerSource: input.maxResults || 50,
-    deepScrape: false
-  }, options)
+  const run = await apify.callActor(actorId, linkedInPostsActorInput(actorId, input), options)
 
   await apify.waitForRun(run.id)
 
@@ -427,20 +429,5 @@ export async function scrapeLinkedInPosts(
     offset: input.offset || 0
   })
 
-  return items.map((post: any) => ({
-    id: post.id || post.postId,
-    url: post.url || post.postUrl,
-    text: post.text || post.content,
-    authorName: post.authorName,
-    authorUrl: post.authorUrl,
-    authorHeadline: post.authorHeadline,
-    likesCount: post.likesCount || post.likes || 0,
-    commentsCount: post.commentsCount || post.comments || 0,
-    sharesCount: post.sharesCount || post.shares,
-    viewsCount: post.viewsCount,
-    timestamp: post.timestamp || post.postedAt,
-    imageUrls: post.images,
-    videoUrl: post.videoUrl,
-    caption: post.text
-  }))
+  return linkedInPostsFromItems(actorId, items)
 }

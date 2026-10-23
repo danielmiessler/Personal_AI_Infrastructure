@@ -24,14 +24,21 @@ const STATE_FILE = join(LIFEOS_DIR, "PULSE", "Performance", "aggregator-state.js
 // reference). Current models first; historical IDs retained so older transcripts
 // still price correctly. cacheWrite = 1.25x input, cacheRead = 0.1x input.
 const MODEL_PRICING: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }> = {
+  // Generation 5 (current)
+  "claude-fable-5-1": { input: 10, output: 50, cacheWrite: 12.50, cacheRead: 1.00 },
+  "claude-mythos-5-1": { input: 10, output: 50, cacheWrite: 12.50, cacheRead: 1.00 },
+  "claude-opus-5-5": { input: 4, output: 20, cacheWrite: 5.00, cacheRead: 0.20 },
+  "claude-opus-5": { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheWrite: 2.50, cacheRead: 0.20 },
+  "claude-haiku-5-5": { input: 0.10, output: 0.50, cacheWrite: 0.125, cacheRead: 0.01 },
   // Fable 5 (current max tier)
   "claude-fable-5": { input: 10, output: 50, cacheWrite: 12.50, cacheRead: 1.00 },
   "claude-mythos-5": { input: 10, output: 50, cacheWrite: 12.50, cacheRead: 1.00 },
   // Opus 4.8 / 4.7 (current) — $5/$25, NOT the old Opus-4 $15/$75
   "claude-opus-4-8": { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
   "claude-opus-4-7": { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
-  // Sonnet 5 (current)
-  "claude-sonnet-5": { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
+  // Sonnet 5 (current) — $2/$10
+  "claude-sonnet-5": { input: 2, output: 10, cacheWrite: 2.50, cacheRead: 0.20 },
   // Haiku 4.5 (current) — $1/$5
   "claude-haiku-4-5": { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.10 },
   "claude-haiku-4-5-20251001": { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.10 },

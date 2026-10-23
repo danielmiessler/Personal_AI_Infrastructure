@@ -37,14 +37,18 @@ const OUT_PATH = join(OBS_DIR, "usage-daily.jsonl");
 // transcript window (historical days carry real cost from session-costs.jsonl).
 // Matched by substring so version suffixes (…-4-8, …-4-5-20251001) still resolve.
 const PRICES: Array<[RegExp, { in: number; out: number; cw: number; cr: number }]> = [
-  [/fable/i, { in: 30, out: 150, cw: 37.5, cr: 3 }],
-  [/opus/i, { in: 15, out: 75, cw: 18.75, cr: 1.5 }],
+  // Order matters: a -5-5 pattern must be tested before its family's catch-all.
+  [/fable|mythos/i, { in: 10, out: 50, cw: 12.5, cr: 1 }],
+  [/opus-5-5/i, { in: 4, out: 20, cw: 5, cr: 0.2 }],
+  [/opus/i, { in: 5, out: 25, cw: 6.25, cr: 0.5 }],
+  [/sonnet-5-5|sonnet-5/i, { in: 2, out: 10, cw: 2.5, cr: 0.2 }],
   [/sonnet/i, { in: 3, out: 15, cw: 3.75, cr: 0.3 }],
-  [/haiku/i, { in: 0.8, out: 4, cw: 1, cr: 0.08 }],
+  [/haiku-5-5/i, { in: 0.1, out: 0.5, cw: 0.125, cr: 0.01 }],
+  [/haiku/i, { in: 1, out: 5, cw: 1.25, cr: 0.1 }],
 ];
 function priceFor(model: string) {
   for (const [re, p] of PRICES) if (re.test(model)) return p;
-  return PRICES[1][1]; // default to opus (conservative)
+  return PRICES[2][1]; // default to opus (conservative)
 }
 
 interface ModelAgg { messages: number; totalTokens: number; costUsd: number }
